@@ -1,0 +1,60 @@
+commit 11f1d6cc52dff3b65029260a113ee8c6c4bc5d08
+Author:     Constantinos <41453723+constk@users.noreply.github.com>
+AuthorDate: Mon Aug 10 06:43:56 2026 +1000
+Commit:     GitHub <noreply@github.com>
+CommitDate: Sun Aug 9 13:43:56 2026 -0700
+
+    Remove a per-call allocation and two redundant copies from the hot path (#312)
+    
+    Three independent inefficiencies on the audio thread.
+    
+    PReLU's matrix overload copied its entire negative_slopes vector into a
+    local on every call, then only ever read from it. That overload is
+    reached once per sample from the gating and blending activations, so the
+    copy was a heap allocation on the audio thread -- the one thing the rest
+    of this code is careful to avoid. Index negative_slopes directly.
+    
+    LayerArray::Process zeroed the whole head-inputs accumulator each block.
+    The buffer is maxBufferSize wide but only the first num_frames columns
+    are ever read, so a host that reserves for its worst case and then
+    processes smaller blocks paid for zeroing memory nobody looks at. Zero
+    leftCols(num_frames) instead. Every consumer was checked: the two
+    memcpy/raw-pointer paths under NAM_USE_INLINE_GEMM are bounded by
+    head_output_size * num_frames, which is exactly that region because
+    Eigen is column-major, and Conv1D::Process only reads the input through
+    RingBuffer::Write, which slices leftCols(num_frames).
+    
+    The post-stack head's scaling step walked a column-major matrix with a
+    row-major access pattern, striding by in_channels on every step of the
+    inner loop. It's a scaled copy of a contiguous block, so let Eigen
+    express it.
+    
+    Adds tools/test/test_activations_realtime_safe.cpp, which pins the PReLU
+    fix using the allocation tracker already in the test suite: restoring the
+    old copy makes it fail with 2 allocations instead of 0.
+    
+    No behaviour change -- same outputs, same weights, less work per block.
+
+diff --git a/NAM/activations.h b/NAM/activations.h
+index 1ba789c..ac32ea3 100644
+--- a/NAM/activations.h
++++ b/NAM/activations.h
+@@ -302,9 +302,6 @@ public:
+     // Matrix is organized as (channels, time_steps)
+     unsigned long actual_channels = static_cast<unsigned long>(matrix.rows());
+ 
+-    // Prepare the slopes for the current matrix size
+-    std::vector<float> slopes_for_channels = negative_slopes;
+-
+     // Fail loudly if input has more channels than activation
+ #ifndef NDEBUG
+     if (actual_channels != negative_slopes.size())
+@@ -321,7 +318,7 @@ public:
+       // Apply the negative slope to all time steps in this channel
+       for (int time_step = 0; time_step < matrix.cols(); time_step++)
+       {
+-        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);
++        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
+       }
+     }
+   }

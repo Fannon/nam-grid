@@ -1,5 +1,10 @@
 # Neural Amp Modeler Plug-in
 
+This development fork adds two NAM stages in series and native CLAP, using the official
+iPlug2 architecture. Start with the [build instructions](docs/BUILD.md),
+[repository assessment](docs/PHASE0.md), and [verification report](docs/VERIFICATION.md).
+Windows builds and the automated harness are verified; Bitwig and macOS testing remain outstanding.
+
 [![Build](https://github.com/sdatkinson/NeuralAmpModelerPlugin/actions/workflows/build-native.yml/badge.svg)](https://github.com/sdatkinson/NeuralAmpModelerPlugin/actions/workflows/build-native.yml)
 
 A VST3/AudioUnit plug-in\* for [Neural Amp Modeler](https://github.com/sdatkinson/neural-amp-modeler), built with [iPlug2](https://iplug2.github.io).

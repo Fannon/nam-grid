@@ -1,0 +1,362 @@
+#include "CaptureLibrary.h"
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <functional>
+#include <sstream>
+#include <map>
+#include <utility>
+#include "json.hpp"
+
+namespace nam_library
+{
+namespace
+{
+std::string Lower(std::string value)
+{
+  for (auto& ch : value)
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  return value;
+}
+
+std::string Token(std::string value)
+{
+  value = Lower(std::move(value));
+  std::erase_if(value, [](unsigned char ch) { return !std::isalnum(ch); });
+  return value;
+}
+
+Gear Category(const std::string& text)
+{
+  const auto value = Token(text);
+  if (value == "ampcab" || value == "ampandcab" || value == "fullrig" || value == "amppedalcab")
+    return Gear::AmpCab;
+  if (value == "amphead" || value == "ampheads" || value == "head" || value == "directamp")
+    return Gear::AmpHead;
+  if (value == "cab" || value == "cabinet" || value == "cabinets")
+    return Gear::Cabinet;
+  if (value == "pedal" || value == "pedals" || value == "stompbox")
+    return Gear::Pedal;
+  if (value == "outboard" || value == "studio")
+    return Gear::Outboard;
+  if (value == "space" || value == "spaces" || value == "room")
+    return Gear::Spaces;
+  // "amp" alone does not establish whether the capture includes a cabinet.
+  return Gear::Unknown;
+}
+
+Gear FolderCategory(const std::filesystem::path& folder)
+{
+  const auto text = PathText(folder);
+  const auto explicitCategory = Category(text);
+  if (explicitCategory != Gear::Unknown)
+    return explicitCategory;
+  const auto value = Token(text);
+  if (value == "fullrigs" || value == "ampcabs" || value == "ampandcabs" || value == "ampcabinet")
+    return Gear::AmpCab;
+  if (value == "directamps" || value == "heads")
+    return Gear::AmpHead;
+  if (value == "cabs" || value == "irs" || value == "impulseresponses")
+    return Gear::Cabinet;
+  if (value == "stompboxes" || value == "stomps")
+    return Gear::Pedal;
+  if (value == "acousticline" || value == "acousticandline" || value == "studiopreamps" || value == "rackgear"
+      || value == "outboardgear")
+    return Gear::Outboard;
+  if (value == "rooms" || value == "reverbs")
+    return Gear::Spaces;
+  return Gear::Unknown;
+}
+
+std::string FilenameWords(std::string text)
+{
+  text = Lower(std::move(text));
+  for (auto& ch : text)
+    if (!std::isalnum(static_cast<unsigned char>(ch)))
+      ch = ' ';
+  std::istringstream input(text);
+  std::string words = " ";
+  for (std::string word; input >> word;)
+    words += word + " ";
+  return words;
+}
+
+// Parse only through the root metadata object. Stop before the usually much larger weights array.
+// Metadata can appear after config/weights, in which case SAX skips those values without retaining them.
+struct MetadataReader : nlohmann::json_sax<nlohmann::json>
+{
+  int depth = 0;
+  bool inMetadata = false, complete = false;
+  std::string rootKey, field;
+  std::map<std::string, std::string> values;
+  bool null() override { return true; }
+  bool boolean(bool) override { return true; }
+  bool number_integer(number_integer_t) override { return true; }
+  bool number_unsigned(number_unsigned_t) override { return true; }
+  bool number_float(number_float_t, const string_t&) override { return true; }
+  bool string(string_t& value) override
+  {
+    if (inMetadata && depth == 2 && value.size() <= 4096)
+      values[field] = value;
+    return true;
+  }
+  bool binary(binary_t&) override { return true; }
+  bool start_object(std::size_t) override
+  {
+    if (depth == 1 && rootKey == "metadata")
+      inMetadata = true;
+    ++depth;
+    return depth < 128;
+  }
+  bool key(string_t& key) override
+  {
+    if (depth == 1)
+      rootKey = key;
+    if (depth == 2 && inMetadata)
+      field = key;
+    return true;
+  }
+  bool end_object() override
+  {
+    if (depth == 2 && inMetadata)
+    {
+      complete = true;
+      return false; // Intentional early stop, not a validation of the inference model.
+    }
+    --depth;
+    return true;
+  }
+  bool start_array(std::size_t) override { return ++depth < 128; }
+  bool end_array() override
+  {
+    --depth;
+    return true;
+  }
+  bool parse_error(std::size_t, const std::string&, const nlohmann::detail::exception&) override { return false; }
+};
+} // namespace
+
+std::string PathText(const std::filesystem::path& path)
+{
+  const auto text = path.u8string();
+  return {text.begin(), text.end()};
+}
+
+const char* GearName(Gear gear)
+{
+  switch (gear)
+  {
+    case Gear::AmpCab: return "Amp + Cab";
+    case Gear::AmpHead: return "Amp Head";
+    case Gear::Cabinet: return "Cabinet";
+    case Gear::Pedal: return "Pedal";
+    case Gear::Outboard: return "Outboard";
+    case Gear::Spaces: return "Spaces";
+    default: return "Unknown";
+  }
+}
+
+std::string ReadFolderSetting(const std::filesystem::path& settingsFile)
+{
+  try
+  {
+    if (!std::filesystem::exists(settingsFile) || std::filesystem::file_size(settingsFile) > 65536)
+      return {};
+    std::ifstream stream(settingsFile, std::ios::binary);
+    const auto config = nlohmann::json::parse(stream);
+    const auto folder = config.value("CaptureFolder", std::string{});
+    return folder.size() <= 32768 && folder.find('\0') == std::string::npos ? folder : std::string{};
+  }
+  catch (const std::exception&)
+  {
+    return {};
+  }
+}
+
+bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::string& folder)
+{
+  try
+  {
+    // Tiny user preference, written only on a Settings change; project state also retains the folder.
+    std::filesystem::create_directories(settingsFile.parent_path());
+    std::ofstream stream(settingsFile, std::ios::binary | std::ios::trunc);
+    stream << nlohmann::json{{"CaptureFolder", folder}}.dump(2);
+    stream.close();
+    return !stream.fail();
+  }
+  catch (const std::exception&)
+  {
+    return false;
+  }
+}
+
+Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root)
+{
+  Capture result;
+  result.path = file;
+  result.relative = file.lexically_relative(root);
+  std::ifstream stream(file, std::ios::binary);
+  if (!stream)
+    throw std::runtime_error("Cannot open capture");
+  MetadataReader reader;
+  nlohmann::json::sax_parse(stream, &reader);
+  if (reader.complete)
+  {
+    result.name = reader.values["name"];
+    result.maker = reader.values["gear_make"];
+    result.model = reader.values["gear_model"];
+    result.gear = Category(reader.values["gear_type"]);
+  }
+  if (result.gear == Gear::Unknown)
+  {
+    // Whole-word markers work before the extension and across spaces, hyphens or underscores.
+    const auto words = FilenameWords(PathText(file.stem()));
+    const bool noCab = words.find(" no cab ") != std::string::npos;
+    const bool direct = noCab || words.find(" di ") != std::string::npos || words.find(" direct ") != std::string::npos;
+    const bool cabinet =
+      (!noCab && words.find(" cab ") != std::string::npos) || words.find(" full rig ") != std::string::npos;
+    bool ampContext = reader.complete && Token(reader.values["gear_type"]) == "amp";
+    auto inheritFolder = [&](const std::filesystem::path& folder) {
+      const auto category = FolderCategory(folder);
+      if (category != Gear::Unknown)
+        result.gear = category;
+      const auto token = Token(PathText(folder));
+      ampContext |= token == "amp" || token == "amps" || token == "amplifiers";
+    };
+    auto rootFolder = root.lexically_normal();
+    if (rootFolder.filename().empty())
+      rootFolder = rootFolder.parent_path();
+    inheritFolder(rootFolder.filename());
+    for (const auto& directory : result.relative.parent_path())
+      inheritFolder(directory);
+    ampContext |= result.gear == Gear::AmpCab || result.gear == Gear::AmpHead;
+    const bool unresolvedOrAmp =
+      result.gear == Gear::Unknown || result.gear == Gear::AmpCab || result.gear == Gear::AmpHead;
+
+    if (cabinet && direct)
+      result.gear = Gear::Unknown;
+    else if (cabinet && unresolvedOrAmp)
+      result.gear = Gear::AmpCab;
+    else if (direct && ampContext && unresolvedOrAmp)
+      result.gear = Gear::AmpHead;
+    result.inferred = result.gear != Gear::Unknown;
+  }
+  return result;
+}
+
+bool Filter::Matches(const Capture& capture) const
+{
+  if (gear >= 0 && static_cast<int>(capture.gear) != gear)
+    return false;
+  const auto haystack = Lower(PathText(capture.relative) + " " + capture.name + " " + capture.maker + " "
+                              + capture.model + " " + GearName(capture.gear));
+  std::istringstream words(Lower(search));
+  for (std::string word; words >> word;)
+    if (haystack.find(word) == std::string::npos)
+      return false;
+  return true;
+}
+
+Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled)
+{
+  Snapshot result;
+  result.root = root;
+  std::error_code error;
+  if (root.empty())
+    return result;
+  if (!std::filesystem::is_directory(root, error))
+  {
+    result.error = "Capture folder is missing or inaccessible";
+    return result;
+  }
+  using Iterator = std::filesystem::recursive_directory_iterator;
+  Iterator it(root, std::filesystem::directory_options::skip_permission_denied, error), end;
+  for (; it != end && !error; it.increment(error))
+  {
+    if (cancelled && cancelled())
+      return result;
+    // Never follow directory links/junctions out of the selected tree.
+    std::error_code statusError;
+    if (it->is_symlink(statusError))
+    {
+      it.disable_recursion_pending();
+      continue;
+    }
+    if (!it->is_regular_file(statusError) || Lower(PathText(it->path().extension())) != ".nam")
+      continue;
+    try
+    {
+      result.captures.push_back(Inspect(it->path(), root));
+    }
+    catch (const std::exception&)
+    {
+      ++result.unreadable;
+    }
+  }
+  if (error)
+    result.error = "Some capture folders could not be read";
+  std::sort(result.captures.begin(), result.captures.end(), [](const Capture& a, const Capture& b) {
+    const auto first = PathText(a.relative), second = PathText(b.relative);
+    const auto lowFirst = Lower(first), lowSecond = Lower(second);
+    return lowFirst == lowSecond ? first < second : lowFirst < lowSecond;
+  });
+  return result;
+}
+
+Worker::Worker()
+: mThread([this] { Run(); })
+{
+}
+Worker::~Worker()
+{
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    mStop.store(true);
+  }
+  mChanged.notify_one();
+  mThread.join();
+}
+void Worker::Request(const std::string& root)
+{
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    mRoot = root;
+    mResult.reset();
+    ++mRevision;
+  }
+  mChanged.notify_one();
+}
+std::shared_ptr<const Snapshot> Worker::TakeResult()
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  return std::exchange(mResult, {});
+}
+void Worker::Run()
+{
+  unsigned done = 0;
+  while (!mStop.load())
+  {
+    std::unique_lock<std::mutex> lock(mMutex);
+    mChanged.wait(lock, [&] { return mStop.load() || mRevision.load() != done; });
+    if (mStop.load())
+      return;
+    const auto revision = mRevision.load();
+    const auto root = mRoot;
+    lock.unlock();
+    auto cancelled = [&] { return mStop.load() || mRevision.load() != revision; };
+    auto result = std::make_shared<Snapshot>();
+    try
+    {
+      *result = Scan(std::filesystem::u8path(root), cancelled);
+    }
+    catch (const std::exception&)
+    {
+      result->error = "Capture folder scan failed";
+    }
+    lock.lock();
+    if (!cancelled())
+      mResult = std::move(result);
+    done = revision;
+  }
+}
+} // namespace nam_library

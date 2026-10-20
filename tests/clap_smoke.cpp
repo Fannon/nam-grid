@@ -1,0 +1,356 @@
+#include "A2Fixture.h"
+#include "ClapTestHost.h"
+#include <thread>
+int main(int argc, char** argv)
+{
+  assert(argc == 3);
+#ifdef _WIN32
+  auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
+  assert(library);
+  auto* entry = reinterpret_cast<const clap_plugin_entry*>(GetProcAddress(library, "clap_entry"));
+#else
+  auto library = dlopen(argv[1], RTLD_NOW);
+  assert(library);
+  auto* entry = reinterpret_cast<const clap_plugin_entry*>(dlsym(library, "clap_entry"));
+#endif
+  assert(entry && entry->init(argv[1]));
+  auto* factory = static_cast<const clap_plugin_factory*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
+  assert(factory && factory->get_plugin_count(factory) == 1);
+  Host host;
+  auto* plugin = factory->create_plugin(factory, &host.host, factory->get_plugin_descriptor(factory, 0)->id);
+  assert(plugin && plugin->init(plugin));
+  auto* state = static_cast<const clap_plugin_state*>(plugin->get_extension(plugin, CLAP_EXT_STATE));
+  auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));
+  auto* ports = static_cast<const clap_plugin_audio_ports*>(plugin->get_extension(plugin, CLAP_EXT_AUDIO_PORTS));
+  assert(state && params && ports);
+  auto save = [&] {
+    Stream s;
+    clap_ostream out{&s, Stream::write};
+    assert(state->save(plugin, &out));
+    return s;
+  };
+  auto loadBytes = [&](Stream s) {
+    clap_istream in{&s, Stream::read};
+    return state->load(plugin, &in);
+  };
+  auto load = [&](const json& config) {
+    Stream s;
+    s.string("###NAMDual-v1###");
+    s.string(config.dump());
+    assert(loadBytes(std::move(s)));
+  };
+  auto base = save().config();
+  assert(params->count(plugin) == 18);
+  const auto fixtures = std::filesystem::current_path() / "fixtures";
+  std::filesystem::create_directories(fixtures);
+  auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
+  const auto path1 = fixtures / "drive.nam", path2 = fixtures / "amp.nam";
+  std::ofstream(path1) << a2.dump();
+  std::ofstream(path2) << other.dump();
+  base["DrivePath"] = path1.string();
+  base["NAMPath"] = path2.string();
+  base["NoiseGateActive"] = 0.;
+  base["ToneStack"] = 0.;
+  base["IRToggle"] = 0.;
+  base["Drive Input"] = 2.;
+  base["Drive Trim"] = -3.;
+  base["Input"] = 1.;
+  base["Amp Trim"] = -2.;
+  base["Output"] = -6.;
+  base["CaptureFolder"] = fixtures.string();
+  load(base);
+  assert(save().config() == base);
+  // Older dual-stage states predate library settings; they remain readable.
+  auto oldDual = base;
+  oldDual.erase("CaptureFolder");
+  load(oldDual);
+  assert(save().config()["CaptureFolder"] == "");
+  load(base);
+  auto recalled = save();
+  assert(loadBytes(recalled));
+  assert(save().config() == base);
+  Stream legacy;
+  legacy.string("###NeuralAmpModeler###");
+  legacy.string("0.8.0");
+  legacy.string(path2.string());
+  legacy.string("");
+  for (const char* name : {"Input", "Threshold", "Bass", "Middle", "Treble", "Output", "NoiseGateActive", "ToneStack",
+                           "IRToggle", "CalibrateInput", "InputCalibrationLevel", "OutputMode", "Slim"})
+  {
+    double value = base[name];
+    auto* bytes = reinterpret_cast<uint8_t*>(&value);
+    legacy.bytes.insert(legacy.bytes.end(), bytes, bytes + sizeof(value));
+  }
+  assert(loadBytes(legacy));
+  auto migrated = save().config();
+  assert(migrated["NAMPath"] == path2.string() && migrated["DrivePath"] == "" && migrated["Drive Input"] == 0.);
+  load(base);
+  legacy.bytes.pop_back();
+  assert(!loadBytes(legacy));
+  assert(save().config() == base);
+  // Malformed state must leave the previously committed state intact.
+  for (const json& folder : {json(123), json(std::string("bad\0folder", 10))})
+  {
+    auto invalidFolder = base;
+    invalidFolder["CaptureFolder"] = folder;
+    Stream malformed;
+    malformed.string("###NAMDual-v1###");
+    malformed.string(invalidFolder.dump());
+    assert(!loadBytes(malformed));
+    assert(save().config() == base);
+  }
+  Stream bad;
+  bad.string("###NAMDual-v1###");
+  bad.string("{bad JSON");
+  assert(!loadBytes(bad));
+  assert(save().config() == base);
+  for (int length : {-1, 2147483647})
+  {
+    Stream malformed;
+    auto* bytes = reinterpret_cast<uint8_t*>(&length);
+    malformed.bytes.insert(malformed.bytes.end(), bytes, bytes + 4);
+    assert(!loadBytes(malformed));
+    assert(save().config() == base);
+  }
+  // Missing/invalid paths remain available for relinking, while their DSP is cleared.
+  auto missing = base;
+  missing["DrivePath"] = (fixtures / "missing.nam").string();
+  load(missing);
+  assert(save().config() == missing);
+  std::ofstream(fixtures / "invalid.nam") << "invalid";
+  missing["NAMPath"] = (fixtures / "invalid.nam").string();
+  load(missing);
+  assert(save().config() == missing);
+  load(base);
+  clap_audio_port_info inInfo{}, outInfo{};
+  assert(ports->get(plugin, 0, true, &inInfo));
+  assert(ports->get(plugin, 0, false, &outInfo));
+  assert(inInfo.channel_count <= 2 && outInfo.channel_count <= 2);
+  std::array<std::array<double, 512>, 2> input{}, output{};
+  double *ins[] = {input[0].data(), input[1].data()}, *outs[] = {output[0].data(), output[1].data()};
+  clap_audio_buffer in{nullptr, ins, inInfo.channel_count, 0, 0}, out{nullptr, outs, outInfo.channel_count, 0, 0};
+  clap_input_events events{nullptr, [](const clap_input_events*) -> uint32_t { return 0; },
+                           [](const clap_input_events*, uint32_t) -> const clap_event_header* { return nullptr; }};
+  clap_output_events sent{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
+  clap_process process{};
+  process.audio_inputs = &in;
+  process.audio_outputs = &out;
+  process.audio_inputs_count = process.audio_outputs_count = 1;
+  process.in_events = &events;
+  process.out_events = &sent;
+  for (double rate : {48000., 44100., 96000.})
+  {
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    auto start = std::chrono::steady_clock::now();
+    double energy = 0.;
+    for (int b = 0; b < 120; ++b)
+    {
+      int n = std::array<int, 6>{512, 1, 127, 64, 256, 3}[b % 6];
+      for (int i = 0; i < n; ++i)
+        input[0][i] = input[1][i] = .1 * std::sin((b * 512 + i) * .03);
+      process.frames_count = n;
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      for (int i = 0; i < n; ++i)
+      {
+        assert(std::isfinite(output[0][i]));
+        energy += output[0][i] * output[0][i];
+      }
+      if (host.callback)
+      {
+        host.callback = false;
+        plugin->on_main_thread(plugin);
+      }
+      pump();
+    }
+    auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    std::cerr << "energy=" << energy << " input/output channels=" << inInfo.channel_count << "/"
+              << outInfo.channel_count << '\n';
+    assert(energy > 0.);
+    auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+    std::cout << "CLAP two distinct A2 files, state recall, variable blocks at " << rate << " Hz: " << ms
+              << " ms / 19,260 samples; latency " << latency->get(plugin) << " samples\n";
+    // Exercise a live same-rate replacement/clear and host automation.
+    auto* info = params;
+    clap_param_info automation{};
+    for (uint32_t index = 0; index < info->count(plugin); ++index)
+    {
+      assert(info->get_info(plugin, index, &automation));
+      if (std::strcmp(automation.name, "Drive Trim") == 0)
+        break;
+    }
+    clap_event_param_value change{};
+    change.header.size = sizeof(change);
+    change.header.type = CLAP_EVENT_PARAM_VALUE;
+    change.param_id = automation.id;
+    assert(params->text_to_value(plugin, automation.id, "-8", &change.value));
+    change.note_id = -1;
+    change.port_index = change.channel = change.key = -1;
+    clap_input_events automationEvents{&change, [](const clap_input_events*) -> uint32_t { return 1; },
+                                       [](const clap_input_events* e, uint32_t) -> const clap_event_header* {
+                                         return &static_cast<clap_event_param_value*>(e->ctx)->header;
+                                       }};
+    params->flush(plugin, &automationEvents, &sent);
+    double value = 0.;
+    assert(params->get_value(plugin, automation.id, &value) && std::abs(value - change.value) < 1e-9);
+    assert(std::abs(save().config()["Drive Trim"].get<double>() + 8.) < 1e-9);
+    for (int replacement = 0; replacement < 6; ++replacement)
+    {
+      auto next = base;
+      if (replacement % 2 == 0)
+        next["DrivePath"] = "";
+      load(next);
+      if (host.callback)
+      {
+        host.callback = false;
+        plugin->on_main_thread(plugin);
+      }
+      if (host.restart)
+      {
+        host.restart = false;
+        plugin->stop_processing(plugin);
+        plugin->deactivate(plugin);
+        assert(plugin->activate(plugin, rate, 1, 512));
+        assert(plugin->start_processing(plugin));
+      }
+      process.frames_count = 512;
+      for (int block = 0; block < 4; ++block)
+      {
+        assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+        pump();
+      }
+    }
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
+  auto cleared = base;
+  cleared["DrivePath"] = "";
+  cleared["NAMPath"] = "";
+  load(cleared);
+  assert(save().config() == cleared);
+  auto* configs =
+    static_cast<const clap_plugin_audio_ports_config*>(plugin->get_extension(plugin, CLAP_EXT_AUDIO_PORTS_CONFIG));
+  assert(configs);
+  for (uint32_t index = 0; index < configs->count(plugin); ++index)
+  {
+    clap_audio_ports_config config{};
+    assert(configs->get(plugin, index, &config));
+    assert(configs->select(plugin, config.id));
+    assert(ports->get(plugin, 0, true, &inInfo) && ports->get(plugin, 0, false, &outInfo));
+    in.channel_count = inInfo.channel_count;
+    out.channel_count = outInfo.channel_count;
+    assert(plugin->activate(plugin, 48000., 1, 512));
+    assert(plugin->start_processing(plugin));
+    process.frames_count = 512;
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    for (int i = 0; i < 512; ++i)
+    {
+      assert(std::isfinite(output[0][i]));
+      if (out.channel_count == 2)
+        assert(output[0][i] == output[1][i]);
+    }
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
+  // A tiny PCM16 WAV exercises the reused IR loader/convolver and project recall.
+  auto irFile = fixtures / "cabinet.wav";
+  {
+    std::ofstream wav(irFile, std::ios::binary);
+    auto number = [&](uint32_t value, int bytes) {
+      for (int b = 0; b < bytes; ++b)
+        wav.put(static_cast<char>((value >> (8 * b)) & 255));
+    };
+    wav.write("RIFF", 4);
+    number(44, 4);
+    wav.write("WAVEfmt ", 8);
+    number(16, 4);
+    number(1, 2);
+    number(1, 2);
+    number(48000, 4);
+    number(96000, 4);
+    number(2, 2);
+    number(16, 2);
+    wav.write("data", 4);
+    number(8, 4);
+    number(16384, 2);
+    number(8192, 2);
+    number(4096, 2);
+    number(0, 2);
+  }
+  auto irState = cleared;
+  irState["IRPath"] = irFile.string();
+  irState["IRToggle"] = 1.;
+  load(irState);
+  assert(save().config() == irState);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  for (int i = 0; i < 512; ++i)
+    assert(std::isfinite(output[0][i]));
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+#ifdef _WIN32
+  // Create native editor attached to a hidden parent, without launching a visible application.
+  const auto libraryFolder = fixtures / "library";
+  const auto libraryFirst = libraryFolder / "Amps" / "Nested" / "amp.nam";
+  const auto librarySecond = libraryFolder / "Pedals" / "Nested" / "drive.nam";
+  std::filesystem::create_directories(libraryFirst.parent_path());
+  std::filesystem::create_directories(librarySecond.parent_path());
+  std::filesystem::copy_file(path2, libraryFirst, std::filesystem::copy_options::overwrite_existing);
+  std::filesystem::copy_file(path1, librarySecond, std::filesystem::copy_options::overwrite_existing);
+  auto browserState = cleared;
+  browserState["CaptureFolder"] = libraryFolder.string();
+  load(browserState);
+  auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
+  assert(gui);
+  assert(gui->create(plugin, CLAP_WINDOW_API_WIN32, false));
+  auto parent =
+    CreateWindowExW(0, L"STATIC", L"NAM test", 0, 0, 0, 600, 520, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+  assert(parent);
+  clap_window window{};
+  window.api = CLAP_WINDOW_API_WIN32;
+  window.win32 = parent;
+  assert(gui->set_parent(plugin, &window));
+  pump();
+  auto* editor = GetWindow(parent, GW_CHILD);
+  assert(editor);
+  // Background indexing runs independently; pump the native UI timer to publish its result.
+  auto pumpFor = [&](int milliseconds) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(milliseconds);
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+      pump();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  };
+  pumpFor(250);
+  auto click = [&](int x, int y) {
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+    pumpFor(250);
+  };
+  // Next buttons must traverse the recursive library, rather than the current file's sibling folder.
+  click(253, 305);
+  assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
+  click(253, 305);
+  assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == librarySecond);
+  click(253, 255);
+  assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
+  click(200, 373);
+  for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
+    SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+  pumpFor(100);
+  click(253, 305);
+  assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
+  gui->destroy(plugin);
+  DestroyWindow(parent);
+#endif
+  plugin->destroy(plugin);
+  entry->deinit();
+#ifdef _WIN32
+  FreeLibrary(library);
+#else
+  dlclose(library);
+#endif
+  std::cout << "CLAP factory, model files, state, missing/invalid files, reset, teardown and native editor passed\n";
+}

@@ -6,6 +6,7 @@
 #include <unordered_map> // std::unordered_map
 #include "IControls.h"
 #include "IPlugPaths.h"
+#include "CaptureMenu.h"
 
 #ifdef OS_WIN
   #include <Windows.h>
@@ -101,9 +102,7 @@ public:
   NAMKnobControl(const IRECT& bounds, int paramIdx, const char* label, const IVStyle& style, IBitmap bitmap)
   : IVKnobControl(bounds, paramIdx, label, style, true)
   , IBitmapBase(bitmap)
-  {
-    mInnerPointerFrac = 0.55;
-  }
+  { mInnerPointerFrac = 0.55; }
 
   void OnRescale() override { mBitmap = GetUI()->GetScaledBitmap(mBitmap); }
 
@@ -264,9 +263,7 @@ public:
         ui->OpenURL(fullURL.Get());
       },
       globeSVG)
-  {
-    SetTooltip(label);
-  }
+  { SetTooltip(label); }
 };
 
 class NAMFileBrowserControl : public IDirBrowseControlBase
@@ -290,14 +287,21 @@ public:
   , mGetButtonLabel(getButtonLabel)
   , mGetButtonURL(getButtonURL)
   , mBrowserState(NAMBrowserState::Empty)
-  {
-    mIgnoreMouse = true;
-  }
+  { mIgnoreMouse = true; }
 
   void Draw(IGraphics& g) override { g.DrawFittedBitmap(mBitmap, mRECT); }
 
   void OnPopupMenuSelection(IPopupMenu* pSelectedMenu, int valIdx) override
   {
+    if (mLibraryMenuOpen)
+    {
+      mLibraryMenuOpen = false;
+      if (pSelectedMenu && mMenuLibrary)
+        if (auto* item = pSelectedMenu->GetChosenItem())
+          if (item->GetTag() >= 0 && static_cast<size_t>(item->GetTag()) < mMenuLibrary->captures.size())
+            LoadLibraryCapture(mMenuLibrary->captures[item->GetTag()]);
+      return;
+    }
     if (pSelectedMenu)
     {
       IPopupMenu::Item* pItem = pSelectedMenu->GetChosenItem();
@@ -313,6 +317,8 @@ public:
   void OnAttached() override
   {
     auto prevFileFunc = [&](IControl* pCaller) {
+      if (StepLibrary(-1))
+        return;
       const auto nItems = NItems();
       if (nItems == 0)
         return;
@@ -325,6 +331,8 @@ public:
     };
 
     auto nextFileFunc = [&](IControl* pCaller) {
+      if (StepLibrary(1))
+        return;
       const auto nItems = NItems();
       if (nItems == 0)
         return;
@@ -370,11 +378,25 @@ public:
       pCaller->GetDelegate()->SendArbitraryMsgFromUI(mClearMsgTag);
       mFileNameControl->SetLabelAndTooltip(mDefaultLabelStr.Get());
       SetBrowserState(NAMBrowserState::Empty);
+      mSelectedPath.clear();
       // FIXME disabling output mode...
       //      pCaller->GetUI()->GetControlWithTag(kCtrlTagOutputMode)->SetDisabled(false);
     };
 
     auto chooseFileFunc = [&, loadFileFunc](IControl* pCaller) {
+      if (HasLibrary())
+      {
+        mMenuLibrary = PLUG()->GetCaptureLibrary();
+        nam_library::FillMenu(mLibraryMenu, *mMenuLibrary, PLUG()->GetCaptureFilter(), mSelectedPath);
+        if (mMenuLibrary->captures.empty())
+        {
+          mLibraryMenu.Clear();
+          mLibraryMenu.AddItem(PLUG()->GetCaptureStatus().c_str(), -1, IPopupMenu::Item::kDisabled);
+        }
+        mLibraryMenuOpen = true;
+        pCaller->GetUI()->CreatePopupMenu(*this, mLibraryMenu, pCaller->GetRECT());
+        return;
+      }
       if (std::string_view(pCaller->As<IVButtonControl>()->GetLabelStr()) == mDefaultLabelStr.Get())
       {
         loadFileFunc(pCaller);
@@ -459,6 +481,7 @@ public:
       {
         WDL_String fileName, directory;
         fileName.Set(reinterpret_cast<const char*>(pData));
+        mSelectedPath = fileName.Get();
         directory.Set(reinterpret_cast<const char*>(pData));
         directory.remove_filepart(true);
 
@@ -475,6 +498,48 @@ public:
   }
 
 private:
+  bool HasLibrary()
+  {
+    return (mClearMsgTag == kMsgTagClearModel || mClearMsgTag == kMsgTagClearDrive)
+           && !PLUG()->GetCaptureFolder().empty();
+  }
+
+  void LoadLibraryCapture(const nam_library::Capture& capture)
+  {
+    WDL_String fileName(nam_library::PathText(capture.path).c_str()), path;
+    mCompletionHandlerFunc(fileName, path);
+    // Delegate success keeps selection and label intact; errors retain the previous DSP/path.
+  }
+
+  bool StepLibrary(int direction)
+  {
+    if (!HasLibrary())
+      return false;
+    const auto library = PLUG()->GetCaptureLibrary();
+    const auto filter = PLUG()->GetCaptureFilter();
+    std::vector<const nam_library::Capture*> matches;
+    int current = -1;
+    for (const auto& capture : library->captures)
+      if (filter.Matches(capture))
+      {
+        if (nam_library::PathText(capture.path) == mSelectedPath)
+          current = static_cast<int>(matches.size());
+        matches.push_back(&capture);
+      }
+    if (!matches.empty())
+    {
+      const auto count = static_cast<int>(matches.size());
+      const auto next = current < 0 ? (direction > 0 ? 0 : count - 1) : (current + direction + count) % count;
+      LoadLibraryCapture(*matches[next]);
+    }
+    return true;
+  }
+
+  IPopupMenu mLibraryMenu;
+  std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
+  bool mLibraryMenuOpen = false;
+  std::string mSelectedPath;
+
   void ReportDirectoryScanFailure(const WDL_String& fileName, const WDL_String& path)
   {
     mFileNameControl->SetLabelAndTooltipEllipsizing(fileName);
@@ -551,6 +616,70 @@ private:
   NAMGetButtonControl* mGetButton = nullptr;
 };
 
+class NAMCaptureSearchControl : public IEditableTextControl
+{
+public:
+  NAMCaptureSearchControl(const IRECT& bounds)
+  : IEditableTextControl(bounds, "", IText(13.f, COLOR_WHITE, "Roboto-Regular", EAlign::Near), COLOR_BLACK)
+  {
+    SetTooltip("Search filenames, folders and NAM metadata. Enter to apply; clear the text for all captures.");
+    SetTextEntryLength(512);
+  }
+  void OnAttached() override { SetStr(PLUG()->GetCaptureFilter().search.c_str()); }
+  void Draw(IGraphics& g) override
+  {
+    IEditableTextControl::Draw(g);
+    if (!GetStr()[0])
+      g.DrawText(mText.WithFGColor(COLOR_GRAY), "Search captures...", mRECT);
+  }
+  void OnTextEntryCompletion(const char* text, int valIdx) override
+  {
+    const auto bounded = std::string(text).substr(0, 512);
+    IEditableTextControl::OnTextEntryCompletion(bounded.c_str(), valIdx);
+    auto filter = PLUG()->GetCaptureFilter();
+    filter.search = bounded;
+    PLUG()->SetCaptureFilter(std::move(filter));
+  }
+};
+
+class NAMGearFilterControl : public IVButtonControl
+{
+public:
+  NAMGearFilterControl(const IRECT& bounds, const IVStyle& style)
+  : IVButtonControl(bounds, nullptr, "All gear", style)
+  { SetTooltip("Filter both NAM selectors by gear type. Inferred categories are marked in the menus."); }
+  void OnAttached() override
+  {
+    const auto gear = PLUG()->GetCaptureFilter().gear;
+    SetLabelStr(gear < 0 ? "All gear" : nam_library::GearName(static_cast<nam_library::Gear>(gear)));
+  }
+  void OnMouseDown(float x, float y, const IMouseMod&) override
+  {
+    mMenu.Clear();
+    const auto selected = PLUG()->GetCaptureFilter().gear;
+    for (int gear : {-1, 1, 2, 3, 4, 5, 6, 0})
+      mMenu.AddItem(
+        new IPopupMenu::Item(gear < 0 ? "All gear" : nam_library::GearName(static_cast<nam_library::Gear>(gear)),
+                             gear == selected ? IPopupMenu::Item::kChecked : 0, gear));
+    GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
+  }
+  void OnPopupMenuSelection(IPopupMenu* menu, int) override
+  {
+    if (menu)
+      if (auto* item = menu->GetChosenItem())
+      {
+        auto filter = PLUG()->GetCaptureFilter();
+        filter.gear = item->GetTag();
+        PLUG()->SetCaptureFilter(std::move(filter));
+        SetLabelStr(item->GetText());
+        SetDirty(false);
+      }
+  }
+
+private:
+  IPopupMenu mMenu;
+};
+
 class NAMMeterControl : public IVPeakAvgMeterControl<>, public IBitmapBase
 {
   static constexpr float KMeterMin = -70.0f;
@@ -561,9 +690,7 @@ public:
   : IVPeakAvgMeterControl<>(bounds, "", style.WithShowValue(false).WithDrawFrame(false).WithWidgetFrac(0.8),
                             EDirection::Vertical, {}, 0, KMeterMin, KMeterMax, {})
   , IBitmapBase(bitmap)
-  {
-    SetPeakSize(1.0f);
-  }
+  { SetPeakSize(1.0f); }
 
   void OnRescale() override { mBitmap = GetUI()->GetScaledBitmap(mBitmap); }
 
@@ -745,9 +872,7 @@ public:
   , mStyle(style)
   , mRadioButtonStyle(radioButtonStyle)
   , mCloseSVG(closeSVG)
-  {
-    mIgnoreMouse = false;
-  }
+  { mIgnoreMouse = false; }
 
   void ClearModelInfo()
   {
@@ -860,6 +985,28 @@ public:
     AddNamedChildControl(new ModelInfoControl(modelInfoArea, leftStyle), mControlNames.modelInfo);
     AddNamedChildControl(new AboutControl(aboutArea, leftStyle, leftText), mControlNames.about);
 
+    // Library selection is a plugin setting. The path is never compiled into the binary.
+    AddChildControl(new ITextControl(IRECT(40, 285, 550, 308), "NAM capture folder", leftText));
+    AddChildControl(
+      new IVButtonControl(
+        IRECT(40, 310, 430, 340),
+        [this](IControl* caller) {
+          WDL_String folder(PLUG()->GetCaptureFolder().c_str());
+          caller->GetUI()->PromptForDirectory(folder, [plugin = PLUG()](const WDL_String&, const WDL_String& chosen) {
+            if (chosen.GetLength())
+              plugin->SetCaptureFolder(chosen.Get(), true);
+          });
+        },
+        PLUG()->GetCaptureFolder().empty() ? "Choose capture folder..." : PLUG()->GetCaptureFolder().c_str(), style),
+      kCtrlTagCaptureFolder);
+    AddChildControl(new IVButtonControl(
+      IRECT(435, 310, 505, 340), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan", style));
+    AddChildControl(new IVButtonControl(
+      IRECT(510, 310, 565, 340), [this](IControl*) { PLUG()->SetCaptureFolder("", true); }, "Clear", style));
+    AddChildControl(
+      new ITextControl(IRECT(40, 345, 550, 370), PLUG()->GetCaptureStatus().c_str(), leftText.WithSize(12.f)),
+      kCtrlTagCaptureStatus);
+
     auto closeAction = [&](IControl* pCaller) {
       static_cast<NAMSettingsPageControl*>(pCaller->GetParent())->HideAnimated(true);
     };
@@ -907,9 +1054,7 @@ private:
                       const IColor& BGColor = DEFAULT_BGCOLOR)
     : IEditableTextControl(bounds, "", text, BGColor)
     , mBitmap(bitmap)
-    {
-      SetParamIdx(paramIdx);
-    };
+    { SetParamIdx(paramIdx); };
 
     void Draw(IGraphics& g) override
     {

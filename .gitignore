@@ -3,6 +3,7 @@ xcuserdata
 *.RPP-bak
 build-*
 .idea/
+__pycache__/
 
 *.ipch
 *.db

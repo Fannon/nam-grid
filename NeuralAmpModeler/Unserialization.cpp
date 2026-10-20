@@ -35,6 +35,10 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
     // else
     return (iplug::IParam*)nullptr;
   };
+  // Only reset defaults after the entire incoming state has passed validation.
+  for (int i = kDriveInput; i < kNumParams; ++i)
+    if (!config.contains(GetParam(i)->GetName()))
+      GetParam(i)->SetToDefault();
   TRACE
   ENTER_PARAMS_MUTEX
   for (auto it = config.begin(); it != config.end(); ++it)
@@ -54,6 +58,14 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   OnParamReset(iplug::EParamSource::kPresetRecall);
   LEAVE_PARAMS_MUTEX
 
+  _ClearModel(0);
+  _ClearModel(1);
+  mCabinet.Publish(std::make_unique<PreparedIR>());
+  mIRLoaded = false;
+  const auto folder = config.value("CaptureFolder", std::string{});
+  if (folder != mCaptureFolder)
+    SetCaptureFolder(folder.c_str());
+  mDrivePath.Set(config.value("DrivePath", "").c_str());
   mNAMPath.Set(static_cast<std::string>(config["NAMPath"]).c_str());
   mIRPath.Set(static_cast<std::string>(config["IRPath"]).c_str());
 
@@ -61,6 +73,8 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   {
     _StageModel(mNAMPath);
   }
+  if (mDrivePath.GetLength())
+    _StageModel(mDrivePath, 0);
   if (mIRPath.GetLength())
   {
     _StageIR(mIRPath);
@@ -73,15 +87,21 @@ int _UnserializePathsAndExpectedKeys(const iplug::IByteChunk& chunk, int startPo
 {
   int pos = startPos;
   WDL_String path;
-  pos = chunk.GetStr(path, pos);
+  pos = ReadStateString(chunk, path, pos);
+  if (pos < 0)
+    return -1;
   config["NAMPath"] = std::string(path.Get());
-  pos = chunk.GetStr(path, pos);
+  pos = ReadStateString(chunk, path, pos);
+  if (pos < 0)
+    return -1;
   config["IRPath"] = std::string(path.Get());
 
   for (auto it = paramNames.begin(); it != paramNames.end(); ++it)
   {
     double v = 0.0;
     pos = chunk.Get(&v, pos);
+    if (pos < 0 || !std::isfinite(v))
+      return -1;
     config[*it] = v;
   }
   return pos;
@@ -272,7 +292,9 @@ int NeuralAmpModeler::_UnserializeStateWithKnownVersion(const iplug::IByteChunk&
 
   // Get the version
   WDL_String wVersion;
-  pos = chunk.GetStr(wVersion, pos);
+  pos = ReadStateString(chunk, wVersion, pos);
+  if (pos < 0)
+    return -1;
   std::string versionStr(wVersion.Get());
   _Version version(versionStr);
   // Act accordingly
@@ -296,8 +318,10 @@ int NeuralAmpModeler::_UnserializeStateWithKnownVersion(const iplug::IByteChunk&
   else
   {
     // You shouldn't be here...
-    assert(false);
+    return -1;
   }
+  if (pos < 0)
+    return -1;
   _UnserializeApplyConfig(config);
   return pos;
 }
@@ -306,6 +330,8 @@ int NeuralAmpModeler::_UnserializeStateWithUnknownVersion(const iplug::IByteChun
 {
   nlohmann::json config;
   int pos = _GetConfigFrom_Earlier(chunk, startPos, config);
+  if (pos < 0)
+    return -1;
   _UnserializeApplyConfig(config);
   return pos;
 }

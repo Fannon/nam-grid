@@ -47,9 +47,13 @@ can show partial frames; final native repainting still needs real-host review.
   patches in `patches/`. Do not revert or stage their gitlinks.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
   No new runtime dependency. Schema 9 has 1262 parameters, accepting earlier
-  schemas with name-based defaults for newly added fields. Schema 8 Utility Width
-  migrates to centered Stereo by subtracting 100; tuner preferences are preserved.
+  supported schemas 2/3/6/7/8 with name-based defaults for newly added fields.
+  Unused WIP schemas 4/5 reject without mutation. Gate Release accepts the older
+  Gate Decay state name. Schema 8 Utility Width migrates to centered Stereo by subtracting 100; tuner preferences are preserved.
 
 The four actionable review findings are fixed: safe/transactional WAV reads,
 correct PCM32 polarity, uniform slot input ranges and smoothed Master gain.
 Regression/sanitizer details: [REVIEW_FIXES_20261020.md](REVIEW_FIXES_20261020.md).
+
+Follow-up static-review fixes and parallel-branch integration notes:
+[REVIEW_FOLLOWUPS_20261020.md](REVIEW_FOLLOWUPS_20261020.md).

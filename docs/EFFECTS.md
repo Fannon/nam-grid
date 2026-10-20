@@ -127,7 +127,7 @@ reported latency: the mixed chain keeps the NAM-only 0/54/84-sample conversion l
 measurements, not a low-buffer underrun test. Reproduce with `nam-clap-bench <plugin.clap>
 dual|dual-effects|effects 1 <drive.nam> <amp.nam>` using the smoke test's generated fixtures.
 
-Run the existing build and three CTest suites as described in [GRID.md](GRID.md).
+Run the existing build and four CTest suites as described in [GRID.md](GRID.md).
 Listening/Bitwig validation, macOS and a VST3 host still need manual testing:
 
 1. Load all variants from slot menus, move knobs and automate them while playing. Match

@@ -5,7 +5,8 @@ Implementation status and the 2026-10-19 upstream checkpoint are recorded in
 the original investigation and planned increments, not additional completed features.
 
 Inspected official NAM plugin commit `16be869746b8915885c7a35bafdcc0061faeb50e`.
-This is a local clone on branch `prototype/dual-nam-clap`, not a published GitHub fork.
+The original investigation used branch `prototype/dual-nam-clap`. Development now
+continues on `experiment/fixed-4x4-grid` in [Fannon/nam-grid](https://github.com/Fannon/nam-grid).
 Facts below refer to that baseline unless explicitly marked as proposals.
 
 ## Verified architecture

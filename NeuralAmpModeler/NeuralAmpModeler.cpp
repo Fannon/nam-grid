@@ -83,7 +83,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   {
     const auto name = GridSlotName(slot);
     GetParam(SlotDynamicsParam(slot, 0))->InitDouble((name + " Gate Threshold").c_str(), -55., -90., -10., .1, "dB");
-    GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Decay").c_str(), 120., 20., 500., 1., "ms");
+    GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Release").c_str(), 120., 20., 500., 1., "ms");
     GetParam(SlotDynamicsParam(slot, 2))->InitDouble((name + " Gate Depth").c_str(), 60., 0., 80., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 3))->InitDouble((name + " Comp Threshold").c_str(), -18., -48., 0., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 4))->InitDouble((name + " Comp Release").c_str(), 120., 40., 600., 1., "ms");
@@ -811,8 +811,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (!config.contains("schema") || !config["schema"].is_number_integer())
         return -1;
       const auto& schemaValue = config["schema"];
-      if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 4 && schemaValue != 5 && schemaValue != 6
-                  && schemaValue != 7 && schemaValue != 8 && schemaValue != 9)
+      if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
+                  && schemaValue != 9)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -852,7 +852,6 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             const auto& effect = config["SlotEffects"][slot];
             if (!effect.is_number_integer() || effect < 0
                 || effect > (schema == 3   ? 4
-                             : schema < 6  ? 7
                              : schema == 6 ? static_cast<int>(SlotEffect::Tape)
                              : schema == 7 ? static_cast<int>(SlotEffect::TubeBoost)
                              : schema == 8 ? static_cast<int>(SlotEffect::Utility)
@@ -878,7 +877,6 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       const int count = !grid         ? kDualNumParams
                         : schema == 2 ? kGridV2NumParams
                         : schema == 3 ? kGridV3NumParams
-                        : schema < 6  ? kGridV5NumParams
                                       : kNumParams;
       if (schema < 3)
         config.erase("SlotEffects");
@@ -887,6 +885,15 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
+        // Prior WIP states called the gate close time Decay. Keep their value
+        // while exposing the accurate Release name to hosts and new states.
+        if (i >= kDynamicsBase && i < kEQBase && (i - kDynamicsBase) % 6 == 1)
+        {
+          const auto oldName = GridSlotName((i - kDynamicsBase) / 6) + " Gate Decay";
+          if (!config.contains(name) && config.contains(oldName))
+            config[name] = config[oldName];
+          config.erase(oldName);
+        }
         // Schemas 6/7 had 30/41 named utility controls per slot. Fill only newly added
         // controls; the expanded per-slot stride does not change saved names.
         if (grid && schema >= 6 && schema < 9
@@ -1107,13 +1114,14 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   }
   mSlotPaths[slot].Set(config.path.c_str());
   mSlotEffects[slot] = config.effect;
-  // Conservative -120 dB tail bounds at the maximum allowed feedback/decay.
-  // Serial bounds add; parallel lanes use their maximum. This also covers automation
-  // from short to long tails without any UI timer or allocation on audio.
+  // Serial bounds add; parallel lanes use their maximum. Limit the host's
+  // automatic render/suspend budget to 60 s, including automation to long tails.
+  // This is a render policy, not a promise that extreme echoes decay by then;
+  // continuous playback retains their natural decay (see docs/MODULES.md).
   std::array<double, 4> rowTails{};
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
     rowTails[i / 4] += IsDelay(mSlotEffects[i]) ? 560. : IsReverb(mSlotEffects[i]) ? 30. : 0.;
-  mEffectTailSeconds.store(2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]);
+  mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));
 
   mSlotInfo[slot] = info;
   mSlotGear[slot] = config.effect == SlotEffect::CabinetIR ? nam_library::Gear::Cabinet : nam_library::Gear::Unknown;

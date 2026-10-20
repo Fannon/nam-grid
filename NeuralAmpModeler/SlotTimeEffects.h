@@ -92,7 +92,7 @@ public:
     mCounter = 0;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
-               SlotDelay* right = nullptr, double* rightSamples = nullptr)
+               SlotDelay* right = nullptr, double* rightSamples = nullptr, bool draining = false)
   {
     auto values = controls.delay;
     if (controls.sync)
@@ -147,7 +147,8 @@ public:
         auto& tank = *channels[ch];
         tank.mDC = grid_fx::Flush(send[ch] + dcCoefficient * (tank.mDC - send[ch]));
         const double feedback = (1. - ping) * wet[ch] + ping * wet[1 - ch];
-        tank.mLine.Push((effect == SlotEffect::DigitalDelay ? send[ch] : send[ch] - tank.mDC) + c[1] * .01 * feedback);
+        tank.mLine.Push((effect == SlotEffect::DigitalDelay ? send[ch] : send[ch] - tank.mDC)
+                        + (draining ? 0. : c[1] * .01) * feedback);
         const double peak = (1. - ping) * std::abs(x[ch]) + ping * std::max(std::abs(x[0]), std::abs(x[1]));
         tank.mEnv = peak + std::exp(-1. / ((peak > tank.mEnv ? .003 : .15) * mRate)) * (tank.mEnv - peak);
         const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * tank.mEnv) : 1.;

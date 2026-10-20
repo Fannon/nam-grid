@@ -106,7 +106,8 @@ struct Instance
 
 int main(int argc, char** argv)
 {
-  // Run separately for the original plugin (1 or 2 instances), and the dual prototype (1 instance).
+  // Run separately for the original plugin (1 or 2 instances), or nam-grid
+  // with dual (two-model), grid (16-model) or complete (mixed-effect) modes.
   assert(argc == 6 || argc == 7);
   const bool original = std::string(argv[2]) == "original";
   const int count = std::stoi(argv[3]);

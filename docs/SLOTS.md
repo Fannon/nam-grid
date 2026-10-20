@@ -115,7 +115,7 @@ parameters per slot plus two tuner preferences. Schema **9** stores paths, types
 Older-format readers remain where practical, but old unreleased project compatibility is not guaranteed.
 See [MODULES.md](MODULES.md) for the expanded test coverage and manual checklist.
 
-Windows x64 Release CLAP/VST3 builds and all three CTest suites pass. Added checks cover:
+Windows x64 Release CLAP/VST3 builds and all four CTest suites pass. Added checks cover:
 
 - Neutral EQ unity, measured band/cutoff responses, automation stability, exact output under
   different block partitions at 44.1/48/96 kHz.

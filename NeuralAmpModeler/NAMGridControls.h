@@ -1,5 +1,5 @@
 #pragma once
-#include "CaptureMenu.h"
+#include "ModuleMenu.h"
 #include <chrono>
 
 namespace grid_ui
@@ -588,65 +588,10 @@ private:
   void ShowMenu()
   {
     mMenuLibrary = PLUG()->GetCaptureLibrary();
-    nam_library::FillMenu(mMenu, *mMenuLibrary, PLUG()->GetCaptureFilter(), PLUG()->GetSlotPath(mSlot));
-    mMenu.AddItem(new IPopupMenu::Item("Choose .nam file...", 0, -10), 0);
-    mMenu.AddItem(new IPopupMenu::Item("Choose cabinet IR (.wav)...", 0, -12), 1);
-    mMenu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11), 2);
-    auto* gates = new IPopupMenu;
-    auto* compressors = new IPopupMenu;
-    auto* eq = new IPopupMenu;
-    const auto effect = PLUG()->GetSlotEffect(mSlot);
-    for (int i = 1; i <= 6; ++i)
-    {
-      const auto type = static_cast<SlotEffect>(i);
-      (i <= 2   ? gates
-       : i <= 4 ? compressors
-                : eq)
-        ->AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
-    }
-    mMenu.AddItem("Noise Gate", gates, 3);
-    mMenu.AddItem("Compressor", compressors, 4);
-    eq->AddItem(new IPopupMenu::Item(SlotEffectName(SlotEffect::ParametricEQ),
-                                     effect == SlotEffect::ParametricEQ ? IPopupMenu::Item::kChecked : 0, -28));
-    mMenu.AddItem("EQ", eq, 5);
-    mMenu.AddItem(new IPopupMenu::Item("Boost", effect == SlotEffect::Boost ? IPopupMenu::Item::kChecked : 0, -29), 6);
-    const auto addGroup = [&](const char* title, SlotEffect first, SlotEffect last) {
-      auto* group = new IPopupMenu;
-      for (int i = static_cast<int>(first); i <= static_cast<int>(last); ++i)
-      {
-        const auto type = static_cast<SlotEffect>(i);
-        group->AddItem(
-          new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
-      }
-      if (first == SlotEffect::RoomReverb || first == SlotEffect::SynthFilter)
-      {
-        const auto type = first == SlotEffect::RoomReverb ? SlotEffect::SpringReverb : SlotEffect::Wah;
-        group->AddItem(new IPopupMenu::Item(
-          SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
-      }
-      mMenu.AddItem(title, group, 7);
-    };
-    addGroup("Reverb", SlotEffect::RoomReverb, SlotEffect::CloudReverb);
-    addGroup("Delay", SlotEffect::DigitalDelay, SlotEffect::TapeDelay);
-    addGroup("Modulation", SlotEffect::Chorus, SlotEffect::Vibrato);
-    addGroup("Filter / Volume", SlotEffect::SynthFilter, SlotEffect::AutoSwell);
-    for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost, SlotEffect::Utility})
-      mMenu.AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
-                                         -20 - static_cast<int>(type)),
-                    7);
-    mMenu.AddSeparator(7);
-    if (PLUG()->CanToggleSlotQuality(mSlot))
-      mMenu.AddItem(
-        new IPopupMenu::Item(
-          "A2 Lite", GetDelegate()->GetParam(SlotFullParam(mSlot))->Value() < .5 ? IPopupMenu::Item::kChecked : 0, -15),
-        6);
-    const auto filter = PLUG()->GetCaptureFilter();
-    if (!filter.search.empty() || filter.gear >= 0)
-      mMenu.AddItem(new IPopupMenu::Item("Clear search and gear filter", 0, -13), 0);
-    if (mMenuLibrary->captures.empty())
-      mMenu.AddItem(new IPopupMenu::Item(PLUG()->IsLibraryScanning() ? "Scanning library..." : "Rescan library",
-                                         PLUG()->IsLibraryScanning() ? IPopupMenu::Item::kDisabled : 0, -14),
-                    0);
+    nam_library::FillModuleMenu(mMenu, *mMenuLibrary, PLUG()->GetCaptureFilter(), PLUG()->GetSlotPath(mSlot),
+                                PLUG()->GetSlotEffect(mSlot), PLUG()->CanToggleSlotQuality(mSlot),
+                                GetDelegate()->GetParam(SlotFullParam(mSlot))->Value() < .5,
+                                PLUG()->IsLibraryScanning());
     GetUI()->CreatePopupMenu(*this, mMenu, mCardBounds);
   }
   void Step(int direction)

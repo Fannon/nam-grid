@@ -241,6 +241,33 @@ int main(int argc, char** argv)
     assert(!loadBytes(invalid));
     assert(save().config() == base);
   }
+  // Schemas 4/5 were unused WIP numbers. Reject explicitly without mutation.
+  for (int schema : {4, 5})
+  {
+    auto unsupported = base;
+    unsupported["schema"] = schema;
+    Stream invalid;
+    invalid.string("###NAMGrid-v1###");
+    invalid.string(unsupported.dump());
+    assert(!loadBytes(invalid));
+    assert(save().config() == base);
+  }
+  auto oldGateNames = base;
+  auto expectedGates = base;
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const std::string label = std::string(slot < 4    ? "Pre "
+                                          : slot < 8  ? "A "
+                                          : slot < 12 ? "B "
+                                                      : "Post ")
+                              + std::to_string(slot % 4 + 1);
+    oldGateNames.erase(label + " Gate Release");
+    oldGateNames[label + " Gate Decay"] = 55. + slot;
+    expectedGates[label + " Gate Release"] = 55. + slot;
+  }
+  load(oldGateNames);
+  assert(save().config() == expectedGates);
+  load(base);
   // The last prototype's schema 6 fills new controls by name despite the new
   // per-slot parameter stride, without dropping later slots' saved values.
   auto prior = base;
@@ -700,7 +727,7 @@ int main(int argc, char** argv)
   for (int slot = 0; slot < 16; ++slot)
     dynamics["SlotEffects"][slot] = slot % 4 + 1;
   dynamics["Pre 1 Gate Threshold"] = -65.;
-  dynamics["A 1 Gate Decay"] = 75.;
+  dynamics["A 1 Gate Release"] = 75.;
   dynamics["B 3 Comp Release"] = 240.;
   dynamics["Post 4 Comp Makeup"] = 3.;
   load(dynamics);
@@ -849,7 +876,7 @@ int main(int argc, char** argv)
     const auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
     assert(latency->get(plugin) == 0);
     const auto* tail = static_cast<const clap_plugin_tail*>(plugin->get_extension(plugin, CLAP_EXT_TAIL));
-    assert(tail && tail->get(plugin) > static_cast<uint32_t>(rate * 100.));
+    assert(tail && tail->get(plugin) == static_cast<uint32_t>(rate * 60.));
     assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
 
     for (int b = 0; b < 40; ++b)
@@ -861,6 +888,25 @@ int main(int argc, char** argv)
       for (uint32_t i = 0; i < process.frames_count; ++i)
         assert(std::isfinite(output[0][i]) && std::isfinite(output[1][i]));
     }
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
+  // The real host tail extension must stay bounded even with every slot a delay.
+  auto allDelays = cleared;
+  for (int slot = 0; slot < 16; ++slot)
+    allDelays["SlotEffects"][slot] = 12;
+  for (double rate : {44100., 48000., 96000.})
+  {
+    load(allDelays);
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    const auto* tail = static_cast<const clap_plugin_tail*>(plugin->get_extension(plugin, CLAP_EXT_TAIL));
+    assert(tail && tail->get(plugin) == static_cast<uint32_t>(rate * 60.));
+    process.frames_count = 64;
+    input[0].fill(0.);
+    input[1].fill(0.);
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    assert(tail->get(plugin) == static_cast<uint32_t>(rate * 60.));
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
   }

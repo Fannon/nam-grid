@@ -1,5 +1,5 @@
 #include "IPlugPlatform.h"
-#include "CaptureMenu.h"
+#include "ModuleMenu.h"
 #include <array>
 #include <algorithm>
 #include <cassert>
@@ -143,6 +143,44 @@ int main(int argc, char** argv)
   auto* leaf = sub->GetItem(0)->GetSubmenu()->GetItem(0);
   assert(leaf && leaf->GetChecked());
   assert(library.captures[leaf->GetTag()].path == unicode->path);
+  // Use the production module builder: optional entries must never reorder groups
+  // or detach the final separator from the library section.
+  for (bool quality : {false, true})
+    for (bool empty : {false, true})
+      for (bool filtered : {false, true})
+      {
+        const Snapshot noFiles;
+        const auto& entries = empty ? noFiles : library;
+        FillModuleMenu(menu, entries, Filter{filtered ? "Vox clean" : "", -1}, PathText(unicode->path),
+                       SlotEffect::SpringReverb, quality, true, empty);
+        int index = 0;
+        if (empty)
+        {
+          assert(std::string(menu.GetItemText(index)) == "Scanning library...");
+          assert(!menu.GetItem(index++)->GetEnabled());
+        }
+        if (filtered)
+          assert(std::string(menu.GetItemText(index++)) == "Clear search and gear filter");
+        for (const char* label :
+             {"Choose .nam file...", "Choose cabinet IR (.wav)...", "Clear slot", "Noise Gate", "Compressor", "EQ",
+              "Boost", "Reverb", "Delay", "Modulation", "Filter / Volume", "Airwindows Tape", "Tube Boost", "Utility"})
+          assert(std::string(menu.GetItemText(index++)) == label);
+        auto* reverbs = menu.GetItem(index - 7)->GetSubmenu();
+        assert(reverbs && reverbs->NItems() == 4);
+        assert(reverbs->GetItem(3)->GetChecked() && reverbs->GetItem(3)->GetTag() == -46);
+        assert(menu.GetItem(index++)->GetIsSeparator());
+        if (quality)
+        {
+          assert(std::string(menu.GetItemText(index)) == "A2 Lite");
+          assert(menu.GetItem(index)->GetChecked() && menu.GetItem(index++)->GetTag() == -15);
+        }
+        assert(index < menu.NItems()); // Original library tree/empty placeholder survives.
+        for (int item = 0, separators = 0; item < menu.NItems(); ++item)
+        {
+          separators += menu.GetItem(item)->GetIsSeparator();
+          assert(separators <= 1);
+        }
+      }
   FillMenu(menu, library, Filter{"does-not-exist", -1}, "");
   assert(menu.NItems() == 1 && !menu.GetItem(0)->GetEnabled());
   assert(std::string(menu.GetItemText(0)).find("does-not-exist") != std::string::npos);

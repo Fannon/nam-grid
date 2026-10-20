@@ -307,7 +307,7 @@ public:
     mRate = rate; mLow = {}; mControls.Reset(rate); mExtras.Reset(rate);
     for (auto& line : mLine) line.Reset(static_cast<int>(16.1 * rate));
   }
-  void Process(double* l, double* r, int n, const UtilityControls& c)
+  void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
     auto values = c.delay;
     if (c.sync) values[0] = grid_tempo::Seconds(c.tempo, c.division) * 1000.;
@@ -319,7 +319,7 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         wet[ch] = Low(mLine[ch].Read(v[0] * .001 * mRate * (ch ? extra[0] : 1.)), mLow[ch], Pole(v[2], mRate));
-        mLine[ch].Push(dry[ch] + v[1] * .01 * wet[ch]);
+        mLine[ch].Push(dry[ch] + (draining ? 0. : v[1] * .01) * wet[ch]);
       }
       const double balance = extra[1] * .01, mix = v[4] * .01, gain = Gain(std::clamp(c.delayOutput, -18., 6.));
       const double a = wet[0] * std::min(1., 2. * (1. - balance)), b = wet[1] * std::min(1., 2. * balance);

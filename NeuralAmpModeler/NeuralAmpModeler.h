@@ -74,7 +74,6 @@ enum EParams
 constexpr int kDualNumParams = kGridSlotBase;
 constexpr int kGridV2NumParams = kDynamicsBase;
 constexpr int kGridV3NumParams = kEQBase;
-constexpr int kGridV5NumParams = kUtilityBase;
 constexpr int SlotUtilityParam(size_t slot, int control)
 { return kUtilityBase + static_cast<int>(slot) * kUtilityControls + control; }
 constexpr int SlotEQParam(size_t slot, int control)

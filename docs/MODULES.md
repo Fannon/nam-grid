@@ -119,15 +119,23 @@ Preparation, buffer allocation and destruction occur outside the audio callback
 through the existing prepared-slot exchange. Audio uses fixed storage, smoothed
 controls and bounded feedback. Existing 5 ms fades cover bypass and replacement.
 Temporal histories drain with silence after bypass and then suspend; bypass mutes
-their tails rather than spilling them over. There is no freeze/infinite-feedback mode.
+their tails rather than spilling them over. Once a delay is fully muted, its feedback
+write is disabled; roughly nine seconds clears the full 8.1-second buffer plus filter settling
+(with the existing bypass fade and at most one additional drain block).
+Reverbs retain a 30-second drain and modulation 70 ms. This uses existing buffers
+and never allocates or clears a whole delay ring in one callback. There is no
+freeze/infinite-feedback mode.
 
 The new effects report zero **host compensation latency**. Their dry paths have
 no block buffering. Delay/reverb/vibrato necessarily delay the effected signal;
 vibrato has an 8 ms center delay. This intentional effect time is not compensated
 away. NAM sample-rate conversion can still add its separately reported latency.
-Tail bounds account for serial/parallel placement, maximum feedback and decay,
-so automation cannot extend a tail beyond the declared bound. They are conservative,
-not estimates of currently audible tail duration.
+Host tail reporting accounts for serial/parallel placement but caps the automatic
+render/suspend budget at **60 seconds** for the entire plugin (including the legacy
+IR allowance). This policy avoids minutes or hours of automatic bounce padding.
+Continuous playback keeps the natural decay: very long synced echoes at maximum
+feedback may remain audible past the reported budget. For those settings, render
+an explicit longer time range. This is a render limit, not an exact decay estimate.
 
 Tests exercise 44.1/48/88.2/96/192 kHz, variable blocks including one frame, parameter
 extremes, finite output, deterministic block partitioning, zero audio allocation/
@@ -229,8 +237,9 @@ synced, retaining its waveform Character. Tempo/time changes use existing smooth
 and can bend pitch; there is no mandatory lookahead or oversampling.
 
 Delay buffers now reserve about 6 MiB per stereo slot at 48 kHz, 24 MiB at 192 kHz.
-Bypass continues draining histories before suspension; maximum delay-tail bounds are
-conservative (560 seconds per serial delay at 82% feedback). No new compensation latency.
+Bypassed delays stop feedback after their fade and suspend after roughly nine
+seconds of cleanup. The host tail budget is capped at 60 seconds across the grid;
+continuous-playback echoes are not truncated. No new compensation latency.
 
 **Utility** has level −60…+12 dB, balance −100…+100%, Stereo −100…+100%, independent L/R
 polarity and Enabled. Center balance is unity, extremes attenuate the opposite channel;

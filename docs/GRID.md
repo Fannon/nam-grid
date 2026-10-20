@@ -87,8 +87,8 @@ Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receiv
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
 The first two slot gain/trim controls retain their original host IDs. The expanded
-layout has **940 parameters**, including 41 utility/time-effect controls per slot.
-`###NAMGrid-v1###` / schema 7 stores all 16 paths, types and named values. Validation
+layout has **1262 parameters**, including 61 utility/time-effect controls per slot.
+`###NAMGrid-v1###` / schema 9 stores all 16 paths, types and named values. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old
 unreleased projects may require rebuilding. No compatibility guarantee is made.
@@ -97,7 +97,8 @@ The separate grid plugin ID does not automatically replace the former dual plugi
 
 ## Verification
 
-Windows x64 Release CLAP and VST3 build successfully. All three CTest suites pass:
+Windows x64 Release CLAP and VST3 build successfully. The four CTest suites are `capture-library`, `wav-decoder`, `stages` and `clap-smoke`.
+Current module coverage and limitations are in [MODULES.md](MODULES.md).
 
 - Library scanning/search/classification and nested menu selection tests remain intact.
 - All 16 positions use distinct noncommuting affine fixtures to check serial order, independent
@@ -107,9 +108,10 @@ Windows x64 Release CLAP and VST3 build successfully. All three CTest suites pas
 - Unequal-lane impulse tests check physical alignment, preserved bypass latency, and hosts whose
   maximum block size is one sample. Tested grid paths observe no C++ allocations/deletions and
   pass Eigen's allocation guard.
-- CLAP covers all 16 model/effect selections and 940 parameter values through save/reload, old-state
+- CLAP covers all 16 model/effect selections and 1262 parameter values through save/reload, old-state
   migration, invalid later-slot state, missing files, bypassed slots, mono/stereo port layouts,
-  and full-grid processing at all three rates. Full-grid conversion latency is 0/324/504 samples.
+  and full-grid processing at all three rates. The synthetic NAM fixture grid measures 0/324/504 conversion-latency samples;
+  these figures describe those models/rates, not a fixed latency for all modules.
 - A hidden native Windows editor test exercises IN1/IN2/A1/B1/OUT4 next buttons, library search,
   state-dirty notification, editor teardown, and a shorter-lane load that changes alignment while
   leaving total host latency unchanged. The latter correctly requests CLAP restart/reactivation.
@@ -120,7 +122,11 @@ Windows x64 Release CLAP and VST3 build successfully. All three CTest suites pas
 These are offline/harness results. No listening evaluation, Bitwig session, macOS build, VST3
 host validation, full visual layout review, or general race detector run was performed.
 
-### CPU and latency
+### Historical CPU and latency (schema-7 checkpoint)
+
+These recorded timings predate the stereo/Spring/Wah changes; they are retained for
+comparison and were not remeasured for the current build. For later effect measurements,
+see [MODULES.md](MODULES.md).
 
 Ryzen 9 5950X, Windows x64 Release, 128-frame blocks. Same two deterministic A2 nano/standard
 fixtures and benchmark procedure as the dual checkpoint: 128,000 samples per render, one warm-up,
@@ -148,7 +154,7 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 ## Manual DAW check
 
 1. Add `build-grid/out` to Bitwig's plugin locations and load **nam-grid**.
-2. Add NAM and IR folders in Library & settings; load a pedal into IN1 and different full rigs into A1/B1.
+2. Add NAM and IR folders in Library & settings; load a pedal into Pre 1 and different full rigs into A1/B1.
    Use no cabinet module for full rigs. Sweep Blend A/B and check unity/phase by ear.
 3. Load and bypass captures in all four rows. Verify that output-row changes affect both lanes.
    Listen to model loads, bypass and blend automation under sustained input.
@@ -162,7 +168,7 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 ```sh
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-clap-bench --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-wav-tests nam-clap-bench --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 

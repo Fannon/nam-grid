@@ -247,6 +247,65 @@ void TestTimeEffects()
     }
     assert(energy < 1.e-20);
   }
+  // Maximum feedback and an eight-second synced echo must suspend after a
+  // bounded bypass drain, with no old note returning when re-enabled. Exercise
+  // mono and stereo/ping-pong through the actual slot dispatch without allocation.
+  for (auto effect : {SlotEffect::DigitalDelay, SlotEffect::AnalogDelay, SlotEffect::TapeDelay})
+    for (bool stereo : {false, true})
+    {
+      constexpr double rate = 48000.;
+      SlotConfig config;
+      config.effect = effect;
+      auto prepared = PrepareSlot(config, rate, 512);
+      auto* history = prepared.dsp.get();
+      NAMStage stage;
+      stage.Publish(std::move(prepared.dsp));
+      stage.ResetStopped(rate, 512);
+      assert(history->drainLimit == static_cast<int64_t>(rate * 9.));
+      UtilityControls c;
+      c.delay = {1500., 82., 150., 100., 100.};
+      c.sync = true;
+      c.tempo = 30.;
+      c.division = 8;
+      c.pingPong = stereo;
+      c.delayMotion = 100.;
+      std::array<double, 512> left{}, right{};
+      auto render = [&](bool enabled, double input) {
+        left.fill(input);
+        right.fill(input * .5);
+        allocations = deletions = 0;
+        tracking = true;
+        stage.Process(left.data(), 512, enabled, 0., 0., false, 0., 0, 1., {}, {}, c, stereo ? right.data() : nullptr);
+        tracking = false;
+        assert(allocations == 0 && deletions == 0);
+      };
+      render(true, .2);
+      for (int block = 0; block < 850; ++block)
+        render(false, 0.);
+      assert(history->drainFrames >= history->drainLimit);
+      const auto drained = history->drainFrames;
+      render(false, .123);
+      assert(history->drainFrames == drained);
+      for (double value : left)
+        assert(value == .123);
+      if (stereo)
+        for (double value : right)
+          assert(value == .123 * .5);
+      // Shortening the delay after re-enable must not uncover stale ring contents.
+      c.sync = false;
+      c.delay[0] = 20.;
+      double energy = 0.;
+      for (int block = 0; block < 100; ++block)
+      {
+        render(true, 0.);
+        for (double value : left)
+          energy += value * value;
+        if (stereo)
+          for (double value : right)
+            energy += value * value;
+      }
+      assert(energy < 1.e-18);
+    }
   // Swell suppresses the pick and reaches unity on a sustained phrase.
   {
     auto stage = prepareEffect(SlotEffect::AutoSwell, 48000.);

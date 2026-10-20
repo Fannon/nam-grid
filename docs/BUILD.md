@@ -4,7 +4,7 @@ The native UI and DSP remain based on the official NAM plugin. The plugin displa
 **nam-grid**, with `nam-grid.clap` / `nam-grid.vst3` artifacts. Its CLAP ID
 (`com.StevenAtkinson.NAMGridPrototype`) and VST3 ID (`NGr1`) are retained from the grid
 prototype so saved projects can identify it after a rescan. Avoid duplicate copies of the
-old grid binary in plugin scan paths. The separate dual prototype keeps its own ID (`NDu1`).
+old grid binary in plugin scan paths. The historical dual prototype on branch `prototype/dual-nam-clap` keeps its own ID (`NDu1`).
 
 ## Dependencies
 

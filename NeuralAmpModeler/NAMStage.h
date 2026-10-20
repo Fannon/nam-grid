@@ -109,8 +109,8 @@ public:
       delay.assign(std::max(1, latency), 0.);
       delayIndex = 0;
       drainLimit = static_cast<int64_t>(rate
-                                        * (effect == SlotEffect::DualDelay ? 1200.
-                                           : IsDelay(effect)        ? 560.
+                                        * (effect == SlotEffect::DualDelay ? 17.
+                                           : IsDelay(effect) ? 9.
                                            : IsReverb(effect)     ? 30.
                                            : effect == SlotEffect::Doubler ? .1
                                            : effect == SlotEffect::Stutter ? 33.
@@ -245,6 +245,8 @@ public:
         p->delayIndex = (p->delayIndex + 1) % p->delay.size();
       }
       // Drain temporal histories with silence after bypass, then suspend them.
+      // Delay feedback stops once fully muted: one 8.1 s ring plus filter settling
+      // clears its history without nine minutes of inaudible repeat processing.
       // This prevents an old echo from resurfacing when a slot is re-enabled.
       const bool draining = !enabled && mMix <= 0. && p->drainFrames < p->drainLimit;
       if (enabled || mMix > 0. || draining)
@@ -284,7 +286,7 @@ public:
             else if (p->effect == SlotEffect::Rotary) p->rotary.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::Octaver) p->octaver.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::Doubler) p->doubler.Process(out, r, frames, utility);
-            else if (p->effect == SlotEffect::DualDelay) p->dualDelay.Process(out, r, frames, utility);
+            else if (p->effect == SlotEffect::DualDelay) p->dualDelay.Process(out, r, frames, utility, draining);
             else p->capture.Process(out, r, frames, p->effect, utility);
           }
           else if (p->effect == SlotEffect::SpringReverb)
@@ -301,7 +303,7 @@ public:
             {
               std::copy_n(in, frames, out);
               std::copy_n(p->right->input.data(), frames, rightOut);
-              p->echo.Process(out, frames, p->effect, utility, &p->right->echo, rightOut);
+              p->echo.Process(out, frames, p->effect, utility, &p->right->echo, rightOut, draining);
             }
             else
               p->reverb.ProcessStereo(
@@ -309,9 +311,9 @@ public:
           }
           else
           {
-            ProcessBuiltin(p, frames, dynamics, eq, utility);
+            ProcessBuiltin(p, frames, dynamics, eq, utility, draining);
             if (rightSamples)
-              ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility);
+              ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility, draining);
           }
           if (p->effect == SlotEffect::Utility)
             p->utilityStereo.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);
@@ -355,7 +357,7 @@ public:
 
 private:
   void ProcessBuiltin(Prepared* p, int frames, const DynamicsControls& dynamics, const EQControls& eq,
-                      const UtilityControls& utility)
+                      const UtilityControls& utility, bool draining)
   {
     double* in = p->input.data();
     double* out = p->wet.data();
@@ -384,7 +386,7 @@ private:
       else if (p->effect == SlotEffect::Bitcrusher || p->effect == SlotEffect::RingMod)
         p->texture.Process(out, frames, p->effect, utility);
       else if (IsDelay(p->effect))
-        p->echo.Process(out, frames, p->effect, utility);
+        p->echo.Process(out, frames, p->effect, utility, nullptr, nullptr, draining);
       else if (IsReverb(p->effect))
         p->reverb.Process(out, frames, p->effect, utility);
       else if (IsModulation(p->effect))

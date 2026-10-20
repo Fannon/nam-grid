@@ -43,7 +43,7 @@ int main(int argc, char** argv)
     assert(loadBytes(std::move(s)));
   };
   auto base = save().config();
-  assert(params->count(plugin) == 61);
+  assert(params->count(plugin) == 157);
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
   auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
@@ -62,6 +62,17 @@ int main(int argc, char** argv)
   base["Output"] = -6.;
   base["CaptureFolder"] = fixtures.string();
   load(base);
+  assert(save().config() == base);
+  // Version-2 NAM-only grids migrate without changing their signal chain or gains.
+  auto gridV2 = base;
+  gridV2["schema"] = 2;
+  gridV2.erase("SlotEffects");
+  for (auto it = gridV2.begin(); it != gridV2.end();)
+    if (it.key().find(" Gate ") != std::string::npos || it.key().find(" Comp ") != std::string::npos)
+      it = gridV2.erase(it);
+    else
+      ++it;
+  load(gridV2);
   assert(save().config() == base);
   // Older dual-stage states predate library settings; they remain readable.
   auto oldDual = base;
@@ -133,6 +144,16 @@ int main(int argc, char** argv)
     auto* bytes = reinterpret_cast<uint8_t*>(&length);
     malformed.bytes.insert(malformed.bytes.end(), bytes, bytes + 4);
     assert(!loadBytes(malformed));
+    assert(save().config() == base);
+  }
+  for (const json& badEffect : {json(-1), json(5), json(1.5), json("gate"), json(18446744073709551615ull)})
+  {
+    auto malformedEffect = base;
+    malformedEffect["SlotEffects"][15] = badEffect;
+    Stream invalid;
+    invalid.string("###NAMGrid-v1###");
+    invalid.string(malformedEffect.dump());
+    assert(!loadBytes(invalid));
     assert(save().config() == base);
   }
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
@@ -362,6 +383,71 @@ int main(int argc, char** argv)
     assert(std::isfinite(output[0][i]));
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
+  // All four built-ins occupy independently saved slots in every row, including parallel lanes.
+  auto dynamics = cleared;
+  for (int slot = 0; slot < 16; ++slot)
+    dynamics["SlotEffects"][slot] = slot % 4 + 1;
+  dynamics["IN 1 Gate Threshold"] = -65.;
+  dynamics["A 1 Gate Decay"] = 75.;
+  dynamics["B 3 Comp Release"] = 240.;
+  dynamics["OUT 4 Comp Makeup"] = 3.;
+  load(dynamics);
+  assert(save().config() == dynamics);
+  auto effectsBytes = save();
+  load(base);
+  assert(loadBytes(effectsBytes));
+  assert(save().config() == dynamics);
+  for (double rate : {44100., 48000., 96000.})
+  {
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    const auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+    assert(latency->get(plugin) == 0);
+    double energy = 0.;
+    for (int block = 0; block < 250; ++block)
+    {
+      const int n = std::array<int, 6>{1, 3, 64, 127, 256, 512}[block % 6];
+      process.frames_count = n;
+      for (int i = 0; i < n; ++i)
+        input[0][i] = input[1][i] = .3 * std::sin((block * 512 + i) * .03);
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      for (int i = 0; i < n; ++i)
+      {
+        assert(std::isfinite(output[0][i]));
+        energy += output[0][i] * output[0][i];
+      }
+    }
+    assert(energy > .01);
+    clap_param_info target{};
+    bool found = false;
+    for (uint32_t i = 0; i < params->count(plugin); ++i)
+    {
+      assert(params->get_info(plugin, i, &target));
+      if (std::strcmp(target.name, "OUT 4 Comp Makeup") == 0)
+      {
+        found = true;
+        break;
+      }
+    }
+    assert(found);
+    clap_event_param_value event{};
+    event.header.size = sizeof(event);
+    event.header.type = CLAP_EVENT_PARAM_VALUE;
+    event.param_id = target.id;
+    event.note_id = event.port_index = event.channel = event.key = -1;
+    assert(params->text_to_value(plugin, target.id, "6", &event.value));
+    clap_input_events changes{&event, [](const clap_input_events*) -> uint32_t { return 1; },
+                              [](const clap_input_events* e, uint32_t) -> const clap_event_header* {
+                                return &static_cast<clap_event_param_value*>(e->ctx)->header;
+                              }};
+    process.in_events = &changes;
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    process.in_events = &events;
+    assert(save().config()["OUT 4 Comp Makeup"] == 6.);
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    load(dynamics);
+  }
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
   const auto libraryFolder = fixtures / "library";
@@ -402,13 +488,33 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  // Restore built-ins into an open editor: hidden NAM knobs must not intercept their controls.
+  auto effectUI = browserState;
+  effectUI["SlotEffects"][0] = 1;
+  effectUI["SlotEffects"][1] = 3;
+  load(effectUI);
+  pumpFor(100);
+  auto dragKnob = [&](int x) {
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, 275));
+    SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, 250));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, 250));
+    pumpFor(100);
+  };
+  dragKnob(125); // IN1 gate threshold
+  assert(save().config()["IN 1 Gate Threshold"] != effectUI["IN 1 Gate Threshold"]);
+  assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
+  dragKnob(474); // IN2 compressor makeup
+  assert(save().config()["IN 2 Comp Makeup"] != effectUI["IN 2 Comp Makeup"]);
+  assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
   // Next buttons must traverse the recursive library, rather than the current file's sibling folder.
   click(450, 202); // IN 2 next
   assert(host.dirty);
+  assert(save().config()["SlotEffects"][1] == 0);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
   click(450, 202);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == librarySecond);
   click(235, 202); // IN 1 next
+  assert(save().config()["SlotEffects"][0] == 0);
   assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
   click(200, 157);
   for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})

@@ -36,7 +36,7 @@ public:
   }
 };
 
-// A compact native card. Every slot can load any mono NAM capture; category is a browsing aid.
+// A compact native card for a mono NAM capture or a three-knob built-in effect.
 class NAMGridSlotControl : public IContainerBase
 {
 public:
@@ -67,12 +67,29 @@ public:
       IRECT(mRECT.R - 44, mRECT.T + 3, mRECT.R - 5, mRECT.T + 24), SlotActiveParam(mSlot), "On", cardStyle));
     mModelButton = new IVButtonControl(
       IRECT(mRECT.L + 7, mRECT.T + 28, mRECT.R - 7, mRECT.T + 53), [this](IControl*) { ShowMenu(); },
-      "Empty - choose NAM...", cardStyle);
+      "Empty - choose...", cardStyle);
     AddChildControl(mModelButton);
-    AddChildControl(new IVKnobControl(
-      IRECT(mRECT.L + 8, mRECT.T + 57, mRECT.L + 94, mRECT.B - 3), SlotInputParam(mSlot), "In", cardStyle));
-    AddChildControl(new IVKnobControl(
-      IRECT(mRECT.L + 106, mRECT.T + 57, mRECT.R - 8, mRECT.B - 3), SlotTrimParam(mSlot), "Trim", cardStyle));
+    mNAMKnobs[0] = new IVKnobControl(
+      IRECT(mRECT.L + 8, mRECT.T + 57, mRECT.L + 94, mRECT.B - 3), SlotInputParam(mSlot), "In", cardStyle);
+    mNAMKnobs[1] = new IVKnobControl(
+      IRECT(mRECT.L + 106, mRECT.T + 57, mRECT.R - 8, mRECT.B - 3), SlotTrimParam(mSlot), "Trim", cardStyle);
+    for (auto* knob : mNAMKnobs)
+      AddChildControl(knob);
+    const char* labels[] = {"Thresh", "Decay", "Depth", "Thresh", "Release", "Makeup"};
+    const char* tips[] = {"Open above this input level (dBFS)",
+                          "Closing time constant in milliseconds",
+                          "Maximum attenuation in dB; 0 dB leaves the signal open",
+                          "Compress above this input level (dBFS)",
+                          "Gain recovery time constant in milliseconds",
+                          "Manual output gain in dB; start at 0 and match bypass loudness"};
+    for (int i = 0; i < 6; ++i)
+    {
+      const float left = mRECT.L + 4.f + (i % 3) * 66.f;
+      mFXKnobs[i] = new IVKnobControl(
+        IRECT(left, mRECT.T + 57, left + 65.f, mRECT.B - 3), SlotDynamicsParam(mSlot, i), labels[i], cardStyle);
+      mFXKnobs[i]->SetTooltip(tips[i]);
+      AddChildControl(mFXKnobs[i]);
+    }
     Refresh();
   }
 
@@ -98,6 +115,8 @@ public:
     }
     else if (item->GetTag() == -11)
       PLUG()->ClearSlot(mSlot);
+    else if (item->GetTag() <= -21 && item->GetTag() >= -24)
+      PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (mMenuLibrary && item->GetTag() >= 0 && static_cast<size_t>(item->GetTag()) < mMenuLibrary->captures.size())
       Load(nam_library::PathText(mMenuLibrary->captures[item->GetTag()].path));
   }
@@ -108,8 +127,16 @@ private:
     if (!mModelButton)
       return;
     const auto path = PLUG()->GetSlotPath(mSlot);
-    auto label =
-      path.empty() ? std::string("Empty - choose NAM...") : nam_library::PathText(std::filesystem::u8path(path).stem());
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    const bool nam = effect == SlotEffect::NAM;
+    const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
+    for (auto* knob : mNAMKnobs)
+      knob->Hide(!nam);
+    for (int i = 0; i < 6; ++i)
+      mFXKnobs[i]->Hide(nam || (i < 3) != gate);
+    auto label = !nam           ? std::string(SlotEffectName(effect))
+                 : path.empty() ? std::string("Empty - choose...")
+                                : nam_library::PathText(std::filesystem::u8path(path).stem());
     if (!path.empty() && !PLUG()->IsSlotLoaded(mSlot))
       label = "Missing: " + label;
     if (label.size() > 27)
@@ -120,7 +147,9 @@ private:
       label = label.substr(0, end) + "...";
     }
     mModelButton->SetLabelStr(label.c_str());
-    mModelButton->SetTooltip(path.empty() ? "Choose a capture from the library or a .nam file" : path.c_str());
+    mModelButton->SetTooltip(!nam           ? SlotEffectName(effect)
+                             : path.empty() ? "Choose NAM, noise gate or compressor"
+                                            : path.c_str());
     mModelButton->SetDirty(false);
   }
   void Load(const std::string& path)
@@ -142,7 +171,18 @@ private:
     nam_library::FillMenu(mMenu, *mMenuLibrary, PLUG()->GetCaptureFilter(), PLUG()->GetSlotPath(mSlot));
     mMenu.AddItem(new IPopupMenu::Item("Choose .nam file...", 0, -10), 0);
     mMenu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11), 1);
-    mMenu.AddSeparator(2);
+    auto* gates = new IPopupMenu;
+    auto* compressors = new IPopupMenu;
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    for (int i = 1; i <= 4; ++i)
+    {
+      const auto type = static_cast<SlotEffect>(i);
+      (i <= 2 ? gates : compressors)
+        ->AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
+    }
+    mMenu.AddItem("Noise Gate", gates, 2);
+    mMenu.AddItem("Compressor", compressors, 3);
+    mMenu.AddSeparator(4);
     GetUI()->CreatePopupMenu(*this, mMenu, mModelButton->GetRECT());
   }
   void Step(int direction)
@@ -169,6 +209,8 @@ private:
   size_t mSlot;
   IVStyle mStyle;
   IVButtonControl* mModelButton = nullptr;
+  std::array<IControl*, 2> mNAMKnobs{};
+  std::array<IControl*, 6> mFXKnobs{};
   IPopupMenu mMenu;
   std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
 };

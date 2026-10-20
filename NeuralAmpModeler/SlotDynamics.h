@@ -1,0 +1,119 @@
+#pragma once
+#include <algorithm>
+#include <cmath>
+
+// Algorithm references: AudioDSPTools (MIT, Steven Atkinson) and LEAF's
+// tCompressor (MIT, Jeff Snyder). Independent mono implementation; no LEAF runtime.
+// See docs/EFFECTS.md and installer/ThirdPartyNotices.txt for provenance/notices.
+enum class SlotEffect
+{
+  NAM = 0,
+  NaturalGate,
+  TightGate,
+  SmoothComp,
+  PunchComp
+};
+inline const char* SlotEffectName(SlotEffect effect)
+{
+  switch (effect)
+  {
+    case SlotEffect::NaturalGate: return "Natural Gate";
+    case SlotEffect::TightGate: return "Tight Gate";
+    case SlotEffect::SmoothComp: return "Smooth Compressor";
+    case SlotEffect::PunchComp: return "Punch Compressor";
+    default: return "NAM";
+  }
+}
+struct DynamicsControls
+{
+  double gateThreshold = -55., gateRelease = 120., gateRange = 60.;
+  double compThreshold = -18., compRelease = 120., compMakeup = 0.;
+};
+
+class SlotDynamics
+{
+public:
+  void Reset(double rate)
+  {
+    mRate = std::max(1., rate);
+    mSmooth = Coefficient(5.);
+    mEnvelope = mReduction = mHold = 0.;
+    mOpen = false;
+    mFirst = true;
+  }
+  // Positive gain reduction in dB; quadratic soft knee joins both straight lines.
+  static double CompressionDB(double level, double threshold, double ratio, double knee)
+  {
+    const double over = level - threshold, slope = 1. - 1. / ratio;
+    if (over <= -knee * .5)
+      return 0.;
+    if (over >= knee * .5)
+      return slope * over;
+    const double x = over + knee * .5;
+    return slope * x * x / (2. * knee);
+  }
+  void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls)
+  {
+    const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
+    const bool tight = effect == SlotEffect::TightGate;
+    const bool punch = effect == SlotEffect::PunchComp;
+    const double threshold =
+      std::clamp(gate ? controls.gateThreshold : controls.compThreshold, gate ? -90. : -48., gate ? -10. : 0.);
+    const double amount = std::clamp(gate ? controls.gateRange : controls.compMakeup, 0., gate ? 80. : 18.);
+    const double release =
+      std::clamp(gate ? controls.gateRelease : controls.compRelease, gate ? 20. : 40., gate ? 500. : 600.);
+    const double close = Coefficient(release);
+    const double open = Coefficient(gate ? (tight ? .3 : 1.5) : (punch ? 25. : 8.));
+    const double detectorAttack = Coefficient(.1), detectorRelease = Coefficient(gate ? 10. : 15.);
+    const double hold = mRate * (tight ? .015 : .04);
+    if (mFirst)
+    {
+      mThreshold = threshold;
+      mAmount = amount;
+      mReduction = gate ? amount : 0.;
+      mFirst = false;
+    }
+    for (int i = 0; i < frames; ++i)
+    {
+      mThreshold = Smooth(mThreshold, threshold, mSmooth);
+      mAmount = Smooth(mAmount, amount, mSmooth);
+      const double magnitude = std::abs(samples[i]);
+      mEnvelope = Smooth(mEnvelope, magnitude, magnitude > mEnvelope ? detectorAttack : detectorRelease);
+      const double level = 20. * std::log10(std::max(1.e-12, mEnvelope));
+      double target;
+      if (gate)
+      {
+        if (level >= mThreshold)
+        {
+          mOpen = true;
+          mHold = hold;
+        }
+        else if (level < mThreshold - 3.)
+        {
+          mHold = std::max(0., mHold - 1.);
+          if (mHold == 0.)
+            mOpen = false;
+        }
+        // Natural expands gradually (2:1); Tight closes to the selected depth.
+        target = mOpen ? 0. : tight ? mAmount : std::min(mAmount, std::max(0., mThreshold - level));
+      }
+      else
+        target = CompressionDB(level, mThreshold, punch ? 4. : 2.5, punch ? 3. : 9.);
+      // Gates open quickly / close gently; compressors attack reduction / release it.
+      const double coefficient = gate ? (target < mReduction ? open : close) : (target > mReduction ? open : close);
+      mReduction = Smooth(mReduction, target, coefficient);
+      samples[i] *= std::pow(10., ((gate ? 0. : mAmount) - mReduction) * .05);
+    }
+  }
+
+private:
+  double Coefficient(double ms) const { return std::exp(-1. / (.001 * ms * mRate)); }
+  static double Smooth(double value, double target, double coefficient)
+  {
+    const double result = target + coefficient * (value - target);
+    return std::abs(result) < 1.e-30 ? 0. : result;
+  }
+  double mRate = 48000., mSmooth = 0., mEnvelope = 0., mReduction = 0., mHold = 0.;
+  double mThreshold = 0., mAmount = 0.;
+  bool mOpen = false, mFirst = true;
+};

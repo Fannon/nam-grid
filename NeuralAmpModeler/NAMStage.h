@@ -4,6 +4,7 @@
 #include <vector>
 #include "ResamplingNAM.h"
 #include "RealtimeExchange.h"
+#include "SlotDynamics.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -18,11 +19,14 @@ public:
   struct Prepared
   {
     std::unique_ptr<ResamplingNAM> model;
+    SlotEffect effect = SlotEffect::NAM;
+    SlotDynamics dynamics;
     std::vector<double> input, wet, dry, delay;
     size_t delayIndex = 0;
     int latency = 0;
     void Reset(double rate, int block)
     {
+      dynamics.Reset(rate);
       if (model)
         model->Reset(rate, block);
       latency = model ? model->GetLatency() : 0;
@@ -35,6 +39,7 @@ public:
     NAMModelInfo Info() const
     {
       NAMModelInfo info;
+      info.loaded = effect != SlotEffect::NAM;
       if (!model)
         return info;
       info.loaded = true;
@@ -80,13 +85,15 @@ public:
   }
   // Called exclusively by audio, or while host processing is stopped.
   double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB, bool calibrate,
-                  double calibrationDB, int outputMode, double slim)
+                  double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {})
   {
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
     if (switching && mSwitchGain <= 0.)
       mExchange.Adopt();
     auto* p = mExchange.Active();
     const auto info = p ? p->Info() : NAMModelInfo{};
+    if (p && p->effect != SlotEffect::NAM)
+      inputDB = trimDB = 0.; // Built-ins expose only their three dedicated controls.
     if (calibrate && info.hasInput)
       inputDB += calibrationDB - info.input;
     if (outputMode == 1 && info.hasLoudness)
@@ -101,7 +108,7 @@ public:
       mMix = enabled && info.loaded ? 1. : 0.;
       mFirst = false;
     }
-    if (p && p->model)
+    if (p && info.loaded)
     {
       const double inDelta = (inTarget - mIn) / std::max(1, frames);
       for (int i = 0; i < frames; ++i)
@@ -115,11 +122,19 @@ public:
       // Skip inference after the bypass ramp finishes. The dry path preserves latency.
       if (enabled || mMix > 0.)
       {
-        if (auto* slimmable = p->model->GetSlimmableModel())
-          slimmable->SetSlimmableSize(slim);
         double* in = p->input.data();
         double* out = p->wet.data();
-        p->model->process(&in, &out, frames);
+        if (p->model)
+        {
+          if (auto* slimmable = p->model->GetSlimmableModel())
+            slimmable->SetSlimmableSize(slim);
+          p->model->process(&in, &out, frames);
+        }
+        else
+        {
+          std::copy_n(in, frames, out);
+          p->dynamics.Process(out, frames, p->effect, dynamics);
+        }
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
       for (int i = 0; i < frames; ++i)

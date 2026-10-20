@@ -12,7 +12,7 @@ struct Instance
     state = static_cast<const clap_plugin_state*>(plugin->get_extension(plugin, CLAP_EXT_STATE));
   }
   ~Instance() { plugin->destroy(plugin); }
-  void Load(const std::string& drive, const std::string& amp, bool original, bool fullGrid = false)
+  void Load(const std::string& drive, const std::string& amp, bool original, const std::string& mode = "dual")
   {
     Stream stream;
     if (original)
@@ -44,11 +44,30 @@ struct Instance
       {
         config["SlotPaths"][0] = drive;
         config["SlotPaths"][1] = amp;
-        if (fullGrid)
+        if (mode == "grid")
           for (int slot = 2; slot < 16; ++slot)
             config["SlotPaths"][slot] = slot % 2 ? amp : drive;
+        if (mode == "effects")
+        {
+          config["DrivePath"] = config["NAMPath"] = "";
+          for (int slot = 0; slot < 16; ++slot)
+          {
+            config["SlotPaths"][slot] = "";
+            config["SlotEffects"][slot] = slot % 4 + 1;
+          }
+        }
+        if (mode == "dual-effects")
+        {
+          config["DrivePath"] = "";
+          config["NAMPath"] = drive;
+          config["SlotPaths"][0] = "";
+          config["SlotPaths"][1] = drive;
+          config["SlotPaths"][2] = amp;
+          config["SlotEffects"][0] = 1;
+          config["SlotEffects"][12] = 3;
+        }
       }
-      stream.string(config.value("schema", 1) == 2 ? "###NAMGrid-v1###" : "###NAMDual-v1###");
+      stream.string(config.contains("SlotPaths") ? "###NAMGrid-v1###" : "###NAMDual-v1###");
       stream.string(config.dump());
     }
     clap_istream in{&stream, Stream::read};
@@ -61,7 +80,6 @@ int main(int argc, char** argv)
   // Run separately for the original plugin (1 or 2 instances), and the dual prototype (1 instance).
   assert(argc == 6);
   const bool original = std::string(argv[2]) == "original";
-  const bool fullGrid = std::string(argv[2]) == "grid";
   const int count = std::stoi(argv[3]);
   assert(count == 1 || count == 2);
 #ifdef _WIN32
@@ -80,7 +98,7 @@ int main(int argc, char** argv)
     // Upstream's loader reads host sample rate/block size, so establish those before recall.
     assert(one.plugin->activate(one.plugin, 48000., 128, 128));
     assert(two.plugin->activate(two.plugin, 48000., 128, 128));
-    one.Load(original ? "" : argv[4], original && count == 2 ? argv[4] : argv[5], original, fullGrid);
+    one.Load(original ? "" : argv[4], original && count == 2 ? argv[4] : argv[5], original, argv[2]);
     if (count == 2)
       two.Load("", argv[5], original);
     one.plugin->deactivate(one.plugin);
@@ -132,11 +150,8 @@ int main(int argc, char** argv)
         return static_cast<const clap_plugin_latency*>(i.plugin->get_extension(i.plugin, CLAP_EXT_LATENCY))
           ->get(i.plugin);
       };
-      std::cout << (original   ? "original"
-                    : fullGrid ? "grid16"
-                               : "dual")
-                << "," << count << "," << rate << "," << fastest * 1000. << "," << (fastest / (128000. / rate) * 100.)
-                << "," << latency(one) + (count == 2 ? latency(two) : 0) << "\n";
+      std::cout << argv[2] << "," << count << "," << rate << "," << fastest * 1000. << ","
+                << (fastest / (128000. / rate) * 100.) << "," << latency(one) + (count == 2 ? latency(two) : 0) << "\n";
       one.plugin->stop_processing(one.plugin);
       one.plugin->deactivate(one.plugin);
       if (count == 2)

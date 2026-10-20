@@ -76,7 +76,11 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
                              : slot == 1                  ? mNAMPath.Get()
                                                           : "";
     mSlotPaths[slot].Set(path.c_str());
-    if (!path.empty())
+    const auto effect = config.contains("SlotEffects") ? static_cast<SlotEffect>(config["SlotEffects"][slot].get<int>())
+                                                       : SlotEffect::NAM;
+    if (effect != SlotEffect::NAM)
+      SetSlotEffect(slot, effect, false);
+    else if (!path.empty())
       _StageModel(mSlotPaths[slot], slot);
   }
   if (mIRPath.GetLength())

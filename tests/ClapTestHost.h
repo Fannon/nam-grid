@@ -53,13 +53,18 @@ struct Stream
 };
 struct Host
 {
-  bool restart = false, callback = false, dirty = false;
+  bool restart = false, callback = false, dirty = false, flushRequested = false;
   static const void* extension(const clap_host*, const char* id)
   {
     static const clap_host_latency latency{[](const clap_host*) {}};
     static const clap_host_state state{[](const clap_host* h) { static_cast<Host*>(h->host_data)->dirty = true; }};
+    static const clap_host_params params{
+      [](const clap_host*, clap_param_rescan_flags) {}, [](const clap_host*, clap_id, clap_param_clear_flags) {},
+      [](const clap_host* h) { static_cast<Host*>(h->host_data)->flushRequested = true; }};
     if (std::strcmp(id, CLAP_EXT_STATE) == 0)
       return &state;
+    if (std::strcmp(id, CLAP_EXT_PARAMS) == 0)
+      return &params;
     return std::strcmp(id, CLAP_EXT_LATENCY) == 0 ? &latency : nullptr;
   }
   clap_host host{CLAP_VERSION_INIT,

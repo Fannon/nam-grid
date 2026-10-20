@@ -4,6 +4,7 @@ This branch experiments with a fixed 16-slot NAM grid: four serial input slots, 
 four-slot lanes, and four serial output slots. It retains native CLAP/VST3 and iPlug2.
 Start with the [grid experiment](docs/GRID.md), [build instructions](docs/BUILD.md),
 [repository assessment](docs/PHASE0.md), and [verification report](docs/VERIFICATION.md).
+Slots also offer [simple noise gates and compressors](docs/EFFECTS.md), with three knobs per effect.
 Windows builds and the automated harness are verified; Bitwig and macOS testing remain outstanding.
 
 [![Build](https://github.com/sdatkinson/NeuralAmpModelerPlugin/actions/workflows/build-native.yml/badge.svg)](https://github.com/sdatkinson/NeuralAmpModelerPlugin/actions/workflows/build-native.yml)

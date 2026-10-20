@@ -14,6 +14,7 @@ public:
     bool enabled = true, calibrate = false;
     double inputDB = 0., trimDB = 0., calibrationDB = 0., slim = 1.;
     int outputMode = 0;
+    DynamicsControls dynamics;
   };
 
   std::array<NAMStage, kSlots> stages;
@@ -123,8 +124,8 @@ private:
     for (int i = first; i < first + 4; ++i)
     {
       const auto& c = controls[i];
-      stages[i].Process(
-        samples, frames, c.enabled, c.inputDB, c.trimDB, c.calibrate, c.calibrationDB, c.outputMode, c.slim);
+      stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.calibrate, c.calibrationDB, c.outputMode,
+                        c.slim, c.dynamics);
     }
   }
   std::array<int, 2> LaneLatencies() const

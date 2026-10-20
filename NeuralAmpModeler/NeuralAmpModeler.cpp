@@ -115,6 +115,16 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
   }
   GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "% B");
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    const auto name = GridSlotName(slot);
+    GetParam(SlotDynamicsParam(slot, 0))->InitDouble((name + " Gate Threshold").c_str(), -55., -90., -10., .1, "dB");
+    GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Decay").c_str(), 120., 20., 500., 1., "ms");
+    GetParam(SlotDynamicsParam(slot, 2))->InitDouble((name + " Gate Depth").c_str(), 60., 0., 80., .1, "dB");
+    GetParam(SlotDynamicsParam(slot, 3))->InitDouble((name + " Comp Threshold").c_str(), -18., -48., 0., .1, "dB");
+    GetParam(SlotDynamicsParam(slot, 4))->InitDouble((name + " Comp Release").c_str(), 120., 40., 600., 1., "ms");
+    GetParam(SlotDynamicsParam(slot, 5))->InitDouble((name + " Comp Makeup").c_str(), 0., 0., 18., .1, "dB");
+  }
   const auto defaultFolder = nam_library::ReadFolderSetting(CaptureSettingsFile());
   if (!defaultFolder.empty())
     SetCaptureFolder(defaultFolder.c_str());
@@ -263,6 +273,12 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.enabled = GetParam(SlotActiveParam(slot))->Bool();
     c.inputDB = GetParam(SlotInputParam(slot))->Value();
     c.trimDB = GetParam(SlotTrimParam(slot))->Value();
+    c.dynamics.gateThreshold = GetParam(SlotDynamicsParam(slot, 0))->Value();
+    c.dynamics.gateRelease = GetParam(SlotDynamicsParam(slot, 1))->Value();
+    c.dynamics.gateRange = GetParam(SlotDynamicsParam(slot, 2))->Value();
+    c.dynamics.compThreshold = GetParam(SlotDynamicsParam(slot, 3))->Value();
+    c.dynamics.compRelease = GetParam(SlotDynamicsParam(slot, 4))->Value();
+    c.dynamics.compMakeup = GetParam(SlotDynamicsParam(slot, 5))->Value();
   }
   // Preserve the former Amp's calibration/normalization controls on IN 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -385,6 +401,21 @@ bool NeuralAmpModeler::IsSlotLoaded(size_t slot) const
   return slot < mSlotInfo.size() && mSlotInfo[slot].loaded;
 }
 
+SlotEffect NeuralAmpModeler::GetSlotEffect(size_t slot) const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  return slot < mSlotEffects.size() ? mSlotEffects[slot] : SlotEffect::NAM;
+}
+
+void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
+{
+  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::PunchComp)
+    return;
+  _ClearModel(slot, effect);
+  if (fromUI)
+    _NotifyHostStateChanged();
+}
+
 std::string NeuralAmpModeler::LoadSlot(size_t slot, const char* path)
 {
   const auto error = _StageModel(WDL_String(path), slot);
@@ -499,7 +530,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 2;
+  config["schema"] = 3;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
@@ -507,6 +538,9 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
     config["SlotPaths"].push_back(path.Get());
+  config["SlotEffects"] = nlohmann::json::array();
+  for (const auto effect : mSlotEffects)
+    config["SlotEffects"].push_back(static_cast<int>(effect));
   for (int i = 0; i < kNumParams; ++i)
     config[GetParam(i)->GetName()] = GetParam(i)->Value();
   chunk.PutStr("###NAMGrid-v1###");
@@ -532,8 +566,14 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (pos < 0)
         return -1;
       auto config = nlohmann::json::parse(serialized.Get());
-      if (!config.is_object() || config.value("schema", 0) != (grid ? 2 : 1))
+      if (!config.is_object())
         return -1;
+      if (!config.contains("schema") || !config["schema"].is_number_integer())
+        return -1;
+      const auto& schemaValue = config["schema"];
+      if (grid ? (schemaValue != 2 && schemaValue != 3) : schemaValue != 1)
+        return -1;
+      const int schema = schemaValue.get<int>();
       for (const char* name : {"DrivePath", "NAMPath", "IRPath"})
         if (!config.contains(name) || !config[name].is_string() || config[name].get<std::string>().size() > 32768)
           return -1;
@@ -552,6 +592,19 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             return -1;
         if (config["SlotPaths"][0] != config["DrivePath"] || config["SlotPaths"][1] != config["NAMPath"])
           return -1;
+        if (schema == 3)
+        {
+          if (!config.contains("SlotEffects") || !config["SlotEffects"].is_array()
+              || config["SlotEffects"].size() != FixedNAMGrid::kSlots)
+            return -1;
+          for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+          {
+            const auto& effect = config["SlotEffects"][slot];
+            if (!effect.is_number_integer() || effect < 0 || effect > 4
+                || (effect.get<int>() != 0 && config["SlotPaths"][slot] != ""))
+              return -1;
+          }
+        }
       }
       else
       {
@@ -559,7 +612,14 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         for (int i = kDualNumParams; i < kNumParams; ++i)
           config.erase(GetParam(i)->GetName());
       }
-      for (int i = 0; i < (grid ? kNumParams : kDualNumParams); ++i)
+      const int count = !grid ? kDualNumParams : schema == 2 ? kGridV2NumParams : kNumParams;
+      if (schema < 3)
+      {
+        config.erase("SlotEffects");
+        for (int i = count; i < kNumParams; ++i)
+          config.erase(GetParam(i)->GetName());
+      }
+      for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
@@ -747,6 +807,7 @@ std::string NeuralAmpModeler::_StageModel(const WDL_String& modelPath, size_t sl
     }
     mSlotPaths[slot] = modelPath;
     mSlotInfo[slot] = info;
+    mSlotEffects[slot] = SlotEffect::NAM;
     _UpdateLatency(latencyChanged);
     SendControlMsgFromDelegate(tag, kMsgTagLoadedModel, modelPath.GetLength() + 1, modelPath.Get());
     if (slot == 1)
@@ -943,17 +1004,21 @@ void NeuralAmpModeler::_UpdateMeters(sample** inputPointer, sample** outputPoint
 // HACK
 #include "Unserialization.cpp"
 
-void NeuralAmpModeler::_ClearModel(size_t slot)
+void NeuralAmpModeler::_ClearModel(size_t slot, SlotEffect effect)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (slot >= FixedNAMGrid::kSlots)
     return;
   const bool latencyChanged = mRequestedLatencies[slot] != 0;
   mRequestedLatencies[slot] = 0;
+  auto prepared = std::make_unique<NAMStage::Prepared>();
+  prepared->effect = effect;
+  prepared->Reset(mSampleRatePrepared, mMaxBlockPrepared);
+  const auto info = prepared->Info();
 #ifdef CLAP_API
-  mGrid.stages[slot].Publish(std::make_unique<NAMStage::Prepared>(), latencyChanged);
+  mGrid.stages[slot].Publish(std::move(prepared), latencyChanged);
 #else
-  mGrid.stages[slot].Publish(std::make_unique<NAMStage::Prepared>());
+  mGrid.stages[slot].Publish(std::move(prepared));
 #endif
   if (slot == 0)
   {
@@ -966,7 +1031,8 @@ void NeuralAmpModeler::_ClearModel(size_t slot)
     mAmpInfo = {};
   }
   mSlotPaths[slot].Set("");
-  mSlotInfo[slot] = {};
+  mSlotInfo[slot] = info;
+  mSlotEffects[slot] = effect;
   if (slot == 1)
     _UpdateControlsFromModel();
   _UpdateLatency(latencyChanged);

@@ -59,10 +59,14 @@ enum EParams
   kAmpActive,
   kGridSlotBase,
   kParallelBlend = kGridSlotBase + 14 * 3,
-  kNumParams
+  kDynamicsBase,
+  kNumParams = kDynamicsBase + 16 * 6
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
+constexpr int kGridV2NumParams = kDynamicsBase;
+constexpr int SlotDynamicsParam(size_t slot, int control)
+{ return kDynamicsBase + static_cast<int>(slot) * 6 + control; }
 constexpr int SlotInputParam(size_t slot)
 { return slot == 0 ? kDriveInput : slot == 1 ? kInputLevel : kGridSlotBase + (slot - 2) * 3; }
 constexpr int SlotTrimParam(size_t slot)
@@ -137,6 +141,8 @@ public:
   void SetCaptureFilter(nam_library::Filter filter);
   std::string GetSlotPath(size_t slot) const;
   bool IsSlotLoaded(size_t slot) const;
+  SlotEffect GetSlotEffect(size_t slot) const;
+  void SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI = true);
   std::string LoadSlot(size_t slot, const char* path);
   void ClearSlot(size_t slot);
 
@@ -159,7 +165,7 @@ private:
   // it wasn't successful.
   dsp::wav::LoadReturnCode _StageIR(const WDL_String& irPath);
 
-  void _ClearModel(size_t slot);
+  void _ClearModel(size_t slot, SlotEffect effect = SlotEffect::NAM);
   // Prepare the input & output buffers
   void _PrepareBuffers(const size_t numChannels, const size_t numFrames);
   // Manage pointers
@@ -214,6 +220,7 @@ private:
   FixedNAMGrid mGrid;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
+  std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();

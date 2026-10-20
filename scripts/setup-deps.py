@@ -18,16 +18,22 @@ def git(*args):
     subprocess.run(["git", *map(str, args)], check=True)
 
 
+def apply_dependency_patches():
+    for dependency, pattern in (("NeuralAmpModelerCore", "nam-core-*.patch"),
+                                ("AudioDSPTools", "audio-dsp-*.patch")):
+        directory = ROOT / dependency
+        for patch in sorted((ROOT / "patches").glob(pattern)):
+            applied = subprocess.run(["git", "-C", str(directory), "apply", "--reverse", "--check", str(patch)],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+            if not applied:
+                git("-C", directory, "apply", "--check", patch)
+                git("-C", directory, "apply", patch)
+
+
 def main():
     if not (ROOT / "iPlug2" / "iPlug2.cmake").is_file():
         raise SystemExit("Initialize the pinned git submodules first (see docs/BUILD.md).")
-    core = ROOT / "NeuralAmpModelerCore"
-    for patch in sorted((ROOT / "patches").glob("nam-core-*.patch")):
-        applied = subprocess.run(["git", "-C", str(core), "apply", "--reverse", "--check", str(patch)],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
-        if not applied:
-            git("-C", core, "apply", "--check", patch)
-            git("-C", core, "apply", patch)
+    apply_dependency_patches()
     CACHE.mkdir(exist_ok=True)
     for name, url, revision in PINS:
         source = CACHE / name

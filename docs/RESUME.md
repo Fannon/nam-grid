@@ -16,7 +16,7 @@ Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
   survives built-ins and IRs; mono NAM averages input and runs inference once.
 - Reset now clears stale input buffers/DC-filter histories. Fractional ring reads
   no longer round outside the delay buffer at near-integer boundaries.
-- Windows Release CLAP/VST3 build and all three CTest suites pass. New tests cover
+- Windows Release CLAP/VST3 builds and four CTest suites cover the current changes. New tests cover
   tuner accuracy/worker, no audio allocations, stereo/A2/IR, tempo transport,
   older-schema migration and tuner UI mute/teardown. See MODULES.md for details.
 - Ping-pong switch on all three delays, Chorus Spread, stereo wet output from
@@ -41,11 +41,15 @@ can show partial frames; final native repainting still needs real-host review.
 
 ## Workspace/build details
 
-- The directory is historically named `nam-dual`; plugin name is `nam-grid`.
+- Checkout directory: `C:/Users/Fannon/dev/nam-grid` (renamed from `nam-dual`).
 - Build: [BUILD.md](BUILD.md), local helper `../nam-build-tools/build-grid.bat`.
-- `NeuralAmpModelerCore` is intentionally dirty from the two tracked allocation
-  patches in `patches/`. Do not revert or stage its gitlink.
+- `NeuralAmpModelerCore` and `AudioDSPTools` are intentionally dirty from tracked
+  patches in `patches/`. Do not revert or stage their gitlinks.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
   No new runtime dependency. Schema 9 has 1262 parameters, accepting earlier
   schemas with name-based defaults for newly added fields. Schema 8 Utility Width
   migrates to centered Stereo by subtracting 100; tuner preferences are preserved.
+
+The four actionable review findings are fixed: safe/transactional WAV reads,
+correct PCM32 polarity, uniform slot input ranges and smoothed Master gain.
+Regression/sanitizer details: [REVIEW_FIXES_20261020.md](REVIEW_FIXES_20261020.md).

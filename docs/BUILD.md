@@ -25,7 +25,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests nam-wav-tests --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
@@ -34,10 +34,10 @@ and add `-G Ninja` to the configure command. Local verification used MSVC 19.44,
 Windows SDK 10.0.26100, CMake 4.4.4, Ninja 1.13.2 and Release optimization.
 The optional portable toolchain used in this workspace is outside this repository.
 
-The setup script also applies two narrow MIT-licensed upstream Core allocation fixes
-from `patches/`. Core remains pinned to `9c7b185`; a modified Core submodule is expected
-after setup. The patch files are the reproducible source of these changes. Do not reset
-that submodule after setup without applying the patches again. Setup checks whether each
+The setup script applies the two MIT Core allocation fixes and the AudioDSPTools WAV
+decoder safety/polarity patch from `patches/`. Core remains pinned to `9c7b185`,
+AudioDSPTools to `e19ef4b`; both submodules are intentionally modified after setup. The patch files are the reproducible source of these changes. Do not reset
+those submodules after setup without applying the patches again. Setup checks whether each
 patch is already applied, and refuses patches that cannot be applied cleanly.
 
 Output:
@@ -147,3 +147,9 @@ The baseline script extracts the original plugin DSP/header/state reader from up
 as the prototype. The benchmark establishes host rate/block size before loading baseline state,
 because the original loader assumes those values are available. The baseline is a DSP comparison
 build, not an official upstream CLAP release. See `VERIFICATION.md` for results and limits.
+
+WAV regression tests are in the `nam-wav-tests` target (`wav-decoder` in CTest).
+Build that target alongside the existing library/stage/CLAP tests. A separate
+configuration with `-DNAM_WAV_ASAN=ON` enables MSVC AddressSanitizer or GCC/Clang
+address/undefined sanitizers for this focused target. See
+[REVIEW_FIXES_20261020.md](REVIEW_FIXES_20261020.md) for reproduction details.

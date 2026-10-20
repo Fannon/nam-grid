@@ -2,6 +2,7 @@
 #include "ClapTestHost.h"
 #include <thread>
 #include "WinEditorCapture.h"
+#include "WinEditMenuDriver.h"
 #include "../NeuralAmpModeler/EffectParameters.h"
 int main(int argc, char** argv)
 {
@@ -51,6 +52,27 @@ int main(int argc, char** argv)
   auto base = save().config();
   assert(params->count(plugin) == 286 + 16 * kUtilityControls);
   assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
+  for (const char* name : {"Input", "Drive Input", "Pre 3 In", "Post 4 In"})
+    for (double db : {-40., -30., 30., 40.})
+    {
+      clap_param_info info{};
+      bool found = false;
+      for (uint32_t i = 0; i < params->count(plugin); ++i)
+      {
+        assert(params->get_info(plugin, i, &info));
+        if (std::strcmp(info.name, name) == 0)
+        {
+          found = true;
+          break;
+        }
+      }
+      assert(found);
+      double value = 0.;
+      char text[64]{};
+      assert(params->text_to_value(plugin, info.id, std::to_string(db).c_str(), &value));
+      assert(params->value_to_text(plugin, info.id, value, text, sizeof(text)));
+      assert(std::abs(std::stod(text) - db) < 1.e-9);
+    }
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
   auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
@@ -554,6 +576,86 @@ int main(int argc, char** argv)
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
   load(cleared);
+  clap_param_info masterInfo{};
+  for (uint32_t i = 0; i < params->count(plugin); ++i)
+  {
+    assert(params->get_info(plugin, i, &masterInfo));
+    if (std::strcmp(masterInfo.name, "Output") == 0)
+      break;
+  }
+  assert(std::strcmp(masterInfo.name, "Output") == 0);
+  auto setMaster = [&](double db) {
+    clap_event_param_value value{};
+    value.header.size = sizeof(value);
+    value.header.type = CLAP_EVENT_PARAM_VALUE;
+    value.param_id = masterInfo.id;
+    value.note_id = value.port_index = value.channel = value.key = -1;
+    assert(params->text_to_value(plugin, masterInfo.id, std::to_string(db).c_str(), &value.value));
+    clap_input_events update{&value, [](const clap_input_events*) -> uint32_t { return 1; },
+                             [](const clap_input_events* e, uint32_t) -> const clap_event_header* {
+                               return &static_cast<clap_event_param_value*>(e->ctx)->header;
+                             }};
+    params->flush(plugin, &update, &sent);
+  };
+  for (double rate : {44100., 48000., 96000.})
+  {
+    std::vector<double> reference;
+    for (int partition : {1, 3, 64, 127, 512})
+    {
+      auto masterState = cleared;
+      masterState["Output"] = 0.;
+      load(masterState);
+      assert(plugin->activate(plugin, rate, 1, 512));
+      assert(plugin->start_processing(plugin));
+      int position = 0;
+      auto render = [&](int n) {
+        process.frames_count = n;
+        for (int i = 0; i < n; ++i)
+          input[0][i] = input[1][i] = .2 * std::cos(2. * 3.141592653589793 * 375. * (position + i) / rate);
+        assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+        position += n;
+      };
+      for (int i = 0; i < 20; ++i)
+        render(512);
+      const double previous = output[0][511];
+      setMaster(-20.);
+      std::vector<double> result;
+      result.reserve(4096);
+      for (int pos = 0; pos < 4096;)
+      {
+        const int n = std::min(partition, 4096 - pos);
+        render(n);
+        if (pos == 0)
+          assert(std::abs(output[0][0] - previous) < .012);
+        for (int i = 0; i < n; ++i)
+        {
+          assert(std::isfinite(output[0][i]));
+          result.push_back(output[0][i]);
+        }
+        pos += n;
+      }
+      if (reference.empty())
+        reference = result;
+      else
+        for (int i = 0; i < 4096; ++i)
+          assert(std::abs(reference[i] - result[i]) < 1.e-10);
+      // Startup from a recalled level is immediate, not a fade from unity.
+      plugin->stop_processing(plugin);
+      plugin->deactivate(plugin);
+      masterState["Output"] = -20.;
+      load(masterState);
+      assert(plugin->activate(plugin, rate, 1, 512));
+      assert(plugin->start_processing(plugin));
+      position = 0;
+      render(1);
+      const double dc = 1. / (1. + 2. * 3.141592653589793 * 5. / rate);
+      assert(std::abs(output[0][0] - .02 * dc) < 1.e-8);
+      plugin->stop_processing(plugin);
+      plugin->deactivate(plugin);
+    }
+  }
+  load(cleared);
+  process.frames_count = 512;
   // A tiny PCM16 WAV exercises the reused IR loader/convolver and project recall.
   auto irFile = fixtures / "cabinet.wav";
   {
@@ -813,6 +915,58 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  // Exercise the actual native selection callback, parameter commit and prepared publication.
+  for (int source : {0, 1})
+    for (int mode : {0, 1, 2}) // Copy, Move, Swap
+      for (double gain : {-30., 30.})
+      {
+        const int destination = 1 - source;
+        const char* sourceGain = source == 0 ? "Drive Input" : "Input";
+        const char* destinationGain = destination == 0 ? "Drive Input" : "Input";
+        auto editState = browserState;
+        editState["DrivePath"] = libraryFirst.string();
+        editState["NAMPath"] = librarySecond.string();
+        editState[sourceGain] = gain;
+        const double previousGain = gain > 0. ? -35. : 35.;
+        editState[destinationGain] = previousGain;
+        load(editState);
+        assert(plugin->activate(plugin, 48000., 1, 512));
+        assert(plugin->start_processing(plugin));
+        process.frames_count = 512;
+        for (int i = 0; i < 512; ++i)
+          input[0][i] = input[1][i] = .1 * std::sin(i * .03);
+        assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+        win_edit_menu::SelectFirstDestination(editor, source, mode);
+        pumpFor(50);
+        const auto edited = save().config();
+        assert(std::abs(edited[destinationGain].get<double>() - gain) < 1.e-9);
+        assert(edited["SlotPaths"][destination] == editState["SlotPaths"][source]);
+        if (mode == 0)
+        {
+          assert(edited["SlotPaths"][source] == editState["SlotPaths"][source]);
+          assert(edited[sourceGain] == gain);
+        }
+        else if (mode == 1)
+        {
+          assert(edited["SlotPaths"][source] == "");
+          assert(edited[sourceGain] == 0.);
+        }
+        else
+        {
+          assert(edited["SlotPaths"][source] == editState["SlotPaths"][destination]);
+          assert(edited[sourceGain] == previousGain);
+        }
+        for (int block = 0; block < 8; ++block)
+        {
+          assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+          for (int i = 0; i < 512; ++i)
+            assert(std::isfinite(output[0][i]) && std::isfinite(output[1][i]));
+        }
+        assert(save().config() == edited);
+        plugin->stop_processing(plugin);
+        plugin->deactivate(plugin);
+      }
+  load(browserState);
   click(890, 90); // Manual rescan works even if startup scanning is disabled in user preferences.
   pumpFor(250);
   auto eqUI = browserState;
@@ -821,6 +975,7 @@ int main(int argc, char** argv)
   eqUI["SlotEffects"][2] = 7;
   eqUI["SlotPaths"][2] = irFile.string();
   load(eqUI);
+  click(170, 160); // Select Pre 1 independently of earlier menu tests.
   pumpFor(100);
   const auto dragAt = [&](int x, int y) {
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));

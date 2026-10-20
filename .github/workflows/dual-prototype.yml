@@ -17,7 +17,7 @@ jobs:
           python-version: '3.11'
       - run: python scripts/setup-deps.py
       - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests --parallel 3
+      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-wav-tests --parallel 3
       - run: ctest --test-dir build-ci -C Release --output-on-failure
       - uses: actions/upload-artifact@v4
         with:

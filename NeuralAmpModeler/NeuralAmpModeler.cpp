@@ -52,7 +52,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
 {
   _InitToneStack();
   nam::activations::Activation::enable_fast_tanh();
-  GetParam(kInputLevel)->InitGain("Input", 0.0, -20.0, 20.0, 0.1);
+  GetParam(kInputLevel)->InitGain("Input", 0.0, -40.0, 40.0, 0.1);
   GetParam(kToneBass)->InitDouble("Bass", 5.0, 0.0, 10.0, 0.1);
   GetParam(kToneMid)->InitDouble("Middle", 5.0, 0.0, 10.0, 0.1);
   GetParam(kToneTreble)->InitDouble("Treble", 5.0, 0.0, 10.0, 0.1);
@@ -415,6 +415,8 @@ void NeuralAmpModeler::OnReset()
   mSampleRatePrepared = sampleRate;
   mMaxBlockPrepared = maxBlockSize;
   mMeterFrames = 0;
+  mMasterGain = GetParam(kOutputLevel)->DBToAmp();
+  mMasterCoefficient = std::exp(-1. / (.005 * sampleRate));
   _PrepareBuffers(kNumChannelsInternal, maxBlockSize);
   for (auto& channel : mInputArray)
     std::fill(channel.begin(), channel.end(), 0.);
@@ -1241,10 +1243,11 @@ void NeuralAmpModeler::_ProcessOutput(iplug::sample** inputs, iplug::sample** ou
   for (size_t s = 0; s < nFrames; ++s)
   {
     mTunerGain += std::clamp(target - mTunerGain, -step, step);
+    mMasterGain = gain + mMasterCoefficient * (mMasterGain - gain);
     for (size_t c = 0; c < nChansOut; ++c)
     {
       const double value = nChansOut == 1 ? .5 * (inputs[0][s] + inputs[1][s]) : inputs[std::min(c, nChansIn - 1)][s];
-      outputs[c][s] = gain * mTunerGain * value;
+      outputs[c][s] = mMasterGain * mTunerGain * value;
 #ifdef APP_API
       outputs[c][s] = std::clamp(outputs[c][s], -1., 1.);
 #endif

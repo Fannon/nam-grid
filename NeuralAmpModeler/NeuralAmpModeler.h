@@ -292,7 +292,7 @@ private:
   dsp::noise_gate::Gain mNoiseGateGain;
   FixedNAMGrid mGrid;
   grid_tuner::Tuner mTuner;
-  double mTunerGain = 1.;
+  double mTunerGain = 1., mMasterGain = 1., mMasterCoefficient = 0.;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};

@@ -1,5 +1,6 @@
 #pragma once
 #include "SlotOperations.h"
+#include "WavFixtures.h"
 
 void TestSlotFeatures()
 {
@@ -29,6 +30,28 @@ void TestSlotFeatures()
     number(8192, 2);
     number(61440, 2);
   }
+  // Malformed payloads must fail before an IR can be prepared for publication.
+  const auto malformedIR = directory / "malformed.wav";
+  for (int variant = 0; variant < 4; ++variant)
+    for (bool truncated : {false, true})
+    {
+      const int bits = variant == 0 ? 16 : variant == 1 ? 24 : 32;
+      const int bytes = truncated ? 128 : bits / 8 + 1;
+      wav_fixture::Write(malformedIR, bits, variant == 3, {0}, bytes, truncated ? 2 : bytes);
+      SlotConfig invalid;
+      invalid.effect = SlotEffect::CabinetIR;
+      invalid.path = malformedIR.string();
+      bool rejected = false;
+      try
+      {
+        auto prepared = PrepareSlot(invalid, 48000., 512);
+      }
+      catch (const std::exception&)
+      {
+        rejected = true;
+      }
+      assert(rejected);
+    }
   for (double rate : {44100., 48000., 96000.})
   {
     for (bool cuts : {false, true})

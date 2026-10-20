@@ -258,6 +258,9 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.dynamics.compThreshold = GetParam(SlotDynamicsParam(slot, 3))->Value();
     c.dynamics.compRelease = GetParam(SlotDynamicsParam(slot, 4))->Value();
     c.dynamics.compMakeup = GetParam(SlotDynamicsParam(slot, 5))->Value();
+    c.dynamics.compAttack = GetParam(SlotUtilityParam(slot, uCompAttack))->Value();
+    c.dynamics.punchAttack = GetParam(SlotUtilityParam(slot, uPunchAttack))->Value();
+    c.dynamics.compMix = GetParam(SlotUtilityParam(slot, uCompMix))->Value();
     c.eq.bass = GetParam(SlotEQParam(slot, 0))->Value();
     c.eq.mid = GetParam(SlotEQParam(slot, 1))->Value();
     c.eq.treble = GetParam(SlotEQParam(slot, 2))->Value();
@@ -284,6 +287,12 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     }
     for (int i = 0; i < 4; ++i)
       c.utility.tape[i] = GetParam(SlotUtilityParam(slot, uTapeDrive + i))->Value();
+    c.utility.delayMotion = GetParam(SlotUtilityParam(slot, uDelayMotion))->Value();
+    c.utility.delayOutput = GetParam(SlotUtilityParam(slot, uDelayOutput))->Value();
+    c.utility.reverbMotion = GetParam(SlotUtilityParam(slot, uReverbMotion))->Value();
+    c.utility.reverbHighPass = GetParam(SlotUtilityParam(slot, uReverbHighPass))->Value();
+    for (int i = 0; i < 4; ++i)
+      c.utility.tube[i] = GetParam(SlotUtilityParam(slot, uTubeDrive + i))->Value();
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -487,7 +496,7 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
-  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::Tape)
+  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::TubeBoost)
     return;
   _ClearModel(slot, effect);
   if (fromUI)
@@ -699,7 +708,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 6;
+  config["schema"] = 7;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
@@ -741,7 +750,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (!config.contains("schema") || !config["schema"].is_number_integer())
         return -1;
       const auto& schemaValue = config["schema"];
-      if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 4 && schemaValue != 5 && schemaValue != 6)
+      if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 4 && schemaValue != 5 && schemaValue != 6
+                  && schemaValue != 7)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -780,9 +790,10 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           {
             const auto& effect = config["SlotEffects"][slot];
             if (!effect.is_number_integer() || effect < 0
-                || effect > (schema == 3  ? 4
-                             : schema < 6 ? 7
-                                          : static_cast<int>(SlotEffect::Tape))
+                || effect > (schema == 3   ? 4
+                             : schema < 6  ? 7
+                             : schema == 6 ? static_cast<int>(SlotEffect::Tape)
+                                           : static_cast<int>(SlotEffect::TubeBoost))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -813,6 +824,10 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
+        // Schema 6 had 30 named utility controls per slot. Fill only newly added
+        // controls; the expanded per-slot stride does not change saved names.
+        if (grid && schema == 6 && i >= kUtilityBase && (i - kUtilityBase) % kUtilityControls >= 30)
+          config[name] = GetParam(i)->GetDefault();
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
       }

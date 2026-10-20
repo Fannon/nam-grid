@@ -3,7 +3,7 @@
 #include "SlotDynamics.h"
 
 // Shared within a family, independent for every grid slot. Descriptors also drive
-// the editor, so parameter ranges, defaults and the six control positions agree.
+// the editor, so parameter ranges, defaults and the eight control positions agree.
 enum UtilityParam
 {
   uFrequency,
@@ -36,6 +36,17 @@ enum UtilityParam
   uTapeBump,
   uTapeMix,
   uTapeOutput,
+  uCompAttack,
+  uCompMix,
+  uDelayMotion,
+  uDelayOutput,
+  uReverbMotion,
+  uReverbHighPass,
+  uTubeDrive,
+  uTubeBias,
+  uTubeMix,
+  uTubeOutput,
+  uPunchAttack,
   kUtilityControls
 };
 struct EffectParameter
@@ -63,12 +74,12 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Delay Feedback", "Feedback", 35, 0, 82, .1, "%", 1},
    {"Delay Tone", "Tone", 5000, 800, 12000, 1, "Hz", 2, true},
    {"Delay Character", "Character", 20, 0, 100, .1, "%", 3},
-   {"Delay Mix", "Mix", 25, 0, 100, .1, "%", 4},
+   {"Delay Mix", "Mix", 25, 0, 100, .1, "%", 5},
    {"Reverb Decay", "Decay", 2, .25, 10, .01, "s", 0, true},
    {"Reverb Size", "Size", 100, 50, 150, .1, "%", 1},
    {"Reverb Tone", "Damping", 5500, 800, 12000, 1, "Hz", 2, true},
    {"Reverb Predelay", "Pre-delay", 15, 0, 100, .1, "ms", 3},
-   {"Reverb Mix", "Mix", 20, 0, 100, .1, "%", 4},
+   {"Reverb Mix", "Mix", 20, 0, 100, .1, "%", 6},
    {"Mod Rate", "Rate", .8, .05, 10, .01, "Hz", 0, true},
    {"Mod Depth", "Depth", 50, 0, 100, .1, "%", 1},
    {"Mod Feedback", "Feedback", 20, 0, 75, .1, "%", 2},
@@ -77,7 +88,18 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Tape Drive", "Drive", 0, -12, 12, .1, "dB", 0},
    {"Tape Bump", "Bump", 50, 0, 100, .1, "%", 1},
    {"Tape Mix", "Mix", 100, 0, 100, .1, "%", 2},
-   {"Tape Output", "Output", 0, -18, 6, .1, "dB", 3}}};
+   {"Tape Output", "Output", 0, -18, 6, .1, "dB", 3},
+   {"Comp Attack", "Attack", 8, .5, 50, .1, "ms", 3, true},
+   {"Comp Mix", "Mix", 100, 0, 100, .1, "%", 4},
+   {"Delay Modulation", "Modulation", 20, 0, 100, .1, "%", 4},
+   {"Delay Output", "Output", 0, -18, 6, .1, "dB", 6},
+   {"Reverb Modulation", "Modulation", 25, 0, 100, .1, "%", 4},
+   {"Reverb High Pass", "Low cut", 80, 0, 500, 1, "Hz", 5},
+   {"Tube Drive", "Drive", 6, 0, 24, .1, "dB", 0},
+   {"Tube Bias", "Bias", 25, 0, 100, .1, "%", 3},
+   {"Tube Mix", "Mix", 100, 0, 100, .1, "%", 4},
+   {"Tube Output", "Output", 0, -18, 18, .1, "dB", 5},
+   {"Punch Attack", "Attack", 25, .5, 50, .1, "ms", 3, true}}};
 inline bool IsDelay(SlotEffect e)
 { return e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay; }
 inline bool IsReverb(SlotEffect e)
@@ -90,14 +112,21 @@ inline bool UsesUtility(SlotEffect e, int p)
     return p >= uFrequency && p <= uQ;
   if (e == SlotEffect::Boost)
     return p == uBoostGain || p == uBoostTilt;
+  if (e == SlotEffect::TubeBoost)
+    return p == uBoostTilt || (p >= uTubeDrive && p <= uTubeOutput);
+  if (e == SlotEffect::SmoothComp)
+    return p == uCompAttack || p == uCompMix;
+  if (e == SlotEffect::PunchComp)
+    return p == uPunchAttack || p == uCompMix;
   if (e == SlotEffect::SynthFilter)
     return p >= uFilterCutoff && p <= uFilterEnvelope;
   if (e == SlotEffect::AutoSwell)
     return p >= uSwellRise && p <= uSwellRelease;
   if (IsDelay(e))
-    return p >= uDelayTime && p <= uDelayMix;
+    return (p >= uDelayTime && p <= uDelayMix) || p == uDelayOutput
+           || (p == uDelayMotion && e != SlotEffect::DigitalDelay);
   if (IsReverb(e))
-    return p >= uReverbDecay && p <= uReverbMix;
+    return (p >= uReverbDecay && p <= uReverbMix) || p == uReverbMotion || p == uReverbHighPass;
   if (IsModulation(e))
     return p >= uModRate && p <= uModMix && (p != uModMix || e != SlotEffect::Vibrato)
            && (p != uModFeedback || e == SlotEffect::Flanger || e == SlotEffect::Phaser);
@@ -114,4 +143,6 @@ struct UtilityControls
   std::array<double, 5> reverb{2., 100., 5500., 15., 20.};
   std::array<double, 5> modulation{.8, 50., 20., 0., 50.};
   std::array<double, 4> tape{0., 50., 100., 0.};
+  double delayMotion = 20., delayOutput = 0., reverbMotion = 25., reverbHighPass = 80.;
+  std::array<double, 4> tube{6., 25., 100., 0.};
 };

@@ -30,7 +30,7 @@ struct PreparedSlot
 // Control thread only. Prepare every affected resource before changing any slot.
 inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
 {
-  if (config.effect < SlotEffect::NAM || config.effect > SlotEffect::Tape)
+  if (config.effect < SlotEffect::NAM || config.effect > SlotEffect::TubeBoost)
     throw std::runtime_error("Invalid slot effect");
   auto p = std::make_unique<NAMStage::Prepared>();
   p->effect = config.effect;

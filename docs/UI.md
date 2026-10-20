@@ -8,8 +8,8 @@ The header contains blend and master. Sixteen compact cards show slot ID, file/e
 type, enabled state and slim input-left/output-right meters beside the card. Click to select; only the selected module's controls
 appear in the bottom editor. Double-click a card or use Choose / Change in the editor to open
 the module menu. Its dot and the editor's Enabled / Bypassed switch share the same parameter.
-Right-click a card for Copy / Move / Swap. The bottom editor always has six fixed positions,
-with up to five knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, Output trim;
+Right-click a card for Copy / Move / Swap. The bottom editor always has eight fixed positions,
+with up to seven knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, High pass, Low pass, Output trim;
 its neutral EQ acts after inference, not as controls of the captured amp. A2 Lite is in the
 module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
 Reduction appears for selected dynamics. The compact header contains only master/blend,
@@ -39,7 +39,7 @@ and processor; selecting NAM switches back. WAV contents are validated by the ex
 loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
 invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
 
-`CaptureFolders` is retained in the current schema 6. `CaptureFolder` remains a first-root alias
+`CaptureFolders` is retained in the current schema 7. `CaptureFolder` remains a first-root alias
 for older readers. Older single-root projects and user preferences migrate automatically.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
@@ -80,3 +80,9 @@ Manual DAW check:
    the same selection. Remove a source; its loaded modules must keep processing.
 5. Save/reopen the project. Check every library root, module file/type, gain, bypass and quality.
    Open an older project with shared processing; verify its compatibility toggles and sound.
+
+The eight-position editor aligns two controls beneath each grid column. Enabled
+stays in position eight. NAM uses all seven knobs; Tube Boost leaves one unused.
+The opt-in OpenGL readback helper occasionally returns partial frames during
+repeated captures; its screenshots are layout artifacts, not proof of host repaint
+behavior. Reopen/resize/repaint should still be checked in Bitwig.

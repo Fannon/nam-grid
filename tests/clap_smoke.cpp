@@ -217,6 +217,26 @@ int main(int argc, char** argv)
     assert(!loadBytes(invalid));
     assert(save().config() == base);
   }
+  // The last prototype's schema 6 fills new controls by name despite the new
+  // per-slot parameter stride, without dropping later slots' saved values.
+  auto prior = base;
+  prior["schema"] = 6;
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const std::string slotName = std::string(slot < 4    ? "Pre "
+                                             : slot < 8  ? "A "
+                                             : slot < 12 ? "B "
+                                                         : "Post ")
+                                 + std::to_string(slot % 4 + 1);
+    for (int p = 30; p < kUtilityControls; ++p)
+      prior.erase(slotName + " " + kEffectParameters[p].name);
+  }
+  prior["Post 4 Boost Gain"] = 11.;
+  load(prior);
+  assert(save().config()["Post 4 Boost Gain"] == 11.);
+  assert(save().config()["Post 4 Comp Attack"] == 8.);
+  assert(save().config()["Post 4 Punch Attack"] == 25.);
+  load(base);
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
   auto missing = base;
   missing["DrivePath"] = (fixtures / "missing.nam").string();
@@ -569,6 +589,14 @@ int main(int argc, char** argv)
   timeEffects["A 2 Reverb Decay"] = 3.4;
   timeEffects["B 1 Mod Rate"] = 2.3;
   timeEffects["Post 2 Tape Drive"] = 5.;
+  timeEffects["SlotEffects"][14] = 24;
+  timeEffects["Post 3 Tube Drive"] = 12.;
+  timeEffects["Post 3 Tube Bias"] = 63.;
+  timeEffects["Post 3 Tube Mix"] = 47.;
+  timeEffects["A 2 Reverb High Pass"] = 175.;
+  timeEffects["A 2 Reverb Modulation"] = 71.;
+  timeEffects["Pre 4 Delay Modulation"] = 83.;
+  timeEffects["Pre 4 Delay Output"] = -4.;
   load(timeEffects);
   assert(save().config() == timeEffects);
   auto timeSaved = save();
@@ -665,13 +693,13 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - 25));
     pumpFor(100);
   };
-  dragAt(105, 700);
+  dragAt(138, 700);
   assert(save().config()["Pre 1 EQ Bass"] != 0.);
   click(390, 160); // Select IN2 Cut EQ; only its controls may receive gestures.
-  dragAt(105, 700);
+  dragAt(138, 700);
   assert(save().config()["Pre 2 EQ High Pass"] != 0.);
   click(610, 160); // Select IN3 IR loader.
-  dragAt(105, 700);
+  dragAt(138, 700);
   assert(save().config()["Pre 3 IR Level"] != -18.);
   auto utilities = browserState;
   utilities["SlotEffects"][0] = 8;
@@ -679,7 +707,7 @@ int main(int argc, char** argv)
   utilities["Pre 1 EQ Low Pass"] = 10000.;
   load(utilities);
   click(170, 160);
-  for (int x : {105, 257, 409, 561, 713})
+  for (int x : {138, 246, 358, 466, 578})
     dragAt(x, 700);
   auto editedUtility = save().config();
   assert(editedUtility["Pre 1 Parametric Frequency"] != utilities["Pre 1 Parametric Frequency"]);
@@ -690,9 +718,10 @@ int main(int argc, char** argv)
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "parametric-eq.bmp");
   click(390, 160);
-  dragAt(105, 700);
+  dragAt(138, 700);
   assert(save().config()["Pre 2 Boost Gain"] != utilities["Pre 2 Boost Gain"]);
-  dragAt(257, 700); dragAt(409, 700);
+  dragAt(246, 700);
+  dragAt(358, 700);
   assert(save().config()["Pre 2 Boost Tilt"] != utilities["Pre 2 Boost Tilt"]);
   assert(save().config()["Pre 2 EQ High Pass"] != utilities["Pre 2 EQ High Pass"]);
   assert(save().config()["Input"] == utilities["Input"]);
@@ -700,7 +729,7 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
   // Every visible new knob must update its slot's automated parameter, with no
   // hidden controls stealing gestures when modules are restored into an open UI.
-  for (int id = 10; id <= 23; ++id)
+  for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24})
   {
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;
@@ -714,7 +743,7 @@ int main(int argc, char** argv)
         const std::string name = std::string("Pre 1 ") + descriptor.name;
         const auto before = save().config();
         // Drag down at an upper limit (Tape Mix defaults to 100%).
-        const int x = 105 + 152 * descriptor.position;
+        const int x = 138 + 220 * (descriptor.position / 2) + 108 * (descriptor.position % 2);
         const int delta = before[name].get<double>() >= descriptor.maximum ? 25 : -25;
         SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, 700));
         SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, 700 + delta));
@@ -722,7 +751,7 @@ int main(int argc, char** argv)
         pumpFor(30);
         assert(save().config()[name] != before[name]);
       }
-    click(865, 707);
+    click(906, 707);
     assert(save().config()["Drive Enabled"] == 0.);
     if (argc == 4)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
@@ -732,6 +761,7 @@ int main(int argc, char** argv)
   auto qualityState = browserState;
   qualityState["DrivePath"] = packedPath.string();
   qualityState["Pre 1 Full Quality"] = 1.;
+  qualityState["Pre 1 EQ Low Pass"] = 10000.;
   load(qualityState);
   pumpFor(100);
   assert(plugin->activate(plugin, 48000., 1, 512));
@@ -768,23 +798,27 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 1 Full Quality"] == 0.);
   for (int i = 0; i < 30; ++i)
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
-  dragAt(105, 700);
-  dragAt(257, 700);
-  dragAt(409, 700);
-  dragAt(561, 700);
-  dragAt(713, 700);
+  dragAt(138, 700);
+  dragAt(246, 700);
+  dragAt(358, 700);
+  dragAt(466, 700);
+  dragAt(578, 700);
+  dragAt(686, 700);
+  dragAt(798, 700);
   const auto namControls = save().config();
   assert(namControls["Drive Input"] != qualityState["Drive Input"]);
   assert(namControls["Pre 1 EQ Bass"] != qualityState["Pre 1 EQ Bass"]);
   assert(namControls["Pre 1 EQ Mid"] != qualityState["Pre 1 EQ Mid"]);
   assert(namControls["Pre 1 EQ Treble"] != qualityState["Pre 1 EQ Treble"]);
   assert(namControls["Drive Trim"] != qualityState["Drive Trim"]);
-  click(865, 707);
+  assert(namControls["Pre 1 EQ High Pass"] != qualityState["Pre 1 EQ High Pass"]);
+  assert(namControls["Pre 1 EQ Low Pass"] != qualityState["Pre 1 EQ Low Pass"]);
+  click(906, 707);
   assert(save().config()["Drive Enabled"] == 0.);
-  click(865, 707);
+  click(906, 707);
   assert(save().config()["Drive Enabled"] == 1.);
   if (argc == 4)
-    CaptureEditor(editor, std::filesystem::path(argv[3]) / "nam-six-controls.bmp");
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "nam-eight-controls.bmp");
   auto liteSaved = save();
   automate("Pre 1 Full Quality", 1.);
   assert(save().config()["Pre 1 Full Quality"] == 1.);
@@ -808,13 +842,13 @@ int main(int argc, char** argv)
   load(effectUI);
   pumpFor(100);
   click(170, 160);
-  dragAt(105, 700); // Selected IN1 gate threshold.
+  dragAt(138, 700); // Selected IN1 gate threshold.
   assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
   assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
   click(390, 160);
-  dragAt(409, 700); // Selected IN2 compressor makeup.
+  dragAt(358, 700); // Selected IN2 compressor makeup.
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
   // Card dot bypass and bottom editor toggle must share the same automated parameter.
@@ -881,7 +915,7 @@ int main(int argc, char** argv)
   click(910, 36);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
-  dragAt(713, 700); // NAM output trim underneath; no settings control occupies this point.
+  dragAt(798, 700); // NAM output trim underneath; no settings control occupies this point.
   assert(save().config() == beforeSettings);
   click(915, 44);
   click(910, 36);
@@ -889,7 +923,7 @@ int main(int argc, char** argv)
   SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(915, 44));
   SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
-  dragAt(105, 700);
+  dragAt(138, 700);
   assert(save().config()["Drive Input"] != beforeSettings["Drive Input"]);
   if (argc == 4)
   {
@@ -921,6 +955,14 @@ int main(int argc, char** argv)
     pumpFor(100);
     click(610, 160);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "node-colors.bmp");
+    colors["SlotEffects"][0] = 24;
+    colors["SlotPaths"][0] = "";
+    colors["DrivePath"] = "";
+    load(colors);
+    click(170, 160);
+    pumpFor(300);
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "tube-boost.bmp");
+
   }
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;

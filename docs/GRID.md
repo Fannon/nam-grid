@@ -23,7 +23,7 @@ IN -> Pre1 -> Pre2 -> Pre3 -> Pre4 -+                         +- Post1 -> Post2 
 Every numbered position accepts a mono NAM capture (amp, rig, pedal, outboard or cabinet),
 or a [built-in effect](MODULES.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
 modulation, delay or reverb. NAM slots have input gain,
-output trim, Full/Lite where available, and bypass; built-ins expose at most five knobs and Enabled. Empty slots pass
+output trim, Full/Lite where available, and bypass; built-ins expose at most seven knobs and Enabled. Empty slots pass
 audio; their gain controls take effect when a model is loaded. Slots are processed left to
 right within each row. Both parallel rows receive the same output from Pre4. There are no
 cross-connections, sends, feedback, drag/drop routing, or routing graph.
@@ -81,8 +81,8 @@ Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receiv
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
 The first two slot gain/trim controls retain their original host IDs. The expanded
-layout has **764 parameters**, including 30 utility/time-effect controls per slot.
-`###NAMGrid-v1###` / schema 6 stores all 16 paths, types and named values. Validation
+layout has **940 parameters**, including 41 utility/time-effect controls per slot.
+`###NAMGrid-v1###` / schema 7 stores all 16 paths, types and named values. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old
 unreleased projects may require rebuilding. No compatibility guarantee is made.
@@ -101,7 +101,7 @@ Windows x64 Release CLAP and VST3 build successfully. All three CTest suites pas
 - Unequal-lane impulse tests check physical alignment, preserved bypass latency, and hosts whose
   maximum block size is one sample. Tested grid paths observe no C++ allocations/deletions and
   pass Eigen's allocation guard.
-- CLAP covers all 16 model/effect selections and 764 parameter values through save/reload, old-state
+- CLAP covers all 16 model/effect selections and 940 parameter values through save/reload, old-state
   migration, invalid later-slot state, missing files, bypassed slots, mono/stereo port layouts,
   and full-grid processing at all three rates. Full-grid conversion latency is 0/324/504 samples.
 - A hidden native Windows editor test exercises IN1/IN2/A1/B1/OUT4 next buttons, library search,

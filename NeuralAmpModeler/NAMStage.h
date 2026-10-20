@@ -26,9 +26,10 @@ public:
     std::unique_ptr<ResamplingNAM> model;
     SlotEffect effect = SlotEffect::NAM;
     SlotDynamics dynamics;
-    SlotEQ eq;
+    SlotEQ eq, namCuts;
     SlotParametricEQ parametric;
     SlotBoost boost;
+    SlotTubeBoost tube;
     SlotEnvelopeFilter filter;
     SlotAutoSwell swell;
     SlotDelay echo;
@@ -46,6 +47,8 @@ public:
       eq.Reset(rate);
       parametric.Reset(rate);
       boost.Reset(rate);
+      if (effect == SlotEffect::TubeBoost)
+        tube.Reset(rate);
       if (effect == SlotEffect::SynthFilter)
         filter.Reset(rate);
       if (effect == SlotEffect::AutoSwell)
@@ -59,7 +62,11 @@ public:
       if (effect == SlotEffect::Tape)
         tape.Reset(rate);
       if (effect == SlotEffect::NAM)
+      {
         eq.Process(nullptr, 0, false, {});
+        namCuts.Reset(rate);
+        namCuts.Process(nullptr, 0, true, {});
+      }
       if (model)
         model->Reset(rate, block);
       latency = model ? model->GetLatency() : 0;
@@ -196,6 +203,9 @@ public:
         {
           p->model->process(&in, &out, frames);
           p->eq.Process(out, frames, false, eq);
+          auto cuts = eq;
+          cuts.presence = 0.;
+          p->namCuts.Process(out, frames, true, cuts);
         }
         else if (p->ir)
         {
@@ -211,6 +221,8 @@ public:
             p->parametric.Process(out, frames, utility, eq);
           else if (p->effect == SlotEffect::Boost)
             p->boost.Process(out, frames, utility, eq);
+          else if (p->effect == SlotEffect::TubeBoost)
+            p->tube.Process(out, in, frames, utility, eq);
           else if (p->effect == SlotEffect::SynthFilter)
             p->filter.Process(out, frames, utility);
           else if (p->effect == SlotEffect::AutoSwell)

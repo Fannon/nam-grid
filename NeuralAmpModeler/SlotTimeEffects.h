@@ -82,15 +82,18 @@ public:
     mRate = rate;
     mLine.Reset(static_cast<int>(rate * 1.6));
     mControls.Reset(rate);
+    mExtras.Reset(rate);
     mLP = mLP2 = mDC = mEnv = mPhase = 0.;
     mCounter = 0;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
   {
     mControls.Target(controls.delay, uDelayTime);
+    mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
+      const auto& extra = mExtras.Tick();
       const double character = c[3] * .01, mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
@@ -102,10 +105,11 @@ public:
       if (mPhase >= 1.)
         mPhase -= 1.;
       const double flutter =
-        effect == SlotEffect::TapeDelay
-          ? character * mRate * .0015
-              * (std::sin(2. * grid_fx::pi * mPhase) + .15 * std::sin(2. * grid_fx::pi * mPhase * 7.))
-          : 0.;
+        effect == SlotEffect::DigitalDelay
+          ? 0.
+          : extra[0] * .01 * mRate * (effect == SlotEffect::TapeDelay ? .0015 : .0008)
+              * (std::sin(2. * grid_fx::pi * mPhase)
+                 + (effect == SlotEffect::TapeDelay ? .15 * std::sin(2. * grid_fx::pi * mPhase * 7.) : 0.));
       const double read = mLine.Read(c[0] * .001 * mRate + flutter);
       mLP = grid_fx::Flush(read + mDamping * (mLP - read));
       mLP2 = grid_fx::Flush(mLP + mDamping * (mLP2 - mLP));
@@ -122,13 +126,14 @@ public:
       const double peak = std::abs(x);
       mEnv = peak + std::exp(-1. / ((peak > mEnv ? .003 : .15) * mRate)) * (mEnv - peak);
       const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * mEnv) : 1.;
-      samples[i] = (1. - mix) * x + mix * wet * duck;
+      samples[i] = ((1. - mix) * x + mix * wet * duck) * std::pow(10., extra[1] * .05);
     }
   }
 
 private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
+  grid_fx::SmoothControls<2> mExtras;
   double mRate = 48000., mLP = 0., mLP2 = 0., mDC = 0., mEnv = 0., mPhase = 0., mDamping = 0.;
   int mCounter = 0;
 };
@@ -217,6 +222,8 @@ public:
   {
     mRate = rate;
     mControls.Reset(rate);
+    mExtras.Reset(rate);
+    mInputLow = mHighPassMix = 0.;
     mDamp = {};
     mPhase = 0.;
     mCounter = 0;
@@ -230,24 +237,31 @@ public:
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
   {
     mControls.Target(controls.reverb, uReverbDecay);
+    mExtras.Target({controls.reverbMotion, controls.reverbHighPass}, uReverbMotion);
     constexpr std::array<double, 8> lengths{.0297, .0371, .0411, .0437, .0531, .0617, .0719, .0797};
     constexpr std::array<double, 4> diffusion{.0043, .0067, .0091, .0137};
     const bool room = effect == SlotEffect::RoomReverb, cloud = effect == SlotEffect::CloudReverb;
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
+      const auto& extra = mExtras.Tick();
       const double size = c[1] * .01 * (room ? .58 : 1.), mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
+        mHighPassCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., extra[1]) / mRate);
         mDamping = std::exp(-2. * grid_fx::pi * std::min(c[2], .4 * mRate) / mRate);
         for (int j = 0; j < 8; ++j)
           mFeedback[j] = std::pow(.001, lengths[j] * size / c[0]);
       }
       mCounter %= 32;
       const double x = samples[i];
+      mInputLow = grid_fx::Flush(x + mHighPassCoefficient * (mInputLow - x));
+      const double hpTarget = extra[1] > .01 ? 1. : 0.;
+      mHighPassMix += std::clamp(hpTarget - mHighPassMix, -1. / (.02 * mRate), 1. / (.02 * mRate));
+      const double filtered = x - mHighPassMix * mInputLow;
       // Fractional read needs one sample; explicit zero keeps zero pre-delay exact.
-      double input = c[3] < .001 ? x : mPredelay.Read(std::max(1., c[3] * .001 * mRate));
-      mPredelay.Push(x);
+      double input = c[3] < .001 ? filtered : mPredelay.Read(std::max(1., c[3] * .001 * mRate));
+      mPredelay.Push(filtered);
       const double early = .45 * mEarly.Read(mRate * .011 * size) - .3 * mEarly.Read(mRate * .023 * size)
                            + .2 * mEarly.Read(mRate * .037 * size);
       mEarly.Push(input);
@@ -263,7 +277,11 @@ public:
       double wet = 0.;
       for (int j = 0; j < 8; ++j)
       {
-        const double motion = cloud ? .00045 * std::sin(2. * grid_fx::pi * mPhase * (1. + .13 * j) + j) : 0.;
+        const double motion = extra[0] * .01
+                              * (cloud  ? .0018
+                                 : room ? .0002
+                                        : .0006)
+                              * std::sin(2. * grid_fx::pi * mPhase * (1. + .13 * j) + j);
         const double tap = mLines[j].Read(mRate * (lengths[j] * size + motion));
         mDamp[j] = grid_fx::Flush(tap + mDamping * (mDamp[j] - tap));
         taps[j] = mDamp[j] * mFeedback[j];
@@ -294,8 +312,10 @@ private:
   std::array<grid_fx::DelayLine, 4> mDiffusers;
   grid_fx::DelayLine mPredelay, mEarly;
   grid_fx::SmoothControls<5> mControls;
+  grid_fx::SmoothControls<2> mExtras;
   std::array<double, 8> mDamp{}, mFeedback{};
   double mRate = 48000., mDamping = 0., mPhase = 0.;
+  double mInputLow = 0., mHighPassMix = 0., mHighPassCoefficient = 0.;
   int mCounter = 0;
 };
 

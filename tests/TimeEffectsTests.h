@@ -19,7 +19,7 @@ void TestTimeEffects()
   };
   for (double rate : {44100., 48000., 88200., 96000., 192000.})
   {
-    for (int id = static_cast<int>(SlotEffect::SynthFilter); id <= static_cast<int>(SlotEffect::Tape); ++id)
+    for (int id = static_cast<int>(SlotEffect::SynthFilter); id <= static_cast<int>(SlotEffect::TubeBoost); ++id)
     {
       const auto effect = static_cast<SlotEffect>(id);
       auto stage = prepareEffect(effect, rate), reference = prepareEffect(effect, rate);
@@ -71,6 +71,11 @@ void TestTimeEffects()
           c.reverb[j] = extremum(uReverbDecay);
           c.modulation[j] = extremum(uModRate);
         }
+        c.delayMotion = high ? 100. : 0.;
+        c.delayOutput = high ? 6. : -18.;
+        c.reverbMotion = high ? 100. : 0.;
+        c.reverbHighPass = high ? 500. : 0.;
+        c.tube = high ? std::array<double, 4>{24., 100., 100., 18.} : std::array<double, 4>{0., 0., 0., -18.};
         c.cutoff = high ? 12000. : 40.;
         c.resonance = high ? 4. : .5;
         c.envelope = high ? 4. : 0.;
@@ -86,7 +91,7 @@ void TestTimeEffects()
         tracking = false;
         assert(allocations == 0 && deletions == 0);
         for (double v : x)
-          assert(std::isfinite(v) && std::abs(v) < 8.);
+          assert(std::isfinite(v) && std::abs(v) < 16.);
       }
       for (int b = 0; b < 6; ++b)
       {
@@ -106,6 +111,7 @@ void TestTimeEffects()
       auto stage = prepareEffect(effect, rate);
       UtilityControls c;
       c.delay = {100., 0., 12000., 0., 100.};
+      c.delayMotion = 0.;
       const int onset = static_cast<int>(std::round(.1 * rate));
       std::vector<double> x(onset + 200, 0.);
       x[0] = 1.;
@@ -148,6 +154,48 @@ void TestTimeEffects()
       }
     }
     assert(energy[1] > energy[0] * 3.);
+  }
+  // Tube bias adds even harmonics; the neutral-bias shaper remains odd. Dry
+  // blend and DC removal are checked independently of the waveshaper formula.
+  for (double rate : {44100., 48000., 88200., 96000., 192000.})
+  {
+    std::array<double, 2> harmonic{};
+    for (int bias = 0; bias < 2; ++bias)
+    {
+      auto stage = prepareEffect(SlotEffect::TubeBoost, rate);
+      UtilityControls c;
+      c.tube = {12., bias ? 100. : 0., 100., 0.};
+      std::array<double, 512> x{};
+      double sum = 0., secondSin = 0., secondCos = 0.;
+      int observed = 0;
+      for (int offset = 0; offset < static_cast<int>(rate); offset += 512)
+      {
+        const int count = std::min(512, static_cast<int>(rate) - offset);
+        for (int i = 0; i < count; ++i)
+          x[i] = .2 * std::sin(2. * grid_fx::pi * 1000. * (offset + i) / rate);
+        process(*stage, x.data(), count, c);
+        for (int i = 0; i < count; ++i)
+          if (offset + i >= static_cast<int>(rate / 2.))
+          {
+            const double angle = 4. * grid_fx::pi * 1000. * (offset + i) / rate;
+            secondSin += x[i] * std::sin(angle);
+            secondCos += x[i] * std::cos(angle);
+            sum += x[i];
+            ++observed;
+          }
+      }
+      harmonic[bias] = 2. * std::hypot(secondSin, secondCos) / observed;
+      assert(std::abs(sum / observed) < 1.e-4);
+      c.tube[2] = 0.;
+      for (int b = 0; b < 100; ++b)
+      {
+        x.fill(.123);
+        process(*stage, x.data(), 512, c);
+      }
+      for (double v : x)
+        assert(std::abs(v - .123) < 1.e-12);
+    }
+    assert(harmonic[0] < 1.e-4 && harmonic[1] > .01);
   }
   // Reverbs are genuinely distinct impulse responses, with finite decaying tails.
   std::array<std::vector<double>, 3> responses;
@@ -215,6 +263,6 @@ void TestTimeEffects()
     }
     assert(std::abs(x[511] - .2) < 1.e-10);
   }
-  std::cout << "14 new effects: variable blocks, automation, bypass/reset, no allocation; 44.1/48/88.2/96/192 kHz; "
+  std::cout << "15 new effects: variable blocks, automation, bypass/reset, no allocation; 44.1/48/88.2/96/192 kHz; "
                "echo timing and distinct reverb tails\n";
 }

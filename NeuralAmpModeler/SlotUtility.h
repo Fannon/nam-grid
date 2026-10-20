@@ -105,6 +105,50 @@ private:
   int mCount = 0;
 };
 
+// Original tube-inspired waveshaper: biased soft saturation with a DC blocker.
+// This is a character boost, not a circuit model of a particular tube pedal.
+class SlotTubeBoost
+{
+public:
+  void Reset(double rate)
+  {
+    mTone.Reset(rate);
+    mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
+    mDCCoefficient = std::exp(-2. * 3.14159265358979323846 * 5. / std::max(1., rate));
+    mDrive = 1.;
+    mBias = mDC = 0.;
+    mMix = 1.;
+    mOutput = 1.;
+  }
+  void Process(double* samples, const double* dry, int frames, const UtilityControls& c, const EQControls& eq)
+  {
+    auto tone = c;
+    tone.boost = 0.;
+    mTone.Process(samples, frames, tone, eq);
+    const double drive = std::pow(10., std::clamp(c.tube[0], 0., 24.) * .05);
+    const double bias = .35 * std::clamp(c.tube[1] * .01, 0., 1.);
+    const double mix = std::clamp(c.tube[2] * .01, 0., 1.);
+    const double output = std::pow(10., std::clamp(c.tube[3], -18., 18.) * .05);
+    for (int i = 0; i < frames; ++i)
+    {
+      mDrive = drive + mSmooth * (mDrive - drive);
+      mBias = bias + mSmooth * (mBias - bias);
+      mMix = mix + mSmooth * (mMix - mix);
+      mOutput = output + mSmooth * (mOutput - output);
+      const double offset = std::tanh(mBias);
+      const double shaped = (std::tanh(samples[i] * mDrive + mBias) - offset) / (1. - offset * offset);
+      mDC = shaped + mDCCoefficient * (mDC - shaped);
+      if (std::abs(mDC) < 1.e-30)
+        mDC = 0.;
+      samples[i] = (dry[i] + mMix * (shaped - mDC - dry[i])) * mOutput;
+    }
+  }
+
+private:
+  SlotBoost mTone;
+  double mSmooth = 0., mDCCoefficient = 0., mDrive = 1., mBias = 0., mDC = 0., mMix = 1., mOutput = 1.;
+};
+
 class SlotEnvelopeFilter
 {
 public:

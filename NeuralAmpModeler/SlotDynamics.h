@@ -30,7 +30,8 @@ enum class SlotEffect
   Phaser,
   Tremolo,
   Vibrato,
-  Tape
+  Tape,
+  TubeBoost
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -59,6 +60,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Tremolo: return "Auto Tremolo";
     case SlotEffect::Vibrato: return "Vibrato";
     case SlotEffect::Tape: return "Airwindows Tape";
+    case SlotEffect::TubeBoost: return "Tube Boost";
 
     default: return "NAM";
   }
@@ -67,6 +69,7 @@ struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;
   double compThreshold = -18., compRelease = 120., compMakeup = 0.;
+  double compAttack = 8., compMix = 100., punchAttack = 25.;
 };
 
 class SlotDynamics
@@ -103,7 +106,9 @@ public:
     const double release =
       std::clamp(gate ? controls.gateRelease : controls.compRelease, gate ? 20. : 40., gate ? 500. : 600.);
     const double close = Coefficient(release);
-    const double open = Coefficient(gate ? (tight ? .3 : 1.5) : (punch ? 25. : 8.));
+    const double attack = std::clamp(punch ? controls.punchAttack : controls.compAttack, .5, 50.);
+    const double mix = std::clamp(controls.compMix * .01, 0., 1.);
+    const double open = Coefficient(gate ? (tight ? .3 : 1.5) : attack);
     const double detectorAttack = Coefficient(.1), detectorRelease = Coefficient(gate ? 10. : 15.);
     const double hold = mRate * (tight ? .015 : .04);
     if (mFirst)
@@ -111,6 +116,7 @@ public:
       mThreshold = threshold;
       mAmount = amount;
       mReduction = gate ? amount : 0.;
+      mMix = mix;
       mFirst = false;
     }
     for (int i = 0; i < frames; ++i)
@@ -143,7 +149,9 @@ public:
       const double coefficient = gate ? (target < mReduction ? open : close) : (target > mReduction ? open : close);
       mReduction = Smooth(mReduction, target, coefficient);
       mPeakReduction = std::max(mPeakReduction, mReduction);
-      samples[i] *= std::pow(10., ((gate ? 0. : mAmount) - mReduction) * .05);
+      mMix = Smooth(mMix, mix, mSmooth);
+      const double gain = std::pow(10., ((gate ? 0. : mAmount) - mReduction) * .05);
+      samples[i] *= gate ? gain : 1. + mMix * (gain - 1.);
     }
   }
   double PeakReduction() const { return mPeakReduction; }
@@ -156,7 +164,7 @@ private:
     return std::abs(result) < 1.e-30 ? 0. : result;
   }
   double mRate = 48000., mSmooth = 0., mEnvelope = 0., mReduction = 0., mHold = 0.;
-  double mThreshold = 0., mAmount = 0.;
+  double mThreshold = 0., mAmount = 0., mMix = 1.;
   double mPeakReduction = 0.;
   bool mOpen = false, mFirst = true;
 };

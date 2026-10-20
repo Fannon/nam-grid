@@ -25,7 +25,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {compColor, compColor, "Compressor"};
   if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ)
     return {eqColor, eqColor, "EQ"};
-  if (effect == SlotEffect::Boost)
+  if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
@@ -100,11 +100,12 @@ public:
   {
   }
 };
-// All module controls occupy one of six fixed positions, including the bypass toggle.
+// Two positions align beneath each grid column. Enabled is always last.
+constexpr int kControlPositions = 8;
 inline IRECT ControlBounds(int position)
 {
-  const float left = 42.f + 152.f * position;
-  return IRECT(left, 650, left + 126.f, 754);
+  const float left = 88.f + 220.f * (position / 2) + 108.f * (position % 2);
+  return IRECT(left, 650, left + 100.f, 754);
 }
 class Toggle : public IVToggleControl
 {
@@ -251,22 +252,23 @@ public:
     Gradient(g, IRECT(42, 599, 956, 601), tone.first, tone.second, .8f, 1.f);
     g.DrawText(Text(12.f, tone.first), slotName.c_str(), IRECT(42, 568, 104, 594));
     g.DrawText(Text(16.f), label.c_str(), IRECT(110, 565, 956, 598));
-    std::array<bool, 6> used{false, false, false, false, false, true};
+    std::array<bool, kControlPositions> used{};
+    used.back() = true;
     if (effect == SlotEffect::NAM && !path.empty())
       used.fill(true);
     else if (effect == SlotEffect::CabinetIR)
       used[0] = true;
     else if (effect == SlotEffect::ParametricEQ)
       used[0] = used[1] = used[2] = used[3] = used[4] = true;
-    else if (effect == SlotEffect::Boost)
-      used[0] = used[1] = used[2] = true;
+    else if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
+      used[2] = true;
     else if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::SmoothComp
              || effect == SlotEffect::PunchComp || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
       used[0] = used[1] = used[2] = true;
     for (int p = 0; p < kUtilityControls; ++p)
       if (UsesUtility(effect, p))
         used[kEffectParameters[p].position] = true;
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < kControlPositions; ++i)
     {
       const auto cell = ControlBounds(i).GetPadded(5.f);
       g.FillRoundRect(IColor(255, 17, 20, 24), cell, 4.f);
@@ -338,10 +340,10 @@ public:
     mEditor->AddChildControl(mModelButton);
     mEditor->AddChildControl(new grid_ui::Button(IRECT(428, 606, 464, 636), [this](IControl*) { Step(-1); }, "<"));
     mEditor->AddChildControl(new grid_ui::Button(IRECT(472, 606, 508, 636), [this](IControl*) { Step(1); }, ">"));
-    mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(5), SlotActiveParam(mSlot), "Enabled");
+    mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(7), SlotActiveParam(mSlot), "Enabled");
     mEditor->AddChildControl(mEnabled);
     mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input");
-    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(4), SlotTrimParam(mSlot), "Output trim");
+    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim");
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
     const char* labels[] = {"Threshold", "Decay", "Depth", "Threshold", "Release", "Makeup"};
@@ -422,7 +424,7 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Tape))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::TubeBoost))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
@@ -460,10 +462,11 @@ private:
       {
         mUtilityKnobs[i]->Hide(!UsesUtility(effect, i));
         if (i == uDelayCharacter)
-          mUtilityKnobs[i]->SetTooltip(
-            effect == SlotEffect::DigitalDelay  ? "Ducks repeats while you play; echoes recover in the gaps."
-            : effect == SlotEffect::AnalogDelay ? "More darkening and soft saturation on the repeats."
-                                                : "More tape wobble and soft saturation on the repeats.");
+          mUtilityKnobs[i]->SetTooltip(effect == SlotEffect::DigitalDelay
+                                         ? "Ducks repeats while you play; echoes recover in the gaps."
+                                       : effect == SlotEffect::AnalogDelay
+                                         ? "More darkening and soft saturation on the repeats."
+                                         : "More soft saturation on the repeats. Use Modulation for tape wobble.");
         else if (i == uModCharacter)
           mUtilityKnobs[i]->SetTooltip(
             effect == SlotEffect::Phaser    ? "Raises the center of the phase sweep."
@@ -485,7 +488,14 @@ private:
         mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(0));
         mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(1));
       }
-      if (effect == SlotEffect::Boost)
+      if (nam && !path.empty())
+      {
+        mEQKnobs[3]->Hide(false);
+        mEQKnobs[4]->Hide(false);
+        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(4));
+        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(5));
+      }
+      if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
       {
         mEQKnobs[3]->Hide(false);
         mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(2));
@@ -576,9 +586,10 @@ private:
     addGroup("Delay", SlotEffect::DigitalDelay, SlotEffect::TapeDelay);
     addGroup("Modulation", SlotEffect::Chorus, SlotEffect::Vibrato);
     addGroup("Filter / Volume", SlotEffect::SynthFilter, SlotEffect::AutoSwell);
-    mMenu.AddItem(new IPopupMenu::Item("Airwindows Tape", effect == SlotEffect::Tape ? IPopupMenu::Item::kChecked : 0,
-                                       -20 - static_cast<int>(SlotEffect::Tape)),
-                  7);
+    for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost})
+      mMenu.AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
+                                         -20 - static_cast<int>(type)),
+                    7);
     mMenu.AddSeparator(7);
     if (PLUG()->CanToggleSlotQuality(mSlot))
       mMenu.AddItem(

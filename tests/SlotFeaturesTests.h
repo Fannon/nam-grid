@@ -115,7 +115,9 @@ void TestSlotFeatures()
     toneStage.Publish(prepare(fixture::model(3, 123), rate));
     toneStage.ResetStopped(rate, 512);
     auto referenceModel = prepare(fixture::model(3, 123), rate);
-    SlotEQ referenceEQ;
+    SlotEQ referenceEQ, referenceCuts;
+    referenceCuts.Reset(rate);
+    referenceCuts.Process(nullptr, 0, true, {});
     referenceEQ.Reset(rate);
     referenceEQ.Process(nullptr, 0, false, {});
     EQControls tone;
@@ -127,6 +129,8 @@ void TestSlotFeatures()
         tone.bass = 6.;
         tone.mid = -4.;
         tone.treble = 3.;
+        tone.highPass = 90.;
+        tone.lowPass = 6000.;
       }
       if (block == 45)
         tone = {};
@@ -144,6 +148,7 @@ void TestSlotFeatures()
       toneStage.Process(actual.data(), n, true, 6., -3., false, 0., 0, 1., {}, tone);
       referenceModel->model->process(&in, &out, n);
       referenceEQ.Process(out, n, false, tone);
+      referenceCuts.Process(out, n, true, tone);
       Eigen::internal::set_is_malloc_allowed(true);
       tracking = false;
       assert(allocations == 0 && deletions == 0);

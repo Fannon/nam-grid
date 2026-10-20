@@ -116,6 +116,39 @@ void TestDynamics()
       tracking = false;
       assert(std::isfinite(x) && allocations == 0 && deletions == 0);
     }
+  // Attack changes pick-transient retention; parallel mix leaves dry untouched
+  // and reaches the arithmetic midpoint of dry and compressed signals.
+  for (auto effect : {SlotEffect::SmoothComp, SlotEffect::PunchComp})
+  {
+    DynamicsControls fastControls, slowControls, dryControls, halfControls;
+    fastControls.compThreshold = -30.;
+    fastControls.compAttack = fastControls.punchAttack = .5;
+    slowControls = fastControls;
+    slowControls.compAttack = slowControls.punchAttack = 50.;
+    dryControls = fastControls;
+    dryControls.compMix = 0.;
+    halfControls = fastControls;
+    halfControls.compMix = 50.;
+    SlotDynamics fast, slow, dry, half;
+    for (auto* processor : {&fast, &slow, &dry, &half})
+      processor->Reset(48000.);
+    double a = 0., b = 0.;
+    allocations = deletions = 0;
+    tracking = true;
+    for (int i = 0; i < 1000; ++i)
+    {
+      a = b = .5;
+      double d = .5, h = .5;
+      fast.Process(&a, 1, effect, fastControls);
+      slow.Process(&b, 1, effect, slowControls);
+      dry.Process(&d, 1, effect, dryControls);
+      half.Process(&h, 1, effect, halfControls);
+      assert(d == .5 && std::abs(h - .5 * (.5 + a)) < 1.e-12);
+    }
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+    assert(b > a * 1.5);
+  }
   // Mixed NAM/dynamics pipeline: gate -> x2 -> parallel(x3, dry) -> compressor.
   FixedNAMGrid mixed;
   const nlohmann::json linear{{"architecture", "Linear"},

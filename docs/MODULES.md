@@ -1,7 +1,7 @@
 # Grid modules
 
-All effects use the fixed grid and the same six-position editor: up to five knobs,
-then Enabled. Unused positions remain empty. Every visible knob and bypass is
+All effects use the fixed grid and the same eight-position editor: up to seven knobs,
+then Enabled in position eight. Unused positions remain empty. Every visible knob and bypass is
 host-automatable; selection and settings are saved in project state. Families
 share their controls within a slot. Copy/Move/Swap transfers those values, with
 independent processor history at the destination.
@@ -10,12 +10,12 @@ independent processor history at the destination.
 
 | Module | Controls | Character |
 | --- | --- | --- |
-| Room | Decay, Size, Damping, Pre-delay, Mix | Sparse early reflections, shorter feedback network |
-| Dense Plate | Decay, Size, Damping, Pre-delay, Mix | Four input diffusers feed a dense network |
-| Cloud | Decay, Size, Damping, Pre-delay, Mix | Diffused network with slow independent delay motion |
-| Digital Delay | Time, Feedback, Tone, Character, Mix | Character ducks repeats beneath the pick |
-| Analog Echo | Time, Feedback, Tone, Character, Mix | Two-pole darkening and soft feedback saturation; Character increases wear |
-| Tape Echo | Time, Feedback, Tone, Character, Mix | Filtered repeats, soft saturation, Character adds wow/flutter |
+| Room | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Sparse early reflections, shorter feedback network |
+| Dense Plate | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Four input diffusers feed a dense network |
+| Cloud | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Diffused network with slow independent delay motion |
+| Digital Delay | Time, Feedback, Tone, Character, Mix, Output | Character ducks repeats beneath the pick |
+| Analog Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Character increases wear |
+| Tape Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Filtered repeats, soft saturation, Modulation adds wow/flutter |
 | Chorus | Rate, Depth, Character, Mix | Fractional-delay chorus; Character darkens and adds asymmetric motion |
 | Flanger | Rate, Depth, Feedback, Character, Mix | Short swept comb; Character moves feedback from positive to negative |
 | Phaser | Rate, Depth, Feedback, Character, Mix | Six allpass stages; Character raises the sweep's center |
@@ -28,6 +28,12 @@ and [Quad Cortex device list](https://neuraldsp.com/device-list). These are cate
 references, not code sources or claims of hardware emulation. Spring reverb,
 pitch shifting, rotary, stereo/ping-pong effects and tempo sync are outside this increment.
 Dense Plate is a voiced digital reverb, not a physical plate model.
+
+Digital Delay has no modulation control; its Character ducks the repeats. Analog/Tape
+separate saturation character from modulation amount. Output adjusts the blended result.
+Reverb Low cut filters its input only on the wet path (0 = off); Modulation controls
+network motion. Neither changes the dry signal. Compressor Attack covers .5–50 ms;
+Mix blends the compressed and original signals before the slot bypass ramp.
 
 Delays cover 20–1500 ms, feedback 0–82%, tone 800–12000 Hz. Time changes are smoothed
 and intentionally bend pitch. Reverb decay is nominal RT60, .25–10 s;
@@ -49,12 +55,13 @@ to stereo. Native stereo width is not implemented.
 | --- | --- | --- |
 | Natural Gate | Threshold, Decay, Depth | Gentle 2:1 expansion; 1.5 ms opening, 40 ms hold |
 | Tight Gate | Threshold, Decay, Depth | Deep closure; .3 ms opening, 15 ms hold |
-| Smooth Compressor | Threshold, Release, Makeup | 2.5:1, 9 dB knee, 8 ms attack |
-| Punch Compressor | Threshold, Release, Makeup | 4:1, 3 dB knee, 25 ms attack |
+| Smooth Compressor | Threshold, Release, Makeup, Attack, Mix | 2.5:1, 9 dB knee, 8 ms default attack |
+| Punch Compressor | Threshold, Release, Makeup, Attack, Mix | 4:1, 3 dB knee, 25 ms default attack |
 | Guitar EQ | Bass, Mid, Treble | 150 Hz shelf, broad 800 Hz bell, 3 kHz shelf |
 | Cut EQ | High pass, Low pass, Presence | Rumble/fizz cuts and 3.5 kHz shelf |
 | Parametric EQ | Frequency, Gain, Q, High pass, Low pass | One 80–8000 Hz bell, ±12 dB, Q .3–4 |
 | Boost | Gain, Tilt, High pass | Gain 0–18 dB; opposing shelves around 800 Hz; low cut 0–300 Hz |
+| Tube Boost | Drive, Tilt, High pass, Bias, Mix, Output | Tube-inspired saturation with adjustable asymmetry and DC removal |
 | Envelope Filter | Cutoff, Resonance, Envelope | Resonant low-pass, up to four octaves of input-driven opening |
 | Auto Swell | Rise, Threshold, Release | Phrase envelope removes the pick and fades up; pause below threshold to re-arm |
 | Airwindows Tape | Drive, Bump, Mix, Output | Tape saturation/head bump, no flutter |
@@ -62,7 +69,7 @@ to stereo. Native stereo width is not implemented.
 Boost defaults to clean gain: Tilt 0 dB and high pass off. It adds no saturation;
 use Tape when nonlinear character is wanted. Swell has no lookahead: it responds
 to the incoming phrase and preserves a continuous gain envelope. NAM's Bass/Mid/
-Treble controls are neutral post-capture tone EQ before output trim, not inferred
+Treble and HP/LP controls are neutral post-capture processing before output trim, not inferred
 controls of the captured amplifier.
 
 The existing MIT AudioDSPTools coefficients and a new scalar implementation of
@@ -137,7 +144,17 @@ Manual acceptance still required:
 No listening, Bitwig, macOS or VST3-host validation is claimed. Offline tests
 establish numerical behavior and lifecycle safety, not final musical voicing.
 
-## Offline CPU checkpoint
+Tube Boost uses an original biased soft saturator, the same Tilt/High pass voicing as
+Boost, and a 5 Hz DC blocker. Drive adds gain and saturation; Bias adds even-harmonic
+character; Mix includes an unprocessed dry path; Output sets final level. It is not a
+circuit emulation. Strong drive can alias without oversampling. See the
+[focused Hotone/TONEX comparison](EFFECT_COVERAGE.md) for current coverage and next priorities.
+
+## Historical offline CPU checkpoint (`64ac242`)
+
+These measurements precede the expanded controls and Tube Boost. See the updated
+checkpoint below for the current increment.
+
 
 Windows x64 Release, Ryzen 9 5950X, 128-frame blocks, one effect in Pre 1 and
 all other slots empty. Fastest of three timed 128,000-frame renders after warmup.
@@ -165,3 +182,29 @@ percentages, not a DAW meter or an underrun guarantee. All cases report zero lat
 Reproduce from `build-grid`: `NeuralAmpModeler/nam-clap-bench.exe out/nam-grid.clap
 fx-17 1 - -` (Cloud). Use `empty` for baseline, or `fx-10` through `fx-23` for
 Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
+
+## State and layout checkpoint
+
+Schema 7 contains 940 parameters. Schema 6 projects retain their named values and
+fill the 11 new controls per slot from defaults despite the changed parameter stride.
+Older unreleased format compatibility remains best effort. New controls participate
+in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled align
+as two controls under each grid column. A smaller effect does not need to fill them.
+
+Additional tests check Tube Boost's even harmonics with Bias, near-zero steady-state
+DC and exact settled dry blend; compressor attack and blend; NAM cuts in the processing
+reference; all eight editor positions; and schema-6 later-slot parameter recall.
+
+## Current offline CPU checkpoint
+
+Same host and benchmark method as above. Values include the full grid; all cases
+report zero compensation latency. Defaults are used, so this does not measure all
+parameter extremes. Raw local results: `build-grid/complete-modules-cpu.csv`.
+
+| Effect | 48 kHz | 96 kHz |
+| --- | ---: | ---: |
+| Empty grid | 0.20% | 0.40% |
+| Smooth Compressor | 0.35% | 0.70% |
+| Analog Echo | 0.47% | 0.93% |
+| Cloud | 1.09% | 2.17% |
+| Tube Boost | 0.39% | 0.79% |

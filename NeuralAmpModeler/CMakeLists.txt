@@ -104,7 +104,7 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
     endif()
   endforeach()
 endif()
-iplug_add_plugin(NeuralAmpModeler
+iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
   SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h ToneStack.cpp CaptureLibrary.cpp ${NAM_CORE_SOURCES}
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/NoiseGate.cpp
@@ -112,26 +112,26 @@ iplug_add_plugin(NeuralAmpModeler
     ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}
   DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f)
-target_include_directories(_NeuralAmpModeler-base INTERFACE
+target_include_directories(_nam-grid-base INTERFACE
   ../eigen ../NeuralAmpModelerCore/Dependencies/nlohmann)
-target_link_libraries(_NeuralAmpModeler-base INTERFACE Threads::Threads)
+target_link_libraries(_nam-grid-base INTERFACE Threads::Threads)
 if(APPLE)
-  target_link_libraries(_NeuralAmpModeler-base INTERFACE "-framework Accelerate")
+  target_link_libraries(_nam-grid-base INTERFACE "-framework Accelerate")
 endif()
 # iPlug2 names both import libraries after the plugin; give each format its own directory.
 foreach(format IN LISTS NAM_FORMATS)
   string(TOLOWER "${format}" suffix)
-  if(TARGET NeuralAmpModeler-${suffix})
-    set_target_properties(NeuralAmpModeler-${suffix} PROPERTIES
+  if(TARGET nam-grid-${suffix})
+    set_target_properties(nam-grid-${suffix} PROPERTIES
       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/import/${suffix}")
     if(WIN32)
-      target_sources(NeuralAmpModeler-${suffix} PRIVATE resources/main.rc)
-      target_include_directories(NeuralAmpModeler-${suffix} PRIVATE resources/fonts resources/img)
+      target_sources(nam-grid-${suffix} PRIVATE resources/main.rc)
+      target_include_directories(nam-grid-${suffix} PRIVATE resources/fonts resources/img)
     endif()
   endif()
 endforeach()
-if(TARGET NeuralAmpModeler-clap)
-  add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:NeuralAmpModeler-clap>" "${CMAKE_SOURCE_DIR}")
+if(TARGET nam-grid-clap)
+  add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
   set_tests_properties(clap-smoke PROPERTIES TIMEOUT 60)
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)

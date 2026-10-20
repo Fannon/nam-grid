@@ -161,7 +161,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto b = ui->GetBounds();
     ui->AttachPanelBackground(IColor(255, 18, 19, 22));
     ui->AttachControl(new ITextControl(
-      IRECT(35, 12, 900, 49), "NAM GRID EXPERIMENT", IText(24.f, COLOR_WHITE, "Michroma-Regular", EAlign::Near)));
+      IRECT(35, 12, 900, 49), PLUG_NAME, IText(24.f, COLOR_WHITE, "Michroma-Regular", EAlign::Near)));
     const auto compact = style.WithLabelText(IText(12.f, COLOR_WHITE, "Roboto-Regular"))
                            .WithValueText(IText(12.f, COLOR_WHITE, "Roboto-Regular"));
     ui->AttachControl(new IVKnobControl(IRECT(40, 55, 120, 133), kNoiseGateThreshold, "Gate", compact));

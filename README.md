@@ -1,5 +1,7 @@
-# Neural Amp Modeler Plug-in
+# nam-grid
 
+[nam-grid](https://github.com/Fannon/nam-grid) is an open-source guitar plugin based on the
+official [Neural Amp Modeler plugin](https://github.com/sdatkinson/NeuralAmpModelerPlugin).
 This branch experiments with a fixed 16-slot NAM grid: four serial input slots, two parallel
 four-slot lanes, and four serial output slots. It retains native CLAP/VST3 and iPlug2.
 Start with the [grid experiment](docs/GRID.md), [build instructions](docs/BUILD.md),
@@ -8,7 +10,10 @@ Slots also offer [simple noise gates and compressors](docs/EFFECTS.md), with thr
 [Slot controls](docs/SLOTS.md) cover EQ, cabinet IRs, metering, Copy/Move/Swap and A2 Full/Lite.
 Windows builds and the automated harness are verified; Bitwig and macOS testing remain outstanding.
 
-[![Build](https://github.com/sdatkinson/NeuralAmpModelerPlugin/actions/workflows/build-native.yml/badge.svg)](https://github.com/sdatkinson/NeuralAmpModelerPlugin/actions/workflows/build-native.yml)
+[![Build](https://github.com/Fannon/nam-grid/actions/workflows/dual-prototype.yml/badge.svg)](https://github.com/Fannon/nam-grid/actions/workflows/dual-prototype.yml)
+
+The following notes are inherited from upstream; use the nam-grid build instructions above
+for this fork. Upstream installers do not include the grid.
 
 A VST3/AudioUnit plug-in\* for [Neural Amp Modeler](https://github.com/sdatkinson/neural-amp-modeler), built with [iPlug2](https://iplug2.github.io).
 

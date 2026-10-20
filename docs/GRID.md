@@ -1,13 +1,15 @@
-# Fixed 4x4 NAM grid experiment
+# nam-grid: fixed 4x4 signal chain
 
 Branch: `experiment/fixed-4x4-grid`. The dual-model/browser prototype is preserved on
 `prototype/dual-nam-clap` at `543d2b2`. Its local binaries remain in `build-native/out`;
 the grid is built separately in `build-grid/out`. Core's two documented allocation patches
 remain applied to the submodule, as before.
 
-The grid plugin identifies as **NAM Grid Prototype** (`NGr1`), distinct from the dual prototype
-(`NDu1`). Both builds retain the upstream binary filename, so keep their artifact directories
-separate when scanning or installing them. Nothing was deployed to a system plugin folder.
+The grid plugin is named **nam-grid** (`NGr1`), distinct from the dual prototype (`NDu1`).
+Artifacts are `nam-grid.clap` / `nam-grid.vst3`. Host IDs and serialized state retain their
+existing identifiers for project compatibility. Remove older copies of the grid binary from
+scan paths when adopting the renamed binary, then rescan. This workspace archives its previous
+grid artifacts outside `build-grid/out`. Nothing was deployed to a system plugin folder.
 
 ## Routing and controls
 
@@ -142,7 +144,7 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 
 ## Manual DAW check
 
-1. Add `build-grid/out` to Bitwig's plugin locations and load **NAM Grid Prototype**.
+1. Add `build-grid/out` to Bitwig's plugin locations and load **nam-grid**.
 2. Choose the NAM folder in Settings; load a pedal into IN1 and different full rigs into A1/B1.
    Leave global IR bypassed for full rigs. Sweep Blend A/B and check unity/phase by ear.
 3. Load and bypass captures in all four rows. Verify that output-row changes affect both lanes.
@@ -157,7 +159,7 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 ```sh
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target NeuralAmpModeler-clap NeuralAmpModeler-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-clap-bench --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-clap-bench --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 

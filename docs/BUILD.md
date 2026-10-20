@@ -1,8 +1,10 @@
-# Build the fixed-grid experiment
+# Build nam-grid
 
 The native UI and DSP remain based on the official NAM plugin. The plugin displays
-**NAM Grid Prototype**, has its own plugin ID (`NGr1`), and retains upstream's binary
-filename. Do not overwrite an official NAM installation with this prototype.
+**nam-grid**, with `nam-grid.clap` / `nam-grid.vst3` artifacts. Its CLAP ID
+(`com.StevenAtkinson.NAMGridPrototype`) and VST3 ID (`NGr1`) are retained from the grid
+prototype so saved projects can identify it after a rescan. Avoid duplicate copies of the
+old grid binary in plugin scan paths. The separate dual prototype keeps its own ID (`NDu1`).
 
 ## Dependencies
 
@@ -23,7 +25,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target NeuralAmpModeler-clap NeuralAmpModeler-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
@@ -40,8 +42,8 @@ patch is already applied, and refuses patches that cannot be applied cleanly.
 
 Output:
 
-- Windows CLAP: `build-grid/out/NeuralAmpModeler.clap`
-- Windows VST3: `build-grid/out/NeuralAmpModeler.vst3/Contents/x86_64-win/NeuralAmpModeler.vst3`
+- Windows CLAP: `build-grid/out/nam-grid.clap`
+- Windows VST3: `build-grid/out/nam-grid.vst3/Contents/x86_64-win/nam-grid.vst3`
 - macOS CLAP/VST3: bundles under `build-grid/out` (unverified).
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
 

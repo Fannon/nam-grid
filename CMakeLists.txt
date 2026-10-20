@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(NAMDualPrototype LANGUAGES C CXX)
+project(nam-grid LANGUAGES C CXX)
 set(IPLUG2_DIR "${CMAKE_CURRENT_SOURCE_DIR}/iPlug2")
 set(IPLUG2_CXX_STANDARD 20)
 set(IPLUG_DEPLOY_PLUGINS OFF CACHE BOOL "Deploy plugins after building")

@@ -2,6 +2,8 @@
 
 These controls extend the fixed 4×4 grid on `experiment/fixed-4x4-grid`. Routing stays
 four serial input slots → two four-slot parallel lanes → four serial output slots.
+The plugin and its binaries are now named **nam-grid**. Host IDs, parameter IDs, state
+headers and the library preference location retain their existing values for compatibility.
 
 ## Using the cards
 

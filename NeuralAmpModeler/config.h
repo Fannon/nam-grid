@@ -1,13 +1,14 @@
-#define PLUG_NAME "NAM Grid Prototype"
+#define PLUG_NAME "nam-grid"
 #define PLUG_MFR "Steven Atkinson"
 #define PLUG_VERSION_HEX 0x00000800
 #define PLUG_VERSION_STR "0.8.0"
 #define PLUG_UNIQUE_ID 'NGr1'
 #define PLUG_MFR_ID 'SDAa'
-#define PLUG_URL_STR "https://github.com/sdatkinson/NeuralAmpModelerPlugin"
+#define PLUG_URL_STR "https://github.com/Fannon/nam-grid"
 #define PLUG_EMAIL_STR "spam@me.com"
 #define PLUG_COPYRIGHT_STR "Copyright 2022 Steven Atkinson"
 #define PLUG_CLASS_NAME NeuralAmpModeler
+// Persistent host identity: retain this when changing the product's display name.
 #define BUNDLE_NAME "NAMGridPrototype"
 #define BUNDLE_MFR "StevenAtkinson"
 #define BUNDLE_DOMAIN "com"

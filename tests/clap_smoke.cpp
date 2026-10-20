@@ -16,6 +16,9 @@ int main(int argc, char** argv)
   assert(entry && entry->init(argv[1]));
   auto* factory = static_cast<const clap_plugin_factory*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
   assert(factory && factory->get_plugin_count(factory) == 1);
+  const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
+  assert(std::strcmp(descriptor->name, "nam-grid") == 0);
+  assert(std::strcmp(descriptor->id, "com.StevenAtkinson.NAMGridPrototype") == 0);
   Host host;
   auto* plugin = factory->create_plugin(factory, &host.host, factory->get_plugin_descriptor(factory, 0)->id);
   assert(plugin && plugin->init(plugin));

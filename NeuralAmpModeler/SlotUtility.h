@@ -3,6 +3,15 @@
 #include "EffectParameters.h"
 
 // Reuses the same MIT AudioDSPTools peak coefficients and smoothed cut filters as SlotEQ.
+class NotchCoefficients : public recursive_linear_filter::Biquad
+{
+public:
+  void SetParams(const recursive_linear_filter::BiquadParams& p) override
+  {
+    const double omega = p.GetOmega0(), cosine = p.GetCosW(omega), alpha = p.GetAlpha(omega);
+    _AssignCoefficients(1. + alpha, -2. * cosine, 1. - alpha, 1., -2. * cosine, 1.);
+  }
+};
 class SlotParametricEQ
 {
 public:
@@ -14,6 +23,7 @@ public:
     mCounter = 0;
     mDirty = false;
     mBell.Reset();
+    mNotch.Reset(); mMode = 0.;
     Update(); // Allocate coefficient storage outside audio.
     mCuts.Reset(rate);
     mCuts.Process(nullptr, 0, true, {});
@@ -23,7 +33,7 @@ public:
     cuts.presence = 0.;
     mCuts.Process(samples, frames, true, cuts);
     const std::array<double, 3> target{
-      std::clamp(c.frequency, 80., 8000.), std::clamp(c.gain, -12., 12.), std::clamp(c.q, .3, 4.)};
+      std::clamp(c.frequency, 20., 20000.), std::clamp(c.gain, -12., 12.), std::clamp(c.q, .1, 20.)};
     for (int i = 0; i < frames; ++i)
     {
       for (int j = 0; j < 3; ++j)
@@ -39,7 +49,9 @@ public:
         mDirty = false;
       }
       mCounter %= 16;
-      samples[i] = mBell.Tick(samples[i]);
+      const double bell = mBell.Tick(samples[i]), notch = mNotch.Tick(samples[i]);
+      mMode += std::clamp((c.eqMode >= .5 ? 1. : 0.) - mMode, -1. / (.005 * mRate), 1. / (.005 * mRate));
+      samples[i] = bell + mMode * (notch - bell);
     }
   }
 
@@ -48,13 +60,16 @@ private:
   {
     mBell.SetParams(
       recursive_linear_filter::BiquadParams(mRate, std::min(mCurrent[0], .4 * mRate), mCurrent[2], mCurrent[1]));
+    mNotch.SetParams(recursive_linear_filter::BiquadParams(mRate, std::min(mCurrent[0], .4 * mRate), mCurrent[2], 0.));
   }
   ScalarFilter<recursive_linear_filter::Peaking> mBell;
+  ScalarFilter<NotchCoefficients> mNotch;
   SlotEQ mCuts;
   std::array<double, 3> mCurrent{};
   double mRate = 48000., mSmoothing = 0.;
   int mCounter = 0;
   bool mDirty = false;
+  double mMode = 0.;
 };
 
 class SlotBoost

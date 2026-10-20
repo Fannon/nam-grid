@@ -67,6 +67,18 @@ enum UtilityParam
   uWahRange,
   uWahMix,
   uWahOutput,
+  uUtilityDelay,
+  uRotarySlow, uRotaryFast, uRotarySpeed, uRotaryAccel, uRotaryDrive, uRotarySpread, uRotaryMix,
+  uVibeMode,
+  uLimiterCeiling, uLimiterRelease,
+  uOctDry, uOctSub, uOctSub2, uOctTone, uOctOutput,
+  uDoubleDetune, uDoubleDelay, uDoubleSpread, uDoubleMix, uDoubleOutput,
+  uFreezeHold, uFreezeWindow, uFreezeFade, uFreezeTone, uFreezeMix,
+  uStutterTime, uStutterDuty, uStutterFade, uStutterMix,
+  uCrushBits, uCrushRate, uCrushTone, uCrushMix, uCrushOutput,
+  uRingFrequency, uRingDepth, uRingTone, uRingMix,
+  uDualRatio, uDualBalance,
+  uEQMode,
   kUtilityControls
 };
 struct EffectParameter
@@ -79,9 +91,9 @@ struct EffectParameter
   bool exponential = false;
 };
 inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters{
-  {{"Parametric Frequency", "Frequency", 800, 80, 8000, 1, "Hz", 0, true},
+  {{"Parametric Frequency", "Frequency", 800, 20, 20000, 1, "Hz", 0, true},
    {"Parametric Gain", "Gain", 0, -12, 12, .1, "dB", 1},
-   {"Parametric Q", "Q", .7, .3, 4, .01, "", 2},
+   {"Parametric Q", "Q", .7, .1, 20, .01, "", 2},
    {"Boost Gain", "Gain", 6, 0, 18, .1, "dB", 0},
    {"Boost Tilt", "Tilt", 0, -6, 6, .1, "dB", 1},
    {"Filter Cutoff", "Cutoff", 2500, 40, 12000, 1, "Hz", 0, true},
@@ -139,15 +151,68 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Wah Resonance", "Resonance", 3, 1, 6, .01, "Q", 1},
    {"Wah Range", "Range", 50, 0, 100, .1, "%", 2},
    {"Wah Mix", "Mix", 100, 0, 100, .1, "%", 3},
-   {"Wah Output", "Output", 0, -12, 12, .1, "dB", 4}}};
+   {"Wah Output", "Output", 0, -12, 12, .1, "dB", 4},
+   {"Utility Delay", "Fine delay", 0, 0, 20, .01, "ms", 5},
+   {"Rotary Slow", "Slow speed", .8, .1, 2, .01, "Hz", 0},
+   {"Rotary Fast", "Fast speed", 6, 2, 10, .01, "Hz", 1},
+   {"Rotary Speed", "Fast", 0, 0, 1, 1, "", 2},
+   {"Rotary Acceleration", "Acceleration", 1, .1, 5, .01, "s", 3},
+   {"Rotary Drive", "Drive", 3, 0, 18, .1, "dB", 4},
+   {"Rotary Spread", "Spread", 80, 0, 100, .1, "%", 5},
+   {"Rotary Mix", "Mix", 75, 0, 100, .1, "%", 6},
+   {"Vibe Vibrato", "Vibrato mode", 0, 0, 1, 1, "", 5},
+   {"Limiter Ceiling", "Ceiling", -1, -24, 0, .1, "dB", 0},
+   {"Limiter Release", "Release", 75, 10, 500, 1, "ms", 1, true},
+   {"Octaver Dry", "Dry", 100, 0, 100, .1, "%", 0},
+   {"Octaver Sub", "Octave down", 50, 0, 100, .1, "%", 1},
+   {"Octaver Sub Two", "Two octaves", 0, 0, 100, .1, "%", 2},
+   {"Octaver Tone", "Tone", 1000, 80, 5000, 1, "Hz", 3, true},
+   {"Octaver Output", "Output", 0, -24, 6, .1, "dB", 4},
+   {"Doubler Detune", "Detune", 9, 1, 25, .1, "cents", 0},
+   {"Doubler Delay", "Delay", 12, 1, 30, .1, "ms", 1},
+   {"Doubler Spread", "Spread", 100, 0, 100, .1, "%", 2},
+   {"Doubler Mix", "Mix", 35, 0, 100, .1, "%", 3},
+   {"Doubler Output", "Output", 0, -24, 6, .1, "dB", 4},
+   {"Freeze Hold", "Hold", 0, 0, 1, 1, "", 0},
+   {"Freeze Window", "Capture", 500, 50, 2000, 1, "ms", 1, true},
+   {"Freeze Fade", "Fade", 20, 1, 100, .1, "ms", 2},
+   {"Freeze Tone", "Tone", 6000, 200, 16000, 1, "Hz", 3, true},
+   {"Freeze Level", "Held level", 35, 0, 100, .1, "%", 4},
+   {"Stutter Time", "Window", 125, 10, 1000, 1, "ms", 0, true},
+   {"Stutter Duty", "Gate", 75, 5, 100, .1, "%", 1},
+   {"Stutter Fade", "Fade", 5, .1, 20, .1, "ms", 2},
+   {"Stutter Mix", "Mix", 50, 0, 100, .1, "%", 3},
+   {"Crusher Bits", "Bits", 8, 2, 16, 1, "bits", 0},
+   {"Crusher Rate", "Sample rate", 12000, 100, 48000, 1, "Hz", 1, true},
+   {"Crusher Tone", "Tone", 8000, 200, 20000, 1, "Hz", 2, true},
+   {"Crusher Mix", "Mix", 100, 0, 100, .1, "%", 3},
+   {"Crusher Output", "Output", 0, -24, 6, .1, "dB", 4},
+   {"Ring Frequency", "Frequency", 440, 1, 5000, .1, "Hz", 0, true},
+   {"Ring Depth", "Depth", 100, 0, 100, .1, "%", 1},
+   {"Ring Tone", "Tone", 12000, 200, 20000, 1, "Hz", 2, true},
+   {"Ring Mix", "Mix", 50, 0, 100, .1, "%", 3},
+   {"Dual Delay Ratio", "Time ratio", 1.5, .25, 2, .01, "x", 3},
+   {"Dual Delay Balance", "Tap balance", 50, 0, 100, .1, "%", 4},
+   {"Parametric Notch", "Notch mode", 0, 0, 1, 1, "", 5}}};
 inline bool IsDelay(SlotEffect e)
-{ return e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay; }
+{ return (e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay) || e == SlotEffect::ReverseDelay || e == SlotEffect::DualDelay; }
 inline bool IsReverb(SlotEffect e)
 { return (e >= SlotEffect::RoomReverb && e <= SlotEffect::CloudReverb) || e == SlotEffect::SpringReverb; }
 inline bool IsModulation(SlotEffect e)
 { return e >= SlotEffect::Chorus && e <= SlotEffect::Vibrato; }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
+  if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;
+  if (e == SlotEffect::Limiter) return p >= uLimiterCeiling && p <= uLimiterRelease;
+  if (e == SlotEffect::Octaver) return p >= uOctDry && p <= uOctOutput;
+  if (e == SlotEffect::Doubler) return p >= uDoubleDetune && p <= uDoubleOutput;
+  if (e == SlotEffect::Freeze) return p >= uFreezeHold && p <= uFreezeMix;
+  if (e == SlotEffect::Stutter) return p >= uStutterTime && p <= uStutterMix;
+  if (e == SlotEffect::Bitcrusher) return p >= uCrushBits && p <= uCrushOutput;
+  if (e == SlotEffect::RingMod) return p >= uRingFrequency && p <= uRingMix;
+  if (e == SlotEffect::ReverseDelay) return p == uDelayTime || p == uDelayTone || p == uDelayMix || p == uDelayOutput;
+  if (e == SlotEffect::DualDelay) return p == uDelayTime || p == uDelayFeedback || p == uDelayTone || p == uDelayMix || p == uDelayOutput || p == uDualRatio || p == uDualBalance;
   if (e == SlotEffect::SpringReverb)
     return (p >= uSpringDecay && p <= uSpringOutput) || p == uReverbTone;
   if (e == SlotEffect::Wah)
@@ -155,9 +220,9 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::Chorus && p == uChorusSpread)
     return true;
   if (e == SlotEffect::Utility)
-    return p >= uUtilityLevel && p <= uUtilityInvertR;
+    return (p >= uUtilityLevel && p <= uUtilityInvertR) || p == uUtilityDelay;
   if (e == SlotEffect::ParametricEQ)
-    return p >= uFrequency && p <= uQ;
+    return (p >= uFrequency && p <= uQ) || p == uEQMode;
   if (e == SlotEffect::Boost)
     return p == uBoostGain || p == uBoostTilt;
   if (e == SlotEffect::TubeBoost)
@@ -199,4 +264,12 @@ struct UtilityControls
   std::array<double, 5> wah{50., 3., 50., 100., 0.};
   int division = 4;
   double tempo = 120., level = 0., balance = 0., stereo = 0.;
+  double fineDelay = 0., vibeMode = 0., eqMode = 0.;
+  std::array<double, 7> rotary{.8, 6., 0., 1., 3., 80., 75.};
+  std::array<double, 2> limiter{-1., 75.};
+  std::array<double, 5> octaver{100., 50., 0., 1000., 0.}, doubler{9., 12., 100., 35., 0.};
+  std::array<double, 5> freeze{0., 500., 20., 6000., 35.};
+  std::array<double, 4> stutter{125., 75., 5., 50.}, ring{440., 100., 12000., 50.};
+  std::array<double, 5> crusher{8., 12000., 8000., 100., 0.};
+  std::array<double, 2> dual{1.5, 50.};
 };

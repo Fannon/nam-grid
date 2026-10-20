@@ -34,7 +34,18 @@ enum class SlotEffect
   TubeBoost,
   Utility,
   SpringReverb,
-  Wah
+  Wah,
+  Rotary,
+  UniVibe,
+  Limiter,
+  Octaver,
+  Doubler,
+  ReverseDelay,
+  DualDelay,
+  Freeze,
+  Stutter,
+  Bitcrusher,
+  RingMod
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -67,6 +78,17 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Utility: return "Utility";
     case SlotEffect::SpringReverb: return "Spring Reverb";
     case SlotEffect::Wah: return "Wah";
+    case SlotEffect::Rotary: return "Rotary";
+    case SlotEffect::UniVibe: return "Uni-Vibe";
+    case SlotEffect::Limiter: return "Peak Limiter";
+    case SlotEffect::Octaver: return "Mono Octaver";
+    case SlotEffect::Doubler: return "Stereo Doubler";
+    case SlotEffect::ReverseDelay: return "Reverse Delay";
+    case SlotEffect::DualDelay: return "Dual Delay";
+    case SlotEffect::Freeze: return "Freeze / Hold";
+    case SlotEffect::Stutter: return "Stutter";
+    case SlotEffect::Bitcrusher: return "Bitcrusher";
+    case SlotEffect::RingMod: return "Ring Modulator";
 
     default: return "NAM";
   }

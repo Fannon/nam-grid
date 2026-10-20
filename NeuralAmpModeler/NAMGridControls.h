@@ -374,7 +374,7 @@ public:
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(550, 606, 654, 636), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uDelayPingPong || i == uReverbStereo)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(674, 606, 802, 636), SlotUtilityParam(mSlot, i), p.label);
-      else if (i == uUtilityInvertL || i == uUtilityInvertR)
+      else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
         mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
@@ -429,6 +429,8 @@ public:
       PLUG()->RescanCaptureFolder();
     else if (item->GetTag() == -15)
       PLUG()->ToggleSlotQuality(mSlot);
+    else if (item->GetTag() == -16)
+      PLUG()->LoadSlapbackPreset(mSlot);
     else if (item->GetTag() == -12)
     {
       WDL_String file, directory;
@@ -440,7 +442,7 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Wah))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::RingMod))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
@@ -474,7 +476,7 @@ private:
         mEQKnobs[i]->Hide(i < 3   ? (effect != SlotEffect::ToneEQ && !(nam && !path.empty()))
                           : i < 6 ? effect != SlotEffect::CutEQ
                                   : !ir);
-      const bool tempo = IsDelay(effect) || IsModulation(effect);
+      const bool tempo = IsDelay(effect) || IsModulation(effect) || effect == SlotEffect::UniVibe || effect == SlotEffect::Stutter;
       const bool sync = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uTempoSync))->Bool();
       for (int i = 0; i < kUtilityControls; ++i)
       {
@@ -487,7 +489,7 @@ private:
           visible = IsReverb(effect);
         if (i == uTempoDivision)
           visible = tempo && sync;
-        if ((i == uDelayTime || i == uModRate) && sync)
+        if ((i == uDelayTime || i == uModRate || i == uStutterTime) && sync)
           visible = false;
         mUtilityKnobs[i]->Hide(!visible);
         if (i == uDelayCharacter)
@@ -628,7 +630,11 @@ private:
     };
     addGroup("Reverb", SlotEffect::RoomReverb, SlotEffect::CloudReverb);
     addGroup("Delay", SlotEffect::DigitalDelay, SlotEffect::TapeDelay);
+    mMenu.AddItem(new IPopupMenu::Item("Slapback preset", 0, -16), 7);
     addGroup("Modulation", SlotEffect::Chorus, SlotEffect::Vibrato);
+    addGroup("Rotary / Vibe", SlotEffect::Rotary, SlotEffect::UniVibe);
+    addGroup("Dynamics / Pitch", SlotEffect::Limiter, SlotEffect::Doubler);
+    addGroup("Creative", SlotEffect::ReverseDelay, SlotEffect::RingMod);
     addGroup("Filter / Volume", SlotEffect::SynthFilter, SlotEffect::AutoSwell);
     for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost, SlotEffect::Utility})
       mMenu.AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,

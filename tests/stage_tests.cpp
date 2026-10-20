@@ -54,6 +54,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "SlotFeaturesTests.h"
 #include "TimeEffectsTests.h"
 #include "TunerTempoUtilityTests.h"
+#include "RoadmapEffectsTests.h"
 #include "StereoGuitarEffectsTests.h"
 
 int main(int argc, char** argv)
@@ -165,6 +166,7 @@ try
   TestSlotFeatures();
   TestTimeEffects();
   TestTunerTempoUtility();
+  TestRoadmapEffects();
   TestStereoGuitarEffects();
   if (argc > 2)
   {

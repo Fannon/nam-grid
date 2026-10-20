@@ -4,6 +4,8 @@
 #include "WinEditorCapture.h"
 #include "WinEditMenuDriver.h"
 #include "../NeuralAmpModeler/EffectParameters.h"
+#include "../NeuralAmpModeler/GridPerformance.h"
+#include "RoadmapClapTests.h"
 int main(int argc, char** argv)
 {
   assert(argc == 3 || argc == 4);
@@ -50,7 +52,7 @@ int main(int argc, char** argv)
     assert(loadBytes(std::move(s)));
   };
   auto base = save().config();
-  assert(params->count(plugin) == 286 + 16 * kUtilityControls);
+  assert(params->count(plugin) == 286 + 16 * kUtilityControls + grid_performance::Count);
   assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
   for (const char* name : {"Input", "Drive Input", "Pre 3 In", "Post 4 In"})
     for (double db : {-40., -30., 30., 40.})
@@ -863,6 +865,7 @@ int main(int argc, char** argv)
     plugin->deactivate(plugin);
   }
   load(base);
+  TestRoadmapClap(plugin, cleared, save, load);
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
   const auto libraryFolder = fixtures / "library";
@@ -1310,6 +1313,33 @@ int main(int argc, char** argv)
   assert(std::abs(output[0][400]) > .001);
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
+  // Exercise the real performance overlay and scene transactions without replacing models.
+  load(cleared);
+  click(300, 36);
+  dragAt(95, 235);
+  const double sceneGain = save().config()["Lane A Level"];
+  assert(sceneGain != 0.);
+  click(465, 104); // Scenes tab
+  click(110, 419); // Store scene 1
+  const auto sceneState = save().config();
+  assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
+  automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
+  assert(save().config()["Lane A Level"] == -60.);
+  click(245, 419); // Recall scene 1
+  assert(save().config()["Lane A Level"] == sceneGain);
+  const auto storedScene = save();
+  load(cleared);
+  assert(loadBytes(storedScene));
+  assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  auto malformedScene = save().config();
+  malformedScene["PerformanceScenes"][0]["Not a real parameter"] = 1.;
+  Stream malformedSceneBytes; malformedSceneBytes.string("###NAMGrid-v1###"); malformedSceneBytes.string(malformedScene.dump());
+  assert(!loadBytes(malformedSceneBytes));
+  assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  click(295, 104); // Modulation tab
+  dragAt(230, 335);
+  assert(save().config()["LFO Depth"] != 0.);
+  click(915, 44); // Close overlay
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["CaptureFolder"] = libraryFolder.string();

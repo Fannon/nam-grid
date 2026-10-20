@@ -67,7 +67,8 @@ enum EParams
   kUtilityBase = kQualityBase + 15,
   kTunerReference = kUtilityBase + 16 * kUtilityControls,
   kTunerMute,
-  kNumParams
+  kGridParamBase,
+  kNumParams = kGridParamBase + grid_performance::Count
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
@@ -125,6 +126,7 @@ enum ECtrlTags
   kCtrlTagGearFilter,
   kCtrlTagClearFilter,
   kCtrlTagTuner,
+  kCtrlTagPerformance,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -179,6 +181,10 @@ public:
   }
   void SetTunerOpen(bool open) { mTuner.Enable(open); }
   double TunerFrequency() const { return mTuner.Frequency(); }
+  void StorePerformanceScene(size_t scene);
+  void RecallPerformanceScene(size_t scene);
+  bool HasPerformanceScene(size_t scene) const;
+  bool IsPerformanceSceneParam(int index) const;
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
 
   void OnParamChange(int paramIdx) override;
@@ -214,6 +220,7 @@ public:
   std::string LoadSlotIR(size_t slot, const char* path);
   std::string EditSlot(size_t source, size_t destination, SlotEditMode mode);
   void ClearSlot(size_t slot);
+  void LoadSlapbackPreset(size_t slot);
 
 private:
   // Allocates mInputPointers and mOutputPointers
@@ -292,6 +299,9 @@ private:
   dsp::noise_gate::Gain mNoiseGateGain;
   FixedNAMGrid mGrid;
   grid_tuner::Tuner mTuner;
+  grid_performance::Modulation mModulation;
+  std::atomic<uint32_t> mFreezeMask{0};
+  std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};
   double mTunerGain = 1., mMasterGain = 1., mMasterCoefficient = 0.;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;

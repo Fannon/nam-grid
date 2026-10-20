@@ -9,6 +9,7 @@
 #include "SlotTimeEffects.h"
 #include "StereoUtility.h"
 #include "SlotGuitarEffects.h"
+#include "RoadmapEffects.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -40,6 +41,14 @@ public:
     SlotTape tape;
     SlotSpring spring;
     SlotWah wah;
+    grid_roadmap::Limiter limiter;
+    grid_roadmap::Rotary rotary;
+    grid_roadmap::Vibe vibe;
+    grid_roadmap::Octaver octaver;
+    grid_roadmap::Doubler doubler;
+    grid_roadmap::Capture capture;
+    grid_roadmap::DualDelay dualDelay;
+    grid_roadmap::Texture texture;
     StereoUtility utilityStereo;
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
@@ -61,8 +70,20 @@ public:
         filter.Reset(rate);
       if (effect == SlotEffect::AutoSwell)
         swell.Reset(rate);
-      if (IsDelay(effect))
+      if (IsDelay(effect) && effect != SlotEffect::ReverseDelay && effect != SlotEffect::DualDelay)
         echo.Reset(rate);
+      if (!rightChannel)
+      {
+        if (effect == SlotEffect::Limiter) limiter.Reset(rate);
+        if (effect == SlotEffect::Rotary) rotary.Reset(rate);
+        if (effect == SlotEffect::Octaver) octaver.Reset(rate);
+        if (effect == SlotEffect::Doubler) doubler.Reset(rate);
+        if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
+          capture.Reset(rate, effect == SlotEffect::Freeze ? 2.1 : 8.1);
+        if (effect == SlotEffect::DualDelay) dualDelay.Reset(rate);
+      }
+      if (effect == SlotEffect::UniVibe) vibe.Reset(rate);
+      if (effect == SlotEffect::Bitcrusher || effect == SlotEffect::RingMod) texture.Reset(rate);
       if (IsReverb(effect) && effect != SlotEffect::SpringReverb)
         reverb.Reset(rate);
       if (effect == SlotEffect::SpringReverb && !rightChannel)
@@ -88,8 +109,12 @@ public:
       delay.assign(std::max(1, latency), 0.);
       delayIndex = 0;
       drainLimit = static_cast<int64_t>(rate
-                                        * (IsDelay(effect)        ? 560.
+                                        * (effect == SlotEffect::DualDelay ? 1200.
+                                           : IsDelay(effect)        ? 560.
                                            : IsReverb(effect)     ? 30.
+                                           : effect == SlotEffect::Doubler ? .1
+                                           : effect == SlotEffect::Stutter ? 33.
+                                           : effect == SlotEffect::Utility ? .025
                                            : IsModulation(effect) ? .07
                                                                   : 0.));
       drainFrames = drainLimit; // Fresh histories already contain silence.
@@ -245,7 +270,24 @@ public:
         }
         else
         {
-          if (p->effect == SlotEffect::SpringReverb)
+          if (p->effect >= SlotEffect::Rotary && p->effect != SlotEffect::UniVibe
+              && p->effect != SlotEffect::Bitcrusher && p->effect != SlotEffect::RingMod)
+          {
+            std::copy_n(in, frames, out);
+            double* r = rightSamples ? p->right->wet.data() : nullptr;
+            if (r) std::copy_n(p->right->input.data(), frames, r);
+            if (p->effect == SlotEffect::Limiter)
+            {
+              p->limiter.Process(out, r, frames, utility);
+              mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->limiter.Reduction() * mMix));
+            }
+            else if (p->effect == SlotEffect::Rotary) p->rotary.Process(out, r, frames, utility);
+            else if (p->effect == SlotEffect::Octaver) p->octaver.Process(out, r, frames, utility);
+            else if (p->effect == SlotEffect::Doubler) p->doubler.Process(out, r, frames, utility);
+            else if (p->effect == SlotEffect::DualDelay) p->dualDelay.Process(out, r, frames, utility);
+            else p->capture.Process(out, r, frames, p->effect, utility);
+          }
+          else if (p->effect == SlotEffect::SpringReverb)
           {
             std::copy_n(in, frames, out);
             if (rightSamples)
@@ -337,6 +379,10 @@ private:
         p->filter.Process(out, frames, utility);
       else if (p->effect == SlotEffect::AutoSwell)
         p->swell.Process(out, frames, utility);
+      else if (p->effect == SlotEffect::UniVibe)
+        p->vibe.Process(out, frames, utility);
+      else if (p->effect == SlotEffect::Bitcrusher || p->effect == SlotEffect::RingMod)
+        p->texture.Process(out, frames, p->effect, utility);
       else if (IsDelay(p->effect))
         p->echo.Process(out, frames, p->effect, utility);
       else if (IsReverb(p->effect))

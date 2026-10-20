@@ -1,5 +1,6 @@
 #pragma once
 #include "NAMStage.h"
+#include "GridPerformance.h"
 #include <array>
 
 // Four serial input slots -> two independent four-slot lanes -> four serial output slots.
@@ -42,6 +43,10 @@ public:
       buffer.assign(maxBlock, 0.);
     for (auto& buffer : mRightLane)
       buffer.assign(maxBlock, 0.);
+    mSplitGain.assign(maxBlock, 1.);
+    mSplitLow = {}; mSplitMix = 0.; mSplitFrequency = 250.;
+    mGainA = mGainB = 1.; mRouteFirst = true; mRate = rate;
+    for (auto& delay : mFineDelay) delay.Reset(rate);
     const auto latency = LaneLatencies();
     int largestStageDelay = kMaxLaneDelay / 4;
     for (int slot = 4; slot < 12; ++slot)
@@ -55,7 +60,7 @@ public:
   }
 
   void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
-               double* right = nullptr)
+               double* right = nullptr, const grid_performance::Routing& routing = {})
   {
     ProcessRow(samples, frames, controls, 0, right);
     std::copy_n(samples, frames, mLane[0].data());
@@ -63,8 +68,38 @@ public:
     if (right)
       for (auto& lane : mRightLane)
         std::copy_n(right, frames, lane.data());
+    if (mRouteFirst)
+    {
+      mSplitMix = routing.crossover ? 1. : 0.; mSplitFrequency = routing.frequency;
+      mGainA = std::pow(10., routing.gainA * .05) * (!routing.muteA && (!routing.soloB || routing.soloA) ? 1. : 0.);
+      mGainB = std::pow(10., routing.gainB * .05) * (!routing.muteB && (!routing.soloA || routing.soloB) ? 1. : 0.);
+      mRouteFirst = false;
+    }
+    for (int i = 0; i < frames; ++i)
+    {
+      mSplitMix += std::clamp((routing.crossover ? 1. : 0.) - mSplitMix, -mStep, mStep);
+      mSplitFrequency += .002 * (std::clamp(routing.frequency, 40., 5000.) - mSplitFrequency);
+      const double coefficient = std::exp(-6.283185307179586 * std::min(.4 * mRate, mSplitFrequency) / mRate);
+      const double l = samples[i];
+      mSplitLow[0] = grid_fx::Flush(l + coefficient * (mSplitLow[0] - l));
+      mLane[0][i] = l + mSplitMix * (mSplitLow[0] - l);
+      mLane[1][i] = l - mSplitMix * mSplitLow[0];
+      if (right)
+      {
+        const double r = right[i];
+        mSplitLow[1] = grid_fx::Flush(r + coefficient * (mSplitLow[1] - r));
+        mRightLane[0][i] = r + mSplitMix * (mSplitLow[1] - r);
+        mRightLane[1][i] = r - mSplitMix * mSplitLow[1];
+      }
+      // Equal unprocessed lanes reconstruct unity throughout a crossover fade.
+      mSplitGain[i] = 2. / (2. - mSplitMix);
+    }
     ProcessRow(mLane[0].data(), frames, controls, 4, right ? mRightLane[0].data() : nullptr);
     ProcessRow(mLane[1].data(), frames, controls, 8, right ? mRightLane[1].data() : nullptr);
+    UtilityControls fineA, fineB;
+    fineA.fineDelay = std::max(0., routing.timing); fineB.fineDelay = std::max(0., -routing.timing);
+    mFineDelay[0].Process(mLane[0].data(), right ? mRightLane[0].data() : nullptr, frames, fineA);
+    mFineDelay[1].Process(mLane[1].data(), right ? mRightLane[1].data() : nullptr, frames, fineB);
     const auto latency = LaneLatencies();
     mDelay[0].SetDelay(std::max(0, latency[1] - latency[0]));
     mDelay[1].SetDelay(std::max(0, latency[0] - latency[1]));
@@ -76,14 +111,18 @@ public:
       mBlend = blendB;
       mFirstBlend = false;
     }
+    const double targetA = std::pow(10., routing.gainA * .05) * (!routing.muteA && (!routing.soloB || routing.soloA) ? 1. : 0.);
+    const double targetB = std::pow(10., routing.gainB * .05) * (!routing.muteB && (!routing.soloA || routing.soloB) ? 1. : 0.);
     for (int i = 0; i < frames; ++i)
     {
       mBlend = mBlend < blendB ? std::min(blendB, mBlend + mStep) : std::max(blendB, mBlend - mStep);
+      mGainA += std::clamp(targetA - mGainA, -mStep * 4., mStep * 4.);
+      mGainB += std::clamp(targetB - mGainB, -mStep * 4., mStep * 4.);
       // Linear blend: identical/dry lanes remain unity at every blend position.
       if (right)
         right[i] =
-          (1. - mBlend) * mRightDelay[0].Process(mRightLane[0][i]) + mBlend * mRightDelay[1].Process(mRightLane[1][i]);
-      samples[i] = (1. - mBlend) * mDelay[0].Process(mLane[0][i]) + mBlend * mDelay[1].Process(mLane[1][i]);
+          mSplitGain[i] * ((1. - mBlend) * mGainA * mRightDelay[0].Process(mRightLane[0][i]) + mBlend * mGainB * mRightDelay[1].Process(mRightLane[1][i]));
+      samples[i] = mSplitGain[i] * ((1. - mBlend) * mGainA * mDelay[0].Process(mLane[0][i]) + mBlend * mGainB * mDelay[1].Process(mLane[1][i]));
     }
     ProcessRow(samples, frames, controls, 12, right);
   }
@@ -158,4 +197,9 @@ private:
   std::array<std::vector<double>, 2> mRightLane;
   double mBlend = .5, mStep = 1. / 240.;
   bool mFirstBlend = true;
+  std::array<StereoUtility, 2> mFineDelay;
+  std::vector<double> mSplitGain;
+  std::array<double, 2> mSplitLow{};
+  double mSplitMix = 0., mSplitFrequency = 250., mGainA = 1., mGainB = 1., mRate = 48000.;
+  bool mRouteFirst = true;
 };

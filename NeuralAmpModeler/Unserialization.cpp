@@ -22,6 +22,8 @@
 
 void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
 {
+  for (size_t i = 0; i < mPerformanceScenes.size(); ++i)
+    mPerformanceScenes[i] = config.contains("PerformanceScenes") ? config["PerformanceScenes"][i] : nlohmann::json::object();
   auto getParamByName = [&](std::string& name) {
     // Could use a map but eh
     for (int i = 0; i < kNumParams; i++)

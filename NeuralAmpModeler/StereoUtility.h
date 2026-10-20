@@ -1,5 +1,6 @@
 #pragma once
 #include "EffectParameters.h"
+#include <vector>
 
 // Balance preserves unity at center and attenuates the opposite side at extremes.
 // Stereo is a centered mid/side amount; polarity and gain changes ramp through zero without a jump.
@@ -10,6 +11,8 @@ public:
   {
     mStep = 1. / std::max(1., rate * .005);
     mFirst = true;
+    mRate = rate; mDelay = 0.; mIndex = 0;
+    for (auto& history : mHistory) history.assign(static_cast<size_t>(std::ceil(rate * .021)) + 2, 0.);
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
   {
@@ -21,6 +24,7 @@ public:
     if (mFirst)
     {
       mValue = target;
+      mDelay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
       mFirst = false;
     }
     // A fixed-time ramp is independent of host block size.
@@ -29,7 +33,16 @@ public:
       for (int j = 0; j < 3; ++j)
         mValue[j] += std::clamp(target[j] - mValue[j], -mStep * 8., mStep * 8.);
       const double l = left[i], r = right ? right[i] : l;
-      const double mid = .5 * (l + r), side = .5 * (l - r) * mValue[2];
+      mDelay += std::clamp(std::clamp(c.fineDelay, 0., 20.) * .001 * mRate - mDelay, -.25, .25);
+      mHistory[0][mIndex] = l; mHistory[1][mIndex] = r;
+      const size_t whole = static_cast<size_t>(mDelay);
+      const double fraction = mDelay - whole;
+      const size_t a = (mIndex + mHistory[0].size() - whole) % mHistory[0].size();
+      const size_t b = (a + mHistory[0].size() - 1) % mHistory[0].size();
+      const double dl = mHistory[0][a] + fraction * (mHistory[0][b] - mHistory[0][a]);
+      const double dr = mHistory[1][a] + fraction * (mHistory[1][b] - mHistory[1][a]);
+      mIndex = (mIndex + 1) % mHistory[0].size();
+      const double mid = .5 * (dl + dr), side = .5 * (dl - dr) * mValue[2];
       left[i] = (mid + side) * mValue[0];
       if (right)
         right[i] = (mid - side) * mValue[1];
@@ -40,4 +53,7 @@ private:
   std::array<double, 3> mValue{1., 1., 1.};
   double mStep = 1. / 240.;
   bool mFirst = true;
+  std::array<std::vector<double>, 2> mHistory;
+  size_t mIndex = 0;
+  double mRate = 48000., mDelay = 0.;
 };

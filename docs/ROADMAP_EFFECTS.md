@@ -106,11 +106,28 @@ delays stop feedback while draining; Dual Delay reserves 17 seconds to clear its
 maximum 16-second history. Intentional delay/pitch-window behavior is separate
 from the conversion latency reported to the host.
 
-State schema is 10. Existing supported schemas 2/3/6/7/8/9 load with defaults for
-new named parameters; unsupported WIP schemas 4/5 still reject. There are 103
-utility controls per slot and 43 grid controls: 1,977 parameters total. Performance
+State schema is 11. Existing supported schemas 2/3/6/7/8/9/10 load with defaults for
+new named parameters; unsupported WIP schemas 4/5 still reject. There are 120
+utility controls per slot and 43 grid controls: 2,249 parameters total. Performance
 scenes contain named values. No backward host-automation-ID guarantee is introduced
 for this unreleased WIP.
+
+## HQ source-review increment
+
+The follow-up quality pass added three modules from the MIT source review in
+[FX_SOURCE_REVIEW_20261020.md](FX_SOURCE_REVIEW_20261020.md):
+
+| Module | Controls / behavior |
+| --- | --- |
+| Shimmer | Mix, Decay, Tone, Pitch, Amount, Modulation and Freeze. Eight-line FDN with two granular pitch shifters in the feedback path. Positive Pitch climbs on each pass; Freeze holds the tail and stops new input. |
+| Juno Chorus | Mode I / I+II / II, Mix and Brightness. Two fixed triangle LFOs, 1.66–5.35 ms delay range and inverted right-channel modulation. Separate from the generic Chorus module. |
+| Frequency Shifter | Shift ±2000 Hz, Feedback, Delay, Side, Tone, Stereo and Mix. Allpass Hilbert quadrature shifter inside a filtered feedback delay. Side moves from lower sideband through ring modulation to upper sideband. |
+
+The three effects are rate-scaled and allocated in `Reset`; audio uses the existing
+smoothing, bypass ramp and drain policy. Shimmer and Frequency Shifter add no
+compensation latency. Schema 10 states fill the 17 new per-slot controls with
+defaults while preserving the earlier 103 controls. The MIT reference notices are in
+`installer/ThirdPartyNotices.txt`.
 
 ## Verification
 

@@ -51,12 +51,12 @@ stereo effects and trails. We borrow the useful decisions, not the inventories.
 | Dynamics | Two gates, two compressors with attack and blend | Enough; blend provides parallel compression without a new type |
 | EQ/filter | Guitar EQ, cuts, one-band parametric, envelope filter | Useful core; automatable Wah now included |
 | Level/movement | Master, trims, Boost, Auto Swell, Utility Level | Enough; no separate Volume module |
-| Modulation | Chorus, flanger, phaser, tremolo, vibrato | Enough initially; rotary/Uni-Vibe character is a later improvement |
+| Modulation | Chorus, Juno Chorus, flanger, phaser, tremolo, vibrato, rotary, Uni-Vibe | Broad coverage; Juno-style BBD ensemble fills the classic chorus character |
 | Delay | Digital/ducking, analog and tape, motion/output and host sync | Enough initially; Ping-pong now included |
-| Reverb | Room, dense plate, cloud and dispersive Spring; stereo wet | Enough categories; prioritize listening and voicing |
+| Reverb | Room, dense plate, cloud, dispersive Spring and pitched-feedback Shimmer; stereo wet | Broad coverage; prioritize listening and voicing |
 | Parallel-chain utility | Blend, conversion-delay alignment, Utility level/balance/width/polarity | Fine delay could help align captures; inherent phase can still cancel |
 | Stereo | Stereo built-ins/IR histories; mono NAM downmixes once | Foundation in place; spatial chorus/reverb and ping-pong are now included |
-| Pitch/shimmer | Not implemented | Defer; evaluate sound quality, CPU and pitch-window delay explicitly |
+| Pitch/shimmer | Shimmer reverb with granular pitched feedback; no polyphonic pitch/harmonizer | Shimmer fills the ambient/pitched-tail gap; polyphonic pitch remains deferred |
 | Tuning | Compact MPM tuner, reference, mute | Everyday coverage in place; listening evaluation still needed |
 
 These priorities are our design judgment, not a ranking published by IK/Hotone.
@@ -83,4 +83,10 @@ not a target. Module types remain in the menu and unused cells remain empty.
 The next increment adds the tuner, tempo sync and stereo Utility described in
 [MODULES.md](MODULES.md). The following increment implements stereo echo/chorus/reverb,
 Spring and Wah; see [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
-Fine lane timing and further voicing can follow; pitch/shimmer stays deferred.
+Fine lane timing and further voicing can follow.
+
+The external source review's first quality additions are now implemented: **Shimmer**,
+**Juno Chorus** and **Frequency Shifter**; see
+[FX_SOURCE_REVIEW_20261020.md](FX_SOURCE_REVIEW_20261020.md). Polyphonic pitch
+shifting and a harmonizer remain future work. SLOOP/JIANT code remains GPL-only and
+was not imported; only independently implemented feature ideas were used.

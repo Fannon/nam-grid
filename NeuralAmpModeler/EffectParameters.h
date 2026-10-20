@@ -79,6 +79,9 @@ enum UtilityParam
   uRingFrequency, uRingDepth, uRingTone, uRingMix,
   uDualRatio, uDualBalance,
   uEQMode,
+  uJunoMode, uJunoMix, uJunoBrightness,
+  uShimmerMix, uShimmerDecay, uShimmerTone, uShimmerPitch, uShimmerAmount, uShimmerMod, uShimmerFreeze,
+  uShiftFrequency, uShiftFeedback, uShiftDelay, uShiftSide, uShiftTone, uShiftStereo, uShiftMix,
   kUtilityControls
 };
 struct EffectParameter
@@ -193,7 +196,24 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Ring Mix", "Mix", 50, 0, 100, .1, "%", 3},
    {"Dual Delay Ratio", "Time ratio", 1.5, .25, 2, .01, "x", 3},
    {"Dual Delay Balance", "Tap balance", 50, 0, 100, .1, "%", 4},
-   {"Parametric Notch", "Notch mode", 0, 0, 1, 1, "", 5}}};
+   {"Parametric Notch", "Notch mode", 0, 0, 1, 1, "", 5},
+   {"Juno Mode", "Mode", 1, 0, 2, 1, "", 0},
+   {"Juno Mix", "Mix", 50, 0, 100, .1, "%", 1},
+   {"Juno Brightness", "Brightness", 100, 0, 100, .1, "%", 2},
+   {"Shimmer Mix", "Mix", 35, 0, 100, .1, "%", 0},
+   {"Shimmer Decay", "Decay", 3.5, .5, 20, .01, "s", 1, true},
+   {"Shimmer Tone", "Tone", 5000, 800, 12000, 1, "Hz", 2, true},
+   {"Shimmer Pitch", "Pitch", 12, -24, 24, 1, "st", 3},
+   {"Shimmer Amount", "Amount", 35, 0, 100, .1, "%", 4},
+   {"Shimmer Mod", "Modulation", 25, 0, 100, .1, "%", 5},
+   {"Shimmer Freeze", "Freeze", 0, 0, 1, 1, "", 6},
+   {"Shifter Frequency", "Shift", 0, -2000, 2000, 1, "Hz", 0},
+   {"Shifter Feedback", "Feedback", 35, 0, 100, .1, "%", 1},
+   {"Shifter Delay", "Delay", 120, .05, 1000, .01, "ms", 2, true},
+   {"Shifter Side", "Side", 100, -100, 100, .1, "%", 3},
+   {"Shifter Tone", "Tone", 8000, 200, 12000, 1, "Hz", 4, true},
+   {"Shifter Stereo", "Stereo", 0, 0, 100, .1, "%", 5},
+   {"Shifter Mix", "Mix", 50, 0, 100, .1, "%", 6}}};
 inline bool IsDelay(SlotEffect e)
 { return (e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay) || e == SlotEffect::ReverseDelay || e == SlotEffect::DualDelay; }
 inline bool IsReverb(SlotEffect e)
@@ -211,6 +231,9 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::Stutter) return p >= uStutterTime && p <= uStutterMix;
   if (e == SlotEffect::Bitcrusher) return p >= uCrushBits && p <= uCrushOutput;
   if (e == SlotEffect::RingMod) return p >= uRingFrequency && p <= uRingMix;
+  if (e == SlotEffect::JunoChorus) return p >= uJunoMode && p <= uJunoBrightness;
+  if (e == SlotEffect::ShimmerReverb) return p >= uShimmerMix && p <= uShimmerFreeze;
+  if (e == SlotEffect::FrequencyShifter) return p >= uShiftFrequency && p <= uShiftMix;
   if (e == SlotEffect::ReverseDelay) return p == uDelayTime || p == uDelayTone || p == uDelayMix || p == uDelayOutput;
   if (e == SlotEffect::DualDelay) return p == uDelayTime || p == uDelayFeedback || p == uDelayTone || p == uDelayMix || p == uDelayOutput || p == uDualRatio || p == uDualBalance;
   if (e == SlotEffect::SpringReverb)
@@ -272,4 +295,7 @@ struct UtilityControls
   std::array<double, 4> stutter{125., 75., 5., 50.}, ring{440., 100., 12000., 50.};
   std::array<double, 5> crusher{8., 12000., 8000., 100., 0.};
   std::array<double, 2> dual{1.5, 50.};
+  std::array<double, 3> juno{1., 50., 100.};
+  std::array<double, 7> shimmer{35., 3.5, 5000., 12., 35., 25., 0.};
+  std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
 };

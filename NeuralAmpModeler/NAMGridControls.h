@@ -29,11 +29,14 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {boostColor, boostColor, "Boost"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
-  if (IsReverb(effect))
+  if (IsReverb(effect) || effect == SlotEffect::ShimmerReverb)
     return {reverbColor, reverbColor, "Reverb"};
   if (IsModulation(effect) || effect == SlotEffect::SynthFilter || effect == SlotEffect::Wah
-      || effect == SlotEffect::Rotary || effect == SlotEffect::UniVibe || effect == SlotEffect::RingMod)
+      || effect == SlotEffect::Rotary || effect == SlotEffect::UniVibe || effect == SlotEffect::RingMod
+      || effect == SlotEffect::JunoChorus)
     return {modulationColor, modulationColor, "Modulation"};
+  if (effect == SlotEffect::FrequencyShifter)
+    return {modulationColor, modulationColor, "Pitch"};
   if (effect == SlotEffect::Octaver || effect == SlotEffect::Doubler)
     return {modulationColor, modulationColor, "Pitch"};
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter)
@@ -457,7 +460,7 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::RingMod))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::FrequencyShifter))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
@@ -530,6 +533,18 @@ private:
         else if (i == uWahPosition)
           mUtilityKnobs[i]->SetTooltip(
             "Heel-to-toe sweep. Automate this parameter or map it to an expression controller in the host.");
+        else if (i == uShimmerPitch)
+          mUtilityKnobs[i]->SetTooltip(
+            "Semitone interval added on each reverb pass. Positive values climb; negative values fall.");
+        else if (i == uShimmerAmount)
+          mUtilityKnobs[i]->SetTooltip(
+            "Pitched reverb feedback. Higher amounts create a longer, more obvious shimmer.");
+        else if (i == uShiftFrequency)
+          mUtilityKnobs[i]->SetTooltip(
+            "Fixed-hertz offset per repeat. Unlike pitch shift, every partial moves by the same amount.");
+        else if (i == uShiftSide)
+          mUtilityKnobs[i]->SetTooltip(
+            "Lower sideband at -100, ring modulation at 0, upper sideband at +100.");
         else if (i == uTapeBump)
           mUtilityKnobs[i]->SetTooltip("Low-frequency tape head emphasis.");
       }
@@ -720,12 +735,12 @@ public:
     AddChildControl(mStartupScan);
     AddChildControl(new Knob(IRECT(32, 617, 135, 725), kInputCalibrationLevel, "Reference (dBu)"));
     AddChildControl(new Toggle(IRECT(158, 657, 277, 689), kCalibrateInput));
-    AddChildControl(new IVSwitchControl(IRECT(317, 638, 504, 700), kOutputMode, "Pre 2 output mode", Style()));
+    AddChildControl(new IVSwitchControl(IRECT(317, 638, 504, 700), kOutputMode, "Pre 2 output mode", grid_ui::Style()));
     // Expose inherited processing only for recalled projects that still use it.
     mLegacy[0] =
-      AddChildControl(new IVToggleControl(IRECT(545, 638, 666, 700), kNoiseGateActive, "Legacy gate", Style()));
-    mLegacy[1] = AddChildControl(new IVToggleControl(IRECT(686, 638, 807, 700), kEQActive, "Legacy EQ", Style()));
-    mLegacy[2] = AddChildControl(new IVToggleControl(IRECT(827, 638, 948, 700), kIRToggle, "Legacy IR", Style()));
+      AddChildControl(new IVToggleControl(IRECT(545, 638, 666, 700), kNoiseGateActive, "Legacy gate", grid_ui::Style()));
+    mLegacy[1] = AddChildControl(new IVToggleControl(IRECT(686, 638, 807, 700), kEQActive, "Legacy EQ", grid_ui::Style()));
+    mLegacy[2] = AddChildControl(new IVToggleControl(IRECT(827, 638, 948, 700), kIRToggle, "Legacy IR", grid_ui::Style()));
   }
   void Hide(bool hide) override
   {

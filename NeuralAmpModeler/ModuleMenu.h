@@ -42,9 +42,21 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
       group->AddItem(
         new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
     }
-    if (first == SlotEffect::RoomReverb || first == SlotEffect::SynthFilter)
+    if (first == SlotEffect::RoomReverb)
     {
-      const auto type = first == SlotEffect::RoomReverb ? SlotEffect::SpringReverb : SlotEffect::Wah;
+      for (auto type : {SlotEffect::SpringReverb, SlotEffect::ShimmerReverb})
+        group->AddItem(new IPopupMenu::Item(
+          SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
+    }
+    if (first == SlotEffect::SynthFilter)
+    {
+      const auto type = SlotEffect::Wah;
+      group->AddItem(new IPopupMenu::Item(
+        SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
+    }
+    if (first == SlotEffect::Chorus)
+    {
+      const auto type = SlotEffect::JunoChorus;
       group->AddItem(new IPopupMenu::Item(
         SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
     }
@@ -57,6 +69,10 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
   addGroup("Rotary / Vibe", SlotEffect::Rotary, SlotEffect::UniVibe);
   addGroup("Dynamics / Pitch", SlotEffect::Limiter, SlotEffect::Doubler);
   addGroup("Creative", SlotEffect::ReverseDelay, SlotEffect::RingMod);
+  menu.AddItem(new IPopupMenu::Item(SlotEffectName(SlotEffect::FrequencyShifter),
+                                   effect == SlotEffect::FrequencyShifter ? IPopupMenu::Item::kChecked : 0,
+                                   -20 - static_cast<int>(SlotEffect::FrequencyShifter)),
+               next++);
   addGroup("Filter / Volume", SlotEffect::SynthFilter, SlotEffect::AutoSwell);
   for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost, SlotEffect::Utility})
     menu.AddItem(new IPopupMenu::Item(

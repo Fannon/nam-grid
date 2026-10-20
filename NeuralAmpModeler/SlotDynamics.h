@@ -45,7 +45,10 @@ enum class SlotEffect
   Freeze,
   Stutter,
   Bitcrusher,
-  RingMod
+  RingMod,
+  ShimmerReverb,
+  JunoChorus,
+  FrequencyShifter
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -89,6 +92,9 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Stutter: return "Stutter";
     case SlotEffect::Bitcrusher: return "Bitcrusher";
     case SlotEffect::RingMod: return "Ring Modulator";
+    case SlotEffect::ShimmerReverb: return "Shimmer";
+    case SlotEffect::JunoChorus: return "Juno Chorus";
+    case SlotEffect::FrequencyShifter: return "Frequency Shifter";
 
     default: return "NAM";
   }

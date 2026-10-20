@@ -13,22 +13,31 @@ independent processor history at the destination.
 | Room | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Sparse early reflections, shorter feedback network |
 | Dense Plate | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Four input diffusers feed a dense network |
 | Cloud | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Diffused network with slow independent delay motion |
+| Shimmer | Mix, Decay, Tone, Pitch, Amount, Modulation, Freeze | Eight-line reverb with granular pitched feedback; positive Pitch climbs on each pass |
 | Digital Delay | Time, Feedback, Tone, Character, Mix, Output | Character ducks repeats beneath the pick |
 | Analog Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Character increases wear |
 | Tape Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Filtered repeats, soft saturation, Modulation adds wow/flutter |
 | Chorus | Rate, Depth, Character, Mix | Fractional-delay chorus; Character darkens and adds asymmetric motion |
+| Juno Chorus | Mode, Mix, Brightness | Dual-triangle-LFO BBD ensemble with I, I+II and II modes |
 | Flanger | Rate, Depth, Feedback, Character, Mix | Short swept comb; Character moves feedback from positive to negative |
 | Phaser | Rate, Depth, Feedback, Character, Mix | Six allpass stages; Character raises the sweep's center |
 | Auto Tremolo | Rate, Depth, Character, Mix | Rounded pulses; Character sharpens them and adds envelope-dependent speed |
 | Vibrato | Rate, Depth, Character | Fully wet pitch movement; Character adds drift and darkening |
+| Frequency Shifter | Shift, Feedback, Delay, Side, Tone, Stereo, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
 
 This set follows the core guitar categories in the official
 [Helix effect guide](https://manuals.line6.com/en/helix-stadium/live/effect-blocks)
 and [Quad Cortex device list](https://neuraldsp.com/device-list). These are category
 references, not code sources or claims of hardware emulation. Spring, Wah and stereo
 effects are now described in [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
-Pitch shifting and rotary remain future work.
-Dense Plate is a voiced digital reverb, not a physical plate model.
+Shimmer provides pitched reverb feedback, but polyphonic pitch shifting and a
+harmonizer remain future work. The implementation notes are in
+[FX_SOURCE_REVIEW_20261020.md](FX_SOURCE_REVIEW_20261020.md).
+Dense Plate is a voiced digital reverb, not a physical plate model. Juno Chorus is an
+original rate-scaled implementation informed by the Juno-60 BBD measurements used by
+the MIT Junologue project, not a circuit emulation. Frequency Shifter is a Bode-style
+single-sideband shifter, not a pitch shifter; Shift moves every partial by the same
+number of hertz.
 
 Digital Delay has no modulation control; its Character ducks the repeats. Analog/Tape
 separate saturation character from modulation amount. Output adjusts the blended result.
@@ -42,6 +51,14 @@ Size is 50–150%, damping 800–12000 Hz, pre-delay 0–100 ms. Damping and int
 can shorten measured decay. Modulation rate is .05–10 Hz. Depth/Character/Mix
 use percentages. Vibrato is always wet; the other effects can reach 100% wet for a
 parallel lane. Set lane blend fully toward the processed lane for serial auditioning.
+
+Shimmer Decay is .5–20 s, Pitch is ±24 semitones, and Amount sets the pitched feedback.
+Freeze holds the tail and stops new input; bypassing the slot drains it like the other
+reverbs. Juno Chorus uses fixed 0.513/0.863 Hz triangle LFOs and a 1.66–5.35 ms delay;
+Brightness moves the pre/post filters. Frequency Shifter spans ±2000 Hz, .05–1000 ms
+delay and 0–100% feedback; Side selects lower sideband, ring modulation, or upper
+sideband. Feedback is soft-saturated and bounded, and the shifter reports zero
+compensation latency.
 
 `SlotTimeEffects.h` contains original MIT implementations: fractional delay with
 bounded filtered feedback; an eight-line normalized Hadamard feedback network
@@ -199,9 +216,9 @@ Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
 
 ## State and layout checkpoint
 
-Schema 9 contains 1262 parameters (284 inherited + 16 × 61 family controls + two tuner
-preferences). Schema 6/7/8 projects retain named values and fill new controls from defaults
-despite the changed parameter stride.
+Schema 11 contains 2249 parameters (286 inherited + 16 × 120 family controls + 43
+performance controls). Schema 6/7/8/9/10 projects retain named values and fill the new
+HQ controls from defaults despite the changed parameter stride.
 Older unreleased format compatibility remains best effort. New controls participate
 in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled align
 as two controls under each grid column. A smaller effect does not need to fill them.

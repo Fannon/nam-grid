@@ -37,7 +37,7 @@ Build/verification uses `build-roadmap/out`; schema 10 has 1,977 parameters.
 2. Audition Spring Drip/Dwell and Wah range with real playing, then adjust voicing
    based on listening. Spatial effect dry placement/mono fold also needs auditioning.
 3. Portable model relinking and additional useful presets remain follow-ups.
-   Polyphonic pitch/shimmer remains deferred.
+   Polyphonic pitch/harmonizer remains deferred; Shimmer now covers pitched reverb tails.
 
 The current system CLAP copy remains older because the prior UAC install prompt
 was canceled. The roadmap binaries and notices are in `build-roadmap/out`; do not claim
@@ -51,8 +51,9 @@ can show partial frames; final native repainting still needs real-host review.
 - `NeuralAmpModelerCore` and `AudioDSPTools` are intentionally dirty from tracked
   patches in `patches/`. Do not revert or stage their gitlinks.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
-  No new runtime dependency. Schema 10 has 1977 parameters, accepting earlier
-  supported schemas 2/3/6/7/8/9 with name-based defaults for newly added fields.
+  No new runtime dependency. Current schema 11 has 2249 parameters, accepting earlier
+  supported schemas 2/3/6/7/8/9/10 with name-based defaults for newly added fields.
+  Schema 11 adds Shimmer, Juno Chorus and Frequency Shifter (17 controls per slot).
   Unused WIP schemas 4/5 reject without mutation. Gate Release accepts the older
   Gate Decay state name. Schema 8 Utility Width migrates to centered Stereo by subtracting 100; tuner preferences are preserved.
 

@@ -10,6 +10,7 @@
 #include "StereoUtility.h"
 #include "SlotGuitarEffects.h"
 #include "RoadmapEffects.h"
+#include "SlotHQEffects.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -49,6 +50,9 @@ public:
     grid_roadmap::Capture capture;
     grid_roadmap::DualDelay dualDelay;
     grid_roadmap::Texture texture;
+    grid_hq::Shimmer shimmer;
+    grid_hq::JunoChorus juno;
+    grid_hq::FrequencyShifter frequencyShifter;
     StereoUtility utilityStereo;
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
@@ -81,6 +85,9 @@ public:
         if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
           capture.Reset(rate, effect == SlotEffect::Freeze ? 2.1 : 8.1);
         if (effect == SlotEffect::DualDelay) dualDelay.Reset(rate);
+        if (effect == SlotEffect::ShimmerReverb) shimmer.Reset(rate);
+        if (effect == SlotEffect::JunoChorus) juno.Reset(rate);
+        if (effect == SlotEffect::FrequencyShifter) frequencyShifter.Reset(rate);
       }
       if (effect == SlotEffect::UniVibe) vibe.Reset(rate);
       if (effect == SlotEffect::Bitcrusher || effect == SlotEffect::RingMod) texture.Reset(rate);
@@ -112,10 +119,13 @@ public:
                                         * (effect == SlotEffect::DualDelay ? 17.
                                            : IsDelay(effect) ? 9.
                                            : IsReverb(effect)     ? 30.
+                                           : effect == SlotEffect::ShimmerReverb ? 30.
+                                           : effect == SlotEffect::FrequencyShifter ? 9.
                                            : effect == SlotEffect::Doubler ? .1
                                            : effect == SlotEffect::Stutter ? 33.
                                            : effect == SlotEffect::Utility ? .025
                                            : IsModulation(effect) ? .07
+                                           : effect == SlotEffect::JunoChorus ? .07
                                                                   : 0.));
       drainFrames = drainLimit; // Fresh histories already contain silence.
       if (ir)
@@ -287,6 +297,10 @@ public:
             else if (p->effect == SlotEffect::Octaver) p->octaver.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::Doubler) p->doubler.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::DualDelay) p->dualDelay.Process(out, r, frames, utility, draining);
+            else if (p->effect == SlotEffect::ShimmerReverb) p->shimmer.Process(out, r, frames, utility, draining);
+            else if (p->effect == SlotEffect::JunoChorus) p->juno.Process(out, r, frames, utility);
+            else if (p->effect == SlotEffect::FrequencyShifter)
+              p->frequencyShifter.Process(out, r, frames, utility, draining);
             else p->capture.Process(out, r, frames, p->effect, utility);
           }
           else if (p->effect == SlotEffect::SpringReverb)

@@ -325,6 +325,35 @@ int main(int argc, char** argv)
   assert(save().config()["Post 4 Utility Stereo"] == 45. && save().config()["Pre 1 Utility Stereo"] == 0.);
   assert(save().config()["Tuner Reference"] == 442.);
   load(base);
+  // Schema 10 predates the three HQ modules. Remove only their named controls;
+  // every earlier control must survive the new per-slot stride.
+  auto schema10 = base;
+  schema10["schema"] = 10;
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const std::string label = std::string(slot < 4    ? "Pre "
+                                          : slot < 8  ? "A "
+                                          : slot < 12 ? "B "
+                                                      : "Post ")
+                              + std::to_string(slot % 4 + 1);
+    for (int p = 103; p < kUtilityControls; ++p)
+      schema10.erase(label + " " + kEffectParameters[p].name);
+  }
+  schema10["Post 4 Boost Gain"] = 14.;
+  schema10["Pre 1 Rotary Fast"] = 7.3;
+  load(schema10);
+  assert(save().config()["Post 4 Boost Gain"] == 14.);
+  assert(save().config()["Pre 1 Rotary Fast"] == 7.3);
+  assert(save().config()["Pre 1 Shimmer Pitch"] == 12.);
+  assert(save().config()["Pre 1 Juno Mode"] == 1.);
+  assert(save().config()["Pre 1 Shifter Frequency"] == 0.);
+  auto schema10Effect = schema10;
+  schema10Effect["SlotEffects"][0] = static_cast<int>(SlotEffect::ShimmerReverb);
+  Stream oldEffect;
+  oldEffect.string("###NAMGrid-v1###");
+  oldEffect.string(schema10Effect.dump());
+  assert(!loadBytes(oldEffect));
+  load(base);
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
   auto missing = base;
   missing["DrivePath"] = (fixtures / "missing.nam").string();
@@ -1068,7 +1097,9 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
   // Every visible new knob must update its slot's automated parameter, with no
   // hidden controls stealing gestures when modules are restored into an open UI.
-  for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})
+  for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+                 static_cast<int>(SlotEffect::ShimmerReverb), static_cast<int>(SlotEffect::JunoChorus),
+                 static_cast<int>(SlotEffect::FrequencyShifter)})
   {
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;

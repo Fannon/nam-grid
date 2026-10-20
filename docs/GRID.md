@@ -87,8 +87,8 @@ Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receiv
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
 The first two slot gain/trim controls retain their original host IDs. The expanded
-layout has **1262 parameters**, including 61 utility/time-effect controls per slot.
-`###NAMGrid-v1###` / schema 9 stores all 16 paths, types and named values. Validation
+layout has **2249 parameters**, including 120 utility/time-effect controls per slot.
+`###NAMGrid-v1###` / schema 11 stores all 16 paths, types and named values. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old
 unreleased projects may require rebuilding. No compatibility guarantee is made.

@@ -106,6 +106,13 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         for (int d = 0; d < 9; ++d)
           param->SetDisplayText(d, grid_tempo::names[d]);
       }
+      else if (i == uJunoMode)
+      {
+        param->InitEnum((name + " " + p.name).c_str(), 1, 3);
+        param->SetDisplayText(0, "I");
+        param->SetDisplayText(1, "I+II");
+        param->SetDisplayText(2, "II");
+      }
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
       else if (p.exponential)
@@ -385,6 +392,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     readFamily(c.utility.octaver, uOctDry); readFamily(c.utility.doubler, uDoubleDetune);
     readFamily(c.utility.freeze, uFreezeHold); readFamily(c.utility.stutter, uStutterTime);
     readFamily(c.utility.crusher, uCrushBits); readFamily(c.utility.ring, uRingFrequency); readFamily(c.utility.dual, uDualRatio);
+    readFamily(c.utility.juno, uJunoMode); readFamily(c.utility.shimmer, uShimmerMix); readFamily(c.utility.shift, uShiftFrequency);
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -709,6 +717,7 @@ bool NeuralAmpModeler::IsPerformanceSceneParam(int index) const
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotFullParam(slot)) return false;
   // Hold captures are live audio; a scene must not silently latch an empty buffer.
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotUtilityParam(slot, uFreezeHold)) return false;
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotUtilityParam(slot, uShimmerFreeze)) return false;
   return index >= 0 && index < kNumParams;
 }
 void NeuralAmpModeler::StorePerformanceScene(size_t scene)
@@ -886,7 +895,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 10;
+  config["schema"] = 11;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
@@ -930,7 +939,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         return -1;
       const auto& schemaValue = config["schema"];
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
-                  && schemaValue != 9 && schemaValue != 10)
+                  && schemaValue != 9 && schemaValue != 10 && schemaValue != 11)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -991,7 +1000,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema == 7 ? static_cast<int>(SlotEffect::TubeBoost)
                              : schema == 8 ? static_cast<int>(SlotEffect::Utility)
                              : schema == 9 ? static_cast<int>(SlotEffect::Wah)
-                                           : static_cast<int>(SlotEffect::RingMod))
+                             : schema == 10 ? static_cast<int>(SlotEffect::RingMod)
+                                           : static_cast<int>(SlotEffect::FrequencyShifter))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -1039,6 +1049,10 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                     && (i - kUtilityBase) % kUtilityControls >= (schema == 6   ? 30
                                                                  : schema == 7 ? 41
                                                                  : schema == 8 ? 48 : 61))))
+          config[name] = GetParam(i)->GetDefault();
+        // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
+        if (grid && schema == 10 && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= 103)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 8 && i >= kUtilityBase && i < kTunerReference
             && (i - kUtilityBase) % kUtilityControls == uUtilityStereo)
@@ -1260,6 +1274,8 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
     rowTails[i / 4] += mSlotEffects[i] == SlotEffect::DualDelay ? 1200.
                       : IsDelay(mSlotEffects[i]) ? 560. : IsReverb(mSlotEffects[i]) ? 30.
+                      : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
+                      : mSlotEffects[i] == SlotEffect::FrequencyShifter ? 560.
                       : mSlotEffects[i] == SlotEffect::Stutter ? 33. : 0.;
   mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));
 

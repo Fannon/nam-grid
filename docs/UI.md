@@ -13,7 +13,7 @@ with up to seven knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, H
 its neutral EQ acts after inference, not as controls of the captured amp. A2 Lite is in the
 module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
 Reduction appears for selected dynamics. The compact header contains only master/blend,
-library search, filter clearing, gear filter, match count/rescan and settings.
+library search, filter clearing, gear filter, match count/rescan, Tuner and settings.
 
 Rows are Pre, A, B and Post. Actual IN/OUT ports sit outside the grid with direction arrows.
 Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
@@ -39,7 +39,7 @@ and processor; selecting NAM switches back. WAV contents are validated by the ex
 loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
 invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
 
-`CaptureFolders` is retained in the current schema 7. `CaptureFolder` remains a first-root alias
+`CaptureFolders` is retained in the current schema 8. `CaptureFolder` remains a first-root alias
 for older readers. Older single-root projects and user preferences migrate automatically.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
@@ -86,3 +86,14 @@ stays in position eight. NAM uses all seven knobs; Tube Boost leaves one unused.
 The opt-in OpenGL readback helper occasionally returns partial frames during
 repeated captures; its screenshots are layout artifacts, not proof of host repaint
 behavior. Reopen/resize/repaint should still be checked in Bitwig.
+
+The Tuner button sits beside Library & settings. Its opaque panel has note/octave,
+cents, frequency, A-reference (430–450 Hz) and Mute output. Escape/Close and editor
+teardown always restore output through a 5 ms ramp. The reference and mute preference
+are saved; panel visibility is transient. It measures clean input, including right-only
+input, and displays no stale result after audio stops.
+
+Delays/modulation show a Tempo sync switch in the module-selection strip. When enabled,
+Division replaces Time/Rate in bottom position one; manual values remain stored.
+The eight bottom positions stay fixed. Utility uses Level, L/R balance, Width, Invert L,
+Invert R, two blank positions and Enabled. Utility has the neutral gray category color.

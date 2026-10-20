@@ -49,7 +49,7 @@ int main(int argc, char** argv)
     assert(loadBytes(std::move(s)));
   };
   auto base = save().config();
-  assert(params->count(plugin) == 284 + 16 * kUtilityControls);
+  assert(params->count(plugin) == 286 + 16 * kUtilityControls);
   assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
@@ -236,6 +236,24 @@ int main(int argc, char** argv)
   assert(save().config()["Post 4 Boost Gain"] == 11.);
   assert(save().config()["Post 4 Comp Attack"] == 8.);
   assert(save().config()["Post 4 Punch Attack"] == 25.);
+  auto schema7 = base;
+  schema7["schema"] = 7;
+  schema7.erase("Tuner Reference");
+  schema7.erase("Tuner Mute");
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const std::string label = std::string(slot < 4    ? "Pre "
+                                          : slot < 8  ? "A "
+                                          : slot < 12 ? "B "
+                                                      : "Post ")
+                              + std::to_string(slot % 4 + 1);
+    for (int p = 41; p < kUtilityControls; ++p)
+      schema7.erase(label + " " + kEffectParameters[p].name);
+  }
+  schema7["Post 4 Boost Gain"] = 13.;
+  load(schema7);
+  assert(save().config()["Post 4 Boost Gain"] == 13.);
+  assert(save().config()["Post 4 Tempo Sync"] == 0. && save().config()["Tuner Reference"] == 440.);
   load(base);
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
   auto missing = base;
@@ -427,6 +445,96 @@ int main(int argc, char** argv)
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
   }
+  // New utility controls survive project recall and act independently on real
+  // stereo ports, including the final slot's expanded parameter stride.
+  for (uint32_t index = 0; index < configs->count(plugin); ++index)
+  {
+    clap_audio_ports_config cfg{};
+    assert(configs->get(plugin, index, &cfg));
+    if (cfg.main_input_channel_count == 2 && cfg.main_output_channel_count == 2)
+    {
+      assert(configs->select(plugin, cfg.id));
+      break;
+    }
+  }
+  assert(ports->get(plugin, 0, true, &inInfo) && ports->get(plugin, 0, false, &outInfo));
+  in.channel_count = inInfo.channel_count;
+  out.channel_count = outInfo.channel_count;
+  assert(in.channel_count == 2 && out.channel_count == 2);
+  auto stereoUtility = cleared;
+  stereoUtility["SlotEffects"][15] = 25;
+  stereoUtility["Post 4 Utility Level"] = -6.;
+  stereoUtility["Post 4 Utility Balance"] = -100.;
+  stereoUtility["Post 4 Utility Invert L"] = 1.;
+  stereoUtility["Tuner Reference"] = 442.;
+  stereoUtility["Tuner Mute"] = 0.;
+  load(stereoUtility);
+  assert(save().config() == stereoUtility);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  for (int b = 0; b < 3; ++b)
+  {
+    for (int i = 0; i < 512; ++i)
+    {
+      input[0][i] = .2 * std::sin((b * 512 + i) * .05);
+      input[1][i] = .1 * std::cos((b * 512 + i) * .03);
+    }
+    process.frames_count = 512;
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    for (int i = 0; i < 512; ++i)
+      assert(output[1][i] == 0.);
+    assert(std::abs(output[0][100]) > .001);
+  }
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+  // A real CLAP transport drives repeats and can change tempo on an active instance.
+  auto syncState = cleared;
+  syncState["SlotEffects"][0] = 12;
+  syncState["Pre 1 Tempo Sync"] = 1.;
+  syncState["Pre 1 Tempo Division"] = 4.;
+  syncState["Pre 1 Delay Mix"] = 100.;
+  syncState["Pre 1 Delay Feedback"] = 0.;
+  syncState["Pre 1 Delay Character"] = 0.;
+  load(syncState);
+  assert(save().config() == syncState);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  clap_event_transport transport{};
+  transport.header.size = sizeof(transport);
+  transport.header.type = CLAP_EVENT_TRANSPORT;
+  transport.flags = CLAP_TRANSPORT_HAS_TEMPO;
+  process.transport = &transport;
+  for (double bpm : {120., 90., 60.})
+  {
+    transport.tempo = bpm;
+    // Let time smoothing settle and previous repeats finish before the next impulse.
+    for (int b = 0; b < 300; ++b)
+    {
+      input[0].fill(0.);
+      input[1].fill(0.);
+      process.frames_count = 512;
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    }
+    const int expected = static_cast<int>(48000. * 60. / bpm);
+    int first = -1;
+    for (int pos = 0; pos < expected + 512; pos += 512)
+    {
+      input[0].fill(0.);
+      input[1].fill(0.);
+      if (pos == 0)
+        input[0][0] = input[1][0] = 1.;
+      process.frames_count = 512;
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      for (int i = 0; i < 512; ++i)
+        if (first < 0 && std::abs(output[0][i]) > 1.e-5)
+          first = pos + i;
+    }
+    assert(std::abs(first - expected) <= 1);
+  }
+  process.transport = nullptr;
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+  load(cleared);
   // A tiny PCM16 WAV exercises the reused IR loader/convolver and project recall.
   auto irFile = fixtures / "cabinet.wav";
   {
@@ -962,8 +1070,42 @@ int main(int argc, char** argv)
     click(170, 160);
     pumpFor(300);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "tube-boost.bmp");
-
+    auto utilityPreview = browserState;
+    utilityPreview["SlotEffects"][0] = 25;
+    load(utilityPreview);
+    click(170, 160);
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "utility.bmp");
+    auto syncPreview = browserState;
+    syncPreview["SlotEffects"][0] = 14;
+    syncPreview["Pre 1 Tempo Sync"] = 1.;
+    load(syncPreview);
+    click(170, 160);
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "tempo-sync.bmp");
   }
+  load(cleared);
+  click(808, 36); // Tuner beside Settings.
+  dragAt(410, 565);
+  assert(save().config()["Tuner Reference"] != 440.);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  process.frames_count = 512;
+  for (int b = 0; b < 30; ++b)
+  {
+    for (int i = 0; i < 512; ++i)
+      input[0][i] = input[1][i] = .1 * std::sin(6.283185307179586 * 110. * (b * 512 + i) / 48000.);
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    pumpFor(2);
+  }
+  for (int i = 0; i < 512; ++i)
+    assert(output[0][i] == 0. && output[1][i] == 0.);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "tuner.bmp");
+  SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
+  pumpFor(50);
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  assert(std::abs(output[0][400]) > .001);
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["CaptureFolder"] = libraryFolder.string();
@@ -993,7 +1135,17 @@ int main(int argc, char** argv)
   assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
+  click(808, 36);
   gui->destroy(plugin);
+  load(cleared);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  for (int i = 0; i < 512; ++i)
+    input[0][i] = input[1][i] = .1 * std::sin(i * .05);
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  assert(std::abs(output[0][400]) > .001);
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
   DestroyWindow(parent);
 #endif
   plugin->destroy(plugin);

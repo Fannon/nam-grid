@@ -1,57 +1,45 @@
 # Development checkpoint
 
-Paused at the user's request on 2026-10-20.
+Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
 
-## Completed and tested
+## Completed
 
-Latest implementation: `3ba7d83`, on `experiment/fixed-4x4-grid`.
+- Prior eight-position editor and Tube Boost checkpoint remains intact.
+- Tuner beside Settings: C++ MPM adapted from MIT trace-tuner, clean-input worker
+  analysis, note/cents/frequency, 430–450 Hz reference and optional output mute.
+  Closing the panel/editor restores audio; visibility is not saved.
+- Host tempo sync for all delays and modulation, nine straight/dotted/triplet
+  divisions, 120 BPM fallback, state/automation. Rate sync is free-running,
+  not PPQ-position locked. Manual Time/Rate values are retained.
+- Stereo Utility: level, L/R balance, width and independent polarity. Stereo
+  survives built-ins and IRs; mono NAM averages input and runs inference once.
+- Reset now clears stale input buffers/DC-filter histories. Fractional ring reads
+  no longer round outside the delay buffer at near-integer boundaries.
+- Windows Release CLAP/VST3 build and all three CTest suites pass. New tests cover
+  tuner accuracy/worker, no audio allocations, stereo/A2/IR, tempo transport,
+  older-schema migration and tuner UI mute/teardown. See MODULES.md for details.
+- Current CPU measurements and manual acceptance checks: [MODULES.md](MODULES.md).
 
-- Eight editor positions, aligned in pairs beneath the four grid columns;
-  Enabled is always last, with unused positions left empty.
-- Tube Boost plus expanded NAM cuts, compressor attack/blend, delay modulation/
-  output and reverb modulation/wet low-cut.
-- Windows Release CLAP/VST3 builds and all three CTest suites pass. DSP coverage
-  includes 44.1/48/88.2/96/192 kHz, real-time allocation checks and state recall.
-- Controls and measurements: [MODULES.md](MODULES.md).
-- Focused research using the user's Pulze 1.4.0 and Ampero II Stomp 2.5.0 PDFs:
-  [EFFECT_COVERAGE.md](EFFECT_COVERAGE.md). These are inspiration, not replication targets.
+## Next suggestions (not implemented)
 
-The current system CLAP copy is older: the Windows UAC installation prompt was
-canceled. Updated artifacts remain in `build-grid/out`. No Bitwig listening,
-macOS or VST3-host validation has been claimed. Repeated optional OpenGL captures
-can produce partial frames; verify repainting in a real host.
+1. Bitwig listening/automation/project-recall validation at low buffers; real
+   guitar tuner evaluation, display scaling/reopen, and stereo/mono host layouts.
+2. Stereo character for the existing effects: ping-pong delay, chorus spread,
+   stereo reverb output. Channel preservation is now in place.
+3. One useful spring reverb and an automatable wah, retaining the small control
+   surface. Fine lane timing can follow. Pitch/shimmer remains deferred.
 
-## Next authorized work — not implemented yet
-
-1. **Tuner panel**, opened by a button beside Settings. Inspect the sibling
-   `../trace-tuner` repository and adapt one useful detector, rather than bringing
-   its Rust plugin/UI or all detector variants into nam-grid. Its MIT license
-   credits Simon Heimler (2026); retain the notice if adapting code. YIN, MPM and
-   autocorrelation implementations/tests were inspected. MPM is a candidate;
-   no algorithm has been ported or finally selected. Tap clean input, keep analysis
-   work off audio, and add note/cents display, a reference pitch and optional mute.
-2. **Host tempo sync** for delays and modulation, with beat divisions, a defined
-   missing-tempo fallback, automation/state recall and host-tempo-change tests.
-   iPlug2 already exposes `GetTempo()`/`GetPPQPos()` and its CLAP adapter reads
-   host transport tempo. Keep the eight-position editor consistent.
-3. **Utility module** with L/R balance, polarity and level; consider fine delay
-   for parallel paths. No separate Volume module is wanted. A meaningful L/R
-   control requires addressing the present mono grid: do not silently implement
-   a decorative balance knob. Preserve fixed routing and avoid doubling NAM
-   inference merely to produce stereo output. Decide and document how mono NAM
-   stages handle stereo signals, with tests for signal order and channel behavior.
-
-Only investigation was done after `3ba7d83`; these three features have no source
-implementation yet. Do not treat earlier proposed spring/wah/pitch additions as
-part of this pending increment.
+The current system CLAP copy remains older because the prior UAC install prompt
+was canceled. Current binaries and notices are in `build-grid/out`; do not claim
+system installation or Bitwig/macOS/VST3-host validation. Optional OpenGL readback
+can show partial frames; final native repainting still needs real-host review.
 
 ## Workspace/build details
 
-- Repository directory is historically named `nam-dual`; plugin name is `nam-grid`.
-- Build/setup instructions: [BUILD.md](BUILD.md). The local helper is
-  `../nam-build-tools/build-grid.bat`; run CTest with `--test-dir build-grid`.
+- The directory is historically named `nam-dual`; plugin name is `nam-grid`.
+- Build: [BUILD.md](BUILD.md), local helper `../nam-build-tools/build-grid.bat`.
 - `NeuralAmpModelerCore` is intentionally dirty from the two tracked allocation
-  patches in `patches/`. They are applied by setup. Do not revert or stage its
-  gitlink; the checked-in patches make the changes reproducible.
-- No framework upgrade or new runtime dependency is needed for the tuner UI or
-  tempo interface. Keep MIT licensing and the existing prepared-object lifetime rules.
+  patches in `patches/`. Do not revert or stage its gitlink.
+- MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
+  No new runtime dependency. Schema 8 has 1054 parameters, accepting earlier
+  schemas with name-based defaults for newly added fields.

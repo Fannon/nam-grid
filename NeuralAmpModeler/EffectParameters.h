@@ -47,6 +47,13 @@ enum UtilityParam
   uTubeMix,
   uTubeOutput,
   uPunchAttack,
+  uTempoSync,
+  uTempoDivision,
+  uUtilityLevel,
+  uUtilityBalance,
+  uUtilityWidth,
+  uUtilityInvertL,
+  uUtilityInvertR,
   kUtilityControls
 };
 struct EffectParameter
@@ -99,7 +106,14 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Tube Bias", "Bias", 25, 0, 100, .1, "%", 3},
    {"Tube Mix", "Mix", 100, 0, 100, .1, "%", 4},
    {"Tube Output", "Output", 0, -18, 18, .1, "dB", 5},
-   {"Punch Attack", "Attack", 25, .5, 50, .1, "ms", 3, true}}};
+   {"Punch Attack", "Attack", 25, .5, 50, .1, "ms", 3, true},
+   {"Tempo Sync", "Sync", 0, 0, 1, 1, "", 5},
+   {"Tempo Division", "Division", 4, 0, 8, 1, "", 0},
+   {"Utility Level", "Level", 0, -60, 12, .1, "dB", 0},
+   {"Utility Balance", "L/R balance", 0, -100, 100, .1, "%", 1},
+   {"Utility Width", "Width", 100, 0, 200, .1, "%", 2},
+   {"Utility Invert L", "Invert L", 0, 0, 1, 1, "", 3},
+   {"Utility Invert R", "Invert R", 0, 0, 1, 1, "", 4}}};
 inline bool IsDelay(SlotEffect e)
 { return e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay; }
 inline bool IsReverb(SlotEffect e)
@@ -108,6 +122,8 @@ inline bool IsModulation(SlotEffect e)
 { return e >= SlotEffect::Chorus && e <= SlotEffect::Vibrato; }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::Utility)
+    return p >= uUtilityLevel && p <= uUtilityInvertR;
   if (e == SlotEffect::ParametricEQ)
     return p >= uFrequency && p <= uQ;
   if (e == SlotEffect::Boost)
@@ -145,4 +161,7 @@ struct UtilityControls
   std::array<double, 4> tape{0., 50., 100., 0.};
   double delayMotion = 20., delayOutput = 0., reverbMotion = 25., reverbHighPass = 80.;
   std::array<double, 4> tube{6., 25., 100., 0.};
+  bool sync = false, invertL = false, invertR = false;
+  int division = 4;
+  double tempo = 120., level = 0., balance = 0., width = 100.;
 };

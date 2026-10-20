@@ -99,7 +99,15 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     {
       const auto& p = kEffectParameters[i];
       auto* param = GetParam(SlotUtilityParam(slot, i));
-      if (p.exponential)
+      if (i == uTempoDivision)
+      {
+        param->InitEnum((name + " " + p.name).c_str(), 4, 9);
+        for (int d = 0; d < 9; ++d)
+          param->SetDisplayText(d, grid_tempo::names[d]);
+      }
+      else if (i == uTempoSync || i == uUtilityInvertL || i == uUtilityInvertR)
+        param->InitBool((name + " " + p.name).c_str(), false);
+      else if (p.exponential)
         param->InitDouble(
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
       else
@@ -108,6 +116,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     if (slot != 1)
       GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
   }
+  GetParam(kTunerReference)->InitDouble("Tuner Reference", 440., 430., 450., .1, "Hz");
+  GetParam(kTunerMute)->InitBool("Tuner Mute", true);
   const auto librarySettings = nam_library::ReadSettings(CaptureSettingsFile());
   mRescanOnStartup = librarySettings.rescanOnStartup;
   SetCaptureFolders(librarySettings.folders);
@@ -136,13 +146,23 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachPanelBackground(COLOR_BLACK);
     ui->AttachControl(new ITextControl(IRECT(24, 10, 220, 52), PLUG_NAME, grid_ui::Text(25.f)));
     ui->AttachControl(
-      new ITextControl(IRECT(225, 15, 610, 49), "Pre / parallel A+B / Post", grid_ui::Text(12.f, grid_ui::muted)));
-    ui->AttachControl(new grid_ui::Knob(IRECT(686, 2, 756, 67), kParallelBlend, "Blend A / B"));
-    ui->AttachControl(new grid_ui::Knob(IRECT(783, 2, 853, 67), kOutputLevel, "Master"));
+      new ITextControl(IRECT(225, 15, 570, 49), "Pre / parallel A+B / Post", grid_ui::Text(12.f, grid_ui::muted)));
+    ui->AttachControl(new grid_ui::Knob(IRECT(590, 2, 660, 67), kParallelBlend, "Blend A / B"));
+    ui->AttachControl(new grid_ui::Knob(IRECT(680, 2, 750, 67), kOutputLevel, "Master"));
     ui->AttachControl(new grid_ui::Button(
       IRECT(862, 22, 976, 50),
-      [](IControl* caller) { caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false); },
+      [](IControl* caller) {
+        caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
+        caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
+      },
       "Library & settings"));
+    ui->AttachControl(new grid_ui::Button(
+      IRECT(770, 22, 850, 50),
+      [](IControl* caller) {
+        caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
+        caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(false);
+      },
+      "Tuner"));
     ui->AttachControl(new NAMCaptureSearchControl(IRECT(88, 76, 570, 104)), kCtrlTagCaptureSearch);
     ui->AttachControl(new grid_ui::Button(
                         IRECT(578, 76, 638, 104), [this](IControl*) { SetCaptureFilter({}); }, "Clear"),
@@ -179,10 +199,17 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     // Flat input/output meters retain the upstream sender protocol, without bitmap skins.
     const auto meterStyle =
       compact.WithShowValue(false).WithColor(kX1, grid_ui::accent).WithColor(kFG, grid_ui::accent);
-    ui->AttachControl(new IVPeakAvgMeterControl<>(IRECT(45, 146, 50, 174), "", meterStyle), kCtrlTagInputMeter);
-    ui->AttachControl(new IVPeakAvgMeterControl<>(IRECT(963, 458, 967, 486), "", meterStyle), kCtrlTagOutputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<2>(IRECT(45, 146, 50, 174), "", meterStyle), kCtrlTagInputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<2>(IRECT(963, 458, 967, 486), "", meterStyle), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
+    ui->AttachControl(new NAMGridTunerControl(b), kCtrlTagTuner)->Hide(true);
     ui->SetKeyHandlerFunc([ui](const IKeyPress& key, bool keyUp) {
+      auto* tuner = ui->GetControlWithTag(kCtrlTagTuner);
+      if (!keyUp && key.VK == kVK_ESCAPE && !tuner->IsHidden())
+      {
+        tuner->Hide(true);
+        return true;
+      }
       auto* settings = ui->GetControlWithTag(kCtrlTagSettingsBox);
       if (!keyUp && key.VK == kVK_ESCAPE && !settings->IsHidden())
       {
@@ -222,8 +249,9 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   std::fenv_t fe_state;
   std::feholdexcept(&fe_state);
   disable_denormals();
-  // Input is collapsed to mono in preparation for the NAM.
+  // Preserve host stereo until a mono NAM slot explicitly collapses it.
   _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal);
+  mTuner.Push(mInputPointers[0], mInputPointers[1], nFrames, sampleRate);
   _ApplyDSPStaging();
   const bool noiseGateActive = GetParam(kNoiseGateActive)->Value();
   const bool toneStackActive = GetParam(kEQActive)->Value();
@@ -244,7 +272,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     triggerOutput = mNoiseGateTrigger.Process(mInputPointers, numChannelsInternal, numFrames);
   }
 
-  std::copy_n(triggerOutput[0], nFrames, mOutputPointers[0]);
+  for (size_t channel = 0; channel < numChannelsInternal; ++channel)
+    std::copy_n(triggerOutput[channel], nFrames, mOutputPointers[channel]);
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> controls;
   for (size_t slot = 0; slot < controls.size(); ++slot)
   {
@@ -268,6 +297,14 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.eq.lowPass = GetParam(SlotEQParam(slot, 4))->Value();
     c.eq.presence = GetParam(SlotEQParam(slot, 5))->Value();
     c.eq.irLevel = GetParam(SlotEQParam(slot, 6))->Value();
+    c.utility.sync = GetParam(SlotUtilityParam(slot, uTempoSync))->Bool();
+    c.utility.division = GetParam(SlotUtilityParam(slot, uTempoDivision))->Int();
+    c.utility.tempo = GetTempo();
+    c.utility.level = GetParam(SlotUtilityParam(slot, uUtilityLevel))->Value();
+    c.utility.balance = GetParam(SlotUtilityParam(slot, uUtilityBalance))->Value();
+    c.utility.width = GetParam(SlotUtilityParam(slot, uUtilityWidth))->Value();
+    c.utility.invertL = GetParam(SlotUtilityParam(slot, uUtilityInvertL))->Bool();
+    c.utility.invertR = GetParam(SlotUtilityParam(slot, uUtilityInvertR))->Bool();
     c.utility.frequency = GetParam(SlotUtilityParam(slot, uFrequency))->Value();
     c.utility.gain = GetParam(SlotUtilityParam(slot, uGain))->Value();
     c.utility.q = GetParam(SlotUtilityParam(slot, uQ))->Value();
@@ -299,7 +336,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   controls[1].calibrationDB = GetParam(kInputCalibrationLevel)->Value();
   controls[1].outputMode = GetParam(kOutputMode)->Int();
   controls[1].slim = GetParam(kSlim)->Value();
-  mGrid.Process(mOutputPointers[0], nFrames, controls, GetParam(kParallelBlend)->Value() * .01);
+  mGrid.Process(mOutputPointers[0], nFrames, controls, GetParam(kParallelBlend)->Value() * .01, mOutputPointers[1]);
   mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));
   if (mMeterFrames >= meterInterval)
@@ -320,15 +357,23 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
                                     : gateGainOutput;
 
   sample** irPointers = toneStackOutPointers;
+  sample* legacyIRPointers[2]{};
   auto* cabinet = mCabinet.Active();
   if (cabinet && cabinet->ir && GetParam(kIRToggle)->Bool())
-    irPointers = cabinet->ir->Process(toneStackOutPointers, numChannelsInternal, numFrames);
+  {
+    auto* l = toneStackOutPointers[0];
+    auto* r = toneStackOutPointers[1];
+    legacyIRPointers[0] = cabinet->ir->Process(&l, 1, numFrames)[0];
+    legacyIRPointers[1] = cabinet->right->Process(&r, 1, numFrames)[0];
+    irPointers = legacyIRPointers;
+  }
   const bool switchingIR = mCabinet.HasPending();
   const double switchStep = 1. / (sampleRate * .005);
   for (size_t i = 0; i < numFrames; ++i)
   {
     mIRSwitchGain = switchingIR ? std::max(0., mIRSwitchGain - switchStep) : std::min(1., mIRSwitchGain + switchStep);
-    irPointers[0][i] *= mIRSwitchGain;
+    for (size_t channel = 0; channel < numChannelsInternal; ++channel)
+      irPointers[channel][i] *= mIRSwitchGain;
   }
 
   // And the HPF for DC offset (Issue 271)
@@ -345,7 +390,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   std::feupdateenv(&fe_state);
 
   // Let's get outta here
-  // This is where we exit mono for whatever the output requires.
+  // Mono host outputs downmix; stereo host outputs retain independent channels.
   _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut);
   // _ProcessOutput(lpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut);
   // * Output of input leveling (inputs -> mInputPointers),
@@ -361,7 +406,11 @@ void NeuralAmpModeler::OnReset()
   mSampleRatePrepared = sampleRate;
   mMaxBlockPrepared = maxBlockSize;
   mMeterFrames = 0;
-  _PrepareBuffers(1, maxBlockSize);
+  _PrepareBuffers(kNumChannelsInternal, maxBlockSize);
+  for (auto& channel : mInputArray)
+    std::fill(channel.begin(), channel.end(), 0.);
+  for (auto& channel : mOutputArray)
+    std::fill(channel.begin(), channel.end(), 0.);
 
   SetTailSize(static_cast<int>(std::ceil(sampleRate * mEffectTailSeconds.load())));
   mInputSender.Reset(sampleRate);
@@ -373,11 +422,12 @@ void NeuralAmpModeler::OnReset()
   // Prime all reused DSP paths, including currently bypassed ones, outside ProcessBlock.
   mNoiseGateTrigger.SetSampleRate(sampleRate);
   mNoiseGateTrigger.SetParams(dsp::noise_gate::TriggerParams(.01, -80., .1, .005, .01, .05));
-  mNoiseGateTrigger.Process(mInputPointers, 1, maxBlockSize);
-  mNoiseGateGain.Process(mInputPointers, 1, maxBlockSize);
-  mToneStack->Process(mInputPointers, 1, maxBlockSize);
+  mNoiseGateTrigger.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
+  mNoiseGateGain.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
+  mToneStack->Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
+  mHighPass.ClearHistory();
   mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
-  mHighPass.Process(mInputPointers, 1, maxBlockSize);
+  mHighPass.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
 }
 
 void NeuralAmpModeler::SetCaptureFolder(const char* folder, bool fromUI)
@@ -496,7 +546,7 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
-  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::TubeBoost)
+  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::Utility)
     return;
   _ClearModel(slot, effect);
   if (fromUI)
@@ -708,7 +758,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 7;
+  config["schema"] = 8;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
@@ -751,7 +801,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         return -1;
       const auto& schemaValue = config["schema"];
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 4 && schemaValue != 5 && schemaValue != 6
-                  && schemaValue != 7)
+                  && schemaValue != 7 && schemaValue != 8)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -793,7 +843,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                 || effect > (schema == 3   ? 4
                              : schema < 6  ? 7
                              : schema == 6 ? static_cast<int>(SlotEffect::Tape)
-                                           : static_cast<int>(SlotEffect::TubeBoost))
+                             : schema == 7 ? static_cast<int>(SlotEffect::TubeBoost)
+                                           : static_cast<int>(SlotEffect::Utility))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -824,9 +875,11 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
-        // Schema 6 had 30 named utility controls per slot. Fill only newly added
+        // Schemas 6/7 had 30/41 named utility controls per slot. Fill only newly added
         // controls; the expanded per-slot stride does not change saved names.
-        if (grid && schema == 6 && i >= kUtilityBase && (i - kUtilityBase) % kUtilityControls >= 30)
+        if (grid && schema >= 6 && schema < 8
+            && (i >= kTunerReference
+                || (i >= kUtilityBase && (i - kUtilityBase) % kUtilityControls >= (schema == 6 ? 30 : 41))))
           config[name] = GetParam(i)->GetDefault();
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
@@ -1035,7 +1088,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   // from short to long tails without any UI timer or allocation on audio.
   std::array<double, 4> rowTails{};
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
-    rowTails[i / 4] += IsDelay(mSlotEffects[i]) ? 110. : IsReverb(mSlotEffects[i]) ? 30. : 0.;
+    rowTails[i / 4] += IsDelay(mSlotEffects[i]) ? 560. : IsReverb(mSlotEffects[i]) ? 30. : 0.;
   mEffectTailSeconds.store(2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]);
 
   mSlotInfo[slot] = info;
@@ -1148,50 +1201,33 @@ void NeuralAmpModeler::_PrepareIOPointers(const size_t numChannels)
 void NeuralAmpModeler::_ProcessInput(iplug::sample** inputs, const size_t nFrames, const size_t nChansIn,
                                      const size_t nChansOut)
 {
-  // We'll assume that the main processing is mono for now. We'll handle dual amps later.
-  if (nChansOut != 1)
+  for (size_t c = 0; c < nChansOut; ++c)
   {
-    std::stringstream ss;
-    ss << "Expected mono output, but " << nChansOut << " output channels are requested!";
-    throw std::runtime_error(ss.str());
+    if (!nChansIn)
+      std::fill_n(mInputArray[c].data(), nFrames, 0.);
+    else
+      std::copy_n(inputs[std::min(c, nChansIn - 1)], nFrames, mInputArray[c].data());
   }
-
-  // On the standalone, we can probably assume that the user has plugged into only one input and they expect it to be
-  // carried straight through. Don't apply any division over nChansIn because we're just "catching anything out there."
-  // However, in a DAW, it's probably something providing stereo, and we want to take the average in order to avoid
-  // doubling the loudness. (This would change w/ double mono processing)
-  double gain = 1.;
-#ifndef APP_API
-  if (nChansIn)
-    gain /= (float)nChansIn;
-#endif
-  std::fill_n(mInputArray[0].data(), nFrames, 0.);
-  // Mono input preparation
-  for (size_t c = 0; c < nChansIn; c++)
-    for (size_t s = 0; s < nFrames; s++)
-      if (c == 0)
-        mInputArray[0][s] = gain * inputs[c][s];
-      else
-        mInputArray[0][s] += gain * inputs[c][s];
 }
 
 void NeuralAmpModeler::_ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames,
                                       const size_t nChansIn, const size_t nChansOut)
 {
   const double gain = GetParam(kOutputLevel)->DBToAmp();
-  // Assume _PrepareBuffers() was already called
-  if (nChansIn != 1)
-    throw std::runtime_error("Plugin is supposed to process in mono.");
-  // Broadcast the internal mono stream to all output channels.
-  const size_t cin = 0;
-  for (auto cout = 0; cout < nChansOut; cout++)
-    for (auto s = 0; s < nFrames; s++)
-#ifdef APP_API // Ensure valid output to interface
-      outputs[cout][s] = std::clamp(gain * inputs[cin][s], -1.0, 1.0);
-#else // In a DAW, other things may come next and should be able to handle large
-      // values.
-      outputs[cout][s] = gain * inputs[cin][s];
+  const double target = mTuner.Enabled() && GetParam(kTunerMute)->Bool() ? 0. : 1.;
+  const double step = 1. / std::max(1., GetSampleRate() * .005);
+  for (size_t s = 0; s < nFrames; ++s)
+  {
+    mTunerGain += std::clamp(target - mTunerGain, -step, step);
+    for (size_t c = 0; c < nChansOut; ++c)
+    {
+      const double value = nChansOut == 1 ? .5 * (inputs[0][s] + inputs[1][s]) : inputs[std::min(c, nChansIn - 1)][s];
+      outputs[c][s] = gain * mTunerGain * value;
+#ifdef APP_API
+      outputs[c][s] = std::clamp(outputs[c][s], -1., 1.);
 #endif
+    }
+  }
 }
 
 void NeuralAmpModeler::_UpdateControlsFromModel()
@@ -1216,10 +1252,10 @@ void NeuralAmpModeler::_UpdateLatency(bool forceRestart)
 void NeuralAmpModeler::_UpdateMeters(sample** inputPointer, sample** outputPointer, const size_t nFrames,
                                      const size_t nChansIn, const size_t nChansOut)
 {
-  // Right now, we didn't specify MAXNC when we initialized these, so it's 1.
-  const int nChansHack = 1;
-  mInputSender.ProcessBlock(inputPointer, (int)nFrames, kCtrlTagInputMeter, nChansHack);
-  mOutputSender.ProcessBlock(outputPointer, (int)nFrames, kCtrlTagOutputMeter, nChansHack);
+  mInputSender.ProcessBlock(
+    inputPointer, static_cast<int>(nFrames), kCtrlTagInputMeter, static_cast<int>(std::min(size_t{2}, nChansIn)));
+  mOutputSender.ProcessBlock(
+    outputPointer, static_cast<int>(nFrames), kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, nChansOut)));
 }
 
 // HACK

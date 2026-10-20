@@ -50,14 +50,14 @@ stereo effects and trails. We borrow the useful decisions, not the inventories.
 | Amp/pedal/cab tone | A2 NAM, IR loader, clean Boost and Tube Boost | Enough categories; audition good captures rather than add a drive catalog |
 | Dynamics | Two gates, two compressors with attack and blend | Enough; blend provides parallel compression without a new type |
 | EQ/filter | Guitar EQ, cuts, one-band parametric, envelope filter | Useful core; add an expression/automatable wah next |
-| Level/movement | Master, trims, Boost, Auto Swell | Add a dedicated Volume module for pedal automation |
+| Level/movement | Master, trims, Boost, Auto Swell, Utility Level | Enough; no separate Volume module |
 | Modulation | Chorus, flanger, phaser, tremolo, vibrato | Enough initially; rotary/Uni-Vibe character is a later improvement |
-| Delay | Digital/ducking, analog and tape, independent motion/output | Add host tempo sync; slapback already fits existing time ranges |
+| Delay | Digital/ducking, analog and tape, motion/output and host sync | Enough initially; stereo ping-pong is the next useful option |
 | Reverb | Room, dense plate, cloud; modulation and wet low-cut | Spring is the clearest missing guitar voice; do not fake it by renaming Room |
-| Parallel-chain utility | Blend and automatic model conversion-delay alignment | Add polarity and deliberate fine delay; cabinet/model phase can still cancel |
-| Stereo | Mono grid duplicated at output | Important next architecture step for wide ambience/ping-pong, not another mono preset |
+| Parallel-chain utility | Blend, conversion-delay alignment, Utility level/balance/width/polarity | Fine delay could help align captures; inherent phase can still cancel |
+| Stereo | Stereo built-ins/IR histories; mono NAM downmixes once | Foundation in place; add spatial modulation/reverb and ping-pong next |
 | Pitch/shimmer | Not implemented | Defer; evaluate sound quality, CPU and pitch-window delay explicitly |
-| Tuning | Host/external tuner only | A compact tuner/mute would complete everyday use |
+| Tuning | Compact MPM tuner, reference, mute | Everyday coverage in place; listening evaluation still needed |
 
 These priorities are our design judgment, not a ranking published by IK/Hotone.
 
@@ -80,6 +80,6 @@ not a target. Module types remain in the menu and unused cells remain empty.
   modeled Tube Driver or a claim of circuit accuracy. Strong drive can alias;
   no mandatory oversampling or lookahead is introduced.
 
-Spring, wah/volume, polarity/fine delay, tuner, stereo and sync are identified
-follow-ups, not implemented features. Stereo requires preserving channels around
-mono NAM stages; it should receive its own routing/lifecycle review.
+The next increment adds the tuner, tempo sync and stereo Utility described in
+[MODULES.md](MODULES.md). Spring and wah remain the focused missing guitar voices.
+Fine delay and native stereo spatial effects can follow; pitch/shimmer stays deferred.

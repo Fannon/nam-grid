@@ -7,6 +7,7 @@
 #include "SlotDynamics.h"
 #include "SlotUtility.h"
 #include "SlotTimeEffects.h"
+#include "StereoUtility.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -36,6 +37,9 @@ public:
     SlotReverb reverb;
     SlotModulation modulation;
     SlotTape tape;
+    StereoUtility utilityStereo;
+    std::unique_ptr<Prepared> right;
+    bool rightChannel = false;
     std::unique_ptr<dsp::ImpulseResponse> ir;
     std::vector<double> input, wet, dry, delay;
     size_t delayIndex = 0;
@@ -43,6 +47,7 @@ public:
     int64_t drainFrames = 0, drainLimit = 0;
     void Reset(double rate, int block)
     {
+      utilityStereo.Reset(rate);
       dynamics.Reset(rate);
       eq.Reset(rate);
       parametric.Reset(rate);
@@ -76,7 +81,7 @@ public:
       delay.assign(std::max(1, latency), 0.);
       delayIndex = 0;
       drainLimit = static_cast<int64_t>(rate
-                                        * (IsDelay(effect)        ? 110.
+                                        * (IsDelay(effect)        ? 560.
                                            : IsReverb(effect)     ? 30.
                                            : IsModulation(effect) ? .07
                                                                   : 0.));
@@ -86,6 +91,18 @@ public:
         ir = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), rate);
         double* silence = input.data();
         ir->Process(&silence, 1, block);
+      }
+      if (!rightChannel)
+      {
+        right = std::make_unique<Prepared>();
+        right->rightChannel = true;
+        right->effect = effect;
+        if (ir)
+          right->ir = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), rate);
+        right->Reset(rate, block);
+        // Mono NAM has one inference; the second history is for stereo dry bypass.
+        right->latency = latency;
+        right->delay.assign(std::max(1, latency), 0.);
       }
     }
     NAMModelInfo Info() const
@@ -145,11 +162,13 @@ public:
   // Called exclusively by audio, or while host processing is stopped.
   double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB, bool calibrate,
                   double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {},
-                  const EQControls& eq = {}, const UtilityControls& utility = {})
+                  const EQControls& eq = {}, const UtilityControls& utility = {}, double* rightSamples = nullptr)
   {
     float inputPeak = 0.f;
     for (int i = 0; i < frames; ++i)
-      inputPeak = std::max(inputPeak, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
+      inputPeak =
+        std::max(inputPeak, static_cast<float>(std::min(
+                              1.e6, std::max(std::abs(samples[i]), rightSamples ? std::abs(rightSamples[i]) : 0.))));
     mMeter.input = std::max(mMeter.input, inputPeak);
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
     if (switching && mSwitchGain <= 0.)
@@ -180,7 +199,15 @@ public:
       for (int i = 0; i < frames; ++i)
       {
         mIn += inDelta;
-        p->input[i] = samples[i] * mIn;
+        p->input[i] = (rightSamples && p->model ? .5 * (samples[i] + rightSamples[i]) : samples[i]) * mIn;
+        if (rightSamples)
+        {
+          auto& r = *p->right;
+          r.input[i] = rightSamples[i] * mIn;
+          r.dry[i] = p->latency ? r.delay[r.delayIndex] : rightSamples[i];
+          r.delay[r.delayIndex] = rightSamples[i];
+          r.delayIndex = (r.delayIndex + 1) % r.delay.size();
+        }
         p->dry[i] = p->latency ? p->delay[p->delayIndex] : samples[i];
         p->delay[p->delayIndex] = samples[i];
         p->delayIndex = (p->delayIndex + 1) % p->delay.size();
@@ -193,6 +220,8 @@ public:
         if (draining)
         {
           std::fill_n(p->input.data(), frames, 0.);
+          if (rightSamples)
+            std::fill_n(p->right->input.data(), frames, 0.);
           p->drainFrames += frames;
         }
         else
@@ -207,40 +236,16 @@ public:
           cuts.presence = 0.;
           p->namCuts.Process(out, frames, true, cuts);
         }
-        else if (p->ir)
-        {
-          auto* convolved = p->ir->Process(&in, 1, frames);
-          std::copy_n(convolved[0], frames, out);
-        }
         else
         {
-          std::copy_n(in, frames, out);
-          if (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ)
-            p->eq.Process(out, frames, p->effect == SlotEffect::CutEQ, eq);
-          else if (p->effect == SlotEffect::ParametricEQ)
-            p->parametric.Process(out, frames, utility, eq);
-          else if (p->effect == SlotEffect::Boost)
-            p->boost.Process(out, frames, utility, eq);
-          else if (p->effect == SlotEffect::TubeBoost)
-            p->tube.Process(out, in, frames, utility, eq);
-          else if (p->effect == SlotEffect::SynthFilter)
-            p->filter.Process(out, frames, utility);
-          else if (p->effect == SlotEffect::AutoSwell)
-            p->swell.Process(out, frames, utility);
-          else if (IsDelay(p->effect))
-            p->echo.Process(out, frames, p->effect, utility);
-          else if (IsReverb(p->effect))
-            p->reverb.Process(out, frames, p->effect, utility);
-          else if (IsModulation(p->effect))
-            p->modulation.Process(out, frames, p->effect, utility);
-          else if (p->effect == SlotEffect::Tape)
-            p->tape.Process(out, frames, utility);
-          else
-          {
-            p->dynamics.Process(out, frames, p->effect, dynamics);
-            mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
-          }
+          ProcessBuiltin(p, frames, dynamics, eq, utility);
+          if (rightSamples)
+            ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility);
+          if (p->effect == SlotEffect::Utility)
+            p->utilityStereo.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);
         }
+        if (p->model && rightSamples)
+          std::copy_n(out, frames, p->right->wet.data());
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
       for (int i = 0; i < frames; ++i)
@@ -248,6 +253,11 @@ public:
         mOut += outDelta;
         mMix = Approach(mMix, enabled ? 1. : 0., mStep);
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
+        if (rightSamples)
+        {
+          rightSamples[i] = (p->right->dry[i] * (1. - mMix) + p->right->wet[i] * mOut * mMix) * mSwitchGain;
+          mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(rightSamples[i]))));
+        }
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
         mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
       }
@@ -263,6 +273,8 @@ public:
       {
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
         samples[i] *= mSwitchGain;
+        if (rightSamples)
+          rightSamples[i] *= mSwitchGain;
         mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
       }
     }
@@ -270,6 +282,46 @@ public:
   }
 
 private:
+  void ProcessBuiltin(Prepared* p, int frames, const DynamicsControls& dynamics, const EQControls& eq,
+                      const UtilityControls& utility)
+  {
+    double* in = p->input.data();
+    double* out = p->wet.data();
+    if (p->ir)
+    {
+      auto* convolved = p->ir->Process(&in, 1, frames);
+      std::copy_n(convolved[0], frames, out);
+    }
+    else
+    {
+      std::copy_n(in, frames, out);
+      if (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ)
+        p->eq.Process(out, frames, p->effect == SlotEffect::CutEQ, eq);
+      else if (p->effect == SlotEffect::ParametricEQ)
+        p->parametric.Process(out, frames, utility, eq);
+      else if (p->effect == SlotEffect::Boost)
+        p->boost.Process(out, frames, utility, eq);
+      else if (p->effect == SlotEffect::TubeBoost)
+        p->tube.Process(out, in, frames, utility, eq);
+      else if (p->effect == SlotEffect::SynthFilter)
+        p->filter.Process(out, frames, utility);
+      else if (p->effect == SlotEffect::AutoSwell)
+        p->swell.Process(out, frames, utility);
+      else if (IsDelay(p->effect))
+        p->echo.Process(out, frames, p->effect, utility);
+      else if (IsReverb(p->effect))
+        p->reverb.Process(out, frames, p->effect, utility);
+      else if (IsModulation(p->effect))
+        p->modulation.Process(out, frames, p->effect, utility);
+      else if (p->effect == SlotEffect::Tape)
+        p->tape.Process(out, frames, utility);
+      else if (p->effect != SlotEffect::Utility)
+      {
+        p->dynamics.Process(out, frames, p->effect, dynamics);
+        mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
+      }
+    }
+  }
   static double Approach(double current, double target, double step)
   { return current < target ? std::min(target, current + step) : std::max(target, current - step); }
   RealtimeExchange<Prepared> mExchange;
@@ -281,7 +333,7 @@ private:
 
 struct PreparedIR
 {
-  std::unique_ptr<dsp::ImpulseResponse> ir;
+  std::unique_ptr<dsp::ImpulseResponse> ir, right;
   void Prepare(int block)
   {
     if (!ir)
@@ -289,5 +341,7 @@ struct PreparedIR
     std::vector<double> zeros(block, 0.);
     double* ptr = zeros.data();
     ir->Process(&ptr, 1, block); // prepare history/output buffers outside audio
+    right = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), ir->GetSampleRate());
+    right->Process(&ptr, 1, block);
   }
 };

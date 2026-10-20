@@ -45,18 +45,24 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
 - The former Amp's optional calibration, output mode and Slim parameters apply to **Pre 2**,
   Settings labels identify Pre 2. Other slots use raw NAM levels with
   independent musical input gains/trims. Full/Lite is prepared outside audio and saved per slot.
-- The complete grid remains mono internally, with mono duplicated to stereo outputs as before.
+- Stereo inputs remain stereo through empty and built-in slots. Mono input is duplicated.
+  Each loaded mono NAM slot averages L/R, performs one inference pass, and broadcasts its
+  wet result. Its bypass retains separate L/R and conversion latency. Use Utility after
+  the last NAM to pan/adjust width; before a mono NAM, width is collapsed.
+  Mono host output averages L/R.
 
-This is a routing experiment with simple built-in effects and movable slots. Stereo effects,
-per-lane polarity/phase controls and per-slot advanced calibration are not added.
+Utility can adjust level, balance, width and polarity in either lane or after the merge.
+Built-in effects and mono cabinet IRs maintain independent per-channel histories. They
+preserve stereo placement but do not yet synthesize ping-pong or stereo reverb spread.
+Fine timing alignment and per-slot advanced calibration remain future work.
 
 ## Implementation and state
 
-`FixedNAMGrid.h` owns 16 existing `NAMStage` objects, two preallocated lane buffers, and two
+`FixedNAMGrid.h` owns 16 existing `NAMStage` objects, two pairs of preallocated lane buffers, and independent L/R
 alignment delays. It does not duplicate inference. Host latency is:
 
 ```text
-sum(IN) + max(sum(A), sum(B)) + sum(OUT)
+sum(Pre) + max(sum(A), sum(B)) + sum(Post)
 ```
 
 The shorter lane is delayed to match the longer lane. Settled model bypass preserves its
@@ -71,7 +77,7 @@ either lane's delay requests host reactivation even when the total host latency 
 VST3 retains upstream latency notification with bounded, preallocated alignment histories and
 short tap crossfades for dynamic adoption. VST3 host behavior is not verified.
 
-Alignment histories normally reserve about 1 MiB total. Reset increases capacity if existing
+Alignment histories normally reserve about 2 MiB total. Reset increases capacity if existing
 models require a larger bound at the new host rate. New models whose individual conversion
 delay exceeds 16,384 samples are rejected before publication. This avoids audio-thread resizing.
 Empty slots skip per-sample work once switching has settled. Both lanes run; the blend endpoints

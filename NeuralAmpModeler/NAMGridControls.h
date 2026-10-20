@@ -37,6 +37,8 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {compColor, compColor, "Volume"};
   if (effect == SlotEffect::Tape)
     return {boostColor, boostColor, "Tape"};
+  if (effect == SlotEffect::Utility)
+    return {neutralColor, neutralColor, "Utility"};
   if (effect == SlotEffect::CabinetIR)
     return {cabColor, cabColor, "WAV / IR"};
   switch (gear)
@@ -124,7 +126,8 @@ public:
     const bool on = GetValue() >= .5;
     g.FillRoundRect(on ? IColor(255, 37, 68, 62) : surface, button, 3.f);
     g.DrawRoundRect(on ? accent : border, button, 3.f);
-    g.DrawText(Text(13.f, on ? accent : text, EAlign::Center), on ? "ON" : "OFF", button);
+    const std::string caption = !tall && !mLabel.empty() ? mLabel + (on ? ": ON" : ": OFF") : on ? "ON" : "OFF";
+    g.DrawText(Text(13.f, on ? accent : text, EAlign::Center), caption.c_str(), button);
   }
   bool IsHit(float x, float y) const override { return mRECT.Contains(x, y); }
 
@@ -313,6 +316,12 @@ public:
 
   bool IsDirty() override
   {
+    const bool sync = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uTempoSync))->Bool();
+    if (sync != mLastSync)
+    {
+      mLastSync = sync;
+      Refresh();
+    }
     const double now = Now(), dt = std::max(0., now - mTick);
     mTick = now;
     const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
@@ -361,7 +370,12 @@ public:
     for (int i = 0; i < kUtilityControls; ++i)
     {
       const auto& p = kEffectParameters[i];
-      mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
+      if (i == uTempoSync)
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(550, 606, 654, 636), SlotUtilityParam(mSlot, i), "Tempo sync");
+      else if (i == uUtilityInvertL || i == uUtilityInvertR)
+        mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
+      else
+        mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       mEditor->AddChildControl(mUtilityKnobs[i]);
     }
     SetTooltip(
@@ -424,7 +438,7 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::TubeBoost))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Utility))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
@@ -458,9 +472,18 @@ private:
         mEQKnobs[i]->Hide(i < 3   ? (effect != SlotEffect::ToneEQ && !(nam && !path.empty()))
                           : i < 6 ? effect != SlotEffect::CutEQ
                                   : !ir);
+      const bool tempo = IsDelay(effect) || IsModulation(effect);
+      const bool sync = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uTempoSync))->Bool();
       for (int i = 0; i < kUtilityControls; ++i)
       {
-        mUtilityKnobs[i]->Hide(!UsesUtility(effect, i));
+        bool visible = UsesUtility(effect, i);
+        if (i == uTempoSync)
+          visible = tempo;
+        if (i == uTempoDivision)
+          visible = tempo && sync;
+        if ((i == uDelayTime || i == uModRate) && sync)
+          visible = false;
+        mUtilityKnobs[i]->Hide(!visible);
         if (i == uDelayCharacter)
           mUtilityKnobs[i]->SetTooltip(effect == SlotEffect::DigitalDelay
                                          ? "Ducks repeats while you play; echoes recover in the gaps."
@@ -586,7 +609,7 @@ private:
     addGroup("Delay", SlotEffect::DigitalDelay, SlotEffect::TapeDelay);
     addGroup("Modulation", SlotEffect::Chorus, SlotEffect::Vibrato);
     addGroup("Filter / Volume", SlotEffect::SynthFilter, SlotEffect::AutoSwell);
-    for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost})
+    for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost, SlotEffect::Utility})
       mMenu.AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
                                          -20 - static_cast<int>(type)),
                     7);
@@ -637,6 +660,7 @@ private:
   std::array<IControl*, kUtilityControls> mUtilityKnobs{};
   static double Now()
   { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+  bool mLastSync = false;
   SlotMeterData mMeter;
   double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;
@@ -773,4 +797,71 @@ private:
   grid_ui::Button* mAdd = nullptr;
   grid_ui::Button* mStartupScan = nullptr;
   std::array<IControl*, 3> mLegacy{};
+};
+
+
+class NAMGridTunerControl : public IContainerBase
+{
+public:
+  explicit NAMGridTunerControl(const IRECT& r)
+  : IContainerBase(r)
+  {
+  }
+  void OnAttached() override
+  {
+    using namespace grid_ui;
+    AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
+    AddChildControl(new Knob(IRECT(350, 510, 470, 630), kTunerReference, "Reference"));
+    AddChildControl(new Toggle(IRECT(530, 545, 650, 590), kTunerMute, "Mute output"));
+  }
+  void Hide(bool hide) override
+  {
+    IContainerBase::Hide(hide);
+    PLUG()->SetTunerOpen(!hide);
+    if (GetUI())
+      GetUI()->SetAllControlsDirty();
+  }
+  bool IsDirty() override
+  {
+    if (!IsHidden())
+      SetDirty(false);
+    return IContainerBase::IsDirty();
+  }
+  void Draw(IGraphics& g) override
+  {
+    using namespace grid_ui;
+    g.FillRect(background, mRECT);
+    g.DrawText(Text(23.f), "Tuner", IRECT(32, 24, 650, 64));
+    g.DrawText(Text(13.f, muted), "Play one string. Clean input is measured before the grid.", IRECT(32, 76, 950, 104));
+    const double frequency = PLUG()->TunerFrequency();
+    const double reference = GetDelegate()->GetParam(kTunerReference)->Value();
+    if (frequency > 0.)
+    {
+      const double pitch = 69. + 12. * std::log2(frequency / reference);
+      const int note = static_cast<int>(std::round(pitch));
+      const double cents = 100. * (pitch - note);
+      const char* notes[]{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+      const std::string label = std::string(notes[(note % 12 + 12) % 12]) + std::to_string(note / 12 - 1);
+      g.DrawText(
+        Text(88.f, std::abs(cents) < 3. ? accent : text, EAlign::Center), label.c_str(), IRECT(280, 165, 720, 285));
+      WDL_String value;
+      value.SetFormatted(64, "%+.1f cents   /   %.1f Hz", cents, frequency);
+      g.DrawText(Text(20.f, text, EAlign::Center), value.Get(), IRECT(240, 292, 760, 332));
+      const float x = 500.f + 6.f * static_cast<float>(std::clamp(cents, -50., 50.));
+      g.FillRoundRect(accent, IRECT(x - 3, 365, x + 3, 415), 2.f);
+    }
+    else
+      g.DrawText(Text(30.f, muted, EAlign::Center), "Play a note", IRECT(200, 190, 800, 310));
+    g.DrawLine(border, 200, 390, 800, 390);
+    g.DrawLine(text, 500, 350, 500, 430);
+    const char* ticks[]{"-50", "-25", "0", "+25", "+50"};
+    for (int i = 0; i < 5; ++i)
+    {
+      const float x = 200.f + 150.f * i;
+      g.DrawLine(border, x, 385, x, 395);
+      g.DrawText(Text(13.f, muted, EAlign::Center), ticks[i], IRECT(x - 35, 438, x + 35, 470));
+    }
+    g.DrawText(Text(13.f, muted, EAlign::Center), "Close or press Escape to return to the grid and unmute.",
+               IRECT(170, 690, 830, 730));
+  }
 };

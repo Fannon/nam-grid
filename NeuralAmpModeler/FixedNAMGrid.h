@@ -40,6 +40,8 @@ public:
       stage.ResetStopped(rate, maxBlock);
     for (auto& buffer : mLane)
       buffer.assign(maxBlock, 0.);
+    for (auto& buffer : mRightLane)
+      buffer.assign(maxBlock, 0.);
     const auto latency = LaneLatencies();
     int largestStageDelay = kMaxLaneDelay / 4;
     for (int slot = 4; slot < 12; ++slot)
@@ -47,19 +49,27 @@ public:
     mStep = 1. / std::max(1., rate * .005);
     mDelay[0].Reset(std::max(0, latency[1] - latency[0]), mStep, 4 * largestStageDelay);
     mDelay[1].Reset(std::max(0, latency[0] - latency[1]), mStep, 4 * largestStageDelay);
+    for (int i = 0; i < 2; ++i)
+      mRightDelay[i].Reset(std::max(0, latency[1 - i] - latency[i]), mStep, 4 * largestStageDelay);
     mFirstBlend = true;
   }
 
-  void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB)
+  void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
+               double* right = nullptr)
   {
-    ProcessRow(samples, frames, controls, 0);
+    ProcessRow(samples, frames, controls, 0, right);
     std::copy_n(samples, frames, mLane[0].data());
     std::copy_n(samples, frames, mLane[1].data());
-    ProcessRow(mLane[0].data(), frames, controls, 4);
-    ProcessRow(mLane[1].data(), frames, controls, 8);
+    if (right)
+      for (auto& lane : mRightLane)
+        std::copy_n(right, frames, lane.data());
+    ProcessRow(mLane[0].data(), frames, controls, 4, right ? mRightLane[0].data() : nullptr);
+    ProcessRow(mLane[1].data(), frames, controls, 8, right ? mRightLane[1].data() : nullptr);
     const auto latency = LaneLatencies();
     mDelay[0].SetDelay(std::max(0, latency[1] - latency[0]));
     mDelay[1].SetDelay(std::max(0, latency[0] - latency[1]));
+    for (int i = 0; i < 2; ++i)
+      mRightDelay[i].SetDelay(std::max(0, latency[1 - i] - latency[i]));
     blendB = std::clamp(blendB, 0., 1.);
     if (mFirstBlend)
     {
@@ -70,9 +80,12 @@ public:
     {
       mBlend = mBlend < blendB ? std::min(blendB, mBlend + mStep) : std::max(blendB, mBlend - mStep);
       // Linear blend: identical/dry lanes remain unity at every blend position.
+      if (right)
+        right[i] =
+          (1. - mBlend) * mRightDelay[0].Process(mRightLane[0][i]) + mBlend * mRightDelay[1].Process(mRightLane[1][i]);
       samples[i] = (1. - mBlend) * mDelay[0].Process(mLane[0][i]) + mBlend * mDelay[1].Process(mLane[1][i]);
     }
-    ProcessRow(samples, frames, controls, 12);
+    ProcessRow(samples, frames, controls, 12, right);
   }
 
 private:
@@ -121,13 +134,13 @@ private:
       return output;
     }
   };
-  void ProcessRow(double* samples, int frames, const std::array<Controls, kSlots>& controls, int first)
+  void ProcessRow(double* samples, int frames, const std::array<Controls, kSlots>& controls, int first, double* right)
   {
     for (int i = first; i < first + 4; ++i)
     {
       const auto& c = controls[i];
       stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.calibrate, c.calibrationDB, c.outputMode,
-                        c.slim, c.dynamics, c.eq, c.utility);
+                        c.slim, c.dynamics, c.eq, c.utility, right);
     }
   }
   std::array<int, 2> LaneLatencies() const
@@ -141,7 +154,8 @@ private:
     return latency;
   }
   std::array<std::vector<double>, 2> mLane;
-  std::array<Delay, 2> mDelay;
+  std::array<Delay, 2> mDelay, mRightDelay;
+  std::array<std::vector<double>, 2> mRightLane;
   double mBlend = .5, mStep = 1. / 240.;
   bool mFirstBlend = true;
 };

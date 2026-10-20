@@ -14,6 +14,7 @@
 #include "FixedNAMGrid.h"
 #include "SlotOperations.h"
 #include "CaptureLibrary.h"
+#include "GridTuner.h"
 #include <array>
 #include <mutex>
 
@@ -22,14 +23,14 @@
 
 
 const int kNumPresets = 1;
-// The plugin is mono inside
-constexpr size_t kNumChannelsInternal = 1;
+// Stereo grid; mono NAM slots deliberately collapse to mono for one inference pass.
+constexpr size_t kNumChannelsInternal = 2;
 
-class NAMSender : public iplug::IPeakAvgSender<>
+class NAMSender : public iplug::IPeakAvgSender<2>
 {
 public:
   NAMSender()
-  : iplug::IPeakAvgSender<>(-90.0, true, 5.0f, 1.0f, 300.0f, 500.0f)
+  : iplug::IPeakAvgSender<2>(-90.0, true, 5.0f, 1.0f, 300.0f, 500.0f)
   {
   }
 };
@@ -64,7 +65,9 @@ enum EParams
   kEQBase = kDynamicsBase + 16 * 6,
   kQualityBase = kEQBase + 16 * 7,
   kUtilityBase = kQualityBase + 15,
-  kNumParams = kUtilityBase + 16 * kUtilityControls
+  kTunerReference = kUtilityBase + 16 * kUtilityControls,
+  kTunerMute,
+  kNumParams
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
@@ -121,6 +124,7 @@ enum ECtrlTags
   kCtrlTagCaptureSearch,
   kCtrlTagGearFilter,
   kCtrlTagClearFilter,
+  kCtrlTagTuner,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -139,6 +143,22 @@ enum EMsgTags
   kNumMsgTags
 };
 
+// The reused filter retains its histories across SetParams; host reset must
+// explicitly clear both channels so a stopped project's tail cannot leak back.
+class GridDCBlocker : public recursive_linear_filter::HighPass
+{
+public:
+  void ClearHistory()
+  {
+    for (auto& channel : mInputHistory)
+      std::fill(channel.begin(), channel.end(), 0.);
+    for (auto& channel : mOutputHistory)
+      std::fill(channel.begin(), channel.end(), 0.);
+    mInputStart = static_cast<long>(mInputCoefficients.size());
+    mOutputStart = static_cast<long>(mOutputCoefficients.size());
+  }
+};
+
 class NeuralAmpModeler final : public iplug::Plugin
 {
 public:
@@ -152,6 +172,13 @@ public:
   bool SerializeState(iplug::IByteChunk& chunk) const override;
   int UnserializeState(const iplug::IByteChunk& chunk, int startPos) override;
   void OnUIOpen() override;
+  void OnUIClose() override
+  {
+    mTuner.Enable(false);
+    iplug::Plugin::OnUIClose();
+  }
+  void SetTunerOpen(bool open) { mTuner.Enable(open); }
+  double TunerFrequency() const { return mTuner.Frequency(); }
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
 
   void OnParamChange(int paramIdx) override;
@@ -264,6 +291,8 @@ private:
   dsp::noise_gate::Trigger mNoiseGateTrigger;
   dsp::noise_gate::Gain mNoiseGateGain;
   FixedNAMGrid mGrid;
+  grid_tuner::Tuner mTuner;
+  double mTunerGain = 1.;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
@@ -291,7 +320,7 @@ private:
   std::unique_ptr<dsp::tone_stack::AbstractToneStack> mToneStack;
 
   // Post-IR filters
-  recursive_linear_filter::HighPass mHighPass;
+  GridDCBlocker mHighPass;
   //  recursive_linear_filter::LowPass mLowPass;
 
   // Path to model's config.json or model.nam

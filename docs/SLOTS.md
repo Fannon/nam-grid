@@ -108,10 +108,10 @@ Typical captures are 48 kHz. Parallel lane compensation continues to follow actu
 
 ## State and verification
 
-The current layout has **940 parameters**: the previous 284, then 41 utility/time-effect
-parameters per slot. Schema **7** stores paths, types and named values under
+The current layout has **1054 parameters**: the previous 284, then 48 utility/time-effect
+parameters per slot plus two tuner preferences. Schema **8** stores paths, types and named values under
 `###NAMGrid-v1###`. IDs 0–9 cover NAM, dynamics, EQ, IR and Boost; 10/11 Filter/Swell;
-12–14 delays; 15–17 reverbs; 18–22 modulation; 23 Airwindows Tape; 24 Tube Boost. Only NAM/IR accept paths.
+12–14 delays; 15–17 reverbs; 18–22 modulation; 23 Airwindows Tape; 24 Tube Boost; 25 Utility. Only NAM/IR accept paths.
 Older-format readers remain where practical, but old unreleased project compatibility is not guaranteed.
 See [MODULES.md](MODULES.md) for the expanded test coverage and manual checklist.
 

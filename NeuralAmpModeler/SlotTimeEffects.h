@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include "EffectParameters.h"
+#include "TempoSync.h"
 
 // Original MIT implementations for nam-grid. No third-party plugin SDK or DSP
 // runtime. Fractional delay memory is sized exclusively in Reset, off audio.
@@ -23,12 +24,13 @@ public:
   double Read(double delay) const
   {
     delay = std::clamp(delay, 1., static_cast<double>(mData.size() - 2));
-    double position = static_cast<double>(mIndex) - delay;
-    if (position < 0.)
-      position += mData.size();
-    const auto a = static_cast<size_t>(position);
-    const auto b = a + 1 == mData.size() ? 0 : a + 1;
-    return mData[a] + (position - a) * (mData[b] - mData[a]);
+    // Split the integer offset before wrapping: adding the ring size to a tiny
+    // negative fractional position can round up to size(), an out-of-bounds read.
+    const auto whole = static_cast<size_t>(delay);
+    const double fraction = delay - whole;
+    const auto a = mIndex >= whole ? mIndex - whole : mData.size() - (whole - mIndex);
+    const auto b = a == 0 ? mData.size() - 1 : a - 1;
+    return mData[a] + fraction * (mData[b] - mData[a]);
   }
   void Push(double x)
   {
@@ -50,10 +52,12 @@ public:
     mCoefficient = std::exp(-1. / (.02 * rate));
     mFirst = true;
   }
-  void Target(const std::array<double, N>& values, int offset)
+  void Target(const std::array<double, N>& values, int offset, bool synced = false)
   {
     for (size_t j = 0; j < N; ++j)
-      mTarget[j] = std::clamp(values[j], kEffectParameters[offset + j].minimum, kEffectParameters[offset + j].maximum);
+      mTarget[j] = synced && j == 0 ? values[j]
+                                    : std::clamp(values[j], kEffectParameters[offset + j].minimum,
+                                                 kEffectParameters[offset + j].maximum);
     if (mFirst)
     {
       mValue = mTarget;
@@ -80,7 +84,7 @@ public:
   void Reset(double rate)
   {
     mRate = rate;
-    mLine.Reset(static_cast<int>(rate * 1.6));
+    mLine.Reset(static_cast<int>(rate * 8.1));
     mControls.Reset(rate);
     mExtras.Reset(rate);
     mLP = mLP2 = mDC = mEnv = mPhase = 0.;
@@ -88,7 +92,10 @@ public:
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
   {
-    mControls.Target(controls.delay, uDelayTime);
+    auto values = controls.delay;
+    if (controls.sync)
+      values[0] = grid_tempo::Seconds(controls.tempo, controls.division) * 1000.;
+    mControls.Target(values, uDelayTime, controls.sync);
     mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
     for (int i = 0; i < frames; ++i)
     {
@@ -152,14 +159,18 @@ public:
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
   {
-    mControls.Target(controls.modulation, uModRate);
+    auto values = controls.modulation;
+    if (controls.sync)
+      values[0] = 1. / grid_tempo::Seconds(controls.tempo, controls.division);
+    mControls.Target(values, uModRate, controls.sync);
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
       const double x = samples[i], depth = c[1] * .01, character = c[3] * .01, mix = c[4] * .01;
       const double peak = std::abs(x);
       mEnv = peak + std::exp(-1. / ((peak > mEnv ? .005 : .15) * mRate)) * (mEnv - peak);
-      mPhase += c[0] * (effect == SlotEffect::Tremolo ? 1. + character * std::min(3., mEnv * 6.) : 1.) / mRate;
+      mPhase += c[0] * (effect == SlotEffect::Tremolo && !controls.sync ? 1. + character * std::min(3., mEnv * 6.) : 1.)
+                / mRate;
       if (mPhase >= 1.)
         mPhase -= 1.;
       const double lfo = std::sin(2. * grid_fx::pi * mPhase);

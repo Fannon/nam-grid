@@ -1,7 +1,7 @@
 # Grid modules
 
-All effects use the fixed grid and the same eight-position editor: up to seven knobs,
-then Enabled in position eight. Unused positions remain empty. Every visible knob and bypass is
+All effects use the fixed grid and the same eight-position editor: up to seven knobs
+or switches, then Enabled in position eight. Unused positions remain empty. Every visible knob and bypass is
 host-automatable; selection and settings are saved in project state. Families
 share their controls within a slot. Copy/Move/Swap transfers those values, with
 independent processor history at the destination.
@@ -26,7 +26,7 @@ This set follows the core guitar categories in the official
 [Helix effect guide](https://manuals.line6.com/en/helix-stadium/live/effect-blocks)
 and [Quad Cortex device list](https://neuraldsp.com/device-list). These are category
 references, not code sources or claims of hardware emulation. Spring reverb,
-pitch shifting, rotary, stereo/ping-pong effects and tempo sync are outside this increment.
+pitch shifting, rotary and stereo/ping-pong effects remain future work.
 Dense Plate is a voiced digital reverb, not a physical plate model.
 
 Digital Delay has no modulation control; its Character ducks the repeats. Analog/Tape
@@ -46,8 +46,10 @@ parallel lane. Set lane blend fully toward the processed lane for serial auditio
 bounded filtered feedback; an eight-line normalized Hadamard feedback network
 with optional input diffusion; and delay/allpass/amplitude modulation. Timing
 scales with the actual host rate. There is no forced 44.1 kHz processing or
-oversampling. The grid remains mono internally and duplicates its final signal
-to stereo. Native stereo width is not implemented.
+oversampling. The grid preserves L/R with independent built-in histories. Mono NAM stages explicitly
+downmix once and broadcast their wet result, avoiding duplicate NAM inference. Utility
+provides balance, width and polarity. These effects currently preserve stereo placement;
+chorus/reverb do not yet generate independent spatial spread from a mono source.
 
 ## Tone, dynamics and utility
 
@@ -65,6 +67,7 @@ to stereo. Native stereo width is not implemented.
 | Envelope Filter | Cutoff, Resonance, Envelope | Resonant low-pass, up to four octaves of input-driven opening |
 | Auto Swell | Rise, Threshold, Release | Phrase envelope removes the pick and fades up; pause below threshold to re-arm |
 | Airwindows Tape | Drive, Bump, Mix, Output | Tape saturation/head bump, no flutter |
+| Utility | Level, L/R balance, Width, Invert L, Invert R | Center is unity; width uses mid/side, 0% mono / 100% unchanged / 200% wider |
 
 Boost defaults to clean gain: Tilt 0 dB and high pass off. It adds no saturation;
 use Tape when nonlinear character is wanted. Swell has no lookahead: it responds
@@ -185,8 +188,9 @@ Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
 
 ## State and layout checkpoint
 
-Schema 7 contains 940 parameters. Schema 6 projects retain their named values and
-fill the 11 new controls per slot from defaults despite the changed parameter stride.
+Schema 8 contains 1054 parameters (284 inherited + 16 × 48 family controls + two tuner
+preferences). Schema 6/7 projects retain named values and fill new controls from defaults
+despite the changed parameter stride.
 Older unreleased format compatibility remains best effort. New controls participate
 in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled align
 as two controls under each grid column. A smaller effect does not need to fill them.
@@ -195,7 +199,7 @@ Additional tests check Tube Boost's even harmonics with Bias, near-zero steady-s
 DC and exact settled dry blend; compressor attack and blend; NAM cuts in the processing
 reference; all eight editor positions; and schema-6 later-slot parameter recall.
 
-## Current offline CPU checkpoint
+## Previous mono offline CPU checkpoint
 
 Same host and benchmark method as above. Values include the full grid; all cases
 report zero compensation latency. Defaults are used, so this does not measure all
@@ -208,3 +212,67 @@ parameter extremes. Raw local results: `build-grid/complete-modules-cpu.csv`.
 | Analog Echo | 0.47% | 0.93% |
 | Cloud | 1.09% | 2.17% |
 | Tube Boost | 0.39% | 0.79% |
+
+## Tempo sync, tuner and stereo Utility
+
+All three delays and all five modulation modules have **Tempo sync**. Division replaces
+Time/Rate in position one: 1/16, 1/8T, 1/8, 1/8D, 1/4, 1/4D, 1/2, 1/2D, 1/1. T means
+triplet and D dotted. Manual settings remain intact when sync is off. Delay timing uses
+60 × beats / BPM; modulation uses its reciprocal. Missing/invalid tempo defaults to
+120 BPM; valid values are bounded to 30–300 BPM. The longest synced delay is eight
+seconds (whole note at 30 BPM). Modulation is rate-synced and free-running, not locked
+to the host song position. Auto Tremolo disables envelope-driven acceleration while
+synced, retaining its waveform Character. Tempo/time changes use existing smoothing
+and can bend pitch; there is no mandatory lookahead or oversampling.
+
+Delay buffers now reserve about 6 MiB per stereo slot at 48 kHz, 24 MiB at 192 kHz.
+Bypass continues draining histories before suspension; maximum delay-tail bounds are
+conservative (560 seconds per serial delay at 82% feedback). No new compensation latency.
+
+**Utility** has level −60…+12 dB, balance −100…+100%, width 0…200%, independent L/R
+polarity and Enabled. Center balance is unity, extremes attenuate the opposite channel;
+this is not constant-power panning. Gains/polarity/width changes ramp to avoid jumps.
+For phase cancellation between captures, polarity can help, but there is no automatic
+phase alignment or fine-delay control yet.
+
+**Tuner** is a separate panel beside Settings, not a grid slot. One C++ MPM detector
+was adapted from the MIT sibling trace-tuner revision
+`2e1ff89243698b8f4fca33dc4505a2cd749d9e67`; its complete MIT notice is shipped.
+No Rust/FFT runtime or extra plugin framework is added. The audio tap selects the
+stronger input channel per block, low-passes/decimates to 11–12 kHz, and writes to a
+bounded SPSC queue. A worker performs normalized autocorrelation, key-peak selection
+and parabolic refinement over 1536 samples. Intended monophonic range is 35–1600 Hz;
+analysis takes about 130–140 ms and does not delay processed audio. Quiet/uncertain
+signals clear the display. The worker sleeps on a condition variable when the panel is
+closed; only UI/control code takes that mutex. A-reference and mute preference are
+automatable/saved, while panel visibility is not recalled.
+
+New tests cover harmonic-rich guitar/bass pitches (41–659 Hz, under two cents in
+synthetic fixtures), silence/nonfinite input, right-only capture at all five host rates,
+audio allocation guards, stereo empty paths/Utility/A2 downmix, synced echo divisions
+and Auto Tremolo beat rate, real CLAP transport changes, schema-7 migration, native
+tuner controls, Escape unmute and editor-destruction unmute. Real guitar listening and
+Bitwig/macOS validation remain outstanding.
+
+Manual additions: tune every guitar string and low bass notes; compare A=440/442;
+check quiet decay, right-only input and reopening the panel. Set Bitwig to 60/90/120 BPM,
+compare dotted/triplet echoes and automate tempo. Put Utilities after each parallel amp,
+pan the lanes apart and invert either polarity; save/reopen and test a mono host output.
+
+Current stereo build, same offline benchmark method (128-frame blocks; fastest of
+three measured renders; total cost as % of one core; tuner closed):
+
+| Effect | 48 kHz | 96 kHz |
+| --- | ---: | ---: |
+| Empty grid | 0.28% | 0.54% |
+| Smooth Compressor | 0.54% | 1.06% |
+| Analog Echo | 0.76% | 1.51% |
+| Cloud | 1.87% | 3.80% |
+| Tube Boost | 0.63% | 1.26% |
+| Utility | 0.35% | 0.70% |
+| Two synthetic A2 models | 7.26% | 8.72% |
+
+Built-in cost rises with the independently processed right channel; NAM inference
+is unchanged. New built-ins still report zero latency; the two-model fixture
+reports 0/54/84 samples at 48/44.1/96 kHz. Raw effect timings are in ignored
+`build-grid/stereo-modules-cpu.csv`. These are offline figures, not Bitwig CPU meters.

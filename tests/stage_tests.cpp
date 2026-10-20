@@ -53,6 +53,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DynamicsTests.h"
 #include "SlotFeaturesTests.h"
 #include "TimeEffectsTests.h"
+#include "TunerTempoUtilityTests.h"
 
 int main(int argc, char** argv)
 try
@@ -162,6 +163,7 @@ try
   TestDynamics();
   TestSlotFeatures();
   TestTimeEffects();
+  TestTunerTempoUtility();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

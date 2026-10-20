@@ -87,20 +87,25 @@ public:
     mLine.Reset(static_cast<int>(rate * 8.1));
     mControls.Reset(rate);
     mExtras.Reset(rate);
+    mPing.Reset(rate);
     mLP = mLP2 = mDC = mEnv = mPhase = 0.;
     mCounter = 0;
   }
-  void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
+  void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
+               SlotDelay* right = nullptr, double* rightSamples = nullptr)
   {
     auto values = controls.delay;
     if (controls.sync)
       values[0] = grid_tempo::Seconds(controls.tempo, controls.division) * 1000.;
     mControls.Target(values, uDelayTime, controls.sync);
     mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
+    mPing.Target({right && controls.pingPong ? 1. : 0.}, uDelayPingPong);
+    const double dcCoefficient = std::exp(-2. * grid_fx::pi * 70. / mRate);
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
+      const double ping = mPing.Tick()[0];
       const double character = c[3] * .01, mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
@@ -117,23 +122,37 @@ public:
           : extra[0] * .01 * mRate * (effect == SlotEffect::TapeDelay ? .0015 : .0008)
               * (std::sin(2. * grid_fx::pi * mPhase)
                  + (effect == SlotEffect::TapeDelay ? .15 * std::sin(2. * grid_fx::pi * mPhase * 7.) : 0.));
-      const double read = mLine.Read(c[0] * .001 * mRate + flutter);
-      mLP = grid_fx::Flush(read + mDamping * (mLP - read));
-      mLP2 = grid_fx::Flush(mLP + mDamping * (mLP2 - mLP));
-      double wet = effect == SlotEffect::AnalogDelay ? mLP2 : mLP;
-      if (effect != SlotEffect::DigitalDelay && character > 0.)
+      const double x[2]{samples[i], right ? rightSamples[i] : 0.};
+      double wet[2]{};
+      SlotDelay* channels[2]{this, right};
+      const int count = right ? 2 : 1;
+      // Read both tanks before either write: cross-feedback has no block delay.
+      for (int ch = 0; ch < count; ++ch)
       {
-        const double drive = 1. + 3. * character;
-        wet = std::tanh(wet * drive) / drive; // bounded, unity small-signal slope inside feedback
+        auto& tank = *channels[ch];
+        const double read = tank.mLine.Read(c[0] * .001 * mRate + flutter);
+        tank.mLP = grid_fx::Flush(read + mDamping * (tank.mLP - read));
+        tank.mLP2 = grid_fx::Flush(tank.mLP + mDamping * (tank.mLP2 - tank.mLP));
+        wet[ch] = effect == SlotEffect::AnalogDelay ? tank.mLP2 : tank.mLP;
+        if (effect != SlotEffect::DigitalDelay && character > 0.)
+        {
+          const double drive = 1. + 3. * character;
+          wet[ch] = std::tanh(wet[ch] * drive) / drive;
+        }
       }
-      const double x = samples[i];
-      mDC = grid_fx::Flush(x + std::exp(-2. * grid_fx::pi * 70. / mRate) * (mDC - x));
-      mLine.Push((effect == SlotEffect::DigitalDelay ? x : x - mDC) + c[1] * .01 * wet);
-      // Digital Character ducks repeats under the pick; echoes recover in note gaps.
-      const double peak = std::abs(x);
-      mEnv = peak + std::exp(-1. / ((peak > mEnv ? .003 : .15) * mRate)) * (mEnv - peak);
-      const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * mEnv) : 1.;
-      samples[i] = ((1. - mix) * x + mix * wet * duck) * std::pow(10., extra[1] * .05);
+      const double send[2]{(1. - ping) * x[0] + ping * .5 * (x[0] + x[1]), (1. - ping) * x[1]};
+      const double output = std::pow(10., extra[1] * .05);
+      for (int ch = 0; ch < count; ++ch)
+      {
+        auto& tank = *channels[ch];
+        tank.mDC = grid_fx::Flush(send[ch] + dcCoefficient * (tank.mDC - send[ch]));
+        const double feedback = (1. - ping) * wet[ch] + ping * wet[1 - ch];
+        tank.mLine.Push((effect == SlotEffect::DigitalDelay ? send[ch] : send[ch] - tank.mDC) + c[1] * .01 * feedback);
+        const double peak = (1. - ping) * std::abs(x[ch]) + ping * std::max(std::abs(x[0]), std::abs(x[1]));
+        tank.mEnv = peak + std::exp(-1. / ((peak > tank.mEnv ? .003 : .15) * mRate)) * (tank.mEnv - peak);
+        const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * tank.mEnv) : 1.;
+        (ch == 0 ? samples : rightSamples)[i] = ((1. - mix) * x[ch] + mix * wet[ch] * duck) * output;
+      }
     }
   }
 
@@ -141,6 +160,7 @@ private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
+  grid_fx::SmoothControls<1> mPing;
   double mRate = 48000., mLP = 0., mLP2 = 0., mDC = 0., mEnv = 0., mPhase = 0., mDamping = 0.;
   int mCounter = 0;
 };
@@ -153,16 +173,18 @@ public:
     mRate = rate;
     mLine.Reset(static_cast<int>(.06 * rate));
     mControls.Reset(rate);
+    mSpread.Reset(rate);
     mPhase = mFeedback = mEnv = mTone = 0.;
     mAllpass = {};
     mCounter = 0;
   }
-  void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
+  void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls, bool right = false)
   {
     auto values = controls.modulation;
     if (controls.sync)
       values[0] = 1. / grid_tempo::Seconds(controls.tempo, controls.division);
     mControls.Target(values, uModRate, controls.sync);
+    mSpread.Target({effect == SlotEffect::Chorus && right ? controls.chorusSpread : 0.}, uChorusSpread);
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
@@ -173,7 +195,8 @@ public:
                 / mRate;
       if (mPhase >= 1.)
         mPhase -= 1.;
-      const double lfo = std::sin(2. * grid_fx::pi * mPhase);
+      const double phase = mPhase + .005 * mSpread.Tick()[0];
+      const double lfo = std::sin(2. * grid_fx::pi * phase);
       double wet = x;
       if (effect == SlotEffect::Tremolo)
       {
@@ -204,7 +227,7 @@ public:
         const bool vibrato = effect == SlotEffect::Vibrato;
         const double centre = flange ? .003 : vibrato ? .008 : .018;
         const double excursion = flange ? .0025 : vibrato ? .006 : .006;
-        const double wobble = (1. - .25 * character) * lfo + .25 * character * std::sin(4. * grid_fx::pi * mPhase + .7);
+        const double wobble = (1. - .25 * character) * lfo + .25 * character * std::sin(4. * grid_fx::pi * phase + .7);
         wet = mLine.Read(mRate * (centre + excursion * depth * wobble));
         mTone =
           grid_fx::Flush(wet + std::exp(-2. * grid_fx::pi * (12000. - 9000. * character) / mRate) * (mTone - wet));
@@ -218,6 +241,7 @@ public:
 private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
+  grid_fx::SmoothControls<1> mSpread;
   std::array<double, 6> mAllpass{};
   double mRate = 48000., mPhase = 0., mFeedback = 0., mEnv = 0., mTone = 0., mCoefficient = 0.;
   int mCounter = 0;
@@ -234,6 +258,8 @@ public:
     mRate = rate;
     mControls.Reset(rate);
     mExtras.Reset(rate);
+    mStereo.Reset(rate);
+    mStereoMix.Reset(rate);
     mInputLow = mHighPassMix = 0.;
     mDamp = {};
     mPhase = 0.;
@@ -245,7 +271,7 @@ public:
     mPredelay.Reset(static_cast<int>(.11 * rate));
     mEarly.Reset(static_cast<int>(.08 * rate));
   }
-  void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls)
+  void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls, bool right = false)
   {
     mControls.Target(controls.reverb, uReverbDecay);
     mExtras.Target({controls.reverbMotion, controls.reverbHighPass}, uReverbMotion);
@@ -256,7 +282,7 @@ public:
     {
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
-      const double size = c[1] * .01 * (room ? .58 : 1.), mix = c[4] * .01;
+      const double size = c[1] * .01 * (room ? .58 : 1.) * (right ? 1.037 : 1.), mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
         mHighPassCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., extra[1]) / mRate);
@@ -318,11 +344,39 @@ public:
     }
   }
 
+
+  void ProcessStereo(double* left, double* right, const double* dryLeft, const double* dryRight, int frames,
+                     SlotEffect effect, const UtilityControls& controls, SlotReverb& other)
+  {
+    // Contractive input matrix retains stereo information and excites both tanks
+    // from either side. The networks use different delay lengths at every rate.
+    for (int i = 0; i < frames; ++i)
+    {
+      left[i] = .75 * dryLeft[i] + .25 * dryRight[i];
+      right[i] = .25 * dryLeft[i] + .75 * dryRight[i];
+    }
+    auto wet = controls;
+    wet.reverb[4] = 100.;
+    Process(left, frames, effect, wet);
+    other.Process(right, frames, effect, wet, true);
+    mStereo.Target({controls.stereoReverb ? 1. : 0.}, uReverbStereo);
+    // Mix remains independently smoothed although the tank itself renders wet-only.
+    mStereoMix.Target(controls.reverb, uReverbDecay);
+    for (int i = 0; i < frames; ++i)
+    {
+      const double width = mStereo.Tick()[0], mix = mStereoMix.Tick()[4] * .01;
+      const double mid = .5 * (left[i] + right[i]), side = .5 * (left[i] - right[i]) * width;
+      left[i] = (1. - mix) * dryLeft[i] + mix * (mid + side);
+      right[i] = (1. - mix) * dryRight[i] + mix * (mid - side);
+    }
+  }
+
 private:
   std::array<grid_fx::DelayLine, 8> mLines;
   std::array<grid_fx::DelayLine, 4> mDiffusers;
   grid_fx::DelayLine mPredelay, mEarly;
-  grid_fx::SmoothControls<5> mControls;
+  grid_fx::SmoothControls<5> mControls, mStereoMix;
+  grid_fx::SmoothControls<1> mStereo;
   grid_fx::SmoothControls<2> mExtras;
   std::array<double, 8> mDamp{}, mFeedback{};
   double mRate = 48000., mDamping = 0., mPhase = 0.;

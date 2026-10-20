@@ -6,7 +6,8 @@ This branch experiments with a fixed 16-slot NAM grid: four serial input slots, 
 four-slot lanes, and four serial output slots. It retains native CLAP/VST3 and iPlug2.
 Start with the [grid experiment](docs/GRID.md), [build instructions](docs/BUILD.md),
 [repository assessment](docs/PHASE0.md), and [verification report](docs/VERIFICATION.md).
-Slots offer [gates, compressors, EQ, Boost, Tape, Filter, Swell, three reverbs, three delays, five modulation effects and stereo Utility](docs/MODULES.md), with at most seven knobs and bypass.
+Slots offer [gates, compressors, EQ, Boost, Tape, Filter, Swell, four reverbs, three delays, Wah, five modulation effects and stereo Utility](docs/MODULES.md), with at most seven knobs and bypass.
+Ping-pong delay, chorus spread, stereo reverb and a centered Utility Stereo control are included.
 A compact input tuner and host tempo sync are included; mono NAM stages still run one inference pass.
 [UI and library](docs/UI.md) explain the flat editor, selected-module panel and multiple NAM/IR folders.
 [Slot controls](docs/SLOTS.md) cover EQ, cabinet IRs, metering, Copy/Move/Swap and A2 Full/Lite.

@@ -25,8 +25,9 @@ independent processor history at the destination.
 This set follows the core guitar categories in the official
 [Helix effect guide](https://manuals.line6.com/en/helix-stadium/live/effect-blocks)
 and [Quad Cortex device list](https://neuraldsp.com/device-list). These are category
-references, not code sources or claims of hardware emulation. Spring reverb,
-pitch shifting, rotary and stereo/ping-pong effects remain future work.
+references, not code sources or claims of hardware emulation. Spring, Wah and stereo
+effects are now described in [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
+Pitch shifting and rotary remain future work.
 Dense Plate is a voiced digital reverb, not a physical plate model.
 
 Digital Delay has no modulation control; its Character ducks the repeats. Analog/Tape
@@ -49,7 +50,7 @@ scales with the actual host rate. There is no forced 44.1 kHz processing or
 oversampling. The grid preserves L/R with independent built-in histories. Mono NAM stages explicitly
 downmix once and broadcast their wet result, avoiding duplicate NAM inference. Utility
 provides balance, width and polarity. These effects currently preserve stereo placement;
-chorus/reverb do not yet generate independent spatial spread from a mono source.
+Chorus Spread and stereo reverb generate spatial movement from a mono source.
 
 ## Tone, dynamics and utility
 
@@ -67,7 +68,9 @@ chorus/reverb do not yet generate independent spatial spread from a mono source.
 | Envelope Filter | Cutoff, Resonance, Envelope | Resonant low-pass, up to four octaves of input-driven opening |
 | Auto Swell | Rise, Threshold, Release | Phrase envelope removes the pick and fades up; pause below threshold to re-arm |
 | Airwindows Tape | Drive, Bump, Mix, Output | Tape saturation/head bump, no flutter |
-| Utility | Level, L/R balance, Width, Invert L, Invert R | Center is unity; width uses mid/side, 0% mono / 100% unchanged / 200% wider |
+| Utility | Level, L/R balance, Stereo, Invert L, Invert R | Stereo −100% mono / 0% unchanged / +100% wider |
+| Spring Reverb | Decay, Dwell, Damping, Drip, Mix, Output | Three dispersive tanks with driven excitation; stereo wet switch |
+| Wah | Position, Resonance, Range, Mix, Output | Automatable log sweep with resonant band-pass and body |
 
 Boost defaults to clean gain: Tilt 0 dB and high pass off. It adds no saturation;
 use Tape when nonlinear character is wanted. Swell has no lookahead: it responds
@@ -188,8 +191,8 @@ Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
 
 ## State and layout checkpoint
 
-Schema 8 contains 1054 parameters (284 inherited + 16 × 48 family controls + two tuner
-preferences). Schema 6/7 projects retain named values and fill new controls from defaults
+Schema 9 contains 1262 parameters (284 inherited + 16 × 61 family controls + two tuner
+preferences). Schema 6/7/8 projects retain named values and fill new controls from defaults
 despite the changed parameter stride.
 Older unreleased format compatibility remains best effort. New controls participate
 in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled align
@@ -229,10 +232,10 @@ Delay buffers now reserve about 6 MiB per stereo slot at 48 kHz, 24 MiB at 192 k
 Bypass continues draining histories before suspension; maximum delay-tail bounds are
 conservative (560 seconds per serial delay at 82% feedback). No new compensation latency.
 
-**Utility** has level −60…+12 dB, balance −100…+100%, width 0…200%, independent L/R
+**Utility** has level −60…+12 dB, balance −100…+100%, Stereo −100…+100%, independent L/R
 polarity and Enabled. Center balance is unity, extremes attenuate the opposite channel;
 this is not constant-power panning. Gains/polarity/width changes ramp to avoid jumps.
-For phase cancellation between captures, polarity can help, but there is no automatic
+Stereo is centered at 0 (unity), −100 folds to mono, +100 doubles side. For phase cancellation between captures, polarity can help, but there is no automatic
 phase alignment or fine-delay control yet.
 
 **Tuner** is a separate panel beside Settings, not a grid slot. One C++ MPM detector
@@ -276,3 +279,8 @@ Built-in cost rises with the independently processed right channel; NAM inferenc
 is unchanged. New built-ins still report zero latency; the two-model fixture
 reports 0/54/84 samples at 48/44.1/96 kHz. Raw effect timings are in ignored
 `build-grid/stereo-modules-cpu.csv`. These are offline figures, not Bitwig CPU meters.
+
+The spatial and guitar increment adds Ping-pong to all delays, Chorus Spread,
+stereo wet output to Room/Plate/Cloud, Spring Reverb and automatable Wah. Utility's
+Stereo scale is centered at zero. See [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md)
+for controls, original algorithm references, migration and the manual checklist.

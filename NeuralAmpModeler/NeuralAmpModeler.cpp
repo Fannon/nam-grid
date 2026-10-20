@@ -105,8 +105,9 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         for (int d = 0; d < 9; ++d)
           param->SetDisplayText(d, grid_tempo::names[d]);
       }
-      else if (i == uTempoSync || i == uUtilityInvertL || i == uUtilityInvertR)
-        param->InitBool((name + " " + p.name).c_str(), false);
+      else if (i == uTempoSync || i == uUtilityInvertL || i == uUtilityInvertR || i == uDelayPingPong
+               || i == uReverbStereo)
+        param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
       else if (p.exponential)
         param->InitDouble(
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
@@ -302,9 +303,17 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.utility.tempo = GetTempo();
     c.utility.level = GetParam(SlotUtilityParam(slot, uUtilityLevel))->Value();
     c.utility.balance = GetParam(SlotUtilityParam(slot, uUtilityBalance))->Value();
-    c.utility.width = GetParam(SlotUtilityParam(slot, uUtilityWidth))->Value();
+    c.utility.stereo = GetParam(SlotUtilityParam(slot, uUtilityStereo))->Value();
     c.utility.invertL = GetParam(SlotUtilityParam(slot, uUtilityInvertL))->Bool();
     c.utility.invertR = GetParam(SlotUtilityParam(slot, uUtilityInvertR))->Bool();
+    c.utility.pingPong = GetParam(SlotUtilityParam(slot, uDelayPingPong))->Bool();
+    c.utility.chorusSpread = GetParam(SlotUtilityParam(slot, uChorusSpread))->Value();
+    c.utility.stereoReverb = GetParam(SlotUtilityParam(slot, uReverbStereo))->Bool();
+    for (int i = 0; i < 5; ++i)
+    {
+      c.utility.spring[i] = GetParam(SlotUtilityParam(slot, uSpringDecay + i))->Value();
+      c.utility.wah[i] = GetParam(SlotUtilityParam(slot, uWahPosition + i))->Value();
+    }
     c.utility.frequency = GetParam(SlotUtilityParam(slot, uFrequency))->Value();
     c.utility.gain = GetParam(SlotUtilityParam(slot, uGain))->Value();
     c.utility.q = GetParam(SlotUtilityParam(slot, uQ))->Value();
@@ -546,7 +555,7 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
-  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::Utility)
+  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::Wah)
     return;
   _ClearModel(slot, effect);
   if (fromUI)
@@ -758,7 +767,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 8;
+  config["schema"] = 9;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
@@ -801,7 +810,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         return -1;
       const auto& schemaValue = config["schema"];
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 4 && schemaValue != 5 && schemaValue != 6
-                  && schemaValue != 7 && schemaValue != 8)
+                  && schemaValue != 7 && schemaValue != 8 && schemaValue != 9)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -844,7 +853,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema < 6  ? 7
                              : schema == 6 ? static_cast<int>(SlotEffect::Tape)
                              : schema == 7 ? static_cast<int>(SlotEffect::TubeBoost)
-                                           : static_cast<int>(SlotEffect::Utility))
+                             : schema == 8 ? static_cast<int>(SlotEffect::Utility)
+                                           : static_cast<int>(SlotEffect::Wah))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -877,10 +887,22 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         const char* name = GetParam(i)->GetName();
         // Schemas 6/7 had 30/41 named utility controls per slot. Fill only newly added
         // controls; the expanded per-slot stride does not change saved names.
-        if (grid && schema >= 6 && schema < 8
-            && (i >= kTunerReference
-                || (i >= kUtilityBase && (i - kUtilityBase) % kUtilityControls >= (schema == 6 ? 30 : 41))))
+        if (grid && schema >= 6 && schema < 9
+            && ((i >= kTunerReference && schema < 8)
+                || (i >= kUtilityBase && i < kTunerReference
+                    && (i - kUtilityBase) % kUtilityControls >= (schema == 6   ? 30
+                                                                 : schema == 7 ? 41
+                                                                               : 48))))
           config[name] = GetParam(i)->GetDefault();
+        if (grid && schema == 8 && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls == uUtilityStereo)
+        {
+          const auto oldName = GridSlotName((i - kUtilityBase) / kUtilityControls) + " Utility Width";
+          if (!config.contains(oldName) || !config[oldName].is_number()
+              || !std::isfinite(config[oldName].get<double>()))
+            return -1;
+          config[name] = config[oldName].get<double>() - 100.;
+        }
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
       }

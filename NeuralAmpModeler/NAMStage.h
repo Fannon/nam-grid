@@ -8,6 +8,7 @@
 #include "SlotUtility.h"
 #include "SlotTimeEffects.h"
 #include "StereoUtility.h"
+#include "SlotGuitarEffects.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -37,6 +38,8 @@ public:
     SlotReverb reverb;
     SlotModulation modulation;
     SlotTape tape;
+    SlotSpring spring;
+    SlotWah wah;
     StereoUtility utilityStereo;
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
@@ -60,8 +63,12 @@ public:
         swell.Reset(rate);
       if (IsDelay(effect))
         echo.Reset(rate);
-      if (IsReverb(effect))
+      if (IsReverb(effect) && effect != SlotEffect::SpringReverb)
         reverb.Reset(rate);
+      if (effect == SlotEffect::SpringReverb && !rightChannel)
+        spring.Reset(rate);
+      if (effect == SlotEffect::Wah)
+        wah.Reset(rate);
       if (IsModulation(effect))
         modulation.Reset(rate);
       if (effect == SlotEffect::Tape)
@@ -238,9 +245,32 @@ public:
         }
         else
         {
-          ProcessBuiltin(p, frames, dynamics, eq, utility);
-          if (rightSamples)
-            ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility);
+          if (p->effect == SlotEffect::SpringReverb)
+          {
+            std::copy_n(in, frames, out);
+            if (rightSamples)
+              std::copy_n(p->right->input.data(), frames, p->right->wet.data());
+            p->spring.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);
+          }
+          else if (rightSamples && (IsDelay(p->effect) || IsReverb(p->effect)))
+          {
+            auto* rightOut = p->right->wet.data();
+            if (IsDelay(p->effect))
+            {
+              std::copy_n(in, frames, out);
+              std::copy_n(p->right->input.data(), frames, rightOut);
+              p->echo.Process(out, frames, p->effect, utility, &p->right->echo, rightOut);
+            }
+            else
+              p->reverb.ProcessStereo(
+                out, rightOut, in, p->right->input.data(), frames, p->effect, utility, p->right->reverb);
+          }
+          else
+          {
+            ProcessBuiltin(p, frames, dynamics, eq, utility);
+            if (rightSamples)
+              ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility);
+          }
           if (p->effect == SlotEffect::Utility)
             p->utilityStereo.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);
         }
@@ -312,7 +342,9 @@ private:
       else if (IsReverb(p->effect))
         p->reverb.Process(out, frames, p->effect, utility);
       else if (IsModulation(p->effect))
-        p->modulation.Process(out, frames, p->effect, utility);
+        p->modulation.Process(out, frames, p->effect, utility, p->rightChannel);
+      else if (p->effect == SlotEffect::Wah)
+        p->wah.Process(out, frames, utility);
       else if (p->effect == SlotEffect::Tape)
         p->tape.Process(out, frames, utility);
       else if (p->effect != SlotEffect::Utility)

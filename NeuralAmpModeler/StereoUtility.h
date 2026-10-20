@@ -2,7 +2,7 @@
 #include "EffectParameters.h"
 
 // Balance preserves unity at center and attenuates the opposite side at extremes.
-// Width is mid/side; polarity and gain changes ramp through zero without a jump.
+// Stereo is a centered mid/side amount; polarity and gain changes ramp through zero without a jump.
 class StereoUtility
 {
 public:
@@ -17,7 +17,7 @@ public:
     const double balance = std::clamp(c.balance * .01, -1., 1.);
     const std::array<double, 3> target{gain * (1. - std::max(0., balance)) * (c.invertL ? -1. : 1.),
                                        gain * (1. + std::min(0., balance)) * (c.invertR ? -1. : 1.),
-                                       std::clamp(c.width * .01, 0., 2.)};
+                                       1. + std::clamp(c.stereo * .01, -1., 1.)};
     if (mFirst)
     {
       mValue = target;

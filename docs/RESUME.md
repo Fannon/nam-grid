@@ -11,23 +11,28 @@ Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
 - Host tempo sync for all delays and modulation, nine straight/dotted/triplet
   divisions, 120 BPM fallback, state/automation. Rate sync is free-running,
   not PPQ-position locked. Manual Time/Rate values are retained.
-- Stereo Utility: level, L/R balance, width and independent polarity. Stereo
+- Stereo Utility: level, L/R balance, centered Stereo (−100 mono / 0 neutral / +100 wider)
+  and independent polarity. Stereo
   survives built-ins and IRs; mono NAM averages input and runs inference once.
 - Reset now clears stale input buffers/DC-filter histories. Fractional ring reads
   no longer round outside the delay buffer at near-integer boundaries.
 - Windows Release CLAP/VST3 build and all three CTest suites pass. New tests cover
   tuner accuracy/worker, no audio allocations, stereo/A2/IR, tempo transport,
   older-schema migration and tuner UI mute/teardown. See MODULES.md for details.
+- Ping-pong switch on all three delays, Chorus Spread, stereo wet output from
+  Room/Plate/Cloud and the new Spring Reverb; five-knob automatable Wah.
+- Spring uses original dispersive allpass tanks; no copied external DSP or new
+  dependency. Scope/algorithms/acceptance: [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
 - Current CPU measurements and manual acceptance checks: [MODULES.md](MODULES.md).
 
 ## Next suggestions (not implemented)
 
 1. Bitwig listening/automation/project-recall validation at low buffers; real
    guitar tuner evaluation, display scaling/reopen, and stereo/mono host layouts.
-2. Stereo character for the existing effects: ping-pong delay, chorus spread,
-   stereo reverb output. Channel preservation is now in place.
-3. One useful spring reverb and an automatable wah, retaining the small control
-   surface. Fine lane timing can follow. Pitch/shimmer remains deferred.
+2. Audition Spring Drip/Dwell and Wah range with real playing, then adjust voicing
+   based on listening. Spatial effect dry placement/mono fold also needs auditioning.
+3. Fine lane timing, convenient presets and portable model relinking are useful
+   follow-ups; avoid another large effect catalog. Pitch/shimmer remains deferred.
 
 The current system CLAP copy remains older because the prior UAC install prompt
 was canceled. Current binaries and notices are in `build-grid/out`; do not claim
@@ -41,5 +46,6 @@ can show partial frames; final native repainting still needs real-host review.
 - `NeuralAmpModelerCore` is intentionally dirty from the two tracked allocation
   patches in `patches/`. Do not revert or stage its gitlink.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
-  No new runtime dependency. Schema 8 has 1054 parameters, accepting earlier
-  schemas with name-based defaults for newly added fields.
+  No new runtime dependency. Schema 9 has 1262 parameters, accepting earlier
+  schemas with name-based defaults for newly added fields. Schema 8 Utility Width
+  migrates to centered Stereo by subtracting 100; tuner preferences are preserved.

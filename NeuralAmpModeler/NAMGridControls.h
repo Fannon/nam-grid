@@ -31,7 +31,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {delayColor, delayColor, "Delay"};
   if (IsReverb(effect))
     return {reverbColor, reverbColor, "Reverb"};
-  if (IsModulation(effect) || effect == SlotEffect::SynthFilter)
+  if (IsModulation(effect) || effect == SlotEffect::SynthFilter || effect == SlotEffect::Wah)
     return {modulationColor, modulationColor, "Modulation"};
   if (effect == SlotEffect::AutoSwell)
     return {compColor, compColor, "Volume"};
@@ -372,6 +372,8 @@ public:
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(550, 606, 654, 636), SlotUtilityParam(mSlot, i), "Tempo sync");
+      else if (i == uDelayPingPong || i == uReverbStereo)
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(674, 606, 802, 636), SlotUtilityParam(mSlot, i), p.label);
       else if (i == uUtilityInvertL || i == uUtilityInvertR)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
@@ -438,7 +440,7 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Utility))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Wah))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
@@ -479,6 +481,10 @@ private:
         bool visible = UsesUtility(effect, i);
         if (i == uTempoSync)
           visible = tempo;
+        if (i == uDelayPingPong)
+          visible = IsDelay(effect);
+        if (i == uReverbStereo)
+          visible = IsReverb(effect);
         if (i == uTempoDivision)
           visible = tempo && sync;
         if ((i == uDelayTime || i == uModRate) && sync)
@@ -496,6 +502,15 @@ private:
             : effect == SlotEffect::Flanger ? "Moves feedback from positive through zero to negative."
             : effect == SlotEffect::Tremolo ? "Sharper pulses; stronger playing speeds up the pulse."
                                             : "Warmer tone and more irregular pitch movement.");
+        else if (i == uUtilityStereo)
+          mUtilityKnobs[i]->SetTooltip(
+            "-100: fold to mono. 0: unchanged. +100: double the side signal. Does not create width from mono.");
+        else if (i == uChorusSpread)
+          mUtilityKnobs[i]->SetTooltip(
+            "Phase offset between left and right chorus voices; 0 is centered, 100 is opposite motion.");
+        else if (i == uWahPosition)
+          mUtilityKnobs[i]->SetTooltip(
+            "Heel-to-toe sweep. Automate this parameter or map it to an expression controller in the host.");
         else if (i == uTapeBump)
           mUtilityKnobs[i]->SetTooltip("Low-frequency tape head emphasis.");
       }
@@ -602,6 +617,12 @@ private:
         const auto type = static_cast<SlotEffect>(i);
         group->AddItem(
           new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
+      }
+      if (first == SlotEffect::RoomReverb || first == SlotEffect::SynthFilter)
+      {
+        const auto type = first == SlotEffect::RoomReverb ? SlotEffect::SpringReverb : SlotEffect::Wah;
+        group->AddItem(new IPopupMenu::Item(
+          SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
       }
       mMenu.AddItem(title, group, 7);
     };

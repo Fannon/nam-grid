@@ -22,7 +22,7 @@ IN -> Pre1 -> Pre2 -> Pre3 -> Pre4 -+                         +- Post1 -> Post2 
 
 Every numbered position accepts a mono NAM capture (amp, rig, pedal, outboard or cabinet),
 or a [built-in effect](MODULES.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
-modulation, delay or reverb. NAM slots have input gain,
+modulation, delay, spring reverb or Wah. NAM slots have input gain,
 output trim, Full/Lite where available, and bypass; built-ins expose at most seven knobs and Enabled. Empty slots pass
 audio; their gain controls take effect when a model is loaded. Slots are processed left to
 right within each row. Both parallel rows receive the same output from Pre4. There are no
@@ -51,9 +51,9 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   the last NAM to pan/adjust width; before a mono NAM, width is collapsed.
   Mono host output averages L/R.
 
-Utility can adjust level, balance, width and polarity in either lane or after the merge.
+Utility can adjust level, balance, Stereo width and polarity in either lane or after the merge.
 Built-in effects and mono cabinet IRs maintain independent per-channel histories. They
-preserve stereo placement but do not yet synthesize ping-pong or stereo reverb spread.
+preserve stereo placement; delays, Chorus and reverbs also generate stereo movement.
 Fine timing alignment and per-slot advanced calibration remain future work.
 
 ## Implementation and state

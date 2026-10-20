@@ -51,9 +51,22 @@ enum UtilityParam
   uTempoDivision,
   uUtilityLevel,
   uUtilityBalance,
-  uUtilityWidth,
+  uUtilityStereo,
   uUtilityInvertL,
   uUtilityInvertR,
+  uDelayPingPong,
+  uChorusSpread,
+  uReverbStereo,
+  uSpringDecay,
+  uSpringDwell,
+  uSpringDrip,
+  uSpringMix,
+  uSpringOutput,
+  uWahPosition,
+  uWahResonance,
+  uWahRange,
+  uWahMix,
+  uWahOutput,
   kUtilityControls
 };
 struct EffectParameter
@@ -111,17 +124,36 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Tempo Division", "Division", 4, 0, 8, 1, "", 0},
    {"Utility Level", "Level", 0, -60, 12, .1, "dB", 0},
    {"Utility Balance", "L/R balance", 0, -100, 100, .1, "%", 1},
-   {"Utility Width", "Width", 100, 0, 200, .1, "%", 2},
+   {"Utility Stereo", "Stereo", 0, -100, 100, .1, "%", 2},
    {"Utility Invert L", "Invert L", 0, 0, 1, 1, "", 3},
-   {"Utility Invert R", "Invert R", 0, 0, 1, 1, "", 4}}};
+   {"Utility Invert R", "Invert R", 0, 0, 1, 1, "", 4},
+   {"Delay Ping Pong", "Ping-pong", 0, 0, 1, 1, "", 4},
+   {"Chorus Spread", "Spread", 75, 0, 100, .1, "%", 5},
+   {"Reverb Stereo", "Stereo wet", 1, 0, 1, 1, "", 4},
+   {"Spring Decay", "Decay", 1.8, .3, 4., .01, "s", 0, true},
+   {"Spring Dwell", "Dwell", 3, 0, 12, .1, "dB", 1},
+   {"Spring Drip", "Drip", 60, 0, 100, .1, "%", 3},
+   {"Spring Mix", "Mix", 20, 0, 100, .1, "%", 5},
+   {"Spring Output", "Output", 0, -12, 12, .1, "dB", 6},
+   {"Wah Position", "Position", 50, 0, 100, .1, "%", 0},
+   {"Wah Resonance", "Resonance", 3, 1, 6, .01, "Q", 1},
+   {"Wah Range", "Range", 50, 0, 100, .1, "%", 2},
+   {"Wah Mix", "Mix", 100, 0, 100, .1, "%", 3},
+   {"Wah Output", "Output", 0, -12, 12, .1, "dB", 4}}};
 inline bool IsDelay(SlotEffect e)
 { return e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay; }
 inline bool IsReverb(SlotEffect e)
-{ return e >= SlotEffect::RoomReverb && e <= SlotEffect::CloudReverb; }
+{ return (e >= SlotEffect::RoomReverb && e <= SlotEffect::CloudReverb) || e == SlotEffect::SpringReverb; }
 inline bool IsModulation(SlotEffect e)
 { return e >= SlotEffect::Chorus && e <= SlotEffect::Vibrato; }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::SpringReverb)
+    return (p >= uSpringDecay && p <= uSpringOutput) || p == uReverbTone;
+  if (e == SlotEffect::Wah)
+    return p >= uWahPosition && p <= uWahOutput;
+  if (e == SlotEffect::Chorus && p == uChorusSpread)
+    return true;
   if (e == SlotEffect::Utility)
     return p >= uUtilityLevel && p <= uUtilityInvertR;
   if (e == SlotEffect::ParametricEQ)
@@ -161,7 +193,10 @@ struct UtilityControls
   std::array<double, 4> tape{0., 50., 100., 0.};
   double delayMotion = 20., delayOutput = 0., reverbMotion = 25., reverbHighPass = 80.;
   std::array<double, 4> tube{6., 25., 100., 0.};
-  bool sync = false, invertL = false, invertR = false;
+  bool sync = false, invertL = false, invertR = false, pingPong = false, stereoReverb = true;
+  double chorusSpread = 75.;
+  std::array<double, 5> spring{1.8, 3., 60., 20., 0.};
+  std::array<double, 5> wah{50., 3., 50., 100., 0.};
   int division = 4;
-  double tempo = 120., level = 0., balance = 0., width = 100.;
+  double tempo = 120., level = 0., balance = 0., stereo = 0.;
 };

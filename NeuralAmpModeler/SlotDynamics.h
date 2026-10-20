@@ -32,7 +32,9 @@ enum class SlotEffect
   Vibrato,
   Tape,
   TubeBoost,
-  Utility
+  Utility,
+  SpringReverb,
+  Wah
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -63,6 +65,8 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Tape: return "Airwindows Tape";
     case SlotEffect::TubeBoost: return "Tube Boost";
     case SlotEffect::Utility: return "Utility";
+    case SlotEffect::SpringReverb: return "Spring Reverb";
+    case SlotEffect::Wah: return "Wah";
 
     default: return "NAM";
   }

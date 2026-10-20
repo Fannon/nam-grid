@@ -255,6 +255,25 @@ int main(int argc, char** argv)
   assert(save().config()["Post 4 Boost Gain"] == 13.);
   assert(save().config()["Post 4 Tempo Sync"] == 0. && save().config()["Tuner Reference"] == 440.);
   load(base);
+  auto schema8 = base;
+  schema8["schema"] = 8;
+  schema8["Tuner Reference"] = 442.;
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const std::string label = std::string(slot < 4    ? "Pre "
+                                          : slot < 8  ? "A "
+                                          : slot < 12 ? "B "
+                                                      : "Post ")
+                              + std::to_string(slot % 4 + 1);
+    for (int p = 48; p < kUtilityControls; ++p)
+      schema8.erase(label + " " + kEffectParameters[p].name);
+    schema8.erase(label + " Utility Stereo");
+    schema8[label + " Utility Width"] = slot == 15 ? 145. : 100.;
+  }
+  load(schema8);
+  assert(save().config()["Post 4 Utility Stereo"] == 45. && save().config()["Pre 1 Utility Stereo"] == 0.);
+  assert(save().config()["Tuner Reference"] == 442.);
+  load(base);
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
   auto missing = base;
   missing["DrivePath"] = (fixtures / "missing.nam").string();
@@ -699,6 +718,14 @@ int main(int argc, char** argv)
   timeEffects["Post 2 Tape Drive"] = 5.;
   timeEffects["SlotEffects"][14] = 24;
   timeEffects["Post 3 Tube Drive"] = 12.;
+  timeEffects["SlotEffects"][0] = 26;
+  timeEffects["SlotEffects"][1] = 27;
+  timeEffects["Pre 1 Spring Dwell"] = 5.;
+  timeEffects["Pre 1 Spring Drip"] = 73.;
+  timeEffects["Pre 2 Wah Position"] = 28.;
+  timeEffects["Pre 2 Wah Resonance"] = 4.;
+  timeEffects["Pre 3 Delay Ping Pong"] = 1.;
+  timeEffects["B 1 Chorus Spread"] = 85.;
   timeEffects["Post 3 Tube Bias"] = 63.;
   timeEffects["Post 3 Tube Mix"] = 47.;
   timeEffects["A 2 Reverb High Pass"] = 175.;
@@ -728,7 +755,7 @@ int main(int argc, char** argv)
         input[0][i] = input[1][i] = .2 * std::sin((b * 512 + i) * .03);
       assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
       for (uint32_t i = 0; i < process.frames_count; ++i)
-        assert(std::isfinite(output[0][i]) && output[0][i] == output[1][i]);
+        assert(std::isfinite(output[0][i]) && std::isfinite(output[1][i]));
     }
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
@@ -837,7 +864,7 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
   // Every visible new knob must update its slot's automated parameter, with no
   // hidden controls stealing gestures when modules are restored into an open UI.
-  for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24})
+  for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})
   {
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;
@@ -863,6 +890,17 @@ int main(int argc, char** argv)
     assert(save().config()["Drive Enabled"] == 0.);
     if (argc == 4)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
+  }
+  for (int effect : {12, 15, 26})
+  {
+    auto switchState = browserState;
+    switchState["SlotEffects"][0] = effect;
+    load(switchState);
+    click(170, 160);
+    const char* name = effect == 12 ? "Pre 1 Delay Ping Pong" : "Pre 1 Reverb Stereo";
+    const double before = save().config()[name].get<double>();
+    click(735, 620);
+    assert(save().config()[name].get<double>() == 1. - before);
   }
   const auto packedPath = fixtures / "packed-a2.nam";
   std::ofstream(packedPath) << fixture::packed().dump();
@@ -1070,6 +1108,17 @@ int main(int argc, char** argv)
     click(170, 160);
     pumpFor(300);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "tube-boost.bmp");
+    for (int effect : {26, 27, 18, 15, 12})
+    {
+      auto preview = browserState;
+      preview["SlotEffects"][0] = effect;
+      if (effect == 12)
+        preview["Pre 1 Delay Ping Pong"] = 1.;
+      load(preview);
+      click(170, 160);
+      CaptureEditor(
+        editor, std::filesystem::path(argv[3]) / (std::string("stereo-guitar-") + std::to_string(effect) + ".bmp"));
+    }
     auto utilityPreview = browserState;
     utilityPreview["SlotEffects"][0] = 25;
     load(utilityPreview);

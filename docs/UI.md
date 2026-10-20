@@ -39,7 +39,7 @@ and processor; selecting NAM switches back. WAV contents are validated by the ex
 loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
 invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
 
-`CaptureFolders` is retained in the current schema 8. `CaptureFolder` remains a first-root alias
+`CaptureFolders` is retained in the current schema 9. `CaptureFolder` remains a first-root alias
 for older readers. Older single-root projects and user preferences migrate automatically.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
@@ -95,5 +95,10 @@ input, and displays no stale result after audio stops.
 
 Delays/modulation show a Tempo sync switch in the module-selection strip. When enabled,
 Division replaces Time/Rate in bottom position one; manual values remain stored.
-The eight bottom positions stay fixed. Utility uses Level, L/R balance, Width, Invert L,
+The eight bottom positions stay fixed. Utility uses Level, L/R balance, Stereo, Invert L,
 Invert R, two blank positions and Enabled. Utility has the neutral gray category color.
+
+Delay Ping-pong and reverb Stereo wet switches sit beside Tempo sync in the module
+strip. Chorus Spread uses position six. Spring and Wah appear under Reverb and
+Filter / Volume respectively, with six/five knobs and unused bottom cells blank.
+Utility Stereo is −100 mono / 0 unchanged / +100 wider; the prior Width scale is migrated.

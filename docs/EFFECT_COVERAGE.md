@@ -49,13 +49,13 @@ stereo effects and trails. We borrow the useful decisions, not the inventories.
 | --- | --- | --- |
 | Amp/pedal/cab tone | A2 NAM, IR loader, clean Boost and Tube Boost | Enough categories; audition good captures rather than add a drive catalog |
 | Dynamics | Two gates, two compressors with attack and blend | Enough; blend provides parallel compression without a new type |
-| EQ/filter | Guitar EQ, cuts, one-band parametric, envelope filter | Useful core; add an expression/automatable wah next |
+| EQ/filter | Guitar EQ, cuts, one-band parametric, envelope filter | Useful core; automatable Wah now included |
 | Level/movement | Master, trims, Boost, Auto Swell, Utility Level | Enough; no separate Volume module |
 | Modulation | Chorus, flanger, phaser, tremolo, vibrato | Enough initially; rotary/Uni-Vibe character is a later improvement |
-| Delay | Digital/ducking, analog and tape, motion/output and host sync | Enough initially; stereo ping-pong is the next useful option |
-| Reverb | Room, dense plate, cloud; modulation and wet low-cut | Spring is the clearest missing guitar voice; do not fake it by renaming Room |
+| Delay | Digital/ducking, analog and tape, motion/output and host sync | Enough initially; Ping-pong now included |
+| Reverb | Room, dense plate, cloud and dispersive Spring; stereo wet | Enough categories; prioritize listening and voicing |
 | Parallel-chain utility | Blend, conversion-delay alignment, Utility level/balance/width/polarity | Fine delay could help align captures; inherent phase can still cancel |
-| Stereo | Stereo built-ins/IR histories; mono NAM downmixes once | Foundation in place; add spatial modulation/reverb and ping-pong next |
+| Stereo | Stereo built-ins/IR histories; mono NAM downmixes once | Foundation in place; spatial chorus/reverb and ping-pong are now included |
 | Pitch/shimmer | Not implemented | Defer; evaluate sound quality, CPU and pitch-window delay explicitly |
 | Tuning | Compact MPM tuner, reference, mute | Everyday coverage in place; listening evaluation still needed |
 
@@ -81,5 +81,6 @@ not a target. Module types remain in the menu and unused cells remain empty.
   no mandatory oversampling or lookahead is introduced.
 
 The next increment adds the tuner, tempo sync and stereo Utility described in
-[MODULES.md](MODULES.md). Spring and wah remain the focused missing guitar voices.
-Fine delay and native stereo spatial effects can follow; pitch/shimmer stays deferred.
+[MODULES.md](MODULES.md). The following increment implements stereo echo/chorus/reverb,
+Spring and Wah; see [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
+Fine lane timing and further voicing can follow; pitch/shimmer stays deferred.

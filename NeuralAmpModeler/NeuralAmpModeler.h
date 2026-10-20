@@ -12,6 +12,7 @@
 #include "ToneStack.h"
 #include "NAMStage.h"
 #include "FixedNAMGrid.h"
+#include "SlotOperations.h"
 #include "CaptureLibrary.h"
 #include <array>
 #include <mutex>
@@ -60,11 +61,18 @@ enum EParams
   kGridSlotBase,
   kParallelBlend = kGridSlotBase + 14 * 3,
   kDynamicsBase,
-  kNumParams = kDynamicsBase + 16 * 6
+  kEQBase = kDynamicsBase + 16 * 6,
+  kQualityBase = kEQBase + 16 * 7,
+  kNumParams = kQualityBase + 15
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
 constexpr int kGridV2NumParams = kDynamicsBase;
+constexpr int kGridV3NumParams = kEQBase;
+constexpr int SlotEQParam(size_t slot, int control)
+{ return kEQBase + static_cast<int>(slot) * 7 + control; }
+constexpr int SlotFullParam(size_t slot)
+{ return slot == 1 ? kSlim : kQualityBase + static_cast<int>(slot) - (slot > 1 ? 1 : 0); }
 constexpr int SlotDynamicsParam(size_t slot, int control)
 { return kDynamicsBase + static_cast<int>(slot) * 6 + control; }
 constexpr int SlotInputParam(size_t slot)
@@ -75,6 +83,16 @@ constexpr int SlotActiveParam(size_t slot)
 { return slot == 0 ? kDriveActive : slot == 1 ? kAmpActive : SlotInputParam(slot) + 2; }
 inline std::string GridSlotName(size_t slot)
 { return std::string(slot < 4 ? "IN " : slot < 8 ? "A " : slot < 12 ? "B " : "OUT ") + std::to_string(slot % 4 + 1); }
+inline std::array<int, 17> SlotParamIndices(size_t slot)
+{
+  std::array<int, 17> result{SlotInputParam(slot), SlotTrimParam(slot), SlotActiveParam(slot)};
+  for (int i = 0; i < 6; ++i)
+    result[3 + i] = SlotDynamicsParam(slot, i);
+  for (int i = 0; i < 7; ++i)
+    result[9 + i] = SlotEQParam(slot, i);
+  result[16] = SlotFullParam(slot);
+  return result;
+}
 
 const int numKnobs = 6;
 
@@ -142,8 +160,12 @@ public:
   std::string GetSlotPath(size_t slot) const;
   bool IsSlotLoaded(size_t slot) const;
   SlotEffect GetSlotEffect(size_t slot) const;
+  bool CanToggleSlotQuality(size_t slot) const;
+  void ToggleSlotQuality(size_t slot);
   void SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI = true);
   std::string LoadSlot(size_t slot, const char* path);
+  std::string LoadSlotIR(size_t slot, const char* path);
+  std::string EditSlot(size_t source, size_t destination, SlotEditMode mode);
   void ClearSlot(size_t slot);
 
 private:
@@ -160,6 +182,9 @@ private:
   // Loads/prepares a NAM model on the control thread, then publishes to its fixed slot.
   // Returns an empty string on success, or an error message on failure.
   std::string _StageModel(const WDL_String& dspFile, size_t slot = 1);
+  std::string _StageSlot(size_t slot, SlotEffect effect, const std::string& path);
+  SlotConfig _GetSlotConfig(size_t slot) const;
+  void _CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters);
   // Loads/prepares an IR on the control thread.
   // Return status code so that error messages can be relayed if
   // it wasn't successful.
@@ -221,6 +246,7 @@ private:
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
+  std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
@@ -251,4 +277,6 @@ private:
   WDL_String mHighLightColor{PluginColors::NAM_THEMECOLOR.ToColorCode()};
 
   NAMSender mInputSender, mOutputSender;
+  iplug::ISender<1, 128, SlotMeterData> mSlotMeterSender;
+  int mMeterFrames = 0;
 };

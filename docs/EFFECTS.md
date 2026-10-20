@@ -6,6 +6,7 @@ for every built-in effect. Selecting a built-in replaces that slot's NAM selecti
 the arrow buttons select NAM captures again. Nothing changes the fixed routing.
 Keep future effects within one to six knobs; use a small number of voiced variants when
 that avoids exposing controls that rarely help with guitar playing.
+See [SLOTS.md](SLOTS.md) for added EQ/IR effects, meters, Full/Lite and Copy/Move/Swap.
 
 | Effect | Character | Knobs |
 | --- | --- | --- |
@@ -58,13 +59,12 @@ Preparation and destruction stay off the audio thread. A NAM-to-effect replaceme
 changes conversion latency uses the existing CLAP restart handshake and lane alignment.
 Once bypass is settled, effect computation stops. Reset clears detector/envelope history.
 
-The original 61 parameter IDs are unchanged. Six parameters per slot are appended (three
-gate and three compressor), for 157 total; only the selected family's three appear on a card.
-Grid state keeps the `###NAMGrid-v1###` header and advances its JSON schema to 3. `SlotEffects`
-has 16 values: 0 = NAM/empty, 1 = Natural Gate, 2 = Tight Gate, 3 = Smooth Compressor,
-4 = Punch Compressor. Built-in slots have empty file paths. Invalid types, counts, enum values
-and conflicting model/effect selections are rejected before mutation. Schema-2 NAM-only grids,
-the dual prototype and upstream states still migrate. Earlier grid binaries cannot load schema 3.
+The dynamics increment retained the original 61 IDs and appended six parameters per slot
+(three gate and three compressor), reaching 157. The expanded grid now has 284 parameters
+and schema 4; see [SLOTS.md](SLOTS.md) for the current format. Dynamics effect IDs remain
+1 = Natural Gate, 2 = Tight Gate, 3 = Smooth Compressor, 4 = Punch Compressor. Invalid types,
+counts, enum values and conflicting selections are rejected before mutation. Older grid,
+dual and upstream states still migrate.
 
 ## Open-source review
 
@@ -104,7 +104,8 @@ through host events. The native Windows editor test restores effects into an ope
 drags a gate threshold and compressor makeup knob, and switches those slots back to NAM.
 The test host now provides the CLAP parameter extension needed by editor automation gestures.
 
-Ryzen 9 5950X / Windows x64 Release, 128-frame blocks, fastest of three timed 128,000-sample
+Historical dynamics checkpoint (`1337a7e`), Ryzen 9 5950X / Windows x64 Release,
+128-frame blocks, fastest of three timed 128,000-sample
 renders after a warm-up (same harness as the grid measurements):
 
 | Host rate | Two NAM models | Two NAMs + Natural Gate + Smooth Compressor | 16 built-ins, no NAMs |

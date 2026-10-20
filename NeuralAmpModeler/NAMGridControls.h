@@ -1,5 +1,6 @@
 #pragma once
 #include "CaptureMenu.h"
+#include <chrono>
 
 class NAMGridWiringControl : public IControl
 {
@@ -51,14 +52,59 @@ public:
   {
     g.FillRoundRect(IColor(255, 30, 31, 34), mRECT, 5.f);
     g.DrawRoundRect(IColor(255, 70, 72, 77), mRECT, 5.f);
+    const auto text = IText(9.f, IColor(255, 180, 185, 190), "Roboto-Regular");
+    const float top = mRECT.B - 12;
+    const auto bar = [&](float left, float right, double value, bool clipped, bool reduction) {
+      const IRECT bounds(left, top + 1, right, top + 7);
+      g.FillRect(IColor(255, 15, 17, 20), bounds);
+      const double fill = reduction ? std::clamp(value / 30., 0., 1.)
+                                    : std::clamp((20. * std::log10(std::max(1.e-6, value)) + 60.) / 60., 0., 1.);
+      g.FillRect(clipped     ? IColor(255, 250, 75, 65)
+                 : reduction ? IColor(255, 235, 183, 73)
+                             : IColor(255, 75, 190, 145),
+                 IRECT(left, bounds.T, left + static_cast<float>(fill) * bounds.W(), bounds.B));
+    };
+    g.DrawText(text, "I", IRECT(mRECT.L + 5, top - 1, mRECT.L + 17, top + 9));
+    g.DrawText(text, "O", IRECT(mRECT.L + 76, top - 1, mRECT.L + 88, top + 9));
+    g.DrawText(text, "GR", IRECT(mRECT.L + 146, top - 1, mRECT.L + 165, top + 9));
+    bar(mRECT.L + 18, mRECT.L + 73, mMeter.input, Now() < mInputClip, false);
+    bar(mRECT.L + 89, mRECT.L + 144, mMeter.output, Now() < mOutputClip, false);
+    bar(mRECT.L + 166, mRECT.R - 7, mMeter.reduction, false, true);
+    WDL_String gr;
+    gr.SetFormatted(16, "%.0f", mMeter.reduction);
+    if (mMeter.reduction >= .5f)
+      g.DrawText(text.WithFGColor(COLOR_WHITE), gr.Get(), IRECT(mRECT.L + 166, top - 2, mRECT.R - 7, top + 9));
+  }
+
+  bool IsDirty() override
+  {
+    const double now = Now(), dt = std::max(0., now - mTick);
+    mTick = now;
+    const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
+                        || now < mInputClip + .1 || now < mOutputClip + .1;
+    const float decay = static_cast<float>(std::exp(-dt / .3));
+    mMeter.input *= decay;
+    mMeter.output *= decay;
+    mMeter.reduction *= decay;
+    if (moving)
+      SetDirty(false);
+    return IContainerBase::IsDirty();
   }
 
   void OnAttached() override
   {
     const auto text = IText(12.f, COLOR_WHITE, "Roboto-Regular");
     const auto cardStyle = mStyle.WithLabelText(text).WithValueText(text);
-    AddChildControl(new ITextControl(IRECT(mRECT.L + 8, mRECT.T + 4, mRECT.L + 65, mRECT.T + 24),
-                                     GridSlotName(mSlot).c_str(), text.WithAlign(EAlign::Near)));
+    auto* edit = new IVButtonControl(
+      IRECT(mRECT.L + 5, mRECT.T + 3, mRECT.L + 47, mRECT.T + 24), [this](IControl*) { ShowEditMenu(); },
+      GridSlotName(mSlot).c_str(), cardStyle);
+    edit->SetTooltip("Copy, move or swap this slot, including its settings");
+    AddChildControl(edit);
+    mQuality = new IVButtonControl(
+      IRECT(mRECT.L + 50, mRECT.T + 3, mRECT.L + 102, mRECT.T + 24),
+      [this](IControl*) { PLUG()->ToggleSlotQuality(mSlot); }, "Full", cardStyle);
+    mQuality->SetTooltip("Full / Lite: change the model's compute size (brief switching fade)");
+    AddChildControl(mQuality);
     AddChildControl(new IVButtonControl(
       IRECT(mRECT.R - 98, mRECT.T + 3, mRECT.R - 74, mRECT.T + 24), [this](IControl*) { Step(-1); }, "<", cardStyle));
     AddChildControl(new IVButtonControl(
@@ -70,9 +116,9 @@ public:
       "Empty - choose...", cardStyle);
     AddChildControl(mModelButton);
     mNAMKnobs[0] = new IVKnobControl(
-      IRECT(mRECT.L + 8, mRECT.T + 57, mRECT.L + 94, mRECT.B - 3), SlotInputParam(mSlot), "In", cardStyle);
+      IRECT(mRECT.L + 8, mRECT.T + 55, mRECT.L + 94, mRECT.B - 16), SlotInputParam(mSlot), "In", cardStyle);
     mNAMKnobs[1] = new IVKnobControl(
-      IRECT(mRECT.L + 106, mRECT.T + 57, mRECT.R - 8, mRECT.B - 3), SlotTrimParam(mSlot), "Trim", cardStyle);
+      IRECT(mRECT.L + 106, mRECT.T + 55, mRECT.R - 8, mRECT.B - 16), SlotTrimParam(mSlot), "Trim", cardStyle);
     for (auto* knob : mNAMKnobs)
       AddChildControl(knob);
     const char* labels[] = {"Thresh", "Decay", "Depth", "Thresh", "Release", "Makeup"};
@@ -86,14 +132,46 @@ public:
     {
       const float left = mRECT.L + 4.f + (i % 3) * 66.f;
       mFXKnobs[i] = new IVKnobControl(
-        IRECT(left, mRECT.T + 57, left + 65.f, mRECT.B - 3), SlotDynamicsParam(mSlot, i), labels[i], cardStyle);
+        IRECT(left, mRECT.T + 55, left + 65.f, mRECT.B - 16), SlotDynamicsParam(mSlot, i), labels[i], cardStyle);
       mFXKnobs[i]->SetTooltip(tips[i]);
       AddChildControl(mFXKnobs[i]);
+    }
+    const char* eqLabels[] = {"Bass", "Mid", "Treble", "HP", "LP", "Presence", "Level"};
+    const char* eqTips[] = {"150 Hz low shelf",
+                            "800 Hz broad mid band",
+                            "3 kHz high shelf",
+                            "High pass: 0 Hz = off",
+                            "Low pass: 20 kHz = off",
+                            "3.5 kHz presence shelf",
+                            "IR output gain in dB; -18 dB matches the original global cabinet level"};
+    for (int i = 0; i < 7; ++i)
+    {
+      const float left = i == 6 ? mRECT.L + 60.f : mRECT.L + 4.f + (i % 3) * 66.f;
+      mEQKnobs[i] = new IVKnobControl(IRECT(left, mRECT.T + 55, left + (i == 6 ? 85.f : 65.f), mRECT.B - 16),
+                                      SlotEQParam(mSlot, i), eqLabels[i], cardStyle);
+      mEQKnobs[i]->SetTooltip(eqTips[i]);
+      AddChildControl(mEQKnobs[i]);
     }
     Refresh();
   }
 
-  void OnMsgFromDelegate(int, int, const void*) override { Refresh(); }
+  void OnMsgFromDelegate(int message, int size, const void* data) override
+  {
+    if (message == 0 && data && size == sizeof(iplug::ISenderData<1, SlotMeterData>))
+    {
+      const auto& meter = static_cast<const iplug::ISenderData<1, SlotMeterData>*>(data)->vals[0];
+      mMeter.input = std::max(mMeter.input, meter.input);
+      mMeter.output = std::max(mMeter.output, meter.output);
+      mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
+      if (meter.input >= 1.f)
+        mInputClip = Now() + 1.;
+      if (meter.output >= 1.f)
+        mOutputClip = Now() + 1.;
+      SetDirty(false);
+    }
+    else
+      Refresh();
+  }
 
   void OnPopupMenuSelection(IPopupMenu* menu, int) override
   {
@@ -115,8 +193,24 @@ public:
     }
     else if (item->GetTag() == -11)
       PLUG()->ClearSlot(mSlot);
-    else if (item->GetTag() <= -21 && item->GetTag() >= -24)
+    else if (item->GetTag() == -12)
+    {
+      WDL_String file, directory;
+      directory.Set(PLUG()->GetSlotPath(mSlot).c_str());
+      directory.remove_filepart();
+      GetUI()->PromptForFile(
+        file, directory, EFileAction::Open, "wav", [this](const WDL_String& chosen, const WDL_String&) {
+          if (chosen.GetLength())
+            ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
+        });
+    }
+    else if (item->GetTag() <= -21 && item->GetTag() >= -26)
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
+    else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
+    {
+      const int action = -item->GetTag() - 1000;
+      ShowError(PLUG()->EditSlot(mSlot, action % 16, static_cast<SlotEditMode>(action / 16)));
+    }
     else if (mMenuLibrary && item->GetTag() >= 0 && static_cast<size_t>(item->GetTag()) < mMenuLibrary->captures.size())
       Load(nam_library::PathText(mMenuLibrary->captures[item->GetTag()].path));
   }
@@ -130,13 +224,25 @@ private:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const bool nam = effect == SlotEffect::NAM;
     const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
+    const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
+    const bool ir = effect == SlotEffect::CabinetIR;
     for (auto* knob : mNAMKnobs)
       knob->Hide(!nam);
     for (int i = 0; i < 6; ++i)
-      mFXKnobs[i]->Hide(nam || (i < 3) != gate);
-    auto label = !nam           ? std::string(SlotEffectName(effect))
+      mFXKnobs[i]->Hide(i < 3 ? !gate : !compressor);
+    for (int i = 0; i < 7; ++i)
+      mEQKnobs[i]->Hide(i < 3 ? effect != SlotEffect::ToneEQ : i < 6 ? effect != SlotEffect::CutEQ : !ir);
+    const bool scalable = PLUG()->CanToggleSlotQuality(mSlot);
+    mQuality->Hide(!nam || !PLUG()->IsSlotLoaded(mSlot));
+    mQuality->SetDisabled(!scalable);
+    mQuality->SetLabelStr(!scalable                                                     ? "Fixed"
+                          : GetDelegate()->GetParam(SlotFullParam(mSlot))->Value() < .5 ? "Lite"
+                                                                                        : "Full");
+    auto label = !nam && !ir    ? std::string(SlotEffectName(effect))
                  : path.empty() ? std::string("Empty - choose...")
                                 : nam_library::PathText(std::filesystem::u8path(path).stem());
+    if (ir)
+      label = "IR: " + label;
     if (!path.empty() && !PLUG()->IsSlotLoaded(mSlot))
       label = "Missing: " + label;
     if (label.size() > 27)
@@ -147,42 +253,69 @@ private:
       label = label.substr(0, end) + "...";
     }
     mModelButton->SetLabelStr(label.c_str());
-    mModelButton->SetTooltip(!nam           ? SlotEffectName(effect)
-                             : path.empty() ? "Choose NAM, noise gate or compressor"
+    mModelButton->SetTooltip(!nam && !ir    ? SlotEffectName(effect)
+                             : path.empty() ? "Choose NAM, gate, compressor, EQ or cabinet IR"
                                             : path.c_str());
     mModelButton->SetDirty(false);
   }
   void Load(const std::string& path)
   {
-    const auto error = PLUG()->LoadSlot(mSlot, path.c_str());
+    ShowError(PLUG()->LoadSlot(mSlot, path.c_str()));
+    Refresh();
+  }
+  void ShowError(const std::string& error)
+  {
     if (!error.empty())
     {
 #ifdef OS_MAC
-      GetUI()->ShowMessageBox("NAM slot load failed", error.c_str(), kMB_OK);
+      GetUI()->ShowMessageBox("Slot operation failed", error.c_str(), kMB_OK);
 #else
-      GetUI()->ShowMessageBox(error.c_str(), "NAM slot load failed", kMB_OK);
+      GetUI()->ShowMessageBox(error.c_str(), "Slot operation failed", kMB_OK);
 #endif
     }
-    Refresh();
+  }
+  void ShowEditMenu()
+  {
+    mMenu.Clear();
+    for (int mode = 0; mode < 3; ++mode)
+    {
+      auto* destinations = new IPopupMenu;
+      for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+        if (slot != mSlot)
+        {
+          auto label = GridSlotName(slot) + ": ";
+          const auto path = PLUG()->GetSlotPath(slot);
+          label += path.empty() ? PLUG()->IsSlotLoaded(slot) ? SlotEffectName(PLUG()->GetSlotEffect(slot)) : "Empty"
+                                : nam_library::PathText(std::filesystem::u8path(path).stem());
+          destinations->AddItem(new IPopupMenu::Item(label.c_str(), 0, -1000 - mode * 16 - static_cast<int>(slot)));
+        }
+      mMenu.AddItem(mode == 0 ? "Copy to (replace)" : mode == 1 ? "Move to (replace)" : "Swap with", destinations);
+    }
+    GetUI()->CreatePopupMenu(*this, mMenu, IRECT(mRECT.L + 5, mRECT.T + 3, mRECT.L + 47, mRECT.T + 24));
   }
   void ShowMenu()
   {
     mMenuLibrary = PLUG()->GetCaptureLibrary();
     nam_library::FillMenu(mMenu, *mMenuLibrary, PLUG()->GetCaptureFilter(), PLUG()->GetSlotPath(mSlot));
     mMenu.AddItem(new IPopupMenu::Item("Choose .nam file...", 0, -10), 0);
-    mMenu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11), 1);
+    mMenu.AddItem(new IPopupMenu::Item("Choose cabinet IR (.wav)...", 0, -12), 1);
+    mMenu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11), 2);
     auto* gates = new IPopupMenu;
     auto* compressors = new IPopupMenu;
+    auto* eq = new IPopupMenu;
     const auto effect = PLUG()->GetSlotEffect(mSlot);
-    for (int i = 1; i <= 4; ++i)
+    for (int i = 1; i <= 6; ++i)
     {
       const auto type = static_cast<SlotEffect>(i);
-      (i <= 2 ? gates : compressors)
+      (i <= 2   ? gates
+       : i <= 4 ? compressors
+                : eq)
         ->AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
     }
-    mMenu.AddItem("Noise Gate", gates, 2);
-    mMenu.AddItem("Compressor", compressors, 3);
-    mMenu.AddSeparator(4);
+    mMenu.AddItem("Noise Gate", gates, 3);
+    mMenu.AddItem("Compressor", compressors, 4);
+    mMenu.AddItem("EQ", eq, 5);
+    mMenu.AddSeparator(6);
     GetUI()->CreatePopupMenu(*this, mMenu, mModelButton->GetRECT());
   }
   void Step(int direction)
@@ -209,8 +342,14 @@ private:
   size_t mSlot;
   IVStyle mStyle;
   IVButtonControl* mModelButton = nullptr;
+  IVButtonControl* mQuality = nullptr;
   std::array<IControl*, 2> mNAMKnobs{};
   std::array<IControl*, 6> mFXKnobs{};
+  std::array<IControl*, 7> mEQKnobs{};
+  static double Now()
+  { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+  SlotMeterData mMeter;
+  double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;
   std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
 };

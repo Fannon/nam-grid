@@ -19,15 +19,17 @@ IN1 -> IN2 -> IN3 -> IN4 ---+                         +--- OUT1 -> OUT2 -> OUT3 
 ```
 
 Every numbered position accepts a mono NAM capture (amp, rig, pedal, outboard or cabinet),
-or a [built-in noise gate/compressor](EFFECTS.md). NAM slots have independent input gain,
-output trim and bypass; built-ins expose three dedicated knobs and bypass. Empty slots pass
+or a [built-in effect](SLOTS.md): gate, compressor, EQ or cabinet IR. NAM slots have input gain,
+output trim, Full/Lite where available, and bypass; built-ins expose one or three knobs. Empty slots pass
 audio; their gain controls take effect when a model is loaded. Slots are processed left to
 right within each row. Both parallel rows receive the same output from IN4. There are no
 cross-connections, sends, feedback, drag/drop routing, or routing graph.
 
 - Click a slot's model name to open nested capture-folder menus, choose an individual `.nam`
-  file, select a noise gate/compressor, or clear the slot. `<` / `>` select NAM captures using
+  file, select a built-in effect or cabinet IR, or clear the slot. `<` / `>` select NAM captures using
   the shared search/category filter.
+- Click a slot ID to Copy/Move/Swap with a destination. Compact I/O and GR meters appear on
+  every card. See [SLOTS.md](SLOTS.md) for controls, state details and verification.
 - Choose the capture folder in Settings. The browser/default folder implementation is shared
   with the dual prototype; the default preference file remains `NAMDualPrototype/library.json`.
 - **Blend A / B** is the percentage of lane B: 0% uses A, 50% averages both, 100% uses B.
@@ -38,12 +40,12 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   DC blocker and master remain after the grid. The shared gate is separate from slot gates;
   turn it off when auditioning the new gate variants.
 - The former Amp's optional calibration, output mode and Slim parameters apply to **IN2**,
-  preserving old states. Settings labels identify IN2. Other slots currently use raw NAM levels
-  with their independent musical input gains and trims. Slim remains host-automatable.
+  preserving old states. Settings labels identify IN2. Other slots use raw NAM levels with
+  independent musical input gains/trims. Full/Lite is prepared outside audio and saved per slot.
 - The complete grid remains mono internally, with mono duplicated to stereo outputs as before.
 
-This is a routing experiment with four simple dynamics variants. Per-slot IRs, stereo effects,
-per-lane polarity/phase controls, movable slots and per-slot advanced calibration are not added.
+This is a routing experiment with simple built-in effects and movable slots. Stereo effects,
+per-lane polarity/phase controls and per-slot advanced calibration are not added.
 
 ## Implementation and state
 
@@ -77,8 +79,9 @@ block during preparation to reserve lazily allocated audio buffers off the audio
 
 The original 18 parameter IDs remain mapped to the original two stages, now IN1 and IN2.
 The other 14 slots append gain/trim/enable parameters, followed by the blend (61 IDs).
-Slot dynamics append another 96 parameters, for 157 total. `###NAMGrid-v1###` / schema 3
-stores all 16 file paths, effect types and named parameters; schema 2 still migrates. State validation
+Slot dynamics append 96 parameters, EQ/IR another 112, and Full Quality another 15 (IN2 reuses
+Slim): 284 total. `###NAMGrid-v1###` / schema 4 stores all 16 file paths, effect types and named
+parameters; schemas 2 and 3 still migrate. State validation
 precedes mutation. Missing files retain their requested paths while clearing that slot's DSP.
 Previous dual schema-1 states and upstream states migrate into IN1/IN2; other slots are empty,
 and the parallel blend defaults to 50%. Since both lanes are then dry, migration preserves
@@ -99,7 +102,7 @@ Windows x64 Release CLAP and VST3 build successfully. All three CTest suites pas
 - Unequal-lane impulse tests check physical alignment, preserved bypass latency, and hosts whose
   maximum block size is one sample. Tested grid paths observe no C++ allocations/deletions and
   pass Eigen's allocation guard.
-- CLAP covers all 16 model/effect selections and 157 parameter values through save/reload, old-state
+- CLAP covers all 16 model/effect selections and 284 parameter values through save/reload, old-state
   migration, invalid later-slot state, missing files, bypassed slots, mono/stereo port layouts,
   and full-grid processing at all three rates. Full-grid conversion latency is 0/324/504 samples.
 - A hidden native Windows editor test exercises IN1/IN2/A1/B1/OUT4 next buttons, library search,

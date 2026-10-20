@@ -43,7 +43,9 @@ foreach(dependency CLAP_SDK CLAP_HELPERS VST3_SDK)
     list(APPEND NAM_RESOURCES "${copy}")
   endif()
 endforeach()
-add_executable(nam-stage-tests ../tests/stage_tests.cpp ${NAM_CORE_SOURCES})
+add_executable(nam-stage-tests ../tests/stage_tests.cpp ${NAM_CORE_SOURCES}
+  ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp
+  ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/wav.cpp)
 target_include_directories(nam-stage-tests PRIVATE . ../eigen
   ../NeuralAmpModelerCore/Dependencies/nlohmann ../iPlug2/IPlug ../iPlug2/WDL)
 target_compile_features(nam-stage-tests PRIVATE cxx_std_20)

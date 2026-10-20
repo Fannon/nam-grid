@@ -35,15 +35,16 @@ int main(int argc, char** argv)
   };
   auto load = [&](json& config) {
     // Keep the old path aliases in sync while exercising existing migration scenarios.
-    config["SlotPaths"][0] = config["DrivePath"];
-    config["SlotPaths"][1] = config["NAMPath"];
+    for (int i = 0; i < 2; ++i)
+      if (!config.contains("SlotEffects") || config["SlotEffects"][i] == 0)
+        config["SlotPaths"][i] = config[i == 0 ? "DrivePath" : "NAMPath"];
     Stream s;
     s.string("###NAMGrid-v1###");
     s.string(config.dump());
     assert(loadBytes(std::move(s)));
   };
   auto base = save().config();
-  assert(params->count(plugin) == 157);
+  assert(params->count(plugin) == 284);
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
   auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
@@ -73,6 +74,16 @@ int main(int argc, char** argv)
     else
       ++it;
   load(gridV2);
+  assert(save().config() == base);
+  auto gridV3 = base;
+  gridV3["schema"] = 3;
+  for (auto it = gridV3.begin(); it != gridV3.end();)
+    if (it.key().find(" EQ ") != std::string::npos || it.key().find(" IR Level") != std::string::npos
+        || it.key().find(" Full Quality") != std::string::npos)
+      it = gridV3.erase(it);
+    else
+      ++it;
+  load(gridV3);
   assert(save().config() == base);
   // Older dual-stage states predate library settings; they remain readable.
   auto oldDual = base;
@@ -146,7 +157,7 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
-  for (const json& badEffect : {json(-1), json(5), json(1.5), json("gate"), json(18446744073709551615ull)})
+  for (const json& badEffect : {json(-1), json(8), json(1.5), json("gate"), json(18446744073709551615ull)})
   {
     auto malformedEffect = base;
     malformedEffect["SlotEffects"][15] = badEffect;
@@ -448,6 +459,57 @@ int main(int argc, char** argv)
     plugin->deactivate(plugin);
     load(dynamics);
   }
+  // Movable EQ and IR slots, including a file-based IR in a former NAM alias position.
+  auto eqIR = cleared;
+  eqIR["SlotEffects"][0] = 7;
+  eqIR["SlotPaths"][0] = irFile.string();
+  eqIR["IN 1 IR Level"] = -12.;
+  eqIR["SlotEffects"][3] = 5;
+  eqIR["IN 4 EQ Bass"] = 3.;
+  eqIR["IN 4 EQ Mid"] = -4.;
+  eqIR["IN 4 EQ Treble"] = 2.;
+  eqIR["SlotEffects"][12] = 6;
+  eqIR["OUT 1 EQ High Pass"] = 75.;
+  eqIR["OUT 1 EQ Low Pass"] = 7500.;
+  eqIR["OUT 1 EQ Presence"] = -2.;
+  load(eqIR);
+  assert(save().config() == eqIR);
+  const auto eqIRBytes = save();
+  load(base);
+  assert(loadBytes(eqIRBytes));
+  assert(save().config() == eqIR);
+  for (double rate : {44100., 48000., 96000.})
+  {
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    const auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+    assert(latency->get(plugin) == 0);
+    double energy = 0.;
+    for (int b = 0; b < 120; ++b)
+    {
+      process.frames_count = std::array<int, 6>{1, 3, 64, 127, 256, 512}[b % 6];
+      for (uint32_t i = 0; i < process.frames_count; ++i)
+        input[0][i] = input[1][i] = .2 * std::sin((b * 512 + i) * .03);
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      for (uint32_t i = 0; i < process.frames_count; ++i)
+      {
+        assert(std::isfinite(output[0][i]));
+        energy += output[0][i] * output[0][i];
+      }
+    }
+    assert(energy > .001);
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
+  auto missingIR = eqIR;
+  missingIR["SlotPaths"][0] = (fixtures / "missing-slot.wav").string();
+  load(missingIR);
+  assert(save().config() == missingIR);
+  auto invalidIR = eqIR;
+  invalidIR["SlotPaths"][0] = (fixtures / "invalid.nam").string();
+  load(invalidIR);
+  assert(save().config() == invalidIR);
+  load(base);
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
   const auto libraryFolder = fixtures / "library";
@@ -488,6 +550,55 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  auto eqUI = browserState;
+  eqUI["SlotEffects"][0] = 5;
+  eqUI["SlotEffects"][1] = 6;
+  eqUI["SlotEffects"][2] = 7;
+  eqUI["SlotPaths"][2] = irFile.string();
+  load(eqUI);
+  pumpFor(100);
+  const auto dragAt = [&](int x, int y) {
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+    SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, y - 25));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - 25));
+    pumpFor(100);
+  };
+  dragAt(125, 270);
+  assert(save().config()["IN 1 EQ Bass"] != 0.);
+  dragAt(340, 270);
+  assert(save().config()["IN 2 EQ High Pass"] != 0.);
+  dragAt(620, 270);
+  assert(save().config()["IN 3 IR Level"] != -18.);
+  const auto packedPath = fixtures / "packed-a2.nam";
+  std::ofstream(packedPath) << fixture::packed().dump();
+  auto qualityState = browserState;
+  qualityState["DrivePath"] = packedPath.string();
+  qualityState["IN 1 Full Quality"] = 1.;
+  load(qualityState);
+  pumpFor(100);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  process.frames_count = 512;
+  click(166, 202); // IN1 Full -> Lite; preparation happens on the idle/control thread.
+  assert(save().config()["IN 1 Full Quality"] == 0.);
+  for (int i = 0; i < 30; ++i)
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  auto liteSaved = save();
+  click(166, 202);
+  assert(save().config()["IN 1 Full Quality"] == 1.);
+  for (int i = 0; i < 30; ++i)
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+  assert(loadBytes(liteSaved));
+  assert(save().config()["IN 1 Full Quality"] == 0.);
+  assert(plugin->activate(plugin, 48000., 1, 512));
+  assert(plugin->start_processing(plugin));
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+  load(browserState);
+  pumpFor(100);
   // Restore built-ins into an open editor: hidden NAM knobs must not intercept their controls.
   auto effectUI = browserState;
   effectUI["SlotEffects"][0] = 1;

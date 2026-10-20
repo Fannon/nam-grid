@@ -5,6 +5,7 @@
 #include "ResamplingNAM.h"
 #include "RealtimeExchange.h"
 #include "SlotDynamics.h"
+#include "SlotEQ.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -12,6 +13,9 @@ struct NAMModelInfo
   bool loaded = false, hasInput = false, hasOutput = false, hasLoudness = false, slimmable = false;
   double rate = 48000., input = 0., output = 0., loudness = 0.;
 };
+
+struct SlotMeterData
+{ float input = 0.f, output = 0.f, reduction = 0.f; };
 
 class NAMStage
 {
@@ -21,12 +25,15 @@ public:
     std::unique_ptr<ResamplingNAM> model;
     SlotEffect effect = SlotEffect::NAM;
     SlotDynamics dynamics;
+    SlotEQ eq;
+    std::unique_ptr<dsp::ImpulseResponse> ir;
     std::vector<double> input, wet, dry, delay;
     size_t delayIndex = 0;
     int latency = 0;
     void Reset(double rate, int block)
     {
       dynamics.Reset(rate);
+      eq.Reset(rate);
       if (model)
         model->Reset(rate, block);
       latency = model ? model->GetLatency() : 0;
@@ -35,11 +42,17 @@ public:
       dry.assign(block, 0.);
       delay.assign(std::max(1, latency), 0.);
       delayIndex = 0;
+      if (ir)
+      {
+        ir = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), rate);
+        double* silence = input.data();
+        ir->Process(&silence, 1, block);
+      }
     }
     NAMModelInfo Info() const
     {
       NAMModelInfo info;
-      info.loaded = effect != SlotEffect::NAM;
+      info.loaded = effect == SlotEffect::CabinetIR ? ir != nullptr : effect != SlotEffect::NAM;
       if (!model)
         return info;
       info.loaded = true;
@@ -77,7 +90,14 @@ public:
     mSwitchGain = 1.;
     mMix = 0.;
     mFirst = true;
+    mMeter = {};
   }
+  SlotMeterData TakeMeter()
+  {
+    const auto result = mMeter;
+    mMeter = {};
+    return result;
+  } // audio only
   int Latency() const
   {
     auto* p = mExchange.Active();
@@ -85,15 +105,22 @@ public:
   }
   // Called exclusively by audio, or while host processing is stopped.
   double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB, bool calibrate,
-                  double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {})
+                  double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {},
+                  const EQControls& eq = {})
   {
+    float inputPeak = 0.f;
+    for (int i = 0; i < frames; ++i)
+      inputPeak = std::max(inputPeak, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
+    mMeter.input = std::max(mMeter.input, inputPeak);
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
     if (switching && mSwitchGain <= 0.)
       mExchange.Adopt();
     auto* p = mExchange.Active();
     const auto info = p ? p->Info() : NAMModelInfo{};
     if (p && p->effect != SlotEffect::NAM)
-      inputDB = trimDB = 0.; // Built-ins expose only their three dedicated controls.
+      inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
+    if (p && p->effect == SlotEffect::CabinetIR)
+      trimDB = eq.irLevel + 18.; // Undo the reused convolver's fixed -18 dB; knob is actual IR gain.
     if (calibrate && info.hasInput)
       inputDB += calibrationDB - info.input;
     if (outputMode == 1 && info.hasLoudness)
@@ -126,14 +153,23 @@ public:
         double* out = p->wet.data();
         if (p->model)
         {
-          if (auto* slimmable = p->model->GetSlimmableModel())
-            slimmable->SetSlimmableSize(slim);
           p->model->process(&in, &out, frames);
+        }
+        else if (p->ir)
+        {
+          auto* convolved = p->ir->Process(&in, 1, frames);
+          std::copy_n(convolved[0], frames, out);
         }
         else
         {
           std::copy_n(in, frames, out);
-          p->dynamics.Process(out, frames, p->effect, dynamics);
+          if (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ)
+            p->eq.Process(out, frames, p->effect == SlotEffect::CutEQ, eq);
+          else
+          {
+            p->dynamics.Process(out, frames, p->effect, dynamics);
+            mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
+          }
         }
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
@@ -143,16 +179,21 @@ public:
         mMix = Approach(mMix, enabled ? 1. : 0., mStep);
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
+        mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
       }
     }
     else
     {
       if (!switching && mSwitchGain >= 1.)
+      {
+        mMeter.output = std::max(mMeter.output, inputPeak);
         return samples; // Empty grid slots need no per-sample work once switching has settled.
+      }
       for (int i = 0; i < frames; ++i)
       {
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
         samples[i] *= mSwitchGain;
+        mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
       }
     }
     return samples;
@@ -165,6 +206,7 @@ private:
   std::atomic<bool> mWaitForReset{false};
   double mMix = 0., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;
   bool mFirst = true;
+  SlotMeterData mMeter;
 };
 
 struct PreparedIR

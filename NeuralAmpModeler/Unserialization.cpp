@@ -78,10 +78,17 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
     mSlotPaths[slot].Set(path.c_str());
     const auto effect = config.contains("SlotEffects") ? static_cast<SlotEffect>(config["SlotEffects"][slot].get<int>())
                                                        : SlotEffect::NAM;
-    if (effect != SlotEffect::NAM)
-      SetSlotEffect(slot, effect, false);
-    else if (!path.empty())
-      _StageModel(mSlotPaths[slot], slot);
+    if (!_StageSlot(slot, effect, path).empty())
+    {
+      // A missing file remains selected for relinking, with a safely empty processor.
+      _ClearModel(slot, effect);
+      mSlotPaths[slot].Set(path.c_str());
+      if (slot == 0)
+        mDrivePath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
+      else if (slot == 1)
+        mNAMPath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
+      SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
+    }
   }
   if (mIRPath.GetLength())
   {

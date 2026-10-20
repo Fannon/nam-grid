@@ -12,7 +12,8 @@ struct Instance
     state = static_cast<const clap_plugin_state*>(plugin->get_extension(plugin, CLAP_EXT_STATE));
   }
   ~Instance() { plugin->destroy(plugin); }
-  void Load(const std::string& drive, const std::string& amp, bool original, const std::string& mode = "dual")
+  void Load(const std::string& drive, const std::string& amp, bool original, const std::string& mode = "dual",
+            const std::string& ir = "")
   {
     Stream stream;
     if (original)
@@ -66,6 +67,24 @@ struct Instance
           config["SlotEffects"][0] = 1;
           config["SlotEffects"][12] = 3;
         }
+        if (mode == "complete")
+        {
+          assert(!ir.empty());
+          config["DrivePath"] = "";
+          config["NAMPath"] = drive;
+          config["SlotPaths"][0] = "";
+          config["SlotPaths"][1] = drive;
+          config["SlotPaths"][2] = amp;
+          config["SlotEffects"][0] = 1;
+          config["SlotEffects"][3] = 5;
+          config["IN 4 EQ Bass"] = 3.;
+          config["SlotEffects"][12] = 7;
+          config["SlotPaths"][12] = ir;
+          config["SlotEffects"][13] = 6;
+          config["OUT 2 EQ High Pass"] = 75.;
+          config["OUT 2 EQ Low Pass"] = 7500.;
+          config["SlotEffects"][14] = 3;
+        }
       }
       stream.string(config.contains("SlotPaths") ? "###NAMGrid-v1###" : "###NAMDual-v1###");
       stream.string(config.dump());
@@ -78,7 +97,7 @@ struct Instance
 int main(int argc, char** argv)
 {
   // Run separately for the original plugin (1 or 2 instances), and the dual prototype (1 instance).
-  assert(argc == 6);
+  assert(argc == 6 || argc == 7);
   const bool original = std::string(argv[2]) == "original";
   const int count = std::stoi(argv[3]);
   assert(count == 1 || count == 2);
@@ -98,7 +117,8 @@ int main(int argc, char** argv)
     // Upstream's loader reads host sample rate/block size, so establish those before recall.
     assert(one.plugin->activate(one.plugin, 48000., 128, 128));
     assert(two.plugin->activate(two.plugin, 48000., 128, 128));
-    one.Load(original ? "" : argv[4], original && count == 2 ? argv[4] : argv[5], original, argv[2]);
+    one.Load(
+      original ? "" : argv[4], original && count == 2 ? argv[4] : argv[5], original, argv[2], argc == 7 ? argv[6] : "");
     if (count == 2)
       two.Load("", argv[5], original);
     one.plugin->deactivate(one.plugin);

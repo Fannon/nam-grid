@@ -51,6 +51,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 }
 #include "GridTests.h"
 #include "DynamicsTests.h"
+#include "SlotFeaturesTests.h"
 
 int main(int argc, char** argv)
 try
@@ -158,8 +159,12 @@ try
   }
   TestFixedGrid();
   TestDynamics();
+  TestSlotFeatures();
   if (argc > 2)
+  {
     TestRealGrid(argc - 2, argv + 2);
+    TestRealCaptureQuality(argv[2]);
+  }
   // Stress ownership: a producer can supersede pending items while audio adopts/retirement waits.
   struct Item
   {

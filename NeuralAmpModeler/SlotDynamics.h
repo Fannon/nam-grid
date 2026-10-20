@@ -11,7 +11,10 @@ enum class SlotEffect
   NaturalGate,
   TightGate,
   SmoothComp,
-  PunchComp
+  PunchComp,
+  ToneEQ,
+  CutEQ,
+  CabinetIR
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -21,6 +24,9 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::TightGate: return "Tight Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";
     case SlotEffect::PunchComp: return "Punch Compressor";
+    case SlotEffect::ToneEQ: return "Tone EQ";
+    case SlotEffect::CutEQ: return "Cut EQ";
+    case SlotEffect::CabinetIR: return "Cabinet IR";
     default: return "NAM";
   }
 }
@@ -54,6 +60,7 @@ public:
   }
   void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls)
   {
+    mPeakReduction = 0.;
     const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
     const bool tight = effect == SlotEffect::TightGate;
     const bool punch = effect == SlotEffect::PunchComp;
@@ -102,9 +109,11 @@ public:
       // Gates open quickly / close gently; compressors attack reduction / release it.
       const double coefficient = gate ? (target < mReduction ? open : close) : (target > mReduction ? open : close);
       mReduction = Smooth(mReduction, target, coefficient);
+      mPeakReduction = std::max(mPeakReduction, mReduction);
       samples[i] *= std::pow(10., ((gate ? 0. : mAmount) - mReduction) * .05);
     }
   }
+  double PeakReduction() const { return mPeakReduction; }
 
 private:
   double Coefficient(double ms) const { return std::exp(-1. / (.001 * ms * mRate)); }
@@ -115,5 +124,6 @@ private:
   }
   double mRate = 48000., mSmooth = 0., mEnvelope = 0., mReduction = 0., mHold = 0.;
   double mThreshold = 0., mAmount = 0.;
+  double mPeakReduction = 0.;
   bool mOpen = false, mFirst = true;
 };

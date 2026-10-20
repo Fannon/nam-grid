@@ -99,4 +99,14 @@ inline nlohmann::json model(int channels, unsigned seed)
           {"weights", weights},
           {"sample_rate", 48000.}};
 }
+inline nlohmann::json packed()
+{
+  return {{"version", "0.7.0"},
+          {"architecture", "SlimmableContainer"},
+          {"sample_rate", 48000.},
+          {"weights", nlohmann::json::array()},
+          {"config",
+           {{"submodels", nlohmann::json::array({{{"max_value", .5}, {"model", model(3, 123)}},
+                                                 {{"max_value", 1.}, {"model", model(8, 456)}}})}}}};
+}
 } // namespace fixture

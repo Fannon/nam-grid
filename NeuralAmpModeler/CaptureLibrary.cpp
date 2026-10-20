@@ -6,6 +6,7 @@
 #include <sstream>
 #include <map>
 #include <utility>
+#include <unordered_set>
 #include "json.hpp"
 
 namespace nam_library
@@ -156,16 +157,43 @@ const char* GearName(Gear gear)
   }
 }
 
-std::string ReadFolderSetting(const std::filesystem::path& settingsFile)
+std::vector<std::string> NormalizeFolders(const std::vector<std::string>& folders)
+{
+  std::vector<std::string> result, keys;
+  for (const auto& folder : folders)
+  {
+    if (folder.empty() || folder.size() > 32768 || folder.find('\0') != std::string::npos)
+      continue;
+    std::error_code error;
+    auto path = std::filesystem::weakly_canonical(std::filesystem::u8path(folder), error);
+    if (error)
+      path = std::filesystem::u8path(folder).lexically_normal();
+    auto key = PathText(path);
+#ifdef _WIN32
+    key = Lower(key);
+#endif
+    if (std::find(keys.begin(), keys.end(), key) == keys.end())
+    {
+      keys.push_back(key);
+      result.push_back(PathText(path));
+    }
+    if (result.size() == 32)
+      break;
+  }
+  return result;
+}
+
+std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile)
 {
   try
   {
-    if (!std::filesystem::exists(settingsFile) || std::filesystem::file_size(settingsFile) > 65536)
+    if (!std::filesystem::exists(settingsFile) || std::filesystem::file_size(settingsFile) > 1024 * 1024)
       return {};
     std::ifstream stream(settingsFile, std::ios::binary);
     const auto config = nlohmann::json::parse(stream);
-    const auto folder = config.value("CaptureFolder", std::string{});
-    return folder.size() <= 32768 && folder.find('\0') == std::string::npos ? folder : std::string{};
+    if (config.contains("CaptureFolders"))
+      return NormalizeFolders(config.at("CaptureFolders").get<std::vector<std::string>>());
+    return NormalizeFolders({config.value("CaptureFolder", std::string{})});
   }
   catch (const std::exception&)
   {
@@ -173,14 +201,13 @@ std::string ReadFolderSetting(const std::filesystem::path& settingsFile)
   }
 }
 
-bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::string& folder)
+bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::vector<std::string>& folders)
 {
   try
   {
-    // Tiny user preference, written only on a Settings change; project state also retains the folder.
     std::filesystem::create_directories(settingsFile.parent_path());
     std::ofstream stream(settingsFile, std::ios::binary | std::ios::trunc);
-    stream << nlohmann::json{{"CaptureFolder", folder}}.dump(2);
+    stream << nlohmann::json{{"CaptureFolders", folders}}.dump(2);
     stream.close();
     return !stream.fail();
   }
@@ -190,11 +217,28 @@ bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::st
   }
 }
 
+std::string ReadFolderSetting(const std::filesystem::path& settingsFile)
+{
+  const auto folders = ReadFolderSettings(settingsFile);
+  return folders.empty() ? std::string{} : folders.front();
+}
+bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::string& folder)
+{
+  return WriteFolderSettings(
+    settingsFile, folder.empty() ? std::vector<std::string>{} : std::vector<std::string>{folder});
+}
+
 Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root)
 {
   Capture result;
   result.path = file;
   result.relative = file.lexically_relative(root);
+  if (Lower(PathText(file.extension())) == ".wav")
+  {
+    result.isIR = true;
+    result.gear = Gear::Cabinet;
+    return result; // Validate WAV contents only when loading; library scanning never decodes audio.
+  }
   std::ifstream stream(file, std::ios::binary);
   if (!stream)
     throw std::runtime_error("Cannot open capture");
@@ -249,7 +293,7 @@ bool Filter::Matches(const Capture& capture) const
   if (gear >= 0 && static_cast<int>(capture.gear) != gear)
     return false;
   const auto haystack = Lower(PathText(capture.relative) + " " + capture.name + " " + capture.maker + " "
-                              + capture.model + " " + GearName(capture.gear));
+                              + capture.model + " " + GearName(capture.gear) + (capture.isIR ? " IR WAV" : " NAM"));
   std::istringstream words(Lower(search));
   for (std::string word; words >> word;)
     if (haystack.find(word) == std::string::npos)
@@ -282,7 +326,8 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
       it.disable_recursion_pending();
       continue;
     }
-    if (!it->is_regular_file(statusError) || Lower(PathText(it->path().extension())) != ".nam")
+    const auto extension = Lower(PathText(it->path().extension()));
+    if (!it->is_regular_file(statusError) || (extension != ".nam" && extension != ".wav"))
       continue;
     try
     {
@@ -303,6 +348,49 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
   return result;
 }
 
+Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled)
+{
+  Snapshot result;
+  std::unordered_set<std::string> seen;
+  const auto folders = NormalizeFolders(roots);
+  std::unordered_set<std::string> labels;
+  for (const auto& folder : folders)
+  {
+    if (cancelled && cancelled())
+      return result;
+    auto part = Scan(std::filesystem::u8path(folder), cancelled);
+    if (folders.size() == 1)
+      result.root = part.root;
+    result.unreadable += part.unreadable;
+    if (!part.error.empty())
+    {
+      if (!result.error.empty())
+        result.error += "; ";
+      result.error += folder + ": " + part.error;
+    }
+    auto label = PathText(std::filesystem::u8path(folder).filename());
+    if (label.empty())
+      label = folder;
+    const auto baseLabel = label;
+    int occurrence = 1;
+    while (!labels.insert(Lower(label)).second)
+      label = baseLabel + " (" + std::to_string(++occurrence) + ")";
+    for (auto& capture : part.captures)
+    {
+      auto key = PathText(capture.path.lexically_normal());
+#ifdef _WIN32
+      key = Lower(key);
+#endif
+      if (!seen.insert(key).second)
+        continue;
+      if (folders.size() > 1)
+        capture.relative = std::filesystem::u8path(label) / capture.relative;
+      result.captures.push_back(std::move(capture));
+    }
+  }
+  return result;
+}
+
 Worker::Worker()
 : mThread([this] { Run(); })
 {
@@ -317,10 +405,12 @@ Worker::~Worker()
   mThread.join();
 }
 void Worker::Request(const std::string& root)
+{ Request(root.empty() ? std::vector<std::string>{} : std::vector<std::string>{root}); }
+void Worker::Request(const std::vector<std::string>& roots)
 {
   {
     std::lock_guard<std::mutex> lock(mMutex);
-    mRoot = root;
+    mRoots = roots;
     mResult.reset();
     ++mRevision;
   }
@@ -341,13 +431,13 @@ void Worker::Run()
     if (mStop.load())
       return;
     const auto revision = mRevision.load();
-    const auto root = mRoot;
+    const auto roots = mRoots;
     lock.unlock();
     auto cancelled = [&] { return mStop.load() || mRevision.load() != revision; };
     auto result = std::make_shared<Snapshot>();
     try
     {
-      *result = Scan(std::filesystem::u8path(root), cancelled);
+      *result = ScanFolders(roots, cancelled);
     }
     catch (const std::exception&)
     {

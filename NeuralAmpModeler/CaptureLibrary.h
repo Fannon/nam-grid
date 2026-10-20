@@ -25,6 +25,9 @@ enum class Gear
 };
 const char* GearName(Gear gear);
 std::string PathText(const std::filesystem::path& path);
+std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile);
+bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::vector<std::string>& folders);
+std::vector<std::string> NormalizeFolders(const std::vector<std::string>& folders);
 std::string ReadFolderSetting(const std::filesystem::path& settingsFile);
 bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::string& folder);
 
@@ -33,6 +36,7 @@ struct Capture
   std::filesystem::path path, relative;
   std::string name, maker, model;
   Gear gear = Gear::Unknown;
+  bool isIR = false;
   bool inferred = false; // Filename/folder hint, rather than an explicit metadata category.
 };
 
@@ -55,6 +59,8 @@ struct Snapshot
 Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root);
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled = {});
 
+Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled = {});
+
 // Latest request wins. Results are handed back to the control thread, never to ProcessBlock.
 class Worker
 {
@@ -62,13 +68,14 @@ public:
   Worker();
   ~Worker();
   void Request(const std::string& root);
+  void Request(const std::vector<std::string>& roots);
   std::shared_ptr<const Snapshot> TakeResult();
 
 private:
   void Run();
   std::mutex mMutex;
   std::condition_variable mChanged;
-  std::string mRoot;
+  std::vector<std::string> mRoots;
   std::shared_ptr<const Snapshot> mResult;
   std::atomic<unsigned> mRevision{0};
   std::atomic<bool> mStop{false};

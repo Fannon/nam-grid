@@ -7,9 +7,11 @@ headers and the library preference location retain their existing values for com
 
 ## Using the cards
 
-- Click the **effect/model name** to choose a NAM, gate, compressor, EQ, cabinet WAV IR,
-  or Clear. NAM folder search/submenus and the previous/next capture buttons still work.
-- Click the **slot ID** (for example `A 1`) to **Copy to**, **Move to**, or **Swap with**
+- Click a **card** to edit its knobs in the bottom panel. Double-click the card or use the
+  panel's **Choose / Change** button to choose NAM, gate, compressor, EQ, WAV IR or Clear.
+  Library submenus, search, gear filters and previous/next buttons work across multiple roots.
+  Choosing WAV changes the module to IR automatically; choosing NAM changes it back.
+- Right-click a **card** (for example `A 1`) to **Copy to**, **Move to**, or **Swap with**
   another position. Copy and Move replace the destination; Move then empties the source.
   Swap exchanges both positions. Destination menus identify their current contents.
 - All musical controls, bypass and model quality travel with the slot. Files are referenced,
@@ -22,11 +24,10 @@ headers and the library preference location retain their existing values for com
 
 ## Level and reduction meters
 
-Each card has **I** and **O** peak bars, spanning -60 to 0 dBFS. Input is measured before
+Each card has two peak bars (input left, output right), spanning -60 to 0 dBFS. Input is measured before
 the slot's input gain, output after processing/trim/bypass. Red indicates a peak at or above
 0 dBFS and holds for one second. Floating-point audio is not hard-clipped by these meters.
-The yellow **GR** bar shows gate/compressor attenuation, with a rounded dB readout; its
-bar saturates at 30 dB, while the number can show the gate's larger reduction. Makeup gain
+The selected module panel shows gate/compressor attenuation as a **Gain reduction** readout. Makeup gain
 is separate from gain reduction. Other effect types report zero GR.
 
 Audio accumulates peaks and sends bounded, allocation-free SPSC packets about 30 times per
@@ -36,7 +37,7 @@ and are not saved in presets.
 
 ## Simple EQ
 
-Two three-knob choices keep the controls visible on the same compact card:
+Two three-knob choices show their controls in the bottom module editor:
 
 | Effect | Controls | Defaults |
 | --- | --- | --- |
@@ -45,7 +46,7 @@ Two three-knob choices keep the controls visible on the same compact card:
 
 Cut filters use 12 dB/octave Butterworth responses (-3 dB at the selected cutoff). A neutral Tone EQ and an all-off Cut EQ
 pass unity. Place Tone EQ before an amp to shape its response; use Cut EQ after a cabinet
-to remove low rumble/high fizz. The existing shared EQ remains available.
+to remove low rumble/high fizz. New instances use EQ modules; recalled legacy shared EQ settings are preserved.
 
 `SlotEQ.h` reuses the MIT-licensed AudioDSPTools low/high shelf and peak coefficient
 implementations and biquad base. Cutoff coefficients use the standard
@@ -61,15 +62,15 @@ clears histories. Processing adds no buffering latency and allocates nothing.
 ## Cabinet IR
 
 **Choose cabinet IR (.wav)** loads a mono WAV into any slot, using the existing NAM IR
-loader/convolver. The card shows `IR: <filename>` and one **Level** knob (-36 to +18 dB).
+loader/convolver. The card shows the filename and `WAV / IR`; its bottom editor has one **Level** knob (-36 to +18 dB).
 Each slot holds either a NAM or an IR. Place a NAM cabinet capture using the normal NAM
 selector. Full amp+cab captures typically do not need another cabinet stage.
 
 The default Level is -18 dB to match the original global cabinet's headroom convention.
 At 0 dB, the slot cancels the reused convolver's fixed -18 dB gain, so a unit impulse has
 unity convolution gain at its native 48 kHz rate. Its existing sample-rate-dependent IR
-resampling gain is retained. Nothing auto-normalizes IRs. The global IR remains independent;
-disable it when using a slot cabinet unless two convolutions are intended.
+resampling gain is retained. Nothing auto-normalizes IRs. Recalled projects can still have a
+legacy global IR; its compatibility toggle appears in Settings. It is disabled in new instances.
 
 The reused processor has zero block buffering latency and caps the resampled IR at 8192
 taps. It is intended for cabinet impulses, rather than long reverbs. WAV parsing, resampling,
@@ -80,7 +81,7 @@ paths and IR type for relinking, while that slot passes audio.
 
 ## A2 Full / Lite
 
-NAM cards show **Full / Lite** when Core reports a slimmable model. A2 captures packaged
+The selected NAM module editor shows **Full / Lite** when Core reports a slimmable model. A2 captures packaged
 with both submodels select them from the same `.nam` file. Fixed-size captures show a
 disabled Fixed badge; a smaller model cannot be synthesized from an arbitrary fixed model.
 The supported target is A2. No A1-specific implementation was added.

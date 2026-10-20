@@ -62,9 +62,11 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
     _ClearModel(slot);
   mCabinet.Publish(std::make_unique<PreparedIR>());
   mIRLoaded = false;
-  const auto folder = config.value("CaptureFolder", std::string{});
-  if (folder != mCaptureFolder)
-    SetCaptureFolder(folder.c_str());
+  const auto folders = config.contains("CaptureFolders") ? config["CaptureFolders"].get<std::vector<std::string>>()
+                       : config.value("CaptureFolder", std::string{}).empty()
+                         ? std::vector<std::string>{}
+                         : std::vector<std::string>{config["CaptureFolder"].get<std::string>()};
+  SetCaptureFolders(folders);
   mDrivePath.Set(config.value("DrivePath", "").c_str());
   mNAMPath.Set(static_cast<std::string>(config["NAMPath"]).c_str());
   mIRPath.Set(static_cast<std::string>(config["IRPath"]).c_str());

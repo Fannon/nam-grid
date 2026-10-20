@@ -34,12 +34,12 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
       else
         parent = found->second;
     }
-    const auto label =
-      PathText(capture.path.stem()) + "  [" + GearName(capture.gear) + (capture.inferred ? ", inferred]" : "]");
+    const auto label = PathText(capture.path.stem()) + (capture.isIR ? "  [IR / " : "  [NAM / ")
+                       + GearName(capture.gear) + (capture.inferred ? ", inferred]" : "]");
     parent->AddItem(new Menu::Item(
       label.c_str(), PathText(capture.path) == selected ? Menu::Item::kChecked : 0, static_cast<int>(i)));
   }
   if (menu.NItems() == 0)
-    menu.AddItem("No matching NAM captures", -1, Menu::Item::kDisabled);
+    menu.AddItem("No matching NAM or IR files", -1, Menu::Item::kDisabled);
 }
 } // namespace nam_library

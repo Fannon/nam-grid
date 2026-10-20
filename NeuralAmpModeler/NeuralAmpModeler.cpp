@@ -23,42 +23,6 @@ using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
 
-// Styles
-const IVColorSpec colorSpec{
-  DEFAULT_BGCOLOR, // Background
-  PluginColors::NAM_THEMECOLOR, // Foreground
-  PluginColors::NAM_THEMECOLOR.WithOpacity(0.3f), // Pressed
-  PluginColors::NAM_THEMECOLOR.WithOpacity(0.4f), // Frame
-  PluginColors::MOUSEOVER, // Highlight
-  DEFAULT_SHCOLOR, // Shadow
-  PluginColors::NAM_THEMECOLOR, // Extra 1
-  COLOR_RED, // Extra 2 --> color for clipping in meters
-  PluginColors::NAM_THEMECOLOR.WithContrast(0.1f), // Extra 3
-};
-
-const IVStyle style =
-  IVStyle{true, // Show label
-          true, // Show value
-          colorSpec,
-          {DEFAULT_TEXT_SIZE + 3.f, EVAlign::Middle, PluginColors::NAM_THEMEFONTCOLOR}, // Knob label text5
-          {DEFAULT_TEXT_SIZE + 3.f, EVAlign::Bottom, PluginColors::NAM_THEMEFONTCOLOR}, // Knob value text
-          DEFAULT_HIDE_CURSOR,
-          DEFAULT_DRAW_FRAME,
-          false,
-          DEFAULT_EMBOSS,
-          0.2f,
-          2.f,
-          DEFAULT_SHADOW_OFFSET,
-          DEFAULT_WIDGET_FRAC,
-          DEFAULT_WIDGET_ANGLE};
-const IVStyle titleStyle =
-  DEFAULT_STYLE.WithValueText(IText(30, COLOR_WHITE, "Michroma-Regular")).WithDrawFrame(false).WithShadowOffset(2.f);
-const IVStyle radioButtonStyle =
-  style
-    .WithColor(EVColor::kON, PluginColors::NAM_THEMECOLOR) // Pressed buttons and their labels
-    .WithColor(EVColor::kOFF, PluginColors::NAM_THEMECOLOR.WithOpacity(0.1f)) // Unpressed buttons
-    .WithColor(EVColor::kX1, PluginColors::NAM_THEMECOLOR.WithOpacity(0.6f)); // Unpressed buttons' labels
-
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
 {
@@ -94,10 +58,10 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   GetParam(kToneTreble)->InitDouble("Treble", 5.0, 0.0, 10.0, 0.1);
   GetParam(kOutputLevel)->InitGain("Output", 0.0, -40.0, 40.0, 0.1);
   GetParam(kNoiseGateThreshold)->InitGain("Threshold", -80.0, -100.0, 0.0, 0.1);
-  GetParam(kNoiseGateActive)->InitBool("NoiseGateActive", true);
-  GetParam(kEQActive)->InitBool("ToneStack", true);
+  GetParam(kNoiseGateActive)->InitBool("NoiseGateActive", false);
+  GetParam(kEQActive)->InitBool("ToneStack", false);
   GetParam(kOutputMode)->InitEnum("OutputMode", 0, {"Raw", "Normalized", "Calibrated"}); // TODO DRY w/ control
-  GetParam(kIRToggle)->InitBool("IRToggle", true);
+  GetParam(kIRToggle)->InitBool("IRToggle", false);
   GetParam(kCalibrateInput)->InitBool(kCalibrateInputParamName.c_str(), kDefaultCalibrateInput);
   GetParam(kInputCalibrationLevel)
     ->InitDouble(kInputCalibrationLevelParamName.c_str(), kDefaultInputCalibrationLevel, -60.0, 60.0, 0.1, "dBu");
@@ -134,9 +98,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     if (slot != 1)
       GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
   }
-  const auto defaultFolder = nam_library::ReadFolderSetting(CaptureSettingsFile());
-  if (!defaultFolder.empty())
-    SetCaptureFolder(defaultFolder.c_str());
+  SetCaptureFolders(nam_library::ReadFolderSettings(CaptureSettingsFile()));
 
   mNoiseGateTrigger.AddListener(&mNoiseGateGain);
 
@@ -157,75 +119,53 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->EnableMouseOver(true);
     ui->EnableTooltips(true);
     ui->LoadFont("Roboto-Regular", ROBOTO_FN);
-    ui->LoadFont("Michroma-Regular", MICHROMA_FN);
     const auto b = ui->GetBounds();
-    ui->AttachPanelBackground(IColor(255, 18, 19, 22));
+    const auto compact = grid_ui::Style();
+    ui->AttachPanelBackground(COLOR_BLACK);
+    ui->AttachControl(new ITextControl(IRECT(24, 18, 225, 58), PLUG_NAME, grid_ui::Text(25.f)));
     ui->AttachControl(new ITextControl(
-      IRECT(35, 12, 900, 49), PLUG_NAME, IText(24.f, COLOR_WHITE, "Michroma-Regular", EAlign::Near)));
-    const auto compact = style.WithLabelText(IText(12.f, COLOR_WHITE, "Roboto-Regular"))
-                           .WithValueText(IText(12.f, COLOR_WHITE, "Roboto-Regular"));
-    ui->AttachControl(new IVKnobControl(IRECT(40, 55, 120, 133), kNoiseGateThreshold, "Gate", compact));
-    ui->AttachControl(new IVToggleControl(IRECT(125, 72, 185, 108), kNoiseGateActive, "Gate", compact));
-    ui->AttachControl(new IVKnobControl(IRECT(210, 55, 290, 133), kToneBass, "Bass", compact), -1, "EQ_KNOBS");
-    ui->AttachControl(new IVKnobControl(IRECT(295, 55, 375, 133), kToneMid, "Mid", compact), -1, "EQ_KNOBS");
-    ui->AttachControl(new IVKnobControl(IRECT(380, 55, 460, 133), kToneTreble, "Treble", compact), -1, "EQ_KNOBS");
-    ui->AttachControl(new IVToggleControl(IRECT(465, 72, 525, 108), kEQActive, "EQ", compact));
-    ui->AttachControl(new ITextControl(
-      IRECT(550, 65, 825, 124), "4 serial > 2 x 4 parallel > 4 serial", IText(14.f, COLOR_WHITE, "Roboto-Regular")));
-    ui->AttachControl(new IVKnobControl(IRECT(860, 55, 940, 133), kOutputLevel, "Master", compact));
-    ui->AttachControl(new NAMCaptureSearchControl(IRECT(40, 145, 350, 170)));
-    ui->AttachControl(new NAMGearFilterControl(IRECT(360, 145, 495, 170), compact));
-    const auto fileSVG = ui->LoadSVG(FILE_FN), crossSVG = ui->LoadSVG(CLOSE_BUTTON_FN);
-    const auto leftSVG = ui->LoadSVG(LEFT_ARROW_FN), rightSVG = ui->LoadSVG(RIGHT_ARROW_FN);
-    const auto globeSVG = ui->LoadSVG(GLOBE_ICON_FN);
-    auto loadIR = [this](const WDL_String& file, const WDL_String&) {
-      if (file.GetLength())
-      {
-        const auto result = _StageIR(file);
-        if (result != dsp::wav::LoadReturnCode::SUCCESS)
-          _ShowMessageBox(GetUI(), dsp::wav::GetMsgForLoadReturnCode(result).c_str(), "IR load failed", kMB_OK);
-      }
-    };
-    ui->AttachControl(
-      new NAMFileBrowserControl(IRECT(515, 140, 815, 174), kMsgTagClearIR, "Select global IR...", "wav", loadIR,
-                                compact, fileSVG, crossSVG, leftSVG, rightSVG, ui->LoadBitmap(FILEBACKGROUND_FN),
-                                globeSVG, "IRs", "https://www.neuralampmodeler.com"),
-      kCtrlTagIRFileBrowser);
-    ui->AttachControl(new IVToggleControl(IRECT(830, 145, 935, 170), kIRToggle, "Global IR", compact));
-    ui->AttachControl(new NAMGridWiringControl(b));
+      IRECT(225, 23, 635, 54), "4 serial / 2 parallel lanes / 4 serial", grid_ui::Text(12.f, grid_ui::muted)));
+    ui->AttachControl(new grid_ui::Knob(IRECT(688, 8, 778, 91), kParallelBlend, "Blend A / B"));
+    ui->AttachControl(new grid_ui::Knob(IRECT(793, 8, 883, 91), kOutputLevel, "Master"));
+    ui->AttachControl(new NAMCaptureSearchControl(IRECT(88, 105, 593, 133)));
+    ui->AttachControl(new NAMGearFilterControl(IRECT(605, 105, 780, 133), compact));
+    ui->AttachControl(new grid_ui::Button(
+      IRECT(794, 105, 956, 133),
+      [](IControl* caller) { caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false); },
+      "Library & settings"));
+    ui->AttachControl(new grid_ui::Wiring(b));
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
-      const float left = 90.f + 215.f * (slot % 4);
-      const float top = 190.f + 135.f * (slot / 4);
-      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 205.f, top + 120.f), slot, compact),
+      const float left = 88.f + 220.f * (slot % 4);
+      const float top = 147.f + 105.f * (slot / 4);
+      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 208.f, top + 88.f), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
     for (int row = 0; row < 4; ++row)
-      ui->AttachControl(new ITextControl(IRECT(28, 225.f + 135.f * row, 85, 270.f + 135.f * row),
-                                         row == 0   ? "INPUT"
-                                         : row == 1 ? "LANE A"
-                                         : row == 2 ? "LANE B"
-                                                    : "OUTPUT",
-                                         IText(12.f, COLOR_WHITE, "Roboto-Regular")));
-    ui->AttachControl(new ITextControl(
-      IRECT(70, 730, 400, 778), "Click slot ID: Copy / Move / Swap", IText(13.f, COLOR_WHITE, "Roboto-Regular")));
-    ui->AttachControl(new IVKnobControl(IRECT(425, 720, 525, 795), kParallelBlend, "Blend A / B", compact));
-    ui->AttachControl(new ITextControl(IRECT(550, 730, 940, 778), "0% B = A only | 50% = equal | 100% B = B only",
-                                       IText(12.f, COLOR_WHITE, "Roboto-Regular")));
-    const auto meter = ui->LoadBitmap(METERBACKGROUND_FN);
-    ui->AttachControl(new NAMMeterControl(IRECT(5, 195, 24, 715), meter, compact), kCtrlTagInputMeter);
-    ui->AttachControl(new NAMMeterControl(IRECT(974, 195, 993, 715), meter, compact), kCtrlTagOutputMeter);
-    ui->AttachControl(new NAMCircleButtonControl(
-      CornerButtonArea(b),
-      [](IControl* caller) {
-        caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->As<NAMSettingsPageControl>()->HideAnimated(false);
-      },
-      ui->LoadSVG(GEAR_FN)));
-    ui->AttachControl(
-        new NAMSettingsPageControl(b, ui->LoadBitmap(BACKGROUND_FN), ui->LoadBitmap(INPUTLEVELBACKGROUND_FN),
-                                   ui->LoadBitmap(SLIDESWITCHHANDLE_FN), crossSVG, style, radioButtonStyle),
-        kCtrlTagSettingsBox)
-      ->Hide(true);
+      ui->AttachControl(new ITextControl(IRECT(18, 177.f + 105.f * row, 63, 206.f + 105.f * row),
+                                         row == 0   ? "IN"
+                                         : row == 1 ? "A"
+                                         : row == 2 ? "B"
+                                                    : "OUT",
+                                         grid_ui::Text(11.f, grid_ui::muted)));
+    ui->AttachControl(new ITextControl(IRECT(88, 558, 950, 581),
+                                       "Select a module to edit below. Double-click to choose. The dot toggles bypass.",
+                                       grid_ui::Text(12.f, grid_ui::muted)));
+    // Flat input/output meters retain the upstream sender protocol, without bitmap skins.
+    const auto meterStyle =
+      compact.WithShowValue(false).WithColor(kX1, grid_ui::accent).WithColor(kFG, grid_ui::accent);
+    ui->AttachControl(new IVPeakAvgMeterControl<>(IRECT(24, 105, 32, 133), "", meterStyle), kCtrlTagInputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<>(IRECT(45, 105, 53, 133), "", meterStyle), kCtrlTagOutputMeter);
+    ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
+    ui->SetKeyHandlerFunc([ui](const IKeyPress& key, bool keyUp) {
+      auto* settings = ui->GetControlWithTag(kCtrlTagSettingsBox);
+      if (!keyUp && key.VK == kVK_ESCAPE && !settings->IsHidden())
+      {
+        settings->Hide(true);
+        return true;
+      }
+      return false;
+    });
     ui->ForAllControlsFunc([](IControl* control) { control->SetDirty(false); });
   };
 }
@@ -387,16 +327,51 @@ void NeuralAmpModeler::OnReset()
 }
 
 void NeuralAmpModeler::SetCaptureFolder(const char* folder, bool fromUI)
+{ SetCaptureFolders(folder && folder[0] ? std::vector<std::string>{folder} : std::vector<std::string>{}, fromUI); }
+
+void NeuralAmpModeler::SetCaptureFolders(std::vector<std::string> folders, bool fromUI)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  mCaptureFolder = folder;
+  mCaptureFolders = nam_library::NormalizeFolders(folders);
+  mCaptureFolder = mCaptureFolders.empty() ? std::string{} : mCaptureFolders.front();
   RescanCaptureFolder();
   if (fromUI)
   {
-    mLibraryDefaultSaveFailed = !nam_library::WriteFolderSetting(CaptureSettingsFile(), mCaptureFolder);
+    mLibraryDefaultSaveFailed = !nam_library::WriteFolderSettings(CaptureSettingsFile(), mCaptureFolders);
     _UpdateLibraryControls();
     _NotifyHostStateChanged();
   }
+}
+
+std::vector<std::string> NeuralAmpModeler::GetCaptureFolders() const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  return mCaptureFolders;
+}
+void NeuralAmpModeler::AddCaptureFolder(const char* folder)
+{
+  auto folders = GetCaptureFolders();
+  if (folders.size() < 32)
+    folders.emplace_back(folder);
+  SetCaptureFolders(std::move(folders), true);
+}
+void NeuralAmpModeler::RemoveCaptureFolder(size_t index)
+{
+  auto folders = GetCaptureFolders();
+  if (index >= folders.size())
+    return;
+  folders.erase(folders.begin() + index);
+  SetCaptureFolders(std::move(folders), true);
+}
+void NeuralAmpModeler::SelectSlot(size_t slot)
+{
+  if (slot >= FixedNAMGrid::kSlots)
+    return;
+  mSelectedSlot = slot;
+  if (auto* ui = GetUI())
+    for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
+      if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(i)))
+        control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
 }
 
 void NeuralAmpModeler::_NotifyHostStateChanged()
@@ -523,8 +498,8 @@ void NeuralAmpModeler::RescanCaptureFolder()
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   mLibrary = std::make_shared<nam_library::Snapshot>();
-  mLibraryScanning = !mCaptureFolder.empty();
-  mLibraryWorker.Request(mCaptureFolder);
+  mLibraryScanning = !mCaptureFolders.empty();
+  mLibraryWorker.Request(mCaptureFolders);
   _UpdateLibraryControls();
 }
 
@@ -555,33 +530,28 @@ void NeuralAmpModeler::SetCaptureFilter(nam_library::Filter filter)
 std::string NeuralAmpModeler::GetCaptureStatus() const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  if (mCaptureFolder.empty())
-    return "Choose a folder for nested NAM slot menus.";
+  if (mCaptureFolders.empty())
+    return "Add folders containing NAM captures or WAV impulse responses.";
   if (mLibraryScanning)
-    return "Scanning NAM captures...";
+    return "Scanning NAM and IR files...";
   if (mLibraryDefaultSaveFailed)
     return "Folder saved in project; unable to save the default for new instances.";
   if (!mLibrary->error.empty())
     return mLibrary->error;
-  return std::to_string(mLibrary->captures.size()) + " NAM captures; " + std::to_string(mLibrary->unreadable)
-         + " unreadable. Gear inferred from metadata or explicit path hints.";
+  size_t irs = 0;
+  for (const auto& entry : mLibrary->captures)
+    irs += entry.isIR;
+  return std::to_string(mLibrary->captures.size() - irs) + " NAM / " + std::to_string(irs) + " IR / "
+         + std::to_string(mCaptureFolders.size()) + " folders / " + std::to_string(mLibrary->unreadable)
+         + " unreadable";
 }
 
 void NeuralAmpModeler::_UpdateLibraryControls()
 {
   if (auto* ui = GetUI())
   {
-    if (auto* control = ui->GetControlWithTag(kCtrlTagCaptureFolder))
-    {
-      auto label = mCaptureFolder.empty() ? std::string("Choose capture folder...") : mCaptureFolder;
-      if (label.size() > 64)
-        label = "..." + label.substr(label.size() - 61);
-      control->As<IVButtonControl>()->SetLabelStr(label.c_str());
-      control->SetTooltip(mCaptureFolder.c_str());
+    if (auto* control = ui->GetControlWithTag(kCtrlTagSettingsBox))
       control->SetDirty(false);
-    }
-    if (auto* control = ui->GetControlWithTag(kCtrlTagCaptureStatus))
-      control->As<ITextControl>()->SetStr(GetCaptureStatus().c_str());
   }
 }
 
@@ -634,6 +604,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
   config["CaptureFolder"] = mCaptureFolder;
+  config["CaptureFolders"] = mCaptureFolders;
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
     config["SlotPaths"].push_back(path.Get());
@@ -673,6 +644,16 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 4) : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
+      if (config.contains("CaptureFolders"))
+      {
+        const auto& folders = config["CaptureFolders"];
+        if (!folders.is_array() || folders.size() > 32)
+          return -1;
+        for (const auto& folder : folders)
+          if (!folder.is_string() || folder.get<std::string>().size() > 32768
+              || folder.get<std::string>().find('\0') != std::string::npos)
+            return -1;
+      }
       for (const char* name : {"DrivePath", "NAMPath", "IRPath"})
         if (!config.contains(name) || !config[name].is_string() || config[name].get<std::string>().size() > 32768)
           return -1;
@@ -764,20 +745,11 @@ void NeuralAmpModeler::OnParamChange(int paramIdx)
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 {
-  if (auto pGraphics = GetUI())
-  {
-    bool active = GetParam(paramIdx)->Bool();
-
-    switch (paramIdx)
-    {
-      case kNoiseGateActive: pGraphics->GetControlWithParamIdx(kNoiseGateThreshold)->SetDisabled(!active); break;
-      case kEQActive:
-        pGraphics->ForControlInGroup("EQ_KNOBS", [active](IControl* pControl) { pControl->SetDisabled(!active); });
-        break;
-      case kIRToggle: pGraphics->GetControlWithTag(kCtrlTagIRFileBrowser)->SetDisabled(!active); break;
-      default: break;
-    }
-  }
+  // Refresh labels/quality and selected-module controls after automation or preset recall.
+  if (auto* ui = GetUI())
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+      if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot)))
+        control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
 }
 
 bool NeuralAmpModeler::OnMessage(int msgTag, int ctrlTag, int dataSize, const void* pData)
@@ -1086,25 +1058,9 @@ void NeuralAmpModeler::_UpdateControlsFromModel()
 {
   if (auto* ui = GetUI())
   {
-    ModelInfo info;
-    info.sampleRate.known = mAmpInfo.loaded;
-    info.sampleRate.value = mAmpInfo.rate;
-    info.inputCalibrationLevel.known = mAmpInfo.hasInput;
-    info.inputCalibrationLevel.value = mAmpInfo.input;
-    info.outputCalibrationLevel.known = mAmpInfo.hasOutput;
-    info.outputCalibrationLevel.value = mAmpInfo.output;
-    auto* settings = static_cast<NAMSettingsPageControl*>(ui->GetControlWithTag(kCtrlTagSettingsBox));
-    if (mAmpInfo.loaded)
-      settings->SetModelInfo(info);
-    else
-      settings->ClearModelInfo();
-    ui->GetControlWithTag(kCtrlTagCalibrateInput)->SetDisabled(!mAmpInfo.hasInput);
-    ui->GetControlWithTag(kCtrlTagInputCalibrationLevel)->SetDisabled(!mAmpInfo.hasInput);
-    auto* mode = static_cast<OutputModeControl*>(ui->GetControlWithTag(kCtrlTagOutputMode));
-    mode->SetNormalizedDisable(!mAmpInfo.hasLoudness);
-    mode->SetCalibratedDisable(!mAmpInfo.hasOutput);
-    if (auto* control = ui->GetControlWithTag(kCtrlTagSlimmableIcon))
-      control->Hide(!mAmpInfo.slimmable);
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+      if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot)))
+        control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
   }
 }
 

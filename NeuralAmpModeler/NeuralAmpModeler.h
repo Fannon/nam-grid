@@ -151,6 +151,12 @@ public:
 
   // Native library controls; all called on the control/UI thread.
   void SetCaptureFolder(const char* folder, bool fromUI = false);
+  void SetCaptureFolders(std::vector<std::string> folders, bool fromUI = false);
+  std::vector<std::string> GetCaptureFolders() const;
+  void AddCaptureFolder(const char* folder);
+  void RemoveCaptureFolder(size_t index);
+  size_t GetSelectedSlot() const { return mSelectedSlot; }
+  void SelectSlot(size_t slot);
   void RescanCaptureFolder();
   std::string GetCaptureFolder() const;
   std::string GetCaptureStatus() const;
@@ -250,7 +256,9 @@ private:
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
-  std::string mCaptureFolder;
+  std::string mCaptureFolder; // First root alias for older project readers.
+  std::vector<std::string> mCaptureFolders;
+  size_t mSelectedSlot = 0; // Editor selection only; never read by the audio thread.
   nam_library::Filter mCaptureFilter;
   bool mLibraryScanning = false;
   bool mLibraryDefaultSaveFailed = false;

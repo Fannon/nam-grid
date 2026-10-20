@@ -27,20 +27,20 @@ audio; their gain controls take effect when a model is loaded. Slots are process
 right within each row. Both parallel rows receive the same output from IN4. There are no
 cross-connections, sends, feedback, drag/drop routing, or routing graph.
 
-- Click a slot's model name to open nested capture-folder menus, choose an individual `.nam`
-  file, select a built-in effect or cabinet IR, or clear the slot. `<` / `>` select NAM captures using
-  the shared search/category filter.
-- Click a slot ID to Copy/Move/Swap with a destination. Compact I/O and GR meters appear on
-  every card. See [SLOTS.md](SLOTS.md) for controls, state details and verification.
-- Choose the capture folder in Settings. The browser/default folder implementation is shared
-  with the dual prototype; the default preference file remains `NAMDualPrototype/library.json`.
+- Click a card to select it. The bottom panel shows only that module's controls; double-click
+  a card or click its bottom **Choose / Change** button to choose NAM, WAV IR, built-in effect or Clear.
+  `<` / `>` browse the filtered library across all configured folders.
+- Right-click a card to Copy/Move/Swap with a destination. Compact input/output meters appear on
+  every card; gate/compressor reduction is shown in the selected module panel. See [SLOTS.md](SLOTS.md).
+- Add NAM and IR folders in **Library & settings**. Multiple source folders and their subfolders
+  become nested selection menus. The default preference file remains `NAMDualPrototype/library.json`.
 - **Blend A / B** is the percentage of lane B: 0% uses A, 50% averages both, 100% uses B.
   It uses a smoothed linear crossfade. Two identical or empty lanes remain unity instead of
   becoming 6 dB louder. To use a single modeled lane without mixing in the other lane's dry
   signal, turn the blend fully toward the modeled lane.
-- Shared gate detection remains before the grid. Upstream gate attenuation, EQ, global WAV IR,
-  DC blocker and master remain after the grid. The shared gate is separate from slot gates;
-  turn it off when auditioning the new gate variants.
+- New instances have no shared gate, EQ or IR processing: add those as modules. Master and the
+  existing 5 Hz DC blocker remain after the grid. Recalled projects retain their legacy global
+  processing settings, with compatibility toggles in Settings when used; this preserves their sound.
 - The former Amp's optional calibration, output mode and Slim parameters apply to **IN2**,
   preserving old states. Settings labels identify IN2. Other slots use raw NAM levels with
   independent musical input gains/trims. Full/Lite is prepared outside audio and saved per slot.
@@ -145,8 +145,8 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 ## Manual DAW check
 
 1. Add `build-grid/out` to Bitwig's plugin locations and load **nam-grid**.
-2. Choose the NAM folder in Settings; load a pedal into IN1 and different full rigs into A1/B1.
-   Leave global IR bypassed for full rigs. Sweep Blend A/B and check unity/phase by ear.
+2. Add NAM and IR folders in Library & settings; load a pedal into IN1 and different full rigs into A1/B1.
+   Use no cabinet module for full rigs. Sweep Blend A/B and check unity/phase by ear.
 3. Load and bypass captures in all four rows. Verify that output-row changes affect both lanes.
    Listen to model loads, bypass and blend automation under sustained input.
 4. Save/reopen the project and verify all 16 selections and controls. Move a file, recall, and

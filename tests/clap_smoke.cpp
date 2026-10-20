@@ -1,9 +1,10 @@
 #include "A2Fixture.h"
 #include "ClapTestHost.h"
 #include <thread>
+#include "WinEditorCapture.h"
 int main(int argc, char** argv)
 {
-  assert(argc == 3);
+  assert(argc == 3 || argc == 4);
 #ifdef _WIN32
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
   assert(library);
@@ -48,6 +49,7 @@ int main(int argc, char** argv)
   };
   auto base = save().config();
   assert(params->count(plugin) == 284);
+  assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
   auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
@@ -65,6 +67,7 @@ int main(int argc, char** argv)
   base["Amp Trim"] = -2.;
   base["Output"] = -6.;
   base["CaptureFolder"] = fixtures.string();
+  base["CaptureFolders"] = {fixtures.string()};
   load(base);
   assert(save().config() == base);
   // Version-2 NAM-only grids migrate without changing their signal chain or gains.
@@ -91,6 +94,7 @@ int main(int argc, char** argv)
   // Older dual-stage states predate library settings; they remain readable.
   auto oldDual = base;
   oldDual.erase("CaptureFolder");
+  oldDual.erase("CaptureFolders");
   load(oldDual);
   assert(save().config()["CaptureFolder"] == "");
   load(base);
@@ -147,6 +151,32 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
+  for (const json& folders : {json(123), json::array({"valid", 123}), json::array({std::string("bad\0path", 8)}),
+                              json(std::vector<std::string>(33, "folder"))})
+  {
+    auto invalidFolders = base;
+    invalidFolders["CaptureFolders"] = folders;
+    Stream malformed;
+    malformed.string("###NAMGrid-v1###");
+    malformed.string(invalidFolders.dump());
+    assert(!loadBytes(malformed));
+    assert(save().config() == base);
+  }
+  auto inheritedProcessing = base;
+  inheritedProcessing["NoiseGateActive"] = 1.;
+  inheritedProcessing["ToneStack"] = 1.;
+  inheritedProcessing["IRToggle"] = 1.;
+  load(inheritedProcessing);
+  assert(save().config() == inheritedProcessing); // Earlier projects keep their global processing flags.
+  auto oneFolderState = base;
+  oneFolderState.erase("CaptureFolders");
+  load(oneFolderState); // Pre-multiple-folder projects still restore their library root.
+  assert(save().config() == base);
+  auto multipleFolders = base;
+  multipleFolders["CaptureFolders"] = {fixtures.string(), (fixtures / "IRs").string()};
+  load(multipleFolders);
+  assert(save().config() == multipleFolders);
+  load(base);
   Stream bad;
   bad.string("###NAMGrid-v1###");
   bad.string("{bad JSON");
@@ -522,8 +552,13 @@ int main(int argc, char** argv)
   std::filesystem::create_directories(librarySecond.parent_path());
   std::filesystem::copy_file(path2, libraryFirst, std::filesystem::copy_options::overwrite_existing);
   std::filesystem::copy_file(path1, librarySecond, std::filesystem::copy_options::overwrite_existing);
+  const auto irLibrary = fixtures / "ir-library";
+  std::filesystem::create_directories(irLibrary);
+  const auto libraryIR = irLibrary / "cabinet.wav";
+  std::filesystem::copy_file(irFile, libraryIR, std::filesystem::copy_options::overwrite_existing);
   auto browserState = cleared;
   browserState["CaptureFolder"] = libraryFolder.string();
+  browserState["CaptureFolders"] = {libraryFolder.string(), irLibrary.string()};
   load(browserState);
   auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
   assert(gui);
@@ -536,6 +571,13 @@ int main(int argc, char** argv)
   window.win32 = parent;
   assert(gui->set_parent(plugin, &window));
   pump();
+  if (argc == 4)
+  {
+    std::filesystem::create_directories(argv[3]);
+    // Opt-in preview mode shows only this host's editor, without activating the window.
+    SetWindowLongPtr(parent, GWL_STYLE, WS_POPUP);
+    SetWindowPos(parent, HWND_TOP, 0, 0, 1000, 800, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+  }
   auto* editor = GetWindow(parent, GW_CHILD);
   assert(editor);
   // Background indexing runs independently; pump the native UI timer to publish its result.
@@ -566,11 +608,13 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - 25));
     pumpFor(100);
   };
-  dragAt(125, 270);
+  dragAt(570, 690);
   assert(save().config()["IN 1 EQ Bass"] != 0.);
-  dragAt(340, 270);
+  click(390, 190); // Select IN2 Cut EQ; only its controls may receive gestures.
+  dragAt(570, 690);
   assert(save().config()["IN 2 EQ High Pass"] != 0.);
-  dragAt(620, 270);
+  click(610, 190); // Select IN3 IR loader.
+  dragAt(570, 690);
   assert(save().config()["IN 3 IR Level"] != -18.);
   const auto packedPath = fixtures / "packed-a2.nam";
   std::ofstream(packedPath) << fixture::packed().dump();
@@ -582,12 +626,13 @@ int main(int argc, char** argv)
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;
-  click(166, 202); // IN1 Full -> Lite; preparation happens on the idle/control thread.
+  click(170, 190); // Select IN1.
+  click(425, 701); // IN1 Full -> Lite; preparation happens on the idle/control thread.
   assert(save().config()["IN 1 Full Quality"] == 0.);
   for (int i = 0; i < 30; ++i)
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   auto liteSaved = save();
-  click(166, 202);
+  click(425, 701);
   assert(save().config()["IN 1 Full Quality"] == 1.);
   for (int i = 0; i < 30; ++i)
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
@@ -608,43 +653,78 @@ int main(int argc, char** argv)
   effectUI["SlotEffects"][1] = 3;
   load(effectUI);
   pumpFor(100);
-  auto dragKnob = [&](int x) {
-    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, 275));
-    SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, 250));
-    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, 250));
-    pumpFor(100);
-  };
-  dragKnob(125); // IN1 gate threshold
+  click(170, 190);
+  dragAt(570, 690); // Selected IN1 gate threshold.
   assert(save().config()["IN 1 Gate Threshold"] != effectUI["IN 1 Gate Threshold"]);
   assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
-  dragKnob(474); // IN2 compressor makeup
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
+  click(390, 190);
+  dragAt(850, 690); // Selected IN2 compressor makeup.
   assert(save().config()["IN 2 Comp Makeup"] != effectUI["IN 2 Comp Makeup"]);
   assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
-  // Next buttons must traverse the recursive library, rather than the current file's sibling folder.
-  click(450, 202); // IN 2 next
+  // Card dot bypass and bottom editor toggle must share the same automated parameter.
+  click(499, 163);
+  assert(save().config()["Amp Enabled"] == 0.);
+  click(499, 163);
+  assert(save().config()["Amp Enabled"] == 1.);
+  // Next buttons traverse the recursive library, rather than only the current file's siblings.
+  click(362, 701); // IN2 next.
   assert(host.dirty);
   assert(save().config()["SlotEffects"][1] == 0);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(450, 202);
+  click(362, 701);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == librarySecond);
-  click(235, 202); // IN 1 next
+  click(362, 701); // WAV from the second source becomes an IR loader automatically.
+  assert(save().config()["SlotEffects"][1] == 7);
+  assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == libraryIR);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "ir.bmp");
+  click(362, 701); // Cycling back switches cleanly to NAM again.
+  assert(save().config()["SlotEffects"][1] == 0);
+  assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
+  click(170, 190);
+  click(362, 701); // IN1 next.
   assert(save().config()["SlotEffects"][0] == 0);
   assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
-  click(200, 157);
+  click(200, 118);
   for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
     SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
-  click(450, 202);
+  click(390, 190);
+  click(362, 701);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(235, 337); // A1 next, with "amp" search active
+  click(170, 296);
+  click(362, 701); // A1 next, with "amp" search active.
   assert(std::filesystem::path(save().config()["SlotPaths"][4].get<std::string>()) == libraryFirst);
-  click(235, 472); // B1 next
+  click(170, 401);
+  click(362, 701); // B1 next.
   assert(std::filesystem::path(save().config()["SlotPaths"][8].get<std::string>()) == libraryFirst);
-  click(880, 607); // OUT4 next
+  click(830, 506);
+  click(362, 701); // OUT4 next.
   assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == libraryFirst);
+  // The settings page is opaque and intercepts clicks; grid/editor controls cannot receive them.
+  click(170, 190);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
+  const auto beforeSettings = save().config();
+  click(870, 119);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
+  dragAt(570, 690);
+  assert(save().config() == beforeSettings);
+  click(915, 44);
+  click(870, 119);
+  // Escape closes settings so the selected module becomes editable again.
+  SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(915, 44));
+  SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
+  pumpFor(100);
+  dragAt(570, 690);
+  assert(save().config()["Drive Input"] != beforeSettings["Drive Input"]);
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["CaptureFolder"] = libraryFolder.string();
+  unequal["CaptureFolders"] = {libraryFolder.string()};
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);
@@ -655,7 +735,8 @@ int main(int argc, char** argv)
   host.restart = false;
   auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
   assert(latency->get(plugin) == 54);
-  click(235, 472); // B1 gets one model (27 samples), while A stays 54 samples.
+  click(170, 401);
+  click(362, 701); // B1 gets one model (27 samples), while A stays 54 samples.
   if (host.callback)
   {
     host.callback = false;

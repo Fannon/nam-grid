@@ -1,0 +1,74 @@
+# Flat editor and library
+
+The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, dark flat
+surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
+selector or animated settings overlay is instantiated. Routing and audio parameter IDs stay fixed.
+
+The header contains blend and master. Sixteen compact cards show slot ID, file/effect name,
+type, enabled state and two peak bars. Click to select; only the selected module's controls
+appear in the bottom editor. Double-click a card or use Choose / Change in the editor to open
+the module menu. Its dot and the editor's Enabled / Bypassed switch share the same parameter.
+Right-click a card for Copy / Move / Swap. NAM has Input and Output trim plus Full/Lite where
+supported; IR has Level; built-ins have three controls. Reduction appears for selected dynamics.
+
+The bottom editors are independent containers with bounds enclosing their children. Their
+parameter bindings remain attached to their physical slots; selection changes visibility,
+never audio or automation ownership. The main card bounds do not clip the bottom panel.
+
+## Multiple sources
+
+Library & settings provides Add folder, Remove and Rescan all. Up to 32 roots are retained
+in project state and the per-user preference. More than seven roots scroll. Missing sources
+report an error while readable sources still populate. Canonical duplicate roots and overlapping
+file paths are deduplicated; identical source basenames receive distinct menu names. Root and
+nested folder names are searchable. The scanner runs on its existing background worker;
+latest request wins, and menus retain immutable snapshots while open.
+
+Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
+Cabinet. Selecting one (including via previous/next) uses LoadSlotIR, changing both slot type
+and processor; selecting NAM switches back. WAV contents are validated by the existing IR
+loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
+invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
+
+`CaptureFolders` is an additive field in schema 4. `CaptureFolder` remains a first-root alias
+for older readers. Older single-root projects and user preferences migrate automatically.
+Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
+before modifying project state. Removing a library source never deletes a file or unloads a module.
+
+## Older project processing
+
+New instance defaults disable the former shared gate, EQ and IR. Those stages are now chosen
+as modules. Their old host parameter IDs and saved values remain readable, so opening an old
+project preserves its sound. When any inherited processing is enabled, settings exposes Legacy
+gate / EQ / IR toggles to disable it. Previous IN2 input calibration/output-mode behavior remains
+in a flat settings section, separate from musical input gain. This change introduces no DSP latency.
+
+## Verification
+
+Windows CLAP and VST3 build with CMake. The existing library, DSP and CLAP tests cover mixed
+sources, overlap, duplicate basenames, filters, nested menu tags, missing roots, preference
+migration, folder-list state recall/rejection, native editor selection, knob ownership, bypass,
+quality changes and NAM-to-IR-to-NAM cycling. Native settings input interception is exercised.
+The editor is also rendered for visual review. Bitwig and macOS operation remain unverified.
+
+On Windows an optional fourth argument to `nam-clap-smoke` writes visual-review BMP artifacts.
+This opt-in mode temporarily shows its own editor without activating it, reads only that editor's
+OpenGL surface, then closes it; ordinary CTest keeps the editor hidden:
+
+```powershell
+# Run from build-grid; paths are relative to that working directory.
+.\NeuralAmpModeler\nam-clap-smoke.exe .\out\nam-grid.clap .. .\ui-preview
+```
+
+Manual DAW check:
+
+1. Close older plugin windows and rescan/load `nam-grid`. Check black background, readable text,
+   selected outline, names, meters and bottom controls at default and scaled sizes.
+2. Add one NAM root and a separate IR root; rescan. Search and navigate both through submenus.
+   Select a WAV: confirm WAV / IR and Level. Select a NAM: confirm Input / Output trim.
+3. Select NAM, gate, compressor and both EQ variants. Tweak controls and automate them; changing
+   selection must neither change audio nor redirect automation to a different slot.
+4. Open settings. Grid controls must not show through or respond. Close/Escape must return to
+   the same selection. Remove a source; its loaded modules must keep processing.
+5. Save/reopen the project. Check every library root, module file/type, gain, bypass and quality.
+   Open an older project with shared processing; verify its compatibility toggles and sound.

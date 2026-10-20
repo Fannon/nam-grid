@@ -628,9 +628,11 @@ public:
   void OnAttached() override { SetStr(PLUG()->GetCaptureFilter().search.c_str()); }
   void Draw(IGraphics& g) override
   {
-    IEditableTextControl::Draw(g);
+    g.FillRoundRect(IColor(255, 17, 19, 22), mRECT, 3.f);
+    g.DrawRoundRect(IColor(255, 47, 51, 57), mRECT, 3.f);
+    g.DrawText(mText, GetStr(), mRECT.GetHPadded(-10.f));
     if (!GetStr()[0])
-      g.DrawText(mText.WithFGColor(COLOR_GRAY), "Search captures...", mRECT);
+      g.DrawText(mText.WithFGColor(COLOR_GRAY), "Search NAM captures and IRs...", mRECT.GetHPadded(-10.f));
   }
   void OnTextEntryCompletion(const char* text, int valIdx) override
   {

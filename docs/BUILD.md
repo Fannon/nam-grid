@@ -61,24 +61,29 @@ is `.github/workflows/dual-prototype.yml`; it has not been run remotely in this 
 The 4x4 grid contains four serial input slots, two parallel four-slot lanes (A/B), and four
 serial output slots. Each slot loads NAM and has input gain, trim and bypass. Empty slots pass
 through. Blend is the percentage of lane B; 0% is A only, 50% averages both, and 100% is B only.
-Gate, EQ, global WAV IR and master remain shared controls around the grid. The old Amp calibration,
+The header contains only blend and master. Gate, EQ and cabinet IR are slot modules. The old Amp calibration,
 output mode and Slim apply to IN2. See [GRID.md](GRID.md) for routing, migration, measurements and limits.
 
 ### Capture folder browser
 
-Open **Settings (gear icon) → NAM capture folder** and choose your library directory.
-The folder is saved with project state and as the default for new instances. The default lives in
+Open **Library & settings / + Add folder** to add NAM and/or WAV IR directories (up to 32).
+Folders are saved with project state and as the default for new instances. The default lives in
 `NAMDualPrototype/library.json` beneath the current user's application-support directory;
-project recall overrides that default for the recalled instance. No library path is compiled in.
-**Rescan** refreshes the index after adding/moving files. **Clear** removes the folder setting
-and index; individual file loading remains available. It does not unload any active slot.
+project recall overrides that default for the recalled instance. Older single-folder preferences
+and projects still load. No library path is compiled in. **Rescan all** refreshes the index;
+**Remove** removes that source without unloading modules or deleting files. Scroll the list for
+more than seven folders. Duplicate/overlapping sources index each file once.
 
-Click a slot's **filename/selection text** to open the library menu. Subfolders become
-nested submenus. The slot menu also offers the ordinary single-file picker and Clear slot. Previous/next arrows
-cycle through the current library search/category results. The search field beside the IR selector
-matches all entered words across filenames, relative folders, model name, make and model metadata;
-press Enter to apply. The shared gear dropdown filters all NAM selectors. Neither filter changes
-audio until you select a capture. Search/filter choices are transient UI state.
+Select a card to edit it in the bottom module panel. Double-click the card or use **Choose / Change**
+in that panel to open its menu. Each library source has a submenu when multiple roots are configured;
+subfolders remain nested. Individual NAM/WAV file pickers and Clear slot remain available.
+Choosing a `.wav` entry automatically makes the slot an IR loader; choosing a `.nam` switches it
+back to NAM. The scanner treats WAV files as IR candidates; decoding/validation occurs only on load.
+Previous/next arrows cycle through the current search/category results, across all sources.
+The search field matches every entered word across filenames, relative folders, make/model metadata,
+gear and NAM/IR type; press Enter to apply. The gear dropdown filters both NAM and IR selectors.
+Filters do not change audio until a file is selected. Search/filter and selected-card choices are
+transient editor state. See [UI.md](UI.md) for the layout, compatibility and manual checks.
 
 The gear categories are **Amp + Cab, Amp Head, Cabinet, Pedal, Outboard, Spaces**, plus **Unknown**.
 Explicit `metadata.gear_type` takes priority (`amp_cab`/`full-rig`/`amp_pedal_cab`, `pedal`, `studio`, etc.).
@@ -96,11 +101,11 @@ subfolders; the nearest recognized category folder wins. Common aliases include 
 explicitly tagged acoustic pedal stays Pedal inside `Acoustic & Line`. A generic `Amps` folder or
 `amp` tag by itself stays Unknown because it doesn't establish cabinet inclusion. Classification does not analyze audio,
 validate inference compatibility, automatically change cabinet bypass, or restrict a stage's selection.
-NAM cabinets can load in any grid slot; WAV IR remains a single global processor.
+NAM cabinets and WAV IRs can load in any grid slot.
 
 Scanning runs on a background worker and reads metadata without constructing DSP models. The index
 stays in memory, with no database or cloud requests. All `.nam` files under the selected root are
-included (case-insensitive extension), including export/catalog subfolders; WAVs are not indexed.
+included alongside `.wav` IR candidates (case-insensitive extensions), including export/catalog subfolders.
 Directory symlinks are not followed. Gear/search text matching currently folds ASCII case only.
 A missing folder displays a status message without unloading selected models. Metadata inspection is
 not full model validation; malformed/unsupported models still fail gracefully through the normal loader.
@@ -117,7 +122,7 @@ short fade-out/swap/fade-in. A bypassed model retains its conversion latency thr
 delay and skips inference after its bypass ramp settles.
 
 The grid retains upstream's gate attenuation, EQ and global WAV IR after its final serial row.
-New built-in slot effects are a later increment.
+Gate, compressor, EQ and cabinet IR slot modules are included; see [SLOTS.md](SLOTS.md).
 
 ## Reproduce the CPU comparison
 

@@ -7,6 +7,7 @@ four-slot lanes, and four serial output slots. It retains native CLAP/VST3 and i
 Start with the [grid experiment](docs/GRID.md), [build instructions](docs/BUILD.md),
 [repository assessment](docs/PHASE0.md), and [verification report](docs/VERIFICATION.md).
 Slots also offer [simple noise gates and compressors](docs/EFFECTS.md), with three knobs per effect.
+[UI and library](docs/UI.md) explain the flat editor, selected-module panel and multiple NAM/IR folders.
 [Slot controls](docs/SLOTS.md) cover EQ, cabinet IRs, metering, Copy/Move/Swap and A2 Full/Lite.
 Windows builds and the automated harness are verified; Bitwig and macOS testing remain outstanding.
 

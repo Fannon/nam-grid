@@ -155,6 +155,35 @@ int main(int argc, char** argv)
   assert(ReadFolderSetting(preferences).empty());
   assert(WriteFolderSetting(preferences, ""));
   assert(ReadFolderSetting(preferences).empty());
+  // Mixed NAM/IR folders, overlapping roots and duplicate source basenames.
+  const auto sourceA = root / "Sources" / "A" / "Library";
+  const auto sourceB = root / "Sources" / "B" / "Library";
+  const auto namFile = write("Sources/A/Library/Amps/clean.nam", {{"gear_type", "amp_head"}});
+  const auto wavFile = sourceB / "Cabs" / "cab.WaV";
+  std::filesystem::create_directories(wavFile.parent_path());
+  std::ofstream(wavFile) << "candidate WAV; actual decode occurs only on load";
+  const auto mixed = ScanFolders({PathText(sourceA), PathText(sourceB), PathText(sourceA / "Amps")});
+  assert(mixed.error.empty() && mixed.captures.size() == 2);
+  const auto& ir = mixed.captures[1];
+  assert(ir.isIR && ir.gear == Gear::Cabinet && !ir.inferred);
+  assert(mixed.captures[0].relative.begin()->string() == "Library");
+  assert(ir.relative.begin()->string() == "Library (2)");
+  assert((Filter{"IR WAV", static_cast<int>(Gear::Cabinet)}.Matches(ir)));
+  assert((!Filter{"NAM", -1}.Matches(ir)));
+  FillMenu(menu, mixed, Filter{"", -1}, PathText(wavFile));
+  assert(menu.NItems() == 2);
+  auto* irLeaf = menu.GetItem(1)->GetSubmenu()->GetItem(0)->GetSubmenu()->GetItem(0);
+  assert(irLeaf->GetChecked() && mixed.captures[irLeaf->GetTag()].isIR);
+  const auto partial = ScanFolders({PathText(sourceA), PathText(root / "missing")});
+  assert(partial.captures.size() == 1 && !partial.error.empty());
+  const auto folders = std::vector<std::string>{PathText(sourceA), PathText(sourceB)};
+  assert(WriteFolderSettings(preferences, folders));
+  assert(ReadFolderSettings(preferences) == folders);
+  assert(NormalizeFolders({folders[0], folders[0], folders[1]}).size() == 2);
+  std::ofstream(preferences) << json{{"CaptureFolder", folders[0]}};
+  assert(ReadFolderSettings(preferences) == std::vector<std::string>{folders[0]});
+  std::ofstream(preferences) << json{{"CaptureFolders", {1, "bad"}}};
+  assert(ReadFolderSettings(preferences).empty());
   // A later folder request cancels stale results and can safely outlive a menu snapshot.
   Worker worker;
   worker.Request(PathText(root));

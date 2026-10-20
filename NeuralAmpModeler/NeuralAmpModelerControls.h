@@ -647,7 +647,7 @@ class NAMGearFilterControl : public IVButtonControl
 public:
   NAMGearFilterControl(const IRECT& bounds, const IVStyle& style)
   : IVButtonControl(bounds, nullptr, "All gear", style)
-  { SetTooltip("Filter both NAM selectors by gear type. Inferred categories are marked in the menus."); }
+  { SetTooltip("Filter NAM slots by gear type. Inferred categories are marked in the menus."); }
   void OnAttached() override
   {
     const auto gear = PLUG()->GetCaptureFilter().gear;
@@ -781,7 +781,7 @@ public:
 
   void OnAttached() override
   {
-    AddChildControl(new IVLabelControl(GetRECT().SubRectVertical(4, 0), "Model information:", mStyle));
+    AddChildControl(new IVLabelControl(GetRECT().SubRectVertical(4, 0), "IN 2 model information:", mStyle));
     AddNamedChildControl(new IVLabelControl(GetRECT().SubRectVertical(4, 1), "", mStyle), mControlNames.sampleRate);
     // AddNamedChildControl(
     //   new IVLabelControl(GetRECT().SubRectVertical(4, 2), "", mStyle), mControlNames.inputCalibrationLevel);
@@ -832,7 +832,7 @@ class OutputModeControl : public IVRadioButtonControl
 public:
   OutputModeControl(const IRECT& bounds, int paramIdx, const IVStyle& style, float buttonSize)
   : IVRadioButtonControl(
-      bounds, paramIdx, {}, "Output Mode", style, EVShape::Ellipse, EDirection::Vertical, buttonSize) {};
+      bounds, paramIdx, {}, "IN 2 Output Mode", style, EVShape::Ellipse, EDirection::Vertical, buttonSize) {};
 
   void SetNormalizedDisable(const bool disable)
   {
@@ -962,7 +962,7 @@ public:
         "The analog level, in dBu RMS, that corresponds to digital level of 0 dBFS peak in the host as its signal "
         "enters this plugin.");
       AddNamedChildControl(
-        new NAMSwitchControl(inputSwitchArea, kCalibrateInput, "Calibrate Input", mStyle, mSwitchBitmap),
+        new NAMSwitchControl(inputSwitchArea, kCalibrateInput, "Calibrate IN 2", mStyle, mSwitchBitmap),
         mControlNames.calibrateInput, kCtrlTagCalibrateInput);
 
       // Same-ish height & width as input controls

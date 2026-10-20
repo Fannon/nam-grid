@@ -1,5 +1,9 @@
 # Prototype verification — 2026-10-20
 
+**Grid experiment:** the current branch adds 16 fixed slots and parallel blending. See
+[GRID.md](GRID.md) for its additional tests, CPU measurements, build location and limitations.
+The original dual-model measurements and history below remain the checkpoint reference.
+
 ## Performed locally
 
 Windows x64 Release CLAP and VST3 builds succeed. CTest runs:

@@ -58,8 +58,8 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   OnParamReset(iplug::EParamSource::kPresetRecall);
   LEAVE_PARAMS_MUTEX
 
-  _ClearModel(0);
-  _ClearModel(1);
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    _ClearModel(slot);
   mCabinet.Publish(std::make_unique<PreparedIR>());
   mIRLoaded = false;
   const auto folder = config.value("CaptureFolder", std::string{});
@@ -69,12 +69,16 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   mNAMPath.Set(static_cast<std::string>(config["NAMPath"]).c_str());
   mIRPath.Set(static_cast<std::string>(config["IRPath"]).c_str());
 
-  if (mNAMPath.GetLength())
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
-    _StageModel(mNAMPath);
+    const std::string path = config.contains("SlotPaths") ? config["SlotPaths"][slot].get<std::string>()
+                             : slot == 0                  ? mDrivePath.Get()
+                             : slot == 1                  ? mNAMPath.Get()
+                                                          : "";
+    mSlotPaths[slot].Set(path.c_str());
+    if (!path.empty())
+      _StageModel(mSlotPaths[slot], slot);
   }
-  if (mDrivePath.GetLength())
-    _StageModel(mDrivePath, 0);
   if (mIRPath.GetLength())
   {
     _StageIR(mIRPath);

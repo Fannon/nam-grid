@@ -49,10 +49,12 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
   p->Reset(rate, 512);
   return p;
 }
+#include "GridTests.h"
+
 int main(int argc, char** argv)
 try
 {
-  assert(argc == 2);
+  assert(argc >= 2 && argc <= 6);
   nam::activations::Activation::enable_fast_tanh();
   nam::activations::ActivationPReLU prelu(std::vector<float>{.01f, .05f});
   Eigen::MatrixXf activationInput(2, 3);
@@ -153,6 +155,9 @@ try
     bypass.Process(data.data(), 1, true, 0, 0, false, 0, 0, 1);
     assert(std::isfinite(data[0]));
   }
+  TestFixedGrid();
+  if (argc > 2)
+    TestRealGrid(argc - 2, argv + 2);
   // Stress ownership: a producer can supersede pending items while audio adopts/retirement waits.
   struct Item
   {

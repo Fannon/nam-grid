@@ -1,7 +1,8 @@
 # Neural Amp Modeler Plug-in
 
-This development fork adds two NAM stages in series and native CLAP, using the official
-iPlug2 architecture. Start with the [build instructions](docs/BUILD.md),
+This branch experiments with a fixed 16-slot NAM grid: four serial input slots, two parallel
+four-slot lanes, and four serial output slots. It retains native CLAP/VST3 and iPlug2.
+Start with the [grid experiment](docs/GRID.md), [build instructions](docs/BUILD.md),
 [repository assessment](docs/PHASE0.md), and [verification report](docs/VERIFICATION.md).
 Windows builds and the automated harness are verified; Bitwig and macOS testing remain outstanding.
 

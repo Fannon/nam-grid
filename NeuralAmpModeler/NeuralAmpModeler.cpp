@@ -16,6 +16,7 @@
 #include "architecture.hpp"
 
 #include "NeuralAmpModelerControls.h"
+#include "NAMGridControls.h"
 
 using namespace iplug;
 using namespace igraphics;
@@ -78,7 +79,7 @@ static std::filesystem::path CaptureSettingsFile()
 {
   WDL_String support;
   AppSupportPath(support);
-  return support.GetLength() ? std::filesystem::u8path(support.Get()) / BUNDLE_NAME / "library.json"
+  return support.GetLength() ? std::filesystem::u8path(support.Get()) / "NAMDualPrototype" / "library.json"
                              : std::filesystem::path{};
 }
 
@@ -106,6 +107,14 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   GetParam(kAmpTrim)->InitGain("Amp Trim", 0., -40., 40., .1);
   GetParam(kAmpActive)->InitBool("Amp Enabled", true);
   GetParam(kSlim)->InitDouble("Slim", 0.0, 0.0, 1.0, 0.01);
+  for (size_t slot = 2; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    const auto name = GridSlotName(slot);
+    GetParam(SlotInputParam(slot))->InitGain((name + " In").c_str(), 0., -40., 40., .1);
+    GetParam(SlotTrimParam(slot))->InitGain((name + " Trim").c_str(), 0., -40., 40., .1);
+    GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
+  }
+  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "% B");
   const auto defaultFolder = nam_library::ReadFolderSetting(CaptureSettingsFile());
   if (!defaultFolder.empty())
     SetCaptureFolder(defaultFolder.c_str());
@@ -123,230 +132,82 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     return MakeGraphics(*this, PLUG_WIDTH, PLUG_HEIGHT, PLUG_FPS, scaleFactor);
   };
 
-  mLayoutFunc = [&](IGraphics* pGraphics) {
-    pGraphics->AttachCornerResizer(EUIResizerMode::Scale, false);
-    pGraphics->AttachTextEntryControl();
-    pGraphics->EnableMouseOver(true);
-    pGraphics->EnableTooltips(true);
-    pGraphics->EnableMultiTouch(true);
-
-    pGraphics->LoadFont("Roboto-Regular", ROBOTO_FN);
-    pGraphics->LoadFont("Michroma-Regular", MICHROMA_FN);
-
-    const auto gearSVG = pGraphics->LoadSVG(GEAR_FN);
-    const auto fileSVG = pGraphics->LoadSVG(FILE_FN);
-    const auto globeSVG = pGraphics->LoadSVG(GLOBE_ICON_FN);
-    const auto crossSVG = pGraphics->LoadSVG(CLOSE_BUTTON_FN);
-    const auto rightArrowSVG = pGraphics->LoadSVG(RIGHT_ARROW_FN);
-    const auto leftArrowSVG = pGraphics->LoadSVG(LEFT_ARROW_FN);
-    const auto modelIconSVG = pGraphics->LoadSVG(MODEL_ICON_FN);
-    const auto irIconOnSVG = pGraphics->LoadSVG(IR_ICON_ON_FN);
-    const auto irIconOffSVG = pGraphics->LoadSVG(IR_ICON_OFF_FN);
-    const auto slimIconSVG = pGraphics->LoadSVG(SLIMMABLE_ICON_FN);
-
-    const auto backgroundBitmap = pGraphics->LoadBitmap(BACKGROUND_FN);
-    const auto fileBackgroundBitmap = pGraphics->LoadBitmap(FILEBACKGROUND_FN);
-    const auto inputLevelBackgroundBitmap = pGraphics->LoadBitmap(INPUTLEVELBACKGROUND_FN);
-    const auto linesBitmap = pGraphics->LoadBitmap(LINES_FN);
-    const auto knobBackgroundBitmap = pGraphics->LoadBitmap(KNOBBACKGROUND_FN);
-    const auto switchHandleBitmap = pGraphics->LoadBitmap(SLIDESWITCHHANDLE_FN);
-    const auto meterBackgroundBitmap = pGraphics->LoadBitmap(METERBACKGROUND_FN);
-
-    const auto b = pGraphics->GetBounds();
-    const auto mainArea = b.GetPadded(-20);
-    const auto contentArea = mainArea.GetPadded(-10);
-    const auto titleHeight = 50.0f;
-    const auto titleArea = contentArea.GetFromTop(titleHeight);
-
-    // Areas for knobs
-    const auto knobsPad = 20.0f;
-    const auto knobsExtraSpaceBelowTitle = 25.0f;
-    const auto singleKnobPad = -2.0f;
-    const auto knobsArea = contentArea.GetFromTop(NAM_KNOB_HEIGHT)
-                             .GetReducedFromLeft(knobsPad)
-                             .GetReducedFromRight(knobsPad)
-                             .GetVShifted(titleHeight + knobsExtraSpaceBelowTitle);
-    const auto inputKnobArea = knobsArea.GetGridCell(0, kInputLevel, 1, numKnobs).GetPadded(-singleKnobPad);
-    const auto noiseGateArea = knobsArea.GetGridCell(0, kNoiseGateThreshold, 1, numKnobs).GetPadded(-singleKnobPad);
-    const auto bassKnobArea = knobsArea.GetGridCell(0, kToneBass, 1, numKnobs).GetPadded(-singleKnobPad);
-    const auto midKnobArea = knobsArea.GetGridCell(0, kToneMid, 1, numKnobs).GetPadded(-singleKnobPad);
-    const auto trebleKnobArea = knobsArea.GetGridCell(0, kToneTreble, 1, numKnobs).GetPadded(-singleKnobPad);
-    const auto outputKnobArea = knobsArea.GetGridCell(0, kOutputLevel, 1, numKnobs).GetPadded(-singleKnobPad);
-
-    const auto ngToggleArea =
-      noiseGateArea.GetVShifted(noiseGateArea.H()).SubRectVertical(2, 0).GetReducedFromTop(10.0f);
-    const auto eqToggleArea = midKnobArea.GetVShifted(midKnobArea.H()).SubRectVertical(2, 0).GetReducedFromTop(10.0f);
-
-    // Areas for model and IR
-    const auto fileWidth = 200.0f;
-    const auto fileHeight = 30.0f;
-    const auto irYOffset = 38.0f;
-    const auto modelArea = IRECT(200, 290, 400, 320);
-    const auto slimIconArea =
-      IRECT(modelArea.R + 6.f, modelArea.MH() - 14.f, modelArea.R + 6.f + 2.f * 28.f, modelArea.MH() + 14.f);
-    const auto modelIconArea = modelArea.GetFromLeft(30).GetTranslated(-40, 10);
-    const auto irArea = modelArea.GetVShifted(irYOffset);
-    const auto irSwitchArea = irArea.GetFromLeft(30.0f).GetHShifted(-40.0f).GetScaledAboutCentre(0.6f);
-
-    // Areas for meters
-    const auto inputMeterArea = contentArea.GetFromLeft(30).GetHShifted(-20).GetMidVPadded(100).GetVShifted(-25);
-    const auto outputMeterArea = contentArea.GetFromRight(30).GetHShifted(20).GetMidVPadded(100).GetVShifted(-25);
-
-    // Misc Areas
-    const auto settingsButtonArea = CornerButtonArea(b);
-
-    // Model loader button
-    auto loadModelCompletionHandler = [&](const WDL_String& fileName, const WDL_String& path) {
-      if (fileName.GetLength())
+  mLayoutFunc = [&](IGraphics* ui) {
+    ui->AttachCornerResizer(EUIResizerMode::Scale, false);
+    ui->AttachTextEntryControl();
+    ui->EnableMouseOver(true);
+    ui->EnableTooltips(true);
+    ui->LoadFont("Roboto-Regular", ROBOTO_FN);
+    ui->LoadFont("Michroma-Regular", MICHROMA_FN);
+    const auto b = ui->GetBounds();
+    ui->AttachPanelBackground(IColor(255, 18, 19, 22));
+    ui->AttachControl(new ITextControl(
+      IRECT(35, 12, 900, 49), "NAM GRID EXPERIMENT", IText(24.f, COLOR_WHITE, "Michroma-Regular", EAlign::Near)));
+    const auto compact = style.WithLabelText(IText(12.f, COLOR_WHITE, "Roboto-Regular"))
+                           .WithValueText(IText(12.f, COLOR_WHITE, "Roboto-Regular"));
+    ui->AttachControl(new IVKnobControl(IRECT(40, 55, 120, 133), kNoiseGateThreshold, "Gate", compact));
+    ui->AttachControl(new IVToggleControl(IRECT(125, 72, 185, 108), kNoiseGateActive, "Gate", compact));
+    ui->AttachControl(new IVKnobControl(IRECT(210, 55, 290, 133), kToneBass, "Bass", compact), -1, "EQ_KNOBS");
+    ui->AttachControl(new IVKnobControl(IRECT(295, 55, 375, 133), kToneMid, "Mid", compact), -1, "EQ_KNOBS");
+    ui->AttachControl(new IVKnobControl(IRECT(380, 55, 460, 133), kToneTreble, "Treble", compact), -1, "EQ_KNOBS");
+    ui->AttachControl(new IVToggleControl(IRECT(465, 72, 525, 108), kEQActive, "EQ", compact));
+    ui->AttachControl(new ITextControl(
+      IRECT(550, 65, 825, 124), "4 serial > 2 x 4 parallel > 4 serial", IText(14.f, COLOR_WHITE, "Roboto-Regular")));
+    ui->AttachControl(new IVKnobControl(IRECT(860, 55, 940, 133), kOutputLevel, "Master", compact));
+    ui->AttachControl(new NAMCaptureSearchControl(IRECT(40, 145, 350, 170)));
+    ui->AttachControl(new NAMGearFilterControl(IRECT(360, 145, 495, 170), compact));
+    const auto fileSVG = ui->LoadSVG(FILE_FN), crossSVG = ui->LoadSVG(CLOSE_BUTTON_FN);
+    const auto leftSVG = ui->LoadSVG(LEFT_ARROW_FN), rightSVG = ui->LoadSVG(RIGHT_ARROW_FN);
+    const auto globeSVG = ui->LoadSVG(GLOBE_ICON_FN);
+    auto loadIR = [this](const WDL_String& file, const WDL_String&) {
+      if (file.GetLength())
       {
-        // Sets mNAMPath and mStagedNAM
-        const std::string msg = _StageModel(fileName);
-        // TODO error messages like the IR loader.
-        if (msg.size())
-        {
-          std::stringstream ss;
-          ss << "Failed to load NAM model. Message:\n\n" << msg;
-          _ShowMessageBox(GetUI(), ss.str().c_str(), "Failed to load model!", kMB_OK);
-        }
-        std::cout << "Loaded: " << fileName.Get() << std::endl;
+        const auto result = _StageIR(file);
+        if (result != dsp::wav::LoadReturnCode::SUCCESS)
+          _ShowMessageBox(GetUI(), dsp::wav::GetMsgForLoadReturnCode(result).c_str(), "IR load failed", kMB_OK);
       }
     };
-
-    // IR loader button
-    auto loadIRCompletionHandler = [&](const WDL_String& fileName, const WDL_String& path) {
-      if (fileName.GetLength())
-      {
-        const dsp::wav::LoadReturnCode retCode = _StageIR(fileName);
-        if (retCode != dsp::wav::LoadReturnCode::SUCCESS)
-        {
-          std::stringstream message;
-          message << "Failed to load IR file " << fileName.Get() << ":\n";
-          message << dsp::wav::GetMsgForLoadReturnCode(retCode);
-
-          _ShowMessageBox(GetUI(), message.str().c_str(), "Failed to load IR!", kMB_OK);
-        }
-      }
-    };
-
-    pGraphics->AttachBackground(BACKGROUND_FN);
-    pGraphics->AttachControl(new IBitmapControl(b, linesBitmap));
-    pGraphics->AttachControl(new IVLabelControl(titleArea, "NAM DUAL PROTOTYPE", titleStyle));
-    pGraphics->AttachControl(new ISVGControl(modelIconArea, modelIconSVG));
-
-#ifdef NAM_PICK_DIRECTORY
-    const std::string defaultNamFileString = "Select model directory...";
-    const std::string defaultIRString = "Select IR directory...";
-#else
-    const std::string defaultNamFileString = "Select model...";
-    const std::string defaultIRString = "Select IR...";
-#endif
-    // Getting started page listing additional resources
-    const char* const getUrl = "https://www.neuralampmodeler.com/users#comp-marb84o5";
-    pGraphics->AttachControl(
-      new NAMFileBrowserControl(modelArea, kMsgTagClearModel, defaultNamFileString.c_str(), "nam",
-                                loadModelCompletionHandler, style, fileSVG, crossSVG, leftArrowSVG, rightArrowSVG,
-                                fileBackgroundBitmap, globeSVG, "Get NAM Models", getUrl),
-      kCtrlTagModelFileBrowser);
-
-    auto loadDrive = [&](const WDL_String& fileName, const WDL_String&) {
-      if (!fileName.GetLength())
-        return;
-      const auto error = _StageModel(fileName, 0);
-      if (!error.empty())
-        _ShowMessageBox(GetUI(), error.c_str(), "Drive model failed", kMB_OK);
-    };
-    pGraphics->AttachControl(
-      new NAMFileBrowserControl(IRECT(200, 240, 400, 270), kMsgTagClearDrive, "Select drive...", "nam", loadDrive,
-                                style, fileSVG, crossSVG, leftArrowSVG, rightArrowSVG, fileBackgroundBitmap, globeSVG,
-                                "NAM Models", getUrl),
-      kCtrlTagDriveFileBrowser);
-    pGraphics->AttachControl(new IVKnobControl(IRECT(45, 385, 145, 495), kDriveInput, "Drive In", style));
-    pGraphics->AttachControl(new IVKnobControl(IRECT(145, 385, 245, 495), kDriveTrim, "Drive Trim", style));
-    pGraphics->AttachControl(new IVKnobControl(IRECT(345, 385, 445, 495), kAmpTrim, "Amp Trim", style));
-    pGraphics->AttachControl(new IVToggleControl(IRECT(250, 405, 335, 465), kDriveActive, "Drive", style));
-    pGraphics->AttachControl(new IVToggleControl(IRECT(450, 405, 535, 465), kAmpActive, "Amp", style));
-    pGraphics->AttachControl(new IVLabelControl(IRECT(120, 240, 195, 270), "Drive", style));
-    pGraphics->AttachControl(new IVLabelControl(IRECT(120, 290, 195, 320), "Amp", style));
-    pGraphics->AttachControl(new NAMCaptureSearchControl(IRECT(150, 362, 400, 384)));
-    pGraphics->AttachControl(new NAMGearFilterControl(
-      IRECT(410, 362, 550, 384), style.WithLabelText(IText(13.f, COLOR_WHITE, "Roboto-Regular"))));
-
-    auto hideSlimOverlay = [](IControl* pCaller) {
-      IGraphics* ui = pCaller->GetUI();
-      if (auto* backdrop = ui->GetControlWithTag(kCtrlTagSlimOverlayBackdrop))
-        backdrop->Hide(true);
-      if (auto* knob = ui->GetControlWithTag(kCtrlTagSlimKnob))
-        knob->Hide(true);
-      ui->SetAllControlsDirty();
-    };
-    auto showSlimOverlay = [](IControl* pCaller) {
-      IGraphics* ui = pCaller->GetUI();
-      if (auto* backdrop = ui->GetControlWithTag(kCtrlTagSlimOverlayBackdrop))
-        backdrop->Hide(false);
-      if (auto* knob = ui->GetControlWithTag(kCtrlTagSlimKnob))
-        knob->Hide(false);
-      ui->SetAllControlsDirty();
-    };
-
-    pGraphics
-      ->AttachControl(
-        new NAMSquareButtonControl(slimIconArea, DefaultClickActionFunc, slimIconSVG), kCtrlTagSlimmableIcon)
-      ->SetAnimationEndActionFunction(showSlimOverlay)
-      ->Hide(true);
-
-    pGraphics->AttachControl(new ISVGSwitchControl(irSwitchArea, {irIconOffSVG, irIconOnSVG}, kIRToggle));
-    pGraphics->AttachControl(
-      new NAMFileBrowserControl(irArea, kMsgTagClearIR, defaultIRString.c_str(), "wav", loadIRCompletionHandler, style,
-                                fileSVG, crossSVG, leftArrowSVG, rightArrowSVG, fileBackgroundBitmap, globeSVG,
-                                "Get IRs", getUrl),
+    ui->AttachControl(
+      new NAMFileBrowserControl(IRECT(515, 140, 815, 174), kMsgTagClearIR, "Select global IR...", "wav", loadIR,
+                                compact, fileSVG, crossSVG, leftSVG, rightSVG, ui->LoadBitmap(FILEBACKGROUND_FN),
+                                globeSVG, "IRs", "https://www.neuralampmodeler.com"),
       kCtrlTagIRFileBrowser);
-    pGraphics->AttachControl(
-      new NAMSwitchControl(ngToggleArea, kNoiseGateActive, "Noise Gate", style, switchHandleBitmap));
-    pGraphics->AttachControl(new NAMSwitchControl(eqToggleArea, kEQActive, "EQ", style, switchHandleBitmap));
-
-    // The knobs
-    pGraphics->AttachControl(new NAMKnobControl(inputKnobArea, kInputLevel, "", style, knobBackgroundBitmap));
-    pGraphics->AttachControl(new NAMKnobControl(noiseGateArea, kNoiseGateThreshold, "", style, knobBackgroundBitmap));
-    pGraphics->AttachControl(
-      new NAMKnobControl(bassKnobArea, kToneBass, "", style, knobBackgroundBitmap), -1, "EQ_KNOBS");
-    pGraphics->AttachControl(
-      new NAMKnobControl(midKnobArea, kToneMid, "", style, knobBackgroundBitmap), -1, "EQ_KNOBS");
-    pGraphics->AttachControl(
-      new NAMKnobControl(trebleKnobArea, kToneTreble, "", style, knobBackgroundBitmap), -1, "EQ_KNOBS");
-    pGraphics->AttachControl(new NAMKnobControl(outputKnobArea, kOutputLevel, "", style, knobBackgroundBitmap));
-
-    // The meters
-    pGraphics->AttachControl(new NAMMeterControl(inputMeterArea, meterBackgroundBitmap, style), kCtrlTagInputMeter);
-    pGraphics->AttachControl(new NAMMeterControl(outputMeterArea, meterBackgroundBitmap, style), kCtrlTagOutputMeter);
-
-    // Settings/help/about box
-    pGraphics->AttachControl(new NAMCircleButtonControl(
-      settingsButtonArea,
-      [pGraphics](IControl* pCaller) {
-        pGraphics->GetControlWithTag(kCtrlTagSettingsBox)->As<NAMSettingsPageControl>()->HideAnimated(false);
+    ui->AttachControl(new IVToggleControl(IRECT(830, 145, 935, 170), kIRToggle, "Global IR", compact));
+    ui->AttachControl(new NAMGridWiringControl(b));
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    {
+      const float left = 90.f + 215.f * (slot % 4);
+      const float top = 190.f + 135.f * (slot / 4);
+      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 205.f, top + 120.f), slot, compact),
+                        kCtrlTagGridSlotBase + static_cast<int>(slot));
+    }
+    for (int row = 0; row < 4; ++row)
+      ui->AttachControl(new ITextControl(IRECT(28, 225.f + 135.f * row, 85, 270.f + 135.f * row),
+                                         row == 0   ? "INPUT"
+                                         : row == 1 ? "LANE A"
+                                         : row == 2 ? "LANE B"
+                                                    : "OUTPUT",
+                                         IText(12.f, COLOR_WHITE, "Roboto-Regular")));
+    ui->AttachControl(new ITextControl(IRECT(70, 730, 400, 778), "Input row > split A/B > blend > output row",
+                                       IText(13.f, COLOR_WHITE, "Roboto-Regular")));
+    ui->AttachControl(new IVKnobControl(IRECT(425, 720, 525, 795), kParallelBlend, "Blend A / B", compact));
+    ui->AttachControl(new ITextControl(IRECT(550, 730, 940, 778), "0% B = A only | 50% = equal | 100% B = B only",
+                                       IText(12.f, COLOR_WHITE, "Roboto-Regular")));
+    const auto meter = ui->LoadBitmap(METERBACKGROUND_FN);
+    ui->AttachControl(new NAMMeterControl(IRECT(5, 195, 24, 715), meter, compact), kCtrlTagInputMeter);
+    ui->AttachControl(new NAMMeterControl(IRECT(974, 195, 993, 715), meter, compact), kCtrlTagOutputMeter);
+    ui->AttachControl(new NAMCircleButtonControl(
+      CornerButtonArea(b),
+      [](IControl* caller) {
+        caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->As<NAMSettingsPageControl>()->HideAnimated(false);
       },
-      gearSVG));
-
-    pGraphics
-      ->AttachControl(new NAMSettingsPageControl(b, backgroundBitmap, inputLevelBackgroundBitmap, switchHandleBitmap,
-                                                 crossSVG, style, radioButtonStyle),
-                      kCtrlTagSettingsBox)
+      ui->LoadSVG(GEAR_FN)));
+    ui->AttachControl(
+        new NAMSettingsPageControl(b, ui->LoadBitmap(BACKGROUND_FN), ui->LoadBitmap(INPUTLEVELBACKGROUND_FN),
+                                   ui->LoadBitmap(SLIDESWITCHHANDLE_FN), crossSVG, style, radioButtonStyle),
+        kCtrlTagSettingsBox)
       ->Hide(true);
-
-    const auto slimKnobArea = b.GetCentredInside(100.f, NAM_KNOB_HEIGHT + 24.f);
-    pGraphics->AttachControl(new NAMSlimOverlayBackdropControl(b, hideSlimOverlay), kCtrlTagSlimOverlayBackdrop)
-      ->Hide(true);
-    pGraphics
-      ->AttachControl(new NAMKnobControl(slimKnobArea, kSlim, "Slim", style, knobBackgroundBitmap), kCtrlTagSlimKnob)
-      ->Hide(true);
-
-    pGraphics->ForAllControlsFunc([](IControl* pControl) {
-      pControl->SetMouseEventsWhenDisabled(true);
-      pControl->SetMouseOverWhenDisabled(true);
-    });
-
-    // pGraphics->GetControlWithTag(kCtrlTagOutNorm)->SetMouseEventsWhenDisabled(false);
-    // pGraphics->GetControlWithTag(kCtrlTagCalibrateInput)->SetMouseEventsWhenDisabled(false);
+    ui->ForAllControlsFunc([](IControl* control) { control->SetDirty(false); });
   };
 }
 
@@ -395,11 +256,20 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   }
 
   std::copy_n(triggerOutput[0], nFrames, mOutputPointers[0]);
-  mStages[0].Process(mOutputPointers[0], nFrames, GetParam(kDriveActive)->Bool(), GetParam(kDriveInput)->Value(),
-                     GetParam(kDriveTrim)->Value(), false, 0., 0, 1.);
-  mStages[1].Process(mOutputPointers[0], nFrames, GetParam(kAmpActive)->Bool(), GetParam(kInputLevel)->Value(),
-                     GetParam(kAmpTrim)->Value(), GetParam(kCalibrateInput)->Bool(),
-                     GetParam(kInputCalibrationLevel)->Value(), GetParam(kOutputMode)->Int(), GetParam(kSlim)->Value());
+  std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> controls;
+  for (size_t slot = 0; slot < controls.size(); ++slot)
+  {
+    auto& c = controls[slot];
+    c.enabled = GetParam(SlotActiveParam(slot))->Bool();
+    c.inputDB = GetParam(SlotInputParam(slot))->Value();
+    c.trimDB = GetParam(SlotTrimParam(slot))->Value();
+  }
+  // Preserve the former Amp's calibration/normalization controls on IN 2 for migrated states.
+  controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
+  controls[1].calibrationDB = GetParam(kInputCalibrationLevel)->Value();
+  controls[1].outputMode = GetParam(kOutputMode)->Int();
+  controls[1].slim = GetParam(kSlim)->Value();
+  mGrid.Process(mOutputPointers[0], nFrames, controls, GetParam(kParallelBlend)->Value() * .01);
   // Apply the noise gate after the NAM
   sample** gateGainOutput =
     noiseGateActive ? mNoiseGateGain.Process(mOutputPointers, numChannelsInternal, numFrames) : mOutputPointers;
@@ -462,7 +332,7 @@ void NeuralAmpModeler::OnReset()
   mInputSender.Reset(sampleRate);
   mOutputSender.Reset(sampleRate);
   // If there is a model or IR loaded, they need to be checked for resampling.
-  _ResetModelAndIR(sampleRate, GetBlockSize());
+  _ResetModelAndIR(sampleRate, maxBlockSize);
   mToneStack->Reset(sampleRate, maxBlockSize);
   _UpdateLatency();
   // Prime all reused DSP paths, including currently bypassed ones, outside ProcessBlock.
@@ -484,17 +354,51 @@ void NeuralAmpModeler::SetCaptureFolder(const char* folder, bool fromUI)
   {
     mLibraryDefaultSaveFailed = !nam_library::WriteFolderSetting(CaptureSettingsFile(), mCaptureFolder);
     _UpdateLibraryControls();
+    _NotifyHostStateChanged();
+  }
+}
+
+void NeuralAmpModeler::_NotifyHostStateChanged()
+{
 #ifdef CLAP_API
-    const auto* host = _host.host();
-    if (auto* state = static_cast<const clap_host_state*>(host->get_extension(host, CLAP_EXT_STATE)))
-      state->mark_dirty(host);
+  const auto* host = _host.host();
+  if (auto* state = static_cast<const clap_host_state*>(host->get_extension(host, CLAP_EXT_STATE)))
+    state->mark_dirty(host);
 #elif defined(VST3_API)
-    Steinberg::FUnknownPtr<Steinberg::Vst::IComponentHandler2> handler(GetComponentHandler());
-    if (handler)
-      handler->setDirty(true);
+  Steinberg::FUnknownPtr<Steinberg::Vst::IComponentHandler2> handler(GetComponentHandler());
+  if (handler)
+    handler->setDirty(true);
 #else
-    DirtyParametersFromUI();
+  DirtyParametersFromUI();
 #endif
+}
+
+std::string NeuralAmpModeler::GetSlotPath(size_t slot) const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  return slot < mSlotPaths.size() ? mSlotPaths[slot].Get() : "";
+}
+
+bool NeuralAmpModeler::IsSlotLoaded(size_t slot) const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  return slot < mSlotInfo.size() && mSlotInfo[slot].loaded;
+}
+
+std::string NeuralAmpModeler::LoadSlot(size_t slot, const char* path)
+{
+  const auto error = _StageModel(WDL_String(path), slot);
+  if (error.empty())
+    _NotifyHostStateChanged();
+  return error;
+}
+
+void NeuralAmpModeler::ClearSlot(size_t slot)
+{
+  if (slot < FixedNAMGrid::kSlots)
+  {
+    _ClearModel(slot);
+    _NotifyHostStateChanged();
   }
 }
 
@@ -535,7 +439,7 @@ std::string NeuralAmpModeler::GetCaptureStatus() const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (mCaptureFolder.empty())
-    return "Choose a folder for nested Drive / Amp menus.";
+    return "Choose a folder for nested NAM slot menus.";
   if (mLibraryScanning)
     return "Scanning NAM captures...";
   if (mLibraryDefaultSaveFailed)
@@ -573,7 +477,7 @@ void NeuralAmpModeler::OnIdle()
     mLibraryScanning = false;
     _UpdateLibraryControls();
   }
-  for (auto& stage : mStages)
+  for (auto& stage : mGrid.stages)
     stage.Collect();
   mCabinet.Collect();
   mInputSender.TransmitData(*this);
@@ -595,14 +499,17 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 1;
+  config["schema"] = 2;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
   config["CaptureFolder"] = mCaptureFolder;
+  config["SlotPaths"] = nlohmann::json::array();
+  for (const auto& path : mSlotPaths)
+    config["SlotPaths"].push_back(path.Get());
   for (int i = 0; i < kNumParams; ++i)
     config[GetParam(i)->GetName()] = GetParam(i)->Value();
-  chunk.PutStr("###NAMDual-v1###");
+  chunk.PutStr("###NAMGrid-v1###");
   return chunk.PutStr(config.dump().c_str()) > 0;
 }
 
@@ -617,14 +524,15 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     int pos = ReadStateString(chunk, header, startPos);
     if (pos < 0)
       return -1;
-    if (strcmp(header.Get(), "###NAMDual-v1###") == 0)
+    const bool grid = strcmp(header.Get(), "###NAMGrid-v1###") == 0;
+    if (grid || strcmp(header.Get(), "###NAMDual-v1###") == 0)
     {
       WDL_String serialized;
       pos = ReadStateString(chunk, serialized, pos);
       if (pos < 0)
         return -1;
       auto config = nlohmann::json::parse(serialized.Get());
-      if (!config.is_object() || config.value("schema", 0) != 1)
+      if (!config.is_object() || config.value("schema", 0) != (grid ? 2 : 1))
         return -1;
       for (const char* name : {"DrivePath", "NAMPath", "IRPath"})
         if (!config.contains(name) || !config[name].is_string() || config[name].get<std::string>().size() > 32768)
@@ -633,7 +541,25 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           && (!config["CaptureFolder"].is_string() || config["CaptureFolder"].get<std::string>().size() > 32768
               || config["CaptureFolder"].get<std::string>().find('\0') != std::string::npos))
         return -1;
-      for (int i = 0; i < kNumParams; ++i)
+      if (grid)
+      {
+        if (!config.contains("SlotPaths") || !config["SlotPaths"].is_array()
+            || config["SlotPaths"].size() != FixedNAMGrid::kSlots)
+          return -1;
+        for (const auto& path : config["SlotPaths"])
+          if (!path.is_string() || path.get<std::string>().size() > 32768
+              || path.get<std::string>().find('\0') != std::string::npos)
+            return -1;
+        if (config["SlotPaths"][0] != config["DrivePath"] || config["SlotPaths"][1] != config["NAMPath"])
+          return -1;
+      }
+      else
+      {
+        config.erase("SlotPaths");
+        for (int i = kDualNumParams; i < kNumParams; ++i)
+          config.erase(GetParam(i)->GetName());
+      }
+      for (int i = 0; i < (grid ? kNumParams : kDualNumParams); ++i)
       {
         const char* name = GetParam(i)->GetName();
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
@@ -657,17 +583,10 @@ void NeuralAmpModeler::OnUIOpen()
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   iplug::Plugin::OnUIOpen();
   _UpdateLibraryControls();
-  if (mDrivePath.GetLength())
-    SendControlMsgFromDelegate(
-      kCtrlTagDriveFileBrowser, kMsgTagLoadedModel, mDrivePath.GetLength() + 1, mDrivePath.Get());
-  if (mNAMPath.GetLength())
-    SendControlMsgFromDelegate(kCtrlTagModelFileBrowser, kMsgTagLoadedModel, mNAMPath.GetLength() + 1, mNAMPath.Get());
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
   if (mIRPath.GetLength())
     SendControlMsgFromDelegate(kCtrlTagIRFileBrowser, kMsgTagLoadedIR, mIRPath.GetLength() + 1, mIRPath.Get());
-  if (mDrivePath.GetLength() && !mDriveLoaded)
-    SendControlMsgFromDelegate(kCtrlTagDriveFileBrowser, kMsgTagLoadFailed);
-  if (mNAMPath.GetLength() && !mAmpInfo.loaded)
-    SendControlMsgFromDelegate(kCtrlTagModelFileBrowser, kMsgTagLoadFailed);
   if (mIRPath.GetLength() && !mIRLoaded)
     SendControlMsgFromDelegate(kCtrlTagIRFileBrowser, kMsgTagLoadFailed);
   _UpdateControlsFromModel();
@@ -778,8 +697,7 @@ void NeuralAmpModeler::_DeallocateIOPointers()
 
 void NeuralAmpModeler::_ResetModelAndIR(const double sampleRate, const int maxBlockSize)
 {
-  for (auto& stage : mStages)
-    stage.ResetStopped(sampleRate, maxBlockSize);
+  mGrid.ResetStopped(sampleRate, maxBlockSize);
   mCabinet.Collect();
   mCabinet.Adopt();
   mCabinet.Collect();
@@ -789,14 +707,16 @@ void NeuralAmpModeler::_ResetModelAndIR(const double sampleRate, const int maxBl
       cabinet->ir = std::make_unique<dsp::ImpulseResponse>(cabinet->ir->GetData(), sampleRate);
     cabinet->Prepare(maxBlockSize);
   }
-  for (size_t i = 0; i < mStages.size(); ++i)
-    mRequestedLatencies[i] = mStages[i].Latency();
+  for (size_t i = 0; i < mGrid.stages.size(); ++i)
+    mRequestedLatencies[i] = mGrid.stages[i].Latency();
 }
 
 std::string NeuralAmpModeler::_StageModel(const WDL_String& modelPath, size_t slot)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  const int tag = slot == 0 ? kCtrlTagDriveFileBrowser : kCtrlTagModelFileBrowser;
+  if (slot >= FixedNAMGrid::kSlots)
+    return "Invalid grid slot";
+  const int tag = kCtrlTagGridSlotBase + static_cast<int>(slot);
   try
   {
     auto model = nam::get_dsp(std::filesystem::u8path(modelPath.Get()));
@@ -805,25 +725,29 @@ std::string NeuralAmpModeler::_StageModel(const WDL_String& modelPath, size_t sl
     auto prepared = std::make_unique<NAMStage::Prepared>();
     prepared->model = std::make_unique<ResamplingNAM>(std::move(model), mSampleRatePrepared);
     prepared->Reset(mSampleRatePrepared, mMaxBlockPrepared);
+    if (prepared->latency > FixedNAMGrid::kMaxLaneDelay / 4)
+      throw std::runtime_error("Model conversion delay exceeds the grid's supported range");
     const auto info = prepared->Info();
     const bool latencyChanged = prepared->latency != mRequestedLatencies[slot];
     mRequestedLatencies[slot] = prepared->latency;
 #ifdef CLAP_API
-    mStages[slot].Publish(std::move(prepared), latencyChanged);
+    mGrid.stages[slot].Publish(std::move(prepared), latencyChanged);
 #else
-    mStages[slot].Publish(std::move(prepared));
+    mGrid.stages[slot].Publish(std::move(prepared));
 #endif
     if (slot == 0)
     {
       mDrivePath = modelPath;
       mDriveLoaded = true;
     }
-    else
+    else if (slot == 1)
     {
       mNAMPath = modelPath;
       mAmpInfo = info;
     }
-    _UpdateLatency();
+    mSlotPaths[slot] = modelPath;
+    mSlotInfo[slot] = info;
+    _UpdateLatency(latencyChanged);
     SendControlMsgFromDelegate(tag, kMsgTagLoadedModel, modelPath.GetLength() + 1, modelPath.Get());
     if (slot == 1)
       _UpdateControlsFromModel();
@@ -993,14 +917,17 @@ void NeuralAmpModeler::_UpdateControlsFromModel()
     auto* mode = static_cast<OutputModeControl*>(ui->GetControlWithTag(kCtrlTagOutputMode));
     mode->SetNormalizedDisable(!mAmpInfo.hasLoudness);
     mode->SetCalibratedDisable(!mAmpInfo.hasOutput);
-    ui->GetControlWithTag(kCtrlTagSlimmableIcon)->Hide(!mAmpInfo.slimmable);
+    if (auto* control = ui->GetControlWithTag(kCtrlTagSlimmableIcon))
+      control->Hide(!mAmpInfo.slimmable);
   }
 }
 
-void NeuralAmpModeler::_UpdateLatency()
+void NeuralAmpModeler::_UpdateLatency(bool forceRestart)
 {
-  const int latency = mRequestedLatencies[0] + mRequestedLatencies[1];
-  if (GetLatency() != latency)
+  const int latency = FixedNAMGrid::TotalLatency(mRequestedLatencies);
+  // A lane's delay can change while the longer lane and total host latency remain the same.
+  // CLAP must still reactivate to adopt/reset the pending model and alignment buffers.
+  if (GetLatency() != latency || forceRestart)
     SetLatency(latency);
 }
 
@@ -1019,22 +946,29 @@ void NeuralAmpModeler::_UpdateMeters(sample** inputPointer, sample** outputPoint
 void NeuralAmpModeler::_ClearModel(size_t slot)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (slot >= FixedNAMGrid::kSlots)
+    return;
   const bool latencyChanged = mRequestedLatencies[slot] != 0;
   mRequestedLatencies[slot] = 0;
 #ifdef CLAP_API
-  mStages[slot].Publish(std::make_unique<NAMStage::Prepared>(), latencyChanged);
+  mGrid.stages[slot].Publish(std::make_unique<NAMStage::Prepared>(), latencyChanged);
 #else
-  mStages[slot].Publish(std::make_unique<NAMStage::Prepared>());
+  mGrid.stages[slot].Publish(std::make_unique<NAMStage::Prepared>());
 #endif
   if (slot == 0)
   {
     mDrivePath.Set("");
     mDriveLoaded = false;
   }
-  else
+  else if (slot == 1)
   {
     mNAMPath.Set("");
     mAmpInfo = {};
   }
-  _UpdateLatency();
+  mSlotPaths[slot].Set("");
+  mSlotInfo[slot] = {};
+  if (slot == 1)
+    _UpdateControlsFromModel();
+  _UpdateLatency(latencyChanged);
+  SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
 }

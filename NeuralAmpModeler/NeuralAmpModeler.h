@@ -11,6 +11,7 @@
 #include "Colors.h"
 #include "ToneStack.h"
 #include "NAMStage.h"
+#include "FixedNAMGrid.h"
 #include "CaptureLibrary.h"
 #include <array>
 #include <mutex>
@@ -56,8 +57,20 @@ enum EParams
   kDriveActive,
   kAmpTrim,
   kAmpActive,
+  kGridSlotBase,
+  kParallelBlend = kGridSlotBase + 14 * 3,
   kNumParams
 };
+
+constexpr int kDualNumParams = kGridSlotBase;
+constexpr int SlotInputParam(size_t slot)
+{ return slot == 0 ? kDriveInput : slot == 1 ? kInputLevel : kGridSlotBase + (slot - 2) * 3; }
+constexpr int SlotTrimParam(size_t slot)
+{ return slot == 0 ? kDriveTrim : slot == 1 ? kAmpTrim : SlotInputParam(slot) + 1; }
+constexpr int SlotActiveParam(size_t slot)
+{ return slot == 0 ? kDriveActive : slot == 1 ? kAmpActive : SlotInputParam(slot) + 2; }
+inline std::string GridSlotName(size_t slot)
+{ return std::string(slot < 4 ? "IN " : slot < 8 ? "A " : slot < 12 ? "B " : "OUT ") + std::to_string(slot % 4 + 1); }
 
 const int numKnobs = 6;
 
@@ -77,6 +90,7 @@ enum ECtrlTags
   kCtrlTagDriveFileBrowser,
   kCtrlTagCaptureFolder,
   kCtrlTagCaptureStatus,
+  kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
 
@@ -121,6 +135,10 @@ public:
   std::shared_ptr<const nam_library::Snapshot> GetCaptureLibrary() const;
   nam_library::Filter GetCaptureFilter() const;
   void SetCaptureFilter(nam_library::Filter filter);
+  std::string GetSlotPath(size_t slot) const;
+  bool IsSlotLoaded(size_t slot) const;
+  std::string LoadSlot(size_t slot, const char* path);
+  void ClearSlot(size_t slot);
 
 private:
   // Allocates mInputPointers and mOutputPointers
@@ -170,8 +188,9 @@ private:
   void _UpdateControlsFromModel();
 
   // Make sure that the latency is reported correctly.
-  void _UpdateLatency();
+  void _UpdateLatency(bool forceRestart = false);
   void _UpdateLibraryControls();
+  void _NotifyHostStateChanged();
 
   // Update level meters
   // Called within ProcessBlock().
@@ -192,8 +211,9 @@ private:
   // Noise gates
   dsp::noise_gate::Trigger mNoiseGateTrigger;
   dsp::noise_gate::Gain mNoiseGateGain;
-  // Fixed slots: Drive, Amp, reserved Cabinet. Control methods serialize loading/reset.
-  std::array<NAMStage, 3> mStages;
+  FixedNAMGrid mGrid;
+  std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
+  std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
@@ -206,7 +226,7 @@ private:
   bool mDriveLoaded = false, mIRLoaded = false;
   double mSampleRatePrepared = 48000.0;
   int mMaxBlockPrepared = 2048;
-  std::array<int, 3> mRequestedLatencies{};
+  std::array<int, FixedNAMGrid::kSlots> mRequestedLatencies{};
   double mIRSwitchGain = 1.;
   // Tone stack modules
   std::unique_ptr<dsp::tone_stack::AbstractToneStack> mToneStack;

@@ -33,14 +33,17 @@ int main(int argc, char** argv)
     clap_istream in{&s, Stream::read};
     return state->load(plugin, &in);
   };
-  auto load = [&](const json& config) {
+  auto load = [&](json& config) {
+    // Keep the old path aliases in sync while exercising existing migration scenarios.
+    config["SlotPaths"][0] = config["DrivePath"];
+    config["SlotPaths"][1] = config["NAMPath"];
     Stream s;
-    s.string("###NAMDual-v1###");
+    s.string("###NAMGrid-v1###");
     s.string(config.dump());
     assert(loadBytes(std::move(s)));
   };
   auto base = save().config();
-  assert(params->count(plugin) == 18);
+  assert(params->count(plugin) == 61);
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
   auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
@@ -69,6 +72,26 @@ int main(int argc, char** argv)
   auto recalled = save();
   assert(loadBytes(recalled));
   assert(save().config() == base);
+  // The previous dual-stage format migrates into IN 1 / IN 2; the other 14 slots stay empty.
+  auto dual = base;
+  dual["schema"] = 1;
+  dual.erase("SlotPaths");
+  for (auto it = dual.begin(); it != dual.end();)
+    if (it.key().starts_with("IN ") || it.key().starts_with("OUT ") || it.key().starts_with("A ")
+        || it.key().starts_with("B ") || it.key() == "Parallel Blend")
+      it = dual.erase(it);
+    else
+      ++it;
+  Stream dualBytes;
+  dualBytes.string("###NAMDual-v1###");
+  dualBytes.string(dual.dump());
+  assert(loadBytes(dualBytes));
+  const auto dualMigrated = save().config();
+  assert(dualMigrated["SlotPaths"][0] == path1.string() && dualMigrated["SlotPaths"][1] == path2.string());
+  for (int slot = 2; slot < 16; ++slot)
+    assert(dualMigrated["SlotPaths"][slot] == "");
+  assert(dualMigrated["Parallel Blend"] == 50.);
+  load(base);
   Stream legacy;
   legacy.string("###NeuralAmpModeler###");
   legacy.string("0.8.0");
@@ -94,13 +117,13 @@ int main(int argc, char** argv)
     auto invalidFolder = base;
     invalidFolder["CaptureFolder"] = folder;
     Stream malformed;
-    malformed.string("###NAMDual-v1###");
+    malformed.string("###NAMGrid-v1###");
     malformed.string(invalidFolder.dump());
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
   Stream bad;
-  bad.string("###NAMDual-v1###");
+  bad.string("###NAMGrid-v1###");
   bad.string("{bad JSON");
   assert(!loadBytes(bad));
   assert(save().config() == base);
@@ -123,6 +146,22 @@ int main(int argc, char** argv)
   assert(save().config() == missing);
   load(base);
   clap_audio_port_info inInfo{}, outInfo{};
+  // Invalid later-slot paths or automation data must not partially change committed state.
+  for (int badSlot : {4, 8, 15})
+  {
+    auto malformedGrid = base;
+    malformedGrid["SlotPaths"][badSlot] = 123;
+    Stream badGrid;
+    badGrid.string("###NAMGrid-v1###");
+    badGrid.string(malformedGrid.dump());
+    assert(!loadBytes(badGrid));
+    assert(save().config() == base);
+  }
+  auto missingLater = base;
+  missingLater["SlotPaths"][15] = (fixtures / "missing-out4.nam").string();
+  load(missingLater);
+  assert(save().config() == missingLater);
+  load(base);
   assert(ports->get(plugin, 0, true, &inInfo));
   assert(ports->get(plugin, 0, false, &outInfo));
   assert(inInfo.channel_count <= 2 && outInfo.channel_count <= 2);
@@ -223,6 +262,40 @@ int main(int argc, char** argv)
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
   }
+  // Full grid: all 16 selections and their independent controls survive recall and process audio.
+  auto fullGrid = base;
+  for (int slot = 2; slot < 16; ++slot)
+  {
+    fullGrid["SlotPaths"][slot] = (slot % 2 ? path2 : path1).string();
+    const auto label = std::string(slot < 4    ? "IN "
+                                   : slot < 8  ? "A "
+                                   : slot < 12 ? "B "
+                                               : "OUT ")
+                       + std::to_string(slot % 4 + 1);
+    fullGrid[label + " In"] = .1 * slot;
+    fullGrid[label + " Trim"] = -.2 * slot;
+    fullGrid[label + " Enabled"] = slot % 3 == 0 ? 0. : 1.;
+  }
+  fullGrid["Parallel Blend"] = 37.;
+  load(fullGrid);
+  assert(save().config() == fullGrid);
+  for (double rate : {48000., 44100., 96000.})
+  {
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+    assert(latency->get(plugin) == (rate == 48000. ? 0 : rate == 44100. ? 324 : 504));
+    for (int block = 0; block < 12; ++block)
+    {
+      process.frames_count = std::array<int, 6>{1, 3, 127, 64, 256, 512}[block % 6];
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      for (uint32_t i = 0; i < process.frames_count; ++i)
+        assert(std::isfinite(output[0][i]));
+    }
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
+  assert(save().config() == fullGrid);
   auto cleared = base;
   cleared["DrivePath"] = "";
   cleared["NAMPath"] = "";
@@ -305,7 +378,7 @@ int main(int argc, char** argv)
   assert(gui);
   assert(gui->create(plugin, CLAP_WINDOW_API_WIN32, false));
   auto parent =
-    CreateWindowExW(0, L"STATIC", L"NAM test", 0, 0, 0, 600, 520, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+    CreateWindowExW(0, L"STATIC", L"NAM test", 0, 0, 0, 1000, 800, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
   assert(parent);
   clap_window window{};
   window.api = CLAP_WINDOW_API_WIN32;
@@ -330,18 +403,52 @@ int main(int argc, char** argv)
     pumpFor(250);
   };
   // Next buttons must traverse the recursive library, rather than the current file's sibling folder.
-  click(253, 305);
+  click(450, 202); // IN 2 next
+  assert(host.dirty);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(253, 305);
+  click(450, 202);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == librarySecond);
-  click(253, 255);
+  click(235, 202); // IN 1 next
   assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
-  click(200, 373);
+  click(200, 157);
   for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
     SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
-  click(253, 305);
+  click(450, 202);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
+  click(235, 337); // A1 next, with "amp" search active
+  assert(std::filesystem::path(save().config()["SlotPaths"][4].get<std::string>()) == libraryFirst);
+  click(235, 472); // B1 next
+  assert(std::filesystem::path(save().config()["SlotPaths"][8].get<std::string>()) == libraryFirst);
+  click(880, 607); // OUT4 next
+  assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == libraryFirst);
+  // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
+  auto unequal = cleared;
+  unequal["CaptureFolder"] = libraryFolder.string();
+  unequal["SlotPaths"][4] = libraryFirst.string();
+  unequal["SlotPaths"][5] = libraryFirst.string();
+  load(unequal);
+  assert(plugin->activate(plugin, 44100., 1, 512));
+  assert(plugin->start_processing(plugin));
+  process.frames_count = 512;
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  host.restart = false;
+  auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+  assert(latency->get(plugin) == 54);
+  click(235, 472); // B1 gets one model (27 samples), while A stays 54 samples.
+  if (host.callback)
+  {
+    host.callback = false;
+    plugin->on_main_thread(plugin);
+  }
+  assert(host.restart && latency->get(plugin) == 54);
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+  assert(plugin->activate(plugin, 44100., 1, 512));
+  assert(plugin->start_processing(plugin));
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
   gui->destroy(plugin);
   DestroyWindow(parent);
 #endif

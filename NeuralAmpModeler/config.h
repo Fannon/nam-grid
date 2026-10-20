@@ -1,14 +1,14 @@
-#define PLUG_NAME "NAM Dual Prototype"
+#define PLUG_NAME "NAM Grid Prototype"
 #define PLUG_MFR "Steven Atkinson"
 #define PLUG_VERSION_HEX 0x00000800
 #define PLUG_VERSION_STR "0.8.0"
-#define PLUG_UNIQUE_ID 'NDu1'
+#define PLUG_UNIQUE_ID 'NGr1'
 #define PLUG_MFR_ID 'SDAa'
 #define PLUG_URL_STR "https://github.com/sdatkinson/NeuralAmpModelerPlugin"
 #define PLUG_EMAIL_STR "spam@me.com"
 #define PLUG_COPYRIGHT_STR "Copyright 2022 Steven Atkinson"
 #define PLUG_CLASS_NAME NeuralAmpModeler
-#define BUNDLE_NAME "NAMDualPrototype"
+#define BUNDLE_NAME "NAMGridPrototype"
 #define BUNDLE_MFR "StevenAtkinson"
 #define BUNDLE_DOMAIN "com"
 
@@ -27,8 +27,8 @@
 #define PLUG_DOES_MPE 0
 #define PLUG_DOES_STATE_CHUNKS 1
 #define PLUG_HAS_UI 1
-#define PLUG_WIDTH 600
-#define PLUG_HEIGHT 520
+#define PLUG_WIDTH 1000
+#define PLUG_HEIGHT 800
 #define PLUG_FPS 60
 #define PLUG_SHARED_RESOURCES 0
 #define PLUG_HOST_RESIZE 0

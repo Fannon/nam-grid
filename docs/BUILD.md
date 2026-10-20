@@ -1,7 +1,7 @@
-# Build the Phase 1 prototype
+# Build the fixed-grid experiment
 
 The native UI and DSP remain based on the official NAM plugin. The plugin displays
-**NAM Dual Prototype**, has its own plugin ID (`NDu1`), and retains upstream's binary
+**NAM Grid Prototype**, has its own plugin ID (`NGr1`), and retains upstream's binary
 filename. Do not overwrite an official NAM installation with this prototype.
 
 ## Dependencies
@@ -22,9 +22,9 @@ From the repository root:
 git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
-cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release
-cmake --build build-native --config Release --target NeuralAmpModeler-clap NeuralAmpModeler-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests --parallel 3
-ctest --test-dir build-native -C Release --output-on-failure
+cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
+cmake --build build-grid --config Release --target NeuralAmpModeler-clap NeuralAmpModeler-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests --parallel 3
+ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
 For MSVC without the Visual Studio generator, use an x64 developer command prompt
@@ -40,14 +40,14 @@ patch is already applied, and refuses patches that cannot be applied cleanly.
 
 Output:
 
-- Windows CLAP: `build-native/out/NeuralAmpModeler.clap`
-- Windows VST3: `build-native/out/NeuralAmpModeler.vst3/Contents/x86_64-win/NeuralAmpModeler.vst3`
-- macOS CLAP/VST3: bundles under `build-native/out` (unverified).
+- Windows CLAP: `build-grid/out/NeuralAmpModeler.clap`
+- Windows VST3: `build-grid/out/NeuralAmpModeler.vst3/Contents/x86_64-win/NeuralAmpModeler.vst3`
+- macOS CLAP/VST3: bundles under `build-grid/out` (unverified).
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
 
 Automatic deployment is disabled. Point Bitwig at this build's `out` directory for
 local evaluation, or copy the artifact to a separate test location. The baseline benchmark
-plugin is built under `build-native/benchmark`, outside the artifact directory.
+plugin is built under `build-grid/benchmark`, outside the artifact directory.
 
 Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuration if their
 SDKs are absent. The existing Visual Studio solution/Xcode packaging scripts are retained
@@ -56,11 +56,11 @@ is `.github/workflows/dual-prototype.yml`; it has not been run remotely in this 
 
 ## Using the prototype
 
-The upper Input knob controls **Amp input**; the upper Output knob is the master output.
-The added lower row contains Drive input/trim, Amp trim and the two enable switches.
-The two `.nam` selectors identify Drive and Amp; the existing `.wav` selector is the cabinet IR.
-The initial output mode is Raw. Optional input calibration and output normalization/calibration
-in Settings apply to the Amp. Drive uses raw model levels and its musical gain/trim controls.
+The 4x4 grid contains four serial input slots, two parallel four-slot lanes (A/B), and four
+serial output slots. Each slot loads NAM and has input gain, trim and bypass. Empty slots pass
+through. Blend is the percentage of lane B; 0% is A only, 50% averages both, and 100% is B only.
+Gate, EQ, global WAV IR and master remain shared controls around the grid. The old Amp calibration,
+output mode and Slim apply to IN2. See [GRID.md](GRID.md) for routing, migration, measurements and limits.
 
 ### Capture folder browser
 
@@ -69,13 +69,13 @@ The folder is saved with project state and as the default for new instances. The
 `NAMDualPrototype/library.json` beneath the current user's application-support directory;
 project recall overrides that default for the recalled instance. No library path is compiled in.
 **Rescan** refreshes the index after adding/moving files. **Clear** removes the folder setting
-and restores the original sibling-file menus; it does not unload either active model.
+and index; individual file loading remains available. It does not unload any active slot.
 
-Click the Drive or Amp **filename/selection text** to open the library menu. Subfolders become
-nested submenus. The file icon still opens the ordinary single-file picker. Previous/next arrows
-cycle through the current library search/category results. The search field below the IR selector
+Click a slot's **filename/selection text** to open the library menu. Subfolders become
+nested submenus. The slot menu also offers the ordinary single-file picker and Clear slot. Previous/next arrows
+cycle through the current library search/category results. The search field beside the IR selector
 matches all entered words across filenames, relative folders, model name, make and model metadata;
-press Enter to apply. The shared gear dropdown filters both NAM selectors. Neither filter changes
+press Enter to apply. The shared gear dropdown filters all NAM selectors. Neither filter changes
 audio until you select a capture. Search/filter choices are transient UI state.
 
 The gear categories are **Amp + Cab, Amp Head, Cabinet, Pedal, Outboard, Spaces**, plus **Unknown**.
@@ -94,7 +94,7 @@ subfolders; the nearest recognized category folder wins. Common aliases include 
 explicitly tagged acoustic pedal stays Pedal inside `Acoustic & Line`. A generic `Amps` folder or
 `amp` tag by itself stays Unknown because it doesn't establish cabinet inclusion. Classification does not analyze audio,
 validate inference compatibility, automatically change cabinet bypass, or restrict a stage's selection.
-The Cabinet NAM slot is still a later milestone; the Cabinet category is currently descriptive.
+NAM cabinets can load in any grid slot; WAV IR remains a single global processor.
 
 Scanning runs on a background worker and reads metadata without constructing DSP models. The index
 stays in memory, with no database or cloud requests. All `.nam` files under the selected root are
@@ -114,19 +114,19 @@ request host restart; the new model waits for host reactivation. Same-latency lo
 short fade-out/swap/fade-in. A bypassed model retains its conversion latency through a dry
 delay and skips inference after its bypass ramp settles.
 
-This first increment keeps upstream's post-model gate attenuation and post-Amp EQ placement.
-Cabinet NAM selection, pre-Amp EQ placement, post EQ and the horizontal chain UI are later phases.
+The grid retains upstream's gate attenuation, EQ and global WAV IR after its final serial row.
+New built-in slot effects are a later increment.
 
 ## Reproduce the CPU comparison
 
 ```sh
 python scripts/prepare-baseline.py
-cmake -S . -B build-native -DNAM_BUILD_BASELINE=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build-native --config Release --target NAMBaseline-clap nam-clap-bench
+cmake -S . -B build-grid -DNAM_BUILD_BASELINE=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-grid --config Release --target NAMBaseline-clap nam-clap-bench
 ```
 
 Run `nam-clap-smoke` (or CTest) first to generate `fixtures/drive.nam` and `fixtures/amp.nam`
-in the test working directory. The benchmark executable is in `build-native/NeuralAmpModeler`
+in the test working directory. The benchmark executable is in `build-grid/NeuralAmpModeler`
 (or its `Release` subdirectory for Visual Studio). Run from any directory using absolute paths:
 
 ```text

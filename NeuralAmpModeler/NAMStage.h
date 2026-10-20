@@ -132,6 +132,8 @@ public:
     }
     else
     {
+      if (!switching && mSwitchGain >= 1.)
+        return samples; // Empty grid slots need no per-sample work once switching has settled.
       for (int i = 0; i < frames; ++i)
       {
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);

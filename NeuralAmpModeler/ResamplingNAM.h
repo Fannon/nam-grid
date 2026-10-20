@@ -101,6 +101,15 @@ public:
     const double mUpRatio = sampleRate / GetEncapsulatedSampleRate();
     const auto maxEncapsulatedBlockSize = static_cast<int>(std::ceil(static_cast<double>(preparationBlock) / mUpRatio));
     mEncapsulated->ResetAndPrewarm(GetEncapsulatedSampleRate(), maxEncapsulatedBlockSize);
+    // Legacy Buffer-based models (e.g. Linear) can have zero prewarm samples and lazily
+    // resize their audio buffers on the first process call. Prepare that capacity here.
+    if (dynamic_cast<nam::Buffer*>(mEncapsulated.get()) && NumInputChannels() == 1 && NumOutputChannels() == 1)
+    {
+      std::vector<NAM_SAMPLE> zeros(maxEncapsulatedBlockSize, 0.), output(maxEncapsulatedBlockSize, 0.);
+      NAM_SAMPLE* inputPtr = zeros.data();
+      NAM_SAMPLE* outputPtr = output.data();
+      mEncapsulated->process(&inputPtr, &outputPtr, maxEncapsulatedBlockSize);
+    }
   };
 
   // So that we can let the world know if we're resampling (useful for debugging)

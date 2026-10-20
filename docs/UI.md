@@ -2,14 +2,23 @@
 
 The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, dark flat
 surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
-selector or animated settings overlay is instantiated. Routing and audio parameter IDs stay fixed.
+selector or animated settings overlay is instantiated. Routing stays fixed. This unreleased prototype does not guarantee old parameter IDs or project compatibility.
 
 The header contains blend and master. Sixteen compact cards show slot ID, file/effect name,
-type, enabled state and two peak bars. Click to select; only the selected module's controls
+type, enabled state and slim input-left/output-right meters beside the card. Click to select; only the selected module's controls
 appear in the bottom editor. Double-click a card or use Choose / Change in the editor to open
 the module menu. Its dot and the editor's Enabled / Bypassed switch share the same parameter.
-Right-click a card for Copy / Move / Swap. NAM has Input and Output trim plus Full/Lite where
-supported; IR has Level; built-ins have three controls. Reduction appears for selected dynamics.
+Right-click a card for Copy / Move / Swap. The bottom editor always has six fixed positions,
+with up to five knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, Output trim;
+its neutral EQ acts after inference, not as controls of the captured amp. A2 Lite is in the
+module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
+Reduction appears for selected dynamics. The compact header contains only master/blend,
+library search, filter clearing, gear filter, match count/rescan and settings.
+
+Rows are Pre, A, B and Post. Actual IN/OUT ports sit outside the grid with direction arrows.
+Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
+green pedals, teal gates, yellow compressors, rose EQ, coral Boost/Tape, periwinkle
+modulation/filter, cyan delay and violet reverb. Unclassified NAM files remain neutral.
 
 The bottom editors are independent containers with bounds enclosing their children. Their
 parameter bindings remain attached to their physical slots; selection changes visibility,
@@ -18,10 +27,10 @@ never audio or automation ownership. The main card bounds do not clip the bottom
 ## Multiple sources
 
 Library & settings provides Add folder, Remove and Rescan all. Up to 32 roots are retained
-in project state and the per-user preference. More than seven roots scroll. Missing sources
+in project state and the per-user preference. Startup rescan is optional (default on); when off, use Rescan all. More than seven roots scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
 file paths are deduplicated; identical source basenames receive distinct menu names. Root and
-nested folder names are searchable. The scanner runs on its existing background worker;
+nested folder names are searchable. Search/gear filtering shows a match count and explicit Clear action; rescan does not discard the search. The scanner runs on its existing background worker;
 latest request wins, and menus retain immutable snapshots while open.
 
 Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
@@ -30,7 +39,7 @@ and processor; selecting NAM switches back. WAV contents are validated by the ex
 loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
 invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
 
-`CaptureFolders` is an additive field in schema 4. `CaptureFolder` remains a first-root alias
+`CaptureFolders` is retained in the current schema 6. `CaptureFolder` remains a first-root alias
 for older readers. Older single-root projects and user preferences migrate automatically.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
@@ -38,9 +47,8 @@ before modifying project state. Removing a library source never deletes a file o
 ## Older project processing
 
 New instance defaults disable the former shared gate, EQ and IR. Those stages are now chosen
-as modules. Their old host parameter IDs and saved values remain readable, so opening an old
-project preserves its sound. When any inherited processing is enabled, settings exposes Legacy
-gate / EQ / IR toggles to disable it. Previous IN2 input calibration/output-mode behavior remains
+as modules. Their old host parameter IDs and saved values remain readable, for the older formats that remain readable. Older unreleased grid states can require rebuilding after the Pre/Post parameter-name changes. When any inherited processing is enabled, settings exposes Legacy
+gate / EQ / IR toggles to disable it. Previous Pre 2 input calibration/output-mode behavior remains
 in a flat settings section, separate from musical input gain. This change introduces no DSP latency.
 
 ## Verification

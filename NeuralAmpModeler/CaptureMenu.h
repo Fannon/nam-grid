@@ -40,6 +40,12 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
       label.c_str(), PathText(capture.path) == selected ? Menu::Item::kChecked : 0, static_cast<int>(i)));
   }
   if (menu.NItems() == 0)
-    menu.AddItem("No matching NAM or IR files", -1, Menu::Item::kDisabled);
+  {
+    const auto label = library.captures.empty() ? std::string("Library has no indexed files")
+                       : !filter.search.empty()
+                         ? "No matches for search: " + filter.search
+                         : "No matches for gear: " + std::string(GearName(static_cast<Gear>(filter.gear)));
+    menu.AddItem(label.c_str(), -1, Menu::Item::kDisabled);
+  }
 }
 } // namespace nam_library

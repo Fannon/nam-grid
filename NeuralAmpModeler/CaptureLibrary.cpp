@@ -183,31 +183,34 @@ std::vector<std::string> NormalizeFolders(const std::vector<std::string>& folder
   return result;
 }
 
-std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile)
+Settings ReadSettings(const std::filesystem::path& settingsFile)
 {
+  Settings result;
   try
   {
     if (!std::filesystem::exists(settingsFile) || std::filesystem::file_size(settingsFile) > 1024 * 1024)
-      return {};
+      return result;
     std::ifstream stream(settingsFile, std::ios::binary);
     const auto config = nlohmann::json::parse(stream);
-    if (config.contains("CaptureFolders"))
-      return NormalizeFolders(config.at("CaptureFolders").get<std::vector<std::string>>());
-    return NormalizeFolders({config.value("CaptureFolder", std::string{})});
+    result.folders = config.contains("CaptureFolders")
+                       ? NormalizeFolders(config.at("CaptureFolders").get<std::vector<std::string>>())
+                       : NormalizeFolders({config.value("CaptureFolder", std::string{})});
+    result.rescanOnStartup = config.value("RescanOnStartup", true);
+    return result;
   }
   catch (const std::exception&)
   {
     return {};
   }
 }
-
-bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::vector<std::string>& folders)
+bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings)
 {
   try
   {
     std::filesystem::create_directories(settingsFile.parent_path());
     std::ofstream stream(settingsFile, std::ios::binary | std::ios::trunc);
-    stream << nlohmann::json{{"CaptureFolders", folders}}.dump(2);
+    stream << nlohmann::json{{"CaptureFolders", settings.folders}, {"RescanOnStartup", settings.rescanOnStartup}}.dump(
+      2);
     stream.close();
     return !stream.fail();
   }
@@ -215,6 +218,14 @@ bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::v
   {
     return false;
   }
+}
+std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile)
+{ return ReadSettings(settingsFile).folders; }
+bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::vector<std::string>& folders)
+{
+  auto settings = ReadSettings(settingsFile);
+  settings.folders = folders;
+  return WriteSettings(settingsFile, settings);
 }
 
 std::string ReadFolderSetting(const std::filesystem::path& settingsFile)

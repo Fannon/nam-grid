@@ -13,7 +13,13 @@ struct SlotConfig
   SlotEffect effect = SlotEffect::NAM;
   std::string path;
   // NAM in/trim/on, gate x3, compressor x3, Tone EQ x3, Cut EQ x3, IR level, Full quality.
-  std::array<double, 17> values{0., 0., 1., -55., 120., 60., -18., 120., 0., 0., 0., 0., 0., 20000., 0., -18., 1.};
+  std::array<double, 17 + kUtilityControls> values = [] {
+    std::array<double, 17 + kUtilityControls> result{
+      0., 0., 1., -55., 120., 60., -18., 120., 0., 0., 0., 0., 0., 20000., 0., -18., 1.};
+    for (int i = 0; i < kUtilityControls; ++i)
+      result[17 + i] = kEffectParameters[i].initial;
+    return result;
+  }();
 };
 struct PreparedSlot
 {
@@ -24,7 +30,7 @@ struct PreparedSlot
 // Control thread only. Prepare every affected resource before changing any slot.
 inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
 {
-  if (config.effect < SlotEffect::NAM || config.effect > SlotEffect::CabinetIR)
+  if (config.effect < SlotEffect::NAM || config.effect > SlotEffect::Tape)
     throw std::runtime_error("Invalid slot effect");
   auto p = std::make_unique<NAMStage::Prepared>();
   p->effect = config.effect;

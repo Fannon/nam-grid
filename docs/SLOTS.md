@@ -2,8 +2,9 @@
 
 These controls extend the fixed 4×4 grid on `experiment/fixed-4x4-grid`. Routing stays
 four serial input slots → two four-slot parallel lanes → four serial output slots.
-The plugin and its binaries are now named **nam-grid**. Host IDs, parameter IDs, state
-headers and the library preference location retain their existing values for compatibility.
+The plugin and binaries are **nam-grid**. See [MODULES.md](MODULES.md) for the complete
+module list. This prototype is unreleased: Pre/Post labels change host parameter names;
+old-project and automation-ID compatibility are not guaranteed.
 
 ## Using the cards
 
@@ -17,14 +18,14 @@ headers and the library preference location retain their existing values for com
 - All musical controls, bypass and model quality travel with the slot. Files are referenced,
   not moved or copied on disk. Each copied processor has independent DSP history.
 - Existing DAW automation envelopes stay attached to their physical slot parameter IDs.
-  Legacy IN2 input calibration/normalization settings remain attached to IN2 as before.
+  Legacy Pre 2 input calibration/normalization settings remain attached to Pre 2 as before.
 - Resources for both sides are prepared before an edit is committed. A missing/invalid
   source file, or an unavailable destination file during Swap, rejects the edit and leaves
   both slots unchanged. Edits may produce brief fades/dropouts while processors change.
 
 ## Level and reduction meters
 
-Each card has two peak bars (input left, output right), spanning -60 to 0 dBFS. Input is measured before
+Each card has two slim vertical peak bars beside it (input left, output right), spanning -60 to 0 dBFS. Input is measured before
 the slot's input gain, output after processing/trim/bypass. Red indicates a peak at or above
 0 dBFS and holds for one second. Floating-point audio is not hard-clipped by these meters.
 The selected module panel shows gate/compressor attenuation as a **Gain reduction** readout. Makeup gain
@@ -37,15 +38,18 @@ and are not saved in presets.
 
 ## Simple EQ
 
-Two three-knob choices show their controls in the bottom module editor:
+Three EQ choices show their controls in the six-position bottom module editor:
 
 | Effect | Controls | Defaults |
 | --- | --- | --- |
-| Tone EQ | Bass: 150 Hz low shelf; Mid: broad 800 Hz peak; Treble: 3 kHz high shelf | All 0 dB; ±12 dB range |
+| Guitar EQ | Bass: 150 Hz low shelf; Mid: broad 800 Hz peak; Treble: 3 kHz high shelf | All 0 dB; ±12 dB range |
 | Cut EQ | HP: 0–300 Hz; LP: 2–20 kHz; Presence: 3.5 kHz high shelf, ±6 dB | HP off at 0 Hz, LP off at 20 kHz, Presence 0 dB |
+| Parametric EQ | Bell 80–8000 Hz, ±12 dB, Q .3–4; HP and LP | 800 Hz, 0 dB, Q .7; cuts off |
 
-Cut filters use 12 dB/octave Butterworth responses (-3 dB at the selected cutoff). A neutral Tone EQ and an all-off Cut EQ
-pass unity. Place Tone EQ before an amp to shape its response; use Cut EQ after a cabinet
+NAM also exposes neutral Guitar EQ after inference and before trim.
+
+Cut filters use 12 dB/octave Butterworth responses (-3 dB at the selected cutoff). A neutral Guitar EQ and an all-off Cut EQ
+pass unity. Place Guitar EQ before an amp to shape its response; use Cut EQ after a cabinet
 to remove low rumble/high fizz. New instances use EQ modules; recalled legacy shared EQ settings are preserved.
 
 `SlotEQ.h` reuses the MIT-licensed AudioDSPTools low/high shelf and peak coefficient
@@ -81,9 +85,9 @@ paths and IR type for relinking, while that slot passes audio.
 
 ## A2 Full / Lite
 
-The selected NAM module editor shows **Full / Lite** when Core reports a slimmable model. A2 captures packaged
-with both submodels select them from the same `.nam` file. Fixed-size captures show a
-disabled Fixed badge; a smaller model cannot be synthesized from an arbitrary fixed model.
+The module menu offers **A2 Lite** when Core reports a slimmable model. A2 captures packaged
+with both submodels select them from the same `.nam` file. Fixed-size captures have no quality
+toggle; a smaller model cannot be synthesized from an arbitrary fixed model.
 The supported target is A2. No A1-specific implementation was added.
 
 The [Core size API](https://github.com/sdatkinson/NeuralAmpModelerCore/blob/main/NAM/slimmable.h)
@@ -94,7 +98,7 @@ allowed during changes. UI toggles and host automation requests are applied on t
 thread; rapid requests can coalesce. If the selected file disappears, the old processor stays
 active and the quality parameter reverts to the prepared value.
 
-Other slots append boolean Full Quality parameters. IN2 reuses the original `Slim` parameter
+Other slots append boolean Full Quality parameters. Pre 2 reuses the original `Slim` parameter
 (0 = Lite, 1 = Full), preserving its automation ID and old state. New projects default to
 Full. Saved quality travels with Copy/Move/Swap and is applied before audio is activated.
 
@@ -104,12 +108,12 @@ Typical captures are 48 kHz. Parallel lane compensation continues to follow actu
 
 ## State and verification
 
-The first 157 parameter IDs are retained. EQ/IR append seven parameters per slot, then
-15 Full Quality parameters (IN2 reuses Slim): **284 total**. Schema **4** retains the
-`###NAMGrid-v1###` header, `SlotPaths`, `SlotEffects`, and named parameter values. Effect IDs
-5/6/7 are Tone EQ / Cut EQ / Cabinet IR. Only NAM and IR accept file paths; the original
-DrivePath/NAMPath aliases identify NAM selections only. Schema 2 and 3, dual and upstream
-states still migrate. Older grid binaries cannot read schema 4.
+The current layout has **764 parameters**: the previous 284, then 30 utility/time-effect
+parameters per slot. Schema **6** stores paths, types and named values under
+`###NAMGrid-v1###`. IDs 0–9 cover NAM, dynamics, EQ, IR and Boost; 10/11 Filter/Swell;
+12–14 delays; 15–17 reverbs; 18–22 modulation; 23 Airwindows Tape. Only NAM/IR accept paths.
+Older-format readers remain where practical, but old unreleased project compatibility is not guaranteed.
+See [MODULES.md](MODULES.md) for the expanded test coverage and manual checklist.
 
 Windows x64 Release CLAP/VST3 builds and all three CTest suites pass. Added checks cover:
 
@@ -128,7 +132,7 @@ Windows x64 Release CLAP/VST3 builds and all three CTest suites pass. Added chec
 
 Ryzen 9 5950X / Windows x64 Release, 128-frame blocks, fastest of three timed 128,000-sample
 renders after warm-up. The complete chain is Natural Gate → two deterministic A2 models →
-Tone EQ → empty parallel lanes → 2048-tap synthetic cabinet IR → Cut EQ → Smooth Compressor.
+Guitar EQ → empty parallel lanes → 2048-tap synthetic cabinet IR → Cut EQ → Smooth Compressor.
 Meters are active. Cost is elapsed time as a percentage of one CPU core, not a DAW meter.
 
 | Host rate | Two models | Complete chain | Reported latency |

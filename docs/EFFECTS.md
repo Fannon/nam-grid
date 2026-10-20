@@ -1,3 +1,8 @@
+# Historical dynamics implementation notes
+
+For the current module list, controls, licensing and tests, see [MODULES.md](MODULES.md).
+Parameter counts, UI and measurements below describe the earlier dynamics checkpoint.
+
 # Slot dynamics
 
 Each grid slot now accepts a NAM capture, a noise gate or a compressor. Click its name,

@@ -110,6 +110,112 @@ void TestSlotFeatures()
         assert(magnitude(c, 10000.) > 1.9);
       }
     }
+    // Per-NAM tone EQ follows inference, precedes output trim, and adds no allocation or delay.
+    NAMStage toneStage;
+    toneStage.Publish(prepare(fixture::model(3, 123), rate));
+    toneStage.ResetStopped(rate, 512);
+    auto referenceModel = prepare(fixture::model(3, 123), rate);
+    SlotEQ referenceEQ;
+    referenceEQ.Reset(rate);
+    referenceEQ.Process(nullptr, 0, false, {});
+    EQControls tone;
+    std::array<double, 512> actual{}, referenceInput{}, referenceOutput{};
+    for (int block = 0; block < 80; ++block)
+    {
+      if (block == 8)
+      {
+        tone.bass = 6.;
+        tone.mid = -4.;
+        tone.treble = 3.;
+      }
+      if (block == 45)
+        tone = {};
+      const int n = std::array<int, 6>{1, 3, 64, 127, 256, 512}[block % 6];
+      for (int i = 0; i < n; ++i)
+      {
+        actual[i] = .1 * std::sin((block * 512 + i) * .04);
+        referenceInput[i] = actual[i] * std::pow(10., 6. * .05);
+      }
+      double* in = referenceInput.data();
+      double* out = referenceOutput.data();
+      allocations = deletions = 0;
+      tracking = true;
+      Eigen::internal::set_is_malloc_allowed(false);
+      toneStage.Process(actual.data(), n, true, 6., -3., false, 0., 0, 1., {}, tone);
+      referenceModel->model->process(&in, &out, n);
+      referenceEQ.Process(out, n, false, tone);
+      Eigen::internal::set_is_malloc_allowed(true);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      assert(toneStage.Latency() == referenceModel->latency);
+      for (int i = 0; i < n; ++i)
+        assert(std::abs(actual[i] - out[i] * std::pow(10., -3. * .05)) < 1.e-8);
+    }
+    if (rate == 48000.)
+    {
+      tone.bass = 12.;
+      for (int b = 0; b < 3; ++b)
+      {
+        actual.fill(.1);
+        toneStage.Process(actual.data(), 512, false, 6., -3., false, 0., 0, 1., {}, tone);
+        if (b > 0)
+          for (double x : actual)
+            assert(x == .1);
+      }
+    }
+    for (const auto effect : {SlotEffect::ParametricEQ, SlotEffect::Boost})
+    {
+      SlotConfig config;
+      config.effect = effect;
+      config.values[17] = 1000.;
+      config.values[18] = 6.;
+      config.values[19] = 1.;
+      config.values[20] = 6.;
+      auto copied = PrepareSlotEdit(config, SlotConfig{}, SlotEditMode::Copy, rate, 512);
+      assert(copied.destination.config.values == config.values);
+      NAMStage stage;
+      stage.Publish(std::move(copied.destination.dsp));
+      stage.ResetStopped(rate, 512);
+      UtilityControls settings{1000., 6., 1., 6.};
+      EQControls cuts;
+      std::array<double, 512> signal{};
+      double energyIn = 0., energyOut = 0.;
+      int position = 0, block = 0;
+      while (position < static_cast<int>(rate))
+      {
+        const int n =
+          std::min(std::array<int, 6>{1, 3, 64, 127, 256, 512}[block++ % 6], static_cast<int>(rate) - position);
+        for (int i = 0; i < n; ++i)
+        {
+          signal[i] = .05 * std::sin(6.283185307179586 * 1000. * (position + i) / rate);
+          if (position + i >= rate / 2)
+            energyIn += signal[i] * signal[i];
+        }
+        allocations = deletions = 0;
+        tracking = true;
+        Eigen::internal::set_is_malloc_allowed(false);
+        stage.Process(signal.data(), n, true, 0., 0., false, 0., 0, 1., {}, cuts, settings);
+        Eigen::internal::set_is_malloc_allowed(true);
+        tracking = false;
+        assert(allocations == 0 && deletions == 0 && stage.Latency() == 0);
+        for (int i = 0; i < n; ++i)
+        {
+          assert(std::isfinite(signal[i]));
+          if (position + i >= rate / 2)
+            energyOut += signal[i] * signal[i];
+        }
+        position += n;
+      }
+      assert(std::abs(std::sqrt(energyOut / energyIn) - std::pow(10., 6. * .05)) < .002);
+      for (int b = 0; b < 3; ++b)
+      {
+        signal.fill(.05);
+        stage.Process(signal.data(), 512, false, 0., 0., false, 0., 0, 1., {}, cuts, settings);
+        if (b > 0)
+          for (double x : signal)
+            assert(x == .05);
+      }
+    }
     SlotConfig cab;
     cab.effect = SlotEffect::CabinetIR;
     cab.path = irFile.string();

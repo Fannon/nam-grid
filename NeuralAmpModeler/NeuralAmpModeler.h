@@ -63,12 +63,16 @@ enum EParams
   kDynamicsBase,
   kEQBase = kDynamicsBase + 16 * 6,
   kQualityBase = kEQBase + 16 * 7,
-  kNumParams = kQualityBase + 15
+  kUtilityBase = kQualityBase + 15,
+  kNumParams = kUtilityBase + 16 * kUtilityControls
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
 constexpr int kGridV2NumParams = kDynamicsBase;
 constexpr int kGridV3NumParams = kEQBase;
+constexpr int kGridV5NumParams = kUtilityBase;
+constexpr int SlotUtilityParam(size_t slot, int control)
+{ return kUtilityBase + static_cast<int>(slot) * kUtilityControls + control; }
 constexpr int SlotEQParam(size_t slot, int control)
 { return kEQBase + static_cast<int>(slot) * 7 + control; }
 constexpr int SlotFullParam(size_t slot)
@@ -82,15 +86,17 @@ constexpr int SlotTrimParam(size_t slot)
 constexpr int SlotActiveParam(size_t slot)
 { return slot == 0 ? kDriveActive : slot == 1 ? kAmpActive : SlotInputParam(slot) + 2; }
 inline std::string GridSlotName(size_t slot)
-{ return std::string(slot < 4 ? "IN " : slot < 8 ? "A " : slot < 12 ? "B " : "OUT ") + std::to_string(slot % 4 + 1); }
-inline std::array<int, 17> SlotParamIndices(size_t slot)
+{ return std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ") + std::to_string(slot % 4 + 1); }
+inline std::array<int, 17 + kUtilityControls> SlotParamIndices(size_t slot)
 {
-  std::array<int, 17> result{SlotInputParam(slot), SlotTrimParam(slot), SlotActiveParam(slot)};
+  std::array<int, 17 + kUtilityControls> result{SlotInputParam(slot), SlotTrimParam(slot), SlotActiveParam(slot)};
   for (int i = 0; i < 6; ++i)
     result[3 + i] = SlotDynamicsParam(slot, i);
   for (int i = 0; i < 7; ++i)
     result[9 + i] = SlotEQParam(slot, i);
   result[16] = SlotFullParam(slot);
+  for (int i = 0; i < kUtilityControls; ++i)
+    result[17 + i] = SlotUtilityParam(slot, i);
   return result;
 }
 
@@ -112,6 +118,9 @@ enum ECtrlTags
   kCtrlTagDriveFileBrowser,
   kCtrlTagCaptureFolder,
   kCtrlTagCaptureStatus,
+  kCtrlTagCaptureSearch,
+  kCtrlTagGearFilter,
+  kCtrlTagClearFilter,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -158,6 +167,10 @@ public:
   size_t GetSelectedSlot() const { return mSelectedSlot; }
   void SelectSlot(size_t slot);
   void RescanCaptureFolder();
+  bool GetRescanOnStartup() const { return mRescanOnStartup; }
+  void SetRescanOnStartup(bool enabled);
+  std::string GetLibraryMatchStatus() const;
+  bool IsLibraryScanning() const { return mLibraryScanning; }
   std::string GetCaptureFolder() const;
   std::string GetCaptureStatus() const;
   std::shared_ptr<const nam_library::Snapshot> GetCaptureLibrary() const;
@@ -166,6 +179,7 @@ public:
   std::string GetSlotPath(size_t slot) const;
   bool IsSlotLoaded(size_t slot) const;
   SlotEffect GetSlotEffect(size_t slot) const;
+  nam_library::Gear GetSlotGear(size_t slot) const;
   bool CanToggleSlotQuality(size_t slot) const;
   void ToggleSlotQuality(size_t slot);
   void SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI = true);
@@ -184,6 +198,7 @@ private:
   // Sizes based on mInputArray
   size_t _GetBufferNumChannels() const;
   size_t _GetBufferNumFrames() const;
+  std::atomic<double> mEffectTailSeconds{2.};
   void _InitToneStack();
   // Loads/prepares a NAM model on the control thread, then publishes to its fixed slot.
   // Returns an empty string on success, or an error message on failure.
@@ -252,6 +267,7 @@ private:
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
+  std::array<nam_library::Gear, FixedNAMGrid::kSlots> mSlotGear{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
@@ -261,6 +277,8 @@ private:
   size_t mSelectedSlot = 0; // Editor selection only; never read by the audio thread.
   nam_library::Filter mCaptureFilter;
   bool mLibraryScanning = false;
+  bool mLibraryIndexed = false;
+  bool mRescanOnStartup = true;
   bool mLibraryDefaultSaveFailed = false;
   RealtimeExchange<PreparedIR> mCabinet;
   NAMModelInfo mAmpInfo;

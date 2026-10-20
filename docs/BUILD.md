@@ -62,7 +62,7 @@ The 4x4 grid contains four serial input slots, two parallel four-slot lanes (A/B
 serial output slots. Each slot loads NAM and has input gain, trim and bypass. Empty slots pass
 through. Blend is the percentage of lane B; 0% is A only, 50% averages both, and 100% is B only.
 The header contains only blend and master. Gate, EQ and cabinet IR are slot modules. The old Amp calibration,
-output mode and Slim apply to IN2. See [GRID.md](GRID.md) for routing, migration, measurements and limits.
+output mode and Slim apply to Pre 2. See [GRID.md](GRID.md) for routing, migration, measurements and limits.
 
 ### Capture folder browser
 

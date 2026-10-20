@@ -614,3 +614,33 @@ CONSEQUENTIAL DAMAGES ARISING OUT OF ANY USE OF THE SOFTWARE OR DOCUMENT.
 The name and trademarks of copyright holders may NOT be used in advertising or
 publicity pertaining to the work without specific, written prior permission.
 Title to copyright in this work will at all times remain with copyright holders.
+
+
+Airwindows Tape
+---------------
+SDK-free adaptation of Tape.h and the double-precision path in TapeProc.cpp.
+https://github.com/airwindows/airwindows/tree/b79c7a3f9053f408f38f740bef56ca3291a09ad4/plugins/WinVST/Tape
+Changes: explicit sample rate, deterministic local RNG seeds, mono grid adapter,
+smoothed Drive/Bump and wrapper Mix/Output controls. No VST2 SDK included.
+
+MIT License
+
+Copyright (c) 2018 Chris Johnson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

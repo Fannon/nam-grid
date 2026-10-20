@@ -145,6 +145,7 @@ int main(int argc, char** argv)
   assert(library.captures[leaf->GetTag()].path == unicode->path);
   FillMenu(menu, library, Filter{"does-not-exist", -1}, "");
   assert(menu.NItems() == 1 && !menu.GetItem(0)->GetEnabled());
+  assert(std::string(menu.GetItemText(0)).find("does-not-exist") != std::string::npos);
   assert(!Scan(root / "missing").error.empty());
   assert(Scan(root, [] { return true; }).captures.empty());
   const auto preferences = root / "settings" / "library.json";
@@ -184,6 +185,13 @@ int main(int argc, char** argv)
   assert(ReadFolderSettings(preferences) == std::vector<std::string>{folders[0]});
   std::ofstream(preferences) << json{{"CaptureFolders", {1, "bad"}}};
   assert(ReadFolderSettings(preferences).empty());
+  assert(ReadSettings(preferences).rescanOnStartup);
+  assert(WriteSettings(preferences, {folders, false}));
+  assert(!ReadSettings(preferences).rescanOnStartup && ReadSettings(preferences).folders == folders);
+  assert(WriteFolderSettings(preferences, {folders[0]}));
+  assert(!ReadSettings(preferences).rescanOnStartup); // Editing folders must retain the startup preference.
+  assert(WriteSettings(preferences, {folders, true}));
+  assert(ReadSettings(preferences).rescanOnStartup);
   // A later folder request cancels stale results and can safely outlive a menu snapshot.
   Worker worker;
   worker.Request(PathText(root));

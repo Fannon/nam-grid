@@ -2,6 +2,7 @@
 #include "ClapTestHost.h"
 #include <thread>
 #include "WinEditorCapture.h"
+#include "../NeuralAmpModeler/EffectParameters.h"
 int main(int argc, char** argv)
 {
   assert(argc == 3 || argc == 4);
@@ -48,7 +49,7 @@ int main(int argc, char** argv)
     assert(loadBytes(std::move(s)));
   };
   auto base = save().config();
-  assert(params->count(plugin) == 284);
+  assert(params->count(plugin) == 284 + 16 * kUtilityControls);
   assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
   const auto fixtures = std::filesystem::current_path() / "fixtures";
   std::filesystem::create_directories(fixtures);
@@ -106,7 +107,7 @@ int main(int argc, char** argv)
   dual["schema"] = 1;
   dual.erase("SlotPaths");
   for (auto it = dual.begin(); it != dual.end();)
-    if (it.key().starts_with("IN ") || it.key().starts_with("OUT ") || it.key().starts_with("A ")
+    if (it.key().starts_with("Pre ") || it.key().starts_with("Post ") || it.key().starts_with("A ")
         || it.key().starts_with("B ") || it.key() == "Parallel Blend")
       it = dual.erase(it);
     else
@@ -162,6 +163,22 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
+  auto namEQState = base;
+  namEQState["Pre 1 EQ Bass"] = 6.;
+  namEQState["Pre 1 EQ Mid"] = -3.;
+  load(namEQState);
+  assert(save().config() == namEQState);
+  auto utilityState = base;
+  utilityState["SlotEffects"][0] = 8;
+  utilityState["SlotPaths"][0] = "";
+  utilityState["DrivePath"] = "";
+  utilityState["Pre 1 Parametric Frequency"] = 1200.;
+  utilityState["Pre 1 Parametric Gain"] = -5.;
+  utilityState["Pre 1 Parametric Q"] = 1.3;
+  utilityState["SlotEffects"][15] = 9;
+  utilityState["Post 4 Boost Gain"] = 9.;
+  load(utilityState);
+  assert(save().config() == utilityState);
   auto inheritedProcessing = base;
   inheritedProcessing["NoiseGateActive"] = 1.;
   inheritedProcessing["ToneStack"] = 1.;
@@ -190,7 +207,7 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
-  for (const json& badEffect : {json(-1), json(8), json(1.5), json("gate"), json(18446744073709551615ull)})
+  for (const json& badEffect : {json(-1), json(99), json(1.5), json("gate"), json(18446744073709551615ull)})
   {
     auto malformedEffect = base;
     malformedEffect["SlotEffects"][15] = badEffect;
@@ -332,10 +349,10 @@ int main(int argc, char** argv)
   for (int slot = 2; slot < 16; ++slot)
   {
     fullGrid["SlotPaths"][slot] = (slot % 2 ? path2 : path1).string();
-    const auto label = std::string(slot < 4    ? "IN "
+    const auto label = std::string(slot < 4    ? "Pre "
                                    : slot < 8  ? "A "
                                    : slot < 12 ? "B "
-                                               : "OUT ")
+                                               : "Post ")
                        + std::to_string(slot % 4 + 1);
     fullGrid[label + " In"] = .1 * slot;
     fullGrid[label + " Trim"] = -.2 * slot;
@@ -431,10 +448,10 @@ int main(int argc, char** argv)
   auto dynamics = cleared;
   for (int slot = 0; slot < 16; ++slot)
     dynamics["SlotEffects"][slot] = slot % 4 + 1;
-  dynamics["IN 1 Gate Threshold"] = -65.;
+  dynamics["Pre 1 Gate Threshold"] = -65.;
   dynamics["A 1 Gate Decay"] = 75.;
   dynamics["B 3 Comp Release"] = 240.;
-  dynamics["OUT 4 Comp Makeup"] = 3.;
+  dynamics["Post 4 Comp Makeup"] = 3.;
   load(dynamics);
   assert(save().config() == dynamics);
   auto effectsBytes = save();
@@ -467,7 +484,7 @@ int main(int argc, char** argv)
     for (uint32_t i = 0; i < params->count(plugin); ++i)
     {
       assert(params->get_info(plugin, i, &target));
-      if (std::strcmp(target.name, "OUT 4 Comp Makeup") == 0)
+      if (std::strcmp(target.name, "Post 4 Comp Makeup") == 0)
       {
         found = true;
         break;
@@ -487,7 +504,7 @@ int main(int argc, char** argv)
     process.in_events = &changes;
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
     process.in_events = &events;
-    assert(save().config()["OUT 4 Comp Makeup"] == 6.);
+    assert(save().config()["Post 4 Comp Makeup"] == 6.);
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
     load(dynamics);
@@ -496,15 +513,15 @@ int main(int argc, char** argv)
   auto eqIR = cleared;
   eqIR["SlotEffects"][0] = 7;
   eqIR["SlotPaths"][0] = irFile.string();
-  eqIR["IN 1 IR Level"] = -12.;
+  eqIR["Pre 1 IR Level"] = -12.;
   eqIR["SlotEffects"][3] = 5;
-  eqIR["IN 4 EQ Bass"] = 3.;
-  eqIR["IN 4 EQ Mid"] = -4.;
-  eqIR["IN 4 EQ Treble"] = 2.;
+  eqIR["Pre 4 EQ Bass"] = 3.;
+  eqIR["Pre 4 EQ Mid"] = -4.;
+  eqIR["Pre 4 EQ Treble"] = 2.;
   eqIR["SlotEffects"][12] = 6;
-  eqIR["OUT 1 EQ High Pass"] = 75.;
-  eqIR["OUT 1 EQ Low Pass"] = 7500.;
-  eqIR["OUT 1 EQ Presence"] = -2.;
+  eqIR["Post 1 EQ High Pass"] = 75.;
+  eqIR["Post 1 EQ Low Pass"] = 7500.;
+  eqIR["Post 1 EQ Presence"] = -2.;
   load(eqIR);
   assert(save().config() == eqIR);
   const auto eqIRBytes = save();
@@ -542,6 +559,44 @@ int main(int argc, char** argv)
   invalidIR["SlotPaths"][0] = (fixtures / "invalid.nam").string();
   load(invalidIR);
   assert(save().config() == invalidIR);
+  load(base);
+  // Full state recall and processing of every new effect at all supported test rates.
+  auto timeEffects = cleared;
+  for (int slot = 0; slot < 16; ++slot)
+    timeEffects["SlotEffects"][slot] = 10 + slot % 14;
+  timeEffects["Pre 3 Delay Time"] = 123.;
+  timeEffects["Pre 4 Delay Character"] = 67.;
+  timeEffects["A 2 Reverb Decay"] = 3.4;
+  timeEffects["B 1 Mod Rate"] = 2.3;
+  timeEffects["Post 2 Tape Drive"] = 5.;
+  load(timeEffects);
+  assert(save().config() == timeEffects);
+  auto timeSaved = save();
+  load(base);
+  assert(loadBytes(timeSaved));
+  assert(save().config() == timeEffects);
+  for (double rate : {44100., 48000., 88200., 96000., 192000.})
+  {
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    const auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+    assert(latency->get(plugin) == 0);
+    const auto* tail = static_cast<const clap_plugin_tail*>(plugin->get_extension(plugin, CLAP_EXT_TAIL));
+    assert(tail && tail->get(plugin) > static_cast<uint32_t>(rate * 100.));
+    assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
+
+    for (int b = 0; b < 40; ++b)
+    {
+      process.frames_count = std::array<int, 6>{1, 3, 64, 127, 256, 512}[b % 6];
+      for (uint32_t i = 0; i < process.frames_count; ++i)
+        input[0][i] = input[1][i] = .2 * std::sin((b * 512 + i) * .03);
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      for (uint32_t i = 0; i < process.frames_count; ++i)
+        assert(std::isfinite(output[0][i]) && output[0][i] == output[1][i]);
+    }
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
   load(base);
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
@@ -595,6 +650,8 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  click(890, 90); // Manual rescan works even if startup scanning is disabled in user preferences.
+  pumpFor(250);
   auto eqUI = browserState;
   eqUI["SlotEffects"][0] = 5;
   eqUI["SlotEffects"][1] = 6;
@@ -608,38 +665,135 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - 25));
     pumpFor(100);
   };
-  dragAt(570, 690);
-  assert(save().config()["IN 1 EQ Bass"] != 0.);
-  click(390, 190); // Select IN2 Cut EQ; only its controls may receive gestures.
-  dragAt(570, 690);
-  assert(save().config()["IN 2 EQ High Pass"] != 0.);
-  click(610, 190); // Select IN3 IR loader.
-  dragAt(570, 690);
-  assert(save().config()["IN 3 IR Level"] != -18.);
+  dragAt(105, 700);
+  assert(save().config()["Pre 1 EQ Bass"] != 0.);
+  click(390, 160); // Select IN2 Cut EQ; only its controls may receive gestures.
+  dragAt(105, 700);
+  assert(save().config()["Pre 2 EQ High Pass"] != 0.);
+  click(610, 160); // Select IN3 IR loader.
+  dragAt(105, 700);
+  assert(save().config()["Pre 3 IR Level"] != -18.);
+  auto utilities = browserState;
+  utilities["SlotEffects"][0] = 8;
+  utilities["SlotEffects"][1] = 9;
+  utilities["Pre 1 EQ Low Pass"] = 10000.;
+  load(utilities);
+  click(170, 160);
+  for (int x : {105, 257, 409, 561, 713})
+    dragAt(x, 700);
+  auto editedUtility = save().config();
+  assert(editedUtility["Pre 1 Parametric Frequency"] != utilities["Pre 1 Parametric Frequency"]);
+  assert(editedUtility["Pre 1 Parametric Gain"] != utilities["Pre 1 Parametric Gain"]);
+  assert(editedUtility["Pre 1 Parametric Q"] != utilities["Pre 1 Parametric Q"]);
+  assert(editedUtility["Pre 1 EQ High Pass"] != utilities["Pre 1 EQ High Pass"]);
+  assert(editedUtility["Pre 1 EQ Low Pass"] != utilities["Pre 1 EQ Low Pass"]);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "parametric-eq.bmp");
+  click(390, 160);
+  dragAt(105, 700);
+  assert(save().config()["Pre 2 Boost Gain"] != utilities["Pre 2 Boost Gain"]);
+  dragAt(257, 700); dragAt(409, 700);
+  assert(save().config()["Pre 2 Boost Tilt"] != utilities["Pre 2 Boost Tilt"]);
+  assert(save().config()["Pre 2 EQ High Pass"] != utilities["Pre 2 EQ High Pass"]);
+  assert(save().config()["Input"] == utilities["Input"]);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
+  // Every visible new knob must update its slot's automated parameter, with no
+  // hidden controls stealing gestures when modules are restored into an open UI.
+  for (int id = 10; id <= 23; ++id)
+  {
+    auto effectControls = browserState;
+    effectControls["SlotEffects"][0] = id;
+    load(effectControls);
+    click(170, 160);
+    const auto effect = static_cast<SlotEffect>(id);
+    for (int p = 0; p < kUtilityControls; ++p)
+      if (UsesUtility(effect, p))
+      {
+        const auto& descriptor = kEffectParameters[p];
+        const std::string name = std::string("Pre 1 ") + descriptor.name;
+        const auto before = save().config();
+        // Drag down at an upper limit (Tape Mix defaults to 100%).
+        const int x = 105 + 152 * descriptor.position;
+        const int delta = before[name].get<double>() >= descriptor.maximum ? 25 : -25;
+        SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, 700));
+        SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, 700 + delta));
+        SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, 700 + delta));
+        pumpFor(30);
+        assert(save().config()[name] != before[name]);
+      }
+    click(865, 707);
+    assert(save().config()["Drive Enabled"] == 0.);
+    if (argc == 4)
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
+  }
   const auto packedPath = fixtures / "packed-a2.nam";
   std::ofstream(packedPath) << fixture::packed().dump();
   auto qualityState = browserState;
   qualityState["DrivePath"] = packedPath.string();
-  qualityState["IN 1 Full Quality"] = 1.;
+  qualityState["Pre 1 Full Quality"] = 1.;
   load(qualityState);
   pumpFor(100);
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;
-  click(170, 190); // Select IN1.
-  click(425, 701); // IN1 Full -> Lite; preparation happens on the idle/control thread.
-  assert(save().config()["IN 1 Full Quality"] == 0.);
+  click(170, 160); // Select IN1.
+  const auto automate = [&](const char* name, double value) {
+    clap_param_info info{};
+    bool found = false;
+    for (uint32_t i = 0; i < params->count(plugin); ++i)
+    {
+      params->get_info(plugin, i, &info);
+      if (std::strcmp(info.name, name) == 0)
+      {
+        found = true;
+        break;
+      }
+    }
+    assert(found);
+    clap_event_param_value change{};
+    change.header.size = sizeof(change);
+    change.header.type = CLAP_EVENT_PARAM_VALUE;
+    change.param_id = info.id;
+    change.value = value;
+    change.note_id = change.port_index = change.channel = change.key = -1;
+    clap_input_events updates{&change, [](const clap_input_events*) -> uint32_t { return 1; },
+                              [](const clap_input_events* e, uint32_t) -> const clap_event_header* {
+                                return &static_cast<clap_event_param_value*>(e->ctx)->header;
+                              }};
+    params->flush(plugin, &updates, &sent);
+    pumpFor(100);
+  };
+  automate("Pre 1 Full Quality", 0.); // Preparation happens on the idle/control thread.
+  assert(save().config()["Pre 1 Full Quality"] == 0.);
   for (int i = 0; i < 30; ++i)
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  dragAt(105, 700);
+  dragAt(257, 700);
+  dragAt(409, 700);
+  dragAt(561, 700);
+  dragAt(713, 700);
+  const auto namControls = save().config();
+  assert(namControls["Drive Input"] != qualityState["Drive Input"]);
+  assert(namControls["Pre 1 EQ Bass"] != qualityState["Pre 1 EQ Bass"]);
+  assert(namControls["Pre 1 EQ Mid"] != qualityState["Pre 1 EQ Mid"]);
+  assert(namControls["Pre 1 EQ Treble"] != qualityState["Pre 1 EQ Treble"]);
+  assert(namControls["Drive Trim"] != qualityState["Drive Trim"]);
+  click(865, 707);
+  assert(save().config()["Drive Enabled"] == 0.);
+  click(865, 707);
+  assert(save().config()["Drive Enabled"] == 1.);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "nam-six-controls.bmp");
   auto liteSaved = save();
-  click(425, 701);
-  assert(save().config()["IN 1 Full Quality"] == 1.);
+  automate("Pre 1 Full Quality", 1.);
+  assert(save().config()["Pre 1 Full Quality"] == 1.);
   for (int i = 0; i < 30; ++i)
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
   assert(loadBytes(liteSaved));
-  assert(save().config()["IN 1 Full Quality"] == 0.);
+  assert(save().config()["Pre 1 Full Quality"] == 0.);
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
   assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
@@ -653,74 +807,121 @@ int main(int argc, char** argv)
   effectUI["SlotEffects"][1] = 3;
   load(effectUI);
   pumpFor(100);
-  click(170, 190);
-  dragAt(570, 690); // Selected IN1 gate threshold.
-  assert(save().config()["IN 1 Gate Threshold"] != effectUI["IN 1 Gate Threshold"]);
+  click(170, 160);
+  dragAt(105, 700); // Selected IN1 gate threshold.
+  assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
   assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
-  click(390, 190);
-  dragAt(850, 690); // Selected IN2 compressor makeup.
-  assert(save().config()["IN 2 Comp Makeup"] != effectUI["IN 2 Comp Makeup"]);
+  click(390, 160);
+  dragAt(409, 700); // Selected IN2 compressor makeup.
+  assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
   // Card dot bypass and bottom editor toggle must share the same automated parameter.
-  click(499, 163);
+  click(499, 132);
   assert(save().config()["Amp Enabled"] == 0.);
-  click(499, 163);
+  click(499, 132);
   assert(save().config()["Amp Enabled"] == 1.);
   // Next buttons traverse the recursive library, rather than only the current file's siblings.
-  click(362, 701); // IN2 next.
+  click(490, 621); // IN2 next.
   assert(host.dirty);
   assert(save().config()["SlotEffects"][1] == 0);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(362, 701);
+  click(490, 621);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == librarySecond);
-  click(362, 701); // WAV from the second source becomes an IR loader automatically.
+  click(490, 621); // WAV from the second source becomes an IR loader automatically.
   assert(save().config()["SlotEffects"][1] == 7);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == libraryIR);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "ir.bmp");
-  click(362, 701); // Cycling back switches cleanly to NAM again.
+  click(490, 621); // Cycling back switches cleanly to NAM again.
   assert(save().config()["SlotEffects"][1] == 0);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(170, 190);
-  click(362, 701); // IN1 next.
+  click(170, 160);
+  click(490, 621); // IN1 next.
   assert(save().config()["SlotEffects"][0] == 0);
   assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
-  click(200, 118);
+  click(200, 90);
   for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
     SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
-  click(390, 190);
-  click(362, 701);
+  click(390, 160);
+  click(490, 621);
   assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(170, 296);
-  click(362, 701); // A1 next, with "amp" search active.
+  click(170, 264);
+  click(490, 621); // A1 next, with "amp" search active.
   assert(std::filesystem::path(save().config()["SlotPaths"][4].get<std::string>()) == libraryFirst);
-  click(170, 401);
-  click(362, 701); // B1 next.
+  click(170, 368);
+  click(490, 621); // B1 next.
   assert(std::filesystem::path(save().config()["SlotPaths"][8].get<std::string>()) == libraryFirst);
-  click(830, 506);
-  click(362, 701); // OUT4 next.
+  click(830, 472);
+  click(490, 621); // OUT4 next.
   assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == libraryFirst);
+  const auto filteredState = save().config();
+  click(608, 90); // Clear search/category. Visible field and count must synchronize.
+  click(490, 621);
+  assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == librarySecond);
+  click(200, 90);
+  for (int key : std::array<int, 5>{'T', 'E', 'S', 'T', VK_RETURN})
+    SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+  pumpFor(100);
+  const auto noMatches = save().config();
+  click(490, 621);
+  assert(save().config() == noMatches);
+  if (argc == 4)
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "search-no-matches.bmp");
+  click(608, 90);
+  click(490, 621);
+  assert(save().config()["SlotEffects"][15] == 7); // Third library entry, WAV, recovered after Clear.
   // The settings page is opaque and intercepts clicks; grid/editor controls cannot receive them.
-  click(170, 190);
+  click(170, 160);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
   const auto beforeSettings = save().config();
-  click(870, 119);
+  click(910, 36);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
-  dragAt(570, 690);
+  dragAt(713, 700); // NAM output trim underneath; no settings control occupies this point.
   assert(save().config() == beforeSettings);
   click(915, 44);
-  click(870, 119);
+  click(910, 36);
   // Escape closes settings so the selected module becomes editable again.
   SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(915, 44));
   SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
-  dragAt(570, 690);
+  dragAt(105, 700);
   assert(save().config()["Drive Input"] != beforeSettings["Drive Input"]);
+  if (argc == 4)
+  {
+    auto colors = browserState;
+    const char* categories[] = {"amp_head", "cabinet", "amp_cab", "pedal"};
+    for (int i = 0; i < 4; ++i)
+    {
+      auto model = a2;
+      model["metadata"]["gear_type"] = categories[i];
+      const auto path = fixtures / (std::string(categories[i]) + ".nam");
+      std::ofstream(path) << model.dump();
+      colors["SlotPaths"][i] = path.string();
+      if (i < 2)
+        colors[i == 0 ? "DrivePath" : "NAMPath"] = path.string();
+    }
+    colors["SlotEffects"][4] = 1;
+    colors["SlotEffects"][5] = 3;
+    colors["SlotEffects"][6] = 5;
+    colors["SlotEffects"][7] = 6;
+    colors["SlotEffects"][8] = 8;
+    colors["SlotEffects"][9] = 9;
+    colors["SlotEffects"][10] = 12;
+    colors["SlotEffects"][11] = 14;
+    colors["SlotEffects"][12] = 15;
+    colors["SlotEffects"][13] = 16;
+    colors["SlotEffects"][14] = 18;
+    colors["SlotEffects"][15] = 23;
+    load(colors);
+    pumpFor(100);
+    click(610, 160);
+    CaptureEditor(editor, std::filesystem::path(argv[3]) / "node-colors.bmp");
+  }
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["CaptureFolder"] = libraryFolder.string();
@@ -735,8 +936,8 @@ int main(int argc, char** argv)
   host.restart = false;
   auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
   assert(latency->get(plugin) == 54);
-  click(170, 401);
-  click(362, 701); // B1 gets one model (27 samples), while A stays 54 samples.
+  click(170, 368);
+  click(490, 621); // B1 gets one model (27 samples), while A stays 54 samples.
   if (host.callback)
   {
     host.callback = false;

@@ -5,7 +5,8 @@
 #include "ResamplingNAM.h"
 #include "RealtimeExchange.h"
 #include "SlotDynamics.h"
-#include "SlotEQ.h"
+#include "SlotUtility.h"
+#include "SlotTimeEffects.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -26,14 +27,39 @@ public:
     SlotEffect effect = SlotEffect::NAM;
     SlotDynamics dynamics;
     SlotEQ eq;
+    SlotParametricEQ parametric;
+    SlotBoost boost;
+    SlotEnvelopeFilter filter;
+    SlotAutoSwell swell;
+    SlotDelay echo;
+    SlotReverb reverb;
+    SlotModulation modulation;
+    SlotTape tape;
     std::unique_ptr<dsp::ImpulseResponse> ir;
     std::vector<double> input, wet, dry, delay;
     size_t delayIndex = 0;
     int latency = 0;
+    int64_t drainFrames = 0, drainLimit = 0;
     void Reset(double rate, int block)
     {
       dynamics.Reset(rate);
       eq.Reset(rate);
+      parametric.Reset(rate);
+      boost.Reset(rate);
+      if (effect == SlotEffect::SynthFilter)
+        filter.Reset(rate);
+      if (effect == SlotEffect::AutoSwell)
+        swell.Reset(rate);
+      if (IsDelay(effect))
+        echo.Reset(rate);
+      if (IsReverb(effect))
+        reverb.Reset(rate);
+      if (IsModulation(effect))
+        modulation.Reset(rate);
+      if (effect == SlotEffect::Tape)
+        tape.Reset(rate);
+      if (effect == SlotEffect::NAM)
+        eq.Process(nullptr, 0, false, {});
       if (model)
         model->Reset(rate, block);
       latency = model ? model->GetLatency() : 0;
@@ -42,6 +68,12 @@ public:
       dry.assign(block, 0.);
       delay.assign(std::max(1, latency), 0.);
       delayIndex = 0;
+      drainLimit = static_cast<int64_t>(rate
+                                        * (IsDelay(effect)        ? 110.
+                                           : IsReverb(effect)     ? 30.
+                                           : IsModulation(effect) ? .07
+                                                                  : 0.));
+      drainFrames = drainLimit; // Fresh histories already contain silence.
       if (ir)
       {
         ir = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), rate);
@@ -106,7 +138,7 @@ public:
   // Called exclusively by audio, or while host processing is stopped.
   double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB, bool calibrate,
                   double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {},
-                  const EQControls& eq = {})
+                  const EQControls& eq = {}, const UtilityControls& utility = {})
   {
     float inputPeak = 0.f;
     for (int i = 0; i < frames; ++i)
@@ -146,14 +178,24 @@ public:
         p->delay[p->delayIndex] = samples[i];
         p->delayIndex = (p->delayIndex + 1) % p->delay.size();
       }
-      // Skip inference after the bypass ramp finishes. The dry path preserves latency.
-      if (enabled || mMix > 0.)
+      // Drain temporal histories with silence after bypass, then suspend them.
+      // This prevents an old echo from resurfacing when a slot is re-enabled.
+      const bool draining = !enabled && mMix <= 0. && p->drainFrames < p->drainLimit;
+      if (enabled || mMix > 0. || draining)
       {
+        if (draining)
+        {
+          std::fill_n(p->input.data(), frames, 0.);
+          p->drainFrames += frames;
+        }
+        else
+          p->drainFrames = 0;
         double* in = p->input.data();
         double* out = p->wet.data();
         if (p->model)
         {
           p->model->process(&in, &out, frames);
+          p->eq.Process(out, frames, false, eq);
         }
         else if (p->ir)
         {
@@ -165,6 +207,22 @@ public:
           std::copy_n(in, frames, out);
           if (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ)
             p->eq.Process(out, frames, p->effect == SlotEffect::CutEQ, eq);
+          else if (p->effect == SlotEffect::ParametricEQ)
+            p->parametric.Process(out, frames, utility, eq);
+          else if (p->effect == SlotEffect::Boost)
+            p->boost.Process(out, frames, utility, eq);
+          else if (p->effect == SlotEffect::SynthFilter)
+            p->filter.Process(out, frames, utility);
+          else if (p->effect == SlotEffect::AutoSwell)
+            p->swell.Process(out, frames, utility);
+          else if (IsDelay(p->effect))
+            p->echo.Process(out, frames, p->effect, utility);
+          else if (IsReverb(p->effect))
+            p->reverb.Process(out, frames, p->effect, utility);
+          else if (IsModulation(p->effect))
+            p->modulation.Process(out, frames, p->effect, utility);
+          else if (p->effect == SlotEffect::Tape)
+            p->tape.Process(out, frames, utility);
           else
           {
             p->dynamics.Process(out, frames, p->effect, dynamics);

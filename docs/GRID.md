@@ -6,25 +6,26 @@ the grid is built separately in `build-grid/out`. Core's two documented allocati
 remain applied to the submodule, as before.
 
 The grid plugin is named **nam-grid** (`NGr1`), distinct from the dual prototype (`NDu1`).
-Artifacts are `nam-grid.clap` / `nam-grid.vst3`. Host IDs and serialized state retain their
-existing identifiers for project compatibility. Remove older copies of the grid binary from
+Artifacts are `nam-grid.clap` / `nam-grid.vst3`. This unreleased prototype does not guarantee
+old parameter-name/ID or project compatibility. Pre/Post labels replace the former IN/OUT rows. Remove older copies of the grid binary from
 scan paths when adopting the renamed binary, then rescan. This workspace archives its previous
-grid artifacts outside `build-grid/out`. Nothing was deployed to a system plugin folder.
+grid artifacts outside `build-grid/out`. Windows builds are copied to the system CLAP folder on request; restart the host to load replacements.
 
 ## Routing and controls
 
 ```text
-                           +-- A1 -> A2 -> A3 -> A4 --+
-IN1 -> IN2 -> IN3 -> IN4 ---+                         +--- OUT1 -> OUT2 -> OUT3 -> OUT4
-                           +-- B1 -> B2 -> B3 -> B4 --+
-                                      blend
+                                  +-- A1 -> A2 -> A3 -> A4 --+
+IN -> Pre1 -> Pre2 -> Pre3 -> Pre4 -+                         +- Post1 -> Post2 -> Post3 -> Post4 -> OUT
+                                  +-- B1 -> B2 -> B3 -> B4 --+
+                                             blend
 ```
 
 Every numbered position accepts a mono NAM capture (amp, rig, pedal, outboard or cabinet),
-or a [built-in effect](SLOTS.md): gate, compressor, EQ or cabinet IR. NAM slots have input gain,
-output trim, Full/Lite where available, and bypass; built-ins expose one or three knobs. Empty slots pass
+or a [built-in effect](MODULES.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
+modulation, delay or reverb. NAM slots have input gain,
+output trim, Full/Lite where available, and bypass; built-ins expose at most five knobs and Enabled. Empty slots pass
 audio; their gain controls take effect when a model is loaded. Slots are processed left to
-right within each row. Both parallel rows receive the same output from IN4. There are no
+right within each row. Both parallel rows receive the same output from Pre4. There are no
 cross-connections, sends, feedback, drag/drop routing, or routing graph.
 
 - Click a card to select it. The bottom panel shows only that module's controls; double-click
@@ -41,8 +42,8 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
 - New instances have no shared gate, EQ or IR processing: add those as modules. Master and the
   existing 5 Hz DC blocker remain after the grid. Recalled projects retain their legacy global
   processing settings, with compatibility toggles in Settings when used; this preserves their sound.
-- The former Amp's optional calibration, output mode and Slim parameters apply to **IN2**,
-  preserving old states. Settings labels identify IN2. Other slots use raw NAM levels with
+- The former Amp's optional calibration, output mode and Slim parameters apply to **Pre 2**,
+  Settings labels identify Pre 2. Other slots use raw NAM levels with
   independent musical input gains/trims. Full/Lite is prepared outside audio and saved per slot.
 - The complete grid remains mono internally, with mono duplicated to stereo outputs as before.
 
@@ -79,18 +80,14 @@ do not automatically suspend a loaded lane. Explicitly bypass unused models to s
 Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receive a silence
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
-The original 18 parameter IDs remain mapped to the original two stages, now IN1 and IN2.
-The other 14 slots append gain/trim/enable parameters, followed by the blend (61 IDs).
-Slot dynamics append 96 parameters, EQ/IR another 112, and Full Quality another 15 (IN2 reuses
-Slim): 284 total. `###NAMGrid-v1###` / schema 4 stores all 16 file paths, effect types and named
-parameters; schemas 2 and 3 still migrate. State validation
-precedes mutation. Missing files retain their requested paths while clearing that slot's DSP.
-Previous dual schema-1 states and upstream states migrate into IN1/IN2; other slots are empty,
-and the parallel blend defaults to 50%. Since both lanes are then dry, migration preserves
-the original series behavior. The previous dual plugin cannot read grid state.
-The separate plugin ID means old DAW projects keep using the dual prototype; they are not
-automatically replaced by the grid. The migration reader handles old state when supplied;
-no standalone preset/state import UI was added.
+The first two slot gain/trim controls retain their original host IDs. The expanded
+layout has **764 parameters**, including 30 utility/time-effect controls per slot.
+`###NAMGrid-v1###` / schema 6 stores all 16 paths, types and named values. Validation
+precedes mutation; missing files retain their paths while that slot passes audio.
+Some older-format readers remain, but Pre/Post parameter-name changes mean old
+unreleased projects may require rebuilding. No compatibility guarantee is made.
+The separate grid plugin ID does not automatically replace the former dual plugin.
+
 
 ## Verification
 
@@ -104,7 +101,7 @@ Windows x64 Release CLAP and VST3 build successfully. All three CTest suites pas
 - Unequal-lane impulse tests check physical alignment, preserved bypass latency, and hosts whose
   maximum block size is one sample. Tested grid paths observe no C++ allocations/deletions and
   pass Eigen's allocation guard.
-- CLAP covers all 16 model/effect selections and 284 parameter values through save/reload, old-state
+- CLAP covers all 16 model/effect selections and 764 parameter values through save/reload, old-state
   migration, invalid later-slot state, missing files, bypassed slots, mono/stereo port layouts,
   and full-grid processing at all three rates. Full-grid conversion latency is 0/324/504 samples.
 - A hidden native Windows editor test exercises IN1/IN2/A1/B1/OUT4 next buttons, library search,

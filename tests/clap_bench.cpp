@@ -57,6 +57,16 @@ struct Instance
             config["SlotEffects"][slot] = slot % 4 + 1;
           }
         }
+        // One selected effect; all remaining slots empty. Useful for comparing
+        // actual plugin overhead with its empty grid using the same host/buffer.
+        if (mode == "empty" || mode.rfind("fx-", 0) == 0)
+        {
+          config["DrivePath"] = config["NAMPath"] = "";
+          for (int slot = 0; slot < 16; ++slot)
+            config["SlotPaths"][slot] = "";
+          if (mode != "empty")
+            config["SlotEffects"][0] = std::stoi(mode.substr(3));
+        }
         if (mode == "dual-effects")
         {
           config["DrivePath"] = "";
@@ -77,12 +87,12 @@ struct Instance
           config["SlotPaths"][2] = amp;
           config["SlotEffects"][0] = 1;
           config["SlotEffects"][3] = 5;
-          config["IN 4 EQ Bass"] = 3.;
+          config["Pre 4 EQ Bass"] = 3.;
           config["SlotEffects"][12] = 7;
           config["SlotPaths"][12] = ir;
           config["SlotEffects"][13] = 6;
-          config["OUT 2 EQ High Pass"] = 75.;
-          config["OUT 2 EQ Low Pass"] = 7500.;
+          config["Post 2 EQ High Pass"] = 75.;
+          config["Post 2 EQ Low Pass"] = 7500.;
           config["SlotEffects"][14] = 3;
         }
       }

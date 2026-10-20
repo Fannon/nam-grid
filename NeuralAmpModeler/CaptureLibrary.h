@@ -25,6 +25,13 @@ enum class Gear
 };
 const char* GearName(Gear gear);
 std::string PathText(const std::filesystem::path& path);
+struct Settings
+{
+  std::vector<std::string> folders;
+  bool rescanOnStartup = true;
+};
+Settings ReadSettings(const std::filesystem::path& settingsFile);
+bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings);
 std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile);
 bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::vector<std::string>& folders);
 std::vector<std::string> NormalizeFolders(const std::vector<std::string>& folders);

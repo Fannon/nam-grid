@@ -16,6 +16,7 @@ public:
     int outputMode = 0;
     DynamicsControls dynamics;
     EQControls eq;
+    UtilityControls utility;
   };
 
   std::array<NAMStage, kSlots> stages;
@@ -126,7 +127,7 @@ private:
     {
       const auto& c = controls[i];
       stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.calibrate, c.calibrationDB, c.outputMode,
-                        c.slim, c.dynamics, c.eq);
+                        c.slim, c.dynamics, c.eq, c.utility);
     }
   }
   std::array<int, 2> LaneLatencies() const

@@ -14,7 +14,23 @@ enum class SlotEffect
   PunchComp,
   ToneEQ,
   CutEQ,
-  CabinetIR
+  CabinetIR,
+  ParametricEQ,
+  Boost,
+  SynthFilter,
+  AutoSwell,
+  DigitalDelay,
+  AnalogDelay,
+  TapeDelay,
+  RoomReverb,
+  PlateReverb,
+  CloudReverb,
+  Chorus,
+  Flanger,
+  Phaser,
+  Tremolo,
+  Vibrato,
+  Tape
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -24,9 +40,26 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::TightGate: return "Tight Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";
     case SlotEffect::PunchComp: return "Punch Compressor";
-    case SlotEffect::ToneEQ: return "Tone EQ";
+    case SlotEffect::ToneEQ: return "Guitar EQ";
     case SlotEffect::CutEQ: return "Cut EQ";
     case SlotEffect::CabinetIR: return "Cabinet IR";
+    case SlotEffect::ParametricEQ: return "Parametric EQ";
+    case SlotEffect::Boost: return "Boost";
+    case SlotEffect::SynthFilter: return "Envelope Filter";
+    case SlotEffect::AutoSwell: return "Auto Swell";
+    case SlotEffect::DigitalDelay: return "Digital Delay";
+    case SlotEffect::AnalogDelay: return "Analog Echo";
+    case SlotEffect::TapeDelay: return "Tape Echo";
+    case SlotEffect::RoomReverb: return "Room";
+    case SlotEffect::PlateReverb: return "Dense Plate";
+    case SlotEffect::CloudReverb: return "Cloud";
+    case SlotEffect::Chorus: return "Chorus";
+    case SlotEffect::Flanger: return "Flanger";
+    case SlotEffect::Phaser: return "Phaser";
+    case SlotEffect::Tremolo: return "Auto Tremolo";
+    case SlotEffect::Vibrato: return "Vibrato";
+    case SlotEffect::Tape: return "Airwindows Tape";
+
     default: return "NAM";
   }
 }

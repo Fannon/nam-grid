@@ -1226,8 +1226,18 @@ int main(int argc, char** argv)
   assert(save().config()["SlotEffects"][0] == 0);
   assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
   click(200, 90);
-  for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
+  const auto sendSearchKey = [&](int key) {
+    // iPlug2 translates WM_KEYDOWN with GetKeyboardState. Isolate this test
+    // thread from a user's currently held Ctrl/Shift/Alt keys, then restore it.
+    // SetKeyboardState affects this thread only; no global input is injected.
+    BYTE previous[256]{}, neutral[256]{};
+    assert(GetKeyboardState(previous));
+    assert(SetKeyboardState(neutral));
     SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+    assert(SetKeyboardState(previous));
+  };
+  for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
+    sendSearchKey(key);
   pumpFor(100);
   click(390, 160);
   click(490, 621);
@@ -1247,10 +1257,12 @@ int main(int argc, char** argv)
   assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == librarySecond);
   click(200, 90);
   for (int key : std::array<int, 5>{'T', 'E', 'S', 'T', VK_RETURN})
-    SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+    sendSearchKey(key);
   pumpFor(100);
   const auto noMatches = save().config();
   click(490, 621);
+  if (save().config() != noMatches)
+    std::cerr << "No-match search changed state: " << json::diff(noMatches, save().config()).dump() << "\n";
   assert(save().config() == noMatches);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "search-no-matches.bmp");

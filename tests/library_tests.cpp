@@ -163,9 +163,9 @@ int main(int argc, char** argv)
           assert(std::string(menu.GetItemText(index++)) == "Clear search and gear filter");
         for (const char* label :
              {"Choose .nam file...", "Choose cabinet IR (.wav)...", "Clear slot", "Noise Gate", "Compressor", "EQ",
-              "Boost", "Reverb", "Delay", "Modulation", "Filter / Volume", "Airwindows Tape", "Tube Boost", "Utility"})
+              "Boost", "Reverb", "Delay", "Slapback preset", "Modulation", "Rotary / Vibe", "Dynamics / Pitch", "Creative", "Filter / Volume", "Airwindows Tape", "Tube Boost", "Utility"})
           assert(std::string(menu.GetItemText(index++)) == label);
-        auto* reverbs = menu.GetItem(index - 7)->GetSubmenu();
+        auto* reverbs = menu.GetItem(index - 11)->GetSubmenu();
         assert(reverbs && reverbs->NItems() == 4);
         assert(reverbs->GetItem(3)->GetChecked() && reverbs->GetItem(3)->GetTag() == -46);
         assert(menu.GetItem(index++)->GetIsSeparator());

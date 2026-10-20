@@ -1,7 +1,7 @@
 #pragma once
 
 template<class Save, class Load>
-void TestRoadmapClap(const clap_plugin* plugin, const json& cleared, Save save, Load load)
+void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load load)
 {
   const auto* tail = static_cast<const clap_plugin_tail*>(plugin->get_extension(plugin, CLAP_EXT_TAIL));
   const auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));

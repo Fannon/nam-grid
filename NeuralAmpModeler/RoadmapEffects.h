@@ -81,12 +81,13 @@ private:
 class Vibe
 {
 public:
-  void Reset(double rate) { mRate = rate; mPhase = 0.; mState = {}; mControls.Reset(rate); }
+  void Reset(double rate) { mRate = rate; mPhase = mMode = 0.; mState = {}; mFirst = true; mControls.Reset(rate); }
   void Process(double* x, int n, const UtilityControls& c)
   {
     auto values = c.modulation;
     if (c.sync) values[0] = 1. / grid_tempo::Seconds(c.tempo, c.division);
     mControls.Target(values, uModRate, c.sync);
+    if (mFirst) { mMode = c.vibeMode >= .5 ? 1. : 0.; mFirst = false; }
     constexpr double centers[]{180., 430., 1050., 2900.};
     for (int i = 0; i < n; ++i)
     {
@@ -104,14 +105,16 @@ public:
         const double y = a * wet + mState[j];
         mState[j] = grid_fx::Flush(wet - a * y); wet = y;
       }
-      const double voiced = c.vibeMode >= .5 ? wet : .5 * (x[i] + wet);
+      mMode += std::clamp((c.vibeMode >= .5 ? 1. : 0.) - mMode, -1. / (.005 * mRate), 1. / (.005 * mRate));
+      const double voiced = .5 * (x[i] + wet) + .5 * mMode * (wet - x[i]);
       x[i] += v[4] * .01 * (voiced - x[i]);
     }
   }
 private:
   grid_fx::SmoothControls<5> mControls;
   std::array<double, 4> mState{};
-  double mRate = 48000., mPhase = 0.;
+  double mRate = 48000., mPhase = 0., mMode = 0.;
+  bool mFirst = true;
 };
 
 class Octaver
@@ -279,7 +282,8 @@ public:
         mLastWet[ch] = wet[ch];
       }
       if (mTransition > 0) --mTransition;
-      if (mLength && ++mPosition >= mLength) mPosition = std::min(fade, mLength - 1);
+      if (mLength && ++mPosition >= mLength)
+        mPosition = freeze ? std::min(fade, mLength - 1) : 0;
       const double mix = (freeze ? f[4] : reverse ? d[4] : s[3]) * .01;
       const double gain = reverse ? Gain(std::clamp(c.delayOutput, -18., 6.)) : 1.;
       l[i] = (freeze ? dry[0] + mix * wet[0] * mWetGain : dry[0] + mix * (wet[0] * mWetGain - dry[0])) * gain;

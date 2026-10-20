@@ -25,17 +25,22 @@ Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
   dependency. Scope/algorithms/acceptance: [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
 - Current CPU measurements and manual acceptance checks: [MODULES.md](MODULES.md).
 
-## Next suggestions (not implemented)
+## Effects roadmap and remaining validation
+
+The effects roadmap is now implemented: [ROADMAP_EFFECTS.md](ROADMAP_EFFECTS.md).
+This adds eleven module types, Utility fine delay, notch EQ, lane controls and
+crossover, shared LFO/follower/sequencer/macros and three parameter scenes.
+Build/verification uses `build-roadmap/out`; schema 10 has 1,977 parameters.
 
 1. Bitwig listening/automation/project-recall validation at low buffers; real
    guitar tuner evaluation, display scaling/reopen, and stereo/mono host layouts.
 2. Audition Spring Drip/Dwell and Wah range with real playing, then adjust voicing
    based on listening. Spatial effect dry placement/mono fold also needs auditioning.
-3. Fine lane timing, convenient presets and portable model relinking are useful
-   follow-ups; avoid another large effect catalog. Pitch/shimmer remains deferred.
+3. Portable model relinking and additional useful presets remain follow-ups.
+   Polyphonic pitch/shimmer remains deferred.
 
 The current system CLAP copy remains older because the prior UAC install prompt
-was canceled. Current binaries and notices are in `build-grid/out`; do not claim
+was canceled. The roadmap binaries and notices are in `build-roadmap/out`; do not claim
 system installation or Bitwig/macOS/VST3-host validation. Optional OpenGL readback
 can show partial frames; final native repainting still needs real-host review.
 
@@ -46,8 +51,8 @@ can show partial frames; final native repainting still needs real-host review.
 - `NeuralAmpModelerCore` and `AudioDSPTools` are intentionally dirty from tracked
   patches in `patches/`. Do not revert or stage their gitlinks.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
-  No new runtime dependency. Schema 9 has 1262 parameters, accepting earlier
-  supported schemas 2/3/6/7/8 with name-based defaults for newly added fields.
+  No new runtime dependency. Schema 10 has 1977 parameters, accepting earlier
+  supported schemas 2/3/6/7/8/9 with name-based defaults for newly added fields.
   Unused WIP schemas 4/5 reject without mutation. Gate Release accepts the older
   Gate Decay state name. Schema 8 Utility Width migrates to centered Stereo by subtracting 100; tuner preferences are preserved.
 

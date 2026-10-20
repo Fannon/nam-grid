@@ -412,7 +412,6 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   else
   {
     mGrid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
-    mModulation.Advance(mInputPointers[0], mInputPointers[1], nFrames, performance, GetTempo());
   }
   mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));

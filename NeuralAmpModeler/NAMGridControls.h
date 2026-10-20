@@ -21,7 +21,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
   if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate)
     return {gateColor, gateColor, "Gate"};
-  if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp)
+  if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
     return {compColor, compColor, "Compressor"};
   if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ)
     return {eqColor, eqColor, "EQ"};
@@ -31,8 +31,15 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {delayColor, delayColor, "Delay"};
   if (IsReverb(effect))
     return {reverbColor, reverbColor, "Reverb"};
-  if (IsModulation(effect) || effect == SlotEffect::SynthFilter || effect == SlotEffect::Wah)
+  if (IsModulation(effect) || effect == SlotEffect::SynthFilter || effect == SlotEffect::Wah
+      || effect == SlotEffect::Rotary || effect == SlotEffect::UniVibe || effect == SlotEffect::RingMod)
     return {modulationColor, modulationColor, "Modulation"};
+  if (effect == SlotEffect::Octaver || effect == SlotEffect::Doubler)
+    return {modulationColor, modulationColor, "Pitch"};
+  if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter)
+    return {delayColor, delayColor, "Capture"};
+  if (effect == SlotEffect::Bitcrusher)
+    return {boostColor, boostColor, "Texture"};
   if (effect == SlotEffect::AutoSwell)
     return {compColor, compColor, "Volume"};
   if (effect == SlotEffect::Tape)
@@ -269,7 +276,8 @@ public:
              || effect == SlotEffect::PunchComp || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
       used[0] = used[1] = used[2] = true;
     for (int p = 0; p < kUtilityControls; ++p)
-      if (UsesUtility(effect, p))
+      if (UsesUtility(effect, p) && !(effect == SlotEffect::ParametricEQ && p == uGain
+          && GetDelegate()->GetParam(SlotUtilityParam(mSlot, uEQMode))->Bool()))
         used[kEffectParameters[p].position] = true;
     for (int i = 0; i < kControlPositions; ++i)
     {
@@ -282,6 +290,13 @@ public:
                               : effect == SlotEffect::CabinetIR ? "WAV / cabinet impulse response"
                                                                 : SlotEffectName(effect);
     g.DrawText(Text(11.f, muted), description, IRECT(42, 757, 450, 777));
+    if (effect == SlotEffect::Utility)
+    {
+      WDL_String timing;
+      timing.SetFormatted(96, "Fine delay: %.2f samples", GetDelegate()->GetParam(SlotUtilityParam(mSlot, uUtilityDelay))->Value()
+                                                    * PLUG()->GetSampleRate() * .001);
+      g.DrawText(Text(12.f, muted), timing.Get(), IRECT(500, 757, 956, 777));
+    }
     if (mMeter.reduction >= .5f)
     {
       WDL_String gr;
@@ -481,6 +496,8 @@ private:
       for (int i = 0; i < kUtilityControls; ++i)
       {
         bool visible = UsesUtility(effect, i);
+        if (effect == SlotEffect::ParametricEQ && i == uGain
+            && GetDelegate()->GetParam(SlotUtilityParam(mSlot, uEQMode))->Bool()) visible = false;
         if (i == uTempoSync)
           visible = tempo;
         if (i == uDelayPingPong)

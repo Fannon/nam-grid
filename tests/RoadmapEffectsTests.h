@@ -103,6 +103,40 @@ void TestRoadmapEffects()
     }
   }
   assert(std::hypot(subSin, subCos) > 10. * std::hypot(fundamentalSin, fundamentalCos));
+  // Stutter repeats at the requested period even when its seam fade is nonzero.
+  grid_roadmap::Capture stutter; stutter.Reset(48000.);
+  c = {}; c.stutter = {10., 50., 1., 100.};
+  std::vector<double> rhythm(4800, .2);
+  for (int pos = 0; pos < rhythm.size(); pos += 512)
+    stutter.Process(rhythm.data() + pos, nullptr, std::min(512, static_cast<int>(rhythm.size()) - pos), SlotEffect::Stutter, c);
+  for (int i = 1100; i < 1800; ++i) assert(std::abs(rhythm[i] - rhythm[i + 480]) < 1.e-9);
+  // The expanded EQ's notch rejects its selected center without requiring gain.
+  SlotParametricEQ notch; notch.Reset(48000.); c = {}; c.frequency = 1000.; c.q = 8.; c.eqMode = 1.;
+  double notchEnergy = 0.;
+  for (int block = 0; block < 60; ++block)
+  {
+    for (int i = 0; i < 512; ++i) x[i] = .2 * std::sin(2. * grid_fx::pi * 1000. * (block * 512 + i) / 48000.);
+    notch.Process(x.data(), 512, c, {});
+    if (block >= 50) for (double value : x) notchEnergy += value * value;
+  }
+  assert(notchEnergy / 5120. < 1.e-8);
+  grid_roadmap::Vibe chorus, vibrato, changing;
+  chorus.Reset(48000.); vibrato.Reset(48000.); changing.Reset(48000.);
+  std::array<double, 512> chorusOut{}, vibratoOut{}, changingOut{};
+  for (int block = 0; block < 4; ++block)
+  {
+    for (int i = 0; i < 512; ++i)
+      chorusOut[i] = vibratoOut[i] = changingOut[i] = .2 * std::sin((block * 512 + i) * .1);
+    c = {}; chorus.Process(chorusOut.data(), 512, c);
+    c.vibeMode = 1.; vibrato.Process(vibratoOut.data(), 512, c);
+    c.vibeMode = block == 3 ? 1. : 0.; changing.Process(changingOut.data(), 512, c);
+    if (block == 3) for (int i = 0; i < 512; ++i)
+    {
+      assert(changingOut[i] >= std::min(chorusOut[i], vibratoOut[i]) - 1.e-12);
+      assert(changingOut[i] <= std::max(chorusOut[i], vibratoOut[i]) + 1.e-12);
+      if (i >= 240) assert(std::abs(changingOut[i] - vibratoOut[i]) < 1.e-12);
+    }
+  }
   for (double rate : {44100., 48000., 96000.})
   {
     FixedNAMGrid grid; grid.ResetStopped(rate, 512);

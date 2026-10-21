@@ -84,8 +84,7 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
   for (const auto& [parent, i] : leaves)
   {
     const auto& capture = library.captures[i];
-    const auto label = PathText(capture.path.stem()) + (capture.isIR ? "  [IR / " : "  [NAM / ")
-                       + GearName(capture.gear) + (capture.inferred ? ", inferred]" : "]");
+    const auto label = PathText(capture.path.stem());
     parent->AddItem(new Menu::Item(
       label.c_str(), PathText(capture.path) == selected ? Menu::Item::kChecked : 0, static_cast<int>(i)));
   }

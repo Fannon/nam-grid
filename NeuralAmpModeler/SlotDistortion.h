@@ -6,6 +6,10 @@
 class SlotDistortion
 {
 public:
+  // Static shaper before tone filtering, wet/dry mix and output trim. Shared with
+  // the editor so gain, bias and style changes draw the same transfer function.
+  static double Transfer(double input, int style, double drive, double bias)
+  { return Shape(input * drive + bias, style) - Shape(bias, style); }
   void Reset(double rate)
   {
     mRate = std::max(1., rate);
@@ -33,12 +37,12 @@ public:
         mCached = {c[1], c[2], c[5]};
       }
       mCounter = (mCounter + 1) % 16;
-      const double dry = samples[i], bias = c[3] * .004, x = dry * mDrive + bias;
+      const double dry = samples[i], bias = c[3] * .004;
       double wet = 0.;
       for (int j = 0; j < 4; ++j)
       {
         mWeights[j] = grid_fx::Flush((j == style ? 1. : 0.) + mSmooth * (mWeights[j] - (j == style ? 1. : 0.)));
-        if (mWeights[j] != 0.) wet += mWeights[j] * (Shape(x, j) - Shape(bias, j));
+        if (mWeights[j] != 0.) wet += mWeights[j] * Transfer(dry, j, mDrive, bias);
       }
       // Reject the remaining signal-dependent DC from asymmetric distortion.
       mHighPass = grid_fx::Flush(wet - mPrevious + mDC * mHighPass);

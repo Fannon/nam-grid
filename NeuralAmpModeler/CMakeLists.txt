@@ -1,6 +1,6 @@
 include(${IPLUG2_DIR}/iPlug2.cmake)
 find_package(Threads REQUIRED)
-add_executable(nam-library-tests ../tests/library_tests.cpp CaptureLibrary.cpp)
+add_executable(nam-library-tests ../tests/library_tests.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
 target_include_directories(nam-library-tests PRIVATE . ../NeuralAmpModelerCore/Dependencies/nlohmann
   ../iPlug2/IPlug ../iPlug2/WDL ../iPlug2/IGraphics ../iPlug2/Dependencies/IGraphics/NanoSVG/src)
 target_compile_features(nam-library-tests PRIVATE cxx_std_20)
@@ -105,7 +105,7 @@ if(NAM_BUILD_BASELINE)
 endif()
 add_test(NAME stages COMMAND nam-stage-tests "${CMAKE_SOURCE_DIR}")
 if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
-  add_executable(nam-clap-smoke ../tests/clap_smoke.cpp)
+  add_executable(nam-clap-smoke ../tests/clap_smoke.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
   add_executable(nam-clap-bench ../tests/clap_bench.cpp)
   foreach(test_target nam-clap-smoke nam-clap-bench)
     target_include_directories(${test_target} PRIVATE ${CLAP_SDK_DIR}/include
@@ -124,7 +124,7 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
 endif()
 iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
-  SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h ToneStack.cpp CaptureLibrary.cpp ${NAM_CORE_SOURCES}
+  SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h ToneStack.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES}
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/NoiseGate.cpp
     ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp
     ../AudioDSPTools/dsp/wav.cpp

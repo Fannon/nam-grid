@@ -7,7 +7,10 @@
 #include <map>
 #include <utility>
 #include <unordered_set>
+#include <unordered_map>
 #include "json.hpp"
+#include "../iPlug2/WDL/sha.h"
+#include <array>
 
 namespace nam_library
 {
@@ -196,6 +199,7 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
                        ? NormalizeFolders(config.at("CaptureFolders").get<std::vector<std::string>>())
                        : NormalizeFolders({config.value("CaptureFolder", std::string{})});
     result.rescanOnStartup = config.value("RescanOnStartup", true);
+    result.showVisualizations = config.value("ShowVisualizations", true);
     return result;
   }
   catch (const std::exception&)
@@ -209,7 +213,8 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
   {
     std::filesystem::create_directories(settingsFile.parent_path());
     std::ofstream stream(settingsFile, std::ios::binary | std::ios::trunc);
-    stream << nlohmann::json{{"CaptureFolders", settings.folders}, {"RescanOnStartup", settings.rescanOnStartup}}.dump(
+    stream << nlohmann::json{{"CaptureFolders", settings.folders}, {"RescanOnStartup", settings.rescanOnStartup},
+                            {"ShowVisualizations", settings.showVisualizations}}.dump(
       2);
     stream.close();
     return !stream.fail();
@@ -312,6 +317,64 @@ bool Filter::Matches(const Capture& capture) const
   return true;
 }
 
+std::string ContentHash(const std::filesystem::path& file, const std::function<bool()>& cancelled)
+{
+  std::ifstream input(file, std::ios::binary);
+  if (!input) throw std::runtime_error("Cannot read capture/IR for content hash");
+  WDL_SHA1 hash;
+  std::array<char, 65536> buffer;
+  while (input)
+  {
+    if (cancelled && cancelled()) return {};
+    input.read(buffer.data(), buffer.size());
+    hash.add(buffer.data(), static_cast<int>(input.gcount()));
+  }
+  if (!input.eof()) throw std::runtime_error("Cannot complete capture/IR content hash");
+  std::array<unsigned char, WDL_SHA1SIZE> bytes{}; hash.result(bytes.data());
+  static constexpr char hex[] = "0123456789abcdef";
+  std::string result; result.reserve(2 * bytes.size());
+  for (auto byte : bytes) { result += hex[byte >> 4]; result += hex[byte & 15]; }
+  return result;
+}
+const Capture* FindHash(const Snapshot& library, const std::string& hash, bool isIR)
+{
+  if (hash.empty()) return nullptr;
+  for (const auto& capture : library.captures)
+    if (capture.hash == hash && capture.isIR == isIR) return &capture;
+  return nullptr;
+}
+std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR)
+{
+  std::vector<std::filesystem::path> result;
+  std::error_code error;
+  for (std::filesystem::directory_iterator it(selected.parent_path(), error), end; !error && it != end; it.increment(error))
+    if (it->is_regular_file(error) && Lower(PathText(it->path().extension())) == (isIR ? ".wav" : ".nam"))
+      result.push_back(it->path());
+  std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
+    const auto first = Lower(PathText(a.filename())), second = Lower(PathText(b.filename()));
+    return first == second ? PathText(a) < PathText(b) : first < second;
+  });
+  return result;
+}
+static void Deduplicate(Snapshot& snapshot)
+{
+  std::map<std::pair<bool, std::string>, size_t> identities;
+  std::vector<Capture> unique;
+  for (auto& capture : snapshot.captures)
+  {
+    const auto [it, inserted] = identities.emplace(std::make_pair(capture.isIR, capture.hash), unique.size());
+    if (inserted || capture.hash.empty()) unique.push_back(std::move(capture));
+    else
+    {
+      ++snapshot.duplicates;
+      if (capture.folderDepth < unique[it->second].folderDepth) unique[it->second] = std::move(capture);
+    }
+  }
+  snapshot.captures = std::move(unique);
+  std::stable_sort(snapshot.captures.begin(), snapshot.captures.end(), [](const auto& a, const auto& b) {
+    return Lower(PathText(a.relative)) < Lower(PathText(b.relative));
+  });
+}
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled)
 {
   Snapshot result;
@@ -342,7 +405,12 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
       continue;
     try
     {
-      result.captures.push_back(Inspect(it->path(), root));
+      auto capture = Inspect(it->path(), root);
+      capture.hash = ContentHash(capture.path, cancelled);
+      if (capture.hash.empty()) return result;
+      const auto parent = capture.relative.parent_path();
+      capture.folderDepth = static_cast<size_t>(std::distance(parent.begin(), parent.end()));
+      result.captures.push_back(std::move(capture));
     }
     catch (const std::exception&)
     {
@@ -356,13 +424,14 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
     const auto lowFirst = Lower(first), lowSecond = Lower(second);
     return lowFirst == lowSecond ? first < second : lowFirst < lowSecond;
   });
+  Deduplicate(result);
   return result;
 }
 
 Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled)
 {
   Snapshot result;
-  std::unordered_set<std::string> seen;
+  std::unordered_map<std::string, size_t> seen;
   const auto folders = NormalizeFolders(roots);
   std::unordered_set<std::string> labels;
   for (const auto& folder : folders)
@@ -373,6 +442,7 @@ Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<
     if (folders.size() == 1)
       result.root = part.root;
     result.unreadable += part.unreadable;
+    result.duplicates += part.duplicates;
     if (!part.error.empty())
     {
       if (!result.error.empty())
@@ -392,13 +462,19 @@ Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<
 #ifdef _WIN32
       key = Lower(key);
 #endif
-      if (!seen.insert(key).second)
-        continue;
       if (folders.size() > 1)
         capture.relative = std::filesystem::u8path(label) / capture.relative;
+      const auto [found, inserted] = seen.emplace(key, result.captures.size());
+      if (!inserted)
+      {
+        if (capture.folderDepth < result.captures[found->second].folderDepth)
+          result.captures[found->second] = std::move(capture);
+        continue;
+      }
       result.captures.push_back(std::move(capture));
     }
   }
+  Deduplicate(result);
   return result;
 }
 

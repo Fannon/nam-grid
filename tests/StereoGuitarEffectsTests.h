@@ -17,7 +17,7 @@ void TestStereoGuitarEffects()
   };
   const std::array effects{SlotEffect::DigitalDelay, SlotEffect::AnalogDelay,  SlotEffect::TapeDelay,
                            SlotEffect::Chorus,       SlotEffect::RoomReverb,   SlotEffect::PlateReverb,
-                           SlotEffect::CloudReverb,  SlotEffect::SpringReverb, SlotEffect::Wah};
+                           SlotEffect::CloudReverb,  SlotEffect::HallReverb, SlotEffect::SpringReverb, SlotEffect::Wah};
   for (double rate : {44100., 48000., 88200., 96000., 192000.})
     for (auto effect : effects)
     {
@@ -119,7 +119,7 @@ void TestStereoGuitarEffects()
   // Both chorus and reverbs create side energy from a mono source; a centered
   // chorus and stereo-off reverb return equal wet channels.
   for (auto effect : {SlotEffect::Chorus, SlotEffect::RoomReverb, SlotEffect::PlateReverb, SlotEffect::CloudReverb,
-                      SlotEffect::SpringReverb})
+                      SlotEffect::HallReverb, SlotEffect::SpringReverb})
     for (bool stereo : {false, true})
     {
       auto stage = stageFor(effect, 48000.);

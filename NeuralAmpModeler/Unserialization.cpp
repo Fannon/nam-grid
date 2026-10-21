@@ -88,11 +88,13 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
     const auto profile = config.contains("NoisePrintProfiles") ? noise_print::Load(config["NoisePrintProfiles"][slot])
                                                                : noise_print::Profile{};
     mNoiseProfiles[slot] = profile;
-    if (!_StageSlot(slot, effect, path).empty())
+    const auto hash = config.contains("SlotHashes") ? config["SlotHashes"][slot].get<std::string>() : std::string{};
+    if (!_StageSlot(slot, effect, path, hash).empty())
     {
       // A missing file remains selected for relinking, with a safely empty processor.
       _ClearModel(slot, effect);
       mSlotPaths[slot].Set(path.c_str());
+      mSlotHashes[slot] = hash;
       if (slot == 0)
         mDrivePath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
       else if (slot == 1)

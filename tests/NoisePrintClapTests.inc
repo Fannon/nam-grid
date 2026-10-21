@@ -153,6 +153,7 @@ auto prior14 = learnedNoiseState;
 prior14["schema"] = 14;
 prior14["SlotEffects"][1] = static_cast<int>(SlotEffect::TightGate);
 prior14["SlotPaths"][1] = ""; prior14["NAMPath"] = "";
+prior14["SlotHashes"][1] = "";
 auto expected14 = prior14;
 expected14["schema"] = learnedNoiseState["schema"];
 for (int slot = 0; slot < 16; ++slot)
@@ -171,6 +172,7 @@ auto prior15 = learnedNoiseState;
 prior15["schema"] = 15;
 prior15["SlotEffects"][1] = static_cast<int>(SlotEffect::NaturalGate);
 prior15["SlotPaths"][1] = ""; prior15["NAMPath"] = "";
+prior15["SlotHashes"][1] = "";
 prior15["Pre 2 Gate Mode"] = 1.;
 auto expected15 = prior15; expected15["schema"] = learnedNoiseState["schema"];
 for (int slot = 0; slot < 16; ++slot)

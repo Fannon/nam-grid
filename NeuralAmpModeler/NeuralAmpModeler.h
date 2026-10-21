@@ -30,7 +30,7 @@ class NAMSender : public iplug::IPeakAvgSender<1>
 {
 public:
   NAMSender()
-  : iplug::IPeakAvgSender<1>(-90.0, true, 5.0f, 1.0f, 300.0f, 500.0f)
+  : iplug::IPeakAvgSender<1>(-90.0, true, 5.0f, 1.0f, 300.0f, 0.0f)
   {
   }
   void ProcessBlock(iplug::sample** inputs, int frames, int tag, int channels)
@@ -217,6 +217,8 @@ public:
   void SelectSlot(size_t slot);
   void RescanCaptureFolder();
   bool GetRescanOnStartup() const { return mRescanOnStartup; }
+  bool GetShowVisualizations() const { return mShowVisualizations; }
+  void SetShowVisualizations(bool enabled);
   void SetRescanOnStartup(bool enabled);
   std::string GetLibraryMatchStatus() const;
   bool IsLibraryScanning() const { return mLibraryScanning; }
@@ -262,7 +264,8 @@ private:
   // Loads/prepares a NAM model on the control thread, then publishes to its fixed slot.
   // Returns an empty string on success, or an error message on failure.
   std::string _StageModel(const WDL_String& dspFile, size_t slot = 1);
-  std::string _StageSlot(size_t slot, SlotEffect effect, const std::string& path);
+  std::string _StageSlot(size_t slot, SlotEffect effect, const std::string& path, const std::string& expectedHash = {});
+  void _ResolveLibraryFiles();
   SlotConfig _GetSlotConfig(size_t slot) const;
   void _CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters);
   // Loads/prepares an IR on the control thread.
@@ -330,6 +333,7 @@ private:
   double mTunerGain = 1., mMasterGain = 1., mMasterCoefficient = 0.;
   double mGlobalInputGain = 1.;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
+  std::array<std::string, FixedNAMGrid::kSlots> mSlotHashes;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
   std::array<noise_print::Profile, FixedNAMGrid::kSlots> mNoiseProfiles{};
@@ -347,6 +351,7 @@ private:
   bool mLibraryScanning = false;
   bool mLibraryIndexed = false;
   bool mRescanOnStartup = true;
+  bool mShowVisualizations = true;
   bool mLibraryDefaultSaveFailed = false;
   RealtimeExchange<PreparedIR> mCabinet;
   NAMModelInfo mAmpInfo;

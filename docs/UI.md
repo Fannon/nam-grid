@@ -14,21 +14,34 @@ editor's Enabled / Bypassed switch share the same parameter.
 Clear slot is first in both the module and right-click menus; the latter also has
 Copy / Move / Swap. The bottom editor always has eight equal-width positions,
 with up to seven knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, High pass, Low pass, Output trim;
-its neutral EQ acts after inference, not as controls of the captured amp. A2 Lite is in the
-module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
+its neutral EQ acts after inference, not as controls of the captured amp. Compatible captures show
+a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
+shows the current mode. The module menu also offers A2 Lite. IR uses Level;
+see [MODULES.md](MODULES.md) for other controls.
 Every loaded module offers a mini display: signal history versus threshold and
 numeric GR for dynamics, echo timing for standard delays, vector category icons
-for NAM captures, the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
-history for other effects and IRs.
+for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
+the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
+history for other effects and IRs. Modulation modules show their settings: Chorus/Juno/Vibrato
+delay voices, Phaser/Flanger response sweeps, Tremolo gain shape, Vibe stage sweeps,
+Rotary horn/drum motion and Ring Mod's carrier. Time-based previews label their time window;
+they describe the configured modulation rather than claiming to follow a live audio LFO phase.
+Library & settings has one **Visualizations: ON/OFF** preference for all module editors.
+Category badges remain visible when visualizations are off. This preference is stored per user,
+outside project/rig state. NAM Amp + Cab uses separate Amp and Cab badges in both the card and editor.
 All knobs show editable values and units below the dial;
 double-click the dial to restore its default. See [PRESETS.md](PRESETS.md).
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
 the card meters; the global IN meter replaces the first card's duplicate input bar.
+Global IN/OUT show RMS dB plus a peak reading held for 1.5 seconds, then falling at 12 dB/second
+toward the average. Their numeric levels measure the mono sum before IN gain and after OUT gain.
 Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
-green pedals, teal gates, yellow compressors, rose EQ, coral Boost/Tape, periwinkle
-modulation/filter, cyan delay and violet reverb. Unclassified NAM files remain neutral.
+green pedals, light gray dynamics/gates, rose EQ, coral Boost/Tape, periwinkle
+modulation/filter, cyan delay, magenta Creative and violet reverb. Unclassified NAM files remain neutral.
+Selection brightens the border toward white, retaining the Amp-to-Cab border gradient.
+Knobs and switches use a neutral monochrome palette.
 
 The bottom editors are independent containers with bounds enclosing their children. Their
 parameter bindings remain attached to their physical slots; selection changes visibility,
@@ -43,6 +56,12 @@ file paths are deduplicated; identical source basenames receive distinct menu na
 nested folder names remain in the index. The header search/filter bar is removed
 pending a dedicated browser. The scanner runs on its existing background worker;
 latest request wins, and menus retain immutable snapshots while open.
+The scanner computes SHA-1 content hashes for captures/IRs. Byte-identical files of the same type
+appear once: choose the shallowest folder relative to its configured source, then the first
+configured source and alphabetical relative path. Overlapping roots also use the shallowest depth.
+Slots, projects, rig presets and Copy/Move/Swap retain the content hash. Recall and completed
+rescans relink moved files to the indexed copy; a different file at the old path is never silently
+substituted. Missing indexed matches retain the original path/hash for a future rescan.
 
 Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
 Cabinet. NAM captures and Cabinet IRs have separate menu categories. Shared folder
@@ -52,6 +71,11 @@ snapshot tags retained. Selecting an IR (including via previous/next) uses LoadS
 and processor; selecting NAM switches back. WAV contents are validated by the existing IR
 loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
 invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
+File menu labels contain only the filename stem. The down arrow beside the selected capture/IR
+opens a flat list of files of the same type in its physical folder; it does not recurse.
+The previous/next buttons stay within the same physical folder and file type for NAM/IRs,
+or within the current module-menu category for built-in effects. Both directions wrap.
+An empty NAM slot stays empty until a file is chosen. The main chooser can select any category.
 
 `CaptureFolders` is retained in project state. `CaptureFolder` remains a first-root alias
 for older readers. Older single-root projects and user preferences migrate automatically.

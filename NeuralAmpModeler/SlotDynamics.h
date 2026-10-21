@@ -50,7 +50,8 @@ enum class SlotEffect
   JunoChorus,
   FrequencyShifter,
   Distortion,
-  NoisePrint = 64 // Retain the prototype's ID for named-state migration.
+  NoisePrint = 64,
+  HallReverb = 65
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -74,6 +75,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::RoomReverb: return "Room";
     case SlotEffect::PlateReverb: return "Dense Plate";
     case SlotEffect::CloudReverb: return "Cloud";
+    case SlotEffect::HallReverb: return "Hall";
     case SlotEffect::Chorus: return "Chorus";
     case SlotEffect::Flanger: return "Flanger";
     case SlotEffect::Phaser: return "Phaser";
@@ -104,7 +106,7 @@ inline const char* SlotEffectName(SlotEffect effect)
   return "Unknown";
 }
 inline bool IsValidSlotEffect(SlotEffect effect)
-{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::Distortion) || effect == SlotEffect::NoisePrint; }
+{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::Distortion) || effect == SlotEffect::NoisePrint || effect == SlotEffect::HallReverb; }
 struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;

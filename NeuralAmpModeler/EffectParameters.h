@@ -113,7 +113,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Filter Cutoff", "Cutoff", 2500, 40, 12000, 1, "Hz", 1, true},
    {"Filter Resonance", "Resonance", .7, .5, 4, .01, "", 2},
    {"Filter Envelope", "Envelope", 0, 0, 4, .01, "oct", 3},
-   {"Swell Rise", "Rise", 250, 10, 1200, 1, "ms", 0, true},
+   {"Swell Rise", "Rise", 250, 10, 2000, 1, "ms", 0, true},
    {"Swell Threshold", "Threshold", -42, -72, -12, .1, "dB", 1},
    {"Swell Release", "Release", 120, 20, 800, 1, "ms", 2, true},
    {"Delay Time", "Time", 350, 20, 1500, 1, "ms", 0, true},
@@ -121,8 +121,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Delay Tone", "Tone", 5000, 800, 12000, 1, "Hz", 2, true},
    {"Delay Character", "Character", 20, 0, 100, .1, "%", 3},
    {"Delay Mix", "Mix", 25, 0, 100, .1, "%", 5},
-   {"Reverb Decay", "Decay", 2, .25, 10, .01, "s", 0, true},
-   {"Reverb Size", "Size", 100, 50, 150, .1, "%", 1},
+   {"Reverb Decay", "Decay", 2, .25, 20, .01, "s", 0, true},
+   {"Reverb Size", "Size", 100, 50, 300, .1, "%", 1},
    {"Reverb Tone", "Damping", 5500, 800, 12000, 1, "Hz", 2, true},
    {"Reverb Predelay", "Pre-delay", 15, 0, 100, .1, "ms", 3},
    {"Reverb Mix", "Mix", 20, 0, 100, .1, "%", 6},
@@ -147,7 +147,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Tube Output", "Output", 0, -18, 18, .1, "dB", 5},
    {"Punch Attack", "Attack", 25, .5, 50, .1, "ms", 3, true},
    {"Tempo Sync", "Sync", 0, 0, 1, 1, "", 5},
-   {"Tempo Division", "Division", 4, 0, 8, 1, "", 0},
+   {"Tempo Division", "Division", 5, 0, 9, 1, "", 0},
    {"Utility Level", "Level", 0, -60, 12, .1, "dB", 0},
    {"Utility Balance", "L/R balance", 0, -100, 100, .1, "%", 1},
    {"Utility Stereo", "Stereo", 0, -100, 100, .1, "%", 2},
@@ -260,7 +260,7 @@ inline bool IsReverb(SlotEffect e)
   switch (e)
   {
     case SlotEffect::RoomReverb: case SlotEffect::PlateReverb:
-    case SlotEffect::CloudReverb: case SlotEffect::SpringReverb: return true;
+    case SlotEffect::CloudReverb: case SlotEffect::HallReverb: case SlotEffect::SpringReverb: return true;
     default: return false;
   }
 }
@@ -358,7 +358,7 @@ struct UtilityControls
   double chorusSpread = 75.;
   std::array<double, 5> spring{1.8, 3., 60., 20., 0.};
   std::array<double, 5> wah{50., 3., 50., 100., 0.};
-  int division = 4;
+  int division = 5;
   double tempo = 120., level = 0., balance = 0., stereo = 0.;
   double fineDelay = 0., vibeMode = 0., eqMode = 0.;
   std::array<double, 7> rotary{.8, 6., 0., 1., 3., 80., 75.};

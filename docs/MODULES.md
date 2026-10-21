@@ -17,6 +17,7 @@ See [Noise Gate (Smart)](NOISE_PRINT.md) for learning, controls, measurements an
 | Room | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Sparse early reflections, shorter feedback network |
 | Dense Plate | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Four input diffusers feed a dense network |
 | Cloud | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Diffused network with slow independent delay motion |
+| Hall | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Larger network with stronger diffusion, early reflections and gentle motion |
 | Shimmer | Mix, Decay, Tone, Pitch, Amount, Modulation, Freeze | Eight-line reverb with granular pitched feedback; positive Pitch climbs on each pass |
 | Digital Delay | Time, Feedback, Tone, Character, Mix, Output | Character ducks repeats beneath the pick |
 | Analog Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Character increases wear |
@@ -50,8 +51,11 @@ network motion. Neither changes the dry signal. Compressor Attack covers .5–50
 Mix blends the compressed and original signals before the slot bypass ramp.
 
 Delays cover 20–1500 ms, feedback 0–82%, tone 800–12000 Hz. Time changes are smoothed
-and intentionally bend pitch. Reverb decay is nominal RT60, .25–10 s;
-Size is 50–150%, damping 800–12000 Hz, pre-delay 0–100 ms. Damping and interpolation
+and intentionally bend pitch. Tempo sync spans **1/32–1/1**, including triplet/dotted choices;
+the same division range applies to Stutter and synced modulation.
+Reverb decay is nominal RT60, .25–20 s;
+Size is 50–300%, damping 800–12000 Hz, pre-delay 0–100 ms. Plate and Cloud use
+larger spatial scaling; Hall expands it further. Damping and interpolation
 can shorten measured decay. Modulation rate is .05–10 Hz. Depth/Character/Mix
 use percentages. Vibrato is always wet; the other effects can reach 100% wet for a
 parallel lane. Set lane blend fully toward the processed lane for serial auditioning.
@@ -83,6 +87,10 @@ offset. Style changes crossfade over 20 ms; continuous controls are also smoothe
 Tone filters the wet signal, and Output follows the dry/wet blend. Stereo channels
 use independent histories. These are original waveshapers, not pedal emulations;
 there is no oversampling, so bright/high-drive styles can alias.
+Its mini display shows the static shaper before Tone/Mix/Output. Drive and Bias change the
+curve directly. The highlighted span and endpoint markers track the current mono input peak,
+showing which parts of the curve the signal reaches; this is a peak envelope, not an audio oscilloscope.
+Auto Swell Rise spans **10–2000 ms**.
 
 | Module | Controls | Character |
 | --- | --- | --- |

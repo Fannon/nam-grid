@@ -29,6 +29,7 @@ struct Settings
 {
   std::vector<std::string> folders;
   bool rescanOnStartup = true;
+  bool showVisualizations = true;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings);
@@ -42,6 +43,8 @@ struct Capture
 {
   std::filesystem::path path, relative;
   std::string name, maker, model;
+  std::string hash;
+  size_t folderDepth = 0;
   Gear gear = Gear::Unknown;
   bool isIR = false;
   bool inferred = false; // Filename/folder hint, rather than an explicit metadata category.
@@ -60,10 +63,14 @@ struct Snapshot
   std::vector<Capture> captures;
   std::string error;
   size_t unreadable = 0;
+  size_t duplicates = 0;
 };
 
 // Shared by the background worker and deterministic scanner tests.
 Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root);
+std::string ContentHash(const std::filesystem::path& file, const std::function<bool()>& cancelled = {});
+const Capture* FindHash(const Snapshot& library, const std::string& hash, bool isIR);
+std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR);
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled = {});
 
 Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled = {});

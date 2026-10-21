@@ -256,7 +256,9 @@ class SlotReverb
 {
 public:
   static constexpr std::array<double, 4> kDiffusionSeconds{.0043, .0067, .0091, .0137};
-  static constexpr double kMaximumSize = 1.5, kRightScale = 1.037;
+  static constexpr double kMaximumSize = 7.2, kRightScale = 1.037;
+  static double SpaceScale(SlotEffect effect)
+  { return effect == SlotEffect::RoomReverb ? .58 : effect == SlotEffect::PlateReverb ? 1.3 : effect == SlotEffect::HallReverb ? 2.4 : 1.8; }
   // All diffusers share capacity; expose the available read range for diagnostics.
   double DiffuserMaxDelay() const { return mDiffusers.back().MaxDelay(); }
   void Reset(double rate)
@@ -271,23 +273,23 @@ public:
     mPhase = 0.;
     mCounter = 0;
     for (auto& line : mLines)
-      line.Reset(static_cast<int>(.18 * rate));
+      line.Reset(static_cast<int>(std::ceil((.0797 * kMaximumSize * kRightScale + .002) * rate)));
     for (auto& line : mDiffusers)
       line.Reset(static_cast<int>(std::ceil(kDiffusionSeconds.back() * kMaximumSize * kRightScale * rate)));
     mPredelay.Reset(static_cast<int>(.11 * rate));
-    mEarly.Reset(static_cast<int>(.08 * rate));
+    mEarly.Reset(static_cast<int>(std::ceil(.037 * kMaximumSize * kRightScale * rate)));
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls, bool right = false)
   {
     mControls.Target(controls.reverb, uReverbDecay);
     mExtras.Target({controls.reverbMotion, controls.reverbHighPass}, uReverbMotion);
     constexpr std::array<double, 8> lengths{.0297, .0371, .0411, .0437, .0531, .0617, .0719, .0797};
-    const bool room = effect == SlotEffect::RoomReverb, cloud = effect == SlotEffect::CloudReverb;
+    const bool room = effect == SlotEffect::RoomReverb, cloud = effect == SlotEffect::CloudReverb, hall = effect == SlotEffect::HallReverb;
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
-      const double size = c[1] * .01 * (room ? .58 : 1.) * (right ? kRightScale : 1.), mix = c[4] * .01;
+      const double size = c[1] * .01 * SpaceScale(effect) * (right ? kRightScale : 1.), mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
         mHighPassCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., extra[1]) / mRate);
@@ -311,8 +313,9 @@ public:
         for (int j = 0; j < 4; ++j)
         {
           const double delayed = mDiffusers[j].Read(mRate * kDiffusionSeconds[j] * size);
-          const double y = delayed - .6 * input;
-          mDiffusers[j].Push(input + .6 * y);
+          const double diffusion = hall ? .72 : cloud ? .68 : .6;
+          const double y = delayed - diffusion * input;
+          mDiffusers[j].Push(input + diffusion * y);
           input = y;
         }
       std::array<double, 8> taps{};
@@ -320,7 +323,7 @@ public:
       for (int j = 0; j < 8; ++j)
       {
         const double motion = extra[0] == 0. ? 0. : extra[0] * .01
-                              * (cloud  ? .0018
+                              * (hall ? .00045 : cloud  ? .0018
                                  : room ? .0002
                                         : .0006)
                               * std::sin(2. * grid_fx::pi * mPhase * (1. + .13 * j) + j);
@@ -340,11 +343,11 @@ public:
           }
       for (int j = 0; j < 8; ++j)
         mLines[j].Push(taps[j] * .3535533905932738 + input * (j % 3 == 0 ? -.2 : .2));
-      mPhase += .17 / mRate;
+      mPhase += (hall ? .11 : .17) / mRate;
       // Do not wrap: non-integer related rates must stay continuous at the seam.
       if (mPhase > 1.e6)
         mPhase = 0.;
-      wet = wet * (cloud ? 2. : 1.5) + early * (room ? .7 : .15);
+      wet = wet * (cloud ? 2. : hall ? 1.7 : 1.5) + early * (room ? .7 : hall ? .4 : .15);
       samples[i] = (1. - mix) * x + mix * wet;
     }
   }

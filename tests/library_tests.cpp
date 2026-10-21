@@ -36,10 +36,17 @@ int main(int argc, char** argv)
   const auto root = std::filesystem::current_path() / "library-fixtures";
   std::filesystem::create_directories(root);
   TestRigPresetFiles(root);
+  for (const auto& group : kModuleGroups)
+    for (size_t i = 0; i < group.effects.size(); ++i)
+    {
+      const auto effect = group.effects.begin()[i];
+      assert(StepModule(effect, 1) == group.effects.begin()[(i + 1) % group.effects.size()]);
+      assert(StepModule(StepModule(effect, 1), -1) == effect);
+    }
   auto write = [&](const std::filesystem::path& relative, const json& metadata) {
     const auto path = root / relative;
     std::filesystem::create_directories(path.parent_path());
-    std::ofstream(path) << json{{"metadata", metadata}, {"weights", {1, 2, 3}}}.dump();
+    std::ofstream(path) << json{{"metadata", metadata}, {"weights", {1, 2, 3}}, {"fixture_id", PathText(relative)}}.dump();
     return path;
   };
   for (const auto& [label, expected] : std::vector<std::pair<std::string, Gear>>{{"amp_cab", Gear::AmpCab},
@@ -145,6 +152,7 @@ int main(int argc, char** argv)
   auto* leaf = sub->GetItem(0)->GetSubmenu()->GetItem(0);
   assert(leaf && leaf->GetChecked());
   assert(library.captures[leaf->GetTag()].path == unicode->path);
+  assert(std::string(leaf->GetText()) == PathText(unicode->path.stem())); // Filename only, no category suffix.
   // Use the production module builder: optional entries must never reorder groups
   // or detach the final separator from the library section.
   for (bool quality : {false, true})
@@ -159,7 +167,7 @@ int main(int argc, char** argv)
         for (const char* label : {"Clear slot", "Choose .nam file...", "Choose cabinet IR (.wav)..."})
           assert(std::string(menu.GetItemText(index++)) == label);
         assert(menu.GetItem(index++)->GetIsSeparator());
-        std::array<int, static_cast<int>(SlotEffect::NoisePrint) + 1> seen{};
+        std::array<int, static_cast<int>(SlotEffect::HallReverb) + 1> seen{};
         for (const char* label : {"Distortion", "Dynamics", "EQ / Filter", "Modulation", "Pitch / Frequency",
                                   "Delay", "Reverb", "Creative", "Utility / Volume"})
         {
@@ -180,7 +188,7 @@ int main(int argc, char** argv)
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
           }
         }
-        for (int i = 1; i <= static_cast<int>(SlotEffect::NoisePrint); ++i)
+        for (int i = 1; i <= static_cast<int>(SlotEffect::HallReverb); ++i)
           assert(
             seen[i]
             == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR)
@@ -233,7 +241,7 @@ int main(int argc, char** argv)
   assert(mixed.error.empty() && mixed.captures.size() == 2);
   const auto& ir = mixed.captures[1];
   assert(ir.isIR && ir.gear == Gear::Cabinet && !ir.inferred);
-  assert(mixed.captures[0].relative.begin()->string() == "Library");
+  assert(mixed.captures[0].relative.begin()->string() == "Amps"); // Shallowest overlapping root wins.
   assert(ir.relative.begin()->string() == "Library (2)");
   assert((Filter{"IR WAV", static_cast<int>(Gear::Cabinet)}.Matches(ir)));
   assert((!Filter{"NAM", -1}.Matches(ir)));
@@ -301,12 +309,44 @@ int main(int argc, char** argv)
   std::ofstream(preferences) << json{{"CaptureFolders", {1, "bad"}}};
   assert(ReadFolderSettings(preferences).empty());
   assert(ReadSettings(preferences).rescanOnStartup);
-  assert(WriteSettings(preferences, {folders, false}));
+  assert(WriteSettings(preferences, {folders, false, false}));
   assert(!ReadSettings(preferences).rescanOnStartup && ReadSettings(preferences).folders == folders);
+  assert(!ReadSettings(preferences).showVisualizations);
   assert(WriteFolderSettings(preferences, {folders[0]}));
   assert(!ReadSettings(preferences).rescanOnStartup); // Editing folders must retain the startup preference.
+  assert(!ReadSettings(preferences).showVisualizations);
   assert(WriteSettings(preferences, {folders, true}));
   assert(ReadSettings(preferences).rescanOnStartup);
+  assert(ReadSettings(preferences).showVisualizations);
+  // Content identity is independent of filenames, roots, extension case and metadata hints.
+  const auto identities = root / ("HashIdentity-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(identities / "deep" / "nested");
+  const auto shallow = identities / "first.nam", deep = identities / "deep" / "nested" / "copy.NAM";
+  std::ofstream(shallow, std::ios::binary) << "abc";
+  std::filesystem::copy_file(shallow, deep, std::filesystem::copy_options::overwrite_existing);
+  assert(ContentHash(shallow) == "a9993e364706816aba3e25717850c26c9cd0d89d");
+  assert(ContentHash(deep) == ContentHash(shallow));
+  std::ofstream(identities / "empty.bin", std::ios::binary);
+  assert(ContentHash(identities / "empty.bin") == "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+  const auto deduped = Scan(identities);
+  assert(deduped.captures.size() == 1 && deduped.duplicates == 1 && deduped.captures[0].path == shallow);
+  assert(FindHash(deduped, ContentHash(deep), false)->path == shallow);
+  assert(!FindHash(deduped, ContentHash(deep), true));
+  const auto tie = ScanFolders({PathText(deep.parent_path()), PathText(identities)});
+  assert(tie.captures.size() == 1 && tie.captures[0].path == deep); // Same depth: first configured root wins.
+  const auto sibling = identities / "second.NAM";
+  std::ofstream(sibling) << "different";
+  std::ofstream(identities / "cab.wav") << "abc";
+  const auto siblings = SiblingFiles(shallow, false);
+  assert(siblings == std::vector<std::filesystem::path>({shallow, sibling}));
+  assert(SiblingFiles(shallow, true) == std::vector<std::filesystem::path>({identities / "cab.wav"}));
+  const auto typed = Scan(identities);
+  assert(typed.captures.size() == 3); // A WAV and NAM with identical bytes are separate loader types.
+  assert(FindHash(typed, ContentHash(shallow), true)->isIR);
+  assert(ContentHash(shallow, [] { return true; }).empty());
+  std::ofstream(identities / "large.bin", std::ios::binary) << std::string(131073, 'a');
+  int chunks = 0;
+  assert(ContentHash(identities / "large.bin", [&] { return ++chunks == 2; }).empty() && chunks == 2);
   // A later folder request cancels stale results and can safely outlive a menu snapshot.
   Worker worker;
   worker.Request(PathText(root));

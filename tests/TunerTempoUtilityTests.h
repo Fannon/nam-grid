@@ -185,7 +185,7 @@ void TestTunerTempoUtility()
     UtilityControls c;
     c.sync = true;
     c.tempo = bpm;
-    c.division = 4;
+    c.division = 5;
     c.modulation = {.31, 100., 0., 100., 100.};
     double phase = 0.;
     for (int block = 0; block < 20; ++block)
@@ -206,7 +206,7 @@ void TestTunerTempoUtility()
   }
   // Actual first repeat: all divisions at changing tempos, variable block sizes.
   for (double bpm : {30., 60., 90., 120., 300., 0.})
-    for (int division : {0, 1, 2, 3, 4, 5, 6, 7, 8})
+    for (int division : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
     {
       constexpr double rate = 12000.;
       SlotConfig cfg;

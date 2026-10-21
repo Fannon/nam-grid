@@ -13,6 +13,7 @@ struct SlotConfig
   SlotEffect effect = SlotEffect::NAM;
   noise_print::Profile noiseProfile;
   std::string path;
+  std::string hash;
   // NAM in/trim/on, gate x3, compressor x3, Tone EQ x3, Cut EQ x3, IR level, Full quality.
   std::array<double, 17 + kUtilityControls> values = [] {
     std::array<double, 17 + kUtilityControls> result{

@@ -19,7 +19,7 @@ void TestTimeEffects()
   };
   for (double rate : {44100., 48000., 88200., 96000., 192000.})
   {
-    for (int id = static_cast<int>(SlotEffect::SynthFilter); id <= static_cast<int>(SlotEffect::TubeBoost); ++id)
+    for (int id : {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, static_cast<int>(SlotEffect::HallReverb)})
     {
       const auto effect = static_cast<SlotEffect>(id);
       auto stage = prepareEffect(effect, rate), reference = prepareEffect(effect, rate);
@@ -198,10 +198,11 @@ void TestTimeEffects()
     assert(harmonic[0] < 1.e-4 && harmonic[1] > .01);
   }
   // Reverbs are genuinely distinct impulse responses, with finite decaying tails.
-  std::array<std::vector<double>, 3> responses;
-  for (int variant = 0; variant < 3; ++variant)
+  std::array<std::vector<double>, 4> responses;
+  constexpr std::array reverbs{SlotEffect::RoomReverb, SlotEffect::PlateReverb, SlotEffect::CloudReverb, SlotEffect::HallReverb};
+  for (int variant = 0; variant < responses.size(); ++variant)
   {
-    auto stage = prepareEffect(static_cast<SlotEffect>(static_cast<int>(SlotEffect::RoomReverb) + variant), 48000.);
+    auto stage = prepareEffect(reverbs[variant], 48000.);
     UtilityControls c;
     c.reverb = {.5, 100., 5500., 0., 100.};
     auto& x = responses[variant];
@@ -216,8 +217,8 @@ void TestTimeEffects()
       late += x[i] * x[i];
     assert(early > 1.e-8 && late < early * .001);
   }
-  for (int a = 0; a < 3; ++a)
-    for (int b = a + 1; b < 3; ++b)
+  for (int a = 0; a < responses.size(); ++a)
+    for (int b = a + 1; b < responses.size(); ++b)
     {
       double difference = 0.;
       for (size_t i = 0; i < responses[a].size(); ++i)
@@ -266,7 +267,7 @@ void TestTimeEffects()
       c.delay = {1500., 82., 150., 100., 100.};
       c.sync = true;
       c.tempo = 30.;
-      c.division = 8;
+      c.division = 9;
       c.pingPong = stereo;
       c.delayMotion = 100.;
       std::array<double, 512> left{}, right{};

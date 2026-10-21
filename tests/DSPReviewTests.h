@@ -1,8 +1,20 @@
 #pragma once
 #include "FixedNAMGrid.h"
+#include "LevelReadout.h"
 
 void TestDSPReviewFixes()
 {
+  LevelReadout reading;
+  reading.Receive(.1, .5); reading.Tick(1., false);
+  assert(reading.average == .1 && reading.peak == .5);
+  reading.Receive(.1, .2); reading.Tick(.5, false);
+  assert(reading.peak == .5 && reading.hold == 0.);
+  reading.Tick(1., false);
+  assert(std::abs(reading.peak - .5 * std::pow(10., -12. / 20.)) < 1.e-12);
+  reading.Tick(1., false); assert(reading.peak == reading.average);
+  reading.Receive(.05, .8); assert(reading.hold == 1.5 && reading.peak == .8);
+  reading.Receive(std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity());
+  reading.Tick(10., true); assert(reading.average == 0. && std::isfinite(reading.peak));
   for (double rate : {44100., 48000., 96000., 192000.})
   {
     // A long FIR must not replay pre-bypass audio when re-enabled into silence.
@@ -39,6 +51,13 @@ void TestDSPReviewFixes()
       }
     }
     assert(activePeak > .001);
+    // The maximum swell rises over two seconds rather than clamping at 1.2 s.
+    SlotAutoSwell slow; slow.Reset(rate);
+    UtilityControls slowControls; slowControls.rise = 2000.; slowControls.threshold = -72.;
+    std::vector<double> slowAudio(static_cast<int>(rate * 2.1), .2);
+    slow.Process(slowAudio.data(), static_cast<int>(slowAudio.size()), slowControls);
+    assert(std::abs(slowAudio[static_cast<int>(rate)] / .2 - .5) < .002);
+    assert(std::abs(slowAudio.back() - .2) < 1.e-10);
     std::array<double, 2> signal{.25, -.125};
     cabinet.Process(signal.data(), 2, false, 0., 0., false, 0., 0, 1.);
     const auto bypassed = cabinet.TakeMeter();
@@ -54,10 +73,10 @@ void TestDSPReviewFixes()
     for (bool rightChannel : {false, true})
     {
       for (double seconds : SlotReverb::kDiffusionSeconds)
-        assert(reverb.DiffuserMaxDelay() >= rate * seconds * 1.5 * (rightChannel ? 1.037 : 1.));
-      for (auto effect : {SlotEffect::PlateReverb, SlotEffect::CloudReverb})
+        assert(reverb.DiffuserMaxDelay() >= rate * seconds * SlotReverb::kMaximumSize * (rightChannel ? SlotReverb::kRightScale : 1.));
+      for (auto effect : {SlotEffect::PlateReverb, SlotEffect::CloudReverb, SlotEffect::HallReverb})
       {
-        UtilityControls c; c.reverb[1] = 150.; c.reverb[4] = 100.;
+        UtilityControls c; c.reverb[1] = 300.; c.reverb[4] = 100.;
         left.fill(0.); left[0] = 1.;
         reverb.Process(left.data(), 127, effect, c, rightChannel);
         for (double sample : left) assert(std::isfinite(sample));
@@ -132,6 +151,24 @@ void TestCaptureSeams()
   for (double rate : {44100., 48000., 96000., 192000.})
   {
     const int length = static_cast<int>(.02 * rate);
+    {
+      // 1/32 at 120 BPM repeats a 62.5 ms window, including at fractional rates.
+      assert(grid_tempo::Seconds(120., 0) == .0625);
+      const int window = static_cast<int>(.0625 * rate);
+      grid_roadmap::Capture synced; synced.Reset(rate);
+      UtilityControls c; c.sync = true; c.tempo = 120.; c.division = 0;
+      c.stutter = {1000., 100., 1., 100.};
+      std::vector<double> x(window * 4);
+      for (int i = 0; i < x.size(); ++i) x[i] = .2 * std::sin(i * .017);
+      for (int pos = 0, block = 0; pos < x.size();)
+      {
+        const int n = std::min(static_cast<int>(x.size()) - pos, std::array<int, 4>{1, 3, 64, 127}[block++ % 4]);
+        allocations = deletions = 0; tracking = true;
+        synced.Process(x.data() + pos, nullptr, n, SlotEffect::Stutter, c);
+        tracking = false; assert(allocations == 0 && deletions == 0); pos += n;
+      }
+      for (int i = window * 2; i < window * 3; ++i) assert(std::abs(x[i] - x[i + window]) < 1.e-9);
+    }
     for (auto effect : {SlotEffect::Stutter, SlotEffect::ReverseDelay})
       for (double fadeMS : {.1, 20.})
       {
@@ -175,7 +212,7 @@ void TestCaptureSeams()
         c = {}; c.stutter = {change < 3 ? 10. : 1000., 100., 20., 100.};
         c.delay = {change < 3 ? 20. : 1500., 0., 12000., 0., 100.};
         c.freeze = {change % 2 ? 1. : 0., 50., 20., 16000., 100.};
-        c.sync = change == 1 || change == 2; c.tempo = change == 1 ? 30. : 300.; c.division = change == 1 ? 8 : 0;
+        c.sync = change == 1 || change == 2; c.tempo = change == 1 ? 30. : 300.; c.division = change == 1 ? 9 : 0;
         std::array<double, 4096> left{}, right{}, expectedLeft{}, expectedRight{};
         for (int i = 0; i < left.size(); ++i)
         {
@@ -204,7 +241,7 @@ void TestCaptureSeams()
   for (auto effect : {SlotEffect::ReverseDelay, SlotEffect::Stutter})
   {
     grid_roadmap::Capture capture; capture.Reset(48000.);
-    UtilityControls c; c.sync = true; c.tempo = 30.; c.division = 8;
+    UtilityControls c; c.sync = true; c.tempo = 30.; c.division = 9;
     c.delay[4] = c.stutter[3] = 100.; c.stutter[1] = 100.;
     std::vector<double> x(384000 + 1024, .1);
     capture.Process(x.data(), nullptr, static_cast<int>(x.size()), effect, c);

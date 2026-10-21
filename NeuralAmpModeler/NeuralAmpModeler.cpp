@@ -27,7 +27,7 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
-constexpr int kGateModeSchema = 15, kGridStateSchema = 16;
+constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kGridStateSchema = 17;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -107,8 +107,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       auto* param = GetParam(SlotUtilityParam(slot, i));
       if (i == uTempoDivision)
       {
-        param->InitEnum((name + " " + p.name).c_str(), 4, 9);
-        for (int d = 0; d < 9; ++d)
+        param->InitEnum((name + " " + p.name).c_str(), 5, static_cast<int>(grid_tempo::names.size()));
+        for (int d = 0; d < grid_tempo::names.size(); ++d)
           param->SetDisplayText(d, grid_tempo::names[d]);
       }
       else if (i == uJunoMode)
@@ -157,8 +157,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     }
     else if (i == grid_performance::LFODivision || i == grid_performance::StepDivision)
     {
-      param->InitEnum(p.name, static_cast<int>(p.initial), 9);
-      for (int d = 0; d < 9; ++d) param->SetDisplayText(d, grid_tempo::names[d]);
+      param->InitEnum(p.name, static_cast<int>(p.initial), static_cast<int>(grid_tempo::names.size()));
+      for (int d = 0; d < grid_tempo::names.size(); ++d) param->SetDisplayText(d, grid_tempo::names[d]);
     }
     else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.) param->InitBool(p.name, p.initial >= .5);
     else if (p.exponential) param->InitDouble(p.name, p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
@@ -166,6 +166,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   }
   const auto librarySettings = nam_library::ReadSettings(CaptureSettingsFile());
   mRescanOnStartup = librarySettings.rescanOnStartup;
+  mShowVisualizations = librarySettings.showVisualizations;
   SetCaptureFolders(librarySettings.folders);
 
   mNoiseGateTrigger.AddListener(&mNoiseGateGain);
@@ -227,11 +228,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
-    // Flat input/output meters retain the upstream sender protocol, without bitmap skins.
-    const auto meterStyle =
-      compact.WithShowValue(false).WithColor(kX1, grid_ui::accent).WithColor(kFG, grid_ui::accent);
-    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(81, 68, 84, 140), "", meterStyle), kCtrlTagInputMeter);
-    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(922, 380, 927, 452), "", meterStyle), kCtrlTagOutputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(81, 68, 84, 140), IRECT(0, 142, 76, 170)), kCtrlTagInputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(922, 380, 927, 452), IRECT(928, 450, 1000, 478)), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(b), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
@@ -531,11 +529,13 @@ void NeuralAmpModeler::SetCaptureFolder(const char* folder, bool fromUI)
 void NeuralAmpModeler::SetCaptureFolders(std::vector<std::string> folders, bool fromUI)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  mCaptureFolders = nam_library::NormalizeFolders(folders);
+  auto normalized = nam_library::NormalizeFolders(folders);
+  const bool needsIndex = normalized != mCaptureFolders || (!mLibraryIndexed && !mLibraryScanning);
+  mCaptureFolders = std::move(normalized);
   mCaptureFolder = mCaptureFolders.empty() ? std::string{} : mCaptureFolders.front();
-  if (fromUI || mRescanOnStartup)
+  if (needsIndex && (fromUI || mRescanOnStartup))
     RescanCaptureFolder();
-  else
+  else if (needsIndex)
   {
     mLibraryWorker.Request(std::vector<std::string>{}); // Cancel an older request without indexing the roots.
     mLibrary = std::make_shared<nam_library::Snapshot>();
@@ -544,7 +544,7 @@ void NeuralAmpModeler::SetCaptureFolders(std::vector<std::string> folders, bool 
   }
   if (fromUI)
   {
-    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup});
+    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, mShowVisualizations});
     _UpdateLibraryControls();
     _NotifyHostStateChanged();
   }
@@ -678,6 +678,7 @@ SlotConfig NeuralAmpModeler::_GetSlotConfig(size_t slot) const
   result.effect = mSlotEffects[slot];
   result.noiseProfile = GetNoiseProfile(slot);
   result.path = mSlotPaths[slot].Get();
+  result.hash = mSlotHashes[slot];
   const auto indices = SlotParamIndices(slot);
   for (size_t i = 0; i < indices.size(); ++i)
     result.values[i] = GetParam(indices[i])->Value();
@@ -694,6 +695,13 @@ std::string NeuralAmpModeler::EditSlot(size_t source, size_t destination, SlotEd
     return "";
   try
   {
+    const auto verify = [&](size_t slot) {
+      if (!mSlotHashes[slot].empty()
+          && nam_library::ContentHash(std::filesystem::u8path(mSlotPaths[slot].Get())) != mSlotHashes[slot])
+        throw std::runtime_error("Capture/IR content changed; load the file again before copying or moving it");
+    };
+    verify(source);
+    if (mode == SlotEditMode::Swap) verify(destination);
     auto edit = PrepareSlotEdit(
       _GetSlotConfig(source), _GetSlotConfig(destination), mode, mSampleRatePrepared, mMaxBlockPrepared);
     _CommitSlot(destination, std::move(edit.destination), true);
@@ -769,10 +777,16 @@ bool NeuralAmpModeler::HasPerformanceScene(size_t scene) const
   return scene < mPerformanceScenes.size() && !mPerformanceScenes[scene].empty();
 }
 
+void NeuralAmpModeler::SetShowVisualizations(bool enabled)
+{
+  mShowVisualizations = enabled;
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, enabled});
+  if (auto* ui = GetUI()) ui->SetAllControlsDirty();
+}
 void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
 {
   mRescanOnStartup = enabled;
-  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup});
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, mShowVisualizations});
   if (enabled && !mLibraryIndexed && !mLibraryScanning)
     RescanCaptureFolder();
   _UpdateLibraryControls();
@@ -873,7 +887,7 @@ void NeuralAmpModeler::OnIdle()
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     if (CanToggleSlotQuality(slot) && GetParam(SlotFullParam(slot))->Value() != mPreparedQuality[slot])
     {
-      if (!_StageSlot(slot, SlotEffect::NAM, mSlotPaths[slot].Get()).empty())
+      if (!_StageSlot(slot, SlotEffect::NAM, mSlotPaths[slot].Get(), mSlotHashes[slot]).empty())
       {
         // Keep the old processor if a selected file has disappeared since loading.
         const int index = SlotFullParam(slot);
@@ -904,6 +918,7 @@ void NeuralAmpModeler::OnIdle()
       mLibrary = std::move(result);
       mLibraryScanning = false;
       mLibraryIndexed = true;
+      _ResolveLibraryFiles();
       _UpdateLibraryControls();
     }
   }
@@ -942,6 +957,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
     config["SlotPaths"].push_back(path.Get());
+  config["SlotHashes"] = mSlotHashes;
   config["NoisePrintProfiles"] = nlohmann::json::array();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     config["NoisePrintProfiles"].push_back(noise_print::Save(GetNoiseProfile(slot)));
@@ -1119,7 +1135,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                   && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
                   && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
-                  && schemaValue != kGridStateSchema)
+                  && schemaValue != kFilterModeSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1189,7 +1205,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema == 10 ? static_cast<int>(SlotEffect::RingMod)
                              : schema <= 12 ? static_cast<int>(SlotEffect::FrequencyShifter)
                              : schema == 13 ? static_cast<int>(SlotEffect::Distortion)
-                                            : static_cast<int>(SlotEffect::NoisePrint))
+                                            : static_cast<int>(SlotEffect::HallReverb))
                 || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>()))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
@@ -1275,11 +1291,23 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           config[name] = config.contains("SlotEffects")
                            && config["SlotEffects"][slot] == static_cast<int>(SlotEffect::TightGate) ? 1. : 0.;
         }
-        if (grid && (schema < kGridStateSchema || schema >= 1001)
+        if (grid && (schema < kFilterModeSchema || schema >= 1001)
             && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kUtilityControls == uFilterMode)
           config[name] = 0.;
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
+      }
+      if (config.contains("SlotHashes"))
+      {
+        const auto& hashes = config["SlotHashes"];
+        if (!hashes.is_array() || hashes.size() != FixedNAMGrid::kSlots) return -1;
+        for (const auto& hash : hashes)
+        {
+          if (!hash.is_string()) return -1;
+          const auto value = hash.get<std::string>();
+          if (!value.empty() && (value.size() != 40 || !std::all_of(value.begin(), value.end(), [](char ch) {
+                return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'); }))) return -1;
+        }
       }
       if (config.contains("NoisePrintProfiles"))
       {
@@ -1296,7 +1324,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         }
       }
       else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
-               || schema == kGateModeSchema || schema == kGridStateSchema)
+               || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;
@@ -1438,7 +1466,34 @@ void NeuralAmpModeler::_ResetModelAndIR(const double sampleRate, const int maxBl
 std::string NeuralAmpModeler::_StageModel(const WDL_String& modelPath, size_t slot)
 { return _StageSlot(slot, SlotEffect::NAM, modelPath.Get()); }
 
-std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const std::string& path)
+void NeuralAmpModeler::_ResolveLibraryFiles()
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (!mLibrary) return;
+  bool changed = false;
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    const auto effect = mSlotEffects[slot];
+    if (effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR) continue;
+    const auto* capture = nam_library::FindHash(*mLibrary, mSlotHashes[slot], effect == SlotEffect::CabinetIR);
+    if (!capture || (IsSlotLoaded(slot) && nam_library::PathText(capture->path) == mSlotPaths[slot].Get())) continue;
+    const auto path = nam_library::PathText(capture->path);
+    try { if (nam_library::ContentHash(capture->path) != mSlotHashes[slot]) continue; }
+    catch (const std::exception&) { continue; } // File changed/disappeared after scanning.
+    if (IsSlotLoaded(slot))
+    {
+      // Identical content is already processing: only update its canonical file reference.
+      mSlotPaths[slot].Set(path.c_str()); mSlotGear[slot] = capture->gear;
+      if (slot == 0) mDrivePath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
+      if (slot == 1) mNAMPath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
+      SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
+      changed = true;
+    }
+    else if (_StageSlot(slot, effect, path, mSlotHashes[slot]).empty()) changed = true;
+  }
+  if (changed) _NotifyHostStateChanged();
+}
+std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const std::string& path, const std::string& expectedHash)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (slot >= FixedNAMGrid::kSlots)
@@ -1450,6 +1505,22 @@ std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const s
     config.effect = effect;
     config.noiseProfile = effect == SlotEffect::NoisePrint ? mNoiseProfiles[slot] : noise_print::Profile{};
     config.path = path;
+    config.hash.clear();
+    if (!path.empty() && (effect == SlotEffect::NAM || effect == SlotEffect::CabinetIR))
+    {
+      if (mLibrary && !expectedHash.empty())
+        if (const auto* known = nam_library::FindHash(*mLibrary, expectedHash, effect == SlotEffect::CabinetIR))
+          try {
+            if (nam_library::ContentHash(known->path) == expectedHash) config.path = nam_library::PathText(known->path);
+          } catch (const std::exception&) {} // A stale scan must not hide a valid saved path.
+      config.hash = nam_library::ContentHash(std::filesystem::u8path(config.path));
+      if (!expectedHash.empty() && config.hash != expectedHash)
+        throw std::runtime_error("The capture/IR at this path has different content");
+      if (mLibrary)
+        if (const auto* known = nam_library::FindHash(*mLibrary, config.hash, effect == SlotEffect::CabinetIR))
+          if (nam_library::PathText(known->path) != config.path && nam_library::ContentHash(known->path) == config.hash)
+            config.path = nam_library::PathText(known->path);
+    }
     _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), false);
   }
   catch (const std::exception& error)
@@ -1500,6 +1571,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
     mAmpInfo = config.effect == SlotEffect::NAM ? info : NAMModelInfo{};
   }
   mSlotPaths[slot].Set(config.path.c_str());
+  mSlotHashes[slot] = config.hash;
   mSlotEffects[slot] = config.effect;
   uint32_t freezeMask = 0;
   for (size_t i = 0; i < mSlotEffects.size(); ++i) if (mSlotEffects[i] == SlotEffect::Freeze) freezeMask |= 1u << i;

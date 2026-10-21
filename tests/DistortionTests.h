@@ -3,6 +3,14 @@
 
 void TestDistortionAndMonoMeters()
 {
+  for (int style = 0; style < 4; ++style)
+  {
+    assert(SlotDistortion::Transfer(0., style, 10., .4) == 0.);
+    for (double x : {-.1, .1})
+      assert(std::abs(SlotDistortion::Transfer(x, style, 10., 0.) - SlotDistortion::Transfer(x * 10., style, 1., 0.)) < 1.e-12);
+  }
+  assert(SlotDistortion::Transfer(.2, 1, 10., 0.) == 1.);
+  assert(SlotDistortion::Transfer(.2, 1, 1., 0.) == .2);
   for (double rate : {44100., 48000., 96000., 192000.})
   {
     constexpr int count = 4096;

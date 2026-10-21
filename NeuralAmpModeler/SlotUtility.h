@@ -261,7 +261,7 @@ public:
     // Exponentials stay outside the sample loop and the envelope stays per sample.
     const std::array<double, 3> target{
       std::pow(10., std::clamp(c.threshold, -72., -12.) / 20.),
-      1. / (mRate * .001 * std::clamp(c.rise, 10., 1200.)),
+      1. / (mRate * .001 * std::clamp(c.rise, 10., 2000.)),
       std::exp(-1. / (mRate * .001 * std::clamp(c.release, 20., 800.)))};
     if (mFirst) { mValue = target; mFirst = false; }
     for (int i = 0; i < frames; ++i)

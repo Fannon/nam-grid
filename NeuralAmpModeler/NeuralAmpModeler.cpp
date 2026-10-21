@@ -781,13 +781,17 @@ bool NeuralAmpModeler::HasPerformanceScene(size_t scene) const
 void NeuralAmpModeler::SetShowVisualizations(bool enabled)
 {
   mShowVisualizations = enabled;
-  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, enabled});
+  auto settings = nam_library::ReadSettings(CaptureSettingsFile());
+  settings.showVisualizations = enabled;
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
   if (auto* ui = GetUI()) ui->SetAllControlsDirty();
 }
 void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
 {
   mRescanOnStartup = enabled;
-  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, mShowVisualizations});
+  auto settings = nam_library::ReadSettings(CaptureSettingsFile());
+  settings.rescanOnStartup = enabled;
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
   if (enabled && !mLibraryIndexed && !mLibraryScanning)
     RescanCaptureFolder();
   _UpdateLibraryControls();
@@ -1522,8 +1526,10 @@ std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const s
         throw std::runtime_error("The capture/IR at this path has different content");
       if (mLibrary)
         if (const auto* known = nam_library::FindHash(*mLibrary, config.hash, effect == SlotEffect::CabinetIR))
-          if (nam_library::PathText(known->path) != config.path && nam_library::ContentHash(known->path) == config.hash)
-            config.path = nam_library::PathText(known->path);
+          if (nam_library::PathText(known->path) != config.path)
+            try {
+              if (nam_library::ContentHash(known->path) == config.hash) config.path = nam_library::PathText(known->path);
+            } catch (const std::exception&) {} // Keep the verified file when the indexed copy disappeared.
     }
     _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), false);
   }

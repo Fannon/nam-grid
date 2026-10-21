@@ -1,6 +1,7 @@
 #pragma once
 #include "FixedNAMGrid.h"
 #include "LevelReadout.h"
+#include "LevelAnalysis.h"
 
 void TestDSPReviewFixes()
 {
@@ -17,6 +18,29 @@ void TestDSPReviewFixes()
   reading.Tick(10., true); assert(reading.average == 0. && std::isfinite(reading.peak));
   for (double rate : {44100., 48000., 96000., 192000.})
   {
+    LevelAnalysis average;
+    average.Reset(rate);
+    const int duration = static_cast<int>(rate * 3.);
+    int packets = 0;
+    for (int offset = 0; offset < duration;)
+    {
+      const int frames = std::min(duration - offset, std::array<int, 4>{1, 3, 64, 127}[offset % 4]);
+      for (int i = 0; i < frames; ++i)
+      {
+        const double x = .4 * std::sin(2. * grid_fx::pi * 1000. * (offset + i) / rate);
+        if (average.Push(x)) ++packets;
+      }
+      offset += frames;
+    }
+    assert(packets == duration / static_cast<int>(std::lround(rate / 30.)));
+    assert(std::abs(20. * std::log10(average.rms) - 20. * std::log10(.4 / std::sqrt(2.))) < .03);
+    assert(std::abs(average.peak - .4) < .001);
+    average.Reset(rate);
+    for (int i = 0; i < duration; ++i) average.Push(.25);
+    assert(std::abs(average.rms - .25) < .0001 && average.peak == .25);
+    average.Push(std::numeric_limits<double>::infinity());
+    average.Push(std::numeric_limits<double>::quiet_NaN());
+    assert(std::isfinite(average.rms) && std::isfinite(average.peak));
     // A long FIR must not replay pre-bypass audio when re-enabled into silence.
     // Use both channels and small, varying blocks so the suspension boundary
     // cannot hide behind a large bypass-fade block.

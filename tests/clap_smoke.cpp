@@ -1127,6 +1127,24 @@ int main(int argc, char** argv)
     Stream replaced; replaced.string("###NAMGrid-v1###"); replaced.string(relocated.dump());
     assert(loadBytes(replaced));
     assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
+    // A stale index must not prevent loading a verified saved copy outside it.
+    relocated["SlotPaths"][0] = (ir ? irFile : path1).string();
+    relocated["DrivePath"] = ir ? "" : path1.string();
+    Stream fallback; fallback.string("###NAMGrid-v1###"); fallback.string(relocated.dump());
+    const auto firstBlock = [&] {
+      assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
+      for(int i=0;i<512;++i) input[0][i]=input[1][i]=.1*std::sin(i*.031);
+      process.frames_count=512; assert(plugin->process(plugin,&process)!=CLAP_PROCESS_ERROR);
+      const auto result=output;
+      plugin->stop_processing(plugin);plugin->deactivate(plugin);return result;
+    };
+    assert(loadBytes(fallback)); const auto expectedAudio=firstBlock();
+    const auto parked=canonical.string()+".relink-test-"+std::to_string(GetTickCount64());
+    std::filesystem::rename(canonical,parked);
+    assert(loadBytes(fallback)); const auto fallbackAudio=firstBlock();
+    std::filesystem::rename(parked,canonical);
+    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == (ir ? irFile : path1));
+    for(int ch=0;ch<2;++ch) for(int i=0;i<512;++i) assert(std::abs(expectedAudio[ch][i]-fallbackAudio[ch][i])<1.e-10);
   }
   load(browserState);
   const auto beforeHashError = save().config();

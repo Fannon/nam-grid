@@ -14,6 +14,7 @@
 #include "FixedNAMGrid.h"
 #include "SlotOperations.h"
 #include "CaptureLibrary.h"
+#include "LevelAnalysis.h"
 #include "GridTuner.h"
 #include <array>
 #include <mutex>
@@ -26,27 +27,26 @@ const int kNumPresets = 1;
 // Stereo grid; mono NAM slots deliberately collapse to mono for one inference pass.
 constexpr size_t kNumChannelsInternal = 2;
 
-class NAMSender : public iplug::IPeakAvgSender<1>
+class NAMSender : public iplug::ISender<1, 64, std::pair<float, float>>
 {
 public:
-  NAMSender()
-  : iplug::IPeakAvgSender<1>(-90.0, true, 5.0f, 1.0f, 300.0f, 0.0f)
-  {
-  }
+  void Reset(double rate) { mAnalysis.Reset(rate); }
   void ProcessBlock(iplug::sample** inputs, int frames, int tag, int channels)
   {
     if (channels <= 0) return;
-    std::array<iplug::sample, 128> mono{};
-    auto* buffer = mono.data();
-    for (int pos = 0; pos < frames;)
+    for (int i = 0; i < frames; ++i)
     {
-      const int count = std::min(128, frames - pos);
-      for (int i = 0; i < count; ++i)
-        mono[i] = channels == 1 ? inputs[0][pos + i] : .5 * (inputs[0][pos + i] + inputs[1][pos + i]);
-      iplug::IPeakAvgSender<1>::ProcessBlock(&buffer, count, tag, 1);
-      pos += count;
+      const double mono = channels == 1 ? inputs[0][i] : .5 * (inputs[0][i] + inputs[1][i]);
+      if (mAnalysis.Push(mono))
+      {
+        iplug::ISenderData<1, std::pair<float, float>> packet(tag, 1, 0);
+        packet.vals[0] = {static_cast<float>(mAnalysis.peak), static_cast<float>(mAnalysis.rms)};
+        PushData(packet);
+      }
     }
   }
+private:
+  LevelAnalysis mAnalysis;
 };
 
 enum EParams

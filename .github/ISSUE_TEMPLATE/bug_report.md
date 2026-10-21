@@ -11,7 +11,7 @@ assignees: ''
 
 ## Before you make a new bug report:
 - [ ] Have you searched the Issues to see if your problem has already been reported? If it has, please follow that Issue instead of opening a duplicate!
-- [ ] Have you checked the [Rough edges](https://github.com/sdatkinson/NeuralAmpModelerPlugin/tree/main?tab=readme-ov-file#rough-edges) for help?
+- [ ] Have you checked the [release status and known limits](https://github.com/Fannon/nam-grid/blob/main/docs/FIRST_RELEASE_REVIEW.md)?
 
 ## Description
 Provide a clear and concise description of what the bug is.
@@ -34,8 +34,8 @@ If applicable, add screenshots to help explain your problem.
 **(please provide the following information):**
  - OS [e.g. Windows 10, macOS 10.15]
  - Onboard graphics & version
- - Plugin version [e.g. 0.7.10]
- - Standalone, VST3, or AU
+ - Plugin version or commit
+ - CLAP or VST3
  - DAW (if applicable)
  - Audio interface [e.g. Focusrite Scarlett Solo 3rd Gen]
  - Sample rate [e.g. 44.1 kHz]

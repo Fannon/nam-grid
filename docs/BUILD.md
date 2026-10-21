@@ -25,7 +25,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests nam-wav-tests --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-clap-bench nam-library-tests nam-wav-tests nam-resampling-tests --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
@@ -35,7 +35,7 @@ Windows SDK 10.0.26100, CMake 4.4.4, Ninja 1.13.2 and Release optimization.
 The optional portable toolchain used in this workspace is outside this repository.
 
 The setup script applies the two MIT Core allocation fixes and the AudioDSPTools WAV
-decoder safety/polarity patch from `patches/`. Core remains pinned to `9c7b185`,
+decoder safety/polarity and resampler warm-up patches from `patches/`. Core remains pinned to `9c7b185`,
 AudioDSPTools to `e19ef4b`; both submodules are intentionally modified after setup. The patch files are the reproducible source of these changes. Do not reset
 those submodules after setup without applying the patches again. Setup checks whether each
 patch is already applied, and refuses patches that cannot be applied cleanly.
@@ -55,13 +55,20 @@ Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuratio
 SDKs are absent. The existing Visual Studio solution/Xcode packaging scripts are retained
 for reference; this prototype's validated build entry point is CMake. The new GitHub workflow
 is `.github/workflows/dual-prototype.yml`; it has not been run remotely in this session.
+The scheduled native build and tag release workflows reuse that same build/test job.
+Tagged builds create a draft release only after both matrix jobs pass. Archives are
+created before artifact upload to retain macOS executable permissions, and include
+the plugins and notices. Manual runs from a branch produce artifacts without creating
+a release. No release has been published during this review.
 
 ## Using the prototype
 
 The 4x4 grid contains four serial input slots, two parallel four-slot lanes (A/B), and four
 serial output slots. Each slot loads NAM and has input gain, trim and bypass. Empty slots pass
 through. Blend is the percentage of lane B; 0% is A only, 50% averages both, and 100% is B only.
-The header contains only blend and master. Gate, EQ and cabinet IR are slot modules. The old Amp calibration,
+The header contains the preset browser, tuner, performance controls and settings.
+IN gain sits before the grid; OUT gain and lane balance sit beside the output/parallel lanes.
+Gate, EQ and cabinet IR are slot modules. The old Amp calibration,
 output mode and Slim apply to Pre 2. See [GRID.md](GRID.md) for routing, migration, measurements and limits.
 
 ### Capture folder browser
@@ -79,11 +86,10 @@ in that panel to open its menu. Each library source has a submenu when multiple 
 subfolders remain nested. Individual NAM/WAV file pickers and Clear slot remain available.
 Choosing a `.wav` entry automatically makes the slot an IR loader; choosing a `.nam` switches it
 back to NAM. The scanner treats WAV files as IR candidates; decoding/validation occurs only on load.
-Previous/next arrows cycle through the current search/category results, across all sources.
-The search field matches every entered word across filenames, relative folders, make/model metadata,
-gear and NAM/IR type; press Enter to apply. The gear dropdown filters both NAM and IR selectors.
-Filters do not change audio until a file is selected. Search/filter and selected-card choices are
-transient editor state. See [UI.md](UI.md) for the layout, compatibility and manual checks.
+Previous/next arrows stay within the selected file's physical folder and file type,
+or within the current built-in module category. The header search/filter bar is
+removed pending a dedicated browser. Selecting a card changes its editor without
+changing audio. See [UI.md](UI.md) for the layout, compatibility and manual checks.
 
 The gear categories are **Amp + Cab, Amp Head, Cabinet, Pedal, Outboard, Spaces**, plus **Unknown**.
 Explicit `metadata.gear_type` takes priority (`amp_cab`/`full-rig`/`amp_pedal_cab`, `pedal`, `studio`, etc.).
@@ -111,7 +117,9 @@ A missing folder displays a status message without unloading selected models. Me
 not full model validation; malformed/unsupported models still fail gracefully through the normal loader.
 
 Paths are currently external file references, not embedded models or project-relative paths.
-Keep model/IR files at stable locations; reselect missing files in the appropriate browser.
+Saved content hashes allow relinking moved/renamed files within indexed library folders;
+an existing chosen path is kept while its contents still match. Keep model/IR files available
+when sharing rigs; reselect missing files or rescan the folders containing their new locations.
 Loading errors preserve the previous selection during interactive loading. Project recall of
 a missing file clears that stage's DSP, retains the requested path, and displays a failure.
 
@@ -153,3 +161,11 @@ Build that target alongside the existing library/stage/CLAP tests. A separate
 configuration with `-DNAM_WAV_ASAN=ON` enables MSVC AddressSanitizer or GCC/Clang
 address/undefined sanitizers for this focused target. See
 [REVIEW_FIXES_20261020.md](REVIEW_FIXES_20261020.md) for reproduction details.
+
+Resampler warm-up regressions are in `nam-resampling-tests` (`resampling` in CTest).
+They use exact WDL allocations to expose reads hidden by its usual allocation padding.
+For a separate sanitizer build, configure with `-DNAM_RESAMPLING_ASAN=ON`, build that
+target, and run `ctest --test-dir <build> -C Release -R '^resampling$' --output-on-failure`.
+On Windows run both build and test inside the same x64 developer command prompt so
+the compiler's `clang_rt.asan_dynamic-x86_64.dll` is on `PATH`. Ordinary builds leave
+this option off and do not need that DLL.

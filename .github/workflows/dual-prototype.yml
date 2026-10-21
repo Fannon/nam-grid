@@ -1,7 +1,10 @@
 name: nam-grid
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
+permissions:
+  contents: read
 jobs:
   build-test:
     strategy:
@@ -17,9 +20,17 @@ jobs:
           python-version: '3.11'
       - run: python scripts/setup-deps.py
       - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-wav-tests --parallel 3
+      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-wav-tests nam-resampling-tests --parallel 3
       - run: ctest --test-dir build-ci -C Release --output-on-failure
+      # Zip before artifact upload: GitHub artifacts otherwise discard the
+      # executable permissions required by macOS plugin bundles.
+      - name: Archive plugins and notices
+        shell: python
+        run: |
+          import shutil
+          shutil.make_archive("build-ci/nam-grid-${{ matrix.os }}", "zip", "build-ci/out")
       - uses: actions/upload-artifact@v4
         with:
           name: nam-grid-${{ matrix.os }}
-          path: build-ci/out
+          path: build-ci/nam-grid-${{ matrix.os }}.zip
+          if-no-files-found: error

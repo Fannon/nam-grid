@@ -47,7 +47,7 @@ Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measur
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
 the card meters; the global IN meter replaces the first card's duplicate input bar.
 Global IN/OUT show RMS dB plus a peak reading held for 1.5 seconds, then falling at 12 dB/second
-toward the average. Their numeric levels measure the mono sum before IN gain and after OUT gain.
+toward the average. Their numeric levels measure the mono sum after IN gain and after OUT gain.
 Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
 green pedals, light gray dynamics/gates, rose EQ, coral Boost/Tape, periwinkle
 modulation/filter, cyan delay, magenta Creative and violet reverb. Unclassified NAM files remain neutral.

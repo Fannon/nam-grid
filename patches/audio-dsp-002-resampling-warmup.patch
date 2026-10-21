@@ -1,0 +1,58 @@
+diff --git a/dsp/ResamplingContainer/ResamplingContainer.h b/dsp/ResamplingContainer/ResamplingContainer.h
+index 3099e42..0b8db39 100644
+--- a/dsp/ResamplingContainer/ResamplingContainer.h
++++ b/dsp/ResamplingContainer/ResamplingContainer.h
+@@ -111,11 +111,18 @@ public:
+     mInputSampleRate = inputSampleRate;
+     mRatio1 = mInputSampleRate / mRenderingSampleRate;
+     mRatio2 = mRenderingSampleRate / mInputSampleRate;
++    mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
++    mResampler2 = std::make_unique<LanczosResampler>(mRenderingSampleRate, mInputSampleRate);
++    const auto midSamples = mResampler2->GetNumSamplesRequiredFor(1);
++    mLatency = int(mResampler1->GetNumSamplesRequiredFor(midSamples));
+     // The buffers for the encapsulated code need to be long enough to hold the correesponding number of samples
+     mMaxBlockSize = blockSize;
+-    mMaxEncapsulatedBlockSize = MaxEncapsulatedBlockSize(blockSize);
++    // Warm-up may require more frames than even a legal host maximum, in either
++    // rate domain. Size and clear the complete warm-up ranges before using them.
++    const int scratchFrames = std::max(mMaxBlockSize, mLatency);
++    mMaxEncapsulatedBlockSize = std::max(MaxEncapsulatedBlockSize(blockSize), static_cast<int>(midSamples));
+ 
+-    mScratchExternalInputData.Resize(mMaxBlockSize * NCHANS); // This may contain junk right now.
++    mScratchExternalInputData.Resize(scratchFrames * NCHANS); // This may contain junk right now.
+     mEncapsulatedInputData.Resize(mMaxEncapsulatedBlockSize * NCHANS); // This may contain junk right now.
+     mEncapsulatedOutputData.Resize(mMaxEncapsulatedBlockSize * NCHANS); // This may contain junk right now.
+     mScratchExternalInputPointers.Empty();
+@@ -124,22 +131,17 @@ public:
+ 
+     for (auto chan = 0; chan < NCHANS; chan++)
+     {
+-      mScratchExternalInputPointers.Add(mScratchExternalInputData.Get() + (chan * mMaxBlockSize));
++      mScratchExternalInputPointers.Add(mScratchExternalInputData.Get() + (chan * scratchFrames));
+       mEncapsulatedInputPointers.Add(mEncapsulatedInputData.Get() + (chan * mMaxEncapsulatedBlockSize));
+       mEncapsulatedOutputPointers.Add(mEncapsulatedOutputData.Get() + (chan * mMaxEncapsulatedBlockSize));
+     }
+ 
+     {
+-      mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
+-      mResampler2 = std::make_unique<LanczosResampler>(mRenderingSampleRate, mInputSampleRate);
+-
+       // Zeroes the scratch pointers so that we warm up with silence.
+       ClearBuffers();
+ 
+       // Warm up the resampling container with enough silence that the first real buffer can yield the required number
+       // of output samples.
+-      const auto midSamples = mResampler2->GetNumSamplesRequiredFor(1);
+-      mLatency = int(mResampler1->GetNumSamplesRequiredFor(midSamples));
+       // 1. Push some silence through the first resampler.
+       //
+       mResampler1->PushBlock(mScratchExternalInputPointers.GetList(), mLatency);
+@@ -275,7 +277,7 @@ private:
+ 
+   void ClearBuffers()
+   {
+-    memset(mScratchExternalInputData.Get(), 0.0f, DataSize(mMaxBlockSize));
++    memset(mScratchExternalInputData.Get(), 0.0f, mScratchExternalInputData.GetSize() * sizeof(T));
+     const auto encapsulatedDataSize = DataSize(mMaxEncapsulatedBlockSize);
+     memset(mEncapsulatedInputData.Get(), 0.0f, encapsulatedDataSize);
+     memset(mEncapsulatedOutputData.Get(), 0.0f, encapsulatedDataSize);

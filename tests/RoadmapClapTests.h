@@ -47,12 +47,10 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
       plugin->stop_processing(plugin); plugin->deactivate(plugin);
     }
   }
-  auto freeze = cleared; freeze["SlotEffects"][0] = static_cast<int>(SlotEffect::Freeze);
-  load(freeze); assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
-  const auto hold = [&](bool enabled) {
+  const auto set = [&](const char* name, bool enabled) {
     clap_param_info info{}; bool found = false;
     for (uint32_t i = 0; i < params->count(plugin); ++i)
-      if (params->get_info(plugin, i, &info) && std::strcmp(info.name, "Pre 1 Freeze Hold") == 0) { found = true; break; }
+      if (params->get_info(plugin, i, &info) && std::strcmp(info.name, name) == 0) { found = true; break; }
     assert(found);
     clap_event_param_value value{}; value.header.size = sizeof(value); value.header.type = CLAP_EVENT_PARAM_VALUE;
     value.param_id = info.id; value.value = enabled ? 1. : 0.; value.note_id = value.port_index = value.channel = value.key = -1;
@@ -61,8 +59,25 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
     params->flush(plugin, &events, &sent);
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   };
-  hold(true); assert(tail->get(plugin) == std::numeric_limits<uint32_t>::max());
-  hold(false); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
-  plugin->stop_processing(plugin); plugin->deactivate(plugin); load(cleared);
-  std::cout << "Roadmap CLAP: new module recall, routing/modulation parameters and dynamic Freeze tail passed\n";
+  for (auto effect : {SlotEffect::Freeze, SlotEffect::ShimmerReverb})
+    for (int slot : {0, 15})
+    {
+      const std::string label = slot == 0 ? "Pre 1" : "Post 4";
+      const auto hold = label + (effect == SlotEffect::Freeze ? " Freeze Hold" : " Shimmer Freeze");
+      const auto unusedHold = label + (effect == SlotEffect::Freeze ? " Shimmer Freeze" : " Freeze Hold");
+      auto config = cleared; config["SlotEffects"][slot] = static_cast<int>(effect);
+      config[hold] = 1.; // Held states must also report infinity immediately after activation.
+      load(config); assert(plugin->activate(plugin, 48000., 1, 512));
+      assert(tail->get(plugin) == std::numeric_limits<uint32_t>::max());
+      assert(plugin->start_processing(plugin));
+      set(hold.c_str(), false); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
+      set(unusedHold.c_str(), true); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
+      set(hold.c_str(), true); assert(tail->get(plugin) == std::numeric_limits<uint32_t>::max());
+      const auto active = slot == 0 ? std::string("Drive Enabled") : label + " Enabled";
+      set(active.c_str(), false); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
+      set(active.c_str(), true); assert(tail->get(plugin) == std::numeric_limits<uint32_t>::max());
+      plugin->stop_processing(plugin); plugin->deactivate(plugin);
+    }
+  load(cleared);
+  std::cout << "Roadmap CLAP: module recall, routing/modulation and Freeze/Shimmer tails passed\n";
 }

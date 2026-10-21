@@ -260,15 +260,8 @@ NeuralAmpModeler::~NeuralAmpModeler()
 
 void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outputs, int nFrames)
 {
-  // Host tail updates belong to audio (CLAP dispatches its notification there).
-  bool holding = false;
-  const auto freezeMask = mFreezeMask.load();
-  for (int slot = 0; slot < 16; ++slot)
-    holding |= (freezeMask & (1u << slot)) && GetParam(SlotActiveParam(slot))->Bool()
-               && GetParam(SlotUtilityParam(slot, uFreezeHold))->Bool();
-  const int effectTail = holding ? kTailInfinite : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate() * mEffectTailSeconds.load())));
-  if (GetTailSize() != effectTail)
-    SetTailSize(effectTail);
+  // CLAP dispatches dynamic tail notifications on the audio thread.
+  _UpdateTailSize();
 
   const size_t numChannelsExternalIn = (size_t)NInChansConnected();
   const size_t numChannelsExternalOut = (size_t)NOutChansConnected();
@@ -506,7 +499,7 @@ void NeuralAmpModeler::OnReset()
   for (auto& channel : mOutputArray)
     std::fill(channel.begin(), channel.end(), 0.);
 
-  SetTailSize(static_cast<int>(std::ceil(sampleRate * mEffectTailSeconds.load())));
+  _UpdateTailSize();
   mInputSender.Reset(sampleRate);
   mOutputSender.Reset(sampleRate);
   // If there is a model or IR loaded, they need to be checked for resampling.
@@ -952,7 +945,8 @@ static int ReadStateString(const IByteChunk& chunk, WDL_String& value, int pos)
     return -1;
   int length = 0;
   const int dataPos = chunk.Get(&length, pos);
-  if (dataPos < 0 || length < 0 || length > chunk.Size() - dataPos)
+  if (dataPos < 0 || length < 0 || length > chunk.Size() - dataPos
+      || std::memchr(chunk.GetData() + dataPos, '\0', static_cast<size_t>(length)))
     return -1;
   return chunk.GetStr(value, pos);
 }
@@ -1168,14 +1162,15 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         for (const auto& scene : scenes)
         {
           if (!scene.is_object() || scene.size() > kNumParams) return -1;
-          for (auto it = scene.begin(); it != scene.end(); ++it)
+          size_t recognized = 0;
+          for (int i = 0; i < kNumParams; ++i)
           {
-            if (!it.value().is_number() || !std::isfinite(it.value().get<double>())) return -1;
-            bool found = false;
-            for (int i = 0; i < kNumParams; ++i)
-              if (it.key() == GetParam(i)->GetName() && IsPerformanceSceneParam(i)) { found = true; break; }
-            if (!found) return -1;
+            const auto it = scene.find(GetParam(i)->GetName());
+            if (it == scene.end()) continue;
+            if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
+            ++recognized;
           }
+          if (recognized != scene.size()) return -1;
         }
       }
       if (config.contains("CaptureFolders"))
@@ -1189,7 +1184,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             return -1;
       }
       for (const char* name : {"DrivePath", "NAMPath", "IRPath"})
-        if (!config.contains(name) || !config[name].is_string() || config[name].get<std::string>().size() > 32768)
+        if (!config.contains(name) || !config[name].is_string() || config[name].get<std::string>().size() > 32768
+            || config[name].get<std::string>().find('\0') != std::string::npos)
           return -1;
       if (config.contains("CaptureFolder")
           && (!config["CaptureFolder"].is_string() || config["CaptureFolder"].get<std::string>().size() > 32768
@@ -1611,9 +1607,13 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mSlotHashes[slot] = config.hash;
   mSlotEffects[slot] = config.effect;
   uint32_t freezeMask = 0;
-  for (size_t i = 0; i < mSlotEffects.size(); ++i) if (mSlotEffects[i] == SlotEffect::Freeze) freezeMask |= 1u << i;
+  for (size_t i = 0; i < mSlotEffects.size(); ++i)
+  {
+    if (mSlotEffects[i] == SlotEffect::Freeze) freezeMask |= 1u << i;
+    if (mSlotEffects[i] == SlotEffect::ShimmerReverb) freezeMask |= 1u << (i + FixedNAMGrid::kSlots);
+  }
   mFreezeMask.store(freezeMask);
-  // Preserve main's finite 60 s render policy; active Freeze Hold is
+  // Preserve main's finite 60 s render policy; active Freeze/Shimmer holds are
   // reported separately as infinite by the processing callback.
   std::array<double, 4> rowTails{};
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
@@ -1772,6 +1772,21 @@ void NeuralAmpModeler::_UpdateControlsFromModel()
       if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot)))
         control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
   }
+}
+
+void NeuralAmpModeler::_UpdateTailSize()
+{
+  bool holding = false;
+  const auto mask = mFreezeMask.load();
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    holding |= GetParam(SlotActiveParam(slot))->Bool()
+               && (((mask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uFreezeHold))->Bool())
+                   || ((mask & (1u << (slot + FixedNAMGrid::kSlots)))
+                       && GetParam(SlotUtilityParam(slot, uShimmerFreeze))->Bool()));
+  const int tail = holding ? kTailInfinite
+                          : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate() * mEffectTailSeconds.load())));
+  if (GetTailSize() != tail)
+    SetTailSize(tail);
 }
 
 void NeuralAmpModeler::_UpdateLatency(bool forceRestart)

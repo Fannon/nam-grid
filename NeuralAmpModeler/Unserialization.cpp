@@ -27,38 +27,22 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   _UpdatePresetControls();
   for (size_t i = 0; i < mPerformanceScenes.size(); ++i)
     mPerformanceScenes[i] = config.contains("PerformanceScenes") ? config["PerformanceScenes"][i] : nlohmann::json::object();
-  auto getParamByName = [&](std::string& name) {
-    // Could use a map but eh
-    for (int i = 0; i < kNumParams; i++)
-    {
-      iplug::IParam* param = GetParam(i);
-      if (strcmp(param->GetName(), name.c_str()) == 0)
-      {
-        return param;
-      }
-    }
-    // else
-    return (iplug::IParam*)nullptr;
-  };
-  // Only reset defaults after the entire incoming state has passed validation.
-  for (int i = kDriveInput; i < kNumParams; ++i)
-    if (!config.contains(GetParam(i)->GetName()))
-      GetParam(i)->SetToDefault();
   TRACE
   ENTER_PARAMS_MUTEX
-  for (auto it = config.begin(); it != config.end(); ++it)
+  // Visit each parameter once. JSON object lookup avoids a full parameter-name
+  // scan for every saved value, especially for rigs with performance scenes.
+  // Only reset defaults after the entire incoming state has passed validation.
+  for (int i = 0; i < kNumParams; ++i)
   {
-    std::string name = it.key();
-    iplug::IParam* pParam = getParamByName(name);
-    if (pParam != nullptr)
+    auto* param = GetParam(i);
+    const auto it = config.find(param->GetName());
+    if (it != config.end())
     {
-      pParam->Set(*it);
-      iplug::Trace(TRACELOC, "%s %f", pParam->GetName(), pParam->Value());
+      param->Set(it->get<double>());
+      iplug::Trace(TRACELOC, "%s %f", param->GetName(), param->Value());
     }
-    else
-    {
-      iplug::Trace(TRACELOC, "%s NOT-FOUND", name.c_str());
-    }
+    else if (i >= kDriveInput)
+      param->SetToDefault();
   }
   OnParamReset(iplug::EParamSource::kPresetRecall);
   LEAVE_PARAMS_MUTEX

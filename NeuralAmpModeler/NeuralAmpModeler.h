@@ -307,6 +307,7 @@ private:
   void _UpdateControlsFromModel();
 
   // Make sure that the latency is reported correctly.
+  void _UpdateTailSize();
   void _UpdateLatency(bool forceRestart = false);
   void _UpdateLibraryControls();
   void _NotifyHostStateChanged();
@@ -333,6 +334,7 @@ private:
   FixedNAMGrid mGrid;
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
+  // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.
   std::atomic<uint32_t> mFreezeMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};
   double mTunerGain = 1., mMasterGain = 1., mMasterCoefficient = 0.;

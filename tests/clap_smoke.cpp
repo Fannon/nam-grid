@@ -192,6 +192,26 @@ int main(int argc, char** argv)
   assert(!loadBytes(legacy));
   assert(save().config() == base);
   // Malformed state must leave the previously committed state intact.
+  for (const char* path : {"DrivePath", "NAMPath", "IRPath"})
+  {
+    auto invalidPath = base;
+    invalidPath[path] = std::string("bad\0path", 8);
+    if (std::strcmp(path, "IRPath") != 0)
+      invalidPath["SlotPaths"][std::strcmp(path, "DrivePath") == 0 ? 0 : 1] = invalidPath[path];
+    Stream malformed;
+    malformed.string("###NAMGrid-v1###"); malformed.string(invalidPath.dump());
+    assert(!loadBytes(malformed));
+    assert(save().config() == base);
+  }
+  // The byte strings themselves must not silently truncate at an embedded NUL.
+  for (bool corruptHeader : {false, true})
+  {
+    Stream malformed;
+    malformed.string(std::string("###NAMGrid-v1###") + (corruptHeader ? std::string("\0junk", 5) : ""));
+    malformed.string(base.dump() + (corruptHeader ? "" : std::string("\0junk", 5)));
+    assert(!loadBytes(malformed));
+    assert(save().config() == base);
+  }
   for (const json& folder : {json(123), json(std::string("bad\0folder", 10))})
   {
     auto invalidFolder = base;

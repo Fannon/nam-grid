@@ -38,7 +38,7 @@ the side gutters. Cards have more space horizontally and vertically, taller
 meters with a gap around the card, and a colored outline instead of a top strip.
 Meters show the peak of the mono sum `(L + R) / 2`; the overall input/output meters
 also show the average level of that mono signal. Bypassed and empty slots do not
-monitor. The module editor remains in its existing position. All three controls are host-automatable and included in
+monitor. All three controls are host-automatable and included in
 project state and presets.
 
 Click **+ Add module** once on an empty card; double-click a loaded card to replace
@@ -52,3 +52,33 @@ State schema 13 adds Distortion controls after schema 12's Global Input and
 optional PresetName/PresetDirectory metadata. Earlier supported project states
 receive defaults for newly added controls. There are 2,346 host parameters
 (126 utility controls per slot and 44 grid controls).
+
+## Compact editor and visualizations
+
+The window is 1000 x 720, down from 1000 x 800. Cards have slightly more height;
+unused space above and below the grid is reduced, and the grid help line is gone.
+The eight parameter cells share the entire editor width evenly. Their dials are
+smaller, labels larger, and the selected slot ID is larger. Long card/editor titles
+end in an ellipsis; the card tooltip retains the complete file path.
+
+All knob values and units sit below the dial, including IN, OUT and A/B. Click a
+value to type it, or double-click the dial to restore its default. A/B shows a
+percentage. The larger header logo is vertically centered with the menu buttons.
+The taller parameter panel leaves equal 24 px margins at the left, right and
+bottom, with room for its description below the controls.
+
+Smooth/Punch Compressor and Peak Limiter offer an optional gain-reduction history
+in the editor's top right: 2.4 seconds of audio, with grid lines every 6 dB down to
+24 dB. Digital/Analog/Tape Delay offer an echo timing sketch driven by Time,
+Feedback and Mix; gray is dry input and colored stems are echoes. Synchronized
+delays use the current host tempo, falling back to 120 BPM before tempo is available.
+Use **Hide / Graph** to toggle the display for that slot. This is a temporary
+editor preference and does not change automation, audio or the saved rig.
+
+The global IN meter occupies the first card's input-meter position; that card's
+duplicate input bar is hidden. Its output meter remains independent.
+
+Within NAM/IR categories, shared folder levels are skipped up to the first branch
+or file. Distinct source folders and folders alongside direct files remain visible.
+Folders precede files at every level; each group is sorted alphabetically without
+case sensitivity. Selection tags still refer to the original library snapshot.

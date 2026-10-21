@@ -1,5 +1,6 @@
 #pragma once
 #include "ModuleMenu.h"
+#include "GridLayout.h"
 #include <chrono>
 
 namespace grid_ui
@@ -74,6 +75,25 @@ inline void Gradient(IGraphics& g, const IRECT& r, IColor first, IColor second, 
 
 inline IText Text(float size = 13.f, IColor color = text, EAlign align = EAlign::Near)
 { return IText(size, color, "Roboto-Regular", align); }
+// Measure in the active font and remove whole UTF-8 code points when shortening.
+inline void FittedText(IGraphics& g, const IText& style, std::string label, const IRECT& bounds)
+{
+  IRECT measured;
+  g.MeasureText(style, label.c_str(), measured);
+  if (measured.W() > bounds.W())
+  {
+    do
+    {
+      if (label.empty()) break;
+      size_t end = label.size() - 1;
+      while (end > 0 && (static_cast<unsigned char>(label[end]) & 0xc0) == 0x80) --end;
+      label.resize(end);
+      g.MeasureText(style, (label + "...").c_str(), measured);
+    } while (measured.W() > bounds.W());
+    label += "...";
+  }
+  g.DrawText(style, label.c_str(), bounds);
+}
 inline IVStyle Style()
 {
   return DEFAULT_STYLE.WithLabelText(Text(13.f, muted, EAlign::Center))
@@ -93,8 +113,10 @@ inline IVStyle Style()
 class Knob : public IVKnobControl
 {
 public:
-  Knob(const IRECT& r, int parameter, const char* label)
-  : IVKnobControl(r, parameter, label, Style(), true, false)
+  Knob(const IRECT& r, int parameter, const char* label, bool compact = false)
+  : IVKnobControl(r, parameter, label,
+                  (compact ? Style().WithWidgetFrac(.82f).WithLabelText(Text(15.f, muted, EAlign::Center))
+                           : Style()).WithValueText(Text(14.f, text, EAlign::Center).WithVAlign(EVAlign::Bottom)), true, false)
   {
   }
   void DrawHandle(IGraphics& g, const IRECT& r) override { g.FillCircle(surface, r.MW(), r.MH(), r.W() * .5f); }
@@ -114,22 +136,19 @@ public:
   {
   }
 };
-// Two positions align beneath each grid column. Enabled is always last.
+// Eight equal-width positions span the editor. Enabled is always last.
 constexpr int kControlPositions = 8;
-// Compact flow controls put their value inside the dial. Dragging the dial,
-// including that value, must adjust gain/balance rather than open a text editor.
+// Flow controls share numeric entry below the dial and double-click reset.
 class FlowKnob : public Knob
 {
 public:
   using Knob::Knob;
-  void OnMouseDown(float x, float y, const IMouseMod& mod) override
-  { IKnobControlBase::OnMouseDown(x, y, mod); SetDirty(false); }
 };
 
 inline IRECT ControlBounds(int position)
 {
-  const float left = 88.f + 220.f * (position / 2) + 108.f * (position % 2);
-  return IRECT(left, 650, left + 100.f, 754);
+  const float left = grid_layout::parameterLeft + grid_layout::parameterWidth * position;
+  return IRECT(left + 4.f, grid_layout::knobTop, left + grid_layout::parameterWidth - 4.f, grid_layout::knobBottom);
 }
 class Toggle : public IVToggleControl
 {
@@ -143,7 +162,7 @@ public:
   {
     const bool tall = mRECT.H() > 60.f;
     if (tall)
-      g.DrawText(Text(13.f, muted, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
+      g.DrawText(Text(15.f, muted, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
     const auto button = tall ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT;
     const bool on = GetValue() >= .5;
     g.FillRoundRect(on ? IColor(255, 37, 68, 62) : surface, button, 3.f);
@@ -183,23 +202,23 @@ public:
     for (int row = 0; row < 4; ++row)
       for (int col = 0; col < 3; ++col)
       {
-        const float x = 276.f + 212.f * col, y = 142.f + 104.f * row;
+        const float x = 276.f + 212.f * col, y = 102.f + 104.f * row;
         g.DrawLine(border, x, y, x + 24, y);
       }
-    g.DrawLine(accent, 67, 142, 88, 142);
-    g.DrawLine(accent, 912, 454, 938, 454);
-    g.DrawLine(border, 912, 142, 928, 142);
-    g.DrawLine(border, 928, 142, 928, 194);
-    g.DrawLine(border, 928, 194, 69, 194);
-    g.DrawLine(border, 69, 194, 69, 350);
-    g.DrawLine(border, 69, 246, 88, 246);
-    g.DrawLine(border, 69, 350, 88, 350);
-    g.DrawLine(border, 912, 246, 930, 246);
-    g.DrawLine(border, 930, 246, 930, 402);
-    g.DrawLine(border, 912, 350, 930, 350);
-    g.DrawLine(border, 930, 402, 69, 402);
-    g.DrawLine(border, 69, 402, 69, 454);
-    g.DrawLine(border, 69, 454, 88, 454);
+    g.DrawLine(accent, 67, 102, 88, 102);
+    g.DrawLine(accent, 912, 414, 938, 414);
+    g.DrawLine(border, 912, 102, 928, 102);
+    g.DrawLine(border, 928, 102, 928, 154);
+    g.DrawLine(border, 928, 154, 69, 154);
+    g.DrawLine(border, 69, 154, 69, 310);
+    g.DrawLine(border, 69, 206, 88, 206);
+    g.DrawLine(border, 69, 310, 88, 310);
+    g.DrawLine(border, 912, 206, 930, 206);
+    g.DrawLine(border, 930, 206, 930, 362);
+    g.DrawLine(border, 912, 310, 930, 310);
+    g.DrawLine(border, 930, 362, 69, 362);
+    g.DrawLine(border, 69, 362, 69, 414);
+    g.DrawLine(border, 69, 414, 88, 414);
   }
 };
 } // namespace grid_ui
@@ -228,8 +247,9 @@ public:
     const auto outline = occupied ? (enabled ? tone.first : IColor::LinearInterpolateBetween(border, tone.first, .35f))
                                  : selected ? accent : border;
     g.DrawRoundRect(outline, mCardBounds, 4.f, nullptr, selected ? 2.f : occupied ? 1.5f : 1.f);
-    const auto slotName = GridSlotName(mSlot);
-    g.DrawText(Text(12.f, selected ? tone.first : muted), slotName.c_str(),
+    auto slotName = GridSlotName(mSlot);
+    slotName.erase(std::remove(slotName.begin(), slotName.end(), ' '), slotName.end());
+    g.DrawText(Text(14.f, selected ? tone.first : muted), slotName.c_str(),
                IRECT(mCardBounds.L + 12, mCardBounds.T + 8, mCardBounds.R - 36, mCardBounds.T + 25));
     g.FillCircle(enabled ? tone.first : muted, mCardBounds.R - 17, mCardBounds.T + 16, 3.f);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
@@ -238,7 +258,7 @@ public:
     const auto label = empty          ? std::string("+ Add module")
                        : path.empty() ? std::string(SlotEffectName(effect))
                                       : nam_library::PathText(std::filesystem::u8path(path).stem());
-    g.DrawText(Text(14.f, empty ? muted : text), label.c_str(),
+    FittedText(g, Text(14.f, empty ? muted : text), label,
                IRECT(mCardBounds.L + 12, mCardBounds.T + 29, mCardBounds.R - 12, mCardBounds.T + 52));
     const auto type = empty ? "Empty" : !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : tone.label;
     g.DrawText(
@@ -251,8 +271,9 @@ public:
     };
     if (enabled && PLUG()->IsSlotLoaded(mSlot))
     {
-      bar(IRECT(mCardBounds.L - 7, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
-          Now() < mInputClip);
+      if (mSlot != 0) // The global IN meter already covers the first slot's input.
+        bar(IRECT(mCardBounds.L - 7, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
+            Now() < mInputClip);
       bar(IRECT(mCardBounds.R + 4, mCardBounds.T + 5, mCardBounds.R + 7, mCardBounds.B - 5), mMeter.output,
           Now() < mOutputClip);
     }
@@ -260,7 +281,8 @@ public:
   void DrawEditor(IGraphics& g)
   {
     using namespace grid_ui;
-    const auto slotName = GridSlotName(mSlot);
+    auto slotName = GridSlotName(mSlot);
+    slotName.erase(std::remove(slotName.begin(), slotName.end(), ' '), slotName.end());
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
@@ -271,9 +293,10 @@ public:
     g.FillRoundRect(surface, panel, 5.f);
     g.DrawRoundRect(border, panel, 5.f);
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
-    Gradient(g, IRECT(42, 599, 956, 601), tone.first, tone.second, .8f, 1.f);
-    g.DrawText(Text(12.f, tone.first), slotName.c_str(), IRECT(42, 568, 104, 594));
-    g.DrawText(Text(16.f), label.c_str(), IRECT(110, 565, 956, 598));
+    Gradient(g, IRECT(42, 521, 768, 523), tone.first, tone.second, .8f, 1.f);
+    g.DrawText(Text(18.f, tone.first), slotName.c_str(), IRECT(42, 487, 110, 518));
+    FittedText(g, Text(17.f), label, IRECT(118, 487, HasVisualization() ? 700 : 956, 518));
+    if (HasVisualization() && mShowVisualization) DrawVisualization(g);
     std::array<bool, kControlPositions> used{};
     used.back() = true;
     if (effect == SlotEffect::NAM && !path.empty())
@@ -293,7 +316,7 @@ public:
         used[kEffectParameters[p].position] = true;
     for (int i = 0; i < kControlPositions; ++i)
     {
-      const auto cell = ControlBounds(i).GetPadded(5.f);
+      const auto cell = ControlBounds(i).GetPadded(3.f);
       g.FillRoundRect(IColor(255, 17, 20, 24), cell, 4.f);
       if (!used[i])
         g.DrawText(Text(16.f, border, EAlign::Center), "-", cell);
@@ -301,19 +324,19 @@ public:
     const char* description = effect == SlotEffect::NAM         ? "NAM / post-capture tone EQ"
                               : effect == SlotEffect::CabinetIR ? "WAV / cabinet impulse response"
                                                                 : SlotEffectName(effect);
-    g.DrawText(Text(11.f, muted), description, IRECT(42, 757, 450, 777));
+    g.DrawText(Text(13.f, muted), description, IRECT(42, 673, 450, 688));
     if (effect == SlotEffect::Utility)
     {
       WDL_String timing;
       timing.SetFormatted(96, "Fine delay: %.2f samples", GetDelegate()->GetParam(SlotUtilityParam(mSlot, uUtilityDelay))->Value()
                                                     * PLUG()->GetSampleRate() * .001);
-      g.DrawText(Text(12.f, muted), timing.Get(), IRECT(500, 757, 956, 777));
+      g.DrawText(Text(12.f, muted), timing.Get(), IRECT(500, 673, 956, 688));
     }
     if (mMeter.reduction >= .5f)
     {
       WDL_String gr;
       gr.SetFormatted(40, "Gain reduction: %.1f dB", mMeter.reduction);
-      g.DrawText(Text(12.f, accent), gr.Get(), IRECT(500, 757, 956, 777));
+      g.DrawText(Text(12.f, accent), gr.Get(), IRECT(500, 673, 956, 688));
     }
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
@@ -380,43 +403,50 @@ public:
 
   void OnAttached() override
   {
-    mEditor = new grid_ui::Editor(IRECT(24, 558, 976, 780), [this](IGraphics& g) { DrawEditor(g); });
+    mEditor = new grid_ui::Editor(IRECT(24, grid_layout::editorTop, 976, grid_layout::editorBottom), [this](IGraphics& g) { DrawEditor(g); });
     GetUI()->AttachControl(mEditor);
     // Controls live in a shared bottom editor; each slot keeps its original automation bindings.
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
-    mModelButton = new grid_ui::Button(IRECT(42, 606, 416, 636), [this](IControl*) { ShowMenu(); }, "Choose module...");
+    mModelButton = new grid_ui::Button(IRECT(42, 528, 416, 558), [this](IControl*) { ShowMenu(); }, "Choose module...");
     mEditor->AddChildControl(mModelButton);
-    mEditor->AddChildControl(new grid_ui::Button(IRECT(428, 606, 464, 636), [this](IControl*) { Step(-1); }, "<"));
-    mEditor->AddChildControl(new grid_ui::Button(IRECT(472, 606, 508, 636), [this](IControl*) { Step(1); }, ">"));
+    mEditor->AddChildControl(new grid_ui::Button(IRECT(428, 528, 464, 558), [this](IControl*) { Step(-1); }, "<"));
+    mEditor->AddChildControl(new grid_ui::Button(IRECT(472, 528, 508, 558), [this](IControl*) { Step(1); }, ">"));
+    mPlotButton = new grid_ui::Button(IRECT(710, 487, 768, 515), [this](IControl*) {
+      mShowVisualization = !mShowVisualization;
+      mPlotButton->SetLabelStr(mShowVisualization ? "Hide" : "Graph");
+      mEditor->SetDirty(false);
+    }, "Hide");
+    mPlotButton->SetTooltip("Show or hide this module's visualization.");
+    mEditor->AddChildControl(mPlotButton);
     mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(7), SlotActiveParam(mSlot), "Enabled");
     mEditor->AddChildControl(mEnabled);
-    mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input");
-    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim");
+    mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true);
+    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim", true);
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
     const char* labels[] = {"Threshold", "Decay", "Depth", "Threshold", "Release", "Makeup"};
     for (int i = 0; i < 6; ++i)
     {
-      mFXKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i % 3), SlotDynamicsParam(mSlot, i), labels[i]);
+      mFXKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i % 3), SlotDynamicsParam(mSlot, i), labels[i], true);
       mEditor->AddChildControl(mFXKnobs[i]);
     }
     const char* eqLabels[] = {"Bass", "Mid", "Treble", "High pass", "Low pass", "Presence", "Level"};
     for (int i = 0; i < 7; ++i)
     {
-      mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? 0 : i % 3), SlotEQParam(mSlot, i), eqLabels[i]);
+      mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? 0 : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true);
       mEditor->AddChildControl(mEQKnobs[i]);
     }
     for (int i = 0; i < kUtilityControls; ++i)
     {
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(550, 606, 654, 636), SlotUtilityParam(mSlot, i), "Tempo sync");
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(520, 528, 632, 558), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uDelayPingPong || i == uReverbStereo)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(674, 606, 802, 636), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(640, 528, 768, 558), SlotUtilityParam(mSlot, i), p.label);
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
-        mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label, true);
       mEditor->AddChildControl(mUtilityKnobs[i]);
     }
     SetTooltip(
@@ -432,6 +462,11 @@ public:
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
+      mReductionNow = meter.reduction;
+      mReductionHistory[mReductionWrite] = meter.reduction;
+      mReductionWrite = (mReductionWrite + 1) % mReductionHistory.size();
+      if (mEditor && PLUG()->GetSelectedSlot() == mSlot && HasVisualization() && mShowVisualization)
+        mEditor->SetDirty(false);
       if (meter.input >= 1.f)
         mInputClip = Now() + 1.;
       if (meter.output >= 1.f)
@@ -493,12 +528,68 @@ public:
   }
 
 private:
+  bool HasVisualization()
+  {
+    const auto e = PLUG()->GetSlotEffect(mSlot);
+    return e == SlotEffect::SmoothComp || e == SlotEffect::PunchComp || e == SlotEffect::Limiter
+           || e == SlotEffect::DigitalDelay || e == SlotEffect::AnalogDelay || e == SlotEffect::TapeDelay;
+  }
+  void DrawVisualization(IGraphics& g)
+  {
+    using namespace grid_ui;
+    const IRECT box(780, 488, 956, 558), plot(788, 513, 948, 550);
+    g.FillRoundRect(IColor(255, 17, 20, 24), box, 3.f);
+    g.DrawRoundRect(border, box, 3.f);
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
+    {
+      WDL_String caption; caption.SetFormatted(64, "Gain reduction  %.1f dB", mReductionNow);
+      g.DrawText(Text(13.f, compColor), caption.Get(), IRECT(788, 490, 948, 510));
+      for (int db : {0, 6, 12, 18, 24})
+      {
+        const float y = plot.T + plot.H() * db / 24.f;
+        g.DrawLine(border.WithOpacity(.4f), plot.L, y, plot.R, y);
+      }
+      for (size_t i = 1; i < mReductionHistory.size(); ++i)
+      {
+        const auto y = [&](size_t index) {
+          return plot.T + plot.H() * std::clamp(mReductionHistory[(mReductionWrite + index) % mReductionHistory.size()] / 24.f, 0.f, 1.f);
+        };
+        g.DrawLine(compColor, plot.L + plot.W() * (i - 1) / (mReductionHistory.size() - 1), y(i - 1),
+                              plot.L + plot.W() * i / (mReductionHistory.size() - 1), y(i), nullptr, 1.5f);
+      }
+    }
+    else
+    {
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      double time = value(uDelayTime);
+      if (value(uTempoSync) >= .5)
+        time = 1000. * grid_tempo::Seconds(PLUG()->GetTempo() > 0. ? PLUG()->GetTempo() : 120., static_cast<int>(value(uTempoDivision)));
+      WDL_String caption; caption.SetFormatted(64, "Echo timing  %.0f ms", time);
+      g.DrawText(Text(13.f, delayColor), caption.Get(), IRECT(788, 490, 948, 510));
+      g.DrawLine(border, plot.L, plot.B, plot.R, plot.B);
+      const double horizon = std::max(1000., 4. * time), mix = value(uDelayMix) * .01;
+      const double feedback = value(uDelayFeedback) * .01;
+      g.DrawLine(muted, plot.L, plot.B, plot.L, plot.B - plot.H() * (1. - mix), nullptr, 2.f);
+      double level = mix;
+      for (int i = 1; i <= 12 && i * time <= horizon && level > .005; ++i)
+      {
+        const float x = plot.L + static_cast<float>(plot.W() * i * time / horizon);
+        g.DrawLine(delayColor, x, plot.B, x, plot.B - static_cast<float>(plot.H() * level), nullptr, 2.f);
+        level *= feedback;
+      }
+    }
+  }
   void Refresh()
   {
     if (!mModelButton)
       return;
     const auto path = PLUG()->GetSlotPath(mSlot);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
+    if (effect != mPlotEffect)
+    {
+      mPlotEffect = effect; mReductionHistory = {}; mReductionWrite = 0; mReductionNow = 0.f;
+    }
     const bool nam = effect == SlotEffect::NAM;
     const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
@@ -507,6 +598,7 @@ private:
     mEditor->Hide(!selected);
     if (selected)
     {
+      mPlotButton->Hide(!HasVisualization());
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -676,6 +768,12 @@ private:
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
   IVButtonControl* mModelButton = nullptr;
+  grid_ui::Button* mPlotButton = nullptr;
+  bool mShowVisualization = true;
+  SlotEffect mPlotEffect = SlotEffect::NAM;
+  std::array<float, 120> mReductionHistory{};
+  size_t mReductionWrite = 0;
+  float mReductionNow = 0.f;
   grid_ui::Toggle* mEnabled = nullptr;
   std::array<IControl*, 2> mNAMKnobs{};
   std::array<IControl*, 6> mFXKnobs{};
@@ -724,14 +822,14 @@ public:
         Text(14.f, muted), "No library folders yet. Add a folder above to get started.", IRECT(52, 166, 840, 198));
     g.DrawText(Text(12.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
     if (folders.size() > 7)
-      g.DrawText(Text(11.f, muted), "Scroll the list to see more folders (32 maximum).", IRECT(32, 507, 960, 528));
-    g.DrawLine(border, 32, 545, 968, 545);
-    g.DrawText(Text(14.f), "Input calibration / Pre 2", IRECT(32, 556, 460, 582));
+      g.DrawText(Text(11.f, muted), "Scroll the list to see more folders (32 maximum).", IRECT(32, 505, 960, 523));
+    g.DrawLine(border, 32, 525, 968, 525);
+    g.DrawText(Text(14.f), "Input calibration / Pre 2", IRECT(32, 528, 460, 554));
     g.DrawText(Text(12.f, muted),
                "Interface reference level, separate from musical input gain. Raw keeps the model output unchanged.",
-               IRECT(32, 585, 960, 609));
+               IRECT(32, 556, 960, 578));
     g.DrawText(
-      Text(12.f, muted), "All new gate, EQ and cabinet processing belongs in grid modules.", IRECT(32, 751, 950, 778));
+      Text(12.f, muted), "All new gate, EQ and cabinet processing belongs in grid modules.", IRECT(32, 688, 950, 710));
   }
   void OnAttached() override
   {
@@ -756,14 +854,14 @@ public:
     mStartupScan->SetTooltip(
       "Automatically index library folders when opening an instance or project. When off, choose Rescan all manually.");
     AddChildControl(mStartupScan);
-    AddChildControl(new Knob(IRECT(32, 617, 135, 725), kInputCalibrationLevel, "Reference (dBu)"));
-    AddChildControl(new Toggle(IRECT(158, 657, 277, 689), kCalibrateInput));
-    AddChildControl(new IVSwitchControl(IRECT(317, 638, 504, 700), kOutputMode, "Pre 2 output mode", grid_ui::Style()));
+    AddChildControl(new Knob(IRECT(32, 583, 135, 685), kInputCalibrationLevel, "Reference (dBu)"));
+    AddChildControl(new Toggle(IRECT(158, 625, 277, 657), kCalibrateInput));
+    AddChildControl(new IVSwitchControl(IRECT(317, 610, 504, 672), kOutputMode, "Pre 2 output mode", grid_ui::Style()));
     // Expose inherited processing only for recalled projects that still use it.
     mLegacy[0] =
-      AddChildControl(new IVToggleControl(IRECT(545, 638, 666, 700), kNoiseGateActive, "Legacy gate", grid_ui::Style()));
-    mLegacy[1] = AddChildControl(new IVToggleControl(IRECT(686, 638, 807, 700), kEQActive, "Legacy EQ", grid_ui::Style()));
-    mLegacy[2] = AddChildControl(new IVToggleControl(IRECT(827, 638, 948, 700), kIRToggle, "Legacy IR", grid_ui::Style()));
+      AddChildControl(new IVToggleControl(IRECT(545, 610, 666, 672), kNoiseGateActive, "Legacy gate", grid_ui::Style()));
+    mLegacy[1] = AddChildControl(new IVToggleControl(IRECT(686, 610, 807, 672), kEQActive, "Legacy EQ", grid_ui::Style()));
+    mLegacy[2] = AddChildControl(new IVToggleControl(IRECT(827, 610, 948, 672), kIRToggle, "Legacy IR", grid_ui::Style()));
   }
   void Hide(bool hide) override
   {
@@ -885,6 +983,6 @@ public:
       g.DrawText(Text(13.f, muted, EAlign::Center), ticks[i], IRECT(x - 35, 438, x + 35, 470));
     }
     g.DrawText(Text(13.f, muted, EAlign::Center), "Close or press Escape to return to the grid and unmute.",
-               IRECT(170, 690, 830, 730));
+               IRECT(170, 666, 830, 704));
   }
 };

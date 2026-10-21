@@ -229,8 +229,8 @@ Schema 13 contains 2346 parameters (286 inherited + 16 × 126 family controls + 
 performance controls). Earlier supported projects retain named values and fill
 new controls from defaults despite the changed parameter stride.
 Older unreleased format compatibility remains best effort. New controls participate
-in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled align
-as two controls under each grid column. A smaller effect does not need to fill them.
+in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled share
+eight equal cells across the module editor. A smaller effect does not need to fill them.
 
 Additional tests check Tube Boost's even harmonics with Bias, near-zero steady-state
 DC and exact settled dry blend; compressor attack and blend; NAM cuts in the processing

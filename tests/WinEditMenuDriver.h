@@ -1,6 +1,7 @@
 #pragma once
 #ifdef _WIN32
   #include <windows.h>
+  #include "../NeuralAmpModeler/GridLayout.h"
   #include <cassert>
   #include <string>
   #include <iostream>
@@ -99,10 +100,10 @@ inline void SelectFirstDestination(HWND window, int source, int editMode)
   const auto hook = SetWindowsHookEx(WH_CALLWNDPROC, Observe, nullptr, GetCurrentThreadId());
   assert(hook);
   StartDeadline();
-  SendMessage(editor, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(170 + 220 * source, 160));
+  SendMessage(editor, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(170 + 220 * source, grid_layout::cardTop + 56));
   KillTimer(editor, 0x4e4755);
   UnhookWindowsHookEx(hook);
-  SendMessage(editor, WM_RBUTTONUP, 0, MAKELPARAM(170 + 220 * source, 160));
+  SendMessage(editor, WM_RBUTTONUP, 0, MAKELPARAM(170 + 220 * source, grid_layout::cardTop + 56));
   assert(delivered);
 }
 } // namespace win_edit_menu

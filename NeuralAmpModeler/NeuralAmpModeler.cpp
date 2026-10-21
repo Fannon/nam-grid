@@ -82,7 +82,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     GetParam(SlotTrimParam(slot))->InitGain((name + " Trim").c_str(), 0., -40., 40., .1);
     GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
   }
-  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1);
+  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "%");
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto name = GridSlotName(slot);
@@ -182,7 +182,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto b = ui->GetBounds();
     const auto compact = grid_ui::Style();
     ui->AttachPanelBackground(COLOR_BLACK);
-    ui->AttachControl(new ITextControl(IRECT(24, 6, 156, 46), PLUG_NAME, grid_ui::Text(23.f)));
+    ui->AttachControl(new ITextControl(IRECT(24, 8, 156, 48), PLUG_NAME, grid_ui::Text(28.f)));
     ui->AttachControl(new grid_ui::Button(IRECT(165, 14, 285, 42), [](IControl* caller) {
       caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
@@ -209,24 +209,21 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
       const float left = 88.f + 212.f * (slot % 4);
-      const float top = 104.f + 104.f * (slot / 4);
-      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + 76.f), slot),
+      const float top = grid_layout::cardTop + grid_layout::rowPitch * static_cast<float>(slot / 4);
+      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + grid_layout::cardHeight), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(9, 113, 67, 171), kGridParamBase + grid_performance::InputGain, "IN"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(0, 67, 74, 135), kGridParamBase + grid_performance::InputGain, "IN"))
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(938, 281, 996, 339), kParallelBlend, "A / B"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 235, 1000, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(938, 425, 996, 483), kOutputLevel, "OUT"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
-    ui->AttachControl(new ITextControl(IRECT(88, 523, 932, 546),
-                                       "Click + Add module to choose. Select a loaded module to edit; double-click to replace. The dot toggles bypass.",
-                                       grid_ui::Text(12.f, grid_ui::muted)));
     // Flat input/output meters retain the upstream sender protocol, without bitmap skins.
     const auto meterStyle =
       compact.WithShowValue(false).WithColor(kX1, grid_ui::accent).WithColor(kFG, grid_ui::accent);
-    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(74, 108, 77, 176), "", meterStyle), kCtrlTagInputMeter);
-    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(922, 420, 927, 488), "", meterStyle), kCtrlTagOutputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(81, 68, 84, 140), "", meterStyle), kCtrlTagInputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(922, 380, 927, 452), "", meterStyle), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(b), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);

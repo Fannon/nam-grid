@@ -4,18 +4,25 @@ The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, 
 surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
 selector or animated settings overlay is instantiated. Routing stays fixed. This unreleased prototype does not guarantee old parameter IDs or project compatibility.
 
-The header contains blend and master. Sixteen compact cards show slot ID, file/effect name,
+The compact header contains the logo, preset folder browser and arrows, Tuner,
+Grid / Control and Library & settings. IN gain sits before the first grid card;
+OUT gain and A/B balance occupy the right gutter. Sixteen cards show slot ID, file/effect name,
 type, enabled state and slim input-left/output-right meters beside the card. Click to select; only the selected module's controls
 appear in the bottom editor. Double-click a card or use Choose / Change in the editor to open
-the module menu. Its dot and the editor's Enabled / Bypassed switch share the same parameter.
-Right-click a card for Copy / Move / Swap. The bottom editor always has eight fixed positions,
+the module menu. Click an empty card's + Add module once to open it. Its dot and the
+editor's Enabled / Bypassed switch share the same parameter.
+Clear slot is first in both the module and right-click menus; the latter also has
+Copy / Move / Swap. The bottom editor always has eight equal-width positions,
 with up to seven knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, High pass, Low pass, Output trim;
 its neutral EQ acts after inference, not as controls of the captured amp. A2 Lite is in the
 module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
-Reduction appears for selected dynamics. The compact header contains only master/blend,
-library search, filter clearing, gear filter, match count/rescan, Tuner and settings.
+Optional gain-reduction history appears for compressors/limiter; delays offer an
+echo timing sketch. All knobs show editable values and units below the dial;
+double-click the dial to restore its default. See [PRESETS.md](PRESETS.md).
 
-Rows are Pre, A, B and Post. Actual IN/OUT ports sit outside the grid with direction arrows.
+Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
+the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
+the card meters; the global IN meter replaces the first card's duplicate input bar.
 Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
 green pedals, teal gates, yellow compressors, rose EQ, coral Boost/Tape, periwinkle
 modulation/filter, cyan delay and violet reverb. Unclassified NAM files remain neutral.
@@ -30,16 +37,20 @@ Library & settings provides Add folder, Remove and Rescan all. Up to 32 roots ar
 in project state and the per-user preference. Startup rescan is optional (default on); when off, use Rescan all. More than seven roots scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
 file paths are deduplicated; identical source basenames receive distinct menu names. Root and
-nested folder names are searchable. Search/gear filtering shows a match count and explicit Clear action; rescan does not discard the search. The scanner runs on its existing background worker;
+nested folder names remain in the index. The header search/filter bar is removed
+pending a dedicated browser. The scanner runs on its existing background worker;
 latest request wins, and menus retain immutable snapshots while open.
 
 Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
-Cabinet. Selecting one (including via previous/next) uses LoadSlotIR, changing both slot type
+Cabinet. NAM captures and Cabinet IRs have separate menu categories. Shared folder
+levels are skipped until a branch or file. Every menu level lists folders before
+files, with case-insensitive alphabetical ordering within each group and original
+snapshot tags retained. Selecting an IR (including via previous/next) uses LoadSlotIR, changing both slot type
 and processor; selecting NAM switches back. WAV contents are validated by the existing IR
 loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
 invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
 
-`CaptureFolders` is retained in the current schema 9. `CaptureFolder` remains a first-root alias
+`CaptureFolders` is retained in project state. `CaptureFolder` remains a first-root alias
 for older readers. Older single-root projects and user preferences migrate automatically.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
@@ -72,7 +83,7 @@ Manual DAW check:
 
 1. Close older plugin windows and rescan/load `nam-grid`. Check black background, readable text,
    selected outline, names, meters and bottom controls at default and scaled sizes.
-2. Add one NAM root and a separate IR root; rescan. Search and navigate both through submenus.
+2. Add one NAM root and a separate IR root; rescan. Navigate both through their menu categories.
    Select a WAV: confirm WAV / IR and Level. Select a NAM: confirm Input / Output trim.
 3. Select NAM, gate, compressor and both EQ variants. Tweak controls and automate them; changing
    selection must neither change audio nor redirect automation to a different slot.
@@ -81,7 +92,7 @@ Manual DAW check:
 5. Save/reopen the project. Check every library root, module file/type, gain, bypass and quality.
    Open an older project with shared processing; verify its compatibility toggles and sound.
 
-The eight-position editor aligns two controls beneath each grid column. Enabled
+The eight-position editor spreads controls evenly across its width. Enabled
 stays in position eight. NAM uses all seven knobs; Tube Boost leaves one unused.
 The opt-in OpenGL readback helper occasionally returns partial frames during
 repeated captures; its screenshots are layout artifacts, not proof of host repaint

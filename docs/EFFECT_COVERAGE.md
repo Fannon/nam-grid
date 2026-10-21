@@ -63,7 +63,7 @@ These priorities are our design judgment, not a ranking published by IK/Hotone.
 
 ## This increment
 
-Eight control positions form four aligned pairs beneath the four grid columns.
+Eight equal-width control positions span the bottom editor.
 Positions 1–7 accept controls; position 8 is always Enabled. Seven is a ceiling,
 not a target. Module types remain in the menu and unused cells remain empty.
 

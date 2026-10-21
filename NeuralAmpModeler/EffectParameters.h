@@ -91,8 +91,13 @@ enum UtilityParam
   uNoiseRelease,
   uNoiseMix,
   uNoiseGateThreshold,
+  uLoFiSpeed, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiMix, uLoFiOutput,
   kUtilityControls
 };
+// Freeze schema 14's parameter stride; new controls receive IDs after its entire
+// parameter bank, preserving existing host automation as well as named state.
+inline constexpr int kSchema14UtilityControls = uLoFiSpeed;
+inline constexpr int kLoFiControls = 7;
 struct EffectParameter
 {
   const char* name;
@@ -235,7 +240,14 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Noise Attack", "Attack", 2, .2, 20, .1, "ms", 3, true},
    {"Noise Release", "Release", 120, 20, 500, 1, "ms", 4, true},
    {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6},
-   {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5}}};
+   {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5},
+   {"LoFi Speed", "Speed", 7.5, 1.875, 30, .001, "ips", 0, true},
+   {"LoFi Wow", "Wow", 25, 0, 100, .1, "%", 1},
+   {"LoFi Flutter", "Flutter", 20, 0, 100, .1, "%", 2},
+   {"LoFi Noise", "Noise", 20, 0, 100, .1, "%", 3},
+   {"LoFi Wear", "Wear", 25, 0, 100, .1, "%", 4},
+   {"LoFi Mix", "Mix", 100, 0, 100, .1, "%", 5},
+   {"LoFi Output", "Output", 0, -24, 6, .1, "dB", 6}}};
 static_assert([] {
   for (const auto& p : kEffectParameters)
     if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum
@@ -280,12 +292,13 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::Freeze: case SlotEffect::Stutter: case SlotEffect::ShimmerReverb:
     case SlotEffect::JunoChorus:
     case SlotEffect::FrequencyShifter:
-    case SlotEffect::NoisePrint: return true;
+    case SlotEffect::NoisePrint: case SlotEffect::LoFiTape: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::LoFiTape) return p >= uLoFiSpeed && p <= uLoFiOutput;
   if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
   if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
   if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;
@@ -367,4 +380,5 @@ struct UtilityControls
   std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
   noise_print::Controls noise;
+  std::array<double, 7> lofi{7.5, 25., 20., 20., 25., 100., 0.};
 };

@@ -47,7 +47,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {boostColor, boostColor, "Texture"};
   if (effect == SlotEffect::AutoSwell)
     return {compColor, compColor, "Volume"};
-  if (effect == SlotEffect::Tape)
+  if (effect == SlotEffect::Tape || effect == SlotEffect::LoFiTape)
     return {boostColor, boostColor, "Tape"};
   if (effect == SlotEffect::Utility)
     return {neutralColor, neutralColor, "Utility"};
@@ -274,6 +274,7 @@ public:
     Gradient(g, IRECT(42, 599, 956, 601), tone.first, tone.second, .8f, 1.f);
     g.DrawText(Text(12.f, tone.first), slotName.c_str(), IRECT(42, 568, 104, 594));
     g.DrawText(Text(16.f), label.c_str(), IRECT(110, 565, 956, 598));
+    if (effect == SlotEffect::LoFiTape) DrawTapeTransport(g);
     std::array<bool, kControlPositions> used{};
     used.back() = true;
     if (effect == SlotEffect::NAM && !path.empty())
@@ -301,6 +302,8 @@ public:
     const char* description = effect == SlotEffect::NAM         ? "NAM / post-capture tone EQ"
                               : effect == SlotEffect::CabinetIR ? "WAV / cabinet impulse response"
                                                                 : SlotEffectName(effect);
+    if (effect == SlotEffect::LoFiTape)
+      description = "Speed shapes bandwidth; Wow/Flutter add motion; Wear adds dulling and dropouts.";
     if (effect == SlotEffect::NoisePrint)
       description = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseLearn))->Bool()
                       ? "Learning: noise only. Switch Learn off when done."
@@ -439,6 +442,11 @@ public:
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
+      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::LoFiTape)
+      {
+        mMeter.lofi = meter.lofi;
+        if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
+      }
       if (meter.input >= 1.f)
         mInputClip = Now() + 1.;
       if (meter.output >= 1.f)
@@ -501,6 +509,40 @@ public:
   }
 
 private:
+  void DrawTapeTransport(IGraphics& g)
+  {
+    using namespace grid_ui;
+    const IRECT bounds(530, 564, 956, 636);
+    g.FillRoundRect(IColor(255, 12, 16, 20), bounds, 4.f);
+    const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
+    const double mix = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLoFiMix))->Value() * .01;
+    const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
+    const auto& history = mMeter.lofi;
+    const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
+    g.DrawText(Text(9.f, muted), status, IRECT(540, 565, 710, 578));
+    g.DrawText(Text(9.f, muted, EAlign::Far), "2.56 s / +/-60 cents", IRECT(730, 565, 946, 578));
+    const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
+      g.DrawText(Text(10.f, color.WithOpacity(opacity)), name, IRECT(540, center - 8, 596, center + 8));
+      constexpr float start = 604.f, end = 891.f, height = 11.f;
+      g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
+      float previous = center;
+      double peak = 0.;
+      for (int i = 0; i < LoFiTapeHistory::points; ++i)
+      {
+        const double cents = values[(history.next + i) % LoFiTapeHistory::points];
+        peak = std::max(peak, std::abs(cents));
+        const float y = center - static_cast<float>(std::clamp(cents / 60., -1., 1.)) * height;
+        const float x = start + (end - start) * i / (LoFiTapeHistory::points - 1);
+        if (i) g.DrawLine(color.WithOpacity(opacity), x - (end - start) / (LoFiTapeHistory::points - 1), previous, x, y, nullptr, 1.4f);
+        previous = y;
+      }
+      WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
+      g.DrawText(Text(10.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(898, center - 8, 946, center + 8));
+    };
+    trace("WOW", history.wow, accent, 590.f);
+    trace("FLUTTER", history.flutter, ampColor, 620.f);
+  }
+
   void Refresh()
   {
     if (!mModelButton)
@@ -576,6 +618,18 @@ private:
             "Lower sideband at -100, ring modulation at 0, upper sideband at +100.");
         else if (i == uTapeBump)
           mUtilityKnobs[i]->SetTooltip("Low-frequency tape head emphasis.");
+        else if (i == uLoFiSpeed)
+          mUtilityKnobs[i]->SetTooltip("Tape speed in inches per second. Slower is darker and changes transport speed, without retuning the guitar.");
+        else if (i == uLoFiWow)
+          mUtilityKnobs[i]->SetTooltip("Slow pitch drift. The green trace shows measured wow pitch motion; both traces use the same cents scale.");
+        else if (i == uLoFiFlutter)
+          mUtilityKnobs[i]->SetTooltip("Fast pitch vibration. The amber trace shows measured flutter pitch motion over the same 2.56 seconds.");
+        else if (i == uLoFiNoise)
+          mUtilityKnobs[i]->SetTooltip("Independent stereo tape hiss, including between notes. Zero turns hiss off.");
+        else if (i == uLoFiWear)
+          mUtilityKnobs[i]->SetTooltip("Dulls the tape and introduces smooth, irregular level dropouts. Does not add distortion.");
+        else if (i == uLoFiMix)
+          mUtilityKnobs[i]->SetTooltip("Blend the immediate dry guitar with the delayed moving tape signal. Partial mixes can create chorus/comb coloration.");
       }
       if (effect == SlotEffect::ParametricEQ)
       {

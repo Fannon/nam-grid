@@ -396,6 +396,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     readFamily(c.utility.crusher, uCrushBits); readFamily(c.utility.ring, uRingFrequency); readFamily(c.utility.dual, uDualRatio);
     readFamily(c.utility.juno, uJunoMode); readFamily(c.utility.shimmer, uShimmerMix); readFamily(c.utility.shift, uShiftFrequency);
     readFamily(c.utility.distortion, uDistStyle);
+    readFamily(c.utility.lofi, uLoFiSpeed);
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -926,7 +927,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = noise_print::integratedSchema;
+  config["schema"] = kGridStateSchema;
   config["PresetName"] = mPresetName;
   config["PresetDirectory"] = mPresetDirectory;
   config["DrivePath"] = mDrivePath.Get();
@@ -1114,7 +1115,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
                   && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
-                  && schemaValue != noise_print::integratedSchema)
+                  && schemaValue != noise_print::integratedSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1186,6 +1187,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema == 13 ? static_cast<int>(SlotEffect::Distortion)
                                             : static_cast<int>(SlotEffect::NoisePrint))
                 || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>()))
+                || (effect == static_cast<int>(SlotEffect::LoFiTape) && schema != kGridStateSchema)
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -1215,16 +1217,18 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
-        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase)
+        if (grid && i >= kLoFiBase && schema != kGridStateSchema)
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase && i < kLoFiBase)
           config[name] = GetParam(i)->GetDefault();
         if (grid && (schema < 12 || schema >= 1001) && i == kGridParamBase + grid_performance::InputGain)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 1001 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls == uNoiseGateThreshold)
+            && (i - kUtilityBase) % kSchema14UtilityControls == uNoiseGateThreshold)
           config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
         if (grid && i >= kUtilityBase && i < kTunerReference)
         {
-          const int control = (i - kUtilityBase) % kUtilityControls;
+          const int control = (i - kUtilityBase) % kSchema14UtilityControls;
           if ((schema <= 13 && control >= uNoiseLearn)
               || (schema >= 1001 && control >= uUtilityDelay && control < uNoiseLearn))
             config[name] = GetParam(i)->GetDefault();
@@ -1243,21 +1247,21 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         if (grid && schema >= 6 && schema < 10
             && ((i >= kTunerReference && schema < 8)
                 || (i >= kUtilityBase && i < kTunerReference
-                    && (i - kUtilityBase) % kUtilityControls >= (schema == 6   ? 30
+                    && (i - kUtilityBase) % kSchema14UtilityControls >= (schema == 6   ? 30
                                                                  : schema == 7 ? 41
                                                                  : schema == 8 ? 48 : 61))))
           config[name] = GetParam(i)->GetDefault();
         // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
         if (grid && schema >= 11 && schema <= 12 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uDistStyle)
+            && (i - kUtilityBase) % kSchema14UtilityControls >= uDistStyle)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 10 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= 103)
+            && (i - kUtilityBase) % kSchema14UtilityControls >= 103)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 8 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls == uUtilityStereo)
+            && (i - kUtilityBase) % kSchema14UtilityControls == uUtilityStereo)
         {
-          const auto oldName = GridSlotName((i - kUtilityBase) / kUtilityControls) + " Utility Width";
+          const auto oldName = GridSlotName((i - kUtilityBase) / kSchema14UtilityControls) + " Utility Width";
           if (!config.contains(oldName) || !config[oldName].is_number()
               || !std::isfinite(config[oldName].get<double>()))
             return -1;
@@ -1280,7 +1284,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             return -1;
         }
       }
-      else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema)
+      else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
+               || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;

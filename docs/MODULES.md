@@ -28,6 +28,7 @@ See [Noise Print](NOISE_PRINT.md) for learning, controls, measurements and limit
 | Auto Tremolo | Rate, Depth, Character, Mix | Rounded pulses; Character sharpens them and adds envelope-dependent speed |
 | Vibrato | Rate, Depth, Character | Fully wet pitch movement; Character adds drift and darkening |
 | Frequency Shifter | Shift, Feedback, Delay, Side, Tone, Stereo, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
+| LoFi Tape Machine | Speed, Wow, Flutter, Noise, Wear, Mix, Output | Tape transport motion, hiss, bandwidth loss and dropouts; separate from tape saturation |
 
 This set follows the core guitar categories in the official
 [Helix effect guide](https://manuals.line6.com/en/helix-stadium/live/effect-blocks)
@@ -37,6 +38,8 @@ effects are now described in [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md
 Shimmer provides pitched reverb feedback, but polyphonic pitch shifting and a
 harmonizer remain future work. The implementation notes are in
 [FX_SOURCE_REVIEW_20261020.md](FX_SOURCE_REVIEW_20261020.md).
+The **Creative** category also contains [LoFi Tape Machine](LOFI_TAPE.md), with
+measured wow/flutter pitch-motion traces and a separate seven-control editor.
 Dense Plate is a voiced digital reverb, not a physical plate model. Juno Chorus is an
 original rate-scaled implementation informed by the Juno-60 BBD measurements used by
 the MIT Junologue project, not a circuit emulation. Frequency Shifter is a Bode-style

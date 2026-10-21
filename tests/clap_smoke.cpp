@@ -943,6 +943,7 @@ int main(int argc, char** argv)
     plugin->deactivate(plugin);
   }
 #include "NoisePrintClapTests.inc"
+#include "LoFiTapeClapTests.inc"
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
@@ -1206,7 +1207,8 @@ int main(int argc, char** argv)
   // hidden controls stealing gestures when modules are restored into an open UI.
   for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
                  static_cast<int>(SlotEffect::ShimmerReverb), static_cast<int>(SlotEffect::JunoChorus),
-                 static_cast<int>(SlotEffect::FrequencyShifter), static_cast<int>(SlotEffect::Distortion)})
+                 static_cast<int>(SlotEffect::FrequencyShifter), static_cast<int>(SlotEffect::Distortion),
+                 static_cast<int>(SlotEffect::LoFiTape)})
   {
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;

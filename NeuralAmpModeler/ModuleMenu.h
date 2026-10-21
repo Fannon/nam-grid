@@ -43,7 +43,7 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
   addGroup("Pitch / Frequency", {E::Octaver, E::Doubler, E::FrequencyShifter});
   addGroup("Delay", {E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::ReverseDelay, E::DualDelay});
   addGroup("Reverb", {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::SpringReverb, E::ShimmerReverb});
-  addGroup("Creative", {E::Freeze, E::Stutter});
+  addGroup("Creative", {E::Freeze, E::Stutter, E::LoFiTape});
   addGroup("Utility / Volume", {E::Utility, E::AutoSwell});
   menu.AddSeparator(next++);
   if (canToggleQuality)

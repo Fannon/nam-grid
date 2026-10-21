@@ -12,6 +12,7 @@
 #include "RoadmapEffects.h"
 #include "SlotHQEffects.h"
 #include "SlotDistortion.h"
+#include "SlotLoFiTape.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -21,7 +22,10 @@ struct NAMModelInfo
 };
 
 struct SlotMeterData
-{ float input = 0.f, output = 0.f, reduction = 0.f; };
+{
+  float input = 0.f, output = 0.f, reduction = 0.f;
+  LoFiTapeHistory lofi;
+};
 
 class NAMStage
 {
@@ -44,6 +48,7 @@ public:
     SlotReverb reverb;
     SlotModulation modulation;
     SlotTape tape;
+    SlotLoFiTape lofi;
     SlotSpring spring;
     SlotWah wah;
     grid_roadmap::Limiter limiter;
@@ -96,6 +101,7 @@ public:
         if (effect == SlotEffect::ShimmerReverb) shimmer.Reset(rate);
         if (effect == SlotEffect::JunoChorus) juno.Reset(rate);
         if (effect == SlotEffect::FrequencyShifter) frequencyShifter.Reset(rate);
+        if (effect == SlotEffect::LoFiTape) lofi.Reset(rate);
       }
       if (effect == SlotEffect::UniVibe) vibe.Reset(rate);
       if (effect == SlotEffect::Bitcrusher || effect == SlotEffect::RingMod) texture.Reset(rate);
@@ -133,6 +139,7 @@ public:
                                            : effect == SlotEffect::Stutter ? 33.
                                            : effect == SlotEffect::Utility ? .025
                                            : effect == SlotEffect::Distortion ? 1.
+                                           : effect == SlotEffect::LoFiTape ? 1.
                                            : IsModulation(effect) ? .07
                                            : effect == SlotEffect::JunoChorus ? .07
                                                                   : 0.));
@@ -207,7 +214,9 @@ public:
   }
   SlotMeterData TakeMeter()
   {
-    const auto result = mMonitoring ? mMeter : SlotMeterData{};
+    auto result = mMonitoring ? mMeter : SlotMeterData{};
+    if (auto* p = mExchange.Active(); mMonitoring && p && p->effect == SlotEffect::LoFiTape)
+      result.lofi = p->lofi.History();
     mMeter = {};
     return result;
   } // audio only
@@ -328,6 +337,7 @@ public:
             else if (p->effect == SlotEffect::JunoChorus) p->juno.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::FrequencyShifter)
               p->frequencyShifter.Process(out, r, frames, utility, draining);
+            else if (p->effect == SlotEffect::LoFiTape) p->lofi.Process(out, r, frames, utility, draining);
             else p->capture.Process(out, r, frames, p->effect, utility);
           }
           else if (p->effect == SlotEffect::SpringReverb)

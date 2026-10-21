@@ -63,9 +63,12 @@ The scanner computes SHA-1 content hashes for captures/IRs. The hash is a recall
 menu filter: byte-identical files keep their own entry, so a pack folder stays complete when a
 curated copy of the same capture exists elsewhere, and repeats are only counted. Overlapping
 roots and repeated roots still index each physical path once. Slots, projects, rig presets and
-Copy/Move/Swap retain the content hash. Recall and completed rescans relink moved files to the
-indexed copy, preferring a copy that still exists; a different file at the old path is never
-silently substituted. Missing indexed matches retain the original path/hash for a future rescan.
+Copy/Move/Swap retain the content hash. Recall keeps the saved or explicitly chosen path while
+that file still holds the remembered content, so picking one of several identical captures is
+never redirected to another copy. The hash only takes over when the file was renamed, moved or
+replaced, and completed rescans relink slots whose file disappeared or changed; a different file
+at the old path is never silently substituted. Missing indexed matches retain the original
+path/hash for a future rescan.
 
 Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
 Cabinet. NAM captures and Cabinet IRs have separate menu categories. Shared folder

@@ -1484,8 +1484,17 @@ void NeuralAmpModeler::_ResolveLibraryFiles()
     const auto effect = mSlotEffects[slot];
     if (effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR) continue;
     const auto* capture = nam_library::FindHash(*mLibrary, mSlotHashes[slot], effect == SlotEffect::CabinetIR);
-    if (!capture || (IsSlotLoaded(slot) && nam_library::PathText(capture->path) == mSlotPaths[slot].Get())) continue;
+    if (!capture) continue;
     const auto path = nam_library::PathText(capture->path);
+    if (IsSlotLoaded(slot) && path == mSlotPaths[slot].Get()) continue;
+    // Keep the file that is loaded or was chosen while it still holds the remembered content;
+    // a rescan only relinks slots whose file disappeared or was replaced.
+    if (mSlotPaths[slot].GetLength())
+      try
+      {
+        if (nam_library::ContentHash(std::filesystem::u8path(mSlotPaths[slot].Get())) == mSlotHashes[slot]) continue;
+      }
+      catch (const std::exception&) {}
     try { if (nam_library::ContentHash(capture->path) != mSlotHashes[slot]) continue; }
     catch (const std::exception&) { continue; } // File changed/disappeared after scanning.
     if (IsSlotLoaded(slot))
@@ -1516,20 +1525,27 @@ std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const s
     config.hash.clear();
     if (!path.empty() && (effect == SlotEffect::NAM || effect == SlotEffect::CabinetIR))
     {
-      if (mLibrary && !expectedHash.empty())
-        if (const auto* known = nam_library::FindHash(*mLibrary, expectedHash, effect == SlotEffect::CabinetIR))
-          try {
-            if (nam_library::ContentHash(known->path) == expectedHash) config.path = nam_library::PathText(known->path);
-          } catch (const std::exception&) {} // A stale scan must not hide a valid saved path.
-      config.hash = nam_library::ContentHash(std::filesystem::u8path(config.path));
-      if (!expectedHash.empty() && config.hash != expectedHash)
+      const auto isIR = effect == SlotEffect::CabinetIR;
+      const auto file = std::filesystem::u8path(config.path);
+      const auto hashOf = [](const std::filesystem::path& candidate) {
+        try { return nam_library::ContentHash(candidate); }
+        catch (const std::exception&) { return std::string{}; }
+      };
+      // A saved or explicitly chosen path keeps its own file while that file still holds the
+      // remembered content. The content hash only takes over when the file was renamed, moved
+      // or replaced, so choosing one of several identical captures is never redirected.
+      auto chosenHash = hashOf(file);
+      if (!expectedHash.empty() && chosenHash != expectedHash && mLibrary)
+        if (const auto* known = nam_library::FindHash(*mLibrary, expectedHash, isIR))
+          if (const auto knownHash = hashOf(known->path); knownHash == expectedHash)
+          {
+            config.path = nam_library::PathText(known->path);
+            chosenHash = knownHash;
+          }
+      if (chosenHash.empty()) chosenHash = nam_library::ContentHash(file); // Surface the read error.
+      if (!expectedHash.empty() && chosenHash != expectedHash)
         throw std::runtime_error("The capture/IR at this path has different content");
-      if (mLibrary)
-        if (const auto* known = nam_library::FindHash(*mLibrary, config.hash, effect == SlotEffect::CabinetIR))
-          if (nam_library::PathText(known->path) != config.path)
-            try {
-              if (nam_library::ContentHash(known->path) == config.hash) config.path = nam_library::PathText(known->path);
-            } catch (const std::exception&) {} // Keep the verified file when the indexed copy disappeared.
+      config.hash = std::move(chosenHash);
     }
     _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), false);
   }

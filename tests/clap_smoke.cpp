@@ -980,6 +980,10 @@ int main(int argc, char** argv)
   std::filesystem::create_directories(librarySecond.parent_path());
   std::filesystem::copy_file(path2, libraryFirst, std::filesystem::copy_options::overwrite_existing);
   std::filesystem::copy_file(path1, librarySecond, std::filesystem::copy_options::overwrite_existing);
+  // A second indexed copy of the same capture that sorts after the first: choosing it must not
+  // be redirected to the alphabetically earlier copy.
+  const auto libraryTwin = libraryFolder / "Pedals" / "Nested" / "z-drive.nam";
+  std::filesystem::copy_file(path1, libraryTwin, std::filesystem::copy_options::overwrite_existing);
   const auto irLibrary = fixtures / "ir-library";
   std::filesystem::create_directories(irLibrary);
   const auto libraryIR = irLibrary / "cabinet.wav";
@@ -1145,6 +1149,23 @@ int main(int argc, char** argv)
     std::filesystem::rename(parked,canonical);
     assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == (ir ? irFile : path1));
     for(int ch=0;ch<2;++ch) for(int i=0;i<512;++i) assert(std::abs(expectedAudio[ch][i]-fallbackAudio[ch][i])<1.e-10);
+  }
+  load(browserState);
+  // Choosing one of several identical captures keeps that exact file; the content hash is only a
+  // fallback, so a pack copy must not be redirected to the curated copy in another folder.
+  {
+    auto chosen = browserState;
+    chosen["SlotEffects"][0] = 0;
+    chosen["SlotPaths"][0] = libraryTwin.string();
+    chosen["SlotHashes"][0] = nam_library::ContentHash(libraryTwin);
+    chosen["DrivePath"] = libraryTwin.string();
+    Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(chosen.dump());
+    assert(loadBytes(bytes));
+    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
+    chosen["SlotHashes"][0] = ""; // An explicit choice carries no remembered hash.
+    Stream explicitChoice; explicitChoice.string("###NAMGrid-v1###"); explicitChoice.string(chosen.dump());
+    assert(loadBytes(explicitChoice));
+    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
   }
   load(browserState);
   const auto beforeHashError = save().config();

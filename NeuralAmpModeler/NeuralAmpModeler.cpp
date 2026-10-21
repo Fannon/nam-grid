@@ -114,6 +114,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
       else
         param->InitDouble((name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit);
+      if (i == uNoiseGateThreshold)
+        param->SetDisplayText(p.minimum, "Off");
     }
     if (slot != 1)
       GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
@@ -305,6 +307,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.utility.noise.attack = GetParam(SlotUtilityParam(slot, uNoiseAttack))->Value();
     c.utility.noise.release = GetParam(SlotUtilityParam(slot, uNoiseRelease))->Value();
     c.utility.noise.mix = GetParam(SlotUtilityParam(slot, uNoiseMix))->Value();
+    c.utility.noise.gateThreshold = GetParam(SlotUtilityParam(slot, uNoiseGateThreshold))->Value();
     c.utility.sync = GetParam(SlotUtilityParam(slot, uTempoSync))->Bool();
     c.utility.division = GetParam(SlotUtilityParam(slot, uTempoDivision))->Int();
     c.utility.tempo = GetTempo();
@@ -849,7 +852,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         return -1;
       const auto& schemaValue = config["schema"];
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
-                  && schemaValue != 9 && schemaValue != noise_print::experimentSchema)
+                  && schemaValue != 9 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -924,6 +927,9 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
+        if (grid && schema == 1001 && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls == uNoiseGateThreshold)
+          config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
         // Prior WIP states called the gate close time Decay. Keep their value
         // while exposing the accurate Release name to hosts and new states.
         if (i >= kDynamicsBase && i < kEQBase && (i - kDynamicsBase) % 6 == 1)
@@ -969,7 +975,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             return -1;
         }
       }
-      else if (schema == noise_print::experimentSchema)
+      else if (schema == 1001 || schema == noise_print::experimentSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;

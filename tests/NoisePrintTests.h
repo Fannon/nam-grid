@@ -9,8 +9,75 @@ inline double NoiseSample(uint32_t& state, int sample, double rate)
   return .006 * (double(state) / 4294967296. * 2. - 1.) + .006 * std::sin(6.283185307179586 * 60. * sample / rate);
 }
 
+void TestNoisePrintGate()
+{
+  for (double rate : {44100., 48000., 96000., 192000.})
+  {
+    noise_print::Processor processor;
+    processor.Reset(rate);
+    noise_print::Controls c;
+    c.gateThreshold = -40.;
+    c.mix = 0.; // The final gate works independently of the spectral mix/profile.
+    c.release = 80.;
+    std::array<double, 512> left{}, right{};
+    auto render = [&](double seconds, double l, double r) {
+      for (int done = 0, total = static_cast<int>(seconds * rate); done < total;)
+      {
+        const int n = std::min(512, total - done);
+        left.fill(l);
+        right.fill(r);
+        allocations = deletions = 0;
+        tracking = true;
+        processor.Process(left.data(), right.data(), n, c);
+        tracking = false;
+        assert(!allocations && !deletions);
+        for (int i = 0; i < n; ++i)
+        {
+          assert(std::isfinite(left[i]) && std::isfinite(right[i]));
+          assert(std::abs(left[i]) <= std::abs(l) && std::abs(right[i]) <= std::abs(r));
+          if (l == -r)
+            assert(left[i] == -right[i]);
+        }
+        done += n;
+      }
+      // The final sample is valid even when the final block is short.
+      const int tail = (static_cast<int>(seconds * rate) - 1) % 512;
+      return std::array<double, 2>{left[tail], right[tail]};
+    };
+    assert((render(.001, .001, -.001) == std::array<double, 2>{0., 0.})); // No startup noise burst.
+    assert((render(.2, .001, -.001) == std::array<double, 2>{0., 0.}));
+    // Either side opens the linked gate. Anti-phase input must not cancel its detector.
+    assert((render(.005, -.1, .1) == std::array<double, 2>{-.1, .1}));
+    assert((render(.01, -.001, .001) == std::array<double, 2>{-.001, .001}));
+    assert((render(.3, -.001, .001) == std::array<double, 2>{0., 0.}));
+    assert((render(.005, 0., .1) == std::array<double, 2>{0., .1}));
+    // -41.9 dB lies in the 3 dB hysteresis window: open stays open, closed stays closed.
+    assert((render(.1, .008, -.008) == std::array<double, 2>{.008, -.008}));
+    assert((render(.3, .001, -.001) == std::array<double, 2>{0., 0.}));
+    assert((render(.1, .008, -.008) == std::array<double, 2>{0., 0.}));
+    c.learn = true;
+    assert((render(.002, .001, -.001) == std::array<double, 2>{.001, -.001}));
+    c.learn = false;
+    assert((render(.3, .001, -.001) == std::array<double, 2>{0., 0.}));
+    c.gateThreshold = -100.;
+    assert((render(.002, .001, -.001) == std::array<double, 2>{.001, -.001}));
+    c.gateThreshold = -40.;
+    c.release = 300.;
+    render(.005, .1, -.1);
+    const auto slow = render(.15, .001, -.001);
+    assert(slow[0] > 0. && slow[0] < .001);
+    c.release = 20.;
+    render(.005, .1, -.1);
+    assert((render(.15, .001, -.001) == std::array<double, 2>{0., 0.}));
+    processor.Reset(rate);
+    c.gateThreshold = -100.;
+    assert((render(.002, .123, -.123) == std::array<double, 2>{.123, -.123}));
+  }
+}
+
 void TestNoisePrint()
 {
+  TestNoisePrintGate();
   std::cout << std::unitbuf;
   noise_print::Profile learned;
   for (double rate : {44100., 48000., 96000., 192000.})
@@ -93,11 +160,13 @@ void TestNoisePrint()
   single.Restore(learned);
   blocked.Restore(learned);
   noise_print::Controls c;
+  c.gateThreshold = -35.;
+  c.release = 20.;
   std::array<double, 512> a{}, b{};
   for (int block = 0; block < 80; ++block)
   {
     for (int i = 0; i < 512; ++i)
-      a[i] = b[i] = .02 * std::sin(.07 * (block * 512 + i));
+      a[i] = b[i] = (block < 40 ? .001 : .2) * std::sin(.07 * (block * 512 + i));
     blocked.Process(b.data(), nullptr, 512, c);
     for (int i = 0; i < 512; ++i)
       single.Process(&a[i], nullptr, 1, c);
@@ -105,6 +174,7 @@ void TestNoisePrint()
       assert(a[i] == b[i]);
   }
   const auto prior = blocked.GetProfile();
+  c.gateThreshold = -100.;
   c.learn = true;
   for (int block = 0; block < 8; ++block) // Less than the minimum capture duration.
   {

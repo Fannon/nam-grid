@@ -67,6 +67,36 @@ const auto* noiseLatency = static_cast<const clap_plugin_latency*>(plugin->get_e
 assert(noiseLatency->get(plugin) == 0);
 plugin->stop_processing(plugin);
 plugin->deactivate(plugin);
+clap_param_info gateInfo{};
+for (uint32_t i = 0; i < params->count(plugin); ++i)
+{
+  assert(params->get_info(plugin, i, &gateInfo));
+  if (std::strcmp(gateInfo.name, "Pre 1 Noise Gate Threshold") == 0)
+    break;
+}
+assert(std::strcmp(gateInfo.name, "Pre 1 Noise Gate Threshold") == 0);
+assert(gateInfo.flags& CLAP_PARAM_IS_AUTOMATABLE);
+double gateValue = 0.;
+char gateText[64]{};
+assert(params->get_value(plugin, gateInfo.id, &gateValue));
+assert(params->value_to_text(plugin, gateInfo.id, gateValue, gateText, sizeof(gateText)));
+assert(std::strcmp(gateText, "Off") == 0);
+clap_event_param_value gateEvent{};
+gateEvent.header.size = sizeof(gateEvent);
+gateEvent.header.type = CLAP_EVENT_PARAM_VALUE;
+gateEvent.param_id = gateInfo.id;
+gateEvent.note_id = gateEvent.port_index = gateEvent.channel = gateEvent.key = -1;
+assert(params->text_to_value(plugin, gateInfo.id, "-42.0", &gateEvent.value));
+clap_input_events gateEvents{&gateEvent, [](const clap_input_events*) -> uint32_t { return 1; },
+                             [](const clap_input_events* events, uint32_t) -> const clap_event_header* {
+                               return &static_cast<clap_event_param_value*>(events->ctx)->header;
+                             }};
+params->flush(plugin, &gateEvents, &sent);
+auto automatedGateState = save().config();
+assert(std::abs(automatedGateState["Pre 1 Noise Gate Threshold"].get<double>() + 42.) < 1.e-9);
+automatedGateState["Pre 1 Noise Gate Threshold"] = -100.;
+assert(automatedGateState == learnedNoiseState);
+learnedNoiseState = save().config();
 load(base);
 load(learnedNoiseState);
 assert(save().config() == learnedNoiseState);
@@ -74,8 +104,22 @@ assert(plugin->activate(plugin, 96000., 1, 512));
 assert(plugin->start_processing(plugin));
 renderNoise(512);
 assert(save().config()["NoisePrintProfiles"] == learnedNoiseState["NoisePrintProfiles"]);
+// Verify the actual plugin control reaches DSP, including the final mix path.
+assert(params->text_to_value(plugin, gateInfo.id, "-20", &gateEvent.value));
+params->flush(plugin, &gateEvents, &sent);
+renderNoise(96000);
+for (int i = 0; i < static_cast<int>(process.frames_count); ++i)
+  assert(std::abs(output[0][i]) < 1.e-10 && std::abs(output[1][i]) < 1.e-10);
+assert(params->text_to_value(plugin, gateInfo.id, "Off", &gateEvent.value));
+params->flush(plugin, &gateEvents, &sent);
+renderNoise(512);
+double reopenedEnergy = 0.;
+for (int i = 0; i < 512; ++i)
+  reopenedEnergy += output[0][i] * output[0][i];
+assert(reopenedEnergy > 1.e-10 && noiseLatency->get(plugin) == 0);
 plugin->stop_processing(plugin);
 plugin->deactivate(plugin);
+load(learnedNoiseState);
 for (const json& invalidProfile : {json(123), json{{"version", 1}, {"power", {1, 2}}},
                                    json{{"version", 2}, {"power", std::vector<double>(noise_print::bands, .1)}},
                                    json{{"version", 1}, {"power", std::vector<double>(noise_print::bands, -1.)}}})
@@ -111,3 +155,18 @@ for (int slot = 0; slot < 16; ++slot)
 }
 load(schema9);
 assert(save().config() == cleared);
+auto schema1001 = learnedNoiseState;
+schema1001["schema"] = 1001;
+auto migrated1001 = learnedNoiseState;
+for (int slot = 0; slot < 16; ++slot)
+{
+  const auto key = std::string(slot < 4    ? "Pre "
+                               : slot < 8  ? "A "
+                               : slot < 12 ? "B "
+                                           : "Post ")
+                   + std::to_string(slot % 4 + 1) + " Noise Gate Threshold";
+  schema1001.erase(key);
+  migrated1001[key] = -100.;
+}
+load(schema1001);
+assert(save().config() == migrated1001);

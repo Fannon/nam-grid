@@ -20,6 +20,7 @@ struct Controls
 {
   bool learn = false;
   double sensitivity = 1.5, reduction = 24., attack = 2., release = 120., mix = 100.;
+  double gateThreshold = -100.; // Minimum is Off, independent of the learned print.
 };
 
 // Stage-lifetime mailbox: audio is the sole writer. Control never touches an
@@ -77,6 +78,11 @@ public:
     mLearning = false;
     mChanged = true;
     mReduction = 0.;
+    mGateEnvelope = 0.;
+    mGateGain = 1.;
+    mGateHold = 0;
+    mGateOpen = false;
+    mGateFirst = true;
     constexpr double q = 4.;
     const double step = std::log(4000.) / (bands - 1);
     // The real response of a constant-Q bandpass integrates to
@@ -136,12 +142,25 @@ public:
     const double release = std::exp(-1. / (.001 * std::clamp(c.release, 20., 500.) * mRate));
     const double mixTarget = mProfile.valid && !c.learn && c.reduction > 0. ? std::clamp(c.mix, 0., 100.) * .01 : 0.;
     const double mixStep = 1. / (.005 * mRate);
+    const double gateThreshold = std::clamp(c.gateThreshold, -100., 0.);
+    const bool gateEnabled = !c.learn && gateThreshold > -100.;
+    const double gateLevel = std::pow(10., gateThreshold * .05);
+    const double gateDetectorRelease = std::exp(-1. / (.005 * mRate));
+    const double gateOpenStep = 1. / (.0005 * mRate);
+    const double gateCloseStep = 1. / (.001 * std::clamp(c.release, 20., 500.) * mRate);
+    const auto gateHoldSamples = static_cast<uint64_t>(.020 * mRate);
     double learnedPower = 0.;
     for (double power : mProfile.power)
       learnedPower += power;
     double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
+      if (mGateFirst)
+      {
+        // An enabled gate starts closed on recall/reset, avoiding a noise burst.
+        mGateGain = gateEnabled ? 0. : 1.;
+        mGateFirst = false;
+      }
       const double dry[2]{Safe(left[sample]), right ? Safe(right[sample]) : 0.};
       std::array<std::array<double, bands>, 2> split{};
       for (int channel = 0; channel < (right ? 2 : 1); ++channel)
@@ -200,12 +219,33 @@ public:
       mMix += std::clamp(mixTarget - mMix, -mixStep, mixStep);
       // Exact dry/untrained/learning paths: no crossover coloration or buffering.
       const bool neutral = !mProfile.valid || mMix == 0.;
-      left[sample] = neutral ? dry[0] : dry[0] + mMix * (wet[0] - dry[0]);
+      // Apply the broadband gate after the spectral mix. Detect the original
+      // input so changing sensitivity/mix cannot move its threshold. Max L/R
+      // detection and one gain preserve stereo placement, including anti-phase.
+      const double peak = std::max(std::abs(dry[0]), std::abs(dry[1]));
+      mGateEnvelope = std::max(peak, Flush(mGateEnvelope * gateDetectorRelease));
+      if (!gateEnabled || mGateEnvelope >= gateLevel)
+      {
+        mGateOpen = true;
+        mGateHold = gateHoldSamples;
+      }
+      else if (mGateOpen)
+      {
+        if (mGateEnvelope >= gateLevel * .7079457843841379) // 3 dB hysteresis.
+          mGateHold = gateHoldSamples;
+        else if (mGateHold)
+          --mGateHold;
+        else
+          mGateOpen = false;
+      }
+      const double gateTarget = mGateOpen ? 1. : 0.;
+      mGateGain += std::clamp(gateTarget - mGateGain, -gateCloseStep, gateOpenStep);
+      left[sample] = (neutral ? dry[0] : dry[0] + mMix * (wet[0] - dry[0])) * mGateGain;
       if (right)
-        right[sample] = neutral ? dry[1] : dry[1] + mMix * (wet[1] - dry[1]);
-      minimumGain = std::min(minimumGain, gainSum / bands);
+        right[sample] = (neutral ? dry[1] : dry[1] + mMix * (wet[1] - dry[1])) * mGateGain;
+      minimumGain = std::min(minimumGain, gainSum / bands * mGateGain);
     }
-    mReduction = -20. * std::log10(std::max(1.e-12, minimumGain));
+    mReduction = -20. * std::log10(std::max(1.e-6, minimumGain));
   }
 
 private:
@@ -219,6 +259,9 @@ private:
   Profile mProfile;
   uint64_t mSamples = 0, mWarmup = 0;
   double mRate = 48000., mMix = 1., mReduction = 0., mSynthesis = 1.;
+  double mGateEnvelope = 0., mGateGain = 1.;
+  uint64_t mGateHold = 0;
+  bool mGateOpen = false, mGateFirst = true;
   bool mLearning = false, mChanged = true;
 };
 } // namespace noise_print

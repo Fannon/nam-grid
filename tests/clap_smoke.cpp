@@ -968,7 +968,13 @@ int main(int argc, char** argv)
   const auto noiseCopy = save().config();
   assert(noiseCopy["SlotEffects"][1] == 64);
   assert(noiseCopy["NoisePrintProfiles"][1] == learnedNoiseState["NoisePrintProfiles"][0]);
+  assert(noiseCopy["Pre 2 Noise Gate Threshold"] == learnedNoiseState["Pre 1 Noise Gate Threshold"]);
   click(170, 160);
+  SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(686, 700));
+  SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(686, 675));
+  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(686, 675));
+  pumpFor(100);
+  assert(save().config()["Pre 1 Noise Gate Threshold"] > learnedNoiseState["Pre 1 Noise Gate Threshold"]);
   click(138, 700); // Learn is an actual toggle in the fixed bottom panel.
   double learningValue = 0.;
   assert(params->get_value(plugin, learnInfo.id, &learningValue));

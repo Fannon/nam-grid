@@ -74,6 +74,7 @@ enum UtilityParam
   uNoiseAttack,
   uNoiseRelease,
   uNoiseMix,
+  uNoiseGateThreshold,
   kUtilityControls
 };
 struct EffectParameter
@@ -152,7 +153,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Noise Reduction", "Reduction", 24, 0, 48, .1, "dB", 2},
    {"Noise Attack", "Attack", 2, .2, 20, .1, "ms", 3, true},
    {"Noise Release", "Release", 120, 20, 500, 1, "ms", 4, true},
-   {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6}}};
+   {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6},
+   {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5}}};
 inline bool IsDelay(SlotEffect e)
 { return e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay; }
 inline bool IsReverb(SlotEffect e)
@@ -162,7 +164,7 @@ inline bool IsModulation(SlotEffect e)
 inline bool UsesUtility(SlotEffect e, int p)
 {
   if (e == SlotEffect::NoisePrint)
-    return p >= uNoiseLearn && p <= uNoiseMix;
+    return p >= uNoiseLearn && p <= uNoiseGateThreshold;
   if (e == SlotEffect::SpringReverb)
     return (p >= uSpringDecay && p <= uSpringOutput) || p == uReverbTone;
   if (e == SlotEffect::Wah)

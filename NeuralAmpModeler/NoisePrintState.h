@@ -6,7 +6,7 @@
 namespace noise_print
 {
 // Separate from main's evolving schemas. This experiment has its own plugin ID.
-inline constexpr int experimentSchema = 1001;
+inline constexpr int experimentSchema = 1002;
 inline nlohmann::json Save(const Profile& profile)
 {
   if (!profile.valid)

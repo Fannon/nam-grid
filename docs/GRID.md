@@ -92,8 +92,8 @@ Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receiv
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
 The first two slot gain/trim controls retain their original host IDs. The expanded
-layout has **2458 parameters**, including 133 utility/time-effect controls per slot.
-`###NAMGrid-v1###` / schema 14 stores all 16 paths, types, named values and Noise Print profiles. Validation
+layout has **2474 parameters**, including 134 utility/time-effect controls per slot.
+`###NAMGrid-v1###` / schema 15 stores all 16 paths, types, named values and Noise Gate (Smart) profiles. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old
 unreleased projects may require rebuilding. No compatibility guarantee is made.
@@ -113,7 +113,7 @@ Current module coverage and limitations are in [MODULES.md](MODULES.md).
 - Unequal-lane impulse tests check physical alignment, preserved bypass latency, and hosts whose
   maximum block size is one sample. Tested grid paths observe no C++ allocations/deletions and
   pass Eigen's allocation guard.
-- CLAP covers all 16 model/effect selections and 2,458 parameter values through save/reload, old-state
+- CLAP covers all 16 model/effect selections and 2,474 parameter values through save/reload, old-state
   migration, invalid later-slot state, missing files, bypassed slots, mono/stereo port layouts,
   and full-grid processing at all three rates. The synthetic NAM fixture grid measures 0/324/504 conversion-latency samples;
   these figures describe those models/rates, not a fixed latency for all modules.

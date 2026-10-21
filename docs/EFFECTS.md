@@ -15,8 +15,7 @@ See [SLOTS.md](SLOTS.md) for added EQ/IR effects, meters, Full/Lite and Copy/Mov
 
 | Effect | Character | Knobs |
 | --- | --- | --- |
-| Natural Gate | Gentle 2:1 downward expansion, 1.5 ms opening, 40 ms hold | Threshold, Decay, Depth |
-| Tight Gate | Closes to the selected depth, 0.3 ms opening, 15 ms hold | Threshold, Decay, Depth |
+| Noise Gate | Natural: gentle 2:1 expansion, 1.5 ms opening, 40 ms hold. Tight: full depth, 0.3 ms opening, 15 ms hold | Threshold, Release, Depth, Mode |
 | Smooth Compressor | 2.5:1, broad 9 dB knee, 8 ms attack | Threshold, Release, Makeup |
 | Punch Compressor | 4:1, narrow 3 dB knee, 25 ms attack preserves more pick transient | Threshold, Release, Makeup |
 
@@ -42,8 +41,8 @@ attack and 10 ms gate / 15 ms compressor release. Compressor reduction is then s
 the variant's attack and the Release knob. Threshold, depth and makeup changes smooth over
 5 ms. No oversampling, lookahead, extra channels or added algorithmic latency is used.
 
-For a starting chain, put Natural Gate in IN1, NAM drive/amp stages after it, and optionally
-Smooth Compressor in OUT1. Tight Gate suits more abrupt stops; try a shorter Decay. A gate
+For a starting chain, put Noise Gate in Natural mode in IN1, NAM drive/amp stages after it, and optionally
+Smooth Compressor in OUT1. Tight mode suits more abrupt stops; try a shorter Release. A gate
 after a noisy amp capture can suppress that stage's idle noise, but does not have a separate
 clean-input sidechain. The original shared gate remains available for existing projects;
 disable it when auditioning slot gates on their own. Parallel compression can use one
@@ -67,7 +66,8 @@ Once bypass is settled, effect computation stops. Reset clears detector/envelope
 The dynamics increment retained the original 61 IDs and appended six parameters per slot
 (three gate and three compressor), reaching 157. The expanded grid now has 284 parameters
 and schema 4; see [SLOTS.md](SLOTS.md) for the current format. Dynamics effect IDs remain
-1 = Natural Gate, 2 = Tight Gate, 3 = Smooth Compressor, 4 = Punch Compressor. Invalid types,
+1 = Noise Gate (with Natural/Tight mode), 2 = the hidden former Tight Gate ID,
+3 = Smooth Compressor, 4 = Punch Compressor. Invalid types,
 counts, enum values and conflicting selections are rejected before mutation. Older grid,
 dual and upstream states still migrate.
 

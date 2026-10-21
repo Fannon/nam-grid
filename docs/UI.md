@@ -16,8 +16,10 @@ Copy / Move / Swap. The bottom editor always has eight equal-width positions,
 with up to seven knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, High pass, Low pass, Output trim;
 its neutral EQ acts after inference, not as controls of the captured amp. A2 Lite is in the
 module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
-Optional gain-reduction history appears for compressors/limiter; delays offer an
-echo timing sketch. All knobs show editable values and units below the dial;
+Every loaded module offers a mini display: signal history versus threshold and
+numeric GR for dynamics, echo timing for standard delays, vector category icons
+for NAM captures, and input/output history for other effects and IRs.
+All knobs show editable values and units below the dial;
 double-click the dial to restore its default. See [PRESETS.md](PRESETS.md).
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure

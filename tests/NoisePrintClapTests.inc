@@ -148,6 +148,24 @@ invalidGapBytes.string("###NAMGrid-v1###");
 invalidGapBytes.string(invalidGap.dump());
 assert(!loadBytes(invalidGapBytes));
 assert(save().config() == learnedNoiseState);
+// Schema 14 keeps learned profiles and maps the former Tight Gate to Tight mode.
+auto prior14 = learnedNoiseState;
+prior14["schema"] = 14;
+prior14["SlotEffects"][1] = static_cast<int>(SlotEffect::TightGate);
+prior14["SlotPaths"][1] = ""; prior14["NAMPath"] = "";
+auto expected14 = prior14;
+expected14["schema"] = learnedNoiseState["schema"];
+for (int slot = 0; slot < 16; ++slot)
+{
+  const auto name = std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ")
+                    + std::to_string(slot % 4 + 1) + " Gate Mode";
+  prior14.erase(name);
+  expected14[name] = slot == 1 ? 1. : 0.;
+}
+load(prior14);
+assert(save().config() == expected14);
+load(learnedNoiseState);
+
 auto schema9 = cleared;
 schema9["schema"] = 9;
 schema9.erase("NoisePrintProfiles");

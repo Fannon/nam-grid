@@ -173,7 +173,9 @@ int main(int argc, char** argv)
             const int type = -item->GetTag() - 20;
             assert(type > 0 && IsValidSlotEffect(static_cast<SlotEffect>(type)));
             if (type == static_cast<int>(SlotEffect::NoisePrint))
-              assert(std::string(label) == "Dynamics");
+              assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate (Smart)");
+            if (type == static_cast<int>(SlotEffect::NaturalGate))
+              assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate");
             ++seen[type];
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
           }
@@ -181,7 +183,8 @@ int main(int argc, char** argv)
         for (int i = 1; i <= static_cast<int>(SlotEffect::NoisePrint); ++i)
           assert(
             seen[i]
-            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR) ? 1 : 0));
+            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR)
+                  && i != static_cast<int>(SlotEffect::TightGate) ? 1 : 0));
         assert(menu.GetItem(index++)->GetIsSeparator());
         if (quality)
         {

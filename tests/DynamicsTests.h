@@ -7,6 +7,26 @@ void TestDynamics()
   assert(std::abs(SlotDynamics::CompressionDB(-18., -18., 4., 6.) - .5625) < 1.e-12);
   assert(SlotDynamics::CompressionDB(-15., -18., 4., 6.) == 2.25);
   assert(SlotDynamics::CompressionDB(-6., -18., 4., 6.) == 9.);
+  // Both modes match their original algorithms, including live mode changes.
+  for (double rate : {44100., 48000., 96000., 192000.})
+  {
+    SlotDynamics modeGate, reference;
+    modeGate.Reset(rate); reference.Reset(rate);
+    DynamicsControls mode, legacy;
+    std::array<double, 512> actual{}, expected{};
+    allocations = deletions = 0;
+    for (int block = 0; block < 400; ++block)
+    {
+      mode.gateMode = (block / 100) % 2;
+      for (int i = 0; i < actual.size(); ++i)
+        actual[i] = expected[i] = (block % 80 < 20 ? .2 : .0001) * std::sin((block * 512 + i) * .031);
+      tracking = true;
+      modeGate.Process(actual.data(), 512, SlotEffect::NaturalGate, mode);
+      reference.Process(expected.data(), 512, mode.gateMode ? SlotEffect::TightGate : SlotEffect::NaturalGate, legacy);
+      tracking = false;
+      assert(actual == expected && allocations == 0 && deletions == 0);
+    }
+  }
   for (double rate : {44100., 48000., 96000.})
     for (int kind = 1; kind <= 4; ++kind)
     {

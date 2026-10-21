@@ -293,9 +293,9 @@ public:
     g.FillRoundRect(surface, panel, 5.f);
     g.DrawRoundRect(border, panel, 5.f);
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
-    Gradient(g, IRECT(42, 521, 768, 523), tone.first, tone.second, .8f, 1.f);
-    g.DrawText(Text(18.f, tone.first), slotName.c_str(), IRECT(42, 487, 110, 518));
-    FittedText(g, Text(17.f), label, IRECT(118, 487, HasVisualization() ? 700 : 956, 518));
+    Gradient(g, IRECT(42, 539, 768, 541), tone.first, tone.second, .8f, 1.f);
+    g.DrawText(Text(18.f, tone.first), slotName.c_str(), IRECT(42, 487, 110, 536));
+    FittedText(g, Text(17.f), label, IRECT(118, 487, HasVisualization() ? 700 : 956, 536));
     if (HasVisualization() && mShowVisualization) DrawVisualization(g);
     std::array<bool, kControlPositions> used{};
     used.back() = true;
@@ -320,28 +320,6 @@ public:
       g.FillRoundRect(IColor(255, 17, 20, 24), cell, 4.f);
       if (!used[i])
         g.DrawText(Text(16.f, border, EAlign::Center), "-", cell);
-    }
-    const char* description = effect == SlotEffect::NAM         ? "NAM / post-capture tone EQ"
-                              : effect == SlotEffect::CabinetIR ? "WAV / cabinet impulse response"
-                                                                : SlotEffectName(effect);
-    if (effect == SlotEffect::NoisePrint)
-      description = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseLearn))->Bool()
-                      ? "Learning: noise only. Switch Learn off when done."
-                    : PLUG()->GetNoiseProfile(mSlot).valid ? "Noise snapshot ready"
-                                                           : "Learn 1-3 seconds of noise first.";
-    g.DrawText(Text(13.f, muted), description, IRECT(42, 673, 495, 688));
-    if (effect == SlotEffect::Utility)
-    {
-      WDL_String timing;
-      timing.SetFormatted(96, "Fine delay: %.2f samples", GetDelegate()->GetParam(SlotUtilityParam(mSlot, uUtilityDelay))->Value()
-                                                    * PLUG()->GetSampleRate() * .001);
-      g.DrawText(Text(12.f, muted), timing.Get(), IRECT(500, 673, 956, 688));
-    }
-    if (mMeter.reduction >= .5f)
-    {
-      WDL_String gr;
-      gr.SetFormatted(40, "Gain reduction: %.1f dB", mMeter.reduction);
-      g.DrawText(Text(12.f, accent), gr.Get(), IRECT(500, 673, 956, 688));
     }
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
@@ -414,11 +392,11 @@ public:
     GetUI()->AttachControl(mEditor);
     // Controls live in a shared bottom editor; each slot keeps its original automation bindings.
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
-    mModelButton = new grid_ui::Button(IRECT(42, 528, 416, 558), [this](IControl*) { ShowMenu(); }, "Choose module...");
+    mModelButton = new grid_ui::Button(IRECT(42, 546, 416, 576), [this](IControl*) { ShowMenu(); }, "Choose module...");
     mEditor->AddChildControl(mModelButton);
-    mEditor->AddChildControl(new grid_ui::Button(IRECT(428, 528, 464, 558), [this](IControl*) { Step(-1); }, "<"));
-    mEditor->AddChildControl(new grid_ui::Button(IRECT(472, 528, 508, 558), [this](IControl*) { Step(1); }, ">"));
-    mPlotButton = new grid_ui::Button(IRECT(710, 487, 768, 515), [this](IControl*) {
+    mEditor->AddChildControl(new grid_ui::Button(IRECT(428, 546, 464, 576), [this](IControl*) { Step(-1); }, "<"));
+    mEditor->AddChildControl(new grid_ui::Button(IRECT(472, 546, 508, 576), [this](IControl*) { Step(1); }, ">"));
+    mPlotButton = new grid_ui::Button(IRECT(710, 496, 768, 524), [this](IControl*) {
       mShowVisualization = !mShowVisualization;
       mPlotButton->SetLabelStr(mShowVisualization ? "Hide" : "Graph");
       mEditor->SetDirty(false);
@@ -431,7 +409,7 @@ public:
     mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim", true);
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
-    const char* labels[] = {"Threshold", "Decay", "Depth", "Threshold", "Release", "Makeup"};
+    const char* labels[] = {"Threshold", "Release", "Depth", "Threshold", "Release", "Makeup"};
     for (int i = 0; i < 6; ++i)
     {
       mFXKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i % 3), SlotDynamicsParam(mSlot, i), labels[i], true);
@@ -447,10 +425,10 @@ public:
     {
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(520, 528, 632, 558), SlotUtilityParam(mSlot, i), "Tempo sync");
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(520, 546, 632, 576), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uDelayPingPong || i == uReverbStereo)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(640, 528, 768, 558), SlotUtilityParam(mSlot, i), p.label);
-      else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(640, 546, 768, 576), SlotUtilityParam(mSlot, i), p.label);
+      else if (i != uGateMode && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
         mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label, true);
@@ -470,8 +448,9 @@ public:
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
       mReductionNow = meter.reduction;
-      mReductionHistory[mReductionWrite] = meter.reduction;
-      mReductionWrite = (mReductionWrite + 1) % mReductionHistory.size();
+      mInputHistory[mReductionWrite] = meter.input;
+      mOutputHistory[mReductionWrite] = meter.output;
+      mReductionWrite = (mReductionWrite + 1) % mInputHistory.size();
       if (mEditor && PLUG()->GetSelectedSlot() == mSlot && HasVisualization() && mShowVisualization)
         mEditor->SetDirty(false);
       if (meter.input >= 1.f)
@@ -539,35 +518,114 @@ private:
   bool HasVisualization()
   {
     const auto e = PLUG()->GetSlotEffect(mSlot);
-    return e == SlotEffect::SmoothComp || e == SlotEffect::PunchComp || e == SlotEffect::Limiter
-           || e == SlotEffect::DigitalDelay || e == SlotEffect::AnalogDelay || e == SlotEffect::TapeDelay;
+    return (e != SlotEffect::NAM && e != SlotEffect::CabinetIR) || !PLUG()->GetSlotPath(mSlot).empty();
   }
   void DrawVisualization(IGraphics& g)
   {
     using namespace grid_ui;
-    const IRECT box(780, 488, 956, 558), plot(788, 513, 948, 550);
+    const IRECT box(780, 488, 956, 576), plot(788, 513, 948, 568);
     g.FillRoundRect(IColor(255, 17, 20, 24), box, 3.f);
     g.DrawRoundRect(border, box, 3.f);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
-    if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
-    {
-      WDL_String caption; caption.SetFormatted(64, "Gain reduction  %.1f dB", mReductionNow);
-      g.DrawText(Text(13.f, compColor), caption.Get(), IRECT(788, 490, 948, 510));
-      for (int db : {0, 6, 12, 18, 24})
+    const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
+    const auto levelY = [&](float db, float floorDB) {
+      return plot.T + plot.H() * std::clamp(db / floorDB, 0.f, 1.f);
+    };
+    const auto levels = [&](float floorDB) {
+      for (int i = 0; i <= 3; ++i)
       {
-        const float y = plot.T + plot.H() * db / 24.f;
+        const float y = plot.T + plot.H() * i / 3.f;
         g.DrawLine(border.WithOpacity(.4f), plot.L, y, plot.R, y);
       }
-      for (size_t i = 1; i < mReductionHistory.size(); ++i)
-      {
+      const auto trace = [&](const auto& history, IColor traceColor, float width) {
         const auto y = [&](size_t index) {
-          return plot.T + plot.H() * std::clamp(mReductionHistory[(mReductionWrite + index) % mReductionHistory.size()] / 24.f, 0.f, 1.f);
+          const float level = history[(mReductionWrite + index) % history.size()];
+          return levelY(20.f * std::log10(std::max(level, 1.e-6f)), floorDB);
         };
-        g.DrawLine(compColor, plot.L + plot.W() * (i - 1) / (mReductionHistory.size() - 1), y(i - 1),
-                              plot.L + plot.W() * i / (mReductionHistory.size() - 1), y(i), nullptr, 1.5f);
+        float previous = y(0);
+        for (size_t i = 1; i < history.size(); ++i)
+        {
+          const float current = y(i);
+          g.DrawLine(traceColor, plot.L + plot.W() * (i - 1) / (history.size() - 1), previous,
+                                 plot.L + plot.W() * i / (history.size() - 1), current, nullptr, width);
+          previous = current;
+        }
+      };
+      trace(mInputHistory, muted.WithOpacity(.85f), 1.f);
+      trace(mOutputHistory, color, 1.5f);
+    };
+    if (effect == SlotEffect::NAM)
+    {
+      using Gear = nam_library::Gear;
+      const auto gear = PLUG()->GetSlotGear(mSlot);
+      const float cy = box.MH();
+      g.DrawText(Text(13.f, color), gear == Gear::Unknown ? "Capture" : Tone(effect, gear).label,
+                 IRECT(788, 490, 948, 510));
+      const auto head = [&](float top) {
+        g.DrawRoundRect(ampColor, IRECT(830, top, 906, top + 20), 3.f);
+        g.DrawLine(ampColor, 854, top, 854, top - 4);
+        g.DrawLine(ampColor, 854, top - 4, 882, top - 4);
+        g.DrawLine(ampColor, 882, top - 4, 882, top);
+        for (int i = 0; i < 4; ++i) g.DrawCircle(ampColor, 846.f + 14 * i, top + 11, 2.f);
+      };
+      const auto cabinet = [&](float top, float bottom) {
+        g.DrawRoundRect(cabColor, IRECT(830, top, 906, bottom), 2.f);
+        for (float x : {850.f, 886.f}) g.DrawCircle(cabColor, x, (top + bottom) * .5f, (bottom - top) * .35f);
+      };
+      if (gear == Gear::AmpHead) head(cy - 8);
+      else if (gear == Gear::AmpCab) { head(cy - 17); cabinet(cy + 5, cy + 20); }
+      else if (gear == Gear::Cabinet) cabinet(cy - 17.5f, cy + 17.5f);
+      else if (gear == Gear::Outboard)
+      {
+        g.DrawRoundRect(color, IRECT(810, cy - 13.5f, 926, cy + 13.5f), 2.f);
+        for (float x : {815.f, 921.f})
+          for (float y : {cy - 8.5f, cy + 8.5f}) g.FillCircle(color, x, y, 1.5f);
+        g.DrawRect(color, IRECT(830, cy - 7.5f, 858, cy + 7.5f));
+        g.DrawLine(color, 834, cy + 4.5f, 852, cy - 3.5f);
+        for (float x : {880.f, 899.f}) g.DrawCircle(color, x, cy, 5.f);
+      }
+      else if (gear == Gear::Pedal)
+      {
+        g.DrawRoundRect(color, IRECT(849, cy - 18.5f, 887, cy + 18.5f), 4.f);
+        for (float x : {860.f, 876.f}) g.DrawCircle(color, x, cy - 8.5f, 3.f);
+        g.DrawCircle(color, 868, cy + 8.5f, 4.f);
+        g.DrawLine(color, 843, cy, 849, cy); g.DrawLine(color, 887, cy, 893, cy);
+      }
+      else if (gear == Gear::Spaces)
+      {
+        g.DrawRect(color, IRECT(829, cy - 17, 907, cy + 17));
+        g.DrawRect(color, IRECT(851, cy - 8, 885, cy + 8));
+        g.DrawLine(color, 829, cy - 17, 851, cy - 8); g.DrawLine(color, 907, cy - 17, 885, cy - 8);
+        g.DrawLine(color, 829, cy + 17, 851, cy + 8); g.DrawLine(color, 907, cy + 17, 885, cy + 8);
+      }
+      else
+      {
+        g.DrawRoundRect(color, IRECT(849, cy - 18.5f, 887, cy + 18.5f), 2.f);
+        for (float y : {cy - 8.f, cy, cy + 8.f}) g.DrawLine(color, 857, y, 879, y);
       }
     }
-    else
+    else if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint
+        || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
+    {
+      const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
+      const bool smart = effect == SlotEffect::NoisePrint;
+      const double threshold = smart ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseGateThreshold))->Value()
+                             : effect == SlotEffect::Limiter ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLimiterCeiling))->Value()
+                             : GetDelegate()->GetParam(SlotDynamicsParam(mSlot, gate ? 0 : 3))->Value();
+      const bool off = smart && threshold <= -100.;
+      WDL_String caption;
+      if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
+      else caption.SetFormatted(64, "Thr %.0f | GR %.1f dB", threshold, mReductionNow);
+      g.DrawText(Text(12.f, color), caption.Get(), IRECT(788, 490, 948, 510));
+      levels(gate || smart ? -100.f : -60.f);
+      if (!off)
+      {
+        const float y = levelY(static_cast<float>(threshold), gate || smart ? -100.f : -60.f);
+        for (float x = plot.L; x < plot.R; x += 8.f)
+          g.DrawLine(color, x, y, std::min(x + 4.f, plot.R), y, nullptr, 1.5f);
+      }
+    }
+    else if (effect == SlotEffect::DigitalDelay || effect == SlotEffect::AnalogDelay || effect == SlotEffect::TapeDelay)
     {
       const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
       double time = value(uDelayTime);
@@ -587,6 +645,14 @@ private:
         level *= feedback;
       }
     }
+    else
+    {
+      // Reuse the existing mono meter packets: no audio capture or extra DSP work.
+      g.DrawText(Text(13.f, muted), "IN", IRECT(788, 490, 818, 510));
+      g.DrawText(Text(13.f, color), "OUT", IRECT(823, 490, 858, 510));
+      g.DrawText(Text(11.f, muted, EAlign::Far), "2.4 s", IRECT(870, 490, 948, 510));
+      levels(-60.f);
+    }
   }
   void Refresh()
   {
@@ -594,9 +660,10 @@ private:
       return;
     const auto path = PLUG()->GetSlotPath(mSlot);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
-    if (effect != mPlotEffect)
+    if (effect != mPlotEffect || path != mPlotPath)
     {
-      mPlotEffect = effect; mReductionHistory = {}; mReductionWrite = 0; mReductionNow = 0.f;
+      mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {};
+      mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
     const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
@@ -607,6 +674,8 @@ private:
     if (selected)
     {
       mPlotButton->Hide(!HasVisualization());
+      mPlotButton->SetTooltip(nam ? "Capture category from library metadata or filename inference."
+                                 : "Gray: input, color: output. Dynamics: dashed threshold and numeric gain reduction.");
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -779,7 +848,8 @@ private:
   grid_ui::Button* mPlotButton = nullptr;
   bool mShowVisualization = true;
   SlotEffect mPlotEffect = SlotEffect::NAM;
-  std::array<float, 120> mReductionHistory{};
+  std::string mPlotPath;
+  std::array<float, 120> mInputHistory{}, mOutputHistory{};
   size_t mReductionWrite = 0;
   float mReductionNow = 0.f;
   grid_ui::Toggle* mEnabled = nullptr;

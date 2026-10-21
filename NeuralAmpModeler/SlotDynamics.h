@@ -57,8 +57,8 @@ inline const char* SlotEffectName(SlotEffect effect)
   switch (effect)
   {
     case SlotEffect::NAM: return "NAM";
-    case SlotEffect::NaturalGate: return "Natural Gate";
-    case SlotEffect::TightGate: return "Tight Gate";
+    case SlotEffect::NaturalGate:
+    case SlotEffect::TightGate: return "Noise Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";
     case SlotEffect::PunchComp: return "Punch Compressor";
     case SlotEffect::ToneEQ: return "Guitar EQ";
@@ -99,7 +99,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::JunoChorus: return "Juno Chorus";
     case SlotEffect::FrequencyShifter: return "Frequency Shifter";
     case SlotEffect::Distortion: return "Distortion";
-    case SlotEffect::NoisePrint: return "Noise Print";
+    case SlotEffect::NoisePrint: return "Noise Gate (Smart)";
   }
   return "Unknown";
 }
@@ -110,6 +110,7 @@ struct DynamicsControls
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;
   double compThreshold = -18., compRelease = 120., compMakeup = 0.;
   double compAttack = 8., compMix = 100., punchAttack = 25.;
+  int gateMode = -1; // Unspecified retains the legacy DSP entry point; hosts supply Natural=0 / Tight=1.
 };
 
 class SlotDynamics
@@ -138,7 +139,7 @@ public:
   {
     mPeakReduction = 0.;
     const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
-    const bool tight = effect == SlotEffect::TightGate;
+    const bool tight = controls.gateMode < 0 ? effect == SlotEffect::TightGate : controls.gateMode == 1;
     const bool punch = effect == SlotEffect::PunchComp;
     const double threshold =
       std::clamp(gate ? controls.gateThreshold : controls.compThreshold, gate ? -90. : -48., gate ? -10. : 0.);

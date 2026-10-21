@@ -27,6 +27,7 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
+constexpr int kGridStateSchema = 15;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -119,6 +120,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       }
       else if (i == uDistStyle)
         param->InitEnum((name + " " + p.name).c_str(), 0, {"Soft", "Hard", "Fuzz", "Foldback"});
+      else if (i == uGateMode)
+        param->InitEnum((name + " " + p.name).c_str(), 0, {"Natural", "Tight"});
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
       else if (p.exponential)
@@ -320,6 +323,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.dynamics.gateThreshold = GetParam(SlotDynamicsParam(slot, 0))->Value();
     c.dynamics.gateRelease = GetParam(SlotDynamicsParam(slot, 1))->Value();
     c.dynamics.gateRange = GetParam(SlotDynamicsParam(slot, 2))->Value();
+    c.dynamics.gateMode = GetParam(SlotUtilityParam(slot, uGateMode))->Int();
     c.dynamics.compThreshold = GetParam(SlotDynamicsParam(slot, 3))->Value();
     c.dynamics.compRelease = GetParam(SlotDynamicsParam(slot, 4))->Value();
     c.dynamics.compMakeup = GetParam(SlotDynamicsParam(slot, 5))->Value();
@@ -923,7 +927,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = noise_print::integratedSchema;
+  config["schema"] = kGridStateSchema;
   config["PresetName"] = mPresetName;
   config["PresetDirectory"] = mPresetDirectory;
   config["DrivePath"] = mDrivePath.Get();
@@ -1111,7 +1115,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
                   && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
-                  && schemaValue != noise_print::integratedSchema)
+                  && schemaValue != noise_print::integratedSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1260,6 +1264,13 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             return -1;
           config[name] = config[oldName].get<double>() - 100.;
         }
+        if (grid && (schema < kGridStateSchema || schema >= 1001)
+            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kUtilityControls == uGateMode)
+        {
+          const size_t slot = (i - kUtilityBase) / kUtilityControls;
+          config[name] = config.contains("SlotEffects")
+                           && config["SlotEffects"][slot] == static_cast<int>(SlotEffect::TightGate) ? 1. : 0.;
+        }
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
       }
@@ -1277,7 +1288,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             return -1;
         }
       }
-      else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema)
+      else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
+               || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;

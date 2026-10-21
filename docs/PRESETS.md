@@ -51,9 +51,11 @@ a dedicated browser.
 State schema 13 adds Distortion controls after schema 12's Global Input and
 optional PresetName/PresetDirectory metadata. Earlier supported project states
 receive defaults for newly added controls. There are 2,346 host parameters
-(126 utility controls per slot and 44 grid controls). Schema 14 adds Noise Print
+(126 utility controls per slot and 44 grid controls). Schema 14 adds Noise Gate (Smart)
 profiles and seven utility controls per slot, bringing the total to 2,458 host
-parameters. Learned profiles are included in presets; active learning is cleared.
+parameters. Schema 15 adds Natural/Tight mode to the unified Noise Gate, for
+134 utility controls per slot and 2,474 host parameters. Learned profiles are
+included in presets; active learning is cleared.
 
 ## Compact editor and visualizations
 
@@ -66,14 +68,24 @@ end in an ellipsis; the card tooltip retains the complete file path.
 All knob values and units sit below the dial, including IN, OUT and A/B. Click a
 value to type it, or double-click the dial to restore its default. A/B shows a
 percentage. The larger header logo is vertically centered with the menu buttons.
-The taller parameter panel leaves equal 24 px margins at the left, right and
-bottom, with room for its description below the controls.
+The parameter panel leaves equal 24 px margins at the left, right and bottom.
+The redundant footer description is removed; its space gives the header and
+mini display more height.
 
-Smooth/Punch Compressor and Peak Limiter offer an optional gain-reduction history
-in the editor's top right: 2.4 seconds of audio, with grid lines every 6 dB down to
-24 dB. Digital/Analog/Tape Delay offer an echo timing sketch driven by Time,
+Every loaded module has an optional mini display in the editor's top right.
+Noise Gate, Noise Gate (Smart), compressors and Peak Limiter show live input/output
+level history against a dashed threshold line, plus numeric gain reduction. Gray
+is input, the module color is output; the history covers about 2.4 seconds. For
+Noise Gate (Smart), the line represents its optional final broadband gate and is
+hidden when Gate is Off; spectral reduction still appears in the GR readout.
+Digital/Analog/Tape Delay offer an echo timing sketch driven by Time,
 Feedback and Mix; gray is dry input and colored stems are echoes. Synchronized
 delays use the current host tempo, falling back to 120 BPM before tempo is available.
+NAM captures show vector category icons for amp head, amp plus cabinet, cabinet,
+pedal, outboard rack or space; unknown captures use a neutral capture icon. These
+categories use existing metadata/filename inference. Other modules, including IRs,
+show the same gray-input/colored-output history on a -60 to 0 dB scale. Live plots
+reuse existing mono meter packets; they do not capture audio or add DSP processing.
 Use **Hide / Graph** to toggle the display for that slot. This is a temporary
 editor preference and does not change automation, audio or the saved rig.
 

@@ -6,9 +6,9 @@ host-automatable; selection and settings are saved in project state. Families
 share their controls within a slot. Copy/Move/Swap transfers those values, with
 independent processor history at the destination.
 
-**Dynamics > Noise Print** adds learned frequency-selective noise reduction and an
+**Dynamics > Noise Gate (Smart)** adds learned frequency-selective noise reduction and an
 optional final gate. Its seven controls and Enabled fill the eight-position editor.
-See [Noise Print](NOISE_PRINT.md) for learning, controls, measurements and limitations.
+See [Noise Gate (Smart)](NOISE_PRINT.md) for learning, controls, measurements and limitations.
 
 ## Modulation, delay and reverb
 
@@ -86,8 +86,7 @@ there is no oversampling, so bright/high-drive styles can alias.
 
 | Module | Controls | Character |
 | --- | --- | --- |
-| Natural Gate | Threshold, Decay, Depth | Gentle 2:1 expansion; 1.5 ms opening, 40 ms hold |
-| Tight Gate | Threshold, Decay, Depth | Deep closure; .3 ms opening, 15 ms hold |
+| Noise Gate | Threshold, Release, Depth, Mode | Natural: gentle 2:1 expansion, 1.5 ms opening, 40 ms hold. Tight: deep closure, .3 ms opening, 15 ms hold |
 | Smooth Compressor | Threshold, Release, Makeup, Attack, Mix | 2.5:1, 9 dB knee, 8 ms default attack |
 | Punch Compressor | Threshold, Release, Makeup, Attack, Mix | 4:1, 3 dB knee, 25 ms default attack |
 | Guitar EQ | Bass, Mid, Treble | 150 Hz shelf, broad 800 Hz bell, 3 kHz shelf |

@@ -20,7 +20,7 @@ inline Profile Load(const nlohmann::json& value)
     return {};
   if (!value.is_object() || !value.contains("version") || value["version"] != 1 || !value.contains("power")
       || !value["power"].is_array() || value["power"].size() != bands)
-    throw std::runtime_error("Invalid Noise Print profile");
+    throw std::runtime_error("Invalid Noise Gate (Smart) profile");
   Profile profile;
   double total = 0.;
   for (int i = 0; i < bands; ++i)

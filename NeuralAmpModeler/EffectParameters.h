@@ -91,6 +91,7 @@ enum UtilityParam
   uNoiseRelease,
   uNoiseMix,
   uNoiseGateThreshold,
+  uGateMode,
   kUtilityControls
 };
 struct EffectParameter
@@ -235,7 +236,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Noise Attack", "Attack", 2, .2, 20, .1, "ms", 3, true},
    {"Noise Release", "Release", 120, 20, 500, 1, "ms", 4, true},
    {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6},
-   {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5}}};
+   {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5},
+   {"Gate Mode", "Mode", 0, 0, 1, 1, "", 3}}};
 static_assert([] {
   for (const auto& p : kEffectParameters)
     if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum
@@ -286,6 +288,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::NaturalGate || e == SlotEffect::TightGate) return p == uGateMode;
   if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
   if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
   if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;

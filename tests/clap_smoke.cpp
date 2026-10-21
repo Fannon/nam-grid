@@ -1085,11 +1085,12 @@ int main(int argc, char** argv)
   // The actual empty-card title opens on one mouse-down; every built-in command,
   // including the HQ effects, must pass SetSlotEffect's validation as well.
   for (const auto& entry :
-       std::array<std::pair<const wchar_t*, SlotEffect>, 5>{{{L"Distortion", SlotEffect::Distortion},
+       std::array<std::pair<const wchar_t*, SlotEffect>, 6>{{{L"Noise Gate", SlotEffect::NaturalGate},
+                                                             {L"Distortion", SlotEffect::Distortion},
                                                              {L"Shimmer", SlotEffect::ShimmerReverb},
                                                              {L"Juno Chorus", SlotEffect::JunoChorus},
                                                              {L"Frequency Shifter", SlotEffect::FrequencyShifter},
-                                                             {L"Noise Print", SlotEffect::NoisePrint}}})
+                                                             {L"Noise Gate (Smart)", SlotEffect::NoisePrint}}})
   {
     win_edit_menu::SelectNamedItem(editor, 170, 105, entry.first); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(entry.second));
@@ -1106,10 +1107,10 @@ int main(int argc, char** argv)
   load(eqUI);
   click(170, 120); // Select Pre 1 independently of earlier menu tests.
   pumpFor(100);
-  const auto dragAt = [&](int x, int y) {
+  const auto dragAt = [&](int x, int y, int distance = 25) {
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
-    SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, y - 25));
-    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - 25));
+    SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, y - distance));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - distance));
     pumpFor(100);
   };
   const auto keyAtEditor = [&](int key) {
@@ -1266,10 +1267,9 @@ int main(int argc, char** argv)
         if (save().config()[name] == before[name]) std::cerr << "Unchanged UI parameter: " << name << " effect=" << id << "\n";
         assert(save().config()[name] != before[name]);
       }
-    if (id == 3 || id == 4 || id == 12)
     {
       const auto beforePlotToggle = save().config();
-      click(739, 501); click(739, 501);
+      click(739, grid_layout::plotToggleY); click(739, grid_layout::plotToggleY);
       assert(save().config() == beforePlotToggle); // Visualization is an editor preference.
     }
     click(grid_layout::KnobX(7), grid_layout::toggleY);
@@ -1377,6 +1377,13 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::knobGestureY); // Selected IN1 gate threshold.
   assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
   assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
+  dragAt(grid_layout::KnobX(3), grid_layout::knobGestureY, 200);
+  assert(save().config()["Pre 1 Gate Mode"] == 1.);
+  auto tightGate = save();
+  assert(loadBytes(tightGate));
+  assert(save().config()["Pre 1 Gate Mode"] == 1.);
+  resetDial(grid_layout::KnobX(3), grid_layout::knobGestureY);
+  assert(save().config()["Pre 1 Gate Mode"] == 0.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
   click(390, 120);

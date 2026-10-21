@@ -67,9 +67,13 @@ struct Instance
             config["SlotPaths"][slot] = "";
           if (mode != "empty")
             config["SlotEffects"][0] = std::stoi(mode.substr(3));
-          if (mode == "fx-64")
+          if (mode.rfind("fx-64", 0) == 0 && mode != "fx-64-untrained")
             config["NoisePrintProfiles"][0] = {
               {"version", 1}, {"power", std::vector<double>(noise_print::bands, 1.e-6)}};
+          if (mode == "fx-64-dry")
+            config["Pre 1 Noise Mix"] = 0.;
+          if (mode == "fx-64-learn")
+            config["Pre 1 Noise Learn"] = 1.;
         }
         if (mode == "dual-effects")
         {

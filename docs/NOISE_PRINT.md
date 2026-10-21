@@ -96,15 +96,18 @@ Windows x64 Release, MSVC 19.44, Ryzen 9 5950X, 2026-10-21:
 
 The CLAP benchmark uses stereo 128-frame blocks, 1,000 callbacks per run, and the
 fastest of three measured runs after a warmup. One trained Noise Print module
-costs roughly 3.7% of one core at 48 kHz, including the grid, versus about 0.3%
-empty and 0.45% with Natural Gate. At 96 kHz it costs roughly 7.2%. These local
+costs roughly 3.3% of one core at 48 kHz, including the grid, versus about 0.3%
+empty and 0.45% with Natural Gate. At 96 kHz it costs roughly 6.4%. These local
 minimum-time measurements do not establish worst-case host performance.
 
 | Stereo plugin configuration | 44.1 kHz | 48 kHz | 96 kHz | Reported latency |
 | --- | ---: | ---: | ---: | ---: |
 | Empty grid | 0.27% | 0.29% | 0.59% | 0 samples |
 | Natural Gate | 0.41% | 0.44% | 0.89% | 0 samples |
-| Trained Noise Print (Gate Off) | 3.32% | 3.69% | 7.25% | 0 samples |
+| Trained Noise Print (Gate Off) | 2.91% | 3.26% | 6.37% | 0 samples |
+
+See the [optimization audit](NOISE_PRINT_OPTIMIZATION.md) for matched before/after
+measurements and a reproducible numerical comparison with the previous DSP.
 
 Reproduce after building:
 

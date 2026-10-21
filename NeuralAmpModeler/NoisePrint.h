@@ -96,7 +96,9 @@ public:
       const double omega = 6.283185307179586 * frequency / mRate;
       const double alpha = omega / (2. * q);
       const double inverse = 1. / (1. + alpha);
-      mCoefficient[i] = {alpha * inverse, -2. * std::cos(omega) * inverse, (1. - alpha) * inverse};
+      mCoefficient.b0[i] = alpha * inverse;
+      mCoefficient.a1[i] = -2. * std::cos(omega) * inverse;
+      mCoefficient.a2[i] = (1. - alpha) * inverse;
       mDetector[i] = std::exp(-1. / (mRate * std::max(.008, .5 / frequency)));
     }
   }
@@ -136,6 +138,7 @@ public:
       }
     }
     mLearning = c.learn;
+    const bool reducing = mProfile.valid && !c.learn;
     const double margin = std::pow(10., std::clamp(c.sensitivity, -6., 12.) * .1);
     const double floor = std::pow(10., -std::clamp(c.reduction, 0., 48.) * .05);
     const double attack = std::exp(-1. / (.001 * std::clamp(c.attack, .2, 20.) * mRate));
@@ -150,8 +153,14 @@ public:
     const double gateCloseStep = 1. / (.001 * std::clamp(c.release, 20., 500.) * mRate);
     const auto gateHoldSamples = static_cast<uint64_t>(.020 * mRate);
     double learnedPower = 0.;
-    for (double power : mProfile.power)
-      learnedPower += power;
+    std::array<double, bands> inverseThreshold;
+    for (int i = 0; i < bands; ++i)
+    {
+      learnedPower += mProfile.power[i];
+      if (reducing)
+        inverseThreshold[i] = 1. / std::max(1.e-30, mProfile.power[i] * margin);
+    }
+    const double inverseLearnedPower = 1. / std::max(1.e-30, learnedPower);
     double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
@@ -162,22 +171,26 @@ public:
         mGateFirst = false;
       }
       const double dry[2]{Safe(left[sample]), right ? Safe(right[sample]) : 0.};
-      std::array<std::array<double, bands>, 2> split{};
+      const bool synthesize = mProfile.valid && (mMix > 0. || mixTarget > 0.);
+      // Each used channel is fully written before reading. Contiguous band
+      // arrays let the compiler vectorize independent resonators without
+      // requiring AVX or changing the detector/gain update rate.
+      std::array<std::array<double, bands>, 2> split;
       for (int channel = 0; channel < (right ? 2 : 1); ++channel)
       {
+        auto& state = mFilters[channel];
         for (int i = 0; i < bands; ++i)
         {
-          auto& state = mFilters[channel][i];
-          const auto& coefficient = mCoefficient[i];
-          const double value = coefficient.b0 * dry[channel] + state[0];
-          state[0] = Flush(-coefficient.a1 * value + state[1]);
-          state[1] = Flush(-coefficient.b0 * dry[channel] - coefficient.a2 * value);
+          const double value = mCoefficient.b0[i] * dry[channel] + state.first[i];
+          state.first[i] = Flush(-mCoefficient.a1[i] * value + state.second[i]);
+          state.second[i] = Flush(-mCoefficient.b0[i] * dry[channel] - mCoefficient.a2[i] * value);
           split[channel][i] = value;
         }
       }
       const bool collecting = c.learn && ++mWarmup > static_cast<uint64_t>(mRate * .05);
       if (collecting)
         ++mSamples;
+      const double inverseSamples = collecting ? 1. / static_cast<double>(mSamples) : 0.;
       double wet[2]{}, bandSum[2]{}, reference = 1., gainSum = 0., totalPower = 0.;
       for (int i = 0; i < bands; ++i)
       {
@@ -185,32 +198,38 @@ public:
           right ? .5 * (split[0][i] * split[0][i] + split[1][i] * split[1][i]) : split[0][i] * split[0][i];
         mPower[i] = Flush(power + mDetector[i] * (mPower[i] - power));
         if (collecting)
-          mMean[i] += (power - mMean[i]) / static_cast<double>(mSamples);
+          mMean[i] += (power - mMean[i]) * inverseSamples;
         totalPower += mPower[i];
       }
       // Strong notes need less spectral attenuation. The resonator
       // bank overlaps: limiting reduction during confident signal prevents
       // low-level band leakage from coloring the wanted harmonics.
-      const double confidence = std::max(0., totalPower / std::max(1.e-30, learnedPower) - 4.);
+      const double confidence = reducing ? std::max(0., totalPower * inverseLearnedPower - 4.) : 0.;
       const double protection = .5 * confidence / (confidence + 8.);
       for (int i = 0; i < bands; ++i)
       {
         // Soft expander knee: fully open confident bands rather than
         // continuously shaving wanted harmonics with a Wiener-style mask.
-        const double ratio = mPower[i] / std::max(1.e-30, mProfile.power[i] * margin);
-        const double knee = std::clamp(ratio - 1., 0., 1.);
-        const double target =
-          !mProfile.valid || c.learn ? 1. : std::max(protection, floor + (1. - floor) * knee * knee * (3. - 2. * knee));
+        double target = 1.;
+        if (reducing)
+        {
+          const double ratio = mPower[i] * inverseThreshold[i];
+          const double knee = std::clamp(ratio - 1., 0., 1.);
+          target = std::max(protection, floor + (1. - floor) * knee * knee * (3. - 2. * knee));
+        }
         const double coefficient = target > mGain[i] ? attack : release;
         mGain[i] = target + coefficient * (mGain[i] - target);
         gainSum += mGain[i];
-        reference = std::min(reference, mGain[i]);
-        bandSum[0] += split[0][i];
-        if (right)
-          bandSum[1] += split[1][i];
-        wet[0] += split[0][i] * mGain[i];
-        if (right)
-          wet[1] += split[1][i] * mGain[i];
+        if (synthesize)
+        {
+          reference = std::min(reference, mGain[i]);
+          bandSum[0] += split[0][i];
+          if (right)
+            bandSum[1] += split[1][i];
+          wet[0] += split[0][i] * mGain[i];
+          if (right)
+            wet[1] += split[1][i] * mGain[i];
+        }
       }
       // Equal gains reconstruct the scaled input exactly. Unequal gains
       // use the normalized resonator sum and can alter frequency/phase response.
@@ -251,10 +270,12 @@ public:
 private:
   static double Safe(double x) { return std::isfinite(x) ? std::clamp(x, -1000., 1000.) : 0.; }
   static double Flush(double x) { return std::abs(x) < 1.e-30 ? 0. : x; }
-  std::array<std::array<std::array<double, 2>, bands>, 2> mFilters{};
+  struct FilterState
+  { std::array<double, bands> first{}, second{}; };
+  std::array<FilterState, 2> mFilters{};
   struct Coefficient
-  { double b0, a1, a2; };
-  std::array<Coefficient, bands> mCoefficient{};
+  { std::array<double, bands> b0{}, a1{}, a2{}; };
+  Coefficient mCoefficient;
   std::array<double, bands> mDetector{}, mPower{}, mMean{}, mGain{};
   Profile mProfile;
   uint64_t mSamples = 0, mWarmup = 0;

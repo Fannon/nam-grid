@@ -102,7 +102,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
       curve([&](double t) {
         const double frequency = 40. * std::exp(std::log(std::min(16000., .45 * sampleRate) / 40.) * t);
         const auto z = std::polar(1., -2. * grid_fx::pi * frequency / sampleRate);
-        const double wobble = (1. - .25 * character) * lfo - .25 * character * std::sin(.7);
+        const double wobble = (1. - .25 * character) * lfo + .25 * character * (lfo == 0. ? 1. : -1.) * std::sin(.7);
         const auto delay = std::polar(1., -2. * grid_fx::pi * frequency * (.003 + .0025 * depth * wobble));
         const auto allpass = flange ? delay : std::pow((a + z) / (1. + a * z), 6);
         const auto wet = allpass / (1. - feedback * (flange ? std::complex<double>(1., 0.) : z) * allpass);

@@ -45,7 +45,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {modulationColor, modulationColor, "Pitch"};
   if (effect == SlotEffect::Octaver || effect == SlotEffect::Doubler)
     return {modulationColor, modulationColor, "Pitch"};
-  if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter)
+  if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::LoFiTape)
     return {creativeColor, creativeColor, "Creative"};
   if (effect == SlotEffect::Bitcrusher)
     return {boostColor, boostColor, "Texture"};
@@ -552,6 +552,11 @@ public:
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
+      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::LoFiTape)
+      {
+        mMeter.lofi = meter.lofi;
+        if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
+      }
       mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
@@ -623,6 +628,41 @@ public:
   }
 
 private:
+  void DrawTapeTransport(IGraphics& g)
+  {
+    using namespace grid_ui;
+    const IRECT bounds(780, 488, 956, 576);
+    g.FillRoundRect(IColor(255, 12, 16, 20), bounds, 4.f);
+    g.DrawRoundRect(border, bounds, 3.f);
+    const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
+    const double mix = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLoFiMix))->Value() * .01;
+    const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
+    const auto& history = mMeter.lofi;
+    const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
+    g.DrawText(Text(8.f, muted), status, IRECT(788, 489, 875, 502));
+    g.DrawText(Text(8.f, muted, EAlign::Far), "+/-60 ct", IRECT(880, 489, 948, 502));
+    const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
+      g.DrawText(Text(9.f, color.WithOpacity(opacity)), name, IRECT(788, center - 22, 850, center - 10));
+      constexpr float start = 788.f, end = 948.f, height = 9.f;
+      g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
+      float previous = center;
+      double peak = 0.;
+      for (int i = 0; i < LoFiTapeHistory::points; ++i)
+      {
+        const double cents = values[(history.next + i) % LoFiTapeHistory::points];
+        peak = std::max(peak, std::abs(cents));
+        const float y = center - static_cast<float>(std::clamp(cents / 60., -1., 1.)) * height;
+        const float x = start + (end - start) * i / (LoFiTapeHistory::points - 1);
+        if (i) g.DrawLine(color.WithOpacity(opacity), x - (end - start) / (LoFiTapeHistory::points - 1), previous, x, y, nullptr, 1.4f);
+        previous = y;
+      }
+      WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
+      g.DrawText(Text(9.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(885, center - 22, 948, center - 10));
+    };
+    trace("WOW", history.wow, accent, 525.f);
+    trace("FLUTTER", history.flutter, ampColor, 560.f);
+  }
+
   bool HasVisualization()
   {
     if (!PLUG()->GetShowVisualizations()) return false;
@@ -632,6 +672,11 @@ private:
   void DrawVisualization(IGraphics& g)
   {
     using namespace grid_ui;
+    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::LoFiTape)
+    {
+      DrawTapeTransport(g);
+      return;
+    }
     const IRECT box(780, 488, 956, 576), plot(788, 513, 948, 568);
     g.FillRoundRect(IColor(255, 17, 20, 24), box, 3.f);
     g.DrawRoundRect(border, box, 3.f);
@@ -871,6 +916,7 @@ private:
     if (effect != mPlotEffect || path != mPlotPath)
     {
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {};
+      mMeter.lofi = {};
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
@@ -947,6 +993,18 @@ private:
             "Lower sideband at -100, ring modulation at 0, upper sideband at +100.");
         else if (i == uTapeBump)
           mUtilityKnobs[i]->SetTooltip("Low-frequency tape head emphasis.");
+        else if (i == uLoFiSpeed)
+          mUtilityKnobs[i]->SetTooltip("Tape speed in inches per second. Slower is darker and changes transport speed, without retuning the guitar.");
+        else if (i == uLoFiWow)
+          mUtilityKnobs[i]->SetTooltip("Slow pitch drift. The green trace shows measured wow pitch motion; both traces use the same cents scale.");
+        else if (i == uLoFiFlutter)
+          mUtilityKnobs[i]->SetTooltip("Fast pitch vibration. The amber trace shows measured flutter pitch motion over the same 2.56 seconds.");
+        else if (i == uLoFiNoise)
+          mUtilityKnobs[i]->SetTooltip("Independent stereo tape hiss, including between notes. Zero turns hiss off.");
+        else if (i == uLoFiWear)
+          mUtilityKnobs[i]->SetTooltip("Dulls the tape and introduces smooth, irregular level dropouts. Does not add distortion.");
+        else if (i == uLoFiMix)
+          mUtilityKnobs[i]->SetTooltip("Blend the immediate dry guitar with the delayed moving tape signal. Partial mixes can create chorus/comb coloration.");
       }
       if (effect == SlotEffect::ParametricEQ)
       {

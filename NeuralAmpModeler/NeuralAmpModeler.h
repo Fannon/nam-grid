@@ -79,17 +79,22 @@ enum EParams
   kEQBase = kDynamicsBase + 16 * 6,
   kQualityBase = kEQBase + 16 * 7,
   kUtilityBase = kQualityBase + 15,
-  kTunerReference = kUtilityBase + 16 * kUtilityControls,
+  kTunerReference = kUtilityBase + 16 * kSchema16UtilityControls,
   kTunerMute,
   kGridParamBase,
-  kNumParams = kGridParamBase + grid_performance::Count
+  kLoFiBase = kGridParamBase + grid_performance::Count,
+  kNumParams = kLoFiBase + 16 * kLoFiControls
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
 constexpr int kGridV2NumParams = kDynamicsBase;
 constexpr int kGridV3NumParams = kEQBase;
 constexpr int SlotUtilityParam(size_t slot, int control)
-{ return kUtilityBase + static_cast<int>(slot) * kUtilityControls + control; }
+{
+  return control < kSchema16UtilityControls
+           ? kUtilityBase + static_cast<int>(slot) * kSchema16UtilityControls + control
+           : kLoFiBase + static_cast<int>(slot) * kLoFiControls + control - uLoFiSpeed;
+}
 constexpr int SlotEQParam(size_t slot, int control)
 { return kEQBase + static_cast<int>(slot) * 7 + control; }
 constexpr int SlotFullParam(size_t slot)

@@ -19,7 +19,7 @@ inline const ModuleGroup kModuleGroups[]{
   {"Pitch / Frequency", {E::Octaver, E::Doubler, E::FrequencyShifter}},
   {"Delay", {E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::ReverseDelay, E::DualDelay}},
   {"Reverb", {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::HallReverb, E::SpringReverb, E::ShimmerReverb}},
-  {"Creative", {E::Freeze, E::Stutter}},
+  {"Creative", {E::Freeze, E::Stutter, E::LoFiTape}},
   {"Utility / Volume", {E::Utility, E::AutoSwell}}
 };
 inline SlotEffect StepModule(SlotEffect effect, int direction)

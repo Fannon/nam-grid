@@ -22,7 +22,9 @@ inline void StartDeadline()
 {
   SetTimer(editor, 0x4e4755, 3000, [](HWND window, UINT, UINT_PTR timer, DWORD) {
     KillTimer(window, timer);
-    std::cerr << "Native menu command not delivered (mode " << mode << ")\n";
+    std::cerr << "Native menu command not delivered (mode " << mode << ") ";
+    if (mode == -1) std::wcerr << L"label=" << label;
+    std::cerr << "\n";
     EndMenu();
   });
 }

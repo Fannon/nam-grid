@@ -50,6 +50,7 @@ enum class SlotEffect
   JunoChorus,
   FrequencyShifter,
   Distortion,
+  LoFiTape,
   NoisePrint = 64,
   HallReverb = 65
 };
@@ -101,12 +102,13 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::JunoChorus: return "Juno Chorus";
     case SlotEffect::FrequencyShifter: return "Frequency Shifter";
     case SlotEffect::Distortion: return "Distortion";
+    case SlotEffect::LoFiTape: return "LoFi Tape Machine";
     case SlotEffect::NoisePrint: return "Noise Gate (Smart)";
   }
   return "Unknown";
 }
 inline bool IsValidSlotEffect(SlotEffect effect)
-{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::Distortion) || effect == SlotEffect::NoisePrint || effect == SlotEffect::HallReverb; }
+{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::LoFiTape) || effect == SlotEffect::NoisePrint || effect == SlotEffect::HallReverb; }
 struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;

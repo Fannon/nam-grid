@@ -152,6 +152,6 @@ if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
   # Full-rig recall, native file dialogs and menu coverage prepare many models;
   # Windows shell/file-dialog initialization can also be slow on CI hosts.
-  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 300)
+  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 420)
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)

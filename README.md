@@ -4,6 +4,10 @@ Noise Gate (Smart) is a [zero-latency noise-snapshot denoiser](docs/NOISE_PRINT.
 **Dynamics**, with an optional final gate. It is included in the normal CLAP/VST3
 alongside the current module categories, rig presets and performance controls.
 
+[LoFi Tape Machine](docs/LOFI_TAPE.md), under **Creative**, adds speed-dependent
+tone, wow/flutter, hiss and wear/dropouts with live pitch-motion traces. Use the
+separate Airwindows Tape module when saturation is wanted.
+
 [nam-grid](https://github.com/Fannon/nam-grid) is an open-source guitar plugin based on the
 official [Neural Amp Modeler plugin](https://github.com/sdatkinson/NeuralAmpModelerPlugin).
 This branch experiments with a fixed 16-slot NAM grid: four serial input slots, two parallel

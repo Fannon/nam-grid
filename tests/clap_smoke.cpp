@@ -964,6 +964,7 @@ int main(int argc, char** argv)
     plugin->deactivate(plugin);
   }
 #include "NoisePrintClapTests.inc"
+#include "LoFiTapeClapTests.inc"
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
@@ -1135,14 +1136,15 @@ int main(int argc, char** argv)
   // The actual empty-card title opens on one mouse-down; every built-in command,
   // including the HQ effects, must pass SetSlotEffect's validation as well.
   for (const auto& entry :
-       std::array<std::pair<const wchar_t*, SlotEffect>, 8>{{{L"Filter", SlotEffect::SynthFilter},
+       std::array<std::pair<const wchar_t*, SlotEffect>, 9>{{{L"Filter", SlotEffect::SynthFilter},
                                                              {L"Noise Gate", SlotEffect::NaturalGate},
                                                              {L"Distortion", SlotEffect::Distortion},
                                                              {L"Shimmer", SlotEffect::ShimmerReverb},
                                                              {L"Juno Chorus", SlotEffect::JunoChorus},
                                                              {L"Frequency Shifter", SlotEffect::FrequencyShifter},
                                                              {L"Noise Gate (Smart)", SlotEffect::NoisePrint},
-                                                             {L"Hall", SlotEffect::HallReverb}}})
+                                                             {L"Hall", SlotEffect::HallReverb},
+                                                             {L"LoFi Tape Machine", SlotEffect::LoFiTape}}})
   {
     win_edit_menu::SelectNamedItem(editor, 170, 105, entry.first); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(entry.second));
@@ -1201,6 +1203,9 @@ int main(int argc, char** argv)
   auto rigToSave = browserState;
   rigToSave["SlotEffects"][0] = static_cast<int>(SlotEffect::Rotary);
   rigToSave["SlotEffects"][2] = static_cast<int>(SlotEffect::NoisePrint);
+  rigToSave["SlotEffects"][3] = static_cast<int>(SlotEffect::LoFiTape);
+  rigToSave["Pre 4 LoFi Speed"] = 3.75; rigToSave["Pre 4 LoFi Wow"] = 35.;
+  rigToSave["Pre 4 LoFi Wear"] = 80.; rigToSave["Pre 4 LoFi Noise"] = 0.;
   rigToSave["SlotPaths"][2] = "";
   rigToSave["NoisePrintProfiles"][2] = learnedNoiseState["NoisePrintProfiles"][0];
   rigToSave["Pre 3 Noise Gate Threshold"] = -42.;
@@ -1220,6 +1225,8 @@ int main(int argc, char** argv)
   const auto savedRig = rig_preset::Read(presetFile);
   assert(savedRig["Global Input"] == -3. && savedRig["Pre 1 Freeze Hold"] == 0.);
   assert(savedRig["Pre 3 Noise Learn"] == 0.);
+  assert(savedRig["SlotEffects"][3] == static_cast<int>(SlotEffect::LoFiTape));
+  assert(savedRig["Pre 4 LoFi Speed"] == 3.75 && savedRig["Pre 4 LoFi Wear"] == 80.);
   assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
   assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("Tuner Reference"));
   auto anotherRig = cleared;
@@ -1234,6 +1241,11 @@ int main(int argc, char** argv)
   assert(restoredRig["SlotHashes"] == savedRig["SlotHashes"]);
   assert(restoredRig["Global Input"] == -3. && restoredRig["Output"] == -8. && restoredRig["Lane A Level"] == 1.5);
   assert(restoredRig["NoisePrintProfiles"] == savedRig["NoisePrintProfiles"]);
+  for (int p = uLoFiSpeed; p <= uLoFiOutput; ++p)
+  {
+    const std::string name = std::string("Pre 4 ") + kEffectParameters[p].name;
+    assert(restoredRig[name] == savedRig[name]);
+  }
   assert(restoredRig["Pre 3 Noise Learn"] == 0. && restoredRig["Pre 3 Noise Gate Threshold"] == -42.);
   assert(restoredRig["CaptureFolders"] == anotherRig["CaptureFolders"] && restoredRig["Tuner Reference"] == 442.);
   assert(restoredRig["Pre 1 Freeze Hold"] == 0. && restoredRig["PresetName"] == presetFile.stem().string());
@@ -1292,7 +1304,7 @@ int main(int argc, char** argv)
   for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
                  static_cast<int>(SlotEffect::ShimmerReverb), static_cast<int>(SlotEffect::JunoChorus),
                  static_cast<int>(SlotEffect::FrequencyShifter), static_cast<int>(SlotEffect::Distortion),
-                 static_cast<int>(SlotEffect::HallReverb)})
+                 static_cast<int>(SlotEffect::HallReverb), static_cast<int>(SlotEffect::LoFiTape)})
   {
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;
@@ -1325,6 +1337,28 @@ int main(int argc, char** argv)
     assert(save().config()["Drive Enabled"] == 0.);
     if (argc == 4)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
+  }
+  // Capture actual transport history in the compact editor, with no synthetic UI animation.
+  {
+    auto tapeUI = browserState;
+    tapeUI["SlotEffects"][0] = static_cast<int>(SlotEffect::LoFiTape);
+    tapeUI["Pre 1 LoFi Wow"] = 75.; tapeUI["Pre 1 LoFi Flutter"] = 65.;
+    tapeUI["Pre 1 LoFi Wear"] = 60.; tapeUI["Pre 1 LoFi Noise"] = 10.;
+    load(tapeUI); click(170, 120);
+    assert(plugin->activate(plugin, 48000., 1, 512));
+    assert(plugin->start_processing(plugin));
+    process.frames_count = 512;
+    for (int block = 0; block < 300; ++block)
+    {
+      for (int i = 0; i < 512; ++i)
+        input[0][i] = input[1][i] = .2 * std::sin(6.283185307179586 * 220. * (block * 512 + i) / 48000.);
+      assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+      if (block % 4 == 0) pumpFor(5);
+    }
+    pumpFor(100);
+    assert(save().config() == tapeUI);
+    if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "lofi-tape-transport.bmp");
+    plugin->stop_processing(plugin); plugin->deactivate(plugin);
   }
   for (int effect : {12, 15, 26})
   {
@@ -1632,6 +1666,7 @@ int main(int argc, char** argv)
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);
+  click(910, 28); click(260, 132); click(915, 44); pumpFor(250);
   assert(plugin->activate(plugin, 44100., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;

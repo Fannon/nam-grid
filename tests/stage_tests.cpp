@@ -60,6 +60,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DSPReviewTests.h"
 #include "DistortionTests.h"
 #include "NoisePrintTests.h"
+#include "LoFiTapeTests.h"
 #include "EQResponseTests.h"
 
 int main(int argc, char** argv)
@@ -178,6 +179,7 @@ try
   TestDistortionAndMonoMeters();
   TestCaptureSeams();
   TestNoisePrint();
+  TestLoFiTape();
   TestEQResponse();
   if (argc > 2)
   {

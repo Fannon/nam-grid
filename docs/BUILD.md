@@ -55,11 +55,25 @@ Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuratio
 SDKs are absent. The existing Visual Studio solution/Xcode packaging scripts are retained
 for reference; this prototype's validated build entry point is CMake. The new GitHub workflow
 is `.github/workflows/dual-prototype.yml`; it has not been run remotely in this session.
-The scheduled native build and tag release workflows reuse that same build/test job.
-Tagged builds create a draft release only after both matrix jobs pass. Archives are
-created before artifact upload to retain macOS executable permissions, and include
-the plugins and notices. Manual runs from a branch produce artifacts without creating
-a release. No release has been published during this review.
+The scheduled native build and release workflows reuse that same build/test job.
+Release archives are `nam-grid-windows-x64.zip` and `nam-grid-macos-arm64.zip`;
+each includes CLAP, VST3, and third-party notices. Archives are created before
+artifact upload to retain macOS executable permissions.
+
+To create a release, push a version tag such as `v0.1.0`, or open **Actions →
+Release Native → Run workflow** and enter an existing version tag. The workflow
+resolves the tag to a commit, builds and tests that commit on both platforms, and
+creates a draft release with the archives after all checks pass. Review and publish
+the draft from GitHub Releases. Publishing a release directly in GitHub also triggers
+the builds and attaches the archives to that release. Re-running the workflow
+replaces its archives without changing the release notes or publication status.
+Manual **Build Native** runs only produce build artifacts.
+
+Linux plugin releases are blocked by the pinned iPlug2 framework. Its CMake modules
+report Linux as unsupported, and `IGraphicsLinux.cpp` is an unfinished stub.
+Adding a Linux runner alone cannot build this plugin; a working Linux framework
+backend and CLAP/VST3 platform integration are required before adding Linux to the
+release matrix. No Linux plugin archive is currently produced.
 
 ## Using the prototype
 

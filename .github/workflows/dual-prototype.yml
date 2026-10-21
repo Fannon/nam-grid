@@ -1,6 +1,12 @@
 name: nam-grid
 on:
   workflow_call:
+    inputs:
+      source-ref:
+        description: Commit or tag to build
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
   pull_request:
 permissions:
@@ -8,12 +14,18 @@ permissions:
 jobs:
   build-test:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, macos-15]
+        include:
+          - os: windows-2022
+            platform: windows-x64
+          - os: macos-15
+            platform: macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.source-ref || github.sha }}
           submodules: recursive
       - uses: actions/setup-python@v5
         with:
@@ -28,9 +40,15 @@ jobs:
         shell: python
         run: |
           import shutil
-          shutil.make_archive("build-ci/nam-grid-${{ matrix.os }}", "zip", "build-ci/out")
+          from pathlib import Path
+
+          output = Path("build-ci/out")
+          for name in ("nam-grid.clap", "nam-grid.vst3", "ThirdPartyNotices.txt", "notices"):
+              if not (output / name).exists():
+                  raise SystemExit(f"Missing release output: {name}")
+          shutil.make_archive("build-ci/nam-grid-${{ matrix.platform }}", "zip", output)
       - uses: actions/upload-artifact@v4
         with:
-          name: nam-grid-${{ matrix.os }}
-          path: build-ci/nam-grid-${{ matrix.os }}.zip
+          name: nam-grid-${{ matrix.platform }}
+          path: build-ci/nam-grid-${{ matrix.platform }}.zip
           if-no-files-found: error

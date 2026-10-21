@@ -2,29 +2,83 @@ name: Release Native
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to release (for example, v0.1.0)
+        required: true
+        type: string
   push:
     tags:
       - "v*"
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
-jobs:
-  build-test:
-    uses: ./.github/workflows/dual-prototype.yml
+concurrency:
+  group: release-native-${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
 
-  draft-release:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build-test
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve version tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_TAG" != v* ]] || ! git check-ref-format "refs/tags/$RELEASE_TAG"; then
+            echo "::error::Expected a valid version tag beginning with v"
+            exit 1
+          fi
+          commit=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+  build-test:
+    needs: prepare
+    uses: ./.github/workflows/dual-prototype.yml
+    with:
+      source-ref: ${{ needs.prepare.outputs.commit }}
+
+  release:
+    needs: [prepare, build-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
       - uses: actions/download-artifact@v4
         with:
+          pattern: nam-grid-*
           path: artifacts
-      - name: Create draft release
+          merge-multiple: true
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/nam-grid-*/*.zip --verify-tag --draft --title "nam-grid $GITHUB_REF_NAME" --notes-file docs/RELEASE_NOTES.md
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for platform in windows-x64 macos-arm64; do
+            test -s "artifacts/nam-grid-$platform.zip"
+          done
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" artifacts/nam-grid-*.zip --clobber
+          else
+            gh release create "$RELEASE_TAG" artifacts/nam-grid-*.zip \
+              --verify-tag --draft --title "nam-grid $RELEASE_TAG" \
+              --notes-file docs/RELEASE_NOTES.md
+          fi

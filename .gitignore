@@ -4,7 +4,7 @@ xcuserdata
 build-*
 .idea/
 __pycache__/
-
+tmp/
 *.ipch
 *.db
 *.suo

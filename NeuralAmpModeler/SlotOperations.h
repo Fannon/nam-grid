@@ -1,5 +1,6 @@
 #pragma once
 #include "NAMStage.h"
+#include "SlotDefaults.h"
 #include "../NeuralAmpModelerCore/NAM/get_dsp.h"
 
 enum class SlotEditMode
@@ -15,13 +16,7 @@ struct SlotConfig
   std::string path;
   std::string hash;
   // NAM in/trim/on, gate x3, compressor x3, Tone EQ x3, Cut EQ x3, IR level, Full quality.
-  std::array<double, 17 + kUtilityControls> values = [] {
-    std::array<double, 17 + kUtilityControls> result{
-      0., 0., 1., -55., 120., 60., -18., 120., 0., 0., 0., 0., 0., 20000., 0., -18., 1.};
-    for (int i = 0; i < kUtilityControls; ++i)
-      result[17 + i] = kEffectParameters[i].initial;
-    return result;
-  }();
+  SlotValues values = SlotDefaultValues(effect);
 };
 struct PreparedSlot
 {

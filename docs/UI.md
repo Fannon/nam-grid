@@ -33,7 +33,15 @@ Library & settings has one **Visualizations: ON/OFF** preference for all module 
 Category badges remain visible when visualizations are off. This preference is stored per user,
 outside project/rig state. NAM Amp + Cab uses separate Amp and Cab badges in both the card and editor.
 All knobs show editable values and units below the dial;
-double-click the dial to restore its default. See [PRESETS.md](PRESETS.md).
+double-click the dial to restore its module-specific default. Adding/replacing a built-in module
+applies its electric-guitar starting settings, including parameters shared with the prior module.
+Saved presets and slot edits retain their exact values. See [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md)
+for all module defaults and acoustic/bass adjustments, and [PRESETS.md](PRESETS.md) for rig recall.
+
+Reverb previews show the configured space and tail: tank geometry follows Size, a shared
+logarithmic time axis shows pre-delay and decay, and a second trace illustrates treble damping.
+Spring draws a coil; Shimmer shows pitch direction/amount and Freeze. These are parameter
+sketches, not measured room dimensions or impulse responses.
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind

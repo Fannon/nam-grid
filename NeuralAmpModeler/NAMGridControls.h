@@ -123,11 +123,25 @@ inline IVStyle Style()
 class Knob : public IVKnobControl
 {
 public:
-  Knob(const IRECT& r, int parameter, const char* label, bool compact = false)
+  Knob(const IRECT& r, int parameter, const char* label, bool compact = false, int slot = -1)
   : IVKnobControl(r, parameter, label,
                   (compact ? Style().WithWidgetFrac(.82f).WithLabelText(Text(15.f, muted, EAlign::Center))
                            : Style()).WithValueText(Text(14.f, text, EAlign::Center).WithVAlign(EVAlign::Bottom)), true, false)
+  , mSlot(slot)
   {
+  }
+  void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
+  {
+    if (mSlot < 0) { IVKnobControl::OnMouseDblClick(x, y, mod); return; }
+    const auto indices = SlotParamIndices(mSlot);
+    const auto defaults = SlotDefaultValues(PLUG()->GetSlotEffect(mSlot));
+    for (size_t i = 0; i < indices.size(); ++i)
+      if (indices[i] == GetParamIdx())
+      {
+        SetValue(GetParam()->ToNormalized(defaults[i]));
+        SetDirty(true);
+        return;
+      }
   }
   void DrawHandle(IGraphics& g, const IRECT& r) override { g.FillCircle(surface, r.MW(), r.MH(), r.W() * .5f); }
   void DrawIndicatorTrack(IGraphics& g, float angle, float cx, float cy, float radius) override
@@ -137,6 +151,8 @@ public:
   }
   void DrawPointer(IGraphics& g, float angle, float cx, float cy, float radius) override
   { g.DrawRadialLine(text, cx, cy, angle, radius * .55f, radius * .9f, &mBlend, 2.f); }
+private:
+  int mSlot;
 };
 class Button : public IVButtonControl
 {
@@ -522,20 +538,20 @@ public:
     mEditor->AddChildControl(mQualityButton);
     mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(7), SlotActiveParam(mSlot), "Enabled");
     mEditor->AddChildControl(mEnabled);
-    mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true);
-    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim", true);
+    mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true, mSlot);
+    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim", true, mSlot);
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
     const char* labels[] = {"Threshold", "Release", "Depth", "Threshold", "Release", "Makeup"};
     for (int i = 0; i < 6; ++i)
     {
-      mFXKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i % 3), SlotDynamicsParam(mSlot, i), labels[i], true);
+      mFXKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i % 3), SlotDynamicsParam(mSlot, i), labels[i], true, mSlot);
       mEditor->AddChildControl(mFXKnobs[i]);
     }
     const char* eqLabels[] = {"Bass", "Mid", "Treble", "High pass", "Low pass", "Presence", "Level"};
     for (int i = 0; i < 7; ++i)
     {
-      mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? 0 : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true);
+      mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? 0 : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
       mEditor->AddChildControl(mEQKnobs[i]);
     }
     for (int i = 0; i < kUtilityControls; ++i)
@@ -548,7 +564,7 @@ public:
       else if (i != uGateMode && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
-        mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label, true);
+        mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label, true, mSlot);
       mEditor->AddChildControl(mUtilityKnobs[i]);
     }
     SetTooltip(
@@ -681,6 +697,115 @@ private:
     const auto e = PLUG()->GetSlotEffect(mSlot);
     return (e != SlotEffect::NAM && e != SlotEffect::CabinetIR) || !PLUG()->GetSlotPath(mSlot).empty();
   }
+  void DrawReverbSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor color)
+  {
+    using namespace grid_ui;
+    const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+    const bool spring = effect == SlotEffect::SpringReverb, shimmer = effect == SlotEffect::ShimmerReverb;
+    const double decay = value(spring ? uSpringDecay : shimmer ? uShimmerDecay : uReverbDecay);
+    const double tone = value(shimmer ? uShimmerTone : uReverbTone);
+    const double mix = value(spring ? uSpringMix : shimmer ? uShimmerMix : uReverbMix) * .01;
+    const double pre = spring || shimmer ? 0. : value(uReverbPredelay) * .001;
+    const double motion = value(shimmer ? uShimmerMod : uReverbMotion) * .01;
+    const bool frozen = shimmer && value(uShimmerFreeze) >= .5;
+    WDL_String caption;
+    if (frozen) caption.Set("Shimmer | frozen tail");
+    else if (spring || shimmer) caption.SetFormatted(64, "%s | %.1f s", spring ? "Spring" : "Shimmer", decay);
+    else caption.SetFormatted(64, "Space %.0f%% | %.1f s", value(uReverbSize), decay);
+    g.DrawText(Text(12.f, color), caption.Get(), IRECT(788, 490, 948, 510));
+
+    // A parameter sketch, not a measured impulse response or an audio animation.
+    // Geometry follows the tank's actual Size scale; Spring/Shimmer have fixed tanks.
+    const double scale = spring || shimmer ? 1. : value(uReverbSize) * .01 * SlotReverb::SpaceScale(effect);
+    const float extent = static_cast<float>(.4 + .6 * std::log1p(scale) / std::log1p(SlotReverb::kMaximumSize));
+    const float cx = plot.L + 28.f, cy = plot.MH();
+    const float w = 23.f * extent, h = (effect == SlotEffect::PlateReverb ? 10.f : 19.f) * extent;
+    const auto wetColor = color.WithOpacity(static_cast<float>(.25 + .75 * mix));
+    if (spring)
+    {
+      const double drip = value(uSpringDrip) * .01, dwell = value(uSpringDwell) / 12.;
+      float px = cx - 24.f, py = cy;
+      for (int i = 1; i <= 96; ++i)
+      {
+        const float x = cx - 24.f + i * .5f;
+        const float y = cy + static_cast<float>((5. + 9. * drip) * std::sin(i * .06544985 * (4. + 4. * dwell)));
+        g.DrawLine(wetColor, px, py, x, y, nullptr, 1.3f); px = x; py = y;
+      }
+    }
+    else
+    {
+      const IRECT front(cx - w, cy - h + 4.f, cx + w, cy + h + 4.f);
+      const IRECT back = front.GetTranslated(6.f, -7.f);
+      g.DrawRect(wetColor.WithOpacity(.35f), back);
+      for (const auto& corner : std::array<std::pair<float, float>, 4>{{{front.L, front.T}, {front.R, front.T},
+                                                                     {front.L, front.B}, {front.R, front.B}}})
+        g.DrawLine(wetColor.WithOpacity(.5f), corner.first, corner.second, corner.first + 6.f, corner.second - 7.f);
+      g.FillRect(color.WithOpacity(static_cast<float>(mix * .1)), front);
+      g.DrawRect(wetColor, front, nullptr, 1.2f);
+      // More motion gives a broader, less regular field of reflected points.
+      for (int i = 0; i < 18; ++i)
+      {
+        const float x = cx + w * .78f * static_cast<float>(std::sin(i * 2.4 + motion * std::sin(i * 1.7)));
+        const float y = cy + 4.f + h * .75f * static_cast<float>(std::cos(i * 1.5 + motion));
+        g.FillCircle(wetColor.WithOpacity(.4f), x, y, static_cast<float>(.6 + .5 * motion));
+      }
+      g.FillCircle(wetColor, cx, cy + 4.f, 1.8f);
+    }
+    if (shimmer)
+    {
+      const float pitch = static_cast<float>(value(uShimmerPitch) / 24.);
+      for (int i = 0; i < 3; ++i)
+      {
+        const float x = cx + 12.f + 5.f * i, y = cy - 4.f - 10.f * pitch;
+        const float length = static_cast<float>(3. + 5. * value(uShimmerAmount) * .01);
+        g.DrawLine(wetColor, x, y + length * pitch, x, y - length * pitch);
+        g.DrawLine(wetColor, x - 2.f, y - length * pitch + 3.f * pitch, x, y - length * pitch);
+        g.DrawLine(wetColor, x + 2.f, y - length * pitch + 3.f * pitch, x, y - length * pitch);
+      }
+    }
+
+    const IRECT tail(plot.L + 65.f, plot.T + 3.f, plot.R, plot.B - 10.f);
+    // Shared logarithmic time axis: tens of milliseconds of pre-delay and a
+    // twenty-second tail both remain visible. Decay is the requested RT60.
+    const auto timeX = [&](double seconds) { return tail.L + tail.W() * static_cast<float>(std::log1p(seconds / .05) / std::log1p(20. / .05)); };
+    g.DrawLine(border.WithOpacity(.5f), tail.L, tail.B, tail.R, tail.B);
+    for (double t : {1., 5., 20.})
+    {
+      const float x = timeX(t);
+      g.DrawLine(border.WithOpacity(.4f), x, tail.T, x, tail.B);
+      WDL_String label; label.SetFormatted(16, "%.0fs", t);
+      g.DrawText(Text(9.f, muted, EAlign::Far), label.Get(), IRECT(x - 16.f, tail.B + 1.f, x, plot.B + 2.f));
+    }
+    const float start = timeX(pre), height = tail.H() * static_cast<float>(.2 + .8 * mix);
+    g.FillRect(color.WithOpacity(.08f), IRECT(tail.L, tail.T, start, tail.B));
+    g.DrawLine(wetColor, start, tail.B, start, tail.B - height, nullptr, 1.5f);
+    // Damping shortens the bright component; the lower trace represents treble.
+    const double brightDecay = decay * std::clamp(tone / 12000., .08, 1.);
+    const auto envelope = [&](double t, double rt60) {
+      if (t < pre) return 0.;
+      // Height is dB above -60, so the visible end matches the Decay control.
+      return frozen ? 1. : std::max(0., 1. - (t - pre) / rt60);
+    };
+    for (int i = 1; i <= 96; ++i)
+    {
+      const double a = .05 * std::expm1(std::log1p(400.) * (i - 1) / 96.);
+      const double b = .05 * std::expm1(std::log1p(400.) * i / 96.);
+      if (b < pre) continue;
+      const double left = std::max(a, pre);
+      for (int band = 0; band < 2; ++band)
+      {
+        const double rt60 = band ? brightDecay : decay;
+        const auto stroke = band ? muted.WithOpacity(.75f) : wetColor;
+        g.DrawLine(stroke, timeX(left), tail.B - height * static_cast<float>(envelope(left, rt60)),
+                          timeX(b), tail.B - height * static_cast<float>(envelope(b, rt60)), nullptr, band ? 1.f : 1.6f);
+      }
+    }
+    if (pre > 0.)
+    {
+      WDL_String label; label.SetFormatted(20, "%.0fms", pre * 1000.);
+      g.DrawText(Text(9.f, muted), label.Get(), IRECT(tail.L, plot.T - 4.f, tail.L + 38.f, plot.T + 9.f));
+    }
+  }
   void DrawVisualization(IGraphics& g)
   {
     using namespace grid_ui;
@@ -810,6 +935,10 @@ private:
         g.DrawLine(delayColor, x, plot.B, x, plot.B - static_cast<float>(plot.H() * level), nullptr, 2.f);
         level *= feedback;
       }
+    }
+    else if (IsReverb(effect) || effect == SlotEffect::ShimmerReverb)
+    {
+      DrawReverbSetup(g, effect, plot, color);
     }
     else if (DrawModulationSetup(g, effect, plot, color,
                [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },

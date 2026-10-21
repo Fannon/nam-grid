@@ -642,9 +642,20 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (slot >= FixedNAMGrid::kSlots || !IsValidSlotEffect(effect))
     return;
-  _ClearModel(slot, effect);
+  try
+  {
+    SlotConfig config{effect};
+    if (effect == SlotEffect::NoisePrint) config.noiseProfile = GetNoiseProfile(slot);
+    _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), true);
+  }
+  catch (const std::exception&)
+  {
+    SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadFailed);
+    return;
+  }
   if (fromUI)
     _NotifyHostStateChanged();
 }
@@ -730,7 +741,7 @@ void NeuralAmpModeler::LoadSlapbackPreset(size_t slot)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (slot >= FixedNAMGrid::kSlots) return;
-  SlotConfig config; config.effect = SlotEffect::DigitalDelay;
+  SlotConfig config{SlotEffect::DigitalDelay};
   config.values[17 + uDelayTime] = 90.; config.values[17 + uDelayFeedback] = 0.;
   config.values[17 + uDelayTone] = 8000.; config.values[17 + uDelayCharacter] = 0.;
   config.values[17 + uDelayMix] = 25.;

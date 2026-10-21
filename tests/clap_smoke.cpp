@@ -4,6 +4,8 @@
 #include "WinEditorCapture.h"
 #include "WinEditMenuDriver.h"
 #include "../NeuralAmpModeler/EffectParameters.h"
+#include "../NeuralAmpModeler/SlotDefaults.h"
+#include "../NeuralAmpModeler/ModuleCatalog.h"
 #include "../NeuralAmpModeler/GridPerformance.h"
 #include "RoadmapClapTests.h"
 #include "PresetGainClapTests.h"
@@ -1174,22 +1176,24 @@ int main(int argc, char** argv)
   assert(!loadBytes(badHashBytes)); assert(save().config() == beforeHashError);
   // The actual empty-card title opens on one mouse-down; every built-in command,
   // including the HQ effects, must pass SetSlotEffect's validation as well.
-  for (const auto& entry :
-       std::array<std::pair<const wchar_t*, SlotEffect>, 9>{{{L"Filter", SlotEffect::SynthFilter},
-                                                             {L"Noise Gate", SlotEffect::NaturalGate},
-                                                             {L"Distortion", SlotEffect::Distortion},
-                                                             {L"Shimmer", SlotEffect::ShimmerReverb},
-                                                             {L"Juno Chorus", SlotEffect::JunoChorus},
-                                                             {L"Frequency Shifter", SlotEffect::FrequencyShifter},
-                                                             {L"Noise Gate (Smart)", SlotEffect::NoisePrint},
-                                                             {L"Hall", SlotEffect::HallReverb},
-                                                             {L"LoFi Tape Machine", SlotEffect::LoFiTape}}})
-  {
-    win_edit_menu::SelectNamedItem(editor, 170, 105, entry.first); pumpFor(30);
-    assert(save().config()["SlotEffects"][0] == static_cast<int>(entry.second));
-    win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot", true); pumpFor(30);
-    assert(save().config()["SlotEffects"][0] == 0 && save().config()["SlotPaths"][0] == "");
-  }
+  for (const auto& group : nam_library::kModuleGroups)
+    for (const auto effect : group.effects)
+    {
+      const std::string name = SlotEffectName(effect);
+      const std::wstring wideName(name.begin(), name.end());
+      win_edit_menu::SelectNamedItem(editor, 170, 105, wideName.c_str()); pumpFor(30);
+      const auto inserted = save().config();
+      assert(inserted["SlotEffects"][0] == static_cast<int>(effect));
+      const auto defaults = SlotDefaultValues(effect);
+      // Insertion must use this module's defaults even after another module used
+      // the same parameter bank, and must notify the plugin's actual parameters.
+      for (int i = 0; i < kUtilityControls; ++i)
+        assert(std::abs(inserted[std::string("Pre 1 ") + kEffectParameters[i].name].get<double>() - defaults[17 + i]) < 1.e-6);
+      if (effect == SlotEffect::SmoothComp) assert(inserted["Pre 1 Comp Threshold"] == -24.);
+      if (effect == SlotEffect::CutEQ) assert(inserted["Pre 1 EQ High Pass"] == 80.);
+      win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot", true); pumpFor(30);
+      assert(save().config()["SlotEffects"][0] == 0 && save().config()["SlotPaths"][0] == "");
+    }
   win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot"); pumpFor(30);
   std::cout << "Single-click module selection and right-click Clear slot passed\n";
   auto eqUI = browserState;
@@ -1217,6 +1221,19 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(x, y));
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y)); pumpFor(30);
   };
+  // Recall edited Cloud settings; reset returns to Cloud rather than the
+  // Room/shared-bank value. Subsequent insertion discards the prior edits.
+  auto cloud = browserState;
+  cloud["SlotEffects"][0] = static_cast<int>(SlotEffect::CloudReverb);
+  cloud["SlotPaths"][0] = ""; cloud["DrivePath"] = "";
+  cloud["Pre 1 Reverb Decay"] = 12.;
+  load(cloud); click(170, 120); pumpFor(60);
+  resetDial(grid_layout::KnobX(0), grid_layout::knobGestureY);
+  assert(std::abs(save().config()["Pre 1 Reverb Decay"].get<double>() - 6.) < 1.e-6);
+  win_edit_menu::SelectNamedItem(editor, 220, grid_layout::moduleButtonY, L"Room"); pumpFor(30);
+  assert(std::abs(save().config()["Pre 1 Reverb Decay"].get<double>() - .8) < 1.e-6);
+  assert(save().config()["Pre 1 Reverb Size"] == 80.);
+  load(eqUI); click(170, 120); pumpFor(60);
   // Numeric text is below each dial; entry and reset must retain its binding.
   InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
   click(grid_layout::KnobX(0), grid_layout::knobValueY);

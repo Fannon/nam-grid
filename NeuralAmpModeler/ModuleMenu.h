@@ -36,7 +36,7 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
   };
   using E = SlotEffect;
   addGroup("Distortion", {E::Distortion, E::Boost, E::TubeBoost, E::Tape, E::Bitcrusher});
-  addGroup("Dynamics", {E::NaturalGate, E::TightGate, E::SmoothComp, E::PunchComp, E::Limiter});
+  addGroup("Dynamics", {E::NaturalGate, E::TightGate, E::NoisePrint, E::SmoothComp, E::PunchComp, E::Limiter});
   addGroup("EQ / Filter", {E::ToneEQ, E::CutEQ, E::ParametricEQ, E::SynthFilter, E::Wah});
   addGroup("Modulation", {E::Chorus, E::JunoChorus, E::Flanger, E::Phaser, E::Tremolo, E::Vibrato,
                            E::Rotary, E::UniVibe, E::RingMod});

@@ -230,6 +230,7 @@ public:
   SlotEffect GetSlotEffect(size_t slot) const;
   nam_library::Gear GetSlotGear(size_t slot) const;
   bool CanToggleSlotQuality(size_t slot) const;
+  noise_print::Profile GetNoiseProfile(size_t slot) const;
   void ToggleSlotQuality(size_t slot);
   void SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI = true);
   std::string LoadSlot(size_t slot, const char* path);
@@ -331,6 +332,9 @@ private:
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
+  std::array<noise_print::Profile, FixedNAMGrid::kSlots> mNoiseProfiles{};
+  std::array<uint64_t, FixedNAMGrid::kSlots> mNoiseEpochs{}, mNoiseSeen{};
+  uint64_t mNextNoiseEpoch = 0;
   std::array<nam_library::Gear, FixedNAMGrid::kSlots> mSlotGear{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock

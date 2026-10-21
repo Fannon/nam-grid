@@ -6,6 +6,10 @@ host-automatable; selection and settings are saved in project state. Families
 share their controls within a slot. Copy/Move/Swap transfers those values, with
 independent processor history at the destination.
 
+**Dynamics > Noise Print** adds learned frequency-selective noise reduction and an
+optional final gate. Its seven controls and Enabled fill the eight-position editor.
+See [Noise Print](NOISE_PRINT.md) for learning, controls, measurements and limitations.
+
 ## Modulation, delay and reverb
 
 | Module | Controls | Character |

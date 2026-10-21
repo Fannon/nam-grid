@@ -245,7 +245,7 @@ int main(int argc, char** argv)
     assert(save().config() == base);
   }
   // Schemas 4/5 were unused WIP numbers. Reject explicitly without mutation.
-  for (int schema : {4, 5})
+  for (int schema : {4, 5, 99}) // Unused schemas must reject without mutating state.
   {
     auto unsupported = base;
     unsupported["schema"] = schema;
@@ -942,6 +942,7 @@ int main(int argc, char** argv)
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
   }
+#include "NoisePrintClapTests.inc"
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
@@ -1001,6 +1002,27 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  load(learnedNoiseState);
+  win_edit_menu::SelectFirstDestination(editor, 0, 0);
+  pumpFor(50);
+  const auto noiseCopy = save().config();
+  assert(noiseCopy["SlotEffects"][1] == 64);
+  assert(noiseCopy["NoisePrintProfiles"][1] == learnedNoiseState["NoisePrintProfiles"][0]);
+  assert(noiseCopy["Pre 2 Noise Gate Threshold"] == learnedNoiseState["Pre 1 Noise Gate Threshold"]);
+  click(170, 160);
+  SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(686, 700));
+  SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(686, 675));
+  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(686, 675));
+  pumpFor(100);
+  assert(save().config()["Pre 1 Noise Gate Threshold"] > learnedNoiseState["Pre 1 Noise Gate Threshold"]);
+  click(138, 700); // Learn is an actual toggle in the fixed bottom panel.
+  double learningValue = 0.;
+  assert(params->get_value(plugin, learnInfo.id, &learningValue));
+  assert(learningValue == 1.);
+  assert(save().config()["Pre 1 Noise Learn"] == 0.);
+  click(138, 700);
+  assert(params->get_value(plugin, learnInfo.id, &learningValue) && learningValue == 0.);
+  load(browserState);
   // Exercise the actual native selection callback, parameter commit and prepared publication.
   for (int source : {0, 1})
     for (int mode : {0, 1, 2}) // Copy, Move, Swap
@@ -1058,9 +1080,12 @@ int main(int argc, char** argv)
   pumpFor(250);
   // The actual empty-card title opens on one mouse-down; every built-in command,
   // including the HQ effects, must pass SetSlotEffect's validation as well.
-  for (const auto& entry : std::array<std::pair<const wchar_t*, SlotEffect>, 4>{{
-         {L"Distortion", SlotEffect::Distortion}, {L"Shimmer", SlotEffect::ShimmerReverb},
-         {L"Juno Chorus", SlotEffect::JunoChorus}, {L"Frequency Shifter", SlotEffect::FrequencyShifter}}})
+  for (const auto& entry :
+       std::array<std::pair<const wchar_t*, SlotEffect>, 5>{{{L"Distortion", SlotEffect::Distortion},
+                                                             {L"Shimmer", SlotEffect::ShimmerReverb},
+                                                             {L"Juno Chorus", SlotEffect::JunoChorus},
+                                                             {L"Frequency Shifter", SlotEffect::FrequencyShifter},
+                                                             {L"Noise Print", SlotEffect::NoisePrint}}})
   {
     win_edit_menu::SelectNamedItem(editor, 170, 145, entry.first); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(entry.second));
@@ -1091,6 +1116,11 @@ int main(int argc, char** argv)
   assert(save().config()["Input"] == beforeGains["Input"]); // IN is global, not the Pre 2 NAM input.
   auto rigToSave = browserState;
   rigToSave["SlotEffects"][0] = static_cast<int>(SlotEffect::Rotary);
+  rigToSave["SlotEffects"][2] = static_cast<int>(SlotEffect::NoisePrint);
+  rigToSave["SlotPaths"][2] = "";
+  rigToSave["NoisePrintProfiles"][2] = learnedNoiseState["NoisePrintProfiles"][0];
+  rigToSave["Pre 3 Noise Gate Threshold"] = -42.;
+  rigToSave["Pre 3 Noise Learn"] = 1.;
   rigToSave["NAMPath"] = path2.string();
   rigToSave["Global Input"] = -3.; rigToSave["Output"] = -8.; rigToSave["Lane A Level"] = 1.5;
   rigToSave["Pre 1 Freeze Hold"] = 1.;
@@ -1105,6 +1135,8 @@ int main(int argc, char** argv)
   assert(std::filesystem::exists(presetFile));
   const auto savedRig = rig_preset::Read(presetFile);
   assert(savedRig["Global Input"] == -3. && savedRig["Pre 1 Freeze Hold"] == 0.);
+  assert(savedRig["Pre 3 Noise Learn"] == 0.);
+  assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
   assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("Tuner Reference"));
   auto anotherRig = cleared;
   anotherRig["CaptureFolder"] = irLibrary.string(); anotherRig["CaptureFolders"] = {irLibrary.string()};
@@ -1116,6 +1148,8 @@ int main(int argc, char** argv)
   const auto restoredRig = save().config();
   assert(restoredRig["SlotEffects"] == savedRig["SlotEffects"] && restoredRig["SlotPaths"] == savedRig["SlotPaths"]);
   assert(restoredRig["Global Input"] == -3. && restoredRig["Output"] == -8. && restoredRig["Lane A Level"] == 1.5);
+  assert(restoredRig["NoisePrintProfiles"] == savedRig["NoisePrintProfiles"]);
+  assert(restoredRig["Pre 3 Noise Learn"] == 0. && restoredRig["Pre 3 Noise Gate Threshold"] == -42.);
   assert(restoredRig["CaptureFolders"] == anotherRig["CaptureFolders"] && restoredRig["Tuner Reference"] == 442.);
   assert(restoredRig["Pre 1 Freeze Hold"] == 0. && restoredRig["PresetName"] == presetFile.stem().string());
   assert(host.dirty && (host.rescanned & CLAP_PARAM_RESCAN_VALUES));
@@ -1459,6 +1493,7 @@ int main(int argc, char** argv)
   click(110, 419); // Store scene 1
   const auto sceneState = save().config();
   assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
+  assert(!sceneState["PerformanceScenes"][0].contains("Pre 1 Noise Learn"));
   automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
   assert(save().config()["Lane A Level"] == -60.);
   click(245, 419); // Recall scene 1
@@ -1471,6 +1506,13 @@ int main(int argc, char** argv)
   malformedScene["PerformanceScenes"][0]["Not a real parameter"] = 1.;
   Stream malformedSceneBytes; malformedSceneBytes.string("###NAMGrid-v1###"); malformedSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(malformedSceneBytes));
+  assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  malformedScene["PerformanceScenes"][0].erase("Not a real parameter");
+  malformedScene["PerformanceScenes"][0]["Pre 1 Noise Learn"] = 1.;
+  Stream learnSceneBytes;
+  learnSceneBytes.string("###NAMGrid-v1###");
+  learnSceneBytes.string(malformedScene.dump());
+  assert(!loadBytes(learnSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
   click(295, 104); // Modulation tab
   dragAt(230, 335);

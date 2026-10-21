@@ -85,6 +85,9 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
     mSlotPaths[slot].Set(path.c_str());
     const auto effect = config.contains("SlotEffects") ? static_cast<SlotEffect>(config["SlotEffects"][slot].get<int>())
                                                        : SlotEffect::NAM;
+    const auto profile = config.contains("NoisePrintProfiles") ? noise_print::Load(config["NoisePrintProfiles"][slot])
+                                                               : noise_print::Profile{};
+    mNoiseProfiles[slot] = profile;
     if (!_StageSlot(slot, effect, path).empty())
     {
       // A missing file remains selected for relinking, with a safely empty processor.

@@ -1,5 +1,9 @@
 # Build nam-grid
 
+On `experiment/noise-print`, use the [Noise Print notes](NOISE_PRINT.md) for
+the experimental artifact name and host ID. Only the CLAP target was validated
+for this branch; the normal grid identity described below belongs to its base.
+
 The native UI and DSP remain based on the official NAM plugin. The plugin displays
 **nam-grid**, with `nam-grid.clap` / `nam-grid.vst3` artifacts. Its CLAP ID
 (`com.StevenAtkinson.NAMGridPrototype`) and VST3 ID (`NGr1`) are retained from the grid

@@ -55,6 +55,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "TimeEffectsTests.h"
 #include "TunerTempoUtilityTests.h"
 #include "StereoGuitarEffectsTests.h"
+#include "NoisePrintTests.h"
 
 int main(int argc, char** argv)
 try
@@ -166,6 +167,7 @@ try
   TestTimeEffects();
   TestTunerTempoUtility();
   TestStereoGuitarEffects();
+  TestNoisePrint();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

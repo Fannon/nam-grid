@@ -34,7 +34,8 @@ enum class SlotEffect
   TubeBoost,
   Utility,
   SpringReverb,
-  Wah
+  Wah,
+  NoisePrint = 64 // Experimental ID kept clear of the concurrent roadmap additions.
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -67,10 +68,13 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Utility: return "Utility";
     case SlotEffect::SpringReverb: return "Spring Reverb";
     case SlotEffect::Wah: return "Wah";
+    case SlotEffect::NoisePrint: return "Noise Print";
 
     default: return "NAM";
   }
 }
+inline bool IsValidSlotEffect(SlotEffect effect)
+{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::Wah) || effect == SlotEffect::NoisePrint; }
 struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;

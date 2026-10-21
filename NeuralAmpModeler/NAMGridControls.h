@@ -19,7 +19,7 @@ struct NodeTone
 };
 inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
-  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate)
+  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp)
     return {compColor, compColor, "Compressor"};
@@ -281,7 +281,12 @@ public:
     const char* description = effect == SlotEffect::NAM         ? "NAM / post-capture tone EQ"
                               : effect == SlotEffect::CabinetIR ? "WAV / cabinet impulse response"
                                                                 : SlotEffectName(effect);
-    g.DrawText(Text(11.f, muted), description, IRECT(42, 757, 450, 777));
+    if (effect == SlotEffect::NoisePrint)
+      description = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseLearn))->Bool()
+                      ? "Learning: noise only. Switch Learn off when done."
+                    : PLUG()->GetNoiseProfile(mSlot).valid ? "Noise snapshot ready"
+                                                           : "Learn 1-3 seconds of noise first.";
+    g.DrawText(Text(11.f, muted), description, IRECT(42, 757, 495, 777));
     if (mMeter.reduction >= .5f)
     {
       WDL_String gr;
@@ -324,6 +329,8 @@ public:
     }
     const double now = Now(), dt = std::max(0., now - mTick);
     mTick = now;
+    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor)
+      mEditor->SetDirty(false);
     const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
                         || now < mInputClip + .1 || now < mOutputClip + .1;
     const float decay = static_cast<float>(std::exp(-dt / .3));
@@ -374,7 +381,7 @@ public:
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(550, 606, 654, 636), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uDelayPingPong || i == uReverbStereo)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(674, 606, 802, 636), SlotUtilityParam(mSlot, i), p.label);
-      else if (i == uUtilityInvertL || i == uUtilityInvertR)
+      else if (i == uUtilityInvertL || i == uUtilityInvertR || i == uNoiseLearn)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
         mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
@@ -440,7 +447,8 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Wah))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::NoisePrint)
+             && IsValidSlotEffect(static_cast<SlotEffect>(-item->GetTag() - 20)))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {

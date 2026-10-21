@@ -11,6 +11,7 @@ enum class SlotEditMode
 struct SlotConfig
 {
   SlotEffect effect = SlotEffect::NAM;
+  noise_print::Profile noiseProfile;
   std::string path;
   // NAM in/trim/on, gate x3, compressor x3, Tone EQ x3, Cut EQ x3, IR level, Full quality.
   std::array<double, 17 + kUtilityControls> values = [] {
@@ -30,7 +31,7 @@ struct PreparedSlot
 // Control thread only. Prepare every affected resource before changing any slot.
 inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
 {
-  if (config.effect < SlotEffect::NAM || config.effect > SlotEffect::Wah)
+  if (!IsValidSlotEffect(config.effect))
     throw std::runtime_error("Invalid slot effect");
   auto p = std::make_unique<NAMStage::Prepared>();
   p->effect = config.effect;
@@ -57,6 +58,10 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
   else if (!config.path.empty())
     throw std::runtime_error("This effect does not use a file");
   p->Reset(rate, block);
+  if (config.effect == SlotEffect::NoisePrint)
+    p->noise.Restore(config.noiseProfile);
+  else
+    config.noiseProfile = {};
   if (p->latency > 16384)
     throw std::runtime_error("Model conversion delay exceeds the grid's supported range");
   return {std::move(config), std::move(p)};

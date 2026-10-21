@@ -20,8 +20,8 @@ int main(int argc, char** argv)
   auto* factory = static_cast<const clap_plugin_factory*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
   assert(factory && factory->get_plugin_count(factory) == 1);
   const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
-  assert(std::strcmp(descriptor->name, "nam-grid") == 0);
-  assert(std::strcmp(descriptor->id, "com.StevenAtkinson.NAMGridPrototype") == 0);
+  assert(std::strcmp(descriptor->name, "nam-grid Noise Print") == 0);
+  assert(std::strcmp(descriptor->id, "com.Fannon.NAMGridNoisePrintExperiment") == 0);
   Host host;
   auto* plugin = factory->create_plugin(factory, &host.host, factory->get_plugin_descriptor(factory, 0)->id);
   assert(plugin && plugin->init(plugin));
@@ -240,7 +240,7 @@ int main(int argc, char** argv)
     assert(save().config() == base);
   }
   // Schemas 4/5 were unused WIP numbers. Reject explicitly without mutation.
-  for (int schema : {4, 5})
+  for (int schema : {4, 5, 10, 11}) // Concurrent main schemas belong to another plugin ID.
   {
     auto unsupported = base;
     unsupported["schema"] = schema;
@@ -908,6 +908,7 @@ int main(int argc, char** argv)
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
   }
+#include "NoisePrintClapTests.inc"
   load(base);
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
@@ -961,6 +962,21 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  load(learnedNoiseState);
+  win_edit_menu::SelectFirstDestination(editor, 0, 0);
+  pumpFor(50);
+  const auto noiseCopy = save().config();
+  assert(noiseCopy["SlotEffects"][1] == 64);
+  assert(noiseCopy["NoisePrintProfiles"][1] == learnedNoiseState["NoisePrintProfiles"][0]);
+  click(170, 160);
+  click(138, 700); // Learn is an actual toggle in the fixed bottom panel.
+  double learningValue = 0.;
+  assert(params->get_value(plugin, learnInfo.id, &learningValue));
+  assert(learningValue == 1.);
+  assert(save().config()["Pre 1 Noise Learn"] == 0.);
+  click(138, 700);
+  assert(params->get_value(plugin, learnInfo.id, &learningValue) && learningValue == 0.);
+  load(browserState);
   // Exercise the actual native selection callback, parameter commit and prepared publication.
   for (int source : {0, 1})
     for (int mode : {0, 1, 2}) // Copy, Move, Swap

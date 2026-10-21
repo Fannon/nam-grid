@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include "SlotDynamics.h"
+#include "NoisePrint.h"
 
 // Shared within a family, independent for every grid slot. Descriptors also drive
 // the editor, so parameter ranges, defaults and the eight control positions agree.
@@ -67,6 +68,12 @@ enum UtilityParam
   uWahRange,
   uWahMix,
   uWahOutput,
+  uNoiseLearn,
+  uNoiseSensitivity,
+  uNoiseReduction,
+  uNoiseAttack,
+  uNoiseRelease,
+  uNoiseMix,
   kUtilityControls
 };
 struct EffectParameter
@@ -139,7 +146,13 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Wah Resonance", "Resonance", 3, 1, 6, .01, "Q", 1},
    {"Wah Range", "Range", 50, 0, 100, .1, "%", 2},
    {"Wah Mix", "Mix", 100, 0, 100, .1, "%", 3},
-   {"Wah Output", "Output", 0, -12, 12, .1, "dB", 4}}};
+   {"Wah Output", "Output", 0, -12, 12, .1, "dB", 4},
+   {"Noise Learn", "Learn noise", 0, 0, 1, 1, "", 0},
+   {"Noise Sensitivity", "Sensitivity", 1.5, -6, 12, .1, "dB", 1},
+   {"Noise Reduction", "Reduction", 24, 0, 48, .1, "dB", 2},
+   {"Noise Attack", "Attack", 2, .2, 20, .1, "ms", 3, true},
+   {"Noise Release", "Release", 120, 20, 500, 1, "ms", 4, true},
+   {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6}}};
 inline bool IsDelay(SlotEffect e)
 { return e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay; }
 inline bool IsReverb(SlotEffect e)
@@ -148,6 +161,8 @@ inline bool IsModulation(SlotEffect e)
 { return e >= SlotEffect::Chorus && e <= SlotEffect::Vibrato; }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::NoisePrint)
+    return p >= uNoiseLearn && p <= uNoiseMix;
   if (e == SlotEffect::SpringReverb)
     return (p >= uSpringDecay && p <= uSpringOutput) || p == uReverbTone;
   if (e == SlotEffect::Wah)
@@ -199,4 +214,5 @@ struct UtilityControls
   std::array<double, 5> wah{50., 3., 50., 100., 0.};
   int division = 4;
   double tempo = 120., level = 0., balance = 0., stereo = 0.;
+  noise_print::Controls noise;
 };

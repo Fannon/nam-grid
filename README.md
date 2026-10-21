@@ -1,5 +1,10 @@
 # nam-grid
 
+**Noise Print experiment:** this isolated branch adds a noise-snapshot denoiser.
+See [usage, measurements and integration notes](docs/NOISE_PRINT.md). Its CLAP is
+`nam-grid-noise-print.clap`, with a separate host ID. It is based on `ce1cc93` and
+does not yet include main's newer effects or performance controls.
+
 [nam-grid](https://github.com/Fannon/nam-grid) is an open-source guitar plugin based on the
 official [Neural Amp Modeler plugin](https://github.com/sdatkinson/NeuralAmpModelerPlugin).
 This branch experiments with a fixed 16-slot NAM grid: four serial input slots, two parallel

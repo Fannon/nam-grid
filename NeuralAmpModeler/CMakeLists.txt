@@ -154,3 +154,7 @@ if(TARGET nam-grid-clap)
   set_tests_properties(clap-smoke PROPERTIES TIMEOUT 180)
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)
+
+if(TARGET nam-grid-clap)
+  set_target_properties(nam-grid-clap PROPERTIES OUTPUT_NAME "nam-grid-noise-print")
+endif()

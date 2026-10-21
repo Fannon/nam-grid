@@ -27,6 +27,8 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
               : eq)
       ->AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
   }
+  gates->AddItem(new IPopupMenu::Item("Noise Print", effect == SlotEffect::NoisePrint ? IPopupMenu::Item::kChecked : 0,
+                                      -20 - static_cast<int>(SlotEffect::NoisePrint)));
   menu.AddItem("Noise Gate", gates, next++);
   menu.AddItem("Compressor", compressors, next++);
   eq->AddItem(new IPopupMenu::Item(SlotEffectName(SlotEffect::ParametricEQ),

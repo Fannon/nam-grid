@@ -1,4 +1,5 @@
 #include "ClapTestHost.h"
+#include "../NeuralAmpModeler/NoisePrint.h"
 
 struct Instance
 {
@@ -66,6 +67,9 @@ struct Instance
             config["SlotPaths"][slot] = "";
           if (mode != "empty")
             config["SlotEffects"][0] = std::stoi(mode.substr(3));
+          if (mode == "fx-64")
+            config["NoisePrintProfiles"][0] = {
+              {"version", 1}, {"power", std::vector<double>(noise_print::bands, 1.e-6)}};
         }
         if (mode == "dual-effects")
         {

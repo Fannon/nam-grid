@@ -59,12 +59,13 @@ file paths are deduplicated; identical source basenames receive distinct menu na
 nested folder names remain in the index. The header search/filter bar is removed
 pending a dedicated browser. The scanner runs on its existing background worker;
 latest request wins, and menus retain immutable snapshots while open.
-The scanner computes SHA-1 content hashes for captures/IRs. Byte-identical files of the same type
-appear once: choose the shallowest folder relative to its configured source, then the first
-configured source and alphabetical relative path. Overlapping roots also use the shallowest depth.
-Slots, projects, rig presets and Copy/Move/Swap retain the content hash. Recall and completed
-rescans relink moved files to the indexed copy; a different file at the old path is never silently
-substituted. Missing indexed matches retain the original path/hash for a future rescan.
+The scanner computes SHA-1 content hashes for captures/IRs. The hash is a recall aid, not a
+menu filter: byte-identical files keep their own entry, so a pack folder stays complete when a
+curated copy of the same capture exists elsewhere, and repeats are only counted. Overlapping
+roots and repeated roots still index each physical path once. Slots, projects, rig presets and
+Copy/Move/Swap retain the content hash. Recall and completed rescans relink moved files to the
+indexed copy, preferring a copy that still exists; a different file at the old path is never
+silently substituted. Missing indexed matches retain the original path/hash for a future rescan.
 
 Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
 Cabinet. NAM captures and Cabinet IRs have separate menu categories. Shared folder

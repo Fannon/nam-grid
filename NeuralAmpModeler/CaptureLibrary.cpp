@@ -5,6 +5,7 @@
 #include <functional>
 #include <sstream>
 #include <map>
+#include <set>
 #include <utility>
 #include <unordered_set>
 #include <unordered_map>
@@ -339,9 +340,16 @@ std::string ContentHash(const std::filesystem::path& file, const std::function<b
 const Capture* FindHash(const Snapshot& library, const std::string& hash, bool isIR)
 {
   if (hash.empty()) return nullptr;
+  const Capture* fallback = nullptr;
   for (const auto& capture : library.captures)
-    if (capture.hash == hash && capture.isIR == isIR) return &capture;
-  return nullptr;
+    if (capture.hash == hash && capture.isIR == isIR)
+    {
+      std::error_code error;
+      // Identical copies can be indexed side by side; relink to one that still exists.
+      if (std::filesystem::is_regular_file(capture.path, error)) return &capture;
+      if (!fallback) fallback = &capture;
+    }
+  return fallback;
 }
 std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR)
 {
@@ -356,21 +364,16 @@ std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& sel
   });
   return result;
 }
-static void Deduplicate(Snapshot& snapshot)
+// Content identity exists so a renamed or moved capture can be found again after a rescan.
+// It must never shrink the menu: keep every indexed path and only count repeats, so a pack
+// folder stays complete even when a curated copy of the same bytes lives elsewhere.
+static void CountContentDuplicates(Snapshot& snapshot)
 {
-  std::map<std::pair<bool, std::string>, size_t> identities;
-  std::vector<Capture> unique;
-  for (auto& capture : snapshot.captures)
-  {
-    const auto [it, inserted] = identities.emplace(std::make_pair(capture.isIR, capture.hash), unique.size());
-    if (inserted || capture.hash.empty()) unique.push_back(std::move(capture));
-    else
-    {
-      ++snapshot.duplicates;
-      if (capture.folderDepth < unique[it->second].folderDepth) unique[it->second] = std::move(capture);
-    }
-  }
-  snapshot.captures = std::move(unique);
+  std::set<std::pair<bool, std::string>> identities;
+  size_t duplicates = 0;
+  for (const auto& capture : snapshot.captures)
+    if (!capture.hash.empty() && !identities.emplace(capture.isIR, capture.hash).second) ++duplicates;
+  snapshot.duplicates = duplicates;
   std::stable_sort(snapshot.captures.begin(), snapshot.captures.end(), [](const auto& a, const auto& b) {
     return Lower(PathText(a.relative)) < Lower(PathText(b.relative));
   });
@@ -424,7 +427,7 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
     const auto lowFirst = Lower(first), lowSecond = Lower(second);
     return lowFirst == lowSecond ? first < second : lowFirst < lowSecond;
   });
-  Deduplicate(result);
+  CountContentDuplicates(result);
   return result;
 }
 
@@ -442,7 +445,6 @@ Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<
     if (folders.size() == 1)
       result.root = part.root;
     result.unreadable += part.unreadable;
-    result.duplicates += part.duplicates;
     if (!part.error.empty())
     {
       if (!result.error.empty())
@@ -474,7 +476,7 @@ Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<
       result.captures.push_back(std::move(capture));
     }
   }
-  Deduplicate(result);
+  CountContentDuplicates(result);
   return result;
 }
 

@@ -63,6 +63,7 @@ struct Snapshot
   std::vector<Capture> captures;
   std::string error;
   size_t unreadable = 0;
+  // Byte-identical entries are all kept and listed; this only counts the repeats.
   size_t duplicates = 0;
 };
 

@@ -328,12 +328,24 @@ int main(int argc, char** argv)
   assert(ContentHash(deep) == ContentHash(shallow));
   std::ofstream(identities / "empty.bin", std::ios::binary);
   assert(ContentHash(identities / "empty.bin") == "da39a3ee5e6b4b0d3255bfef95601890afd80709");
-  const auto deduped = Scan(identities);
-  assert(deduped.captures.size() == 1 && deduped.duplicates == 1 && deduped.captures[0].path == shallow);
-  assert(FindHash(deduped, ContentHash(deep), false)->path == shallow);
-  assert(!FindHash(deduped, ContentHash(deep), true));
+  // Content identity is a recall aid, not a menu filter: identical bytes stay listed at every
+  // path so a pack folder remains complete; the count only reports repeats.
+  const auto scanned = Scan(identities);
+  assert(scanned.captures.size() == 2 && scanned.duplicates == 1);
+  const auto containsPath = [](const Snapshot& snapshot, const std::filesystem::path& path) {
+    return std::any_of(snapshot.captures.begin(), snapshot.captures.end(),
+                       [&](const Capture& capture) { return capture.path == path; });
+  };
+  assert(containsPath(scanned, shallow) && containsPath(scanned, deep));
+  const auto contentHash = ContentHash(deep);
+  assert(FindHash(scanned, contentHash, false));
+  assert(!FindHash(scanned, contentHash, true));
+  std::filesystem::remove(deep); // A deleted copy must not block relinking to the surviving one.
+  assert(FindHash(scanned, contentHash, false)->path == shallow);
+  std::filesystem::copy_file(shallow, deep, std::filesystem::copy_options::overwrite_existing);
   const auto tie = ScanFolders({PathText(deep.parent_path()), PathText(identities)});
-  assert(tie.captures.size() == 1 && tie.captures[0].path == deep); // Same depth: first configured root wins.
+  // The same physical file reached through overlapping roots is still indexed once.
+  assert(tie.captures.size() == 2 && tie.duplicates == 1 && containsPath(tie, deep) && containsPath(tie, shallow));
   const auto sibling = identities / "second.NAM";
   std::ofstream(sibling) << "different";
   std::ofstream(identities / "cab.wav") << "abc";
@@ -341,7 +353,7 @@ int main(int argc, char** argv)
   assert(siblings == std::vector<std::filesystem::path>({shallow, sibling}));
   assert(SiblingFiles(shallow, true) == std::vector<std::filesystem::path>({identities / "cab.wav"}));
   const auto typed = Scan(identities);
-  assert(typed.captures.size() == 3); // A WAV and NAM with identical bytes are separate loader types.
+  assert(typed.captures.size() == 4); // A WAV and NAM with identical bytes are separate loader types.
   assert(FindHash(typed, ContentHash(shallow), true)->isIR);
   assert(ContentHash(shallow, [] { return true; }).empty());
   std::ofstream(identities / "large.bin", std::ios::binary) << std::string(131073, 'a');

@@ -66,7 +66,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::CabinetIR: return "Cabinet IR";
     case SlotEffect::ParametricEQ: return "Parametric EQ";
     case SlotEffect::Boost: return "Boost";
-    case SlotEffect::SynthFilter: return "Envelope Filter";
+    case SlotEffect::SynthFilter: return "Filter";
     case SlotEffect::AutoSwell: return "Auto Swell";
     case SlotEffect::DigitalDelay: return "Digital Delay";
     case SlotEffect::AnalogDelay: return "Analog Echo";

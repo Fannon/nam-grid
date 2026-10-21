@@ -1085,7 +1085,8 @@ int main(int argc, char** argv)
   // The actual empty-card title opens on one mouse-down; every built-in command,
   // including the HQ effects, must pass SetSlotEffect's validation as well.
   for (const auto& entry :
-       std::array<std::pair<const wchar_t*, SlotEffect>, 6>{{{L"Noise Gate", SlotEffect::NaturalGate},
+       std::array<std::pair<const wchar_t*, SlotEffect>, 7>{{{L"Filter", SlotEffect::SynthFilter},
+                                                             {L"Noise Gate", SlotEffect::NaturalGate},
                                                              {L"Distortion", SlotEffect::Distortion},
                                                              {L"Shimmer", SlotEffect::ShimmerReverb},
                                                              {L"Juno Chorus", SlotEffect::JunoChorus},

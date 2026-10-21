@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 #include "ResamplingNAM.h"
@@ -21,7 +22,10 @@ struct NAMModelInfo
 };
 
 struct SlotMeterData
-{ float input = 0.f, output = 0.f, reduction = 0.f; };
+{
+  float input = 0.f, output = 0.f, reduction = 0.f;
+  std::array<float, 2> filterCutoff{}, filterQ{};
+};
 
 class NAMStage
 {
@@ -361,6 +365,13 @@ public:
         }
         if (p->model && rightSamples)
           std::copy_n(out, frames, p->right->wet.data());
+        if (mMonitoring && p->effect == SlotEffect::SynthFilter)
+        {
+          mMeter.filterCutoff[0] = static_cast<float>(p->filter.AppliedCutoff());
+          mMeter.filterQ[0] = static_cast<float>(p->filter.AppliedResonance());
+          mMeter.filterCutoff[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedCutoff()) : mMeter.filterCutoff[0];
+          mMeter.filterQ[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedResonance()) : mMeter.filterQ[0];
+        }
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
       for (int i = 0; i < frames; ++i)

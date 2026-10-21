@@ -18,7 +18,8 @@ its neutral EQ acts after inference, not as controls of the captured amp. A2 Lit
 module menu where supported. IR uses Level; see [MODULES.md](MODULES.md) for other controls.
 Every loaded module offers a mini display: signal history versus threshold and
 numeric GR for dynamics, echo timing for standard delays, vector category icons
-for NAM captures, and input/output history for other effects and IRs.
+for NAM captures, the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
+history for other effects and IRs.
 All knobs show editable values and units below the dial;
 double-click the dial to restore its default. See [PRESETS.md](PRESETS.md).
 

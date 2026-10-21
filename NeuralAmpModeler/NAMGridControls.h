@@ -1,6 +1,7 @@
 #pragma once
 #include "ModuleMenu.h"
 #include "GridLayout.h"
+#include "EQResponse.h"
 #include <chrono>
 
 namespace grid_ui
@@ -447,6 +448,7 @@ public:
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
+      mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
       mOutputHistory[mReductionWrite] = meter.output;
@@ -645,6 +647,68 @@ private:
         level *= feedback;
       }
     }
+    else if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ
+             || effect == SlotEffect::SynthFilter)
+    {
+      const auto eqValue = [&](int p) { return GetDelegate()->GetParam(SlotEQParam(mSlot, p))->Value(); };
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+      const double upper = std::min(20000., .49 * rate), span = std::log(upper / 20.);
+      const bool filter = effect == SlotEffect::SynthFilter;
+      const auto cutoff = [&](int channel) {
+        return mMeter.filterCutoff[channel] > 0.f ? double(mMeter.filterCutoff[channel])
+                                                : std::min(.4 * rate, value(uFilterCutoff));
+      };
+      const auto resonance = [&](int channel) {
+        return mMeter.filterQ[channel] > 0.f ? double(mMeter.filterQ[channel]) : value(uFilterResonance);
+      };
+      const std::array<double, 17> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
+                                     eqValue(3), eqValue(4), eqValue(5), value(uFrequency), value(uGain), value(uQ), value(uEQMode),
+                                     filter ? cutoff(0) : 0., filter ? resonance(0) : 0.,
+                                     filter ? cutoff(1) : 0., filter ? resonance(1) : 0., filter ? value(uFilterMode) : 0.};
+      if (key != mEQKey)
+      {
+        mEQKey = key;
+        EQControls eq; eq.bass = key[2]; eq.mid = key[3]; eq.treble = key[4];
+        eq.highPass = key[5]; eq.lowPass = key[6]; eq.presence = key[7];
+        UtilityControls utility; utility.frequency = key[8]; utility.gain = key[9]; utility.q = key[10]; utility.eqMode = key[11];
+        utility.cutoff = key[12]; utility.resonance = key[13];
+        utility.filterMode = static_cast<int>(key[16]);
+        const grid_eq_response::Response response(rate, effect, eq, utility);
+        utility.cutoff = key[14]; utility.resonance = key[15];
+        const grid_eq_response::Response rightResponse(rate, effect, eq, utility);
+        for (size_t i = 0; i < mEQCurve.size(); ++i)
+        {
+          // Include the exact center so a narrow notch is visible between log-spaced samples.
+          const double hz = i == mEQCurve.size() - 1 ? std::clamp(std::min(filter ? key[12] : utility.frequency, .4 * rate), 20., upper)
+                                                    : 20. * std::exp(span * i / (mEQCurve.size() - 2));
+          mEQCurve[i] = {static_cast<float>(std::log(hz / 20.) / span),
+                        static_cast<float>(20. * std::log10(std::max(1.e-12, response.Magnitude(hz)))),
+                        static_cast<float>(20. * std::log10(std::max(1.e-12, filter ? rightResponse.Magnitude(hz) : response.Magnitude(hz))))};
+        }
+        std::sort(mEQCurve.begin(), mEQCurve.end());
+      }
+      WDL_String caption;
+      if (filter) caption.SetFormatted(64, "%s %.0f Hz", key[16] == 1 ? "HP" : key[16] == 2 ? "BP" : "LP", key[12]);
+      else caption.Set("EQ response");
+      g.DrawText(Text(13.f, color), caption.Get(), IRECT(788, 490, 948, 510));
+      const auto y = [&](float db) { return plot.T + plot.H() * (24.f - std::clamp(db, -24.f, 24.f)) / 48.f; };
+      for (int db : {-24, -12, 0, 12, 24})
+        g.DrawLine(border.WithOpacity(db == 0 ? .9f : .4f), plot.L, y(static_cast<float>(db)), plot.R, y(static_cast<float>(db)));
+      for (double hz : {100., 1000., 10000.})
+      {
+        const float x = plot.L + static_cast<float>(plot.W() * std::log(hz / 20.) / span);
+        if (hz < upper) g.DrawLine(border.WithOpacity(.35f), x, plot.T, x, plot.B);
+      }
+      for (size_t i = 1; i < mEQCurve.size(); ++i)
+      {
+        if (filter && (std::abs(key[12] - key[14]) > 1. || std::abs(key[13] - key[15]) > .01))
+          g.DrawLine(color.WithOpacity(.5f), plot.L + plot.W() * mEQCurve[i - 1][0], y(mEQCurve[i - 1][2]),
+                                           plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][2]), nullptr, 1.f);
+        g.DrawLine(color, plot.L + plot.W() * mEQCurve[i - 1][0], y(mEQCurve[i - 1][1]),
+                          plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][1]), nullptr, 1.5f);
+      }
+    }
     else
     {
       // Reuse the existing mono meter packets: no audio capture or extra DSP work.
@@ -675,6 +739,9 @@ private:
     {
       mPlotButton->Hide(!HasVisualization());
       mPlotButton->SetTooltip(nam ? "Capture category from library metadata or filename inference."
+                                 : effect == SlotEffect::SynthFilter ? "Live filter response. Solid: left, faint: right when different. Envelope optionally moves the cutoff."
+                                 : effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ
+                                   ? "Combined EQ response: logarithmic 20 Hz to 20 kHz, -24 to +24 dB. Includes enabled cuts and notch mode."
                                  : "Gray: input, color: output. Dynamics: dashed threshold and numeric gain reduction.");
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
@@ -850,6 +917,8 @@ private:
   SlotEffect mPlotEffect = SlotEffect::NAM;
   std::string mPlotPath;
   std::array<float, 120> mInputHistory{}, mOutputHistory{};
+  std::array<double, 17> mEQKey{};
+  std::array<std::array<float, 3>, 162> mEQCurve{};
   size_t mReductionWrite = 0;
   float mReductionNow = 0.f;
   grid_ui::Toggle* mEnabled = nullptr;

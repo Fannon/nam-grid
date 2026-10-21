@@ -132,8 +132,8 @@ Integrated against `c3330b7`, retaining its category design, Distortion/HQ effec
 rig presets and performance controls. Noise Gate (Smart) appears once under **Dynamics**;
 NAM captures and cabinet IR libraries retain their separate submenus.
 
-The normal plugin now has **2,474 parameters**, including 134 utility controls per
-slot, and state schema **15**. Schema 14 introduced learned profiles; schema 15
+The normal plugin now has **2,490 parameters**, including 135 utility controls per
+slot, and state schema **16**. Schema 16 adds the standalone Filter mode. Schema 14 introduced learned profiles; schema 15
 adds the standalone Noise Gate mode. Its former Natural/Tight module IDs remain
 readable, with the latter recalled in Tight mode. Noise Gate (Smart) keeps module ID 64 and profile format
 version 1 (96 powers). Main schemas through 13 migrate with Noise Gate (Smart) untrained

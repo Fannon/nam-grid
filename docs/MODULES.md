@@ -94,7 +94,7 @@ there is no oversampling, so bright/high-drive styles can alias.
 | Parametric EQ | Frequency, Gain, Q, High pass, Low pass | One 80–8000 Hz bell, ±12 dB, Q .3–4 |
 | Boost | Gain, Tilt, High pass | Gain 0–18 dB; opposing shelves around 800 Hz; low cut 0–300 Hz |
 | Tube Boost | Drive, Tilt, High pass, Bias, Mix, Output | Tube-inspired saturation with adjustable asymmetry and DC removal |
-| Envelope Filter | Cutoff, Resonance, Envelope | Resonant low-pass, up to four octaves of input-driven opening |
+| Filter | Mode, Cutoff, Resonance, Envelope | Resonant low-pass, high-pass or band-pass; optional input envelope shifts cutoff up to four octaves |
 | Auto Swell | Rise, Threshold, Release | Phrase envelope removes the pick and fades up; pause below threshold to re-arm |
 | Airwindows Tape | Drive, Bump, Mix, Output | Tape saturation/head bump, no flutter |
 | Utility | Level, L/R balance, Stereo, Invert L, Invert R | Stereo −100% mono / 0% unchanged / +100% wider |

@@ -166,6 +166,23 @@ load(prior14);
 assert(save().config() == expected14);
 load(learnedNoiseState);
 
+// Schema 15's explicit gate mode survives introduction of the Filter mode.
+auto prior15 = learnedNoiseState;
+prior15["schema"] = 15;
+prior15["SlotEffects"][1] = static_cast<int>(SlotEffect::NaturalGate);
+prior15["SlotPaths"][1] = ""; prior15["NAMPath"] = "";
+prior15["Pre 2 Gate Mode"] = 1.;
+auto expected15 = prior15; expected15["schema"] = learnedNoiseState["schema"];
+for (int slot = 0; slot < 16; ++slot)
+{
+  const auto name = std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ")
+                    + std::to_string(slot % 4 + 1) + " Filter Mode";
+  prior15.erase(name); expected15[name] = 0.;
+}
+load(prior15);
+assert(save().config() == expected15);
+load(learnedNoiseState);
+
 auto schema9 = cleared;
 schema9["schema"] = 9;
 schema9.erase("NoisePrintProfiles");

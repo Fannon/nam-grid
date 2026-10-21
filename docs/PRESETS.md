@@ -55,7 +55,9 @@ receive defaults for newly added controls. There are 2,346 host parameters
 profiles and seven utility controls per slot, bringing the total to 2,458 host
 parameters. Schema 15 adds Natural/Tight mode to the unified Noise Gate, for
 134 utility controls per slot and 2,474 host parameters. Learned profiles are
-included in presets; active learning is cleared.
+included in presets; active learning is cleared. Schema 16 adds Filter mode, for
+135 utility controls per slot and 2,490 host parameters. Older Filter states default
+to Low-pass; schema 15 Noise Gate modes are retained.
 
 ## Compact editor and visualizations
 
@@ -83,7 +85,19 @@ Feedback and Mix; gray is dry input and colored stems are echoes. Synchronized
 delays use the current host tempo, falling back to 120 BPM before tempo is available.
 NAM captures show vector category icons for amp head, amp plus cabinet, cabinet,
 pedal, outboard rack or space; unknown captures use a neutral capture icon. These
-categories use existing metadata/filename inference. Other modules, including IRs,
+categories use existing metadata/filename inference. Guitar EQ, Cut EQ and
+Parametric EQ show their combined settled frequency response, including enabled
+cuts and bell/notch mode. The log axis spans 20 Hz to 20 kHz (bounded below Nyquist),
+and the vertical scale is -24 to +24 dB. The curve uses the audio filters' actual
+coefficient classes and is cached until controls or sample rate change.
+Filter has Low-pass, High-pass and Band-pass modes. Envelope at zero is static;
+raising it lets the input level move cutoff. Mode changes use a 5 ms smoothing time constant.
+Its live response uses the selected mode and the applied
+cutoff and resonance reported by the DSP. The cutoff follows the actual envelope;
+solid is left, with a faint right-channel curve when the channels differ. While
+inactive, it shows the base cutoff. Telemetry uses the existing meter queue and
+does not allocate on audio or change filter processing.
+Other modules, including IRs,
 show the same gray-input/colored-output history on a -60 to 0 dB scale. Live plots
 reuse existing mono meter packets; they do not capture audio or add DSP processing.
 Use **Hide / Graph** to toggle the display for that slot. This is a temporary

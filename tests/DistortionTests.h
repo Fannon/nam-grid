@@ -3,7 +3,7 @@
 
 void TestDistortionAndMonoMeters()
 {
-  for (int style = 0; style < 4; ++style)
+  for (int style = 0; style < effect_modes::distortionCount; ++style)
   {
     assert(SlotDistortion::Transfer(0., style, 10., .4) == 0.);
     for (double x : {-.1, .1})
@@ -13,9 +13,9 @@ void TestDistortionAndMonoMeters()
   assert(SlotDistortion::Transfer(.2, 1, 1., 0.) == .2);
   for (double rate : {44100., 48000., 96000., 192000.})
   {
-    constexpr int count = 4096;
-    std::array<std::vector<double>, 4> styles;
-    for (int style = 0; style < 4; ++style)
+    constexpr int count = effect_modes::distortionCount * 1024;
+    std::array<std::vector<double>, effect_modes::distortionCount> styles;
+    for (int style = 0; style < effect_modes::distortionCount; ++style)
     {
       SlotDistortion effect; effect.Reset(rate);
       auto& audio = styles[style]; audio.resize(count);
@@ -27,7 +27,7 @@ void TestDistortionAndMonoMeters()
       {
         double difference = 0.;
         for (int i = 0; i < count; ++i) difference += std::abs(audio[i] - styles[other][i]);
-        assert(difference > 1.); // Four audibly different transfer functions.
+        assert(difference > 1.); // Each style produces a distinct output.
       }
       effect.Reset(rate); c.distortion[1] = 36.; c.distortion[3] = 100.;
       std::vector<double> constant(static_cast<int>(rate), .5);
@@ -39,7 +39,7 @@ void TestDistortionAndMonoMeters()
       std::vector<double> audio(count);
       for (int i = 0; i < count; ++i) audio[i] = .8 * std::sin(i * .071) + .2 * std::cos(i * .031);
       UtilityControls c;
-      for (int segment = 0; segment < 4; ++segment)
+      for (int segment = 0; segment < effect_modes::distortionCount; ++segment)
       {
         c.distortion = {double(segment), segment % 2 ? 36. : 0., segment % 2 ? 200. : 12000.,
                         segment % 2 ? 100. : -100., 100., 6.};

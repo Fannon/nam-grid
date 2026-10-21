@@ -127,7 +127,8 @@ add_test(NAME stages COMMAND nam-stage-tests "${CMAKE_SOURCE_DIR}")
 if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
   add_executable(nam-clap-smoke ../tests/clap_smoke.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
   add_executable(nam-clap-bench ../tests/clap_bench.cpp)
-  foreach(test_target nam-clap-smoke nam-clap-bench)
+  add_executable(nam-fx-audition ../tests/fx_audition.cpp)
+  foreach(test_target nam-clap-smoke nam-clap-bench nam-fx-audition)
     target_include_directories(${test_target} PRIVATE ${CLAP_SDK_DIR}/include
       ../NeuralAmpModelerCore/Dependencies/nlohmann)
     target_compile_features(${test_target} PRIVATE cxx_std_20)
@@ -170,8 +171,8 @@ foreach(format IN LISTS NAM_FORMATS)
 endforeach()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
-  # Full-rig recall, native file dialogs and menu coverage prepare many models;
+  # Full-rig recall, every catalog FX control, dialogs and menus prepare many models;
   # Windows shell/file-dialog initialization can also be slow on CI hosts.
-  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 420)
+  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 900)
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)

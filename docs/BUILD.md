@@ -34,9 +34,11 @@ and add `-G Ninja` to the configure command. Local verification used MSVC 19.44,
 Windows SDK 10.0.26100, CMake 4.4.4, Ninja 1.13.2 and Release optimization.
 The optional portable toolchain used in this workspace is outside this repository.
 
-The setup script applies the two MIT Core allocation fixes and the AudioDSPTools WAV
-decoder safety/polarity and resampler warm-up patches from `patches/`. Core remains pinned to `9c7b185`,
-AudioDSPTools to `e19ef4b`; both submodules are intentionally modified after setup. The patch files are the reproducible source of these changes. Do not reset
+The setup script applies the two MIT Core allocation fixes, the AudioDSPTools WAV
+decoder safety/polarity and resampler warm-up fixes, and the iPlug2 CLAP enum-metadata
+fix from `patches/`. Core remains pinned to `9c7b185`,
+AudioDSPTools to `e19ef4b`; these and iPlug2 are intentionally modified after setup.
+The patch files are the reproducible source of these changes. Do not reset
 those submodules after setup without applying the patches again. Setup checks whether each
 patch is already applied, and refuses patches that cannot be applied cleanly.
 

@@ -91,18 +91,16 @@ void TestDSPReviewFixes()
     const auto unloaded = empty.TakeMeter();
     assert(unloaded.input == 0.f && unloaded.output == 0.f && unloaded.reduction == 0.f);
 
-    // Check the actual reserved read range, rather than just finite reverb output.
-    SlotReverb reverb;
-    reverb.Reset(rate);
-    for (bool rightChannel : {false, true})
+    // Exercise actual resize reads at both ends of the supported range.
+    for (auto effect : {SlotEffect::RoomReverb, SlotEffect::PlateReverb, SlotEffect::CloudReverb, SlotEffect::HallReverb})
     {
-      for (double seconds : SlotReverb::kDiffusionSeconds)
-        assert(reverb.DiffuserMaxDelay() >= rate * seconds * SlotReverb::kMaximumSize * (rightChannel ? SlotReverb::kRightScale : 1.));
-      for (auto effect : {SlotEffect::PlateReverb, SlotEffect::CloudReverb, SlotEffect::HallReverb})
+      SlotReverb reverb; reverb.Reset(rate, effect);
+      for (double size : {25., 200.})
       {
-        UtilityControls c; c.reverb[1] = 300.; c.reverb[4] = 100.;
-        left.fill(0.); left[0] = 1.;
-        reverb.Process(left.data(), 127, effect, c, rightChannel);
+        UtilityControls c; c.reverb[1] = size; c.reverb[4] = 100.; c.reverbMotion = 100.;
+        left.fill(0.); right.fill(0.); left[0] = 1.;
+        reverb.Process(left.data(), right.data(), 127, c);
+        assert(reverb.ReadsFit());
         for (double sample : left) assert(std::isfinite(sample));
       }
     }

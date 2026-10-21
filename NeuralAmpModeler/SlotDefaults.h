@@ -47,6 +47,10 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       delay(320., 35., 3500., 35., 10., 22.); break;
     case SlotEffect::TapeDelay:
       delay(375., 35., 4500., 30., 20., 22.); break;
+    case SlotEffect::MultiHeadDelay:
+      delay(500., 30., 5000., 25., 12., 25.); set(uTapeHeads, 1.); break;
+    case SlotEffect::DiffusedDelay:
+      delay(450., 45., 6500., 0., 15., 25.); set(uDelayDiffusion, 60.); break;
     case SlotEffect::ReverseDelay:
       delay(500., 0., 6000., 0., 0., 30.); break;
     case SlotEffect::DualDelay:
@@ -54,11 +58,11 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::RoomReverb:
       reverb(.8, 80., 6500., 8., 10., 12., 120.); break;
     case SlotEffect::PlateReverb:
-      reverb(2.4, 140., 6500., 20., 15., 18., 120.); break;
+      reverb(2.4, 100., 6500., 20., 15., 18., 120.); break;
     case SlotEffect::CloudReverb:
-      reverb(6., 200., 5000., 30., 40., 30., 150.); break;
+      reverb(6., 150., 5000., 30., 40., 30., 150.); break;
     case SlotEffect::HallReverb:
-      reverb(3.2, 160., 6000., 25., 20., 22., 120.); break;
+      reverb(3.2, 120., 6000., 25., 20., 22., 120.); break;
     case SlotEffect::SpringReverb:
       set(uReverbTone, 5000.); set(uSpringMix, 18.); break;
     case SlotEffect::ShimmerReverb:
@@ -102,7 +106,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::NAM: case SlotEffect::CabinetIR: case SlotEffect::ToneEQ:
     case SlotEffect::ParametricEQ: case SlotEffect::Wah: case SlotEffect::Utility: case SlotEffect::Limiter:
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
-    case SlotEffect::NoisePrint: break;
+    case SlotEffect::NoisePrint: case SlotEffect::AirPlate: case SlotEffect::AirHall:
+    case SlotEffect::GalacticSpace: case SlotEffect::CosmicEcho: break;
   }
   return v;
 }

@@ -4,7 +4,7 @@
 template <class Load>
 void TestGlobalInputGain(const clap_plugin* plugin, json cleared, Load load)
 {
-  const auto render = [&](double gain, double output, bool tinyBlocks) {
+  const auto render = [&](double gain, double output, bool tinyBlocks, double scale = 1.) {
     auto config = cleared; config["Global Input"] = gain; config["Output"] = output;
     load(config);
     assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
@@ -20,7 +20,7 @@ void TestGlobalInputGain(const clap_plugin* plugin, json cleared, Load load)
     for (int pos = 0, block = 0; pos < 4096;)
     {
       const int n = std::min(4096 - pos, tinyBlocks ? std::array<int, 4>{1, 3, 64, 127}[block++ % 4] : 512);
-      for (int i = 0; i < n; ++i) { left[i] = .2 * std::sin((pos + i) * .13); right[i] = -.1 * std::cos((pos + i) * .07); }
+      for (int i = 0; i < n; ++i) { left[i] = scale * .2 * std::sin((pos + i) * .13); right[i] = scale * -.1 * std::cos((pos + i) * .07); }
       process.frames_count = n;
       assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
       rendered[0].insert(rendered[0].end(), outLeft.begin(), outLeft.begin() + n);
@@ -34,4 +34,11 @@ void TestGlobalInputGain(const clap_plugin* plugin, json cleared, Load load)
   const double attenuation = std::pow(10., -18. / 20.);
   for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < 4096; ++i)
     assert(std::abs(quiet[ch][i] - reference[ch][i] * attenuation) < 1.e-10);
+  // The plugin output remains floating point: hot internal levels are neither
+  // silently limited nor attenuated when the final OUT gain is zero dB.
+  const auto hot = render(0., 0., true, 8.);
+  double peak=0.;
+  for (int ch=0; ch<2; ++ch) for (int i=0; i<4096; ++i)
+  { assert(std::abs(hot[ch][i]-8.*reference[ch][i])<1.e-10); peak=std::max(peak,std::abs(hot[ch][i])); }
+  assert(peak>1.5);
 }

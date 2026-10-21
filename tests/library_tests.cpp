@@ -8,6 +8,7 @@
 #include <iostream>
 #include "json.hpp"
 #include "RigPresetTests.h"
+#include "EffectPresentationTests.h"
 
 using namespace nam_library;
 using Menu = iplug::igraphics::IPopupMenu;
@@ -36,6 +37,7 @@ int main(int argc, char** argv)
   const auto root = std::filesystem::current_path() / "library-fixtures";
   std::filesystem::create_directories(root);
   TestRigPresetFiles(root);
+  TestEffectPresentation();
   for (const auto& group : kModuleGroups)
     for (size_t i = 0; i < group.effects.size(); ++i)
     {
@@ -167,7 +169,7 @@ int main(int argc, char** argv)
         for (const char* label : {"Clear slot", "Choose .nam file...", "Choose cabinet IR (.wav)..."})
           assert(std::string(menu.GetItemText(index++)) == label);
         assert(menu.GetItem(index++)->GetIsSeparator());
-        std::array<int, static_cast<int>(SlotEffect::HallReverb) + 1> seen{};
+        std::array<int, static_cast<int>(SlotEffect::Last) + 1> seen{};
         for (const char* label : {"Distortion", "Dynamics", "EQ / Filter", "Modulation", "Pitch / Frequency",
                                   "Delay", "Reverb", "Creative", "Utility / Volume"})
         {
@@ -188,7 +190,7 @@ int main(int argc, char** argv)
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
           }
         }
-        for (int i = 1; i <= static_cast<int>(SlotEffect::HallReverb); ++i)
+        for (int i = 1; i <= static_cast<int>(SlotEffect::Last); ++i)
           assert(
             seen[i]
             == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR)

@@ -16,8 +16,9 @@ inline const ModuleGroup kModuleGroups[]{
   {"EQ / Filter", {E::ToneEQ, E::CutEQ, E::ParametricEQ, E::SynthFilter, E::Wah}},
   {"Modulation", {E::Chorus, E::JunoChorus, E::Flanger, E::Phaser, E::Tremolo, E::Vibrato, E::Rotary, E::UniVibe, E::RingMod}},
   {"Pitch / Frequency", {E::Octaver, E::Doubler, E::FrequencyShifter}},
-  {"Delay", {E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::ReverseDelay, E::DualDelay}},
-  {"Reverb", {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::HallReverb, E::SpringReverb, E::ShimmerReverb}},
+  {"Delay", {E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay, E::ReverseDelay, E::DualDelay, E::DiffusedDelay}},
+  {"Reverb", {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::HallReverb, E::SpringReverb, E::ShimmerReverb,
+               E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho}},
   {"Creative", {E::Freeze, E::Stutter, E::LoFiTape}},
   {"Utility / Volume", {E::Utility, E::AutoSwell}}
 };

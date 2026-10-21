@@ -1,5 +1,9 @@
 #pragma once
 #include <array>
+#include <span>
+#include <utility>
+#include "EffectModes.h"
+#include "TempoSync.h"
 #include "SlotDynamics.h"
 #include "NoisePrint.h"
 
@@ -94,13 +98,27 @@ enum UtilityParam
   uGateMode,
   uFilterMode,
   uLoFiSpeed, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiMix, uLoFiOutput,
+  uTapeHeads, uDelayDiffusion,
+  uAirPlateInput, uAirPlateSustain, uAirPlateResolution, uAirPlatePredelay, uAirPlateMix, uAirPlateLowCut, uAirPlateOutput,
+  uAirHallSustain, uAirHallResolution, uAirHallTone, uAirHallEarly, uAirHallPosition, uAirHallMix, uAirHallOutput,
+  uSpaceReplace, uSpaceBrightness, uSpaceDetune, uSpaceSize, uSpaceResolution, uSpaceMix, uSpaceOutput,
+  uCosmicTime, uCosmicWarp, uCosmicFeedback, uCosmicDensity, uCosmicTone, uCosmicMotion, uCosmicMix, uCosmicStyle,
   kUtilityControls
 };
-// Freeze schema 16's parameter stride; new controls receive IDs after its entire
-// parameter bank, preserving existing host automation as well as named state.
-inline constexpr int kSchema16UtilityControls = 135;
-inline constexpr int kLoFiControls = 7;
-static_assert(uLoFiSpeed == kSchema16UtilityControls, "Append new controls after the frozen schema-16 bank");
+inline constexpr std::span<const char* const> EffectChoices(int control)
+{
+  switch (control)
+  {
+    case uTempoDivision: return grid_tempo::names;
+    case uJunoMode: return effect_modes::junoNames;
+    case uDistStyle: return effect_modes::distortionNames;
+    case uGateMode: return effect_modes::gateNames;
+    case uFilterMode: return effect_modes::filterNames;
+    case uTapeHeads: return effect_modes::tapeHeadNames;
+    case uCosmicStyle: return effect_modes::cosmicNames;
+    default: return {};
+  }
+}
 struct EffectParameter
 {
   const char* name;
@@ -109,7 +127,14 @@ struct EffectParameter
   const char* unit;
   int position;
   bool exponential = false;
+  double power = 1.;
 };
+// Read presets/scenes from the preceding audition builds after clarifying
+// frequency-cutoff names. The controls and values themselves are unchanged.
+inline constexpr std::array<std::pair<int, const char*>, 8> kPreviousCutoffNames{{
+  {uDelayTone,"Delay Tone"}, {uOctTone,"Octaver Tone"}, {uFreezeTone,"Freeze Tone"},
+  {uCrushTone,"Crusher Tone"}, {uRingTone,"Ring Tone"}, {uShiftTone,"Shifter Tone"},
+  {uDistTone,"Distortion Tone"}, {uCosmicTone,"Cosmic Tone"}}};
 inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters{
   {{"Parametric Frequency", "Frequency", 800, 20, 20000, 1, "Hz", 0, true},
    {"Parametric Gain", "Gain", 0, -12, 12, .1, "dB", 1},
@@ -122,15 +147,15 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Swell Rise", "Rise", 250, 10, 2000, 1, "ms", 0, true},
    {"Swell Threshold", "Threshold", -42, -72, -12, .1, "dB", 1},
    {"Swell Release", "Release", 120, 20, 800, 1, "ms", 2, true},
-   {"Delay Time", "Time", 350, 20, 1500, 1, "ms", 0, true},
+   {"Delay Time", "Time", 350, 5, 4000, 1, "ms", 0, false, 2.},
    {"Delay Feedback", "Feedback", 35, 0, 82, .1, "%", 1},
-   {"Delay Tone", "Tone", 5000, 800, 12000, 1, "Hz", 2, true},
+   {"Delay High Cut", "High cut", 5000, 800, 12000, 1, "Hz", 2, true},
    {"Delay Character", "Character", 20, 0, 100, .1, "%", 3},
    {"Delay Mix", "Mix", 25, 0, 100, .1, "%", 5},
-   {"Reverb Decay", "Decay", 2, .25, 20, .01, "s", 0, true},
-   {"Reverb Size", "Size", 100, 50, 300, .1, "%", 1},
+   {"Reverb Decay", "Decay", 2, .15, 30, .01, "s", 0, true},
+   {"Reverb Size", "Size", 100, 25, 200, .1, "%", 1},
    {"Reverb Tone", "Damping", 5500, 800, 12000, 1, "Hz", 2, true},
-   {"Reverb Predelay", "Pre-delay", 15, 0, 100, .1, "ms", 3},
+   {"Reverb Predelay", "Pre-delay", 15, 0, 200, .1, "ms", 3},
    {"Reverb Mix", "Mix", 20, 0, 100, .1, "%", 6},
    {"Mod Rate", "Rate", .8, .05, 10, .01, "Hz", 0, true},
    {"Mod Depth", "Depth", 50, 0, 100, .1, "%", 1},
@@ -148,15 +173,15 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Reverb Modulation", "Modulation", 25, 0, 100, .1, "%", 4},
    {"Reverb High Pass", "Low cut", 80, 0, 500, 1, "Hz", 5},
    {"Tube Drive", "Drive", 6, 0, 24, .1, "dB", 0},
-   {"Tube Bias", "Bias", 25, 0, 100, .1, "%", 3},
+   {"Tube Asymmetry", "Asymmetry", 25, 0, 100, .1, "%", 3},
    {"Tube Mix", "Mix", 100, 0, 100, .1, "%", 4},
    {"Tube Output", "Output", 0, -18, 18, .1, "dB", 5},
    {"Punch Attack", "Attack", 25, .5, 50, .1, "ms", 3, true},
    {"Tempo Sync", "Sync", 0, 0, 1, 1, "", 5},
    {"Tempo Division", "Division", 5, 0, 9, 1, "", 0},
-   {"Utility Level", "Level", 0, -60, 12, .1, "dB", 0},
+   {"Utility Output", "Output", 0, -60, 12, .1, "dB", 0},
    {"Utility Balance", "L/R balance", 0, -100, 100, .1, "%", 1},
-   {"Utility Stereo", "Stereo", 0, -100, 100, .1, "%", 2},
+   {"Utility Width", "Width", 0, -100, 100, .1, "%", 2},
    {"Utility Invert L", "Invert L", 0, 0, 1, 1, "", 3},
    {"Utility Invert R", "Invert R", 0, 0, 1, 1, "", 4},
    {"Delay Ping Pong", "Ping-pong", 0, 0, 1, 1, "", 4},
@@ -169,14 +194,14 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Spring Output", "Output", 0, -12, 12, .1, "dB", 6},
    {"Wah Position", "Position", 50, 0, 100, .1, "%", 0},
    {"Wah Resonance", "Resonance", 3, 1, 6, .01, "Q", 1},
-   {"Wah Range", "Range", 50, 0, 100, .1, "%", 2},
+   {"Wah Register", "Register", 50, 0, 100, .1, "%", 2},
    {"Wah Mix", "Mix", 100, 0, 100, .1, "%", 3},
    {"Wah Output", "Output", 0, -12, 12, .1, "dB", 4},
    {"Utility Delay", "Fine delay", 0, 0, 20, .01, "ms", 5},
    {"Rotary Slow", "Slow speed", .8, .1, 2, .01, "Hz", 0},
    {"Rotary Fast", "Fast speed", 6, 2, 10, .01, "Hz", 1},
    {"Rotary Speed", "Fast", 0, 0, 1, 1, "", 2},
-   {"Rotary Acceleration", "Acceleration", 1, .1, 5, .01, "s", 3},
+   {"Rotary Ramp Time", "Ramp time", 1, .1, 5, .01, "s", 3},
    {"Rotary Drive", "Drive", 3, 0, 18, .1, "dB", 4},
    {"Rotary Spread", "Spread", 80, 0, 100, .1, "%", 5},
    {"Rotary Mix", "Mix", 75, 0, 100, .1, "%", 6},
@@ -184,9 +209,9 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Limiter Ceiling", "Ceiling", -1, -24, 0, .1, "dB", 0},
    {"Limiter Release", "Release", 75, 10, 500, 1, "ms", 1, true},
    {"Octaver Dry", "Dry", 100, 0, 100, .1, "%", 0},
-   {"Octaver Sub", "Octave down", 50, 0, 100, .1, "%", 1},
-   {"Octaver Sub Two", "Two octaves", 0, 0, 100, .1, "%", 2},
-   {"Octaver Tone", "Tone", 1000, 80, 5000, 1, "Hz", 3, true},
+   {"Octaver 1 Oct Down", "1 oct down", 50, 0, 100, .1, "%", 1},
+   {"Octaver 2 Oct Down", "2 oct down", 0, 0, 100, .1, "%", 2},
+   {"Octaver High Cut", "High cut", 1000, 80, 5000, 1, "Hz", 3, true},
    {"Octaver Output", "Output", 0, -24, 6, .1, "dB", 4},
    {"Doubler Detune", "Detune", 9, 1, 25, .1, "cents", 0},
    {"Doubler Delay", "Delay", 12, 1, 30, .1, "ms", 1},
@@ -195,21 +220,21 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Doubler Output", "Output", 0, -24, 6, .1, "dB", 4},
    {"Freeze Hold", "Hold", 0, 0, 1, 1, "", 0},
    {"Freeze Window", "Capture", 500, 50, 2000, 1, "ms", 1, true},
-   {"Freeze Fade", "Fade", 20, 1, 100, .1, "ms", 2},
-   {"Freeze Tone", "Tone", 6000, 200, 16000, 1, "Hz", 3, true},
+   {"Freeze Crossfade", "Crossfade", 20, 1, 100, .1, "ms", 2},
+   {"Freeze High Cut", "High cut", 6000, 200, 16000, 1, "Hz", 3, true},
    {"Freeze Level", "Held level", 35, 0, 100, .1, "%", 4},
    {"Stutter Time", "Window", 125, 10, 1000, 1, "ms", 0, true},
-   {"Stutter Duty", "Gate", 75, 5, 100, .1, "%", 1},
-   {"Stutter Fade", "Fade", 5, .1, 20, .1, "ms", 2},
+   {"Stutter Gate Length", "Gate length", 75, 5, 100, .1, "%", 1},
+   {"Stutter Edge Fade", "Edge fade", 5, .1, 20, .1, "ms", 2},
    {"Stutter Mix", "Mix", 50, 0, 100, .1, "%", 3},
    {"Crusher Bits", "Bits", 8, 2, 16, 1, "bits", 0},
    {"Crusher Rate", "Sample rate", 12000, 100, 48000, 1, "Hz", 1, true},
-   {"Crusher Tone", "Tone", 8000, 200, 20000, 1, "Hz", 2, true},
+   {"Crusher High Cut", "High cut", 8000, 200, 20000, 1, "Hz", 2, true},
    {"Crusher Mix", "Mix", 100, 0, 100, .1, "%", 3},
    {"Crusher Output", "Output", 0, -24, 6, .1, "dB", 4},
    {"Ring Frequency", "Frequency", 440, 1, 5000, .1, "Hz", 0, true},
    {"Ring Depth", "Depth", 100, 0, 100, .1, "%", 1},
-   {"Ring Tone", "Tone", 12000, 200, 20000, 1, "Hz", 2, true},
+   {"Ring High Cut", "High cut", 12000, 200, 20000, 1, "Hz", 2, true},
    {"Ring Mix", "Mix", 50, 0, 100, .1, "%", 3},
    {"Dual Delay Ratio", "Time ratio", 1.5, .25, 2, .01, "x", 3},
    {"Dual Delay Balance", "Tap balance", 50, 0, 100, .1, "%", 4},
@@ -219,7 +244,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Juno Brightness", "Brightness", 100, 0, 100, .1, "%", 2},
    {"Shimmer Mix", "Mix", 35, 0, 100, .1, "%", 0},
    {"Shimmer Decay", "Decay", 3.5, .5, 20, .01, "s", 1, true},
-   {"Shimmer Tone", "Tone", 5000, 800, 12000, 1, "Hz", 2, true},
+   {"Shimmer Damping", "Damping", 5000, 800, 12000, 1, "Hz", 2, true},
    {"Shimmer Pitch", "Pitch", 12, -24, 24, 1, "st", 3},
    {"Shimmer Amount", "Amount", 35, 0, 100, .1, "%", 4},
    {"Shimmer Mod", "Modulation", 25, 0, 100, .1, "%", 5},
@@ -227,13 +252,13 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Shifter Frequency", "Shift", 0, -2000, 2000, 1, "Hz", 0},
    {"Shifter Feedback", "Feedback", 35, 0, 100, .1, "%", 1},
    {"Shifter Delay", "Delay", 120, .05, 1000, .01, "ms", 2, true},
-   {"Shifter Side", "Side", 100, -100, 100, .1, "%", 3},
-   {"Shifter Tone", "Tone", 8000, 200, 12000, 1, "Hz", 4, true},
-   {"Shifter Stereo", "Stereo", 0, 0, 100, .1, "%", 5},
+   {"Shifter Sideband", "Sideband", 100, -100, 100, .1, "%", 3},
+   {"Shifter High Cut", "High cut", 8000, 200, 12000, 1, "Hz", 4, true},
+   {"Shifter Spread", "Spread", 0, 0, 100, .1, "%", 5},
    {"Shifter Mix", "Mix", 50, 0, 100, .1, "%", 6},
-   {"Distortion Style", "Style", 0, 0, 3, 1, "", 0},
+   {"Distortion Style", "Style", 0, 0, effect_modes::distortionCount - 1, 1, "", 0},
    {"Distortion Drive", "Drive", 12, 0, 36, .1, "dB", 1},
-   {"Distortion Tone", "Tone", 8000, 200, 12000, 1, "Hz", 2, true},
+   {"Distortion High Cut", "High cut", 8000, 200, 12000, 1, "Hz", 2, true},
    {"Distortion Bias", "Bias", 0, -100, 100, .1, "%", 3},
    {"Distortion Mix", "Mix", 100, 0, 100, .1, "%", 4},
    {"Distortion Output", "Output", -6, -24, 6, .1, "dB", 5},
@@ -252,11 +277,47 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"LoFi Noise", "Noise", 20, 0, 100, .1, "%", 3},
    {"LoFi Wear", "Wear", 25, 0, 100, .1, "%", 4},
    {"LoFi Mix", "Mix", 100, 0, 100, .1, "%", 5},
-   {"LoFi Output", "Output", 0, -24, 6, .1, "dB", 6}}};
+   {"LoFi Output", "Output", 0, -24, 6, .1, "dB", 6},
+   {"Tape Heads", "Heads", 1, 0, 7, 1, "", 3},
+   {"Delay Diffusion", "Diffusion", 50, 0, 100, .1, "%", 3},
+   {"Air Plate Input", "Input", 0, -18, 0, .1, "dB", 0},
+   {"Air Plate Sustain", "Sustain", 50, 0, 100, .1, "%", 1},
+   {"Air Plate Resolution", "Resolution", 100, 25, 100, .1, "%", 2},
+   {"Air Plate Pre-delay", "Pre-delay", 15, 0, 200, .1, "ms", 3},
+   {"Air Plate Mix", "Mix", 18, 0, 100, .1, "%", 4},
+   {"Air Plate Low Cut", "Low cut", 100, 0, 500, 1, "Hz", 5},
+   {"Air Plate Output", "Output", 0, -18, 6, .1, "dB", 6},
+   {"Air Hall Sustain", "Sustain", 50, 0, 95, .1, "%", 0},
+   {"Air Hall Resolution", "Resolution", 100, 25, 100, .1, "%", 1},
+   {"Air Hall Brightness", "Brightness", 50, 0, 100, .1, "%", 2},
+   {"Air Hall Early Level", "Early level", 50, 0, 100, .1, "%", 3},
+   {"Air Hall Position", "Position", 50, 0, 100, 1, "%", 4},
+   {"Air Hall Mix", "Mix", 20, 0, 100, .1, "%", 5},
+   {"Air Hall Output", "Output", 0, -18, 6, .1, "dB", 6},
+   {"Space Replace", "Replace", 50, 5, 100, .1, "%", 0},
+   {"Space Brightness", "Brightness", 50, 5, 100, .1, "%", 1},
+   {"Space Detune", "Detune", 35, 0, 100, .1, "%", 2},
+   {"Space Size", "Size", 60, 5, 100, .1, "%", 3},
+   {"Space Resolution", "Resolution", 100, 25, 100, .1, "%", 4},
+   {"Space Mix", "Mix", 25, 0, 100, .1, "%", 5},
+   {"Space Output", "Output", 0, -18, 6, .1, "dB", 6},
+   {"Cosmic Time", "Time", 500, 20, 8000, 1, "ms", 0, false, 2.},
+   {"Cosmic Warp", "Warp", 65, 0, 100, .1, "%", 1},
+   {"Cosmic Feedback", "Feedback", 65, 0, 98, .1, "%", 2},
+   {"Cosmic Density", "Density", 80, 0, 100, .1, "%", 3},
+   {"Cosmic High Cut", "High cut", 6000, 200, 16000, 1, "Hz", 4, true},
+   {"Cosmic Motion", "Motion", 25, 0, 100, .1, "%", 5},
+   {"Cosmic Mix", "Mix", 25, 0, 100, .1, "%", 6},
+   {"Cosmic Style", "Style", 0, 0, 2, 1, "", 0}}};
 static_assert([] {
-  for (const auto& p : kEffectParameters)
+  for (int i = 0; i < kUtilityControls; ++i)
+  {
+    const auto& p = kEffectParameters[i];
     if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum
-        || p.step <= 0. || p.position < 0 || p.position >= 7) return false;
+        || p.step <= 0. || p.power <= 0. || p.position < 0 || p.position >= 7) return false;
+    const auto choices = EffectChoices(i);
+    if (!choices.empty() && (p.minimum != 0. || p.maximum != choices.size() - 1 || p.step != 1.)) return false;
+  }
   return true;
 }(), "Every utility parameter needs a valid descriptor and one of the seven editor positions");
 inline bool IsDelay(SlotEffect e)
@@ -264,7 +325,7 @@ inline bool IsDelay(SlotEffect e)
   switch (e)
   {
     case SlotEffect::DigitalDelay: case SlotEffect::AnalogDelay: case SlotEffect::TapeDelay:
-    case SlotEffect::ReverseDelay: case SlotEffect::DualDelay: return true;
+    case SlotEffect::ReverseDelay: case SlotEffect::DualDelay: case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: return true;
     default: return false;
   }
 }
@@ -273,7 +334,8 @@ inline bool IsReverb(SlotEffect e)
   switch (e)
   {
     case SlotEffect::RoomReverb: case SlotEffect::PlateReverb:
-    case SlotEffect::CloudReverb: case SlotEffect::HallReverb: case SlotEffect::SpringReverb: return true;
+    case SlotEffect::CloudReverb: case SlotEffect::HallReverb: case SlotEffect::SpringReverb:
+    case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace: return true;
     default: return false;
   }
 }
@@ -297,12 +359,23 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::Freeze: case SlotEffect::Stutter: case SlotEffect::ShimmerReverb:
     case SlotEffect::JunoChorus:
     case SlotEffect::FrequencyShifter:
-    case SlotEffect::NoisePrint: case SlotEffect::LoFiTape: return true;
+    case SlotEffect::NoisePrint: case SlotEffect::LoFiTape:
+    case SlotEffect::RoomReverb: case SlotEffect::PlateReverb: case SlotEffect::CloudReverb: case SlotEffect::HallReverb:
+    case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
+    case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::CosmicEcho) return p >= uCosmicTime && p <= uCosmicStyle;
+  if (e == SlotEffect::AirPlate) return p >= uAirPlateInput && p <= uAirPlateOutput;
+  if (e == SlotEffect::AirHall) return p >= uAirHallSustain && p <= uAirHallOutput;
+  if (e == SlotEffect::GalacticSpace) return p >= uSpaceReplace && p <= uSpaceOutput;
+  if (e == SlotEffect::MultiHeadDelay)
+    return (p >= uDelayTime && p <= uDelayMix) || p == uDelayMotion || p == uTapeHeads || p == uDelayOutput;
+  if (e == SlotEffect::DiffusedDelay)
+    return (p >= uDelayTime && p <= uDelayTone) || p == uDelayDiffusion || p == uDelayMotion || p == uDelayMix || p == uDelayOutput;
   if (e == SlotEffect::LoFiTape) return p >= uLoFiSpeed && p <= uLoFiOutput;
   if (e == SlotEffect::NaturalGate || e == SlotEffect::TightGate) return p == uGateMode;
   if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
@@ -388,4 +461,11 @@ struct UtilityControls
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
   noise_print::Controls noise;
   std::array<double, 7> lofi{7.5, 25., 20., 20., 25., 100., 0.};
+  int tapeHeads = 1;
+  double delayDiffusion = 50.;
+  std::array<double, 7> airPlate{0., 50., 100., 15., 18., 100., 0.};
+  std::array<double, 7> airHall{50., 100., 50., 50., 50., 20., 0.};
+  std::array<double, 7> space{50., 50., 35., 60., 100., 25., 0.};
+  std::array<double, 7> cosmic{500., 65., 65., 80., 6000., 25., 25.};
+  int cosmicStyle = 0;
 };

@@ -121,6 +121,11 @@ public:
         case 4: u.delay[4] = std::clamp(u.delay[4] + amount * 100., 0., 100.); break;
         case 5:
           u.reverb[4] = std::clamp(u.reverb[4] + amount * 100., 0., 100.);
+          u.airPlate[4] = std::clamp(u.airPlate[4] + amount * 100., 0., 100.);
+          u.airHall[5] = std::clamp(u.airHall[5] + amount * 100., 0., 100.);
+          u.space[5] = std::clamp(u.space[5] + amount * 100., 0., 100.);
+          u.cosmic[6] = std::clamp(u.cosmic[6] + amount * 100., 0., 100.);
+          u.shimmer[0] = std::clamp(u.shimmer[0] + amount * 100., 0., 100.);
           u.spring[3] = std::clamp(u.spring[3] + amount * 100., 0., 100.); break;
         case 6: c.trimDB = std::clamp(c.trimDB + amount * 24., -40., 40.); break;
         case 7: blend = std::clamp(blend + amount, 0., 1.); break;

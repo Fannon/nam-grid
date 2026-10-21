@@ -22,10 +22,13 @@ a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to s
 shows the current mode. The module menu also offers A2 Lite. IR uses Level;
 see [MODULES.md](MODULES.md) for other controls.
 Every loaded module offers a mini display: signal history versus threshold and
-numeric GR for dynamics, echo timing for standard delays, vector category icons
-for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
+numeric GR for dynamics, relative echo timing/treble sketches for standard and Dual delays,
+live input/output level history for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
 the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
-history for other effects and IRs. Modulation modules show their settings: Chorus/Juno/Vibrato
+history for other effects and IRs. Distortion also shows its separate tone/mix/output response.
+Capture modules show window, overlap and gate timing; Octaver shows layer levels,
+Doubler its detuned voices, Frequency Shifter its fixed-Hz sidebands, and Utility its mid/side routing.
+Modulation modules show their settings: Chorus/Juno/Vibrato
 delay voices, Phaser/Flanger response sweeps, Tremolo gain shape, Vibe stage sweeps,
 Rotary horn/drum motion and Ring Mod's carrier. Time-based previews label their time window;
 they describe the configured modulation rather than claiming to follow a live audio LFO phase.
@@ -148,10 +151,14 @@ input, and displays no stale result after audio stops.
 
 Delays/modulation show a Tempo sync switch in the module-selection strip. When enabled,
 Division replaces Time/Rate in bottom position one; manual values remain stored.
-The eight bottom positions stay fixed. Utility uses Level, L/R balance, Stereo, Invert L,
-Invert R, two blank positions and Enabled. Utility has the neutral gray category color.
+The eight bottom positions stay fixed. Utility uses Output, L/R balance, Width, Invert L,
+Invert R, Fine delay, one blank position and Enabled. Utility has the neutral gray category color.
 
-Delay Ping-pong and reverb Stereo wet switches sit beside Tempo sync in the module
+Standard/Dual Delay Ping-pong and reverb Stereo wet switches sit beside Tempo sync in the module
 strip. Chorus Spread uses position six. Spring and Wah appear under Reverb and
 Filter / Volume respectively, with six/five knobs and unused bottom cells blank.
-Utility Stereo is −100 mono / 0 unchanged / +100 wider; the prior Width scale is migrated.
+Utility Width is −100 mono / 0 unchanged / +100 wider; its host/state name is
+also Width. Unique control names now agree across the editor and host.
+Each selected module has a short sound explanation beneath its title. Hover its
+controls for audible-effect guidance. Labels, conditional controls and parameter
+sketches are detailed in [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md).

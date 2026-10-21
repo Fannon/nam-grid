@@ -132,8 +132,12 @@ Integrated against `c3330b7`, retaining its category design, Distortion/HQ effec
 rig presets and performance controls. Noise Gate (Smart) appears once under **Dynamics**;
 NAM captures and cabinet IR libraries retain their separate submenus.
 
-The normal plugin now has **2,602 parameters**, including 142 utility controls per
-slot, and state schema **18**. Schema 18 adds capture/IR content identities and Hall reverb; schema 17 adds LoFi Tape Machine.
+The normal plugin now has **3,098 parameters**, including 173 utility controls per
+slot, and state schema **21**. Schema 20 adds reverb/delay audition controls; schema 21 adds Cosmic Echo.
+Schema 19 consolidates FX parameter banks, aligns
+unique host/editor names and adds Diode/Rectify distortion styles. Prototype
+automation mappings are not frozen. Schema 18 adds capture/IR content identities
+and Hall reverb; schema 17 adds LoFi Tape Machine.
 Schema 16 adds the standalone Filter mode. Schema 14 introduced learned profiles; schema 15
 adds the standalone Noise Gate mode. Its former Natural/Tight module IDs remain
 readable, with the latter recalled in Tight mode. Noise Gate (Smart) keeps module ID 64 and profile format

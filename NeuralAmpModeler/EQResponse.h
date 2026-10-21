@@ -18,6 +18,26 @@ public:
   }
 };
 
+class Boost
+{
+public:
+  Boost(double rate, double gain, double tilt, double lowCut) : mRate(rate),mGain(std::pow(10.,gain*.05)),mCut(lowCut>0.)
+  {
+    using Params=recursive_linear_filter::BiquadParams;
+    mLow.SetParams(Params(rate,std::min(800.,.4*rate),.707,-tilt));
+    mHigh.SetParams(Params(rate,std::min(800.,.4*rate),.707,tilt));
+    mHP.SetParams(Params(rate,std::max(1.,lowCut),.7071067811865476,0.));
+  }
+  std::complex<double> At(double frequency) const
+  { return mGain*mLow.At(frequency,mRate)*mHigh.At(frequency,mRate)*(mCut ? mHP.At(frequency,mRate) : std::complex<double>(1.,0.)); }
+private:
+  double mRate,mGain;
+  bool mCut;
+  Biquad<recursive_linear_filter::LowShelf> mLow;
+  Biquad<recursive_linear_filter::HighShelf> mHigh;
+  Biquad<CutCoefficients<true>> mHP;
+};
+
 class Response
 {
 public:

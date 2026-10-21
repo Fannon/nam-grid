@@ -10,25 +10,34 @@ independent processor history at the destination.
 optional final gate. Its seven controls and Enabled fill the eight-position editor.
 See [Noise Gate (Smart)](NOISE_PRINT.md) for learning, controls, measurements and limitations.
 
+See the [FX parameter audit](FX_PARAMETER_REVIEW.md) for control decisions, display meaning
+and Dual Delay cross-feedback mode.
+
 ## Modulation, delay and reverb
 
 | Module | Controls | Character |
 | --- | --- | --- |
-| Room | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Sparse early reflections, shorter feedback network |
-| Dense Plate | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Four input diffusers feed a dense network |
-| Cloud | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Diffused network with slow independent delay motion |
-| Hall | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Larger network with stronger diffusion, early reflections and gentle motion |
-| Shimmer | Mix, Decay, Tone, Pitch, Amount, Modulation, Freeze | Eight-line reverb with granular pitched feedback; positive Pitch climbs on each pass |
-| Digital Delay | Time, Feedback, Tone, Character, Mix, Output | Character ducks repeats beneath the pick |
-| Analog Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Character increases wear |
-| Tape Echo | Time, Feedback, Tone, Character, Modulation, Mix, Output | Filtered repeats, soft saturation, Modulation adds wow/flutter |
-| Chorus | Rate, Depth, Character, Mix | Fractional-delay chorus; Character darkens and adds asymmetric motion |
+| Room | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Multistage diffusion, early reflections and short Householder FDN |
+| Dense Plate | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Four input diffusers and a cross-coupled two-branch plate tank |
+| Cloud | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Rotating stereo allpass loop with slow delay motion |
+| Hall | Decay, Size, Damping, Pre-delay, Modulation, Low cut, Mix | Larger diffusion/Householder FDN with bass and treble decay shaping |
+| Airwindows Plate | Input, Sustain, Resolution, Pre-delay, Mix, Low cut, Output | Native kPlate140 audition port |
+| Airwindows Guitar Hall | Sustain, Resolution, Brightness, Early level, Position, Mix, Output | Native kGuitarHall2 audition port |
+| Galactic Space | Replace, Brightness, Detune, Size, Resolution, Mix, Output | Native Galactic3 ambient-pad audition port |
+| Cosmic Echo | Time, Warp, Feedback, Density, Tone, Motion, Mix; header Style | Faust-derived Smooth/Bloom/Sparse ambient echo/reverb; see [prototype notes](COSMIC_ECHO.md) |
+| Shimmer | Mix, Decay, Damping, Pitch, Amount, Modulation, Freeze | Eight-line reverb with granular pitched feedback; positive Pitch climbs on each pass |
+| Digital Delay | Time, Feedback, Tone, Ducking, Mix, Output | Ducking ducks repeats beneath the pick |
+| Analog Echo | Time, Feedback, Tone, Age, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Age increases wear |
+| Tape Echo | Time, Feedback, Tone, Saturation, Modulation, Mix, Output | Filtered repeats, soft saturation, Modulation adds wow/flutter |
+| Multi-head Tape | Time, Feedback, Tone, Saturation, Modulation, Mix, Output; header Heads | Four weighted tap patterns, last-head-only feedback |
+| Diffused Delay | Time, Feedback, Tone, Diffusion, Modulation, Mix, Output | Echoes smear into stereo reflection clusters |
+| Chorus | Rate, Depth, Texture, Mix | Fractional-delay chorus; Texture darkens and adds asymmetric motion |
 | Juno Chorus | Mode, Mix, Brightness | Dual-triangle-LFO BBD ensemble with I, I+II and II modes |
-| Flanger | Rate, Depth, Feedback, Character, Mix | Short swept comb; Character moves feedback from positive to negative |
-| Phaser | Rate, Depth, Feedback, Character, Mix | Six allpass stages; Character raises the sweep's center |
-| Auto Tremolo | Rate, Depth, Character, Mix | Rounded pulses; Character sharpens them and adds envelope-dependent speed |
-| Vibrato | Rate, Depth, Character | Fully wet pitch movement; Character adds drift and darkening |
-| Frequency Shifter | Shift, Feedback, Delay, Side, Tone, Stereo, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
+| Flanger | Rate, Depth, Feedback, Feedback sign, Mix | Short swept comb; Feedback sign moves feedback from positive to negative |
+| Phaser | Rate, Depth, Feedback, Sweep center, Mix | Six allpass stages; Sweep center raises the sweep's center |
+| Auto Tremolo | Rate, Depth, Pulse / feel, Mix | Rounded pulses; Pulse / feel sharpens them and adds envelope-dependent speed |
+| Vibrato | Rate, Depth, Texture | Fully wet pitch movement; Texture adds drift and darkening |
+| Frequency Shifter | Shift, Feedback, Delay, Sideband, Tone, Spread, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
 | LoFi Tape Machine | Speed, Wow, Flutter, Noise, Wear, Mix, Output | Tape transport motion, hiss, bandwidth loss and dropouts; separate from tape saturation |
 
 This set follows the core guitar categories in the official
@@ -47,7 +56,7 @@ the MIT Junologue project, not a circuit emulation. Frequency Shifter is a Bode-
 single-sideband shifter, not a pitch shifter; Shift moves every partial by the same
 number of hertz.
 
-Digital Delay has no modulation control; its Character ducks the repeats. Analog/Tape
+Digital Delay has no modulation control; its Ducking control lowers repeats beneath playing. Analog/Tape
 separate saturation character from modulation amount. Output adjusts the blended result.
 Reverb Low cut filters its input only on the wet path (0 = off); Modulation controls
 network motion. Neither changes the dry signal. Compressor Attack covers .5–50 ms;
@@ -59,7 +68,7 @@ the same division range applies to Stutter and synced modulation.
 Reverb decay is nominal RT60, .25–20 s;
 Size is 50–300%, damping 800–12000 Hz, pre-delay 0–100 ms. Plate and Cloud use
 larger spatial scaling; Hall expands it further. Damping and interpolation
-can shorten measured decay. Modulation rate is .05–10 Hz. Depth/Character/Mix
+can shorten measured decay. Modulation rate is .05–10 Hz. Depth/texture/Mix
 use percentages. Vibrato is always wet; the other effects can reach 100% wet for a
 parallel lane. Set lane blend fully toward the processed lane for serial auditioning.
 
@@ -67,7 +76,7 @@ Shimmer Decay is .5–20 s, Pitch is ±24 semitones, and Amount sets the pitched
 Freeze holds the tail and stops new input; bypassing the slot drains it like the other
 reverbs. Juno Chorus uses fixed 0.513/0.863 Hz triangle LFOs and a 1.66–5.35 ms delay;
 Brightness moves the pre/post filters. Frequency Shifter spans ±2000 Hz, .05–1000 ms
-delay and 0–100% feedback; Side selects lower sideband, ring modulation, or upper
+delay and 0–100% feedback; Sideband selects lower sideband, ring modulation, or upper
 sideband. Feedback is soft-saturated and bounded, and the shifter reports zero
 compensation latency.
 
@@ -83,34 +92,34 @@ Chorus Spread and stereo reverb generate spatial movement from a mono source.
 ## Tone, dynamics and utility
 
 The **Distortion** category contains Distortion, Boost, Tube Boost, Airwindows Tape
-and Bitcrusher. The general Distortion module offers **Soft**, **Hard**, **Fuzz**
-and **Foldback** styles, Drive (0–36 dB), Tone (200–12000 Hz), Bias (±100%), Mix and
+and Bitcrusher. The general Distortion module offers **Soft clip**, **Hard clip**,
+**Fuzz**, **Foldback**, **Diode** and **Rectify** styles, Drive (0–36 dB), Tone (200–12000 Hz), Bias (±100%), Mix and
 Output (-24 to +6 dB). Bias changes symmetry; a 5 Hz DC blocker removes the resulting
 offset. Style changes crossfade over 20 ms; continuous controls are also smoothed.
 Tone filters the wet signal, and Output follows the dry/wet blend. Stereo channels
 use independent histories. These are original waveshapers, not pedal emulations;
 there is no oversampling, so bright/high-drive styles can alias.
-Its mini display shows the static shaper before Tone/Mix/Output. Drive and Bias change the
-curve directly. The highlighted span and endpoint markers track the current mono input peak,
+Its mini display separates the static pre-tone shaper from the linear Tone/Mix/Output
+response. Drive and Bias change the shaper; Tone, Mix and Output change the second curve. The highlighted span and endpoint markers track the current mono input peak,
 showing which parts of the curve the signal reaches; this is a peak envelope, not an audio oscilloscope.
 Auto Swell Rise spans **10–2000 ms**.
 
 | Module | Controls | Character |
 | --- | --- | --- |
-| Noise Gate | Threshold, Release, Depth, Mode | Natural: gentle 2:1 expansion, 1.5 ms opening, 40 ms hold. Tight: deep closure, .3 ms opening, 15 ms hold |
+| Noise Gate | Threshold, Release, Reduction, Mode | Natural: gentle 2:1 expansion, 1.5 ms opening, 40 ms hold. Tight: deep closure, .3 ms opening, 15 ms hold |
 | Smooth Compressor | Threshold, Release, Makeup, Attack, Mix | 2.5:1, 9 dB knee, 8 ms default attack |
 | Punch Compressor | Threshold, Release, Makeup, Attack, Mix | 4:1, 3 dB knee, 25 ms default attack |
 | Guitar EQ | Bass, Mid, Treble | 150 Hz shelf, broad 800 Hz bell, 3 kHz shelf |
 | Cut EQ | High pass, Low pass, Presence | Rumble/fizz cuts and 3.5 kHz shelf |
-| Parametric EQ | Frequency, Gain, Q, High pass, Low pass | One 80–8000 Hz bell, ±12 dB, Q .3–4 |
+| Parametric EQ | Frequency, Gain, Q, High pass, Low pass | One 20–20000 Hz bell, ±12 dB, Q .1–20, optional Notch mode |
 | Boost | Gain, Tilt, High pass | Gain 0–18 dB; opposing shelves around 800 Hz; low cut 0–300 Hz |
-| Tube Boost | Drive, Tilt, High pass, Bias, Mix, Output | Tube-inspired saturation with adjustable asymmetry and DC removal |
+| Tube Boost | Drive, Tilt, High pass, Asymmetry, Mix, Output | Tube-inspired saturation with adjustable asymmetry and DC removal |
 | Filter | Mode, Cutoff, Resonance, Envelope | Resonant low-pass, high-pass or band-pass; optional input envelope shifts cutoff up to four octaves |
 | Auto Swell | Rise, Threshold, Release | Phrase envelope removes the pick and fades up; pause below threshold to re-arm |
 | Airwindows Tape | Drive, Bump, Mix, Output | Tape saturation/head bump, no flutter |
-| Utility | Level, L/R balance, Stereo, Invert L, Invert R | Stereo −100% mono / 0% unchanged / +100% wider |
+| Utility | Output, L/R balance, Width, Invert L, Invert R, Fine delay | Width −100% mono / 0% unchanged / +100% wider |
 | Spring Reverb | Decay, Dwell, Damping, Drip, Mix, Output | Three dispersive tanks with driven excitation; stereo wet switch |
-| Wah | Position, Resonance, Range, Mix, Output | Automatable log sweep with resonant band-pass and body |
+| Wah | Position, Resonance, Register, Mix, Output | Automatable log sweep with resonant band-pass and body |
 
 Boost defaults to clean gain: Tilt 0 dB and high pass off. It adds no saturation;
 use Tape when nonlinear character is wanted. Swell has no lookahead: it responds
@@ -163,8 +172,9 @@ their tails rather than spilling them over. Once a delay is fully muted, its fee
 write is disabled; roughly nine seconds clears the full 8.1-second buffer plus filter settling
 (with the existing bypass fade and at most one additional drain block).
 Reverbs retain a 30-second drain and modulation 70 ms. This uses existing buffers
-and never allocates or clears a whole delay ring in one callback. There is no
-freeze/infinite-feedback mode.
+and never allocates or clears a whole delay ring in one callback. Standard delay
+feedback is bounded; Freeze and Shimmer hold behavior is described in the
+[effects roadmap](ROADMAP_EFFECTS.md).
 
 The new effects report zero **host compensation latency**. Their dry paths have
 no block buffering. Delay/reverb/vibrato necessarily delay the effected signal;
@@ -239,12 +249,17 @@ Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
 
 ## State and layout checkpoint
 
-Schema 13 contains 2346 parameters (286 inherited + 16 × 126 family controls + 44
-performance controls). Earlier supported projects retain named values and fill
-new controls from defaults despite the changed parameter stride.
-Older unreleased format compatibility remains best effort. New controls participate
+Schema 21 contains 3,098 parameters (286 input/global/slot controls + 16 × 173 FX
+controls + 44 performance controls). Every slot uses one contiguous FX bank,
+including LoFi Tape. Host and editor wording agree for uniquely owned controls;
+shared controls retain effect-specific editor labels where useful.
+Prototype IDs, names and enum ranges may change before the first public release.
+Older unreleased format compatibility remains best effort. All controls participate
 in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled share
 eight equal cells across the module editor. A smaller effect does not need to fill them.
+The new reverb cores and five audition additions are described in
+[REVERB_DELAY_AUDITION.md](REVERB_DELAY_AUDITION.md); earlier CPU tables above
+describe the older implementations.
 
 Additional tests check Tube Boost's even harmonics with Bias, near-zero steady-state
 DC and exact settled dry blend; compressor attack and blend; NAM cuts in the processing

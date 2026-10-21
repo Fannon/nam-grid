@@ -8,9 +8,11 @@
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include "../NeuralAmpModeler/GridPerformance.h"
 #include "RoadmapClapTests.h"
+#include "EffectModeClapTests.h"
 #include "PresetGainClapTests.h"
 #include "WinFileDialogDriver.h"
 #include "../NeuralAmpModeler/GridLayout.h"
+#include "../NeuralAmpModeler/EffectPresentation.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
 int main(int argc, char** argv)
 {
@@ -364,11 +366,11 @@ int main(int argc, char** argv)
                               + std::to_string(slot % 4 + 1);
     for (int p = 48; p < kUtilityControls; ++p)
       schema8.erase(label + " " + kEffectParameters[p].name);
-    schema8.erase(label + " Utility Stereo");
+    schema8.erase(label + " Utility Width");
     schema8[label + " Utility Width"] = slot == 15 ? 145. : 100.;
   }
   load(schema8);
-  assert(save().config()["Post 4 Utility Stereo"] == 45. && save().config()["Pre 1 Utility Stereo"] == 0.);
+  assert(save().config()["Post 4 Utility Width"] == 45. && save().config()["Pre 1 Utility Width"] == 0.);
   assert(save().config()["Tuner Reference"] == 442.);
   load(base);
   // Schema 10 predates the three HQ modules. Remove only their named controls;
@@ -608,7 +610,7 @@ int main(int argc, char** argv)
   assert(in.channel_count == 2 && out.channel_count == 2);
   auto stereoUtility = cleared;
   stereoUtility["SlotEffects"][15] = 25;
-  stereoUtility["Post 4 Utility Level"] = -6.;
+  stereoUtility["Post 4 Utility Output"] = -6.;
   stereoUtility["Post 4 Utility Balance"] = -100.;
   stereoUtility["Post 4 Utility Invert L"] = 1.;
   stereoUtility["Tuner Reference"] = 442.;
@@ -932,7 +934,7 @@ int main(int argc, char** argv)
   timeEffects["Pre 2 Wah Resonance"] = 4.;
   timeEffects["Pre 3 Delay Ping Pong"] = 1.;
   timeEffects["B 1 Chorus Spread"] = 85.;
-  timeEffects["Post 3 Tube Bias"] = 63.;
+  timeEffects["Post 3 Tube Asymmetry"] = 63.;
   timeEffects["Post 3 Tube Mix"] = 47.;
   timeEffects["A 2 Reverb High Pass"] = 175.;
   timeEffects["A 2 Reverb Modulation"] = 71.;
@@ -989,6 +991,7 @@ int main(int argc, char** argv)
 #include "LoFiTapeClapTests.inc"
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
+  TestEffectModeClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   auto schema11 = cleared; schema11["schema"] = 11; schema11.erase("Global Input");
   load(schema11);
@@ -1377,16 +1380,16 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
   // Every visible new knob must update its slot's automated parameter, with no
   // hidden controls stealing gestures when modules are restored into an open UI.
-  for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
-                 static_cast<int>(SlotEffect::ShimmerReverb), static_cast<int>(SlotEffect::JunoChorus),
-                 static_cast<int>(SlotEffect::FrequencyShifter), static_cast<int>(SlotEffect::Distortion),
-                 static_cast<int>(SlotEffect::HallReverb), static_cast<int>(SlotEffect::LoFiTape)})
+  for (const auto& group : nam_library::kModuleGroups)
+    for (const auto effect : group.effects)
   {
+    // Smart Gate's transient Learn control has a dedicated native test above.
+    if (effect == SlotEffect::NoisePrint) continue;
+    const int id = static_cast<int>(effect);
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;
     load(effectControls);
     click(170, 120);
-    const auto effect = static_cast<SlotEffect>(id);
     for (int p = 0; p < kUtilityControls; ++p)
       if (UsesUtility(effect, p))
       {
@@ -1394,8 +1397,9 @@ int main(int argc, char** argv)
         const std::string name = std::string("Pre 1 ") + descriptor.name;
         const auto before = save().config();
         // Drag down at an upper limit (Tape Mix defaults to 100%).
-        const int x = grid_layout::KnobX(descriptor.position);
-        if (descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
+        const int x = grid_layout::KnobX(effect_presentation::Position(effect, p));
+        if (p == uTapeHeads || p == uCosmicStyle) click(704, grid_layout::moduleButtonY);
+        else if (EffectChoices(p).empty() && descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
           click(x, grid_layout::toggleY);
         else
         {
@@ -1436,16 +1440,31 @@ int main(int argc, char** argv)
     if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "lofi-tape-transport.bmp");
     plugin->stop_processing(plugin); plugin->deactivate(plugin);
   }
-  for (int effect : {12, 15, 26})
+  for (int effect : {12, 15, 26, static_cast<int>(SlotEffect::DualDelay)})
   {
     auto switchState = browserState;
     switchState["SlotEffects"][0] = effect;
     load(switchState);
     click(170, 120);
-    const char* name = effect == 12 ? "Pre 1 Delay Ping Pong" : "Pre 1 Reverb Stereo";
+    const char* name = effect == 12 || effect == static_cast<int>(SlotEffect::DualDelay)
+                         ? "Pre 1 Delay Ping Pong" : "Pre 1 Reverb Stereo";
     const double before = save().config()[name].get<double>();
     click(704, grid_layout::moduleButtonY);
     assert(save().config()[name].get<double>() == 1. - before);
+  }
+  {
+    auto reverse = browserState; reverse["SlotEffects"][0] = static_cast<int>(SlotEffect::ReverseDelay);
+    load(reverse); click(170, 120);
+    const auto before = save().config();
+    click(704, grid_layout::moduleButtonY); // No ineffective Ping-pong control here.
+    assert(save().config() == before);
+    auto vibe = browserState; vibe["SlotEffects"][0] = static_cast<int>(SlotEffect::UniVibe);
+    vibe["Pre 1 Vibe Vibrato"] = 1.; vibe["Pre 1 Mod Mix"] = 50.;
+    load(vibe); click(170, 120); dragAt(grid_layout::KnobX(4), grid_layout::knobGestureY);
+    assert(save().config()["Pre 1 Mod Mix"] == 50.); // Fully wet mode hides Mix.
+    vibe["Pre 1 Vibe Vibrato"] = 0.; load(vibe); click(170, 120);
+    dragAt(grid_layout::KnobX(4), grid_layout::knobGestureY);
+    assert(save().config()["Pre 1 Mod Mix"] != 50.);
   }
   const auto packedPath = fixtures / "packed-a2.nam";
   std::ofstream(packedPath) << fixture::packed().dump();

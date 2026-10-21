@@ -28,6 +28,11 @@ the plugins when distributing a build. No NAM captures or IR collection is bundl
 
 - [Editor and library](docs/UI.md): add folders, choose captures/IRs, and edit slots.
 - [Module reference](docs/MODULES.md) and [starting settings](docs/EFFECT_DEFAULTS.md).
+- [FX control and visualization audit](docs/FX_PARAMETER_REVIEW.md).
+- [Reverb and delay algorithm research](docs/REVERB_DELAY_RESEARCH.md).
+- [Reverb/delay audition candidates](docs/REVERB_DELAY_AUDITION.md): new cores,
+  Airwindows modules, ranges and local renders.
+- [Cosmic Echo prototype](docs/COSMIC_ECHO.md): Smooth, Bloom and Sparse ambient styles.
 - [Grid routing](docs/GRID.md) and [performance controls](docs/ROADMAP_EFFECTS.md).
 - [Rig presets](docs/PRESETS.md): saving, recall, and external file references.
 - [Verification history](docs/VERIFICATION.md) and [latest release review](docs/FIRST_RELEASE_REVIEW.md).
@@ -36,9 +41,9 @@ Captures and IRs remain external files. Saved content hashes help relink moved
 files within indexed library folders; presets do not embed or copy those files.
 Loading a large model can briefly occupy the editor while its DSP is prepared.
 
-The existing CLAP/VST3 plugin IDs are retained for host identification. Unreleased
-prototype state migrations have regression coverage, but project compatibility
-should be confirmed in a real host before upgrading important sessions.
+The existing CLAP/VST3 plugin IDs are retained for host identification. This
+unreleased preview may change parameter IDs, names and enum ranges; prototype
+project and automation compatibility is not guaranteed.
 
 Licensed under [MIT](LICENSE). Built on the work of Steven Atkinson, the NAM Core,
 iPlug2, AudioDSPTools, and the contributors credited in the shipped

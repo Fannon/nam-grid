@@ -20,14 +20,14 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
     config["SlotEffects"][0] = effect;
     config["Pre 1 Utility Delay"] = 1.25;
     config["Pre 1 Rotary Fast"] = 7.3;
-    config["Pre 1 Octaver Sub Two"] = 25.;
+    config["Pre 1 Octaver 2 Oct Down"] = 25.;
     config["Pre 1 Doubler Detune"] = 14.;
     config["Pre 1 Dual Delay Ratio"] = 1.75;
     config["Pre 1 Shimmer Pitch"] = 7.; config["Pre 1 Juno Mode"] = 2.; config["Pre 1 Shifter Frequency"] = 250.;
     if (effect == static_cast<int>(SlotEffect::Distortion))
     {
       config["Pre 1 Distortion Style"] = 3.; config["Pre 1 Distortion Drive"] = 24.;
-      config["Pre 1 Distortion Tone"] = 3500.; config["Pre 1 Distortion Bias"] = 30.;
+      config["Pre 1 Distortion High Cut"] = 3500.; config["Pre 1 Distortion Bias"] = 30.;
       config["Pre 1 Distortion Mix"] = 75.; config["Pre 1 Distortion Output"] = -9.;
     }
     config["Lane A Level"] = -2.; config["Lane Fine Timing"] = .25;

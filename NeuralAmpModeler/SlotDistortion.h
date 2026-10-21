@@ -24,7 +24,7 @@ public:
   void Process(double* samples, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.distortion, uDistStyle);
-    const int style = static_cast<int>(std::clamp(controls.distortion[0], 0., 3.));
+    const int style = static_cast<int>(std::clamp(controls.distortion[0], 0., double(effect_modes::distortionCount - 1)));
     if (mFirst) { mWeights[style] = 1.; mFirst = false; }
     for (int i = 0; i < frames; ++i)
     {
@@ -39,7 +39,7 @@ public:
       mCounter = (mCounter + 1) % 16;
       const double dry = samples[i], bias = c[3] * .004;
       double wet = 0.;
-      for (int j = 0; j < 4; ++j)
+      for (int j = 0; j < effect_modes::distortionCount; ++j)
       {
         mWeights[j] = grid_fx::Flush((j == style ? 1. : 0.) + mSmooth * (mWeights[j] - (j == style ? 1. : 0.)));
         if (mWeights[j] != 0.) wet += mWeights[j] * Transfer(dry, j, mDrive, bias);
@@ -55,18 +55,25 @@ public:
 private:
   static double Shape(double x, int style)
   {
-    switch (style)
+    switch (static_cast<effect_modes::DistortionStyle>(style))
     {
-      case 0: return std::tanh(x);
-      case 1: return std::clamp(x, -1., 1.);
-      case 2: return std::copysign(1. - 1. / (1. + 6. * std::abs(x)), x);
-      default:
+      case effect_modes::DistortionStyle::Soft: return std::tanh(x);
+      case effect_modes::DistortionStyle::Hard: return std::clamp(x, -1., 1.);
+      case effect_modes::DistortionStyle::Fuzz: return std::copysign(1. - 1. / (1. + 6. * std::abs(x)), x);
+      case effect_modes::DistortionStyle::Foldback:
+      {
         const double t = x + 1. - 4. * std::floor((x + 1.) / 4.);
         return 1. - std::abs(t - 2.);
+      }
+      // Equal small-signal slope with a lower negative shoulder. This is an
+      // original asymmetric shaper, not a physical diode-circuit model.
+      case effect_modes::DistortionStyle::Diode: return x >= 0. ? std::tanh(x) : .5 * std::tanh(2. * x);
+      case effect_modes::DistortionStyle::Rectify: return std::abs(std::tanh(x));
+      default: return std::tanh(x);
     }
   }
   grid_fx::SmoothControls<6> mControls;
-  std::array<double, 4> mWeights{};
+  std::array<double, effect_modes::distortionCount> mWeights{};
   std::array<double, 3> mCached{};
   double mRate = 48000., mSmooth = 0., mDC = 0.;
   double mPrevious = 0., mHighPass = 0., mLowPass = 0.;

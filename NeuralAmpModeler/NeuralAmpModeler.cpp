@@ -27,7 +27,7 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
-constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kGridStateSchema = 18;
+constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19, kReverbDelaySchema = 20, kCosmicSchema = 21, kGridStateSchema = 22;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -90,7 +90,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto name = GridSlotName(slot);
     GetParam(SlotDynamicsParam(slot, 0))->InitDouble((name + " Gate Threshold").c_str(), -55., -90., -10., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Release").c_str(), 120., 20., 500., 1., "ms");
-    GetParam(SlotDynamicsParam(slot, 2))->InitDouble((name + " Gate Depth").c_str(), 60., 0., 80., .1, "dB");
+    GetParam(SlotDynamicsParam(slot, 2))->InitDouble((name + " Gate Reduction").c_str(), 60., 0., 80., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 3))->InitDouble((name + " Comp Threshold").c_str(), -18., -48., 0., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 4))->InitDouble((name + " Comp Release").c_str(), 120., 40., 600., 1., "ms");
     GetParam(SlotDynamicsParam(slot, 5))->InitDouble((name + " Comp Makeup").c_str(), 0., 0., 18., .1, "dB");
@@ -105,27 +105,18 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     {
       const auto& p = kEffectParameters[i];
       auto* param = GetParam(SlotUtilityParam(slot, i));
-      if (i == uTempoDivision)
+      const auto choices = EffectChoices(i);
+      if (!choices.empty())
       {
-        param->InitEnum((name + " " + p.name).c_str(), 5, static_cast<int>(grid_tempo::names.size()));
-        for (int d = 0; d < grid_tempo::names.size(); ++d)
-          param->SetDisplayText(d, grid_tempo::names[d]);
+        param->InitEnum((name + " " + p.name).c_str(), static_cast<int>(p.initial), static_cast<int>(choices.size()));
+        for (int choice = 0; choice < choices.size(); ++choice)
+          param->SetDisplayText(choice, choices[choice]);
       }
-      else if (i == uJunoMode)
-      {
-        param->InitEnum((name + " " + p.name).c_str(), 1, 3);
-        param->SetDisplayText(0, "I");
-        param->SetDisplayText(1, "I+II");
-        param->SetDisplayText(2, "II");
-      }
-      else if (i == uDistStyle)
-        param->InitEnum((name + " " + p.name).c_str(), 0, {"Soft", "Hard", "Fuzz", "Foldback"});
-      else if (i == uGateMode)
-        param->InitEnum((name + " " + p.name).c_str(), 0, {"Natural", "Tight"});
-      else if (i == uFilterMode)
-        param->InitEnum((name + " " + p.name).c_str(), 0, {"Low-pass", "High-pass", "Band-pass"});
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
+      else if (p.power != 1.)
+        param->InitDouble(
+          (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapePowCurve(p.power));
       else if (p.exponential)
         param->InitDouble(
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
@@ -392,6 +383,12 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     readFamily(c.utility.juno, uJunoMode); readFamily(c.utility.shimmer, uShimmerMix); readFamily(c.utility.shift, uShiftFrequency);
     readFamily(c.utility.distortion, uDistStyle);
     readFamily(c.utility.lofi, uLoFiSpeed);
+    c.utility.tapeHeads = GetParam(SlotUtilityParam(slot, uTapeHeads))->Int();
+    c.utility.delayDiffusion = GetParam(SlotUtilityParam(slot, uDelayDiffusion))->Value();
+    readFamily(c.utility.airPlate, uAirPlateInput); readFamily(c.utility.airHall, uAirHallSustain);
+    readFamily(c.utility.space, uSpaceReplace);
+    readFamily(c.utility.cosmic, uCosmicTime);
+    c.utility.cosmicStyle = GetParam(SlotUtilityParam(slot, uCosmicStyle))->Int();
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -1145,10 +1142,29 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                   && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
                   && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
-                  && schemaValue != kFilterModeSchema && schemaValue != kLoFiSchema && schemaValue != kGridStateSchema)
+                  && schemaValue != kFilterModeSchema && schemaValue != kLoFiSchema && schemaValue != kIdentitySchema
+                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
+      if (grid && schema < kGridStateSchema)
+      {
+        const auto renameCutoffs = [&](nlohmann::json& values) {
+          for (size_t slot=0; slot<FixedNAMGrid::kSlots; ++slot)
+            for (const auto& [control, previous] : kPreviousCutoffNames)
+            {
+              const auto prefix=GridSlotName(slot)+" ";
+              const auto oldName=prefix+previous, name=prefix+kEffectParameters[control].name;
+              const auto it=values.find(oldName);
+              if (it == values.end()) continue;
+              if (!values.contains(name)) values[name]=*it;
+              values.erase(oldName);
+            }
+        };
+        renameCutoffs(config);
+        if (config.contains("PerformanceScenes") && config["PerformanceScenes"].is_array())
+          for (auto& scene : config["PerformanceScenes"]) if (scene.is_object()) renameCutoffs(scene);
+      }
       if (config.contains("PresetName") && (!config["PresetName"].is_string()
           || config["PresetName"].get<std::string>().size() > 512
           || config["PresetName"].get<std::string>().find('\0') != std::string::npos)) return -1;
@@ -1217,7 +1233,9 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema == 10 ? static_cast<int>(SlotEffect::RingMod)
                              : schema <= 12 ? static_cast<int>(SlotEffect::FrequencyShifter)
                              : schema == 13 ? static_cast<int>(SlotEffect::Distortion)
-                                            : static_cast<int>(SlotEffect::HallReverb))
+                             : schema < 20 ? static_cast<int>(SlotEffect::HallReverb)
+                             : schema == kReverbDelaySchema ? static_cast<int>(SlotEffect::GalacticSpace)
+                                            : static_cast<int>(SlotEffect::Last))
                 || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>()))
                 || (effect == static_cast<int>(SlotEffect::LoFiTape) && (schema < kLoFiSchema || schema >= 1001))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
@@ -1249,18 +1267,25 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
-        if (grid && i >= kLoFiBase && (schema < kLoFiSchema || schema >= 1001))
+        if (grid && schema < kReverbDelaySchema && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= uTapeHeads)
           config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase && i < kLoFiBase)
+        if (grid && (schema < kCosmicSchema || schema >= 1001) && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= uCosmicTime)
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= uLoFiSpeed && (schema < kLoFiSchema || schema >= 1001))
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase && i < kNumParams)
           config[name] = GetParam(i)->GetDefault();
         if (grid && (schema < 12 || schema >= 1001) && i == kGridParamBase + grid_performance::InputGain)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 1001 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema16UtilityControls == uNoiseGateThreshold)
+            && (i - kUtilityBase) % kUtilityControls == uNoiseGateThreshold)
           config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
         if (grid && i >= kUtilityBase && i < kTunerReference)
         {
-          const int control = (i - kUtilityBase) % kSchema16UtilityControls;
+          const int control = (i - kUtilityBase) % kUtilityControls;
           if ((schema <= 13 && control >= uNoiseLearn)
               || (schema >= 1001 && control >= uUtilityDelay && control < uNoiseLearn))
             config[name] = GetParam(i)->GetDefault();
@@ -1279,35 +1304,35 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         if (grid && schema >= 6 && schema < 10
             && ((i >= kTunerReference && schema < 8)
                 || (i >= kUtilityBase && i < kTunerReference
-                    && (i - kUtilityBase) % kSchema16UtilityControls >= (schema == 6   ? 30
+                    && (i - kUtilityBase) % kUtilityControls >= (schema == 6   ? 30
                                                                  : schema == 7 ? 41
                                                                  : schema == 8 ? 48 : 61))))
           config[name] = GetParam(i)->GetDefault();
         // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
         if (grid && schema >= 11 && schema <= 12 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema16UtilityControls >= uDistStyle)
+            && (i - kUtilityBase) % kUtilityControls >= uDistStyle)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 10 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema16UtilityControls >= 103)
+            && (i - kUtilityBase) % kUtilityControls >= 103)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 8 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema16UtilityControls == uUtilityStereo)
+            && (i - kUtilityBase) % kUtilityControls == uUtilityStereo)
         {
-          const auto oldName = GridSlotName((i - kUtilityBase) / kSchema16UtilityControls) + " Utility Width";
+          const auto oldName = GridSlotName((i - kUtilityBase) / kUtilityControls) + " Utility Width";
           if (!config.contains(oldName) || !config[oldName].is_number()
               || !std::isfinite(config[oldName].get<double>()))
             return -1;
           config[name] = config[oldName].get<double>() - 100.;
         }
         if (grid && (schema < kGateModeSchema || schema >= 1001)
-            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kSchema16UtilityControls == uGateMode)
+            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kUtilityControls == uGateMode)
         {
-          const size_t slot = (i - kUtilityBase) / kSchema16UtilityControls;
+          const size_t slot = (i - kUtilityBase) / kUtilityControls;
           config[name] = config.contains("SlotEffects")
                            && config["SlotEffects"][slot] == static_cast<int>(SlotEffect::TightGate) ? 1. : 0.;
         }
         if (grid && (schema < kFilterModeSchema || schema >= 1001)
-            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kSchema16UtilityControls == uFilterMode)
+            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kUtilityControls == uFilterMode)
           config[name] = 0.;
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
@@ -1339,7 +1364,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         }
       }
       else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
-               || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kLoFiSchema || schema == kGridStateSchema)
+               || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kLoFiSchema
+               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema || schema == kCosmicSchema || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;
@@ -1618,8 +1644,8 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   std::array<double, 4> rowTails{};
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
     rowTails[i / 4] += mSlotEffects[i] == SlotEffect::DualDelay ? 1200.
-                      : IsDelay(mSlotEffects[i]) ? 560. : IsReverb(mSlotEffects[i]) ? 30.
-                      : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
+                      : IsDelay(mSlotEffects[i]) ? 560. : IsAirReverb(mSlotEffects[i]) ? 60. : IsReverb(mSlotEffects[i]) ? 45.
+                      : mSlotEffects[i] == SlotEffect::CosmicEcho ? 60. : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
                       : mSlotEffects[i] == SlotEffect::FrequencyShifter ? 560.
                       : mSlotEffects[i] == SlotEffect::Stutter ? 33. : 0.;
   mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));

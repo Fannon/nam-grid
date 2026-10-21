@@ -206,7 +206,7 @@ public:
     mLow = {}; mWetGain = 0.; mTransition = 0; mLastWet = mTransitionFrom = {};
     for (auto& b : mHistory) b.assign(static_cast<size_t>(rate * maxSeconds) + 4, 0.);
     for (auto& b : mCaptured) b.assign(static_cast<size_t>(rate * maxSeconds) + 4, 0.);
-    mFreeze.Reset(rate); mStutter.Reset(rate); mDelay.Reset(rate);
+    mFreeze.Reset(rate); mStutter.Reset(rate); mDelay.Reset(rate); mOutput.Reset(rate);
   }
   void Process(double* l, double* r, int n, SlotEffect effect, const UtilityControls& c)
   {
@@ -218,6 +218,7 @@ public:
       delay[0] = stutter[0];
     }
     mStutter.Target(stutter, uStutterTime, c.sync); mDelay.Target(delay, uDelayTime, c.sync);
+    mOutput.Target({c.delayOutput}, uDelayOutput);
     for (int i = 0; i < n; ++i)
     {
       const auto& f = mFreeze.Tick(); const auto& s = mStutter.Tick(); const auto& d = mDelay.Tick();
@@ -289,7 +290,8 @@ public:
       if (mLength && ++mPosition >= mLength)
         mPosition = freeze ? std::min(fade, mLength - 1) : 0;
       const double mix = (freeze ? f[4] : reverse ? d[4] : s[3]) * .01;
-      const double gain = reverse ? Gain(std::clamp(c.delayOutput, -18., 6.)) : 1.;
+      const double output = mOutput.Tick()[0];
+      const double gain = reverse ? Gain(output) : 1.;
       l[i] = (freeze ? dry[0] + mix * wet[0] * mWetGain : dry[0] + mix * (wet[0] * mWetGain - dry[0])) * gain;
       if (r) r[i] = (freeze ? dry[1] + mix * wet[1] * mWetGain : dry[1] + mix * (wet[1] * mWetGain - dry[1])) * gain;
     }
@@ -299,6 +301,7 @@ private:
   std::array<std::vector<double>, 2> mCaptured;
   grid_fx::SmoothControls<5> mFreeze, mDelay;
   grid_fx::SmoothControls<4> mStutter;
+  grid_fx::SmoothControls<1> mOutput;
   std::array<double, 2> mLow{};
   size_t mWrite = 0, mStart = 0, mPosition = 0, mLength = 0, mRefresh = 0, mAvailable = 0;
   double mRate = 48000., mWetGain = 0.;
@@ -312,7 +315,7 @@ class DualDelay
 public:
   void Reset(double rate)
   {
-    mRate = rate; mLow = {}; mControls.Reset(rate); mExtras.Reset(rate);
+    mRate = rate; mLow = {}; mControls.Reset(rate); mExtras.Reset(rate); mPing.Reset(rate); mOutput.Reset(rate);
     for (auto& line : mLine) line.Reset(static_cast<int>(16.1 * rate));
   }
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
@@ -320,16 +323,22 @@ public:
     auto values = c.delay;
     if (c.sync) values[0] = grid_tempo::Seconds(c.tempo, c.division) * 1000.;
     mControls.Target(values, uDelayTime, c.sync); mExtras.Target(c.dual, uDualRatio);
+    mPing.Target({c.pingPong ? 1. : 0.}, uDelayPingPong);
+    mOutput.Target({c.delayOutput}, uDelayOutput);
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
+      const double ping = mPing.Tick()[0], output = mOutput.Tick()[0];
       const double dry[]{l[i], r ? r[i] : l[i]}; double wet[2]{};
       for (int ch = 0; ch < 2; ++ch)
       {
         wet[ch] = Low(mLine[ch].Read(v[0] * .001 * mRate * (ch ? extra[0] : 1.)), mLow[ch], Pole(v[2], mRate));
-        mLine[ch].Push(dry[ch] + (draining ? 0. : v[1] * .01) * wet[ch]);
       }
-      const double balance = extra[1] * .01, mix = v[4] * .01, gain = Gain(std::clamp(c.delayOutput, -18., 6.));
+      // Read both taps before either write so cross-feedback is sample accurate.
+      const double send[]{(1. - ping) * dry[0] + ping * .5 * (dry[0] + dry[1]), (1. - ping) * dry[1]};
+      for (int ch = 0; ch < 2; ++ch)
+        mLine[ch].Push(send[ch] + (draining ? 0. : v[1] * .01) * ((1. - ping) * wet[ch] + ping * wet[1 - ch]));
+      const double balance = extra[1] * .01, mix = v[4] * .01, gain = Gain(output);
       const double a = wet[0] * std::min(1., 2. * (1. - balance)), b = wet[1] * std::min(1., 2. * balance);
       l[i] = (dry[0] + mix * ((r ? a : .5 * (a + b)) - dry[0])) * gain;
       if (r) r[i] = (dry[1] + mix * (b - dry[1])) * gain;
@@ -338,6 +347,7 @@ public:
 private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
+  grid_fx::SmoothControls<1> mPing, mOutput;
   std::array<grid_fx::DelayLine, 2> mLine;
   std::array<double, 2> mLow{};
   double mRate = 48000.;

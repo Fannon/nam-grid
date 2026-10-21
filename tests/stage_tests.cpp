@@ -62,6 +62,10 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "NoisePrintTests.h"
 #include "LoFiTapeTests.h"
 #include "EQResponseTests.h"
+#include "FXMusicalTests.h"
+#include "ReverbDelayCandidatesTests.h"
+#include "CosmicEchoTests.h"
+#include "MultiHeadStereoTests.h"
 
 int main(int argc, char** argv)
 try
@@ -181,6 +185,12 @@ try
   TestNoisePrint();
   TestLoFiTape();
   TestEQResponse();
+  TestDualDelayMusicalControls();
+  TestDistortionTonePreview();
+  TestDistortionModeHarmonics();
+  TestReverbDelayCandidates();
+  TestCosmicEcho();
+  TestMultiHeadStereo();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

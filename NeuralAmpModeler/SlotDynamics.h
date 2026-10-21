@@ -52,7 +52,14 @@ enum class SlotEffect
   Distortion,
   LoFiTape,
   NoisePrint = 64,
-  HallReverb = 65
+  HallReverb = 65,
+  MultiHeadDelay,
+  DiffusedDelay,
+  AirPlate,
+  AirHall,
+  GalacticSpace,
+  CosmicEcho,
+  Last = CosmicEcho
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -77,6 +84,12 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::PlateReverb: return "Dense Plate";
     case SlotEffect::CloudReverb: return "Cloud";
     case SlotEffect::HallReverb: return "Hall";
+    case SlotEffect::MultiHeadDelay: return "Multi-head Tape";
+    case SlotEffect::DiffusedDelay: return "Diffused Delay";
+    case SlotEffect::AirPlate: return "Airwindows Plate";
+    case SlotEffect::AirHall: return "Airwindows Guitar Hall";
+    case SlotEffect::GalacticSpace: return "Galactic Space";
+    case SlotEffect::CosmicEcho: return "Cosmic Echo";
     case SlotEffect::Chorus: return "Chorus";
     case SlotEffect::Flanger: return "Flanger";
     case SlotEffect::Phaser: return "Phaser";
@@ -108,7 +121,7 @@ inline const char* SlotEffectName(SlotEffect effect)
   return "Unknown";
 }
 inline bool IsValidSlotEffect(SlotEffect effect)
-{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::LoFiTape) || effect == SlotEffect::NoisePrint || effect == SlotEffect::HallReverb; }
+{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::LoFiTape) || (effect >= SlotEffect::NoisePrint && effect <= SlotEffect::Last); }
 struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;
@@ -125,6 +138,7 @@ public:
     mRate = std::max(1., rate);
     mSmooth = Coefficient(5.);
     mEnvelope = mReduction = mHold = 0.;
+    mMinimumMonitorGain = 1.;
     mOpen = false;
     mFirst = true;
   }
@@ -139,9 +153,9 @@ public:
     const double x = over + knee * .5;
     return slope * x * x / (2. * knee);
   }
-  void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls)
+  void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls, double* beforeMakeup = nullptr)
   {
-    mPeakReduction = 0.;
+    mMinimumMonitorGain = 1.;
     const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
     const bool tight = controls.gateMode < 0 ? effect == SlotEffect::TightGate : controls.gateMode == 1;
     const bool punch = effect == SlotEffect::PunchComp;
@@ -193,13 +207,15 @@ public:
       // Gates open quickly / close gently; compressors attack reduction / release it.
       const double coefficient = gate ? (target < mReduction ? open : close) : (target > mReduction ? open : close);
       mReduction = Smooth(mReduction, target, coefficient);
-      mPeakReduction = std::max(mPeakReduction, mReduction);
       mMix = Smooth(mMix, mix, mSmooth);
       const double gain = std::pow(10., ((gate ? 0. : mAmount) - mReduction) * .05);
+      const double reduced = gate ? gain : 1. + mMix * (std::pow(10., -mReduction*.05)-1.);
+      mMinimumMonitorGain = std::min(mMinimumMonitorGain,reduced);
+      if (beforeMakeup) beforeMakeup[i]=samples[i]*reduced;
       samples[i] *= gate ? gain : 1. + mMix * (gain - 1.);
     }
   }
-  double PeakReduction() const { return mPeakReduction; }
+  double PeakReduction() const { return -20.*std::log10(std::max(1.e-12,mMinimumMonitorGain)); }
 
 private:
   double Coefficient(double ms) const { return std::exp(-1. / (.001 * ms * mRate)); }
@@ -210,6 +226,6 @@ private:
   }
   double mRate = 48000., mSmooth = 0., mEnvelope = 0., mReduction = 0., mHold = 0.;
   double mThreshold = 0., mAmount = 0., mMix = 1.;
-  double mPeakReduction = 0.;
+  double mMinimumMonitorGain = 1.;
   bool mOpen = false, mFirst = true;
 };

@@ -34,6 +34,16 @@ The menu also contains a **Slapback preset**: a 90 ms digital echo with zero
 feedback, an 8 kHz tone setting and 25% mix. It uses the existing Digital Delay
 module rather than another processor type.
 
+Dual Delay's **Ping-pong** switch selects cross-feedback routing. With it off,
+the taps receive their own input channels. With it on, the mono sum enters the
+left tap and feedback alternates through the two different delay times; the
+first right arrival is left time plus right time. Dry stereo remains intact.
+Reverse Delay has no Ping-pong switch because its captured-window algorithm
+does not implement that routing. Both delays smooth Output automation.
+
+See [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md) for current labels and
+visualization semantics across the complete catalog.
+
 ## Utility and EQ
 
 Utility gains **Fine delay**, from 0 to 20 ms with 0.01 ms parameter resolution

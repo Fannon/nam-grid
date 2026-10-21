@@ -48,16 +48,14 @@ split into **NAM captures** and **Cabinet IRs**. Shared library folders and resc
 remain in **Library & settings**. The header search/filter bar is removed pending
 a dedicated browser.
 
-State schema 13 adds Distortion controls after schema 12's Global Input and
-optional PresetName/PresetDirectory metadata. Earlier supported project states
-receive defaults for newly added controls. There are 2,346 host parameters
-(126 utility controls per slot and 44 grid controls). Schema 14 adds Noise Gate (Smart)
-profiles and seven utility controls per slot, bringing the total to 2,458 host
-parameters. Schema 15 adds Natural/Tight mode to the unified Noise Gate, for
-134 utility controls per slot and 2,474 host parameters. Learned profiles are
-included in presets; active learning is cleared. Schema 16 adds Filter mode, for
-135 utility controls per slot and 2,490 host parameters. Older Filter states default
-to Low-pass; schema 15 Noise Gate modes are retained.
+Current state schema **21** has **3,098 host parameters**, including one contiguous
+bank of 173 FX controls per slot and 44 performance controls. It aligns unique
+host/editor names and includes six Distortion styles and the new reverb/delay
+audition modules, including Cosmic Echo. Learned noise profiles and
+capture/IR content identities are included; active learning is cleared. Prototype
+IDs, names and enum ranges are allowed to change before the first public release.
+Older state readers remain best effort, without a project/automation compatibility
+guarantee. See [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md) for the current policy.
 
 ## Compact editor and visualizations
 

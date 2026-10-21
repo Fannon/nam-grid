@@ -20,7 +20,8 @@ def git(*args):
 
 def apply_dependency_patches():
     for dependency, pattern in (("NeuralAmpModelerCore", "nam-core-*.patch"),
-                                ("AudioDSPTools", "audio-dsp-*.patch")):
+                                ("AudioDSPTools", "audio-dsp-*.patch"),
+                                ("iPlug2", "iplug2-*.patch")):
         directory = ROOT / dependency
         for patch in sorted((ROOT / "patches").glob(pattern)):
             applied = subprocess.run(["git", "-C", str(directory), "apply", "--reverse", "--check", str(patch)],

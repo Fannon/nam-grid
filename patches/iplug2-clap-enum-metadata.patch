@@ -1,0 +1,10 @@
+diff --git a/IPlug/CLAP/IPlugCLAP.cpp b/IPlug/CLAP/IPlugCLAP.cpp
+--- a/IPlug/CLAP/IPlugCLAP.cpp
++++ b/IPlug/CLAP/IPlugCLAP.cpp
+@@ -454,4 +454,6 @@ bool IPlugCLAP::paramsInfo(uint32_t paramIdx, clap_param_info* pInfo) const noexcept
+   if (!isDoubleType)
+     flags |= CLAP_PARAM_IS_STEPPED;
++  if (pParam->Type() == IParam::kTypeEnum)
++    flags |= CLAP_PARAM_IS_ENUM;
+   if (pParam->GetCanAutomate())
+     flags |= CLAP_PARAM_IS_AUTOMATABLE;

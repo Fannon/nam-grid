@@ -135,6 +135,11 @@ private:
 class SlotTubeBoost
 {
 public:
+  static double Transfer(double input, double drive, double bias)
+  {
+    const double offset=std::tanh(bias);
+    return (std::tanh(input*drive+bias)-offset)/(1.-offset*offset);
+  }
   void Reset(double rate)
   {
     mTone.Reset(rate);
@@ -160,8 +165,7 @@ public:
       mBias = bias + mSmooth * (mBias - bias);
       mMix = mix + mSmooth * (mMix - mix);
       mOutput = output + mSmooth * (mOutput - output);
-      const double offset = std::tanh(mBias);
-      const double shaped = (std::tanh(samples[i] * mDrive + mBias) - offset) / (1. - offset * offset);
+      const double shaped = Transfer(samples[i],mDrive,mBias);
       mDC = shaped + mDCCoefficient * (mDC - shaped);
       if (std::abs(mDC) < 1.e-30)
         mDC = 0.;

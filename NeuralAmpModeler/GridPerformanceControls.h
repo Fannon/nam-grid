@@ -30,16 +30,16 @@ public:
     for (int column = 0; column < 3; ++column)
       Add(1, new ITextControl(IRECT(40.f + column * 325, 143, 315.f + column * 325, 174),
         column == 0 ? "LFO" : column == 1 ? "Input envelope" : "Eight-step sequencer", Text(17.f, accent)));
-    pair(40, 180, LFOSlot, LFOTarget); pair(40, 290, LFORate, LFODepth);
-    ToggleAt(1, 40, 420, LFOSync); KnobAt(1, 175, 400, LFODivision);
-    pair(365, 180, EnvSlot, EnvTarget); pair(365, 290, EnvSensitivity, EnvDepth);
-    pair(365, 400, EnvAttack, EnvRelease);
-    pair(690, 180, StepSlot, StepTarget); pair(690, 290, StepRate, StepDepth);
-    ToggleAt(1, 690, 420, StepSync); KnobAt(1, 825, 400, StepDivision);
-    Add(1, new ITextControl(IRECT(40, 515, 955, 540), "Macro assignments: target slot / parameter / depth", Text(13.f, muted)));
-    KnobAt(1, 40, 545, Macro1Slot); KnobAt(1, 175, 545, Macro1Target); KnobAt(1, 310, 545, Macro1Depth);
-    KnobAt(1, 555, 545, Macro2Slot); KnobAt(1, 690, 545, Macro2Target); KnobAt(1, 825, 545, Macro2Depth);
-    for (int i = 0; i < 8; ++i) KnobAt(1, 40.f + 117 * i, 665, Step1 + i, 95.f);
+    pair(40, 170, LFOSlot, LFOTarget); pair(40, 270, LFORate, LFODepth);
+    ToggleAt(1, 40, 390, LFOSync); KnobAt(1, 175, 370, LFODivision);
+    pair(365, 170, EnvSlot, EnvTarget); pair(365, 270, EnvSensitivity, EnvDepth);
+    pair(365, 370, EnvAttack, EnvRelease);
+    pair(690, 170, StepSlot, StepTarget); pair(690, 270, StepRate, StepDepth);
+    ToggleAt(1, 690, 390, StepSync); KnobAt(1, 825, 370, StepDivision);
+    Add(1, new ITextControl(IRECT(40, 480, 955, 500), "Macro assignments: target slot / parameter / depth", Text(13.f, muted)));
+    KnobAt(1, 40, 500, Macro1Slot); KnobAt(1, 175, 500, Macro1Target); KnobAt(1, 310, 500, Macro1Depth);
+    KnobAt(1, 555, 500, Macro2Slot); KnobAt(1, 690, 500, Macro2Target); KnobAt(1, 825, 500, Macro2Depth);
+    for (int i = 0; i < 8; ++i) KnobAt(1, 40.f + 117 * i, 610, Step1 + i, 95.f);
 
     Add(2, new ITextControl(IRECT(40, 150, 955, 210),
       "Store three performance settings, then recall them here or automate the same parameters in your DAW.", Text(14.f, muted)));

@@ -25,7 +25,6 @@
 const int kNumPresets = 1;
 // Stereo grid; mono NAM slots deliberately collapse to mono for one inference pass.
 constexpr size_t kNumChannelsInternal = 2;
-inline constexpr int kGridStateSchema = 15;
 
 class NAMSender : public iplug::IPeakAvgSender<1>
 {
@@ -80,7 +79,7 @@ enum EParams
   kEQBase = kDynamicsBase + 16 * 6,
   kQualityBase = kEQBase + 16 * 7,
   kUtilityBase = kQualityBase + 15,
-  kTunerReference = kUtilityBase + 16 * kSchema14UtilityControls,
+  kTunerReference = kUtilityBase + 16 * kSchema16UtilityControls,
   kTunerMute,
   kGridParamBase,
   kLoFiBase = kGridParamBase + grid_performance::Count,
@@ -92,8 +91,8 @@ constexpr int kGridV2NumParams = kDynamicsBase;
 constexpr int kGridV3NumParams = kEQBase;
 constexpr int SlotUtilityParam(size_t slot, int control)
 {
-  return control < kSchema14UtilityControls
-           ? kUtilityBase + static_cast<int>(slot) * kSchema14UtilityControls + control
+  return control < kSchema16UtilityControls
+           ? kUtilityBase + static_cast<int>(slot) * kSchema16UtilityControls + control
            : kLoFiBase + static_cast<int>(slot) * kLoFiControls + control - uLoFiSpeed;
 }
 constexpr int SlotEQParam(size_t slot, int control)

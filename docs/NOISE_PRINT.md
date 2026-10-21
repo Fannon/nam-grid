@@ -1,6 +1,8 @@
-# Noise Print experiment
+# Noise Gate (Smart)
 
-Integrated into the normal nam-grid CLAP/VST3 from `experiment/noise-print`.
+Previously named Noise Print, integrated into the normal nam-grid CLAP/VST3 from
+`experiment/noise-print`. The internal `NoisePrint` identifiers and profile fields
+retain their names; the module is shown as Noise Gate (Smart) in the menu and editor.
 An original MIT noise-profile expander, inspired by the public description of
 frequency-selective gates and Learn in [Klevgrand Brusfri](https://klevgrand.com/products/brusfri).
 No Klevgrand implementation, assets or proprietary processing details were used.
@@ -12,7 +14,7 @@ Build the targets using [BUILD.md](BUILD.md). The Windows artifacts are the norm
 `build-grid/out/nam-grid.clap` and `nam-grid.vst3` bundle, with the existing nam-grid
 host identity. No separate experimental plugin is required.
 
-1. Add **Dynamics > Noise Print** in a Pre slot, preferably before gain/NAM stages.
+1. Add **Dynamics > Noise Gate (Smart)** in a Pre slot, preferably before gain/NAM stages.
 2. Leave the guitar/interface at normal playing settings. Mute the strings without
    turning the guitar volume down. Switch **Learn noise** on for 1–3 seconds, then
    off. Audio continues while learning. Digital silence and captures shorter than
@@ -51,7 +53,7 @@ applies one linked gain after the spectral mix, and closes linearly to exact zer
 over Release after the hold. Either channel can open it, including anti-phase input.
 An enabled gate starts closed after reset/recall to avoid an initial noise burst.
 Turning Gate Off reopens it over 0.5 ms. Keep the module before delay/reverb to
-preserve their tails. The standalone Natural/Tight gates remain available.
+preserve their tails. The standalone Noise Gate offers Natural and Tight modes.
 
 Synthesis adds band corrections to a common-gain dry signal. Equal band gains
 reconstruct that scaled signal exactly. With unequal gains the active IIR filters
@@ -94,7 +96,7 @@ The optimized DSP is unchanged by integration; plugin overhead differs with the 
   the between-notes figure. These synthetic tests do not establish guitar quality.
 
 The CLAP benchmark uses stereo 128-frame blocks, 1,000 callbacks per run, and the
-fastest of three measured runs after a warmup. One trained Noise Print module
+fastest of three measured runs after a warmup. One trained Noise Gate (Smart) module
 costs roughly 3.3% of one core at 48 kHz, including the grid, versus about 0.3%
 empty and 0.45% with Natural Gate. At 96 kHz it costs roughly 6.4%. These local
 minimum-time measurements do not establish worst-case host performance.
@@ -103,7 +105,7 @@ minimum-time measurements do not establish worst-case host performance.
 | --- | ---: | ---: | ---: | ---: |
 | Empty grid | 0.27% | 0.29% | 0.59% | 0 samples |
 | Natural Gate | 0.41% | 0.44% | 0.89% | 0 samples |
-| Trained Noise Print (Gate Off) | 2.91% | 3.26% | 6.37% | 0 samples |
+| Trained Noise Gate (Smart) (Gate Off) | 2.91% | 3.26% | 6.37% | 0 samples |
 
 See the [optimization audit](NOISE_PRINT_OPTIMIZATION.md) for matched before/after
 measurements and a reproducible numerical comparison with the previous DSP.
@@ -127,12 +129,14 @@ host CPU peaks. An ordinary gate is cheaper when only silence between notes matt
 ## Integration and compatibility
 
 Integrated against `c3330b7`, retaining its category design, Distortion/HQ effects,
-rig presets and performance controls. Noise Print appears once under **Dynamics**;
+rig presets and performance controls. Noise Gate (Smart) appears once under **Dynamics**;
 NAM captures and cabinet IR libraries retain their separate submenus.
 
-The normal plugin has **2,458 parameters**, including 133 utility controls per
-slot, and state schema **14**. Noise Print keeps module ID 64 and profile format
-version 1 (96 powers). Main schemas through 13 migrate with Noise Print untrained
+The normal plugin now has **2,490 parameters**, including 135 utility controls per
+slot, and state schema **16**. Schema 16 adds the standalone Filter mode. Schema 14 introduced learned profiles; schema 15
+adds the standalone Noise Gate mode. Its former Natural/Tight module IDs remain
+readable, with the latter recalled in Tight mode. Noise Gate (Smart) keeps module ID 64 and profile format
+version 1 (96 powers). Main schemas through 13 migrate with Noise Gate (Smart) untrained
 and Gate Off. Prototype schemas 1001/1002 migrate by name, filling missing roadmap
 and grid controls with defaults; 1001 also gets Gate Off. The old experimental
 CLAP has a different host ID, so importing its saved state requires explicit host

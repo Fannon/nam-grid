@@ -1,6 +1,6 @@
 # nam-grid
 
-Noise Print is a [zero-latency noise-snapshot denoiser](docs/NOISE_PRINT.md) under
+Noise Gate (Smart) is a [zero-latency noise-snapshot denoiser](docs/NOISE_PRINT.md) under
 **Dynamics**, with an optional final gate. It is included in the normal CLAP/VST3
 alongside the current module categories, rig presets and performance controls.
 

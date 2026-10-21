@@ -12,6 +12,16 @@ public:
     _AssignCoefficients(1. + alpha, -2. * cosine, 1. - alpha, 1., -2. * cosine, 1.);
   }
 };
+// RBJ band-pass with constant 0 dB peak gain.
+class BandPassCoefficients : public recursive_linear_filter::Biquad
+{
+public:
+  void SetParams(const recursive_linear_filter::BiquadParams& p) override
+  {
+    const double omega = p.GetOmega0(), cosine = p.GetCosW(omega), alpha = p.GetAlpha(omega);
+    _AssignCoefficients(1. + alpha, -2. * cosine, 1. - alpha, alpha, 0., -alpha);
+  }
+};
 class SlotParametricEQ
 {
 public:
@@ -177,12 +187,19 @@ public:
     mCut = 2500.;
     mQ = .7;
     mDepth = 0.;
+    mWeights = {1., 0., 0.}; mFirstMode = true;
     mCount = 0;
     mFilter.Reset();
+    mHighPass.Reset(); mBandPass.Reset();
     Update();
   }
   void Process(double* samples, int frames, const UtilityControls& c)
   {
+    const int mode = std::clamp(c.filterMode, 0, 2);
+    if (mFirstMode && frames > 0)
+    {
+      mWeights = {}; mWeights[mode] = 1.; mFirstMode = false;
+    }
     for (int i = 0; i < frames; ++i)
     {
       const double peak = std::abs(samples[i]);
@@ -196,15 +213,33 @@ public:
       if (mCount++ % 16 == 0)
         Update();
       mCount %= 16;
-      samples[i] = mFilter.Tick(samples[i]);
+      const double low = mFilter.Tick(samples[i]), high = mHighPass.Tick(samples[i]), band = mBandPass.Tick(samples[i]);
+      for (int j = 0; j < 3; ++j)
+      {
+        const double target = j == mode ? 1. : 0.;
+        mWeights[j] = std::abs(mWeights[j] - target) < 1.e-12 ? target : target + mSmooth * (mWeights[j] - target);
+      }
+      samples[i] = low + mWeights[1] * (high - low) + mWeights[2] * (band - low);
     }
   }
+  double AppliedCutoff() const { return mAppliedCut; }
+  double AppliedResonance() const { return mAppliedQ; }
 
 private:
-  void Update() { mFilter.SetParams(recursive_linear_filter::BiquadParams(mRate, std::min(.4 * mRate, mCut), mQ, 0.)); }
+  void Update()
+  {
+    mAppliedCut = std::min(.4 * mRate, mCut); mAppliedQ = mQ;
+    const recursive_linear_filter::BiquadParams params(mRate, mAppliedCut, mAppliedQ, 0.);
+    mFilter.SetParams(params); mHighPass.SetParams(params); mBandPass.SetParams(params);
+  }
   ScalarFilter<CutCoefficients<false>> mFilter;
+  ScalarFilter<CutCoefficients<true>> mHighPass;
+  ScalarFilter<BandPassCoefficients> mBandPass;
+  std::array<double, 3> mWeights{1., 0., 0.};
+  bool mFirstMode = true;
   double mRate = 48000., mSmooth = 0., mAttack = 0., mRelease = 0., mEnv = 0., mCut = 2500., mQ = .7, mDepth = 0.;
   int mCount = 0;
+  double mAppliedCut = 2500., mAppliedQ = .7;
 };
 
 class SlotAutoSwell

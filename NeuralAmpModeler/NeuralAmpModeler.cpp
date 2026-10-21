@@ -27,6 +27,7 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
+constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kGridStateSchema = 17;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -83,7 +84,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     GetParam(SlotTrimParam(slot))->InitGain((name + " Trim").c_str(), 0., -40., 40., .1);
     GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
   }
-  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1);
+  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "%");
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto name = GridSlotName(slot);
@@ -119,6 +120,10 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       }
       else if (i == uDistStyle)
         param->InitEnum((name + " " + p.name).c_str(), 0, {"Soft", "Hard", "Fuzz", "Foldback"});
+      else if (i == uGateMode)
+        param->InitEnum((name + " " + p.name).c_str(), 0, {"Natural", "Tight"});
+      else if (i == uFilterMode)
+        param->InitEnum((name + " " + p.name).c_str(), 0, {"Low-pass", "High-pass", "Band-pass"});
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
       else if (p.exponential)
@@ -185,7 +190,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto b = ui->GetBounds();
     const auto compact = grid_ui::Style();
     ui->AttachPanelBackground(COLOR_BLACK);
-    ui->AttachControl(new ITextControl(IRECT(24, 6, 156, 46), PLUG_NAME, grid_ui::Text(23.f)));
+    ui->AttachControl(new ITextControl(IRECT(24, 8, 156, 48), PLUG_NAME, grid_ui::Text(28.f)));
     ui->AttachControl(new grid_ui::Button(IRECT(165, 14, 285, 42), [](IControl* caller) {
       caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
@@ -212,24 +217,21 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
       const float left = 88.f + 212.f * (slot % 4);
-      const float top = 104.f + 104.f * (slot / 4);
-      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + 76.f), slot),
+      const float top = grid_layout::cardTop + grid_layout::rowPitch * static_cast<float>(slot / 4);
+      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + grid_layout::cardHeight), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(9, 113, 67, 171), kGridParamBase + grid_performance::InputGain, "IN"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(0, 67, 74, 135), kGridParamBase + grid_performance::InputGain, "IN"))
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(938, 281, 996, 339), kParallelBlend, "A / B"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 235, 1000, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(938, 425, 996, 483), kOutputLevel, "OUT"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
-    ui->AttachControl(new ITextControl(IRECT(88, 523, 932, 546),
-                                       "Click + Add module to choose. Select a loaded module to edit; double-click to replace. The dot toggles bypass.",
-                                       grid_ui::Text(12.f, grid_ui::muted)));
     // Flat input/output meters retain the upstream sender protocol, without bitmap skins.
     const auto meterStyle =
       compact.WithShowValue(false).WithColor(kX1, grid_ui::accent).WithColor(kFG, grid_ui::accent);
-    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(74, 108, 77, 176), "", meterStyle), kCtrlTagInputMeter);
-    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(922, 420, 927, 488), "", meterStyle), kCtrlTagOutputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(81, 68, 84, 140), "", meterStyle), kCtrlTagInputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(922, 380, 927, 452), "", meterStyle), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(b), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
@@ -323,6 +325,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.dynamics.gateThreshold = GetParam(SlotDynamicsParam(slot, 0))->Value();
     c.dynamics.gateRelease = GetParam(SlotDynamicsParam(slot, 1))->Value();
     c.dynamics.gateRange = GetParam(SlotDynamicsParam(slot, 2))->Value();
+    c.dynamics.gateMode = GetParam(SlotUtilityParam(slot, uGateMode))->Int();
     c.dynamics.compThreshold = GetParam(SlotDynamicsParam(slot, 3))->Value();
     c.dynamics.compRelease = GetParam(SlotDynamicsParam(slot, 4))->Value();
     c.dynamics.compMakeup = GetParam(SlotDynamicsParam(slot, 5))->Value();
@@ -367,6 +370,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.utility.cutoff = GetParam(SlotUtilityParam(slot, uFilterCutoff))->Value();
     c.utility.resonance = GetParam(SlotUtilityParam(slot, uFilterResonance))->Value();
     c.utility.envelope = GetParam(SlotUtilityParam(slot, uFilterEnvelope))->Value();
+    c.utility.filterMode = GetParam(SlotUtilityParam(slot, uFilterMode))->Int();
     c.utility.rise = GetParam(SlotUtilityParam(slot, uSwellRise))->Value();
     c.utility.threshold = GetParam(SlotUtilityParam(slot, uSwellThreshold))->Value();
     c.utility.release = GetParam(SlotUtilityParam(slot, uSwellRelease))->Value();
@@ -1115,7 +1119,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
                   && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
-                  && schemaValue != noise_print::integratedSchema && schemaValue != kGridStateSchema)
+                  && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
+                  && schemaValue != kFilterModeSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1224,11 +1229,11 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         if (grid && (schema < 12 || schema >= 1001) && i == kGridParamBase + grid_performance::InputGain)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 1001 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema14UtilityControls == uNoiseGateThreshold)
+            && (i - kUtilityBase) % kSchema16UtilityControls == uNoiseGateThreshold)
           config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
         if (grid && i >= kUtilityBase && i < kTunerReference)
         {
-          const int control = (i - kUtilityBase) % kSchema14UtilityControls;
+          const int control = (i - kUtilityBase) % kSchema16UtilityControls;
           if ((schema <= 13 && control >= uNoiseLearn)
               || (schema >= 1001 && control >= uUtilityDelay && control < uNoiseLearn))
             config[name] = GetParam(i)->GetDefault();
@@ -1247,26 +1252,36 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         if (grid && schema >= 6 && schema < 10
             && ((i >= kTunerReference && schema < 8)
                 || (i >= kUtilityBase && i < kTunerReference
-                    && (i - kUtilityBase) % kSchema14UtilityControls >= (schema == 6   ? 30
+                    && (i - kUtilityBase) % kSchema16UtilityControls >= (schema == 6   ? 30
                                                                  : schema == 7 ? 41
                                                                  : schema == 8 ? 48 : 61))))
           config[name] = GetParam(i)->GetDefault();
         // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
         if (grid && schema >= 11 && schema <= 12 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema14UtilityControls >= uDistStyle)
+            && (i - kUtilityBase) % kSchema16UtilityControls >= uDistStyle)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 10 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema14UtilityControls >= 103)
+            && (i - kUtilityBase) % kSchema16UtilityControls >= 103)
           config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 8 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kSchema14UtilityControls == uUtilityStereo)
+            && (i - kUtilityBase) % kSchema16UtilityControls == uUtilityStereo)
         {
-          const auto oldName = GridSlotName((i - kUtilityBase) / kSchema14UtilityControls) + " Utility Width";
+          const auto oldName = GridSlotName((i - kUtilityBase) / kSchema16UtilityControls) + " Utility Width";
           if (!config.contains(oldName) || !config[oldName].is_number()
               || !std::isfinite(config[oldName].get<double>()))
             return -1;
           config[name] = config[oldName].get<double>() - 100.;
         }
+        if (grid && (schema < kGateModeSchema || schema >= 1001)
+            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kSchema16UtilityControls == uGateMode)
+        {
+          const size_t slot = (i - kUtilityBase) / kSchema16UtilityControls;
+          config[name] = config.contains("SlotEffects")
+                           && config["SlotEffects"][slot] == static_cast<int>(SlotEffect::TightGate) ? 1. : 0.;
+        }
+        if (grid && (schema < kFilterModeSchema || schema >= 1001)
+            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kSchema16UtilityControls == uFilterMode)
+          config[name] = 0.;
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
       }
@@ -1285,7 +1300,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         }
       }
       else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
-               || schema == kGridStateSchema)
+               || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;

@@ -38,7 +38,7 @@ the side gutters. Cards have more space horizontally and vertically, taller
 meters with a gap around the card, and a colored outline instead of a top strip.
 Meters show the peak of the mono sum `(L + R) / 2`; the overall input/output meters
 also show the average level of that mono signal. Bypassed and empty slots do not
-monitor. The module editor remains in its existing position. All three controls are host-automatable and included in
+monitor. All three controls are host-automatable and included in
 project state and presets.
 
 Click **+ Add module** once on an empty card; double-click a loaded card to replace
@@ -51,4 +51,62 @@ a dedicated browser.
 State schema 13 adds Distortion controls after schema 12's Global Input and
 optional PresetName/PresetDirectory metadata. Earlier supported project states
 receive defaults for newly added controls. There are 2,346 host parameters
-(126 utility controls per slot and 44 grid controls).
+(126 utility controls per slot and 44 grid controls). Schema 14 adds Noise Gate (Smart)
+profiles and seven utility controls per slot, bringing the total to 2,458 host
+parameters. Schema 15 adds Natural/Tight mode to the unified Noise Gate, for
+134 utility controls per slot and 2,474 host parameters. Learned profiles are
+included in presets; active learning is cleared. Schema 16 adds Filter mode, for
+135 utility controls per slot and 2,490 host parameters. Older Filter states default
+to Low-pass; schema 15 Noise Gate modes are retained.
+
+## Compact editor and visualizations
+
+The window is 1000 x 720, down from 1000 x 800. Cards have slightly more height;
+unused space above and below the grid is reduced, and the grid help line is gone.
+The eight parameter cells share the entire editor width evenly. Their dials are
+smaller, labels larger, and the selected slot ID is larger. Long card/editor titles
+end in an ellipsis; the card tooltip retains the complete file path.
+
+All knob values and units sit below the dial, including IN, OUT and A/B. Click a
+value to type it, or double-click the dial to restore its default. A/B shows a
+percentage. The larger header logo is vertically centered with the menu buttons.
+The parameter panel leaves equal 24 px margins at the left, right and bottom.
+The redundant footer description is removed; its space gives the header and
+mini display more height.
+
+Every loaded module has an optional mini display in the editor's top right.
+Noise Gate, Noise Gate (Smart), compressors and Peak Limiter show live input/output
+level history against a dashed threshold line, plus numeric gain reduction. Gray
+is input, the module color is output; the history covers about 2.4 seconds. For
+Noise Gate (Smart), the line represents its optional final broadband gate and is
+hidden when Gate is Off; spectral reduction still appears in the GR readout.
+Digital/Analog/Tape Delay offer an echo timing sketch driven by Time,
+Feedback and Mix; gray is dry input and colored stems are echoes. Synchronized
+delays use the current host tempo, falling back to 120 BPM before tempo is available.
+NAM captures show vector category icons for amp head, amp plus cabinet, cabinet,
+pedal, outboard rack or space; unknown captures use a neutral capture icon. These
+categories use existing metadata/filename inference. Guitar EQ, Cut EQ and
+Parametric EQ show their combined settled frequency response, including enabled
+cuts and bell/notch mode. The log axis spans 20 Hz to 20 kHz (bounded below Nyquist),
+and the vertical scale is -24 to +24 dB. The curve uses the audio filters' actual
+coefficient classes and is cached until controls or sample rate change.
+Filter has Low-pass, High-pass and Band-pass modes. Envelope at zero is static;
+raising it lets the input level move cutoff. Mode changes use a 5 ms smoothing time constant.
+Its live response uses the selected mode and the applied
+cutoff and resonance reported by the DSP. The cutoff follows the actual envelope;
+solid is left, with a faint right-channel curve when the channels differ. While
+inactive, it shows the base cutoff. Telemetry uses the existing meter queue and
+does not allocate on audio or change filter processing.
+Other modules, including IRs,
+show the same gray-input/colored-output history on a -60 to 0 dB scale. Live plots
+reuse existing mono meter packets; they do not capture audio or add DSP processing.
+Use **Hide / Graph** to toggle the display for that slot. This is a temporary
+editor preference and does not change automation, audio or the saved rig.
+
+The global IN meter occupies the first card's input-meter position; that card's
+duplicate input bar is hidden. Its output meter remains independent.
+
+Within NAM/IR categories, shared folder levels are skipped up to the first branch
+or file. Distinct source folders and folders alongside direct files remain visible.
+Folders precede files at every level; each group is sorted alphabetically without
+case sensitivity. Selection tags still refer to the original library snapshot.

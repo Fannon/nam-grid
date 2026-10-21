@@ -173,7 +173,9 @@ int main(int argc, char** argv)
             const int type = -item->GetTag() - 20;
             assert(type > 0 && IsValidSlotEffect(static_cast<SlotEffect>(type)));
             if (type == static_cast<int>(SlotEffect::NoisePrint))
-              assert(std::string(label) == "Dynamics");
+              assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate (Smart)");
+            if (type == static_cast<int>(SlotEffect::NaturalGate))
+              assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate");
             ++seen[type];
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
           }
@@ -181,7 +183,8 @@ int main(int argc, char** argv)
         for (int i = 1; i <= static_cast<int>(SlotEffect::NoisePrint); ++i)
           assert(
             seen[i]
-            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR) ? 1 : 0));
+            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR)
+                  && i != static_cast<int>(SlotEffect::TightGate) ? 1 : 0));
         assert(menu.GetItem(index++)->GetIsSeparator());
         if (quality)
         {
@@ -240,12 +243,53 @@ int main(int argc, char** argv)
   assert(irLeaf->GetChecked() && mixed.captures[irLeaf->GetTag()].isIR);
   // Filtering the file type retains original snapshot indices for selection.
   FillMenu(menu, mixed, Filter{}, PathText(wavFile), 1);
-  irLeaf = menu.GetItem(0)->GetSubmenu()->GetItem(0)->GetSubmenu()->GetItem(0);
+  assert(menu.NItems() == 1 && !menu.GetItem(0)->GetSubmenu());
+  irLeaf = menu.GetItem(0);
   assert(irLeaf->GetChecked() && mixed.captures[irLeaf->GetTag()].isIR);
   FillMenu(menu, mixed, Filter{}, PathText(mixed.captures[0].path), 0);
-  auto* namLeaf = menu.GetItem(0)->GetSubmenu()->GetItem(0)->GetSubmenu()->GetItem(0);
+  assert(menu.NItems() == 1 && !menu.GetItem(0)->GetSubmenu());
+  auto* namLeaf = menu.GetItem(0);
   assert(namLeaf->GetChecked() && !mixed.captures[namLeaf->GetTag()].isIR);
   assert(std::filesystem::equivalent(mixed.captures[namLeaf->GetTag()].path, namFile));
+  auto grouped = mixed;
+  auto ampEntry = mixed.captures[0], pedalEntry = ampEntry;
+  ampEntry.relative = "NAM Models/Amps/clean.nam";
+  pedalEntry.relative = "NAM Models/Pedals/drive.nam"; pedalEntry.path = root / "drive.nam";
+  grouped.captures = {ampEntry, pedalEntry};
+  FillMenu(menu, grouped, Filter{}, PathText(pedalEntry.path), 0);
+  assert(menu.NItems() == 2 && std::string(menu.GetItemText(0)) == "Amps" && std::string(menu.GetItemText(1)) == "Pedals");
+  const auto* chosenPedal = menu.GetItem(1)->GetSubmenu()->GetItem(0);
+  assert(chosenPedal->GetChecked() && chosenPedal->GetTag() == 1);
+  // A file directly in the category prevents skipping its sibling folder.
+  auto directEntry = ampEntry; directEntry.relative = "direct.nam"; directEntry.path = root / "direct.nam";
+  grouped.captures.push_back(directEntry);
+  FillMenu(menu, grouped, Filter{}, "", 0);
+  assert(menu.NItems() == 2 && std::string(menu.GetItemText(0)) == "NAM Models");
+  assert(!menu.GetItem(1)->GetSubmenu() && menu.GetItem(1)->GetTag() == 2);
+  // Two distinct source folders remain visible when neither is shared.
+  grouped.captures = {ampEntry, pedalEntry};
+  grouped.captures[1].relative = "Other Models/Pedals/drive.nam";
+  FillMenu(menu, grouped, Filter{}, "", 0);
+  assert(menu.NItems() == 2 && std::string(menu.GetItemText(0)) == "NAM Models" && std::string(menu.GetItemText(1)) == "Other Models");
+  // Files cannot split folder entries, including in nested menus and unsorted snapshots.
+  grouped.captures.clear();
+  for (const char* name : {"Collection/Alpha.nam", "Collection/Zulu/cab.nam", "Collection/beta.nam",
+                           "Collection/Bravo/leaf.nam", "Collection/Charlie/Z.nam",
+                           "Collection/Charlie/alpha.nam", "Collection/Charlie/Deep/child.nam"})
+  {
+    auto entry = ampEntry; entry.relative = name; entry.path = root / entry.relative;
+    grouped.captures.push_back(entry);
+  }
+  FillMenu(menu, grouped, Filter{}, PathText(grouped.captures[0].path), 0);
+  assert(menu.NItems() == 5);
+  for (int i = 0; i < 3; ++i) assert(menu.GetItem(i)->GetSubmenu());
+  assert(std::string(menu.GetItemText(0)) == "Bravo" && std::string(menu.GetItemText(1)) == "Charlie"
+         && std::string(menu.GetItemText(2)) == "Zulu");
+  assert(!menu.GetItem(3)->GetSubmenu() && menu.GetItem(3)->GetChecked() && menu.GetItem(3)->GetTag() == 0);
+  assert(!menu.GetItem(4)->GetSubmenu() && menu.GetItem(4)->GetTag() == 2);
+  auto* charlie = menu.GetItem(1)->GetSubmenu();
+  assert(charlie->GetItem(0)->GetSubmenu() && std::string(charlie->GetItemText(0)) == "Deep");
+  assert(charlie->GetItem(1)->GetTag() == 5 && charlie->GetItem(2)->GetTag() == 4);
   const auto partial = ScanFolders({PathText(sourceA), PathText(root / "missing")});
   assert(partial.captures.size() == 1 && !partial.error.empty());
   const auto folders = std::vector<std::string>{PathText(sourceA), PathText(sourceB)};

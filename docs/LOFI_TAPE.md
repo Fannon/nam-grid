@@ -60,10 +60,10 @@ distorted guitar. Add Airwindows Tape separately for saturation.
 ## Integration and verification
 
 The module appends effect ID 43, preserving existing IDs including Noise Print 64.
-State schema 15 appends seven named controls per slot. Its automation parameters
-are appended after schema 14's entire bank, keeping all previous host parameter
+State schema 17 appends seven named controls per slot. Its automation parameters
+are appended after schema 16's entire bank, keeping its existing host parameter
 IDs unchanged. Supported older states initialize the tape knobs to defaults;
-schema 14 and earlier reject the new effect ID. Copy/Move/Swap, scenes and `.ngrid`
+schema 16 and earlier reject the new effect ID. Copy/Move/Swap, scenes and `.ngrid`
 presets use the normal slot control bank.
 
 All delay memory is allocated in Reset outside audio. Bypass drains with silent
@@ -76,5 +76,19 @@ sample-rate scaling at 44.1/48/88.2/96/192 kHz, host block partition invariance,
 zero audio allocations/deletions, bypass drain, measured visualization values,
 schema migration, malformed-state rejection, automation and editor gestures.
 
-Build and test results for this branch will be recorded after running the checks.
-Real-guitar/Bitwig listening and macOS validation remain manual follow-ups.
+Windows Release CLAP/VST3 build successfully. The full-plugin callback benchmark
+at 128-frame blocks measured the following percentages of one local CPU core
+(fastest of three measured runs after warmup):
+
+| Sample rate | Empty grid | One LoFi Tape slot | Added cost |
+| --- | ---: | ---: | ---: |
+| 44.1 kHz | 0.52% | 0.79% | 0.27% |
+| 48 kHz | 0.57% | 0.81% | 0.24% |
+| 96 kHz | 1.12% | 1.62% | 0.50% |
+
+These are synthetic callback measurements with the graph editor closed, not a
+Bitwig meter. Raw output is in ignored `build-lofi/bench-empty.csv` and
+`build-lofi/bench-lofi.csv`. The module reports zero compensation latency.
+Real-guitar/Bitwig listening, a visible graph review and macOS validation remain
+manual follow-ups. The hidden OpenGL framebuffer capture returned black, so it
+does not establish visual appearance.

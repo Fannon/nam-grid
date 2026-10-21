@@ -91,13 +91,16 @@ enum UtilityParam
   uNoiseRelease,
   uNoiseMix,
   uNoiseGateThreshold,
+  uGateMode,
+  uFilterMode,
   uLoFiSpeed, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiMix, uLoFiOutput,
   kUtilityControls
 };
-// Freeze schema 14's parameter stride; new controls receive IDs after its entire
+// Freeze schema 16's parameter stride; new controls receive IDs after its entire
 // parameter bank, preserving existing host automation as well as named state.
-inline constexpr int kSchema14UtilityControls = uLoFiSpeed;
+inline constexpr int kSchema16UtilityControls = 135;
 inline constexpr int kLoFiControls = 7;
+static_assert(uLoFiSpeed == kSchema16UtilityControls, "Append new controls after the frozen schema-16 bank");
 struct EffectParameter
 {
   const char* name;
@@ -113,9 +116,9 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Parametric Q", "Q", .7, .1, 20, .01, "", 2},
    {"Boost Gain", "Gain", 6, 0, 18, .1, "dB", 0},
    {"Boost Tilt", "Tilt", 0, -6, 6, .1, "dB", 1},
-   {"Filter Cutoff", "Cutoff", 2500, 40, 12000, 1, "Hz", 0, true},
-   {"Filter Resonance", "Resonance", .7, .5, 4, .01, "", 1},
-   {"Filter Envelope", "Envelope", 0, 0, 4, .01, "oct", 2},
+   {"Filter Cutoff", "Cutoff", 2500, 40, 12000, 1, "Hz", 1, true},
+   {"Filter Resonance", "Resonance", .7, .5, 4, .01, "", 2},
+   {"Filter Envelope", "Envelope", 0, 0, 4, .01, "oct", 3},
    {"Swell Rise", "Rise", 250, 10, 1200, 1, "ms", 0, true},
    {"Swell Threshold", "Threshold", -42, -72, -12, .1, "dB", 1},
    {"Swell Release", "Release", 120, 20, 800, 1, "ms", 2, true},
@@ -241,6 +244,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Noise Release", "Release", 120, 20, 500, 1, "ms", 4, true},
    {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6},
    {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5},
+   {"Gate Mode", "Mode", 0, 0, 1, 1, "", 3},
+   {"Filter Mode", "Mode", 0, 0, 2, 1, "", 0},
    {"LoFi Speed", "Speed", 7.5, 1.875, 30, .001, "ips", 0, true},
    {"LoFi Wow", "Wow", 25, 0, 100, .1, "%", 1},
    {"LoFi Flutter", "Flutter", 20, 0, 100, .1, "%", 2},
@@ -299,6 +304,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 inline bool UsesUtility(SlotEffect e, int p)
 {
   if (e == SlotEffect::LoFiTape) return p >= uLoFiSpeed && p <= uLoFiOutput;
+  if (e == SlotEffect::NaturalGate || e == SlotEffect::TightGate) return p == uGateMode;
   if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
   if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
   if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;
@@ -335,7 +341,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::PunchComp)
     return p == uPunchAttack || p == uCompMix;
   if (e == SlotEffect::SynthFilter)
-    return p >= uFilterCutoff && p <= uFilterEnvelope;
+    return (p >= uFilterCutoff && p <= uFilterEnvelope) || p == uFilterMode;
   if (e == SlotEffect::AutoSwell)
     return p >= uSwellRise && p <= uSwellRelease;
   if (IsDelay(e))
@@ -354,6 +360,7 @@ struct UtilityControls
 {
   double frequency = 800., gain = 0., q = .7, boost = 6., tilt = 0.;
   double cutoff = 2500., resonance = .7, envelope = 0.;
+  int filterMode = 0;
   double rise = 250., threshold = -42., release = 120.;
   std::array<double, 5> delay{350., 35., 5000., 20., 25.};
   std::array<double, 5> reverb{2., 100., 5500., 15., 20.};

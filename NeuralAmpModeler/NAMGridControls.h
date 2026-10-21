@@ -76,6 +76,13 @@ inline void Gradient(IGraphics& g, const IRECT& r, IColor first, IColor second, 
   g.PathFill(pattern);
 }
 
+// Lift a hue toward white without draining its colour, unlike a plain interpolation
+// to white that turns every selected tile into the same grey.
+inline IColor Brighten(IColor color, float amount)
+{
+  return IColor::LinearInterpolateBetween(color, COLOR_WHITE, std::clamp(amount, 0.f, 1.f));
+}
+
 inline IText Text(float size = 13.f, IColor color = text, EAlign align = EAlign::Near)
 { return IText(size, color, "Roboto-Regular", align); }
 // Measure in the active font and remove whole UTF-8 code points when shortening.
@@ -337,19 +344,24 @@ public:
     const bool occupied = PLUG()->IsSlotLoaded(mSlot) || !PLUG()->GetSlotPath(mSlot).empty();
     g.FillRoundRect(surface, mCardBounds, 4.f);
     if (occupied)
-      Gradient(g, mCardBounds.GetPadded(-1.f), tone.first, tone.second, enabled ? .1f : .035f, 4.f);
+      Gradient(g, mCardBounds.GetPadded(-1.f), tone.first, tone.second,
+               selected ? .18f : enabled ? .1f : .035f, 4.f);
     auto first = occupied ? (enabled ? tone.first : IColor::LinearInterpolateBetween(border, tone.first, .35f)) : border;
     auto second = occupied ? (enabled ? tone.second : IColor::LinearInterpolateBetween(border, tone.second, .35f)) : border;
     if (selected)
     {
-      first = IColor::LinearInterpolateBetween(first, COLOR_WHITE, occupied ? .6f : .85f);
-      second = IColor::LinearInterpolateBetween(second, COLOR_WHITE, occupied ? .6f : .85f);
+      first = Brighten(first, occupied ? .25f : .5f);
+      second = Brighten(second, occupied ? .25f : .5f);
     }
     const auto outline = IPattern::CreateLinearGradient(mCardBounds.L, 0, mCardBounds.R, 0, {{first, 0.f}, {second, 1.f}});
     g.PathRoundRect(mCardBounds, 4.f); g.PathStroke(outline, selected ? 2.f : occupied ? 1.5f : 1.f);
     auto slotName = GridSlotName(mSlot);
     slotName.erase(std::remove(slotName.begin(), slotName.end(), ' '), slotName.end());
-    g.DrawText(Text(14.f, selected ? text : muted), slotName.c_str(),
+    // The tile ID carries the module's own hue, matching the module panel header below.
+    const auto idColor = !occupied ? muted
+                         : !enabled ? IColor::LinearInterpolateBetween(border, tone.first, .55f)
+                         : selected ? Brighten(tone.first, .3f) : tone.first;
+    g.DrawText(Text(14.f, idColor), slotName.c_str(),
                IRECT(mCardBounds.L + 12, mCardBounds.T + 8, mCardBounds.R - 36, mCardBounds.T + 25));
     g.FillCircle(enabled ? tone.first : muted, mCardBounds.R - 17, mCardBounds.T + 16, 3.f);
     const auto effect = PLUG()->GetSlotEffect(mSlot);

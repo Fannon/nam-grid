@@ -7,7 +7,10 @@ selector or animated settings overlay is instantiated. Routing stays fixed. This
 The compact header contains the logo, preset folder browser and arrows, Tuner,
 Grid / Control and Library & settings. IN gain sits before the first grid card;
 OUT gain and A/B balance occupy the right gutter. Sixteen cards show slot ID, file/effect name,
-type, enabled state and slim input-left/output-right meters beside the card. Click to select; only the selected module's controls
+type, enabled state and slim input-left/output-right meters beside the card. Tile IDs carry
+their module colour, the same hue as the module head below, and the selected card brightens
+its own hue rather than fading to a neutral outline, so selection stays readable next to the
+grey Dynamics modules. Click to select; only the selected module's controls
 appear in the bottom editor. Double-click a card or use Choose / Change in the editor to open
 the module menu. Click an empty card's + Add module once to open it. Its dot and the
 editor's Enabled / Bypassed switch share the same parameter.

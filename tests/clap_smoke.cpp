@@ -1608,6 +1608,7 @@ int main(int argc, char** argv)
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);
+  click(910, 28); click(260, 132); click(915, 44); pumpFor(250);
   assert(plugin->activate(plugin, 44100., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;

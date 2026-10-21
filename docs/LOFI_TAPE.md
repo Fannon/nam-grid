@@ -76,7 +76,16 @@ sample-rate scaling at 44.1/48/88.2/96/192 kHz, host block partition invariance,
 zero audio allocations/deletions, bypass drain, measured visualization values,
 schema migration, malformed-state rejection, automation and editor gestures.
 
-Windows Release CLAP/VST3 build successfully. The full-plugin callback benchmark
+Windows Release CLAP/VST3 build successfully. All four CTest suites pass:
+capture-library, wav-decoder, stages and clap-smoke (310.66 seconds total;
+294.24 seconds for the native host/editor suite). The full run includes tape
+automation, module-menu selection, all seven editor gestures, graph toggling,
+real transport processing, `.ngrid` file save/load and the existing editor checks.
+Library navigation tests explicitly request a rescan after state recall so they
+respect a disabled startup-rescan preference; the expanded editor suite allows
+420 seconds on slower hosts.
+
+The full-plugin callback benchmark
 at 128-frame blocks measured the following percentages of one local CPU core
 (fastest of three measured runs after warmup):
 

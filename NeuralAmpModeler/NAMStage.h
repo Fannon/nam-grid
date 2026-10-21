@@ -31,6 +31,8 @@ public:
     std::unique_ptr<ResamplingNAM> model;
     SlotEffect effect = SlotEffect::NAM;
     SlotDynamics dynamics;
+    noise_print::Processor noise;
+    uint64_t noiseEpoch = 0;
     SlotEQ eq, namCuts;
     SlotParametricEQ parametric;
     SlotBoost boost;
@@ -67,6 +69,8 @@ public:
     {
       utilityStereo.Reset(rate);
       dynamics.Reset(rate);
+      if (effect == SlotEffect::NoisePrint && !rightChannel)
+        noise.Reset(rate);
       eq.Reset(rate);
       parametric.Reset(rate);
       boost.Reset(rate);
@@ -177,6 +181,9 @@ public:
     }
   };
 
+  noise_print::Profile GetNoiseProfile(uint64_t epoch, const noise_print::Profile& fallback) const
+  { return mNoiseSnapshot.Read(epoch, fallback); }
+  uint64_t NoiseSequence() const { return mNoiseSnapshot.Sequence(); }
   void Publish(std::unique_ptr<Prepared> item, bool waitForReset = false)
   {
     if (waitForReset)
@@ -292,7 +299,18 @@ public:
         }
         else
         {
-          if (UsesCoupledStereo(p->effect))
+          if (p->effect == SlotEffect::NoisePrint)
+          {
+            std::copy_n(in, frames, out);
+            if (rightSamples)
+              std::copy_n(p->right->input.data(), frames, p->right->wet.data());
+            p->noise.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility.noise);
+            if (p->noise.TakeChanged())
+              mNoiseSnapshot.Publish(p->noise.GetProfile(), p->noiseEpoch);
+            if (mMonitoring)
+              mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->noise.Reduction() * mMix));
+          }
+          else if (UsesCoupledStereo(p->effect))
           {
             std::copy_n(in, frames, out);
             double* r = rightSamples ? p->right->wet.data() : nullptr;
@@ -427,6 +445,7 @@ private:
   }
   static double Approach(double current, double target, double step)
   { return current < target ? std::min(target, current + step) : std::max(target, current - step); }
+  noise_print::Snapshot mNoiseSnapshot;
   RealtimeExchange<Prepared> mExchange;
   std::atomic<bool> mWaitForReset{false};
   double mMix = 0., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;

@@ -1,3 +1,4 @@
+#include "NoisePrintState.h"
 #include <algorithm> // std::clamp, std::min
 #include <cmath> // pow
 #include <cctype>
@@ -125,6 +126,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
       else
         param->InitDouble((name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit);
+      if (i == uNoiseGateThreshold)
+        param->SetDisplayText(p.minimum, "Off");
     }
     if (slot != 1)
       GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
@@ -330,6 +333,13 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     c.eq.lowPass = GetParam(SlotEQParam(slot, 4))->Value();
     c.eq.presence = GetParam(SlotEQParam(slot, 5))->Value();
     c.eq.irLevel = GetParam(SlotEQParam(slot, 6))->Value();
+    c.utility.noise.learn = GetParam(SlotUtilityParam(slot, uNoiseLearn))->Bool();
+    c.utility.noise.sensitivity = GetParam(SlotUtilityParam(slot, uNoiseSensitivity))->Value();
+    c.utility.noise.reduction = GetParam(SlotUtilityParam(slot, uNoiseReduction))->Value();
+    c.utility.noise.attack = GetParam(SlotUtilityParam(slot, uNoiseAttack))->Value();
+    c.utility.noise.release = GetParam(SlotUtilityParam(slot, uNoiseRelease))->Value();
+    c.utility.noise.mix = GetParam(SlotUtilityParam(slot, uNoiseMix))->Value();
+    c.utility.noise.gateThreshold = GetParam(SlotUtilityParam(slot, uNoiseGateThreshold))->Value();
     c.utility.sync = GetParam(SlotUtilityParam(slot, uTempoSync))->Bool();
     c.utility.division = GetParam(SlotUtilityParam(slot, uTempoDivision))->Int();
     c.utility.tempo = GetTempo();
@@ -624,7 +634,7 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
-  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::Distortion)
+  if (slot >= FixedNAMGrid::kSlots || !IsValidSlotEffect(effect))
     return;
   _ClearModel(slot, effect);
   if (fromUI)
@@ -647,14 +657,24 @@ std::string NeuralAmpModeler::LoadSlotIR(size_t slot, const char* path)
   return error;
 }
 
+noise_print::Profile NeuralAmpModeler::GetNoiseProfile(size_t slot) const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (slot >= FixedNAMGrid::kSlots || mSlotEffects[slot] != SlotEffect::NoisePrint)
+    return {};
+  return mGrid.stages[slot].GetNoiseProfile(mNoiseEpochs[slot], mNoiseProfiles[slot]);
+}
+
 SlotConfig NeuralAmpModeler::_GetSlotConfig(size_t slot) const
 {
   SlotConfig result;
   result.effect = mSlotEffects[slot];
+  result.noiseProfile = GetNoiseProfile(slot);
   result.path = mSlotPaths[slot].Get();
   const auto indices = SlotParamIndices(slot);
   for (size_t i = 0; i < indices.size(); ++i)
     result.values[i] = GetParam(indices[i])->Value();
+  result.values[17 + uNoiseLearn] = 0.; // Never copy an in-progress capture.
   return result;
 }
 
@@ -708,7 +728,9 @@ bool NeuralAmpModeler::IsPerformanceSceneParam(int index) const
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotFullParam(slot)) return false;
   // Hold captures are live audio; a scene must not silently latch an empty buffer.
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotUtilityParam(slot, uFreezeHold)) return false;
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotUtilityParam(slot, uShimmerFreeze)) return false;
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    if (index == SlotUtilityParam(slot, uShimmerFreeze) || index == SlotUtilityParam(slot, uNoiseLearn))
+      return false;
   return index >= 0 && index < kNumParams;
 }
 void NeuralAmpModeler::StorePerformanceScene(size_t scene)
@@ -853,6 +875,21 @@ void NeuralAmpModeler::OnIdle()
         SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
       }
     }
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    const auto sequence = mGrid.stages[slot].NoiseSequence();
+    if (sequence != mNoiseSeen[slot])
+    {
+      const auto profile = GetNoiseProfile(slot);
+      mNoiseSeen[slot] = sequence;
+      if (!(profile == mNoiseProfiles[slot]))
+      {
+        mNoiseProfiles[slot] = profile;
+        _NotifyHostStateChanged();
+        SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
+      }
+    }
+  }
   if (auto result = mLibraryWorker.TakeResult())
   {
     if (mLibraryScanning)
@@ -886,7 +923,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 13;
+  config["schema"] = noise_print::integratedSchema;
   config["PresetName"] = mPresetName;
   config["PresetDirectory"] = mPresetDirectory;
   config["DrivePath"] = mDrivePath.Get();
@@ -898,11 +935,16 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
     config["SlotPaths"].push_back(path.Get());
+  config["NoisePrintProfiles"] = nlohmann::json::array();
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    config["NoisePrintProfiles"].push_back(noise_print::Save(GetNoiseProfile(slot)));
   config["SlotEffects"] = nlohmann::json::array();
   for (const auto effect : mSlotEffects)
     config["SlotEffects"].push_back(static_cast<int>(effect));
   for (int i = 0; i < kNumParams; ++i)
     config[GetParam(i)->GetName()] = GetParam(i)->Value();
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    config[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.; // Learning is transient.
   chunk.PutStr("###NAMGrid-v1###");
   return chunk.PutStr(config.dump().c_str()) > 0;
 }
@@ -975,6 +1017,7 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
     {
       rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
       rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+      rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
     }
     rig_preset::Write(path, rig);
     mPresetName = name; mPresetDirectory = nam_library::PathText(path.parent_path());
@@ -1002,6 +1045,7 @@ std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
     {
       rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
       rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+      rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
     }
     IByteChunk chunk;
     chunk.PutStr("###NAMGrid-v1###"); chunk.PutStr(rig.dump().c_str());
@@ -1065,7 +1109,9 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         return -1;
       const auto& schemaValue = config["schema"];
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
-                  && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12 && schemaValue != 13)
+                  && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
+                  && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
+                  && schemaValue != noise_print::integratedSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1127,14 +1173,16 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           {
             const auto& effect = config["SlotEffects"][slot];
             if (!effect.is_number_integer() || effect < 0
-                || effect > (schema == 3   ? 4
-                             : schema == 6 ? static_cast<int>(SlotEffect::Tape)
-                             : schema == 7 ? static_cast<int>(SlotEffect::TubeBoost)
-                             : schema == 8 ? static_cast<int>(SlotEffect::Utility)
-                             : schema == 9 ? static_cast<int>(SlotEffect::Wah)
+                || effect > (schema == 3    ? 4
+                             : schema == 6  ? static_cast<int>(SlotEffect::Tape)
+                             : schema == 7  ? static_cast<int>(SlotEffect::TubeBoost)
+                             : schema == 8  ? static_cast<int>(SlotEffect::Utility)
+                             : schema == 9  ? static_cast<int>(SlotEffect::Wah)
                              : schema == 10 ? static_cast<int>(SlotEffect::RingMod)
                              : schema <= 12 ? static_cast<int>(SlotEffect::FrequencyShifter)
-                                            : static_cast<int>(SlotEffect::Distortion))
+                             : schema == 13 ? static_cast<int>(SlotEffect::Distortion)
+                                            : static_cast<int>(SlotEffect::NoisePrint))
+                || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>()))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -1164,9 +1212,20 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
-        if (grid && schema < 10 && i >= kGridParamBase) config[name] = GetParam(i)->GetDefault();
-        if (grid && schema < 12 && i == kGridParamBase + grid_performance::InputGain)
+        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase)
           config[name] = GetParam(i)->GetDefault();
+        if (grid && (schema < 12 || schema >= 1001) && i == kGridParamBase + grid_performance::InputGain)
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && schema == 1001 && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls == uNoiseGateThreshold)
+          config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
+        if (grid && i >= kUtilityBase && i < kTunerReference)
+        {
+          const int control = (i - kUtilityBase) % kUtilityControls;
+          if ((schema <= 13 && control >= uNoiseLearn)
+              || (schema >= 1001 && control >= uUtilityDelay && control < uNoiseLearn))
+            config[name] = GetParam(i)->GetDefault();
+        }
         // Prior WIP states called the gate close time Decay. Keep their value
         // while exposing the accurate Release name to hosts and new states.
         if (i >= kDynamicsBase && i < kEQBase && (i - kDynamicsBase) % 6 == 1)
@@ -1204,6 +1263,22 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
       }
+      if (config.contains("NoisePrintProfiles"))
+      {
+        const auto& profiles = config["NoisePrintProfiles"];
+        if (!profiles.is_array() || profiles.size() != FixedNAMGrid::kSlots)
+          return -1;
+        for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+        {
+          const auto profile = noise_print::Load(profiles[slot]);
+          if (profile.valid
+              && (!grid || !config.contains("SlotEffects")
+                  || config["SlotEffects"][slot] != static_cast<int>(SlotEffect::NoisePrint)))
+            return -1;
+        }
+      }
+      else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema)
+        return -1;
       _UnserializeApplyConfig(config);
       return pos;
     }
@@ -1354,6 +1429,7 @@ std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const s
   {
     auto config = _GetSlotConfig(slot);
     config.effect = effect;
+    config.noiseProfile = effect == SlotEffect::NoisePrint ? mNoiseProfiles[slot] : noise_print::Profile{};
     config.path = path;
     _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), false);
   }
@@ -1371,6 +1447,9 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   const auto info = prepared.dsp->Info();
   const bool latencyChanged = prepared.dsp->latency != mRequestedLatencies[slot];
   mRequestedLatencies[slot] = prepared.dsp->latency;
+  mNoiseProfiles[slot] = config.effect == SlotEffect::NoisePrint ? config.noiseProfile : noise_print::Profile{};
+  mNoiseEpochs[slot] = ++mNextNoiseEpoch;
+  prepared.dsp->noiseEpoch = mNoiseEpochs[slot];
 #ifdef CLAP_API
   mGrid.stages[slot].Publish(std::move(prepared.dsp), latencyChanged);
 #else

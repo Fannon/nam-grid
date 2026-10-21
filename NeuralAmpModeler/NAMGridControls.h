@@ -20,7 +20,7 @@ struct NodeTone
 };
 inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
-  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate)
+  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
     return {compColor, compColor, "Compressor"};
@@ -324,7 +324,12 @@ public:
     const char* description = effect == SlotEffect::NAM         ? "NAM / post-capture tone EQ"
                               : effect == SlotEffect::CabinetIR ? "WAV / cabinet impulse response"
                                                                 : SlotEffectName(effect);
-    g.DrawText(Text(13.f, muted), description, IRECT(42, 673, 450, 688));
+    if (effect == SlotEffect::NoisePrint)
+      description = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseLearn))->Bool()
+                      ? "Learning: noise only. Switch Learn off when done."
+                    : PLUG()->GetNoiseProfile(mSlot).valid ? "Noise snapshot ready"
+                                                           : "Learn 1-3 seconds of noise first.";
+    g.DrawText(Text(13.f, muted), description, IRECT(42, 673, 495, 688));
     if (effect == SlotEffect::Utility)
     {
       WDL_String timing;
@@ -386,6 +391,8 @@ public:
     }
     const double now = Now(), dt = std::max(0., now - mTick);
     mTick = now;
+    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor)
+      mEditor->SetDirty(false);
     const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
                         || now < mInputClip + .1 || now < mOutputClip + .1;
     const float decay = static_cast<float>(std::exp(-dt / .3));
@@ -516,7 +523,8 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Distortion))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::NoisePrint)
+             && IsValidSlotEffect(static_cast<SlotEffect>(-item->GetTag() - 20)))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {

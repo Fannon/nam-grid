@@ -159,7 +159,7 @@ int main(int argc, char** argv)
         for (const char* label : {"Clear slot", "Choose .nam file...", "Choose cabinet IR (.wav)..."})
           assert(std::string(menu.GetItemText(index++)) == label);
         assert(menu.GetItem(index++)->GetIsSeparator());
-        std::array<int, static_cast<int>(SlotEffect::Distortion) + 1> seen{};
+        std::array<int, static_cast<int>(SlotEffect::NoisePrint) + 1> seen{};
         for (const char* label : {"Distortion", "Dynamics", "EQ / Filter", "Modulation", "Pitch / Frequency",
                                   "Delay", "Reverb", "Creative", "Utility / Volume"})
         {
@@ -171,13 +171,17 @@ int main(int argc, char** argv)
             const auto* item = group->GetItem(i);
             if (item->GetTag() == -16) { assert(std::string(label) == "Delay"); continue; }
             const int type = -item->GetTag() - 20;
-            assert(type > 0 && type <= static_cast<int>(SlotEffect::Distortion));
+            assert(type > 0 && IsValidSlotEffect(static_cast<SlotEffect>(type)));
+            if (type == static_cast<int>(SlotEffect::NoisePrint))
+              assert(std::string(label) == "Dynamics");
             ++seen[type];
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
           }
         }
-        for (int i = 1; i <= static_cast<int>(SlotEffect::Distortion); ++i)
-          assert(seen[i] == (i == static_cast<int>(SlotEffect::CabinetIR) ? 0 : 1));
+        for (int i = 1; i <= static_cast<int>(SlotEffect::NoisePrint); ++i)
+          assert(
+            seen[i]
+            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR) ? 1 : 0));
         assert(menu.GetItem(index++)->GetIsSeparator());
         if (quality)
         {

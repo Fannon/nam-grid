@@ -1,0 +1,40 @@
+"""Compare current Noise Print with the committed pre-optimization DSP.
+
+Run in a C++20 compiler environment (MSVC x64 developer prompt on Windows).
+Generated reference source, executable and objects stay in build-grid/noise-optimization.
+"""
+import os
+from pathlib import Path
+import shutil
+import subprocess
+
+
+def main():
+    root = Path(__file__).resolve().parents[1]
+    output = (root / "build-grid" / "noise-optimization").resolve()
+    if root not in output.parents:
+        raise RuntimeError("Verification output must remain inside this checkout")
+    output.mkdir(parents=True, exist_ok=True)
+    reference = subprocess.check_output(
+        ["git", "show", "214efc7:NeuralAmpModeler/NoisePrint.h"], cwd=root
+    ).decode("utf-8")
+    (output / "NoisePrintReference.h").write_text(
+        reference.replace("namespace noise_print", "namespace noise_print_reference"),
+        encoding="utf-8",
+    )
+    compiler = os.environ.get("CXX") or shutil.which("cl") or shutil.which("c++")
+    if not compiler:
+        raise RuntimeError("Set up a C++20 compiler first (or set CXX to its executable)")
+    source = root / "tests" / "noise_print_reference.cpp"
+    executable = output / ("compare.exe" if os.name == "nt" else "compare")
+    if Path(compiler).name.lower() in {"cl", "cl.exe", "clang-cl", "clang-cl.exe"}:
+        command = [compiler, "/nologo", "/std:c++20", "/O2", "/EHsc", "/UNDEBUG",
+                   f"/I{output}", str(source), f"/Fo{output / 'compare.obj'}", f"/Fe{executable}"]
+    else:
+        command = [compiler, "-std=c++20", "-O2", "-UNDEBUG", f"-I{output}", str(source), "-o", str(executable)]
+    subprocess.run(command, cwd=output, check=True)
+    subprocess.run([str(executable)], cwd=output, check=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,9 @@
 # nam-grid
 
+Noise Print is a [zero-latency noise-snapshot denoiser](docs/NOISE_PRINT.md) under
+**Dynamics**, with an optional final gate. It is included in the normal CLAP/VST3
+alongside the current module categories, rig presets and performance controls.
+
 [nam-grid](https://github.com/Fannon/nam-grid) is an open-source guitar plugin based on the
 official [Neural Amp Modeler plugin](https://github.com/sdatkinson/NeuralAmpModelerPlugin).
 This branch experiments with a fixed 16-slot NAM grid: four serial input slots, two parallel

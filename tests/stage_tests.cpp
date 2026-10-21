@@ -59,6 +59,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "StereoGuitarEffectsTests.h"
 #include "DSPReviewTests.h"
 #include "DistortionTests.h"
+#include "NoisePrintTests.h"
 
 int main(int argc, char** argv)
 try
@@ -175,6 +176,7 @@ try
   TestDSPReviewFixes();
   TestDistortionAndMonoMeters();
   TestCaptureSeams();
+  TestNoisePrint();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

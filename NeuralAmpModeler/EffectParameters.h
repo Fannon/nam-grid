@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include "SlotDynamics.h"
+#include "NoisePrint.h"
 
 // Shared within a family, independent for every grid slot. Descriptors also drive
 // the editor, so parameter ranges, defaults and the eight control positions agree.
@@ -83,6 +84,13 @@ enum UtilityParam
   uShimmerMix, uShimmerDecay, uShimmerTone, uShimmerPitch, uShimmerAmount, uShimmerMod, uShimmerFreeze,
   uShiftFrequency, uShiftFeedback, uShiftDelay, uShiftSide, uShiftTone, uShiftStereo, uShiftMix,
   uDistStyle, uDistDrive, uDistTone, uDistBias, uDistMix, uDistOutput,
+  uNoiseLearn,
+  uNoiseSensitivity,
+  uNoiseReduction,
+  uNoiseAttack,
+  uNoiseRelease,
+  uNoiseMix,
+  uNoiseGateThreshold,
   kUtilityControls
 };
 struct EffectParameter
@@ -220,7 +228,14 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Distortion Tone", "Tone", 8000, 200, 12000, 1, "Hz", 2, true},
    {"Distortion Bias", "Bias", 0, -100, 100, .1, "%", 3},
    {"Distortion Mix", "Mix", 100, 0, 100, .1, "%", 4},
-   {"Distortion Output", "Output", -6, -24, 6, .1, "dB", 5}}};
+   {"Distortion Output", "Output", -6, -24, 6, .1, "dB", 5},
+   {"Noise Learn", "Learn noise", 0, 0, 1, 1, "", 0},
+   {"Noise Sensitivity", "Sensitivity", 1.5, -6, 12, .1, "dB", 1},
+   {"Noise Reduction", "Reduction", 24, 0, 48, .1, "dB", 2},
+   {"Noise Attack", "Attack", 2, .2, 20, .1, "ms", 3, true},
+   {"Noise Release", "Release", 120, 20, 500, 1, "ms", 4, true},
+   {"Noise Mix", "Mix", 100, 0, 100, .1, "%", 6},
+   {"Noise Gate Threshold", "Gate threshold", -100, -100, 0, .1, "dB", 5}}};
 static_assert([] {
   for (const auto& p : kEffectParameters)
     if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum
@@ -263,7 +278,9 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::Rotary: case SlotEffect::Limiter: case SlotEffect::Octaver:
     case SlotEffect::Doubler: case SlotEffect::ReverseDelay: case SlotEffect::DualDelay:
     case SlotEffect::Freeze: case SlotEffect::Stutter: case SlotEffect::ShimmerReverb:
-    case SlotEffect::JunoChorus: case SlotEffect::FrequencyShifter: return true;
+    case SlotEffect::JunoChorus:
+    case SlotEffect::FrequencyShifter:
+    case SlotEffect::NoisePrint: return true;
     default: return false;
   }
 }
@@ -284,6 +301,8 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::FrequencyShifter) return p >= uShiftFrequency && p <= uShiftMix;
   if (e == SlotEffect::ReverseDelay) return p == uDelayTime || p == uDelayTone || p == uDelayMix || p == uDelayOutput;
   if (e == SlotEffect::DualDelay) return p == uDelayTime || p == uDelayFeedback || p == uDelayTone || p == uDelayMix || p == uDelayOutput || p == uDualRatio || p == uDualBalance;
+  if (e == SlotEffect::NoisePrint)
+    return p >= uNoiseLearn && p <= uNoiseGateThreshold;
   if (e == SlotEffect::SpringReverb)
     return (p >= uSpringDecay && p <= uSpringOutput) || p == uReverbTone;
   if (e == SlotEffect::Wah)
@@ -347,4 +366,5 @@ struct UtilityControls
   std::array<double, 7> shimmer{35., 3.5, 5000., 12., 35., 25., 0.};
   std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
+  noise_print::Controls noise;
 };

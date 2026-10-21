@@ -51,7 +51,9 @@ a dedicated browser.
 State schema 13 adds Distortion controls after schema 12's Global Input and
 optional PresetName/PresetDirectory metadata. Earlier supported project states
 receive defaults for newly added controls. There are 2,346 host parameters
-(126 utility controls per slot and 44 grid controls).
+(126 utility controls per slot and 44 grid controls). Schema 14 adds Noise Print
+profiles and seven utility controls per slot, bringing the total to 2,458 host
+parameters. Learned profiles are included in presets; active learning is cleared.
 
 ## Compact editor and visualizations
 

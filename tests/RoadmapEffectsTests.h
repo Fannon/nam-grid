@@ -5,7 +5,7 @@ void TestRoadmapEffects()
 {
   for (double rate : {44100., 48000., 96000., 192000.})
   {
-    for (int id = static_cast<int>(SlotEffect::Rotary); id <= static_cast<int>(SlotEffect::FrequencyShifter); ++id)
+    for (int id = static_cast<int>(SlotEffect::Rotary); id <= static_cast<int>(SlotEffect::Distortion); ++id)
     {
       SlotConfig cfg; cfg.effect = static_cast<SlotEffect>(id);
       NAMStage a, b;

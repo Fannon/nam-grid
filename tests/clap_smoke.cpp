@@ -6,8 +6,11 @@
 #include "../NeuralAmpModeler/EffectParameters.h"
 #include "../NeuralAmpModeler/GridPerformance.h"
 #include "RoadmapClapTests.h"
+#include "PresetGainClapTests.h"
+#include "WinFileDialogDriver.h"
 int main(int argc, char** argv)
 {
+  std::cout << std::unitbuf;
   assert(argc == 3 || argc == 4);
 #ifdef _WIN32
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
@@ -941,6 +944,10 @@ int main(int argc, char** argv)
   }
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
+  TestGlobalInputGain(plugin, cleared, load);
+  auto schema11 = cleared; schema11["schema"] = 11; schema11.erase("Global Input");
+  load(schema11);
+  assert(save().config()["Global Input"] == 0.);
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
   const auto libraryFolder = fixtures / "library";
@@ -988,6 +995,7 @@ int main(int argc, char** argv)
     }
   };
   pumpFor(250);
+  std::cout << "Native editor ready; checking slot edit menus\n";
   auto click = [&](int x, int y) {
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
@@ -1045,8 +1053,22 @@ int main(int argc, char** argv)
         plugin->deactivate(plugin);
       }
   load(browserState);
-  click(890, 90); // Manual rescan works even if startup scanning is disabled in user preferences.
+  std::cout << "Slot edit menus passed; checking module menus\n";
+  click(910, 28); click(260, 132); click(915, 44); // Rescan all from library settings.
   pumpFor(250);
+  // The actual empty-card title opens on one mouse-down; every built-in command,
+  // including the HQ effects, must pass SetSlotEffect's validation as well.
+  for (const auto& entry : std::array<std::pair<const wchar_t*, SlotEffect>, 4>{{
+         {L"Distortion", SlotEffect::Distortion}, {L"Shimmer", SlotEffect::ShimmerReverb},
+         {L"Juno Chorus", SlotEffect::JunoChorus}, {L"Frequency Shifter", SlotEffect::FrequencyShifter}}})
+  {
+    win_edit_menu::SelectNamedItem(editor, 170, 145, entry.first); pumpFor(30);
+    assert(save().config()["SlotEffects"][0] == static_cast<int>(entry.second));
+    win_edit_menu::SelectNamedItem(editor, 170, 145, L"Clear slot", true); pumpFor(30);
+    assert(save().config()["SlotEffects"][0] == 0 && save().config()["SlotPaths"][0] == "");
+  }
+  win_edit_menu::SelectNamedItem(editor, 170, 145, L"Clear slot"); pumpFor(30);
+  std::cout << "Single-click module selection and right-click Clear slot passed\n";
   auto eqUI = browserState;
   eqUI["SlotEffects"][0] = 5;
   eqUI["SlotEffects"][1] = 6;
@@ -1061,6 +1083,57 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y - 25));
     pumpFor(100);
   };
+  const auto beforeGains = save().config();
+  dragAt(38, 145); dragAt(967, 312); dragAt(967, 456);
+  assert(save().config()["Global Input"] != beforeGains["Global Input"]);
+  assert(save().config()["Parallel Blend"] != beforeGains["Parallel Blend"]);
+  assert(save().config()["Output"] != beforeGains["Output"]);
+  assert(save().config()["Input"] == beforeGains["Input"]); // IN is global, not the Pre 2 NAM input.
+  auto rigToSave = browserState;
+  rigToSave["SlotEffects"][0] = static_cast<int>(SlotEffect::Rotary);
+  rigToSave["NAMPath"] = path2.string();
+  rigToSave["Global Input"] = -3.; rigToSave["Output"] = -8.; rigToSave["Lane A Level"] = 1.5;
+  rigToSave["Pre 1 Freeze Hold"] = 1.;
+  load(rigToSave);
+  const auto presetDirectory = fixtures / ("presets-" + std::to_string(GetTickCount64()));
+  std::filesystem::create_directories(presetDirectory);
+  const auto presetFile = presetDirectory / "Clean rig.ngrid";
+  const auto presetMenu = [&](const wchar_t* name) { win_edit_menu::SelectNamedItem(editor, 470, 28, name); pumpFor(150); };
+  std::cout << "Checking native preset dialogs and folder browser\n";
+  win_file_dialog::Choose(presetFile, [&] { presetMenu(L"Save preset as..."); });
+  std::cout << "Native preset save passed\n";
+  assert(std::filesystem::exists(presetFile));
+  const auto savedRig = rig_preset::Read(presetFile);
+  assert(savedRig["Global Input"] == -3. && savedRig["Pre 1 Freeze Hold"] == 0.);
+  assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("Tuner Reference"));
+  auto anotherRig = cleared;
+  anotherRig["CaptureFolder"] = irLibrary.string(); anotherRig["CaptureFolders"] = {irLibrary.string()};
+  anotherRig["Tuner Reference"] = 442.; anotherRig["Tuner Mute"] = 1.;
+  load(anotherRig);
+  host.dirty = false; host.rescanned = 0;
+  win_file_dialog::Choose(presetFile, [&] { presetMenu(L"Load preset file..."); });
+  std::cout << "Native preset load passed\n";
+  const auto restoredRig = save().config();
+  assert(restoredRig["SlotEffects"] == savedRig["SlotEffects"] && restoredRig["SlotPaths"] == savedRig["SlotPaths"]);
+  assert(restoredRig["Global Input"] == -3. && restoredRig["Output"] == -8. && restoredRig["Lane A Level"] == 1.5);
+  assert(restoredRig["CaptureFolders"] == anotherRig["CaptureFolders"] && restoredRig["Tuner Reference"] == 442.);
+  assert(restoredRig["Pre 1 Freeze Hold"] == 0. && restoredRig["PresetName"] == presetFile.stem().string());
+  assert(host.dirty && (host.rescanned & CLAP_PARAM_RESCAN_VALUES));
+  win_file_dialog::Choose({}, [&] { presetMenu(L"Load preset file..."); }, true);
+  std::cout << "Native preset cancel passed\n";
+  assert(save().config() == restoredRig); // Cancel leaves the complete rig unchanged.
+  auto secondRig = savedRig; secondRig["Output"] = -10.;
+  rig_preset::Write(presetDirectory / "Second rig.ngrid", secondRig);
+  click(704, 28);
+  assert(save().config()["PresetName"] == "Second rig" && save().config()["Output"] == -10.);
+  click(664, 28);
+  assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
+  presetMenu(L"Second rig");
+  assert(save().config()["PresetName"] == "Second rig");
+  click(664, 28);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
+  std::cout << "Preset folder selection and previous/next passed\n";
+  load(eqUI); click(170, 160);
   dragAt(138, 700);
   assert(save().config()["Pre 1 EQ Bass"] != 0.);
   click(390, 160); // Select IN2 Cut EQ; only its controls may receive gestures.
@@ -1099,7 +1172,7 @@ int main(int argc, char** argv)
   // hidden controls stealing gestures when modules are restored into an open UI.
   for (int id : {3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
                  static_cast<int>(SlotEffect::ShimmerReverb), static_cast<int>(SlotEffect::JunoChorus),
-                 static_cast<int>(SlotEffect::FrequencyShifter)})
+                 static_cast<int>(SlotEffect::FrequencyShifter), static_cast<int>(SlotEffect::Distortion)})
   {
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;
@@ -1114,11 +1187,18 @@ int main(int argc, char** argv)
         const auto before = save().config();
         // Drag down at an upper limit (Tape Mix defaults to 100%).
         const int x = 138 + 220 * (descriptor.position / 2) + 108 * (descriptor.position % 2);
-        const int delta = before[name].get<double>() >= descriptor.maximum ? 25 : -25;
-        SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, 700));
-        SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, 700 + delta));
-        SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, 700 + delta));
+        if (descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
+          click(x, 707);
+        else
+        {
+          const int distance = descriptor.step == 1. && descriptor.maximum - descriptor.minimum <= 4. ? 200 : 25;
+          const int delta = before[name].get<double>() >= descriptor.maximum ? distance : -distance;
+          SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, 700));
+          SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x, 700 + delta));
+          SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, 700 + delta));
+        }
         pumpFor(30);
+        if (save().config()[name] == before[name]) std::cerr << "Unchanged UI parameter: " << name << " effect=" << id << "\n";
         assert(save().config()[name] != before[name]);
       }
     click(906, 707);
@@ -1233,9 +1313,9 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
   // Card dot bypass and bottom editor toggle must share the same automated parameter.
-  click(499, 132);
+  click(471, 120);
   assert(save().config()["Amp Enabled"] == 0.);
-  click(499, 132);
+  click(471, 120);
   assert(save().config()["Amp Enabled"] == 1.);
   // Next buttons traverse the recursive library, rather than only the current file's siblings.
   click(490, 621); // IN2 next.
@@ -1256,50 +1336,17 @@ int main(int argc, char** argv)
   click(490, 621); // IN1 next.
   assert(save().config()["SlotEffects"][0] == 0);
   assert(std::filesystem::path(save().config()["DrivePath"].get<std::string>()) == libraryFirst);
-  click(200, 90);
-  const auto sendSearchKey = [&](int key) {
-    // iPlug2 translates WM_KEYDOWN with GetKeyboardState. Isolate this test
-    // thread from a user's currently held Ctrl/Shift/Alt keys, then restore it.
-    // SetKeyboardState affects this thread only; no global input is injected.
-    BYTE previous[256]{}, neutral[256]{};
-    assert(GetKeyboardState(previous));
-    assert(SetKeyboardState(neutral));
-    SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
-    assert(SetKeyboardState(previous));
-  };
-  for (int key : std::array<int, 4>{'A', 'M', 'P', VK_RETURN})
-    sendSearchKey(key);
-  pumpFor(100);
-  click(390, 160);
-  click(490, 621);
-  assert(std::filesystem::path(save().config()["NAMPath"].get<std::string>()) == libraryFirst);
-  click(170, 264);
-  click(490, 621); // A1 next, with "amp" search active.
+  // With search deferred to a future browser, navigation traverses the full library.
+  click(170, 264); click(490, 621);
   assert(std::filesystem::path(save().config()["SlotPaths"][4].get<std::string>()) == libraryFirst);
-  click(170, 368);
-  click(490, 621); // B1 next.
+  click(170, 368); click(490, 621);
   assert(std::filesystem::path(save().config()["SlotPaths"][8].get<std::string>()) == libraryFirst);
-  click(830, 472);
-  click(490, 621); // OUT4 next.
+  click(830, 472); click(490, 621);
   assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == libraryFirst);
-  const auto filteredState = save().config();
-  click(608, 90); // Clear search/category. Visible field and count must synchronize.
   click(490, 621);
   assert(std::filesystem::path(save().config()["SlotPaths"][15].get<std::string>()) == librarySecond);
-  click(200, 90);
-  for (int key : std::array<int, 5>{'T', 'E', 'S', 'T', VK_RETURN})
-    sendSearchKey(key);
-  pumpFor(100);
-  const auto noMatches = save().config();
   click(490, 621);
-  if (save().config() != noMatches)
-    std::cerr << "No-match search changed state: " << json::diff(noMatches, save().config()).dump() << "\n";
-  assert(save().config() == noMatches);
-  if (argc == 4)
-    CaptureEditor(editor, std::filesystem::path(argv[3]) / "search-no-matches.bmp");
-  click(608, 90);
-  click(490, 621);
-  assert(save().config()["SlotEffects"][15] == 7); // Third library entry, WAV, recovered after Clear.
+  assert(save().config()["SlotEffects"][15] == 7);
   // The settings page is opaque and intercepts clicks; grid/editor controls cannot receive them.
   click(170, 160);
   if (argc == 4)
@@ -1404,7 +1451,7 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
-  click(300, 36);
+  click(225, 28);
   dragAt(95, 235);
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);

@@ -71,6 +71,15 @@ Chorus Spread and stereo reverb generate spatial movement from a mono source.
 
 ## Tone, dynamics and utility
 
+The **Distortion** category contains Distortion, Boost, Tube Boost, Airwindows Tape
+and Bitcrusher. The general Distortion module offers **Soft**, **Hard**, **Fuzz**
+and **Foldback** styles, Drive (0–36 dB), Tone (200–12000 Hz), Bias (±100%), Mix and
+Output (-24 to +6 dB). Bias changes symmetry; a 5 Hz DC blocker removes the resulting
+offset. Style changes crossfade over 20 ms; continuous controls are also smoothed.
+Tone filters the wet signal, and Output follows the dry/wet blend. Stereo channels
+use independent histories. These are original waveshapers, not pedal emulations;
+there is no oversampling, so bright/high-drive styles can alias.
+
 | Module | Controls | Character |
 | --- | --- | --- |
 | Natural Gate | Threshold, Decay, Depth | Gentle 2:1 expansion; 1.5 ms opening, 40 ms hold |
@@ -216,9 +225,9 @@ Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
 
 ## State and layout checkpoint
 
-Schema 11 contains 2249 parameters (286 inherited + 16 × 120 family controls + 43
-performance controls). Schema 6/7/8/9/10 projects retain named values and fill the new
-HQ controls from defaults despite the changed parameter stride.
+Schema 13 contains 2346 parameters (286 inherited + 16 × 126 family controls + 44
+performance controls). Earlier supported projects retain named values and fill
+new controls from defaults despite the changed parameter stride.
 Older unreleased format compatibility remains best effort. New controls participate
 in Copy/Move/Swap, automation and project recall. Seven controls plus Enabled align
 as two controls under each grid column. A smaller effect does not need to fill them.

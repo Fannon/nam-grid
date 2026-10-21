@@ -48,12 +48,14 @@ enum class SlotEffect
   RingMod,
   ShimmerReverb,
   JunoChorus,
-  FrequencyShifter
+  FrequencyShifter,
+  Distortion
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
   switch (effect)
   {
+    case SlotEffect::NAM: return "NAM";
     case SlotEffect::NaturalGate: return "Natural Gate";
     case SlotEffect::TightGate: return "Tight Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";
@@ -95,9 +97,10 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::ShimmerReverb: return "Shimmer";
     case SlotEffect::JunoChorus: return "Juno Chorus";
     case SlotEffect::FrequencyShifter: return "Frequency Shifter";
+    case SlotEffect::Distortion: return "Distortion";
 
-    default: return "NAM";
   }
+  return "Unknown";
 }
 struct DynamicsControls
 {

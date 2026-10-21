@@ -17,7 +17,7 @@ public:
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.limiter, uLimiterCeiling);
-    mReduction = 0.;
+    double minimumGain = 1.;
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
@@ -27,8 +27,9 @@ public:
       mGain = std::min(target, 1. + release * (mGain - 1.));
       l[i] *= mGain;
       if (r) r[i] *= mGain;
-      mReduction = std::max(mReduction, -20. * std::log10(std::max(1.e-12, mGain)));
+      minimumGain = std::min(minimumGain, mGain);
     }
+    mReduction = -20. * std::log10(std::max(1.e-12, minimumGain));
   }
   double Reduction() const { return mReduction; }
 private:
@@ -131,7 +132,7 @@ public:
       const double dryL = l[i], dryR = r ? r[i] : dryL, mono = .5 * (dryL + dryR);
       const double detect = Low(mono, mDetect, Pole(450., mRate));
       const double peak = std::abs(mono);
-      mEnv = peak + std::exp(-1. / ((peak > mEnv ? .002 : .04) * mRate)) * (mEnv - peak);
+      mEnv = grid_fx::Flush(peak + std::exp(-1. / ((peak > mEnv ? .002 : .04) * mRate)) * (mEnv - peak));
       const double hysteresis = std::max(1.e-6, mEnv * .03);
       if (!mPositive && detect > hysteresis)
       {
@@ -282,6 +283,9 @@ public:
         mLastWet[ch] = wet[ch];
       }
       if (mTransition > 0) --mTransition;
+      // Freeze overlaps source-window ends, so its repeat period is length-fade.
+      // Stutter's gate fades through zero; Reverse changes banks with mTransition.
+      // Their musical window period stays length rather than skipping the overlap.
       if (mLength && ++mPosition >= mLength)
         mPosition = freeze ? std::min(fade, mLength - 1) : 0;
       const double mix = (freeze ? f[4] : reverse ? d[4] : s[3]) * .01;

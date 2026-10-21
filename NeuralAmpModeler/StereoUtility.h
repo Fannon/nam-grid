@@ -27,7 +27,8 @@ public:
       mDelay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
       mFirst = false;
     }
-    // A fixed-time ramp is independent of host block size.
+    // Slew 8 linear units in 5 ms (covering the largest gain/polarity change).
+    // Smaller changes finish sooner; delay slews separately at .25 sample/sample.
     for (int i = 0; i < frames; ++i)
     {
       for (int j = 0; j < 3; ++j)

@@ -46,6 +46,7 @@ public:
     mSplitGain.assign(maxBlock, 1.);
     mSplitLow = {}; mSplitMix = 0.; mSplitFrequency = 250.;
     mGainA = mGainB = 1.; mRouteFirst = true; mRate = rate;
+    mSplitSmoothing = std::exp(-1. / (.01 * rate));
     for (auto& delay : mFineDelay) delay.Reset(rate);
     const auto latency = LaneLatencies();
     int largestStageDelay = kMaxLaneDelay / 4;
@@ -78,7 +79,8 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       mSplitMix += std::clamp((routing.crossover ? 1. : 0.) - mSplitMix, -mStep, mStep);
-      mSplitFrequency += .002 * (std::clamp(routing.frequency, 40., 5000.) - mSplitFrequency);
+      const double frequency = std::clamp(routing.frequency, 40., 5000.);
+      mSplitFrequency = frequency + mSplitSmoothing * (mSplitFrequency - frequency);
       const double coefficient = std::exp(-6.283185307179586 * std::min(.4 * mRate, mSplitFrequency) / mRate);
       const double l = samples[i];
       mSplitLow[0] = grid_fx::Flush(l + coefficient * (mSplitLow[0] - l));
@@ -201,5 +203,6 @@ private:
   std::vector<double> mSplitGain;
   std::array<double, 2> mSplitLow{};
   double mSplitMix = 0., mSplitFrequency = 250., mGainA = 1., mGainB = 1., mRate = 48000.;
+  double mSplitSmoothing = 0.;
   bool mRouteFirst = true;
 };

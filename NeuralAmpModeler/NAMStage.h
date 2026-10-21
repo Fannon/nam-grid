@@ -11,6 +11,7 @@
 #include "SlotGuitarEffects.h"
 #include "RoadmapEffects.h"
 #include "SlotHQEffects.h"
+#include "SlotDistortion.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
 
 struct NAMModelInfo
@@ -34,6 +35,7 @@ public:
     SlotParametricEQ parametric;
     SlotBoost boost;
     SlotTubeBoost tube;
+    SlotDistortion distortion;
     SlotEnvelopeFilter filter;
     SlotAutoSwell swell;
     SlotDelay echo;
@@ -70,6 +72,8 @@ public:
       boost.Reset(rate);
       if (effect == SlotEffect::TubeBoost)
         tube.Reset(rate);
+      if (effect == SlotEffect::Distortion)
+        distortion.Reset(rate);
       if (effect == SlotEffect::SynthFilter)
         filter.Reset(rate);
       if (effect == SlotEffect::AutoSwell)
@@ -124,9 +128,13 @@ public:
                                            : effect == SlotEffect::Doubler ? .1
                                            : effect == SlotEffect::Stutter ? 33.
                                            : effect == SlotEffect::Utility ? .025
+                                           : effect == SlotEffect::Distortion ? 1.
                                            : IsModulation(effect) ? .07
                                            : effect == SlotEffect::JunoChorus ? .07
                                                                   : 0.));
+      // AudioDSPTools caps the resampled FIR at 8192 taps. Flush that complete
+      // history in samples (not seconds) before suspending a bypassed cabinet.
+      if (ir) drainLimit = 8192;
       drainFrames = drainLimit; // Fresh histories already contain silence.
       if (ir)
       {
@@ -192,7 +200,7 @@ public:
   }
   SlotMeterData TakeMeter()
   {
-    const auto result = mMeter;
+    const auto result = mMonitoring ? mMeter : SlotMeterData{};
     mMeter = {};
     return result;
   } // audio only
@@ -206,17 +214,19 @@ public:
                   double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {},
                   const EQControls& eq = {}, const UtilityControls& utility = {}, double* rightSamples = nullptr)
   {
-    float inputPeak = 0.f;
-    for (int i = 0; i < frames; ++i)
-      inputPeak =
-        std::max(inputPeak, static_cast<float>(std::min(
-                              1.e6, std::max(std::abs(samples[i]), rightSamples ? std::abs(rightSamples[i]) : 0.))));
-    mMeter.input = std::max(mMeter.input, inputPeak);
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
     if (switching && mSwitchGain <= 0.)
       mExchange.Adopt();
     auto* p = mExchange.Active();
     const auto info = p ? p->Info() : NAMModelInfo{};
+    mMonitoring = enabled && info.loaded;
+    if (!mMonitoring) mMeter = {};
+    float inputPeak = 0.f;
+    if (mMonitoring)
+      for (int i = 0; i < frames; ++i)
+        inputPeak = std::max(inputPeak, static_cast<float>(std::min(
+          1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
+    mMeter.input = std::max(mMeter.input, inputPeak);
     if (p && p->effect != SlotEffect::NAM)
       inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
     if (p && p->effect == SlotEffect::CabinetIR)
@@ -282,8 +292,7 @@ public:
         }
         else
         {
-          if (p->effect >= SlotEffect::Rotary && p->effect != SlotEffect::UniVibe
-              && p->effect != SlotEffect::Bitcrusher && p->effect != SlotEffect::RingMod)
+          if (UsesCoupledStereo(p->effect))
           {
             std::copy_n(in, frames, out);
             double* r = rightSamples ? p->right->wet.data() : nullptr;
@@ -291,7 +300,7 @@ public:
             if (p->effect == SlotEffect::Limiter)
             {
               p->limiter.Process(out, r, frames, utility);
-              mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->limiter.Reduction() * mMix));
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->limiter.Reduction() * mMix));
             }
             else if (p->effect == SlotEffect::Rotary) p->rotary.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::Octaver) p->octaver.Process(out, r, frames, utility);
@@ -344,17 +353,16 @@ public:
         if (rightSamples)
         {
           rightSamples[i] = (p->right->dry[i] * (1. - mMix) + p->right->wet[i] * mOut * mMix) * mSwitchGain;
-          mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(rightSamples[i]))));
         }
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
-        mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
+        if (mMonitoring) mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(
+          1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
       }
     }
     else
     {
       if (!switching && mSwitchGain >= 1.)
       {
-        mMeter.output = std::max(mMeter.output, inputPeak);
         return samples; // Empty grid slots need no per-sample work once switching has settled.
       }
       for (int i = 0; i < frames; ++i)
@@ -363,7 +371,6 @@ public:
         samples[i] *= mSwitchGain;
         if (rightSamples)
           rightSamples[i] *= mSwitchGain;
-        mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(1.e6, std::abs(samples[i]))));
       }
     }
     return samples;
@@ -391,6 +398,8 @@ private:
         p->boost.Process(out, frames, utility, eq);
       else if (p->effect == SlotEffect::TubeBoost)
         p->tube.Process(out, in, frames, utility, eq);
+      else if (p->effect == SlotEffect::Distortion)
+        p->distortion.Process(out, frames, utility);
       else if (p->effect == SlotEffect::SynthFilter)
         p->filter.Process(out, frames, utility);
       else if (p->effect == SlotEffect::AutoSwell)
@@ -412,7 +421,7 @@ private:
       else if (p->effect != SlotEffect::Utility)
       {
         p->dynamics.Process(out, frames, p->effect, dynamics);
-        mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
+        if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
       }
     }
   }
@@ -422,6 +431,7 @@ private:
   std::atomic<bool> mWaitForReset{false};
   double mMix = 0., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;
   bool mFirst = true;
+  bool mMonitoring = false;
   SlotMeterData mMeter;
 };
 

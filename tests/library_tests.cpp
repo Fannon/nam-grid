@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include "json.hpp"
+#include "RigPresetTests.h"
 
 using namespace nam_library;
 using Menu = iplug::igraphics::IPopupMenu;
@@ -34,6 +35,7 @@ int main(int argc, char** argv)
   }
   const auto root = std::filesystem::current_path() / "library-fixtures";
   std::filesystem::create_directories(root);
+  TestRigPresetFiles(root);
   auto write = [&](const std::filesystem::path& relative, const json& metadata) {
     const auto path = root / relative;
     std::filesystem::create_directories(path.parent_path());
@@ -154,31 +156,50 @@ int main(int argc, char** argv)
         FillModuleMenu(menu, entries, Filter{filtered ? "Vox clean" : "", -1}, PathText(unicode->path),
                        SlotEffect::SpringReverb, quality, true, empty);
         int index = 0;
-        if (empty)
-        {
-          assert(std::string(menu.GetItemText(index)) == "Scanning library...");
-          assert(!menu.GetItem(index++)->GetEnabled());
-        }
-        if (filtered)
-          assert(std::string(menu.GetItemText(index++)) == "Clear search and gear filter");
-        for (const char* label :
-             {"Choose .nam file...", "Choose cabinet IR (.wav)...", "Clear slot", "Noise Gate", "Compressor", "EQ",
-              "Boost", "Reverb", "Delay", "Slapback preset", "Modulation", "Rotary / Vibe", "Dynamics / Pitch", "Creative", "Frequency Shifter", "Filter / Volume", "Airwindows Tape", "Tube Boost", "Utility"})
+        for (const char* label : {"Clear slot", "Choose .nam file...", "Choose cabinet IR (.wav)..."})
           assert(std::string(menu.GetItemText(index++)) == label);
-        auto* reverbs = menu.GetItem(index - 12)->GetSubmenu();
-        assert(reverbs && reverbs->NItems() == 5);
-        assert(reverbs->GetItem(3)->GetChecked() && reverbs->GetItem(3)->GetTag() == -46);
+        assert(menu.GetItem(index++)->GetIsSeparator());
+        std::array<int, static_cast<int>(SlotEffect::Distortion) + 1> seen{};
+        for (const char* label : {"Distortion", "Dynamics", "EQ / Filter", "Modulation", "Pitch / Frequency",
+                                  "Delay", "Reverb", "Creative", "Utility / Volume"})
+        {
+          assert(std::string(menu.GetItemText(index)) == label);
+          auto* group = menu.GetItem(index++)->GetSubmenu();
+          assert(group);
+          for (int i = 0; i < group->NItems(); ++i)
+          {
+            const auto* item = group->GetItem(i);
+            if (item->GetTag() == -16) { assert(std::string(label) == "Delay"); continue; }
+            const int type = -item->GetTag() - 20;
+            assert(type > 0 && type <= static_cast<int>(SlotEffect::Distortion));
+            ++seen[type];
+            assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
+          }
+        }
+        for (int i = 1; i <= static_cast<int>(SlotEffect::Distortion); ++i)
+          assert(seen[i] == (i == static_cast<int>(SlotEffect::CabinetIR) ? 0 : 1));
         assert(menu.GetItem(index++)->GetIsSeparator());
         if (quality)
         {
           assert(std::string(menu.GetItemText(index)) == "A2 Lite");
           assert(menu.GetItem(index)->GetChecked() && menu.GetItem(index++)->GetTag() == -15);
         }
-        assert(index < menu.NItems()); // Original library tree/empty placeholder survives.
+        if (filtered)
+          assert(std::string(menu.GetItemText(index++)) == "Clear search and gear filter");
+        if (empty)
+        {
+          assert(std::string(menu.GetItemText(index)) == "Scanning library...");
+          assert(!menu.GetItem(index++)->GetEnabled());
+        }
+        assert(std::string(menu.GetItemText(index)) == "NAM captures");
+        assert(menu.GetItem(index++)->GetSubmenu());
+        assert(std::string(menu.GetItemText(index)) == "Cabinet IRs");
+        assert(menu.GetItem(index++)->GetSubmenu());
+        assert(index == menu.NItems());
         for (int item = 0, separators = 0; item < menu.NItems(); ++item)
         {
           separators += menu.GetItem(item)->GetIsSeparator();
-          assert(separators <= 1);
+          assert(separators <= 2);
         }
       }
   FillMenu(menu, library, Filter{"does-not-exist", -1}, "");
@@ -213,6 +234,14 @@ int main(int argc, char** argv)
   assert(menu.NItems() == 2);
   auto* irLeaf = menu.GetItem(1)->GetSubmenu()->GetItem(0)->GetSubmenu()->GetItem(0);
   assert(irLeaf->GetChecked() && mixed.captures[irLeaf->GetTag()].isIR);
+  // Filtering the file type retains original snapshot indices for selection.
+  FillMenu(menu, mixed, Filter{}, PathText(wavFile), 1);
+  irLeaf = menu.GetItem(0)->GetSubmenu()->GetItem(0)->GetSubmenu()->GetItem(0);
+  assert(irLeaf->GetChecked() && mixed.captures[irLeaf->GetTag()].isIR);
+  FillMenu(menu, mixed, Filter{}, PathText(mixed.captures[0].path), 0);
+  auto* namLeaf = menu.GetItem(0)->GetSubmenu()->GetItem(0)->GetSubmenu()->GetItem(0);
+  assert(namLeaf->GetChecked() && !mixed.captures[namLeaf->GetTag()].isIR);
+  assert(std::filesystem::equivalent(mixed.captures[namLeaf->GetTag()].path, namFile));
   const auto partial = ScanFolders({PathText(sourceA), PathText(root / "missing")});
   assert(partial.captures.size() == 1 && !partial.error.empty());
   const auto folders = std::vector<std::string>{PathText(sourceA), PathText(sourceB)};

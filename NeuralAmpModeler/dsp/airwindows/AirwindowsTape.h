@@ -10,7 +10,8 @@
 class AirwindowsTape
 {
 public:
-  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; fpdL = 0x12345678u; fpdR = 0x87654321u; }
+  AirwindowsTape() { ConfigureFilters(); }
+  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); }
   void Set(double driveDB, double bump) { A = static_cast<float>(driveDB / 24. + .5); B = static_cast<float>(bump * .01); }
   void Process(double** inputs, double** outputs, int sampleFrames)
 {
@@ -28,26 +29,6 @@ public:
 	double HeadBumpFreq = 0.12/overallscale;
 	double softness = 0.618033988749894848204586;
 	double RollAmount = (1.0 - softness) / overallscale;
-	//[0] is frequency: 0.000001 to 0.499999 is near-zero to near-Nyquist
-	//[1] is resonance, 0.7071 is Butterworth. Also can't be zero
-	biquadAL[0] = biquadBL[0] = biquadAR[0] = biquadBR[0] = 0.0072/overallscale;
-	biquadAL[1] = biquadBL[1] = biquadAR[1] = biquadBR[1] = 0.0009;
-	double K = tan(3.14159265358979323846 * biquadBR[0]);
-	double norm = 1.0 / (1.0 + K / biquadBR[1] + K * K);
-	biquadAL[2] = biquadBL[2] = biquadAR[2] = biquadBR[2] = K / biquadBR[1] * norm;
-	biquadAL[4] = biquadBL[4] = biquadAR[4] = biquadBR[4] = -biquadBR[2];
-	biquadAL[5] = biquadBL[5] = biquadAR[5] = biquadBR[5] = 2.0 * (K * K - 1.0) * norm;
-	biquadAL[6] = biquadBL[6] = biquadAR[6] = biquadBR[6] = (1.0 - K / biquadBR[1] + K * K) * norm;
-	
-	biquadCL[0] = biquadDL[0] = biquadCR[0] = biquadDR[0] = 0.032/overallscale;
-	biquadCL[1] = biquadDL[1] = biquadCR[1] = biquadDR[1] = 0.0007;
-	K = tan(3.14159265358979323846 * biquadDR[0]);
-	norm = 1.0 / (1.0 + K / biquadDR[1] + K * K);
-	biquadCL[2] = biquadDL[2] = biquadCR[2] = biquadDR[2] = K / biquadDR[1] * norm;
-	biquadCL[4] = biquadDL[4] = biquadCR[4] = biquadDR[4] = -biquadDR[2];
-	biquadCL[5] = biquadDL[5] = biquadCR[5] = biquadDR[5] = 2.0 * (K * K - 1.0) * norm;
-	biquadCL[6] = biquadDL[6] = biquadCR[6] = biquadDR[6] = (1.0 - K / biquadDR[1] + K * K) * norm;
-	
     while (--sampleFrames >= 0)
     {
 		double inputSampleL = *in1;
@@ -297,34 +278,58 @@ public:
     }
 }
 private:
+  // These upstream coefficients depend only on rate. Keep the histories at
+  // indices 7/8 intact during processing; configure only while resetting.
+  void ConfigureFilters()
+  {
+    double overallscale = 1.;
+    overallscale /= 44100.;
+    overallscale *= getSampleRate();
+    biquadAL[0] = biquadBL[0] = biquadAR[0] = biquadBR[0] = 0.0072 / overallscale;
+    biquadAL[1] = biquadBL[1] = biquadAR[1] = biquadBR[1] = 0.0009;
+    double K = tan(3.14159265358979323846 * biquadBR[0]);
+    double norm = 1.0 / (1.0 + K / biquadBR[1] + K * K);
+    biquadAL[2] = biquadBL[2] = biquadAR[2] = biquadBR[2] = K / biquadBR[1] * norm;
+    biquadAL[4] = biquadBL[4] = biquadAR[4] = biquadBR[4] = -biquadBR[2];
+    biquadAL[5] = biquadBL[5] = biquadAR[5] = biquadBR[5] = 2.0 * (K * K - 1.0) * norm;
+    biquadAL[6] = biquadBL[6] = biquadAR[6] = biquadBR[6] = (1.0 - K / biquadBR[1] + K * K) * norm;
+    biquadCL[0] = biquadDL[0] = biquadCR[0] = biquadDR[0] = 0.032 / overallscale;
+    biquadCL[1] = biquadDL[1] = biquadCR[1] = biquadDR[1] = 0.0007;
+    K = tan(3.14159265358979323846 * biquadDR[0]);
+    norm = 1.0 / (1.0 + K / biquadDR[1] + K * K);
+    biquadCL[2] = biquadDL[2] = biquadCR[2] = biquadDR[2] = K / biquadDR[1] * norm;
+    biquadCL[4] = biquadDL[4] = biquadCR[4] = biquadDR[4] = -biquadDR[2];
+    biquadCL[5] = biquadDL[5] = biquadCR[5] = biquadDR[5] = 2.0 * (K * K - 1.0) * norm;
+    biquadCL[6] = biquadDL[6] = biquadCR[6] = biquadDR[6] = (1.0 - K / biquadDR[1] + K * K) * norm;
+  }
   double getSampleRate() const { return mRate; }
   double mRate = 48000.;
-	double iirMidRollerAL;
-	double iirMidRollerBL;
-	double iirHeadBumpAL;
-	double iirHeadBumpBL;
+	double iirMidRollerAL = 0.;
+	double iirMidRollerBL = 0.;
+	double iirHeadBumpAL = 0.;
+	double iirHeadBumpBL = 0.;
 	
-	double iirMidRollerAR;
-	double iirMidRollerBR;
-	double iirHeadBumpAR;
-	double iirHeadBumpBR;
+	double iirMidRollerAR = 0.;
+	double iirMidRollerBR = 0.;
+	double iirHeadBumpAR = 0.;
+	double iirHeadBumpBR = 0.;
 	
-	double biquadAL[9];
-	double biquadBL[9];
-	double biquadCL[9];
-	double biquadDL[9];
+	double biquadAL[9]{};
+	double biquadBL[9]{};
+	double biquadCL[9]{};
+	double biquadDL[9]{};
 	
-	double biquadAR[9];
-	double biquadBR[9];
-	double biquadCR[9];
-	double biquadDR[9];
-	bool flip;
+	double biquadAR[9]{};
+	double biquadBR[9]{};
+	double biquadCR[9]{};
+	double biquadDR[9]{};
+	bool flip = false;
 	
-	double lastSampleL;
-	double lastSampleR;
+	double lastSampleL = 0.;
+	double lastSampleR = 0.;
 	
-	uint32_t fpdL;
-	uint32_t fpdR;
+	uint32_t fpdL = 0x12345678u;
+	uint32_t fpdR = 0x87654321u;
 
  float A = .5f, B = .5f;
 };

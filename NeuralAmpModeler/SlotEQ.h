@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <type_traits>
 #include "../AudioDSPTools/dsp/RecursiveLinearFilter.h"
 
 struct EQControls
@@ -29,6 +30,8 @@ public:
 template <class Filter>
 class ScalarFilter : public Filter
 {
+  static_assert(std::is_base_of_v<recursive_linear_filter::Biquad, Filter>,
+                "ScalarFilter has exactly two input/output history samples and requires a biquad");
 public:
   void Reset()
   {

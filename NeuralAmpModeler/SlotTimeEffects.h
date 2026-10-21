@@ -23,7 +23,7 @@ public:
   }
   double Read(double delay) const
   {
-    delay = std::clamp(delay, 1., static_cast<double>(mData.size() - 2));
+    delay = std::clamp(delay, 1., MaxDelay());
     // Split the integer offset before wrapping: adding the ring size to a tiny
     // negative fractional position can round up to size(), an out-of-bounds read.
     const auto whole = static_cast<size_t>(delay);
@@ -38,6 +38,7 @@ public:
     if (++mIndex == mData.size())
       mIndex = 0;
   }
+  double MaxDelay() const { return static_cast<double>(mData.size() - 2); }
 
 private:
   std::vector<double> mData;
@@ -150,7 +151,7 @@ public:
         tank.mLine.Push((effect == SlotEffect::DigitalDelay ? send[ch] : send[ch] - tank.mDC)
                         + (draining ? 0. : c[1] * .01) * feedback);
         const double peak = (1. - ping) * std::abs(x[ch]) + ping * std::max(std::abs(x[0]), std::abs(x[1]));
-        tank.mEnv = peak + std::exp(-1. / ((peak > tank.mEnv ? .003 : .15) * mRate)) * (tank.mEnv - peak);
+        tank.mEnv = grid_fx::Flush(peak + std::exp(-1. / ((peak > tank.mEnv ? .003 : .15) * mRate)) * (tank.mEnv - peak));
         const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * tank.mEnv) : 1.;
         (ch == 0 ? samples : rightSamples)[i] = ((1. - mix) * x[ch] + mix * wet[ch] * duck) * output;
       }
@@ -191,7 +192,7 @@ public:
       const auto& c = mControls.Tick();
       const double x = samples[i], depth = c[1] * .01, character = c[3] * .01, mix = c[4] * .01;
       const double peak = std::abs(x);
-      mEnv = peak + std::exp(-1. / ((peak > mEnv ? .005 : .15) * mRate)) * (mEnv - peak);
+      mEnv = grid_fx::Flush(peak + std::exp(-1. / ((peak > mEnv ? .005 : .15) * mRate)) * (mEnv - peak));
       mPhase += c[0] * (effect == SlotEffect::Tremolo && !controls.sync ? 1. + character * std::min(3., mEnv * 6.) : 1.)
                 / mRate;
       if (mPhase >= 1.)
@@ -254,6 +255,10 @@ private:
 class SlotReverb
 {
 public:
+  static constexpr std::array<double, 4> kDiffusionSeconds{.0043, .0067, .0091, .0137};
+  static constexpr double kMaximumSize = 1.5, kRightScale = 1.037;
+  // All diffusers share capacity; expose the available read range for diagnostics.
+  double DiffuserMaxDelay() const { return mDiffusers.back().MaxDelay(); }
   void Reset(double rate)
   {
     mRate = rate;
@@ -268,7 +273,7 @@ public:
     for (auto& line : mLines)
       line.Reset(static_cast<int>(.18 * rate));
     for (auto& line : mDiffusers)
-      line.Reset(static_cast<int>(.02 * rate));
+      line.Reset(static_cast<int>(std::ceil(kDiffusionSeconds.back() * kMaximumSize * kRightScale * rate)));
     mPredelay.Reset(static_cast<int>(.11 * rate));
     mEarly.Reset(static_cast<int>(.08 * rate));
   }
@@ -277,13 +282,12 @@ public:
     mControls.Target(controls.reverb, uReverbDecay);
     mExtras.Target({controls.reverbMotion, controls.reverbHighPass}, uReverbMotion);
     constexpr std::array<double, 8> lengths{.0297, .0371, .0411, .0437, .0531, .0617, .0719, .0797};
-    constexpr std::array<double, 4> diffusion{.0043, .0067, .0091, .0137};
     const bool room = effect == SlotEffect::RoomReverb, cloud = effect == SlotEffect::CloudReverb;
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
-      const double size = c[1] * .01 * (room ? .58 : 1.) * (right ? 1.037 : 1.), mix = c[4] * .01;
+      const double size = c[1] * .01 * (room ? .58 : 1.) * (right ? kRightScale : 1.), mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
         mHighPassCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., extra[1]) / mRate);
@@ -306,7 +310,7 @@ public:
       if (!room)
         for (int j = 0; j < 4; ++j)
         {
-          const double delayed = mDiffusers[j].Read(mRate * diffusion[j] * size);
+          const double delayed = mDiffusers[j].Read(mRate * kDiffusionSeconds[j] * size);
           const double y = delayed - .6 * input;
           mDiffusers[j].Push(input + .6 * y);
           input = y;
@@ -315,7 +319,7 @@ public:
       double wet = 0.;
       for (int j = 0; j < 8; ++j)
       {
-        const double motion = extra[0] * .01
+        const double motion = extra[0] == 0. ? 0. : extra[0] * .01
                               * (cloud  ? .0018
                                  : room ? .0002
                                         : .0006)

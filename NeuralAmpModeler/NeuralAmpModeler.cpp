@@ -1,5 +1,6 @@
 #include <algorithm> // std::clamp, std::min
 #include <cmath> // pow
+#include <cctype>
 #include <filesystem>
 #include <iostream>
 #include <utility>
@@ -18,6 +19,8 @@
 #include "NeuralAmpModelerControls.h"
 #include "NAMGridControls.h"
 #include "GridPerformanceControls.h"
+#include "RigPreset.h"
+#include "RigPresetControls.h"
 
 using namespace iplug;
 using namespace igraphics;
@@ -79,7 +82,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     GetParam(SlotTrimParam(slot))->InitGain((name + " Trim").c_str(), 0., -40., 40., .1);
     GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
   }
-  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "% B");
+  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1);
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto name = GridSlotName(slot);
@@ -113,6 +116,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         param->SetDisplayText(1, "I+II");
         param->SetDisplayText(2, "II");
       }
+      else if (i == uDistStyle)
+        param->InitEnum((name + " " + p.name).c_str(), 0, {"Soft", "Hard", "Fuzz", "Foldback"});
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
       else if (p.exponential)
@@ -177,66 +182,51 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto b = ui->GetBounds();
     const auto compact = grid_ui::Style();
     ui->AttachPanelBackground(COLOR_BLACK);
-    ui->AttachControl(new ITextControl(IRECT(24, 10, 220, 52), PLUG_NAME, grid_ui::Text(25.f)));
-    ui->AttachControl(new grid_ui::Button(IRECT(225, 22, 375, 50), [](IControl* caller) {
+    ui->AttachControl(new ITextControl(IRECT(24, 6, 156, 46), PLUG_NAME, grid_ui::Text(23.f)));
+    ui->AttachControl(new grid_ui::Button(IRECT(165, 14, 285, 42), [](IControl* caller) {
       caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagPerformance)->Hide(false);
     }, "Grid / Control"));
-    ui->AttachControl(new grid_ui::Knob(IRECT(590, 2, 660, 67), kParallelBlend, "Blend A / B"));
-    ui->AttachControl(new grid_ui::Knob(IRECT(680, 2, 750, 67), kOutputLevel, "Master"));
+    ui->AttachControl(new NAMRigPresetControl(IRECT(300, 14, 640, 42)), kCtrlTagPresetName);
+    ui->AttachControl(new grid_ui::Button(IRECT(648, 14, 680, 42), [this](IControl*) { StepRigPreset(-1); }, "<"), kCtrlTagPresetPrevious);
+    ui->AttachControl(new grid_ui::Button(IRECT(688, 14, 720, 42), [this](IControl*) { StepRigPreset(1); }, ">"), kCtrlTagPresetNext);
     ui->AttachControl(new grid_ui::Button(
-      IRECT(862, 22, 976, 50),
+      IRECT(862, 14, 976, 42),
       [](IControl* caller) {
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
       "Library & settings"));
     ui->AttachControl(new grid_ui::Button(
-      IRECT(770, 22, 850, 50),
+      IRECT(770, 14, 850, 42),
       [](IControl* caller) {
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(false);
       },
       "Tuner"));
-    ui->AttachControl(new NAMCaptureSearchControl(IRECT(88, 76, 570, 104)), kCtrlTagCaptureSearch);
-    ui->AttachControl(new grid_ui::Button(
-                        IRECT(578, 76, 638, 104), [this](IControl*) { SetCaptureFilter({}); }, "Clear"),
-                      kCtrlTagClearFilter);
-    ui->AttachControl(new NAMGearFilterControl(IRECT(646, 76, 803, 104), compact), kCtrlTagGearFilter);
-    ui->AttachControl(new grid_ui::Button(
-                        IRECT(816, 76, 976, 104),
-                        [this](IControl*) {
-                          if (GetCaptureFolders().empty())
-                            GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
-                          else
-                            RescanCaptureFolder();
-                        },
-                        GetLibraryMatchStatus().c_str()),
-                      kCtrlTagCaptureStatus);
     ui->AttachControl(new grid_ui::Wiring(b));
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
-      const float left = 88.f + 220.f * (slot % 4);
-      const float top = 116.f + 104.f * (slot / 4);
-      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 208.f, top + 88.f), slot),
+      const float left = 88.f + 212.f * (slot % 4);
+      const float top = 104.f + 104.f * (slot / 4);
+      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + 76.f), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
-    for (int row = 0; row < 4; ++row)
-      ui->AttachControl(new ITextControl(IRECT(12, 116.f + 104.f * row, 63, 139.f + 104.f * row),
-                                         row == 0   ? "Pre"
-                                         : row == 1 ? "A"
-                                         : row == 2 ? "B"
-                                                    : "Post",
-                                         grid_ui::Text(11.f, grid_ui::muted)));
-    ui->AttachControl(new ITextControl(IRECT(88, 523, 950, 546),
-                                       "Select a module to edit below. Double-click to choose. The dot toggles bypass.",
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(9, 113, 67, 171), kGridParamBase + grid_performance::InputGain, "IN"))
+      ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(938, 281, 996, 339), kParallelBlend, "A / B"))
+      ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(938, 425, 996, 483), kOutputLevel, "OUT"))
+      ->SetTooltip("Final output gain after the complete grid.");
+    ui->AttachControl(new ITextControl(IRECT(88, 523, 932, 546),
+                                       "Click + Add module to choose. Select a loaded module to edit; double-click to replace. The dot toggles bypass.",
                                        grid_ui::Text(12.f, grid_ui::muted)));
     // Flat input/output meters retain the upstream sender protocol, without bitmap skins.
     const auto meterStyle =
       compact.WithShowValue(false).WithColor(kX1, grid_ui::accent).WithColor(kFG, grid_ui::accent);
-    ui->AttachControl(new IVPeakAvgMeterControl<2>(IRECT(45, 146, 50, 174), "", meterStyle), kCtrlTagInputMeter);
-    ui->AttachControl(new IVPeakAvgMeterControl<2>(IRECT(963, 458, 967, 486), "", meterStyle), kCtrlTagOutputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(74, 108, 77, 176), "", meterStyle), kCtrlTagInputMeter);
+    ui->AttachControl(new IVPeakAvgMeterControl<1>(IRECT(922, 420, 927, 488), "", meterStyle), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(b), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
@@ -258,6 +248,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       return false;
     });
     ui->ForAllControlsFunc([](IControl* control) { control->SetDirty(false); });
+    _UpdatePresetControls();
   };
 }
 
@@ -295,6 +286,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   disable_denormals();
   // Preserve host stereo until a mono NAM slot explicitly collapses it.
   _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal);
+  mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
   mTuner.Push(mInputPointers[0], mInputPointers[1], nFrames, sampleRate);
   _ApplyDSPStaging();
   const bool noiseGateActive = GetParam(kNoiseGateActive)->Value();
@@ -393,6 +385,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     readFamily(c.utility.freeze, uFreezeHold); readFamily(c.utility.stutter, uStutterTime);
     readFamily(c.utility.crusher, uCrushBits); readFamily(c.utility.ring, uRingFrequency); readFamily(c.utility.dual, uDualRatio);
     readFamily(c.utility.juno, uJunoMode); readFamily(c.utility.shimmer, uShimmerMix); readFamily(c.utility.shift, uShiftFrequency);
+    readFamily(c.utility.distortion, uDistStyle);
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -492,6 +485,7 @@ void NeuralAmpModeler::OnReset()
   mMeterFrames = 0;
   mModulation.Reset(sampleRate);
   mMasterGain = GetParam(kOutputLevel)->DBToAmp();
+  mGlobalInputGain = GetParam(kGridParamBase + grid_performance::InputGain)->DBToAmp();
   mMasterCoefficient = std::exp(-1. / (.005 * sampleRate));
   _PrepareBuffers(kNumChannelsInternal, maxBlockSize);
   for (auto& channel : mInputArray)
@@ -633,7 +627,7 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
-  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::RingMod)
+  if (slot >= FixedNAMGrid::kSlots || effect < SlotEffect::NAM || effect > SlotEffect::Distortion)
     return;
   _ClearModel(slot, effect);
   if (fromUI)
@@ -895,7 +889,9 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = 11;
+  config["schema"] = 13;
+  config["PresetName"] = mPresetName;
+  config["PresetDirectory"] = mPresetDirectory;
   config["DrivePath"] = mDrivePath.Get();
   config["NAMPath"] = mNAMPath.Get();
   config["IRPath"] = mIRPath.Get();
@@ -912,6 +908,139 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
     config[GetParam(i)->GetName()] = GetParam(i)->Value();
   chunk.PutStr("###NAMGrid-v1###");
   return chunk.PutStr(config.dump().c_str()) > 0;
+}
+
+void NeuralAmpModeler::_UpdatePresetControls()
+{
+  if (auto* ui = GetUI())
+    if (auto* label = ui->GetControlWithTag(kCtrlTagPresetName))
+    {
+      label->As<IVButtonControl>()->SetLabelStr(mPresetName.c_str());
+      label->SetTooltip(mPresetName.c_str());
+      const bool empty = GetRigPresetFiles().empty();
+      ui->GetControlWithTag(kCtrlTagPresetPrevious)->SetDisabled(empty);
+      ui->GetControlWithTag(kCtrlTagPresetNext)->SetDisabled(empty);
+    }
+}
+
+std::string NeuralAmpModeler::GetRigPresetName() const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  return mPresetName;
+}
+std::vector<std::filesystem::path> NeuralAmpModeler::GetRigPresetFiles() const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  std::vector<std::filesystem::path> files;
+  if (mPresetDirectory.empty()) return files;
+  std::error_code error;
+  for (std::filesystem::directory_iterator it(std::filesystem::u8path(mPresetDirectory), error), end;
+       !error && it != end; it.increment(error))
+  {
+    auto extension = nam_library::PathText(it->path().extension());
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    if (extension == ".ngrid" && it->is_regular_file(error)) files.push_back(it->path());
+  }
+  std::sort(files.begin(), files.end(), [](const auto& a, const auto& b) { return a.filename() < b.filename(); });
+  return files;
+}
+void NeuralAmpModeler::StepRigPreset(int direction)
+{
+  const auto files = GetRigPresetFiles();
+  if (files.empty()) return;
+  const auto name = GetRigPresetName();
+  int current = -1;
+  for (int i = 0; i < files.size(); ++i) if (nam_library::PathText(files[i].stem()) == name) current = i;
+  const int count = static_cast<int>(files.size());
+  const int next = current < 0 ? (direction > 0 ? 0 : count - 1) : (current + direction + count) % count;
+  const auto error = LoadRigPreset(files[next]);
+  if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "Rig preset", EMsgBoxType::kMB_OK);
+}
+
+std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  try
+  {
+    const auto name = nam_library::PathText(path.stem());
+    if (name.empty() || name.size() > 512) throw std::runtime_error("Choose a shorter preset filename.");
+    IByteChunk chunk;
+    if (!SerializeState(chunk)) throw std::runtime_error("Cannot serialize this rig.");
+    WDL_String header, text;
+    const int pos = chunk.GetStr(header, 0);
+    if (pos < 0 || chunk.GetStr(text, pos) < 0) throw std::runtime_error("Cannot read this rig's state.");
+    auto rig = nlohmann::json::parse(text.Get());
+    rig["PresetName"] = name;
+    rig.erase("PresetDirectory");
+    rig.erase("CaptureFolder"); rig.erase("CaptureFolders");
+    rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    {
+      rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
+      rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+    }
+    rig_preset::Write(path, rig);
+    mPresetName = name; mPresetDirectory = nam_library::PathText(path.parent_path());
+    _UpdatePresetControls(); _NotifyHostStateChanged();
+    return {};
+  }
+  catch (const std::exception& error) { return error.what(); }
+}
+
+std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  try
+  {
+    auto rig = rig_preset::Read(path);
+    const auto name = nam_library::PathText(path.stem());
+    if (name.empty() || name.size() > 512) throw std::runtime_error("Preset filename is too long.");
+    rig["PresetName"] = name;
+    rig["PresetDirectory"] = nam_library::PathText(path.parent_path());
+    // Library folders and tuner choices belong to this instance, not the rig.
+    rig["CaptureFolder"] = mCaptureFolder; rig["CaptureFolders"] = mCaptureFolders;
+    rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
+    rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    {
+      rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
+      rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+    }
+    IByteChunk chunk;
+    chunk.PutStr("###NAMGrid-v1###"); chunk.PutStr(rig.dump().c_str());
+    if (UnserializeState(chunk, 0) < 0) throw std::runtime_error("Preset contains invalid or unsupported rig state.");
+    mPresetDirectory = nam_library::PathText(path.parent_path());
+    OnRestoreState();
+#ifdef CLAP_API
+    // A rig has more parameters than iPlug2's 512-event UI queue. Ask the host
+    // to read all current values instead of enqueueing thousands of gestures.
+    const auto* host = _host.host();
+    if (auto* params = static_cast<const clap_host_params*>(host->get_extension(host, CLAP_EXT_PARAMS)))
+      params->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+#else
+    DirtyParametersFromUI();
+#endif
+    _UpdateControlsFromModel(); _NotifyHostStateChanged();
+    return {};
+  }
+  catch (const std::exception& error) { return error.what(); }
+}
+
+void NeuralAmpModeler::PromptRigPreset(bool save)
+{
+  if (auto* ui = GetUI())
+  {
+    WDL_String file, directory(mPresetDirectory.c_str());
+    if (save) file.Set((mPresetName + ".ngrid").c_str());
+    ui->PromptForFile(file, directory, save ? EFileAction::Save : EFileAction::Open, "ngrid",
+      [this, save](const WDL_String& chosen, const WDL_String&) {
+        if (!chosen.GetLength()) return;
+        auto path = std::filesystem::u8path(chosen.Get());
+        if (save && !path.has_extension()) path += ".ngrid";
+        const auto error = save ? SaveRigPreset(path) : LoadRigPreset(path);
+        if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "Rig preset", EMsgBoxType::kMB_OK);
+      });
+  }
 }
 
 int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
@@ -939,10 +1068,16 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         return -1;
       const auto& schemaValue = config["schema"];
       if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
-                  && schemaValue != 9 && schemaValue != 10 && schemaValue != 11)
+                  && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12 && schemaValue != 13)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
+      if (config.contains("PresetName") && (!config["PresetName"].is_string()
+          || config["PresetName"].get<std::string>().size() > 512
+          || config["PresetName"].get<std::string>().find('\0') != std::string::npos)) return -1;
+      if (config.contains("PresetDirectory") && (!config["PresetDirectory"].is_string()
+          || config["PresetDirectory"].get<std::string>().size() > 32768
+          || config["PresetDirectory"].get<std::string>().find('\0') != std::string::npos)) return -1;
       if (config.contains("PerformanceScenes"))
       {
         const auto& scenes = config["PerformanceScenes"];
@@ -1001,7 +1136,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema == 8 ? static_cast<int>(SlotEffect::Utility)
                              : schema == 9 ? static_cast<int>(SlotEffect::Wah)
                              : schema == 10 ? static_cast<int>(SlotEffect::RingMod)
-                                           : static_cast<int>(SlotEffect::FrequencyShifter))
+                             : schema <= 12 ? static_cast<int>(SlotEffect::FrequencyShifter)
+                                            : static_cast<int>(SlotEffect::Distortion))
                 || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
               return -1;
           }
@@ -1032,6 +1168,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       {
         const char* name = GetParam(i)->GetName();
         if (grid && schema < 10 && i >= kGridParamBase) config[name] = GetParam(i)->GetDefault();
+        if (grid && schema < 12 && i == kGridParamBase + grid_performance::InputGain)
+          config[name] = GetParam(i)->GetDefault();
         // Prior WIP states called the gate close time Decay. Keep their value
         // while exposing the accurate Release name to hosts and new states.
         if (i >= kDynamicsBase && i < kEQBase && (i - kDynamicsBase) % 6 == 1)
@@ -1051,6 +1189,9 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                                                                  : schema == 8 ? 48 : 61))))
           config[name] = GetParam(i)->GetDefault();
         // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
+        if (grid && schema >= 11 && schema <= 12 && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= uDistStyle)
+          config[name] = GetParam(i)->GetDefault();
         if (grid && schema == 10 && i >= kUtilityBase && i < kTunerReference
             && (i - kUtilityBase) % kUtilityControls >= 103)
           config[name] = GetParam(i)->GetDefault();
@@ -1389,12 +1530,12 @@ void NeuralAmpModeler::_PrepareIOPointers(const size_t numChannels)
 void NeuralAmpModeler::_ProcessInput(iplug::sample** inputs, const size_t nFrames, const size_t nChansIn,
                                      const size_t nChansOut)
 {
-  for (size_t c = 0; c < nChansOut; ++c)
+  const double target = GetParam(kGridParamBase + grid_performance::InputGain)->DBToAmp();
+  for (size_t s = 0; s < nFrames; ++s)
   {
-    if (!nChansIn)
-      std::fill_n(mInputArray[c].data(), nFrames, 0.);
-    else
-      std::copy_n(inputs[std::min(c, nChansIn - 1)], nFrames, mInputArray[c].data());
+    mGlobalInputGain = target + mMasterCoefficient * (mGlobalInputGain - target);
+    for (size_t c = 0; c < nChansOut; ++c)
+      mInputArray[c][s] = nChansIn ? inputs[std::min(c, nChansIn - 1)][s] * mGlobalInputGain : 0.;
   }
 }
 
@@ -1441,8 +1582,6 @@ void NeuralAmpModeler::_UpdateLatency(bool forceRestart)
 void NeuralAmpModeler::_UpdateMeters(sample** inputPointer, sample** outputPointer, const size_t nFrames,
                                      const size_t nChansIn, const size_t nChansOut)
 {
-  mInputSender.ProcessBlock(
-    inputPointer, static_cast<int>(nFrames), kCtrlTagInputMeter, static_cast<int>(std::min(size_t{2}, nChansIn)));
   mOutputSender.ProcessBlock(
     outputPointer, static_cast<int>(nFrames), kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, nChansOut)));
 }

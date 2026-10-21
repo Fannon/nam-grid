@@ -82,6 +82,7 @@ enum UtilityParam
   uJunoMode, uJunoMix, uJunoBrightness,
   uShimmerMix, uShimmerDecay, uShimmerTone, uShimmerPitch, uShimmerAmount, uShimmerMod, uShimmerFreeze,
   uShiftFrequency, uShiftFeedback, uShiftDelay, uShiftSide, uShiftTone, uShiftStereo, uShiftMix,
+  uDistStyle, uDistDrive, uDistTone, uDistBias, uDistMix, uDistOutput,
   kUtilityControls
 };
 struct EffectParameter
@@ -213,15 +214,62 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Shifter Side", "Side", 100, -100, 100, .1, "%", 3},
    {"Shifter Tone", "Tone", 8000, 200, 12000, 1, "Hz", 4, true},
    {"Shifter Stereo", "Stereo", 0, 0, 100, .1, "%", 5},
-   {"Shifter Mix", "Mix", 50, 0, 100, .1, "%", 6}}};
+   {"Shifter Mix", "Mix", 50, 0, 100, .1, "%", 6},
+   {"Distortion Style", "Style", 0, 0, 3, 1, "", 0},
+   {"Distortion Drive", "Drive", 12, 0, 36, .1, "dB", 1},
+   {"Distortion Tone", "Tone", 8000, 200, 12000, 1, "Hz", 2, true},
+   {"Distortion Bias", "Bias", 0, -100, 100, .1, "%", 3},
+   {"Distortion Mix", "Mix", 100, 0, 100, .1, "%", 4},
+   {"Distortion Output", "Output", -6, -24, 6, .1, "dB", 5}}};
+static_assert([] {
+  for (const auto& p : kEffectParameters)
+    if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum
+        || p.step <= 0. || p.position < 0 || p.position >= 7) return false;
+  return true;
+}(), "Every utility parameter needs a valid descriptor and one of the seven editor positions");
 inline bool IsDelay(SlotEffect e)
-{ return (e >= SlotEffect::DigitalDelay && e <= SlotEffect::TapeDelay) || e == SlotEffect::ReverseDelay || e == SlotEffect::DualDelay; }
+{
+  switch (e)
+  {
+    case SlotEffect::DigitalDelay: case SlotEffect::AnalogDelay: case SlotEffect::TapeDelay:
+    case SlotEffect::ReverseDelay: case SlotEffect::DualDelay: return true;
+    default: return false;
+  }
+}
 inline bool IsReverb(SlotEffect e)
-{ return (e >= SlotEffect::RoomReverb && e <= SlotEffect::CloudReverb) || e == SlotEffect::SpringReverb; }
+{
+  switch (e)
+  {
+    case SlotEffect::RoomReverb: case SlotEffect::PlateReverb:
+    case SlotEffect::CloudReverb: case SlotEffect::SpringReverb: return true;
+    default: return false;
+  }
+}
 inline bool IsModulation(SlotEffect e)
-{ return e >= SlotEffect::Chorus && e <= SlotEffect::Vibrato; }
+{
+  switch (e)
+  {
+    case SlotEffect::Chorus: case SlotEffect::Flanger: case SlotEffect::Phaser:
+    case SlotEffect::Tremolo: case SlotEffect::Vibrato: return true;
+    default: return false;
+  }
+}
+// These processors own both channel histories or a linked detector. The other
+// built-ins use separate Prepared channel instances; enum order is immaterial.
+inline bool UsesCoupledStereo(SlotEffect e)
+{
+  switch (e)
+  {
+    case SlotEffect::Rotary: case SlotEffect::Limiter: case SlotEffect::Octaver:
+    case SlotEffect::Doubler: case SlotEffect::ReverseDelay: case SlotEffect::DualDelay:
+    case SlotEffect::Freeze: case SlotEffect::Stutter: case SlotEffect::ShimmerReverb:
+    case SlotEffect::JunoChorus: case SlotEffect::FrequencyShifter: return true;
+    default: return false;
+  }
+}
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
   if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
   if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;
   if (e == SlotEffect::Limiter) return p >= uLimiterCeiling && p <= uLimiterRelease;
@@ -298,4 +346,5 @@ struct UtilityControls
   std::array<double, 3> juno{1., 50., 100.};
   std::array<double, 7> shimmer{35., 3.5, 5000., 12., 35., 25., 0.};
   std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
+  std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
 };

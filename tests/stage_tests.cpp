@@ -57,6 +57,8 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "RoadmapEffectsTests.h"
 #include "HQEffectsTests.h"
 #include "StereoGuitarEffectsTests.h"
+#include "DSPReviewTests.h"
+#include "DistortionTests.h"
 
 int main(int argc, char** argv)
 try
@@ -170,6 +172,9 @@ try
   TestRoadmapEffects();
   TestHQEffects();
   TestStereoGuitarEffects();
+  TestDSPReviewFixes();
+  TestDistortionAndMonoMeters();
+  TestCaptureSeams();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

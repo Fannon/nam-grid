@@ -150,7 +150,8 @@ foreach(format IN LISTS NAM_FORMATS)
 endforeach()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
-  # Native menu and live-edit coverage also prepares multiple models on slower CI hosts.
-  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 180)
+  # Full-rig recall, native file dialogs and menu coverage prepare many models;
+  # Windows shell/file-dialog initialization can also be slow on CI hosts.
+  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 300)
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)

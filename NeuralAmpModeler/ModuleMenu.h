@@ -11,81 +11,48 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
                            bool scanning)
 {
   using IPopupMenu = iplug::igraphics::IPopupMenu;
-  FillMenu(menu, library, filter, selected);
+  menu.Clear();
+  for (int type = 0; type < 2; ++type)
+  {
+    auto* files = new IPopupMenu;
+    FillMenu(*files, library, filter, selected, type);
+    menu.AddItem(type == 0 ? "NAM captures" : "Cabinet IRs", files);
+  }
   int next = 0;
+  menu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11), next++);
   menu.AddItem(new IPopupMenu::Item("Choose .nam file...", 0, -10), next++);
   menu.AddItem(new IPopupMenu::Item("Choose cabinet IR (.wav)...", 0, -12), next++);
-  menu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11), next++);
-  auto* gates = new IPopupMenu;
-  auto* compressors = new IPopupMenu;
-  auto* eq = new IPopupMenu;
-  for (int i = 1; i <= 6; ++i)
-  {
-    const auto type = static_cast<SlotEffect>(i);
-    (i <= 2   ? gates
-     : i <= 4 ? compressors
-              : eq)
-      ->AddItem(new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
-  }
-  menu.AddItem("Noise Gate", gates, next++);
-  menu.AddItem("Compressor", compressors, next++);
-  eq->AddItem(new IPopupMenu::Item(SlotEffectName(SlotEffect::ParametricEQ),
-                                   effect == SlotEffect::ParametricEQ ? IPopupMenu::Item::kChecked : 0, -28));
-  menu.AddItem("EQ", eq, next++);
-  menu.AddItem(
-    new IPopupMenu::Item("Boost", effect == SlotEffect::Boost ? IPopupMenu::Item::kChecked : 0, -29), next++);
-  const auto addGroup = [&](const char* title, SlotEffect first, SlotEffect last) {
+  menu.AddSeparator(next++);
+  const auto addGroup = [&](const char* title, std::initializer_list<SlotEffect> types) {
     auto* group = new IPopupMenu;
-    for (int i = static_cast<int>(first); i <= static_cast<int>(last); ++i)
+    for (const auto type : types)
     {
-      const auto type = static_cast<SlotEffect>(i);
       group->AddItem(
-        new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - i));
+        new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
+                             -20 - static_cast<int>(type)));
     }
-    if (first == SlotEffect::RoomReverb)
-    {
-      for (auto type : {SlotEffect::SpringReverb, SlotEffect::ShimmerReverb})
-        group->AddItem(new IPopupMenu::Item(
-          SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
-    }
-    if (first == SlotEffect::SynthFilter)
-    {
-      const auto type = SlotEffect::Wah;
-      group->AddItem(new IPopupMenu::Item(
-        SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
-    }
-    if (first == SlotEffect::Chorus)
-    {
-      const auto type = SlotEffect::JunoChorus;
-      group->AddItem(new IPopupMenu::Item(
-        SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)));
-    }
+    if (std::string(title) == "Delay") group->AddItem(new IPopupMenu::Item("Slapback preset", 0, -16));
     menu.AddItem(title, group, next++);
   };
-  addGroup("Reverb", SlotEffect::RoomReverb, SlotEffect::CloudReverb);
-  addGroup("Delay", SlotEffect::DigitalDelay, SlotEffect::TapeDelay);
-  menu.AddItem(new IPopupMenu::Item("Slapback preset", 0, -16), next++);
-  addGroup("Modulation", SlotEffect::Chorus, SlotEffect::Vibrato);
-  addGroup("Rotary / Vibe", SlotEffect::Rotary, SlotEffect::UniVibe);
-  addGroup("Dynamics / Pitch", SlotEffect::Limiter, SlotEffect::Doubler);
-  addGroup("Creative", SlotEffect::ReverseDelay, SlotEffect::RingMod);
-  menu.AddItem(new IPopupMenu::Item(SlotEffectName(SlotEffect::FrequencyShifter),
-                                   effect == SlotEffect::FrequencyShifter ? IPopupMenu::Item::kChecked : 0,
-                                   -20 - static_cast<int>(SlotEffect::FrequencyShifter)),
-               next++);
-  addGroup("Filter / Volume", SlotEffect::SynthFilter, SlotEffect::AutoSwell);
-  for (auto type : {SlotEffect::Tape, SlotEffect::TubeBoost, SlotEffect::Utility})
-    menu.AddItem(new IPopupMenu::Item(
-                   SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(type)),
-                 next++);
+  using E = SlotEffect;
+  addGroup("Distortion", {E::Distortion, E::Boost, E::TubeBoost, E::Tape, E::Bitcrusher});
+  addGroup("Dynamics", {E::NaturalGate, E::TightGate, E::SmoothComp, E::PunchComp, E::Limiter});
+  addGroup("EQ / Filter", {E::ToneEQ, E::CutEQ, E::ParametricEQ, E::SynthFilter, E::Wah});
+  addGroup("Modulation", {E::Chorus, E::JunoChorus, E::Flanger, E::Phaser, E::Tremolo, E::Vibrato,
+                           E::Rotary, E::UniVibe, E::RingMod});
+  addGroup("Pitch / Frequency", {E::Octaver, E::Doubler, E::FrequencyShifter});
+  addGroup("Delay", {E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::ReverseDelay, E::DualDelay});
+  addGroup("Reverb", {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::SpringReverb, E::ShimmerReverb});
+  addGroup("Creative", {E::Freeze, E::Stutter});
+  addGroup("Utility / Volume", {E::Utility, E::AutoSwell});
   menu.AddSeparator(next++);
   if (canToggleQuality)
     menu.AddItem(new IPopupMenu::Item("A2 Lite", lite ? IPopupMenu::Item::kChecked : 0, -15), next++);
   if (!filter.search.empty() || filter.gear >= 0)
-    menu.AddItem(new IPopupMenu::Item("Clear search and gear filter", 0, -13), 0);
+    menu.AddItem(new IPopupMenu::Item("Clear search and gear filter", 0, -13), next++);
   if (library.captures.empty())
     menu.AddItem(new IPopupMenu::Item(scanning ? "Scanning library..." : "Rescan library",
                                       scanning ? IPopupMenu::Item::kDisabled : 0, -14),
-                 0);
+                 next++);
 }
 } // namespace nam_library

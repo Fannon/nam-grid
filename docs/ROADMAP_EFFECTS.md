@@ -23,6 +23,13 @@ of seven controls plus Enabled. Changes are automatable and saved in project sta
 | Bitcrusher | Bits, sample-hold rate, tone, mix and output. Intentional sample/bit reduction, with a reconstruction low-pass. |
 | Ring Modulator | Carrier frequency, depth, tone and mix. Sine-carrier multiplication for metallic sidebands. No automatic pitch tracking is claimed. |
 
+Freeze's Capture control specifies the source-window length. The seam overlaps
+the beginning and end, so the held repeat period is Capture minus the effective
+Fade (bounded to one quarter of the window). For example, 500 ms Capture and
+20 ms Fade repeat every 480 ms without resampling or changing pitch. Stutter
+keeps the requested Window period, using a gate fade through zero even at 100%
+Gate; Reverse replaces its window each period with a 5 ms capture transition.
+
 The menu also contains a **Slapback preset**: a 90 ms digital echo with zero
 feedback, an 8 kHz tone setting and 25% mix. It uses the existing Digital Delay
 module rather than another processor type.
@@ -106,11 +113,32 @@ delays stop feedback while draining; Dual Delay reserves 17 seconds to clear its
 maximum 16-second history. Intentional delay/pitch-window behavior is separate
 from the conversion latency reported to the host.
 
-State schema is 11. Existing supported schemas 2/3/6/7/8/9/10 load with defaults for
-new named parameters; unsupported WIP schemas 4/5 still reject. There are 120
-utility controls per slot and 43 grid controls: 2,249 parameters total. Performance
+Cabinet IR drains 8,192 silent frames after its bypass fade, covering the
+convolver's maximum resampled FIR length before processing suspends. Re-enabling
+after drainage cannot replay earlier input. Re-enabling sooner can resume its
+remaining history during the ordinary fade. Stutter's 33-second drain covers four
+maximum eight-second synced windows; a Decay setting is not a hard reverb end time.
+
+Independent dynamics and envelope followers can change the stereo balance of
+asymmetric input; fixed EQ/filter histories are also independent. The Peak Limiter
+uses linked gain. No new stereo-link option or nonlinear oversampling is implied.
+
+Capture keeps four double buffers (history/held audio, L/R). Reverse and Stutter
+reserve 8.1 seconds because host sync reaches eight seconds at 30 BPM; their free
+Time/Window knob limits are smaller. That is about 11.87 MiB per slot at 48 kHz or
+47.46 MiB at 192 kHz, before other prepared state. Sixteen such slots approach
+760 MiB at 192 kHz. Freeze reserves 2.1 seconds. Dual Delay reserves two 16.1-second
+lines, approximately 11.79 MiB / 47.17 MiB at those rates. These are independent
+per-slot histories prepared off audio; live processing does not resize them.
+
+State schema is 13. Existing supported schemas 2/3/6/7/8/9/10/11/12 load with defaults for
+new named parameters; unsupported WIP schemas 4/5 still reject. There are 126
+utility controls per slot and 44 grid controls: 2,346 parameters total. Performance
 scenes contain named values. No backward host-automation-ID guarantee is introduced
 for this unreleased WIP.
+
+[Rig presets and global gain placement](PRESETS.md) describe file Save/Load and
+the IN / A-B / OUT controls. Scenes remain parameter-only snapshots within a rig.
 
 ## HQ source-review increment
 

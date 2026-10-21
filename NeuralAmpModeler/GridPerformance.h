@@ -14,6 +14,7 @@ enum Param
   Step1, Step2, Step3, Step4, Step5, Step6, Step7, Step8,
   Macro1, Macro1Slot, Macro1Target, Macro1Depth,
   Macro2, Macro2Slot, Macro2Target, Macro2Depth,
+  InputGain,
   Count
 };
 inline constexpr std::array<const char*, 9> targetNames{
@@ -61,7 +62,8 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Macro Two", "Macro 2", 0, 0, 100, .1, "%", 0},
   {"Macro Two Slot", "Target slot", 0, 0, 15, 1, "", 0},
   {"Macro Two Target", "Target", 0, 0, 8, 1, "", 0},
-  {"Macro Two Depth", "Depth", 0, -100, 100, .1, "%", 0}
+  {"Macro Two Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Global Input", "Input", 0, -40, 40, .1, "dB", 0}
 }};
 using Values = std::array<double, Count>;
 inline Values Defaults()

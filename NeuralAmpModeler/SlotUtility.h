@@ -187,6 +187,7 @@ public:
     {
       const double peak = std::abs(samples[i]);
       mEnv = peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak);
+      if (std::abs(mEnv) < 1.e-30) mEnv = 0.;
       mDepth = std::clamp(c.envelope, 0., 4.) + mSmooth * (mDepth - std::clamp(c.envelope, 0., 4.));
       const double hz =
         std::min(.4 * mRate, std::clamp(c.cutoff, 40., 12000.) * std::exp2(mDepth * std::min(1., mEnv * 4.)));
@@ -214,28 +215,38 @@ public:
     mRate = rate;
     mEnv = mGain = mHold = 0.;
     mOpen = false;
+    mAttack = std::exp(-1. / (.001 * rate));
+    mRelease = std::exp(-1. / (.03 * rate));
+    mSmoothing = std::exp(-1. / (.02 * rate));
+    mFirst = true;
   }
   void Process(double* samples, int frames, const UtilityControls& c)
   {
-    const double threshold = std::pow(10., std::clamp(c.threshold, -72., -12.) / 20.);
-    const double attack = std::exp(-1. / (.001 * mRate)), release = std::exp(-1. / (.03 * mRate));
-    const double rise = 1. / (mRate * .001 * std::clamp(c.rise, 10., 1200.));
-    const double close = std::exp(-1. / (mRate * .001 * std::clamp(c.release, 20., 800.)));
+    // Smooth the derived threshold/rates so automation has no block-sized steps.
+    // Exponentials stay outside the sample loop and the envelope stays per sample.
+    const std::array<double, 3> target{
+      std::pow(10., std::clamp(c.threshold, -72., -12.) / 20.),
+      1. / (mRate * .001 * std::clamp(c.rise, 10., 1200.)),
+      std::exp(-1. / (mRate * .001 * std::clamp(c.release, 20., 800.)))};
+    if (mFirst) { mValue = target; mFirst = false; }
     for (int i = 0; i < frames; ++i)
     {
+      for (int j = 0; j < 3; ++j)
+        mValue[j] = target[j] + mSmoothing * (mValue[j] - target[j]);
       const double peak = std::abs(samples[i]);
-      mEnv = peak + (peak > mEnv ? attack : release) * (mEnv - peak);
-      if (mEnv >= threshold)
+      mEnv = peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak);
+      if (std::abs(mEnv) < 1.e-30) mEnv = 0.;
+      if (mEnv >= mValue[0])
       {
         mOpen = true;
         mHold = .04 * mRate;
       }
-      else if (mEnv < threshold * .707 && --mHold <= 0.)
+      else if (mEnv < mValue[0] * .707 && --mHold <= 0.)
       {
         mOpen = false;
         mHold = 0.;
       }
-      mGain = mOpen ? std::min(1., mGain + rise) : mGain * close;
+      mGain = mOpen ? std::min(1., mGain + mValue[1]) : mGain * mValue[2];
       if (mGain < 1.e-30)
         mGain = 0.;
       samples[i] *= mGain;
@@ -244,5 +255,8 @@ public:
 
 private:
   double mRate = 48000., mEnv = 0., mGain = 0., mHold = 0.;
+  std::array<double, 3> mValue{};
+  double mAttack = 0., mRelease = 0., mSmoothing = 0.;
+  bool mFirst = true;
   bool mOpen = false;
 };

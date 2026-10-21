@@ -14,7 +14,7 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
   clap_output_events sent{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
   clap_process process{}; process.frames_count = 512; process.audio_inputs_count = process.audio_outputs_count = 1;
   process.audio_inputs = &in; process.audio_outputs = &out; process.in_events = &empty; process.out_events = &sent;
-  for (int effect = static_cast<int>(SlotEffect::Rotary); effect <= static_cast<int>(SlotEffect::FrequencyShifter); ++effect)
+  for (int effect = static_cast<int>(SlotEffect::Rotary); effect <= static_cast<int>(SlotEffect::Distortion); ++effect)
   {
     auto config = cleared;
     config["SlotEffects"][0] = effect;
@@ -24,6 +24,12 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
     config["Pre 1 Doubler Detune"] = 14.;
     config["Pre 1 Dual Delay Ratio"] = 1.75;
     config["Pre 1 Shimmer Pitch"] = 7.; config["Pre 1 Juno Mode"] = 2.; config["Pre 1 Shifter Frequency"] = 250.;
+    if (effect == static_cast<int>(SlotEffect::Distortion))
+    {
+      config["Pre 1 Distortion Style"] = 3.; config["Pre 1 Distortion Drive"] = 24.;
+      config["Pre 1 Distortion Tone"] = 3500.; config["Pre 1 Distortion Bias"] = 30.;
+      config["Pre 1 Distortion Mix"] = 75.; config["Pre 1 Distortion Output"] = -9.;
+    }
     config["Lane A Level"] = -2.; config["Lane Fine Timing"] = .25;
     config["LFO Target"] = 3.; config["LFO Depth"] = 20.;
     load(config); assert(save().config() == config);

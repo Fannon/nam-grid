@@ -12,6 +12,8 @@ A compact input tuner and host tempo sync are included; mono NAM stages still ru
 Additional [effects and grid controls](docs/ROADMAP_EFFECTS.md) include Rotary, Uni-Vibe,
 Limiter, Octaver, Doubler, reverse/dual delays, Freeze, Stutter, Bitcrusher, Ring Mod,
 fine timing, crossover routing, shared modulation and performance scenes.
+[Rig presets](docs/PRESETS.md) save complete setups to `.ngrid` files. Global IN,
+OUT and lane balance controls sit beside their positions in the signal flow.
 [UI and library](docs/UI.md) explain the flat editor, selected-module panel and multiple NAM/IR folders.
 [Slot controls](docs/SLOTS.md) cover EQ, cabinet IRs, metering, Copy/Move/Swap and A2 Full/Lite.
 Windows builds and the automated harness are verified; Bitwig and macOS testing remain outstanding.

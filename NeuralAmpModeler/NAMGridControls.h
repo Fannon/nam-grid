@@ -27,6 +27,8 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
+  if (effect == SlotEffect::Distortion)
+    return {boostColor, boostColor, "Distortion"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
   if (IsReverb(effect) || effect == SlotEffect::ShimmerReverb)
@@ -74,8 +76,8 @@ inline IText Text(float size = 13.f, IColor color = text, EAlign align = EAlign:
 { return IText(size, color, "Roboto-Regular", align); }
 inline IVStyle Style()
 {
-  return DEFAULT_STYLE.WithLabelText(Text(12.f, muted, EAlign::Center))
-    .WithValueText(Text(13.f, text, EAlign::Center))
+  return DEFAULT_STYLE.WithLabelText(Text(13.f, muted, EAlign::Center))
+    .WithValueText(Text(14.f, text, EAlign::Center))
     .WithDrawShadows(false)
     .WithEmboss(false)
     .WithRoundness(.15f)
@@ -114,6 +116,16 @@ public:
 };
 // Two positions align beneath each grid column. Enabled is always last.
 constexpr int kControlPositions = 8;
+// Compact flow controls put their value inside the dial. Dragging the dial,
+// including that value, must adjust gain/balance rather than open a text editor.
+class FlowKnob : public Knob
+{
+public:
+  using Knob::Knob;
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  { IKnobControlBase::OnMouseDown(x, y, mod); SetDirty(false); }
+};
+
 inline IRECT ControlBounds(int position)
 {
   const float left = 88.f + 220.f * (position / 2) + 108.f * (position % 2);
@@ -171,29 +183,23 @@ public:
     for (int row = 0; row < 4; ++row)
       for (int col = 0; col < 3; ++col)
       {
-        const float x = 296.f + 220.f * col, y = 160.f + 104.f * row;
-        g.DrawLine(border, x, y, x + 12, y);
+        const float x = 276.f + 212.f * col, y = 142.f + 104.f * row;
+        g.DrawLine(border, x, y, x + 24, y);
       }
-    g.DrawLine(accent, 37, 160, 88, 160);
-    g.DrawCircle(accent, 28, 160, 9.f);
-    g.FillTriangle(accent, 24, 155, 24, 165, 32, 160);
-    g.DrawText(Text(11.f, text, EAlign::Center), "IN", IRECT(9, 176, 47, 195));
-    g.DrawLine(accent, 956, 472, 973, 472);
-    g.DrawCircle(accent, 982, 472, 9.f);
-    g.FillTriangle(accent, 978, 467, 978, 477, 986, 472);
-    g.DrawText(Text(11.f, text, EAlign::Center), "OUT", IRECT(963, 487, 999, 507));
-    g.DrawLine(border, 956, 160, 973, 160);
-    g.DrawLine(border, 973, 160, 973, 212);
-    g.DrawLine(border, 973, 212, 69, 212);
-    g.DrawLine(border, 69, 212, 69, 368);
-    g.DrawLine(border, 69, 264, 88, 264);
-    g.DrawLine(border, 69, 368, 88, 368);
-    g.DrawLine(border, 956, 264, 982, 264);
-    g.DrawLine(border, 982, 264, 982, 420);
-    g.DrawLine(border, 956, 368, 982, 368);
-    g.DrawLine(border, 982, 420, 69, 420);
-    g.DrawLine(border, 69, 420, 69, 472);
-    g.DrawLine(border, 69, 472, 88, 472);
+    g.DrawLine(accent, 67, 142, 88, 142);
+    g.DrawLine(accent, 912, 454, 938, 454);
+    g.DrawLine(border, 912, 142, 928, 142);
+    g.DrawLine(border, 928, 142, 928, 194);
+    g.DrawLine(border, 928, 194, 69, 194);
+    g.DrawLine(border, 69, 194, 69, 350);
+    g.DrawLine(border, 69, 246, 88, 246);
+    g.DrawLine(border, 69, 350, 88, 350);
+    g.DrawLine(border, 912, 246, 930, 246);
+    g.DrawLine(border, 930, 246, 930, 402);
+    g.DrawLine(border, 912, 350, 930, 350);
+    g.DrawLine(border, 930, 402, 69, 402);
+    g.DrawLine(border, 69, 402, 69, 454);
+    g.DrawLine(border, 69, 454, 88, 454);
   }
 };
 } // namespace grid_ui
@@ -203,7 +209,7 @@ class NAMGridSlotControl : public IControl
 {
 public:
   NAMGridSlotControl(const IRECT& bounds, size_t slot)
-  : IControl(bounds.GetHPadded(6.f))
+  : IControl(bounds.GetHPadded(8.f))
   , mCardBounds(bounds)
   , mSlot(slot)
   {
@@ -219,12 +225,11 @@ public:
     g.FillRoundRect(surface, mCardBounds, 4.f);
     if (occupied)
       Gradient(g, mCardBounds.GetPadded(-1.f), tone.first, tone.second, enabled ? .1f : .035f, 4.f);
-    g.DrawRoundRect(selected ? tone.first : border, mCardBounds, 4.f, nullptr, selected ? 1.5f : 1.f);
-    if (occupied)
-      Gradient(g, IRECT(mCardBounds.L + 8, mCardBounds.T + 1, mCardBounds.R - 8, mCardBounds.T + 4), tone.first,
-               tone.second, enabled ? 1.f : .4f, 1.f);
+    const auto outline = occupied ? (enabled ? tone.first : IColor::LinearInterpolateBetween(border, tone.first, .35f))
+                                 : selected ? accent : border;
+    g.DrawRoundRect(outline, mCardBounds, 4.f, nullptr, selected ? 2.f : occupied ? 1.5f : 1.f);
     const auto slotName = GridSlotName(mSlot);
-    g.DrawText(Text(11.f, selected ? tone.first : muted), slotName.c_str(),
+    g.DrawText(Text(12.f, selected ? tone.first : muted), slotName.c_str(),
                IRECT(mCardBounds.L + 12, mCardBounds.T + 8, mCardBounds.R - 36, mCardBounds.T + 25));
     g.FillCircle(enabled ? tone.first : muted, mCardBounds.R - 17, mCardBounds.T + 16, 3.f);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
@@ -237,16 +242,20 @@ public:
                IRECT(mCardBounds.L + 12, mCardBounds.T + 29, mCardBounds.R - 12, mCardBounds.T + 52));
     const auto type = empty ? "Empty" : !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : tone.label;
     g.DrawText(
-      Text(10.f, muted), type, IRECT(mCardBounds.L + 12, mCardBounds.T + 54, mCardBounds.R - 12, mCardBounds.T + 70));
+      Text(12.f, muted), type, IRECT(mCardBounds.L + 12, mCardBounds.T + 50, mCardBounds.R - 12, mCardBounds.B - 4));
     const auto bar = [&](const IRECT& r, double value, bool clipped) {
-      g.FillRect(border.WithOpacity(.55f), r);
+      g.FillRect(surface, r); // Opaque track covers wiring drawn behind this card.
+      g.DrawRect(border, r);
       const double fill = std::clamp((20. * std::log10(std::max(1.e-6, value)) + 60.) / 60., 0., 1.);
       g.FillRect(clipped ? COLOR_RED : tone.first, IRECT(r.L, r.B - static_cast<float>(fill) * r.H(), r.R, r.B));
     };
-    bar(IRECT(mCardBounds.L - 5, mCardBounds.T + 28, mCardBounds.L - 2, mCardBounds.B - 10), mMeter.input,
-        Now() < mInputClip);
-    bar(IRECT(mCardBounds.R + 2, mCardBounds.T + 28, mCardBounds.R + 5, mCardBounds.B - 10), mMeter.output,
-        Now() < mOutputClip);
+    if (enabled && PLUG()->IsSlotLoaded(mSlot))
+    {
+      bar(IRECT(mCardBounds.L - 7, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
+          Now() < mInputClip);
+      bar(IRECT(mCardBounds.R + 4, mCardBounds.T + 5, mCardBounds.R + 7, mCardBounds.B - 5), mMeter.output,
+          Now() < mOutputClip);
+    }
   }
   void DrawEditor(IGraphics& g)
   {
@@ -324,6 +333,9 @@ public:
       mEnabled->SetValueFromDelegate(value);
       SetDirty(false);
     }
+    else if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NAM && PLUG()->GetSlotPath(mSlot).empty()
+             && y >= mCardBounds.T + 29 && y < mCardBounds.T + 52)
+      ShowMenu();
   }
 
   void OnMouseDblClick(float, float, const IMouseMod&) override
@@ -334,6 +346,15 @@ public:
 
   bool IsDirty() override
   {
+    const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool(), loaded = PLUG()->IsSlotLoaded(mSlot);
+    if (enabled != mLastEnabled || loaded != mLastLoaded)
+    {
+      mLastEnabled = enabled; mLastLoaded = loaded;
+      SetDirty(false);
+      if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
+    }
+    if (!enabled || !loaded)
+    { mMeter = {}; mInputClip = mOutputClip = 0.; }
     const bool sync = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uTempoSync))->Bool();
     if (sync != mLastSync)
     {
@@ -460,7 +481,7 @@ public:
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
     }
-    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::FrequencyShifter))
+    else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Distortion))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
@@ -603,6 +624,8 @@ private:
   void ShowEditMenu()
   {
     mMenu.Clear();
+    mMenu.AddItem(new IPopupMenu::Item("Clear slot", 0, -11));
+    mMenu.AddSeparator();
     for (int mode = 0; mode < 3; ++mode)
     {
       auto* destinations = new IPopupMenu;
@@ -660,7 +683,7 @@ private:
   std::array<IControl*, kUtilityControls> mUtilityKnobs{};
   static double Now()
   { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
-  bool mLastSync = false;
+  bool mLastSync = false, mLastEnabled = true, mLastLoaded = false;
   SlotMeterData mMeter;
   double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;

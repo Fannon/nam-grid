@@ -8,7 +8,7 @@ namespace nam_library
 {
 // Menu tags index the immutable snapshot, so identically named files in different folders remain distinct.
 inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library, const Filter& filter,
-                     const std::string& selected)
+                     const std::string& selected, int fileType = -1)
 {
   using Menu = iplug::igraphics::IPopupMenu;
   menu.Clear();
@@ -16,7 +16,7 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
   for (size_t i = 0; i < library.captures.size(); ++i)
   {
     const auto& capture = library.captures[i];
-    if (!filter.Matches(capture))
+    if (!filter.Matches(capture) || (fileType >= 0 && capture.isIR != (fileType == 1)))
       continue;
     Menu* parent = &menu;
     std::filesystem::path path;
@@ -41,7 +41,8 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
   }
   if (menu.NItems() == 0)
   {
-    const auto label = library.captures.empty() ? std::string("Library has no indexed files")
+    const auto label = fileType >= 0 ? std::string(fileType == 1 ? "No indexed cabinet IRs" : "No indexed NAM captures")
+                       : library.captures.empty() ? std::string("Library has no indexed files")
                        : !filter.search.empty()
                          ? "No matches for search: " + filter.search
                          : "No matches for gear: " + std::string(GearName(static_cast<Gear>(filter.gear)));

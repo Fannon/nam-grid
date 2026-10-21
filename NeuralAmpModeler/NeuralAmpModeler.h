@@ -26,12 +26,26 @@ const int kNumPresets = 1;
 // Stereo grid; mono NAM slots deliberately collapse to mono for one inference pass.
 constexpr size_t kNumChannelsInternal = 2;
 
-class NAMSender : public iplug::IPeakAvgSender<2>
+class NAMSender : public iplug::IPeakAvgSender<1>
 {
 public:
   NAMSender()
-  : iplug::IPeakAvgSender<2>(-90.0, true, 5.0f, 1.0f, 300.0f, 500.0f)
+  : iplug::IPeakAvgSender<1>(-90.0, true, 5.0f, 1.0f, 300.0f, 500.0f)
   {
+  }
+  void ProcessBlock(iplug::sample** inputs, int frames, int tag, int channels)
+  {
+    if (channels <= 0) return;
+    std::array<iplug::sample, 128> mono{};
+    auto* buffer = mono.data();
+    for (int pos = 0; pos < frames;)
+    {
+      const int count = std::min(128, frames - pos);
+      for (int i = 0; i < count; ++i)
+        mono[i] = channels == 1 ? inputs[0][pos + i] : .5 * (inputs[0][pos + i] + inputs[1][pos + i]);
+      iplug::IPeakAvgSender<1>::ProcessBlock(&buffer, count, tag, 1);
+      pos += count;
+    }
   }
 };
 
@@ -126,6 +140,9 @@ enum ECtrlTags
   kCtrlTagClearFilter,
   kCtrlTagTuner,
   kCtrlTagPerformance,
+  kCtrlTagPresetName,
+  kCtrlTagPresetPrevious,
+  kCtrlTagPresetNext,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -220,12 +237,20 @@ public:
   std::string EditSlot(size_t source, size_t destination, SlotEditMode mode);
   void ClearSlot(size_t slot);
   void LoadSlapbackPreset(size_t slot);
+  std::string SaveRigPreset(const std::filesystem::path& path);
+  std::string LoadRigPreset(const std::filesystem::path& path);
+  void PromptRigPreset(bool save);
+  std::vector<std::filesystem::path> GetRigPresetFiles() const;
+  std::string GetRigPresetName() const;
+  void StepRigPreset(int direction);
 
 private:
   // Allocates mInputPointers and mOutputPointers
   void _AllocateIOPointers(const size_t nChans);
   // Adopts a prepared IR at silence; retirement is collected by OnIdle.
   void _ApplyDSPStaging();
+  void _UpdatePresetControls();
+  std::string mPresetName = "Untitled", mPresetDirectory;
   // Deallocates mInputPointers and mOutputPointers
   void _DeallocateIOPointers();
   // Sizes based on mInputArray
@@ -302,6 +327,7 @@ private:
   std::atomic<uint32_t> mFreezeMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};
   double mTunerGain = 1., mMasterGain = 1., mMasterCoefficient = 0.;
+  double mGlobalInputGain = 1.;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};

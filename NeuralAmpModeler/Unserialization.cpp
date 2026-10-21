@@ -22,6 +22,9 @@
 
 void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
 {
+  mPresetName = config.value("PresetName", std::string("Untitled"));
+  mPresetDirectory = config.value("PresetDirectory", std::string{});
+  _UpdatePresetControls();
   for (size_t i = 0; i < mPerformanceScenes.size(); ++i)
     mPerformanceScenes[i] = config.contains("PerformanceScenes") ? config["PerformanceScenes"][i] : nlohmann::json::object();
   auto getParamByName = [&](std::string& name) {

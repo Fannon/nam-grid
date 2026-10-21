@@ -28,17 +28,22 @@ audio; their gain controls take effect when a model is loaded. Slots are process
 right within each row. Both parallel rows receive the same output from Pre4. There are no
 cross-connections, sends, feedback, drag/drop routing, or routing graph.
 
-- Click a card to select it. The bottom panel shows only that module's controls; double-click
-  a card or click its bottom **Choose / Change** button to choose NAM, WAV IR, built-in effect or Clear.
-  `<` / `>` browse the filtered library across all configured folders.
-- Right-click a card to Copy/Move/Swap with a destination. Compact input/output meters appear on
-  every card; gate/compressor reduction is shown in the selected module panel. See [SLOTS.md](SLOTS.md).
+- Click **+ Add module** once on an empty card. Click a loaded card to select its
+  bottom editor; double-click it or use **Change module...** to replace it.
+  Every FX lives in a category; indexed NAM captures and cabinet IRs have separate sections.
+  `<` / `>` in the module editor traverse the library across configured folders.
+- Right-click a card to Clear, Copy/Move/Swap with a destination. Tall mono-sum input/output meters
+  appear beside active, loaded cards; gate/compressor reduction is shown in the selected module panel.
+  See [SLOTS.md](SLOTS.md).
 - Add NAM and IR folders in **Library & settings**. Multiple source folders and their subfolders
   become nested selection menus. The default preference file remains `NAMDualPrototype/library.json`.
 - **Blend A / B** is the percentage of lane B: 0% uses A, 50% averages both, 100% uses B.
   It uses a smoothed linear crossfade. Two identical or empty lanes remain unity instead of
   becoming 6 dB louder. To use a single modeled lane without mixing in the other lane's dry
   signal, turn the blend fully toward the modeled lane.
+- The header preset name opens file Save/Load and presets in the last used folder;
+  its arrows step through that folder. Global IN is at the input, OUT at the
+  output, and A/B on the right. See [PRESETS.md](PRESETS.md).
 - New instances have no shared gate, EQ or IR processing: add those as modules. Master and the
   existing 5 Hz DC blocker remain after the grid. Recalled projects retain their legacy global
   processing settings, with compatibility toggles in Settings when used; this preserves their sound.
@@ -87,8 +92,8 @@ Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receiv
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
 The first two slot gain/trim controls retain their original host IDs. The expanded
-layout has **2249 parameters**, including 120 utility/time-effect controls per slot.
-`###NAMGrid-v1###` / schema 11 stores all 16 paths, types and named values. Validation
+layout has **2346 parameters**, including 126 utility/time-effect controls per slot.
+`###NAMGrid-v1###` / schema 13 stores all 16 paths, types and named values. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old
 unreleased projects may require rebuilding. No compatibility guarantee is made.

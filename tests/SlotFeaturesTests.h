@@ -343,13 +343,13 @@ void TestSlotFeatures()
     rejected = true;
   }
   assert(rejected && source.path == modelFile.string() && destination.path == irFile.string());
-  // Meter taps see slot I/O peaks and gain reduction without changing the audio.
+  // Empty slots do not monitor; active processors report I/O and reduction.
   NAMStage empty;
   empty.ResetStopped(48000., 512);
   double impulse = 1.5;
   empty.Process(&impulse, 1, true, 0., 0., false, 0., 0, 1.);
   auto meter = empty.TakeMeter();
-  assert(meter.input == 1.5f && meter.output == 1.5f && meter.reduction == 0.f);
+  assert(meter.input == 0.f && meter.output == 0.f && meter.reduction == 0.f);
   assert(empty.TakeMeter().input == 0.f);
   NAMStage compressor;
   SlotConfig comp;

@@ -30,7 +30,10 @@ Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
 The effects roadmap is now implemented: [ROADMAP_EFFECTS.md](ROADMAP_EFFECTS.md).
 This adds eleven module types, Utility fine delay, notch EQ, lane controls and
 crossover, shared LFO/follower/sequencer/macros and three parameter scenes.
-Build/verification uses `build-roadmap/out`; schema 10 has 1,977 parameters.
+The HQ increment adds Shimmer, Juno Chorus and Frequency Shifter. Current schema
+12 has 2,250 parameters. Complete rig file presets and endpoint gain controls are
+described in [PRESETS.md](PRESETS.md). DSP review fixes and verification are recorded in
+[DSP_REVIEW_FIXES_20261021.md](DSP_REVIEW_FIXES_20261021.md).
 
 1. Bitwig listening/automation/project-recall validation at low buffers; real
    guitar tuner evaluation, display scaling/reopen, and stereo/mono host layouts.
@@ -51,8 +54,8 @@ can show partial frames; final native repainting still needs real-host review.
 - `NeuralAmpModelerCore` and `AudioDSPTools` are intentionally dirty from tracked
   patches in `patches/`. Do not revert or stage their gitlinks.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.
-  No new runtime dependency. Current schema 11 has 2249 parameters, accepting earlier
-  supported schemas 2/3/6/7/8/9/10 with name-based defaults for newly added fields.
+  No new runtime dependency. Current schema 13 has 2346 parameters, accepting earlier
+  supported schemas 2/3/6/7/8/9/10/11/12 with name-based defaults for newly added fields.
   Schema 11 adds Shimmer, Juno Chorus and Frequency Shifter (17 controls per slot).
   Unused WIP schemas 4/5 reject without mutation. Gate Release accepts the older
   Gate Decay state name. Schema 8 Utility Width migrates to centered Stereo by subtracting 100; tuner preferences are preserved.

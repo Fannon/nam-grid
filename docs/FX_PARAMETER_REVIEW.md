@@ -151,12 +151,16 @@ Further reverb/delay candidates are researched in
 Parameter sketches redraw as controls change; they do not fabricate live LFO
 phase or claim to measure a room or input spectrum. Delay stems omit nonlinear
 saturation, dynamic ducking and wobble; treble stems isolate feedback filtering.
-Repeat heights are normalized for legibility, with wet mix and output gain shown
-separately. Doubler separates pitch offset from stereo placement: Width does not
+Repeat heights now use a fixed -60 to +12 dB scale, so wet mix and output gain
+change the visible heights; bright inner stems show surviving 5 kHz content.
+Doubler separates pitch offset from stereo placement: Width does not
 retune its voices, and Mix changes prominence rather than pitch.
 Frequency-shift stems use a labeled 220 Hz harmonic reference, not detected notes.
 Distortion's left plot is the static pre-tone shaper; the right plot isolates the
 linear wet filters, dry/wet phase sum and output gain, excluding nonlinear gain.
+The subsequent [visualization audit](FX_VISUALIZATION_REVIEW.md) covers every
+current module, adds Wah/Bitcrusher views, corrects Flanger/Ring Mod response
+details and standardizes chart rows, labels and legends.
 
 Tests cover every offered effect's control positions and help, including sync,
 notch and vibrato conditions. Dual Delay tests verify actual impulse arrivals,

@@ -25,15 +25,15 @@ a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to s
 shows the current mode. The module menu also offers A2 Lite. IR uses Level;
 see [MODULES.md](MODULES.md) for other controls.
 Every loaded module offers a visualization: signal history versus threshold and
-numeric GR and an orange reduction bar for dynamics; compressor histories exclude makeup gain and reflect parallel Mix. Other views include relative echo timing/treble sketches for standard and Dual delays,
+numeric GR and an orange reduction bar for dynamics; compressors, gates and the limiter also show their static/closing characteristic beside live levels. Compressor histories exclude makeup gain and reflect parallel Mix. Other views include echo timing/treble guides on a fixed dB scale for standard and Dual delays,
 live input/output level history for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
 the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
-history for other effects and IRs. Distortion also shows its separate high-cut/mix/output response. Boost and Tube Boost show their gain/saturation curve and the combined Tilt/Low cut response; Tube labels its EQ as a small-signal response. Tape shows its Spiral saturation stage and Bump amount, explicitly excluding its stateful processing from the static curve.
+history for native nonlinear dynamics, Console Colour and IRs. Wah shows its actual bandpass/body/mix response; Bitcrusher shows quantization/sample holding/tone on a labeled reference tone. Distortion also shows its separate high-cut/mix/output response. Boost and Tube Boost show their gain/saturation curve and the combined Tilt/Low cut response; Tube labels its EQ as a small-signal response. Tape shows its Spiral saturation stage and Bump amount, explicitly excluding its stateful processing from the static curve.
 Capture modules show window, overlap and gate timing; Octaver shows layer levels,
 Doubler its detuned voices, Frequency Shifter its fixed-Hz sidebands, and Utility its mid/side routing.
 Modulation modules show their settings: Chorus/Juno/Vibrato
 delay voices, Phaser/Flanger response sweeps, Tremolo gain shape, Vibe stage sweeps,
-Rotary horn/drum motion and Ring Mod's carrier. Time-based previews label their time window;
+Rotary horn/drum motion and Ring Mod's tone/mix-aware carrier gain. Time-based previews label their time window;
 they describe the configured modulation rather than claiming to follow a live audio LFO phase.
 Library & settings has one **Visualizations: ON/OFF** preference for all module editors.
 Category badges remain visible when visualizations are off. This preference is stored per user,
@@ -44,8 +44,11 @@ applies its electric-guitar starting settings, including parameters shared with 
 Saved presets and slot edits retain their exact values. See [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md)
 for all module defaults and acoustic/bass adjustments, and [PRESETS.md](PRESETS.md) for rig recall.
 
-Reverb previews share a larger field for early reflections, late decay and damping. Size changes spacing; pre-delay shifts the onset. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer also shows pitch direction and Freeze. These are parameter
+Reverb previews share a field for early reflections, nominal -60 dB decay and damping guides. Size changes spacing; pre-delay shifts the onset. Logarithmic time is explicit. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer also shows pitch direction/amount and Freeze. These are parameter
 sketches, not measured room dimensions or impulse responses.
+All FX share separate title, explanation, chart and footer rows. Frequency/dB
+limits, reference signals and measured histories are labeled. See the complete
+[module-by-module visualization audit](FX_VISUALIZATION_REVIEW.md).
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind

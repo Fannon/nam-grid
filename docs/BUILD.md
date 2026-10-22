@@ -29,6 +29,15 @@ cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 n
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
+CI fetches Eigen from `eigen-mirror/eigen` on GitHub using a command-scoped URL
+rewrite, including nested Eigen submodules. This avoids GitLab checkout outages
+while retaining every pinned commit. For the same workaround locally, replace
+the submodule-update command above with:
+
+```sh
+git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/libeigen/eigen" submodule update --init --recursive --depth=1
+```
+
 For MSVC without the Visual Studio generator, use an x64 developer command prompt
 and add `-G Ninja` to the configure command. Local verification used MSVC 19.44,
 Windows SDK 10.0.26100, CMake 4.4.4, Ninja 1.13.2 and Release optimization.
@@ -192,3 +201,13 @@ checks, skipping the large slot-edit matrix and subsequent unrelated editor chec
 Unset it for the complete `clap-smoke` regression. An optional fourth argument names
 a screenshot directory; captures come from the plugin's own OpenGL surface.
 The native test restores library preferences after a successful run.
+
+For a native FX visualization sweep, set `NAM_GRID_FX_VISUALS=1` instead. It
+retains the DSP/state setup, then renders all 55 catalog modules at musical
+defaults with audio and at minimum/maximum control values. Supply the optional
+screenshot directory to review `fx-<effect ID>-default/min/max.bmp` artifacts.
+It exits before the unrelated browser/menu matrix. See
+[FX_VISUALIZATION_REVIEW.md](FX_VISUALIZATION_REVIEW.md) for the audit and display
+semantics; ordinary CTest still runs the complete native editor regression.
+For a targeted iteration, `NAM_GRID_FX_VISUALS_ONLY=12,15` limits that opt-in sweep
+to the listed effect IDs (Digital Delay and Room here); unset it for all modules.

@@ -7,8 +7,8 @@ template<class Value>
 bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor color,
                      Value value, double tempo, double rate)
 {
-  const auto caption = [&](const char* text) { g.DrawText(Text(14.f, color), text, IRECT(plot.L, 490, plot.R, 518)); };
-  const auto foot = [&](const char* text) { g.DrawText(Text(13.f, muted, EAlign::Far), text, IRECT(plot.L, plot.B - 16, plot.R, plot.B)); };
+  const auto caption = [&](const char* text) { PlotTitle(g,plot,color,text); };
+  const auto foot = [&](const char* text) { PlotFooter(g,plot,text); };
   const auto line = [&](double x1, double y1, double x2, double y2, IColor ink, float width = 1.5f) {
     g.DrawLine(ink, plot.L + plot.W() * static_cast<float>(std::clamp(x1, 0., 1.)),
                     plot.B - plot.H() * static_cast<float>(std::clamp(y1, 0., 1.)),
@@ -26,7 +26,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   WDL_String text;
   if (effect == SlotEffect::ConsoleEQ)
   {
-    caption("Band density | nominal dB");
+    caption("Band density | not a linear EQ curve");
     line(0., .5, 1., .5, muted);
     const char* names[]{"Bass", "Mid", "Treble"};
     const int params[]{uConsoleBass, uConsoleMid, uConsoleTreble};
@@ -34,15 +34,46 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     {
       const double density = value(params[i]);
       const float x = plot.L+plot.W()*(i+.5f)/3.f;
-      const float y = plot.B-plot.H()*static_cast<float>(.5+density/16.);
+      const float y = plot.MH()-static_cast<float>(density/6.)*(plot.H()*.5f-24.f);
       g.FillRect(color.WithOpacity(.65f),IRECT(x-16,std::min(y,plot.MH()),x+16,std::max(y,plot.MH())+1));
       text.SetFormatted(64,"%s %+.1f",names[i],density);
       g.DrawText(Text(13.f,muted,EAlign::Center),text.Get(),IRECT(x-48,plot.B-18,x+48,plot.B));
     }
     text.SetFormatted(96,"Bass %.0f Hz | Treble %.0f Hz",value(uConsoleBassFreq),value(uConsoleTrebleFreq));
-    g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,514,plot.R,534));
+    PlotDetail(g,plot,text.Get());
     text.SetFormatted(96,"Cuts: low %.0f%% | high open %.0f%%",value(uConsoleLowCut),value(uConsoleHighCut));
-    g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,680,plot.R,696));
+    foot(text.Get());
+    return true;
+  }
+  if (effect == SlotEffect::Wah)
+  {
+    UtilityControls wah;
+    for (int i=0;i<5;++i) wah.wah[i]=value(uWahPosition+i);
+    const double center=effect_preview::WahCenter(wah,rate),upper=std::min(20000.,.45*rate);
+    text.SetFormatted(80,"Wah | peak %.0f Hz",center); caption(text.Get());
+    PlotDetail(g,plot,"Position / register move peak; Q narrows it");
+    PlotFrequencyAxis(g,plot,upper,"-24 / +24 dB");
+    curve([&](double x) {
+      const double hz=20.*std::pow(upper/20.,x);
+      return .5+20.*std::log10(std::max(1.e-9,effect_preview::WahMagnitude(hz,wah,rate)))/48.;
+    },color);
+    const float peakX=plot.L+plot.W()*static_cast<float>(std::log(center/20.)/std::log(upper/20.));
+    g.DrawLine(color.WithOpacity(.3f),peakX,plot.T,peakX,plot.B);
+    return true;
+  }
+  if (effect == SlotEffect::Bitcrusher)
+  {
+    UtilityControls crush;
+    for (int i=0;i<5;++i) crush.crusher[i]=value(uCrushBits+i);
+    caption("Quantize / sample hold / high cut");
+    text.SetFormatted(80,"%.0f bits | %.1fk samples/s",crush.crusher[0],std::min(rate,crush.crusher[1])/1000.);
+    PlotDetail(g,plot,text.Get()); PlotGrid(g,plot);
+    const auto reference=effect_preview::CrusherReference(crush,rate);
+    const double duration=std::max(384.,std::ceil(rate*3./220.))/rate;
+    PlotCurve(g,plot,[&](double x) { return .8*std::sin(2.*grid_fx::pi*220.*duration*x); },-2.,2.,muted.WithOpacity(.6f),1.f);
+    for (size_t i=1;i<reference.size();++i)
+      line((i-1)/384.,.5+reference[i-1]/4.,i/384.,.5+reference[i]/4.,color);
+    PlotFooter(g,plot,"220 Hz reference: dry / wet mix","+/-2");
     return true;
   }
   UtilityControls c;
@@ -61,22 +92,29 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     const char* name=heads ? effect_modes::tapeHeadNames[std::clamp(c.tapeHeads,0,7)]
                           : effect==SlotEffect::DiffusedDelay ? "Diffused" : c.pingPong ? "Ping-pong" : "Echoes";
     text.SetFormatted(64,"%s | %.0f%% wet",name,c.delay[4]);
-    g.DrawText(Text(14.f,color),text.Get(),IRECT(plot.L,490,plot.R,514));
+    caption(text.Get());
     const int motion=static_cast<int>(value(uDelayMotion));
     if(effect==SlotEffect::DiffusedDelay) text.SetFormatted(64,"Diff %.0f%% | Mod %d%%",value(uDelayDiffusion),motion);
     else if(effect==SlotEffect::TapeDelay || heads) text.SetFormatted(64,"Mod %d%% | Sat %.0f%%",motion,c.delay[3]);
     else if(effect==SlotEffect::AnalogDelay) text.SetFormatted(64,"Age %.0f%% | Mod %d%%",c.delay[3],motion);
-    else text.SetFormatted(64,"High cut %.1f kHz",c.delay[2]/1000.);
+    else text.SetFormatted(64,"High cut %.1fk | %+.0f dB out",c.delay[2]/1000.,c.delayOutput);
     g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,515,plot.R-50,536));
-    g.DrawText(Text(13.f,delayColor),stereo ? "L" : "L=R",IRECT(plot.R-45,515,plot.R-23,536));
-    if(stereo) g.DrawText(Text(13.f,ampColor),"R",IRECT(plot.R-17,515,plot.R,536));
-    double maximum = .001;
-    for (size_t i = 0; i < echoes.count; ++i)
-      maximum = std::max({maximum, echoes.taps[i].left, echoes.taps[i].right});
-    const IRECT chart(plot.L,542,plot.R,668);
-    const auto stem = [&](double x, double height, IColor ink, float width) {
-      const float px = chart.L + chart.W() * static_cast<float>(std::clamp(x, 0., 1.));
-      g.DrawLine(ink, px, chart.B, px, chart.B - chart.H() * static_cast<float>(height * .9 / maximum), nullptr, width);
+    if(effect==SlotEffect::DiffusedDelay && (value(uDelayDiffusion)>0. || motion>0))
+      g.DrawText(Text(13.f,color,EAlign::Far),"Stereo",IRECT(plot.R-50,515,plot.R,536));
+    else
+    {
+      g.DrawText(Text(13.f,delayColor),stereo ? "L" : "L=R",IRECT(plot.R-45,515,plot.R-23,536));
+      if(stereo) g.DrawText(Text(13.f,ampColor),"R",IRECT(plot.R-17,515,plot.R,536));
+    }
+    const IRECT chart=plot;
+    const auto amplitudeY=[&](double amplitude) {
+      return chart.B-chart.H()*static_cast<float>(std::clamp((20.*std::log10(std::max(1.e-9,amplitude))+60.)/72.,0.,1.));
+    };
+    PlotGrid(g,chart);
+    const auto stem = [&](double x, double height, double treble, IColor ink, float offset) {
+      const float px = std::clamp(chart.L+chart.W()*static_cast<float>(x)+offset,chart.L+2.f,chart.R-2.f);
+      g.DrawLine(ink.WithOpacity(.5f),px,chart.B,px,amplitudeY(height),nullptr,4.f);
+      g.DrawLine(ink,px,chart.B,px,amplitudeY(height*treble),nullptr,1.5f);
     };
     // One marker per channel/tap. Shared L/R taps draw once. Modulation halos,
     // diffusion clusters and the M/S badges are explicitly setup cues.
@@ -94,26 +132,26 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
         {
           const float a=start+chart.W()*smear*k/12.f,b=std::min(chart.R,start+chart.W()*smear*(k+1)/12.f);
           if(a>=chart.R) break;
-          g.FillRect(color.WithOpacity(.2f),IRECT(a,chart.B-chart.H()*static_cast<float>(height/maximum)*(1.f-k/12.f),b,chart.B));
+          g.FillRect(color.WithOpacity(.15f),IRECT(a,amplitudeY(height*std::exp(-k*.3)),b,chart.B));
         }
       }
       if(effect!=SlotEffect::DigitalDelay && motion>0 && height>0.)
       {
         const float px=chart.L+chart.W()*static_cast<float>(x),width=motion*.035f;
-        g.FillRect(color.WithOpacity(.12f),IRECT(std::max(chart.L,px-width),chart.B-chart.H()*static_cast<float>(height/maximum)*.9f,
+        g.FillRect(color.WithOpacity(.12f),IRECT(std::max(chart.L,px-width),amplitudeY(height),
           std::min(chart.R,px+width),chart.B));
       }
-      if(shared && tap.left>0.) stem(x,tap.left,delayColor,2.f);
+      if(shared && tap.left>0.) stem(x,tap.left,tap.treble,delayColor,0.f);
       else
       {
-        if(tap.left>0.) stem(x,tap.left,delayColor,2.f);
-        if(tap.right>0.) stem(x,tap.right,ampColor,2.f);
+        if(tap.left>0.) stem(x,tap.left,tap.treble,delayColor,-2.f);
+        if(tap.right>0.) stem(x,tap.right,tap.treble,ampColor,2.f);
       }
     }
     g.DrawLine(border,chart.L,chart.B,chart.R,chart.B);
-    g.DrawText(Text(13.f,muted),stereoHeads ? "Cross-feedback" : "Relative taps",IRECT(plot.L,671,plot.R-50,690));
-    text.SetFormatted(32,"%.1fs",echoes.horizon);
-    g.DrawText(Text(13.f,muted,EAlign::Far),text.Get(),IRECT(plot.R-50,671,plot.R,690));
+    if(echoes.horizon<1.) text.SetFormatted(32,"%.0f ms",echoes.horizon*1000.);
+    else text.SetFormatted(32,"%.1f s",echoes.horizon);
+    PlotFooter(g,plot,"Bright: 5k | -60 to +12 dB",text.Get());
     return true;
   }
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
@@ -124,103 +162,124 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
                           : value(reverse ? uDelayTime : uStutterTime);
     const double fade = reverse ? 5. : value(freeze ? uFreezeFade : uStutterFade);
     const double period = effect_preview::CapturePeriod(effect, window, fade);
-    if (freeze) text.SetFormatted(64, "%s | %.0f ms loop", value(uFreezeHold) >= .5 ? "Hold" : "Ready", period * 1000.);
+    if (freeze) text.SetFormatted(64, "%s | %.0f ms loop", value(uFreezeHold) >= .5 ? "Hold requested" : "Hold off", period * 1000.);
     else text.SetFormatted(64, reverse ? "Reverse | %.0f ms" : "Slice | %.0f ms", window);
     caption(text.Get());
     const double duty = freeze || reverse ? 1. : value(uStutterDuty) * .01;
     const double overlap = std::min(.25, fade / std::max(1., window));
     const double wet = value(freeze ? uFreezeMix : reverse ? uDelayMix : uStutterMix) * .01;
+    PlotDetail(g,plot,freeze ? "Dry stays full; traces show seam blend" : reverse ? "Arrows: playback | shaded: seam blend" : "Wet gate + dry blend | 3 windows");
+    PlotGrid(g,plot);
     curve([&](double x) {
       const double phase = std::fmod(x * 3., 1.);
       const double envelope = std::clamp(std::min(phase / std::max(.001, overlap), (duty - phase) / std::max(.001, overlap)), 0., 1.);
-      return .12 + .7 * wet * (freeze ? 1. : envelope);
+      if (freeze || reverse)
+        return wet*(phase<1.-overlap ? 1. : (1.-phase)/overlap);
+      return 1.-wet+wet*envelope;
     }, color);
+    if (freeze || reverse)
+      curve([&](double x) { return wet*std::max(0.,(std::fmod(x*3.,1.)-(1.-overlap))/overlap); },ampColor);
     for (int i = 0; i < 3; ++i)
     {
       const float left = plot.L + plot.W() * i / 3.f, right = left + plot.W() / 3.f;
-      g.DrawRect(color.WithOpacity(.25f), IRECT(right - plot.W() / 3.f * static_cast<float>(overlap), plot.T, right, plot.B - 11));
+      g.FillRect(color.WithOpacity(.08f), IRECT(right - plot.W() / 3.f * static_cast<float>(overlap), plot.T, right, plot.B));
       if (reverse)
       {
         line((i + .8) / 3., .5, (i + .2) / 3., .5, muted);
         line((i + .2) / 3., .5, (i + .35) / 3., .65, muted);
       }
     }
-    foot(freeze ? "Overlap shortens loop" : reverse ? "Fresh reversed windows" : "Gate / edge fade");
+    text.SetFormatted(64,"%.0f ms",3.*period*1000.);
+    WDL_String note;
+    if(freeze || reverse) note.SetFormatted(80,"High cut %.1fk | %s",value(freeze ? uFreezeTone : uDelayTone)/1000.,freeze ? "dry + held" : "reverse seams");
+    else note.Set("0 - 100% gain");
+    PlotFooter(g,plot,note.Get(),text.Get());
     return true;
   }
   if (effect == SlotEffect::Octaver)
   {
     text.SetFormatted(64, "Octaves | high cut %.0f Hz", value(uOctTone)); caption(text.Get());
+    PlotDetail(g,plot,"Layer gains; high cut affects subs only");
     const char* labels[]{"Dry", "-1 oct", "-2 oct"};
     const double gain = std::pow(10., value(uOctOutput) / 20.);
     for (int i = 0; i < 3; ++i)
     {
       const float x = plot.L + plot.W() * (i + .5f) / 3.f;
       const double height = value(uOctDry + i) * .01 * gain;
-      g.FillRect((i ? color : muted).WithOpacity(.75f), IRECT(x - 9, plot.B - 12 - plot.H() * static_cast<float>(std::min(.75, .65 * height)), x + 9, plot.B - 12));
+      g.FillRect((i ? color : muted).WithOpacity(.75f), IRECT(x - 9, plot.B - 22 - (plot.H()-22)*static_cast<float>(height/2.), x + 9, plot.B - 22));
       g.DrawText(Text(13.f, muted, EAlign::Center), labels[i], IRECT(x - 25, plot.B - 16, x + 25, plot.B));
     }
+    PlotFooter(g,plot,"Gain scale 0 - 2x (+6 dB)");
     return true;
   }
   if (effect == SlotEffect::Doubler)
   {
     text.SetFormatted(64, "+/-%.1f ct | %.0f ms", value(uDoubleDetune), value(uDoubleDelay)); caption(text.Get());
+    PlotDetail(g,plot,"Pitch up/down | horizontal: stereo spread");
     const double spread = value(uDoubleSpread) * .01, mix = value(uDoubleMix) * .01;
     line(0., .5, 1., .5, border);
     for (int voice : {-1, 1})
     {
       // Width changes stereo placement, not the actual pitch offsets. Mix
       // changes prominence; a dry blend must not appear to retune the voices.
-      const double x = .5 + voice * .25 * spread, y = .5 + voice * value(uDoubleDetune) / 60.;
-      const auto ink = (voice < 0 ? muted : color).WithOpacity(.2f + .8f * static_cast<float>(mix));
+      const double x = .5 + voice * .25 * spread, y = .5 - voice * value(uDoubleDetune) / 60.;
+      const auto ink = (voice < 0 ? color : ampColor).WithOpacity(.1f + .9f * static_cast<float>(mix));
       line(.5, .5, x, y, ink.WithOpacity(.4f));
       line(x - .12, y, x + .12, y, ink, 2.f);
     }
-    foot("L/R voice spread"); return true;
+    text.SetFormatted(64,"Wet %.0f%% | Out %+.0f dB",value(uDoubleMix),value(uDoubleOutput));
+    foot(text.Get()); return true;
   }
   if (effect == SlotEffect::AutoSwell)
   {
-    const double rise = value(uSwellRise), release = value(uSwellRelease), total = 1.5 * (rise + release);
+    const double rise = value(uSwellRise), release = value(uSwellRelease), total = rise+40.+3.*release;
     text.SetFormatted(64, "Trigger %.0f dB", value(uSwellThreshold)); caption(text.Get());
-    curve([&](double x) { const double t = x * total; return .1 + .8 * (t < rise ? t / rise : std::exp(-(t - rise) / release)); }, color);
-    text.SetFormatted(64, "Rise / release | %.1f s", total * .001); foot(text.Get()); return true;
+    PlotDetail(g,plot,"Example: rise, then close after 40 ms hold"); PlotGrid(g,plot);
+    curve([&](double x) { const double t = x * total; return t < rise ? t / rise : t<rise+40. ? 1. : std::exp(-(t-rise-40.)/release); }, color);
+    text.SetFormatted(64,"%.1f s",total*.001); PlotFooter(g,plot,"0 - 100% gain | trigger / re-arm",text.Get()); return true;
   }
   if (effect == SlotEffect::FrequencyShifter)
   {
     text.SetFormatted(64, "Shift %+.0f Hz / pass", value(uShiftFrequency)); caption(text.Get());
     const double shift = value(uShiftFrequency), side = value(uShiftSide) * .01;
-    const double upper = std::max(1200., 880. + std::abs(shift) * 3.);
+    const double upper = std::max(1200., 880. + std::abs(shift));
     const double mix = value(uShiftMix) * .01, feedback = value(uShiftFeedback) * .01;
+    text.SetFormatted(96,"FB %.0f%% / %.0f ms | Spread %.0f%%",feedback*100.,value(uShiftDelay),value(uShiftStereo));
+    PlotDetail(g,plot,text.Get()); PlotGrid(g,plot);
     for (int partial = 1; partial <= 4; ++partial)
     {
       const double dryHz = 220. * partial;
       line(dryHz / upper, 0., dryHz / upper, .6 * (1. - mix), muted);
-      for (int pass = 1; pass <= 3; ++pass)
+      if(std::abs(shift)<1.e-6)
+        line(dryHz/upper,0.,dryHz/upper,mix*.65*effect_preview::LowPass(dryHz,value(uShiftTone),rate,1,.45),color,2.f);
+      else
         for (int sign : {-1, 1})
         {
-          const double hz = std::abs(dryHz + sign * pass * shift);
-          const double amplitude = mix * .65 * .5 * (1. + sign * side) * std::pow(feedback, pass - 1);
-          if (hz <= upper) line(hz / upper, 0., hz / upper, amplitude, color, pass == 1 ? 2.f : 1.f);
+          const double hz = std::abs(dryHz + sign * shift);
+          const double amplitude = mix * .65 * .5 * (1. + sign * side)*effect_preview::LowPass(hz,value(uShiftTone),rate,1,.45);
+          if (hz <= upper) line(hz / upper, 0., hz / upper, amplitude, sign>0 ? color : ampColor,2.f);
         }
     }
-    foot("220 Hz harmonic sketch"); return true;
+    text.SetFormatted(32,"0 - %.1fk Hz",upper/1000.); PlotFooter(g,plot,"First pass: 220 Hz harmonics",text.Get()); return true;
   }
   if (effect == SlotEffect::Utility)
   {
     text.SetFormatted(64, "M/S | side %.0f%%", 100. + value(uUtilityStereo)); caption(text.Get());
+    PlotDetail(g,plot,"Width scales existing stereo; mono stays mono");
     const double width = 1. + value(uUtilityStereo) * .01, balance = value(uUtilityBalance) * .01;
     const double gain = std::pow(10., value(uUtilityLevel) / 20.);
     for (int channel = 0; channel < 2; ++channel)
     {
       const double level = gain * (1. - std::max(0., channel ? -balance : balance));
       const double y = channel ? .3 : .7, end = .5 + (channel ? 1. : -1.) * .24 * width;
-      line(.5, .5, end, y, channel ? muted : color, static_cast<float>(1. + std::min(3., level)));
+      const auto ink=(channel ? ampColor : color).WithOpacity(static_cast<float>(.15+.85*std::min(1.,level)));
+      line(.5, .5, end, y, ink, static_cast<float>(1. + std::min(3., level)));
       const bool inverted = value(channel ? uUtilityInvertR : uUtilityInvertL) >= .5;
-      g.DrawText(Text(13.f, channel ? muted : color, EAlign::Center), inverted ? "-" : "+",
+      g.DrawText(Text(13.f, ink, EAlign::Center), inverted ? "-" : "+",
                  IRECT(plot.L + plot.W() * static_cast<float>(end) - 8, plot.B - plot.H() * static_cast<float>(y) - 8,
                        plot.L + plot.W() * static_cast<float>(end) + 8, plot.B - plot.H() * static_cast<float>(y) + 8));
     }
-    text.SetFormatted(64, "Offset %.2f ms", value(uUtilityDelay)); foot(text.Get()); return true;
+    text.SetFormatted(64,"L / R | both delayed %.2f ms",value(uUtilityDelay)); foot(text.Get()); return true;
   }
   return false;
 }

@@ -4,6 +4,9 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
+  #include <emmintrin.h>
+#endif
 
 // Original MIT nam-grid experiment. Public product descriptions of multiband
 // expanders informed the concept; no Klevgrand code or proprietary assets used.
@@ -175,66 +178,20 @@ public:
       // Each used channel is fully written before reading. Contiguous band
       // arrays let the compiler vectorize independent resonators without
       // requiring AVX or changing the detector/gain update rate.
-      std::array<std::array<double, bands>, 2> split;
-      for (int channel = 0; channel < (right ? 2 : 1); ++channel)
-      {
-        auto& state = mFilters[channel];
-        for (int i = 0; i < bands; ++i)
-        {
-          const double value = mCoefficient.b0[i] * dry[channel] + state.first[i];
-          state.first[i] = Flush(-mCoefficient.a1[i] * value + state.second[i]);
-          state.second[i] = Flush(-mCoefficient.b0[i] * dry[channel] - mCoefficient.a2[i] * value);
-          split[channel][i] = value;
-        }
-      }
+      Split split;
       const bool collecting = c.learn && ++mWarmup > static_cast<uint64_t>(mRate * .05);
       if (collecting)
         ++mSamples;
       const double inverseSamples = collecting ? 1. / static_cast<double>(mSamples) : 0.;
-      double wet[2]{}, bandSum[2]{}, reference = 1., gainSum = 0., totalPower = 0.;
-      for (int i = 0; i < bands; ++i)
-      {
-        const double power =
-          right ? .5 * (split[0][i] * split[0][i] + split[1][i] * split[1][i]) : split[0][i] * split[0][i];
-        mPower[i] = Flush(power + mDetector[i] * (mPower[i] - power));
-        if (collecting)
-          mMean[i] += (power - mMean[i]) * inverseSamples;
-        totalPower += mPower[i];
-      }
+      const double totalPower = Analyze(dry, right != nullptr, collecting, inverseSamples, split);
       // Strong notes need less spectral attenuation. The resonator
       // bank overlaps: limiting reduction during confident signal prevents
       // low-level band leakage from coloring the wanted harmonics.
       const double confidence = reducing ? std::max(0., totalPower * inverseLearnedPower - 4.) : 0.;
       const double protection = .5 * confidence / (confidence + 8.);
-      for (int i = 0; i < bands; ++i)
-      {
-        // Soft expander knee: fully open confident bands rather than
-        // continuously shaving wanted harmonics with a Wiener-style mask.
-        double target = 1.;
-        if (reducing)
-        {
-          const double ratio = mPower[i] * inverseThreshold[i];
-          const double knee = std::clamp(ratio - 1., 0., 1.);
-          target = std::max(protection, floor + (1. - floor) * knee * knee * (3. - 2. * knee));
-        }
-        const double coefficient = target > mGain[i] ? attack : release;
-        mGain[i] = target + coefficient * (mGain[i] - target);
-        gainSum += mGain[i];
-        if (synthesize)
-        {
-          reference = std::min(reference, mGain[i]);
-          bandSum[0] += split[0][i];
-          if (right)
-            bandSum[1] += split[1][i];
-          wet[0] += split[0][i] * mGain[i];
-          if (right)
-            wet[1] += split[1][i] * mGain[i];
-        }
-      }
-      // Equal gains reconstruct the scaled input exactly. Unequal gains
-      // use the normalized resonator sum and can alter frequency/phase response.
-      for (int channel = 0; channel < (right ? 2 : 1); ++channel)
-        wet[channel] = reference * dry[channel] + mSynthesis * (wet[channel] - reference * bandSum[channel]);
+      double wet[2]{};
+      const double gainSum = Synthesize(
+        dry, right != nullptr, reducing, synthesize, protection, floor, attack, release, inverseThreshold, split, wet);
       mMix += std::clamp(mixTarget - mMix, -mixStep, mixStep);
       // Exact dry/untrained/learning paths: no crossover coloration or buffering.
       const bool neutral = !mProfile.valid || mMix == 0.;
@@ -268,6 +225,156 @@ public:
   }
 
 private:
+  using Split = std::array<std::array<double, bands>, 2>;
+#if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
+  static_assert(bands % 2 == 0);
+  // SSE2 is baseline on x64. No AVX, FMA, reduced precision or slower detector rate.
+  static __m128d FlushPair(__m128d value)
+  {
+    const auto magnitude = _mm_andnot_pd(_mm_set1_pd(-0.), value);
+    return _mm_andnot_pd(_mm_cmplt_pd(magnitude, _mm_set1_pd(1.e-30)), value);
+  }
+  static double SumPair(__m128d value) { return _mm_cvtsd_f64(value) + _mm_cvtsd_f64(_mm_unpackhi_pd(value, value)); }
+#endif
+  double Analyze(const double* dry, bool stereo, bool collecting, double inverseSamples, Split& split)
+  {
+#if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
+    const auto inputL = _mm_set1_pd(dry[0]), inputR = _mm_set1_pd(dry[1]);
+    for (int i = 0; i < bands; i += 2)
+    {
+      const auto b0 = _mm_loadu_pd(&mCoefficient.b0[i]);
+      const auto a1 = _mm_loadu_pd(&mCoefficient.a1[i]), a2 = _mm_loadu_pd(&mCoefficient.a2[i]);
+      const auto negative = _mm_set1_pd(-0.);
+      const auto tick = [&](int channel, __m128d input) {
+        auto& state = mFilters[channel];
+        const auto excitation = _mm_mul_pd(b0, input);
+        const auto value = _mm_add_pd(excitation, _mm_loadu_pd(&state.first[i]));
+        _mm_storeu_pd(&state.first[i], FlushPair(_mm_sub_pd(_mm_loadu_pd(&state.second[i]), _mm_mul_pd(a1, value))));
+        _mm_storeu_pd(&state.second[i], FlushPair(_mm_sub_pd(_mm_xor_pd(excitation, negative), _mm_mul_pd(a2, value))));
+        _mm_storeu_pd(&split[channel][i], value);
+        return value;
+      };
+      const auto left = tick(0, inputL);
+      auto power = _mm_mul_pd(left, left);
+      if (stereo)
+      {
+        const auto right = tick(1, inputR);
+        power = _mm_mul_pd(_mm_set1_pd(.5), _mm_add_pd(power, _mm_mul_pd(right, right)));
+      }
+      const auto previous = _mm_loadu_pd(&mPower[i]);
+      _mm_storeu_pd(
+        &mPower[i], FlushPair(_mm_add_pd(power, _mm_mul_pd(_mm_loadu_pd(&mDetector[i]), _mm_sub_pd(previous, power)))));
+      if (collecting)
+      {
+        const auto mean = _mm_loadu_pd(&mMean[i]);
+        _mm_storeu_pd(&mMean[i], _mm_add_pd(mean, _mm_mul_pd(_mm_sub_pd(power, mean), _mm_set1_pd(inverseSamples))));
+      }
+    }
+#else
+    for (int channel = 0; channel < (stereo ? 2 : 1); ++channel)
+      for (int i = 0; i < bands; ++i)
+      {
+        auto& state = mFilters[channel];
+        const double value = mCoefficient.b0[i] * dry[channel] + state.first[i];
+        state.first[i] = Flush(-mCoefficient.a1[i] * value + state.second[i]);
+        state.second[i] = Flush(-mCoefficient.b0[i] * dry[channel] - mCoefficient.a2[i] * value);
+        split[channel][i] = value;
+      }
+    for (int i = 0; i < bands; ++i)
+    {
+      const double power =
+        stereo ? .5 * (split[0][i] * split[0][i] + split[1][i] * split[1][i]) : split[0][i] * split[0][i];
+      mPower[i] = Flush(power + mDetector[i] * (mPower[i] - power));
+      if (collecting)
+        mMean[i] += (power - mMean[i]) * inverseSamples;
+    }
+#endif
+    // Preserve the learned-power reduction order on both implementations.
+    double total = 0.;
+    for (double power : mPower)
+      total += power;
+    return total;
+  }
+  double Synthesize(const double* dry, bool stereo, bool reducing, bool synthesize, double protection, double floor,
+                    double attack, double release, const std::array<double, bands>& inverseThreshold,
+                    const Split& split, double* wet)
+  {
+    double reference = 1., gainSum = 0., bandSum[2]{};
+#if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
+    const auto one = _mm_set1_pd(1.), zero = _mm_setzero_pd();
+    auto gains = zero, minimum = one, sumL = zero, sumR = zero, wetL = zero, wetR = zero;
+    for (int i = 0; i < bands; i += 2)
+    {
+      auto target = one;
+      if (reducing)
+      {
+        const auto ratio = _mm_mul_pd(_mm_loadu_pd(&mPower[i]), _mm_loadu_pd(&inverseThreshold[i]));
+        const auto knee = _mm_min_pd(one, _mm_max_pd(zero, _mm_sub_pd(ratio, one)));
+        auto curve = _mm_mul_pd(_mm_mul_pd(_mm_set1_pd(1. - floor), knee), knee);
+        curve = _mm_mul_pd(curve, _mm_sub_pd(_mm_set1_pd(3.), _mm_mul_pd(_mm_set1_pd(2.), knee)));
+        target = _mm_max_pd(_mm_set1_pd(protection), _mm_add_pd(_mm_set1_pd(floor), curve));
+      }
+      const auto previous = _mm_loadu_pd(&mGain[i]);
+      const auto opening = _mm_cmpgt_pd(target, previous);
+      const auto coefficient =
+        _mm_or_pd(_mm_and_pd(opening, _mm_set1_pd(attack)), _mm_andnot_pd(opening, _mm_set1_pd(release)));
+      const auto gain = _mm_add_pd(target, _mm_mul_pd(coefficient, _mm_sub_pd(previous, target)));
+      _mm_storeu_pd(&mGain[i], gain);
+      gains = _mm_add_pd(gains, gain);
+      if (synthesize)
+      {
+        minimum = _mm_min_pd(minimum, gain);
+        const auto left = _mm_loadu_pd(&split[0][i]);
+        sumL = _mm_add_pd(sumL, left);
+        wetL = _mm_add_pd(wetL, _mm_mul_pd(left, gain));
+        if (stereo)
+        {
+          const auto right = _mm_loadu_pd(&split[1][i]);
+          sumR = _mm_add_pd(sumR, right);
+          wetR = _mm_add_pd(wetR, _mm_mul_pd(right, gain));
+        }
+      }
+    }
+    gainSum = SumPair(gains);
+    reference = std::min(_mm_cvtsd_f64(minimum), _mm_cvtsd_f64(_mm_unpackhi_pd(minimum, minimum)));
+    bandSum[0] = SumPair(sumL);
+    wet[0] = SumPair(wetL);
+    if (stereo)
+    {
+      bandSum[1] = SumPair(sumR);
+      wet[1] = SumPair(wetR);
+    }
+#else
+    for (int i = 0; i < bands; ++i)
+    {
+      double target = 1.;
+      if (reducing)
+      {
+        const double ratio = mPower[i] * inverseThreshold[i];
+        const double knee = std::clamp(ratio - 1., 0., 1.);
+        target = std::max(protection, floor + (1. - floor) * knee * knee * (3. - 2. * knee));
+      }
+      const double coefficient = target > mGain[i] ? attack : release;
+      mGain[i] = target + coefficient * (mGain[i] - target);
+      gainSum += mGain[i];
+      if (synthesize)
+      {
+        reference = std::min(reference, mGain[i]);
+        bandSum[0] += split[0][i];
+        wet[0] += split[0][i] * mGain[i];
+        if (stereo)
+        {
+          bandSum[1] += split[1][i];
+          wet[1] += split[1][i] * mGain[i];
+        }
+      }
+    }
+#endif
+    // Equal gains reconstruct the scaled input exactly, as before.
+    for (int channel = 0; channel < (stereo ? 2 : 1); ++channel)
+      wet[channel] = reference * dry[channel] + mSynthesis * (wet[channel] - reference * bandSum[channel]);
+    return gainSum;
+  }
   static double Safe(double x) { return std::isfinite(x) ? std::clamp(x, -1000., 1000.) : 0.; }
   static double Flush(double x) { return std::abs(x) < 1.e-30 ? 0. : x; }
   struct FilterState

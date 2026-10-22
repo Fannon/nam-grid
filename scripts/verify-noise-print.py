@@ -3,6 +3,7 @@
 Run in a C++20 compiler environment (MSVC x64 developer prompt on Windows).
 Generated reference source, executable and objects stay in build-grid/noise-optimization.
 """
+import argparse
 import os
 from pathlib import Path
 import shutil
@@ -10,13 +11,17 @@ import subprocess
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reference", default="214efc7", help="git revision of the independent reference processor")
+    parser.add_argument("--scalar", action="store_true", help="verify the portable fallback instead of SSE2")
+    args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    output = (root / "build-grid" / "noise-optimization").resolve()
+    output = (root / "build-grid" / ("noise-optimization-scalar" if args.scalar else "noise-optimization")).resolve()
     if root not in output.parents:
         raise RuntimeError("Verification output must remain inside this checkout")
     output.mkdir(parents=True, exist_ok=True)
     reference = subprocess.check_output(
-        ["git", "show", "214efc7:NeuralAmpModeler/NoisePrint.h"], cwd=root
+        ["git", "show", f"{args.reference}:NeuralAmpModeler/NoisePrint.h"], cwd=root
     ).decode("utf-8")
     (output / "NoisePrintReference.h").write_text(
         reference.replace("namespace noise_print", "namespace noise_print_reference"),
@@ -32,6 +37,9 @@ def main():
                    f"/I{output}", str(source), f"/Fo{output / 'compare.obj'}", f"/Fe{executable}"]
     else:
         command = [compiler, "-std=c++20", "-O2", "-UNDEBUG", f"-I{output}", str(source), "-o", str(executable)]
+    if args.scalar:
+        command.append("/DNAM_NOISE_PRINT_SCALAR" if Path(compiler).name.lower() in {"cl", "cl.exe", "clang-cl", "clang-cl.exe"}
+                       else "-DNAM_NOISE_PRINT_SCALAR")
     subprocess.run(command, cwd=output, check=True)
     subprocess.run([str(executable)], cwd=output, check=True)
 

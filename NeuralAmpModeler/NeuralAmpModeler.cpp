@@ -295,103 +295,118 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
 
   for (size_t channel = 0; channel < numChannelsInternal; ++channel)
     std::copy_n(triggerOutput[channel], nFrames, mOutputPointers[channel]);
-  std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> controls;
+  auto& controls = mAudioControls.Values();
+  const double tempo = GetTempo();
   for (size_t slot = 0; slot < controls.size(); ++slot)
   {
-    auto& c = controls[slot];
-    c.enabled = GetParam(SlotActiveParam(slot))->Bool();
-    c.inputDB = GetParam(SlotInputParam(slot))->Value();
-    c.trimDB = GetParam(SlotTrimParam(slot))->Value();
-    c.dynamics.gateThreshold = GetParam(SlotDynamicsParam(slot, 0))->Value();
-    c.dynamics.gateRelease = GetParam(SlotDynamicsParam(slot, 1))->Value();
-    c.dynamics.gateRange = GetParam(SlotDynamicsParam(slot, 2))->Value();
-    c.dynamics.gateMode = GetParam(SlotUtilityParam(slot, uGateMode))->Int();
-    c.dynamics.compThreshold = GetParam(SlotDynamicsParam(slot, 3))->Value();
-    c.dynamics.compRelease = GetParam(SlotDynamicsParam(slot, 4))->Value();
-    c.dynamics.compMakeup = GetParam(SlotDynamicsParam(slot, 5))->Value();
-    c.dynamics.compAttack = GetParam(SlotUtilityParam(slot, uCompAttack))->Value();
-    c.dynamics.punchAttack = GetParam(SlotUtilityParam(slot, uPunchAttack))->Value();
-    c.dynamics.compMix = GetParam(SlotUtilityParam(slot, uCompMix))->Value();
-    c.eq.bass = GetParam(SlotEQParam(slot, 0))->Value();
-    c.eq.mid = GetParam(SlotEQParam(slot, 1))->Value();
-    c.eq.treble = GetParam(SlotEQParam(slot, 2))->Value();
-    c.eq.highPass = GetParam(SlotEQParam(slot, 3))->Value();
-    c.eq.lowPass = GetParam(SlotEQParam(slot, 4))->Value();
-    c.eq.presence = GetParam(SlotEQParam(slot, 5))->Value();
-    c.eq.irLevel = GetParam(SlotEQParam(slot, 6))->Value();
-    c.utility.noise.learn = GetParam(SlotUtilityParam(slot, uNoiseLearn))->Bool();
-    c.utility.noise.sensitivity = GetParam(SlotUtilityParam(slot, uNoiseSensitivity))->Value();
-    c.utility.noise.reduction = GetParam(SlotUtilityParam(slot, uNoiseReduction))->Value();
-    c.utility.noise.attack = GetParam(SlotUtilityParam(slot, uNoiseAttack))->Value();
-    c.utility.noise.release = GetParam(SlotUtilityParam(slot, uNoiseRelease))->Value();
-    c.utility.noise.mix = GetParam(SlotUtilityParam(slot, uNoiseMix))->Value();
-    c.utility.noise.gateThreshold = GetParam(SlotUtilityParam(slot, uNoiseGateThreshold))->Value();
-    c.utility.sync = GetParam(SlotUtilityParam(slot, uTempoSync))->Bool();
-    c.utility.division = GetParam(SlotUtilityParam(slot, uTempoDivision))->Int();
-    c.utility.tempo = GetTempo();
-    c.utility.level = GetParam(SlotUtilityParam(slot, uUtilityLevel))->Value();
-    c.utility.balance = GetParam(SlotUtilityParam(slot, uUtilityBalance))->Value();
-    c.utility.stereo = GetParam(SlotUtilityParam(slot, uUtilityStereo))->Value();
-    c.utility.invertL = GetParam(SlotUtilityParam(slot, uUtilityInvertL))->Bool();
-    c.utility.invertR = GetParam(SlotUtilityParam(slot, uUtilityInvertR))->Bool();
-    c.utility.pingPong = GetParam(SlotUtilityParam(slot, uDelayPingPong))->Bool();
-    c.utility.chorusSpread = GetParam(SlotUtilityParam(slot, uChorusSpread))->Value();
-    c.utility.stereoReverb = GetParam(SlotUtilityParam(slot, uReverbStereo))->Bool();
-    for (int i = 0; i < 5; ++i)
-    {
-      c.utility.spring[i] = GetParam(SlotUtilityParam(slot, uSpringDecay + i))->Value();
-      c.utility.wah[i] = GetParam(SlotUtilityParam(slot, uWahPosition + i))->Value();
-    }
-    c.utility.frequency = GetParam(SlotUtilityParam(slot, uFrequency))->Value();
-    c.utility.gain = GetParam(SlotUtilityParam(slot, uGain))->Value();
-    c.utility.q = GetParam(SlotUtilityParam(slot, uQ))->Value();
-    c.utility.boost = GetParam(SlotUtilityParam(slot, uBoostGain))->Value();
-    c.utility.tilt = GetParam(SlotUtilityParam(slot, uBoostTilt))->Value();
-    c.utility.cutoff = GetParam(SlotUtilityParam(slot, uFilterCutoff))->Value();
-    c.utility.resonance = GetParam(SlotUtilityParam(slot, uFilterResonance))->Value();
-    c.utility.envelope = GetParam(SlotUtilityParam(slot, uFilterEnvelope))->Value();
-    c.utility.filterMode = GetParam(SlotUtilityParam(slot, uFilterMode))->Int();
-    c.utility.rise = GetParam(SlotUtilityParam(slot, uSwellRise))->Value();
-    c.utility.threshold = GetParam(SlotUtilityParam(slot, uSwellThreshold))->Value();
-    c.utility.release = GetParam(SlotUtilityParam(slot, uSwellRelease))->Value();
-    for (int i = 0; i < 5; ++i)
-    {
-      c.utility.delay[i] = GetParam(SlotUtilityParam(slot, uDelayTime + i))->Value();
-      c.utility.reverb[i] = GetParam(SlotUtilityParam(slot, uReverbDecay + i))->Value();
-      c.utility.modulation[i] = GetParam(SlotUtilityParam(slot, uModRate + i))->Value();
-    }
-    for (int i = 0; i < 4; ++i)
-      c.utility.tape[i] = GetParam(SlotUtilityParam(slot, uTapeDrive + i))->Value();
-    c.utility.delayMotion = GetParam(SlotUtilityParam(slot, uDelayMotion))->Value();
-    c.utility.delayOutput = GetParam(SlotUtilityParam(slot, uDelayOutput))->Value();
-    c.utility.reverbMotion = GetParam(SlotUtilityParam(slot, uReverbMotion))->Value();
-    c.utility.reverbHighPass = GetParam(SlotUtilityParam(slot, uReverbHighPass))->Value();
-    for (int i = 0; i < 4; ++i)
-      c.utility.tube[i] = GetParam(SlotUtilityParam(slot, uTubeDrive + i))->Value();
-    c.utility.fineDelay = GetParam(SlotUtilityParam(slot, uUtilityDelay))->Value();
-    c.utility.vibeMode = GetParam(SlotUtilityParam(slot, uVibeMode))->Value();
-    c.utility.eqMode = GetParam(SlotUtilityParam(slot, uEQMode))->Value();
-    const auto readFamily = [&](auto& values, int first) {
-      for (size_t i = 0; i < values.size(); ++i) values[i] = GetParam(SlotUtilityParam(slot, first + static_cast<int>(i)))->Value();
-    };
-    readFamily(c.utility.rotary, uRotarySlow); readFamily(c.utility.limiter, uLimiterCeiling);
-    readFamily(c.utility.octaver, uOctDry); readFamily(c.utility.doubler, uDoubleDetune);
-    readFamily(c.utility.freeze, uFreezeHold); readFamily(c.utility.stutter, uStutterTime);
-    readFamily(c.utility.crusher, uCrushBits); readFamily(c.utility.ring, uRingFrequency); readFamily(c.utility.dual, uDualRatio);
-    readFamily(c.utility.juno, uJunoMode); readFamily(c.utility.shimmer, uShimmerMix); readFamily(c.utility.shift, uShiftFrequency);
-    readFamily(c.utility.distortion, uDistStyle);
-    readFamily(c.utility.lofi, uLoFiSpeed);
-    c.utility.tapeHeads = GetParam(SlotUtilityParam(slot, uTapeHeads))->Int();
-    c.utility.delayDiffusion = GetParam(SlotUtilityParam(slot, uDelayDiffusion))->Value();
-    readFamily(c.utility.airPlate, uAirPlateInput); readFamily(c.utility.airHall, uAirHallSustain);
-    readFamily(c.utility.space, uSpaceReplace);
-    readFamily(c.utility.cosmic, uCosmicTime);
-    c.utility.cosmicStyle = GetParam(SlotUtilityParam(slot, uCosmicStyle))->Int();
-    readFamily(c.utility.strip, uStripLowCut); readFamily(c.utility.colour, uColourInput);
-    readFamily(c.utility.consoleEQ, uConsoleTreble); readFamily(c.utility.butter, uButterCompress);
-    c.utility.colourDesk = GetParam(SlotUtilityParam(slot, uColourDesk))->Int();
-    readFamily(c.utility.black, uBlackThreshold); readFamily(c.utility.pressure, uPressureCompress);
-    c.utility.blackMode = GetParam(SlotUtilityParam(slot, uBlackMode))->Int();
+    mAudioControls.Refresh(slot, [&](auto& c) {
+      c.enabled = GetParam(SlotActiveParam(slot))->Bool();
+      c.inputDB = GetParam(SlotInputParam(slot))->Value();
+      c.trimDB = GetParam(SlotTrimParam(slot))->Value();
+      c.dynamics.gateThreshold = GetParam(SlotDynamicsParam(slot, 0))->Value();
+      c.dynamics.gateRelease = GetParam(SlotDynamicsParam(slot, 1))->Value();
+      c.dynamics.gateRange = GetParam(SlotDynamicsParam(slot, 2))->Value();
+      c.dynamics.gateMode = GetParam(SlotUtilityParam(slot, uGateMode))->Int();
+      c.dynamics.compThreshold = GetParam(SlotDynamicsParam(slot, 3))->Value();
+      c.dynamics.compRelease = GetParam(SlotDynamicsParam(slot, 4))->Value();
+      c.dynamics.compMakeup = GetParam(SlotDynamicsParam(slot, 5))->Value();
+      c.dynamics.compAttack = GetParam(SlotUtilityParam(slot, uCompAttack))->Value();
+      c.dynamics.punchAttack = GetParam(SlotUtilityParam(slot, uPunchAttack))->Value();
+      c.dynamics.compMix = GetParam(SlotUtilityParam(slot, uCompMix))->Value();
+      c.eq.bass = GetParam(SlotEQParam(slot, 0))->Value();
+      c.eq.mid = GetParam(SlotEQParam(slot, 1))->Value();
+      c.eq.treble = GetParam(SlotEQParam(slot, 2))->Value();
+      c.eq.highPass = GetParam(SlotEQParam(slot, 3))->Value();
+      c.eq.lowPass = GetParam(SlotEQParam(slot, 4))->Value();
+      c.eq.presence = GetParam(SlotEQParam(slot, 5))->Value();
+      c.eq.irLevel = GetParam(SlotEQParam(slot, 6))->Value();
+      c.utility.noise.learn = GetParam(SlotUtilityParam(slot, uNoiseLearn))->Bool();
+      c.utility.noise.sensitivity = GetParam(SlotUtilityParam(slot, uNoiseSensitivity))->Value();
+      c.utility.noise.reduction = GetParam(SlotUtilityParam(slot, uNoiseReduction))->Value();
+      c.utility.noise.attack = GetParam(SlotUtilityParam(slot, uNoiseAttack))->Value();
+      c.utility.noise.release = GetParam(SlotUtilityParam(slot, uNoiseRelease))->Value();
+      c.utility.noise.mix = GetParam(SlotUtilityParam(slot, uNoiseMix))->Value();
+      c.utility.noise.gateThreshold = GetParam(SlotUtilityParam(slot, uNoiseGateThreshold))->Value();
+      c.utility.sync = GetParam(SlotUtilityParam(slot, uTempoSync))->Bool();
+      c.utility.division = GetParam(SlotUtilityParam(slot, uTempoDivision))->Int();
+      c.utility.level = GetParam(SlotUtilityParam(slot, uUtilityLevel))->Value();
+      c.utility.balance = GetParam(SlotUtilityParam(slot, uUtilityBalance))->Value();
+      c.utility.stereo = GetParam(SlotUtilityParam(slot, uUtilityStereo))->Value();
+      c.utility.invertL = GetParam(SlotUtilityParam(slot, uUtilityInvertL))->Bool();
+      c.utility.invertR = GetParam(SlotUtilityParam(slot, uUtilityInvertR))->Bool();
+      c.utility.pingPong = GetParam(SlotUtilityParam(slot, uDelayPingPong))->Bool();
+      c.utility.chorusSpread = GetParam(SlotUtilityParam(slot, uChorusSpread))->Value();
+      c.utility.stereoReverb = GetParam(SlotUtilityParam(slot, uReverbStereo))->Bool();
+      for (int i = 0; i < 5; ++i)
+      {
+        c.utility.spring[i] = GetParam(SlotUtilityParam(slot, uSpringDecay + i))->Value();
+        c.utility.wah[i] = GetParam(SlotUtilityParam(slot, uWahPosition + i))->Value();
+      }
+      c.utility.frequency = GetParam(SlotUtilityParam(slot, uFrequency))->Value();
+      c.utility.gain = GetParam(SlotUtilityParam(slot, uGain))->Value();
+      c.utility.q = GetParam(SlotUtilityParam(slot, uQ))->Value();
+      c.utility.boost = GetParam(SlotUtilityParam(slot, uBoostGain))->Value();
+      c.utility.tilt = GetParam(SlotUtilityParam(slot, uBoostTilt))->Value();
+      c.utility.cutoff = GetParam(SlotUtilityParam(slot, uFilterCutoff))->Value();
+      c.utility.resonance = GetParam(SlotUtilityParam(slot, uFilterResonance))->Value();
+      c.utility.envelope = GetParam(SlotUtilityParam(slot, uFilterEnvelope))->Value();
+      c.utility.filterMode = GetParam(SlotUtilityParam(slot, uFilterMode))->Int();
+      c.utility.rise = GetParam(SlotUtilityParam(slot, uSwellRise))->Value();
+      c.utility.threshold = GetParam(SlotUtilityParam(slot, uSwellThreshold))->Value();
+      c.utility.release = GetParam(SlotUtilityParam(slot, uSwellRelease))->Value();
+      for (int i = 0; i < 5; ++i)
+      {
+        c.utility.delay[i] = GetParam(SlotUtilityParam(slot, uDelayTime + i))->Value();
+        c.utility.reverb[i] = GetParam(SlotUtilityParam(slot, uReverbDecay + i))->Value();
+        c.utility.modulation[i] = GetParam(SlotUtilityParam(slot, uModRate + i))->Value();
+      }
+      for (int i = 0; i < 4; ++i)
+        c.utility.tape[i] = GetParam(SlotUtilityParam(slot, uTapeDrive + i))->Value();
+      c.utility.delayMotion = GetParam(SlotUtilityParam(slot, uDelayMotion))->Value();
+      c.utility.delayOutput = GetParam(SlotUtilityParam(slot, uDelayOutput))->Value();
+      c.utility.reverbMotion = GetParam(SlotUtilityParam(slot, uReverbMotion))->Value();
+      c.utility.reverbHighPass = GetParam(SlotUtilityParam(slot, uReverbHighPass))->Value();
+      for (int i = 0; i < 4; ++i)
+        c.utility.tube[i] = GetParam(SlotUtilityParam(slot, uTubeDrive + i))->Value();
+      c.utility.fineDelay = GetParam(SlotUtilityParam(slot, uUtilityDelay))->Value();
+      c.utility.vibeMode = GetParam(SlotUtilityParam(slot, uVibeMode))->Value();
+      c.utility.eqMode = GetParam(SlotUtilityParam(slot, uEQMode))->Value();
+      const auto readFamily = [&](auto& values, int first) {
+        for (size_t i = 0; i < values.size(); ++i)
+          values[i] = GetParam(SlotUtilityParam(slot, first + static_cast<int>(i)))->Value();
+      };
+      readFamily(c.utility.rotary, uRotarySlow);
+      readFamily(c.utility.limiter, uLimiterCeiling);
+      readFamily(c.utility.octaver, uOctDry);
+      readFamily(c.utility.doubler, uDoubleDetune);
+      readFamily(c.utility.freeze, uFreezeHold);
+      readFamily(c.utility.stutter, uStutterTime);
+      readFamily(c.utility.crusher, uCrushBits);
+      readFamily(c.utility.ring, uRingFrequency);
+      readFamily(c.utility.dual, uDualRatio);
+      readFamily(c.utility.juno, uJunoMode);
+      readFamily(c.utility.shimmer, uShimmerMix);
+      readFamily(c.utility.shift, uShiftFrequency);
+      readFamily(c.utility.distortion, uDistStyle);
+      readFamily(c.utility.lofi, uLoFiSpeed);
+      c.utility.tapeHeads = GetParam(SlotUtilityParam(slot, uTapeHeads))->Int();
+      c.utility.delayDiffusion = GetParam(SlotUtilityParam(slot, uDelayDiffusion))->Value();
+      readFamily(c.utility.airPlate, uAirPlateInput);
+      readFamily(c.utility.airHall, uAirHallSustain);
+      readFamily(c.utility.space, uSpaceReplace);
+      readFamily(c.utility.cosmic, uCosmicTime);
+      c.utility.cosmicStyle = GetParam(SlotUtilityParam(slot, uCosmicStyle))->Int();
+      readFamily(c.utility.strip, uStripLowCut);
+      readFamily(c.utility.colour, uColourInput);
+      readFamily(c.utility.consoleEQ, uConsoleTreble);
+      readFamily(c.utility.butter, uButterCompress);
+      c.utility.colourDesk = GetParam(SlotUtilityParam(slot, uColourDesk))->Int();
+      readFamily(c.utility.black, uBlackThreshold);
+      readFamily(c.utility.pressure, uPressureCompress);
+      c.utility.blackMode = GetParam(SlotUtilityParam(slot, uBlackMode))->Int();
+    });
+    // Host tempo can change without a parameter notification.
+    controls[slot].utility.tempo = tempo;
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -489,6 +504,7 @@ void NeuralAmpModeler::OnReset()
   mSampleRatePrepared = sampleRate;
   mMaxBlockPrepared = maxBlockSize;
   mMeterFrames = 0;
+  mAudioControls.InvalidateAll();
   mModulation.Reset(sampleRate);
   mMasterGain = GetParam(kOutputLevel)->DBToAmp();
   mGlobalInputGain = GetParam(kGridParamBase + grid_performance::InputGain)->DBToAmp();
@@ -1411,9 +1427,11 @@ void NeuralAmpModeler::OnUIOpen()
 
 void NeuralAmpModeler::OnParamChange(int paramIdx)
 {
+  if (const int slot = SlotControlOwner(paramIdx); slot >= 0)
+    mAudioControls.Invalidate(static_cast<size_t>(slot));
   // Enabling detection only publishes atomics; worker/DSP state stays on its owning thread.
   if (paramIdx == kTunerActive) mTuner.Enable(IsTunerActive());
-  // Other IParam values are read at audio block boundaries.
+  // Changed slot banks are read at audio block boundaries.
 }
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)

@@ -12,6 +12,7 @@
 #include "ToneStack.h"
 #include "NAMStage.h"
 #include "FixedNAMGrid.h"
+#include "AudioControlCache.h"
 #include "SlotOperations.h"
 #include "CaptureLibrary.h"
 #include "LevelAnalysis.h"
@@ -105,9 +106,20 @@ constexpr int SlotTrimParam(size_t slot)
 { return slot == 0 ? kDriveTrim : slot == 1 ? kAmpTrim : SlotInputParam(slot) + 1; }
 constexpr int SlotActiveParam(size_t slot)
 { return slot == 0 ? kDriveActive : slot == 1 ? kAmpActive : SlotInputParam(slot) + 2; }
+// Only parameters collected into the per-slot audio snapshot belong here.
+constexpr int SlotControlOwner(int index)
+{
+  if (index >= kUtilityBase && index < kTunerReference) return (index - kUtilityBase) / kUtilityControls;
+  if (index >= kEQBase && index < kQualityBase) return (index - kEQBase) / 7;
+  if (index >= kDynamicsBase && index < kEQBase) return (index - kDynamicsBase) / 6;
+  if (index >= kGridSlotBase && index < kParallelBlend) return 2 + (index - kGridSlotBase) / 3;
+  if (index >= kDriveInput && index <= kDriveActive) return 0;
+  if (index == kInputLevel || index == kAmpTrim || index == kAmpActive) return 1;
+  return -1;
+}
 inline std::string GridSlotName(size_t slot)
 { return std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ") + std::to_string(slot % 4 + 1); }
-inline std::array<int, 17 + kUtilityControls> SlotParamIndices(size_t slot)
+constexpr std::array<int, 17 + kUtilityControls> SlotParamIndices(size_t slot)
 {
   std::array<int, 17 + kUtilityControls> result{SlotInputParam(slot), SlotTrimParam(slot), SlotActiveParam(slot)};
   for (int i = 0; i < 6; ++i)
@@ -119,6 +131,15 @@ inline std::array<int, 17 + kUtilityControls> SlotParamIndices(size_t slot)
     result[17 + i] = SlotUtilityParam(slot, i);
   return result;
 }
+static_assert([] {
+  for (size_t slot = 0; slot < 16; ++slot)
+  {
+    const auto indices = SlotParamIndices(slot);
+    for (size_t i = 0; i < indices.size(); ++i)
+      if (i != 16 && SlotControlOwner(indices[i]) != static_cast<int>(slot)) return false;
+  }
+  return SlotControlOwner(kOutputLevel) == -1 && SlotControlOwner(kGridParamBase) == -1;
+}(), "Every cached slot parameter must invalidate its owning bank");
 
 const int numKnobs = 6;
 
@@ -328,6 +349,7 @@ private:
   dsp::noise_gate::Trigger mNoiseGateTrigger;
   dsp::noise_gate::Gain mNoiseGateGain;
   FixedNAMGrid mGrid;
+  AudioControlCache<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAudioControls;
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.

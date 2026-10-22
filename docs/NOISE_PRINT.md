@@ -47,6 +47,23 @@ and retain independent filter histories. Learn averages each band's noise power;
 a soft expansion knee compares the current envelope with that snapshot. A global
 signal-confidence guard relaxes suppression during strong notes.
 
+That guard compares current summed band power with the learned baseline. Once
+current power exceeds four times the learned power, it smoothly raises the
+minimum band gain toward 0.5 (about -6 dB); individual confident bands can still
+open fully. This reduces coloration of strong notes while retaining the learned
+profile and per-band detection for the return to quiet playing. The optional
+final broadband gate remains independent. Relaxing reduction further would be
+an audible algorithm change, rather than a CPU optimization.
+
+The 2026-10-22 optimization processes independent pairs of bands with baseline
+SSE2 on x64, retaining 96 bands, double precision and sample-by-sample detection,
+gain smoothing and learning. Other architectures retain the scalar implementation.
+There is no loud-signal bypass that suspends detector histories. The shared grid
+also caches unchanged slot controls; parameter events invalidate the affected
+bank, and host tempo is still refreshed every callback.
+See the [repeated before/after measurements](SMART_GATE_OPTIMIZATION_20261022.md)
+for CPU savings and numerical/automation verification.
+
 The optional final gate is independent of the snapshot and spectral Mix/Reduction:
 it also works without learning. It detects the original input's maximum L/R peak,
 applies one linked gain after the spectral mix, and closes linearly to exact zero
@@ -152,8 +169,9 @@ Snapshots survive project recall, rig-preset save/load and Copy/Move/Swap. Learn
 is transient: it is saved off, suppressed on rig-preset load, and excluded from
 performance scenes. Parameter scenes adjust persistent controls;
 the learned profile remains attached to the slot rather than changing with scenes.
-Both branches' tests run together. The standalone numerical audit remains valid
-against `214efc7` because the DSP implementation itself is unchanged.
+Both branches' tests run together. The standalone numerical audit defaults to
+`214efc7`; `--reference REV` selects another implementation, and `--scalar`
+forces verification of the non-SIMD fallback.
 
 `NoisePrint.h` and `NoisePrintState.h` are independent of iPlug2. Integration points
 are `NAMStage`, `SlotOperations`, effect descriptors/menu/editor, and plugin

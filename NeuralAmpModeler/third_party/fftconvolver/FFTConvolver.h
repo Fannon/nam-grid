@@ -29,7 +29,7 @@
 
 
 namespace fftconvolver
-{ 
+{
 
 /**
 * @class FFTConvolver
@@ -51,11 +51,11 @@ namespace fftconvolver
 *   place during initialization).
 */
 class FFTConvolver
-{  
+{
 public:
-  FFTConvolver();  
+  FFTConvolver();
   virtual ~FFTConvolver();
-  
+
   /**
   * @brief Initializes the convolver
   * @param blockSize Block size internally used by the convolver (partition size)
@@ -77,7 +77,7 @@ public:
   * @brief Resets the convolver and discards the set impulse response
   */
   void reset();
-  
+
 private:
   size_t _blockSize;
   size_t _segSize;
@@ -98,7 +98,7 @@ private:
   FFTConvolver(const FFTConvolver&);
   FFTConvolver& operator=(const FFTConvolver&);
 };
-  
+
 } // End of namespace fftconvolver
 
 #endif // Header guard

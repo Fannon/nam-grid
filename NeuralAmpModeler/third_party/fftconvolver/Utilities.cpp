@@ -63,7 +63,7 @@ void ComplexMultiplyAccumulate(SplitComplex& result, const SplitComplex& a, cons
 }
 
 
-void ComplexMultiplyAccumulate(Sample* FFTCONVOLVER_RESTRICT re, 
+void ComplexMultiplyAccumulate(Sample* FFTCONVOLVER_RESTRICT re,
                                Sample* FFTCONVOLVER_RESTRICT im,
                                const Sample* FFTCONVOLVER_RESTRICT reA,
                                const Sample* FFTCONVOLVER_RESTRICT imA,

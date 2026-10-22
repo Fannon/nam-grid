@@ -11,3 +11,4 @@ retain the portable implementation. The bundled Ooura FFT backend is used.
 Local modification in FFTConvolver.cpp: the initializer removes only exact-zero
 trailing coefficients, preserving quiet nonzero tails. This is necessary to keep
 the existing cabinet response; see docs/IR_CONVOLUTION_REPORT_20261022.md.
+Trailing whitespace is normalized to the repository's formatting rules.

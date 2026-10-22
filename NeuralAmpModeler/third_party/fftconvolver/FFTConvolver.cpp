@@ -30,7 +30,7 @@
 
 
 namespace fftconvolver
-{  
+{
 
 FFTConvolver::FFTConvolver() :
   _blockSize(0),
@@ -50,21 +50,21 @@ FFTConvolver::FFTConvolver() :
 {
 }
 
-  
+
 FFTConvolver::~FFTConvolver()
 {
   reset();
 }
 
-  
+
 void FFTConvolver::reset()
-{  
+{
   for (size_t i=0; i<_segCount; ++i)
   {
     delete _segments[i];
     delete _segmentsIR[i];
   }
-  
+
   _blockSize = 0;
   _segSize = 0;
   _segCount = 0;
@@ -81,7 +81,7 @@ void FFTConvolver::reset()
   _inputBufferFill = 0;
 }
 
-  
+
 bool FFTConvolver::init(size_t blockSize, const Sample* ir, size_t irLen)
 {
   reset();
@@ -90,7 +90,7 @@ bool FFTConvolver::init(size_t blockSize, const Sample* ir, size_t irLen)
   {
     return false;
   }
-  
+
   // Modified by nam-grid: retain every nonzero coefficient, including quiet tails.
   // Exact zeros at the end do not contribute to the response.
   while (irLen > 0 && ir[irLen-1] == 0.0f)
@@ -102,22 +102,22 @@ bool FFTConvolver::init(size_t blockSize, const Sample* ir, size_t irLen)
   {
     return true;
   }
-  
+
   _blockSize = NextPowerOf2(blockSize);
   _segSize = 2 * _blockSize;
   _segCount = static_cast<size_t>(::ceil(static_cast<float>(irLen) / static_cast<float>(_blockSize)));
   _fftComplexSize = audiofft::AudioFFT::ComplexSize(_segSize);
-  
+
   // FFT
   _fft.init(_segSize);
   _fftBuffer.resize(_segSize);
-  
+
   // Prepare segments
   for (size_t i=0; i<_segCount; ++i)
   {
-    _segments.push_back(new SplitComplex(_fftComplexSize));    
+    _segments.push_back(new SplitComplex(_fftComplexSize));
   }
-  
+
   // Prepare IR
   for (size_t i=0; i<_segCount; ++i)
   {
@@ -128,19 +128,19 @@ bool FFTConvolver::init(size_t blockSize, const Sample* ir, size_t irLen)
     _fft.fft(_fftBuffer.data(), segment->re(), segment->im());
     _segmentsIR.push_back(segment);
   }
-  
-  // Prepare convolution buffers  
+
+  // Prepare convolution buffers
   _preMultiplied.resize(_fftComplexSize);
   _conv.resize(_fftComplexSize);
   _overlap.resize(_blockSize);
-  
+
   // Prepare input buffer
   _inputBuffer.resize(_blockSize);
   _inputBufferFill = 0;
 
   // Reset current position
   _current = 0;
-  
+
   return true;
 }
 
@@ -162,7 +162,7 @@ void FFTConvolver::process(const Sample* input, Sample* output, size_t len)
     ::memcpy(_inputBuffer.data()+inputBufferPos, input+processed, processing * sizeof(Sample));
 
     // Forward FFT
-    CopyAndPad(_fftBuffer, &_inputBuffer[0], _blockSize); 
+    CopyAndPad(_fftBuffer, &_inputBuffer[0], _blockSize);
     _fft.fft(_fftBuffer.data(), _segments[_current]->re(), _segments[_current]->im());
 
     // Complex multiplication
@@ -203,5 +203,5 @@ void FFTConvolver::process(const Sample* input, Sample* output, size_t len)
     processed += processing;
   }
 }
-  
+
 } // End of namespace fftconvolver

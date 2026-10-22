@@ -1,5 +1,8 @@
 # Follow-up review fixes — 2026-10-20
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Based on `a92e7ab` and the six findings in the separate static-review report.
 Changes were developed in `nam-grid-review-fixes` on
 `fix/review-followups-20261020` while another agent edited the main checkout.

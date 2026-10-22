@@ -1,5 +1,8 @@
 # FX CPU and low-buffer stability report — 2026-10-22
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Two complete module sweeps were run on this computer under the mixed load described by the user (another coding session was active). Each configuration also ran three consecutive repeats. These are measurements of the real CLAP DSP callback, without an audio device or editor.
 
 These measurements precede the [Smart Gate and grid CPU optimizations](SMART_GATE_OPTIMIZATION_20261022.md), which have their own repeated before/after results.
@@ -155,10 +158,10 @@ Use repeated average/p99 costs to identify consistently expensive modules, then 
 
 ## Full measurements and reproduction
 
-- [Benchmark instructions](FX_PERFORMANCE.md).
-- [First sweep summary](../build-grid/fx-performance-full/report.md), [CSV](../build-grid/fx-performance-full/measurements.csv), [JSON](../build-grid/fx-performance-full/report.json).
-- [First-sweep real A2 supplement](../build-grid/fx-performance-real-a2-first/report.md), [JSON](../build-grid/fx-performance-real-a2-first/report.json).
-- [Second sweep summary](../build-grid/fx-performance-second/report.md), [CSV](../build-grid/fx-performance-second/measurements.csv), [JSON](../build-grid/fx-performance-second/report.json).
+- [Benchmark instructions](../FX_PERFORMANCE.md).
+- First sweep summary (`build-grid/fx-performance-full/report.md`), CSV (`build-grid/fx-performance-full/measurements.csv`), JSON (`build-grid/fx-performance-full/report.json`).
+- First-sweep real A2 supplement (`build-grid/fx-performance-real-a2-first/report.md`), JSON (`build-grid/fx-performance-real-a2-first/report.json`).
+- Second sweep summary (`build-grid/fx-performance-second/report.md`), CSV (`build-grid/fx-performance-second/measurements.csv`), JSON (`build-grid/fx-performance-second/report.json`).
 
 Raw artifacts stay in the ignored build directory; this Markdown report remains in the repository. Asset hashes and absolute local paths are recorded in JSON; model/IR files are not embedded in this report.
 

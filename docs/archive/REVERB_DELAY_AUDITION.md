@@ -1,7 +1,10 @@
 # Reverb and delay audition build
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 The first audition package has 48 built-in FX choices. The subsequent
-[Cosmic Echo prototype](COSMIC_ECHO.md) adds the 49th, with three styles.
+[Cosmic Echo prototype](../COSMIC_ECHO.md) adds the 49th, with three styles.
 Five additions in this first package are intentionally
 available side by side for listening before deciding what earns a permanent
 place. Room, Dense Plate, Cloud and Hall also have updated cores. These are
@@ -30,7 +33,7 @@ distributed third-party notices.
 
 ## Defaults and ranges
 
-Defaults are listed in [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md). The shared
+Defaults are listed in [EFFECT_DEFAULTS.md](../EFFECT_DEFAULTS.md). The shared
 conventional delay Time range is **5–4000 ms** (quadratic dial), opening up doubling/slapback and
 longer ambient repeats. Synced notes can reach **8 seconds** at the minimum
 supported tempo. Multi-head Time always means the last head: the read positions
@@ -140,4 +143,4 @@ The expanded native host suite checks module creation, visible controls, enum
 automation and state recall. Final DAW listening, multi-slot low-buffer stress,
 macOS and VST3-host behavior remain release checks. Audition first, then remove
 redundant modules or promote convincing styles. The subsequently authorized
-Supermassive reconstruction prototype is described in [COSMIC_ECHO.md](COSMIC_ECHO.md).
+Supermassive reconstruction prototype is described in [COSMIC_ECHO.md](../COSMIC_ECHO.md).

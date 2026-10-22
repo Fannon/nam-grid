@@ -30,7 +30,7 @@ Add your own NAM captures and cabinet IRs when building an amp rig.*
 **Preview software.** Automated Windows and macOS builds are available through
 [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain).
 DAW listening tests, low-buffer sessions and VST3 host validation remain part of
-the [release checklist](docs/FIRST_RELEASE_REVIEW.md). Project and automation
+the [release checklist](docs/RELEASE_CHECKLIST.md). Project and automation
 compatibility may change during the preview.
 
 | Platform | Preview archive | Status |
@@ -123,16 +123,14 @@ upstream installer and standalone scripts are historical.
 - **Architecture and controls:** [grid routing](docs/GRID.md),
   [slot modules](docs/SLOTS.md), [FX parameters](docs/FX_PARAMETER_REVIEW.md),
   [visualizations](docs/FX_VISUALIZATION_REVIEW.md).
-- **Verification:** [test history](docs/VERIFICATION.md),
-  [release review](docs/FIRST_RELEASE_REVIEW.md),
-  [on-demand FX benchmarks](docs/FX_PERFORMANCE.md),
-  [CPU measurements](docs/FX_PERFORMANCE_REPORT_20261022.md),
-  [Smart Gate optimization](docs/SMART_GATE_OPTIMIZATION_20261022.md).
+- **Verification:** [release checklist](docs/RELEASE_CHECKLIST.md) and
+  [on-demand FX benchmarks](docs/FX_PERFORMANCE.md).
 - **DSP sources and research:** [Airwindows outboard](docs/AIRWINDOWS_OUTBOARD.md),
   [dynamics](docs/AIRWINDOWS_DYNAMICS.md), [module candidates](docs/AIRWINDOWS_CANDIDATES.md),
-  [reverb/delay research](docs/REVERB_DELAY_RESEARCH.md),
-  [audition candidates](docs/REVERB_DELAY_AUDITION.md),
-  [FX usability review](docs/FX_USABILITY_REVIEW.md).
+  [reverb/delay research](docs/REVERB_DELAY_RESEARCH.md).
+
+See the [documentation index](docs/README.md) for all guides. Earlier reviews,
+prototype checkpoints and measurements are in the [archive](docs/archive/README.md).
 
 The existing CLAP/VST3 plugin IDs are retained for host identification. Preview
 parameter IDs, names and enum ranges may change; prototype project and

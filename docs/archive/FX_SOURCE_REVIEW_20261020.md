@@ -1,5 +1,8 @@
 # External audio-FX source review
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Reviewed 2026-10-20 against the Schwung audio-FX catalog, the SLOOP/FM-1 firmware
 and JIANT. No third-party DSP was copied into `nam-grid`. This note records what is
 worth adding or improving, what is not, and the licensing constraints behind those
@@ -16,7 +19,7 @@ choices.
   `schwung-stereoid 7efecf1`, `spectra-move c631fff`, `schwung-filter 32d4170`.
 - Inspected `isod89/sloop-fm1` (`4ec1ac8`) and `juanjiant-bit/JIANT` (`e9692d7`)
   for feature ideas only.
-- Cross-checked current coverage in [MODULES.md](MODULES.md) and
+- Cross-checked current coverage in [MODULES.md](../MODULES.md) and
   [EFFECT_COVERAGE.md](EFFECT_COVERAGE.md).
 
 ## Bottom line
@@ -199,7 +202,7 @@ delay variants. Do not add a second low-fidelity version of any of these.
   with `-O2` and run on 60 seconds of stereo noise at 44.1 kHz. Shimwash measured
   about 0.26 s (~0.4% of one core) at defaults; Junologue measured below 0.1%. These
   are order-of-magnitude checks on a different CPU and are not comparable to the
-  Windows/MSVC figures in [MODULES.md](MODULES.md).
+  Windows/MSVC figures in [MODULES.md](../MODULES.md).
 - No `nam-grid` source was changed by this review, so the existing test/CTest results
   remain the relevant validation for the current plugin.
 

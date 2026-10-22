@@ -153,7 +153,7 @@ the IN / A-B / OUT controls. Scenes remain parameter-only snapshots within a rig
 ## HQ source-review increment
 
 The follow-up quality pass added three modules from the MIT source review in
-[FX_SOURCE_REVIEW_20261020.md](FX_SOURCE_REVIEW_20261020.md):
+[FX_SOURCE_REVIEW_20261020.md](archive/FX_SOURCE_REVIEW_20261020.md):
 
 | Module | Controls / behavior |
 | --- | --- |

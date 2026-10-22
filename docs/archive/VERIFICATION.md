@@ -1,7 +1,10 @@
 # Prototype verification — 2026-10-20
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 **Grid experiment:** the current branch adds 16 fixed slots and parallel blending. See
-[GRID.md](GRID.md) for its additional tests, CPU measurements, build location and limitations.
+[GRID.md](../GRID.md) for its additional tests, CPU measurements, build location and limitations.
 The original dual-model measurements and history below remain the checkpoint reference.
 
 ## Performed locally

@@ -108,7 +108,7 @@ Room, Plate, Cloud, Hall, Spring and Shimmer show a parameter sketch. Tank geome
 
 Conventional delay Time now spans 5–2000 ms (synced notes can reach 8 s).
 The four updated reverb cores offer 0.15–30 s Decay, 25–200% Size and 0–200 ms
-Pre-delay. See [REVERB_DELAY_AUDITION.md](REVERB_DELAY_AUDITION.md) for native
+Pre-delay. See [REVERB_DELAY_AUDITION.md](archive/REVERB_DELAY_AUDITION.md) for native
 Airwindows ranges and automation behavior.
 
 This is an explanatory parameter view, not a measured impulse response or an estimate of an actual room's dimensions. Damping's relative trace is illustrative. Live audio metering remains on the grid.

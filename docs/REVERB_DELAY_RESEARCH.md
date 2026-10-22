@@ -8,9 +8,9 @@ selector only when two proven variants share a useful control set.
 The initial recommendations below are engineering judgments about likely value,
 not a listening comparison. The authorized implementation now includes distinct
 Room/Hall, Plate and Cloud prototypes, two creative delays and three Airwindows
-audition modules. See [REVERB_DELAY_AUDITION.md](REVERB_DELAY_AUDITION.md) for the
+audition modules. See [REVERB_DELAY_AUDITION.md](archive/REVERB_DELAY_AUDITION.md) for the
 current controls, rendered examples, measurements and remaining listening work. The
-previous external-source pass is in [FX_SOURCE_REVIEW_20261020.md](FX_SOURCE_REVIEW_20261020.md).
+previous external-source pass is in [FX_SOURCE_REVIEW_20261020.md](archive/FX_SOURCE_REVIEW_20261020.md).
 
 ## Baseline before this pass
 

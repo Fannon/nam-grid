@@ -1,5 +1,8 @@
 # Smart Gate and grid CPU optimization — 2026-10-22
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Two fresh before/after rounds measured trained Smart Gate at 96 kHz / 32 frames at **8.62% → 4.52%** of one audio thread's buffer budget: **47.5% lower callback cost**. The empty grid fell from **2.45% → 1.07%**, a **56.3% reduction**.
 
 These are averages of the two rounds' medians of three repeated callback means. Both rounds used the same preserved reference binary and the same optimized binary. The machine was under mixed load, so deadline spikes remain scheduling observations rather than a diagnosis of audible DAW pops.
@@ -40,7 +43,7 @@ Trained Smart Gate across all tested buffers:
 
 Subtracting the matching empty-grid medians estimates **44.1% lower incremental Smart Gate DSP cost** at 96 kHz / 32 frames. This subtraction is approximate because the cases run in separate processes.
 
-A separate intermediate build containing only the control cache reduced empty-grid cost from 2.58% to 1.07% and trained Smart Gate from 9.00% to 6.96% at 96 kHz / 32 frames. The SIMD change supplies the additional Smart Gate reduction. Its raw data is in [the cache-only comparison](../build-grid/smart-gate-cache-only/comparison.md).
+A separate intermediate build containing only the control cache reduced empty-grid cost from 2.58% to 1.07% and trained Smart Gate from 9.00% to 6.96% at 96 kHz / 32 frames. The SIMD change supplies the additional Smart Gate reduction. Its raw data is in the cache-only comparison (`build-grid/smart-gate-cache-only/comparison.md`).
 
 ## Correctness and automation checks
 
@@ -72,12 +75,12 @@ python scripts/fx-performance.py --module "Noise Gate (Smart)" --rates 48000 960
 python scripts/fx-performance.py --module "Noise Gate (Smart)" --rates 48000 96000 --buffers 32 64 128 --seconds 5 --warmup 1 --repeats 3 --compare build-grid/gate-before/report.json --output build-grid/gate-after
 ```
 
-Use `--module empty` to isolate shared overhead. Preserve old binaries and pass `--plugin` to repeat both versions. See [the benchmark guide](FX_PERFORMANCE.md) for filtering an individual mode, pacing and compatibility checks.
+Use `--module empty` to isolate shared overhead. Preserve old binaries and pass `--plugin` to repeat both versions. See [the benchmark guide](../FX_PERFORMANCE.md) for filtering an individual mode, pacing and compatibility checks.
 
 In a compiler environment, reproduce the numerical audit with `python scripts/verify-noise-print.py --reference 8c4c451`, then repeat with `--scalar`.
 
-- [Round 1 comparison](../build-grid/smart-gate-ab-after1/comparison.md) ([JSON](../build-grid/smart-gate-ab-after1/comparison.json)).
-- [Round 2 comparison](../build-grid/smart-gate-ab-after2/comparison.md) ([JSON](../build-grid/smart-gate-ab-after2/comparison.json)).
+- Round 1 comparison (`build-grid/smart-gate-ab-after1/comparison.md`) (JSON (`build-grid/smart-gate-ab-after1/comparison.json`)).
+- Round 2 comparison (`build-grid/smart-gate-ab-after2/comparison.md`) (JSON (`build-grid/smart-gate-ab-after2/comparison.json`)).
 
 Reference plugin SHA256: `433f155664356d49789967b36cb599a8dd92ffd0c4c4af1b364fbad35a47dbbd`.
 

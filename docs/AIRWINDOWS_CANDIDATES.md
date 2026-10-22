@@ -4,7 +4,7 @@ Reviewed 2026-10-21 against the Airwindows catalog ([airwindows.com](https://www
 [github.com/airwindows/airwindows](https://github.com/airwindows/airwindows), MIT license)
 at `e68f75154ed0520fc5757fec9e7792dd1747e5ee` (2026-10-20, `master`) — the
 revision already pinned by `scripts/vendor-airwindows-reverbs.py`. This note
-extends the [FX source review](FX_SOURCE_REVIEW_20261020.md) with a
+extends the [FX source review](archive/FX_SOURCE_REVIEW_20261020.md) with a
 console/outboard focus and re-triages possible replacements for modules already
 shipped. The first six priorities are now implemented; see
 [the implementation audit](AIRWINDOWS_OUTBOARD.md) for source corrections,
@@ -415,7 +415,7 @@ amp-sim plugins (`FireAmp`, `LeadAmp`, `BigAmp`, `GrindAmp`, `BassDrive`, `LilAm
   is a mapping decision and belongs in
   [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md) and
   [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md).
-- Audition protocol: mirror [REVERB_DELAY_AUDITION.md](REVERB_DELAY_AUDITION.md)
+- Audition protocol: mirror [REVERB_DELAY_AUDITION.md](archive/REVERB_DELAY_AUDITION.md)
   — side-by-side slots, matched loudness, benchmark figures at 128-frame blocks,
   defaults captured in [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md).
 

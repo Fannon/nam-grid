@@ -1,5 +1,8 @@
 # First-release review — 2026-10-21
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Reviewed checkout: `89ec5a6`, plus the changes described below. The existing Core
 and AudioDSPTools modifications were present before this review; they are
 reproducible through `scripts/setup-deps.py` and the tracked dependency patches.

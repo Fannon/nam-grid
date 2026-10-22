@@ -1,6 +1,6 @@
 # Further FX optimization candidates
 
-Investigation on 2026-10-22, after the [Smart Gate/grid optimizations](SMART_GATE_OPTIMIZATION_20261022.md).
+Investigation on 2026-10-22, after the [Smart Gate/grid optimizations](archive/SMART_GATE_OPTIMIZATION_20261022.md).
 No convolution replacement has been implemented or measured yet.
 
 ## Priorities
@@ -22,7 +22,7 @@ No convolution replacement has been implemented or measured yet.
 
 Reverbs remain a lower priority because cheaper alternatives are available.
 Occasional deadline spikes under mixed load alone do not establish a DSP defect.
-See the [original measurement report](FX_PERFORMANCE_REPORT_20261022.md) for
+See the [original measurement report](archive/FX_PERFORMANCE_REPORT_20261022.md) for
 coverage and limitations. The values above are historical, not post-optimization
 measurements of these modules.
 

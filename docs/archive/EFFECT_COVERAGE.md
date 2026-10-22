@@ -1,5 +1,8 @@
 # First-release module coverage
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Reviewed 2026-10-20. The goal is a complete small guitar chain, not parity with
 commercial processors' model counts.
 
@@ -81,8 +84,8 @@ not a target. Module types remain in the menu and unused cells remain empty.
   no mandatory oversampling or lookahead is introduced.
 
 The next increment adds the tuner, tempo sync and stereo Utility described in
-[MODULES.md](MODULES.md). The following increment implements stereo echo/chorus/reverb,
-Spring and Wah; see [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
+[MODULES.md](../MODULES.md). The following increment implements stereo echo/chorus/reverb,
+Spring and Wah; see [STEREO_GUITAR_EFFECTS.md](../STEREO_GUITAR_EFFECTS.md).
 Fine lane timing and further voicing can follow.
 
 The external source review's first quality additions are now implemented: **Shimmer**,

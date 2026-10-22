@@ -1,6 +1,6 @@
 # Metering, EQ, cabinet IRs and slot editing
 
-These controls extend the fixed 4×4 grid on `experiment/fixed-4x4-grid`. Routing stays
+These controls use the fixed 4×4 grid. Routing stays
 four serial input slots → two four-slot parallel lanes → four serial output slots.
 The plugin and binaries are **nam-grid**. See [MODULES.md](MODULES.md) for the complete
 module list. This prototype is unreleased: Pre/Post labels change host parameter names;
@@ -8,10 +8,11 @@ old-project and automation-ID compatibility are not guaranteed.
 
 ## Using the cards
 
-- Click a **card** to edit its knobs in the bottom panel. Double-click the card or use the
-  panel's **Choose / Change** button to choose NAM, gate, compressor, EQ, WAV IR or Clear.
-  Library submenus, search, gear filters and previous/next buttons work across multiple roots.
-  Choosing WAV changes the module to IR automatically; choosing NAM changes it back.
+- Click a **card** to open the [browser](BROWSER.md) for that slot; load a module
+  or close the browser to edit its controls in the bottom panel. The browser icon
+  beside the module name opens the same browser. The module name opens a quick
+  menu with **Clear slot** first. Choosing WAV changes the module to IR automatically;
+  choosing NAM changes it back.
 - Right-click a **card** (for example `A 1`) to **Copy to**, **Move to**, or **Swap with**
   another position. Copy and Move replace the destination; Move then empties the source.
   Swap exchanges both positions. Destination menus identify their current contents.

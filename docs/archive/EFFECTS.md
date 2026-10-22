@@ -1,6 +1,9 @@
 # Historical dynamics implementation notes
 
-For the current module list, controls, licensing and tests, see [MODULES.md](MODULES.md).
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
+For the current module list, controls, licensing and tests, see [MODULES.md](../MODULES.md).
 Parameter counts, UI and measurements below describe the earlier dynamics checkpoint.
 
 # Slot dynamics
@@ -11,7 +14,7 @@ for every built-in effect. Selecting a built-in replaces that slot's NAM selecti
 the arrow buttons select NAM captures again. Nothing changes the fixed routing.
 Keep future effects within one to six knobs; use a small number of voiced variants when
 that avoids exposing controls that rarely help with guitar playing.
-See [SLOTS.md](SLOTS.md) for added EQ/IR effects, meters, Full/Lite and Copy/Move/Swap.
+See [SLOTS.md](../SLOTS.md) for added EQ/IR effects, meters, Full/Lite and Copy/Move/Swap.
 
 | Effect | Character | Knobs |
 | --- | --- | --- |
@@ -65,7 +68,7 @@ Once bypass is settled, effect computation stops. Reset clears detector/envelope
 
 The dynamics increment retained the original 61 IDs and appended six parameters per slot
 (three gate and three compressor), reaching 157. The expanded grid now has 284 parameters
-and schema 4; see [SLOTS.md](SLOTS.md) for the current format. Dynamics effect IDs remain
+and schema 4; see [SLOTS.md](../SLOTS.md) for the current format. Dynamics effect IDs remain
 1 = Noise Gate (with Natural/Tight mode), 2 = the hidden former Tight Gate ID,
 3 = Smooth Compressor, 4 = Punch Compressor. Invalid types,
 counts, enum values and conflicting selections are rejected before mutation. Older grid,
@@ -93,7 +96,7 @@ dependency or GPL/AGPL code. The implementation is newly written, drawing on the
 
 Both licenses permit modification and redistribution with their copyright/permission notices.
 The complete notices are retained in
-[`ThirdPartyNotices.txt`](../NeuralAmpModeler/installer/ThirdPartyNotices.txt), including LEAF
+[`ThirdPartyNotices.txt`](../../NeuralAmpModeler/installer/ThirdPartyNotices.txt), including LEAF
 as a conservative attribution for algorithm inspiration. Ship that notice file with binaries.
 
 ## Verification
@@ -127,7 +130,7 @@ reported latency: the mixed chain keeps the NAM-only 0/54/84-sample conversion l
 measurements, not a low-buffer underrun test. Reproduce with `nam-clap-bench <plugin.clap>
 dual|dual-effects|effects 1 <drive.nam> <amp.nam>` using the smoke test's generated fixtures.
 
-Run the existing build and four CTest suites as described in [GRID.md](GRID.md).
+Run the existing build and four CTest suites as described in [GRID.md](../GRID.md).
 Listening/Bitwig validation, macOS and a VST3 host still need manual testing:
 
 1. Load all variants from slot menus, move knobs and automate them while playing. Match

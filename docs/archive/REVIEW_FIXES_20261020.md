@@ -1,5 +1,8 @@
 # Review fixes — 2026-10-20
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 The external review examined `500271c`, before the stereo/Spring/Wah increment.
 All four findings were rechecked against `567f567` and still applied. The source
 report and its original reproduction artifacts remain unchanged in
@@ -22,7 +25,7 @@ fresh copy of the pinned decoder reproduces the normalized fixed source exactly.
 ## Reproduce
 
 Build the regular plugin and all four test targets, then run CTest as described
-in [BUILD.md](BUILD.md). `wav-decoder` is a separate fast test so parser failures
+in [BUILD.md](../BUILD.md). `wav-decoder` is a separate fast test so parser failures
 can be diagnosed without NAM inference or a DAW.
 
 For the sanitizer check, configure a separate directory with

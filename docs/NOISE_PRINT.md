@@ -61,7 +61,7 @@ gain smoothing and learning. Other architectures retain the scalar implementatio
 There is no loud-signal bypass that suspends detector histories. The shared grid
 also caches unchanged slot controls; parameter events invalidate the affected
 bank, and host tempo is still refreshed every callback.
-See the [repeated before/after measurements](SMART_GATE_OPTIMIZATION_20261022.md)
+See the [repeated before/after measurements](archive/SMART_GATE_OPTIMIZATION_20261022.md)
 for CPU savings and numerical/automation verification.
 
 The optional final gate is independent of the snapshot and spectral Mix/Reduction:
@@ -124,7 +124,7 @@ minimum-time measurements do not establish worst-case host performance.
 | Natural Gate | 0.41% | 0.44% | 0.89% | 0 samples |
 | Trained Noise Gate (Smart) (Gate Off) | 2.91% | 3.26% | 6.37% | 0 samples |
 
-See the [optimization audit](NOISE_PRINT_OPTIMIZATION.md) for matched before/after
+See the [optimization audit](archive/NOISE_PRINT_OPTIMIZATION.md) for matched before/after
 measurements and a reproducible numerical comparison with the previous DSP.
 
 Reproduce after building:
@@ -175,7 +175,7 @@ forces verification of the non-SIMD fallback.
 
 `NoisePrint.h` and `NoisePrintState.h` are independent of iPlug2. Integration points
 are `NAMStage`, `SlotOperations`, effect descriptors/menu/editor, and plugin
-serialization/idle polling. The [optimization audit](NOISE_PRINT_OPTIMIZATION.md)
+serialization/idle polling. The [optimization audit](archive/NOISE_PRINT_OPTIMIZATION.md)
 records the zero-latency design and the ceiling for any future lookahead.
 
 Integration verification (Windows x64 Release, 2026-10-21): normal CLAP and VST3

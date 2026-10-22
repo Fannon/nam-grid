@@ -7,17 +7,18 @@ and reproduction steps. Include a minimal rig/model/IR example when it can be sh
 ## Build and tests
 
 Use the CMake instructions in [BUILD.md](docs/BUILD.md). Build both native formats
-and all five test targets, then run:
+and the test targets listed there, then run:
 
 ```sh
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
 The suites cover the capture library/presets, WAV decoding, resampling, DSP stages,
-and CLAP hosting/native editor. Assertions remain enabled in Release tests.
+CLAP hosting/native editor, and tuner. Assertions remain enabled in Release tests.
 Focused sanitizer options and their runtime requirements are documented in the
-build guide. Real DAW listening and VST3/macOS validation are separate acceptance
-checks; describe exactly what was tested in the PR.
+build guide. Real DAW listening and VST3/macOS host validation are separate
+[acceptance checks](docs/RELEASE_CHECKLIST.md); describe exactly what was tested
+in the PR.
 
 ## Change scope
 
@@ -34,3 +35,7 @@ checks; describe exactly what was tested in the PR.
 Follow the surrounding C++ style and repository `.clang-format`; limit formatting
 to touched code. Run `git diff --check` before submitting. A PR should explain the
 user-visible change, relevant tradeoffs, tests run and remaining validation limits.
+
+Keep maintained guides discoverable through the [documentation index](docs/README.md).
+Place dated reviews, completed plans and one-off measurements in `docs/archive/`;
+link them from the archive index and update references when moving a document.

@@ -1,9 +1,8 @@
 # nam-grid: fixed 4x4 signal chain
 
-Branch: `experiment/fixed-4x4-grid`. The dual-model/browser prototype is preserved on
-`prototype/dual-nam-clap` at `543d2b2`. Its local binaries remain in `build-native/out`;
-the grid is built separately in `build-grid/out`. Core's two documented allocation patches
-remain applied to the submodule, as before.
+The current plugin has 16 slots arranged as four serial input stages, two
+parallel four-slot lanes and four serial output stages. Build outputs are in
+`build-grid/out`; see [BUILD.md](BUILD.md) for dependencies and commands.
 
 The grid plugin is named **nam-grid** (`NGr1`), distinct from the dual prototype (`NDu1`).
 Artifacts are `nam-grid.clap` / `nam-grid.vst3`. This unreleased prototype does not guarantee
@@ -171,12 +170,6 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 
 ## Build
 
-```sh
-python scripts/setup-deps.py
-cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-wav-tests nam-clap-bench --parallel 3
-ctest --test-dir build-grid -C Release --output-on-failure
-```
-
-Use an MSVC developer prompt on Windows (add `-G Ninja` if using Ninja). Detailed dependency
-instructions are in [BUILD.md](BUILD.md).
+Follow [BUILD.md](BUILD.md) for dependency setup, both plugin formats and the
+complete test-target list. Keep build commands there so this routing guide does
+not maintain a second copy.

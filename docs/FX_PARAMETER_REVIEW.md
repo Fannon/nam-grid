@@ -3,7 +3,7 @@
 This review starts after `a45a257`. The initial 43 built-in menu choices, plus NAM/IR,
 were checked against their DSP, defaults, visible controls and displays. The new
 reverb/delay pass expands the built-in menu to 48 choices and Cosmic Echo to 49; see
-[REVERB_DELAY_AUDITION.md](REVERB_DELAY_AUDITION.md). These
+[REVERB_DELAY_AUDITION.md](archive/REVERB_DELAY_AUDITION.md). These
 are code/measurement judgments; final musical voicing still needs matched-level
 listening with real guitar, especially at low buffers and high gain.
 

@@ -5,9 +5,9 @@ plus NAM models and WAV cabinet IRs. It opens no editor or audio device.
 It is disabled by default, excluded from the default build, and never registered
 with CTest or invoked by CI. Run it explicitly when investigating performance.
 
-See the [2026-10-22 two-sweep report](FX_PERFORMANCE_REPORT_20261022.md) for
+See the [2026-10-22 two-sweep report](archive/FX_PERFORMANCE_REPORT_20261022.md) for
 measured module costs, real A2/A2 Lite comparisons and mixed-load deadline results.
-The [Smart Gate optimization report](SMART_GATE_OPTIMIZATION_20261022.md) records
+The [Smart Gate optimization report](archive/SMART_GATE_OPTIMIZATION_20261022.md) records
 two repeated before/after comparisons and numerical/automation verification.
 See [further optimization candidates](FX_OPTIMIZATION_CANDIDATES.md) for the IR
 convolution shortlist and proposed comparison criteria.

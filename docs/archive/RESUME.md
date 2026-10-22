@@ -1,5 +1,8 @@
 # Development checkpoint
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
 
 ## Completed
@@ -22,17 +25,17 @@ Resumed on 2026-10-20 on `experiment/fixed-4x4-grid`.
 - Ping-pong switch on all three delays, Chorus Spread, stereo wet output from
   Room/Plate/Cloud and the new Spring Reverb; five-knob automatable Wah.
 - Spring uses original dispersive allpass tanks; no copied external DSP or new
-  dependency. Scope/algorithms/acceptance: [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
-- Current CPU measurements and manual acceptance checks: [MODULES.md](MODULES.md).
+  dependency. Scope/algorithms/acceptance: [STEREO_GUITAR_EFFECTS.md](../STEREO_GUITAR_EFFECTS.md).
+- Current CPU measurements and manual acceptance checks: [MODULES.md](../MODULES.md).
 
 ## Effects roadmap and remaining validation
 
-The effects roadmap is now implemented: [ROADMAP_EFFECTS.md](ROADMAP_EFFECTS.md).
+The effects roadmap is now implemented: [ROADMAP_EFFECTS.md](../ROADMAP_EFFECTS.md).
 This adds eleven module types, Utility fine delay, notch EQ, lane controls and
 crossover, shared LFO/follower/sequencer/macros and three parameter scenes.
 The HQ increment adds Shimmer, Juno Chorus and Frequency Shifter. Current schema
 12 has 2,250 parameters. Complete rig file presets and endpoint gain controls are
-described in [PRESETS.md](PRESETS.md). DSP review fixes and verification are recorded in
+described in [PRESETS.md](../PRESETS.md). DSP review fixes and verification are recorded in
 [DSP_REVIEW_FIXES_20261021.md](DSP_REVIEW_FIXES_20261021.md).
 
 1. Bitwig listening/automation/project-recall validation at low buffers; real
@@ -50,7 +53,7 @@ can show partial frames; final native repainting still needs real-host review.
 ## Workspace/build details
 
 - Checkout directory: `C:/Users/Fannon/dev/nam-grid` (renamed from `nam-dual`).
-- Build: [BUILD.md](BUILD.md), local helper `../nam-build-tools/build-grid.bat`.
+- Build: [BUILD.md](../BUILD.md), local helper `../nam-build-tools/build-grid.bat`.
 - `NeuralAmpModelerCore` and `AudioDSPTools` are intentionally dirty from tracked
   patches in `patches/`. Do not revert or stage their gitlinks.
 - MIT retained, trace-tuner attribution included in shipped ThirdPartyNotices.

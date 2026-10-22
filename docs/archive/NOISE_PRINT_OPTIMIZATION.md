@@ -1,5 +1,8 @@
 # Zero-latency optimization, 2026-10-21
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Baseline: `214efc7`, on the isolated `experiment/noise-print` branch. No change to
 parameters, state schema, profile format, detector/gain update rate or latency.
 No new runtime dependency or required CPU instruction set.
@@ -63,7 +66,7 @@ ctest --test-dir build-grid -C Release --output-on-failure
 The audit uses MSVC `cl` when available, or `c++`; `CXX` can name another compiler
 executable. Generated sources/objects stay in `build-grid/noise-optimization`.
 The CLAP benchmark accepts `fx-64`, `fx-64-untrained`, `fx-64-dry` and `fx-64-learn`.
-For example, use the command in [NOISE_PRINT.md](NOISE_PRINT.md) and replace its
+For example, use the command in [NOISE_PRINT.md](../NOISE_PRINT.md) and replace its
 mode argument. Preserve an older binary outside host scan paths for comparisons.
 
 ## Latency constraint

@@ -1,5 +1,8 @@
 # FX usability review, 22 October 2026
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 The checkpoint before the bottom-editor redesign is commit `6a187cb`.
 The current layout removes the outer editor frame and individual parameter cells,
 uses two rows of four controls, and gives the visualization a full-height column.
@@ -84,7 +87,7 @@ frequency points. Escape and Close send complete automation gestures.
 Schema 23 appends this parameter (3,099 total) and defaults older projects to OFF.
 Rig presets and performance scenes retain the instance's tuner settings. A focused
 native tuner integration test complements the full FX editor sweep and is built
-by Windows CI. See [TUNER.md](TUNER.md) for behavior and verification scope.
+by Windows CI. See [TUNER.md](../TUNER.md) for behavior and verification scope.
 
 The final tuner integration run passed in 5.15 seconds, including reopening an
 already-active tuner, balanced Close/Escape gestures, project recall and mute

@@ -1,5 +1,8 @@
 # DSP review fixes, 2026-10-21
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Based on `9ebb4cb`, including Shimmer, Juno Chorus and Frequency Shifter. Work uses
 the isolated `nam-grid-dsp-fixes` worktree and `build-dsp-review` build directory;
 the concurrent `experiment/noise-print` worktree is untouched.
@@ -34,17 +37,17 @@ IN/OUT/A/B dials, more grid spacing, colored card outlines and larger small labe
 Empty-card Add opens with one click; Clear is first in both menus; all FX are
 categorized. NAM captures and IRs have separate indexed menu sections, while
 library folders remain shared. The header search/filter bar is removed pending
-a dedicated browser. [PRESETS.md](PRESETS.md) describes use and storage behavior.
+a dedicated browser. [PRESETS.md](../PRESETS.md) describes use and storage behavior.
 
 The new general Distortion has Soft/Hard/Fuzz/Foldback waveshapers and smoothed
 Drive/Tone/Bias/Mix/Output controls. The Distortion menu also contains Boost,
-Tube Boost, Tape and Bitcrusher. [MODULES.md](MODULES.md) documents its voicing
+Tube Boost, Tape and Bitcrusher. [MODULES.md](../MODULES.md) documents its voicing
 and lack of oversampling.
 
 Capture seam topology is retained. Freeze repeats at Capture minus overlap;
 Stutter keeps its requested period through the gated seam, and Reverse crossfades
 fresh banks. These semantics and memory budgets are documented in
-[ROADMAP_EFFECTS.md](ROADMAP_EFFECTS.md). Eight-second synced capture windows,
+[ROADMAP_EFFECTS.md](../ROADMAP_EFFECTS.md). Eight-second synced capture windows,
 16-second dual taps and their conservative drain budgets remain supported.
 
 ## Verification

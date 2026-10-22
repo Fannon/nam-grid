@@ -1,5 +1,8 @@
 # Repository assessment and first increment
 
+> Historical record. Branch names, measurements and completion claims below describe
+> their original checkpoint. See the [archive index](README.md) for current guides.
+
 Implementation status and the 2026-10-19 upstream checkpoint are recorded in
 `VERIFICATION.md`; build/setup commands are in `BUILD.md`. The proposal below describes
 the original investigation and planned increments, not additional completed features.

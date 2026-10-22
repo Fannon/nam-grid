@@ -1,66 +1,150 @@
 # nam-grid
 
-[![Build](https://github.com/Fannon/nam-grid/actions/workflows/dual-prototype.yml/badge.svg)](https://github.com/Fannon/nam-grid/actions/workflows/dual-prototype.yml)
+[![Build main](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml/badge.svg?branch=main)](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain)
 
-An open-source guitar effects plugin based on [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin)
-and iPlug2, with native **CLAP and VST3** builds.
+An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
+[Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) captures,
+cabinet impulse responses and built-in effects, then blend two parallel chains
+for anything from a simple amp sound to layered ambient textures.
 
-Sixteen slots form four serial input stages, two parallel four-slot lanes, and
-four serial output stages. Load NAM captures, WAV cabinet IRs, or built-in effects
-in any slot. Empty slots pass audio through. Stereo is retained through built-in
-effects and IRs; a mono NAM stage averages its inputs and runs one inference pass.
+![nam-grid's sixteen-slot pedalboard with parallel effects lanes and the Cosmic Echo editor](docs/screenshots/grid.png)
 
-The editor includes input/output gain, lane balance, a tuner, tempo sync, routing
-and modulation controls, and complete rig presets saved as `.ngrid` files.
-Effects include gates, compressors, EQ/filter, distortion, modulation, pitch,
-delays, reverbs, [Noise Gate (Smart)](docs/NOISE_PRINT.md), and
-[LoFi Tape Machine](docs/LOFI_TAPE.md).
+*An example pedalboard using built-in effects only, with Cosmic Echo selected.
+Add your own NAM captures and cabinet IRs when building an amp rig.*
 
-**Release status: preview.** Windows x64 builds and automated tests are verified
-locally. Real DAW listening and low-buffer sessions, VST3 host validation, remote
-CI, and macOS validation remain release gates. See the
-[first-release review](docs/FIRST_RELEASE_REVIEW.md) for findings and checks.
+## What you can do
 
-To build and test, follow [BUILD.md](docs/BUILD.md). The supported entry point is
-CMake; the retained upstream installer and standalone scripts are historical.
-Build outputs and release archives include third-party notices: keep them with
-the plugins when distributing a build. No NAM captures or IR collection is bundled.
+- **Build a complete rig:** load `.nam` amp/pedal captures, `.wav` cabinet IRs,
+  gates, compressors, EQ, drives, modulation, pitch effects, delays and reverbs.
+- **Blend two sounds:** run separate amp chains or effects in parallel and use
+  **A/B** to find the balance. Empty slots pass audio through.
+- **Explore creative effects:** try [Cosmic Echo](docs/COSMIC_ECHO.md), shimmer,
+  freeze, multi-head tape delay and [LoFi Tape Machine](docs/LOFI_TAPE.md).
+- **Keep playing controls close:** use the tuner, tempo-synced effects, macros,
+  modulation and performance scenes. Visualizations help explain each effect.
+- **Save your whole rig:** recall module choices and settings with `.ngrid`
+  presets, or save them with your DAW project.
 
-- [Editor and library](docs/UI.md): add folders, choose captures/IRs, and edit slots.
-- [Module reference](docs/MODULES.md) and [starting settings](docs/EFFECT_DEFAULTS.md).
-- [FX control and visualization audit](docs/FX_PARAMETER_REVIEW.md).
-- [Recent FX layout and verification](docs/FX_USABILITY_REVIEW.md).
-- [Airwindows module candidates](docs/AIRWINDOWS_CANDIDATES.md): outboard,
-  console, thickener and character-compressor research.
-- [Airwindows outboard implementation](docs/AIRWINDOWS_OUTBOARD.md): Console
-  Colour, Console EQ, Outboard Channel and Butter Comp, with source audits and measurements.
-- [Airwindows dynamics](docs/AIRWINDOWS_DYNAMICS.md): Digital Black Gate's two
-  modes and Pressure's linked stereo detector, mappings and rate corrections.
-- [Reverb and delay algorithm research](docs/REVERB_DELAY_RESEARCH.md).
-- [Reverb/delay audition candidates](docs/REVERB_DELAY_AUDITION.md): new cores,
-  Airwindows modules, ranges and local renders.
-- [Cosmic Echo prototype](docs/COSMIC_ECHO.md): six Supermassive-inspired ambient modes.
-- [Tuner and tuning history](docs/TUNER.md): automatable tuner/mute and a six-second cents trace.
-- [Grid routing](docs/GRID.md) and [performance controls](docs/ROADMAP_EFFECTS.md).
-- [Library browser](docs/BROWSER.md): contextual browsing, search and capture/preset folders.
-- [Rig presets](docs/PRESETS.md): saving, recall, and external file references.
-- [Verification history](docs/VERIFICATION.md) and [latest release review](docs/FIRST_RELEASE_REVIEW.md).
-- [On-demand FX CPU and stability report](docs/FX_PERFORMANCE.md): every module/mode,
-  NAM/IR fixtures or your captures, and low-buffer callback deadlines.
-  [Two-sweep measurements, 2026-10-22](docs/FX_PERFORMANCE_REPORT_20261022.md).
-  [Smart Gate and grid optimization results](docs/SMART_GATE_OPTIMIZATION_20261022.md).
+## Download and install
 
-Captures and IRs remain external files. Saved content hashes help relink moved
-files within indexed library folders; presets do not embed or copy those files.
-Loading a large model can briefly occupy the editor while its DSP is prepared.
+**Preview software.** Automated Windows and macOS builds are available through
+[GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain).
+DAW listening tests, low-buffer sessions and VST3 host validation remain part of
+the [release checklist](docs/FIRST_RELEASE_REVIEW.md). Project and automation
+compatibility may change during the preview.
 
-The existing CLAP/VST3 plugin IDs are retained for host identification. This
-unreleased preview may change parameter IDs, names and enum ranges; prototype
-project and automation compatibility is not guaranteed.
+| Platform | Preview archive | Status |
+| --- | --- | --- |
+| Windows x64 | `nam-grid-windows-x64.zip` | Local build and native editor tests; Windows CI |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS CI; hands-on DAW validation still needed |
+| Linux | — | No plugin build available with the current framework |
 
-Licensed under [MIT](LICENSE).
+1. Open the [main build runs](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain)
+   and choose the latest **successful** run for `main`.
+2. Under **Artifacts**, download your platform's archive. GitHub requires sign-in
+   for artifact downloads; extract the downloaded artifact and its plugin ZIP.
+3. Install `nam-grid.clap` or the complete `nam-grid.vst3` bundle in a plugin
+   location your DAW scans. On Windows, you can use a separate test folder and add
+   it to your host's scan paths. On macOS, the per-user folders are
+   `~/Library/Audio/Plug-Ins/CLAP/` and `~/Library/Audio/Plug-Ins/VST3/`.
+4. Rescan plugins in your DAW and insert **nam-grid** on an audio track. Choose
+   either CLAP or VST3, according to your host's support.
 
-## Acknowledgments
+Keep `ThirdPartyNotices.txt` and `notices/` with the build when sharing it.
+There is no bundled NAM capture or cabinet IR collection. Built-in effects work
+without additional files; amp sounds require your own captures.
+
+## Your first guitar rig
+
+1. Connect your guitar through an audio interface, select that input on your DAW
+   track, and enable input monitoring.
+2. Click an empty **Pre** tile to open the browser. Choose **NAM captures**, then
+   **+ Add folder** to index your captures. Select a capture and double-click it
+   or press **Load**.
+3. If it is an **amp-head / direct** capture without a cabinet, load a cabinet
+   `.wav` IR in the next Pre slot. If the capture already includes a cabinet,
+   start with that capture alone.
+4. Add an effect to lane **A** and turn **A/B** to **0%** to hear that lane alone.
+   Add a different chain to **B**, then raise A/B to blend it in.
+5. Adjust **IN** for the level driving the rig and **OUT** for listening volume.
+   Click a tile and close the browser to edit its controls; use the small tile
+   switch to bypass a module. Double-click a knob to restore its default, or
+   click its value to type a setting.
+6. Click the preset name in the header and choose **Save preset as…** to keep
+   your rig. Open **Tuner** whenever you need to tune.
+
+The signal follows four rows, left to right within each row:
+
+```text
+               ┌→ A1 → A2 → A3 → A4 ─┐
+IN → Pre 1–4 ──┤                      ├→ A/B → Post 1–4 → OUT
+               └→ B1 → B2 → B3 → B4 ─┘
+```
+
+Pre and Post affect both lanes. **A/B = 0%** selects A, **50%** mixes the lanes
+equally, and **100%** selects B. Built-in effects and IRs retain stereo;
+a mono NAM capture sums its input to mono, so place stereo effects after it
+when you want to keep their width. See [routing](docs/GRID.md) for details.
+
+## Find sounds and save rigs
+
+![The module browser showing modulation effects, categories and a description of Juno Chorus](docs/screenshots/browser.png)
+
+Click a tile to browse effects, captures or IRs for that slot. Search by name,
+folder or NAM metadata, inspect a result, then double-click or press **Load**.
+Browsing and selecting results leave the current sound playing until you load
+your choice. Click the header preset name to browse complete rigs instead.
+
+Captures and IRs stay as **external files**: presets reference them rather than
+embedding or copying them. Include those files when sharing a rig. If you move
+them, add their new folder and rescan; stored content hashes help relink them.
+Loading a large capture can briefly occupy the editor.
+
+| Learn more | Guide |
+| --- | --- |
+| Choose and edit modules | [Editor](docs/UI.md), [library browser](docs/BROWSER.md) |
+| Find an effect and a useful starting point | [Module reference](docs/MODULES.md), [starting settings](docs/EFFECT_DEFAULTS.md) |
+| Save, recall and share sounds | [Rig presets](docs/PRESETS.md) |
+| Tune and perform | [Tuner](docs/TUNER.md), [macros, modulation and scenes](docs/ROADMAP_EFFECTS.md) |
+| Reduce background noise | [Noise Gate (Smart)](docs/NOISE_PRINT.md) |
+
+To report a problem, [open an issue](https://github.com/Fannon/nam-grid/issues)
+with your OS, DAW and version, plugin format, build commit and steps to reproduce.
+For audio problems, include sample rate, buffer size and the modules involved.
+
+## For developers
+
+nam-grid is based on NAM, NAM Core, AudioDSPTools and iPlug2. The supported
+build entry point is **CMake**. Follow [BUILD.md](docs/BUILD.md) for dependencies,
+submodule patches, build commands, CTest and packaging, and
+[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. The retained
+upstream installer and standalone scripts are historical.
+
+- **Architecture and controls:** [grid routing](docs/GRID.md),
+  [slot modules](docs/SLOTS.md), [FX parameters](docs/FX_PARAMETER_REVIEW.md),
+  [visualizations](docs/FX_VISUALIZATION_REVIEW.md).
+- **Verification:** [test history](docs/VERIFICATION.md),
+  [release review](docs/FIRST_RELEASE_REVIEW.md),
+  [on-demand FX benchmarks](docs/FX_PERFORMANCE.md),
+  [CPU measurements](docs/FX_PERFORMANCE_REPORT_20261022.md),
+  [Smart Gate optimization](docs/SMART_GATE_OPTIMIZATION_20261022.md).
+- **DSP sources and research:** [Airwindows outboard](docs/AIRWINDOWS_OUTBOARD.md),
+  [dynamics](docs/AIRWINDOWS_DYNAMICS.md), [module candidates](docs/AIRWINDOWS_CANDIDATES.md),
+  [reverb/delay research](docs/REVERB_DELAY_RESEARCH.md),
+  [audition candidates](docs/REVERB_DELAY_AUDITION.md),
+  [FX usability review](docs/FX_USABILITY_REVIEW.md).
+
+The existing CLAP/VST3 plugin IDs are retained for host identification. Preview
+parameter IDs, names and enum ranges may change; prototype project and
+automation compatibility is not guaranteed.
+
+## License and credits
+
+Licensed under [MIT](LICENSE). Adapted algorithms and dependencies retain their
+own notices; see [ThirdPartyNotices.txt](NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+and the accompanying notice files in distributed builds.
+
+### Acknowledgments
 
 nam-grid is built on the work of many open-source projects:
 

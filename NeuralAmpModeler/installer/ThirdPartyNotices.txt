@@ -724,8 +724,24 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-Airwindows reverb adaptations (kPlate140, kGuitarHall2, Galactic3)
+Airwindows reverb and outboard adaptations
+(kPlate140, kGuitarHall2, Galactic3, CStrip2, BussColors4, ButterComp2,
+DigitalBlack, CStrip's gate section, Pressure6)
 Source revision: e68f75154ed0520fc5757fec9e7792dd1747e5ee
+
+Outboard sources: plugins/LinuxVST/src/{CStrip2,BussColors4,ButterComp2}.
+SDK-free double-precision adaptation with deterministic local PRNG state,
+Capacitor pole rate compensation, detector-gain taps, smoothed wrapper controls
+and conventional dB trims. CStrip2's EQ and dynamics are exposed separately;
+the strip retains its unity-to-Spiral range and omits Density. BussColors4 desk
+gains receive fixed default-level calibration. The ButterComp2 residue generator
+is replaced to remove shared function-static state and signed integer overflow.
+See docs/AIRWINDOWS_OUTBOARD.md and scripts/vendor-airwindows-outboard.py.
+Additional dynamics adaptations normalize DigitalBlack/CStrip gate counters and
+release to reference-sample units, extract CStrip's gate without its other DSP,
+correct Pressure6's squared-rate recovery scaling, retain its linked detector
+and sine output, and add conventional smoothed wrapper Mix/Output controls.
+See docs/AIRWINDOWS_DYNAMICS.md for mappings and exact metering semantics.
 
 MIT License
 

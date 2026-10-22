@@ -6,6 +6,9 @@
 // by parameter registration, DSP, the editor and tests; no selectable spare slots.
 namespace effect_modes
 {
+inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hysteresis"};
+inline constexpr std::array<const char*, 8> deskNames{"Dark", "Rock", "Lush", "Vibe", "Holo", "Punch", "Steel", "Tube"};
+
 enum class DistortionStyle { Soft, Hard, Fuzz, Foldback, Diode, Rectify, Count };
 inline constexpr int distortionCount = static_cast<int>(DistortionStyle::Count);
 inline constexpr std::array<const char*, distortionCount> distortionNames{

@@ -24,6 +24,27 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     }
   };
   WDL_String text;
+  if (effect == SlotEffect::ConsoleEQ)
+  {
+    caption("Band density | nominal dB");
+    line(0., .5, 1., .5, muted);
+    const char* names[]{"Bass", "Mid", "Treble"};
+    const int params[]{uConsoleBass, uConsoleMid, uConsoleTreble};
+    for (int i = 0; i < 3; ++i)
+    {
+      const double density = value(params[i]);
+      const float x = plot.L+plot.W()*(i+.5f)/3.f;
+      const float y = plot.B-plot.H()*static_cast<float>(.5+density/16.);
+      g.FillRect(color.WithOpacity(.65f),IRECT(x-16,std::min(y,plot.MH()),x+16,std::max(y,plot.MH())+1));
+      text.SetFormatted(64,"%s %+.1f",names[i],density);
+      g.DrawText(Text(11.f,muted,EAlign::Center),text.Get(),IRECT(x-48,plot.B-18,x+48,plot.B));
+    }
+    text.SetFormatted(96,"Bass %.0f Hz | Treble %.0f Hz",value(uConsoleBassFreq),value(uConsoleTrebleFreq));
+    g.DrawText(Text(11.f,muted),text.Get(),IRECT(plot.L,514,plot.R,534));
+    text.SetFormatted(96,"Cuts: low %.0f%% | high open %.0f%%",value(uConsoleLowCut),value(uConsoleHighCut));
+    g.DrawText(Text(11.f,muted),text.Get(),IRECT(plot.L,680,plot.R,696));
+    return true;
+  }
   UtilityControls c;
   c.sync = value(uTempoSync) >= .5; c.tempo = tempo; c.division = static_cast<int>(value(uTempoDivision));
   for (int i = 0; i < 5; ++i) c.delay[i] = value(uDelayTime + i);

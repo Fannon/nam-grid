@@ -6,7 +6,9 @@ at `e68f75154ed0520fc5757fec9e7792dd1747e5ee` (2026-10-20, `master`) — the
 revision already pinned by `scripts/vendor-airwindows-reverbs.py`. This note
 extends the [FX source review](FX_SOURCE_REVIEW_20261020.md) with a
 console/outboard focus and re-triages possible replacements for modules already
-shipped. No source has been copied yet. All candidates follow the established
+shipped. The first six priorities are now implemented; see
+[the implementation audit](AIRWINDOWS_OUTBOARD.md) for source corrections,
+defaults, mappings and visualizations. Remaining candidates follow the established
 pattern in [MODULES.md](MODULES.md): SDK-free double-precision adaptation into
 `dsp/airwindows/`, explicit sample-rate audit, deterministic seeds, smoothed
 wrapper controls, license beside the header, and an update to the shipped
@@ -20,7 +22,7 @@ single most important correction is the console-colour row: see
 [Console Colour](#console-colour) and the note under
 [what changed](#what-changed-in-revision-2).
 
-The grid currently ports four Airwindows cores (Tape, kPlate140, kGuitarHall2,
+At the start of this review, the grid ported four Airwindows cores (Tape, kPlate140, kGuitarHall2,
 Galactic3). The largest remaining category gap is **outboard**: there is no
 console colour, no channel strip, no exciter, no clip guard, and only two
 generic compressors. A second gap is **dynamics character**: Smooth and Punch
@@ -201,7 +203,7 @@ Consequences:
 - **Creative** stays as it is. Freeze, Stutter and LoFi Tape Machine are
   performance tools; console colour is a tone decision, not a performance one.
 - Outboard Channel next to Butter Comp is also self-documenting: the strip's
-  compressor is the same engine, so the sibling audition answers "do I want the
+  compressor is a related design, so the sibling audition answers "do I want the
   bare glue or the whole strip?".
 
 ### Console buss stage
@@ -225,7 +227,7 @@ with five distinct jobs**, plus two optional.
 | --- | --- | --- | --- |
 | Smooth Compressor (shipped) | Threshold, Release, Makeup, Attack, Mix | clean low-ratio workhorse | soft knee, 2.5:1 |
 | Punch Compressor (shipped) | Threshold, Release, Makeup, Attack, Mix | firmer, more transient-forward | 4:1, 3 dB knee |
-| **Butter Comp** — ButterComp2 | Compress, Output, Mix | the gentlest squeeze; the "always-on" glue | halves handled separately, output-dependent release; same engine as Outboard Channel and CStrip2 |
+| **Butter Comp** — ButterComp2 | Compress, Output, Mix | the gentlest squeeze; the "always-on" glue | halves handled separately, output-dependent release; related to, but different from, CStrip2’s strip compressor |
 | **Pressure** — Pressure6 | Compress, Mix, Output | coloured, stereo-linked sustain | **the only stereo-linked compressor here** (element driven by `max(|L|,|R|)`) with a μ-law element and a sine output stage |
 | **Squish** — PurestSquish | Squish, Bass Bloom, Output, Mix | modern, clean levelling that keeps the low end | adaptive per-channel μ compression with internal auto-makeup and a bass-bloom control that holds the lows out of the squish |
 | *Console Comp* — Logical4 (optional) | Threshold, Ratio, Speed, Makeup, Mix | a normal compressor with explicit ratio | the only candidate with all three of threshold-in-dB, ratio and speed; **three parallel ButterComp instances** interpolated by Ratio, so ~3× the CPU |
@@ -271,8 +273,11 @@ Notes:
   unit. Map it to dB in the wrapper and record the curve.
 - Neither gate has hold or reduction depth, so neither replaces the existing
   gates; keep Reduction out of their editors rather than faking it.
-- Both give an exact gain-reduction tap for the panel meter: the per-sample
-  `gate` multiplier in each core is the applied gain with no other terms.
+- The proposed `gate` gain-reduction tap was corrected during implementation:
+  both cores also blend a rectified fill, so opening is not applied gain.
+  The panel measures actual attenuation before Output; see the
+  [dynamics audit](AIRWINDOWS_DYNAMICS.md), including additional gate-counter
+  and Pressure6 recovery rate corrections.
 
 **Digital Black Gate is committed, and Soft Gate stays optional.** The obvious
 objection is that a gate is used once per rig, so a fourth voice is wasted menu
@@ -421,8 +426,8 @@ amp-sim plugins (`FireAmp`, `LeadAmp`, `BigAmp`, `GrindAmp`, `BassDrive`, `LilAm
    the module that makes the outboard family sound like a console rather than a
    pile of separate utilities.
 3. **Console EQ** — CStrip2's three bands plus Capacitor, the third EQ voice.
-4. **Butter Comp** — three controls, and the same engine as the strip, so its
-   audition calibrates step 1 as well.
+4. **Butter Comp** — three controls, with output-dependent recovery; compare its
+   related but different compressor design with the strip in step 1.
 5. **Digital Black Gate** — the third gate mechanism, including the hysteresis
    mode.
 6. **Pressure** — Pressure6; cheapest character compressor, and the only

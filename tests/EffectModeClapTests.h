@@ -99,5 +99,53 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
     load(heads); assert(save().config()==heads);
   }
   load(cleared);
+  // New outboard modules participate in full state recall, including the
+  // header Desk choice and independent values at opposite bank boundaries.
+  for (int desk=0; desk<8; ++desk)
+  {
+    auto colour=cleared;
+    colour["SlotEffects"][0]=colour["SlotEffects"][15]=static_cast<int>(SlotEffect::ConsoleColour);
+    colour["Pre 1 Console Colour Desk"]=desk; colour["Post 4 Console Colour Desk"]=7-desk;
+    colour["Pre 1 Console Colour Input"]=3.; colour["Post 4 Console Colour Output"]=-2.;
+    load(colour); assert(save().config()==colour);
+  }
+  for (auto effect : {SlotEffect::OutboardChannel,SlotEffect::ConsoleEQ,SlotEffect::ButterComp})
+  {
+    auto outboard=cleared; outboard["SlotEffects"][0]=outboard["SlotEffects"][15]=static_cast<int>(effect);
+    load(outboard); assert(save().config()==outboard);
+  }
+  auto beforeOutboard=cleared; beforeOutboard["schema"]=23;
+  beforeOutboard["Pre 1 Cosmic Warp"]=37.;
+  for (int slot=0; slot<16; ++slot)
+  {
+    const auto label=std::string(slot<4 ? "Pre " : slot<8 ? "A " : slot<12 ? "B " : "Post ")+std::to_string(slot%4+1);
+    for (int p=uStripLowCut; p<kUtilityControls; ++p) beforeOutboard.erase(label+" "+kEffectParameters[p].name);
+  }
+  load(beforeOutboard);
+  assert(save().config()["Pre 1 Cosmic Warp"]==37.);
+  assert(save().config()["Pre 1 Strip Compress"]==kEffectParameters[uStripCompress].initial);
+  load(cleared);
+  for (int mode=0; mode<2; ++mode)
+  {
+    auto gate=cleared; gate["SlotEffects"][0]=gate["SlotEffects"][15]=static_cast<int>(SlotEffect::DigitalBlack);
+    gate["Pre 1 Black Mode"]=mode; gate["Post 4 Black Mode"]=1-mode;
+    gate["Pre 1 Black Threshold"]=-60.; gate["Post 4 Black Mix"]=75.;
+    load(gate); assert(save().config()==gate);
+  }
+  auto pressure=cleared;
+  pressure["SlotEffects"][0]=pressure["SlotEffects"][15]=static_cast<int>(SlotEffect::Pressure);
+  pressure["Pre 1 Pressure Compress"]=63.; pressure["Post 4 Pressure Mix"]=80.;
+  load(pressure); assert(save().config()==pressure);
+  auto beforeDynamics=cleared; beforeDynamics["schema"]=24;
+  beforeDynamics["Pre 1 Console Colour Desk"]=6.;
+  for (int slot=0; slot<16; ++slot)
+  {
+    const auto label=std::string(slot<4 ? "Pre " : slot<8 ? "A " : slot<12 ? "B " : "Post ")+std::to_string(slot%4+1);
+    for (int p=uBlackThreshold; p<kUtilityControls; ++p) beforeDynamics.erase(label+" "+kEffectParameters[p].name);
+  }
+  load(beforeDynamics);
+  assert(save().config()["Pre 1 Console Colour Desk"]==6.);
+  assert(save().config()["Pre 1 Black Threshold"]==-55.);
+  load(cleared);
   std::cout << "FX modes: contiguous host banks, choice labels/ranges, automation and state recall passed\n";
 }

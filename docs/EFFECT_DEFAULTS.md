@@ -6,6 +6,25 @@ Adding/replacing a built-in module applies its settings from `SlotDefaults.h`, i
 
 ## Research and interpretation
 
+The first [Airwindows outboard modules](AIRWINDOWS_OUTBOARD.md) add these defaults:
+
+| Module | Starting settings | Purpose |
+| --- | --- | --- |
+| Outboard Channel | Low cut 0%; High cut 100%; Compress 40%; Comp speed 25%; Saturate 15%; Output −2 dB; Mix 100% | Gentle native CStrip2 compression and console colour, with cuts initially open |
+| Console Colour | Dark desk; Input trim 0 dB; Output trim 0 dB; Mix 100% | Console convolution/saturation with fixed desk level matching |
+| Console EQ | Bands 0 dB; Treble coefficient scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Neutral insertion; first Bass adjustment targets the low end of its native range |
+| Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Gentle ButterComp2 glue with output-dependent recovery |
+| Digital Black Gate | Threshold −55 dB; Mix 100%; Output 0 dB; Zero crossing mode | Darkening closure; header Hysteresis offers CStrip's re-arming behaviour |
+| Pressure | Compress 90%; Mix 100%; Output −2.5 dB | Linked stereo compression and sine colour with measured level compensation |
+
+Capacitor cuts use native percentages rather than uncalibrated Hz. Low cut 0 is
+off; High cut 100 is open. Band gains are nominal ±6 dB density controls with
+level-dependent harmonics. Compress and Comp speed use native 0–100%, with no
+invented ratio/attack/release units. See the implementation audit for exact mappings.
+Digital Black Threshold spans −74…−10 dB, staying inside its native floor. Pressure
+retains its nonlinear native blend inside the conventional outer Mix. Both receive
+additional [rate and meter corrections](AIRWINDOWS_DYNAMICS.md) from the source audit.
+
 The exact numbers below are **nam-grid design choices**, informed by the following primary sources and checked against our DSP. They are not claimed to be another product's factory presets. Percentages and algorithms differ between products.
 
 - [Hotone Ampero II Stomp manuals](https://www.hotoneaudio.com/support/): the user's local *Effect List, firmware 2.5.0*, printed pp. 64–71 and 72–84, distinguishes slow chorus/flanger/phaser movement from vibrato/tremolo, and describes separate delay characters, swell, and reverb controls. Local PDF: `C:/Users/Fannon/My Drive/eBooks/Manual/Ampero II Stomp_Effect List_EN_Firmware V2.5.0.1785406068293.pdf`.

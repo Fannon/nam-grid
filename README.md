@@ -32,6 +32,10 @@ the plugins when distributing a build. No NAM captures or IR collection is bundl
 - [Recent FX layout and verification](docs/FX_USABILITY_REVIEW.md).
 - [Airwindows module candidates](docs/AIRWINDOWS_CANDIDATES.md): outboard,
   console, thickener and character-compressor research.
+- [Airwindows outboard implementation](docs/AIRWINDOWS_OUTBOARD.md): Console
+  Colour, Console EQ, Outboard Channel and Butter Comp, with source audits and measurements.
+- [Airwindows dynamics](docs/AIRWINDOWS_DYNAMICS.md): Digital Black Gate's two
+  modes and Pressure's linked stereo detector, mappings and rate corrections.
 - [Reverb and delay algorithm research](docs/REVERB_DELAY_RESEARCH.md).
 - [Reverb/delay audition candidates](docs/REVERB_DELAY_AUDITION.md): new cores,
   Airwindows modules, ranges and local renders.
@@ -70,7 +74,8 @@ nam-grid is built on the work of many open-source projects:
   - **[Airwindows](https://github.com/airwindows/airwindows)** (Chris Johnson) —
     [Tape](https://www.airwindows.com/tape/),
     [kPlate140](https://www.airwindows.com/kplate140/),
-    [kGuitarHall2](https://www.airwindows.com/kguitarhall2/) and Galactic3.
+    [kGuitarHall2](https://www.airwindows.com/kguitarhall2/), Galactic3,
+    CStrip2, BussColors4, ButterComp2, DigitalBlack, CStrip's gate and Pressure6.
   - **[Faust reverb library](https://faustlibraries.grame.fr/libs/reverbs/)**
     (GRAME) — [JPverb](https://faustlibraries.grame.fr/libs/reverbs/#rejpverb),
     Greyhole, and David Braun's MIT Faust reconstruction of the

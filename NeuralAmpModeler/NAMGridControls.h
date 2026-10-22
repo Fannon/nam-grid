@@ -24,15 +24,15 @@ struct NodeTone
 };
 inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
-  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint)
+  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
-  if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
+  if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect) || effect == SlotEffect::Pressure)
     return {compColor, compColor, "Compressor"};
-  if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ)
+  if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
-  if (effect == SlotEffect::Distortion)
+  if (effect == SlotEffect::Distortion || effect == SlotEffect::ConsoleColour)
     return {boostColor, boostColor, "Distortion"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
@@ -592,7 +592,7 @@ public:
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(380, 510, 490, 534), SlotUtilityParam(mSlot, i), "Tempo sync");
-      else if (i == uTapeHeads || i == uCosmicStyle)
+      else if (i == uTapeHeads || i == uCosmicStyle || i == uColourDesk || i == uBlackMode)
         mUtilityKnobs[i] = new grid_ui::Choice(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i));
       else if (i == uDelayPingPong || i == uReverbStereo)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i), p.label);
@@ -772,6 +772,24 @@ private:
     {
       g.DrawText(Text(12.f, color), "Capture | IN / OUT", IRECT(plot.L, 490, plot.R, 518));
       levels(-60.f, plot);
+    }
+    else if (IsOutboardCompressor(effect) || effect == SlotEffect::ConsoleColour || IsAirDynamics(effect))
+    {
+      WDL_String caption;
+      if (effect == SlotEffect::ConsoleColour)
+      {
+        const int desk = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uColourDesk))->Int();
+        caption.SetFormatted(80, "%s | Input / output", effect_modes::deskNames[std::clamp(desk,0,7)]);
+      }
+      else caption.SetFormatted(80, effect == SlotEffect::DigitalBlack ? "Atten %.1f dB | IN / OUT" : "Detector GR %.1f dB | IN / OUT", mReductionNow);
+      g.DrawText(Text(12.f,color),caption.Get(),IRECT(plot.L,490,plot.R,518));
+      if (IsOutboardCompressor(effect) || IsAirDynamics(effect))
+      {
+        g.FillRect(surface,IRECT(plot.L,523,plot.R,531));
+        g.FillRect(ampColor,IRECT(plot.L,523,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),531));
+      }
+      levels(-60.f,IRECT(plot.L,548,plot.R,plot.B));
+      g.DrawText(Text(11.f,muted),effect == SlotEffect::DigitalBlack ? "Attenuation before output gain" : "Output includes colour and gain",IRECT(plot.L,532,plot.R,548));
     }
     else if (effect == SlotEffect::CosmicEcho)
     {

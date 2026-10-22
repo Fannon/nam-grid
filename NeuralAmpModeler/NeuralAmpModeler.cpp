@@ -27,7 +27,7 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
-constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19, kReverbDelaySchema = 20, kCosmicSchema = 21, kCutoffNamesSchema = 22, kGridStateSchema = 23;
+constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19, kReverbDelaySchema = 20, kCosmicSchema = 21, kCutoffNamesSchema = 22, kTunerAutomationSchema = 23, kOutboardSchema = 24, kAirDynamicsSchema = 25, kGridStateSchema = kAirDynamicsSchema;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -387,6 +387,11 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     readFamily(c.utility.space, uSpaceReplace);
     readFamily(c.utility.cosmic, uCosmicTime);
     c.utility.cosmicStyle = GetParam(SlotUtilityParam(slot, uCosmicStyle))->Int();
+    readFamily(c.utility.strip, uStripLowCut); readFamily(c.utility.colour, uColourInput);
+    readFamily(c.utility.consoleEQ, uConsoleTreble); readFamily(c.utility.butter, uButterCompress);
+    c.utility.colourDesk = GetParam(SlotUtilityParam(slot, uColourDesk))->Int();
+    readFamily(c.utility.black, uBlackThreshold); readFamily(c.utility.pressure, uPressureCompress);
+    c.utility.blackMode = GetParam(SlotUtilityParam(slot, uBlackMode))->Int();
   }
   // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
   controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
@@ -1144,7 +1149,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
                   && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
                   && schemaValue != kFilterModeSchema && schemaValue != kLoFiSchema && schemaValue != kIdentitySchema
-                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema && schemaValue != kCutoffNamesSchema && schemaValue != kGridStateSchema)
+                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema && schemaValue != kCutoffNamesSchema && schemaValue != kTunerAutomationSchema && schemaValue != kOutboardSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1236,6 +1241,8 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                              : schema == 13 ? static_cast<int>(SlotEffect::Distortion)
                              : schema < 20 ? static_cast<int>(SlotEffect::HallReverb)
                              : schema == kReverbDelaySchema ? static_cast<int>(SlotEffect::GalacticSpace)
+                             : schema < kOutboardSchema ? static_cast<int>(SlotEffect::CosmicEcho)
+                             : schema < kAirDynamicsSchema ? static_cast<int>(SlotEffect::ButterComp)
                                             : static_cast<int>(SlotEffect::Last))
                 || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>()))
                 || (effect == static_cast<int>(SlotEffect::LoFiTape) && (schema < kLoFiSchema || schema >= 1001))
@@ -1268,7 +1275,13 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
-        if (grid && i == kTunerActive && (schema < kGridStateSchema || schema >= 1001)) config[name] = 0.;
+        if (grid && (schema < kAirDynamicsSchema || schema >= 1001) && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= uBlackThreshold)
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && (schema < kOutboardSchema || schema >= 1001) && i >= kUtilityBase && i < kTunerReference
+            && (i - kUtilityBase) % kUtilityControls >= uStripLowCut)
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && i == kTunerActive && (schema < kTunerAutomationSchema || schema >= 1001)) config[name] = 0.;
         if (grid && schema < kReverbDelaySchema && i >= kUtilityBase && i < kTunerReference
             && (i - kUtilityBase) % kUtilityControls >= uTapeHeads)
           config[name] = GetParam(i)->GetDefault();
@@ -1367,7 +1380,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       }
       else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
                || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kLoFiSchema
-               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema || schema == kCosmicSchema || schema == kCutoffNamesSchema || schema == kGridStateSchema)
+               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema || schema == kCosmicSchema || schema == kCutoffNamesSchema || schema == kTunerAutomationSchema || schema == kOutboardSchema || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;

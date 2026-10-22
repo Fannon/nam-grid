@@ -9,6 +9,24 @@ listening with real guitar, especially at low buffers and high gain.
 
 ## Changes
 
+- Schema 25 appends seven controls for [Digital Black Gate and Pressure](AIRWINDOWS_DYNAMICS.md).
+  Gate Threshold stays within −74…−10 dB of the native amplitude mapping; its
+  header Mode chooses DigitalBlack or CStrip hysteresis. Its meter measures actual
+  attenuation including the closing fill. Pressure keeps a shared stereo detector,
+  native Compress and sine voice, with conventional outer Mix/Output. The source
+  audit corrects sample-counted gate timing and Pressure's squared-rate recovery.
+
+- Schema 24 adds the first four [Airwindows outboard modules](AIRWINDOWS_OUTBOARD.md):
+  21 appended controls per slot, native 0–100% intensity/filter controls, nominal
+  ±6 dB nonlinear EQ bands and genuine dB wrapper trims. Console EQ's frequency
+  ranges retain upstream coefficient scales (Treble 1–16 kHz, Bass 300 Hz–16 kHz).
+  The display uses signed density bars and cut settings; a linear EQ curve would
+  misrepresent its harmonics. Strip/Butter use exact detector-GR taps with full
+  IN/OUT histories. Colour uses matched desk levels and IN/OUT histories; a static
+  shaper curve would misrepresent its dynamic convolution. All continuous controls
+  smooth; Desk fades through dry and clears the small histories. CStrip2 and
+  ButterComp2 retain their different native compressor designs.
+
 - Shared presentation metadata owns effect-specific labels, audible-effect help,
   conditional visibility and layout. Unique controls use the same wording in
   host/state descriptors and the editor. Prototype compatibility is not a constraint.

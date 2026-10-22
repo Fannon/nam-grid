@@ -103,6 +103,12 @@ enum UtilityParam
   uAirHallSustain, uAirHallResolution, uAirHallTone, uAirHallEarly, uAirHallPosition, uAirHallMix, uAirHallOutput,
   uSpaceReplace, uSpaceBrightness, uSpaceDetune, uSpaceSize, uSpaceResolution, uSpaceMix, uSpaceOutput,
   uCosmicTime, uCosmicWarp, uCosmicFeedback, uCosmicDensity, uCosmicTone, uCosmicMotion, uCosmicMix, uCosmicStyle,
+  uStripLowCut, uStripHighCut, uStripCompress, uStripSpeed, uStripSaturate, uStripOutput, uStripMix,
+  uColourInput, uColourOutput, uColourMix, uColourDesk,
+  uConsoleTreble, uConsoleMid, uConsoleBass, uConsoleTrebleFreq, uConsoleBassFreq, uConsoleHighCut, uConsoleLowCut,
+  uButterCompress, uButterOutput, uButterMix,
+  uBlackThreshold, uBlackMix, uBlackOutput, uBlackMode,
+  uPressureCompress, uPressureMix, uPressureOutput,
   kUtilityControls
 };
 inline constexpr std::span<const char* const> EffectChoices(int control)
@@ -116,6 +122,8 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uFilterMode: return effect_modes::filterNames;
     case uTapeHeads: return effect_modes::tapeHeadNames;
     case uCosmicStyle: return effect_modes::cosmicNames;
+    case uColourDesk: return effect_modes::deskNames;
+    case uBlackMode: return effect_modes::blackNames;
     default: return {};
   }
 }
@@ -308,7 +316,35 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Cosmic High Cut", "High cut", 6000, 200, 16000, 1, "Hz", 4, true},
    {"Cosmic Motion", "Motion", 25, 0, 100, .1, "%", 5},
    {"Cosmic Mix", "Mix", 25, 0, 100, .1, "%", 6},
-   {"Cosmic Style", "Style", 0, 0, effect_modes::cosmicCount-1, 1, "", 0}}};
+   {"Cosmic Style", "Style", 0, 0, effect_modes::cosmicCount-1, 1, "", 0},
+   {"Strip Low Cut", "Low cut", 0, 0, 100, .1, "%", 0},
+   {"Strip High Cut", "High cut", 100, 0, 100, .1, "%", 1},
+   {"Strip Compress", "Compress", 40, 0, 100, .1, "%", 2},
+   {"Strip Comp Speed", "Comp speed", 25, 0, 100, .1, "%", 3},
+   {"Strip Saturate", "Saturate", 15, 0, 100, .1, "%", 4},
+   {"Strip Output", "Output", -2, -18, 6, .1, "dB", 5},
+   {"Strip Mix", "Mix", 100, 0, 100, .1, "%", 6},
+   {"Console Colour Input", "Input trim", 0, -18, 18, .1, "dB", 0},
+   {"Console Colour Output", "Output trim", 0, -18, 18, .1, "dB", 1},
+   {"Console Colour Mix", "Mix", 100, 0, 100, .1, "%", 2},
+   {"Console Colour Desk", "Desk", 0, 0, 7, 1, "", 0},
+   {"Console EQ Treble", "Treble", 0, -6, 6, .1, "dB", 0},
+   {"Console EQ Mid", "Mid", 0, -6, 6, .1, "dB", 1},
+   {"Console EQ Bass", "Bass", 0, -6, 6, .1, "dB", 2},
+   {"Console EQ Treble Freq", "Treble freq", 4750, 1000, 16000, 1, "Hz", 3, true},
+   {"Console EQ Bass Freq", "Bass freq", 300, 300, 16000, 1, "Hz", 4, true},
+   {"Console EQ High Cut", "High cut", 100, 0, 100, .1, "%", 5},
+   {"Console EQ Low Cut", "Low cut", 0, 0, 100, .1, "%", 6},
+   {"Butter Compress", "Compress", 35, 0, 100, .1, "%", 0},
+   {"Butter Output", "Output", -1, -18, 6, .1, "dB", 1},
+   {"Butter Mix", "Mix", 100, 0, 100, .1, "%", 2},
+   {"Black Threshold", "Threshold", -55, -74, -10, .1, "dB", 0},
+   {"Black Mix", "Mix", 100, 0, 100, .1, "%", 1},
+   {"Black Output", "Output", 0, -18, 6, .1, "dB", 2},
+   {"Black Mode", "Mode", 0, 0, 1, 1, "", 0},
+   {"Pressure Compress", "Compress", 90, 0, 100, .1, "%", 0},
+   {"Pressure Mix", "Mix", 100, 0, 100, .1, "%", 1},
+   {"Pressure Output", "Output", -2.5, -18, 6, .1, "dB", 2}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -362,12 +398,20 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::NoisePrint: case SlotEffect::LoFiTape:
     case SlotEffect::RoomReverb: case SlotEffect::PlateReverb: case SlotEffect::CloudReverb: case SlotEffect::HallReverb:
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
-    case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho: return true;
+    case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
+    case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
+    case SlotEffect::DigitalBlack: case SlotEffect::Pressure: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::DigitalBlack) return p >= uBlackThreshold && p <= uBlackMode;
+  if (e == SlotEffect::Pressure) return p >= uPressureCompress && p <= uPressureOutput;
+  if (e == SlotEffect::OutboardChannel) return p >= uStripLowCut && p <= uStripMix;
+  if (e == SlotEffect::ConsoleColour) return p >= uColourInput && p <= uColourDesk;
+  if (e == SlotEffect::ConsoleEQ) return p >= uConsoleTreble && p <= uConsoleLowCut;
+  if (e == SlotEffect::ButterComp) return p >= uButterCompress && p <= uButterMix;
   if (e == SlotEffect::CosmicEcho) return p >= uCosmicTime && p <= uCosmicStyle;
   if (e == SlotEffect::AirPlate) return p >= uAirPlateInput && p <= uAirPlateOutput;
   if (e == SlotEffect::AirHall) return p >= uAirHallSustain && p <= uAirHallOutput;
@@ -468,4 +512,11 @@ struct UtilityControls
   std::array<double, 7> space{50., 50., 35., 60., 100., 25., 0.};
   std::array<double, 7> cosmic{500., 65., 65., 80., 6000., 25., 25.};
   int cosmicStyle = 0;
+  std::array<double, 7> strip{0., 100., 40., 25., 15., -2., 100.};
+  std::array<double, 3> colour{0., 0., 100.};
+  int colourDesk = 0;
+  std::array<double, 7> consoleEQ{0., 0., 0., 4750., 300., 100., 0.};
+  std::array<double, 3> butter{35., -1., 100.};
+  std::array<double, 3> black{-55.,100.,0.}, pressure{90.,100.,-2.5};
+  int blackMode = 0;
 };

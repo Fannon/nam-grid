@@ -66,6 +66,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "ReverbDelayCandidatesTests.h"
 #include "CosmicEchoTests.h"
 #include "MultiHeadStereoTests.h"
+#include "OutboardTests.h"
 
 int main(int argc, char** argv)
 try
@@ -192,6 +193,8 @@ try
   TestCosmicEcho();
   TestCosmicBypassDrain();
   TestMultiHeadStereo();
+  TestOutboard();
+  TestAirDynamics();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

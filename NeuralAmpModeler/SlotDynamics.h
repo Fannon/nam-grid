@@ -59,7 +59,13 @@ enum class SlotEffect
   AirHall,
   GalacticSpace,
   CosmicEcho,
-  Last = CosmicEcho
+  OutboardChannel,
+  ConsoleColour,
+  ConsoleEQ,
+  ButterComp,
+  DigitalBlack,
+  Pressure,
+  Last = Pressure
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -90,6 +96,12 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::AirHall: return "Airwindows Guitar Hall";
     case SlotEffect::GalacticSpace: return "Galactic Space";
     case SlotEffect::CosmicEcho: return "Cosmic Echo";
+    case SlotEffect::OutboardChannel: return "Outboard Channel";
+    case SlotEffect::ConsoleColour: return "Console Colour";
+    case SlotEffect::ConsoleEQ: return "Console EQ";
+    case SlotEffect::ButterComp: return "Butter Comp";
+    case SlotEffect::DigitalBlack: return "Digital Black Gate";
+    case SlotEffect::Pressure: return "Pressure";
     case SlotEffect::Chorus: return "Chorus";
     case SlotEffect::Flanger: return "Flanger";
     case SlotEffect::Phaser: return "Phaser";

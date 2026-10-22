@@ -6,7 +6,7 @@
 namespace effect_presentation
 {
 inline bool HeaderControl(int p)
-{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uTapeHeads || p == uCosmicStyle; }
+{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uTapeHeads || p == uCosmicStyle || p == uColourDesk || p == uBlackMode; }
 inline bool PingPong(SlotEffect e)
 { return e == SlotEffect::DigitalDelay || e == SlotEffect::AnalogDelay || e == SlotEffect::TapeDelay || e == SlotEffect::DualDelay; }
 inline bool Tempo(SlotEffect e)
@@ -53,6 +53,26 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
+    case uBlackMode: return "Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.";
+    case uBlackThreshold: return "Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.";
+    case uBlackMix: return "Blend the gate and its darkened closing texture with the original signal. Zero restores the dry sound before Output.";
+    case uBlackOutput: case uPressureOutput: return "Final gain after dry/wet blending. Match bypass loudness before judging the effect.";
+    case uPressureCompress: return "Pressure6 stereo-linked intensity. Either channel drives one shared detector, applying equal detector gain to left and right. The sine output adds colour.";
+    case uPressureMix: return "Conventional outer dry/wet blend. The processed voice retains Pressure6's native 90 percent nonlinear blend internally.";
+    case uColourDesk: return "Eight console voices. Desk changes fade through dry while the convolution and sag histories reset.";
+    case uColourInput: return "Gain into the console colour, in real dB. More level drives the nonlinear convolution and saturation harder.";
+    case uColourOutput: return "Wet-path output trim in real dB. Match desk loudness; Mix zero preserves the exact dry signal.";
+    case uColourMix: return "Blend console colour with the original stereo signal. Both trims affect only the processed path.";
+    case uStripLowCut: case uConsoleLowCut: return "Native Capacitor high-pass amount, with sample-rate pole compensation. Zero is off. Percentage is not a cutoff in Hz.";
+    case uStripHighCut: case uConsoleHighCut: return "Native Capacitor low-pass openness, with sample-rate pole compensation. 100 is open; lower values darken. Percentage is not a cutoff in Hz.";
+    case uStripCompress: return "CStrip2 drive into its polarity-sensitive compressor. This percentage controls intensity, not threshold or ratio.";
+    case uStripSpeed: return "CStrip2 native recovery speed. Higher values recover faster; this is not attack or release in milliseconds.";
+    case uStripSaturate: return "Native unity-to-Spiral output section: increases drive and blends saturation. Output independently matches final loudness.";
+    case uStripOutput: case uButterOutput: return "Final gain after dry/wet blending, in dB. Match bypass loudness before judging compression.";
+    case uStripMix: case uButterMix: return "Parallel dry/wet blend. Output follows this blend. The gain-reduction meter excludes automatic gain recovery and Output.";
+    case uButterCompress: return "ButterComp2 intensity and automatic gain recovery, with output-dependent release and independent left/right detectors.";
+    case uConsoleTreble: case uConsoleMid: case uConsoleBass: return "Native nonlinear band density, labelled with its nominal -6 to +6 dB mapping. Adds harmonics; measured gain depends on input level.";
+    case uConsoleTrebleFreq: case uConsoleBassFreq: return "Native EQ frequency coefficient scale. This is not a measured shelf corner; the broad bands can overlap.";
     case uCosmicStyle: return effect_modes::cosmicHelp[std::clamp(mode, 0, effect_modes::cosmicCount-1)];
     case uCosmicTime: return "Delay-line time scale, from 20 ms to eight seconds. The dial gives more space to long intervals. Warp spreads shorter lines below this value; Sagittarius can build up over several intervals.";
     case uCosmicWarp: return "Spread the delay-line lengths: zero aligns them for echoes, higher values create uneven spacing and more reverb-like texture.";
@@ -198,6 +218,12 @@ inline const char* Sound(SlotEffect e)
 {
   switch (e)
   {
+    case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
+    case SlotEffect::Pressure: return "Stereo-linked compression and sine colour; either channel controls the shared gain.";
+    case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
+    case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input trim drives colour, Output trim matches loudness.";
+    case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; bars show settings, not a linear EQ response.";
+    case SlotEffect::ButterComp: return "Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack.";
     case SlotEffect::NAM: return "Input drives the capture; EQ and Output shape its result.";
     case SlotEffect::CabinetIR: return "Cabinet convolution; the traces compare input and output level.";
     case SlotEffect::NaturalGate: case SlotEffect::TightGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";

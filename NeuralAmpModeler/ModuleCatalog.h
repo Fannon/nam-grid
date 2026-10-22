@@ -12,9 +12,9 @@ struct ModuleGroup
 };
 using E = SlotEffect;
 inline const ModuleGroup kModuleGroups[]{
-  {"Distortion", {E::Distortion, E::Boost, E::TubeBoost, E::Tape, E::Bitcrusher}},
-  {"Dynamics", {E::NaturalGate, E::NoisePrint, E::SmoothComp, E::PunchComp, E::Limiter}},
-  {"EQ / Filter", {E::ToneEQ, E::CutEQ, E::ParametricEQ, E::SynthFilter, E::Wah}},
+  {"Distortion", {E::Distortion, E::Boost, E::TubeBoost, E::Tape, E::ConsoleColour, E::Bitcrusher}},
+  {"Dynamics", {E::NaturalGate, E::NoisePrint, E::DigitalBlack, E::SmoothComp, E::PunchComp, E::ButterComp, E::OutboardChannel, E::Pressure, E::Limiter}},
+  {"EQ / Filter", {E::ToneEQ, E::CutEQ, E::ParametricEQ, E::ConsoleEQ, E::SynthFilter, E::Wah}},
   {"Modulation", {E::Chorus, E::JunoChorus, E::Flanger, E::Phaser, E::Tremolo, E::Vibrato, E::Rotary, E::UniVibe, E::RingMod}},
   {"Pitch / Frequency", {E::Octaver, E::Doubler, E::FrequencyShifter}},
   {"Delay", {E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay, E::ReverseDelay, E::DualDelay, E::DiffusedDelay}},

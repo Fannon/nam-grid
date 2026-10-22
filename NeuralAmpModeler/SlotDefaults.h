@@ -107,7 +107,9 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::ParametricEQ: case SlotEffect::Wah: case SlotEffect::Utility: case SlotEffect::Limiter:
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
     case SlotEffect::NoisePrint: case SlotEffect::AirPlate: case SlotEffect::AirHall:
-    case SlotEffect::GalacticSpace: case SlotEffect::CosmicEcho: break;
+    case SlotEffect::GalacticSpace: case SlotEffect::CosmicEcho:
+    case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
+    case SlotEffect::DigitalBlack: case SlotEffect::Pressure: break;
   }
   return v;
 }

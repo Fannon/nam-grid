@@ -10,6 +10,8 @@
 #include "SlotTimeEffects.h"
 #include "SlotReverb.h"
 #include "SlotAirReverb.h"
+#include "SlotOutboard.h"
+#include "SlotAirDynamics.h"
 #include "SlotCreativeDelays.h"
 #include "SlotCosmicEcho.h"
 #include "StereoUtility.h"
@@ -54,6 +56,8 @@ public:
     SlotDelay echo;
     SlotReverb reverb;
     SlotAirReverb airReverb;
+    SlotOutboard outboard;
+    SlotAirDynamics airDynamics;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -116,6 +120,8 @@ public:
         if (effect == SlotEffect::MultiHeadDelay) multiHead.Reset(rate);
         if (effect == SlotEffect::DiffusedDelay) diffused.Reset(rate);
         if (effect == SlotEffect::CosmicEcho) cosmic.Reset(rate);
+        if (IsOutboard(effect)) outboard.Reset(rate, effect);
+        if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -157,7 +163,7 @@ public:
                                            : effect == SlotEffect::Stutter ? 33.
                                            : effect == SlotEffect::Utility ? .025
                                            : effect == SlotEffect::Distortion ? 1.
-                                           : effect == SlotEffect::LoFiTape ? 1.
+                                           : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
                                            : IsModulation(effect) ? .07
                                            : effect == SlotEffect::JunoChorus ? .07
                                                                   : 0.));
@@ -359,6 +365,16 @@ public:
             else if (p->effect == SlotEffect::MultiHeadDelay) p->multiHead.Process(out, r, frames, utility, draining);
             else if (p->effect == SlotEffect::DiffusedDelay) p->diffused.Process(out, r, frames, utility, draining);
             else if (p->effect == SlotEffect::CosmicEcho) p->cosmic.Process(out, r, frames, utility, draining);
+            else if (IsAirDynamics(p->effect))
+            {
+              p->airDynamics.Process(out, r, frames, utility);
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->airDynamics.Reduction()*mMix));
+            }
+            else if (IsOutboard(p->effect))
+            {
+              p->outboard.Process(out, r, frames, utility);
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->outboard.Reduction()*mMix));
+            }
             else if (IsAirReverb(p->effect)) p->airReverb.Process(out, r, frames, utility, draining);
             else if (IsReverb(p->effect)) p->reverb.Process(out, r, frames, utility);
             else p->capture.Process(out, r, frames, p->effect, utility);

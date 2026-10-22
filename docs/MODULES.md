@@ -91,6 +91,28 @@ Chorus Spread and stereo reverb generate spatial movement from a mono source.
 
 ## Tone, dynamics and utility
 
+The first [Airwindows outboard additions](AIRWINDOWS_OUTBOARD.md) are:
+
+| Module | Controls | Character |
+| --- | --- | --- |
+| Outboard Channel | Low cut, High cut, Compress, Comp speed, Saturate, Output, Mix | CStrip2 Capacitor → native compression → Spiral; Dynamics group |
+| Console Colour | Input trim, Output trim, Mix; header Desk | Eight BussColors4 console voices, with fixed default-level matching; Distortion group |
+| Console EQ | Treble, Mid, Bass, Treble freq, Bass freq, High cut, Low cut | Nonlinear ±6 dB band density and rate-compensated Capacitor; EQ / Filter group |
+| Butter Comp | Compress, Output, Mix | Native ButterComp2 polarity-sensitive compression and output-dependent recovery; Dynamics group |
+| Digital Black Gate | Threshold, Mix, Output; header Mode | DigitalBlack darkening gate or CStrip hysteresis; reference-time counters and release |
+| Pressure | Compress, Mix, Output | Pressure6 shared stereo detector and sine colour; corrected recovery scaling |
+
+The cuts use native percentages: low cut 0 is off, high cut 100 is open. Their
+rotating ladder cannot honestly be described by a single unmeasured cutoff Hz.
+Console EQ's frequency labels retain the source coefficient scales. All four
+are zero-latency and preserve independent stereo histories. The strip and Butter
+Comp have related but different detector/recovery math. See the linked audit for
+the source decisions, ranges, defaults, GR semantics and measurements.
+The [two additional dynamics modules](AIRWINDOWS_DYNAMICS.md) preserve independent
+gate histories and Pressure's linked detector respectively. Digital Black meters
+actual attenuation including its rectified closing fill; Pressure meters detector
+reduction before makeup and sine colour. Both have live IN/OUT histories.
+
 The **Distortion** category contains Distortion, Boost, Tube Boost, Airwindows Tape
 and Bitcrusher. The general Distortion module offers **Soft clip**, **Hard clip**,
 **Fuzz**, **Foldback**, **Diode** and **Rectify** styles, Drive (0–36 dB), High cut (200–12000 Hz), Bias (±100%), Mix and
@@ -349,6 +371,13 @@ Built-in cost rises with the independently processed right channel; NAM inferenc
 is unchanged. New built-ins still report zero latency; the two-model fixture
 reports 0/54/84 samples at 48/44.1/96 kHz. Raw effect timings are in ignored
 `build-grid/stereo-modules-cpu.csv`. These are offline figures, not Bitwig CPU meters.
+
+The new [outboard benchmark](AIRWINDOWS_OUTBOARD.md#verification-and-measurement)
+measures isolated stereo wrappers at 128 frames, including its test stimulus and
+analysis but excluding grid/host overhead. At 48/96 kHz: Outboard Channel
+0.75/1.48%, Console Colour (Dark) 0.59/1.32%, Console EQ with all bands engaged
+0.35/0.66%, Butter Comp 0.60/1.16%. Do not compare these directly with the
+complete-plugin table above. Reproduce with the `nam-outboard-audition` target.
 
 The spatial and guitar increment adds Ping-pong to all delays, Chorus Spread,
 stereo wet output to Room/Plate/Cloud, Spring Reverb and automatable Wah. Utility's

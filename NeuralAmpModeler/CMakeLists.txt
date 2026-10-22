@@ -1,6 +1,10 @@
 include(${IPLUG2_DIR}/iPlug2.cmake)
 find_package(Threads REQUIRED)
 add_executable(nam-library-tests ../tests/library_tests.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
+add_executable(nam-outboard-audition ../tests/outboard_audition.cpp)
+target_include_directories(nam-outboard-audition PRIVATE .)
+target_compile_features(nam-outboard-audition PRIVATE cxx_std_20)
+target_compile_definitions(nam-outboard-audition PRIVATE NOMINMAX)
 target_include_directories(nam-library-tests PRIVATE . ../NeuralAmpModelerCore/Dependencies/nlohmann
   ../iPlug2/IPlug ../iPlug2/WDL ../iPlug2/IGraphics ../iPlug2/Dependencies/IGraphics/NanoSVG/src)
 target_compile_features(nam-library-tests PRIVATE cxx_std_20)

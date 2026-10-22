@@ -1410,7 +1410,7 @@ int main(int argc, char** argv)
         // Drag down at an upper limit (Tape Mix defaults to 100%).
         const int position = effect_presentation::Position(effect, p);
         const int x = grid_layout::KnobX(position);
-        if (p == uTapeHeads || p == uCosmicStyle) click(558, grid_layout::optionsY);
+        if (p == uTapeHeads || p == uCosmicStyle || p == uColourDesk || p == uBlackMode) click(558, grid_layout::optionsY);
         else if (EffectChoices(p).empty() && descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
           click(x, grid_layout::ToggleY(position));
         else

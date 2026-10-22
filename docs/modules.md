@@ -8,10 +8,7 @@ independent processor history at the destination.
 
 **Dynamics > Noise Gate (Smart)** adds learned frequency-selective noise reduction and an
 optional final gate. Its seven controls and Enabled fill the eight-position editor.
-See [Noise Gate (Smart)](NOISE_PRINT.md) for learning, controls, measurements and limitations.
-
-See the [FX parameter audit](FX_PARAMETER_REVIEW.md) for control decisions, display meaning
-and Dual Delay cross-feedback mode.
+See [Noise Gate (Smart)](noise-gate-smart.md) for learning, controls, measurements and limitations.
 
 ## Modulation, delay and reverb
 
@@ -24,7 +21,7 @@ and Dual Delay cross-feedback mode.
 | Airwindows Plate | Input, Sustain, Resolution, Pre-delay, Mix, Low cut, Output | Native kPlate140 audition port |
 | Airwindows Guitar Hall | Sustain, Resolution, Brightness, Early level, Position, Mix, Output | Native kGuitarHall2 audition port |
 | Galactic Space | Replace, Brightness, Detune, Size, Resolution, Mix, Output | Native Galactic3 ambient-pad audition port |
-| Cosmic Echo | Time, Warp, Feedback, Density, High cut, Motion, Mix; header Style | Six Valhalla Supermassive-inspired Faust modes; see [prototype notes](COSMIC_ECHO.md) |
+| Cosmic Echo | Time, Warp, Feedback, Density, High cut, Motion, Mix; header Style | Six Valhalla Supermassive-inspired Faust modes; see [Cosmic Echo](cosmic-echo.md) |
 | Shimmer | Mix, Decay, Damping, Pitch, Amount, Modulation, Freeze | Eight-line reverb with granular pitched feedback; positive Pitch climbs on each pass |
 | Digital Delay | Time, Feedback, High cut, Ducking, Mix, Output | Ducking ducks repeats beneath the pick |
 | Analog Echo | Time, Feedback, High cut, Age, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Age increases wear |
@@ -40,15 +37,9 @@ and Dual Delay cross-feedback mode.
 | Frequency Shifter | Shift, Feedback, Delay, Sideband, High cut, Spread, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
 | LoFi Tape Machine | Speed, Wow, Flutter, Noise, Wear, Mix, Output | Tape transport motion, hiss, bandwidth loss and dropouts; separate from tape saturation |
 
-This set follows the core guitar categories in the official
-[Helix effect guide](https://manuals.line6.com/en/helix-stadium/live/effect-blocks)
-and [Quad Cortex device list](https://neuraldsp.com/device-list). These are category
-references, not code sources or claims of hardware emulation. Spring, Wah and stereo
-effects are now described in [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md).
-Shimmer provides pitched reverb feedback, but polyphonic pitch shifting and a
-harmonizer remain future work. The implementation notes are in
-[FX_SOURCE_REVIEW_20261020.md](archive/FX_SOURCE_REVIEW_20261020.md).
-The **Creative** category also contains [LoFi Tape Machine](LOFI_TAPE.md), with
+Shimmer provides pitched reverb feedback; polyphonic pitch shifting and a
+harmonizer are not implemented.
+The **Creative** category also contains [LoFi Tape Machine](lofi-tape.md), with
 measured wow/flutter pitch-motion traces and a separate seven-control editor.
 Dense Plate is a voiced digital reverb, not a physical plate model. Juno Chorus is an
 original rate-scaled implementation informed by the Juno-60 BBD measurements used by
@@ -65,8 +56,8 @@ Mix blends the compressed and original signals before the slot bypass ramp.
 Conventional delays cover 5–4000 ms with a quadratic dial scale, feedback 0–82%, and High cut 800–12000 Hz. Time changes are smoothed
 and intentionally bend pitch. Tempo sync spans **1/32–1/1**, including triplet/dotted choices;
 the same division range applies to Stutter and synced modulation.
-Reverb decay is nominal RT60, .25–20 s;
-Size is 50–300%, damping 800–12000 Hz, pre-delay 0–100 ms. Plate and Cloud use
+Reverb decay is nominal RT60, .15–30 s;
+Size is 25–200%, damping 800–12000 Hz, pre-delay 0–200 ms. Plate and Cloud use
 larger spatial scaling; Hall expands it further. Damping and interpolation
 can shorten measured decay. Modulation rate is .05–10 Hz. Depth/texture/Mix
 use percentages. Vibrato is always wet; the other effects can reach 100% wet for a
@@ -91,7 +82,7 @@ Chorus Spread and stereo reverb generate spatial movement from a mono source.
 
 ## Tone, dynamics and utility
 
-The first [Airwindows outboard additions](AIRWINDOWS_OUTBOARD.md) are:
+The first [Airwindows outboard additions](airwindows-outboard.md) are:
 
 | Module | Controls | Character |
 | --- | --- | --- |
@@ -108,7 +99,7 @@ Console EQ's frequency labels retain the source coefficient scales. All four
 are zero-latency and preserve independent stereo histories. The strip and Butter
 Comp have related but different detector/recovery math. See the linked audit for
 the source decisions, ranges, defaults, GR semantics and measurements.
-The [two additional dynamics modules](AIRWINDOWS_DYNAMICS.md) preserve independent
+The [two additional dynamics modules](airwindows-dynamics.md) preserve independent
 gate histories and Pressure's linked detector respectively. Digital Black meters
 actual attenuation including its rectified closing fill; Pressure meters detector
 reduction before makeup and sine colour. Both have live IN/OUT histories.
@@ -171,21 +162,8 @@ tiny denormal noise is retained. No CHOWTape/GPL source is incorporated.
 no-flutter design. Wow/flutter lives in the separate Tape Echo rather than
 forcing delayed pitch modulation into the saturation module.
 
-Further Airwindows adoption candidates are reviewed in
-[AIRWINDOWS_CANDIDATES.md](AIRWINDOWS_CANDIDATES.md).
-
-Focused alternatives reviewed, not imported:
-
-- **ToTape9:** nine controls and more extensive modulation/clip processing;
-  too much for this first small tape module.
-- **Galactic3:** an interesting ambient stereo reverb. Its code quantizes its
-  internal derez step (`1 / int(1 / derez)`) and uses fixed delay lengths. That
-  needs explicit sample-rate and stereo evaluation before a faithful port.
-
-Airwindows is not universally restricted to 44.1 kHz. Tape explicitly scales
-coefficients by host-rate/44100. Some constants/heuristics remain sample-based,
-so this is not a promise of identical tone at every rate. The new original time
-effects scale their delay times directly; they do not adopt Galactic3's derez behavior.
+Current native mappings are documented in [Airwindows outboard](airwindows-outboard.md)
+and [dynamics](airwindows-dynamics.md); source licenses accompany the implementation.
 
 ## Real-time behavior and verification
 
@@ -199,7 +177,7 @@ write is disabled; roughly nine seconds clears the full 8.1-second buffer plus f
 Reverbs retain a 30-second drain and modulation 70 ms. This uses existing buffers
 and never allocates or clears a whole delay ring in one callback. Standard delay
 feedback is bounded; Freeze and Shimmer hold behavior is described in the
-[effects roadmap](ROADMAP_EFFECTS.md).
+[effects roadmap](performance.md).
 
 The new effects report zero **host compensation latency**. Their dry paths have
 no block buffering. Delay/reverb/vibrato necessarily delay the effected signal;
@@ -217,7 +195,7 @@ extremes, finite output, deterministic block partitioning, zero audio allocation
 deletion, echo onset timing, distinct decaying reverb responses, swell envelope,
 bypass history drainage and reset. CLAP tests cover project recall of every type,
 visible controls and bypass gestures in an open native editor. Reproduce with
-the build and CTest commands in [BUILD.md](BUILD.md).
+the build and CTest commands in [build.md](build.md).
 
 Manual acceptance still required:
 
@@ -236,89 +214,96 @@ establish numerical behavior and lifecycle safety, not final musical voicing.
 Tube Boost uses an original biased soft saturator, the same Tilt/High pass voicing as
 Boost, and a 5 Hz DC blocker. Drive adds gain and saturation; Bias adds even-harmonic
 character; Mix includes an unprocessed dry path; Output sets final level. It is not a
-circuit emulation. Strong drive can alias without oversampling. See the
-[focused Hotone/TONEX comparison](archive/EFFECT_COVERAGE.md) for current coverage and next priorities.
+circuit emulation. Strong drive can alias without oversampling.
 
-For earlier CPU, state and layout measurements, see the
-[historical module checkpoints](archive/MODULE_CHECKPOINTS.md). Use the
-[on-demand benchmark](FX_PERFORMANCE.md) to measure the current build.
+## Tempo sync and stereo controls
 
-## Tempo sync, tuner and stereo Utility
+Supported delays and modulation modules offer **Tempo sync**. Division replaces
+Time/Rate while sync is enabled; manual values remain stored. Divisions are
+1/32, 1/16, 1/8T, 1/8, 1/8D, 1/4, 1/4D, 1/2, 1/2D and 1/1. T means triplet,
+D dotted. Missing tempo falls back to 120 BPM. Modulation is rate-synced and
+free-running, rather than locked to host song position. Time changes can bend pitch.
 
-All three delays and all five modulation modules have **Tempo sync**. Division replaces
-Time/Rate in position one: 1/16, 1/8T, 1/8, 1/8D, 1/4, 1/4D, 1/2, 1/2D, 1/1. T means
-triplet and D dotted. Manual settings remain intact when sync is off. Delay timing uses
-60 × beats / BPM; modulation uses its reciprocal. Missing/invalid tempo defaults to
-120 BPM; valid values are bounded to 30–300 BPM. The longest synced delay is eight
-seconds (whole note at 30 BPM). Modulation is rate-synced and free-running, not locked
-to the host song position. Auto Tremolo disables envelope-driven acceleration while
-synced, retaining its waveform Character. Tempo/time changes use existing smoothing
-and can bend pitch; there is no mandatory lookahead or oversampling.
+Digital, Analog and Tape Delay's **Ping-pong** folds the wet send to mono and
+alternates repeats between channels; dry stereo stays intact. Dual Delay uses
+cross-feedback through its two different tap times: the first right arrival is
+left time plus right time. Reverse Delay does not have this routing switch.
 
-Delay buffers now reserve about 6 MiB per stereo slot at 48 kHz, 24 MiB at 192 kHz.
-Bypassed delays stop feedback after their fade and suspend after roughly nine
-seconds of cleanup. The host tail budget is capped at 60 seconds across the grid;
-continuous-playback echoes are not truncated. No new compensation latency.
+**Chorus Spread** offsets its L/R LFOs: 0% is coincident, 100% is half a cycle.
+Reverb **Stereo wet** folds the wet side to mono when off, without moving dry audio.
+Place spatial effects after the last mono NAM capture to retain their stereo width.
 
-**Utility** has level −60…+12 dB, balance −100…+100%, Stereo −100…+100%, independent L/R
-polarity and Enabled. Center balance is unity, extremes attenuate the opposite channel;
-this is not constant-power panning. Gains/polarity/width changes ramp to avoid jumps.
-Stereo is centered at 0 (unity), −100 folds to mono, +100 doubles side. For phase cancellation between captures, polarity can help, but there is no automatic
-phase alignment or fine-delay control yet.
+Utility **Width** is −100% mono, 0% unchanged and +100% double side. It cannot
+create stereo from identical L/R. Balance attenuates the opposite channel rather
+than using constant-power panning. **Fine delay** adds 0–20 ms of intentional
+timing; it does not change reported model-conversion latency. See
+[performance controls](performance.md) for lane timing and modulation,
+and [Tuner](tuner.md) for tuning and mute.
 
-**Tuner** replaces the lower module editor while active; the grid stays visible. One C++ MPM detector
-was adapted from the MIT sibling trace-tuner revision
-`2e1ff89243698b8f4fca33dc4505a2cd749d9e67`; its complete MIT notice is shipped.
-No Rust/FFT runtime or extra plugin framework is added. The audio tap selects the
-stronger input channel per block, low-passes/decimates to 11–12 kHz, and writes to a
-bounded SPSC queue. A worker performs normalized autocorrelation, key-peak selection
-and parabolic refinement over 1536 samples. Intended monophonic range is 35–1600 Hz;
-analysis takes about 130–140 ms and does not delay processed audio. Quiet/uncertain
-signals clear the current pitch. A six-second cents history fades with age and
-breaks at note changes, silence and large jumps, following trace-tuner's display.
-The worker sleeps while detection is disabled; activation publishes atomics only.
-Tuner activation, A-reference and mute preference are automatable and saved in
-project state. With Mute output ON, Tuner doubles as a mute even with the window
-closed. Rig/scene recall leaves these controls unchanged. See [TUNER.md](TUNER.md).
+## Spring and wah
 
-New tests cover harmonic-rich guitar/bass pitches (41–659 Hz, under two cents in
-synthetic fixtures), silence/nonfinite input, right-only capture at all five host rates,
-audio allocation guards, stereo empty paths/Utility/A2 downmix, synced echo divisions
-and Auto Tremolo beat rate, real CLAP transport changes, schema-7 migration, native
-tuner controls, Escape unmute and headless activation/mute automation. Real guitar listening and
-Bitwig/macOS validation remain outstanding.
+Spring Reverb has Decay, Dwell, Drip, Damping, Mix and Output. Dwell drives its
+excitation; Drip changes dispersion rather than adding generic modulation.
+Its three dispersive tanks are spring-inspired, not a measured emulation of a
+named tank. Strong Dwell can alias without oversampling. Mathematical references:
+[Gamper, Parker and Välimäki](https://research.aalto.fi/en/publications/automated-calibration-of-a-parametric-spring-reverb-model/)
+and the [DAFx overview](https://dafx.de/paper-archive/details/omUNRAXkKDeEOxMkIyPwQg).
+No source implementation or calibration procedure was copied.
 
-Manual additions: tune every guitar string and low bass notes; compare A=440/442;
-check quiet decay, right-only input and reopening the panel. Set Bitwig to 60/90/120 BPM,
-compare dotted/triplet echoes and automate tempo. Put Utilities after each parallel amp,
-pan the lanes apart and invert either polarity; save/reopen and test a mono host output.
+Wah has Position, Resonance, Register, Mix and Output. Map Position to an expression
+controller through your DAW or draw automation; there is no separate MIDI-learn
+layer or automatic pedal bypass. Register shifts both heel/toe frequencies.
+The original band-pass/body voicing follows
+[Simper's trapezoidal SVF equations](https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf),
+without importing third-party code.
 
-Current stereo build, same offline benchmark method (128-frame blocks; fastest of
-three measured renders; total cost as % of one core; tuner closed):
+## Capture effects
 
-| Effect | 48 kHz | 96 kHz |
-| --- | ---: | ---: |
-| Empty grid | 0.28% | 0.54% |
-| Smooth Compressor | 0.54% | 1.06% |
-| Analog Echo | 0.76% | 1.51% |
-| Cloud | 1.87% | 3.80% |
-| Tube Boost | 0.63% | 1.26% |
-| Utility | 0.35% | 0.70% |
-| Two synthetic A2 models | 7.26% | 8.72% |
+Freeze's Capture is the source-window length. Its repeat period is Capture minus
+the effective Fade, bounded to one quarter of the window: 500 ms Capture and
+20 ms Fade repeat every 480 ms. Stutter retains the requested Window period,
+with a fade through zero even at 100% Gate. Reverse replaces its captured window
+each period with a short transition. Captured audio is transient, not embedded in presets.
 
-Built-in cost rises with the independently processed right channel; NAM inference
-is unchanged. New built-ins still report zero latency; the two-model fixture
-reports 0/54/84 samples at 48/44.1/96 kHz. Raw effect timings are in ignored
-`build-grid/stereo-modules-cpu.csv`. These are offline figures, not Bitwig CPU meters.
+## Cabinet IR
 
-The new [outboard benchmark](AIRWINDOWS_OUTBOARD.md#verification-and-measurement)
-measures isolated stereo wrappers at 128 frames, including its test stimulus and
-analysis but excluding grid/host overhead. At 48/96 kHz: Outboard Channel
-0.75/1.48%, Console Colour (Dark) 0.59/1.32%, Console EQ with all bands engaged
-0.35/0.66%, Butter Comp 0.60/1.16%. Do not compare these directly with the
-complete-plugin table above. Reproduce with the `nam-outboard-audition` target.
+**Choose cabinet IR (.wav)** loads a mono WAV into any slot, using the existing NAM IR
+loader/convolver. The card shows the filename and `WAV / IR`; its bottom editor has one **Level** knob (-36 to +18 dB).
+Each slot holds either a NAM or an IR. Place a NAM cabinet capture using the normal NAM
+selector. Full amp+cab captures typically do not need another cabinet stage.
 
-The spatial and guitar increment adds Ping-pong to all delays, Chorus Spread,
-stereo wet output to Room/Plate/Cloud, Spring Reverb and automatable Wah. Utility's
-Stereo scale is centered at zero. See [STEREO_GUITAR_EFFECTS.md](STEREO_GUITAR_EFFECTS.md)
-for controls, original algorithm references, migration and the manual checklist.
+The default Level is -18 dB to match the original global cabinet's headroom convention.
+At 0 dB, the slot cancels the reused convolver's fixed -18 dB gain, so a unit impulse has
+unity convolution gain at its native 48 kHz rate. Its existing sample-rate-dependent IR
+resampling gain is retained. Nothing auto-normalizes IRs. Recalled projects can still have a
+legacy global IR; its compatibility toggle appears in Settings. It is disabled in new instances.
+
+The reused processor has zero block buffering latency and caps the resampled IR at 8192
+taps. It is intended for cabinet impulses, rather than long reverbs. WAV parsing, resampling,
+history allocation, and prewarming occur off audio. Reset reconstructs and primes the
+convolver even when the sample rate is unchanged. Variable host blocks use reserved capacity.
+Invalid loads preserve the current selection; recalled missing/invalid files retain their
+paths and IR type for relinking, while that slot passes audio.
+
+## A2 Full / Lite
+
+The module menu offers **A2 Lite** when Core reports a slimmable model. A2 captures packaged
+with both submodels select them from the same `.nam` file. Fixed-size captures have no quality
+toggle; a smaller model cannot be synthesized from an arbitrary fixed model.
+The supported target is A2. No A1-specific implementation was added.
+
+The [Core size API](https://github.com/sdatkinson/NeuralAmpModelerCore/blob/main/NAM/slimmable.h)
+explicitly states that changing size is not real-time safe. Size changes now reload/prepare
+the requested model outside audio, then use the slot's existing publication/retirement and
+switching fade. Core's setter is never called by `NAMStage::Process`. A short dropout is
+allowed during changes. UI toggles and host automation requests are applied on the idle/control
+thread; rapid requests can coalesce. If the selected file disappears, the old processor stays
+active and the quality parameter reverts to the prepared value.
+
+Other slots append boolean Full Quality parameters. Pre 2 reuses the original `Slim` parameter
+(0 = Lite, 1 = Full), preserving its automation ID and old state. New projects default to
+Full. Saved quality travels with Copy/Move/Swap and is applied before audio is activated.
+
+All new effects add zero buffering latency. Existing NAM rate conversion still reports its
+actual delay when capture/host rates differ; use matching rates for a zero-latency NAM chain.
+Typical captures are 48 kHz. Parallel lane compensation continues to follow actual delays.

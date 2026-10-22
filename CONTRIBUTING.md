@@ -6,7 +6,7 @@ and reproduction steps. Include a minimal rig/model/IR example when it can be sh
 
 ## Build and tests
 
-Use the CMake instructions in [BUILD.md](docs/BUILD.md). Build both native formats
+Use the CMake instructions in [build.md](docs/build.md). Build both native formats
 and the test targets listed there, then run:
 
 ```sh
@@ -17,7 +17,7 @@ The suites cover the capture library/presets, WAV decoding, resampling, DSP stag
 CLAP hosting/native editor, and tuner. Assertions remain enabled in Release tests.
 Focused sanitizer options and their runtime requirements are documented in the
 build guide. Real DAW listening and VST3/macOS host validation are separate
-[acceptance checks](docs/RELEASE_CHECKLIST.md); describe exactly what was tested
+[acceptance checks](docs/release-checklist.md); describe exactly what was tested
 in the PR.
 
 ## Change scope
@@ -37,5 +37,7 @@ to touched code. Run `git diff --check` before submitting. A PR should explain t
 user-visible change, relevant tradeoffs, tests run and remaining validation limits.
 
 Keep maintained guides discoverable through the [documentation index](docs/README.md).
-Place dated reviews, completed plans and one-off measurements in `docs/archive/`;
-link them from the archive index and update references when moving a document.
+Use lowercase kebab-case guide filenames. Put reviews, audits and one-off reports
+in gitignored `tmp/`, or in the relevant PR description/comments. Fold lasting
+conclusions into maintained guides and update references when moving a document.
+See [AGENTS.md](AGENTS.md).

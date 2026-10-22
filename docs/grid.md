@@ -2,7 +2,7 @@
 
 The current plugin has 16 slots arranged as four serial input stages, two
 parallel four-slot lanes and four serial output stages. Build outputs are in
-`build-grid/out`; see [BUILD.md](BUILD.md) for dependencies and commands.
+`build-grid/out`; see [build.md](build.md) for dependencies and commands.
 
 The grid plugin is named **nam-grid** (`NGr1`), distinct from the dual prototype (`NDu1`).
 Artifacts are `nam-grid.clap` / `nam-grid.vst3`. This unreleased prototype does not guarantee
@@ -20,7 +20,7 @@ IN -> Pre1 -> Pre2 -> Pre3 -> Pre4 -+                         +- Post1 -> Post2 
 ```
 
 Every numbered position accepts a mono NAM capture (amp, rig, pedal, outboard or cabinet),
-or a [built-in effect](MODULES.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
+or a [built-in effect](modules.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
 modulation, delay, spring reverb or Wah. NAM slots have input gain,
 output trim, Full/Lite where available, and bypass; built-ins expose at most seven knobs and Enabled. Empty slots pass
 audio; their gain controls take effect when a model is loaded. Slots are processed left to
@@ -33,7 +33,7 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   `<` / `>` in the module editor traverse the library across configured folders.
 - Right-click a card to Clear, Copy/Move/Swap with a destination. Tall mono-sum input/output meters
   appear beside active, loaded cards; gate/compressor reduction is shown in the selected module panel.
-  See [SLOTS.md](SLOTS.md).
+  See [development.md](development.md).
 - Add NAM and IR folders in **Library & settings**. Multiple source folders and their subfolders
   become nested selection menus. The default preference file remains `NAMDualPrototype/library.json`.
 - **Blend A / B** is the percentage of lane B: 0% uses A, 50% averages both, 100% uses B.
@@ -42,7 +42,7 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   signal, turn the blend fully toward the modeled lane.
 - The header preset name opens file Save/Load and presets in the last used folder;
   its arrows step through that folder. Global IN is at the input, OUT at the
-  output, and A/B on the right. See [PRESETS.md](PRESETS.md).
+  output, and A/B on the right. See [presets.md](presets.md).
 - New instances have no shared gate, EQ or IR processing: add those as modules. Master and the
   existing 5 Hz DC blocker remain after the grid. Recalled projects retain their legacy global
   processing settings, with compatibility toggles in Settings when used; this preserves their sound.
@@ -90,71 +90,16 @@ do not automatically suspend a loaded lane. Explicitly bypass unused models to s
 Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receive a silence
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
-The layout has **3,099 parameters**, including one contiguous bank of 173 FX
-controls per slot. Prototype host IDs, names and enum ranges are not frozen.
-`###NAMGrid-v1###` / schema 23 stores all 16 paths, types, named values, content
-identities and Noise Gate (Smart) profiles. Validation
-precedes mutation; missing files retain their paths while that slot passes audio.
-Some older-format readers remain, but Pre/Post parameter-name changes mean old
-unreleased projects may require rebuilding. No compatibility guarantee is made.
-The separate grid plugin ID does not automatically replace the former dual plugin.
-
+Grid state stores slot paths, module types, named values, content identities and
+learned profiles. Validation precedes mutation; missing files retain their paths
+while that slot passes audio. See [implementation and compatibility](development.md)
+for the source of truth and preview compatibility policy.
 
 ## Verification
 
-Windows x64 Release CLAP and VST3 build successfully. The five CTest suites are `capture-library`, `wav-decoder`, `resampling`, `stages` and `clap-smoke`.
-Current module coverage and limitations are in [MODULES.md](MODULES.md).
-
-- Library scanning/search/classification and nested menu selection tests remain intact.
-- All 16 positions use distinct noncommuting affine fixtures to check serial order, independent
-  gain/trim, selective bypass, and split/blend/rejoin order at both blend endpoints and a mixture.
-- Empty-lane unity holds during blend changes. Four synthetic A2 processors across input/A/B/output
-  match independent references with variable 1/3/64/127/256/512-frame blocks at 48/44.1/96 kHz.
-- Unequal-lane impulse tests check physical alignment, preserved bypass latency, and hosts whose
-  maximum block size is one sample. Tested grid paths observe no C++ allocations/deletions and
-  pass Eigen's allocation guard.
-- CLAP covers all 16 model/effect selections and 2,490 parameter values through save/reload, old-state
-  migration, invalid later-slot state, missing files, bypassed slots, mono/stereo port layouts,
-  and full-grid processing at all three rates. The synthetic NAM fixture grid measures 0/324/504 conversion-latency samples;
-  these figures describe those models/rates, not a fixed latency for all modules.
-- A hidden native Windows editor test exercises IN1/IN2/A1/B1/OUT4 next buttons, library search,
-  state-dirty notification, editor teardown, and a shorter-lane load that changes alignment while
-  leaving total host latency unchanged. The latter correctly requests CLAP restart/reactivation.
-- A read-only DSP probe loaded four real user exports: Avalon AD2022 in IN1, Vox AC30 in A1,
-  Fender Deluxe in B1, and UA 610B in OUT1. Variable-block 48 kHz processing produced finite,
-  nonzero audio without observed audio-path allocations. Captures were not modified or copied.
-
-These are offline/harness results. No listening evaluation, Bitwig session, macOS build, VST3
-host validation, full visual layout review, or general race detector run was performed.
-
-### Historical CPU and latency (schema-7 checkpoint)
-
-These recorded timings predate the stereo/Spring/Wah changes; they are retained for
-comparison and were not remeasured for the current build. For later effect measurements,
-see [MODULES.md](MODULES.md).
-
-Ryzen 9 5950X, Windows x64 Release, 128-frame blocks. Same two deterministic A2 nano/standard
-fixtures and benchmark procedure as the dual checkpoint: 128,000 samples per render, one warm-up,
-fastest of three timed renders. Gate/EQ/IR/calibration are disabled, with unity gains. The 16-model
-case alternates the two fixtures across all 16 slots and blends the parallel lanes equally.
-Measurements below were taken sequentially with builds/tests idle. CPU is elapsed time divided
-by audio duration, expressed as a percentage of one core, not Bitwig's DSP meter.
-
-| Host rate | Dual checkpoint, 2 models | Grid, 2 models | Grid, 16 models | Grid latency, 2 / 16 models |
-| --- | ---: | ---: | ---: | --- |
-| 48 kHz | 6.99% | 7.34% | 57.48% | 0 / 0 samples |
-| 44.1 kHz | 8.03% | 7.93% | 64.64% | 54 / 324 samples |
-| 96 kHz | 8.45% | 8.52% | 69.00% | 84 / 504 samples |
-
-Two loaded models remain close to the checkpoint cost, with variation across runs/rates.
-Loading all 16 adds substantial inference work; parallel signal lanes run on the same audio
-thread, not on extra CPU worker threads. These are synthetic offline timings, not a low-buffer
-underrun test or a performance guarantee for arbitrary captures. No extra fixed algorithmic
-latency is introduced when models run at the host rate.
-
-To reproduce, use `nam-clap-bench <plugin.clap> dual 1 <drive.nam> <amp.nam>` for two models or
-`nam-clap-bench <grid.clap> grid 1 <drive.nam> <amp.nam>` for all 16, using the synthetic fixtures
-created by the CLAP smoke test. The benchmark can read both checkpoint and grid state formats.
+Use the [build guide](build.md) for automated checks and the
+[FX benchmark](fx-performance.md) to measure a current rig. Release acceptance
+is tracked in the [release checklist](release-checklist.md).
 
 ## Manual DAW check
 
@@ -170,6 +115,6 @@ created by the CLAP smoke test. The benchmark can read both checkpoint and grid 
 
 ## Build
 
-Follow [BUILD.md](BUILD.md) for dependency setup, both plugin formats and the
+Follow [build.md](build.md) for dependency setup, both plugin formats and the
 complete test-target list. Keep build commands there so this routing guide does
 not maintain a second copy.

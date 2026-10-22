@@ -4,9 +4,9 @@ These are electric-guitar insertion settings, designed to identify each effect w
 
 Adding/replacing a built-in module applies its settings from `SlotDefaults.h`, including shared parameters left by the previous module. Double-clicking a module dial resets that parameter to the same module-specific value. Existing project/rig recall and Copy/Move/Swap keep the saved settings. Re-selecting Smart Gate preserves its learned noise profile; Learn stays off on insertion. All modules start enabled, with tempo sync off; enabling sync initially uses a quarter note. Other than the output offsets listed below, module output controls start at unity.
 
-## Research and interpretation
+## Outboard starting settings
 
-The first [Airwindows outboard modules](AIRWINDOWS_OUTBOARD.md) add these defaults:
+The first [Airwindows outboard modules](airwindows-outboard.md) add these defaults:
 
 | Module | Starting settings | Purpose |
 | --- | --- | --- |
@@ -23,19 +23,12 @@ level-dependent harmonics. Compress and Comp speed use native 0–100%, with no
 invented ratio/attack/release units. See the implementation audit for exact mappings.
 Digital Black Threshold spans −74…−10 dB, staying inside its native floor. Pressure
 retains its nonlinear native blend inside the conventional outer Mix. Both receive
-additional [rate and meter corrections](AIRWINDOWS_DYNAMICS.md) from the source audit.
+additional [rate and meter corrections](airwindows-dynamics.md) from the source audit.
 
-The exact numbers below are **nam-grid design choices**, informed by the following primary sources and checked against our DSP. They are not claimed to be another product's factory presets. Percentages and algorithms differ between products.
-
-- [Hotone Ampero II Stomp manuals](https://www.hotoneaudio.com/support/): the user's local *Effect List, firmware 2.5.0*, printed pp. 64–71 and 72–84, distinguishes slow chorus/flanger/phaser movement from vibrato/tremolo, and describes separate delay characters, swell, and reverb controls. Local PDF: `C:/Users/Fannon/My Drive/eBooks/Manual/Ampero II Stomp_Effect List_EN_Firmware V2.5.0.1785406068293.pdf`.
-- [Minimal Audio Flex Chorus manual](https://manual.minimal.audio/core-effects-manual/effects/flex-chorus): delay time/depth change the scale and detuning; feedback introduces a more resonant character. This supports a restrained chorus with no default feedback, and a separate flanger voicing.
-- [FabFilter compressor controls](https://www.fabfilter.com/learn/compression/basic-compressor-controls): preserving initial transients and choosing release around the performance are useful starting principles. Smooth starts with moderate attack and longer release; Punch retains its slower attack and a dry blend. Threshold and makeup still require adjustment for actual input level.
-- [BOSS noise suppressor guide](https://articles.boss.info/creative-ways-to-use-a-noise-suppressor-pedal-for-guitar/): threshold depends on the noise floor; decay affects sustain. Keep the already useful Smart Gate settings and use a moderate release for the conventional gate.
-- [Strymon El Capistan](https://www.strymon.net/product/elcapistan/): tonal bandwidth, modulation and feedback distinguish tape repeats. [Strymon's slapback example](https://www.strymon.net/this-weeks-favorite-el-capistan-slapback-echo/) describes short, low-feedback echoes; our separate Slapback preset retains 90 ms with a single repeat.
-- [Strymon BigSky manual](https://www.strymon.net/manuals/BigSky_UserManual_RevD.pdf), pp. 4 and reverb-machine descriptions: decay is expressed as RT60; Cloud is intended for especially extended spaces. This informs a short Room, medium Plate, spacious Hall and longer Cloud rather than one shared initial decay.
-- [EHX Nano POG manual](https://www.ehx.com/wp-content/uploads/2021/01/nano-pog-manual.pdf): independent dry and octave levels support a blended octave starting point. Our octave-down processor is monophonic, unlike POG.
-- [EHX Deep Freeze](https://shop.ehx.com/item/pico%20freeze/guitar-effects-pedals-synthesis/): held sound and dry guitar can coexist. Freeze starts unlatched with a modest held level.
-- [KAZU rack manual](https://everyreasontopanic.github.io/KAZU/manual.html#rack), previously downloaded local copy: distinguishes Size, Decay, Diffusion, Pre-delay and Tone for reverb, and effect-specific controls throughout the rack. Used for control intent, not numeric factory defaults.
+These defaults are nam-grid design choices, not another product's factory
+presets. Treat them as starting points and adjust input-dependent thresholds and
+makeup to the actual instrument. Source ranges and reset values live in
+`EffectParameters.h` and `SlotDefaults.h`.
 
 ## Insertion settings
 
@@ -108,7 +101,6 @@ Room, Plate, Cloud, Hall, Spring and Shimmer show a parameter sketch. Tank geome
 
 Conventional delay Time now spans 5–2000 ms (synced notes can reach 8 s).
 The four updated reverb cores offer 0.15–30 s Decay, 25–200% Size and 0–200 ms
-Pre-delay. See [REVERB_DELAY_AUDITION.md](archive/REVERB_DELAY_AUDITION.md) for native
-Airwindows ranges and automation behavior.
+Pre-delay.
 
 This is an explanatory parameter view, not a measured impulse response or an estimate of an actual room's dimensions. Damping's relative trace is illustrative. Live audio metering remains on the grid.

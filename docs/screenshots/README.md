@@ -13,4 +13,4 @@ captured directly from its OpenGL surface with
 [`CaptureEditor`](../../tests/WinEditorCapture.h) and converted losslessly from
 BMP to PNG. No desktop chrome, NAM captures, IRs or personal library paths appear.
 For future captures, the existing native smoke-test screenshot modes are
-documented in [BUILD.md](../BUILD.md).
+documented in [build.md](../build.md).

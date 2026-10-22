@@ -2,7 +2,7 @@
 """Run only on demand: isolate CLAP scenarios and write CPU/deadline reports.
 
 Requires an explicitly built Release nam-fx-performance and nam-grid CLAP.
-No audio device is opened. See docs/FX_PERFORMANCE.md for measurement limits.
+No audio device is opened. See docs/fx-performance.md for measurement limits.
 """
 import argparse
 from collections import defaultdict
@@ -43,7 +43,7 @@ def find_executable(build, name):
         candidate = parent / (name + suffix)
         if candidate.is_file():
             return candidate.resolve()
-    raise ValueError(f"Build {name} in Release first, or supply --host (see docs/FX_PERFORMANCE.md)")
+    raise ValueError(f"Build {name} in Release first, or supply --host (see docs/fx-performance.md)")
 
 
 def plugin_binary(path):
@@ -283,7 +283,7 @@ def write_reports(folder, metadata, rows):
               "A single module's cost is not a complete DAW project budget. Even paced mode uses an ordinary "
               "OS thread, so wake-up lateness is host/scheduler evidence rather than a measured device xrun. "
               "Steady-state algorithm modes are covered; knob extremes and every combination of tempo divisions "
-              "with algorithm switches are not exhaustive. See docs/FX_PERFORMANCE.md.", ""]
+              "with algorithm switches are not exhaustive. See docs/fx-performance.md.", ""]
     (folder / "report.md").write_text("\n".join(lines), encoding="utf-8")
     return len(errors), len(overruns)
 

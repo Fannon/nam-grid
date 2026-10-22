@@ -60,11 +60,8 @@ distorted guitar. Add Airwindows Tape separately for saturation.
 ## Integration and verification
 
 The module appends effect ID 43, preserving existing IDs including Noise Print 64.
-State schema 17 introduced seven named controls per slot. Current schema 23
-places these controls in the same contiguous FX bank as every other effect;
-prototype automation IDs are allowed to change. Older named-state readers initialize missing tape knobs to defaults;
-schema 16 and earlier reject the new effect ID. Copy/Move/Swap, scenes and `.ngrid`
-presets use the normal slot control bank.
+Its named controls use the normal slot bank for Copy/Move/Swap, scenes and
+`.ngrid` presets. Preview compatibility is described in [development.md](development.md).
 
 All delay memory is allocated in Reset outside audio. Bypass drains with silent
 input and disables hiss generation before suspending after one second.
@@ -76,28 +73,6 @@ sample-rate scaling at 44.1/48/88.2/96/192 kHz, host block partition invariance,
 zero audio allocations/deletions, bypass drain, measured visualization values,
 schema migration, malformed-state rejection, automation and editor gestures.
 
-Windows Release CLAP/VST3 build successfully. All four CTest suites pass:
-capture-library, wav-decoder, stages and clap-smoke (310.66 seconds total;
-294.24 seconds for the native host/editor suite). The full run includes tape
-automation, module-menu selection, all seven editor gestures, graph toggling,
-real transport processing, `.ngrid` file save/load and the existing editor checks.
-Library navigation tests explicitly request a rescan after state recall so they
-respect a disabled startup-rescan preference; the expanded editor suite allows
-420 seconds on slower hosts.
-
-The full-plugin callback benchmark
-at 128-frame blocks measured the following percentages of one local CPU core
-(fastest of three measured runs after warmup):
-
-| Sample rate | Empty grid | One LoFi Tape slot | Added cost |
-| --- | ---: | ---: | ---: |
-| 44.1 kHz | 0.52% | 0.79% | 0.27% |
-| 48 kHz | 0.57% | 0.81% | 0.24% |
-| 96 kHz | 1.12% | 1.62% | 0.50% |
-
-These are synthetic callback measurements with the graph editor closed, not a
-Bitwig meter. Raw output is in ignored `build-lofi/bench-empty.csv` and
-`build-lofi/bench-lofi.csv`. The module reports zero compensation latency.
-Real-guitar/Bitwig listening, a visible graph review and macOS validation remain
-manual follow-ups. The hidden OpenGL framebuffer capture returned black, so it
-does not establish visual appearance.
+The module reports zero compensation latency. Use [build.md](build.md) for
+tests and [fx-performance.md](fx-performance.md) to measure the current build.
+Real-guitar listening and DAW acceptance remain separate checks.

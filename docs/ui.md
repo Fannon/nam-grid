@@ -23,7 +23,7 @@ Previous/next arrows follow the same category or folder. NAM uses Input, Bass, M
 its neutral EQ acts after inference, not as controls of the captured amp. Compatible captures show
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
 shows the current mode. The module menu also offers A2 Lite. IR uses Level;
-see [MODULES.md](MODULES.md) for other controls.
+see [modules.md](modules.md) for other controls.
 Every loaded module offers a visualization: signal history versus threshold and
 numeric GR and an orange reduction bar for dynamics; compressors, gates and the limiter also show their static/closing characteristic beside live levels. Compressor histories exclude makeup gain and reflect parallel Mix. Other views include echo timing/treble guides on a fixed dB scale for standard and Dual delays,
 live input/output level history for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
@@ -41,14 +41,14 @@ outside project/rig state. NAM Amp + Cab uses separate Amp and Cab badges in bot
 All knobs show editable values and units below the dial;
 double-click the dial to restore its module-specific default. Adding/replacing a built-in module
 applies its electric-guitar starting settings, including parameters shared with the prior module.
-Saved presets and slot edits retain their exact values. See [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md)
-for all module defaults and acoustic/bass adjustments, and [PRESETS.md](PRESETS.md) for rig recall.
+Saved presets and slot edits retain their exact values. See [effect-defaults.md](effect-defaults.md)
+for all module defaults and acoustic/bass adjustments, and [presets.md](presets.md) for rig recall.
 
 Reverb previews share a field for early reflections, nominal -60 dB decay and damping guides. Size changes spacing; pre-delay shifts the onset. Logarithmic time is explicit. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer also shows pitch direction/amount and Freeze. These are parameter
 sketches, not measured room dimensions or impulse responses.
 All FX share separate title, explanation, chart and footer rows. Frequency/dB
 limits, reference signals and measured histories are labeled. See the complete
-[module-by-module visualization audit](FX_VISUALIZATION_REVIEW.md).
+[module-by-module visualization audit](ui.md).
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
@@ -74,7 +74,7 @@ Library & settings provides Add folder, Remove and Rescan all. Up to 32 roots ar
 per list in project state and the per-user preference. The browser has a separate preset-folder list. Startup rescan is optional (default on); when off, use Rescan all. More than seven roots scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
 file paths are deduplicated; identical source basenames receive distinct menu names. Root and
-nested folder names remain in the index. The dedicated [browser](BROWSER.md) supplies
+nested folder names remain in the index. The dedicated [browser](browser.md) supplies
 live ranked search, folder scoping, metadata details and category-specific entry points. The scanner runs on its existing background worker;
 latest request wins, and menus retain immutable snapshots while open.
 The scanner computes SHA-1 content hashes for captures/IRs. The hash is a recall aid, not a
@@ -114,42 +114,7 @@ as modules. Their old host parameter IDs and saved values remain readable, for t
 gate / EQ / IR toggles to disable it. Previous Pre 2 input calibration/output-mode behavior remains
 in a flat settings section, separate from musical input gain. This change introduces no DSP latency.
 
-## Verification
-
-Windows CLAP and VST3 build with CMake. The existing library, DSP and CLAP tests cover mixed
-sources, overlap, duplicate basenames, filters, nested menu tags, missing roots, preference
-migration, folder-list state recall/rejection, native editor selection, knob ownership, bypass,
-quality changes and NAM-to-IR-to-NAM cycling. Native settings input interception is exercised.
-The editor is also rendered for visual review. Bitwig and macOS operation remain unverified.
-
-On Windows an optional fourth argument to `nam-clap-smoke` writes visual-review BMP artifacts.
-This opt-in mode temporarily shows its own editor without activating it, reads only that editor's
-OpenGL surface, then closes it; ordinary CTest keeps the editor hidden:
-
-```powershell
-# Run from build-grid; paths are relative to that working directory.
-.\NeuralAmpModeler\nam-clap-smoke.exe .\out\nam-grid.clap .. .\ui-preview
-```
-
-Manual DAW check:
-
-1. Close older plugin windows and rescan/load `nam-grid`. Check black background, readable text,
-   selected outline, names, meters and bottom controls at default and scaled sizes.
-2. Add one NAM root and a separate IR root; rescan. Navigate both through their menu categories.
-   Select a WAV: confirm WAV / IR and Level. Select a NAM: confirm Input / Output trim.
-3. Select NAM, gate, compressor and both EQ variants. Tweak controls and automate them; changing
-   selection must neither change audio nor redirect automation to a different slot.
-4. Open settings. Grid controls must not show through or respond. Close/Escape must return to
-   the same selection. Remove a source; its loaded modules must keep processing.
-5. Save/reopen the project. Check every library root, module file/type, gain, bypass and quality.
-   Open an older project with shared processing; verify its compatibility toggles and sound.
-
-The eight-position editor uses two rows of four controls. Enabled stays in the
-last position for assigned modules; empty slots hide it. NAM uses all seven knobs;
-Tube Boost leaves one unused.
-The opt-in OpenGL readback helper occasionally returns partial frames during
-repeated captures; its screenshots are layout artifacts, not proof of host repaint
-behavior. Reopen/resize/repaint should still be checked in Bitwig.
+## Tuner and performance controls
 
 The automatable **Tuner** button sits beside Library & settings. When active,
 the tuner replaces the lower module editor while the grid stays visible. It shows
@@ -174,9 +139,32 @@ Filter / Volume respectively, with six/five knobs and unused bottom cells blank.
 Utility Width is −100 mono / 0 unchanged / +100 wider; its host/state name is
 also Width. Unique control names now agree across the editor and host.
 Each selected module has a short sound explanation beneath its title. Hover its
-controls for audible-effect guidance. Labels, conditional controls and parameter
-sketches are detailed in [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md).
+controls for audible-effect guidance. See [modules.md](modules.md) for controls and [development.md](development.md) for parameter ownership.
 
 Grid toggles have equal 12-pixel top/right insets and a 32-pixel hit area. Bypassed cards use a darker background, subdued text/badges and an unfilled toggle with a minus mark.
 
 Empty slots are inactive add targets. They show no bypass toggle on the card and no Enabled or previous/next controls in the bottom editor; click + Add module or the module picker to fill one.
+
+## Copy, move and swap
+
+Right-click a card to Copy, Move or Swap with another slot. Copy/Move replace
+the destination; Move empties the source. Controls, bypass and model quality
+travel together, while files stay on disk and automation stays attached to the
+physical slots. Both processors are prepared before an edit commits. A missing
+or invalid resource rejects the edit and keeps both slots unchanged.
+
+## Reading visualizations
+
+Measured IN/OUT histories describe level, not spectrum or stereo correlation;
+mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe
+configured behavior, not an invented live LFO phase or a measured room impulse.
+A bypassed module can still show its settings; Enabled controls the audio.
+
+Frequency plots use logarithmic frequency with labeled limits. Timing sketches
+state their window; reverb guides use nominal decay or explicitly relative scales.
+Native Airwindows intensity/size controls must not be presented as calibrated RT60.
+Distinguish nonlinear transfer curves from small-signal EQ responses and measured
+gain reduction. Source pins and mappings are in the implementation notes.
+
+The global Visualizations preference hides plots without changing audio or saved
+rig controls. For native screenshot sweeps and editor checks, use [build.md](build.md).

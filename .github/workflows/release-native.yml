@@ -80,5 +80,5 @@ jobs:
           else
             gh release create "$RELEASE_TAG" artifacts/nam-grid-*.zip \
               --verify-tag --draft --title "nam-grid $RELEASE_TAG" \
-              --notes-file docs/RELEASE_NOTES.md
+              --notes-file docs/release-notes.md
           fi

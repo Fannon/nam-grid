@@ -11,7 +11,7 @@ assignees: ''
 
 ## Before you make a new bug report:
 - [ ] Have you searched the Issues to see if your problem has already been reported? If it has, please follow that Issue instead of opening a duplicate!
-- [ ] Have you checked the [release status and known limits](https://github.com/Fannon/nam-grid/blob/main/docs/RELEASE_CHECKLIST.md)?
+- [ ] Have you checked the [release status and known limits](https://github.com/Fannon/nam-grid/blob/main/docs/release-checklist.md)?
 
 ## Description
 Provide a clear and concise description of what the bug is.

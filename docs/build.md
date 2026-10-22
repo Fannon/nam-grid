@@ -11,7 +11,7 @@ old grid binary in plugin scan paths. The historical dual prototype on branch `p
 - Windows x64: Visual Studio 2022 C++ tools (v143), Windows SDK, CMake >= 3.20,
   Python >= 3.8, Git. Ninja is optional.
 - macOS arm64: Xcode command-line tools, CMake, Python, Git. CI builds and tests
-  this target; real-host acceptance is tracked in the [release checklist](RELEASE_CHECKLIST.md).
+  this target; real-host acceptance is tracked in the [release checklist](release-checklist.md).
 - Recursive NAM submodules pinned in this repository. iPlug2 is now the official
   repository at `d54f69050f517e43b941d88c2a170f0a840b9ee4`.
 - SDKs downloaded by `scripts/setup-deps.py`: CLAP 1.2.10 at `a47f6ba`, helpers at
@@ -90,14 +90,14 @@ release matrix. No Linux plugin archive is currently produced.
 
 Point your DAW at `build-grid/out` for local evaluation, then rescan plugins.
 For installation and a first rig, see the [main README](../README.md).
-The maintained [editor guide](UI.md), [browser guide](BROWSER.md),
-[routing reference](GRID.md) and [preset guide](PRESETS.md) cover library setup,
+The maintained [editor guide](ui.md), [browser guide](browser.md),
+[routing reference](grid.md) and [preset guide](presets.md) cover library setup,
 slot editing, external file references and project recall.
 
 ## Reproduce the CPU comparison
 
 For an on-demand report covering every built-in FX mode, NAM, IR loading and
-small-buffer callback deadlines, see [FX_PERFORMANCE.md](FX_PERFORMANCE.md).
+small-buffer callback deadlines, see [fx-performance.md](fx-performance.md).
 That tool is opt-in and runs separately from CTest and CI.
 
 For DSP/state regression checks without opening the native editor, set
@@ -126,14 +126,14 @@ The baseline script extracts the original plugin DSP/header/state reader from up
 `16be869` and qualifies its base class for CLAP. It uses the same framework, Core and compiler
 as the prototype. The benchmark establishes host rate/block size before loading baseline state,
 because the original loader assumes those values are available. The baseline is a DSP comparison
-build, not an official upstream CLAP release. See the
-[historical verification record](archive/VERIFICATION.md) for results and limits.
+build, not an official upstream CLAP release. Compare preserved binaries under
+matching conditions; use [fx-performance.md](fx-performance.md) for current reporting.
 
 WAV regression tests are in the `nam-wav-tests` target (`wav-decoder` in CTest).
 Build that target alongside the existing library/stage/CLAP tests. A separate
 configuration with `-DNAM_WAV_ASAN=ON` enables MSVC AddressSanitizer or GCC/Clang
-address/undefined sanitizers for this focused target. See
-[REVIEW_FIXES_20261020.md](archive/REVIEW_FIXES_20261020.md) for reproduction details.
+address/undefined sanitizers for this focused target. Build `nam-wav-tests` in
+that configuration and run `ctest --test-dir <build> -C Release -R wav-decoder --output-on-failure`.
 
 Resampler warm-up regressions are in `nam-resampling-tests` (`resampling` in CTest).
 They use exact WDL allocations to expose reads hidden by its usual allocation padding.
@@ -154,8 +154,6 @@ For a native FX visualization sweep, set `NAM_GRID_FX_VISUALS=1` instead. It
 retains the DSP/state setup, then renders all 55 catalog modules at musical
 defaults with audio and at minimum/maximum control values. Supply the optional
 screenshot directory to review `fx-<effect ID>-default/min/max.bmp` artifacts.
-It exits before the unrelated browser/menu matrix. See
-[FX_VISUALIZATION_REVIEW.md](FX_VISUALIZATION_REVIEW.md) for the audit and display
-semantics; ordinary CTest still runs the complete native editor regression.
+It exits before the unrelated browser/menu matrix. See [ui.md](ui.md) for display semantics; ordinary CTest still runs the complete native editor regression.
 For a targeted iteration, `NAM_GRID_FX_VISUALS_ONLY=12,15` limits that opt-in sweep
 to the listed effect IDs (Digital Delay and Room here); unset it for all modules.

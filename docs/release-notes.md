@@ -3,7 +3,7 @@
 A fixed 16-slot guitar effects grid with NAM captures, cabinet IRs, parallel lanes,
 rig presets, a tuner, and built-in effects. See the
 [README](https://github.com/Fannon/nam-grid#readme) and
-[build guide](https://github.com/Fannon/nam-grid/blob/main/docs/BUILD.md) for setup and usage.
+[build guide](https://github.com/Fannon/nam-grid/blob/main/docs/build.md) for setup and usage.
 
 The release archives contain the CLAP and VST3 plugins plus third-party notices.
 Retain the notices when copying or redistributing the plugins. Model captures

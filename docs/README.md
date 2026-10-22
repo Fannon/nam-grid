@@ -1,50 +1,45 @@
 # Documentation
 
 Start with the [main README](../README.md) for downloads, installation and a first
-guitar rig. The pages below describe usage and implementation. Dated reviews,
-prototype plans and old measurements live in the [archive](archive/README.md).
+guitar rig. These guides describe current usage, implementation and release checks.
 
 ## Playing and building rigs
 
 | Guide | Contents |
 | --- | --- |
-| [Editor](UI.md) | Grid cards, controls, meters and visualizations |
-| [Library browser](BROWSER.md) | Find effects, NAM captures, cabinet IRs and presets |
-| [Modules](MODULES.md) | Effect controls and processing behavior |
-| [Starting settings](EFFECT_DEFAULTS.md) | Electric guitar defaults and acoustic/bass adjustments |
-| [Routing](GRID.md) | Pre/Post stages, parallel lanes, stereo and latency |
-| [Presets](PRESETS.md) | Save, recall and share complete rigs |
-| [Tuner](TUNER.md) | Tuning, reference pitch, mute and history |
-| [Performance controls](ROADMAP_EFFECTS.md) | Macros, modulation, scenes and lane controls |
-| [Noise Gate (Smart)](NOISE_PRINT.md) | Learn and reduce a noise profile |
-| [LoFi Tape Machine](LOFI_TAPE.md) | Tape transport and degradation effects |
-| [Cosmic Echo](COSMIC_ECHO.md) | Ambient echo styles and controls |
-| [Stereo effects](STEREO_GUITAR_EFFECTS.md) | Ping-pong, chorus spread, spring and wah |
+| [Editor](ui.md) | Grid cards, controls, meters and visualizations |
+| [Library browser](browser.md) | Find effects, NAM captures, cabinet IRs and presets |
+| [Modules](modules.md) | Effect controls and processing behavior |
+| [Starting settings](effect-defaults.md) | Electric guitar defaults and acoustic/bass adjustments |
+| [Routing](grid.md) | Pre/Post stages, parallel lanes, stereo and latency |
+| [Presets](presets.md) | Save, recall and share complete rigs |
+| [Tuner](tuner.md) | Tuning, reference pitch, mute and history |
+| [Performance controls](performance.md) | Macros, modulation, scenes and lane controls |
+| [Noise Gate (Smart)](noise-gate-smart.md) | Learn and reduce a noise profile |
+| [LoFi Tape Machine](lofi-tape.md) | Tape transport and degradation effects |
+| [Cosmic Echo](cosmic-echo.md) | Ambient echo styles and controls |
 
 ## Development and release
 
-- [Build and test](BUILD.md) and [contribution guidance](../CONTRIBUTING.md).
-- [Release checklist and known validation limits](RELEASE_CHECKLIST.md).
-  [Release notes](RELEASE_NOTES.md) are used by the release workflow.
-- [Slot editing and processing](SLOTS.md), [FX parameter audit](FX_PARAMETER_REVIEW.md)
-  and [visualization audit](FX_VISUALIZATION_REVIEW.md).
-- [On-demand FX benchmarks](FX_PERFORMANCE.md) and
-  [further optimization candidates](FX_OPTIMIZATION_CANDIDATES.md).
+- [Build and test](build.md) and [contribution guidance](../CONTRIBUTING.md).
+- [Release checklist and known validation limits](release-checklist.md).
+  [Release notes](release-notes.md) are used by the release workflow.
+- [Implementation and compatibility](development.md) and
+  [on-demand FX benchmarks](fx-performance.md).
 
-## DSP sources and research
+## DSP implementation sources
 
-- [Airwindows candidates](AIRWINDOWS_CANDIDATES.md),
-  [outboard implementation](AIRWINDOWS_OUTBOARD.md) and
-  [dynamics implementation](AIRWINDOWS_DYNAMICS.md).
-- [Reverb and delay research](REVERB_DELAY_RESEARCH.md) and
-  [Surge source/license review](SURGE_SOURCE_REVIEW.md).
+- [Airwindows outboard implementation](airwindows-outboard.md) and
+  [dynamics implementation](airwindows-dynamics.md).
+- [Reverb core adaptations](../NeuralAmpModeler/dsp/reverb/README.md).
 - [Third-party notices](../NeuralAmpModeler/installer/ThirdPartyNotices.txt)
   and [screenshot provenance](screenshots/README.md).
 
 ## Maintaining these docs
 
-Keep usage, build instructions and release requirements in the guides above.
-Put completed reviews, one-off measurements and development checkpoints in
-`archive/`, with their date or source commit and a link to the relevant guide.
-Historical test results establish what passed at that checkpoint; they are not
-the current build status. Check GitHub Actions for a specific commit.
+Keep lasting usage, build and implementation information in the guides above.
+Use lowercase kebab-case filenames, keeping conventional names such as `README.md`.
+Put reviews, audits, measurements and handoffs in gitignored `tmp/`, or in the
+relevant PR description/comments. Git history preserves removed reports.
+Check GitHub Actions for the status of a specific commit; old test timings are
+not a current validation claim. See [AGENTS.md](../AGENTS.md).

@@ -33,7 +33,7 @@ def apply_dependency_patches():
 
 def main():
     if not (ROOT / "iPlug2" / "iPlug2.cmake").is_file():
-        raise SystemExit("Initialize the pinned git submodules first (see docs/BUILD.md).")
+        raise SystemExit("Initialize the pinned git submodules first (see docs/build.md).")
     apply_dependency_patches()
     CACHE.mkdir(exist_ok=True)
     for name, url, revision in PINS:

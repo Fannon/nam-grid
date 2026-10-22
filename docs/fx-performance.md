@@ -5,21 +5,14 @@ plus NAM models and WAV cabinet IRs. It opens no editor or audio device.
 It is disabled by default, excluded from the default build, and never registered
 with CTest or invoked by CI. Run it explicitly when investigating performance.
 
-See the [2026-10-22 two-sweep report](archive/FX_PERFORMANCE_REPORT_20261022.md) for
-measured module costs, real A2/A2 Lite comparisons and mixed-load deadline results.
-The [Smart Gate optimization report](archive/SMART_GATE_OPTIMIZATION_20261022.md) records
-two repeated before/after comparisons and numerical/automation verification.
-See [further optimization candidates](FX_OPTIMIZATION_CANDIDATES.md) for the IR
-convolution shortlist and proposed comparison criteria.
-
 ## Build and run
 
-Prepare dependencies as described in [BUILD.md](BUILD.md), then use a Release build:
+Prepare dependencies as described in [build.md](build.md), then use a Release build:
 
 ```sh
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release -DNAM_BUILD_PERFORMANCE_TESTS=ON
 cmake --build build-grid --config Release --target nam-grid-clap nam-fx-performance --parallel 3
-python scripts/fx-performance.py
+python scripts/fx-performance.py --output tmp/fx-performance/full
 ```
 
 Windows requires the same x64 developer environment as the plugin build.
@@ -55,7 +48,8 @@ python scripts/fx-performance.py --filter "Digital Black" --rates 48000 --buffer
 `--filter` is a case-insensitive substring of module name, readable mode, or case
 ID, and can be repeated (OR). The empty-grid baseline always runs. `--output`
 chooses a report directory; the default is a timestamped folder beneath
-`build-grid/fx-performance/`. Exit code 1 means errors (or overruns when
+`build-grid/fx-performance/` (also ignored). Use `--output tmp/<investigation>`
+for local reports, as above. Exit code 1 means errors (or overruns when
 `--fail-on-overrun` is set); 2 means an invocation/setup failure. Other runs
 report overruns without making variable machine load a hard pass/fail gate.
 `--timeout` overrides the automatically sized per-scenario wall-time timeout.
@@ -173,3 +167,19 @@ build-grid/NeuralAmpModeler/nam-fx-performance --self-test
 ```
 
 Use the `Release` subdirectory and `.exe` suffix for a Visual Studio generator.
+
+## Comparing implementation changes
+
+Measure the current build before choosing an optimization. Compare the same
+captures, IRs, quality settings, sample rates and buffer sizes under comparable
+load, retaining both binaries. Repeated mean/p99 costs distinguish consistent
+work from isolated scheduling spikes; audible device underruns need a DAW test.
+
+For a convolution replacement, preserve onset, gain/sample-rate scaling, stereo
+independence, state recall and truncation policy. Quantify output error against
+the direct reference with impulses, silence/tails, variable blocks, reset and IR
+replacement. Prepare plans/buffers off audio and verify processing allocations
+and locks separately. Do not claim speedups from library descriptions alone.
+
+Keep generated measurements and comparisons in ignored `tmp/` or attach findings
+to the relevant PR. Only enduring instructions belong in this guide.

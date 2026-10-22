@@ -3,7 +3,7 @@
 nam-grid is preview software. Automated DSP, state and native-editor tests do not
 establish listening quality, DAW stability or complete CLAP/VST3 host coverage.
 Windows x64 and macOS arm64 are the CI build targets; Linux has no supported
-plugin build with the current framework. See [BUILD.md](BUILD.md) for packaging
+plugin build with the current framework. See [build.md](build.md) for packaging
 and [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml)
 for results for individual commits.
 
@@ -13,7 +13,7 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
 ## Automated checks and packages
 
 - [ ] Build CLAP and VST3 from a clean checkout with the pinned dependencies and
-  tracked patches, following [BUILD.md](BUILD.md).
+  tracked patches, following [build.md](build.md).
 - [ ] Run CTest: capture-library, wav-decoder, resampling, stages, clap-smoke and tuner.
 - [ ] Confirm the CI matrix passes for every platform included in the release.
 - [ ] Download and inspect the actual archives: plugin bundles, resources,
@@ -36,12 +36,11 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
 
 ## Publication
 
-- [ ] Finalize the release version, [notes](RELEASE_NOTES.md) and supported-platform
+- [ ] Finalize the release version, [notes](release-notes.md) and supported-platform
   wording, including remaining limits and external capture/IR requirements.
 - [ ] Create a preview tag, verify its draft release and archives, then review the
-  draft before publication. See [release workflow instructions](BUILD.md).
+  draft before publication. See [release workflow instructions](build.md).
 - [ ] Preserve existing plugin identities. Document compatibility changes to
   prototype projects, parameter IDs, names or enum ranges.
 
-The [2026-10-21 first-release review](archive/FIRST_RELEASE_REVIEW.md) preserves
-the original findings and checkpoint evidence behind this checklist.
+Record review evidence and results in the release PR or ignored `tmp/` reports.

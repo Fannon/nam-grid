@@ -18,8 +18,8 @@ Add your own NAM captures and cabinet IRs when building an amp rig.*
   gates, compressors, EQ, drives, modulation, pitch effects, delays and reverbs.
 - **Blend two sounds:** run separate amp chains or effects in parallel and use
   **A/B** to find the balance. Empty slots pass audio through.
-- **Explore creative effects:** try [Cosmic Echo](docs/COSMIC_ECHO.md), shimmer,
-  freeze, multi-head tape delay and [LoFi Tape Machine](docs/LOFI_TAPE.md).
+- **Explore creative effects:** try [Cosmic Echo](docs/cosmic-echo.md), shimmer,
+  freeze, multi-head tape delay and [LoFi Tape Machine](docs/lofi-tape.md).
 - **Keep playing controls close:** use the tuner, tempo-synced effects, macros,
   modulation and performance scenes. Visualizations help explain each effect.
 - **Save your whole rig:** recall module choices and settings with `.ngrid`
@@ -30,7 +30,7 @@ Add your own NAM captures and cabinet IRs when building an amp rig.*
 **Preview software.** Automated Windows and macOS builds are available through
 [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain).
 DAW listening tests, low-buffer sessions and VST3 host validation remain part of
-the [release checklist](docs/RELEASE_CHECKLIST.md). Project and automation
+the [release checklist](docs/release-checklist.md). Project and automation
 compatibility may change during the preview.
 
 | Platform | Preview archive | Status |
@@ -84,7 +84,7 @@ IN → Pre 1–4 ──┤                      ├→ A/B → Post 1–4 → OU
 Pre and Post affect both lanes. **A/B = 0%** selects A, **50%** mixes the lanes
 equally, and **100%** selects B. Built-in effects and IRs retain stereo;
 a mono NAM capture sums its input to mono, so place stereo effects after it
-when you want to keep their width. See [routing](docs/GRID.md) for details.
+when you want to keep their width. See [routing](docs/grid.md) for details.
 
 ## Find sounds and save rigs
 
@@ -102,11 +102,11 @@ Loading a large capture can briefly occupy the editor.
 
 | Learn more | Guide |
 | --- | --- |
-| Choose and edit modules | [Editor](docs/UI.md), [library browser](docs/BROWSER.md) |
-| Find an effect and a useful starting point | [Module reference](docs/MODULES.md), [starting settings](docs/EFFECT_DEFAULTS.md) |
-| Save, recall and share sounds | [Rig presets](docs/PRESETS.md) |
-| Tune and perform | [Tuner](docs/TUNER.md), [macros, modulation and scenes](docs/ROADMAP_EFFECTS.md) |
-| Reduce background noise | [Noise Gate (Smart)](docs/NOISE_PRINT.md) |
+| Choose and edit modules | [Editor](docs/ui.md), [library browser](docs/browser.md) |
+| Find an effect and a useful starting point | [Module reference](docs/modules.md), [starting settings](docs/effect-defaults.md) |
+| Save, recall and share sounds | [Rig presets](docs/presets.md) |
+| Tune and perform | [Tuner](docs/tuner.md), [macros, modulation and scenes](docs/performance.md) |
+| Reduce background noise | [Noise Gate (Smart)](docs/noise-gate-smart.md) |
 
 To report a problem, [open an issue](https://github.com/Fannon/nam-grid/issues)
 with your OS, DAW and version, plugin format, build commit and steps to reproduce.
@@ -115,22 +115,22 @@ For audio problems, include sample rate, buffer size and the modules involved.
 ## For developers
 
 nam-grid is based on NAM, NAM Core, AudioDSPTools and iPlug2. The supported
-build entry point is **CMake**. Follow [BUILD.md](docs/BUILD.md) for dependencies,
+build entry point is **CMake**. Follow [build.md](docs/build.md) for dependencies,
 submodule patches, build commands, CTest and packaging, and
 [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. The retained
 upstream installer and standalone scripts are historical.
 
-- **Architecture and controls:** [grid routing](docs/GRID.md),
-  [slot modules](docs/SLOTS.md), [FX parameters](docs/FX_PARAMETER_REVIEW.md),
-  [visualizations](docs/FX_VISUALIZATION_REVIEW.md).
-- **Verification:** [release checklist](docs/RELEASE_CHECKLIST.md) and
-  [on-demand FX benchmarks](docs/FX_PERFORMANCE.md).
-- **DSP sources and research:** [Airwindows outboard](docs/AIRWINDOWS_OUTBOARD.md),
-  [dynamics](docs/AIRWINDOWS_DYNAMICS.md), [module candidates](docs/AIRWINDOWS_CANDIDATES.md),
-  [reverb/delay research](docs/REVERB_DELAY_RESEARCH.md).
+- **Architecture and controls:** [grid routing](docs/grid.md),
+  [implementation and compatibility](docs/development.md),
+  [visualizations](docs/ui.md).
+- **Verification:** [release checklist](docs/release-checklist.md) and
+  [on-demand FX benchmarks](docs/fx-performance.md).
+- **DSP sources:** [Airwindows outboard](docs/airwindows-outboard.md),
+  [dynamics](docs/airwindows-dynamics.md) and
+  [reverb core adaptations](NeuralAmpModeler/dsp/reverb/README.md).
 
-See the [documentation index](docs/README.md) for all guides. Earlier reviews,
-prototype checkpoints and measurements are in the [archive](docs/archive/README.md).
+See the [documentation index](docs/README.md) for all guides. Reviews and
+measurement reports belong in PR descriptions/comments or ignored `tmp/` files.
 
 The existing CLAP/VST3 plugin IDs are retained for host identification. Preview
 parameter IDs, names and enum ranges may change; prototype project and

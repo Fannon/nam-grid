@@ -4,7 +4,7 @@
 
 // Algorithm references: AudioDSPTools (MIT, Steven Atkinson) and LEAF's
 // tCompressor (MIT, Jeff Snyder). Independent mono implementation; no LEAF runtime.
-// See docs/archive/EFFECTS.md and installer/ThirdPartyNotices.txt for provenance/notices.
+// See docs/modules.md and installer/ThirdPartyNotices.txt for provenance/notices.
 enum class SlotEffect
 {
   NAM = 0,

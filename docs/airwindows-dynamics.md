@@ -1,7 +1,7 @@
-# Digital Black Gate and Pressure — 2026-10-22
+# Digital Black Gate and Pressure
 
-Priorities five and six from [AIRWINDOWS_CANDIDATES.md](AIRWINDOWS_CANDIDATES.md)
-are implemented alongside the [first four outboard modules](AIRWINDOWS_OUTBOARD.md).
+These are adapted Airwindows dynamics modules; the other native mappings are
+in [airwindows-outboard.md](airwindows-outboard.md).
 Both belong in Dynamics and have three knobs, Enabled, and their own stereo state.
 Digital Black Gate also has a header Mode selector.
 
@@ -98,14 +98,12 @@ after a right-only burst catches the squared-rate recovery bug. Host tests cover
 the new mode choices, native gestures, both ends of the parameter bank and
 schema-24 migration.
 
-`nam-outboard-audition` measures the isolated stereo wrappers in 128-frame blocks,
-including its stimulus/analysis and excluding host/grid overhead. Local Release
-figures: Digital Black 0.31/0.59%, Hysteresis 0.24/0.48%, Pressure 0.40/0.77% of one
-CPU core at 48/96 kHz. Both report zero compensation latency. Continuous controls
-smooth over 20 ms; coefficients update every 32 samples on a persistent clock.
-Histories drain with silence for one second on bypass before suspension.
+Use `nam-outboard-audition` for isolated stereo-wrapper measurements or the
+[FX performance tool](fx-performance.md) for plugin callback measurements.
+Both modules report zero compensation latency. Continuous controls smooth over
+20 ms; coefficients update every 32 samples on a persistent clock. Histories
+drain with silence for one second on bypass before suspension.
 
-Schema 25 appends seven controls after schema 24's outboard bank (201 utility
-controls per slot). Older states retain their previous values and receive native
-defaults for the missing controls. The editor and reset use the same descriptor
-defaults. Guitar listening in a DAW remains the final voicing check.
+Older named states receive descriptor defaults for missing controls while
+retaining existing values. See [development.md](development.md) for compatibility.
+Guitar listening in a DAW remains the final voicing check.

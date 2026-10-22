@@ -29,6 +29,15 @@ cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 n
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
+CI fetches Eigen from `eigen-mirror/eigen` on GitHub using a command-scoped URL
+rewrite, including nested Eigen submodules. This avoids GitLab checkout outages
+while retaining every pinned commit. For the same workaround locally, replace
+the submodule-update command above with:
+
+```sh
+git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/libeigen/eigen" submodule update --init --recursive --depth=1
+```
+
 For MSVC without the Visual Studio generator, use an x64 developer command prompt
 and add `-G Ninja` to the configure command. Local verification used MSVC 19.44,
 Windows SDK 10.0.26100, CMake 4.4.4, Ninja 1.13.2 and Release optimization.

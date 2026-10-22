@@ -183,3 +183,6 @@ and locks separately. Do not claim speedups from library descriptions alone.
 
 Keep generated measurements and comparisons in ignored `tmp/` or attach findings
 to the relevant PR. Only enduring instructions belong in this guide.
+
+For a standalone comparison of direct, uniform FFT, two-stage FFT and WDL
+convolution, see [IR engine comparison](ir-convolution-comparison.md).

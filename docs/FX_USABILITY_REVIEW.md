@@ -71,3 +71,24 @@ Drive previews live in a dedicated drawing helper and reuse sampled endpoints
 instead of calculating each curve point twice. The audition exporter takes its
 Cosmic/head mode counts from the shared definitions and accepts `heads` to
 render all eight tape-head patterns.
+
+## Tuner follow-up
+
+The Tuner button is now an automatable activation parameter and optional output
+mute, including while the editor is closed. The tuner occupies the lower module
+editor and adds a six-second timestamped cents trace inspired by trace-tuner and
+the supplied Bitwig example. Note changes, missing pitch and large jumps break
+the trace. Its green band marks ±3 cents. Reference changes reinterpret stored
+frequency points. Escape and Close send complete automation gestures.
+
+Schema 23 appends this parameter (3,099 total) and defaults older projects to OFF.
+Rig presets and performance scenes retain the instance's tuner settings. A focused
+native tuner integration test complements the full FX editor sweep and is built
+by Windows CI. See [TUNER.md](TUNER.md) for behavior and verification scope.
+
+The final tuner integration run passed in 5.15 seconds, including reopening an
+already-active tuner, balanced Close/Escape gestures, project recall and mute
+changes with the editor destroyed. DSP/history tests passed in 20.72 seconds;
+library, WAV and resampling also passed. The complete pre-tuner native editor
+sweep passed in the cleanup run above. A post-tuner sweep was interrupted and
+has no completed result; the CI job runs it alongside the focused tuner test.

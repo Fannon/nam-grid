@@ -80,7 +80,11 @@ int main(int argc, char** argv)
     config["NAMPath"] = canonical["NAMPath"];
   };
   auto base = save().config();
-  assert(params->count(plugin) == 286 + 16 * kUtilityControls + grid_performance::Count);
+  assert(base["Tuner"] == 0.);
+  auto beforeTunerAutomation = base; beforeTunerAutomation["schema"] = 22; beforeTunerAutomation.erase("Tuner");
+  Stream beforeTunerBytes; beforeTunerBytes.string("###NAMGrid-v1###"); beforeTunerBytes.string(beforeTunerAutomation.dump());
+  assert(loadBytes(beforeTunerBytes)); assert(save().config() == base);
+  assert(params->count(plugin) == 287 + 16 * kUtilityControls + grid_performance::Count);
   assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
   for (const char* name : {"Input", "Drive Input", "Pre 3 In", "Post 4 In"})
     for (double db : {-40., -30., 30., 40.})
@@ -1314,7 +1318,7 @@ int main(int argc, char** argv)
   assert(savedRig["SlotEffects"][3] == static_cast<int>(SlotEffect::LoFiTape));
   assert(savedRig["Pre 4 LoFi Speed"] == 3.75 && savedRig["Pre 4 LoFi Wear"] == 80.);
   assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
-  assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("Tuner Reference"));
+  assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
   auto anotherRig = cleared;
   anotherRig["CaptureFolder"] = irLibrary.string(); anotherRig["CaptureFolders"] = {irLibrary.string()};
   anotherRig["Tuner Reference"] = 442.; anotherRig["Tuner Mute"] = 1.;
@@ -1723,7 +1727,8 @@ int main(int argc, char** argv)
   }
   load(cleared);
   click(808, 36); // Tuner beside Settings.
-  dragAt(410, 565);
+  assert(save().config()["Tuner"] == 1.);
+  dragAt(278, 579);
   assert(save().config()["Tuner Reference"] != 440.);
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
@@ -1756,6 +1761,7 @@ int main(int argc, char** argv)
   const auto sceneState = save().config();
   assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
   assert(!sceneState["PerformanceScenes"][0].contains("Pre 1 Noise Learn"));
+  assert(!sceneState["PerformanceScenes"][0].contains("Tuner"));
   automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
   assert(save().config()["Lane A Level"] == -60.);
   click(245, 419); // Recall scene 1
@@ -1811,15 +1817,26 @@ int main(int argc, char** argv)
   assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
+  load(cleared);
   click(808, 36);
   gui->destroy(plugin);
-  load(cleared);
+  assert(save().config()["Tuner"] == 1.); // Closing the editor must not cancel host automation.
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
   for (int i = 0; i < 512; ++i)
     input[0][i] = input[1][i] = .1 * std::sin(i * .05);
   assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  assert(output[0][400] == 0. && output[1][400] == 0.);
+  automate("Tuner", 0.); // Headless host/MIDI automation restores output.
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   assert(std::abs(output[0][400]) > .001);
+  automate("Tuner", 1.);
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  assert(output[0][400] == 0. && output[1][400] == 0.);
+  automate("Tuner Mute", 0.);
+  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+  assert(std::abs(output[0][400]) > .001);
+  automate("Tuner", 0.);
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
   DestroyWindow(parent);

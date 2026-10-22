@@ -136,7 +136,7 @@ int main(int argc,char** argv)
     }
     const auto label=std::to_string(static_cast<int>(effect))+"-"+name;
     auto rig=config; rig["PresetName"]=name;
-    for(const auto* key:{"PresetDirectory","CaptureFolder","CaptureFolders","Tuner Reference","Tuner Mute"}) rig.erase(key);
+    for(const auto* key:{"PresetDirectory","CaptureFolder","CaptureFolders","Tuner Reference","Tuner Mute","Tuner"}) rig.erase(key);
     rig_preset::Write(destination/(label+".ngrid"),rig);
     auto [mixed,cpu]=render(config,false); WriteWave(destination/(label+"-pluck.wav"),mixed,rate);
     double peak=0.; for(const auto& channel:mixed) for(double value:channel) peak=std::max(peak,std::abs(value));

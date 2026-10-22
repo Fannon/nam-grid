@@ -82,7 +82,8 @@ enum EParams
   kTunerReference = kUtilityBase + 16 * kUtilityControls,
   kTunerMute,
   kGridParamBase,
-  kNumParams = kGridParamBase + grid_performance::Count
+  kTunerActive = kGridParamBase + grid_performance::Count,
+  kNumParams
 };
 
 constexpr int kDualNumParams = kGridSlotBase;
@@ -141,6 +142,7 @@ enum ECtrlTags
   kCtrlTagGearFilter,
   kCtrlTagClearFilter,
   kCtrlTagTuner,
+  kCtrlTagTunerButton,
   kCtrlTagPerformance,
   kCtrlTagPresetName,
   kCtrlTagPresetPrevious,
@@ -192,12 +194,8 @@ public:
   bool SerializeState(iplug::IByteChunk& chunk) const override;
   int UnserializeState(const iplug::IByteChunk& chunk, int startPos) override;
   void OnUIOpen() override;
-  void OnUIClose() override
-  {
-    mTuner.Enable(false);
-    iplug::Plugin::OnUIClose();
-  }
-  void SetTunerOpen(bool open) { mTuner.Enable(open); }
+  bool IsTunerActive() const { return GetParam(kTunerActive)->Bool(); }
+  auto TunerHistory() const { return mTuner.ReadHistory(); }
   double TunerFrequency() const { return mTuner.Frequency(); }
   void StorePerformanceScene(size_t scene);
   void RecallPerformanceScene(size_t scene);
@@ -302,6 +300,7 @@ private:
 
   // Update all controls that depend on a model
   void _UpdateControlsFromModel();
+  void _UpdateTunerControls();
 
   // Make sure that the latency is reported correctly.
   void _UpdateTailSize();

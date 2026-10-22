@@ -36,6 +36,7 @@ the plugins when distributing a build. No NAM captures or IR collection is bundl
 - [Reverb/delay audition candidates](docs/REVERB_DELAY_AUDITION.md): new cores,
   Airwindows modules, ranges and local renders.
 - [Cosmic Echo prototype](docs/COSMIC_ECHO.md): six Supermassive-inspired ambient modes.
+- [Tuner and tuning history](docs/TUNER.md): automatable tuner/mute and a six-second cents trace.
 - [Grid routing](docs/GRID.md) and [performance controls](docs/ROADMAP_EFFECTS.md).
 - [Rig presets](docs/PRESETS.md): saving, recall, and external file references.
 - [Verification history](docs/VERIFICATION.md) and [latest release review](docs/FIRST_RELEASE_REVIEW.md).

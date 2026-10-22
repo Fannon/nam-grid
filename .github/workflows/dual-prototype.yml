@@ -32,7 +32,7 @@ jobs:
           python-version: '3.11'
       - run: python scripts/setup-deps.py
       - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-library-tests nam-wav-tests nam-resampling-tests --parallel 3
+      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-library-tests nam-wav-tests nam-resampling-tests --parallel 3
       - run: ctest --test-dir build-ci -C Release --output-on-failure
       # Zip before artifact upload: GitHub artifacts otherwise discard the
       # executable permissions required by macOS plugin bundles.

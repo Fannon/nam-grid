@@ -305,7 +305,7 @@ this is not constant-power panning. Gains/polarity/width changes ramp to avoid j
 Stereo is centered at 0 (unity), −100 folds to mono, +100 doubles side. For phase cancellation between captures, polarity can help, but there is no automatic
 phase alignment or fine-delay control yet.
 
-**Tuner** is a separate panel beside Settings, not a grid slot. One C++ MPM detector
+**Tuner** replaces the lower module editor while active; the grid stays visible. One C++ MPM detector
 was adapted from the MIT sibling trace-tuner revision
 `2e1ff89243698b8f4fca33dc4505a2cd749d9e67`; its complete MIT notice is shipped.
 No Rust/FFT runtime or extra plugin framework is added. The audio tap selects the
@@ -313,15 +313,18 @@ stronger input channel per block, low-passes/decimates to 11–12 kHz, and write
 bounded SPSC queue. A worker performs normalized autocorrelation, key-peak selection
 and parabolic refinement over 1536 samples. Intended monophonic range is 35–1600 Hz;
 analysis takes about 130–140 ms and does not delay processed audio. Quiet/uncertain
-signals clear the display. The worker sleeps on a condition variable when the panel is
-closed; only UI/control code takes that mutex. A-reference and mute preference are
-automatable/saved, while panel visibility is not recalled.
+signals clear the current pitch. A six-second cents history fades with age and
+breaks at note changes, silence and large jumps, following trace-tuner's display.
+The worker sleeps while detection is disabled; activation publishes atomics only.
+Tuner activation, A-reference and mute preference are automatable and saved in
+project state. With Mute output ON, Tuner doubles as a mute even with the window
+closed. Rig/scene recall leaves these controls unchanged. See [TUNER.md](TUNER.md).
 
 New tests cover harmonic-rich guitar/bass pitches (41–659 Hz, under two cents in
 synthetic fixtures), silence/nonfinite input, right-only capture at all five host rates,
 audio allocation guards, stereo empty paths/Utility/A2 downmix, synced echo divisions
 and Auto Tremolo beat rate, real CLAP transport changes, schema-7 migration, native
-tuner controls, Escape unmute and editor-destruction unmute. Real guitar listening and
+tuner controls, Escape unmute and headless activation/mute automation. Real guitar listening and
 Bitwig/macOS validation remain outstanding.
 
 Manual additions: tune every guitar string and low bass notes; compare A=440/442;

@@ -143,11 +143,17 @@ The opt-in OpenGL readback helper occasionally returns partial frames during
 repeated captures; its screenshots are layout artifacts, not proof of host repaint
 behavior. Reopen/resize/repaint should still be checked in Bitwig.
 
-The Tuner button sits beside Library & settings. Its opaque panel has note/octave,
-cents, frequency, A-reference (430–450 Hz) and Mute output. Escape/Close and editor
-teardown always restore output through a 5 ms ramp. The reference and mute preference
-are saved; panel visibility is transient. It measures clean input, including right-only
-input, and displays no stale result after audio stops.
+The automatable **Tuner** button sits beside Library & settings. When active,
+the tuner replaces the lower module editor while the grid stays visible. It shows
+note/octave, cents, frequency, A-reference (430–450 Hz), Mute output and a six-second
+pitch-history graph. The trace fades with age, highlights ±3 cents and breaks at
+silence, note changes or large jumps. Reference changes reinterpret the frequency
+history against the new reference. Escape, Close or Tuner OFF disables it and
+restores output through a 5 ms ramp. With Mute output ON (the default), the Tuner
+parameter doubles as a host-automatable mute, including with the window closed.
+Project state retains it; rig presets and performance scenes leave it unchanged.
+It measures clean input, including right-only input, and clears the current pitch
+after detection stops; old history ages out.
 
 Delays/modulation show a Tempo sync switch in the module-selection strip. When enabled,
 Division replaces Time/Rate in bottom position one; manual values remain stored.

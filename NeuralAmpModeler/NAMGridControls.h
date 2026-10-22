@@ -260,6 +260,17 @@ private:
   std::string mLabel;
 };
 
+inline void DisableTunerFromUI(IGraphics* ui)
+{
+  auto* button = ui->GetControlWithTag(kCtrlTagTunerButton);
+  auto* delegate = button->GetDelegate();
+  delegate->BeginInformHostOfParamChangeFromUI(kTunerActive);
+  delegate->SendParameterValueFromUI(kTunerActive, 0.);
+  button->SetValue(0.);
+  button->SetDirty(false);
+  delegate->EndInformHostOfParamChangeFromUI(kTunerActive);
+}
+
 class Choice : public IControl
 {
 public:
@@ -904,7 +915,7 @@ private:
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
-    mEditor->Hide(!selected);
+    mEditor->Hide(!selected || PLUG()->IsTunerActive());
     if (selected)
     {
       const bool empty = nam && path.empty();
@@ -1237,65 +1248,88 @@ private:
 class NAMGridTunerControl : public IContainerBase
 {
 public:
-  explicit NAMGridTunerControl(const IRECT& r)
-  : IContainerBase(r)
-  {
-  }
+  explicit NAMGridTunerControl(const IRECT& r) : IContainerBase(r) {}
   void OnAttached() override
   {
     using namespace grid_ui;
-    AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
-    AddChildControl(new Knob(IRECT(350, 510, 470, 630), kTunerReference, "Reference"));
-    AddChildControl(new Toggle(IRECT(530, 545, 650, 590), kTunerMute, "Mute output"));
+    AddChildControl(new Button(IRECT(896, 488, 976, 512), [this](IControl*) {
+      DisableTunerFromUI(GetUI());
+    }, "Close"));
+    AddChildControl(new Knob(IRECT(216, 536, 340, 634), kTunerReference, "Reference"));
+    AddChildControl(new Toggle(IRECT(216, 646, 340, 680), kTunerMute, "Mute output"));
   }
-  void Hide(bool hide) override
+  void Refresh()
   {
-    IContainerBase::Hide(hide);
-    PLUG()->SetTunerOpen(!hide);
-    if (GetUI())
-      GetUI()->SetAllControlsDirty();
+    ForAllChildrenFunc([this](int, IControl* control) {
+      const int parameter = control->GetParamIdx();
+      if (parameter >= 0) control->SetValueFromDelegate(GetDelegate()->GetParam(parameter)->GetNormalized());
+    });
   }
   bool IsDirty() override
   {
-    if (!IsHidden())
-      SetDirty(false);
+    if (!IsHidden()) SetDirty(false);
     return IContainerBase::IsDirty();
   }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
     g.FillRect(background, mRECT);
-    g.DrawText(Text(23.f), "Tuner", IRECT(32, 24, 650, 64));
-    g.DrawText(Text(13.f, muted), "Play one string. Clean input is measured before the grid.", IRECT(32, 76, 950, 104));
-    const double frequency = PLUG()->TunerFrequency();
+    g.DrawText(Text(17.f, accent), "Tuner", IRECT(24, 484, 124, 512));
+    g.DrawText(Text(12.f, muted), "Clean input · before the grid", IRECT(124, 484, 370, 512));
     const double reference = GetDelegate()->GetParam(kTunerReference)->Value();
-    if (frequency > 0.)
+    const double frequency = PLUG()->TunerFrequency();
+    const auto pitch = grid_tuner::ToPitch(frequency, reference);
+    const auto pitchColor = [](double cents) {
+      return std::abs(cents) <= 3. ? accent : std::abs(cents) <= 10. ? IColor(255, 238, 187, 97) : IColor(255, 235, 135, 119);
+    };
+    if (pitch.valid)
     {
-      const double pitch = 69. + 12. * std::log2(frequency / reference);
-      const int note = static_cast<int>(std::round(pitch));
-      const double cents = 100. * (pitch - note);
       const char* notes[]{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-      const std::string label = std::string(notes[(note % 12 + 12) % 12]) + std::to_string(note / 12 - 1);
-      g.DrawText(
-        Text(88.f, std::abs(cents) < 3. ? accent : text, EAlign::Center), label.c_str(), IRECT(280, 165, 720, 285));
-      WDL_String value;
-      value.SetFormatted(64, "%+.1f cents   /   %.1f Hz", cents, frequency);
-      g.DrawText(Text(20.f, text, EAlign::Center), value.Get(), IRECT(240, 292, 760, 332));
-      const float x = 500.f + 6.f * static_cast<float>(std::clamp(cents, -50., 50.));
-      g.FillRoundRect(accent, IRECT(x - 3, 365, x + 3, 415), 2.f);
+      const std::string label = std::string(notes[(pitch.note % 12 + 12) % 12]) + std::to_string(pitch.note / 12 - 1);
+      g.DrawText(Text(64.f, pitchColor(pitch.cents), EAlign::Center), label.c_str(), IRECT(24, 525, 196, 605));
+      WDL_String value; value.SetFormatted(64, "%+.1f cents", pitch.cents);
+      g.DrawText(Text(20.f, pitchColor(pitch.cents), EAlign::Center), value.Get(), IRECT(24, 604, 196, 634));
+      value.SetFormatted(64, "%.1f Hz", frequency);
+      g.DrawText(Text(13.f, muted, EAlign::Center), value.Get(), IRECT(24, 636, 196, 658));
+      const float x = 110.f + 1.7f * static_cast<float>(pitch.cents);
+      g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 2, 667, x + 2, 680), 1.f);
     }
-    else
-      g.DrawText(Text(30.f, muted, EAlign::Center), "Play a note", IRECT(200, 190, 800, 310));
-    g.DrawLine(border, 200, 390, 800, 390);
-    g.DrawLine(text, 500, 350, 500, 430);
-    const char* ticks[]{"-50", "-25", "0", "+25", "+50"};
-    for (int i = 0; i < 5; ++i)
+    else g.DrawText(Text(23.f, muted, EAlign::Center), "Play a note", IRECT(24, 550, 196, 630));
+    g.DrawLine(border, 24, 674, 196, 674);
+    g.DrawLine(text, 110, 663, 110, 684);
+
+    const IRECT panel(372, 520, 976, 696), plot(410, 538, 964, 674);
+    g.FillRoundRect(IColor(255, 17, 21, 24), panel, 4.f);
+    g.DrawText(Text(12.f, accent), "Pitch history", IRECT(372, 484, 570, 512));
+    g.DrawText(Text(11.f, muted, EAlign::Far), "±50 cents · 6 seconds", IRECT(570, 488, 882, 512));
+    const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -50., 50.) / 50.); };
+    g.FillRect(accent.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
+    for (int cents : {-50, -25, 0, 25, 50})
     {
-      const float x = 200.f + 150.f * i;
-      g.DrawLine(border, x, 385, x, 395);
-      g.DrawText(Text(13.f, muted, EAlign::Center), ticks[i], IRECT(x - 35, 438, x + 35, 470));
+      const float y = yFor(cents);
+      g.DrawLine(cents == 0 ? muted.WithOpacity(.6f) : border.WithOpacity(.45f), plot.L, y, plot.R, y);
+      WDL_String tick; tick.SetFormatted(16, "%+d", cents);
+      g.DrawText(Text(11.f, muted, EAlign::Far), tick.Get(), IRECT(panel.L + 2, y - 8, plot.L - 7, y + 8));
     }
-    g.DrawText(Text(13.f, muted, EAlign::Center), "Close or press Escape to return to the grid and unmute.",
-               IRECT(170, 666, 830, 704));
+    const auto now = grid_tuner::Tuner::Now();
+    grid_tuner::Pitch previous{};
+    float previousX = 0, previousY = 0;
+    long long previousTime = 0;
+    for (const auto& point : PLUG()->TunerHistory())
+    {
+      const auto current = grid_tuner::ToPitch(point.frequency, reference);
+      const auto age = now - point.milliseconds;
+      if (!current.valid || age < 0 || age > grid_tuner::historyDurationMs) { previous = {}; continue; }
+      const float x = plot.R - plot.W() * static_cast<float>(age) / grid_tuner::historyDurationMs;
+      const float y = yFor(current.cents);
+      const auto color = pitchColor(current.cents).WithOpacity(.35f + .65f * (1.f - static_cast<float>(age) / grid_tuner::historyDurationMs));
+      if (grid_tuner::Connect(previous, current) && point.milliseconds - previousTime <= 150)
+        g.DrawLine(color, previousX, previousY, x, y, nullptr, 2.f);
+      else g.FillCircle(color, x, y, 1.5f);
+      previous = current; previousTime = point.milliseconds; previousX = x; previousY = y;
+    }
+    g.DrawText(Text(11.f, muted), "6 s ago", IRECT(plot.L, 676, plot.L + 100, 696));
+    g.DrawText(Text(11.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, 676, plot.R, 696));
+    g.DrawText(Text(11.f, muted), "Play one string. Green = within ±3 cents. Escape / Tuner OFF restores output.", IRECT(24, 696, 976, 719));
   }
 };

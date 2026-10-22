@@ -91,9 +91,9 @@ do not automatically suspend a loaded lane. Explicitly bypass unused models to s
 Legacy Buffer-based NAM models with zero prewarm samples, such as Linear, receive a silence
 block during preparation to reserve lazily allocated audio buffers off the audio thread.
 
-The layout has **3,098 parameters**, including one contiguous bank of 173 FX
+The layout has **3,099 parameters**, including one contiguous bank of 173 FX
 controls per slot. Prototype host IDs, names and enum ranges are not frozen.
-`###NAMGrid-v1###` / schema 22 stores all 16 paths, types, named values, content
+`###NAMGrid-v1###` / schema 23 stores all 16 paths, types, named values, content
 identities and Noise Gate (Smart) profiles. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old

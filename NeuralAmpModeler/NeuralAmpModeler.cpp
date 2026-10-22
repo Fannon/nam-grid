@@ -27,7 +27,7 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
-constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19, kReverbDelaySchema = 20, kCosmicSchema = 21, kGridStateSchema = 22;
+constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19, kReverbDelaySchema = 20, kCosmicSchema = 21, kCutoffNamesSchema = 22, kGridStateSchema = 23;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -130,6 +130,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   }
   GetParam(kTunerReference)->InitDouble("Tuner Reference", 440., 430., 450., .1, "Hz");
   GetParam(kTunerMute)->InitBool("Tuner Mute", true);
+  GetParam(kTunerActive)->InitBool("Tuner", false);
   for (int i = 0; i < grid_performance::Count; ++i)
   {
     const auto& p = grid_performance::parameters[i]; auto* param = GetParam(kGridParamBase + i);
@@ -198,13 +199,8 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
       "Library & settings"));
-    ui->AttachControl(new grid_ui::Button(
-      IRECT(770, 14, 850, 42),
-      [](IControl* caller) {
-        caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
-        caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(false);
-      },
-      "Tuner"));
+    ui->AttachControl(new grid_ui::Toggle(IRECT(770, 14, 850, 42), kTunerActive, "Tuner"), kCtrlTagTunerButton)
+      ->SetTooltip("Automatable tuner and output mute. Turn off to restore sound; Mute output can be disabled below.");
     ui->AttachControl(new grid_ui::Wiring(b));
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
@@ -222,7 +218,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachControl(new grid_ui::FlowMeter(IRECT(81, 68, 84, 140), IRECT(0, 142, 76, 170)), kCtrlTagInputMeter);
     ui->AttachControl(new grid_ui::FlowMeter(IRECT(922, 380, 927, 452), IRECT(928, 450, 1000, 478)), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
-    ui->AttachControl(new NAMGridTunerControl(b), kCtrlTagTuner)->Hide(true);
+    ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
     ui->SetKeyHandlerFunc([ui](const IKeyPress& key, bool keyUp) {
       auto* performance = ui->GetControlWithTag(kCtrlTagPerformance);
@@ -230,6 +226,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       auto* tuner = ui->GetControlWithTag(kCtrlTagTuner);
       if (!keyUp && key.VK == kVK_ESCAPE && !tuner->IsHidden())
       {
+        grid_ui::DisableTunerFromUI(ui);
         tuner->Hide(true);
         return true;
       }
@@ -274,6 +271,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   // Preserve host stereo until a mono NAM slot explicitly collapses it.
   _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal);
   mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
+  mTuner.Enable(IsTunerActive());
   mTuner.Push(mInputPointers[0], mInputPointers[1], nFrames, sampleRate);
   _ApplyDSPStaging();
   const bool noiseGateActive = GetParam(kNoiseGateActive)->Value();
@@ -741,7 +739,7 @@ void NeuralAmpModeler::LoadSlapbackPreset(size_t slot)
 
 bool NeuralAmpModeler::IsPerformanceSceneParam(int index) const
 {
-  if (index == kTunerReference || index == kTunerMute) return false;
+  if (index == kTunerReference || index == kTunerMute || index == kTunerActive) return false;
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotFullParam(slot)) return false;
   // Hold captures are live audio; a scene must not silently latch an empty buffer.
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotUtilityParam(slot, uFreezeHold)) return false;
@@ -890,6 +888,7 @@ void NeuralAmpModeler::_UpdateLibraryControls()
 void NeuralAmpModeler::OnIdle()
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  _UpdateTunerControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     if (CanToggleSlotQuality(slot) && GetParam(SlotFullParam(slot))->Value() != mPreparedQuality[slot])
     {
@@ -1043,6 +1042,7 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
     rig.erase("PresetDirectory");
     rig.erase("CaptureFolder"); rig.erase("CaptureFolders");
     rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
+    rig.erase(GetParam(kTunerActive)->GetName());
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
       rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
@@ -1071,6 +1071,7 @@ std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
     rig["CaptureFolder"] = mCaptureFolder; rig["CaptureFolders"] = mCaptureFolders;
     rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
     rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
+    rig[GetParam(kTunerActive)->GetName()] = GetParam(kTunerActive)->Value();
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
       rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
@@ -1143,11 +1144,11 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
                   && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
                   && schemaValue != kFilterModeSchema && schemaValue != kLoFiSchema && schemaValue != kIdentitySchema
-                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema && schemaValue != kGridStateSchema)
+                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema && schemaValue != kCutoffNamesSchema && schemaValue != kGridStateSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
-      if (grid && schema < kGridStateSchema)
+      if (grid && schema < kCutoffNamesSchema)
       {
         const auto renameCutoffs = [&](nlohmann::json& values) {
           for (size_t slot=0; slot<FixedNAMGrid::kSlots; ++slot)
@@ -1267,6 +1268,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
+        if (grid && i == kTunerActive && (schema < kGridStateSchema || schema >= 1001)) config[name] = 0.;
         if (grid && schema < kReverbDelaySchema && i >= kUtilityBase && i < kTunerReference
             && (i - kUtilityBase) % kUtilityControls >= uTapeHeads)
           config[name] = GetParam(i)->GetDefault();
@@ -1365,7 +1367,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       }
       else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
                || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kLoFiSchema
-               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema || schema == kCosmicSchema || schema == kGridStateSchema)
+               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema || schema == kCosmicSchema || schema == kCutoffNamesSchema || schema == kGridStateSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;
@@ -1396,11 +1398,20 @@ void NeuralAmpModeler::OnUIOpen()
 
 void NeuralAmpModeler::OnParamChange(int paramIdx)
 {
-  // IParam values are atomic. DSP reads them at block boundaries; UI never mutates live DSP.
+  // Enabling detection only publishes atomics; worker/DSP state stays on its owning thread.
+  if (paramIdx == kTunerActive) mTuner.Enable(IsTunerActive());
+  // Other IParam values are read at audio block boundaries.
 }
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 {
+  if (paramIdx == kTunerActive && IsTunerActive())
+    if (auto* ui = GetUI())
+    {
+      ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
+      ui->GetControlWithTag(kCtrlTagPerformance)->Hide(true);
+    }
+  _UpdateTunerControls();
   // Refresh labels/quality and selected-module controls after automation or preset recall.
   if (auto* ui = GetUI())
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1790,8 +1801,29 @@ void NeuralAmpModeler::_ProcessOutput(iplug::sample** inputs, iplug::sample** ou
   }
 }
 
+void NeuralAmpModeler::_UpdateTunerControls()
+{
+  if (auto* ui = GetUI())
+  {
+    auto* tuner = ui->GetControlWithTag(kCtrlTagTuner);
+    if (!tuner) return;
+    ui->GetControlWithTag(kCtrlTagTunerButton)->SetValueFromDelegate(GetParam(kTunerActive)->GetNormalized());
+    static_cast<NAMGridTunerControl*>(tuner)->Refresh();
+    const bool visible = IsTunerActive() && ui->GetControlWithTag(kCtrlTagSettingsBox)->IsHidden()
+                         && ui->GetControlWithTag(kCtrlTagPerformance)->IsHidden();
+    if (tuner->IsHidden() == visible)
+    {
+      tuner->Hide(!visible);
+      for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+        ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot))->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
+      ui->SetAllControlsDirty();
+    }
+  }
+}
+
 void NeuralAmpModeler::_UpdateControlsFromModel()
 {
+  _UpdateTunerControls();
   if (auto* ui = GetUI())
   {
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)

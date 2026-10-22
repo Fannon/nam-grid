@@ -128,7 +128,8 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
   add_executable(nam-clap-smoke ../tests/clap_smoke.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
   add_executable(nam-clap-bench ../tests/clap_bench.cpp)
   add_executable(nam-fx-audition ../tests/fx_audition.cpp)
-  foreach(test_target nam-clap-smoke nam-clap-bench nam-fx-audition)
+  add_executable(nam-tuner-tests ../tests/tuner_clap.cpp)
+  foreach(test_target nam-clap-smoke nam-clap-bench nam-fx-audition nam-tuner-tests)
     target_include_directories(${test_target} PRIVATE ${CLAP_SDK_DIR}/include
       ../NeuralAmpModelerCore/Dependencies/nlohmann)
     target_compile_features(${test_target} PRIVATE cxx_std_20)
@@ -174,5 +175,7 @@ if(TARGET nam-grid-clap)
   # Full-rig recall, every catalog FX control, dialogs and menus prepare many models;
   # Windows shell/file-dialog initialization can also be slow on CI hosts.
   set_tests_properties(clap-smoke PROPERTIES TIMEOUT 900)
+  add_test(NAME tuner COMMAND nam-tuner-tests "$<TARGET_FILE:nam-grid-clap>")
+  set_tests_properties(tuner PROPERTIES TIMEOUT 30 RUN_SERIAL TRUE)
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)

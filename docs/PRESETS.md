@@ -13,7 +13,8 @@ same validated rig-state loader as project recall. Invalid or unsupported files
 are rejected before changing the rig. A failed file replacement preserves the
 previous preset. Presets are limited to 1 MiB.
 
-Library folders and tuner reference/mute remain local to the current instance.
+Library folders and tuner activation/reference/mute remain local to the current instance.
+Project state and automation retain the Tuner switch; rig and scene recall do not change it.
 Captured/held audio is not stored; Freeze Hold and Shimmer Freeze are released on
 recall. Models and IRs are referenced at their existing paths, not embedded or
 copied. Keep those files available when sharing a preset. Missing references
@@ -48,8 +49,8 @@ split into **NAM captures** and **Cabinet IRs**. Shared library folders and resc
 remain in **Library & settings**. The header search/filter bar is removed pending
 a dedicated browser.
 
-Current state schema **22** has **3,098 host parameters**, including one contiguous
-bank of 173 FX controls per slot and 44 performance controls. It aligns unique
+Current state schema **23** has **3,099 host parameters**, including one contiguous
+bank of 173 FX controls per slot, 44 performance controls and three tuner controls. It aligns unique
 host/editor names and includes six Distortion styles and the new reverb/delay
 audition modules, including Cosmic Echo. Learned noise profiles and
 capture/IR content identities are included; active learning is cleared. Prototype
@@ -61,18 +62,17 @@ guarantee. See [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md) for the current 
 
 The window is 1000 x 720, down from 1000 x 800. Cards have slightly more height;
 unused space above and below the grid is reduced, and the grid help line is gone.
-The eight parameter cells share the entire editor width evenly. Their dials are
-smaller, labels larger, and the selected slot ID is larger. Long card/editor titles
+Two unboxed rows of four controls leave a larger visualization to the right.
+The tuner temporarily replaces this lower editor while leaving the grid visible. Long card/editor titles
 end in an ellipsis; the card tooltip retains the complete file path.
 
 All knob values and units sit below the dial, including IN, OUT and A/B. Click a
 value to type it, or double-click the dial to restore its default. A/B shows a
 percentage. The larger header logo is vertically centered with the menu buttons.
-The parameter panel leaves equal 24 px margins at the left, right and bottom.
-The redundant footer description is removed; its space gives the header and
-mini display more height.
+The editor leaves 24 px outer margins. Its unboxed layout gives the visualization
+more height; selected modules show a short sound explanation beneath the title.
 
-Every loaded module has an optional mini display in the editor's top right.
+Every loaded module has an optional visualization on the right of the editor.
 Noise Gate, Noise Gate (Smart), compressors and Peak Limiter show live input/output
 level history against a dashed threshold line, plus numeric gain reduction. Gray
 is input, the module color is output; the history covers about 2.4 seconds. For

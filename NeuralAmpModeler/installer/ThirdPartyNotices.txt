@@ -646,7 +646,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-trace-tuner MPM detector (adapted to C++)
+trace-tuner MPM detector and tuning-history display (adapted to C++)
 Source revision: 2e1ff89243698b8f4fca33dc4505a2cd749d9e67
 
 MIT License

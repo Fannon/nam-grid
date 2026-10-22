@@ -60,7 +60,7 @@ distorted guitar. Add Airwindows Tape separately for saturation.
 ## Integration and verification
 
 The module appends effect ID 43, preserving existing IDs including Noise Print 64.
-State schema 17 introduced seven named controls per slot. Current schema 22
+State schema 17 introduced seven named controls per slot. Current schema 23
 places these controls in the same contiguous FX bank as every other effect;
 prototype automation IDs are allowed to change. Older named-state readers initialize missing tape knobs to defaults;
 schema 16 and earlier reject the new effect ID. Copy/Move/Swap, scenes and `.ngrid`

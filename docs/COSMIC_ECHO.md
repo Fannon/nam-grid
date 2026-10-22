@@ -38,7 +38,7 @@ Windows Release CLAP/VST3 builds are in `build-grid/out/`. Three `.ngrid` preset
 plucked-chord WAVs, fully wet impulse WAVs and a measurements CSV are in
 `build-grid/cosmic-audition/`. The earlier nine-choice package remains available
 as `build-grid/nam-grid-fx-audition-windows-x64-20261021.zip`. Presets saved by its
-schema-20 build can be recalled by the schema-22 Cosmic build.
+schema-20 build can be recalled by the current Cosmic build.
 
 Reproduce the new renders:
 
@@ -65,7 +65,7 @@ Native screenshots of the initial three
 styles were inspected with audio feeding the live histories. Final musical
 voicing and low-buffer DAW audition remain open.
 
-This build has 49 built-in choices, state schema **22**, **3,098 parameters** and
+This build has 49 built-in choices, state schema **23**, **3,099 parameters** and
 173 FX controls per slot. Buffer storage is about 47.2 MiB per Cosmic module at
 48 kHz, increasing with sample rate. Extreme feedback can produce tails longer
 than the plugin's existing 60-second host render-tail policy. Detailed source,

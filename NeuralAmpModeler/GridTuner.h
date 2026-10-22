@@ -1,4 +1,5 @@
 #pragma once
+#include "GridTunerHistory.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -103,16 +104,16 @@ public:
   }
   void Enable(bool enable)
   {
-    {
-      std::lock_guard<std::mutex> lock(mWaitMutex); // UI/control only, never called by Push
-      mEnabled.store(enable);
-      mGeneration.fetch_add(1);
-      mFrequency.store(0.);
-    }
-    mWake.notify_one();
+    // Also called at audio block boundaries by host automation. No locks or
+    // notifications here; the sleeping worker checks the flag every 20 ms.
+    if (mEnabled.exchange(enable) == enable) return;
+    mGeneration.fetch_add(1);
+    mFrequency.store(0.);
   }
   bool Enabled() const { return mEnabled.load(); }
-  double Frequency() const { return Enabled() && Ticks() - mLastResult.load() < 700 ? mFrequency.load() : 0.; }
+  double Frequency() const { return Enabled() && mResultGeneration.load() == mGeneration.load() && Ticks() - mLastResult.load() < 700 ? mFrequency.load() : 0.; }
+  auto ReadHistory() const { return mHistory.Read(Ticks(), mGeneration.load()); }
+  static long long Now() { return Ticks(); }
   // Audio producer only. Rate changes and queue overruns invalidate partial windows.
   void Push(const double* left, const double* right, int frames, double rate)
   {
@@ -183,7 +184,7 @@ private:
       if (!Enabled())
       {
         std::unique_lock<std::mutex> lock(mWaitMutex);
-        mWake.wait(lock, [this] { return mStop.load() || Enabled(); });
+        mWake.wait_for(lock, std::chrono::milliseconds(20), [this] { return mStop.load() || Enabled(); });
         if (mStop.load())
           break;
       }
@@ -216,8 +217,11 @@ private:
           const double frequency = Detect(ordered.data(), sample.rate);
           if (Enabled() && generation == mGeneration.load())
           {
-            mLastResult.store(Ticks());
+            const auto now = Ticks();
+            mHistory.Append(frequency, now, generation);
+            mLastResult.store(now);
             mFrequency.store(frequency);
+            mResultGeneration.store(generation);
           }
         }
       }
@@ -226,10 +230,11 @@ private:
       std::this_thread::sleep_for(std::chrono::milliseconds(4));
     }
   }
+  History mHistory;
   std::array<Sample, capacity> mQueue{};
   std::atomic<size_t> mRead{0}, mWrite{0};
   std::atomic<bool> mEnabled{false}, mStop{false};
-  std::atomic<unsigned> mGeneration{0};
+  std::atomic<unsigned> mGeneration{0}, mResultGeneration{0};
   std::atomic<double> mFrequency{0.};
   std::atomic<long long> mLastResult{0};
   std::array<double, 4> mLP{};

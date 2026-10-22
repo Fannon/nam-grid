@@ -132,8 +132,8 @@ Integrated against `c3330b7`, retaining its category design, Distortion/HQ effec
 rig presets and performance controls. Noise Gate (Smart) appears once under **Dynamics**;
 NAM captures and cabinet IR libraries retain their separate submenus.
 
-The normal plugin now has **3,098 parameters**, including 173 utility controls per
-slot, and state schema **22**. Schema 20 adds reverb/delay audition controls; schema 22 adds Cosmic Echo.
+The normal plugin now has **3,099 parameters**, including 173 utility controls per
+slot, and state schema **23**. Schema 20 adds reverb/delay audition controls; schema 21 adds Cosmic Echo; schema 22 aligns cutoff names and schema 23 adds automatable tuner activation.
 Schema 19 consolidates FX parameter banks, aligns
 unique host/editor names and adds Diode/Rectify distortion styles. Prototype
 automation mappings are not frozen. Schema 18 adds capture/IR content identities

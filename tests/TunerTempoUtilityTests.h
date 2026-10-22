@@ -4,6 +4,34 @@
 
 void TestTunerTempoUtility()
 {
+  // Timestamped history wraps, expires and excludes a previous enable generation.
+  grid_tuner::History history;
+  const double sharpA = 440. * std::pow(2., 20. / 1200.);
+  const auto pitch = grid_tuner::ToPitch(sharpA, 440.);
+  assert(pitch.valid && pitch.note == 69 && std::abs(pitch.cents - 20.) < 1.e-9);
+  assert(std::abs(grid_tuner::ToPitch(sharpA, sharpA).cents) < 1.e-9);
+  assert(!grid_tuner::ToPitch(0., 440.).valid);
+  assert(!grid_tuner::ToPitch(440., 0.).valid);
+  assert(!grid_tuner::Connect(pitch, grid_tuner::ToPitch(0., 440.)));
+  assert(!grid_tuner::Connect(pitch, grid_tuner::ToPitch(493.883, 440.)));
+  assert(!grid_tuner::Connect(grid_tuner::ToPitch(440. * std::pow(2., -20. / 1200.), 440.), pitch));
+  assert(grid_tuner::Connect(pitch, grid_tuner::ToPitch(440. * std::pow(2., 21. / 1200.), 440.)));
+  for (int i = 0; i < grid_tuner::historyLength + 7; ++i) history.Append(sharpA, i * 20, 1);
+  const long long now = (grid_tuner::historyLength + 6) * 20;
+  const auto points = history.Read(now, 1);
+  int visible = 0;
+  long long previous = 0;
+  for (const auto& point : points)
+    if (point.frequency > 0.)
+    {
+      assert(point.milliseconds >= previous && now - point.milliseconds <= grid_tuner::historyDurationMs);
+      previous = point.milliseconds; ++visible;
+    }
+  assert(visible == grid_tuner::historyDurationMs / 20 + 1);
+  for (const auto& point : history.Read(now + grid_tuner::historyDurationMs + 1, 1)) assert(point.frequency == 0.);
+  for (const auto& point : history.Read(now, 2)) assert(point.frequency == 0.);
+  history.Append(0., now + 20, 2); // Silence is an explicit break, not a held pitch.
+  assert(history.Read(now + 20, 2).back().frequency == 0.);
   // Guitar/bass fundamentals with realistic harmonics, DC and changing level.
   std::array<double, grid_tuner::window> signal{};
   for (double rate : {11025., 12000.})
@@ -46,8 +74,12 @@ void TestTunerTempoUtility()
     while (!tuner->Frequency() && std::chrono::steady_clock::now() < deadline)
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
     assert(tuner->Frequency() > 0. && std::abs(1200. * std::log2(tuner->Frequency() / 110.)) < 2.);
+    bool hasHistory = false;
+    for (const auto& point : tuner->ReadHistory()) hasHistory |= point.frequency > 0.;
+    assert(hasHistory);
     tuner->Enable(false);
     assert(tuner->Frequency() == 0.);
+    for (const auto& point : tuner->ReadHistory()) assert(point.frequency == 0.);
   }
 
   for (double rate : {44100., 48000., 96000., 192000.})

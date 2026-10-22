@@ -7,7 +7,7 @@ Include [Closing words](https://docs.github.com/en/issues/tracking-your-work-wit
 
 ## PR Checklist
 - [ ] Did you follow the repository's formatting and [contribution guidance](../CONTRIBUTING.md)?
-- [ ] Did all five CTest suites pass? Note the OS/compiler and any separate DAW tests.
+- [ ] Did all CTest suites pass? Note the OS/compiler and any separate DAW tests.
 - [ ] Does the VST3 plugin pass all of the unit tests in the [VST3PluginTestHost](https://steinbergmedia.github.io/vst3_dev_portal/pages/What+is+the+VST+3+SDK/Plug-in+Test+Host.html)? (Download it as part of the VST3 SDK [here](https://www.steinberg.net/developers/).)
   - [ ] Windows
   - [ ] macOS

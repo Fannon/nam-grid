@@ -20,7 +20,7 @@
 #include "SlotHQEffects.h"
 #include "SlotDistortion.h"
 #include "SlotLoFiTape.h"
-#include "../AudioDSPTools/dsp/ImpulseResponse.h"
+#include "AdaptiveIR.h"
 
 struct NAMModelInfo
 {
@@ -80,7 +80,7 @@ public:
     StereoUtility utilityStereo;
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
-    std::unique_ptr<dsp::ImpulseResponse> ir;
+    std::unique_ptr<AdaptiveIR> ir;
     std::vector<double> input, wet, dry, delay, dynamicsMonitor;
     size_t delayIndex = 0;
     int latency = 0;
@@ -173,7 +173,7 @@ public:
       drainFrames = drainLimit; // Fresh histories already contain silence.
       if (ir)
       {
-        ir = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), rate);
+        ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block);
         double* silence = input.data();
         ir->Process(&silence, 1, block);
       }
@@ -183,7 +183,7 @@ public:
         right->rightChannel = true;
         right->effect = effect;
         if (ir)
-          right->ir = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), rate);
+          right->ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block);
         right->Reset(rate, block);
         // Mono NAM has one inference; the second history is for stereo dry bypass.
         right->latency = latency;
@@ -513,15 +513,14 @@ private:
 
 struct PreparedIR
 {
-  std::unique_ptr<dsp::ImpulseResponse> ir, right;
+  std::unique_ptr<AdaptiveIR> ir, right;
   void Prepare(int block)
   {
     if (!ir)
       return;
-    std::vector<double> zeros(block, 0.);
-    double* ptr = zeros.data();
-    ir->Process(&ptr, 1, block); // prepare history/output buffers outside audio
-    right = std::make_unique<dsp::ImpulseResponse>(ir->GetData(), ir->GetSampleRate());
-    right->Process(&ptr, 1, block);
+    const auto data = ir->GetData();
+    const double rate = ir->GetSampleRate();
+    ir = std::make_unique<AdaptiveIR>(data, rate, block);
+    right = std::make_unique<AdaptiveIR>(data, rate, block);
   }
 };

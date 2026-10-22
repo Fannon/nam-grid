@@ -26,6 +26,8 @@ guitar rig. These guides describe current usage, implementation and release chec
   [Release notes](release-notes.md) are used by the release workflow.
 - [Implementation and compatibility](development.md) and
   [on-demand FX benchmarks](fx-performance.md).
+- [Adaptive cabinet convolution](adaptive-ir.md) and the
+  [standalone IR engine comparison](ir-convolution-comparison.md).
 
 ## DSP implementation sources
 

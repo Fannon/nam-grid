@@ -59,6 +59,12 @@ Meters use bounded SPSC packets. Rendering, logarithmic display scaling and
 holds run on the UI thread; meter state is transient. Keep visualization work
 out of audio processing, and distinguish measured signals from parameter sketches.
 
+## Cabinet convolution
+
+Grid and legacy cabinet IRs use one [adaptive direct/FFT processor](adaptive-ir.md).
+It selects the backend during preparation and preserves the full resampled IR
+without adding buffering latency or exposing a quality mode.
+
 ## DSP sources and adaptations
 
 Preserve source pins, licenses and deliberate deviations beside the adapted DSP:

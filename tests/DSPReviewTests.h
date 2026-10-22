@@ -51,7 +51,7 @@ void TestDSPReviewFixes()
     data.mRawAudio.assign(8192, 0.f);
     data.mRawAudio.back() = 1.f;
     data.mRawAudioSampleRate = rate;
-    prepared->ir = std::make_unique<dsp::ImpulseResponse>(data, rate);
+    prepared->ir = std::make_unique<AdaptiveIR>(data, rate, 127);
     cabinet.Publish(std::move(prepared)); cabinet.ResetStopped(rate, 127);
     std::array<double, 127> left{}, right{};
     double activePeak = 0.;

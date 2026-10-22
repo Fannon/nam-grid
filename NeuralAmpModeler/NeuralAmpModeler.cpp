@@ -433,7 +433,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       auto animated = controls; double animatedBlend = blend;
       mModulation.Apply(animated, animatedBlend, performance);
       mGrid.Process(mOutputPointers[0] + offset, count, animated, animatedBlend, mOutputPointers[1] + offset, routing);
-      mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, GetTempo());
+      mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, tempo);
       offset += count;
     }
   }
@@ -453,12 +453,14 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   sample** gateGainOutput =
     noiseGateActive ? mNoiseGateGain.Process(mOutputPointers, numChannelsInternal, numFrames) : mOutputPointers;
 
-  mToneStack->SetParam("bass", GetParam(kToneBass)->Value());
-  mToneStack->SetParam("middle", GetParam(kToneMid)->Value());
-  mToneStack->SetParam("treble", GetParam(kToneTreble)->Value());
-  sample** toneStackOutPointers = (toneStackActive && mToneStack != nullptr)
-                                    ? mToneStack->Process(gateGainOutput, numChannelsInternal, nFrames)
-                                    : gateGainOutput;
+  sample** toneStackOutPointers = gateGainOutput;
+  if (toneStackActive && mToneStack != nullptr)
+  {
+    mToneStack->SetParam("bass", GetParam(kToneBass)->Value());
+    mToneStack->SetParam("middle", GetParam(kToneMid)->Value());
+    mToneStack->SetParam("treble", GetParam(kToneTreble)->Value());
+    toneStackOutPointers = mToneStack->Process(gateGainOutput, numChannelsInternal, nFrames);
+  }
 
   sample** irPointers = toneStackOutPointers;
   sample* legacyIRPointers[2]{};
@@ -473,11 +475,14 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   }
   const bool switchingIR = mCabinet.HasPending();
   const double switchStep = 1. / (sampleRate * .005);
-  for (size_t i = 0; i < numFrames; ++i)
+  if (switchingIR || mIRSwitchGain != 1.)
   {
-    mIRSwitchGain = switchingIR ? std::max(0., mIRSwitchGain - switchStep) : std::min(1., mIRSwitchGain + switchStep);
-    for (size_t channel = 0; channel < numChannelsInternal; ++channel)
-      irPointers[channel][i] *= mIRSwitchGain;
+    for (size_t i = 0; i < numFrames; ++i)
+    {
+      mIRSwitchGain = switchingIR ? std::max(0., mIRSwitchGain - switchStep) : std::min(1., mIRSwitchGain + switchStep);
+      for (size_t channel = 0; channel < numChannelsInternal; ++channel)
+        irPointers[channel][i] *= mIRSwitchGain;
+    }
   }
 
   // And the HPF for DC offset (Issue 271)
@@ -1600,7 +1605,7 @@ void NeuralAmpModeler::_ResetModelAndIR(const double sampleRate, const int maxBl
   if (auto* cabinet = mCabinet.Active())
   {
     if (cabinet->ir && cabinet->ir->GetSampleRate() != sampleRate)
-      cabinet->ir = std::make_unique<dsp::ImpulseResponse>(cabinet->ir->GetData(), sampleRate);
+      cabinet->ir = std::make_unique<AdaptiveIR>(cabinet->ir->GetData(), sampleRate, maxBlockSize);
     cabinet->Prepare(maxBlockSize);
   }
   for (size_t i = 0; i < mGrid.stages.size(); ++i)
@@ -1788,7 +1793,7 @@ dsp::wav::LoadReturnCode NeuralAmpModeler::_StageIR(const WDL_String& irPath)
     dsp::ImpulseResponse::IRData data;
     data.mRawAudio = std::move(raw);
     data.mRawAudioSampleRate = rate;
-    prepared->ir = std::make_unique<dsp::ImpulseResponse>(data, mSampleRatePrepared);
+    prepared->ir = std::make_unique<AdaptiveIR>(data, mSampleRatePrepared, mMaxBlockPrepared);
     prepared->Prepare(mMaxBlockPrepared);
     mCabinet.Publish(std::move(prepared));
     mIRPath = irPath;
@@ -1928,13 +1933,14 @@ void NeuralAmpModeler::_UpdateTailSize()
 {
   bool holding = false;
   const auto mask = mFreezeMask.load();
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    holding |= GetParam(SlotActiveParam(slot))->Bool()
-               && (((mask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uFreezeHold))->Bool())
-                   || ((mask & (1u << (slot + FixedNAMGrid::kSlots)))
-                       && GetParam(SlotUtilityParam(slot, uShimmerFreeze))->Bool()));
-  const int tail = holding ? kTailInfinite
-                          : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate() * mEffectTailSeconds.load())));
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots && mask; ++slot)
+    holding |=
+      (((mask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uFreezeHold))->Bool())
+       || ((mask & (1u << (slot + FixedNAMGrid::kSlots))) && GetParam(SlotUtilityParam(slot, uShimmerFreeze))->Bool()))
+      && GetParam(SlotActiveParam(slot))->Bool();
+  const int tail = holding
+                     ? kTailInfinite
+                     : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate() * mEffectTailSeconds.load())));
   if (GetTailSize() != tail)
     SetTailSize(tail);
 }

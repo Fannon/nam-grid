@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <stdexcept>
 #include <thread>
@@ -366,6 +367,39 @@ static json Measure(const Library& library, const json& scenario, const json& se
     }
     Check(found, "Missing trigger parameter");
   }
+  // Optional on-demand numerical render audit. No events or file output in normal timings.
+  std::map<int, clap_event_param_value> automation;
+  for (const auto& change : settings.value("parameter_events", json::array()))
+  {
+    const auto* params =
+      static_cast<const clap_plugin_params*>(instance.plugin->get_extension(instance.plugin, CLAP_EXT_PARAMS));
+    Check(params != nullptr && !hold && !learn, "Audit automation cannot share a capture trigger");
+    triggerParams = params;
+    auto value = trigger;
+    bool found = false;
+    for (uint32_t index = 0; index < params->count(instance.plugin); ++index)
+    {
+      clap_param_info info{};
+      Check(params->get_info(instance.plugin, index, &info), "Cannot inspect audit parameter");
+      if (std::string(info.name) == change.at("name").get<std::string>())
+      {
+        value.param_id = info.id;
+        const auto text = std::to_string(change.at("value").get<double>());
+        Check(
+          params->text_to_value(instance.plugin, info.id, text.c_str(), &value.value), "Cannot convert audit value");
+        found = true;
+        break;
+      }
+    }
+    Check(found, "Unknown audit parameter");
+    Check(automation.emplace(change.at("block").get<int>(), value).second, "Only one audit event per callback");
+  }
+  std::ofstream render;
+  if (settings.contains("render_path"))
+  {
+    render.open(settings.at("render_path").get<std::string>(), std::ios::binary);
+    Check(render.good(), "Cannot open numerical render output");
+  }
   clap_input_events events{nullptr, [](const clap_input_events* e) -> uint32_t { return e->ctx ? 1 : 0; },
                            [](const clap_input_events* e, uint32_t) -> const clap_event_header* {
                              return static_cast<clap_event_header*>(e->ctx);
@@ -422,6 +456,8 @@ static json Measure(const Library& library, const json& scenario, const json& se
       audio[2][i] = audio[3][i] = std::numeric_limits<double>::quiet_NaN();
     }
     events.ctx = ((hold && block == warmBlocks) || (learn && block == 0)) ? &trigger.header : nullptr;
+    if (auto change = automation.find(block); change != automation.end())
+      events.ctx = &change->second.header;
     process.steady_time = position;
     if (paced)
       std::this_thread::sleep_until(next);
@@ -431,7 +467,10 @@ static json Measure(const Library& library, const json& scenario, const json& se
     if (events.ctx)
     {
       double value = 0.;
-      Check(triggerParams->get_value(instance.plugin, trigger.param_id, &value) && value == 1., "Trigger not applied");
+      const auto* applied = static_cast<const clap_event_param_value*>(events.ctx);
+      Check(triggerParams->get_value(instance.plugin, applied->param_id, &value)
+              && std::abs(value - applied->value) < 1.e-12,
+            "Trigger/audit event not applied");
     }
     const double elapsed = std::chrono::duration<double, std::micro>(end - start).count();
     (block < warmBlocks ? warm : quiet ? silence : signal).push_back(elapsed);
@@ -450,6 +489,13 @@ static json Measure(const Library& library, const json& scenario, const json& se
           ++nonfinite;
         else
           peak = std::max(peak, std::abs(value));
+    if (render.is_open())
+    {
+      // Two channel-major blocks, native-endian doubles; identical layout in both audits.
+      render.write(reinterpret_cast<const char*>(audio[2].data()), buffer * sizeof(double));
+      render.write(reinterpret_cast<const char*>(audio[3].data()), buffer * sizeof(double));
+      Check(render.good(), "Numerical render write failed");
+    }
     position += buffer;
   }
   std::vector<double> all = signal;

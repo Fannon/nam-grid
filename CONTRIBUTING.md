@@ -7,13 +7,13 @@ and reproduction steps. Include a minimal rig/model/IR example when it can be sh
 ## Build and tests
 
 Use the CMake instructions in [build.md](docs/build.md). Build both native formats
-and the test targets listed there, then run:
+and all test targets listed there, including `nam-ir-tests`, then run:
 
 ```sh
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
-The suites cover the capture library/presets, WAV decoding, resampling, DSP stages,
+The suites cover the capture library/presets, WAV decoding, resampling, IR convolution, DSP stages,
 CLAP hosting/native editor, and tuner. Assertions remain enabled in Release tests.
 Focused sanitizer options and their runtime requirements are documented in the
 build guide. Real DAW listening and VST3/macOS host validation are separate

@@ -176,7 +176,7 @@ void TestTunerTempoUtility()
     dsp::ImpulseResponse::IRData irData;
     irData.mRawAudio = {1.f, .5f, .25f};
     irData.mRawAudioSampleRate = 48000.;
-    prepared->ir = std::make_unique<dsp::ImpulseResponse>(irData, rate);
+    prepared->ir = std::make_unique<AdaptiveIR>(irData, rate, 512);
     prepared->Reset(rate, 512);
     NAMStage stage;
     stage.Publish(std::move(prepared));

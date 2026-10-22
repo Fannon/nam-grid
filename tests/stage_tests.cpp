@@ -50,6 +50,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
   return p;
 }
 #include "GridTests.h"
+#include "AudioControlCacheTests.h"
 #include "DynamicsTests.h"
 #include "SlotFeaturesTests.h"
 #include "TimeEffectsTests.h"
@@ -173,6 +174,7 @@ try
     assert(std::isfinite(data[0]));
   }
   TestFixedGrid();
+  TestAudioControlCache();
   TestDynamics();
   TestSlotFeatures();
   TestTimeEffects();

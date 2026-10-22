@@ -45,6 +45,10 @@ the plugins when distributing a build. No NAM captures or IR collection is bundl
 - [Library browser](docs/BROWSER.md): contextual browsing, search and capture/preset folders.
 - [Rig presets](docs/PRESETS.md): saving, recall, and external file references.
 - [Verification history](docs/VERIFICATION.md) and [latest release review](docs/FIRST_RELEASE_REVIEW.md).
+- [On-demand FX CPU and stability report](docs/FX_PERFORMANCE.md): every module/mode,
+  NAM/IR fixtures or your captures, and low-buffer callback deadlines.
+  [Two-sweep measurements, 2026-10-22](docs/FX_PERFORMANCE_REPORT_20261022.md).
+  [Smart Gate and grid optimization results](docs/SMART_GATE_OPTIMIZATION_20261022.md).
 
 Captures and IRs remain external files. Saved content hashes help relink moved
 files within indexed library folders; presets do not embed or copy those files.

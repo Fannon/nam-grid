@@ -11,6 +11,8 @@
 #include "RoadmapClapTests.h"
 #include "EffectModeClapTests.h"
 #include "PresetGainClapTests.h"
+#include "CachedControlsClapTests.h"
+#include <cstdlib>
 #include "WinFileDialogDriver.h"
 #include "../NeuralAmpModeler/GridLayout.h"
 #include "../NeuralAmpModeler/EffectPresentation.h"
@@ -583,6 +585,17 @@ int main(int argc, char** argv)
   cleared["NAMPath"] = "";
   load(cleared);
   assert(save().config() == cleared);
+  if (const char* cacheOnly = std::getenv("NAM_GRID_CACHE_SMOKE"); cacheOnly && std::strcmp(cacheOnly, "1") == 0)
+  {
+    TestCachedControlsClap(plugin, cleared, load, fixtures);
+    plugin->destroy(plugin); entry->deinit();
+#ifdef _WIN32
+    FreeLibrary(library);
+#else
+    dlclose(library);
+#endif
+    return 0;
+  }
   auto* configs =
     static_cast<const clap_plugin_audio_ports_config*>(plugin->get_extension(plugin, CLAP_EXT_AUDIO_PORTS_CONFIG));
   assert(configs);
@@ -1008,9 +1021,21 @@ int main(int argc, char** argv)
   TestRoadmapClap(plugin, cleared, save, load);
   TestEffectModeClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
+  TestCachedControlsClap(plugin, cleared, load, fixtures);
   auto schema11 = cleared; schema11["schema"] = 11; schema11.erase("Global Input");
   load(schema11);
   assert(save().config()["Global Input"] == 0.);
+  if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
+  {
+    plugin->destroy(plugin); entry->deinit();
+#ifdef _WIN32
+    FreeLibrary(library);
+#else
+    dlclose(library);
+#endif
+    std::cout << "Headless CLAP DSP, state, slot automation and model lifecycle checks passed\n";
+    return 0;
+  }
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
   const auto libraryFolder = fixtures / "library";

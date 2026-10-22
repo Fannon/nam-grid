@@ -159,6 +159,16 @@ Gate, compressor, EQ and cabinet IR slot modules are included; see [SLOTS.md](SL
 
 ## Reproduce the CPU comparison
 
+For an on-demand report covering every built-in FX mode, NAM, IR loading and
+small-buffer callback deadlines, see [FX_PERFORMANCE.md](FX_PERFORMANCE.md).
+That tool is opt-in and runs separately from CTest and CI.
+
+For DSP/state regression checks without opening the native editor, set
+`NAM_GRID_HEADLESS_SMOKE=1` when running `nam-clap-smoke`. This includes Smart Gate
+learning, host automation, routing/modulation and cached-control checks in every
+slot. `NAM_GRID_CACHE_SMOKE=1` limits the later checks to cached slot automation.
+Unset these variables for the normal complete CLAP/editor smoke test.
+
 ```sh
 python scripts/prepare-baseline.py
 cmake -S . -B build-grid -DNAM_BUILD_BASELINE=ON -DCMAKE_BUILD_TYPE=Release

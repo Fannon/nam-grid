@@ -188,6 +188,7 @@ try
   TestEQResponse();
   TestDualDelayMusicalControls();
   TestDistortionTonePreview();
+  TestFXVisualizationMath();
   TestDistortionModeHarmonics();
   TestReverbDelayCandidates();
   TestCosmicEcho();

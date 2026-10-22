@@ -192,3 +192,13 @@ checks, skipping the large slot-edit matrix and subsequent unrelated editor chec
 Unset it for the complete `clap-smoke` regression. An optional fourth argument names
 a screenshot directory; captures come from the plugin's own OpenGL surface.
 The native test restores library preferences after a successful run.
+
+For a native FX visualization sweep, set `NAM_GRID_FX_VISUALS=1` instead. It
+retains the DSP/state setup, then renders all 55 catalog modules at musical
+defaults with audio and at minimum/maximum control values. Supply the optional
+screenshot directory to review `fx-<effect ID>-default/min/max.bmp` artifacts.
+It exits before the unrelated browser/menu matrix. See
+[FX_VISUALIZATION_REVIEW.md](FX_VISUALIZATION_REVIEW.md) for the audit and display
+semantics; ordinary CTest still runs the complete native editor regression.
+For a targeted iteration, `NAM_GRID_FX_VISUALS_ONLY=12,15` limits that opt-in sweep
+to the listed effect IDs (Digital Delay and Room here); unset it for all modules.

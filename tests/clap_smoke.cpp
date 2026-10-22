@@ -21,6 +21,13 @@ int main(int argc, char** argv)
   assert(argc == 3 || argc == 4);
 #ifdef _WIN32
   win_file_dialog::SavedLibrarySettings settingsBackup;
+  const bool fxVisuals = std::getenv("NAM_GRID_FX_VISUALS") != nullptr;
+  if(fxVisuals)
+  {
+    auto settings=nam_library::ReadSettings(settingsBackup.file);
+    settings.showVisualizations=true;
+    assert(nam_library::WriteSettings(settingsBackup.file,settings));
+  }
   const bool browserOnly = std::getenv("NAM_GRID_BROWSER_SMOKE") != nullptr;
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
   assert(library);
@@ -1066,6 +1073,87 @@ int main(int argc, char** argv)
     pumpFor(250);
   };
   const auto selectTile = [&](int x, int y) { click(x, y); click(932, 42); };
+  if(fxVisuals)
+  {
+    const std::array<const char*,17> names{{"In","Trim","Enabled","Gate Threshold","Gate Release","Gate Reduction",
+      "Comp Threshold","Comp Release","Comp Makeup","EQ Bass","EQ Mid","EQ Treble","EQ High Pass","EQ Low Pass","EQ Presence","IR Level","Full Quality"}};
+    int reviewed=0;
+    for(const auto& group : nam_library::kModuleGroups)
+      for(auto effect : group.effects)
+      {
+        if(const auto* only=std::getenv("NAM_GRID_FX_VISUALS_ONLY"))
+          if((","+std::string(only)+",").find(","+std::to_string(static_cast<int>(effect))+",")==std::string::npos) continue;
+        auto preview=cleared;
+        preview["SlotEffects"][0]=static_cast<int>(effect);
+        const auto defaults=SlotDefaultValues(effect);
+        for(size_t i=0;i<names.size();++i) preview[std::string("Pre 1 ")+names[i]]=defaults[i];
+        for(int p=0;p<kUtilityControls;++p) preview[std::string("Pre 1 ")+kEffectParameters[p].name]=defaults[17+p];
+        load(preview); selectTile(170,120);
+        const auto before=save().config();
+        assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
+        process.frames_count=512;
+        for(int block=0;block<240;++block)
+        {
+          for(int i=0;i<512;++i)
+          {
+            const double t=(block*512+i)/48000.;
+            input[0][i]=.4*std::sin(2.*3.141592653589793*220.*t)*(.55+.45*std::cos(2.*3.141592653589793*t));
+            input[1][i]=.3*std::sin(2.*3.141592653589793*330.*t);
+          }
+          assert(plugin->process(plugin,&process)!=CLAP_PROCESS_ERROR);
+          if(block%8==0) pumpFor(2);
+        }
+        pumpFor(100);
+        if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/("fx-"+std::to_string(static_cast<int>(effect))+"-default.bmp"));
+        plugin->stop_processing(plugin); plugin->deactivate(plugin);
+        assert(save().config()==before); // Viewing/processing must not edit the rig.
+        for(bool high : {false,true})
+        {
+          // CLAP exposes continuous doubles in normalized host units and
+          // choices as integer indices. Use the actual host metadata endpoints.
+          std::vector<std::string> targets;
+          for(size_t i=3;i<16;++i) targets.push_back(std::string("Pre 1 ")+names[i]);
+          for(int p=0;p<kUtilityControls;++p)
+            if(p!=uNoiseLearn && (UsesUtility(effect,p)
+                || ((p==uTempoSync || p==uTempoDivision) && effect_presentation::Tempo(effect))
+                || (p==uDelayPingPong && effect_presentation::PingPong(effect))
+                || (p==uReverbStereo && effect_presentation::Visible(effect,p))))
+              targets.push_back(std::string("Pre 1 ")+kEffectParameters[p].name);
+          std::vector<clap_event_param_value> changes;
+          for(uint32_t index=0;index<params->count(plugin);++index)
+          {
+            clap_param_info info{}; assert(params->get_info(plugin,index,&info));
+            if(std::find(targets.begin(),targets.end(),std::string(info.name))==targets.end()) continue;
+            clap_event_param_value event{};
+            event.header.size=sizeof(event); event.header.type=CLAP_EVENT_PARAM_VALUE;
+            event.param_id=info.id; event.value=high ? info.max_value : info.min_value;
+            event.note_id=event.port_index=event.channel=event.key=-1;
+            changes.push_back(event);
+          }
+          clap_input_events updates{&changes,[](const clap_input_events* list)->uint32_t {
+              return static_cast<uint32_t>(static_cast<const std::vector<clap_event_param_value>*>(list->ctx)->size());
+            },[](const clap_input_events* list,uint32_t index)->const clap_event_header* {
+              return &(*static_cast<const std::vector<clap_event_param_value>*>(list->ctx))[index].header;
+            }};
+          params->flush(plugin,&updates,&sent); pumpFor(100);
+          for(const auto& event : changes)
+          {
+            double applied=0.; assert(params->get_value(plugin,event.param_id,&applied));
+            if(std::abs(applied-event.value)>1.e-6*std::max(1.,std::abs(event.value)))
+              std::cerr << "Visual sweep parameter " << event.param_id << ": requested " << event.value << ", applied " << applied << '\n';
+            assert(std::abs(applied-event.value)<=1.e-6*std::max(1.,std::abs(event.value)));
+          }
+          if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/("fx-"+std::to_string(static_cast<int>(effect))+(high ? "-max.bmp" : "-min.bmp")));
+        }
+        std::cout << "FX visualization rendered: " << SlotEffectName(effect) << '\n';
+        ++reviewed;
+      }
+    gui->destroy(plugin); DestroyWindow(parent);
+    plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+    assert(reviewed>0);
+    std::cout << "Native FX visualization catalog: " << reviewed << " modules at defaults/min/max passed\n";
+    return 0;
+  }
   if (browserOnly)
   {
     click(910, 28); click(260, 132); click(915, 44);

@@ -384,6 +384,7 @@ public:
 };
 } // namespace grid_ui
 
+#include "EffectPlot.h"
 #include "ModulationDisplay.h"
 #include "EffectSetupDisplay.h"
 #include "EffectSpaceDisplay.h"
@@ -700,17 +701,19 @@ private:
   {
     using namespace grid_ui;
     const IRECT bounds(644, 484, 976, 696);
-    g.FillRoundRect(IColor(255, 12, 16, 20), bounds, 4.f);
+    g.FillRoundRect(IColor(255, 17, 20, 24), bounds, 3.f);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const double mix = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLoFiMix))->Value() * .01;
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    g.DrawText(Text(13.f, muted), status, IRECT(656, 490, 860, 518));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "+/-60 ct", IRECT(870, 490, 964, 518));
+    const IRECT plot(656,542,964,658);
+    PlotTitle(g,plot,Tone(SlotEffect::LoFiTape,{}).first,status);
+    PlotDetail(g,plot,"Measured head motion | +/-60 cents");
+    PlotFooter(g,plot,"Speed also changes bandwidth","2.56 s");
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
-      g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(656, center - 38, 790, center - 18));
-      constexpr float start = 656.f, end = 964.f, height = 23.f;
+      g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(656, center - 38, 790, center - 21));
+      constexpr float start = 656.f, end = 964.f, height = 14.f;
       g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
       float previous = center;
       double peak = 0.;
@@ -724,10 +727,10 @@ private:
         previous = y;
       }
       WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
-      g.DrawText(Text(13.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, 964, center - 18));
+      g.DrawText(Text(13.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, 964, center - 21));
     };
-    trace("WOW", history.wow, accent, 568.f);
-    trace("FLUTTER", history.flutter, ampColor, 658.f);
+    trace("WOW", history.wow, Tone(SlotEffect::LoFiTape,{}).first, 577.f);
+    trace("FLUTTER", history.flutter, ampColor, 643.f);
   }
 
   bool HasVisualization()
@@ -744,7 +747,7 @@ private:
       DrawTapeTransport(g);
       return;
     }
-    const IRECT box(644, 484, 976, 696), plot(656, 526, 964, 680);
+    const IRECT box(644, 484, 976, 696), plot(656, 542, 964, 658);
     g.FillRoundRect(IColor(255, 17, 20, 24), box, 3.f);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
@@ -773,8 +776,10 @@ private:
     };
     if (effect == SlotEffect::NAM)
     {
-      g.DrawText(Text(13.f, color), "Capture | IN / OUT", IRECT(plot.L, 490, plot.R, 518));
+      PlotTitle(g,plot,color,"Capture | measured levels");
+      PlotDetail(g,plot,"Gray: IN | colour: OUT (mono sum)");
       levels(-60.f, plot);
+      PlotFooter(g,plot,"0 dB top / -60 dB floor","Older > now");
     }
     else if (IsOutboardCompressor(effect) || effect == SlotEffect::ConsoleColour || IsAirDynamics(effect))
     {
@@ -784,15 +789,24 @@ private:
         const int desk = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uColourDesk))->Int();
         caption.SetFormatted(80, "%s | Input / output", effect_modes::deskNames[std::clamp(desk,0,7)]);
       }
-      else caption.SetFormatted(80, effect == SlotEffect::DigitalBlack ? "Atten %.1f dB | IN / OUT" : "Detector GR %.1f dB | IN / OUT", mReductionNow);
-      g.DrawText(Text(13.f,color),caption.Get(),IRECT(plot.L,490,plot.R,518));
+      else if(effect==SlotEffect::DigitalBlack)
+        caption.SetFormatted(80,"Thr %.0f | Atten %.1f dB",GetDelegate()->GetParam(SlotUtilityParam(mSlot,uBlackThreshold))->Value(),mReductionNow);
+      else caption.SetFormatted(80,"Detector GR %.1f dB | IN / OUT",mReductionNow);
+      PlotTitle(g,plot,color,caption.Get());
       if (IsOutboardCompressor(effect) || IsAirDynamics(effect))
       {
-        g.FillRect(surface,IRECT(plot.L,523,plot.R,531));
-        g.FillRect(ampColor,IRECT(plot.L,523,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),531));
+        g.FillRect(surface,IRECT(plot.L,538,plot.R,541));
+        g.FillRect(ampColor,IRECT(plot.L,538,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),541));
       }
-      levels(-60.f,IRECT(plot.L,548,plot.R,plot.B));
-      g.DrawText(Text(13.f,muted),effect == SlotEffect::DigitalBlack ? "Attenuation before output gain" : "Output includes colour and gain",IRECT(plot.L,532,plot.R,548));
+      levels(effect==SlotEffect::DigitalBlack ? -90.f : -60.f,plot);
+      PlotDetail(g,plot,effect == SlotEffect::DigitalBlack ? "GR before trim | gray IN / colour OUT" : "Gray IN / colour OUT incl. gain + colour");
+      PlotFooter(g,plot,effect==SlotEffect::ConsoleColour ? "0 dB top / -60 dB floor" : effect==SlotEffect::DigitalBlack ? "0 / -90 dB | GR bar 0 - 24 dB" : "0 / -60 dB | GR bar 0 - 24 dB","Older > now");
+      if(effect==SlotEffect::DigitalBlack)
+      {
+        const double threshold=GetDelegate()->GetParam(SlotUtilityParam(mSlot,uBlackThreshold))->Value();
+        const float y=plot.T+plot.H()*static_cast<float>(std::clamp(-threshold/90.,0.,1.));
+        for(float x=plot.L;x<plot.R;x+=8.f) g.DrawLine(ampColor,x,y,std::min(x+4.f,plot.R),y);
+      }
     }
     else if (effect == SlotEffect::CosmicEcho)
     {
@@ -811,21 +825,51 @@ private:
       WDL_String caption;
       if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
       else caption.SetFormatted(64, "Thr %.0f | GR %.1f dB", threshold, mReductionNow);
-      g.DrawText(Text(13.f, color), caption.Get(), IRECT(plot.L, 490, plot.R, 518));
+      PlotTitle(g,plot,color,caption.Get());
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
-      const IRECT history(plot.L,550,plot.R,plot.B);
-      const IRECT reductionBar(plot.L,523,plot.R,531);
+      const IRECT history(smart ? plot.L : plot.MW()+8,plot.T,plot.R,plot.B);
+      const IRECT reductionBar(plot.L,538,plot.R,541);
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
         reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/24.f,0.f,1.f),reductionBar.B));
-      g.DrawText(Text(13.f,muted),compressor ? "Input / reduced (no makeup)" : "Input / reduced",IRECT(plot.L,532,plot.R,550));
+      const float floor=gate || smart ? -100.f : -60.f;
+      if(!smart)
+      {
+        const IRECT transfer(plot.L,plot.T,plot.MW()-8,plot.B);
+        PlotGrid(g,transfer);
+        const double mix=GetDelegate()->GetParam(SlotUtilityParam(mSlot,uCompMix))->Value()*.01;
+        const double makeup=GetDelegate()->GetParam(SlotDynamicsParam(mSlot,5))->Value();
+        const double range=GetDelegate()->GetParam(SlotDynamicsParam(mSlot,2))->Value();
+        const bool tight=GetDelegate()->GetParam(SlotUtilityParam(mSlot,uGateMode))->Int()==1;
+        PlotCurve(g,transfer,[&](double x) { return floor*(1.-x); },floor,18.,muted.WithOpacity(.5f),1.f);
+        PlotCurve(g,transfer,[&](double x) {
+          const double input=floor*(1.-x);
+          if(gate) return input-(input>=threshold ? 0. : tight ? range : std::min(range,threshold-input));
+          if(!compressor) return std::min(input,threshold);
+          const double reduction=SlotDynamics::CompressionDB(input,threshold,effect==SlotEffect::PunchComp ? 4. : 2.5,effect==SlotEffect::PunchComp ? 3. : 9.);
+          return input+20.*std::log10(1.-mix+mix*std::pow(10.,(makeup-reduction)*.05));
+        },floor,18.,color);
+        WDL_String info;
+        const double release=compressor ? GetDelegate()->GetParam(SlotDynamicsParam(mSlot,4))->Value()
+                            : gate ? GetDelegate()->GetParam(SlotDynamicsParam(mSlot,1))->Value()
+                            : GetDelegate()->GetParam(SlotUtilityParam(mSlot,uLimiterRelease))->Value();
+        if(compressor) info.Set("Curve + makeup / live before makeup");
+        else info.SetFormatted(80,"%s | release %.0f ms",gate ? "Closing curve / live IN-OUT" : "Static curve / live IN-reduced",release);
+        PlotDetail(g,plot,info.Get());
+        info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
+        PlotFooter(g,plot,info.Get(),gate ? "Live 0..-100" : "Live 0..-60");
+      }
+      else
+      {
+        PlotDetail(g,plot,"Gray IN / colour OUT | gate line dashed");
+        PlotFooter(g,plot,"0 / -100 dB | GR bar 0 - 24 dB","Older > now");
+      }
       levels(gate || smart ? -100.f : -60.f, history);
       if (!off)
       {
-        const float floor=gate || smart ? -100.f : -60.f;
         const float y = history.T+history.H()*std::clamp(static_cast<float>(threshold)/floor,0.f,1.f);
-        for (float x = plot.L; x < plot.R; x += 8.f)
-          g.DrawLine(color, x, y, std::min(x + 4.f, plot.R), y, nullptr, 1.5f);
+        for (float x = history.L; x < history.R; x += 8.f)
+          g.DrawLine(ampColor, x, y, std::min(x + 4.f, history.R), y, nullptr, 1.5f);
       }
     }
     else if (DrawEffectSetup(g, effect, plot, color,
@@ -892,7 +936,9 @@ private:
       WDL_String caption;
       if (filter) caption.SetFormatted(64, "%s %.0f Hz", key[16] == 1 ? "HP" : key[16] == 2 ? "BP" : "LP", key[12]);
       else caption.Set("EQ response");
-      g.DrawText(Text(13.f, color), caption.Get(), IRECT(plot.L, 490, plot.R, 518));
+      PlotTitle(g,plot,color,caption.Get());
+      PlotDetail(g,plot,filter ? "Live L/R | marks: rest / full envelope" : "Combined settled response | middle: 0 dB");
+      PlotFrequencyAxis(g,plot,upper,"-24 / +24 dB");
       const auto y = [&](float db) { return plot.T + plot.H() * (24.f - std::clamp(db, -24.f, 24.f)) / 48.f; };
       for (int db : {-24, -12, 0, 12, 24})
         g.DrawLine(border.WithOpacity(db == 0 ? .9f : .4f), plot.L, y(static_cast<float>(db)), plot.R, y(static_cast<float>(db)));
@@ -909,14 +955,21 @@ private:
         g.DrawLine(color, plot.L + plot.W() * mEQCurve[i - 1][0], y(mEQCurve[i - 1][1]),
                           plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][1]), nullptr, 1.5f);
       }
+      if(filter)
+        for(double hz : {value(uFilterCutoff),value(uFilterCutoff)*std::exp2(value(uFilterEnvelope))})
+        {
+          hz=std::clamp(hz,20.,std::min(upper,.4*rate));
+          const float x=plot.L+plot.W()*static_cast<float>(std::log(hz/20.)/span);
+          for(float py=plot.T;py<plot.B;py+=8.f) g.DrawLine(ampColor.WithOpacity(.6f),x,py,x,std::min(py+4.f,plot.B));
+        }
     }
     else
     {
       // Reuse the existing mono meter packets: no audio capture or extra DSP work.
-      g.DrawText(Text(13.f, muted), "IN", IRECT(plot.L, 490, plot.L + 30, 518));
-      g.DrawText(Text(13.f, color), "OUT", IRECT(plot.L + 40, 490, plot.L + 75, 518));
-      g.DrawText(Text(13.f, muted, EAlign::Far), "2.4 s", IRECT(plot.R - 78, 490, plot.R, 518));
+      PlotTitle(g,plot,color,"IR | measured levels");
+      PlotDetail(g,plot,"Gray: IN | colour: OUT (mono sum)");
       levels(-60.f, plot);
+      PlotFooter(g,plot,"0 dB top / -60 dB floor","Older > now");
     }
   }
   void Refresh()

@@ -1,6 +1,81 @@
 #pragma once
 #include "EffectPreview.h"
 
+void TestFXVisualizationMath()
+{
+  // Compare the UI models with independent, settled samples from the actual
+  // processors. This catches missing tone stages, incorrect phase sums and
+  // sample-hold timing without asserting pixels or restating the display math.
+  for(double rate : {44100.,48000.,96000.})
+  {
+    for(double mix : {0.,35.,100.})
+      for(double hz : {100.,1200.,6000.})
+      {
+        UtilityControls c; c.wah={65.,3.,20.,mix,-3.};
+        SlotWah wah; wah.Reset(rate);
+        double inputPower=0.,outputPower=0.;
+        for(int i=0;i<24000;++i)
+        {
+          const double input=.001*std::sin(2.*grid_fx::pi*hz*i/rate);
+          double output=input; wah.Process(&output,1,c);
+          if(i>=12000) { inputPower+=input*input; outputPower+=output*output; }
+        }
+        assert(std::abs(std::sqrt(outputPower/inputPower)-effect_preview::WahMagnitude(hz,c,rate))<.002);
+      }
+    for(auto effect : {SlotEffect::Phaser,SlotEffect::Flanger})
+      for(double character : {0.,65.,100.})
+        for(double mix : {0.,50.,100.})
+        {
+          UtilityControls c; c.modulation={.05,0.,45.,character,mix};
+          SlotModulation mod; mod.Reset(rate);
+          double inPower=0.,outPower=0.; constexpr double hz=3000.;
+          for(int i=0;i<24000;++i)
+          {
+            const double input=.00001*std::sin(2.*grid_fx::pi*hz*i/rate);
+            double output=input; mod.Process(&output,1,effect,c);
+            if(i>=12000) { inPower+=input*input; outPower+=output*output; }
+          }
+          assert(std::abs(std::sqrt(outPower/inPower)-effect_preview::ModulationMagnitude(effect,hz,.25,c,rate))<.003);
+        }
+    for(double mix : {0.,35.,100.})
+      for(double tone : {200.,12000.})
+      {
+        UtilityControls c; c.ring={440.,80.,tone,mix};
+        grid_roadmap::Texture ring; ring.Reset(rate);
+        for(int i=0;i<4000;++i)
+        {
+          double output=1.; ring.Process(&output,1,SlotEffect::RingMod,c);
+          if(i>2000) assert(std::abs(output-effect_preview::RingGain(440.*(i+1)/rate,c,rate))<1.e-8);
+        }
+      }
+    for(double bits : {2.,8.,16.})
+      for(double holdRate : {100.,3500.,48000.})
+      {
+        UtilityControls c; c.crusher={bits,holdRate,3500.,65.,-3.};
+        const auto preview=effect_preview::CrusherReference(c,rate);
+        grid_roadmap::Texture crusher; crusher.Reset(rate);
+        const int count=std::max(384,static_cast<int>(std::ceil(rate*3./220.)));
+        int next=0;
+        for(int i=0;i<=count;++i)
+        {
+          double output=.8*std::sin(2.*grid_fx::pi*220.*i/rate);
+          crusher.Process(&output,1,SlotEffect::Bitcrusher,c);
+          if(next<=384 && i>=static_cast<int>(std::lround(next*count/384.)))
+            assert(std::abs(output-preview[next++])<1.e-12);
+        }
+        assert(next==385);
+      }
+  }
+  assert(effect_preview::TailDB(2.,2.)==-60.);
+  assert(effect_preview::TailDB(1.,2.)==-30.);
+  assert(effect_preview::TimeHorizon(1.6)==2.);
+  assert(effect_preview::TimeHorizon(1.7)==2.);
+  assert(effect_preview::TimeHorizon(2.01)==5.);
+  UtilityControls c; c.wah={0.,2.,0.,100.,0.};
+  const double heel=effect_preview::WahCenter(c,48000.);
+  c.wah[0]=100.; assert(effect_preview::WahCenter(c,48000.)>heel*6.7);
+}
+
 void TestDualDelayMusicalControls()
 {
   for (double rate : {44100., 48000., 96000., 192000.})

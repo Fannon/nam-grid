@@ -17,7 +17,7 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const bool clean = effect == SlotEffect::Boost, tube = effect == SlotEffect::TubeBoost, tape = effect == SlotEffect::Tape;
   const int style = static_cast<int>(value(uDistStyle));
   const double drive = std::pow(10., value(uDistDrive) / 20.), bias = value(uDistBias) * .004;
-  const IRECT shape(plot.L, plot.T, plot.MW() - 8, plot.B - 10), tonePlot(plot.MW() + 8, plot.T, plot.R, plot.B - 10);
+  const IRECT shape(plot.L, plot.T, plot.MW() - 8, plot.B), tonePlot(plot.MW() + 8, plot.T, plot.R, plot.B);
   const double tubeDrive = std::pow(10., value(uTubeDrive) * .05);
   const double boostGain = std::pow(10., value(uBoostGain) * .05);
   const double tapeDrive = std::pow(10., value(uTapeDrive) * .05);
@@ -29,9 +29,10 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     return SlotDistortion::Transfer(x, style, drive, bias);
   };
   const auto xPos = [&](double x) { return shape.MW() + shape.W() * .5f * static_cast<float>(x); };
-  const auto yPos = [&](double y) { return shape.MH() - shape.H() * .5f * static_cast<float>(y / (clean ? 8. : 2.)); };
+  const auto yPos = [&](double y) { return shape.MH() - shape.H() * .5f * static_cast<float>(std::clamp(y / (clean ? 8. : 2.),-1.,1.)); };
   const char* caption = clean ? "Gain / EQ response" : tube ? "Tube shape / EQ + mix" : tape ? "Spiral stage / tape setup" : "Clip / high cut + mix";
-  g.DrawText(Text(14.f, color), caption, IRECT(plot.L, 490, plot.R, 518));
+  PlotTitle(g,plot,color,caption);
+  PlotDetail(g,plot,clean ? "Input +/-1 | gain +/-8 | EQ +/-36 dB" : tape ? "Input +/-1 | stage +/-2 | bump setup" : "Input +/-1 | stage +/-2 | EQ +/-36 dB");
   g.DrawLine(border, shape.L, shape.MH(), shape.R, shape.MH());
   g.DrawLine(border, shape.MW(), shape.T, shape.MW(), shape.B);
   g.DrawLine(border.WithOpacity(.5f), xPos(-1.), yPos(-1.), xPos(1.), yPos(1.));
@@ -66,7 +67,7 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     g.DrawText(Text(13.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 52, tonePlot.R, tonePlot.T + 76));
     settings.SetFormatted(64, "Output %+.1f dB", value(uTapeOutput));
     g.DrawText(Text(13.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 78, tonePlot.R, tonePlot.T + 100));
-    g.DrawText(Text(13.f, muted), "Spiral stage; dynamic tape response", IRECT(plot.L, plot.B - 8, plot.R, plot.B + 8));
+    PlotFooter(g,plot,"Stage only; tape has memory");
   }
   else
   {
@@ -100,8 +101,7 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
                         tonePlot.L + tonePlot.W() * i / 80.f, currentY);
       previousY = currentY;
     }
-    g.DrawText(Text(13.f, muted), clean ? "Gain (+/-8)" : "Shape", IRECT(shape.L, plot.B - 16, shape.R, plot.B));
-    g.DrawText(Text(13.f, muted, EAlign::Far), tube ? "Small-signal EQ" : "20 Hz - 20k", IRECT(tonePlot.L, plot.B - 16, tonePlot.R, plot.B));
+    PlotFooter(g,plot,tube ? "Shape | small-signal EQ" : clean ? "Gain | full EQ" : "Shape | tone / mix / output","20 Hz - 20k");
   }
   return true;
 }

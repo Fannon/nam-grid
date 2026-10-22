@@ -21,7 +21,10 @@ inline nlohmann::json Read(const std::filesystem::path& path)
   std::string text(static_cast<size_t>(size), '\0');
   input.seekg(0);
   if (!input.read(text.data(), text.size())) throw std::runtime_error("Cannot read the preset file.");
-  const auto document = nlohmann::json::parse(text);
+  const auto document = nlohmann::json::parse(text, [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
+    if (depth > 128) throw std::runtime_error("Preset nesting exceeds the supported limit.");
+    return true;
+  });
   if (!document.is_object() || document.value("format", "") != "nam-grid-preset"
       || !document.contains("version") || !document["version"].is_number_integer() || document["version"] != 1
       || !document.contains("rig") || !document["rig"].is_object())

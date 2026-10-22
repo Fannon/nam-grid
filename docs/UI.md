@@ -10,14 +10,15 @@ OUT gain and A/B balance occupy the right gutter. Sixteen cards show slot ID, fi
 type, enabled state and slim input-left/output-right meters beside the card. Tile IDs carry
 their module colour, the same hue as the module head below, and the selected card brightens
 its own hue rather than fading to a neutral outline, so selection stays readable next to the
-grey Dynamics modules. Click to select; only the selected module's controls
-appear in the bottom editor. Double-click a card or click its module name in the editor to open
-the module menu. Click an empty card's + Add module once to open it. Assigned modules have a larger
-top-right bypass toggle; it shares the editor's Enabled / Bypassed parameter.
+grey Dynamics modules. Clicking a tile selects its physical slot and opens the browser;
+accepting a choice or closing it reveals that slot's bottom editor. Empty tiles open Modules;
+loaded tiles focus the current FX category or NAM/IR folder and select the current item.
+The bypass switch and right-click edit menu remain direct actions. Click the module name
+in the editor for the quick module menu; its browser icon opens the full browser.
 Clear slot is first in both the module and right-click menus; the latter also has
 Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
 with up to seven knobs followed by Enabled. A full-height visualization sits to the right.
-The down-arrow beside a built-in FX name lists its category; for NAM captures and IRs it lists files in the same folder.
+The browser icon beside a built-in FX name opens its category; for NAM captures and IRs it opens the current folder.
 Previous/next arrows follow the same category or folder. NAM uses Input, Bass, Mid, Treble, Low cut, High cut, Output trim;
 its neutral EQ acts after inference, not as controls of the captured amp. Compatible captures show
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
@@ -54,7 +55,11 @@ Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for
 green pedals, light gray dynamics/gates, rose EQ, coral Boost/Tape, periwinkle
 modulation/filter, cyan delay, magenta Creative and violet reverb. Unclassified NAM files remain neutral.
 Selection brightens the border toward white, retaining the Amp-to-Cab border gradient.
-Knobs and switches use a neutral monochrome palette.
+Knobs and switches use a neutral monochrome palette. Module header IDs use 22-point text
+and descriptions use 14-point text; the description extends across the controls area
+when no NAM quality button occupies that row. Tile IDs use 16-point text. Regular UI text uses size 14; compact legends, meter RMS
+readings, browser metadata and helper text use at least size 13. Plot footers have
+extra height for their larger labels.
 
 The bottom editors are independent containers with bounds enclosing their children. Their
 parameter bindings remain attached to their physical slots; selection changes visibility,
@@ -63,11 +68,11 @@ never audio or automation ownership. The main card bounds do not clip the bottom
 ## Multiple sources
 
 Library & settings provides Add folder, Remove and Rescan all. Up to 32 roots are retained
-in project state and the per-user preference. Startup rescan is optional (default on); when off, use Rescan all. More than seven roots scroll. Missing sources
+per list in project state and the per-user preference. The browser has a separate preset-folder list. Startup rescan is optional (default on); when off, use Rescan all. More than seven roots scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
 file paths are deduplicated; identical source basenames receive distinct menu names. Root and
-nested folder names remain in the index. The header search/filter bar is removed
-pending a dedicated browser. The scanner runs on its existing background worker;
+nested folder names remain in the index. The dedicated [browser](BROWSER.md) supplies
+live ranked search, folder scoping, metadata details and category-specific entry points. The scanner runs on its existing background worker;
 latest request wins, and menus retain immutable snapshots while open.
 The scanner computes SHA-1 content hashes for captures/IRs. The hash is a recall aid, not a
 menu filter: byte-identical files keep their own entry, so a pack folder stays complete when a

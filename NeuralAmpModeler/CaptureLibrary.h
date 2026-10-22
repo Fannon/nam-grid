@@ -13,6 +13,9 @@
 
 namespace nam_library
 {
+// SlotPreset is reserved for a future reader/loader. It is never offered by today's browser.
+enum class FileKind { NAM, IR, RigPreset, SlotPreset, Module };
+const char* KindName(FileKind kind);
 enum class Gear
 {
   Unknown,
@@ -30,6 +33,7 @@ struct Settings
   std::vector<std::string> folders;
   bool rescanOnStartup = true;
   bool showVisualizations = true;
+  std::vector<std::string> presetFolders;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings);
@@ -41,13 +45,15 @@ bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::st
 
 struct Capture
 {
-  std::filesystem::path path, relative;
+  std::filesystem::path path, relative, source;
   std::string name, maker, model;
   std::string hash;
   size_t folderDepth = 0;
   Gear gear = Gear::Unknown;
   bool isIR = false;
   bool inferred = false; // Filename/folder hint, rather than an explicit metadata category.
+  FileKind kind = FileKind::NAM;
+  int module = -1; // Built-in module ID; populated by the UI catalog, never by a file reader.
 };
 
 struct Filter
@@ -75,6 +81,8 @@ std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& sel
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled = {});
 
 Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled = {});
+Snapshot ScanLibrary(const std::vector<std::string>& captureRoots, const std::vector<std::string>& presetRoots,
+                     const std::function<bool()>& cancelled = {});
 
 // Latest request wins. Results are handed back to the control thread, never to ProcessBlock.
 class Worker
@@ -84,13 +92,14 @@ public:
   ~Worker();
   void Request(const std::string& root);
   void Request(const std::vector<std::string>& roots);
+  void Request(const std::vector<std::string>& roots, const std::vector<std::string>& presetRoots);
   std::shared_ptr<const Snapshot> TakeResult();
 
 private:
   void Run();
   std::mutex mMutex;
   std::condition_variable mChanged;
-  std::vector<std::string> mRoots;
+  std::vector<std::string> mRoots, mPresetRoots;
   std::shared_ptr<const Snapshot> mResult;
   std::atomic<unsigned> mRevision{0};
   std::atomic<bool> mStop{false};

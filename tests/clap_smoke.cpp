@@ -1,6 +1,7 @@
 #include "A2Fixture.h"
 #include "ClapTestHost.h"
 #include <thread>
+#include <cstdlib>
 #include "WinEditorCapture.h"
 #include "WinEditMenuDriver.h"
 #include "../NeuralAmpModeler/EffectParameters.h"
@@ -19,6 +20,8 @@ int main(int argc, char** argv)
   std::cout << std::unitbuf;
   assert(argc == 3 || argc == 4);
 #ifdef _WIN32
+  win_file_dialog::SavedLibrarySettings settingsBackup;
+  const bool browserOnly = std::getenv("NAM_GRID_BROWSER_SMOKE") != nullptr;
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
   assert(library);
   auto* entry = reinterpret_cast<const clap_plugin_entry*>(GetProcAddress(library, "clap_entry"));
@@ -228,11 +231,12 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
+  for (const char* folderField : {"CaptureFolders", "PresetFolders"})
   for (const json& folders : {json(123), json::array({"valid", 123}), json::array({std::string("bad\0path", 8)}),
                               json(std::vector<std::string>(33, "folder"))})
   {
     auto invalidFolders = base;
-    invalidFolders["CaptureFolders"] = folders;
+    invalidFolders[folderField] = folders;
     Stream malformed;
     malformed.string("###NAMGrid-v1###");
     malformed.string(invalidFolders.dump());
@@ -1020,6 +1024,7 @@ int main(int argc, char** argv)
   auto browserState = cleared;
   browserState["CaptureFolder"] = libraryFolder.string();
   browserState["CaptureFolders"] = {libraryFolder.string(), irLibrary.string()};
+  browserState["PresetFolders"] = json::array();
   load(browserState);
   auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
   assert(gui);
@@ -1060,183 +1065,193 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
-  load(learnedNoiseState);
-  win_edit_menu::SelectFirstDestination(editor, 0, 0);
-  pumpFor(50);
-  const auto noiseCopy = save().config();
-  assert(noiseCopy["SlotEffects"][1] == 64);
-  assert(noiseCopy["NoisePrintProfiles"][1] == learnedNoiseState["NoisePrintProfiles"][0]);
-  assert(noiseCopy["Pre 2 Noise Gate Threshold"] == learnedNoiseState["Pre 1 Noise Gate Threshold"]);
-  click(170, 120);
-  SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5)));
-  SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5) - 25));
-  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5) - 25));
-  pumpFor(100);
-  assert(save().config()["Pre 1 Noise Gate Threshold"] > learnedNoiseState["Pre 1 Noise Gate Threshold"]);
-  click(grid_layout::KnobX(0), grid_layout::ToggleY(0)); // Learn is an actual toggle in the fixed bottom panel.
-  double learningValue = 0.;
-  assert(params->get_value(plugin, learnInfo.id, &learningValue));
-  assert(learningValue == 1.);
-  assert(save().config()["Pre 1 Noise Learn"] == 0.);
-  click(grid_layout::KnobX(0), grid_layout::ToggleY(0));
-  assert(params->get_value(plugin, learnInfo.id, &learningValue) && learningValue == 0.);
-  load(browserState);
-  // Exercise the actual native selection callback, parameter commit and prepared publication.
-  for (int source : {0, 1})
-    for (int mode : {0, 1, 2}) // Copy, Move, Swap
-      for (double gain : {-30., 30.})
-      {
-        const int destination = 1 - source;
-        const char* sourceGain = source == 0 ? "Drive Input" : "Input";
-        const char* destinationGain = destination == 0 ? "Drive Input" : "Input";
-        auto editState = browserState;
-        editState["DrivePath"] = libraryFirst.string();
-        editState["NAMPath"] = librarySecond.string();
-        editState[sourceGain] = gain;
-        const double previousGain = gain > 0. ? -35. : 35.;
-        editState[destinationGain] = previousGain;
-        load(editState);
-        assert(plugin->activate(plugin, 48000., 1, 512));
-        assert(plugin->start_processing(plugin));
-        process.frames_count = 512;
-        for (int i = 0; i < 512; ++i)
-          input[0][i] = input[1][i] = .1 * std::sin(i * .03);
-        assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
-        win_edit_menu::SelectFirstDestination(editor, source, mode);
-        pumpFor(50);
-        const auto edited = save().config();
-        assert(std::abs(edited[destinationGain].get<double>() - gain) < 1.e-9);
-        assert(edited["SlotPaths"][destination] == editState["SlotPaths"][source]);
-        assert(edited["SlotHashes"][destination] == editState["SlotHashes"][source]);
-        if (mode == 0)
+  const auto selectTile = [&](int x, int y) { click(x, y); click(932, 42); };
+  if (browserOnly)
+  {
+    click(910, 28); click(260, 132); click(915, 44);
+    pumpFor(250); // Exercise configured sources even when the user's startup rescan is off.
+  }
+  if (!browserOnly)
+  {
+    load(learnedNoiseState);
+    win_edit_menu::SelectFirstDestination(editor, 0, 0);
+    pumpFor(50);
+    const auto noiseCopy = save().config();
+    assert(noiseCopy["SlotEffects"][1] == 64);
+    assert(noiseCopy["NoisePrintProfiles"][1] == learnedNoiseState["NoisePrintProfiles"][0]);
+    assert(noiseCopy["Pre 2 Noise Gate Threshold"] == learnedNoiseState["Pre 1 Noise Gate Threshold"]);
+    selectTile(170, 120);
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5)));
+    SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5) - 25));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5) - 25));
+    pumpFor(100);
+    assert(save().config()["Pre 1 Noise Gate Threshold"] > learnedNoiseState["Pre 1 Noise Gate Threshold"]);
+    click(grid_layout::KnobX(0), grid_layout::ToggleY(0)); // Learn is an actual toggle in the fixed bottom panel.
+    double learningValue = 0.;
+    assert(params->get_value(plugin, learnInfo.id, &learningValue));
+    assert(learningValue == 1.);
+    assert(save().config()["Pre 1 Noise Learn"] == 0.);
+    click(grid_layout::KnobX(0), grid_layout::ToggleY(0));
+    assert(params->get_value(plugin, learnInfo.id, &learningValue) && learningValue == 0.);
+    load(browserState);
+    // Exercise the actual native selection callback, parameter commit and prepared publication.
+    for (int source : {0, 1})
+      for (int mode : {0, 1, 2}) // Copy, Move, Swap
+        for (double gain : {-30., 30.})
         {
-          assert(edited["SlotPaths"][source] == editState["SlotPaths"][source]);
-          assert(edited[sourceGain] == gain);
-        }
-        else if (mode == 1)
-        {
-          assert(edited["SlotPaths"][source] == "");
-          assert(edited["SlotHashes"][source] == "");
-          assert(edited[sourceGain] == 0.);
-        }
-        else
-        {
-          assert(edited["SlotPaths"][source] == editState["SlotPaths"][destination]);
-          assert(edited["SlotHashes"][source] == editState["SlotHashes"][destination]);
-          assert(edited[sourceGain] == previousGain);
-        }
-        for (int block = 0; block < 8; ++block)
-        {
-          assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+          const int destination = 1 - source;
+          const char* sourceGain = source == 0 ? "Drive Input" : "Input";
+          const char* destinationGain = destination == 0 ? "Drive Input" : "Input";
+          auto editState = browserState;
+          editState["DrivePath"] = libraryFirst.string();
+          editState["NAMPath"] = librarySecond.string();
+          editState[sourceGain] = gain;
+          const double previousGain = gain > 0. ? -35. : 35.;
+          editState[destinationGain] = previousGain;
+          load(editState);
+          assert(plugin->activate(plugin, 48000., 1, 512));
+          assert(plugin->start_processing(plugin));
+          process.frames_count = 512;
           for (int i = 0; i < 512; ++i)
-            assert(std::isfinite(output[0][i]) && std::isfinite(output[1][i]));
+            input[0][i] = input[1][i] = .1 * std::sin(i * .03);
+          assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+          win_edit_menu::SelectFirstDestination(editor, source, mode);
+          pumpFor(50);
+          const auto edited = save().config();
+          assert(std::abs(edited[destinationGain].get<double>() - gain) < 1.e-9);
+          assert(edited["SlotPaths"][destination] == editState["SlotPaths"][source]);
+          assert(edited["SlotHashes"][destination] == editState["SlotHashes"][source]);
+          if (mode == 0)
+          {
+            assert(edited["SlotPaths"][source] == editState["SlotPaths"][source]);
+            assert(edited[sourceGain] == gain);
+          }
+          else if (mode == 1)
+          {
+            assert(edited["SlotPaths"][source] == "");
+            assert(edited["SlotHashes"][source] == "");
+            assert(edited[sourceGain] == 0.);
+          }
+          else
+          {
+            assert(edited["SlotPaths"][source] == editState["SlotPaths"][destination]);
+            assert(edited["SlotHashes"][source] == editState["SlotHashes"][destination]);
+            assert(edited[sourceGain] == previousGain);
+          }
+          for (int block = 0; block < 8; ++block)
+          {
+            assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+            for (int i = 0; i < 512; ++i)
+              assert(std::isfinite(output[0][i]) && std::isfinite(output[1][i]));
+          }
+          assert(save().config() == edited);
+          plugin->stop_processing(plugin);
+          plugin->deactivate(plugin);
         }
-        assert(save().config() == edited);
-        plugin->stop_processing(plugin);
-        plugin->deactivate(plugin);
-      }
-  load(browserState);
-  std::cout << "Slot edit menus passed; checking module menus\n";
-  click(910, 28); click(260, 132); click(915, 44); // Rescan all from library settings.
-  pumpFor(250);
-  // Recall follows the saved content even when the old filename disappeared or
-  // now points at another model. Both loader types resolve through the index.
-  for (bool ir : {false, true})
-  {
-    auto relocated = browserState;
-    const auto canonical = ir ? libraryIR : librarySecond;
-    const auto hash = nam_library::ContentHash(canonical);
-    relocated["SlotEffects"][0] = ir ? 7 : 0;
-    relocated["SlotPaths"][0] = (fixtures / (ir ? "moved.wav" : "moved.nam")).string();
-    relocated["SlotHashes"][0] = hash;
-    relocated["DrivePath"] = ir ? "" : relocated["SlotPaths"][0].get<std::string>();
-    Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(relocated.dump());
-    assert(loadBytes(bytes));
-    for(int wait=0;wait<100 && std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) != canonical;++wait) pumpFor(20);
-    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
-    assert(save().config()["SlotHashes"][0] == hash);
-    relocated["SlotPaths"][0] = path2.string(); // A different capture occupies the saved path.
-    relocated["DrivePath"] = ir ? "" : path2.string();
-    Stream replaced; replaced.string("###NAMGrid-v1###"); replaced.string(relocated.dump());
-    assert(loadBytes(replaced));
-    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
-    // A stale index must not prevent loading a verified saved copy outside it.
-    relocated["SlotPaths"][0] = (ir ? irFile : path1).string();
-    relocated["DrivePath"] = ir ? "" : path1.string();
-    Stream fallback; fallback.string("###NAMGrid-v1###"); fallback.string(relocated.dump());
-    const auto firstBlock = [&] {
-      assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
-      for(int i=0;i<512;++i) input[0][i]=input[1][i]=.1*std::sin(i*.031);
-      process.frames_count=512; assert(plugin->process(plugin,&process)!=CLAP_PROCESS_ERROR);
-      const auto result=output;
-      plugin->stop_processing(plugin);plugin->deactivate(plugin);return result;
-    };
-    assert(loadBytes(fallback)); const auto expectedAudio=firstBlock();
-    const auto parked=canonical.string()+".relink-test-"+std::to_string(GetTickCount64());
-    std::filesystem::rename(canonical,parked);
-    assert(loadBytes(fallback)); const auto fallbackAudio=firstBlock();
-    std::filesystem::rename(parked,canonical);
-    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == (ir ? irFile : path1));
-    for(int ch=0;ch<2;++ch) for(int i=0;i<512;++i) assert(std::abs(expectedAudio[ch][i]-fallbackAudio[ch][i])<1.e-10);
-  }
-  load(browserState);
-  // Choosing one of several identical captures keeps that exact file; the content hash is only a
-  // fallback, so a pack copy must not be redirected to the curated copy in another folder.
-  {
-    auto chosen = browserState;
-    chosen["SlotEffects"][0] = 0;
-    chosen["SlotPaths"][0] = libraryTwin.string();
-    chosen["SlotHashes"][0] = nam_library::ContentHash(libraryTwin);
-    chosen["DrivePath"] = libraryTwin.string();
-    Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(chosen.dump());
-    assert(loadBytes(bytes));
-    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
-    chosen["SlotHashes"][0] = ""; // An explicit choice carries no remembered hash.
-    Stream explicitChoice; explicitChoice.string("###NAMGrid-v1###"); explicitChoice.string(chosen.dump());
-    assert(loadBytes(explicitChoice));
-    assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
-  }
-  load(browserState);
-  const auto beforeHashError = save().config();
-  auto invalidHashes = beforeHashError; invalidHashes["SlotHashes"][0] = std::string(40, 'z');
-  Stream badHashBytes; badHashBytes.string("###NAMGrid-v1###"); badHashBytes.string(invalidHashes.dump());
-  assert(!loadBytes(badHashBytes)); assert(save().config() == beforeHashError);
-  // The actual empty-card title opens on one mouse-down; every built-in command,
-  // including the HQ effects, must pass SetSlotEffect's validation as well.
-  for (const auto& group : nam_library::kModuleGroups)
-    for (const auto effect : group.effects)
+    load(browserState);
+    std::cout << "Slot edit menus passed; checking module menus\n";
+    click(910, 28); click(260, 132); click(915, 44); // Rescan all from library settings.
+    pumpFor(250);
+    // Recall follows the saved content even when the old filename disappeared or
+    // now points at another model. Both loader types resolve through the index.
+    for (bool ir : {false, true})
     {
-      const std::string name = SlotEffectName(effect);
-      const std::wstring wideName(name.begin(), name.end());
-      win_edit_menu::SelectNamedItem(editor, 170, 105, wideName.c_str()); pumpFor(30);
-      const auto inserted = save().config();
-      assert(inserted["SlotEffects"][0] == static_cast<int>(effect));
-      const auto defaults = SlotDefaultValues(effect);
-      // Insertion must use this module's defaults even after another module used
-      // the same parameter bank, and must notify the plugin's actual parameters.
-      for (int i = 0; i < kUtilityControls; ++i)
-        assert(std::abs(inserted[std::string("Pre 1 ") + kEffectParameters[i].name].get<double>() - defaults[17 + i]) < 1.e-6);
-      if (effect == SlotEffect::SmoothComp) assert(inserted["Pre 1 Comp Threshold"] == -24.);
-      if (effect == SlotEffect::CutEQ) assert(inserted["Pre 1 EQ High Pass"] == 80.);
-      win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot", true); pumpFor(30);
-      assert(save().config()["SlotEffects"][0] == 0 && save().config()["SlotPaths"][0] == "");
+      auto relocated = browserState;
+      const auto canonical = ir ? libraryIR : librarySecond;
+      const auto hash = nam_library::ContentHash(canonical);
+      relocated["SlotEffects"][0] = ir ? 7 : 0;
+      relocated["SlotPaths"][0] = (fixtures / (ir ? "moved.wav" : "moved.nam")).string();
+      relocated["SlotHashes"][0] = hash;
+      relocated["DrivePath"] = ir ? "" : relocated["SlotPaths"][0].get<std::string>();
+      Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(relocated.dump());
+      assert(loadBytes(bytes));
+      for(int wait=0;wait<100 && std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) != canonical;++wait) pumpFor(20);
+      assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
+      assert(save().config()["SlotHashes"][0] == hash);
+      relocated["SlotPaths"][0] = path2.string(); // A different capture occupies the saved path.
+      relocated["DrivePath"] = ir ? "" : path2.string();
+      Stream replaced; replaced.string("###NAMGrid-v1###"); replaced.string(relocated.dump());
+      assert(loadBytes(replaced));
+      assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
+      // A stale index must not prevent loading a verified saved copy outside it.
+      relocated["SlotPaths"][0] = (ir ? irFile : path1).string();
+      relocated["DrivePath"] = ir ? "" : path1.string();
+      Stream fallback; fallback.string("###NAMGrid-v1###"); fallback.string(relocated.dump());
+      const auto firstBlock = [&] {
+        assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
+        for(int i=0;i<512;++i) input[0][i]=input[1][i]=.1*std::sin(i*.031);
+        process.frames_count=512; assert(plugin->process(plugin,&process)!=CLAP_PROCESS_ERROR);
+        const auto result=output;
+        plugin->stop_processing(plugin);plugin->deactivate(plugin);return result;
+      };
+      assert(loadBytes(fallback)); const auto expectedAudio=firstBlock();
+      const auto parked=canonical.string()+".relink-test-"+std::to_string(GetTickCount64());
+      std::filesystem::rename(canonical,parked);
+      assert(loadBytes(fallback)); const auto fallbackAudio=firstBlock();
+      std::filesystem::rename(parked,canonical);
+      assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == (ir ? irFile : path1));
+      for(int ch=0;ch<2;++ch) for(int i=0;i<512;++i) assert(std::abs(expectedAudio[ch][i]-fallbackAudio[ch][i])<1.e-10);
     }
-  win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot"); pumpFor(30);
-  // Empty slots have neither a card toggle nor a lone editor Enabled control.
-  {
-    const auto empty = save().config();
-    click(263, grid_layout::cardTop + 12);
-    click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
-    assert(save().config() == empty);
+    load(browserState);
+    // Choosing one of several identical captures keeps that exact file; the content hash is only a
+    // fallback, so a pack copy must not be redirected to the curated copy in another folder.
+    {
+      auto chosen = browserState;
+      chosen["SlotEffects"][0] = 0;
+      chosen["SlotPaths"][0] = libraryTwin.string();
+      chosen["SlotHashes"][0] = nam_library::ContentHash(libraryTwin);
+      chosen["DrivePath"] = libraryTwin.string();
+      Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(chosen.dump());
+      assert(loadBytes(bytes));
+      assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
+      chosen["SlotHashes"][0] = ""; // An explicit choice carries no remembered hash.
+      Stream explicitChoice; explicitChoice.string("###NAMGrid-v1###"); explicitChoice.string(chosen.dump());
+      assert(loadBytes(explicitChoice));
+      assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
+    }
+    load(browserState);
+    const auto beforeHashError = save().config();
+    auto invalidHashes = beforeHashError; invalidHashes["SlotHashes"][0] = std::string(40, 'z');
+    Stream badHashBytes; badHashBytes.string("###NAMGrid-v1###"); badHashBytes.string(invalidHashes.dump());
+    assert(!loadBytes(badHashBytes)); assert(save().config() == beforeHashError);
+    // The actual empty-card title opens on one mouse-down; every built-in command,
+    // including the HQ effects, must pass SetSlotEffect's validation as well.
+    selectTile(170, 120);
+    for (const auto& group : nam_library::kModuleGroups)
+      for (const auto effect : group.effects)
+      {
+        const std::string name = SlotEffectName(effect);
+        const std::wstring wideName(name.begin(), name.end());
+        win_edit_menu::SelectNamedItem(editor, 220, grid_layout::moduleButtonY, wideName.c_str()); pumpFor(30);
+        const auto inserted = save().config();
+        assert(inserted["SlotEffects"][0] == static_cast<int>(effect));
+        const auto defaults = SlotDefaultValues(effect);
+        // Insertion must use this module's defaults even after another module used
+        // the same parameter bank, and must notify the plugin's actual parameters.
+        for (int i = 0; i < kUtilityControls; ++i)
+          assert(std::abs(inserted[std::string("Pre 1 ") + kEffectParameters[i].name].get<double>() - defaults[17 + i]) < 1.e-6);
+        if (effect == SlotEffect::SmoothComp) assert(inserted["Pre 1 Comp Threshold"] == -24.);
+        if (effect == SlotEffect::CutEQ) assert(inserted["Pre 1 EQ High Pass"] == 80.);
+        win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot", true); pumpFor(30);
+        assert(save().config()["SlotEffects"][0] == 0 && save().config()["SlotPaths"][0] == "");
+      }
+    win_edit_menu::SelectNamedItem(editor, 220, grid_layout::moduleButtonY, L"Clear slot"); pumpFor(30);
+    // Empty slots have neither a card toggle nor a lone editor Enabled control.
+    {
+      const auto empty = save().config();
+      click(263, grid_layout::cardTop + 12);
+      click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
+      assert(save().config() == empty);
+    }
+    std::cout << "Single-click module selection and right-click Clear slot passed\n";
   }
-  std::cout << "Single-click module selection and right-click Clear slot passed\n";
   auto eqUI = browserState;
   eqUI["SlotEffects"][0] = 5;
   eqUI["SlotEffects"][1] = 6;
   eqUI["SlotEffects"][2] = 7;
   eqUI["SlotPaths"][2] = irFile.string();
   load(eqUI);
-  click(170, 120); // Select Pre 1 independently of earlier menu tests.
+  selectTile(170, 120); // Select Pre 1 independently of earlier menu tests.
   pumpFor(100);
   const auto dragAt = [&](int x, int y, int distance = 25) {
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
@@ -1251,6 +1266,59 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
     assert(SetKeyboardState(previous)); pumpFor(20);
   };
+  const auto enterBrowserSearch = [&](const std::string& query) {
+    click(200, 142);
+    for (const char ch : query) keyAtEditor(ch == ' ' ? VK_SPACE : ch);
+    pumpFor(150); // Results must update before Enter commits the search editor.
+  };
+  const auto chooseBrowserItem = [&](const std::string& query) {
+    enterBrowserSearch(query); keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
+  };
+  // Tiles and the browser icon share context. Merely opening/searching/navigating
+  // must not edit a rig; accepting the selected item targets the originating slot.
+  auto browserCurrent = browserState;
+  browserCurrent["SlotPaths"][0] = libraryTwin.string();
+  browserCurrent["DrivePath"] = libraryTwin.string();
+  load(browserCurrent);
+  const auto beforeBrowse = save().config();
+  click(170, 120);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-nam-current.bmp");
+  assert(save().config() == beforeBrowse);
+  keyAtEditor(VK_RETURN); // The exact duplicate path remains selected.
+  assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
+  click(356, grid_layout::moduleButtonY);
+  enterBrowserSearch("DRIVE");
+  assert(save().config()["SlotPaths"][0] == beforeBrowse["SlotPaths"][0]);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-nam-search.bmp");
+  keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
+  assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == librarySecond);
+  click(356, grid_layout::moduleButtonY);
+  click(350, 92); // Cell context allows IR, but offers no complete rig presets.
+  click(480, 92); // A hidden preset tab must not accept input.
+  chooseBrowserItem("CABINET");
+  assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::CabinetIR));
+  assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryIR);
+  click(356, grid_layout::moduleButtonY);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-ir-current.bmp");
+  keyAtEditor(VK_ESCAPE);
+  // An external file's folder is browsable without adding it to the user's library.
+  auto externalFile = browserState;
+  externalFile["SlotPaths"][0] = path2.string(); externalFile["DrivePath"] = path2.string();
+  load(externalFile); click(170, 120); pumpFor(250);
+  keyAtEditor(VK_RETURN);
+  assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == path2);
+  assert(save().config()["CaptureFolders"] == browserState["CaptureFolders"]);
+  auto moduleBrowser = eqUI;
+  moduleBrowser["Pre 1 EQ Bass"] = 6.;
+  load(moduleBrowser); click(170, 120);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-fx-current.bmp");
+  keyAtEditor(VK_RETURN);
+  assert(save().config()["Pre 1 EQ Bass"] == 6.); // Reselecting the FX retains edits.
+  click(356, grid_layout::moduleButtonY); chooseBrowserItem("CONSOLE EQ");
+  assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "module-header-readable.bmp");
+  load(eqUI); selectTile(170, 120);
+  std::cout << "Context browser tile/icon entry, exact current selection, live search and NAM/IR/FX targeting passed\n";
   const auto resetDial = [&](int x, int y) {
     SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(x, y));
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y)); pumpFor(30);
@@ -1261,13 +1329,13 @@ int main(int argc, char** argv)
   cloud["SlotEffects"][0] = static_cast<int>(SlotEffect::CloudReverb);
   cloud["SlotPaths"][0] = ""; cloud["DrivePath"] = "";
   cloud["Pre 1 Reverb Decay"] = 12.;
-  load(cloud); click(170, 120); pumpFor(60);
+  load(cloud); selectTile(170, 120); pumpFor(60);
   resetDial(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(std::abs(save().config()["Pre 1 Reverb Decay"].get<double>() - 6.) < 1.e-6);
   win_edit_menu::SelectNamedItem(editor, 220, grid_layout::moduleButtonY, L"Room"); pumpFor(30);
   assert(std::abs(save().config()["Pre 1 Reverb Decay"].get<double>() - .8) < 1.e-6);
   assert(save().config()["Pre 1 Reverb Size"] == 80.);
-  load(eqUI); click(170, 120); pumpFor(60);
+  load(eqUI); selectTile(170, 120); pumpFor(60);
   // Numeric text is below each dial; entry and reset must retain its binding.
   InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
   click(grid_layout::KnobX(0), grid_layout::KnobValueY(0));
@@ -1307,7 +1375,7 @@ int main(int argc, char** argv)
   const auto presetDirectory = fixtures / ("presets-" + std::to_string(GetTickCount64()));
   std::filesystem::create_directories(presetDirectory);
   const auto presetFile = presetDirectory / "Clean rig.ngrid";
-  const auto presetMenu = [&](const wchar_t* name) { win_edit_menu::SelectNamedItem(editor, 470, 28, name); pumpFor(150); };
+  const auto presetMenu = [&](const wchar_t* name) { win_edit_menu::SelectNamedItem(editor, 470, 28, name, true); pumpFor(150); };
   std::cout << "Checking native preset dialogs and folder browser\n";
   win_file_dialog::Choose(presetFile, [&] { presetMenu(L"Save preset as..."); });
   std::cout << "Native preset save passed\n";
@@ -1318,9 +1386,10 @@ int main(int argc, char** argv)
   assert(savedRig["SlotEffects"][3] == static_cast<int>(SlotEffect::LoFiTape));
   assert(savedRig["Pre 4 LoFi Speed"] == 3.75 && savedRig["Pre 4 LoFi Wear"] == 80.);
   assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
-  assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
+  assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("PresetFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
   auto anotherRig = cleared;
   anotherRig["CaptureFolder"] = irLibrary.string(); anotherRig["CaptureFolders"] = {irLibrary.string()};
+  anotherRig["PresetFolders"] = json::array();
   anotherRig["Tuner Reference"] = 442.; anotherRig["Tuner Mute"] = 1.;
   load(anotherRig);
   host.dirty = false; host.rescanned = 0;
@@ -1345,22 +1414,66 @@ int main(int argc, char** argv)
   assert(save().config() == restoredRig); // Cancel leaves the complete rig unchanged.
   auto secondRig = savedRig; secondRig["Output"] = -10.;
   rig_preset::Write(presetDirectory / "Second rig.ngrid", secondRig);
+  // Add preset roots using the actual directory picker, then browse them recursively.
+  click(470, 28);
+  click(220, 92); // Preset context has no NAM tab here.
+  win_file_dialog::Choose(presetDirectory, [&] { click(90, 663); }, false, true);
+  pumpFor(250);
+  assert(save().config()["PresetFolders"] == json::array({nam_library::PathText(presetDirectory)}));
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-presets.bmp");
+  chooseBrowserItem("SECOND RIG");
+  assert(save().config()["Output"] == -10. && save().config()["PresetFolders"].size() == 1);
+  click(664, 28);
   click(704, 28);
   assert(save().config()["PresetName"] == "Second rig" && save().config()["Output"] == -10.);
   click(664, 28);
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
-  presetMenu(L"Second rig");
+  click(470, 28); chooseBrowserItem("SECOND RIG");
   assert(save().config()["PresetName"] == "Second rig");
   click(664, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
   std::cout << "Preset folder selection and previous/next passed\n";
-  load(eqUI); click(170, 120);
+  if (browserOnly)
+  {
+    if (argc == 4)
+    {
+      // Representative dense screens for typography/layout review; no audio device.
+      for (const auto [effect, name] : std::array<std::pair<SlotEffect, const char*>, 8>{{
+             {SlotEffect::ConsoleEQ, "console-eq"}, {SlotEffect::DigitalDelay, "delay"},
+             {SlotEffect::CosmicEcho, "cosmic"}, {SlotEffect::Chorus, "chorus"},
+             {SlotEffect::LoFiTape, "lofi"}, {SlotEffect::OutboardChannel, "outboard"},
+             {SlotEffect::Octaver, "octaver"}, {SlotEffect::Utility, "utility"}}})
+      {
+        auto preview = browserState;
+        preview["SlotEffects"][0] = static_cast<int>(effect);
+        preview["SlotPaths"][0] = ""; preview["DrivePath"] = "";
+        load(preview); selectTile(170, 120);
+        CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("readable-") + name + ".bmp"));
+      }
+      click(910, 28);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
+      click(915, 44); click(225, 28);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
+      click(295, 104);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
+      click(465, 104);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-scenes.bmp");
+      click(915, 44); click(808, 36);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
+      keyAtEditor(VK_ESCAPE);
+    }
+    gui->destroy(plugin); DestroyWindow(parent);
+    plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+    std::cout << "Focused native browser smoke passed\n";
+    return 0;
+  }
+  load(eqUI); selectTile(170, 120);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 1 EQ Bass"] != 0.);
-  click(390, 120); // Select IN2 Cut EQ; only its controls may receive gestures.
+  selectTile(390, 120); // Select IN2 Cut EQ; only its controls may receive gestures.
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 2 EQ High Pass"] != 0.);
-  click(610, 120); // Select IN3 IR loader.
+  selectTile(610, 120); // Select IN3 IR loader.
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 3 IR Level"] != -18.);
   auto utilities = browserState;
@@ -1368,7 +1481,7 @@ int main(int argc, char** argv)
   utilities["SlotEffects"][1] = 9;
   utilities["Pre 1 EQ Low Pass"] = 10000.;
   load(utilities);
-  click(170, 120);
+  selectTile(170, 120);
   for (int position = 0; position < 5; ++position)
     dragAt(grid_layout::KnobX(position), grid_layout::KnobGestureY(position));
   auto editedUtility = save().config();
@@ -1379,7 +1492,7 @@ int main(int argc, char** argv)
   assert(editedUtility["Pre 1 EQ Low Pass"] != utilities["Pre 1 EQ Low Pass"]);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "parametric-eq.bmp");
-  click(390, 120);
+  selectTile(390, 120);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 2 Boost Gain"] != utilities["Pre 2 Boost Gain"]);
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
@@ -1400,7 +1513,7 @@ int main(int argc, char** argv)
     auto effectControls = browserState;
     effectControls["SlotEffects"][0] = id;
     load(effectControls);
-    click(170, 120);
+    selectTile(170, 120);
     for (int p = 0; p < kUtilityControls; ++p)
       if (UsesUtility(effect, p))
       {
@@ -1433,10 +1546,10 @@ int main(int argc, char** argv)
   {
     auto category = browserState;
     category["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalDelay);
-    load(category); click(170, 120);
-    win_edit_menu::SelectNamedItem(editor, 356, grid_layout::moduleButtonY, L"Tape Echo"); pumpFor(30);
+    load(category); selectTile(170, 120);
+    click(356, grid_layout::moduleButtonY); chooseBrowserItem("TAPE ECHO"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::TapeDelay));
-    win_edit_menu::SelectNamedItem(editor, 356, grid_layout::moduleButtonY, L"Dual Delay"); pumpFor(30);
+    click(356, grid_layout::moduleButtonY); chooseBrowserItem("DUAL DELAY"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::DualDelay));
   }
   // The larger top-right grid toggle changes bypass without replacing the module.
@@ -1454,7 +1567,7 @@ int main(int argc, char** argv)
     tapeUI["SlotEffects"][0] = static_cast<int>(SlotEffect::LoFiTape);
     tapeUI["Pre 1 LoFi Wow"] = 75.; tapeUI["Pre 1 LoFi Flutter"] = 65.;
     tapeUI["Pre 1 LoFi Wear"] = 60.; tapeUI["Pre 1 LoFi Noise"] = 10.;
-    load(tapeUI); click(170, 120);
+    load(tapeUI); selectTile(170, 120);
     assert(plugin->activate(plugin, 48000., 1, 512));
     assert(plugin->start_processing(plugin));
     process.frames_count = 512;
@@ -1475,7 +1588,7 @@ int main(int argc, char** argv)
     auto switchState = browserState;
     switchState["SlotEffects"][0] = effect;
     load(switchState);
-    click(170, 120);
+    selectTile(170, 120);
     const char* name = effect == 12 || effect == static_cast<int>(SlotEffect::DualDelay)
                          ? "Pre 1 Delay Ping Pong" : "Pre 1 Reverb Stereo";
     const double before = save().config()[name].get<double>();
@@ -1484,15 +1597,15 @@ int main(int argc, char** argv)
   }
   {
     auto reverse = browserState; reverse["SlotEffects"][0] = static_cast<int>(SlotEffect::ReverseDelay);
-    load(reverse); click(170, 120);
+    load(reverse); selectTile(170, 120);
     const auto before = save().config();
     click(558, grid_layout::optionsY); // No ineffective Ping-pong control here.
     assert(save().config() == before);
     auto vibe = browserState; vibe["SlotEffects"][0] = static_cast<int>(SlotEffect::UniVibe);
     vibe["Pre 1 Vibe Vibrato"] = 1.; vibe["Pre 1 Mod Mix"] = 50.;
-    load(vibe); click(170, 120); dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
+    load(vibe); selectTile(170, 120); dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
     assert(save().config()["Pre 1 Mod Mix"] == 50.); // Fully wet mode hides Mix.
-    vibe["Pre 1 Vibe Vibrato"] = 0.; load(vibe); click(170, 120);
+    vibe["Pre 1 Vibe Vibrato"] = 0.; load(vibe); selectTile(170, 120);
     dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
     assert(save().config()["Pre 1 Mod Mix"] != 50.);
   }
@@ -1507,7 +1620,7 @@ int main(int argc, char** argv)
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;
-  click(170, 120); // Select IN1.
+  selectTile(170, 120); // Select IN1.
   const auto automate = [&](const char* name, double value) {
     clap_param_info info{};
     bool found = false;
@@ -1585,7 +1698,7 @@ int main(int argc, char** argv)
   effectUI["SlotEffects"][1] = 3;
   load(effectUI);
   pumpFor(100);
-  click(170, 120);
+  selectTile(170, 120);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Selected IN1 gate threshold.
   assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
   assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
@@ -1598,7 +1711,7 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 1 Gate Mode"] == 0.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
-  click(390, 120);
+  selectTile(390, 120);
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2)); // Selected IN2 compressor makeup.
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
@@ -1610,7 +1723,7 @@ int main(int argc, char** argv)
   // FX navigation stays in the current menu category and wraps in both directions.
   auto navigation = browserState;
   navigation["SlotEffects"][0] = static_cast<int>(SlotEffect::JunoChorus);
-  load(navigation); click(170,120);
+  load(navigation); selectTile(170, 120);
   click(422, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::Flanger));
   click(392, grid_layout::moduleButtonY);
@@ -1625,7 +1738,7 @@ int main(int argc, char** argv)
   navigation = browserState;
   navigation["DrivePath"] = libraryFirst.string();
   navigation["SlotEffects"][1] = 7; navigation["SlotPaths"][1] = libraryIR.string();
-  load(navigation); click(170,120);
+  load(navigation); selectTile(170, 120);
   click(422, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
   assert(save().config()["SlotEffects"][0] == 0);
@@ -1633,19 +1746,19 @@ int main(int argc, char** argv)
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
   click(392, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
-  win_edit_menu::SelectNamedItem(editor,356,grid_layout::moduleButtonY,L"amp"); pumpFor(30);
+  click(356, grid_layout::moduleButtonY); chooseBrowserItem("AMP"); pumpFor(30);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
-  click(390,120); click(422,grid_layout::moduleButtonY);
+  selectTile(390, 120); click(422,grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == neighborIR);
   assert(save().config()["SlotEffects"][1] == 7);
   click(392,grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == libraryIR);
   if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/"ir.bmp");
   // Empty file slots cannot cycle into another category.
-  click(170,224); click(422,grid_layout::moduleButtonY);
+  selectTile(170, 224); click(422,grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][4] == 0 && save().config()["SlotPaths"][4] == "");
   // The settings page is opaque and intercepts clicks; grid/editor controls cannot receive them.
-  click(170, 120);
+  selectTile(170, 120);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
   const auto beforeSettings = save().config();
@@ -1693,13 +1806,13 @@ int main(int argc, char** argv)
     colors["SlotEffects"][15] = 23;
     load(colors);
     pumpFor(100);
-    click(610, 120);
+    selectTile(610, 120);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "node-colors.bmp");
     colors["SlotEffects"][0] = 24;
     colors["SlotPaths"][0] = "";
     colors["DrivePath"] = "";
     load(colors);
-    click(170, 120);
+    selectTile(170, 120);
     pumpFor(300);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "tube-boost.bmp");
     for (int effect : {26, 27, 18, 15, 12})
@@ -1709,20 +1822,20 @@ int main(int argc, char** argv)
       if (effect == 12)
         preview["Pre 1 Delay Ping Pong"] = 1.;
       load(preview);
-      click(170, 120);
+      selectTile(170, 120);
       CaptureEditor(
         editor, std::filesystem::path(argv[3]) / (std::string("stereo-guitar-") + std::to_string(effect) + ".bmp"));
     }
     auto utilityPreview = browserState;
     utilityPreview["SlotEffects"][0] = 25;
     load(utilityPreview);
-    click(170, 120);
+    selectTile(170, 120);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "utility.bmp");
     auto syncPreview = browserState;
     syncPreview["SlotEffects"][0] = 14;
     syncPreview["Pre 1 Tempo Sync"] = 1.;
     load(syncPreview);
-    click(170, 120);
+    selectTile(170, 120);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "tempo-sync.bmp");
   }
   load(cleared);
@@ -1801,7 +1914,7 @@ int main(int argc, char** argv)
   host.restart = false;
   auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
   assert(latency->get(plugin) == 54);
-  click(170, 328);
+  selectTile(170, 328);
   win_edit_menu::SelectNamedItem(editor,200,grid_layout::moduleButtonY,L"amp"); // B1 gets one model (27 samples), while A stays 54 samples.
   pumpFor(30);
   if (host.callback)

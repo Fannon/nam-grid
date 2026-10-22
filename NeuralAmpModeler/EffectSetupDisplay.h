@@ -7,8 +7,8 @@ template<class Value>
 bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor color,
                      Value value, double tempo, double rate)
 {
-  const auto caption = [&](const char* text) { g.DrawText(Text(11.f, color), text, IRECT(plot.L, 490, plot.R, 518)); };
-  const auto foot = [&](const char* text) { g.DrawText(Text(11.f, muted, EAlign::Far), text, IRECT(plot.L, plot.B - 10, plot.R, plot.B)); };
+  const auto caption = [&](const char* text) { g.DrawText(Text(14.f, color), text, IRECT(plot.L, 490, plot.R, 518)); };
+  const auto foot = [&](const char* text) { g.DrawText(Text(13.f, muted, EAlign::Far), text, IRECT(plot.L, plot.B - 16, plot.R, plot.B)); };
   const auto line = [&](double x1, double y1, double x2, double y2, IColor ink, float width = 1.5f) {
     g.DrawLine(ink, plot.L + plot.W() * static_cast<float>(std::clamp(x1, 0., 1.)),
                     plot.B - plot.H() * static_cast<float>(std::clamp(y1, 0., 1.)),
@@ -37,12 +37,12 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       const float y = plot.B-plot.H()*static_cast<float>(.5+density/16.);
       g.FillRect(color.WithOpacity(.65f),IRECT(x-16,std::min(y,plot.MH()),x+16,std::max(y,plot.MH())+1));
       text.SetFormatted(64,"%s %+.1f",names[i],density);
-      g.DrawText(Text(11.f,muted,EAlign::Center),text.Get(),IRECT(x-48,plot.B-18,x+48,plot.B));
+      g.DrawText(Text(13.f,muted,EAlign::Center),text.Get(),IRECT(x-48,plot.B-18,x+48,plot.B));
     }
     text.SetFormatted(96,"Bass %.0f Hz | Treble %.0f Hz",value(uConsoleBassFreq),value(uConsoleTrebleFreq));
-    g.DrawText(Text(11.f,muted),text.Get(),IRECT(plot.L,514,plot.R,534));
+    g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,514,plot.R,534));
     text.SetFormatted(96,"Cuts: low %.0f%% | high open %.0f%%",value(uConsoleLowCut),value(uConsoleHighCut));
-    g.DrawText(Text(11.f,muted),text.Get(),IRECT(plot.L,680,plot.R,696));
+    g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,680,plot.R,696));
     return true;
   }
   UtilityControls c;
@@ -67,9 +67,9 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     else if(effect==SlotEffect::TapeDelay || heads) text.SetFormatted(64,"Mod %d%% | Sat %.0f%%",motion,c.delay[3]);
     else if(effect==SlotEffect::AnalogDelay) text.SetFormatted(64,"Age %.0f%% | Mod %d%%",c.delay[3],motion);
     else text.SetFormatted(64,"High cut %.1f kHz",c.delay[2]/1000.);
-    g.DrawText(Text(12.f,muted),text.Get(),IRECT(plot.L,515,plot.R-50,536));
-    g.DrawText(Text(12.f,delayColor),stereo ? "L" : "L=R",IRECT(plot.R-45,515,plot.R-23,536));
-    if(stereo) g.DrawText(Text(12.f,ampColor),"R",IRECT(plot.R-17,515,plot.R,536));
+    g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,515,plot.R-50,536));
+    g.DrawText(Text(13.f,delayColor),stereo ? "L" : "L=R",IRECT(plot.R-45,515,plot.R-23,536));
+    if(stereo) g.DrawText(Text(13.f,ampColor),"R",IRECT(plot.R-17,515,plot.R,536));
     double maximum = .001;
     for (size_t i = 0; i < echoes.count; ++i)
       maximum = std::max({maximum, echoes.taps[i].left, echoes.taps[i].right});
@@ -111,9 +111,9 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       }
     }
     g.DrawLine(border,chart.L,chart.B,chart.R,chart.B);
-    g.DrawText(Text(12.f,muted),stereoHeads ? "Cross-feedback" : "Relative taps",IRECT(plot.L,671,plot.R-50,690));
+    g.DrawText(Text(13.f,muted),stereoHeads ? "Cross-feedback" : "Relative taps",IRECT(plot.L,671,plot.R-50,690));
     text.SetFormatted(32,"%.1fs",echoes.horizon);
-    g.DrawText(Text(12.f,muted,EAlign::Far),text.Get(),IRECT(plot.R-50,671,plot.R,690));
+    g.DrawText(Text(13.f,muted,EAlign::Far),text.Get(),IRECT(plot.R-50,671,plot.R,690));
     return true;
   }
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
@@ -158,7 +158,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       const float x = plot.L + plot.W() * (i + .5f) / 3.f;
       const double height = value(uOctDry + i) * .01 * gain;
       g.FillRect((i ? color : muted).WithOpacity(.75f), IRECT(x - 9, plot.B - 12 - plot.H() * static_cast<float>(std::min(.75, .65 * height)), x + 9, plot.B - 12));
-      g.DrawText(Text(11.f, muted, EAlign::Center), labels[i], IRECT(x - 25, plot.B - 11, x + 25, plot.B));
+      g.DrawText(Text(13.f, muted, EAlign::Center), labels[i], IRECT(x - 25, plot.B - 16, x + 25, plot.B));
     }
     return true;
   }
@@ -216,7 +216,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       const double y = channel ? .3 : .7, end = .5 + (channel ? 1. : -1.) * .24 * width;
       line(.5, .5, end, y, channel ? muted : color, static_cast<float>(1. + std::min(3., level)));
       const bool inverted = value(channel ? uUtilityInvertR : uUtilityInvertL) >= .5;
-      g.DrawText(Text(11.f, channel ? muted : color, EAlign::Center), inverted ? "-" : "+",
+      g.DrawText(Text(13.f, channel ? muted : color, EAlign::Center), inverted ? "-" : "+",
                  IRECT(plot.L + plot.W() * static_cast<float>(end) - 8, plot.B - plot.H() * static_cast<float>(y) - 8,
                        plot.L + plot.W() * static_cast<float>(end) + 8, plot.B - plot.H() * static_cast<float>(y) + 8));
     }

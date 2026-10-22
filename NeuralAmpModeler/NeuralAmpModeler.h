@@ -13,7 +13,7 @@
 #include "NAMStage.h"
 #include "FixedNAMGrid.h"
 #include "SlotOperations.h"
-#include "CaptureLibrary.h"
+#include "LibraryBrowser.h"
 #include "LevelAnalysis.h"
 #include "GridTuner.h"
 #include <array>
@@ -147,6 +147,7 @@ enum ECtrlTags
   kCtrlTagPresetName,
   kCtrlTagPresetPrevious,
   kCtrlTagPresetNext,
+  kCtrlTagLibraryBrowser,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -213,6 +214,9 @@ public:
   std::vector<std::string> GetCaptureFolders() const;
   void AddCaptureFolder(const char* folder);
   void RemoveCaptureFolder(size_t index);
+  void SetPresetFolders(std::vector<std::string> folders, bool fromUI = false);
+  std::vector<std::string> GetPresetFolders() const;
+  void OpenLibraryBrowser(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot = 0);
   size_t GetSelectedSlot() const { return mSelectedSlot; }
   void SelectSlot(size_t slot);
   void RescanCaptureFolder();
@@ -349,6 +353,7 @@ private:
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
   std::string mCaptureFolder; // First root alias for older project readers.
   std::vector<std::string> mCaptureFolders;
+  std::vector<std::string> mPresetFolders;
   size_t mSelectedSlot = 0; // Editor selection only; never read by the audio thread.
   nam_library::Filter mCaptureFilter;
   bool mLibraryScanning = false;

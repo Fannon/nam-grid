@@ -1,4 +1,5 @@
 #include "CaptureLibrary.h"
+#include "RigPreset.h"
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -172,6 +173,7 @@ std::vector<std::string> NormalizeFolders(const std::vector<std::string>& folder
     auto path = std::filesystem::weakly_canonical(std::filesystem::u8path(folder), error);
     if (error)
       path = std::filesystem::u8path(folder).lexically_normal();
+    while (path.has_relative_path() && path.filename().empty()) path = path.parent_path();
     auto key = PathText(path);
 #ifdef _WIN32
     key = Lower(key);
@@ -201,6 +203,7 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
                        : NormalizeFolders({config.value("CaptureFolder", std::string{})});
     result.rescanOnStartup = config.value("RescanOnStartup", true);
     result.showVisualizations = config.value("ShowVisualizations", true);
+    result.presetFolders = NormalizeFolders(config.value("PresetFolders", std::vector<std::string>{}));
     return result;
   }
   catch (const std::exception&)
@@ -215,7 +218,8 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
     std::filesystem::create_directories(settingsFile.parent_path());
     std::ofstream stream(settingsFile, std::ios::binary | std::ios::trunc);
     stream << nlohmann::json{{"CaptureFolders", settings.folders}, {"RescanOnStartup", settings.rescanOnStartup},
-                            {"ShowVisualizations", settings.showVisualizations}}.dump(
+                            {"ShowVisualizations", settings.showVisualizations},
+                            {"PresetFolders", settings.presetFolders}}.dump(
       2);
     stream.close();
     return !stream.fail();
@@ -249,10 +253,12 @@ Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& 
 {
   Capture result;
   result.path = file;
+  result.source = root;
   result.relative = file.lexically_relative(root);
   if (Lower(PathText(file.extension())) == ".wav")
   {
     result.isIR = true;
+    result.kind = FileKind::IR;
     result.gear = Gear::Cabinet;
     return result; // Validate WAV contents only when loading; library scanning never decodes audio.
   }
@@ -342,7 +348,7 @@ const Capture* FindHash(const Snapshot& library, const std::string& hash, bool i
   if (hash.empty()) return nullptr;
   const Capture* fallback = nullptr;
   for (const auto& capture : library.captures)
-    if (capture.hash == hash && capture.isIR == isIR)
+    if (capture.hash == hash && capture.kind == (isIR ? FileKind::IR : FileKind::NAM))
     {
       std::error_code error;
       // Identical copies can be indexed side by side; relink to one that still exists.
@@ -369,16 +375,16 @@ std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& sel
 // folder stays complete even when a curated copy of the same bytes lives elsewhere.
 static void CountContentDuplicates(Snapshot& snapshot)
 {
-  std::set<std::pair<bool, std::string>> identities;
+  std::set<std::pair<FileKind, std::string>> identities;
   size_t duplicates = 0;
   for (const auto& capture : snapshot.captures)
-    if (!capture.hash.empty() && !identities.emplace(capture.isIR, capture.hash).second) ++duplicates;
+    if (!capture.hash.empty() && !identities.emplace(capture.kind, capture.hash).second) ++duplicates;
   snapshot.duplicates = duplicates;
   std::stable_sort(snapshot.captures.begin(), snapshot.captures.end(), [](const auto& a, const auto& b) {
     return Lower(PathText(a.relative)) < Lower(PathText(b.relative));
   });
 }
-Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled)
+static Snapshot ScanSource(const std::filesystem::path& root, bool presets, const std::function<bool()>& cancelled)
 {
   Snapshot result;
   result.root = root;
@@ -387,7 +393,7 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
     return result;
   if (!std::filesystem::is_directory(root, error))
   {
-    result.error = "Capture folder is missing or inaccessible";
+    result.error = "Library folder is missing or inaccessible";
     return result;
   }
   using Iterator = std::filesystem::recursive_directory_iterator;
@@ -404,13 +410,28 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
       continue;
     }
     const auto extension = Lower(PathText(it->path().extension()));
-    if (!it->is_regular_file(statusError) || (extension != ".nam" && extension != ".wav"))
+    if (!it->is_regular_file(statusError)
+        || (presets ? extension != ".ngrid" : extension != ".nam" && extension != ".wav"))
       continue;
     try
     {
-      auto capture = Inspect(it->path(), root);
-      capture.hash = ContentHash(capture.path, cancelled);
-      if (capture.hash.empty()) return result;
+      Capture capture;
+      if (presets)
+      {
+        // Validate the bounded file envelope on the worker; never instantiate DSP here.
+        const auto rig = rig_preset::Read(it->path());
+        capture.path = it->path(); capture.source = root;
+        capture.relative = it->path().lexically_relative(root);
+        capture.name = rig.value("PresetName", std::string{});
+        if (capture.name.size() > 512 || capture.name.find('\0') != std::string::npos) capture.name.clear();
+        capture.kind = FileKind::RigPreset;
+      }
+      else
+      {
+        capture = Inspect(it->path(), root);
+        capture.hash = ContentHash(capture.path, cancelled);
+        if (capture.hash.empty()) return result;
+      }
       const auto parent = capture.relative.parent_path();
       capture.folderDepth = static_cast<size_t>(std::distance(parent.begin(), parent.end()));
       result.captures.push_back(std::move(capture));
@@ -431,7 +452,10 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
   return result;
 }
 
-Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled)
+Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled)
+{ return ScanSource(root, false, cancelled); }
+
+static Snapshot ScanRoots(const std::vector<std::string>& roots, bool presets, const std::function<bool()>& cancelled)
 {
   Snapshot result;
   std::unordered_map<std::string, size_t> seen;
@@ -441,7 +465,7 @@ Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<
   {
     if (cancelled && cancelled())
       return result;
-    auto part = Scan(std::filesystem::u8path(folder), cancelled);
+    auto part = ScanSource(std::filesystem::u8path(folder), presets, cancelled);
     if (folders.size() == 1)
       result.root = part.root;
     result.unreadable += part.unreadable;
@@ -480,6 +504,35 @@ Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<
   return result;
 }
 
+Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled)
+{ return ScanRoots(roots, false, cancelled); }
+
+Snapshot ScanLibrary(const std::vector<std::string>& captureRoots, const std::vector<std::string>& presetRoots,
+                     const std::function<bool()>& cancelled)
+{
+  auto result = ScanRoots(captureRoots, false, cancelled);
+  auto presets = ScanRoots(presetRoots, true, cancelled);
+  result.captures.insert(result.captures.end(), std::make_move_iterator(presets.captures.begin()),
+                         std::make_move_iterator(presets.captures.end()));
+  result.unreadable += presets.unreadable;
+  if (!presets.error.empty())
+    result.error += (result.error.empty() ? "" : "; ") + presets.error;
+  return result;
+}
+
+const char* KindName(FileKind kind)
+{
+  switch (kind)
+  {
+    case FileKind::NAM: return "NAM";
+    case FileKind::IR: return "IR";
+    case FileKind::RigPreset: return "Preset";
+    case FileKind::SlotPreset: return "FX preset";
+    case FileKind::Module: return "Module";
+  }
+  return "";
+}
+
 Worker::Worker()
 : mThread([this] { Run(); })
 {
@@ -496,10 +549,13 @@ Worker::~Worker()
 void Worker::Request(const std::string& root)
 { Request(root.empty() ? std::vector<std::string>{} : std::vector<std::string>{root}); }
 void Worker::Request(const std::vector<std::string>& roots)
+{ Request(roots, {}); }
+void Worker::Request(const std::vector<std::string>& roots, const std::vector<std::string>& presetRoots)
 {
   {
     std::lock_guard<std::mutex> lock(mMutex);
     mRoots = roots;
+    mPresetRoots = presetRoots;
     mResult.reset();
     ++mRevision;
   }
@@ -521,12 +577,13 @@ void Worker::Run()
       return;
     const auto revision = mRevision.load();
     const auto roots = mRoots;
+    const auto presetRoots = mPresetRoots;
     lock.unlock();
     auto cancelled = [&] { return mStop.load() || mRevision.load() != revision; };
     auto result = std::make_shared<Snapshot>();
     try
     {
-      *result = ScanFolders(roots, cancelled);
+      *result = ScanLibrary(roots, presetRoots, cancelled);
     }
     catch (const std::exception&)
     {

@@ -4,16 +4,25 @@ class NAMRigPresetControl : public grid_ui::Button
 {
 public:
   explicit NAMRigPresetControl(const IRECT& r)
-  : grid_ui::Button(r, [](IControl*) {}, "Untitled") {}
+  : grid_ui::Button(r, [](IControl*) {}, "Untitled")
+  { SetTooltip("Browse rig presets. Right-click for quick load / save actions."); }
   void Draw(IGraphics& g) override
   {
     grid_ui::Button::Draw(g);
-    g.DrawLine(grid_ui::muted, mRECT.R - 19, mRECT.MH() - 2, mRECT.R - 15, mRECT.MH() + 2);
-    g.DrawLine(grid_ui::muted, mRECT.R - 15, mRECT.MH() + 2, mRECT.R - 11, mRECT.MH() - 2);
+    const float x = mRECT.R - 19, y = mRECT.MH();
+    g.DrawRoundRect(grid_ui::muted, IRECT(x - 8, y - 6, x + 8, y + 6), 1.5f);
+    g.DrawLine(grid_ui::muted, x - 3, y - 6, x - 3, y + 6);
+    g.DrawLine(grid_ui::muted, x, y - 2, x + 5, y - 2);
+    g.DrawLine(grid_ui::muted, x, y + 2, x + 5, y + 2);
   }
-  void OnMouseDown(float, float, const IMouseMod&) override
+  void OnMouseDown(float, float, const IMouseMod& mod) override
   {
     auto* plug = static_cast<NeuralAmpModeler*>(GetDelegate());
+    if (!mod.R)
+    {
+      plug->OpenLibraryBrowser(nam_library::BrowserContext::Rig, nam_library::FileKind::RigPreset);
+      return;
+    }
     mFiles = plug->GetRigPresetFiles();
     mMenu.Clear();
     mMenu.AddItem(new IPopupMenu::Item("Load preset file...", 0, 1));

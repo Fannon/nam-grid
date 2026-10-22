@@ -29,6 +29,11 @@ void TestRigPresetFiles(const std::filesystem::path& root)
   rejected = false;
   try { rig_preset::Read(invalid); } catch (const std::exception&) { rejected = true; }
   assert(rejected);
+  std::ofstream(invalid) << std::string(140, '[') + "0" + std::string(140, ']');
+  rejected = false;
+  try { rig_preset::Read(invalid); }
+  catch (const std::runtime_error& error) { rejected = std::string(error.what()).find("nesting") != std::string::npos; }
+  assert(rejected);
   for (const auto& entry : std::filesystem::directory_iterator(root))
     assert(entry.path().filename().string().find(".tmp-") == std::string::npos);
 }

@@ -130,6 +130,9 @@ endif()
 add_test(NAME stages COMMAND nam-stage-tests "${CMAKE_SOURCE_DIR}")
 if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
   add_executable(nam-clap-smoke ../tests/clap_smoke.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
+  if(WIN32)
+    target_link_libraries(nam-clap-smoke PRIVATE shell32)
+  endif()
   add_executable(nam-clap-bench ../tests/clap_bench.cpp)
   add_executable(nam-fx-audition ../tests/fx_audition.cpp)
   add_executable(nam-tuner-tests ../tests/tuner_clap.cpp)
@@ -163,11 +166,21 @@ if(APPLE)
   target_link_libraries(_nam-grid-base INTERFACE "-framework Accelerate")
 endif()
 # iPlug2 names both import libraries after the plugin; give each format its own directory.
+# It also derives the ObjC class prefix from the same plugin name and token-pastes
+# it into identifiers (IPlugOBJCPrefix.pch), so "nam-grid" would produce invalid
+# names such as IGraphicsMenu_vnam-grid. Keep a valid identifier for macOS.
 foreach(format IN LISTS NAM_FORMATS)
   string(TOLOWER "${format}" suffix)
   if(TARGET nam-grid-${suffix})
     set_target_properties(nam-grid-${suffix} PROPERTIES
       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/import/${suffix}")
+    if(APPLE)
+      get_target_property(definitions nam-grid-${suffix} COMPILE_DEFINITIONS)
+      if(definitions)
+        list(TRANSFORM definitions REPLACE "^OBJC_PREFIX=vnam-grid$" "OBJC_PREFIX=vnam_grid")
+        set_property(TARGET nam-grid-${suffix} PROPERTY COMPILE_DEFINITIONS "${definitions}")
+      endif()
+    endif()
     if(WIN32)
       target_sources(nam-grid-${suffix} PRIVATE resources/main.rc)
       target_include_directories(nam-grid-${suffix} PRIVATE resources/fonts resources/img)
@@ -177,8 +190,9 @@ endforeach()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
   # Full-rig recall, every catalog FX control, dialogs and menus prepare many models;
-  # Windows shell/file-dialog initialization can also be slow on CI hosts.
-  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 900)
+  # Windows shell/file-dialog initialization and software OpenGL rendering on CI hosts
+  # are also slow.
+  set_tests_properties(clap-smoke PROPERTIES TIMEOUT 1800)
   add_test(NAME tuner COMMAND nam-tuner-tests "$<TARGET_FILE:nam-grid-clap>")
   set_tests_properties(tuner PROPERTIES TIMEOUT 30 RUN_SERIAL TRUE)
 endif()

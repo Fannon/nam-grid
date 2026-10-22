@@ -86,7 +86,7 @@ inline IColor Brighten(IColor color, float amount)
   return IColor::LinearInterpolateBetween(color, COLOR_WHITE, std::clamp(amount, 0.f, 1.f));
 }
 
-inline IText Text(float size = 13.f, IColor color = text, EAlign align = EAlign::Near)
+inline IText Text(float size = 14.f, IColor color = text, EAlign align = EAlign::Near)
 { return IText(size, color, "Roboto-Regular", align); }
 // Measure in the active font and remove whole UTF-8 code points when shortening.
 inline void FittedText(IGraphics& g, const IText& style, std::string label, const IRECT& bounds)
@@ -109,7 +109,7 @@ inline void FittedText(IGraphics& g, const IText& style, std::string label, cons
 }
 inline IVStyle Style()
 {
-  return DEFAULT_STYLE.WithLabelText(Text(13.f, muted, EAlign::Center))
+  return DEFAULT_STYLE.WithLabelText(Text(14.f, muted, EAlign::Center))
     .WithValueText(Text(14.f, text, EAlign::Center))
     .WithDrawShadows(false)
     .WithEmboss(false)
@@ -161,7 +161,7 @@ class Button : public IVButtonControl
 {
 public:
   Button(const IRECT& r, IActionFunction action, const char* label)
-  : IVButtonControl(r, action, label, Style().WithLabelText(Text(13.f, text, EAlign::Center)))
+  : IVButtonControl(r, action, label, Style().WithLabelText(Text(14.f, text, EAlign::Center)))
   {
   }
 };
@@ -176,15 +176,18 @@ public:
     g.DrawLine(muted, mRECT.R - 7, mRECT.MH() + 2, mRECT.R - 3, mRECT.MH() - 2);
   }
 };
-class DownButton : public Button
+class BrowserButton : public Button
 {
 public:
   using Button::Button;
   void Draw(IGraphics& g) override
   {
     Button::Draw(g);
-    g.DrawLine(muted, mRECT.MW() - 4, mRECT.MH() - 2, mRECT.MW(), mRECT.MH() + 2);
-    g.DrawLine(muted, mRECT.MW(), mRECT.MH() + 2, mRECT.MW() + 4, mRECT.MH() - 2);
+    const float x = mRECT.MW(), y = mRECT.MH();
+    g.DrawRoundRect(muted, IRECT(x - 8, y - 6, x + 8, y + 6), 1.5f);
+    g.DrawLine(muted, x - 3, y - 6, x - 3, y + 6);
+    g.DrawLine(muted, x, y - 2, x + 5, y - 2);
+    g.DrawLine(muted, x, y + 2, x + 5, y + 2);
   }
 };
 inline float CategoryBadges(IGraphics& g, SlotEffect effect, nam_library::Gear gear, const IRECT& r,
@@ -279,7 +282,7 @@ public:
   {
     WDL_String label; GetParam()->GetDisplay(GetValue(), true, label);
     g.FillRoundRect(surface, mRECT, 3.f); g.DrawRoundRect(border, mRECT, 3.f);
-    FittedText(g, Text(12.f, text, EAlign::Center), label.Get(), mRECT.GetHPadded(-4.f));
+    FittedText(g, Text(13.f, text, EAlign::Center), label.Get(), mRECT.GetHPadded(-4.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
@@ -325,8 +328,8 @@ public:
     else average.SetFormatted(40, "RMS %.1f", db(mLevel.average));
     if (mLevel.peak < 3.16227766e-5) held.Set("pk -inf");
     else held.SetFormatted(40, "pk %.1f", db(mLevel.peak));
-    g.DrawText(Text(13.f, mLevel.peak >= 1. ? COLOR_RED : text, EAlign::Center), held.Get(), mReadout.GetFromTop(15));
-    g.DrawText(Text(11.f, muted, EAlign::Center), average.Get(), mReadout.GetFromBottom(13));
+    g.DrawText(Text(14.f, mLevel.peak >= 1. ? COLOR_RED : text, EAlign::Center), held.Get(), mReadout.GetFromTop(15));
+    g.DrawText(Text(13.f, muted, EAlign::Center), average.Get(), mReadout.GetFromBottom(13));
   }
 private:
   static double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
@@ -426,7 +429,7 @@ public:
     const auto idColor = !occupied ? muted
                          : !enabled ? IColor::LinearInterpolateBetween(border, tone.first, .15f)
                          : selected ? Brighten(tone.first, .3f) : tone.first;
-    g.DrawText(Text(14.f, idColor), slotName.c_str(),
+    g.DrawText(Text(16.f, idColor), slotName.c_str(),
                IRECT(mCardBounds.L + 12, mCardBounds.T + 8, mCardBounds.R - 36, mCardBounds.T + 25));
     if (!empty)
     {
@@ -442,8 +445,8 @@ public:
     FittedText(g, Text(14.f, enabled ? text : IColor(255, 113, 119, 130)), label,
                IRECT(mCardBounds.L + 12, mCardBounds.T + 29, mCardBounds.R - 12, mCardBounds.T + 52));
     const IRECT category(mCardBounds.L + 12, mCardBounds.T + 56, mCardBounds.R - 12, mCardBounds.T + 74);
-    if (empty) g.DrawText(Text(12.f, muted), "Empty", category);
-    else CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), category, 12.f, false,
+    if (empty) g.DrawText(Text(13.f, muted), "Empty", category);
+    else CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), category, 13.f, false,
                         !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : nullptr, enabled ? 1.f : .4f);
     const auto bar = [&](const IRECT& r, double value, bool clipped) {
       g.FillRect(surface, r); // Opaque track covers wiring drawn behind this card.
@@ -469,14 +472,15 @@ public:
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
-    g.DrawText(Text(17.f, tone.first), slotName.c_str(), IRECT(24, 484, 84, 508));
-    if (!empty) CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), IRECT(444, 484, 620, 508), 12.f, true);
+    g.DrawText(Text(22.f, tone.first), slotName.c_str(), IRECT(24, 484, 84, 508));
+    if (!empty) CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), IRECT(444, 484, 620, 508), 13.f, true);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
     const auto hint = std::string(enabled ? "" : "Bypassed | ")
       + (effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
                                          : effect_presentation::Sound(effect));
-    if (!empty) FittedText(g, Text(11.f, muted), hint, IRECT(24, 510, 374, 533));
+    if (!empty) FittedText(g, Text(14.f, muted), hint,
+                          IRECT(24, 510, PLUG()->CanToggleSlotQuality(mSlot) ? 428.f : 620.f, 533));
     if (HasVisualization() && PLUG()->GetShowVisualizations()) DrawVisualization(g);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
@@ -497,15 +501,13 @@ public:
       mEnabled->SetValueFromDelegate(value);
       SetDirty(false);
     }
-    else if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NAM && PLUG()->GetSlotPath(mSlot).empty()
-             && y >= mCardBounds.T + 29 && y < mCardBounds.T + 52)
-      ShowMenu();
+    else OpenBrowser();
   }
 
   void OnMouseDblClick(float, float, const IMouseMod&) override
   {
     PLUG()->SelectSlot(mSlot);
-    ShowMenu();
+    OpenBrowser();
   }
 
   bool IsDirty() override
@@ -552,9 +554,9 @@ public:
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
     mModelButton = new grid_ui::ModuleButton(IRECT(92, 484, 372, 508), [this](IControl*) { ShowMenu(); }, "Choose module...");
     mEditor->AddChildControl(mModelButton);
-    mSiblingButton = new grid_ui::DownButton(IRECT(340, 484, 372, 508), [this](IControl*) { ShowSiblings(); }, "");
-    mSiblingButton->SetTooltip("Files in the same folder as this capture or IR.");
-    mEditor->AddChildControl(mSiblingButton);
+    mBrowserButton = new grid_ui::BrowserButton(IRECT(340, 484, 372, 508), [this](IControl*) { OpenBrowser(); }, "");
+    mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
+    mEditor->AddChildControl(mBrowserButton);
     mStepButtons[0] = new grid_ui::Button(IRECT(380, 484, 404, 508), [this](IControl*) { Step(-1); }, "<");
     mStepButtons[1] = new grid_ui::Button(IRECT(410, 484, 434, 508), [this](IControl*) { Step(1); }, ">");
     for (auto* button : mStepButtons) mEditor->AddChildControl(button);
@@ -646,9 +648,7 @@ public:
     auto* item = menu->GetChosenItem();
     if (!item)
       return;
-    if (item->GetTag() <= -20000 && -item->GetTag() - 20000 < mSiblingFiles.size())
-      Load(nam_library::PathText(mSiblingFiles[-item->GetTag() - 20000]));
-    else if (item->GetTag() == -10)
+    if (item->GetTag() == -10)
     {
       WDL_String file, directory;
       directory.Set(PLUG()->GetSlotPath(mSlot).c_str());
@@ -669,6 +669,9 @@ public:
       PLUG()->ToggleSlotQuality(mSlot);
     else if (item->GetTag() == -16)
       PLUG()->LoadSlapbackPreset(mSlot);
+    else if (item->GetTag() == -17 || item->GetTag() == -18)
+      PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Cell,
+        item->GetTag() == -17 ? nam_library::FileKind::NAM : nam_library::FileKind::IR, mSlot);
     else if (item->GetTag() == -12)
     {
       WDL_String file, directory;
@@ -703,10 +706,10 @@ private:
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    g.DrawText(Text(12.f, muted), status, IRECT(656, 490, 860, 518));
-    g.DrawText(Text(12.f, muted, EAlign::Far), "+/-60 ct", IRECT(870, 490, 964, 518));
+    g.DrawText(Text(13.f, muted), status, IRECT(656, 490, 860, 518));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "+/-60 ct", IRECT(870, 490, 964, 518));
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
-      g.DrawText(Text(12.f, color.WithOpacity(opacity)), name, IRECT(656, center - 38, 790, center - 18));
+      g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(656, center - 38, 790, center - 18));
       constexpr float start = 656.f, end = 964.f, height = 23.f;
       g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
       float previous = center;
@@ -721,7 +724,7 @@ private:
         previous = y;
       }
       WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
-      g.DrawText(Text(12.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, 964, center - 18));
+      g.DrawText(Text(13.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, 964, center - 18));
     };
     trace("WOW", history.wow, accent, 568.f);
     trace("FLUTTER", history.flutter, ampColor, 658.f);
@@ -770,7 +773,7 @@ private:
     };
     if (effect == SlotEffect::NAM)
     {
-      g.DrawText(Text(12.f, color), "Capture | IN / OUT", IRECT(plot.L, 490, plot.R, 518));
+      g.DrawText(Text(13.f, color), "Capture | IN / OUT", IRECT(plot.L, 490, plot.R, 518));
       levels(-60.f, plot);
     }
     else if (IsOutboardCompressor(effect) || effect == SlotEffect::ConsoleColour || IsAirDynamics(effect))
@@ -782,14 +785,14 @@ private:
         caption.SetFormatted(80, "%s | Input / output", effect_modes::deskNames[std::clamp(desk,0,7)]);
       }
       else caption.SetFormatted(80, effect == SlotEffect::DigitalBlack ? "Atten %.1f dB | IN / OUT" : "Detector GR %.1f dB | IN / OUT", mReductionNow);
-      g.DrawText(Text(12.f,color),caption.Get(),IRECT(plot.L,490,plot.R,518));
+      g.DrawText(Text(13.f,color),caption.Get(),IRECT(plot.L,490,plot.R,518));
       if (IsOutboardCompressor(effect) || IsAirDynamics(effect))
       {
         g.FillRect(surface,IRECT(plot.L,523,plot.R,531));
         g.FillRect(ampColor,IRECT(plot.L,523,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),531));
       }
       levels(-60.f,IRECT(plot.L,548,plot.R,plot.B));
-      g.DrawText(Text(11.f,muted),effect == SlotEffect::DigitalBlack ? "Attenuation before output gain" : "Output includes colour and gain",IRECT(plot.L,532,plot.R,548));
+      g.DrawText(Text(13.f,muted),effect == SlotEffect::DigitalBlack ? "Attenuation before output gain" : "Output includes colour and gain",IRECT(plot.L,532,plot.R,548));
     }
     else if (effect == SlotEffect::CosmicEcho)
     {
@@ -808,14 +811,14 @@ private:
       WDL_String caption;
       if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
       else caption.SetFormatted(64, "Thr %.0f | GR %.1f dB", threshold, mReductionNow);
-      g.DrawText(Text(12.f, color), caption.Get(), IRECT(plot.L, 490, plot.R, 518));
+      g.DrawText(Text(13.f, color), caption.Get(), IRECT(plot.L, 490, plot.R, 518));
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
       const IRECT history(plot.L,550,plot.R,plot.B);
       const IRECT reductionBar(plot.L,523,plot.R,531);
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
         reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/24.f,0.f,1.f),reductionBar.B));
-      g.DrawText(Text(12.f,muted),compressor ? "Input / reduced (no makeup)" : "Input / reduced",IRECT(plot.L,532,plot.R,550));
+      g.DrawText(Text(13.f,muted),compressor ? "Input / reduced (no makeup)" : "Input / reduced",IRECT(plot.L,532,plot.R,550));
       levels(gate || smart ? -100.f : -60.f, history);
       if (!off)
       {
@@ -912,7 +915,7 @@ private:
       // Reuse the existing mono meter packets: no audio capture or extra DSP work.
       g.DrawText(Text(13.f, muted), "IN", IRECT(plot.L, 490, plot.L + 30, 518));
       g.DrawText(Text(13.f, color), "OUT", IRECT(plot.L + 40, 490, plot.L + 75, 518));
-      g.DrawText(Text(11.f, muted, EAlign::Far), "2.4 s", IRECT(plot.R - 78, 490, plot.R, 518));
+      g.DrawText(Text(13.f, muted, EAlign::Far), "2.4 s", IRECT(plot.R - 78, 490, plot.R, 518));
       levels(-60.f, plot);
     }
   }
@@ -939,12 +942,11 @@ private:
       const bool empty = nam && path.empty();
       mEnabled->Hide(empty);
       for (auto* button : mStepButtons) button->Hide(empty);
-      const bool siblings = (!nam && !ir) || !path.empty();
-      mSiblingButton->Hide(!siblings);
-      mSiblingButton->SetTooltip(nam || ir ? "Files in the same folder as this capture or IR." : "Effects in the same category as this module.");
+      mBrowserButton->Hide(false);
+      mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
-      mModelButton->SetRECT(IRECT(92, 484, siblings ? 334 : 372, 508));
+      mModelButton->SetRECT(IRECT(92, 484, 334, 508));
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -998,7 +1000,7 @@ private:
                                           : nam_library::PathText(std::filesystem::u8path(path).stem());
     mModelButton->SetLabelStr(moduleLabel.c_str());
     mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel).c_str());
-    SetTooltip(path.empty() ? "Select to edit. Double-click to choose. Right-click for Copy / Move / Swap."
+    SetTooltip(path.empty() ? "Click to browse modules. Right-click for Clear / Copy / Move / Swap."
                             : path.c_str());
     SetDirty(false);
   }
@@ -1052,28 +1054,13 @@ private:
                                 PLUG()->IsLibraryScanning());
     GetUI()->CreatePopupMenu(*this, mMenu, mCardBounds);
   }
-  void ShowSiblings()
+  void OpenBrowser()
   {
     const auto effect = PLUG()->GetSlotEffect(mSlot);
-    if (effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR)
-    {
-      const auto current = effect == SlotEffect::TightGate ? SlotEffect::NaturalGate : effect;
-      mMenu.Clear();
-      if (const auto* group = nam_library::ModuleGroupFor(current))
-        for (const auto candidate : group->effects)
-          mMenu.AddItem(new IPopupMenu::Item(SlotEffectName(candidate),
-            candidate == current ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(candidate)));
-      GetUI()->CreatePopupMenu(*this, mMenu, mSiblingButton->GetRECT());
-      return;
-    }
-    const auto path = std::filesystem::u8path(PLUG()->GetSlotPath(mSlot));
-    mSiblingFiles = nam_library::SiblingFiles(path, PLUG()->GetSlotEffect(mSlot) == SlotEffect::CabinetIR);
-    mMenu.Clear();
-    for (size_t i = 0; i < mSiblingFiles.size(); ++i)
-      mMenu.AddItem(new IPopupMenu::Item(nam_library::PathText(mSiblingFiles[i].stem()).c_str(),
-                    mSiblingFiles[i] == path ? IPopupMenu::Item::kChecked : 0, -20000 - static_cast<int>(i)));
-    if (mSiblingFiles.empty()) mMenu.AddItem("No files in this folder", -1, IPopupMenu::Item::kDisabled);
-    GetUI()->CreatePopupMenu(*this, mMenu, mSiblingButton->GetRECT());
+    PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Cell,
+      effect == SlotEffect::CabinetIR ? nam_library::FileKind::IR
+      : effect == SlotEffect::NAM && !PLUG()->GetSlotPath(mSlot).empty() ? nam_library::FileKind::NAM
+      : nam_library::FileKind::Module, mSlot);
   }
   void Step(int direction)
   {
@@ -1097,10 +1084,9 @@ private:
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
   IVButtonControl* mModelButton = nullptr;
-  grid_ui::DownButton* mSiblingButton = nullptr;
+  grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
-  std::vector<std::filesystem::path> mSiblingFiles;
   SlotEffect mPlotEffect = SlotEffect::NAM;
   std::string mPlotPath;
   std::array<float, 120> mInputHistory{}, mOutputHistory{};
@@ -1135,7 +1121,7 @@ public:
     using namespace grid_ui;
     g.FillRect(background, mRECT);
     g.DrawText(Text(23.f), "Library & settings", IRECT(32, 24, 650, 64));
-    g.DrawText(Text(13.f, muted), "Add NAM and IR folders. Subfolders become nested menus in every module selector.",
+    g.DrawText(Text(14.f, muted), "Manage NAM / IR folders here. Open the browser to search files and add preset folders.",
                IRECT(32, 76, 950, 104));
     const auto folders = PLUG()->GetCaptureFolders();
     mScroll = std::min(mScroll, std::max(0, static_cast<int>(folders.size()) - 7));
@@ -1147,28 +1133,31 @@ public:
       if (index >= static_cast<int>(folders.size()))
         break;
       g.FillRoundRect(surface, r, 3.f);
-      g.DrawText(Text(12.f, muted), std::to_string(index + 1).c_str(), IRECT(43, top, 74, top + 36));
-      g.DrawText(Text(13.f), folders[index].c_str(), IRECT(80, top, 860, top + 36));
-      g.DrawText(Text(12.f, muted, EAlign::Center), "Remove", IRECT(866, top, 962, top + 36));
+      g.DrawText(Text(14.f, muted), std::to_string(index + 1).c_str(), IRECT(43, top, 74, top + 36));
+      FittedText(g, Text(14.f), folders[index].c_str(), IRECT(80, top, 860, top + 36));
+      g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(866, top, 962, top + 36));
     }
     if (folders.empty())
       g.DrawText(
         Text(14.f, muted), "No library folders yet. Add a folder above to get started.", IRECT(52, 166, 840, 198));
-    g.DrawText(Text(12.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
+    g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
     if (folders.size() > 7)
-      g.DrawText(Text(11.f, muted), "Scroll the list to see more folders (32 maximum).", IRECT(32, 505, 960, 523));
+      g.DrawText(Text(14.f, muted), "Scroll the list to see more folders (32 maximum).", IRECT(32, 505, 960, 523));
     g.DrawLine(border, 32, 525, 968, 525);
     g.DrawText(Text(14.f), "Input calibration / Pre 2", IRECT(32, 528, 460, 554));
-    g.DrawText(Text(12.f, muted),
+    g.DrawText(Text(14.f, muted),
                "Interface reference level, separate from musical input gain. Raw keeps the model output unchanged.",
                IRECT(32, 556, 960, 578));
     g.DrawText(
-      Text(12.f, muted), "All new gate, EQ and cabinet processing belongs in grid modules.", IRECT(32, 688, 950, 710));
+      Text(14.f, muted), "All new gate, EQ and cabinet processing belongs in grid modules.", IRECT(32, 688, 950, 710));
   }
   void OnAttached() override
   {
     using namespace grid_ui;
     AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
+    AddChildControl(new Button(IRECT(678, 28, 846, 60), [this](IControl*) {
+      PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
+    }, "Browse library"));
     mAdd = new Button(
       IRECT(32, 116, 190, 148),
       [this](IControl*) {
@@ -1293,7 +1282,7 @@ public:
     using namespace grid_ui;
     g.FillRect(background, mRECT);
     g.DrawText(Text(17.f, accent), "Tuner", IRECT(24, 484, 124, 512));
-    g.DrawText(Text(12.f, muted), "Clean input · before the grid", IRECT(124, 484, 370, 512));
+    g.DrawText(Text(13.f, muted), "Clean input · before the grid", IRECT(124, 484, 370, 512));
     const double reference = GetDelegate()->GetParam(kTunerReference)->Value();
     const double frequency = PLUG()->TunerFrequency();
     const auto pitch = grid_tuner::ToPitch(frequency, reference);
@@ -1318,8 +1307,8 @@ public:
 
     const IRECT panel(372, 520, 976, 696), plot(410, 538, 964, 674);
     g.FillRoundRect(IColor(255, 17, 21, 24), panel, 4.f);
-    g.DrawText(Text(12.f, accent), "Pitch history", IRECT(372, 484, 570, 512));
-    g.DrawText(Text(11.f, muted, EAlign::Far), "±50 cents · 6 seconds", IRECT(570, 488, 882, 512));
+    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(372, 484, 570, 512));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "±50 cents · 6 seconds", IRECT(570, 488, 882, 512));
     const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -50., 50.) / 50.); };
     g.FillRect(accent.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
     for (int cents : {-50, -25, 0, 25, 50})
@@ -1327,7 +1316,7 @@ public:
       const float y = yFor(cents);
       g.DrawLine(cents == 0 ? muted.WithOpacity(.6f) : border.WithOpacity(.45f), plot.L, y, plot.R, y);
       WDL_String tick; tick.SetFormatted(16, "%+d", cents);
-      g.DrawText(Text(11.f, muted, EAlign::Far), tick.Get(), IRECT(panel.L + 2, y - 8, plot.L - 7, y + 8));
+      g.DrawText(Text(13.f, muted, EAlign::Far), tick.Get(), IRECT(panel.L + 2, y - 8, plot.L - 7, y + 8));
     }
     const auto now = grid_tuner::Tuner::Now();
     grid_tuner::Pitch previous{};
@@ -1346,8 +1335,8 @@ public:
       else g.FillCircle(color, x, y, 1.5f);
       previous = current; previousTime = point.milliseconds; previousX = x; previousY = y;
     }
-    g.DrawText(Text(11.f, muted), "6 s ago", IRECT(plot.L, 676, plot.L + 100, 696));
-    g.DrawText(Text(11.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, 676, plot.R, 696));
-    g.DrawText(Text(11.f, muted), "Play one string. Green = within ±3 cents. Escape / Tuner OFF restores output.", IRECT(24, 696, 976, 719));
+    g.DrawText(Text(13.f, muted), "6 s ago", IRECT(plot.L, 676, plot.L + 100, 696));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, 676, plot.R, 696));
+    g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents. Escape / Tuner OFF restores output.", IRECT(24, 696, 976, 719));
   }
 };

@@ -20,11 +20,11 @@ public:
     Add(0, new Knob(IRECT(425, 335, 540, 440), kParallelBlend, "Blend A / B"));
     KnobAt(0, 620, 335, Macro1); KnobAt(0, 780, 335, Macro2);
     Add(0, new ITextControl(IRECT(40, 485, 955, 540),
-      "Frequency split sends lows to A and highs to B. Center Blend reconstructs unity with empty lanes.", Text(13.f, muted)));
+      "Frequency split sends lows to A and highs to B. Center Blend reconstructs unity with empty lanes.", Text(14.f, muted)));
     Add(0, new ITextControl(IRECT(40, 545, 955, 600),
-      "Solo preserves the lane's blend level. Fine timing helps audition captures; it cannot correct every phase difference.", Text(13.f, muted)));
+      "Solo preserves the lane's blend level. Fine timing helps audition captures; it cannot correct every phase difference.", Text(14.f, muted)));
     Add(0, new ITextControl(IRECT(40, 615, 955, 660),
-      "Macros are assigned on the Modulation page and can also be automated by the host.", Text(13.f, muted)));
+      "Macros are assigned on the Modulation page and can also be automated by the host.", Text(14.f, muted)));
 
     const auto pair = [&](float x, float y, int first, int second) { KnobAt(1, x, y, first); KnobAt(1, x + 135, y, second); };
     for (int column = 0; column < 3; ++column)
@@ -36,7 +36,7 @@ public:
     pair(365, 370, EnvAttack, EnvRelease);
     pair(690, 170, StepSlot, StepTarget); pair(690, 270, StepRate, StepDepth);
     ToggleAt(1, 690, 390, StepSync); KnobAt(1, 825, 370, StepDivision);
-    Add(1, new ITextControl(IRECT(40, 480, 955, 500), "Macro assignments: target slot / parameter / depth", Text(13.f, muted)));
+    Add(1, new ITextControl(IRECT(40, 480, 955, 500), "Macro assignments: target slot / parameter / depth", Text(14.f, muted)));
     KnobAt(1, 40, 500, Macro1Slot); KnobAt(1, 175, 500, Macro1Target); KnobAt(1, 310, 500, Macro1Depth);
     KnobAt(1, 555, 500, Macro2Slot); KnobAt(1, 690, 500, Macro2Target); KnobAt(1, 825, 500, Macro2Depth);
     for (int i = 0; i < 8; ++i) KnobAt(1, 40.f + 117 * i, 610, Step1 + i, 95.f);
@@ -44,7 +44,7 @@ public:
     Add(2, new ITextControl(IRECT(40, 150, 955, 210),
       "Store three performance settings, then recall them here or automate the same parameters in your DAW.", Text(14.f, muted)));
     Add(2, new ITextControl(IRECT(40, 210, 955, 270),
-      "Scenes recall controls and bypass. Models, effect types, quality settings and captured audio stay in place.", Text(13.f, muted)));
+      "Scenes recall controls and bypass. Models, effect types, quality settings and captured audio stay in place.", Text(14.f, muted)));
     for (int scene = 0; scene < 3; ++scene)
     {
       const float x = 55.f + scene * 315;

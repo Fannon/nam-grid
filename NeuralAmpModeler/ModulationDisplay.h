@@ -35,7 +35,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   };
   const auto timeLabel = [&](double seconds) {
     WDL_String text; text.SetFormatted(32, seconds < .1 ? "%.1f ms" : "%.1f s", seconds < .1 ? seconds * 1000. : seconds);
-    g.DrawText(Text(12.f, muted, EAlign::Far), text.Get(), IRECT(plot.R - 42, plot.B - 13, plot.R, plot.B));
+    g.DrawText(Text(13.f, muted, EAlign::Far), text.Get(), IRECT(plot.R - 42, plot.B - 17, plot.R, plot.B));
   };
   WDL_String text;
   grid();
@@ -109,8 +109,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
         return 20. * std::log10(std::max(1.e-6, std::abs(1. - mix + mix * wet)));
       }, -30., 12., color.WithOpacity(lfo == 0. ? 1.f : .3f), lfo == 0. ? 1.8f : 1.f);
     }
-    g.DrawText(Text(12.f, muted), "40 Hz", IRECT(plot.L, plot.B - 13, plot.L + 40, plot.B));
-    g.DrawText(Text(12.f, muted, EAlign::Far), "16 kHz", IRECT(plot.R - 40, plot.B - 13, plot.R, plot.B));
+    g.DrawText(Text(13.f, muted), "40 Hz", IRECT(plot.L, plot.B - 17, plot.L + 40, plot.B));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "16 kHz", IRECT(plot.R - 40, plot.B - 17, plot.R, plot.B));
   }
   else if (effect == SlotEffect::Tremolo)
   {
@@ -143,7 +143,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
       (right ? muted : color).WithOpacity(vibrato ? 1.f : .3f + .7f * value(uModMix) * .01));
     }
     text.SetFormatted(32, "%.0f ms", center);
-    g.DrawText(Text(12.f, muted), text.Get(), IRECT(plot.L, plot.B - 13, plot.L + 40, plot.B));
+    g.DrawText(Text(13.f, muted), text.Get(), IRECT(plot.L, plot.B - 17, plot.L + 40, plot.B));
     timeLabel(2.);
   }
   return true;

@@ -13,6 +13,7 @@
 using namespace nam_library;
 using Menu = iplug::igraphics::IPopupMenu;
 using json = nlohmann::json;
+#include "LibraryBrowserTests.h"
 
 int main(int argc, char** argv)
 {
@@ -371,5 +372,6 @@ int main(int argc, char** argv)
   while (!(result = worker.TakeResult()) && std::chrono::steady_clock::now() < deadline)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   assert(result && result->root == root / "missing" && !result->error.empty());
-  std::cout << "Library scan, metadata, hints, search, nested selection, missing folders and cancellation passed\n";
+  TestLibraryBrowser(root);
+  std::cout << "Library scan, typed browser, ranked search, preset folders, metadata, selection and cancellation passed\n";
 }

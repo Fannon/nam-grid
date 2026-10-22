@@ -31,7 +31,7 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const auto xPos = [&](double x) { return shape.MW() + shape.W() * .5f * static_cast<float>(x); };
   const auto yPos = [&](double y) { return shape.MH() - shape.H() * .5f * static_cast<float>(y / (clean ? 8. : 2.)); };
   const char* caption = clean ? "Gain / EQ response" : tube ? "Tube shape / EQ + mix" : tape ? "Spiral stage / tape setup" : "Clip / high cut + mix";
-  g.DrawText(Text(12.f, color), caption, IRECT(plot.L, 490, plot.R, 518));
+  g.DrawText(Text(14.f, color), caption, IRECT(plot.L, 490, plot.R, 518));
   g.DrawLine(border, shape.L, shape.MH(), shape.R, shape.MH());
   g.DrawLine(border, shape.MW(), shape.T, shape.MW(), shape.B);
   g.DrawLine(border.WithOpacity(.5f), xPos(-1.), yPos(-1.), xPos(1.), yPos(1.));
@@ -58,15 +58,15 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     }
   if (tape)
   {
-    g.DrawText(Text(12.f, muted), "Head bump", IRECT(tonePlot.L, tonePlot.T, tonePlot.R, tonePlot.T + 22));
+    g.DrawText(Text(13.f, muted), "Head bump", IRECT(tonePlot.L, tonePlot.T, tonePlot.R, tonePlot.T + 22));
     const IRECT amount(tonePlot.L, tonePlot.T + 34, tonePlot.R, tonePlot.T + 46);
     g.FillRect(border.WithOpacity(.35f), amount);
     g.FillRect(color, IRECT(amount.L, amount.T, amount.L + amount.W() * value(uTapeBump) * .01, amount.B));
     WDL_String settings; settings.SetFormatted(80, "%.0f%% bump | %.0f%% wet", value(uTapeBump), value(uTapeMix));
-    g.DrawText(Text(11.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 52, tonePlot.R, tonePlot.T + 76));
+    g.DrawText(Text(13.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 52, tonePlot.R, tonePlot.T + 76));
     settings.SetFormatted(64, "Output %+.1f dB", value(uTapeOutput));
-    g.DrawText(Text(11.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 78, tonePlot.R, tonePlot.T + 100));
-    g.DrawText(Text(11.f, muted), "Spiral stage; dynamic tape response", IRECT(plot.L, plot.B - 8, plot.R, plot.B + 8));
+    g.DrawText(Text(13.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 78, tonePlot.R, tonePlot.T + 100));
+    g.DrawText(Text(13.f, muted), "Spiral stage; dynamic tape response", IRECT(plot.L, plot.B - 8, plot.R, plot.B + 8));
   }
   else
   {
@@ -100,8 +100,8 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
                         tonePlot.L + tonePlot.W() * i / 80.f, currentY);
       previousY = currentY;
     }
-    g.DrawText(Text(11.f, muted), clean ? "Gain (+/-8)" : "Shape", IRECT(shape.L, plot.B - 9, shape.R, plot.B));
-    g.DrawText(Text(11.f, muted, EAlign::Far), tube ? "Small-signal EQ" : "20 Hz - 20k", IRECT(tonePlot.L, plot.B - 9, tonePlot.R, plot.B));
+    g.DrawText(Text(13.f, muted), clean ? "Gain (+/-8)" : "Shape", IRECT(shape.L, plot.B - 16, shape.R, plot.B));
+    g.DrawText(Text(13.f, muted, EAlign::Far), tube ? "Small-signal EQ" : "20 Hz - 20k", IRECT(tonePlot.L, plot.B - 16, tonePlot.R, plot.B));
   }
   return true;
 }

@@ -17,7 +17,8 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
   using Menu = iplug::igraphics::IPopupMenu;
   menu.Clear();
   const auto matches = [&](const auto& capture) {
-    return filter.Matches(capture) && (fileType < 0 || capture.isIR == (fileType == 1));
+    return (capture.kind == FileKind::NAM || capture.kind == FileKind::IR)
+           && filter.Matches(capture) && (fileType < 0 || capture.isIR == (fileType == 1));
   };
   // Typed categories already identify the collection. Skip shared folder levels
   // until the first branch (or a file), retaining the snapshot's original tags.

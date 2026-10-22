@@ -56,6 +56,8 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
                          ? std::vector<std::string>{}
                          : std::vector<std::string>{config["CaptureFolder"].get<std::string>()};
   SetCaptureFolders(folders);
+  // Older projects have no preset library; keep this user's default in that case.
+  if (config.contains("PresetFolders")) SetPresetFolders(config["PresetFolders"].get<std::vector<std::string>>());
   mDrivePath.Set(config.value("DrivePath", "").c_str());
   mNAMPath.Set(static_cast<std::string>(config["NAMPath"]).c_str());
   mIRPath.Set(static_cast<std::string>(config["IRPath"]).c_str());

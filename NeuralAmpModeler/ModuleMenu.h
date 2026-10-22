@@ -16,6 +16,8 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
   {
     auto* files = new IPopupMenu;
     FillMenu(*files, library, filter, selected, type);
+    files->AddSeparator(0);
+    files->AddItem(new IPopupMenu::Item(type == 0 ? "Browse NAM captures..." : "Browse IR files...", 0, type == 0 ? -17 : -18), 0);
     menu.AddItem(type == 0 ? "NAM captures" : "Cabinet IRs", files);
   }
   int next = 0;

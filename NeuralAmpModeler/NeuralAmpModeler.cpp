@@ -20,6 +20,7 @@
 #include "NeuralAmpModelerControls.h"
 #include "NAMGridControls.h"
 #include "GridPerformanceControls.h"
+#include "LibraryBrowserControls.h"
 #include "RigPreset.h"
 #include "RigPresetControls.h"
 
@@ -159,6 +160,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   const auto librarySettings = nam_library::ReadSettings(CaptureSettingsFile());
   mRescanOnStartup = librarySettings.rescanOnStartup;
   mShowVisualizations = librarySettings.showVisualizations;
+  mPresetFolders = librarySettings.presetFolders;
   SetCaptureFolders(librarySettings.folders);
 
   mNoiseGateTrigger.AddListener(&mNoiseGateGain);
@@ -220,7 +222,11 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
+    ui->AttachControl(new NAMLibraryBrowserControl(b), kCtrlTagLibraryBrowser)->Hide(true);
     ui->SetKeyHandlerFunc([ui](const IKeyPress& key, bool keyUp) {
+      auto* browser = ui->GetControlWithTag(kCtrlTagLibraryBrowser);
+      if (!browser->IsHidden())
+        return keyUp || browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
       auto* performance = ui->GetControlWithTag(kCtrlTagPerformance);
       if (!keyUp && key.VK == kVK_ESCAPE && !performance->IsHidden()) { performance->Hide(true); return true; }
       auto* tuner = ui->GetControlWithTag(kCtrlTagTuner);
@@ -538,7 +544,7 @@ void NeuralAmpModeler::SetCaptureFolders(std::vector<std::string> folders, bool 
   }
   if (fromUI)
   {
-    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, mShowVisualizations});
+    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), {mCaptureFolders, mRescanOnStartup, mShowVisualizations, mPresetFolders});
     _UpdateLibraryControls();
     _NotifyHostStateChanged();
   }
@@ -573,6 +579,46 @@ void NeuralAmpModeler::SelectSlot(size_t slot)
     for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
       if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(i)))
         control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
+}
+
+void NeuralAmpModeler::SetPresetFolders(std::vector<std::string> folders, bool fromUI)
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  auto normalized = nam_library::NormalizeFolders(folders);
+  const bool changed = normalized != mPresetFolders || (!mLibraryIndexed && !mLibraryScanning);
+  mPresetFolders = std::move(normalized);
+  if (changed && (fromUI || mRescanOnStartup)) RescanCaptureFolder();
+  else if (changed)
+  {
+    mLibraryWorker.Request(std::vector<std::string>{});
+    mLibrary = std::make_shared<nam_library::Snapshot>();
+    mLibraryScanning = mLibraryIndexed = false;
+  }
+  if (fromUI)
+  {
+    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(),
+      {mCaptureFolders, mRescanOnStartup, mShowVisualizations, mPresetFolders});
+    _NotifyHostStateChanged();
+  }
+  _UpdateLibraryControls();
+}
+
+std::vector<std::string> NeuralAmpModeler::GetPresetFolders() const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  return mPresetFolders;
+}
+
+void NeuralAmpModeler::OpenLibraryBrowser(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot)
+{
+  if (!nam_library::Allows(context, kind) || (context == nam_library::BrowserContext::Cell && slot >= FixedNAMGrid::kSlots)) return;
+  if (auto* ui = GetUI())
+  {
+    ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
+    ui->GetControlWithTag(kCtrlTagPerformance)->Hide(true);
+    ui->GetControlWithTag(kCtrlTagTuner)->Hide(true);
+    ui->GetControlWithTag(kCtrlTagLibraryBrowser)->As<NAMLibraryBrowserControl>()->Open(context, kind, slot);
+  }
 }
 
 void NeuralAmpModeler::_NotifyHostStateChanged()
@@ -806,8 +852,8 @@ void NeuralAmpModeler::RescanCaptureFolder()
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   mLibrary = std::make_shared<nam_library::Snapshot>();
   mLibraryIndexed = false;
-  mLibraryScanning = !mCaptureFolders.empty();
-  mLibraryWorker.Request(mCaptureFolders);
+  mLibraryScanning = !mCaptureFolders.empty() || !mPresetFolders.empty();
+  mLibraryWorker.Request(mCaptureFolders, mPresetFolders);
   _UpdateLibraryControls();
 }
 
@@ -839,21 +885,25 @@ void NeuralAmpModeler::SetCaptureFilter(nam_library::Filter filter)
 std::string NeuralAmpModeler::GetCaptureStatus() const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  if (mCaptureFolders.empty())
-    return "Add folders containing NAM captures or WAV impulse responses.";
+  if (mCaptureFolders.empty() && mPresetFolders.empty())
+    return "Add NAM / IR folders or preset folders in the browser.";
   if (mLibraryScanning)
-    return "Scanning NAM and IR files...";
+    return "Scanning NAM, IR and preset files...";
   if (!mLibraryIndexed)
     return "Library not indexed. Choose Rescan all (startup rescan is off).";
   if (mLibraryDefaultSaveFailed)
     return "Folder saved in project; unable to save the default for new instances.";
   if (!mLibrary->error.empty())
     return mLibrary->error;
-  size_t irs = 0;
+  size_t nams = 0, irs = 0, presets = 0;
   for (const auto& entry : mLibrary->captures)
-    irs += entry.isIR;
-  return std::to_string(mLibrary->captures.size() - irs) + " NAM / " + std::to_string(irs) + " IR / "
-         + std::to_string(mCaptureFolders.size()) + " folders / " + std::to_string(mLibrary->unreadable)
+  {
+    nams += entry.kind == nam_library::FileKind::NAM;
+    irs += entry.kind == nam_library::FileKind::IR;
+    presets += entry.kind == nam_library::FileKind::RigPreset;
+  }
+  return std::to_string(nams) + " NAM / " + std::to_string(irs) + " IR / " + std::to_string(presets) + " presets / "
+         + std::to_string(mCaptureFolders.size() + mPresetFolders.size()) + " folders / " + std::to_string(mLibrary->unreadable)
          + " unreadable";
 }
 
@@ -964,6 +1014,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["IRPath"] = mIRPath.Get();
   config["CaptureFolder"] = mCaptureFolder;
   config["CaptureFolders"] = mCaptureFolders;
+  config["PresetFolders"] = mPresetFolders;
   config["PerformanceScenes"] = mPerformanceScenes;
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
@@ -989,7 +1040,7 @@ void NeuralAmpModeler::_UpdatePresetControls()
     if (auto* label = ui->GetControlWithTag(kCtrlTagPresetName))
     {
       label->As<IVButtonControl>()->SetLabelStr(mPresetName.c_str());
-      label->SetTooltip(mPresetName.c_str());
+      label->SetTooltip((mPresetName + " | Browse rig presets. Right-click for load / save actions.").c_str());
       const bool empty = GetRigPresetFiles().empty();
       ui->GetControlWithTag(kCtrlTagPresetPrevious)->SetDisabled(empty);
       ui->GetControlWithTag(kCtrlTagPresetNext)->SetDisabled(empty);
@@ -1045,7 +1096,7 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
     auto rig = nlohmann::json::parse(text.Get());
     rig["PresetName"] = name;
     rig.erase("PresetDirectory");
-    rig.erase("CaptureFolder"); rig.erase("CaptureFolders");
+    rig.erase("CaptureFolder"); rig.erase("CaptureFolders"); rig.erase("PresetFolders");
     rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
     rig.erase(GetParam(kTunerActive)->GetName());
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1056,6 +1107,8 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
     }
     rig_preset::Write(path, rig);
     mPresetName = name; mPresetDirectory = nam_library::PathText(path.parent_path());
+    for (const auto& folder : mPresetFolders)
+      if (nam_library::Within(path, std::filesystem::u8path(folder))) { RescanCaptureFolder(); break; }
     _UpdatePresetControls(); _NotifyHostStateChanged();
     return {};
   }
@@ -1074,6 +1127,7 @@ std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
     rig["PresetDirectory"] = nam_library::PathText(path.parent_path());
     // Library folders and tuner choices belong to this instance, not the rig.
     rig["CaptureFolder"] = mCaptureFolder; rig["CaptureFolders"] = mCaptureFolders;
+    rig["PresetFolders"] = mPresetFolders;
     rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
     rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
     rig[GetParam(kTunerActive)->GetName()] = GetParam(kTunerActive)->Value();
@@ -1116,6 +1170,12 @@ void NeuralAmpModeler::PromptRigPreset(bool save)
         if (save && !path.has_extension()) path += ".ngrid";
         const auto error = save ? SaveRigPreset(path) : LoadRigPreset(path);
         if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "Rig preset", EMsgBoxType::kMB_OK);
+        else if (auto* ui = GetUI())
+          if (auto* control = ui->GetControlWithTag(kCtrlTagLibraryBrowser); control && !control->IsHidden())
+          {
+            if (save) control->As<NAMLibraryBrowserControl>()->FocusCurrent();
+            else control->Hide(true);
+          }
       });
   }
 }
@@ -1195,9 +1255,10 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           if (recognized != scene.size()) return -1;
         }
       }
-      if (config.contains("CaptureFolders"))
+      for (const char* field : {"CaptureFolders", "PresetFolders"})
+      if (config.contains(field))
       {
-        const auto& folders = config["CaptureFolders"];
+        const auto& folders = config[field];
         if (!folders.is_array() || folders.size() > 32)
           return -1;
         for (const auto& folder : folders)

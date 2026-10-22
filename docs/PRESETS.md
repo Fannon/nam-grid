@@ -1,9 +1,12 @@
 # Rig presets and grid gains
 
-Click the preset name in the header for **Save preset as...**, **Load preset file...**
-and the `.ngrid` presets in the last used folder. The arrow buttons step through
-that folder in filename order and wrap at either end. The name shows the last saved
-or loaded filename; it does not automatically save subsequent edits. Saving to an
+Click the preset name in the header to open the [preset browser](BROWSER.md). It focuses
+Presets only and selects the current rig in its folder. Add preset folders, search them
+recursively, and select a result before loading it with Enter, double-click or Load.
+Save preset as... and Open file... are available in the browser; right-clicking the header
+name also offers quick load/save actions and the last used folder's presets. The arrow
+buttons step through that folder in filename order and wrap. The name shows the last
+saved or loaded filename; subsequent edits are not saved automatically. Saving over an
 existing filename asks for overwrite confirmation. Cancel leaves the rig intact.
 
 Presets include all 16 module types, NAM/IR file references, slot controls, quality,
@@ -42,15 +45,14 @@ also show the average level of that mono signal. Bypassed and empty slots do not
 monitor. All three controls are host-automatable and included in
 project state and presets.
 
-Click **+ Add module** once on an empty card; double-click a loaded card to replace
-it. **Clear slot** is first in both module and right-click menus. NAM and cabinet
-IR file pickers are followed by a divider, then FX categories. Indexed files are
-split into **NAM captures** and **Cabinet IRs**. Shared library folders and rescanning
-remain in **Library & settings**. The header search/filter bar is removed pending
-a dedicated browser.
+Click any grid tile or the module's browser icon to choose an effect, NAM capture or IR.
+The current item and its category/folder are selected. The quick module menu remains on
+the module name, and **Clear slot** is first in that menu and the right-click edit menu.
+Shared capture sources and separate preset sources are managed in the browser; scanning
+preferences remain in **Library & settings**.
 
-Current state schema **23** has **3,099 host parameters**, including one contiguous
-bank of 173 FX controls per slot, 44 performance controls and three tuner controls. It aligns unique
+Current state schema **25** has **3,547 host parameters**, including one contiguous
+bank of 201 FX controls per slot, 44 performance controls and three tuner controls. It aligns unique
 host/editor names and includes six Distortion styles and the new reverb/delay
 audition modules, including Cosmic Echo. Learned noise profiles and
 capture/IR content identities are included; active learning is cleared. Prototype

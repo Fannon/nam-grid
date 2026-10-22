@@ -185,3 +185,10 @@ target, and run `ctest --test-dir <build> -C Release -R '^resampling$' --output-
 On Windows run both build and test inside the same x64 developer command prompt so
 the compiler's `clang_rt.asan_dynamic-x86_64.dll` is on `PATH`. Ordinary builds leave
 this option off and do not need that DLL.
+
+For browser UI iteration on Windows, set `NAM_GRID_BROWSER_SMOKE=1` when running
+`nam-clap-smoke`. This retains the DSP/state setup and the browser/preset interaction
+checks, skipping the large slot-edit matrix and subsequent unrelated editor checks.
+Unset it for the complete `clap-smoke` regression. An optional fourth argument names
+a screenshot directory; captures come from the plugin's own OpenGL surface.
+The native test restores library preferences after a successful run.

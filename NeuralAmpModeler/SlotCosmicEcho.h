@@ -1,7 +1,7 @@
 #pragma once
 #include "dsp/reverb/CosmicReverb.h"
 
-// One bounded buffer bank for all three styles. A style change fades the wet
+// One bounded buffer bank for all six styles. A style change fades the wet
 // signal down, clears histories in O(1) per line, then fades the new style up.
 // Dry stereo is unaffected; no core allocation/deletion occurs during automation.
 class SlotCosmicEcho
@@ -15,7 +15,7 @@ public:
   void Process(double* left, double* right, int frames, const UtilityControls& controls, bool draining=false)
   {
     mControls.Target(controls.cosmic, uCosmicTime);
-    const int requested=std::clamp(controls.cosmicStyle, 0, 2);
+    const int requested=std::clamp(controls.cosmicStyle, 0, effect_modes::cosmicCount-1);
     if (mStyle < 0) mStyle=requested;
     for (int i=0; i<frames; ++i)
     {

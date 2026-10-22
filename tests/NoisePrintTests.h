@@ -194,6 +194,7 @@ void TestNoisePrint()
   }
   for (double x : a)
     assert(x == .123);
+  assert(blocked.Reduction() == 0.); // Dry Mix must not report spectral gain reduction.
   c.mix = 100.;
   c.reduction = 0.;
   for (int block = 0; block < 4; ++block)

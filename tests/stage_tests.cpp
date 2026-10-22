@@ -190,6 +190,7 @@ try
   TestDistortionModeHarmonics();
   TestReverbDelayCandidates();
   TestCosmicEcho();
+  TestCosmicBypassDrain();
   TestMultiHeadStereo();
   if (argc > 2)
   {

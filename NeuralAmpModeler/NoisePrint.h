@@ -262,7 +262,7 @@ public:
       left[sample] = (neutral ? dry[0] : dry[0] + mMix * (wet[0] - dry[0])) * mGateGain;
       if (right)
         right[sample] = (neutral ? dry[1] : dry[1] + mMix * (wet[1] - dry[1])) * mGateGain;
-      minimumGain = std::min(minimumGain, gainSum / bands * mGateGain);
+      minimumGain = std::min(minimumGain, (1. - mMix + mMix * gainSum / bands) * mGateGain);
     }
     mReduction = -20. * std::log10(std::max(1.e-6, minimumGain));
   }

@@ -39,8 +39,13 @@ static double EstimatedRT60(const Audio& audio, double rate)
 }
 int main(int argc,char** argv)
 {
-  assert(argc==3 || argc==4);
+  if (argc < 3 || argc > 4 || (argc == 4 && std::string(argv[3]) != "cosmic" && std::string(argv[3]) != "heads"))
+  {
+    std::cerr << "Usage: nam-fx-audition <plugin> <output-folder> [cosmic|heads]\n";
+    return 1;
+  }
   const bool cosmicOnly=argc==4 && std::string(argv[3])=="cosmic";
+  const bool headsOnly=argc==4 && std::string(argv[3])=="heads";
   const std::filesystem::path destination=argv[2]; std::filesystem::create_directories(destination);
 #ifdef _WIN32
   auto library=LoadLibraryW(std::filesystem::path(argv[1]).c_str()); assert(library);
@@ -103,13 +108,17 @@ int main(int argc,char** argv)
   };
   std::ofstream csv(destination/"measurements.csv");
   csv<<"module,cpu_percent_128_frames_48khz,wet_impulse_energy,estimated_rt60_s,mixed_peak\n";
-  const std::array candidates{SlotEffect::RoomReverb,SlotEffect::PlateReverb,SlotEffect::CloudReverb,SlotEffect::HallReverb,
-      SlotEffect::MultiHeadDelay,SlotEffect::DiffusedDelay,SlotEffect::AirPlate,SlotEffect::AirHall,SlotEffect::GalacticSpace,
-      SlotEffect::CosmicEcho,SlotEffect::CosmicEcho,SlotEffect::CosmicEcho};
-  int cosmicStyle=0;
-  for(auto effect:candidates)
+  std::vector<std::pair<SlotEffect,int>> candidates;
+  if (!cosmicOnly && !headsOnly)
+    for (auto effect : {SlotEffect::RoomReverb,SlotEffect::PlateReverb,SlotEffect::CloudReverb,SlotEffect::HallReverb,
+                       SlotEffect::MultiHeadDelay,SlotEffect::DiffusedDelay,SlotEffect::AirPlate,SlotEffect::AirHall,SlotEffect::GalacticSpace})
+      candidates.emplace_back(effect,-1);
+  if (!headsOnly)
+    for (int style=0; style<effect_modes::cosmicCount; ++style) candidates.emplace_back(SlotEffect::CosmicEcho,style);
+  if (headsOnly)
+    for (int heads=0; heads<effect_modes::tapeHeadNames.size(); ++heads) candidates.emplace_back(SlotEffect::MultiHeadDelay,heads);
+  for (const auto& [effect,mode] : candidates)
   {
-    if(cosmicOnly && effect!=SlotEffect::CosmicEcho) continue;
     auto config=base; config["CaptureFolders"]=json::array(); config["CaptureFolder"]="";
     config["SlotEffects"][0]=static_cast<int>(effect);
     const auto defaults=SlotDefaultValues(effect);
@@ -117,8 +126,13 @@ int main(int argc,char** argv)
     std::string name=SlotEffectName(effect);
     if(effect==SlotEffect::CosmicEcho)
     {
-      config["Pre 1 Cosmic Style"]=cosmicStyle;
-      name+=std::string(" - ")+effect_modes::cosmicNames[cosmicStyle++];
+      config["Pre 1 Cosmic Style"]=mode;
+      name+=std::string(" - ")+effect_modes::cosmicNames[mode];
+    }
+    if (effect==SlotEffect::MultiHeadDelay && mode>=0)
+    {
+      config["Pre 1 Tape Heads"]=mode;
+      name+=std::string(" - ")+effect_modes::tapeHeadNames[mode];
     }
     const auto label=std::to_string(static_cast<int>(effect))+"-"+name;
     auto rig=config; rig["PresetName"]=name;

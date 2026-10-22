@@ -5,7 +5,7 @@
 void TestCosmicEcho()
 {
   for (double rate : {44100., 48000., 96000., 192000.})
-    for (int style=0; style<3; ++style)
+    for (int style=0; style<effect_modes::cosmicCount; ++style)
     {
       const auto render = [&](bool tiny, bool automate, bool dry) {
         SlotCosmicEcho effect; effect.Reset(rate);
@@ -18,7 +18,7 @@ void TestCosmicEcho()
           const int segment=pos/2048;
           if (automate)
           {
-            c.cosmicStyle=(segment+style)%3;
+            c.cosmicStyle=(segment+style)%effect_modes::cosmicCount;
             for (int p=0; p<7; ++p)
               c.cosmic[p]=segment%2 ? kEffectParameters[uCosmicTime+p].maximum : kEffectParameters[uCosmicTime+p].minimum;
           }
@@ -49,8 +49,8 @@ void TestCosmicEcho()
     }
 
   constexpr double rate=48000.;
-  std::array<std::vector<double>,3> impulses;
-  for (int style=0; style<3; ++style)
+  std::array<std::vector<double>,effect_modes::cosmicCount> impulses;
+  for (int style=0; style<effect_modes::cosmicCount; ++style)
   {
     SlotCosmicEcho effect; effect.Reset(rate);
     UtilityControls c; c.cosmicStyle=style; c.cosmic={40.,0.,0.,0.,12000.,0.,100.};
@@ -59,11 +59,15 @@ void TestCosmicEcho()
     int first=-1;
     for (int i=0; i<left.size(); ++i) if (std::abs(left[i])>1.e-10) { first=i; break; }
     const auto plan=effect_preview::Cosmic(40.,0.,style,rate);
-    const int expected=static_cast<int>(plan.seconds[0]*rate)*(style==1 ? 8 : 1)+(style==1 ? 32 : 0);
+    int expected=static_cast<int>(std::round(plan.seconds[0]*rate));
+    if (style==static_cast<int>(effect_modes::CosmicStyle::Sagittarius)) expected=expected*8+32;
+    if (style==static_cast<int>(effect_modes::CosmicStyle::Centaurus)) expected=expected*4+32;
+    if (style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator))
+      expected=static_cast<int>(std::round((plan.seconds[0]+plan.seconds[1]+plan.seconds[2]+plan.seconds[3])*rate));
     if (std::abs(first-expected)>1) std::cerr<<"Cosmic style="<<style<<" arrival="<<first<<" expected="<<expected<<'\n';
     assert(first>=0 && std::abs(first-expected)<=1);
     for (double x:right) assert(x==0.);
-    assert(plan.count==(style==2 ? 4 : 16));
+    assert(plan.count==grid_cosmic::LineCount(style));
     const auto spread=effect_preview::Cosmic(40.,100.,style,rate);
     assert(spread.seconds[0]==plan.seconds[0] && spread.seconds[spread.count-1]<spread.seconds[0]*.2);
 
@@ -91,7 +95,7 @@ void TestCosmicEcho()
       assert(energy>.001);
       // The defined transition drops the old tail, without stale ring contents
       // leaking back out after logical clearing. Mix remains fully wet.
-      c.cosmicStyle=(style+1)%3;
+      c.cosmicStyle=(style+1)%effect_modes::cosmicCount;
       left.assign(4096,0.); right.assign(4096,0.);
       effect.Process(left.data(),right.data(),static_cast<int>(left.size()),c);
       for (int i=1000; i<left.size(); ++i) assert(left[i]==0. && right[i]==0.);
@@ -101,11 +105,39 @@ void TestCosmicEcho()
     impulses[style].assign(96000,0.); right.assign(96000,0.); impulses[style][0]=1.;
     effect.Process(impulses[style].data(),right.data(),96000,c);
   }
-  for (int a=0; a<3; ++a) for (int b=a+1; b<3; ++b)
+  for (int a=0; a<effect_modes::cosmicCount; ++a) for (int b=a+1; b<effect_modes::cosmicCount; ++b)
   {
     double difference=0.;
     for (int i=0; i<96000; ++i) difference+=std::pow(impulses[a][i]-impulses[b][i],2.);
     assert(difference>.01);
   }
-  std::cout<<"Cosmic Echo: three distinct styles, 44.1-192 kHz automation/partitioning, impulse timing, bounded tails, exact dry and allocation-free style changes passed\n";
+  std::cout<<"Cosmic Echo: six distinct styles, 44.1-192 kHz automation/partitioning, impulse timing, bounded tails, exact dry and allocation-free style changes passed\n";
+}
+
+void TestCosmicBypassDrain()
+{
+  // Sagittarius can hold an impulse for eight eight-second stages. Scale the
+  // sample rate down for a fast deterministic test of the real-time policy.
+  constexpr double rate=1000.;
+  const auto render=[&](bool bypass) {
+    SlotConfig config; config.effect=SlotEffect::CosmicEcho;
+    auto prepared=PrepareSlot(config,rate,100);
+    NAMStage stage; stage.Publish(std::move(prepared.dsp)); stage.ResetStopped(rate,100);
+    UtilityControls c; c.cosmicStyle=static_cast<int>(effect_modes::CosmicStyle::Sagittarius);
+    c.cosmic={8000.,0.,0.,0.,200.,0.,100.};
+    std::array<double,100> l{},r{};
+    double energy=0.; allocations=deletions=0;
+    for(int block=0;block<800;++block)
+    {
+      l.fill(0.); r.fill(0.); if(block==0) l[0]=1.;
+      tracking=true; Eigen::internal::set_is_malloc_allowed(false);
+      stage.Process(l.data(),100,!bypass || block==0 || block>=700,0.,0.,false,0.,0,1.,{},{},c,r.data());
+      Eigen::internal::set_is_malloc_allowed(true); tracking=false;
+      if(block>=700 || !bypass) for(double x:l) energy+=x*x;
+    }
+    assert(allocations==0 && deletions==0);
+    return energy;
+  };
+  assert(render(false)>1.e-6); // The long chain really contains a pending impulse.
+  assert(render(true)<1.e-24); // No stale impulse when re-enabled after 70 seconds.
 }

@@ -165,6 +165,17 @@ public:
   {
   }
 };
+class ModuleButton : public Button
+{
+public:
+  using Button::Button;
+  void Draw(IGraphics& g) override
+  {
+    FittedText(g, Text(17.f), GetLabelStr(), IRECT(mRECT.L, mRECT.T, mRECT.R - 16, mRECT.B));
+    g.DrawLine(muted, mRECT.R - 11, mRECT.MH() - 2, mRECT.R - 7, mRECT.MH() + 2);
+    g.DrawLine(muted, mRECT.R - 7, mRECT.MH() + 2, mRECT.R - 3, mRECT.MH() - 2);
+  }
+};
 class DownButton : public Button
 {
 public:
@@ -177,7 +188,7 @@ public:
   }
 };
 inline float CategoryBadges(IGraphics& g, SlotEffect effect, nam_library::Gear gear, const IRECT& r,
-                            float font, bool right = false, const char* overrideLabel = nullptr)
+                            float font, bool right = false, const char* overrideLabel = nullptr, float opacity = 1.f)
 {
   const auto tone = Tone(effect, gear);
   std::array<std::pair<const char*, IColor>, 2> badges{{{tone.label, tone.first}, {"", tone.second}}};
@@ -203,15 +214,13 @@ inline float CategoryBadges(IGraphics& g, SlotEffect effect, nam_library::Gear g
   for (int i = 0; i < count; ++i)
   {
     const IRECT box(x, r.T, x + widths[i], r.B);
-    g.FillRoundRect(badges[i].second.WithOpacity(.10f), box, 3.f);
-    g.DrawRoundRect(badges[i].second.WithOpacity(.55f), box, 3.f);
-    g.DrawText(Text(font, badges[i].second, EAlign::Center), badges[i].first, box);
+    g.FillRoundRect(badges[i].second.WithOpacity(.10f * opacity), box, 3.f);
+    g.DrawRoundRect(badges[i].second.WithOpacity(.55f * opacity), box, 3.f);
+    g.DrawText(Text(font, badges[i].second.WithOpacity(opacity), EAlign::Center), badges[i].first, box);
     x = box.R + 5.f;
   }
   return left;
 }
-// Eight equal-width positions span the editor. Enabled is always last.
-constexpr int kControlPositions = 8;
 // Flow controls share numeric entry below the dial and double-click reset.
 class FlowKnob : public Knob
 {
@@ -221,8 +230,9 @@ public:
 
 inline IRECT ControlBounds(int position)
 {
-  const float left = grid_layout::parameterLeft + grid_layout::parameterWidth * position;
-  return IRECT(left + 4.f, grid_layout::knobTop, left + grid_layout::parameterWidth - 4.f, grid_layout::knobBottom);
+  const float left = grid_layout::parameterLeft + grid_layout::parameterWidth * (position % 4);
+  const float top = grid_layout::knobTop + (position / 4) * grid_layout::knobRowPitch;
+  return IRECT(left + 4.f, top, left + grid_layout::parameterWidth - 4.f, top + grid_layout::knobBottom - grid_layout::knobTop);
 }
 class Toggle : public IVToggleControl
 {
@@ -258,7 +268,7 @@ public:
   {
     WDL_String label; GetParam()->GetDisplay(GetValue(), true, label);
     g.FillRoundRect(surface, mRECT, 3.f); g.DrawRoundRect(border, mRECT, 3.f);
-    g.DrawText(Text(12.f, text, EAlign::Center), label.Get(), mRECT);
+    FittedText(g, Text(12.f, text, EAlign::Center), label.Get(), mRECT.GetHPadded(-4.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
@@ -363,6 +373,7 @@ public:
 #include "ModulationDisplay.h"
 #include "EffectSetupDisplay.h"
 #include "EffectSpaceDisplay.h"
+#include "EffectDriveDisplay.h"
 
 // A selectable card with an independently clipped module editor below the grid.
 class NAMGridSlotControl : public IControl
@@ -379,19 +390,22 @@ public:
   {
     using namespace grid_ui;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
-    const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
-    const auto tone = Tone(PLUG()->GetSlotEffect(mSlot), PLUG()->GetSlotGear(mSlot));
-    const bool occupied = PLUG()->IsSlotLoaded(mSlot) || !PLUG()->GetSlotPath(mSlot).empty();
-    g.FillRoundRect(surface, mCardBounds, 4.f);
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    const auto path = PLUG()->GetSlotPath(mSlot);
+    const bool empty = path.empty() && effect == SlotEffect::NAM;
+    const bool enabled = !empty && GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
+    const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
+    const bool occupied = !empty;
+    g.FillRoundRect(enabled ? surface : IColor(255, 13, 15, 18), mCardBounds, 4.f);
     if (occupied)
       Gradient(g, mCardBounds.GetPadded(-1.f), tone.first, tone.second,
-               selected ? .18f : enabled ? .1f : .035f, 4.f);
-    auto first = occupied ? (enabled ? tone.first : IColor::LinearInterpolateBetween(border, tone.first, .35f)) : border;
-    auto second = occupied ? (enabled ? tone.second : IColor::LinearInterpolateBetween(border, tone.second, .35f)) : border;
+               enabled ? selected ? .18f : .1f : selected ? .025f : .012f, 4.f);
+    auto first = occupied ? (enabled ? tone.first : IColor::LinearInterpolateBetween(border, tone.first, .12f)) : border;
+    auto second = occupied ? (enabled ? tone.second : IColor::LinearInterpolateBetween(border, tone.second, .12f)) : border;
     if (selected)
     {
-      first = Brighten(first, occupied ? .25f : .5f);
-      second = Brighten(second, occupied ? .25f : .5f);
+      first = Brighten(first, occupied ? enabled ? .25f : .1f : .5f);
+      second = Brighten(second, occupied ? enabled ? .25f : .1f : .5f);
     }
     const auto outline = IPattern::CreateLinearGradient(mCardBounds.L, 0, mCardBounds.R, 0, {{first, 0.f}, {second, 1.f}});
     g.PathRoundRect(mCardBounds, 4.f); g.PathStroke(outline, selected ? 2.f : occupied ? 1.5f : 1.f);
@@ -399,23 +413,27 @@ public:
     slotName.erase(std::remove(slotName.begin(), slotName.end(), ' '), slotName.end());
     // The tile ID carries the module's own hue, matching the module panel header below.
     const auto idColor = !occupied ? muted
-                         : !enabled ? IColor::LinearInterpolateBetween(border, tone.first, .55f)
+                         : !enabled ? IColor::LinearInterpolateBetween(border, tone.first, .15f)
                          : selected ? Brighten(tone.first, .3f) : tone.first;
     g.DrawText(Text(14.f, idColor), slotName.c_str(),
                IRECT(mCardBounds.L + 12, mCardBounds.T + 8, mCardBounds.R - 36, mCardBounds.T + 25));
-    g.FillCircle(enabled ? tone.first : muted, mCardBounds.R - 17, mCardBounds.T + 16, 3.f);
-    const auto effect = PLUG()->GetSlotEffect(mSlot);
-    const auto path = PLUG()->GetSlotPath(mSlot);
-    const bool empty = path.empty() && effect == SlotEffect::NAM;
+    if (!empty)
+    {
+      // Equal 12 px inset from the top and right, with a larger 32 px hit target.
+      const float toggleX=mCardBounds.R-12.f, toggleY=mCardBounds.T+12.f;
+      g.DrawCircle(enabled ? tone.first.WithOpacity(.7f) : border, toggleX, toggleY, 7.f, nullptr, 1.2f);
+      if (enabled) g.FillCircle(tone.first, toggleX, toggleY, 4.5f);
+      else g.DrawLine(muted.WithOpacity(.65f),toggleX-3.f,toggleY,toggleX+3.f,toggleY,nullptr,1.5f);
+    }
     const auto label = empty          ? std::string("+ Add module")
                        : path.empty() ? std::string(SlotEffectName(effect))
                                       : nam_library::PathText(std::filesystem::u8path(path).stem());
-    FittedText(g, Text(14.f, empty ? muted : text), label,
+    FittedText(g, Text(14.f, enabled ? text : IColor(255, 113, 119, 130)), label,
                IRECT(mCardBounds.L + 12, mCardBounds.T + 29, mCardBounds.R - 12, mCardBounds.T + 52));
     const IRECT category(mCardBounds.L + 12, mCardBounds.T + 56, mCardBounds.R - 12, mCardBounds.T + 74);
     if (empty) g.DrawText(Text(12.f, muted), "Empty", category);
     else CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), category, 12.f, false,
-                        !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : nullptr);
+                        !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : nullptr, enabled ? 1.f : .4f);
     const auto bar = [&](const IRECT& r, double value, bool clipped) {
       g.FillRect(surface, r); // Opaque track covers wiring drawn behind this card.
       g.DrawRect(border, r);
@@ -439,56 +457,16 @@ public:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
-    const auto label = empty          ? std::string("Empty module")
-                       : path.empty() ? std::string(SlotEffectName(effect))
-                                      : nam_library::PathText(std::filesystem::u8path(path).stem());
-    const auto panel = mEditor->GetRECT();
-    g.FillRoundRect(surface, panel, 5.f);
-    g.DrawRoundRect(border, panel, 5.f);
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
-    const float headerRight = HasVisualization() ? 768.f : 956.f;
-    Gradient(g, IRECT(42, 539, headerRight, 541), tone.first, tone.second, .8f, 1.f);
-    g.DrawText(Text(18.f, tone.first), slotName.c_str(), IRECT(42, 487, 110, 536));
-    const float badgeLeft = empty ? headerRight : CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
-                                                                IRECT(590, 499, headerRight, 523), 13.f, true);
-    FittedText(g, Text(17.f), label, IRECT(118, 487, badgeLeft - 12, 513));
+    g.DrawText(Text(17.f, tone.first), slotName.c_str(), IRECT(24, 484, 84, 508));
+    if (!empty) CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), IRECT(444, 484, 620, 508), 12.f, true);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
     const auto hint = std::string(enabled ? "" : "Bypassed | ")
       + (effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
                                          : effect_presentation::Sound(effect));
-    if (!empty) FittedText(g, Text(11.f, muted), hint, IRECT(118, 514, badgeLeft - 12, 536));
+    if (!empty) FittedText(g, Text(11.f, muted), hint, IRECT(24, 510, 374, 533));
     if (HasVisualization() && PLUG()->GetShowVisualizations()) DrawVisualization(g);
-    std::array<bool, kControlPositions> used{};
-    used.back() = true;
-    if (effect == SlotEffect::NAM && !path.empty())
-      used.fill(true);
-    else if (effect == SlotEffect::CabinetIR)
-      used[0] = true;
-    else if (effect == SlotEffect::ParametricEQ)
-    {
-      used[0] = used[2] = used[3] = used[4] = true;
-      used[1] = !GetDelegate()->GetParam(SlotUtilityParam(mSlot, uEQMode))->Bool();
-    }
-    else if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
-      used[2] = true;
-    else if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::SmoothComp
-             || effect == SlotEffect::PunchComp || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
-      used[0] = used[1] = used[2] = true;
-    const bool sync = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uTempoSync))->Bool();
-    const bool notch = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uEQMode))->Bool();
-    const bool vibrato = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uVibeMode))->Bool();
-    for (int p = 0; p < kUtilityControls; ++p)
-      if (effect_presentation::Visible(effect, p, sync, notch, vibrato)
-          && !effect_presentation::HeaderControl(p))
-        used[effect_presentation::Position(effect, p)] = true;
-    for (int i = 0; i < kControlPositions; ++i)
-    {
-      const auto cell = ControlBounds(i).GetPadded(3.f);
-      g.FillRoundRect(IColor(255, 17, 20, 24), cell, 4.f);
-      if (!used[i])
-        g.DrawText(Text(16.f, border, EAlign::Center), "-", cell);
-    }
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
 
@@ -497,7 +475,8 @@ public:
     PLUG()->SelectSlot(mSlot);
     if (mod.R)
       ShowEditMenu();
-    else if (x > mCardBounds.R - 32 && y < mCardBounds.T + 28)
+    else if ((PLUG()->GetSlotEffect(mSlot) != SlotEffect::NAM || !PLUG()->GetSlotPath(mSlot).empty())
+             && x > mCardBounds.R - 32 && y < mCardBounds.T + 32)
     {
       auto* param = GetDelegate()->GetParam(SlotActiveParam(mSlot));
       const double value = param->Bool() ? 0. : 1.;
@@ -560,14 +539,15 @@ public:
     GetUI()->AttachControl(mEditor);
     // Controls live in a shared bottom editor; each slot keeps its original automation bindings.
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
-    mModelButton = new grid_ui::Button(IRECT(42, 546, 416, 576), [this](IControl*) { ShowMenu(); }, "Choose module...");
+    mModelButton = new grid_ui::ModuleButton(IRECT(92, 484, 372, 508), [this](IControl*) { ShowMenu(); }, "Choose module...");
     mEditor->AddChildControl(mModelButton);
-    mSiblingButton = new grid_ui::DownButton(IRECT(380, 546, 416, 576), [this](IControl*) { ShowSiblings(); }, "");
+    mSiblingButton = new grid_ui::DownButton(IRECT(340, 484, 372, 508), [this](IControl*) { ShowSiblings(); }, "");
     mSiblingButton->SetTooltip("Files in the same folder as this capture or IR.");
     mEditor->AddChildControl(mSiblingButton);
-    mEditor->AddChildControl(new grid_ui::Button(IRECT(428, 546, 464, 576), [this](IControl*) { Step(-1); }, "<"));
-    mEditor->AddChildControl(new grid_ui::Button(IRECT(472, 546, 508, 576), [this](IControl*) { Step(1); }, ">"));
-    mQualityButton = new grid_ui::Button(IRECT(520, 546, 668, 576), [this](IControl*) {
+    mStepButtons[0] = new grid_ui::Button(IRECT(380, 484, 404, 508), [this](IControl*) { Step(-1); }, "<");
+    mStepButtons[1] = new grid_ui::Button(IRECT(410, 484, 434, 508), [this](IControl*) { Step(1); }, ">");
+    for (auto* button : mStepButtons) mEditor->AddChildControl(button);
+    mQualityButton = new grid_ui::Button(IRECT(444, 510, 620, 534), [this](IControl*) {
       PLUG()->ToggleSlotQuality(mSlot); Refresh();
     }, "Quality: A2");
     mQualityButton->SetTooltip("Click to switch between full A2 and lower-CPU A2 Lite for this capture.");
@@ -590,7 +570,7 @@ public:
         : i == 4 ? "Gain recovery time after a loud note."
                  : "Level compensation after compression; compare with bypass at similar loudness.");
     }
-    const char* eqLabels[] = {"Bass", "Mid", "Treble", "High pass", "Low pass", "Presence", "Output"};
+    const char* eqLabels[] = {"Bass", "Mid", "Treble", "Low cut", "High cut", "Presence", "Output"};
     for (int i = 0; i < 7; ++i)
     {
       mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? 0 : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
@@ -600,11 +580,11 @@ public:
     {
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(520, 546, 632, 576), SlotUtilityParam(mSlot, i), "Tempo sync");
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(380, 510, 490, 534), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uTapeHeads || i == uCosmicStyle)
-        mUtilityKnobs[i] = new grid_ui::Choice(IRECT(640, 546, 768, 576), SlotUtilityParam(mSlot, i));
+        mUtilityKnobs[i] = new grid_ui::Choice(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i));
       else if (i == uDelayPingPong || i == uReverbStereo)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(640, 546, 768, 576), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
@@ -612,7 +592,7 @@ public:
       mEditor->AddChildControl(mUtilityKnobs[i]);
     }
     SetTooltip(
-      "Select to edit. Double-click to choose a module. Right-click for Copy / Move / Swap. Dot toggles bypass.");
+      "Select to edit. Double-click to choose a module. Right-click for Copy / Move / Swap. Top-right toggle switches bypass.");
     Refresh();
   }
 
@@ -705,19 +685,18 @@ private:
   void DrawTapeTransport(IGraphics& g)
   {
     using namespace grid_ui;
-    const IRECT bounds(780, 488, 956, 576);
+    const IRECT bounds(644, 484, 976, 696);
     g.FillRoundRect(IColor(255, 12, 16, 20), bounds, 4.f);
-    g.DrawRoundRect(border, bounds, 3.f);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const double mix = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLoFiMix))->Value() * .01;
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    g.DrawText(Text(8.f, muted), status, IRECT(788, 489, 875, 502));
-    g.DrawText(Text(8.f, muted, EAlign::Far), "+/-60 ct", IRECT(880, 489, 948, 502));
+    g.DrawText(Text(12.f, muted), status, IRECT(656, 490, 860, 518));
+    g.DrawText(Text(12.f, muted, EAlign::Far), "+/-60 ct", IRECT(870, 490, 964, 518));
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
-      g.DrawText(Text(9.f, color.WithOpacity(opacity)), name, IRECT(788, center - 22, 850, center - 10));
-      constexpr float start = 788.f, end = 948.f, height = 9.f;
+      g.DrawText(Text(12.f, color.WithOpacity(opacity)), name, IRECT(656, center - 38, 790, center - 18));
+      constexpr float start = 656.f, end = 964.f, height = 23.f;
       g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
       float previous = center;
       double peak = 0.;
@@ -731,10 +710,10 @@ private:
         previous = y;
       }
       WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
-      g.DrawText(Text(9.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(885, center - 22, 948, center - 10));
+      g.DrawText(Text(12.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, 964, center - 18));
     };
-    trace("WOW", history.wow, accent, 525.f);
-    trace("FLUTTER", history.flutter, ampColor, 560.f);
+    trace("WOW", history.wow, accent, 568.f);
+    trace("FLUTTER", history.flutter, ampColor, 658.f);
   }
 
   bool HasVisualization()
@@ -751,14 +730,10 @@ private:
       DrawTapeTransport(g);
       return;
     }
-    const IRECT box(780, 488, 956, 576), plot(788, 513, 948, 568);
+    const IRECT box(644, 484, 976, 696), plot(656, 526, 964, 680);
     g.FillRoundRect(IColor(255, 17, 20, 24), box, 3.f);
-    g.DrawRoundRect(border, box, 3.f);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
-    const auto levelY = [&](float db, float floorDB) {
-      return plot.T + plot.H() * std::clamp(db / floorDB, 0.f, 1.f);
-    };
     const auto levels = [&](float floorDB, const IRECT& area) {
       for (int i = 0; i <= 3; ++i)
       {
@@ -784,7 +759,7 @@ private:
     };
     if (effect == SlotEffect::NAM)
     {
-      g.DrawText(Text(12.f, color), "Capture | IN / OUT", IRECT(788, 490, 948, 510));
+      g.DrawText(Text(12.f, color), "Capture | IN / OUT", IRECT(plot.L, 490, plot.R, 518));
       levels(-60.f, plot);
     }
     else if (effect == SlotEffect::CosmicEcho)
@@ -804,14 +779,14 @@ private:
       WDL_String caption;
       if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
       else caption.SetFormatted(64, "Thr %.0f | GR %.1f dB", threshold, mReductionNow);
-      g.DrawText(Text(12.f, color), caption.Get(), IRECT(788, 490, 948, 510));
+      g.DrawText(Text(12.f, color), caption.Get(), IRECT(plot.L, 490, plot.R, 518));
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
-      const IRECT history(plot.L,529,plot.R,plot.B);
-      const IRECT reductionBar(plot.L,514,plot.R,520);
+      const IRECT history(plot.L,550,plot.R,plot.B);
+      const IRECT reductionBar(plot.L,523,plot.R,531);
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
         reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/24.f,0.f,1.f),reductionBar.B));
-      g.DrawText(Text(9.5f,muted),compressor ? "Input / reduced (no makeup)" : "Input / reduced",IRECT(plot.L,520,plot.R,530));
+      g.DrawText(Text(12.f,muted),compressor ? "Input / reduced (no makeup)" : "Input / reduced",IRECT(plot.L,532,plot.R,550));
       levels(gate || smart ? -100.f : -60.f, history);
       if (!off)
       {
@@ -835,58 +810,11 @@ private:
                PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.))
     {
     }
-    else if (effect == SlotEffect::Distortion)
+    else if (DrawDriveSetup(g, effect, plot, color,
+               [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
+               GetDelegate()->GetParam(SlotEQParam(mSlot, 3))->Value(),
+               PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000., mMeter.input))
     {
-      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
-      const int style = static_cast<int>(value(uDistStyle));
-      const double drive = std::pow(10., value(uDistDrive) / 20.), bias = value(uDistBias) * .004;
-      const IRECT shape(plot.L, plot.T, plot.L + 76, plot.B - 10), tonePlot(plot.L + 84, plot.T, plot.R, plot.B - 10);
-      const auto transfer = [&](double x) { return SlotDistortion::Transfer(x, style, drive, bias); };
-      const auto xPos = [&](double x) { return shape.MW() + shape.W() * .5f * static_cast<float>(x); };
-      const auto yPos = [&](double y) { return shape.MH() - shape.H() * .5f * static_cast<float>(y / 2.); };
-      WDL_String caption; caption.Set("Clip / tone + mix");
-      g.DrawText(Text(12.f, color), caption.Get(), IRECT(788, 490, 948, 510));
-      g.DrawLine(border, shape.L, shape.MH(), shape.R, shape.MH());
-      g.DrawLine(border, shape.MW(), shape.T, shape.MW(), shape.B);
-      g.DrawLine(border.WithOpacity(.5f), xPos(-1.), yPos(-1.), xPos(1.), yPos(1.));
-      const double level = std::clamp(double(mMeter.input), 0., 1.);
-      const float activeLeft = xPos(-level), activeRight = xPos(level);
-      g.FillRect(color.WithOpacity(.08f), IRECT(activeLeft, shape.T, activeRight, shape.B));
-      // Sample densely enough to retain folds at maximum drive.
-      constexpr int points = 512;
-      for (int i = 1; i <= points; ++i)
-      {
-        const double a = -1. + 2. * (i - 1) / points, b = -1. + 2. * i / points;
-        const bool active = level > 1.e-5 && b >= -level && a <= level;
-        g.DrawLine(active ? color : color.WithOpacity(.5f), xPos(a), yPos(transfer(a)), xPos(b), yPos(transfer(b)),
-                   nullptr, active ? 2.5f : 1.5f);
-      }
-      if (level > 1.e-5)
-        for (double input : {-level, level})
-        {
-          g.DrawLine(muted.WithOpacity(.6f), xPos(input), shape.B, xPos(input), yPos(transfer(input)));
-          g.FillCircle(text, xPos(input), yPos(transfer(input)), 2.5f);
-        }
-      UtilityControls controls;
-      for (int i = 0; i < 6; ++i) controls.distortion[i] = value(uDistStyle + i);
-      const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
-      const double upper = std::min(20000., .45 * rate);
-      const auto toneY = [&](double hz) {
-        const double db = 20. * std::log10(std::max(1.e-9, effect_preview::DistortionTone(hz, controls, rate)));
-        return tonePlot.B - tonePlot.H() * static_cast<float>((std::clamp(db, -36., 12.) + 36.) / 48.);
-      };
-      const float unity = tonePlot.B - tonePlot.H() * .75f;
-      g.DrawLine(border, tonePlot.L, unity, tonePlot.R, unity);
-      double previousHz = 80.;
-      for (int i = 1; i <= 80; ++i)
-      {
-        const double hz = 80. * std::pow(upper / 80., i / 80.);
-        g.DrawLine(color, tonePlot.L + tonePlot.W() * (i - 1) / 80.f, toneY(previousHz),
-                          tonePlot.L + tonePlot.W() * i / 80.f, toneY(hz));
-        previousHz = hz;
-      }
-      g.DrawText(Text(9.f, muted), "Shape", IRECT(shape.L, plot.B - 9, shape.R, plot.B));
-      g.DrawText(Text(9.f, muted, EAlign::Far), "80 Hz - 20k", IRECT(tonePlot.L, plot.B - 9, tonePlot.R, plot.B));
     }
     else if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ
              || effect == SlotEffect::SynthFilter)
@@ -932,7 +860,7 @@ private:
       WDL_String caption;
       if (filter) caption.SetFormatted(64, "%s %.0f Hz", key[16] == 1 ? "HP" : key[16] == 2 ? "BP" : "LP", key[12]);
       else caption.Set("EQ response");
-      g.DrawText(Text(13.f, color), caption.Get(), IRECT(788, 490, 948, 510));
+      g.DrawText(Text(13.f, color), caption.Get(), IRECT(plot.L, 490, plot.R, 518));
       const auto y = [&](float db) { return plot.T + plot.H() * (24.f - std::clamp(db, -24.f, 24.f)) / 48.f; };
       for (int db : {-24, -12, 0, 12, 24})
         g.DrawLine(border.WithOpacity(db == 0 ? .9f : .4f), plot.L, y(static_cast<float>(db)), plot.R, y(static_cast<float>(db)));
@@ -953,9 +881,9 @@ private:
     else
     {
       // Reuse the existing mono meter packets: no audio capture or extra DSP work.
-      g.DrawText(Text(13.f, muted), "IN", IRECT(788, 490, 818, 510));
-      g.DrawText(Text(13.f, color), "OUT", IRECT(823, 490, 858, 510));
-      g.DrawText(Text(11.f, muted, EAlign::Far), "2.4 s", IRECT(870, 490, 948, 510));
+      g.DrawText(Text(13.f, muted), "IN", IRECT(plot.L, 490, plot.L + 30, 518));
+      g.DrawText(Text(13.f, color), "OUT", IRECT(plot.L + 40, 490, plot.L + 75, 518));
+      g.DrawText(Text(11.f, muted, EAlign::Far), "2.4 s", IRECT(plot.R - 78, 490, plot.R, 518));
       levels(-60.f, plot);
     }
   }
@@ -979,11 +907,15 @@ private:
     mEditor->Hide(!selected);
     if (selected)
     {
-      const bool siblings = (nam || ir) && !path.empty();
+      const bool empty = nam && path.empty();
+      mEnabled->Hide(empty);
+      for (auto* button : mStepButtons) button->Hide(empty);
+      const bool siblings = (!nam && !ir) || !path.empty();
       mSiblingButton->Hide(!siblings);
+      mSiblingButton->SetTooltip(nam || ir ? "Files in the same folder as this capture or IR." : "Effects in the same category as this module.");
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
-      mModelButton->SetRECT(IRECT(42, 546, siblings ? 370 : 416, 576));
+      mModelButton->SetRECT(IRECT(92, 484, siblings ? 334 : 372, 508));
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -1033,7 +965,10 @@ private:
       for (int i = 0; i < 3; ++i)
         mEQKnobs[i]->SetRECT(grid_ui::ControlBounds(nam ? i + 1 : i));
     }
-    mModelButton->SetLabelStr(nam ? "Choose NAM / effect..." : ir ? "Choose IR / effect..." : "Change module...");
+    const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectName(effect))
+                                          : nam_library::PathText(std::filesystem::u8path(path).stem());
+    mModelButton->SetLabelStr(moduleLabel.c_str());
+    mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel).c_str());
     SetTooltip(path.empty() ? "Select to edit. Double-click to choose. Right-click for Copy / Move / Swap."
                             : path.c_str());
     SetDirty(false);
@@ -1090,6 +1025,18 @@ private:
   }
   void ShowSiblings()
   {
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    if (effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR)
+    {
+      const auto current = effect == SlotEffect::TightGate ? SlotEffect::NaturalGate : effect;
+      mMenu.Clear();
+      if (const auto* group = nam_library::ModuleGroupFor(current))
+        for (const auto candidate : group->effects)
+          mMenu.AddItem(new IPopupMenu::Item(SlotEffectName(candidate),
+            candidate == current ? IPopupMenu::Item::kChecked : 0, -20 - static_cast<int>(candidate)));
+      GetUI()->CreatePopupMenu(*this, mMenu, mSiblingButton->GetRECT());
+      return;
+    }
     const auto path = std::filesystem::u8path(PLUG()->GetSlotPath(mSlot));
     mSiblingFiles = nam_library::SiblingFiles(path, PLUG()->GetSlotEffect(mSlot) == SlotEffect::CabinetIR);
     mMenu.Clear();
@@ -1122,6 +1069,7 @@ private:
   grid_ui::Editor* mEditor = nullptr;
   IVButtonControl* mModelButton = nullptr;
   grid_ui::DownButton* mSiblingButton = nullptr;
+  std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
   std::vector<std::filesystem::path> mSiblingFiles;
   SlotEffect mPlotEffect = SlotEffect::NAM;

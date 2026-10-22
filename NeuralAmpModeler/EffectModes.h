@@ -50,9 +50,18 @@ inline constexpr std::array<const char*, tapeHeadNames.size()> tapeHeadHelp{
   "Late pair: three-quarter and full Time, equally weighted. Feedback comes from the last head.",
   "Stereo dual: half Time on the left, full Time on the right. Last-head feedback crosses between channels; dry stereo stays intact.",
   "Stereo cascade: quarter/three-quarter Time on the left, half/full Time on the right. Last-head feedback crosses channels; dry stereo stays intact."};
-inline constexpr std::array<const char*, 3> cosmicNames{"Smooth", "Bloom", "Sparse"};
-inline constexpr std::array<const char*, 3> cosmicHelp{
-  "Smooth: Faust's Gemini model, with sixteen scattering delays for dense ambience. Changing Style fades and clears the old tail.",
-  "Bloom: Faust's Sagittarius model, with eight stereo allpasses for slow buildup. Feedback changes both attack and decay. Changing Style fades and clears the old tail.",
-  "Sparse: Faust's Virgo model, with four filtered feedback delays for complex echoes. Changing Style fades and clears the old tail."};
+enum class CosmicStyle { Gemini, Sagittarius, Virgo, Centaurus, GreatAnnihilator, Lyra, Count };
+inline constexpr int cosmicCount = static_cast<int>(CosmicStyle::Count);
+inline constexpr std::array<const char*, cosmicCount> cosmicNames{
+  "Gemini", "Sagittarius", "Virgo", "Centaurus", "Great Annihilator", "Lyra"};
+inline constexpr std::array<const char*, cosmicCount> cosmicTopology{
+  "16-line diffusion", "8-stage stereo bloom", "Filtered feedback echoes",
+  "4-stage matrix bloom", "Global feedback tank", "4-line sparse echoes"};
+inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
+  "Gemini: dense, smooth ambience from sixteen scattering delays. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
+  "Sagittarius: eight stereo allpasses create slow buildup; Feedback changes attack and decay. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
+  "Virgo: four delays with filtering inside feedback create dark, sparse echoes. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
+  "Centaurus: four serial four-channel allpasses build swelling ambience; Feedback changes the onset. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
+  "Great Annihilator: a delay stage and three matrix allpasses inside global feedback create long, evolving tails. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
+  "Lyra: four scattering delays with summed output create clear, sparse echoes; High cut shapes the output. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail."};
 } // namespace effect_modes

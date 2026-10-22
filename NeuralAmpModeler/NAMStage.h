@@ -147,7 +147,10 @@ public:
       drainLimit = static_cast<int64_t>(rate
                                         * (effect == SlotEffect::DualDelay ? 17.
                                            : IsDelay(effect) ? 9.
-                                           : IsReverb(effect) || effect == SlotEffect::CosmicEcho ? 60.
+                                           // Sagittarius can chain eight full-length delays. Include modulation,
+                                           // fixed offsets and filter settling before suspending a bypassed tank.
+                                           : effect == SlotEffect::CosmicEcho ? 8.*(kEffectParameters[uCosmicTime].maximum*.001+.02)+1.
+                                           : IsReverb(effect) ? 60.
                                            : effect == SlotEffect::ShimmerReverb ? 30.
                                            : effect == SlotEffect::FrequencyShifter ? 9.
                                            : effect == SlotEffect::Doubler ? .1

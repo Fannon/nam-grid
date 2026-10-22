@@ -24,20 +24,20 @@ and Dual Delay cross-feedback mode.
 | Airwindows Plate | Input, Sustain, Resolution, Pre-delay, Mix, Low cut, Output | Native kPlate140 audition port |
 | Airwindows Guitar Hall | Sustain, Resolution, Brightness, Early level, Position, Mix, Output | Native kGuitarHall2 audition port |
 | Galactic Space | Replace, Brightness, Detune, Size, Resolution, Mix, Output | Native Galactic3 ambient-pad audition port |
-| Cosmic Echo | Time, Warp, Feedback, Density, Tone, Motion, Mix; header Style | Faust-derived Smooth/Bloom/Sparse ambient echo/reverb; see [prototype notes](COSMIC_ECHO.md) |
+| Cosmic Echo | Time, Warp, Feedback, Density, High cut, Motion, Mix; header Style | Six Valhalla Supermassive-inspired Faust modes; see [prototype notes](COSMIC_ECHO.md) |
 | Shimmer | Mix, Decay, Damping, Pitch, Amount, Modulation, Freeze | Eight-line reverb with granular pitched feedback; positive Pitch climbs on each pass |
-| Digital Delay | Time, Feedback, Tone, Ducking, Mix, Output | Ducking ducks repeats beneath the pick |
-| Analog Echo | Time, Feedback, Tone, Age, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Age increases wear |
-| Tape Echo | Time, Feedback, Tone, Saturation, Modulation, Mix, Output | Filtered repeats, soft saturation, Modulation adds wow/flutter |
-| Multi-head Tape | Time, Feedback, Tone, Saturation, Modulation, Mix, Output; header Heads | Four weighted tap patterns, last-head-only feedback |
-| Diffused Delay | Time, Feedback, Tone, Diffusion, Modulation, Mix, Output | Echoes smear into stereo reflection clusters |
+| Digital Delay | Time, Feedback, High cut, Ducking, Mix, Output | Ducking ducks repeats beneath the pick |
+| Analog Echo | Time, Feedback, High cut, Age, Modulation, Mix, Output | Two-pole darkening and soft feedback saturation; Age increases wear |
+| Tape Echo | Time, Feedback, High cut, Saturation, Modulation, Mix, Output | Filtered repeats, soft saturation, Modulation adds wow/flutter |
+| Multi-head Tape | Time, Feedback, High cut, Saturation, Modulation, Mix, Output; header Heads | Eight head patterns including stereo dual/cascade, last-head-only feedback |
+| Diffused Delay | Time, Feedback, High cut, Diffusion, Modulation, Mix, Output | Echoes smear into stereo reflection clusters |
 | Chorus | Rate, Depth, Texture, Mix | Fractional-delay chorus; Texture darkens and adds asymmetric motion |
 | Juno Chorus | Mode, Mix, Brightness | Dual-triangle-LFO BBD ensemble with I, I+II and II modes |
 | Flanger | Rate, Depth, Feedback, Feedback sign, Mix | Short swept comb; Feedback sign moves feedback from positive to negative |
 | Phaser | Rate, Depth, Feedback, Sweep center, Mix | Six allpass stages; Sweep center raises the sweep's center |
 | Auto Tremolo | Rate, Depth, Pulse / feel, Mix | Rounded pulses; Pulse / feel sharpens them and adds envelope-dependent speed |
 | Vibrato | Rate, Depth, Texture | Fully wet pitch movement; Texture adds drift and darkening |
-| Frequency Shifter | Shift, Feedback, Delay, Sideband, Tone, Spread, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
+| Frequency Shifter | Shift, Feedback, Delay, Sideband, High cut, Spread, Mix | Allpass Hilbert shifter in a filtered feedback delay; fixed-Hz rather than ratio pitch movement |
 | LoFi Tape Machine | Speed, Wow, Flutter, Noise, Wear, Mix, Output | Tape transport motion, hiss, bandwidth loss and dropouts; separate from tape saturation |
 
 This set follows the core guitar categories in the official
@@ -62,7 +62,7 @@ Reverb Low cut filters its input only on the wet path (0 = off); Modulation cont
 network motion. Neither changes the dry signal. Compressor Attack covers .5–50 ms;
 Mix blends the compressed and original signals before the slot bypass ramp.
 
-Delays cover 20–1500 ms, feedback 0–82%, tone 800–12000 Hz. Time changes are smoothed
+Conventional delays cover 5–4000 ms with a quadratic dial scale, feedback 0–82%, and High cut 800–12000 Hz. Time changes are smoothed
 and intentionally bend pitch. Tempo sync spans **1/32–1/1**, including triplet/dotted choices;
 the same division range applies to Stutter and synced modulation.
 Reverb decay is nominal RT60, .25–20 s;
@@ -93,14 +93,14 @@ Chorus Spread and stereo reverb generate spatial movement from a mono source.
 
 The **Distortion** category contains Distortion, Boost, Tube Boost, Airwindows Tape
 and Bitcrusher. The general Distortion module offers **Soft clip**, **Hard clip**,
-**Fuzz**, **Foldback**, **Diode** and **Rectify** styles, Drive (0–36 dB), Tone (200–12000 Hz), Bias (±100%), Mix and
+**Fuzz**, **Foldback**, **Diode** and **Rectify** styles, Drive (0–36 dB), High cut (200–12000 Hz), Bias (±100%), Mix and
 Output (-24 to +6 dB). Bias changes symmetry; a 5 Hz DC blocker removes the resulting
 offset. Style changes crossfade over 20 ms; continuous controls are also smoothed.
-Tone filters the wet signal, and Output follows the dry/wet blend. Stereo channels
+High cut filters the wet signal, and Output follows the dry/wet blend. Stereo channels
 use independent histories. These are original waveshapers, not pedal emulations;
 there is no oversampling, so bright/high-drive styles can alias.
-Its mini display separates the static pre-tone shaper from the linear Tone/Mix/Output
-response. Drive and Bias change the shaper; Tone, Mix and Output change the second curve. The highlighted span and endpoint markers track the current mono input peak,
+Its mini display separates the static pre-tone shaper from the linear High cut/Mix/Output
+response. Drive and Bias change the shaper; High cut, Mix and Output change the second curve. The highlighted span and endpoint markers track the current mono input peak,
 showing which parts of the curve the signal reaches; this is a peak envelope, not an audio oscilloscope.
 Auto Swell Rise spans **10–2000 ms**.
 
@@ -148,6 +148,9 @@ tiny denormal noise is retained. No CHOWTape/GPL source is incorporated.
 [Tape](https://www.airwindows.com/tape/) was selected for its two-control,
 no-flutter design. Wow/flutter lives in the separate Tape Echo rather than
 forcing delayed pitch modulation into the saturation module.
+
+Further Airwindows adoption candidates are reviewed in
+[AIRWINDOWS_CANDIDATES.md](AIRWINDOWS_CANDIDATES.md).
 
 Focused alternatives reviewed, not imported:
 
@@ -249,7 +252,7 @@ Filter through Tape. Raw local results are in `build-grid/effects-cpu.csv`.
 
 ## State and layout checkpoint
 
-Schema 21 contains 3,098 parameters (286 input/global/slot controls + 16 × 173 FX
+Schema 22 contains 3,098 parameters (286 input/global/slot controls + 16 × 173 FX
 controls + 44 performance controls). Every slot uses one contiguous FX bank,
 including LoFi Tape. Host and editor wording agree for uniquely owned controls;
 shared controls retain effect-specific editor labels where useful.

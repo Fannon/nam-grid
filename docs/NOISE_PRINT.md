@@ -133,7 +133,7 @@ rig presets and performance controls. Noise Gate (Smart) appears once under **Dy
 NAM captures and cabinet IR libraries retain their separate submenus.
 
 The normal plugin now has **3,098 parameters**, including 173 utility controls per
-slot, and state schema **21**. Schema 20 adds reverb/delay audition controls; schema 21 adds Cosmic Echo.
+slot, and state schema **22**. Schema 20 adds reverb/delay audition controls; schema 22 adds Cosmic Echo.
 Schema 19 consolidates FX parameter banks, aligns
 unique host/editor names and adds Diode/Rectify distortion styles. Prototype
 automation mappings are not frozen. Schema 18 adds capture/IR content identities

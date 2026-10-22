@@ -8,22 +8,23 @@ namespace grid_ui
 template<class Value>
 void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, double rate)
 {
-  const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,2);
+  const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,effect_modes::cosmicCount-1);
   const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
   const double horizon=plan.seconds[0]*1.03, density=value(uCosmicDensity)*.01, mix=value(uCosmicMix)*.01;
   const double motion=.010416667*std::pow(value(uCosmicMotion)*.01,2.);
-  const IRECT field(plot.L,522,plot.R,561);
+  const IRECT field(plot.L,542,plot.R,668);
   WDL_String text;
   text.SetFormatted(64,"%s | %.0f ms",effect_modes::cosmicNames[style],value(uCosmicTime));
-  g.DrawText(Text(12.f,delayColor),text.Get(),IRECT(plot.L,490,plot.R,506));
+  g.DrawText(Text(14.f,delayColor),text.Get(),IRECT(plot.L,490,plot.R,514));
   text.SetFormatted(64,"Warp %.0f%% | Density %.0f%%",value(uCosmicWarp),value(uCosmicDensity));
-  g.DrawText(Text(10.5f,muted),text.Get(),IRECT(plot.L,507,plot.R,521));
+  g.DrawText(Text(12.f,muted),text.Get(),IRECT(plot.L,515,plot.R,536));
   g.DrawLine(border,field.L,field.B,field.R,field.B);
   for(int i=0;i<plan.count;++i)
   {
     const float x=field.L+field.W()*static_cast<float>(plan.seconds[i]/horizon);
     const float height=field.H()*static_cast<float>(.3+.65*density);
-    const auto ink=(i%2 ? ampColor : delayColor).WithOpacity(static_cast<float>(.25+.75*mix));
+    const int channel=style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
+    const auto ink=(channel ? ampColor : delayColor).WithOpacity(static_cast<float>(.25+.75*mix));
     const float spread=std::clamp(static_cast<float>(field.W()*motion/horizon),0.f,12.f);
     if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(field.L,x-spread),field.B-height,std::min(field.R,x+spread),field.B));
     g.DrawLine(ink,x,field.B,x,field.B-height,nullptr,2.f);
@@ -33,10 +34,11 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, double rate)
       g.DrawLine(delayColor.WithOpacity(static_cast<float>(density*.3)),previous,field.B-height,x,field.B-height*.55f);
     }
   }
-  g.DrawText(Text(10.f,delayColor),"L",IRECT(field.L,field.T,field.L+9,field.T+13));
-  g.DrawText(Text(10.f,ampColor),"R lines",IRECT(field.L+11,field.T,field.L+49,field.T+13));
+  g.DrawText(Text(12.f,delayColor),"L",IRECT(field.L,field.T,field.L+12,field.T+17));
+  g.DrawText(Text(12.f,ampColor),"R lines",IRECT(field.L+16,field.T,field.L+70,field.T+17));
+  g.DrawText(Text(12.f,muted,EAlign::Far),effect_modes::cosmicTopology[style],IRECT(field.L+76,field.T,field.R,field.T+17));
   text.SetFormatted(64,"Mod %.0f%% | FB %.0f%%",value(uCosmicMotion),value(uCosmicFeedback));
-  g.DrawText(Text(10.f,muted),text.Get(),IRECT(plot.L,562,plot.R,576));
+  g.DrawText(Text(12.f,muted),text.Get(),IRECT(plot.L,671,plot.R,690));
 }
 
 template<class Value>
@@ -62,10 +64,10 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   else if(frozen) text.Set("Shimmer | frozen tail");
   else if(spring || shimmer) text.SetFormatted(64,"%s | %.1f s",spring ? "Spring" : "Shimmer",decay);
   else text.SetFormatted(64,"Size %.0f%% | %.1f s",size*100.,decay);
-  g.DrawText(Text(12.f,color),text.Get(),IRECT(plot.L,490,plot.R,506));
-  g.DrawText(Text(10.5f,ampColor),"Early",IRECT(plot.L,507,plot.L+30,521));
-  g.DrawText(Text(10.5f,color),native ? "/ late: relative sketch" : "/ late: decay sketch",IRECT(plot.L+30,507,plot.R,521));
-  const IRECT field(plot.L,523,plot.R,560);
+  g.DrawText(Text(14.f,color),text.Get(),IRECT(plot.L,490,plot.R,514));
+  g.DrawText(Text(12.f,ampColor),"Early",IRECT(plot.L,515,plot.L+40,536));
+  g.DrawText(Text(12.f,color),native ? "/ late: relative sketch" : "/ late: decay sketch",IRECT(plot.L+40,515,plot.R,536));
+  const IRECT field(plot.L,542,plot.R,668);
   const double horizon=native ? 1. : std::max(.25,decay+pre);
   const double onset=native ? std::min(.2,pre) : pre;
   const auto timeX=[&](double t) {
@@ -106,6 +108,6 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   }
   if(native) text.SetFormatted(64,"Wet %.0f%% | relative scale",mix*100.);
   else text.SetFormatted(64,"Pre %.0f ms | Wet %.0f%%",pre*1000.,mix*100.);
-  g.DrawText(Text(10.f,muted),text.Get(),IRECT(plot.L,562,plot.R,576));
+  g.DrawText(Text(12.f,muted),text.Get(),IRECT(plot.L,671,plot.R,690));
 }
 } // namespace grid_ui

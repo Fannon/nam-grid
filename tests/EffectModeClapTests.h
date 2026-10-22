@@ -68,11 +68,11 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
   assert(recalled["SlotEffects"][0]==static_cast<int>(SlotEffect::GalacticSpace));
   assert(recalled["Pre 1 Space Replace"]==17. && recalled["Pre 1 Space Size"]==81.);
   assert(recalled["Pre 1 Cosmic Time"]==kEffectParameters[uCosmicTime].initial);
-  for (int style=0; style<3; ++style)
+  for (int style=0; style<effect_modes::cosmicCount; ++style)
   {
     auto cosmic=cleared;
     cosmic["SlotEffects"][0]=cosmic["SlotEffects"][15]=static_cast<int>(SlotEffect::CosmicEcho);
-    cosmic["Pre 1 Cosmic Style"]=style; cosmic["Post 4 Cosmic Style"]=(style+1)%3;
+    cosmic["Pre 1 Cosmic Style"]=style; cosmic["Post 4 Cosmic Style"]=(style+1)%effect_modes::cosmicCount;
     load(cosmic); assert(save().config()==cosmic);
   }
   // Immediately preceding presets and performance scenes use Tone for a

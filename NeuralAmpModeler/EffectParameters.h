@@ -308,7 +308,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Cosmic High Cut", "High cut", 6000, 200, 16000, 1, "Hz", 4, true},
    {"Cosmic Motion", "Motion", 25, 0, 100, .1, "%", 5},
    {"Cosmic Mix", "Mix", 25, 0, 100, .1, "%", 6},
-   {"Cosmic Style", "Style", 0, 0, 2, 1, "", 0}}};
+   {"Cosmic Style", "Style", 0, 0, effect_modes::cosmicCount-1, 1, "", 0}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {

@@ -36,6 +36,24 @@ void TestEQResponse()
           }
           assert(std::abs(std::sqrt(outputPower / inputPower) - response.Magnitude(hz)) < 2.e-5);
         }
+  // Boost/Tilt/Low cut preview uses the same filters as the audio path.
+  for (double rate : {44100., 48000., 96000., 192000.})
+    for (double tilt : {-6., 0., 6.})
+      for (double hz : {250., 1000., 6000.})
+      {
+        UtilityControls c; c.boost = 6.; c.tilt = tilt;
+        EQControls eq; eq.highPass = tilt == 0. ? 0. : 180.;
+        grid_eq_response::Boost response(rate, c.boost, tilt, eq.highPass);
+        SlotBoost processor; processor.Reset(rate);
+        double inPower = 0., outPower = 0.;
+        for (int n = 0; n < static_cast<int>(rate * .8); ++n)
+        {
+          const double input = .1 * std::sin(2. * MATH_PI * hz * n / rate);
+          double output = input; processor.Process(&output, 1, c, eq);
+          if (n >= static_cast<int>(rate * .3)) { inPower += input * input; outPower += output * output; }
+        }
+        assert(std::abs(std::sqrt(outPower / inPower) - std::abs(response.At(hz))) < 2.e-5);
+      }
   EQControls flat; UtilityControls utility;
   for (auto effect : {SlotEffect::ToneEQ, SlotEffect::CutEQ, SlotEffect::ParametricEQ})
   {

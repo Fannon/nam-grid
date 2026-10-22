@@ -12,7 +12,7 @@ namespace effect_preview
 struct CosmicLines { std::array<double, 16> seconds{}; int count=0; };
 inline CosmicLines Cosmic(double milliseconds, double warpPercent, int style, double rate)
 {
-  CosmicLines plan; style=std::clamp(style, 0, 2); plan.count=grid_cosmic::LineCount(style);
+  CosmicLines plan; style=std::clamp(style, 0, effect_modes::cosmicCount-1); plan.count=grid_cosmic::LineCount(style);
   for (int i=0; i<plan.count; ++i)
     plan.seconds[i]=grid_cosmic::BaseSamples(milliseconds, warpPercent*.01, style, i, rate)/rate;
   return plan;

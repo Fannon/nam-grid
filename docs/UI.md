@@ -11,21 +11,23 @@ type, enabled state and slim input-left/output-right meters beside the card. Til
 their module colour, the same hue as the module head below, and the selected card brightens
 its own hue rather than fading to a neutral outline, so selection stays readable next to the
 grey Dynamics modules. Click to select; only the selected module's controls
-appear in the bottom editor. Double-click a card or use Choose / Change in the editor to open
-the module menu. Click an empty card's + Add module once to open it. Its dot and the
-editor's Enabled / Bypassed switch share the same parameter.
+appear in the bottom editor. Double-click a card or click its module name in the editor to open
+the module menu. Click an empty card's + Add module once to open it. Assigned modules have a larger
+top-right bypass toggle; it shares the editor's Enabled / Bypassed parameter.
 Clear slot is first in both the module and right-click menus; the latter also has
-Copy / Move / Swap. The bottom editor always has eight equal-width positions,
-with up to seven knobs followed by Enabled. NAM uses Input, Bass, Mid, Treble, High pass, Low pass, Output trim;
+Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
+with up to seven knobs followed by Enabled. A full-height visualization sits to the right.
+The down-arrow beside a built-in FX name lists its category; for NAM captures and IRs it lists files in the same folder.
+Previous/next arrows follow the same category or folder. NAM uses Input, Bass, Mid, Treble, Low cut, High cut, Output trim;
 its neutral EQ acts after inference, not as controls of the captured amp. Compatible captures show
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
 shows the current mode. The module menu also offers A2 Lite. IR uses Level;
 see [MODULES.md](MODULES.md) for other controls.
-Every loaded module offers a mini display: signal history versus threshold and
-numeric GR for dynamics, relative echo timing/treble sketches for standard and Dual delays,
+Every loaded module offers a visualization: signal history versus threshold and
+numeric GR and an orange reduction bar for dynamics; compressor histories exclude makeup gain and reflect parallel Mix. Other views include relative echo timing/treble sketches for standard and Dual delays,
 live input/output level history for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
 the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
-history for other effects and IRs. Distortion also shows its separate tone/mix/output response.
+history for other effects and IRs. Distortion also shows its separate high-cut/mix/output response. Boost and Tube Boost show their gain/saturation curve and the combined Tilt/Low cut response; Tube labels its EQ as a small-signal response. Tape shows its Spiral saturation stage and Bump amount, explicitly excluding its stateful processing from the static curve.
 Capture modules show window, overlap and gate timing; Octaver shows layer levels,
 Doubler its detuned voices, Frequency Shifter its fixed-Hz sidebands, and Utility its mid/side routing.
 Modulation modules show their settings: Chorus/Juno/Vibrato
@@ -41,16 +43,13 @@ applies its electric-guitar starting settings, including parameters shared with 
 Saved presets and slot edits retain their exact values. See [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md)
 for all module defaults and acoustic/bass adjustments, and [PRESETS.md](PRESETS.md) for rig recall.
 
-Reverb previews show the configured space and tail: tank geometry follows Size, a shared
-logarithmic time axis shows pre-delay and decay, and a second trace illustrates treble damping.
-Spring draws a coil; Shimmer shows pitch direction/amount and Freeze. These are parameter
+Reverb previews share a larger field for early reflections, late decay and damping. Size changes spacing; pre-delay shifts the onset. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer also shows pitch direction and Freeze. These are parameter
 sketches, not measured room dimensions or impulse responses.
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
 the card meters; the global IN meter replaces the first card's duplicate input bar.
-Global IN/OUT show RMS dB plus a peak reading held for 1.5 seconds, then falling at 12 dB/second
-toward the average. Their numeric levels measure the mono sum after IN gain and after OUT gain.
+Global IN/OUT show peak dB above a smaller, explicitly labeled RMS reading. Peak holds for 1.5 seconds, then falls at 12 dB/second toward the current level. Their numeric levels measure the mono sum after IN gain and after OUT gain.
 Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
 green pedals, light gray dynamics/gates, rose EQ, coral Boost/Tape, periwinkle
 modulation/filter, cyan delay, magenta Creative and violet reverb. Unclassified NAM files remain neutral.
@@ -137,8 +136,9 @@ Manual DAW check:
 5. Save/reopen the project. Check every library root, module file/type, gain, bypass and quality.
    Open an older project with shared processing; verify its compatibility toggles and sound.
 
-The eight-position editor spreads controls evenly across its width. Enabled
-stays in position eight. NAM uses all seven knobs; Tube Boost leaves one unused.
+The eight-position editor uses two rows of four controls. Enabled stays in the
+last position for assigned modules; empty slots hide it. NAM uses all seven knobs;
+Tube Boost leaves one unused.
 The opt-in OpenGL readback helper occasionally returns partial frames during
 repeated captures; its screenshots are layout artifacts, not proof of host repaint
 behavior. Reopen/resize/repaint should still be checked in Bitwig.
@@ -162,3 +162,7 @@ also Width. Unique control names now agree across the editor and host.
 Each selected module has a short sound explanation beneath its title. Hover its
 controls for audible-effect guidance. Labels, conditional controls and parameter
 sketches are detailed in [FX_PARAMETER_REVIEW.md](FX_PARAMETER_REVIEW.md).
+
+Grid toggles have equal 12-pixel top/right insets and a 32-pixel hit area. Bypassed cards use a darker background, subdued text/badges and an unfilled toggle with a minus mark.
+
+Empty slots are inactive add targets. They show no bypass toggle on the card and no Enabled or previous/next controls in the bottom editor; click + Add module or the module picker to fill one.

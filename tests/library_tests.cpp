@@ -42,6 +42,7 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < group.effects.size(); ++i)
     {
       const auto effect = group.effects.begin()[i];
+      assert(ModuleGroupFor(effect) == &group);
       assert(StepModule(effect, 1) == group.effects.begin()[(i + 1) % group.effects.size()]);
       assert(StepModule(StepModule(effect, 1), -1) == effect);
     }

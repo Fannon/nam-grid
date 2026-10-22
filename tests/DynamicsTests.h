@@ -3,6 +3,25 @@
 
 void TestDynamics()
 {
+  // Monitoring excludes makeup and follows the actual parallel mix, while the
+  // processed output retains its configured compensation.
+  for (auto effect : {SlotEffect::SmoothComp, SlotEffect::PunchComp})
+    for (double mix : {0., 35., 100.})
+    {
+      SlotDynamics compensated, reference; compensated.Reset(48000.); reference.Reset(48000.);
+      DynamicsControls c; c.compMakeup = 12.; c.compMix = mix;
+      auto neutral = c; neutral.compMakeup = 0.;
+      std::array<double, 128> audio{}, expected{}, monitor{};
+      for (int block = 0; block < 300; ++block)
+      {
+        for (int i = 0; i < 128; ++i) audio[i] = expected[i] = .7 * std::sin((block * 128 + i) * .071);
+        compensated.Process(audio.data(), 128, effect, c, monitor.data());
+        reference.Process(expected.data(), 128, effect, neutral);
+        for (int i = 0; i < 128; ++i) assert(std::abs(monitor[i] - expected[i]) < 1.e-12);
+      }
+      assert(std::abs(compensated.PeakReduction() - reference.PeakReduction()) < 1.e-12);
+      if (mix == 0.) assert(compensated.PeakReduction() == 0.);
+    }
   assert(SlotDynamics::CompressionDB(-30., -18., 4., 6.) == 0.);
   assert(std::abs(SlotDynamics::CompressionDB(-18., -18., 4., 6.) - .5625) < 1.e-12);
   assert(SlotDynamics::CompressionDB(-15., -18., 4., 6.) == 2.25);

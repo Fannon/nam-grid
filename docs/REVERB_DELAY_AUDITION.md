@@ -31,7 +31,7 @@ distributed third-party notices.
 ## Defaults and ranges
 
 Defaults are listed in [EFFECT_DEFAULTS.md](EFFECT_DEFAULTS.md). The shared
-conventional delay Time range is **5–2000 ms**, opening up doubling/slapback and
+conventional delay Time range is **5–4000 ms** (quadratic dial), opening up doubling/slapback and
 longer ambient repeats. Synced notes can reach **8 seconds** at the minimum
 supported tempo. Multi-head Time always means the last head: the read positions
 are 1/4, 1/2, 3/4 and full Time. Dual selects the half/full pair; Syncopated selects

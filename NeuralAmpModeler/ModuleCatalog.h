@@ -1,6 +1,7 @@
 #pragma once
 #include "SlotDynamics.h"
 #include <initializer_list>
+#include <algorithm>
 
 namespace nam_library
 {
@@ -22,16 +23,22 @@ inline const ModuleGroup kModuleGroups[]{
   {"Creative", {E::Freeze, E::Stutter, E::LoFiTape}},
   {"Utility / Volume", {E::Utility, E::AutoSwell}}
 };
-inline SlotEffect StepModule(SlotEffect effect, int direction)
+inline const ModuleGroup* ModuleGroupFor(SlotEffect effect)
 {
   if (effect == E::TightGate) effect = E::NaturalGate;
   for (const auto& group : kModuleGroups)
-    for (size_t i = 0; i < group.effects.size(); ++i)
-      if (group.effects.begin()[i] == effect)
-      {
-        const auto size = static_cast<int>(group.effects.size());
-        return group.effects.begin()[(static_cast<int>(i) + (direction < 0 ? -1 : 1) + size) % size];
-      }
+    if (std::find(group.effects.begin(), group.effects.end(), effect) != group.effects.end()) return &group;
+  return nullptr;
+}
+inline SlotEffect StepModule(SlotEffect effect, int direction)
+{
+  if (effect == E::TightGate) effect = E::NaturalGate;
+  if (const auto* group = ModuleGroupFor(effect))
+  {
+    const auto current = std::find(group->effects.begin(), group->effects.end(), effect) - group->effects.begin();
+    const auto size = static_cast<int>(group->effects.size());
+    return group->effects.begin()[(current + (direction < 0 ? -1 : 1) + size) % size];
+  }
   return effect;
 }
 } // namespace nam_library

@@ -53,12 +53,12 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
-    case uCosmicStyle: return effect_modes::cosmicHelp[std::clamp(mode, 0, 2)];
-    case uCosmicTime: return "Delay-line time scale, from 20 ms to eight seconds. The dial gives more space to long intervals. Warp spreads shorter lines below this value; Bloom can build up over several intervals.";
+    case uCosmicStyle: return effect_modes::cosmicHelp[std::clamp(mode, 0, effect_modes::cosmicCount-1)];
+    case uCosmicTime: return "Delay-line time scale, from 20 ms to eight seconds. The dial gives more space to long intervals. Warp spreads shorter lines below this value; Sagittarius can build up over several intervals.";
     case uCosmicWarp: return "Spread the delay-line lengths: zero aligns them for echoes, higher values create uneven spacing and more reverb-like texture.";
-    case uCosmicFeedback: return "Longer repeats and sustain. In Bloom, Feedback also changes how quickly the sound builds up. This is not a decay time in seconds.";
+    case uCosmicFeedback: return "Longer repeats and sustain. In Sagittarius and Centaurus, Feedback also changes how quickly the sound builds up. This is not a decay time in seconds.";
     case uCosmicDensity: return "Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp.";
-    case uCosmicTone: return "Wet treble cutoff. In Sparse it also filters each feedback pass, darkening successive echoes. Smooth and Bloom filter the output.";
+    case uCosmicTone: return "Wet treble cutoff. Virgo filters each feedback pass, darkening successive echoes. The other styles filter their output.";
     case uCosmicMotion: return "Depth of the shared 0.3 Hz stereo modulation. More adds pitch movement and chorus. Stereo width is full and the wet low cut is fixed at 80 Hz.";
     case uCosmicMix: return "Blend the ambient echo/reverb with the original stereo signal. Zero preserves the exact dry sound.";
     case uTapeHeads: return effect_modes::tapeHeadHelp[std::clamp(mode, 0, static_cast<int>(effect_modes::tapeHeadHelp.size())-1)];
@@ -210,7 +210,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Wah: return "Position sweeps the peak; Range moves its heel/toe register.";
     case SlotEffect::Boost: return "Clean boost into the next module; Tilt balances body and bite.";
     case SlotEffect::TubeBoost: return "Softer clipping with asymmetric harmonics; Output matches loudness.";
-    case SlotEffect::Distortion: return "Style changes harmonics; Tone softens edges, Mix restores dry attack.";
+    case SlotEffect::Distortion: return "Style changes harmonics; High cut softens edges, Mix restores dry attack.";
     case SlotEffect::Tape: return "Drive adds tape saturation; Bump adds low-end body.";
     case SlotEffect::LoFiTape: return "Speed sets tone; Wow/Flutter move pitch, Wear adds dropouts.";
     case SlotEffect::AutoSwell: return "Threshold triggers the fade-in; Release closes the next gap.";
@@ -226,7 +226,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::AirPlate: return "Airwindows kPlate140: dense plate character with native sustain and resolution.";
     case SlotEffect::AirHall: return "Airwindows kGuitarHall2: colored hall with selectable early-reflection positions.";
     case SlotEffect::GalacticSpace: return "Airwindows Galactic3: huge stereo space; Replace controls how new notes enter the wash.";
-    case SlotEffect::CosmicEcho: return "Faust-derived ambient echo/reverb: Warp spreads delays, Density blends them; Bloom swells slowly.";
+    case SlotEffect::CosmicEcho: return "Valhalla Supermassive-inspired; Warp spreads echoes, Density blends them.";
     case SlotEffect::MultiHeadDelay: return "Eight head patterns; stereo modes spread taps and cross feedback. Time sets the last head.";
     case SlotEffect::DiffusedDelay: return "Repeats spread into stereo clouds; Diffusion changes the shape of each echo.";
     case SlotEffect::SpringReverb: return "Dwell excites the spring; Drip adds splash, Damping tames treble.";

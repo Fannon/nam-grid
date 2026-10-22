@@ -10,6 +10,14 @@
 class AirwindowsTape
 {
 public:
+  // The memoryless Spiral stage only; the complete tape processor also has
+  // stateful softening, head-bump and clipping stages.
+  static double Spiral(double input)
+  {
+    if (input > 1.2533141373155) input = 1.2533141373155;
+    if (input < -1.2533141373155) input = -1.2533141373155;
+    return sin(input * fabs(input)) / ((fabs(input) == 0.0) ? 1 : fabs(input));
+  }
   AirwindowsTape() { ConfigureFilters(); }
   void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); }
   void Set(double driveDB, double bump) { A = static_cast<float>(driveDB / 24. + .5); B = static_cast<float>(bump * .01); }
@@ -171,16 +179,8 @@ public:
 		if (HighsSampleR < 0) inputSampleR += applySoften;
 		//apply Soften depending on polarity
 		
-		if (inputSampleL > 1.2533141373155) inputSampleL = 1.2533141373155;
-		if (inputSampleL < -1.2533141373155) inputSampleL = -1.2533141373155;
-		//clip to 1.2533141373155 to reach maximum output
-		inputSampleL = sin(inputSampleL * fabs(inputSampleL)) / ((fabs(inputSampleL) == 0.0) ?1:fabs(inputSampleL));
-		//Spiral, for cleanest most optimal tape effect
-		if (inputSampleR > 1.2533141373155) inputSampleR = 1.2533141373155;
-		if (inputSampleR < -1.2533141373155) inputSampleR = -1.2533141373155;
-		//clip to 1.2533141373155 to reach maximum output
-		inputSampleR = sin(inputSampleR * fabs(inputSampleR)) / ((fabs(inputSampleR) == 0.0) ?1:fabs(inputSampleR));
-		//Spiral, for cleanest most optimal tape effect
+		inputSampleL = Spiral(inputSampleL);
+		inputSampleR = Spiral(inputSampleR);
 		
 		double suppress = (1.0-fabs(inputSampleL)) * 0.00013;
 		if (iirHeadBumpAL > suppress) iirHeadBumpAL -= suppress;

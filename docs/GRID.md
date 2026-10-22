@@ -93,7 +93,7 @@ block during preparation to reserve lazily allocated audio buffers off the audio
 
 The layout has **3,098 parameters**, including one contiguous bank of 173 FX
 controls per slot. Prototype host IDs, names and enum ranges are not frozen.
-`###NAMGrid-v1###` / schema 21 stores all 16 paths, types, named values, content
+`###NAMGrid-v1###` / schema 22 stores all 16 paths, types, named values, content
 identities and Noise Gate (Smart) profiles. Validation
 precedes mutation; missing files retain their paths while that slot passes audio.
 Some older-format readers remain, but Pre/Post parameter-name changes mean old

@@ -48,7 +48,7 @@ split into **NAM captures** and **Cabinet IRs**. Shared library folders and resc
 remain in **Library & settings**. The header search/filter bar is removed pending
 a dedicated browser.
 
-Current state schema **21** has **3,098 host parameters**, including one contiguous
+Current state schema **22** has **3,098 host parameters**, including one contiguous
 bank of 173 FX controls per slot and 44 performance controls. It aligns unique
 host/editor names and includes six Distortion styles and the new reverb/delay
 audition modules, including Cosmic Echo. Learned noise profiles and

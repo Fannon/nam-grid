@@ -33,7 +33,33 @@ jobs:
       - run: python scripts/setup-deps.py
       - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-library-tests nam-wav-tests nam-resampling-tests --parallel 3
+      # Hosted Windows runners only expose the GDI OpenGL 1.1 renderer, which the
+      # NanoVG editor cannot use (created contexts are unusable and the GUI tests
+      # crash). Supply Mesa's llvmpipe so the editor tests run on a real GL 4.x.
+      - name: Cache software OpenGL
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/mesa
+          key: mesa-llvmpipe-26.2.4
+      - name: Install software OpenGL
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $mesa = Join-Path $env:RUNNER_TEMP 'mesa'
+          if (-not (Test-Path (Join-Path $mesa 'x64\opengl32.dll'))) {
+            $archive = Join-Path $env:RUNNER_TEMP 'mesa.7z'
+            Invoke-WebRequest -OutFile $archive "https://github.com/pal1000/mesa-dist-win/releases/download/26.2.4/mesa3d-26.2.4-release-msvc.7z"
+            & 7z x $archive "-o$mesa" -y | Out-Null
+          }
+          # App-local DLLs are resolved from the executable's directory only, so
+          # place the renderer next to every test binary (the GUI runs there).
+          Get-ChildItem -Recurse build-ci -Filter *.exe | ForEach-Object {
+            Copy-Item "$mesa\x64\*.dll" $_.DirectoryName -Force
+          }
       - run: ctest --test-dir build-ci -C Release --output-on-failure
+        env:
+          GALLIUM_DRIVER: llvmpipe
       # Zip before artifact upload: GitHub artifacts otherwise discard the
       # executable permissions required by macOS plugin bundles.
       - name: Archive plugins and notices

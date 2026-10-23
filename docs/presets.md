@@ -33,8 +33,19 @@ remain selected for relinking through the normal module chooser.
 
 Performance scenes are different: they change controls within the existing
 modules, whereas a rig preset can replace module types and models. Loading a rig
-prepares models on the control thread and uses the existing DSP publication and
-host-restart policy; it can briefly occupy the editor for large models.
+prepares it in a second grid while the current rig keeps playing unchanged, then
+switches. **Preset switch** in Library & settings chooses how:
+
+- **Short fade** (default) fades the old rig out, then the new one in, about 25 ms in
+  total with a few milliseconds near silence. Only one rig runs at a time.
+- **Crossfade** blends both rigs over 40 ms with equal power, without a gap. Both
+  rigs run during that time, so the CPU load briefly doubles; prefer Short fade
+  when a rig is already close to the CPU limit.
+
+The old rig's delay and reverb tails end with the fade. A rig whose total latency
+differs from the current one still asks the host to restart processing. Without
+running audio, and for host project loads, the rig applies directly. Preparing
+large models can briefly occupy the editor.
 
 Algorithm selections are retained in rigs, projects and scenes and are changed
 in the editor rather than through automation. Adding new modes preserves saved

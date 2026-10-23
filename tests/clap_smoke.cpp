@@ -1,5 +1,6 @@
 #include "A2Fixture.h"
 #include "ClapTestHost.h"
+#include <atomic>
 #include <thread>
 #include <cstdlib>
 #include "WinEditorCapture.h"
@@ -24,10 +25,10 @@ int main(int argc, char** argv)
 #ifdef _WIN32
   win_file_dialog::SavedLibrarySettings settingsBackup;
   const bool fxVisuals = std::getenv("NAM_GRID_FX_VISUALS") != nullptr;
-  if(fxVisuals)
   {
     auto settings=nam_library::ReadSettings(settingsBackup.file);
-    settings.showVisualizations=true;
+    if(fxVisuals) settings.showVisualizations=true;
+    settings.presetCrossfade=false; // The preset switch measurement starts from Short fade.
     assert(nam_library::WriteSettings(settingsBackup.file,settings));
   }
   const bool browserOnly = std::getenv("NAM_GRID_BROWSER_SMOKE") != nullptr;
@@ -1486,6 +1487,94 @@ int main(int argc, char** argv)
   click(584, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
   std::cout << "Preset folder selection and previous/next passed\n";
+  // Rig preset switches while audio plays: Short fade dips briefly, Crossfade never drops
+  // out, and neither clicks. Audio runs on its own thread at real-time pace.
+  const auto measureSwitch = [&](bool crossfade) {
+    constexpr int block = 256, rate = 48000;
+    std::vector<double> recorded(rate * 3, 0.);
+    std::atomic<bool> running{true};
+    std::atomic<size_t> written{0};
+    std::array<std::array<double, block>, 2> switchIn{}, switchOut{};
+    double* switchIns[2]{switchIn[0].data(), switchIn[1].data()};
+    double* switchOuts[2]{switchOut[0].data(), switchOut[1].data()};
+    clap_audio_buffer switchInBuffer{nullptr, switchIns, 2, 0, 0}, switchOutBuffer{nullptr, switchOuts, 2, 0, 0};
+    clap_process switchProcess{};
+    switchProcess.audio_inputs = &switchInBuffer; switchProcess.audio_outputs = &switchOutBuffer;
+    switchProcess.audio_inputs_count = switchProcess.audio_outputs_count = 1;
+    switchProcess.in_events = &events; switchProcess.out_events = &sent;
+    switchProcess.frames_count = block;
+    assert(plugin->activate(plugin, rate, 1, block));
+    std::thread audio([&] {
+      assert(plugin->start_processing(plugin));
+      auto next = std::chrono::steady_clock::now();
+      for (size_t at = 0; running && at + block <= recorded.size(); at += block)
+      {
+        for (int i = 0; i < block; ++i)
+          switchIn[0][i] = switchIn[1][i] = .1 * std::sin(2. * 3.141592653589793 * 220. * static_cast<double>(at + i) / rate);
+        assert(plugin->process(plugin, &switchProcess) != CLAP_PROCESS_ERROR);
+        std::copy_n(switchOut[0].data(), block, recorded.data() + at);
+        written = at + block;
+        next += std::chrono::microseconds(1000000 * block / rate);
+        std::this_thread::sleep_until(next);
+      }
+      plugin->stop_processing(plugin);
+    });
+    pumpFor(500);
+    const auto before = save().config()["PresetName"];
+    const size_t switchAt = written;
+    click(584, 28); // Previous preset while audio plays.
+    pumpFor(700);
+    running = false;
+    audio.join();
+    plugin->deactivate(plugin);
+    assert(save().config()["PresetName"] != before);
+    const size_t end = written, settle = rate / 5, tail = rate / 4, window = rate / 400; // 2.5 ms
+    assert(switchAt > settle + window && end > switchAt + tail);
+    const auto rms = [&](size_t from) {
+      double energy = 0.;
+      for (size_t i = from; i < from + window; ++i) energy += recorded[i] * recorded[i];
+      return std::sqrt(energy / window);
+    };
+    const auto median = [&](size_t from, size_t to) {
+      std::vector<double> levels;
+      for (size_t at = from; at + window <= to; at += window) levels.push_back(rms(at));
+      std::nth_element(levels.begin(), levels.begin() + levels.size() / 2, levels.end());
+      return levels[levels.size() / 2];
+    };
+    const double reference = std::min(median(settle, switchAt), median(end - tail, end));
+    assert(reference > 1e-4);
+    int quiet = 0;
+    for (size_t at = switchAt; at + window <= end - tail; at += window) quiet += rms(at) < .25 * reference;
+    const auto maxStep = [&](size_t from, size_t to) {
+      double step = 0.;
+      for (size_t i = from + 1; i < to; ++i) step = std::max(step, std::abs(recorded[i] - recorded[i - 1]));
+      return step;
+    };
+    const double steady = std::max(maxStep(settle, switchAt), maxStep(end - tail, end));
+    const double during = maxStep(switchAt, end - tail);
+    std::cout << (crossfade ? "Crossfade" : "Short fade") << " preset switch: " << quiet * 2.5 << " ms below -12 dB, "
+              << "largest step " << during << " vs steady " << steady << "\n";
+    assert(during <= 2. * steady + 1e-6); // No click from a discontinuity.
+    if (crossfade) assert(quiet == 0);
+    else assert(quiet >= 1 && quiet * 2.5 <= 60.);
+  };
+  // Two clearly audible rigs in their own folder, so the arrows switch between them.
+  const auto switchDirectory = presetDirectory / "switch";
+  std::filesystem::create_directories(switchDirectory);
+  auto switchA = cleared, switchB = cleared;
+  switchB["SlotEffects"][0] = static_cast<int>(SlotEffect::TubeBoost); switchB["Output"] = -6.;
+  rig_preset::Write(switchDirectory / "Switch A.ngrid", switchA);
+  rig_preset::Write(switchDirectory / "Switch B.ngrid", switchB);
+  click(470, 28); click(594, 28); // Rescan picks up the new folder.
+  pumpFor(500);
+  chooseBrowserItem("SWITCH A");
+  assert(save().config()["PresetName"] == "Switch A");
+  measureSwitch(false);
+  click(910, 28); click(784, 132); click(915, 44); // Library & settings: Preset switch -> Crossfade.
+  measureSwitch(true);
+  click(470, 28); click(100, 208); chooseBrowserItem("CLEAN RIG"); // All folders, then search.
+  assert(save().config()["PresetName"] == "Clean rig");
+  std::cout << "Preset switch short fade and crossfade passed\n";
   // Header Save writes over the loaded preset file without a dialog.
   auto quickEdit = save().config(); quickEdit["Output"] = -5.;
   load(quickEdit);

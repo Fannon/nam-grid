@@ -36,6 +36,7 @@ struct Settings
   bool showVisualizations = true;
   std::vector<std::string> presetFolders;
   std::vector<std::string> irFolders;
+  bool presetCrossfade = false; // Rig preset switches crossfade instead of a short dip.
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings);

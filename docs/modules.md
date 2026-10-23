@@ -144,7 +144,7 @@ The existing MIT AudioDSPTools coefficients and a new scalar implementation of
 the [RBJ/W3C cut-filter equations](https://www.w3.org/TR/audio-eq-cookbook/)
 serve EQ, Boost and Envelope Filter. Dynamics were independently written using
 AudioDSPTools/LEAF as MIT algorithm references. Full notices remain in
-`NeuralAmpModeler/installer/ThirdPartyNotices.txt`.
+`ThirdPartyNotices.txt`.
 
 ## Airwindows choice and licensing
 
@@ -184,8 +184,7 @@ no block buffering. Delay/reverb/vibrato necessarily delay the effected signal;
 vibrato has an 8 ms center delay. This intentional effect time is not compensated
 away. NAM sample-rate conversion can still add its separately reported latency.
 Host tail reporting accounts for serial/parallel placement but caps the automatic
-render/suspend budget at **60 seconds** for the entire plugin (including the legacy
-IR allowance). This policy avoids minutes or hours of automatic bounce padding.
+render/suspend budget at **60 seconds** for the entire plugin. This policy avoids minutes or hours of automatic bounce padding.
 Continuous playback keeps the natural decay: very long synced echoes at maximum
 feedback may remain audible past the reported budget. For those settings, render
 an explicit longer time range. This is a render limit, not an exact decay estimate.
@@ -272,11 +271,10 @@ loader/convolver. The card shows the filename and `WAV / IR`; its bottom editor 
 Each slot holds either a NAM or an IR. Place a NAM cabinet capture using the normal NAM
 selector. Full amp+cab captures typically do not need another cabinet stage.
 
-The default Level is -18 dB to match the original global cabinet's headroom convention.
+The default Level is -18 dB, the upstream NAM cabinet's headroom convention.
 At 0 dB, the slot cancels the reused convolver's fixed -18 dB gain, so a unit impulse has
 unity convolution gain at its native 48 kHz rate. Its existing sample-rate-dependent IR
-resampling gain is retained. Nothing auto-normalizes IRs. Recalled projects can still have a
-legacy global IR; its compatibility toggle appears in Settings. It is disabled in new instances.
+resampling gain is retained. Nothing auto-normalizes IRs.
 
 The reused processor has zero block buffering latency and caps the resampled IR at 8192
 taps. It is intended for cabinet impulses, rather than long reverbs. WAV parsing, resampling,

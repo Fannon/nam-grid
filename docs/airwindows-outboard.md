@@ -89,16 +89,15 @@ report zero latency. Bypass drains silence for one second before suspension;
 very slow native detector/filter state can persist. Menu membership follows the player decision: Distortion for Colour,
 EQ / Filter for Console EQ, Dynamics for the strip and Butter Comp.
 
-Named-state migration supplies descriptor defaults for missing controls while
-retaining existing settings. Preview host automation compatibility is described
-in [development.md](development.md).
+Host automation and saved-state compatibility are described in
+[development.md](development.md#parameter-and-project-compatibility).
 
 ## Verification and measurement
 
 `OutboardTests.h` exercises five host rates (44.1/48/88.2/96/192 kHz), continuous
 extremes, every desk, variable blocks, exact dry paths, independent stereo and
 zero allocations/deletions in processing. CLAP tests check host choice metadata,
-automation, state recall at both ends of the slot bank, and schema-23 migration.
+automation and state recall at both ends of the slot bank.
 The catalog and presentation tests automatically include all four modules.
 
 Build and run `nam-outboard-audition` for a reproducible 128-frame stereo workload

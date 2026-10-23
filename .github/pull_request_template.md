@@ -13,6 +13,6 @@ Include [Closing words](https://docs.github.com/en/issues/tracking-your-work-wit
   - [ ] macOS
 - [ ] Does your PR add, remove, or rename any plugin parameters? If yes...
   - [ ] Have you ensured that the plug-in unserializes correctly?
-  - [ ] Have you tested supported older state formats? (See [`Unserialization.cpp`](../NeuralAmpModeler/Unserialization.cpp).)
-- [ ] Does your PR add or remove any graphical assets? If yes, check the CMake resources, [config.h](../NeuralAmpModeler/config.h) and [main.rc](../NeuralAmpModeler/resources/main.rc).
+  - [ ] Did you follow the [compatibility contract](../docs/development.md#parameter-and-project-compatibility) (append-only IDs, `introducedIn`, schema bump)?
+- [ ] Does your PR add or remove any graphical assets? If yes, check the CMake resources, [main.rc](../NeuralAmpModeler/resources/main.rc) and [ThirdPartyNotices.txt](../ThirdPartyNotices.txt).
   

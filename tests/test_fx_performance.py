@@ -68,6 +68,14 @@ class ReportTests(unittest.TestCase):
             model.write_text('{"architecture":"WaveNet"}')
             self.assertEqual(len(benchmark.asset_cases([model], [])), 1)
 
+    def test_asset_cases_use_host_module_ids(self):
+        with tempfile.TemporaryDirectory() as folder:
+            model, ir = Path(folder) / "test.nam", Path(folder) / "test.wav"
+            model.write_text('{"architecture":"WaveNet"}')
+            ir.write_bytes(b"RIFF")
+            cases = benchmark.asset_cases([model], [ir], {"NAM": 40, "Cabinet IR": 41})
+            self.assertEqual([c["effect"] for c in cases], [40, 41])
+
     def test_partial_report_does_not_claim_completion(self):
         metadata = {"generated_utc": "test", "plugin_sha256": "abc", "settings": {"paced": False},
                     "planned_measurements": 100}

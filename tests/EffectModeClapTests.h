@@ -65,22 +65,6 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
   configured["Pre 1 Distortion Style"] = static_cast<int>(effect_modes::DistortionStyle::Diode);
   configured["Post 4 Distortion Style"] = static_cast<int>(effect_modes::DistortionStyle::Rectify);
   load(configured); assert(save().config() == configured);
-  // Presets from the immediately preceding audition build retain their native
-  // controls when the new Cosmic bank is appended. Users are comparing both.
-  auto previous=cleared;
-  previous["schema"]=20;
-  previous["SlotEffects"][0]=static_cast<int>(SlotEffect::GalacticSpace);
-  previous["Pre 1 Space Replace"]=17.; previous["Pre 1 Space Size"]=81.;
-  for (int slot=0; slot<16; ++slot)
-  {
-    const auto label=std::string(slot<4 ? "Pre " : slot<8 ? "A " : slot<12 ? "B " : "Post ")+std::to_string(slot%4+1);
-    for (int p=uCosmicTime; p<kUtilityControls; ++p) previous.erase(label+" "+kEffectParameters[p].name);
-  }
-  load(previous);
-  const auto recalled=save().config();
-  assert(recalled["SlotEffects"][0]==static_cast<int>(SlotEffect::GalacticSpace));
-  assert(recalled["Pre 1 Space Replace"]==17. && recalled["Pre 1 Space Size"]==81.);
-  assert(recalled["Pre 1 Cosmic Time"]==kEffectParameters[uCosmicTime].initial);
   for (int style=0; style<effect_modes::cosmicCount; ++style)
   {
     auto cosmic=cleared;
@@ -88,23 +72,6 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
     cosmic["Pre 1 Cosmic Style"]=style; cosmic["Post 4 Cosmic Style"]=(style+1)%effect_modes::cosmicCount;
     load(cosmic); assert(save().config()==cosmic);
   }
-  // Immediately preceding presets and performance scenes use Tone for a
-  // cutoff. Preserve those values while presenting High cut consistently.
-  auto oldCutoffs=cleared;
-  oldCutoffs["schema"]=21;
-  for (const auto& [family, suffix] : std::array<std::pair<const char*,const char*>,8>{{
-    {"Delay","High Cut"},{"Octaver","High Cut"},{"Freeze","High Cut"},{"Crusher","High Cut"},
-    {"Ring","High Cut"},{"Shifter","High Cut"},{"Distortion","High Cut"},{"Cosmic","High Cut"}}})
-  {
-    const auto prefix=std::string("Pre 1 ")+family+" ";
-    oldCutoffs.erase(prefix+suffix); oldCutoffs[prefix+"Tone"]=1234.;
-  }
-  oldCutoffs["PerformanceScenes"][0]=json{{"Pre 1 Delay Tone",2345.}};
-  load(oldCutoffs);
-  const auto newCutoffs=save().config();
-  assert(newCutoffs["Pre 1 Delay High Cut"]==1234. && newCutoffs["Pre 1 Cosmic High Cut"]==1234.);
-  assert(newCutoffs["PerformanceScenes"][0]["Pre 1 Delay High Cut"]==2345.);
-  assert(!newCutoffs["PerformanceScenes"][0].contains("Pre 1 Delay Tone"));
   for (int pattern=0; pattern<effect_modes::tapeHeadNames.size(); ++pattern)
   {
     auto heads=cleared; heads["SlotEffects"][0]=heads["SlotEffects"][15]=static_cast<int>(SlotEffect::MultiHeadDelay);
@@ -127,17 +94,6 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
     auto outboard=cleared; outboard["SlotEffects"][0]=outboard["SlotEffects"][15]=static_cast<int>(effect);
     load(outboard); assert(save().config()==outboard);
   }
-  auto beforeOutboard=cleared; beforeOutboard["schema"]=23;
-  beforeOutboard["Pre 1 Cosmic Warp"]=37.;
-  for (int slot=0; slot<16; ++slot)
-  {
-    const auto label=std::string(slot<4 ? "Pre " : slot<8 ? "A " : slot<12 ? "B " : "Post ")+std::to_string(slot%4+1);
-    for (int p=uStripLowCut; p<kUtilityControls; ++p) beforeOutboard.erase(label+" "+kEffectParameters[p].name);
-  }
-  load(beforeOutboard);
-  assert(save().config()["Pre 1 Cosmic Warp"]==37.);
-  assert(save().config()["Pre 1 Strip Compress"]==kEffectParameters[uStripCompress].initial);
-  load(cleared);
   for (int mode=0; mode<2; ++mode)
   {
     auto gate=cleared; gate["SlotEffects"][0]=gate["SlotEffects"][15]=static_cast<int>(SlotEffect::DigitalBlack);
@@ -149,16 +105,5 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
   pressure["SlotEffects"][0]=pressure["SlotEffects"][15]=static_cast<int>(SlotEffect::Pressure);
   pressure["Pre 1 Pressure Compress"]=63.; pressure["Post 4 Pressure Mix"]=80.;
   load(pressure); assert(save().config()==pressure);
-  auto beforeDynamics=cleared; beforeDynamics["schema"]=24;
-  beforeDynamics["Pre 1 Console Colour Desk"]=6.;
-  for (int slot=0; slot<16; ++slot)
-  {
-    const auto label=std::string(slot<4 ? "Pre " : slot<8 ? "A " : slot<12 ? "B " : "Post ")+std::to_string(slot%4+1);
-    for (int p=uBlackThreshold; p<kUtilityControls; ++p) beforeDynamics.erase(label+" "+kEffectParameters[p].name);
-  }
-  load(beforeDynamics);
-  assert(save().config()["Pre 1 Console Colour Desk"]==6.);
-  assert(save().config()["Pre 1 Black Threshold"]==-55.);
-  load(cleared);
   std::cout << "FX modes: stable host IDs, state-only algorithms, musical automation and recall passed\n";
 }

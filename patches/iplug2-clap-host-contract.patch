@@ -1,0 +1,91 @@
+--- a/IPlug/CLAP/IPlugCLAP.cpp
++++ b/IPlug/CLAP/IPlugCLAP.cpp
+@@ -9,7 +9,9 @@
+ */
+ 
+ #include <algorithm>
++#include <cmath>
+ #include <cstdio>
++#include <cstring>
+ 
+ #include "IPlugCLAP.h"
+ #include "IPlugPluginBase.h"
+@@ -414,8 +416,19 @@
+   
+   if (!SerializeState(chunk))
+     return false;
+-  
+-  return pStream->write(pStream, chunk.GetData(), chunk.Size()) == chunk.Size();
++
++  // Hosts may accept fewer bytes per call; keep writing until done or no progress.
++  const uint8_t* pData = chunk.GetData();
++  int64_t remaining = chunk.Size();
++  while (remaining > 0)
++  {
++    const int64_t written = pStream->write(pStream, pData, static_cast<uint64_t>(remaining));
++    if (written <= 0 || written > remaining)
++      return false;
++    pData += written;
++    remaining -= written;
++  }
++  return true;
+ }
+ 
+ bool IPlugCLAP::stateLoad(const clap_istream* pStream) noexcept
+@@ -435,8 +448,13 @@
+   bool restoredOK = UnserializeState(chunk, 0) >= 0;
+   
+   if (restoredOK)
++  {
+     OnRestoreState();
+-  
++    // Host-cached parameter values are stale after a state load.
++    if (GetClapHost().canUseParams())
++      GetClapHost().paramsRescan(CLAP_PARAM_RESCAN_VALUES);
++  }
++
+   return restoredOK;
+ }
+ 
+@@ -486,6 +504,10 @@
+   const IParam* pParam = GetParam(paramIdx);
+   const bool isDoubleType = pParam->Type() == IParam::kTypeDouble;
+ 
++  // Stepped CLAP values are integers; fractional inputs truncate (CLAP_PARAM_IS_STEPPED).
++  if (!isDoubleType)
++    value = std::clamp(std::trunc(value), pParam->GetMin(), pParam->GetMax());
++
+   WDL_String str;
+   
+   pParam->GetDisplay(value, isDoubleType, str);
+@@ -497,10 +519,11 @@
+     str.Append(pParam->GetLabel());
+   }
+   
+-  if (size < str.GetLength())
++  // The text and its terminating NUL must fit in the host's buffer.
++  if (size == 0 || static_cast<uint32_t>(str.GetLength()) >= size)
+     return false;
+-    
+-  strcpy(display, str.Get());
++
++  memcpy(display, str.Get(), static_cast<size_t>(str.GetLength()) + 1);
+   return true;
+ }
+ 
+@@ -800,12 +823,12 @@
+   pConfig->input_port_count = static_cast<uint32_t>(NBuses(kInput, index));
+   pConfig->output_port_count = static_cast<uint32_t>(NBuses(kOutput, index));
+ 
+-  pConfig->has_main_input = pConfig->input_port_count > 1;
++  pConfig->has_main_input = pConfig->input_port_count > 0;
+   pConfig->main_input_channel_count = pConfig->has_main_input ? getNChans(kInput, 0) : 0;
+   pConfig->main_input_port_type = ClapPortType(pConfig->main_input_channel_count);
+   
+-  pConfig->has_main_output = pConfig->output_port_count > 1;
+-  pConfig->main_output_channel_count = pConfig->has_main_input ? getNChans(kOutput, 0) : 0;
++  pConfig->has_main_output = pConfig->output_port_count > 0;
++  pConfig->main_output_channel_count = pConfig->has_main_output ? getNChans(kOutput, 0) : 0;
+   pConfig->main_output_port_type = ClapPortType(pConfig->main_output_channel_count);
+ 
+   return true;

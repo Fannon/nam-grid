@@ -1,6 +1,6 @@
 // Included inside the real CLAP harness after its shared host/state/audio setup.
 auto learnedNoiseState = cleared;
-learnedNoiseState["SlotEffects"][0] = 64;
+learnedNoiseState["SlotEffects"][0] = static_cast<int>(SlotEffect::NoisePrint);
 learnedNoiseState["Output"] = 0.;
 load(learnedNoiseState);
 clap_param_info learnInfo{};
@@ -127,131 +127,16 @@ for (const json& invalidProfile : {json(123), json{{"version", 1}, {"power", {1,
   auto invalid = learnedNoiseState;
   invalid["NoisePrintProfiles"][0] = invalidProfile;
   Stream bytes;
-  bytes.string("###NAMGrid-v1###");
+  bytes.string("###nam-grid###");
   bytes.string(invalid.dump());
   assert(!loadBytes(bytes));
   assert(save().config() == learnedNoiseState);
 }
-// Check sparse IDs and the pre-experiment named-parameter migration explicitly.
+// Learned profiles are part of the required slot state.
 auto missingPrintBank = learnedNoiseState;
 missingPrintBank.erase("NoisePrintProfiles");
 Stream missingPrintBytes;
-missingPrintBytes.string("###NAMGrid-v1###");
+missingPrintBytes.string("###nam-grid###");
 missingPrintBytes.string(missingPrintBank.dump());
 assert(!loadBytes(missingPrintBytes));
-assert(save().config() == learnedNoiseState);
-
-auto invalidGap = learnedNoiseState;
-invalidGap["SlotEffects"][0] = 63;
-Stream invalidGapBytes;
-invalidGapBytes.string("###NAMGrid-v1###");
-invalidGapBytes.string(invalidGap.dump());
-assert(!loadBytes(invalidGapBytes));
-assert(save().config() == learnedNoiseState);
-// Schema 14 keeps learned profiles and maps the former Tight Gate to Tight mode.
-auto prior14 = learnedNoiseState;
-prior14["schema"] = 14;
-prior14["SlotEffects"][1] = static_cast<int>(SlotEffect::TightGate);
-prior14["SlotPaths"][1] = ""; prior14["NAMPath"] = "";
-prior14["SlotHashes"][1] = "";
-auto expected14 = prior14;
-expected14["schema"] = learnedNoiseState["schema"];
-for (int slot = 0; slot < 16; ++slot)
-{
-  const auto name = std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ")
-                    + std::to_string(slot % 4 + 1) + " Gate Mode";
-  prior14.erase(name);
-  expected14[name] = slot == 1 ? 1. : 0.;
-}
-load(prior14);
-assert(save().config() == expected14);
-load(learnedNoiseState);
-
-// Schema 15's explicit gate mode survives introduction of the Filter mode.
-auto prior15 = learnedNoiseState;
-prior15["schema"] = 15;
-prior15["SlotEffects"][1] = static_cast<int>(SlotEffect::NaturalGate);
-prior15["SlotPaths"][1] = ""; prior15["NAMPath"] = "";
-prior15["SlotHashes"][1] = "";
-prior15["Pre 2 Gate Mode"] = 1.;
-auto expected15 = prior15; expected15["schema"] = learnedNoiseState["schema"];
-for (int slot = 0; slot < 16; ++slot)
-{
-  const auto name = std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ")
-                    + std::to_string(slot % 4 + 1) + " Filter Mode";
-  prior15.erase(name); expected15[name] = 0.;
-}
-load(prior15);
-assert(save().config() == expected15);
-load(learnedNoiseState);
-
-auto schema9 = cleared;
-schema9["schema"] = 9;
-schema9.erase("NoisePrintProfiles");
-for (int slot = 0; slot < 16; ++slot)
-{
-  const auto label = std::string(slot < 4    ? "Pre "
-                                 : slot < 8  ? "A "
-                                 : slot < 12 ? "B "
-                                             : "Post ")
-                     + std::to_string(slot % 4 + 1);
-  for (int p = uNoiseLearn; p < kUtilityControls; ++p)
-    schema9.erase(label + " " + kEffectParameters[p].name);
-}
-load(schema9);
-assert(save().config() == cleared);
-auto schema1001 = learnedNoiseState;
-schema1001["schema"] = 1001;
-auto migrated1001 = learnedNoiseState;
-for (int slot = 0; slot < 16; ++slot)
-{
-  const auto key = std::string(slot < 4    ? "Pre "
-                               : slot < 8  ? "A "
-                               : slot < 12 ? "B "
-                                           : "Post ")
-                   + std::to_string(slot % 4 + 1) + " Noise Gate Threshold";
-  schema1001.erase(key);
-  migrated1001[key] = -100.;
-}
-load(schema1001);
-assert(save().config() == migrated1001);
-
-// The previously released main schemas get bypassed/untrained Noise Print defaults.
-for (int schema : {11, 12, 13})
-{
-  auto prior = cleared;
-  prior["schema"] = schema;
-  prior.erase("NoisePrintProfiles");
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const auto label = std::string(slot < 4    ? "Pre "
-                                   : slot < 8  ? "A "
-                                   : slot < 12 ? "B "
-                                               : "Post ")
-                       + std::to_string(slot % 4 + 1);
-    for (int p = uNoiseLearn; p < kUtilityControls; ++p)
-      prior.erase(label + " " + kEffectParameters[p].name);
-  }
-  load(prior);
-  assert(save().config() == cleared);
-}
-// A genuine experiment had no roadmap controls, performance controls or presets.
-auto oldExperiment = learnedNoiseState;
-oldExperiment["schema"] = 1002;
-oldExperiment.erase("PerformanceScenes");
-oldExperiment.erase("PresetName");
-oldExperiment.erase("PresetDirectory");
-for (const auto& descriptor : grid_performance::parameters)
-  oldExperiment.erase(descriptor.name);
-for (int slot = 0; slot < 16; ++slot)
-{
-  const auto label = std::string(slot < 4    ? "Pre "
-                                 : slot < 8  ? "A "
-                                 : slot < 12 ? "B "
-                                             : "Post ")
-                     + std::to_string(slot % 4 + 1);
-  for (int p = uUtilityDelay; p < uNoiseLearn; ++p)
-    oldExperiment.erase(label + " " + kEffectParameters[p].name);
-}
-load(oldExperiment);
 assert(save().config() == learnedNoiseState);

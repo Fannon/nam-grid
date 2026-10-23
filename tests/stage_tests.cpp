@@ -92,7 +92,7 @@ try
   std::array<double, 512> lstmInput{};
   tracking = true;
   Eigen::internal::set_is_malloc_allowed(false);
-  lstm.Process(lstmInput.data(), 512, true, 0, 0, false, 0, 0, 1);
+  lstm.Process(lstmInput.data(), 512, true, 0, 0);
   Eigen::internal::set_is_malloc_allowed(true);
   tracking = false;
   assert(allocations == 0 && deletions == 0);
@@ -109,20 +109,20 @@ try
   amp.ResetStopped(48000., 512);
   std::array<double, 512> data{};
   data.fill(.05);
-  drive.Process(data.data(), 512, true, 0, 0, false, 0, 0, 1);
-  amp.Process(data.data(), 512, true, 0, 0, false, 0, 0, 1);
+  drive.Process(data.data(), 512, true, 0, 0);
+  amp.Process(data.data(), 512, true, 0, 0);
   assert(std::abs(data[500] - 1.) < 1e-6); // 3*(2*.05+.1)+.4; reversed order yields 1.2.
   // Gain changes and settled bypass preserve independent stage controls.
   for (int b = 0; b < 5; ++b)
   {
     data.fill(.05);
-    drive.Process(data.data(), 512, false, 0, 0, false, 0, 0, 1);
+    drive.Process(data.data(), 512, false, 0, 0);
   }
   assert(std::abs(data[500] - .05) < 1e-9);
   for (int b = 0; b < 5; ++b)
   {
     data.fill(.05);
-    drive.Process(data.data(), 512, true, 6.020599913, -6.020599913, false, 0, 0, 1);
+    drive.Process(data.data(), 512, true, 6.020599913, -6.020599913);
   }
   assert(std::abs(data[500] - .15) < 1e-6);
   auto a2 = fixture::model(3, 123), other = fixture::model(8, 456);
@@ -148,8 +148,8 @@ try
       allocations = deletions = 0;
       tracking = true;
       Eigen::internal::set_is_malloc_allowed(false);
-      one.Process(data.data(), n, true, 0, 0, false, 0, 0, 1);
-      two.Process(data.data(), n, true, 0, 0, false, 0, 0, 1);
+      one.Process(data.data(), n, true, 0, 0);
+      two.Process(data.data(), n, true, 0, 0);
       Eigen::internal::set_is_malloc_allowed(true);
       tracking = false;
       if (allocations || deletions)
@@ -165,13 +165,13 @@ try
     bypass.ResetStopped(rate, 512);
     data.fill(0.);
     data[0] = 1.;
-    bypass.Process(data.data(), 512, false, 0, 0, false, 0, 0, 1);
+    bypass.Process(data.data(), 512, false, 0, 0);
     for (int i = 0; i < 512; ++i)
       assert(data[i] == (i == bypass.Latency() ? 1. : 0.));
     // A host may advertise an actual maximum of one frame, not just vary blocks below 512.
     bypass.ResetStopped(rate, 1);
     data[0] = .05;
-    bypass.Process(data.data(), 1, true, 0, 0, false, 0, 0, 1);
+    bypass.Process(data.data(), 1, true, 0, 0);
     assert(std::isfinite(data[0]));
   }
   TestFixedGrid();

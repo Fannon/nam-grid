@@ -1,122 +1,207 @@
 #pragma once
 #include "EffectParameters.h"
 #include "GridPerformance.h"
+#include <array>
 #include <cstddef>
+#include <span>
 #include <string>
 
-// Stable layout v1: globals first, then one consecutive block per FX control.
-// A control's ID never depends on the number of controls in a slot. Appending a
-// control therefore appends IDs; no prototype layout or dummy capacity is kept.
+// Permanent host-parameter layout. Host IDs equal iPlug2 parameter indices and
+// are allocated in append-only segments: each segment first adds global
+// controls, then one block of 16 consecutive IDs (one per slot) for each added
+// slot control. Appending a segment, or growing the final segment's slot
+// controls, never moves an existing ID. Never reorder, shrink or remove entries.
 namespace parameter_layout
 {
 inline constexpr int slots = 16;
-inline constexpr int tunerReference = 284;
-inline constexpr int performanceBase = 286;
-inline constexpr int tunerActive = 330;
-inline constexpr int utilityBase = 331;
+// Per-slot controls shared by every module, in SlotValues order. Module
+// controls (UtilityParam) follow at standardControls + UtilityParam.
+enum SlotControl
+{
+  kSlotIn = 0,
+  kSlotTrim,
+  kSlotEnabled,
+  kSlotGateThreshold,
+  kSlotGateRelease,
+  kSlotGateReduction,
+  kSlotCompThreshold,
+  kSlotCompRelease,
+  kSlotCompMakeup,
+  kSlotEQBass,
+  kSlotEQMid,
+  kSlotEQTreble,
+  kSlotEQHighPass,
+  kSlotEQLowPass,
+  kSlotEQPresence,
+  kSlotIRLevel,
+  kSlotFullQuality,
+  standardControls
+};
+// Global controls in GlobalID index order: the five fixed globals, then
+// grid_performance parameters. New globals append after the last index.
+inline constexpr int fixedGlobals = 5;
+inline constexpr int globalControls = fixedGlobals + grid_performance::Count;
+inline constexpr int slotControls = standardControls + kUtilityControls;
 
-constexpr int UtilityID(int slot, int control)
-{ return utilityBase + control * slots + slot; }
-constexpr int UtilityControl(int id, int count = kUtilityControls)
-{ return id >= utilityBase && id < utilityBase + count * slots ? (id - utilityBase) / slots : -1; }
-constexpr int UtilitySlot(int id, int count = kUtilityControls)
-{ return id >= utilityBase && id < utilityBase + count * slots ? (id - utilityBase) % slots : -1; }
-// Future global controls need explicit allocation after existing parameters.
-// Do not silently move the FX base when expanding this fixed global bank.
-static_assert(grid_performance::Count == 44, "Allocate new global/performance IDs explicitly");
+struct Segment
+{
+  int globals;      // Global controls added by this segment, in GlobalID index order.
+  int slotControls; // Slot controls added by this segment, each taking 16 IDs.
+};
+// Released allocation. Literal counts are deliberate: adding a global or slot
+// control fails to compile until it is allocated here. To extend, either grow
+// the LAST segment's slotControls, or append {newGlobals, 0} / {0, newControls}.
+// Never edit the counts of an earlier segment or the first segment's globals.
+inline constexpr Segment segments[]{{49, 218}};
+inline constexpr Segment released[]{{49, 218}}; // NAM Grid 0.1.0
+
+constexpr int GlobalID(std::span<const Segment> table, int index)
+{
+  int id = 0, first = 0;
+  for (const auto& segment : table)
+  {
+    if (index >= first && index < first + segment.globals)
+      return id + index - first;
+    id += segment.globals + segment.slotControls * slots;
+    first += segment.globals;
+  }
+  return -1;
+}
+constexpr int SlotID(std::span<const Segment> table, int slot, int control)
+{
+  if (slot < 0 || slot >= slots)
+    return -1;
+  int id = 0, first = 0;
+  for (const auto& segment : table)
+  {
+    id += segment.globals;
+    if (control >= first && control < first + segment.slotControls)
+      return id + (control - first) * slots + slot;
+    id += segment.slotControls * slots;
+    first += segment.slotControls;
+  }
+  return -1;
+}
+// Slot control and owning slot of a host ID; -1 for globals and invalid IDs.
+constexpr int ControlOf(std::span<const Segment> table, int id)
+{
+  int start = 0, first = 0;
+  for (const auto& segment : table)
+  {
+    start += segment.globals;
+    if (id >= start && id < start + segment.slotControls * slots)
+      return first + (id - start) / slots;
+    start += segment.slotControls * slots;
+    first += segment.slotControls;
+  }
+  return -1;
+}
+constexpr int SlotOf(std::span<const Segment> table, int id)
+{
+  const int control = ControlOf(table, id);
+  return control < 0 ? -1 : (id - SlotID(table, 0, control));
+}
+constexpr int Total(std::span<const Segment> table)
+{
+  int total = 0;
+  for (const auto& segment : table)
+    total += segment.globals + segment.slotControls * slots;
+  return total;
+}
+
+constexpr int GlobalID(int index) { return GlobalID(segments, index); }
+constexpr int SlotID(int slot, int control) { return SlotID(segments, slot, control); }
+constexpr int ControlOf(int id) { return ControlOf(segments, id); }
+constexpr int SlotOf(int id) { return SlotOf(segments, id); }
+// Module control (UtilityParam) of a host ID, or -1.
+constexpr int UtilityControl(int id)
+{
+  const int control = ControlOf(id);
+  return control >= standardControls ? control - standardControls : -1;
+}
+
+static_assert([] {
+  // Every released segment keeps its boundaries; only the last may gain slot controls.
+  constexpr size_t count = sizeof(released) / sizeof(released[0]);
+  if (sizeof(segments) / sizeof(segments[0]) < count)
+    return false;
+  for (size_t i = 0; i < count; ++i)
+    if (segments[i].globals != released[i].globals
+        || (i + 1 < count ? segments[i].slotControls != released[i].slotControls
+                          : segments[i].slotControls < released[i].slotControls))
+      return false;
+  return true;
+}(), "Released parameter segments are frozen; append new segments instead");
+static_assert([] {
+  int globals = 0, controls = 0;
+  for (const auto& segment : segments)
+  {
+    if (segment.globals < 0 || segment.slotControls < 0)
+      return false;
+    globals += segment.globals;
+    controls += segment.slotControls;
+  }
+  return globals == globalControls && controls == slotControls;
+}(), "Allocate every new global/slot control in parameter_layout::segments");
 } // namespace parameter_layout
 
 enum EParams
 {
-  kInputLevel = 0,
-  kNoiseGateThreshold,
-  kToneBass,
-  kToneMid,
-  kToneTreble,
-  kOutputLevel,
-  kNoiseGateActive,
-  kEQActive,
-  kIRToggle,
-  kCalibrateInput,
-  kInputCalibrationLevel,
-  kOutputMode,
-  kSlim,
-  kDriveInput,
-  kDriveTrim,
-  kDriveActive,
-  kAmpTrim,
-  kAmpActive,
-  kGridSlotBase,
-  kParallelBlend = kGridSlotBase + 14 * 3,
-  kDynamicsBase,
-  kEQBase = kDynamicsBase + 16 * 6,
-  kQualityBase = kEQBase + 16 * 7,
-  kUtilityBase = parameter_layout::utilityBase,
-  kTunerReference = parameter_layout::tunerReference,
+  // Global controls, in their permanent first-segment order.
+  kOutputLevel = 0,
+  kParallelBlend,
+  kTunerActive,
+  kTunerReference,
   kTunerMute,
-  kGridParamBase = parameter_layout::performanceBase,
-  kTunerActive = parameter_layout::tunerActive,
-  kNumParams = parameter_layout::utilityBase + 16 * kUtilityControls
+  kNumParams = parameter_layout::Total(parameter_layout::segments)
 };
+static_assert(parameter_layout::GlobalID(kTunerMute) == kTunerMute, "Fixed globals keep their enum IDs");
 
-constexpr int kDualNumParams = kGridSlotBase;
-constexpr int kGridV2NumParams = kDynamicsBase;
-constexpr int kGridV3NumParams = kEQBase;
-constexpr int SlotUtilityParam(size_t slot, int control)
-{ return parameter_layout::UtilityID(static_cast<int>(slot), control); }
-constexpr int SlotEQParam(size_t slot, int control)
-{ return kEQBase + static_cast<int>(slot) * 7 + control; }
-constexpr int SlotFullParam(size_t slot)
-{ return slot == 1 ? kSlim : kQualityBase + static_cast<int>(slot) - (slot > 1 ? 1 : 0); }
-constexpr int SlotDynamicsParam(size_t slot, int control)
-{ return kDynamicsBase + static_cast<int>(slot) * 6 + control; }
-constexpr int SlotInputParam(size_t slot)
-{ return slot == 0 ? kDriveInput : slot == 1 ? kInputLevel : kGridSlotBase + (slot - 2) * 3; }
-constexpr int SlotTrimParam(size_t slot)
-{ return slot == 0 ? kDriveTrim : slot == 1 ? kAmpTrim : SlotInputParam(slot) + 1; }
-constexpr int SlotActiveParam(size_t slot)
-{ return slot == 0 ? kDriveActive : slot == 1 ? kAmpActive : SlotInputParam(slot) + 2; }
-
-// Only parameters collected into the per-slot audio snapshot belong here.
-constexpr int SlotControlOwner(int index)
+// Host ID of a grid_performance parameter; never use contiguous arithmetic.
+constexpr int PerformanceParam(int parameter) { return parameter_layout::GlobalID(parameter_layout::fixedGlobals + parameter); }
+// grid_performance parameter of a host ID, or -1.
+constexpr int PerformanceIndex(int id)
 {
-  if (parameter_layout::UtilitySlot(index) >= 0)
-    return parameter_layout::UtilitySlot(index);
-  if (index >= kEQBase && index < kQualityBase)
-    return (index - kEQBase) / 7;
-  if (index >= kDynamicsBase && index < kEQBase)
-    return (index - kDynamicsBase) / 6;
-  if (index >= kGridSlotBase && index < kParallelBlend)
-    return 2 + (index - kGridSlotBase) / 3;
-  if (index >= kDriveInput && index <= kDriveActive)
-    return 0;
-  if (index == kInputLevel || index == kAmpTrim || index == kAmpActive)
-    return 1;
+  for (int parameter = 0; parameter < grid_performance::Count; ++parameter)
+    if (PerformanceParam(parameter) == id)
+      return parameter;
   return -1;
 }
+
+constexpr int SlotParam(size_t slot, int control)
+{ return parameter_layout::SlotID(static_cast<int>(slot), control); }
+constexpr int SlotUtilityParam(size_t slot, int control)
+{ return SlotParam(slot, parameter_layout::standardControls + control); }
+constexpr int SlotInputParam(size_t slot) { return SlotParam(slot, parameter_layout::kSlotIn); }
+constexpr int SlotTrimParam(size_t slot) { return SlotParam(slot, parameter_layout::kSlotTrim); }
+constexpr int SlotActiveParam(size_t slot) { return SlotParam(slot, parameter_layout::kSlotEnabled); }
+constexpr int SlotDynamicsParam(size_t slot, int control)
+{ return SlotParam(slot, parameter_layout::kSlotGateThreshold + control); }
+constexpr int SlotEQParam(size_t slot, int control) { return SlotParam(slot, parameter_layout::kSlotEQBass + control); }
+constexpr int SlotFullParam(size_t slot) { return SlotParam(slot, parameter_layout::kSlotFullQuality); }
+
+// Slot whose audio snapshot a parameter belongs to, or -1 for globals.
+constexpr int SlotControlOwner(int index) { return parameter_layout::SlotOf(index); }
 inline std::string GridSlotName(size_t slot)
 { return std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ") + std::to_string(slot % 4 + 1); }
-constexpr std::array<int, 17 + kUtilityControls> SlotParamIndices(size_t slot)
+// Host IDs of one slot, in SlotValues order.
+constexpr std::array<int, parameter_layout::slotControls> SlotParamIndices(size_t slot)
 {
-  std::array<int, 17 + kUtilityControls> result{SlotInputParam(slot), SlotTrimParam(slot), SlotActiveParam(slot)};
-  for (int i = 0; i < 6; ++i)
-    result[3 + i] = SlotDynamicsParam(slot, i);
-  for (int i = 0; i < 7; ++i)
-    result[9 + i] = SlotEQParam(slot, i);
-  result[16] = SlotFullParam(slot);
-  for (int i = 0; i < kUtilityControls; ++i)
-    result[17 + i] = SlotUtilityParam(slot, i);
+  std::array<int, parameter_layout::slotControls> result{};
+  for (int i = 0; i < parameter_layout::slotControls; ++i)
+    result[i] = SlotParam(slot, i);
   return result;
 }
 static_assert(
   [] {
     for (size_t slot = 0; slot < 16; ++slot)
-    {
-      const auto indices = SlotParamIndices(slot);
-      for (size_t i = 0; i < indices.size(); ++i)
-        if (i != 16 && SlotControlOwner(indices[i]) != static_cast<int>(slot))
+      for (const int index : SlotParamIndices(slot))
+        if (index < 0 || index >= kNumParams
+            || SlotControlOwner(index) != static_cast<int>(slot))
           return false;
-    }
-    return SlotControlOwner(kOutputLevel) == -1 && SlotControlOwner(kGridParamBase) == -1;
+    for (int parameter = 0; parameter < grid_performance::Count; ++parameter)
+      if (SlotControlOwner(PerformanceParam(parameter)) != -1)
+        return false;
+    return SlotControlOwner(kOutputLevel) == -1;
   }(),
-  "Every cached slot parameter must invalidate its owning bank");
+  "Every slot parameter must map back to its owning slot");

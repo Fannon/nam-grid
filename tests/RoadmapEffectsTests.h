@@ -20,13 +20,13 @@ void TestRoadmapEffects()
       }
       UtilityControls c; c.delay[0] = 35.; c.stutter[0] = 20.;
       for (int pos = 0; pos < count; pos += 512)
-        a.Process(expectedL.data() + pos, std::min(512, count - pos), true, 0, 0, false, 0, 0, 1, {}, {}, c, expectedR.data() + pos);
+        a.Process(expectedL.data() + pos, std::min(512, count - pos), true, 0, 0, {}, {}, c, expectedR.data() + pos);
       int block = 0;
       for (int pos = 0; pos < count;)
       {
         const int n = std::min(std::array<int, 5>{1, 3, 127, 64, 512}[block++ % 5], count - pos);
         allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
-        b.Process(l.data() + pos, n, true, 0, 0, false, 0, 0, 1, {}, {}, c, r.data() + pos);
+        b.Process(l.data() + pos, n, true, 0, 0, {}, {}, c, r.data() + pos);
         Eigen::internal::set_is_malloc_allowed(true); tracking = false;
         assert(allocations == 0 && deletions == 0);
         pos += n;
@@ -43,7 +43,7 @@ void TestRoadmapEffects()
       for (int n = 0; n < 8; ++n)
       {
         x.fill(.123); y.fill(-.234);
-        b.Process(x.data(), 512, false, 0, 0, false, 0, 0, 1, {}, {}, c, y.data());
+        b.Process(x.data(), 512, false, 0, 0, {}, {}, c, y.data());
       }
       assert(std::abs(x.back() - .123) < 1.e-12 && std::abs(y.back() + .234) < 1.e-12);
     }

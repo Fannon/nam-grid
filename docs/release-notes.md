@@ -1,20 +1,35 @@
-# nam-grid preview
+# NAM Grid 0.1.0
 
-A fixed 16-slot guitar effects grid with NAM captures, cabinet IRs, parallel lanes,
-rig presets, a tuner, and built-in effects. See the
-[README](https://github.com/Fannon/nam-grid#readme) and
-[build guide](https://github.com/Fannon/nam-grid/blob/main/docs/build.md) for setup and usage.
+The first release of NAM Grid: a 16-slot guitar rig in one CLAP / VST3 plugin.
+Combine Neural Amp Modeler captures, cabinet IRs and 55 built-in effects across
+four Pre slots, two parallel four-slot lanes with A/B blend, and four Post slots.
+It includes rig presets, a library browser, a tuner, macros, modulation and
+performance scenes. See the [README](https://github.com/Fannon/nam-grid#readme)
+for installation and a first rig.
 
-The release archives contain the CLAP and VST3 plugins plus third-party notices.
-Retain the notices when copying or redistributing the plugins. Model captures
-and impulse responses are external files and are not included.
+## Downloads
 
-This is preview software. The automated Windows tests exercise DSP, state recall,
-CLAP hosting, and the native editor. Real DAW listening and low-buffer sessions,
-VST3 host validation, and macOS validation are required before claiming stable
-support. A successful CI build alone does not establish those outcomes.
+- `nam-grid-windows-x64.zip`: CLAP and VST3 for 64-bit Windows.
+- `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs. These builds are
+  not code-signed or notarized; follow the README to clear the download quarantine.
 
-Keep the existing plugin IDs when upgrading: they identify nam-grid in saved
-projects. Remove duplicate copies of older grid binaries from plugin scan paths.
-This fork does not supply the upstream NAM installers, standalone application,
-Audio Unit, or Linux LV2 plugin.
+Each archive includes `ThirdPartyNotices.txt` and `notices/`; keep them with the
+plugins when redistributing. NAM captures and impulse responses are external files
+and are not included.
+
+## Compatibility
+
+0.1.0 establishes NAM Grid's permanent plugin identity (CLAP
+`io.github.fannon.nam-grid`, vendor Simon Heimler) and parameter layout. Projects,
+automation and `.ngrid` presets from earlier preview builds do not load and must be
+recreated; remove old preview binaries from your plugin folders and rescan. From
+0.1.0 onward, new versions keep existing parameters, modules and saved rigs
+compatible.
+
+## Known limits
+
+Automated Windows tests exercise DSP, state recall, CLAP hosting and the native
+editor; macOS CI builds and runs the non-editor tests. Use moderate buffer sizes
+first and report problems with your OS, DAW, plugin format, sample rate and buffer
+size at <https://github.com/Fannon/nam-grid/issues>. Linux, Audio Unit, AAX and a
+standalone application are not provided.

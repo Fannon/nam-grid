@@ -28,15 +28,14 @@ inline nlohmann::json Read(const std::filesystem::path& path)
   if (!document.is_object() || document.value("format", "") != "nam-grid-preset"
       || !document.contains("version") || !document["version"].is_number_integer() || document["version"] != 1
       || !document.contains("rig") || !document["rig"].is_object())
-    throw std::runtime_error("This is not a supported nam-grid preset.");
+    throw std::runtime_error("This is not a supported NAM Grid preset.");
   return document["rig"];
 }
 
-inline void Write(const std::filesystem::path& path, const nlohmann::json& rig)
+// Writes a sibling temporary file, then replaces the destination in one step, so
+// readers never see partial JSON. Concurrent writers resolve as last-writer-wins.
+inline void WriteAtomically(const std::filesystem::path& path, const std::string& text)
 {
-  if (!rig.is_object()) throw std::runtime_error("Invalid rig state.");
-  const auto text = nlohmann::json{{"format", "nam-grid-preset"}, {"version", 1}, {"rig", rig}}.dump(2);
-  if (text.size() > kMaximumBytes) throw std::runtime_error("Preset exceeds 1 MiB.");
   static std::atomic<unsigned> sequence{0};
   auto temporary = path;
   temporary += ".tmp-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())
@@ -46,13 +45,13 @@ inline void Write(const std::filesystem::path& path, const nlohmann::json& rig)
     {
       std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
       if (!output || !output.write(text.data(), text.size()) || !output.flush())
-        throw std::runtime_error("Cannot write the preset file.");
+        throw std::runtime_error("Cannot write the file.");
       output.close();
-      if (!output) throw std::runtime_error("Cannot finish writing the preset file.");
+      if (!output) throw std::runtime_error("Cannot finish writing the file.");
     }
 #ifdef _WIN32
     if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-      throw std::runtime_error("Cannot replace the preset file.");
+      throw std::runtime_error("Cannot replace the file.");
 #else
     std::filesystem::rename(temporary, path);
 #endif
@@ -63,5 +62,13 @@ inline void Write(const std::filesystem::path& path, const nlohmann::json& rig)
     std::filesystem::remove(temporary, ignored);
     throw;
   }
+}
+
+inline void Write(const std::filesystem::path& path, const nlohmann::json& rig)
+{
+  if (!rig.is_object()) throw std::runtime_error("Invalid rig state.");
+  const auto text = nlohmann::json{{"format", "nam-grid-preset"}, {"version", 1}, {"rig", rig}}.dump(2);
+  if (text.size() > kMaximumBytes) throw std::runtime_error("Preset exceeds 1 MiB.");
+  WriteAtomically(path, text);
 }
 } // namespace rig_preset

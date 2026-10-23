@@ -25,10 +25,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
   };
   switch (effect)
   {
-    case SlotEffect::NaturalGate:
-    case SlotEffect::TightGate:
-      v[3] = -55.; v[4] = 150.;
-      set(uGateMode, effect == SlotEffect::TightGate ? 1. : 0.); break;
+    case SlotEffect::NoiseGate:
+      v[3] = -55.; v[4] = 150.; break;
     case SlotEffect::SmoothComp:
       v[6] = -24.; v[7] = 150.; v[8] = 3.; set(uCompAttack, 10.); break;
     case SlotEffect::PunchComp:

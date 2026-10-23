@@ -6,7 +6,7 @@
 void TestTimeEffects()
 {
   const auto process = [](NAMStage& stage, double* x, int n, const UtilityControls& c, bool on = true) {
-    stage.Process(x, n, on, 0., 0., false, 0., 0, 1., {}, {}, c);
+    stage.Process(x, n, on, 0., 0., {}, {}, c);
   };
   const auto prepareEffect = [](SlotEffect effect, double rate) {
     SlotConfig config;
@@ -276,7 +276,7 @@ void TestTimeEffects()
         right.fill(input * .5);
         allocations = deletions = 0;
         tracking = true;
-        stage.Process(left.data(), 512, enabled, 0., 0., false, 0., 0, 1., {}, {}, c, stereo ? right.data() : nullptr);
+        stage.Process(left.data(), 512, enabled, 0., 0., {}, {}, c, stereo ? right.data() : nullptr);
         tracking = false;
         assert(allocations == 0 && deletions == 0);
       };

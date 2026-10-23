@@ -1,0 +1,98 @@
+name: Build and test
+on:
+  workflow_call:
+    inputs:
+      source-ref:
+        description: Commit or tag to build
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows-x64
+          - os: macos-15
+            platform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+      - name: Fetch pinned submodules
+        # GitLab can reject Eigen clones under load. The mirror serves the same
+        # pinned Git objects, including Eigen nested inside the NAM dependencies.
+        # Scope the rewrite to this command; do not change submodules or Git config.
+        run: >-
+          git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/libeigen/eigen"
+          submodule update --init --recursive --depth=1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/setup-deps.py
+      - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+      - name: Python tool tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+      # Hosted Windows runners only expose the GDI OpenGL 1.1 renderer, which the
+      # NanoVG editor cannot use (created contexts are unusable and the GUI tests
+      # crash). Supply Mesa's llvmpipe so the editor tests run on a real GL 4.x.
+      - name: Cache software OpenGL
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/mesa
+          key: mesa-llvmpipe-26.2.4
+      - name: Install software OpenGL
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $mesa = Join-Path $env:RUNNER_TEMP 'mesa'
+          if (-not (Test-Path (Join-Path $mesa 'x64\opengl32.dll'))) {
+            $archive = Join-Path $env:RUNNER_TEMP 'mesa.7z'
+            Invoke-WebRequest -OutFile $archive "https://github.com/pal1000/mesa-dist-win/releases/download/26.2.4/mesa3d-26.2.4-release-msvc.7z"
+            & 7z x $archive "-o$mesa" -y | Out-Null
+          }
+          # App-local DLLs are resolved from the executable's directory only, so
+          # place the renderer next to every test binary (the GUI runs there).
+          Get-ChildItem -Recurse build-ci -Filter *.exe | ForEach-Object {
+            Copy-Item "$mesa\x64\*.dll" $_.DirectoryName -Force
+          }
+      - run: ctest --test-dir build-ci -C Release --output-on-failure
+        env:
+          GALLIUM_DRIVER: llvmpipe
+      # Zip before artifact upload: GitHub artifacts otherwise discard the
+      # executable permissions required by macOS plugin bundles.
+      - name: Archive plugins and notices
+        shell: python
+        run: |
+          import shutil
+          from pathlib import Path
+
+          output = Path("build-ci/out")
+          for name in ("nam-grid.clap", "nam-grid.vst3", "ThirdPartyNotices.txt", "notices"):
+              if not (output / name).exists():
+                  raise SystemExit(f"Missing release output: {name}")
+          notices = (output / "ThirdPartyNotices.txt").read_text(encoding="utf-8")
+          for required in ("NeuralAmpModelerPlugin", "iPlug2", "Roboto font", "Apache License",
+                           "Version 2.0, January 2004", "Denormal helper (Aether)", "Airwindows", "FFTConvolver"):
+              if required not in notices:
+                  raise SystemExit(f"ThirdPartyNotices.txt lacks: {required}")
+          for license in ("CLAP_SDK-LICENSE.txt", "CLAP_HELPERS-LICENSE.txt", "VST3_SDK-LICENSE.txt"):
+              if not (output / "notices" / license).is_file():
+                  raise SystemExit(f"Missing notices/{license}")
+          shutil.make_archive("build-ci/nam-grid-${{ matrix.platform }}", "zip", output)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nam-grid-${{ matrix.platform }}
+          path: build-ci/nam-grid-${{ matrix.platform }}.zip
+          if-no-files-found: error

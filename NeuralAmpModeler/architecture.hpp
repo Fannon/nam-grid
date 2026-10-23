@@ -1,4 +1,4 @@
-// From https://github.com/Dougal-s/Aether
+// From https://github.com/Dougal-s/Aether (MIT, Copyright (c) 2021 Dougal Stewart); see ThirdPartyNotices.txt.
 
 #ifndef ARCHITECTURE_HPP
 #define ARCHITECTURE_HPP
@@ -94,6 +94,11 @@ inline void disable_denormals() noexcept {
 		#else
 			_mm_setcsr(_mm_getcsr() | 0x8040);
 		#endif
+	#elif defined(ARCH_ARM64) && (defined(__GNUC__) || defined(__clang__))
+		// NAM Grid: AArch64 (Apple Silicon) has no FPSCR; set FPCR.FZ (bit 24) instead.
+		unsigned long long fpcr;
+		__asm__ volatile("mrs %0, fpcr" : "=r"(fpcr));
+		__asm__ volatile("msr fpcr, %0" : : "r"(fpcr | (1ull << 24)));
 	#elif defined(ARCH_ARM)
 		#if defined __has_builtin
 			#if __has_builtin(__builtin_arm_set_fpscr) && __has_builtin(__builtin_arm_get_fpscr)

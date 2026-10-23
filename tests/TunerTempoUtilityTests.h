@@ -148,8 +148,8 @@ void TestTunerTempoUtility()
       allocations = deletions = 0;
       tracking = true;
       Eigen::internal::set_is_malloc_allowed(false);
-      stereo.Process(left.data(), 512, true, 0, 0, false, 0, 0, 1, {}, {}, {}, right.data());
-      mono.Process(average.data(), 512, true, 0, 0, false, 0, 0, 1);
+      stereo.Process(left.data(), 512, true, 0, 0, {}, {}, {}, right.data());
+      mono.Process(average.data(), 512, true, 0, 0);
       Eigen::internal::set_is_malloc_allowed(true);
       tracking = false;
       assert(allocations == 0 && deletions == 0);
@@ -161,7 +161,7 @@ void TestTunerTempoUtility()
     right.fill(0.);
     left[0] = 1.;
     right[0] = -.5;
-    stereo.Process(left.data(), 512, false, 0, 0, false, 0, 0, 1, {}, {}, {}, right.data());
+    stereo.Process(left.data(), 512, false, 0, 0, {}, {}, {}, right.data());
     for (int i = 0; i < 512; ++i)
     {
       assert(left[i] == (i == stereo.Latency() ? 1. : 0.));
@@ -192,7 +192,7 @@ void TestTunerTempoUtility()
       allocations = deletions = 0;
       tracking = true;
       Eigen::internal::set_is_malloc_allowed(false);
-      stage.Process(left.data(), n, true, 0, 0, false, 0, 0, 1, {}, {}, {}, right.data());
+      stage.Process(left.data(), n, true, 0, 0, {}, {}, {}, right.data());
       Eigen::internal::set_is_malloc_allowed(true);
       tracking = false;
       assert(allocations == 0 && deletions == 0);
@@ -224,7 +224,7 @@ void TestTunerTempoUtility()
     {
       const int n = std::array<int, 4>{1, 127, 512, 64}[block % 4];
       left.fill(.2);
-      stage.Process(left.data(), n, true, 0, 0, false, 0, 0, 1, {}, {}, c);
+      stage.Process(left.data(), n, true, 0, 0, {}, {}, c);
       for (int i = 0; i < n; ++i)
       {
         phase += (bpm / 60.) / rate;
@@ -261,7 +261,7 @@ void TestTunerTempoUtility()
           left[0] = 1.;
         allocations = deletions = 0;
         tracking = true;
-        stage.Process(left.data(), n, true, 0, 0, false, 0, 0, 1, {}, {}, c);
+        stage.Process(left.data(), n, true, 0, 0, {}, {}, c);
         tracking = false;
         assert(allocations == 0 && deletions == 0);
         for (int i = 0; i < n; ++i)

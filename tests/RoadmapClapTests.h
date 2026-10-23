@@ -73,7 +73,7 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
       set(hold.c_str(), false); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
       set(unusedHold.c_str(), true); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
       set(hold.c_str(), true); assert(tail->get(plugin) == std::numeric_limits<uint32_t>::max());
-      const auto active = slot == 0 ? std::string("Drive Enabled") : label + " Enabled";
+      const auto active = slot == 0 ? std::string("Pre 1 Enabled") : label + " Enabled";
       set(active.c_str(), false); assert(tail->get(plugin) != std::numeric_limits<uint32_t>::max());
       set(active.c_str(), true); assert(tail->get(plugin) == std::numeric_limits<uint32_t>::max());
       plugin->stop_processing(plugin); plugin->deactivate(plugin);

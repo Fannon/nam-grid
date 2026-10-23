@@ -1,10 +1,10 @@
-# Build nam-grid
+# Build NAM Grid
 
-The native UI and DSP remain based on the official NAM plugin. The plugin displays
-**nam-grid**, with `nam-grid.clap` / `nam-grid.vst3` artifacts. Its CLAP ID
-(`com.StevenAtkinson.NAMGridPrototype`) and VST3 ID (`NGr1`) are retained from the grid
-prototype so saved projects can identify it after a rescan. Avoid duplicate copies of the
-old grid binary in plugin scan paths. The historical dual prototype on branch `prototype/dual-nam-clap` keeps its own ID (`NDu1`).
+NAM Grid builds `nam-grid.clap` and `nam-grid.vst3` with CMake. Its persistent
+host identity is CLAP ID `io.github.fannon.nam-grid`, vendor **Simon Heimler**,
+and VST3 plugin/manufacturer IDs `NGrd`/`Fann` (see
+[`config.h`](../NeuralAmpModeler/config.h)). Hosts use these IDs to find the
+plugin in saved projects; they must never change after a release.
 
 ## Dependencies
 
@@ -12,8 +12,8 @@ old grid binary in plugin scan paths. The historical dual prototype on branch `p
   Python >= 3.8, Git. Ninja is optional.
 - macOS arm64: Xcode command-line tools, CMake, Python, Git. CI builds and tests
   this target; real-host acceptance is tracked in the [release checklist](release-checklist.md).
-- Recursive NAM submodules pinned in this repository. iPlug2 is now the official
-  repository at `d54f69050f517e43b941d88c2a170f0a840b9ee4`.
+- Recursive submodules pinned in this repository: iPlug2, NAM Core,
+  AudioDSPTools and Eigen.
 - SDKs downloaded by `scripts/setup-deps.py`: CLAP 1.2.10 at `a47f6ba`, helpers at
   `29389e4`, and MIT-licensed VST3 3.8.1 at `3cdf9ca`. No WebView, JUCE, or prebuilt
   graphics libraries are needed for this build.
@@ -25,8 +25,9 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-clap-bench nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
 CI fetches Eigen from `eigen-mirror/eigen` on GitHub using a command-scoped URL
@@ -39,17 +40,16 @@ git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/l
 ```
 
 For MSVC without the Visual Studio generator, use an x64 developer command prompt
-and add `-G Ninja` to the configure command. Local verification used MSVC 19.44,
-Windows SDK 10.0.26100, CMake 4.4.4, Ninja 1.13.2 and Release optimization.
-The optional portable toolchain used in this workspace is outside this repository.
+and add `-G Ninja` to the configure command.
 
 The setup script applies the two MIT Core allocation fixes, the AudioDSPTools WAV
-decoder safety/polarity and resampler warm-up fixes, and the iPlug2 CLAP enum-metadata
-fix from `patches/`. Core remains pinned to `9c7b185`,
-AudioDSPTools to `e19ef4b`; these and iPlug2 are intentionally modified after setup.
-The patch files are the reproducible source of these changes. Do not reset
-those submodules after setup without applying the patches again. Setup checks whether each
-patch is already applied, and refuses patches that cannot be applied cleanly.
+decoder safety/polarity and resampler warm-up fixes, and two iPlug2 CLAP adapter fixes
+from `patches/`: enum metadata, and host-contract corrections (bounded value-to-text,
+canonical stepped text, looping short state writes, a value rescan after host state
+loads, and correct main-port configuration summaries). The patch files are the reproducible source of these changes;
+do not reset those submodules after setup without applying the patches again.
+Setup checks whether each patch is already applied, and refuses patches that cannot
+be applied cleanly.
 
 Output:
 
@@ -58,56 +58,56 @@ Output:
 - macOS CLAP/VST3: bundles under `build-grid/out`.
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
 
-Automatic deployment is disabled. Point Bitwig at this build's `out` directory for
-local evaluation, or copy the artifact to a separate test location. The baseline benchmark
-plugin is built under `build-grid/benchmark`, outside the artifact directory.
+Automatic deployment is disabled. Point your DAW at `build-grid/out` for local
+evaluation, or copy the artifact to a separate test location, then rescan plugins.
+Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuration if
+their SDKs are absent.
 
-Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuration if their
-SDKs are absent. The existing Visual Studio solution/Xcode packaging scripts are retained
-for reference; the supported build entry point is CMake. The shared GitHub workflow
-is `.github/workflows/dual-prototype.yml`.
-The scheduled native build and release workflows reuse that same build/test job.
-Release archives are `nam-grid-windows-x64.zip` and `nam-grid-macos-arm64.zip`;
-each includes CLAP, VST3, and third-party notices. Archives are created before
-artifact upload to retain macOS executable permissions.
+## CI and releases
 
-To create a release, push a version tag such as `v0.1.0`, or open **Actions →
-Release Native → Run workflow** and enter an existing version tag. The workflow
-resolves the tag to a commit, builds and tests that commit on both platforms, and
-creates a draft release with the archives after all checks pass. Review and publish
-the draft from GitHub Releases. Publishing a release directly in GitHub also triggers
-the builds and attaches the archives to that release. Re-running the workflow
-replaces its archives without changing the release notes or publication status.
-Manual **Build Native** runs only produce build artifacts.
+`.github/workflows/build-test.yml` builds and tests Windows x64 and macOS arm64 for
+every pull request and every push to `main`. The weekly **Build Native** run and the
+release workflow reuse that job. Release archives are `nam-grid-windows-x64.zip` and
+`nam-grid-macos-arm64.zip`; each contains CLAP, VST3, `ThirdPartyNotices.txt` and
+`notices/`. The packaging step fails if a required notice is missing. Archives are
+created before artifact upload to retain macOS executable permissions.
+
+To release, set the version in `config.h` (`PLUG_VERSION_STR`, `PLUG_VERSION_HEX`,
+`PLUG_VERSION_RC`) and both `resources/nam-grid-*-Info.plist` files, then push a
+matching tag such as `v0.1.0`. Alternatively, open **Actions → Release Native → Run
+workflow** with an existing tag. The workflow resolves the tag to a commit, rejects
+it unless every version string in that commit matches, builds and tests the commit on
+both platforms, and creates a draft release with the archives and
+[release notes](release-notes.md). Review and publish the draft from GitHub Releases.
+Publishing a release also triggers the builds and attaches the archives; re-running
+the workflow replaces its archives without changing the release notes or publication
+status. Manual **Build Native** runs only produce build artifacts.
+
+The macOS archives are not code-signed or notarized. The [README](../README.md)
+explains how users clear the download quarantine.
 
 Linux plugin releases are blocked by the pinned iPlug2 framework. Its CMake modules
 report Linux as unsupported, and `IGraphicsLinux.cpp` is an unfinished stub.
-Adding a Linux runner alone cannot build this plugin; a working Linux framework
-backend and CLAP/VST3 platform integration are required before adding Linux to the
-release matrix. No Linux plugin archive is currently produced.
+A working Linux framework backend and CLAP/VST3 platform integration are required
+before adding Linux to the release matrix.
 
-The `parameter-contract` CTest protects IDs, algorithm identity and preset/scene
-recall. Windows also runs `vst3-parameter-contract` against the built VST3 plugin.
-See the [compatibility contract](development.md#parameter-and-project-compatibility).
+## Tests
 
-## Using a local build
+| CTest | Coverage |
+| --- | --- |
+| `ir-convolution` | Adaptive direct/FFT cabinet convolution against the direct processor, variable blocks, resampling and allocation checks |
+| `capture-library` | Library scanning, metadata, search, menus and atomic preference writes |
+| `wav-decoder` | WAV decoding and malformed-file rejection |
+| `resampling` | Resampler warm-up with exact WDL allocations |
+| `stages` | Every DSP module, slot stages, grid routing and realtime allocation checks |
+| `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
+| `tuner` | Tuner detection, mute and automation through CLAP |
+| `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |
+| `vst3-parameter-contract` | Windows only: the built VST3 controller's IDs, class ID, automation flags and normalization |
 
-Point your DAW at `build-grid/out` for local evaluation, then rescan plugins.
-For installation and a first rig, see the [main README](../README.md).
-The maintained [editor guide](ui.md), [browser guide](browser.md),
-[routing reference](grid.md) and [preset guide](presets.md) cover library setup,
-slot editing, external file references and project recall.
-
-## Reproduce the CPU comparison
-
-For an on-demand report covering every built-in FX mode, NAM, IR loading and
-small-buffer callback deadlines, see [fx-performance.md](fx-performance.md).
-That tool is opt-in and runs separately from CTest and CI.
-
-`nam-ir-tests` (`ir-convolution` in CTest) compares the adaptive production IR path
-with the original direct processor, including variable blocks, resampling, quiet
-tails and allocation checks. Backend selection is prepared off the audio thread.
-The vendored MIT FFTConvolver subset is pinned and needs no additional download.
+The Python unit tests cover the on-demand report and audit scripts. See the
+[compatibility contract](development.md#parameter-and-project-compatibility) before
+changing controls, modules or saved state.
 
 For DSP/state regression checks without opening the native editor, set
 `NAM_GRID_HEADLESS_SMOKE=1` when running `nam-clap-smoke`. This includes Smart Gate
@@ -115,54 +115,35 @@ learning, host automation, routing/modulation and cached-control checks in every
 slot. `NAM_GRID_CACHE_SMOKE=1` limits the later checks to cached slot automation.
 Unset these variables for the normal complete CLAP/editor smoke test.
 
-```sh
-python scripts/prepare-baseline.py
-cmake -S . -B build-grid -DNAM_BUILD_BASELINE=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target NAMBaseline-clap nam-clap-bench
-```
+WAV regression tests can run under sanitizers: configure a separate build with
+`-DNAM_WAV_ASAN=ON`, build `nam-wav-tests`, and run
+`ctest --test-dir <build> -C Release -R wav-decoder --output-on-failure`.
+Resampler warm-up regressions work the same way with `-DNAM_RESAMPLING_ASAN=ON`,
+target `nam-resampling-tests` and `-R '^resampling$'`. On Windows run both build and
+test inside the same x64 developer command prompt so the compiler's
+`clang_rt.asan_dynamic-x86_64.dll` is on `PATH`. Ordinary builds leave these options
+off and do not need that DLL.
 
-Run `nam-clap-smoke` (or CTest) first to generate `fixtures/drive.nam` and `fixtures/amp.nam`
-in the test working directory. The benchmark executable is in `build-grid/NeuralAmpModeler`
-(or its `Release` subdirectory for Visual Studio). Run from any directory using absolute paths:
+For CPU, deadline and waveform-equivalence reports covering every built-in FX mode,
+NAM and IR loading, see [fx-performance.md](fx-performance.md). Those tools are
+opt-in and run separately from CTest.
 
-```text
-nam-clap-bench <baseline.clap> original 1 <drive.nam> <amp.nam>
-nam-clap-bench <baseline.clap> original 2 <drive.nam> <amp.nam>
-nam-clap-bench <prototype.clap> dual     1 <drive.nam> <amp.nam>
-```
+## Editor screenshots
 
-The baseline script extracts the original plugin DSP/header/state reader from upstream commit
-`16be869` and qualifies its base class for CLAP. It uses the same framework, Core and compiler
-as the prototype. The benchmark establishes host rate/block size before loading baseline state,
-because the original loader assumes those values are available. The baseline is a DSP comparison
-build, not an official upstream CLAP release. Compare preserved binaries under
-matching conditions; use [fx-performance.md](fx-performance.md) for current reporting.
-
-WAV regression tests are in the `nam-wav-tests` target (`wav-decoder` in CTest).
-Build that target alongside the existing library/stage/CLAP tests. A separate
-configuration with `-DNAM_WAV_ASAN=ON` enables MSVC AddressSanitizer or GCC/Clang
-address/undefined sanitizers for this focused target. Build `nam-wav-tests` in
-that configuration and run `ctest --test-dir <build> -C Release -R wav-decoder --output-on-failure`.
-
-Resampler warm-up regressions are in `nam-resampling-tests` (`resampling` in CTest).
-They use exact WDL allocations to expose reads hidden by its usual allocation padding.
-For a separate sanitizer build, configure with `-DNAM_RESAMPLING_ASAN=ON`, build that
-target, and run `ctest --test-dir <build> -C Release -R '^resampling$' --output-on-failure`.
-On Windows run both build and test inside the same x64 developer command prompt so
-the compiler's `clang_rt.asan_dynamic-x86_64.dll` is on `PATH`. Ordinary builds leave
-this option off and do not need that DLL.
+The README gallery comes from the opt-in, Windows-only `nam-readme-gallery`
+target; see [screenshots/README.md](screenshots/README.md).
 
 For browser UI iteration on Windows, set `NAM_GRID_BROWSER_SMOKE=1` when running
 `nam-clap-smoke`. This retains the DSP/state setup and the browser/preset interaction
 checks, skipping the large slot-edit matrix and subsequent unrelated editor checks.
-Unset it for the complete `clap-smoke` regression. An optional fourth argument names
-a screenshot directory; captures come from the plugin's own OpenGL surface.
-The native test restores library preferences after a successful run.
+An optional fourth argument names a screenshot directory; captures come from the
+plugin's own OpenGL surface. The native test restores library preferences after a
+successful run.
 
 For a native FX visualization sweep, set `NAM_GRID_FX_VISUALS=1` instead. It
-retains the DSP/state setup, then renders all 55 catalog modules at musical
-defaults with audio and at minimum/maximum control values. Supply the optional
-screenshot directory to review `fx-<effect ID>-default/min/max.bmp` artifacts.
-It exits before the unrelated browser/menu matrix. See [ui.md](ui.md) for display semantics; ordinary CTest still runs the complete native editor regression.
-For a targeted iteration, `NAM_GRID_FX_VISUALS_ONLY=12,15` limits that opt-in sweep
-to the listed effect IDs (Digital Delay and Room here); unset it for all modules.
+retains the DSP/state setup, then renders every catalog module at musical defaults
+with audio and at minimum/maximum control values. Supply the optional screenshot
+directory to review `fx-<effect ID>-default/min/max.bmp` artifacts. It exits before
+the unrelated browser/menu matrix. See [ui.md](ui.md) for display semantics.
+For a targeted iteration, `NAM_GRID_FX_VISUALS_ONLY=11,14` limits the sweep to the
+listed module IDs (Digital Delay and Room here); unset it for all modules.

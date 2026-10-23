@@ -1,58 +1,111 @@
-# nam-grid
+# NAM Grid
 
-[![Build main](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml/badge.svg?branch=main)](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain)
+[![Build and test](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
 
 An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) captures,
 cabinet impulse responses and built-in effects, then blend two parallel chains
 for anything from a simple amp sound to layered ambient textures.
 
-![nam-grid's sixteen-slot pedalboard with parallel effects lanes and the Cosmic Echo editor](docs/screenshots/grid.png)
+![NAM Grid with two NAM captures in parallel lanes, cabinet IRs and built-in effects, and the Cosmic Echo editor](docs/screenshots/grid.png)
 
-*An example pedalboard using built-in effects only, with Cosmic Echo selected.
-Add your own NAM captures and cabinet IRs when building an amp rig.*
+*An example rig: two NAM captures in parallel lanes, each followed by a cabinet IR,
+plus built-in effects, with Cosmic Echo selected. The captures are NAM Core's
+example models; use your own captures and IRs for real amp sounds.*
 
-## What you can do
+## About this project
 
-- **Build a complete rig:** load `.nam` amp/pedal captures, `.wav` cabinet IRs,
-  gates, compressors, EQ, drives, modulation, pitch effects, delays and reverbs.
-- **Blend two sounds:** run separate amp chains or effects in parallel and use
-  **A/B** to find the balance. Empty slots pass audio through.
-- **Explore creative effects:** try [Cosmic Echo](docs/cosmic-echo.md), shimmer,
-  freeze, multi-head tape delay and [LoFi Tape Machine](docs/lofi-tape.md).
-- **Keep playing controls close:** use the tuner, tempo-synced effects, macros,
-  modulation and performance scenes. Visualizations help explain each effect.
-- **Save your whole rig:** recall module choices and settings with `.ngrid`
-  presets, or save them with your DAW project.
+NAM Grid stands on the shoulders of a lot of excellent open-source work. The
+neural amp modeling is [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin)
+by Steven Atkinson, the plugin framework is [iPlug2](https://github.com/iPlug2/iPlug2),
+and many effects are adapted from or informed by Airwindows, the Faust reverb
+library, Signalsmith Audio, Mutable Instruments and others (see
+[acknowledgments](#acknowledgments)). NAM Grid ties these together into the guitar
+plugin I wanted: several captures, cabinets and effects in one flexible rig.
+
+NAM Grid was developed with AI coding agents. I directed the design, reviewed the
+changes and tested the results, supported by an extensive automated test suite.
+
+## Why NAM Grid
+
+- **A free grid instead of a fixed chain:** 16 slots in four rows (Pre, two
+  parallel lanes A and B, Post). Any slot takes any module, so you can run
+  several NAM captures, cabinet IRs or the same effect more than once, and
+  blend the two lanes with **A/B**.
+- **55 built-in effects:** gates, compressors and outboard-style dynamics,
+  EQs and filters, drives, modulation, pitch effects, delays and reverbs,
+  including [Cosmic Echo](docs/cosmic-echo.md) and the
+  [LoFi Tape Machine](docs/lofi-tape.md).
+- **Visualizations that explain each effect:** live curves, spectra and
+  response plots show what every control does and what your signal is doing.
+- **Built for low latency:** no added buffering latency for effects or IRs;
+  cabinet IRs switch between direct and FFT convolution automatically, and the
+  DSP is tuned for small buffers with no allocation on the audio thread.
+- **Browse while you listen:** audition modules, captures and IRs in a slot
+  before keeping them, and save complete rigs as `.ngrid` presets.
+- **Performance controls:** tuner, tempo sync, two macros, an LFO, an input
+  envelope and an eight-step sequencer, lane controls and three scenes.
+
+<table>
+  <tr>
+    <td align="center" width="33%"><a href="docs/screenshots/nam.png"><img src="docs/screenshots/nam.png" alt="NAM capture: Measured input/output curve of the loaded capture" width="300"></a><br><b>NAM capture</b><br><sub>Measured input/output curve of the loaded capture</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/ir.png"><img src="docs/screenshots/ir.png" alt="Cabinet IR: Frequency response of the loaded impulse response" width="300"></a><br><b>Cabinet IR</b><br><sub>Frequency response of the loaded impulse response</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/delay.png"><img src="docs/screenshots/delay.png" alt="Tape Echo: Echo pattern, modulation and saturation at a glance" width="300"></a><br><b>Tape Echo</b><br><sub>Echo pattern, modulation and saturation at a glance</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><a href="docs/screenshots/eq.png"><img src="docs/screenshots/eq.png" alt="Parametric EQ: EQ curve over the live output spectrum" width="300"></a><br><b>Parametric EQ</b><br><sub>EQ curve over the live output spectrum</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/browser-modules.png"><img src="docs/screenshots/browser-modules.png" alt="Module browser: Audition effects in a slot while you browse" width="300"></a><br><b>Module browser</b><br><sub>Audition effects in a slot while you browse</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/browser-presets.png"><img src="docs/screenshots/browser-presets.png" alt="Rig presets: Full-height browser for complete rigs" width="300"></a><br><b>Rig presets</b><br><sub>Full-height browser for complete rigs</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Library & settings: Capture and IR folders, scanning and visualizations" width="300"></a><br><b>Library & settings</b><br><sub>Capture and IR folders, scanning and visualizations</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/control.png"><img src="docs/screenshots/control.png" alt="Grid / Control: LFO, envelope, sequencer and macro modulation" width="300"></a><br><b>Grid / Control</b><br><sub>LFO, envelope, sequencer and macro modulation</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/tuner.png"><img src="docs/screenshots/tuner.png" alt="Tuner: Tuner with cents, reference pitch and pitch history" width="300"></a><br><b>Tuner</b><br><sub>Tuner with cents, reference pitch and pitch history</sub></td>
+  </tr>
+</table>
 
 ## Download and install
 
-**Preview software.** Automated Windows and macOS builds are available through
-[GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain).
-DAW listening tests, low-buffer sessions and VST3 host validation remain part of
-the [release checklist](docs/release-checklist.md). Existing control IDs and mappings follow the
-[compatibility contract](docs/development.md#parameter-and-project-compatibility).
+Download the latest release from
+[GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest):
 
-| Platform | Preview archive | Status |
+| Platform | Archive | Status |
 | --- | --- | --- |
-| Windows x64 | `nam-grid-windows-x64.zip` | Local build and native editor tests; Windows CI |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS CI; hands-on DAW validation still needed |
+| Windows x64 | `nam-grid-windows-x64.zip` | Built and tested in CI, including the native editor |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; not code-signed |
 | Linux | — | No plugin build available with the current framework |
 
-1. Open the [main build runs](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain)
-   and choose the latest **successful** run for `main`.
-2. Under **Artifacts**, download your platform's archive. GitHub requires sign-in
-   for artifact downloads; extract the downloaded artifact and its plugin ZIP.
-3. Install `nam-grid.clap` or the complete `nam-grid.vst3` bundle in a plugin
-   location your DAW scans. On Windows, you can use a separate test folder and add
-   it to your host's scan paths. On macOS, the per-user folders are
-   `~/Library/Audio/Plug-Ins/CLAP/` and `~/Library/Audio/Plug-Ins/VST3/`.
-4. Rescan plugins in your DAW and insert **nam-grid** on an audio track. Choose
-   either CLAP or VST3, according to your host's support.
+1. Extract the archive. It contains `nam-grid.clap`, the `nam-grid.vst3` bundle,
+   `ThirdPartyNotices.txt` and a `notices/` folder.
+2. Install `nam-grid.clap` or the complete `nam-grid.vst3` bundle in a plugin
+   location your DAW scans:
+   - Windows: `C:\Program Files\Common Files\CLAP\` or
+     `C:\Program Files\Common Files\VST3\`, or a test folder added to your
+     host's scan paths.
+   - macOS: `~/Library/Audio/Plug-Ins/CLAP/` or `~/Library/Audio/Plug-Ins/VST3/`.
+3. **macOS only:** the plugins are not code-signed or notarized, so macOS blocks
+   downloaded copies. After copying, clear the quarantine flag in Terminal:
 
-Keep `ThirdPartyNotices.txt` and `notices/` with the build when sharing it.
+   ```sh
+   xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/CLAP/nam-grid.clap ~/Library/Audio/Plug-Ins/VST3/nam-grid.vst3
+   ```
+
+4. Rescan plugins in your DAW and insert **NAM Grid** (vendor Simon Heimler) on an
+   audio track. Choose either CLAP or VST3, according to your host's support.
+
+Keep `ThirdPartyNotices.txt` and `notices/` with the plugins when sharing them.
 There is no bundled NAM capture or cabinet IR collection. Built-in effects work
-without additional files; amp sounds require your own captures.
+without additional files; amp sounds require your own captures. Builds of every
+`main` commit are also available as
+[GitHub Actions artifacts](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
+(sign-in required).
+
+**0.1.0 is the first release.** Earlier preview builds used different plugin and
+parameter IDs; their projects and presets do not load and must be rebuilt. From
+0.1.0 onward, plugin IDs, automation and saved rigs remain compatible
+([compatibility contract](docs/development.md#parameter-and-project-compatibility)).
+DAW listening, low-buffer sessions and host validation are tracked in the
+[release checklist](docs/release-checklist.md).
 
 ## Your first guitar rig
 
@@ -88,8 +141,6 @@ when you want to keep their width. See [routing](docs/grid.md) for details.
 
 ## Find sounds and save rigs
 
-![The module browser showing modulation effects, categories and a description of Juno Chorus](docs/screenshots/browser.png)
-
 Click a tile to browse effects, captures or IRs for that slot. Search by name,
 folder or NAM metadata, inspect a result, then double-click or press **Load**.
 Browsing and selecting results leave the current sound playing until you load
@@ -114,11 +165,10 @@ For audio problems, include sample rate, buffer size and the modules involved.
 
 ## For developers
 
-nam-grid is based on NAM, NAM Core, AudioDSPTools and iPlug2. The supported
+NAM Grid is based on NAM, NAM Core, AudioDSPTools and iPlug2. The supported
 build entry point is **CMake**. Follow [build.md](docs/build.md) for dependencies,
 submodule patches, build commands, CTest and packaging, and
-[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. The retained
-upstream installer and standalone scripts are historical.
+[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance.
 
 - **Architecture and controls:** [grid routing](docs/grid.md),
   [implementation and compatibility](docs/development.md),
@@ -132,33 +182,31 @@ upstream installer and standalone scripts are historical.
 See the [documentation index](docs/README.md) for all guides. Reviews and
 measurement reports belong in PR descriptions/comments or ignored `tmp/` files.
 
-The existing CLAP/VST3 plugin IDs are retained for host identification. Existing
-control IDs and mappings follow the [compatibility contract](docs/development.md#parameter-and-project-compatibility).
+New controls, modules and modes follow the append-only
+[compatibility contract](docs/development.md#parameter-and-project-compatibility).
 Algorithm selections are saved in presets/projects and are not automatable.
-This cleanup resets prototype automation IDs; earlier preview automation must
-be recreated. The compatibility guarantee begins with this baseline.
 
 ## License and credits
 
-Licensed under [MIT](LICENSE). Adapted algorithms and dependencies retain their
-own notices; see [ThirdPartyNotices.txt](NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+Licensed under [MIT](LICENSE). Adapted algorithms, dependencies and the
+[Roboto](https://github.com/googlefonts/roboto) font (Apache 2.0) retain their own notices; see [ThirdPartyNotices.txt](ThirdPartyNotices.txt)
 and the accompanying notice files in distributed builds.
 
 ### Acknowledgments
 
-nam-grid is built on the work of many open-source projects:
+NAM Grid is built on the work of many open-source projects:
 
 - **[Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin)** by
   Steven Atkinson — the plugin foundation, together with the
   [NAM Core](https://github.com/sdatkinson/NeuralAmpModelerCore) and
   [AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) (NAM captures,
   cabinet IRs, EQ and compressor filter coefficients).
-- **[Gateway](https://www.neuralampmodeler.com/)** — the pre-built official NAM
-  plugin by Steven Atkinson, the starting point for the dual-prototype editor.
+- **[Gateway](https://www.neuralampmodeler.com/)** — the official pre-built NAM
+  plugin by Steven Atkinson, the starting point for NAM Grid's editor.
 - **[iPlug2](https://github.com/iPlug2/iPlug2)** — the C++ plugin framework behind
   the CLAP and VST3 builds.
 - FX algorithms adapted or informed by (all used under permissive licenses; see the
-  shipped [third-party notices](NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+  shipped [third-party notices](ThirdPartyNotices.txt)
   for details and full license texts):
   - **[Airwindows](https://github.com/airwindows/airwindows)** (Chris Johnson) —
     [Tape](https://www.airwindows.com/tape/),
@@ -181,4 +229,4 @@ nam-grid is built on the work of many open-source projects:
   - **[LEAF](https://github.com/spiricom/LEAF)** — compressor dynamics.
 
 Thanks to all contributors credited in the
-[third-party notices](NeuralAmpModeler/installer/ThirdPartyNotices.txt).
+[third-party notices](ThirdPartyNotices.txt).

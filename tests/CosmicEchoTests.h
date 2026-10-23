@@ -131,7 +131,7 @@ void TestCosmicBypassDrain()
     {
       l.fill(0.); r.fill(0.); if(block==0) l[0]=1.;
       tracking=true; Eigen::internal::set_is_malloc_allowed(false);
-      stage.Process(l.data(),100,!bypass || block==0 || block>=700,0.,0.,false,0.,0,1.,{},{},c,r.data());
+      stage.Process(l.data(),100,!bypass || block==0 || block>=700,0.,0.,{},{},c,r.data());
       Eigen::internal::set_is_malloc_allowed(true); tracking=false;
       if(block>=700 || !bypass) for(double x:l) energy+=x*x;
     }

@@ -13,7 +13,7 @@ struct ModuleGroup
 using E = SlotEffect;
 inline const ModuleGroup kModuleGroups[]{
   {"Distortion", {E::Distortion, E::Boost, E::TubeBoost, E::Tape, E::ConsoleColour, E::Bitcrusher}},
-  {"Dynamics", {E::NaturalGate, E::NoisePrint, E::DigitalBlack, E::SmoothComp, E::PunchComp, E::ButterComp, E::OutboardChannel, E::Pressure, E::Limiter}},
+  {"Dynamics", {E::NoiseGate, E::NoisePrint, E::DigitalBlack, E::SmoothComp, E::PunchComp, E::ButterComp, E::OutboardChannel, E::Pressure, E::Limiter}},
   {"EQ / Filter", {E::ToneEQ, E::CutEQ, E::ParametricEQ, E::ConsoleEQ, E::SynthFilter, E::Wah}},
   {"Modulation", {E::Chorus, E::JunoChorus, E::Flanger, E::Phaser, E::Tremolo, E::Vibrato, E::Rotary, E::UniVibe, E::RingMod}},
   {"Pitch / Frequency", {E::Octaver, E::Doubler, E::FrequencyShifter}},
@@ -25,14 +25,12 @@ inline const ModuleGroup kModuleGroups[]{
 };
 inline const ModuleGroup* ModuleGroupFor(SlotEffect effect)
 {
-  if (effect == E::TightGate) effect = E::NaturalGate;
   for (const auto& group : kModuleGroups)
     if (std::find(group.effects.begin(), group.effects.end(), effect) != group.effects.end()) return &group;
   return nullptr;
 }
 inline SlotEffect StepModule(SlotEffect effect, int direction)
 {
-  if (effect == E::TightGate) effect = E::NaturalGate;
   if (const auto* group = ModuleGroupFor(effect))
   {
     const auto current = std::find(group->effects.begin(), group->effects.end(), effect) - group->effects.begin();

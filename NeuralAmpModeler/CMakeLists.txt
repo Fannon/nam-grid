@@ -88,9 +88,9 @@ foreach(format IN LISTS NAM_FORMATS)
 endforeach()
 file(GLOB NAM_CORE_SOURCES CONFIGURE_DEPENDS
   "../NeuralAmpModelerCore/NAM/*.cpp" "../NeuralAmpModelerCore/NAM/wavenet/*.cpp")
-file(GLOB NAM_RESOURCES CONFIGURE_DEPENDS "resources/fonts/*" "resources/img/*")
-list(APPEND NAM_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/installer/ThirdPartyNotices.txt")
-configure_file(installer/ThirdPartyNotices.txt "${CMAKE_BINARY_DIR}/out/ThirdPartyNotices.txt" COPYONLY)
+file(GLOB NAM_RESOURCES CONFIGURE_DEPENDS "resources/fonts/*.ttf")
+list(APPEND NAM_RESOURCES "${PROJECT_SOURCE_DIR}/ThirdPartyNotices.txt")
+configure_file("${PROJECT_SOURCE_DIR}/ThirdPartyNotices.txt" "${CMAKE_BINARY_DIR}/out/ThirdPartyNotices.txt" COPYONLY)
 foreach(dependency CLAP_SDK CLAP_HELPERS VST3_SDK)
   if(dependency STREQUAL "VST3_SDK")
     set(license_name LICENSE.txt)
@@ -119,40 +119,12 @@ if(MSVC)
 else()
   target_compile_options(nam-stage-tests PRIVATE -UNDEBUG)
 endif()
-option(NAM_BUILD_BASELINE "Build unmodified upstream DSP with the same CLAP adapter for benchmarking" OFF)
-if(NAM_BUILD_BASELINE)
-  set(baseline "${CMAKE_CURRENT_SOURCE_DIR}/build-baseline")
-  if(NOT EXISTS "${baseline}/BaselineNAM.cpp")
-    message(FATAL_ERROR "Run python scripts/prepare-baseline.py first")
-  endif()
-  iplug_add_plugin(NAMBaseline
-    FORMATS CLAP
-    SOURCES "${baseline}/BaselineNAM.cpp" ToneStack.cpp ${NAM_CORE_SOURCES}
-      ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/NoiseGate.cpp
-      ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp ../AudioDSPTools/dsp/wav.cpp
-    RESOURCES ${NAM_RESOURCES}
-    DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f)
-  target_include_directories(_NAMBaseline-base INTERFACE . ../eigen ../NeuralAmpModelerCore/Dependencies/nlohmann)
-  set_target_properties(NAMBaseline-clap PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark")
-  foreach(configuration DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
-    set_target_properties(NAMBaseline-clap PROPERTIES
-      LIBRARY_OUTPUT_DIRECTORY_${configuration} "${CMAKE_BINARY_DIR}/benchmark")
-  endforeach()
-  if(WIN32)
-    target_sources(NAMBaseline-clap PRIVATE resources/main.rc)
-    target_include_directories(NAMBaseline-clap PRIVATE resources/fonts resources/img)
-  elseif(APPLE)
-    target_link_libraries(NAMBaseline-clap PRIVATE "-framework Accelerate")
-  endif()
-endif()
 add_test(NAME stages COMMAND nam-stage-tests "${CMAKE_SOURCE_DIR}")
 if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
   add_executable(nam-clap-smoke ../tests/clap_smoke.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
   if(WIN32)
     target_link_libraries(nam-clap-smoke PRIVATE shell32)
   endif()
-  add_executable(nam-clap-bench ../tests/clap_bench.cpp)
   option(NAM_BUILD_PERFORMANCE_TESTS "Build the on-demand FX CPU/deadline report host" OFF)
   if(NAM_BUILD_PERFORMANCE_TESTS)
     # Explicit build/run only: never part of ALL or CTest/CI.
@@ -166,6 +138,16 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
     endif()
   endif()
   add_executable(nam-fx-audition ../tests/fx_audition.cpp)
+  if(WIN32)
+    # Explicit build/run only: regenerates the README screenshots (docs/screenshots).
+    add_executable(nam-readme-gallery EXCLUDE_FROM_ALL ../tests/readme_gallery.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
+    target_include_directories(nam-readme-gallery PRIVATE . ${CLAP_SDK_DIR}/include ../NeuralAmpModelerCore/Dependencies/nlohmann
+      ../iPlug2/IPlug ../iPlug2/WDL ../iPlug2/IGraphics ../iPlug2/Dependencies/IGraphics/NanoSVG/src)
+    target_compile_features(nam-readme-gallery PRIVATE cxx_std_20)
+    target_compile_definitions(nam-readme-gallery PRIVATE NOMINMAX)
+    target_compile_options(nam-readme-gallery PRIVATE /UNDEBUG)
+    target_link_libraries(nam-readme-gallery PRIVATE user32 gdi32 opengl32 shell32 ole32)
+  endif()
   add_executable(nam-tuner-tests ../tests/tuner_clap.cpp)
   add_executable(nam-parameter-contract ../tests/parameter_contract.cpp)
   if(WIN32 AND "VST3" IN_LIST NAM_FORMATS)
@@ -177,7 +159,7 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
     target_compile_options(nam-vst3-parameter-contract PRIVATE /UNDEBUG)
     add_dependencies(nam-parameter-contract nam-vst3-parameter-contract)
   endif()
-  foreach(test_target nam-clap-smoke nam-clap-bench nam-fx-audition nam-tuner-tests nam-parameter-contract)
+  foreach(test_target nam-clap-smoke nam-fx-audition nam-tuner-tests nam-parameter-contract)
     target_include_directories(${test_target} PRIVATE ${CLAP_SDK_DIR}/include
       ../NeuralAmpModelerCore/Dependencies/nlohmann)
     target_compile_features(${test_target} PRIVATE cxx_std_20)
@@ -194,10 +176,9 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
 endif()
 iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
-  SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h ToneStack.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
-    ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/NoiseGate.cpp
-    ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp
-    ../AudioDSPTools/dsp/wav.cpp
+  SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
+    ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/ImpulseResponse.cpp
+    ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}
   DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f ${NAM_IR_DEFINES})
 target_include_directories(_nam-grid-base INTERFACE
@@ -224,7 +205,7 @@ foreach(format IN LISTS NAM_FORMATS)
     endif()
     if(WIN32)
       target_sources(nam-grid-${suffix} PRIVATE resources/main.rc)
-      target_include_directories(nam-grid-${suffix} PRIVATE resources/fonts resources/img)
+      target_include_directories(nam-grid-${suffix} PRIVATE resources/fonts)
     endif()
   endif()
 endforeach()

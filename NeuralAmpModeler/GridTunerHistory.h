@@ -7,7 +7,7 @@
 
 // Trace connection rules inspired by trace-tuner/src/ui.rs at
 // 2e1ff89243698b8f4fca33dc4505a2cd749d9e67 (MIT, Simon Heimler, 2026).
-// See installer/ThirdPartyNotices.txt. History stores frequency so the UI can
+// See ThirdPartyNotices.txt. History stores frequency so the UI can
 // reinterpret existing points after a reference change.
 namespace grid_tuner
 {

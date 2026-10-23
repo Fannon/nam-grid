@@ -76,26 +76,19 @@ void TestCachedControlsClap(const clap_plugin* plugin, json cleared, Load load,
                                                   : "Post ")
                           + std::to_string(slot % 4 + 1);
       auto config = cleared;
-      config["Output"] = config["Global Input"] = config["Input"] = config["Tuner"] = 0.;
+      config["Output"] = config["Global Input"] = config["Pre 2 In"] = config["Tuner"] = 0.;
       config["Parallel Blend"] = slot >= 8 && slot < 12 ? 100. : 0.;
       config["SlotEffects"][slot] = static_cast<int>(effect);
       config[prefix + " Utility Output"] = 0.;
       const std::vector<std::string> names = effect == SlotEffect::Utility
                                                ? std::vector<std::string>{prefix + " Utility Output"}
-                                               : std::vector<std::string>{slot == 0   ? "Drive Input"
-                                                                          : slot == 1 ? "Input"
-                                                                                      : prefix + " In",
-                                                                          slot == 0   ? "Drive Trim"
-                                                                          : slot == 1 ? "Amp Trim"
-                                                                                      : prefix + " Trim"};
+                                               : std::vector<std::string>{prefix + " In", prefix + " Trim"};
       for (const auto& name : names)
         config[name] = 0.;
-      config[slot == 0 ? "Drive Enabled" : slot == 1 ? "Amp Enabled" : prefix + " Enabled"] = 1.;
+      config[prefix + " Enabled"] = 1.;
       if (effect == SlotEffect::NAM)
       {
         config["SlotPaths"][slot] = path.string();
-        if (slot < 2)
-          config[slot == 0 ? "DrivePath" : "NAMPath"] = path.string();
       }
       load(config);
       assert(plugin->activate(plugin, 48000., 1, 64));

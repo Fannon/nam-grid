@@ -91,7 +91,7 @@ bool FFTConvolver::init(size_t blockSize, const Sample* ir, size_t irLen)
     return false;
   }
 
-  // Modified by nam-grid: retain every nonzero coefficient, including quiet tails.
+  // Modified by NAM Grid: retain every nonzero coefficient, including quiet tails.
   // Exact zeros at the end do not contribute to the response.
   while (irLen > 0 && ir[irLen-1] == 0.0f)
   {

@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   build-test:
-    uses: ./.github/workflows/dual-prototype.yml
+    uses: ./.github/workflows/build-test.yml

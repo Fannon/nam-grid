@@ -13,7 +13,7 @@ void TestStereoGuitarEffects()
     return stage;
   };
   auto process = [](NAMStage& stage, double* l, double* r, int n, const UtilityControls& c, bool on = true) {
-    stage.Process(l, n, on, 0, 0, false, 0, 0, 1, {}, {}, c, r);
+    stage.Process(l, n, on, 0, 0, {}, {}, c, r);
   };
   const std::array effects{SlotEffect::DigitalDelay, SlotEffect::AnalogDelay,  SlotEffect::TapeDelay,
                            SlotEffect::Chorus,       SlotEffect::RoomReverb,   SlotEffect::PlateReverb,
@@ -193,7 +193,7 @@ void TestStereoGuitarEffects()
     x[0] = 1.;
     for (int pos = 0; pos < x.size(); pos += 512)
       stage->Process(
-        x.data() + pos, std::min(512, static_cast<int>(x.size()) - pos), true, 0, 0, false, 0, 0, 1, {}, {}, c);
+        x.data() + pos, std::min(512, static_cast<int>(x.size()) - pos), true, 0, 0, {}, {}, c);
     double early = 0., late = 0.;
     for (int i = 2400; i < 24000; ++i)
       early += x[i] * x[i];

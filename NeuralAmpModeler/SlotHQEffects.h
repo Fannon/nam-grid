@@ -8,7 +8,11 @@
 // Original high-quality grid effects. The algorithms are informed by the MIT
 // Shimwash (shimmer reverb), Junologue Chorus (Juno BBD ensemble) and Ruminant
 // (frequency-shifting delay) projects, but this is a rate-scaled, double
-// precision implementation with nam-grid's control smoothing and lifecycle.
+// precision implementation with NAM Grid's control smoothing and lifecycle.
+// Reference revisions consulted (MIT at each revision; see ThirdPartyNotices.txt):
+//   twinpowers/schwung-shimwash             a27d7a215d9cb112d27c5eeb34d31c9e3304087f
+//   charlesvestal/schwung-junologue-chorus  0b1ecd9d09daad91b5726899bd5e4cfe3f97cf06
+//   mestela/schwung-ruminant                d6cdedcc1febc426bb3a06eeca74b768198f446c
 namespace grid_hq
 {
 inline double SoftLimit(double x)

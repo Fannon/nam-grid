@@ -43,8 +43,9 @@ int main(int argc, char** argv)
   auto* factory = static_cast<const clap_plugin_factory*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
   assert(factory && factory->get_plugin_count(factory) == 1);
   const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
-  assert(std::strcmp(descriptor->name, "nam-grid") == 0);
-  assert(std::strcmp(descriptor->id, "com.StevenAtkinson.NAMGridPrototype") == 0);
+  assert(std::strcmp(descriptor->name, "NAM Grid") == 0);
+  assert(std::strcmp(descriptor->id, "io.github.fannon.nam-grid") == 0);
+  assert(std::strcmp(descriptor->vendor, "Simon Heimler") == 0);
   Host host;
   auto* plugin = factory->create_plugin(factory, &host.host, factory->get_plugin_descriptor(factory, 0)->id);
   assert(plugin && plugin->init(plugin));
@@ -63,23 +64,20 @@ int main(int argc, char** argv)
     return state->load(plugin, &in);
   };
   auto load = [&](json& config) {
-    // Keep the old path aliases in sync while exercising existing migration scenarios.
-    for (int i = 0; i < 2; ++i)
-      if (!config.contains("SlotEffects") || config["SlotEffects"][i] == 0)
-        config["SlotPaths"][i] = config[i == 0 ? "DrivePath" : "NAMPath"];
     // These fixtures explicitly choose paths. Derive their new identities from
     // those files; raw loadBytes below separately tests saved-hash relocation.
     config["SlotHashes"] = json::array();
     for (int i = 0; i < 16; ++i)
     {
-      const int effect = config.contains("SlotEffects") ? config["SlotEffects"][i].get<int>() : 0;
+      const int effect = config["SlotEffects"][i].get<int>();
       const auto path = config["SlotPaths"][i].get<std::string>();
-      config["SlotHashes"].push_back((effect == 0 || effect == 7) && !path.empty()
-        && std::filesystem::is_regular_file(std::filesystem::u8path(path))
+      config["SlotHashes"].push_back(
+        (effect == static_cast<int>(SlotEffect::NAM) || effect == static_cast<int>(SlotEffect::CabinetIR)) && !path.empty()
+          && std::filesystem::is_regular_file(std::filesystem::u8path(path))
           ? nam_library::ContentHash(std::filesystem::u8path(path)) : "");
     }
     Stream s;
-    s.string("###NAMGrid-v1###");
+    s.string("###nam-grid###");
     s.string(config.dump());
     assert(loadBytes(std::move(s)));
     // Identity resolution may choose a shallower indexed copy of the same file.
@@ -88,17 +86,21 @@ int main(int argc, char** argv)
     const auto canonical = save().config();
     config["SlotPaths"] = canonical["SlotPaths"];
     config["SlotHashes"] = canonical["SlotHashes"];
-    config["DrivePath"] = canonical["DrivePath"];
-    config["NAMPath"] = canonical["NAMPath"];
+  };
+  auto loadRaw = [&](const json& config) {
+    Stream s;
+    s.string("###nam-grid###");
+    s.string(config.dump());
+    return loadBytes(std::move(s));
   };
   auto base = save().config();
-  assert(base["Tuner"] == 0.);
-  auto beforeTunerAutomation = base; beforeTunerAutomation["schema"] = 22; beforeTunerAutomation.erase("Tuner");
-  Stream beforeTunerBytes; beforeTunerBytes.string("###NAMGrid-v1###"); beforeTunerBytes.string(beforeTunerAutomation.dump());
-  assert(loadBytes(beforeTunerBytes)); assert(save().config() == base);
-  assert(params->count(plugin) == 287 + 16 * kUtilityControls + grid_performance::Count);
-  assert(base["NoiseGateActive"] == 0. && base["ToneStack"] == 0. && base["IRToggle"] == 0.);
-  for (const char* name : {"Input", "Drive Input", "Pre 3 In", "Post 4 In"})
+  assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
+  assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
+  // Every slot exposes the same host controls; no upstream single-amp parameters remain.
+  for (const char* name : {"Input", "Threshold", "Bass", "ToneStack", "IRToggle", "OutputMode", "CalibrateInput",
+                           "Slim", "Drive" " Input", "Amp" " Trim", "DrivePath", "NAMPath", "IRPath"})
+    assert(!base.contains(name));
+  for (const char* name : {"Pre 1 In", "Pre 2 In", "Pre 3 In", "Post 4 In"})
     for (double db : {-40., -30., 30., 40.})
     {
       clap_param_info info{};
@@ -125,118 +127,60 @@ int main(int argc, char** argv)
   const auto path1 = fixtures / "drive.nam", path2 = fixtures / "amp.nam";
   std::ofstream(path1) << a2.dump();
   std::ofstream(path2) << other.dump();
-  base["DrivePath"] = path1.string();
-  base["NAMPath"] = path2.string();
-  base["NoiseGateActive"] = 0.;
-  base["ToneStack"] = 0.;
-  base["IRToggle"] = 0.;
-  base["Drive Input"] = 2.;
-  base["Drive Trim"] = -3.;
-  base["Input"] = 1.;
-  base["Amp Trim"] = -2.;
+  base["SlotPaths"][0] = path1.string();
+  base["SlotPaths"][1] = path2.string();
+  base["Pre 1 In"] = 2.;
+  base["Pre 1 Trim"] = -3.;
+  base["Pre 2 In"] = 1.;
+  base["Pre 2 Trim"] = -2.;
   base["Output"] = -6.;
-  base["CaptureFolder"] = fixtures.string();
   base["CaptureFolders"] = {fixtures.string()};
   load(base);
   assert(save().config() == base);
-  // Version-2 NAM-only grids migrate without changing their signal chain or gains.
-  auto gridV2 = base;
-  gridV2["schema"] = 2;
-  gridV2.erase("SlotEffects");
-  for (auto it = gridV2.begin(); it != gridV2.end();)
-    if (it.key().find(" Gate ") != std::string::npos || it.key().find(" Comp ") != std::string::npos)
-      it = gridV2.erase(it);
-    else
-      ++it;
-  load(gridV2);
-  assert(save().config() == base);
-  auto gridV3 = base;
-  gridV3["schema"] = 3;
-  for (auto it = gridV3.begin(); it != gridV3.end();)
-    if (it.key().find(" EQ ") != std::string::npos || it.key().find(" IR Level") != std::string::npos
-        || it.key().find(" Full Quality") != std::string::npos)
-      it = gridV3.erase(it);
-    else
-      ++it;
-  load(gridV3);
-  assert(save().config() == base);
-  // Older dual-stage states predate library settings; they remain readable.
-  auto oldDual = base;
-  oldDual.erase("CaptureFolder");
-  oldDual.erase("CaptureFolders");
-  load(oldDual);
-  assert(save().config()["CaptureFolder"] == "");
-  load(base);
   auto recalled = save();
   assert(loadBytes(recalled));
   assert(save().config() == base);
-  // The previous dual-stage format migrates into IN 1 / IN 2; the other 14 slots stay empty.
-  auto dual = base;
-  dual["schema"] = 1;
-  dual.erase("SlotPaths");
-  for (auto it = dual.begin(); it != dual.end();)
-    if (it.key().starts_with("Pre ") || it.key().starts_with("Post ") || it.key().starts_with("A ")
-        || it.key().starts_with("B ") || it.key() == "Parallel Blend")
-      it = dual.erase(it);
-    else
-      ++it;
-  Stream dualBytes;
-  dualBytes.string("###NAMDual-v1###");
-  dualBytes.string(dual.dump());
-  assert(loadBytes(dualBytes));
-  const auto dualMigrated = save().config();
-  assert(dualMigrated["SlotPaths"][0] == path1.string() && dualMigrated["SlotPaths"][1] == path2.string());
-  for (int slot = 2; slot < 16; ++slot)
-    assert(dualMigrated["SlotPaths"][slot] == "");
-  assert(dualMigrated["Parallel Blend"] == 50.);
-  load(base);
-  Stream legacy;
-  legacy.string("###NeuralAmpModeler###");
-  legacy.string("0.8.0");
-  legacy.string(path2.string());
-  legacy.string("");
-  for (const char* name : {"Input", "Threshold", "Bass", "Middle", "Treble", "Output", "NoiseGateActive", "ToneStack",
-                           "IRToggle", "CalibrateInput", "InputCalibrationLevel", "OutputMode", "Slim"})
+  // Only the current header and schema load. Prototype/upstream formats, unknown
+  // schemas and newer versions are rejected without mutating the current rig.
+  for (const char* header : {"###NAMGrid" "-v1###", "###NAMDual-v1###", "###NeuralAmpModeler###"})
   {
-    double value = base[name];
-    auto* bytes = reinterpret_cast<uint8_t*>(&value);
-    legacy.bytes.insert(legacy.bytes.end(), bytes, bytes + sizeof(value));
+    Stream foreign;
+    foreign.string(header);
+    foreign.string(base.dump());
+    assert(!loadBytes(foreign));
+    assert(save().config() == base);
   }
-  assert(loadBytes(legacy));
-  auto migrated = save().config();
-  assert(migrated["NAMPath"] == path2.string() && migrated["DrivePath"] == "" && migrated["Drive Input"] == 0.);
-  load(base);
-  legacy.bytes.pop_back();
-  assert(!loadBytes(legacy));
-  assert(save().config() == base);
+  // Integers outside int must not wrap into a valid schema or module ID.
+  for (const json& schema : {json(0), json(kEffectStateSchema + 1), json(26), json(99), json(4294967297ll),
+                             json(-4294967295ll), json(18446744073709551615ull), json(1.)})
+  {
+    auto unsupported = base;
+    unsupported["schema"] = schema;
+    assert(!loadRaw(unsupported));
+    assert(save().config() == base);
+  }
+  for (const char* required : {"schema", "SlotPaths", "SlotEffects", "SlotHashes", "NoisePrintProfiles",
+                               "PerformanceScenes", "Pre 1 In", "Post 4 Pressure Output", "Tuner"})
+  {
+    auto incomplete = base;
+    incomplete.erase(required);
+    assert(!loadRaw(incomplete));
+    assert(save().config() == base);
+  }
   // Malformed state must leave the previously committed state intact.
-  for (const char* path : {"DrivePath", "NAMPath", "IRPath"})
+  for (int slot : {0, 1, 15})
   {
     auto invalidPath = base;
-    invalidPath[path] = std::string("bad\0path", 8);
-    if (std::strcmp(path, "IRPath") != 0)
-      invalidPath["SlotPaths"][std::strcmp(path, "DrivePath") == 0 ? 0 : 1] = invalidPath[path];
-    Stream malformed;
-    malformed.string("###NAMGrid-v1###"); malformed.string(invalidPath.dump());
-    assert(!loadBytes(malformed));
+    invalidPath["SlotPaths"][slot] = std::string("bad\0path", 8);
+    assert(!loadRaw(invalidPath));
     assert(save().config() == base);
   }
   // The byte strings themselves must not silently truncate at an embedded NUL.
   for (bool corruptHeader : {false, true})
   {
     Stream malformed;
-    malformed.string(std::string("###NAMGrid-v1###") + (corruptHeader ? std::string("\0junk", 5) : ""));
+    malformed.string(std::string("###nam-grid###") + (corruptHeader ? std::string("\0junk", 5) : ""));
     malformed.string(base.dump() + (corruptHeader ? "" : std::string("\0junk", 5)));
-    assert(!loadBytes(malformed));
-    assert(save().config() == base);
-  }
-  for (const json& folder : {json(123), json(std::string("bad\0folder", 10))})
-  {
-    auto invalidFolder = base;
-    invalidFolder["CaptureFolder"] = folder;
-    Stream malformed;
-    malformed.string("###NAMGrid-v1###");
-    malformed.string(invalidFolder.dump());
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
@@ -246,10 +190,7 @@ int main(int argc, char** argv)
   {
     auto invalidFolders = base;
     invalidFolders[folderField] = folders;
-    Stream malformed;
-    malformed.string("###NAMGrid-v1###");
-    malformed.string(invalidFolders.dump());
-    assert(!loadBytes(malformed));
+    assert(!loadRaw(invalidFolders));
     assert(save().config() == base);
   }
   auto namEQState = base;
@@ -258,33 +199,27 @@ int main(int argc, char** argv)
   load(namEQState);
   assert(save().config() == namEQState);
   auto utilityState = base;
-  utilityState["SlotEffects"][0] = 8;
+  utilityState["SlotEffects"][0] = static_cast<int>(SlotEffect::ParametricEQ);
   utilityState["SlotPaths"][0] = "";
-  utilityState["DrivePath"] = "";
   utilityState["Pre 1 Parametric Frequency"] = 1200.;
   utilityState["Pre 1 Parametric Gain"] = -5.;
   utilityState["Pre 1 Parametric Q"] = 1.3;
-  utilityState["SlotEffects"][15] = 9;
+  utilityState["SlotEffects"][15] = static_cast<int>(SlotEffect::Boost);
   utilityState["Post 4 Boost Gain"] = 9.;
   load(utilityState);
   assert(save().config() == utilityState);
-  auto inheritedProcessing = base;
-  inheritedProcessing["NoiseGateActive"] = 1.;
-  inheritedProcessing["ToneStack"] = 1.;
-  inheritedProcessing["IRToggle"] = 1.;
-  load(inheritedProcessing);
-  assert(save().config() == inheritedProcessing); // Earlier projects keep their global processing flags.
-  auto oneFolderState = base;
-  oneFolderState.erase("CaptureFolders");
-  load(oneFolderState); // Pre-multiple-folder projects still restore their library root.
-  assert(save().config() == base);
+  // A built-in module cannot carry a file path.
+  auto pathOnEffect = utilityState;
+  pathOnEffect["SlotPaths"][0] = path1.string();
+  assert(!loadRaw(pathOnEffect));
+  assert(save().config() == utilityState);
   auto multipleFolders = base;
   multipleFolders["CaptureFolders"] = {fixtures.string(), (fixtures / "IRs").string()};
   load(multipleFolders);
   assert(save().config() == multipleFolders);
   load(base);
   Stream bad;
-  bad.string("###NAMGrid-v1###");
+  bad.string("###nam-grid###");
   bad.string("{bad JSON");
   assert(!loadBytes(bad));
   assert(save().config() == base);
@@ -296,136 +231,21 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
-  for (const json& badEffect : {json(-1), json(99), json(1.5), json("gate"), json(18446744073709551615ull)})
+  for (const json& badEffect : {json(-1), json(static_cast<int>(SlotEffect::Last) + 1), json(1.5), json("gate"),
+                                json(18446744073709551615ull), json(4294967297ll), json(-4294967295ll)})
   {
     auto malformedEffect = base;
     malformedEffect["SlotEffects"][15] = badEffect;
-    Stream invalid;
-    invalid.string("###NAMGrid-v1###");
-    invalid.string(malformedEffect.dump());
-    assert(!loadBytes(invalid));
+    assert(!loadRaw(malformedEffect));
     assert(save().config() == base);
   }
-  // Schemas 4/5 were unused WIP numbers. Reject explicitly without mutation.
-  for (int schema : {4, 5, 99}) // Unused schemas must reject without mutating state.
-  {
-    auto unsupported = base;
-    unsupported["schema"] = schema;
-    Stream invalid;
-    invalid.string("###NAMGrid-v1###");
-    invalid.string(unsupported.dump());
-    assert(!loadBytes(invalid));
-    assert(save().config() == base);
-  }
-  auto oldGateNames = base;
-  auto expectedGates = base;
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const std::string label = std::string(slot < 4    ? "Pre "
-                                          : slot < 8  ? "A "
-                                          : slot < 12 ? "B "
-                                                      : "Post ")
-                              + std::to_string(slot % 4 + 1);
-    oldGateNames.erase(label + " Gate Release");
-    oldGateNames[label + " Gate Decay"] = 55. + slot;
-    expectedGates[label + " Gate Release"] = 55. + slot;
-  }
-  load(oldGateNames);
-  assert(save().config() == expectedGates);
-  load(base);
-  // The last prototype's schema 6 fills new controls by name despite the new
-  // per-slot parameter stride, without dropping later slots' saved values.
-  auto prior = base;
-  prior["schema"] = 6;
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const std::string slotName = std::string(slot < 4    ? "Pre "
-                                             : slot < 8  ? "A "
-                                             : slot < 12 ? "B "
-                                                         : "Post ")
-                                 + std::to_string(slot % 4 + 1);
-    for (int p = 30; p < kUtilityControls; ++p)
-      prior.erase(slotName + " " + kEffectParameters[p].name);
-  }
-  prior["Post 4 Boost Gain"] = 11.;
-  load(prior);
-  assert(save().config()["Post 4 Boost Gain"] == 11.);
-  assert(save().config()["Post 4 Comp Attack"] == 8.);
-  assert(save().config()["Post 4 Punch Attack"] == 25.);
-  auto schema7 = base;
-  schema7["schema"] = 7;
-  schema7.erase("Tuner Reference");
-  schema7.erase("Tuner Mute");
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const std::string label = std::string(slot < 4    ? "Pre "
-                                          : slot < 8  ? "A "
-                                          : slot < 12 ? "B "
-                                                      : "Post ")
-                              + std::to_string(slot % 4 + 1);
-    for (int p = 41; p < kUtilityControls; ++p)
-      schema7.erase(label + " " + kEffectParameters[p].name);
-  }
-  schema7["Post 4 Boost Gain"] = 13.;
-  load(schema7);
-  assert(save().config()["Post 4 Boost Gain"] == 13.);
-  assert(save().config()["Post 4 Tempo Sync"] == 0. && save().config()["Tuner Reference"] == 440.);
-  load(base);
-  auto schema8 = base;
-  schema8["schema"] = 8;
-  schema8["Tuner Reference"] = 442.;
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const std::string label = std::string(slot < 4    ? "Pre "
-                                          : slot < 8  ? "A "
-                                          : slot < 12 ? "B "
-                                                      : "Post ")
-                              + std::to_string(slot % 4 + 1);
-    for (int p = 48; p < kUtilityControls; ++p)
-      schema8.erase(label + " " + kEffectParameters[p].name);
-    schema8.erase(label + " Utility Width");
-    schema8[label + " Utility Width"] = slot == 15 ? 145. : 100.;
-  }
-  load(schema8);
-  assert(save().config()["Post 4 Utility Width"] == 45. && save().config()["Pre 1 Utility Width"] == 0.);
-  assert(save().config()["Tuner Reference"] == 442.);
-  load(base);
-  // Schema 10 predates the three HQ modules. Remove only their named controls;
-  // every earlier control must survive the new per-slot stride.
-  auto schema10 = base;
-  schema10["schema"] = 10;
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const std::string label = std::string(slot < 4    ? "Pre "
-                                          : slot < 8  ? "A "
-                                          : slot < 12 ? "B "
-                                                      : "Post ")
-                              + std::to_string(slot % 4 + 1);
-    for (int p = 103; p < kUtilityControls; ++p)
-      schema10.erase(label + " " + kEffectParameters[p].name);
-  }
-  schema10["Post 4 Boost Gain"] = 14.;
-  schema10["Pre 1 Rotary Fast"] = 7.3;
-  load(schema10);
-  assert(save().config()["Post 4 Boost Gain"] == 14.);
-  assert(save().config()["Pre 1 Rotary Fast"] == 7.3);
-  assert(save().config()["Pre 1 Shimmer Pitch"] == 12.);
-  assert(save().config()["Pre 1 Juno Mode"] == 1.);
-  assert(save().config()["Pre 1 Shifter Frequency"] == 0.);
-  auto schema10Effect = schema10;
-  schema10Effect["SlotEffects"][0] = static_cast<int>(SlotEffect::ShimmerReverb);
-  Stream oldEffect;
-  oldEffect.string("###NAMGrid-v1###");
-  oldEffect.string(schema10Effect.dump());
-  assert(!loadBytes(oldEffect));
-  load(base);
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
   auto missing = base;
-  missing["DrivePath"] = (fixtures / "missing.nam").string();
+  missing["SlotPaths"][0] = (fixtures / "missing.nam").string();
   load(missing);
   assert(save().config() == missing);
   std::ofstream(fixtures / "invalid.nam") << "invalid";
-  missing["NAMPath"] = (fixtures / "invalid.nam").string();
+  missing["SlotPaths"][1] = (fixtures / "invalid.nam").string();
   load(missing);
   assert(save().config() == missing);
   load(base);
@@ -436,7 +256,7 @@ int main(int argc, char** argv)
     auto malformedGrid = base;
     malformedGrid["SlotPaths"][badSlot] = 123;
     Stream badGrid;
-    badGrid.string("###NAMGrid-v1###");
+    badGrid.string("###nam-grid###");
     badGrid.string(malformedGrid.dump());
     assert(!loadBytes(badGrid));
     assert(save().config() == base);
@@ -512,7 +332,7 @@ int main(int argc, char** argv)
     for (uint32_t index = 0; index < info->count(plugin); ++index)
     {
       assert(info->get_info(plugin, index, &automation));
-      if (std::strcmp(automation.name, "Drive Trim") == 0)
+      if (std::strcmp(automation.name, "Pre 1 Trim") == 0)
         break;
     }
     clap_event_param_value change{};
@@ -529,12 +349,12 @@ int main(int argc, char** argv)
     params->flush(plugin, &automationEvents, &sent);
     double value = 0.;
     assert(params->get_value(plugin, automation.id, &value) && std::abs(value - change.value) < 1e-9);
-    assert(std::abs(save().config()["Drive Trim"].get<double>() + 8.) < 1e-9);
+    assert(std::abs(save().config()["Pre 1 Trim"].get<double>() + 8.) < 1e-9);
     for (int replacement = 0; replacement < 6; ++replacement)
     {
       auto next = base;
       if (replacement % 2 == 0)
-        next["DrivePath"] = "";
+        next["SlotPaths"][0] = "";
       load(next);
       if (host.callback)
       {
@@ -594,8 +414,8 @@ int main(int argc, char** argv)
   }
   assert(save().config() == fullGrid);
   auto cleared = base;
-  cleared["DrivePath"] = "";
-  cleared["NAMPath"] = "";
+  cleared["SlotPaths"][0] = "";
+  cleared["SlotPaths"][1] = "";
   load(cleared);
   assert(save().config() == cleared);
   if (const char* cacheOnly = std::getenv("NAM_GRID_CACHE_SMOKE"); cacheOnly && std::strcmp(cacheOnly, "1") == 0)
@@ -650,7 +470,7 @@ int main(int argc, char** argv)
   out.channel_count = outInfo.channel_count;
   assert(in.channel_count == 2 && out.channel_count == 2);
   auto stereoUtility = cleared;
-  stereoUtility["SlotEffects"][15] = 25;
+  stereoUtility["SlotEffects"][15] = static_cast<int>(SlotEffect::Utility);
   stereoUtility["Post 4 Utility Output"] = -6.;
   stereoUtility["Post 4 Utility Balance"] = -100.;
   stereoUtility["Post 4 Utility Invert L"] = 1.;
@@ -677,7 +497,7 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // A real CLAP transport drives repeats and can change tempo on an active instance.
   auto syncState = cleared;
-  syncState["SlotEffects"][0] = 12;
+  syncState["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalDelay);
   syncState["Pre 1 Tempo Sync"] = 1.;
   syncState["Pre 1 Tempo Division"] = 5.;
   syncState["Pre 1 Delay Mix"] = 100.;
@@ -828,22 +648,10 @@ int main(int argc, char** argv)
     number(4096, 2);
     number(0, 2);
   }
-  auto irState = cleared;
-  irState["IRPath"] = irFile.string();
-  irState["IRToggle"] = 1.;
-  load(irState);
-  assert(save().config() == irState);
-  assert(plugin->activate(plugin, 48000., 1, 512));
-  assert(plugin->start_processing(plugin));
-  assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
-  for (int i = 0; i < 512; ++i)
-    assert(std::isfinite(output[0][i]));
-  plugin->stop_processing(plugin);
-  plugin->deactivate(plugin);
   // All four built-ins occupy independently saved slots in every row, including parallel lanes.
   auto dynamics = cleared;
   for (int slot = 0; slot < 16; ++slot)
-    dynamics["SlotEffects"][slot] = slot % 4 + 1;
+    dynamics["SlotEffects"][slot] = static_cast<int>(SlotEffect::NoiseGate) + slot % 3; // gate, smooth, punch
   dynamics["Pre 1 Gate Threshold"] = -65.;
   dynamics["A 1 Gate Release"] = 75.;
   dynamics["B 3 Comp Release"] = 240.;
@@ -907,14 +715,14 @@ int main(int argc, char** argv)
   }
   // Movable EQ and IR slots, including a file-based IR in a former NAM alias position.
   auto eqIR = cleared;
-  eqIR["SlotEffects"][0] = 7;
+  eqIR["SlotEffects"][0] = static_cast<int>(SlotEffect::CabinetIR);
   eqIR["SlotPaths"][0] = irFile.string();
   eqIR["Pre 1 IR Level"] = -12.;
-  eqIR["SlotEffects"][3] = 5;
+  eqIR["SlotEffects"][3] = static_cast<int>(SlotEffect::ToneEQ);
   eqIR["Pre 4 EQ Bass"] = 3.;
   eqIR["Pre 4 EQ Mid"] = -4.;
   eqIR["Pre 4 EQ Treble"] = 2.;
-  eqIR["SlotEffects"][12] = 6;
+  eqIR["SlotEffects"][12] = static_cast<int>(SlotEffect::CutEQ);
   eqIR["Post 1 EQ High Pass"] = 75.;
   eqIR["Post 1 EQ Low Pass"] = 7500.;
   eqIR["Post 1 EQ Presence"] = -2.;
@@ -959,16 +767,16 @@ int main(int argc, char** argv)
   // Full state recall and processing of every new effect at all supported test rates.
   auto timeEffects = cleared;
   for (int slot = 0; slot < 16; ++slot)
-    timeEffects["SlotEffects"][slot] = 10 + slot % 14;
+    timeEffects["SlotEffects"][slot] = static_cast<int>(SlotEffect::SynthFilter) + slot % 14; // SynthFilter..Tape
   timeEffects["Pre 3 Delay Time"] = 123.;
   timeEffects["Pre 4 Delay Character"] = 67.;
   timeEffects["A 2 Reverb Decay"] = 3.4;
   timeEffects["B 1 Mod Rate"] = 2.3;
   timeEffects["Post 2 Tape Drive"] = 5.;
-  timeEffects["SlotEffects"][14] = 24;
+  timeEffects["SlotEffects"][14] = static_cast<int>(SlotEffect::TubeBoost);
   timeEffects["Post 3 Tube Drive"] = 12.;
-  timeEffects["SlotEffects"][0] = 26;
-  timeEffects["SlotEffects"][1] = 27;
+  timeEffects["SlotEffects"][0] = static_cast<int>(SlotEffect::SpringReverb);
+  timeEffects["SlotEffects"][1] = static_cast<int>(SlotEffect::Wah);
   timeEffects["Pre 1 Spring Dwell"] = 5.;
   timeEffects["Pre 1 Spring Drip"] = 73.;
   timeEffects["Pre 2 Wah Position"] = 28.;
@@ -1012,7 +820,7 @@ int main(int argc, char** argv)
   // The real host tail extension must stay bounded even with every slot a delay.
   auto allDelays = cleared;
   for (int slot = 0; slot < 16; ++slot)
-    allDelays["SlotEffects"][slot] = 12;
+    allDelays["SlotEffects"][slot] = static_cast<int>(SlotEffect::DigitalDelay);
   for (double rate : {44100., 48000., 96000.})
   {
     load(allDelays);
@@ -1035,9 +843,6 @@ int main(int argc, char** argv)
   TestEffectModeClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
-  auto schema11 = cleared; schema11["schema"] = 11; schema11.erase("Global Input");
-  load(schema11);
-  assert(save().config()["Global Input"] == 0.);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
   {
     plugin->destroy(plugin); entry->deinit();
@@ -1067,7 +872,6 @@ int main(int argc, char** argv)
   const auto libraryIR = irLibrary / "cabinet.wav";
   std::filesystem::copy_file(irFile, libraryIR, std::filesystem::copy_options::overwrite_existing);
   auto browserState = cleared;
-  browserState["CaptureFolder"] = libraryFolder.string();
   browserState["CaptureFolders"] = {libraryFolder.string(), irLibrary.string()};
   browserState["PresetFolders"] = json::array();
   load(browserState);
@@ -1203,7 +1007,7 @@ int main(int argc, char** argv)
     win_edit_menu::SelectFirstDestination(editor, 0, 0);
     pumpFor(50);
     const auto noiseCopy = save().config();
-    assert(noiseCopy["SlotEffects"][1] == 64);
+    assert(noiseCopy["SlotEffects"][1] == static_cast<int>(SlotEffect::NoisePrint));
     assert(noiseCopy["NoisePrintProfiles"][1] == learnedNoiseState["NoisePrintProfiles"][0]);
     assert(noiseCopy["Pre 2 Noise Gate Threshold"] == learnedNoiseState["Pre 1 Noise Gate Threshold"]);
     selectTile(170, 120);
@@ -1226,11 +1030,11 @@ int main(int argc, char** argv)
         for (double gain : {-30., 30.})
         {
           const int destination = 1 - source;
-          const char* sourceGain = source == 0 ? "Drive Input" : "Input";
-          const char* destinationGain = destination == 0 ? "Drive Input" : "Input";
+          const char* sourceGain = source == 0 ? "Pre 1 In" : "Pre 2 In";
+          const char* destinationGain = destination == 0 ? "Pre 1 In" : "Pre 2 In";
           auto editState = browserState;
-          editState["DrivePath"] = libraryFirst.string();
-          editState["NAMPath"] = librarySecond.string();
+          editState["SlotPaths"][0] = libraryFirst.string();
+          editState["SlotPaths"][1] = librarySecond.string();
           editState[sourceGain] = gain;
           const double previousGain = gain > 0. ? -35. : 35.;
           editState[destinationGain] = previousGain;
@@ -1285,24 +1089,21 @@ int main(int argc, char** argv)
       auto relocated = browserState;
       const auto canonical = ir ? libraryIR : librarySecond;
       const auto hash = nam_library::ContentHash(canonical);
-      relocated["SlotEffects"][0] = ir ? 7 : 0;
+      relocated["SlotEffects"][0] = static_cast<int>(ir ? SlotEffect::CabinetIR : SlotEffect::NAM);
       relocated["SlotPaths"][0] = (fixtures / (ir ? "moved.wav" : "moved.nam")).string();
       relocated["SlotHashes"][0] = hash;
-      relocated["DrivePath"] = ir ? "" : relocated["SlotPaths"][0].get<std::string>();
-      Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(relocated.dump());
+      Stream bytes; bytes.string("###nam-grid###"); bytes.string(relocated.dump());
       assert(loadBytes(bytes));
       for(int wait=0;wait<100 && std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) != canonical;++wait) pumpFor(20);
       assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
       assert(save().config()["SlotHashes"][0] == hash);
       relocated["SlotPaths"][0] = path2.string(); // A different capture occupies the saved path.
-      relocated["DrivePath"] = ir ? "" : path2.string();
-      Stream replaced; replaced.string("###NAMGrid-v1###"); replaced.string(relocated.dump());
+      Stream replaced; replaced.string("###nam-grid###"); replaced.string(relocated.dump());
       assert(loadBytes(replaced));
       assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == canonical);
       // A stale index must not prevent loading a verified saved copy outside it.
       relocated["SlotPaths"][0] = (ir ? irFile : path1).string();
-      relocated["DrivePath"] = ir ? "" : path1.string();
-      Stream fallback; fallback.string("###NAMGrid-v1###"); fallback.string(relocated.dump());
+      Stream fallback; fallback.string("###nam-grid###"); fallback.string(relocated.dump());
       const auto firstBlock = [&] {
         assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
         for(int i=0;i<512;++i) input[0][i]=input[1][i]=.1*std::sin(i*.031);
@@ -1326,19 +1127,19 @@ int main(int argc, char** argv)
       chosen["SlotEffects"][0] = 0;
       chosen["SlotPaths"][0] = libraryTwin.string();
       chosen["SlotHashes"][0] = nam_library::ContentHash(libraryTwin);
-      chosen["DrivePath"] = libraryTwin.string();
-      Stream bytes; bytes.string("###NAMGrid-v1###"); bytes.string(chosen.dump());
+      chosen["SlotPaths"][0] = libraryTwin.string();
+      Stream bytes; bytes.string("###nam-grid###"); bytes.string(chosen.dump());
       assert(loadBytes(bytes));
       assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
       chosen["SlotHashes"][0] = ""; // An explicit choice carries no remembered hash.
-      Stream explicitChoice; explicitChoice.string("###NAMGrid-v1###"); explicitChoice.string(chosen.dump());
+      Stream explicitChoice; explicitChoice.string("###nam-grid###"); explicitChoice.string(chosen.dump());
       assert(loadBytes(explicitChoice));
       assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
     }
     load(browserState);
     const auto beforeHashError = save().config();
     auto invalidHashes = beforeHashError; invalidHashes["SlotHashes"][0] = std::string(40, 'z');
-    Stream badHashBytes; badHashBytes.string("###NAMGrid-v1###"); badHashBytes.string(invalidHashes.dump());
+    Stream badHashBytes; badHashBytes.string("###nam-grid###"); badHashBytes.string(invalidHashes.dump());
     assert(!loadBytes(badHashBytes)); assert(save().config() == beforeHashError);
     // The actual empty-card title opens on one mouse-down; every built-in command,
     // including the HQ effects, must pass SetSlotEffect's validation as well.
@@ -1372,9 +1173,9 @@ int main(int argc, char** argv)
     std::cout << "Single-click module selection and right-click Clear slot passed\n";
   }
   auto eqUI = browserState;
-  eqUI["SlotEffects"][0] = 5;
-  eqUI["SlotEffects"][1] = 6;
-  eqUI["SlotEffects"][2] = 7;
+  eqUI["SlotEffects"][0] = static_cast<int>(SlotEffect::ToneEQ);
+  eqUI["SlotEffects"][1] = static_cast<int>(SlotEffect::CutEQ);
+  eqUI["SlotEffects"][2] = static_cast<int>(SlotEffect::CabinetIR);
   eqUI["SlotPaths"][2] = irFile.string();
   load(eqUI);
   selectTile(170, 120); // Select Pre 1 independently of earlier menu tests.
@@ -1405,7 +1206,7 @@ int main(int argc, char** argv)
   // must not edit a rig; accepting the selected item targets the originating slot.
   auto browserCurrent = browserState;
   browserCurrent["SlotPaths"][0] = libraryTwin.string();
-  browserCurrent["DrivePath"] = libraryTwin.string();
+  browserCurrent["SlotPaths"][0] = libraryTwin.string();
   load(browserCurrent);
   const auto beforeBrowse = save().config();
   click(170, 120);
@@ -1430,7 +1231,7 @@ int main(int argc, char** argv)
   keyAtEditor(VK_ESCAPE);
   // An external file's folder is browsable without adding it to the user's library.
   auto externalFile = browserState;
-  externalFile["SlotPaths"][0] = path2.string(); externalFile["DrivePath"] = path2.string();
+  externalFile["SlotPaths"][0] = path2.string();
   load(externalFile); click(170, 120); pumpFor(250);
   keyAtEditor(VK_RETURN);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == path2);
@@ -1478,9 +1279,8 @@ int main(int argc, char** argv)
     {
       original["SlotEffects"][0] = static_cast<int>(ir ? SlotEffect::CabinetIR : SlotEffect::NAM);
       original["SlotPaths"][0] = (ir ? libraryIR : libraryTwin).string();
-      original["DrivePath"] = nam ? libraryTwin.string() : "";
     }
-    const char* parameter = nam ? "Drive Input" : ir ? "Pre 1 IR Level" : "Pre 1 EQ Bass";
+    const char* parameter = nam ? "Pre 1 In" : ir ? "Pre 1 IR Level" : "Pre 1 EQ Bass";
     load(original); selectTile(170, 120);
     const auto committed = save().config();
     const auto before = liveValue(parameter);
@@ -1568,7 +1368,7 @@ int main(int argc, char** argv)
   // Room/shared-bank value. Subsequent insertion discards the prior edits.
   auto cloud = browserState;
   cloud["SlotEffects"][0] = static_cast<int>(SlotEffect::CloudReverb);
-  cloud["SlotPaths"][0] = ""; cloud["DrivePath"] = "";
+  cloud["SlotPaths"][0] = "";
   cloud["Pre 1 Reverb Decay"] = 12.;
   load(cloud); selectTile(170, 120); pumpFor(60);
   resetDial(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
@@ -1598,7 +1398,7 @@ int main(int argc, char** argv)
   assert(save().config()["Global Input"] != beforeGains["Global Input"]);
   assert(save().config()["Parallel Blend"] != beforeGains["Parallel Blend"]);
   assert(save().config()["Output"] != beforeGains["Output"]);
-  assert(save().config()["Input"] == beforeGains["Input"]); // IN is global, not the Pre 2 NAM input.
+  assert(save().config()["Pre 2 In"] == beforeGains["Pre 2 In"]); // IN is global, not the Pre 2 NAM input.
   auto rigToSave = browserState;
   rigToSave["SlotEffects"][0] = static_cast<int>(SlotEffect::Rotary);
   rigToSave["SlotEffects"][2] = static_cast<int>(SlotEffect::NoisePrint);
@@ -1609,7 +1409,7 @@ int main(int argc, char** argv)
   rigToSave["NoisePrintProfiles"][2] = learnedNoiseState["NoisePrintProfiles"][0];
   rigToSave["Pre 3 Noise Gate Threshold"] = -42.;
   rigToSave["Pre 3 Noise Learn"] = 1.;
-  rigToSave["NAMPath"] = path2.string();
+  rigToSave["SlotPaths"][1] = path2.string();
   rigToSave["Global Input"] = -3.; rigToSave["Output"] = -8.; rigToSave["Lane A Level"] = 1.5;
   rigToSave["Pre 1 Freeze Hold"] = 1.;
   load(rigToSave);
@@ -1629,7 +1429,7 @@ int main(int argc, char** argv)
   assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
   assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("PresetFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
   auto anotherRig = cleared;
-  anotherRig["CaptureFolder"] = irLibrary.string(); anotherRig["CaptureFolders"] = {irLibrary.string()};
+  anotherRig["CaptureFolders"] = {irLibrary.string()};
   anotherRig["PresetFolders"] = json::array();
   anotherRig["Tuner Reference"] = 442.; anotherRig["Tuner Mute"] = 1.;
   load(anotherRig);
@@ -1689,7 +1489,7 @@ int main(int argc, char** argv)
       {
         auto preview = browserState;
         preview["SlotEffects"][0] = static_cast<int>(effect);
-        preview["SlotPaths"][0] = ""; preview["DrivePath"] = "";
+        preview["SlotPaths"][0] = "";
         load(preview); selectTile(170, 120);
         CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("readable-") + name + ".bmp"));
       }
@@ -1720,8 +1520,8 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 3 IR Level"] != -18.);
   auto utilities = browserState;
-  utilities["SlotEffects"][0] = 8;
-  utilities["SlotEffects"][1] = 9;
+  utilities["SlotEffects"][0] = static_cast<int>(SlotEffect::ParametricEQ);
+  utilities["SlotEffects"][1] = static_cast<int>(SlotEffect::Boost);
   utilities["Pre 1 EQ Low Pass"] = 10000.;
   load(utilities);
   selectTile(170, 120);
@@ -1742,7 +1542,7 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2));
   assert(save().config()["Pre 2 Boost Tilt"] != utilities["Pre 2 Boost Tilt"]);
   assert(save().config()["Pre 2 EQ High Pass"] != utilities["Pre 2 EQ High Pass"]);
-  assert(save().config()["Input"] == utilities["Input"]);
+  assert(save().config()["Pre 2 In"] == utilities["Pre 2 In"]);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
   // Every visible new knob must update its slot's automated parameter, with no
@@ -1793,7 +1593,7 @@ int main(int argc, char** argv)
         }
       }
     click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
-    assert(save().config()["Drive Enabled"] == 0.);
+    assert(save().config()["Pre 1 Enabled"] == 0.);
     if (argc == 4)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
   }
@@ -1810,10 +1610,10 @@ int main(int argc, char** argv)
   {
     const auto before = save().config();
     click(263, grid_layout::cardTop + 12);
-    assert(save().config()["Drive Enabled"] == 1. - before["Drive Enabled"].get<double>());
+    assert(save().config()["Pre 1 Enabled"] == 1. - before["Pre 1 Enabled"].get<double>());
     assert(save().config()["SlotEffects"] == before["SlotEffects"]);
     click(263, grid_layout::cardTop + 12);
-    assert(save().config()["Drive Enabled"] == before["Drive Enabled"]);
+    assert(save().config()["Pre 1 Enabled"] == before["Pre 1 Enabled"]);
   }
   // Capture actual transport history in the compact editor, with no synthetic UI animation.
   {
@@ -1837,13 +1637,14 @@ int main(int argc, char** argv)
     if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "lofi-tape-transport.bmp");
     plugin->stop_processing(plugin); plugin->deactivate(plugin);
   }
-  for (int effect : {12, 15, 26, static_cast<int>(SlotEffect::DualDelay)})
+  for (int effect : {static_cast<int>(SlotEffect::DigitalDelay), static_cast<int>(SlotEffect::RoomReverb),
+                     static_cast<int>(SlotEffect::SpringReverb), static_cast<int>(SlotEffect::DualDelay)})
   {
     auto switchState = browserState;
     switchState["SlotEffects"][0] = effect;
     load(switchState);
     selectTile(170, 120);
-    const char* name = effect == 12 || effect == static_cast<int>(SlotEffect::DualDelay)
+    const char* name = effect == static_cast<int>(SlotEffect::DigitalDelay) || effect == static_cast<int>(SlotEffect::DualDelay)
                          ? "Pre 1 Delay Ping Pong" : "Pre 1 Reverb Stereo";
     const double before = save().config()[name].get<double>();
     click(558, grid_layout::optionsY);
@@ -1866,7 +1667,7 @@ int main(int argc, char** argv)
   const auto packedPath = fixtures / "packed-a2.nam";
   std::ofstream(packedPath) << fixture::packed().dump();
   auto qualityState = browserState;
-  qualityState["DrivePath"] = packedPath.string();
+  qualityState["SlotPaths"][0] = packedPath.string();
   qualityState["Pre 1 Full Quality"] = 1.;
   qualityState["Pre 1 EQ Low Pass"] = 10000.;
   load(qualityState);
@@ -1917,17 +1718,17 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(5), grid_layout::KnobGestureY(5));
   dragAt(grid_layout::KnobX(6), grid_layout::KnobGestureY(6));
   const auto namControls = save().config();
-  assert(namControls["Drive Input"] != qualityState["Drive Input"]);
+  assert(namControls["Pre 1 In"] != qualityState["Pre 1 In"]);
   assert(namControls["Pre 1 EQ Bass"] != qualityState["Pre 1 EQ Bass"]);
   assert(namControls["Pre 1 EQ Mid"] != qualityState["Pre 1 EQ Mid"]);
   assert(namControls["Pre 1 EQ Treble"] != qualityState["Pre 1 EQ Treble"]);
-  assert(namControls["Drive Trim"] != qualityState["Drive Trim"]);
+  assert(namControls["Pre 1 Trim"] != qualityState["Pre 1 Trim"]);
   assert(namControls["Pre 1 EQ High Pass"] != qualityState["Pre 1 EQ High Pass"]);
   assert(namControls["Pre 1 EQ Low Pass"] != qualityState["Pre 1 EQ Low Pass"]);
   click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
-  assert(save().config()["Drive Enabled"] == 0.);
+  assert(save().config()["Pre 1 Enabled"] == 0.);
   click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
-  assert(save().config()["Drive Enabled"] == 1.);
+  assert(save().config()["Pre 1 Enabled"] == 1.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "nam-eight-controls.bmp");
   auto liteSaved = save();
@@ -1948,18 +1749,18 @@ int main(int argc, char** argv)
   pumpFor(100);
   // Restore built-ins into an open editor: hidden NAM knobs must not intercept their controls.
   auto effectUI = browserState;
-  effectUI["SlotEffects"][0] = 1;
-  effectUI["SlotEffects"][1] = 3;
+  effectUI["SlotEffects"][0] = static_cast<int>(SlotEffect::NoiseGate);
+  effectUI["SlotEffects"][1] = static_cast<int>(SlotEffect::SmoothComp);
   load(effectUI);
   pumpFor(100);
   selectTile(170, 120);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Selected IN1 gate threshold.
   assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
-  assert(save().config()["Drive Input"] == effectUI["Drive Input"]);
+  assert(save().config()["Pre 1 In"] == effectUI["Pre 1 In"]);
   dragAt(grid_layout::KnobX(3), grid_layout::KnobGestureY(3), 200);
   assert(save().config()["Pre 1 Gate Mode"] == 1.);
-  auto tightGate = save();
-  assert(loadBytes(tightGate));
+  auto gateModes = save();
+  assert(loadBytes(gateModes));
   assert(save().config()["Pre 1 Gate Mode"] == 1.);
   resetDial(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
   assert(save().config()["Pre 1 Gate Mode"] == 0.);
@@ -1968,12 +1769,12 @@ int main(int argc, char** argv)
   selectTile(390, 120);
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2)); // Selected IN2 compressor makeup.
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
-  assert(save().config()["Amp Trim"] == effectUI["Amp Trim"]);
+  assert(save().config()["Pre 2 Trim"] == effectUI["Pre 2 Trim"]);
   // Card dot bypass and bottom editor toggle must share the same automated parameter.
   click(471, 80);
-  assert(save().config()["Amp Enabled"] == 0.);
+  assert(save().config()["Pre 2 Enabled"] == 0.);
   click(471, 80);
-  assert(save().config()["Amp Enabled"] == 1.);
+  assert(save().config()["Pre 2 Enabled"] == 1.);
   // FX navigation stays in the current menu category and wraps in both directions.
   auto navigation = browserState;
   navigation["SlotEffects"][0] = static_cast<int>(SlotEffect::JunoChorus);
@@ -1990,8 +1791,8 @@ int main(int argc, char** argv)
   std::filesystem::copy_file(libraryIR, neighborIR, std::filesystem::copy_options::overwrite_existing);
   { std::fstream wav(neighborIR, std::ios::in | std::ios::out | std::ios::binary); wav.seekp(-2, std::ios::end); wav.put(1); wav.put(0); }
   navigation = browserState;
-  navigation["DrivePath"] = libraryFirst.string();
-  navigation["SlotEffects"][1] = 7; navigation["SlotPaths"][1] = libraryIR.string();
+  navigation["SlotPaths"][0] = libraryFirst.string();
+  navigation["SlotEffects"][1] = static_cast<int>(SlotEffect::CabinetIR); navigation["SlotPaths"][1] = libraryIR.string();
   load(navigation); selectTile(170, 120);
   click(422, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
@@ -2004,7 +1805,7 @@ int main(int argc, char** argv)
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
   selectTile(390, 120); click(422,grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == neighborIR);
-  assert(save().config()["SlotEffects"][1] == 7);
+  assert(save().config()["SlotEffects"][1] == static_cast<int>(SlotEffect::CabinetIR));
   click(392,grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == libraryIR);
   if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/"ir.bmp");
@@ -2031,7 +1832,7 @@ int main(int argc, char** argv)
   SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
-  assert(save().config()["Drive Input"] != beforeSettings["Drive Input"]);
+  assert(save().config()["Pre 1 In"] != beforeSettings["Pre 1 In"]);
   if (argc == 4)
   {
     auto colors = browserState;
@@ -2043,37 +1844,35 @@ int main(int argc, char** argv)
       const auto path = fixtures / (std::string(categories[i]) + ".nam");
       std::ofstream(path) << model.dump();
       colors["SlotPaths"][i] = path.string();
-      if (i < 2)
-        colors[i == 0 ? "DrivePath" : "NAMPath"] = path.string();
     }
-    colors["SlotEffects"][4] = 1;
-    colors["SlotEffects"][5] = 3;
-    colors["SlotEffects"][6] = 5;
-    colors["SlotEffects"][7] = 6;
-    colors["SlotEffects"][8] = 8;
-    colors["SlotEffects"][9] = 9;
-    colors["SlotEffects"][10] = 12;
-    colors["SlotEffects"][11] = 14;
-    colors["SlotEffects"][12] = 15;
-    colors["SlotEffects"][13] = 16;
-    colors["SlotEffects"][14] = 18;
-    colors["SlotEffects"][15] = 23;
+    colors["SlotEffects"][4] = static_cast<int>(SlotEffect::NoiseGate);
+    colors["SlotEffects"][5] = static_cast<int>(SlotEffect::SmoothComp);
+    colors["SlotEffects"][6] = static_cast<int>(SlotEffect::ToneEQ);
+    colors["SlotEffects"][7] = static_cast<int>(SlotEffect::CutEQ);
+    colors["SlotEffects"][8] = static_cast<int>(SlotEffect::ParametricEQ);
+    colors["SlotEffects"][9] = static_cast<int>(SlotEffect::Boost);
+    colors["SlotEffects"][10] = static_cast<int>(SlotEffect::DigitalDelay);
+    colors["SlotEffects"][11] = static_cast<int>(SlotEffect::TapeDelay);
+    colors["SlotEffects"][12] = static_cast<int>(SlotEffect::RoomReverb);
+    colors["SlotEffects"][13] = static_cast<int>(SlotEffect::PlateReverb);
+    colors["SlotEffects"][14] = static_cast<int>(SlotEffect::Chorus);
+    colors["SlotEffects"][15] = static_cast<int>(SlotEffect::Tape);
     load(colors);
     pumpFor(100);
     selectTile(610, 120);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "node-colors.bmp");
-    colors["SlotEffects"][0] = 24;
+    colors["SlotEffects"][0] = static_cast<int>(SlotEffect::TubeBoost);
     colors["SlotPaths"][0] = "";
-    colors["DrivePath"] = "";
+    colors["SlotPaths"][0] = "";
     load(colors);
     selectTile(170, 120);
     pumpFor(300);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "tube-boost.bmp");
-    for (int effect : {26, 27, 18, 15, 12})
+    for (int effect : {static_cast<int>(SlotEffect::SpringReverb), static_cast<int>(SlotEffect::Wah), static_cast<int>(SlotEffect::Chorus), static_cast<int>(SlotEffect::RoomReverb), static_cast<int>(SlotEffect::DigitalDelay)})
     {
       auto preview = browserState;
       preview["SlotEffects"][0] = effect;
-      if (effect == 12)
+      if (effect == static_cast<int>(SlotEffect::DigitalDelay))
         preview["Pre 1 Delay Ping Pong"] = 1.;
       load(preview);
       selectTile(170, 120);
@@ -2081,12 +1880,12 @@ int main(int argc, char** argv)
         editor, std::filesystem::path(argv[3]) / (std::string("stereo-guitar-") + std::to_string(effect) + ".bmp"));
     }
     auto utilityPreview = browserState;
-    utilityPreview["SlotEffects"][0] = 25;
+    utilityPreview["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
     load(utilityPreview);
     selectTile(170, 120);
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "utility.bmp");
     auto syncPreview = browserState;
-    syncPreview["SlotEffects"][0] = 14;
+    syncPreview["SlotEffects"][0] = static_cast<int>(SlotEffect::TapeDelay);
     syncPreview["Pre 1 Tempo Sync"] = 1.;
     load(syncPreview);
     selectTile(170, 120);
@@ -2139,13 +1938,13 @@ int main(int argc, char** argv)
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
   auto malformedScene = save().config();
   malformedScene["PerformanceScenes"][0]["Not a real parameter"] = 1.;
-  Stream malformedSceneBytes; malformedSceneBytes.string("###NAMGrid-v1###"); malformedSceneBytes.string(malformedScene.dump());
+  Stream malformedSceneBytes; malformedSceneBytes.string("###nam-grid###"); malformedSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(malformedSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
   malformedScene["PerformanceScenes"][0].erase("Not a real parameter");
   malformedScene["PerformanceScenes"][0]["Pre 1 Noise Learn"] = 1.;
   Stream learnSceneBytes;
-  learnSceneBytes.string("###NAMGrid-v1###");
+  learnSceneBytes.string("###nam-grid###");
   learnSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(learnSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
@@ -2155,7 +1954,6 @@ int main(int argc, char** argv)
   click(915, 44); // Close overlay
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
-  unequal["CaptureFolder"] = libraryFolder.string();
   unequal["CaptureFolders"] = {libraryFolder.string()};
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
@@ -2212,8 +2010,9 @@ int main(int argc, char** argv)
   entry->deinit();
 #ifdef _WIN32
   FreeLibrary(library);
+  std::cout << "CLAP factory, model files, state, missing/invalid files, reset, teardown and native editor passed\n";
 #else
   dlclose(library);
+  std::cout << "CLAP factory, model files, state, missing/invalid files, reset and teardown passed (no native editor checks)\n";
 #endif
-  std::cout << "CLAP factory, model files, state, missing/invalid files, reset, teardown and native editor passed\n";
 }

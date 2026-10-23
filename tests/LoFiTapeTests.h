@@ -161,7 +161,7 @@ void TestLoFiTape()
         if (block == 1) settings.lofi[3] = 0.; // Let the smoothed Noise knob settle during drain.
         l.fill(block == 0 ? .5 : 0.); r = l;
         allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
-        stage.Process(l.data(), 512, block == 0, 0., 0., false, 0., 0, 1., {}, {}, settings, stereo ? r.data() : nullptr);
+        stage.Process(l.data(), 512, block == 0, 0., 0., {}, {}, settings, stereo ? r.data() : nullptr);
         Eigen::internal::set_is_malloc_allowed(true); tracking = false;
         assert(allocations == 0 && deletions == 0);
         const auto meter = stage.TakeMeter();
@@ -169,7 +169,7 @@ void TestLoFiTape()
         if (block > 3) for (double value : l) assert(value == 0.);
       }
       settings.lofi[3] = 0.; l.fill(0.); r.fill(0.);
-      stage.Process(l.data(), 512, true, 0., 0., false, 0., 0, 1., {}, {}, settings, stereo ? r.data() : nullptr);
+      stage.Process(l.data(), 512, true, 0., 0., {}, {}, settings, stereo ? r.data() : nullptr);
       for (size_t i = 0; i < l.size(); ++i) assert(std::abs(l[i]) < 1.e-20 && std::abs(r[i]) < 1.e-20);
     }
   }

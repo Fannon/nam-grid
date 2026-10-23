@@ -8,7 +8,7 @@ This does not claim Brusfri's sound, internal architecture or phase behavior.
 ## Try it
 
 Build the targets using [build.md](build.md). The Windows artifacts are the normal
-`build-grid/out/nam-grid.clap` and `nam-grid.vst3` bundle, with the existing nam-grid
+`build-grid/out/nam-grid.clap` and `nam-grid.vst3` bundle, with the existing NAM Grid
 host identity. No separate experimental plugin is required.
 
 1. Add **Dynamics > Noise Gate (Smart)** in a Pre slot, preferably before gain/NAM stages.

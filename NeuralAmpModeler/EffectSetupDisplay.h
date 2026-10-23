@@ -5,7 +5,7 @@ namespace grid_ui
 {
 template<class Value>
 bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor color,
-                     Value value, double tempo, double rate)
+                     Value value, double tempo, double rate, float inputLevel = 0.f)
 {
   const auto caption = [&](const char* text) { PlotTitle(g,plot,color,text); };
   const auto foot = [&](const char* text) { PlotFooter(g,plot,text); };
@@ -216,14 +216,14 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   {
     text.SetFormatted(64, "+/-%.1f ct | %.0f ms", value(uDoubleDetune), value(uDoubleDelay)); caption(text.Get());
     PlotDetail(g,plot,"Pitch up/down | horizontal: stereo spread");
-    const double spread = value(uDoubleSpread) * .01, mix = value(uDoubleMix) * .01;
+    const double spread = value(uDoubleSpread) * .01;
     line(0., .5, 1., .5, border);
     for (int voice : {-1, 1})
     {
-      // Width changes stereo placement, not the actual pitch offsets. Mix
-      // changes prominence; a dry blend must not appear to retune the voices.
+      // Width changes stereo placement, not the actual pitch offsets. Mix is
+      // in the readout so a quiet wet setting does not hide the voice positions.
       const double x = .5 + voice * .25 * spread, y = .5 - voice * value(uDoubleDetune) / 60.;
-      const auto ink = (voice < 0 ? color : ampColor).WithOpacity(.1f + .9f * static_cast<float>(mix));
+      const auto ink = voice < 0 ? color : ampColor;
       line(.5, .5, x, y, ink.WithOpacity(.4f));
       line(x - .12, y, x + .12, y, ink, 2.f);
     }
@@ -232,11 +232,40 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   }
   if (effect == SlotEffect::AutoSwell)
   {
-    const double rise = value(uSwellRise), release = value(uSwellRelease), total = rise+40.+3.*release;
-    text.SetFormatted(64, "Trigger %.0f dB", value(uSwellThreshold)); caption(text.Get());
-    PlotDetail(g,plot,"Example: rise, then close after 40 ms hold"); PlotGrid(g,plot);
-    curve([&](double x) { const double t = x * total; return t < rise ? t / rise : t<rise+40. ? 1. : std::exp(-(t-rise-40.)/release); }, color);
-    text.SetFormatted(64,"%.1f s",total*.001); PlotFooter(g,plot,"0 - 100% gain | trigger / re-arm",text.Get()); return true;
+    const double rise = value(uSwellRise), release = value(uSwellRelease), hold = 40.;
+    const double threshold = value(uSwellThreshold);
+    const double level = 20. * std::log10(std::max(1.e-8f, inputLevel));
+    const IRECT meter(plot.L, plot.T, plot.L + 66.f, plot.B);
+    const IRECT envelope(meter.R + 16.f, plot.T, plot.R, plot.B);
+    text.SetFormatted(64, "Trigger %.0f dB", threshold); caption(text.Get());
+    PlotDetail(g,plot,"Rise above Thr | hold resets above Thr | release below Thr -3 dB");
+    PlotGrid(g,envelope);
+    const auto meterY = [&](double db) {
+      return meter.B - meter.H() * static_cast<float>(std::clamp((db + 72.) / 72., 0., 1.));
+    };
+    g.DrawRect(border,meter);
+    g.FillRect(color.WithOpacity(.65f),IRECT(meter.L + 18.f,meterY(level),meter.R - 18.f,meter.B));
+    const float thresholdY = meterY(threshold);
+    for(float x=meter.L;x<meter.R;x+=7.f)
+      g.DrawLine(ampColor,x,thresholdY,std::min(x+4.f,meter.R),thresholdY);
+    g.DrawText(Text(12.f,muted,EAlign::Center),"IN",IRECT(meter.L,meter.B-17.f,meter.R,meter.B));
+    // Give the fixed 40 ms hold enough room to be legible even with a long rise
+    // or release. Each labeled section has its own time scale.
+    const float riseEnd = envelope.L + envelope.W() * .35f;
+    const float holdEnd = envelope.L + envelope.W() * .58f;
+    g.FillRect(color.WithOpacity(.06f),IRECT(riseEnd,envelope.T,holdEnd,envelope.B));
+    PlotCurve(g,envelope,[&](double x) {
+      return x<.35 ? x/.35 : x<.58 ? 1. : std::exp(-3.*(x-.58)/.42);
+    },0.,1.,color);
+    for (float x : {riseEnd,holdEnd})
+      g.DrawLine(border.WithOpacity(.7f),x,envelope.T,x,envelope.B);
+    text.SetFormatted(32,"Rise %.0f ms",rise);
+    g.DrawText(Text(12.f,muted,EAlign::Center),text.Get(),IRECT(envelope.L,envelope.B-17.f,riseEnd,envelope.B));
+    text.SetFormatted(32,"Hold %.0f ms",hold);
+    g.DrawText(Text(12.f,muted,EAlign::Center),text.Get(),IRECT(riseEnd,envelope.B-17.f,holdEnd,envelope.B));
+    text.SetFormatted(32,"Release %.0f ms tau",release);
+    g.DrawText(Text(12.f,muted,EAlign::Center),text.Get(),IRECT(holdEnd,envelope.B-17.f,envelope.R,envelope.B));
+    PlotFooter(g,plot,"Sections use separate time scales","IN dBFS"); return true;
   }
   if (effect == SlotEffect::FrequencyShifter)
   {

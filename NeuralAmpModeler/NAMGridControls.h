@@ -2,6 +2,7 @@
 #include "ModuleMenu.h"
 #include "GridLayout.h"
 #include "EQResponse.h"
+#include "EQSignalSpectrum.h"
 #include "LevelReadout.h"
 #include "EffectPreview.h"
 #include <chrono>
@@ -624,9 +625,21 @@ public:
         if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
       }
       mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
+      const auto monitoredEffect = PLUG()->GetSlotEffect(mSlot);
+      if (meter.eqSignalReady && mEditor && PLUG()->GetSelectedSlot() == mSlot &&
+          (monitoredEffect == SlotEffect::ToneEQ || monitoredEffect == SlotEffect::CutEQ ||
+           monitoredEffect == SlotEffect::ParametricEQ || monitoredEffect == SlotEffect::SynthFilter))
+      {
+        const auto analyzed = grid_eq_signal::Analyze(meter.eqSignal,
+          PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);
+        for (size_t i = 0; i < mSpectrum.size(); ++i)
+          mSpectrum[i] = mSpectrumReady ? std::max(analyzed[i], .65f * mSpectrum[i] + .35f * analyzed[i]) : analyzed[i];
+        mSpectrumReady = true;
+      }
+      else if (!meter.eqSignalReady)
+        mSpectrumReady = false;
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
-      const auto monitoredEffect=PLUG()->GetSlotEffect(mSlot);
       const bool compressor=monitoredEffect==SlotEffect::SmoothComp || monitoredEffect==SlotEffect::PunchComp;
       mOutputHistory[mReductionWrite] = compressor ? meter.beforeMakeup : meter.output;
       mReductionWrite = (mReductionWrite + 1) % mInputHistory.size();
@@ -874,7 +887,7 @@ private:
     }
     else if (DrawEffectSetup(g, effect, plot, color,
                [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
-               PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.))
+               PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000., mMeter.input))
     {
     }
     else if (IsReverb(effect) || effect == SlotEffect::ShimmerReverb)
@@ -937,7 +950,8 @@ private:
       if (filter) caption.SetFormatted(64, "%s %.0f Hz", key[16] == 1 ? "HP" : key[16] == 2 ? "BP" : "LP", key[12]);
       else caption.Set("EQ response");
       PlotTitle(g,plot,color,caption.Get());
-      PlotDetail(g,plot,filter ? "Live L/R | marks: rest / full envelope" : "Combined settled response | middle: 0 dB");
+      PlotDetail(g,plot,filter ? "Response +/-24 dB | signal -72..0 dBFS | marks: envelope"
+                               : "Response +/-24 dB | output signal -72..0 dBFS");
       PlotFrequencyAxis(g,plot,upper,"-24 / +24 dB");
       const auto y = [&](float db) { return plot.T + plot.H() * (24.f - std::clamp(db, -24.f, 24.f)) / 48.f; };
       for (int db : {-24, -12, 0, 12, 24})
@@ -946,6 +960,18 @@ private:
       {
         const float x = plot.L + static_cast<float>(plot.W() * std::log(hz / 20.) / span);
         if (hz < upper) g.DrawLine(border.WithOpacity(.35f), x, plot.T, x, plot.B);
+      }
+      if (mSpectrumReady)
+      {
+        const auto signalY = [&](float db) {
+          return plot.B - plot.H() * std::clamp((db + 72.f) / 72.f, 0.f, 1.f);
+        };
+        for (size_t i = 1; i < mSpectrum.size(); ++i)
+        {
+          const float x0 = plot.L + plot.W() * static_cast<float>(i - 1) / static_cast<float>(mSpectrum.size() - 1);
+          const float x1 = plot.L + plot.W() * static_cast<float>(i) / static_cast<float>(mSpectrum.size() - 1);
+          g.DrawLine(ampColor.WithOpacity(.55f),x0,signalY(mSpectrum[i - 1]),x1,signalY(mSpectrum[i]),nullptr,1.f);
+        }
       }
       for (size_t i = 1; i < mEQCurve.size(); ++i)
       {
@@ -981,7 +1007,7 @@ private:
     if (effect != mPlotEffect || path != mPlotPath)
     {
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {};
-      mMeter.lofi = {};
+      mMeter.lofi = {}; mSpectrumReady = false;
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
@@ -1145,6 +1171,8 @@ private:
   std::array<float, 120> mInputHistory{}, mOutputHistory{};
   std::array<double, 17> mEQKey{};
   std::array<std::array<float, 3>, 162> mEQCurve{};
+  std::array<float, grid_eq_signal::bands> mSpectrum{};
+  bool mSpectrumReady = false;
   size_t mReductionWrite = 0;
   float mReductionNow = 0.f;
   grid_ui::Toggle* mEnabled = nullptr;

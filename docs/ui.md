@@ -27,7 +27,7 @@ see [modules.md](modules.md) for other controls.
 Every loaded module offers a visualization: signal history versus threshold and
 numeric GR and an orange reduction bar for dynamics; compressors, gates and the limiter also show their static/closing characteristic beside live levels. Compressor histories exclude makeup gain and reflect parallel Mix. Other views include echo timing/treble guides on a fixed dB scale for standard and Dual delays,
 live input/output level history for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
-the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
+the combined response curve for EQ modules with an approximate live output spectrum, plus live LP/HP/BP Filter response, and input/output
 history for native nonlinear dynamics, Console Colour and IRs. Wah shows its actual bandpass/body/mix response; Bitcrusher shows quantization/sample holding/tone on a labeled reference tone. Distortion also shows its separate high-cut/mix/output response. Boost and Tube Boost show their gain/saturation curve and the combined Tilt/Low cut response; Tube labels its EQ as a small-signal response. Tape shows its Spiral saturation stage and Bump amount, explicitly excluding its stateful processing from the static curve.
 Capture modules show window, overlap and gate timing; Octaver shows layer levels,
 Doubler its detuned voices, Frequency Shifter its fixed-Hz sidebands, and Utility its mid/side routing.
@@ -45,7 +45,8 @@ Saved presets and slot edits retain their exact values. See [effect-defaults.md]
 for all module defaults and acoustic/bass adjustments, and [presets.md](presets.md) for rig recall.
 
 Reverb previews share a field for early reflections, nominal -60 dB decay and damping guides. Size changes spacing; pre-delay shifts the onset. Logarithmic time is explicit. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer also shows pitch direction/amount and Freeze. These are parameter
-sketches, not measured room dimensions or impulse responses.
+sketches, not measured room dimensions or impulse responses. Wet Mix is shown as a number; it does not shrink the tank sketch.
+Auto Swell shows the current input peak against its trigger threshold beside a rise, minimum 40 ms hold and exponential release example. The hold resets while the input stays above threshold; release begins after the hold runs out and the detected level falls at least 3 dB below threshold.
 All FX share separate title, explanation, chart and footer rows. Frequency/dB
 limits, reference signals and measured histories are labeled. See the complete
 [module-by-module visualization audit](ui.md).
@@ -155,10 +156,11 @@ or invalid resource rejects the edit and keeps both slots unchanged.
 
 ## Reading visualizations
 
-Measured IN/OUT histories describe level, not spectrum or stereo correlation;
+Measured IN/OUT histories describe level, not stereo correlation;
 mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe
 configured behavior, not an invented live LFO phase or a measured room impulse.
 A bypassed module can still show its settings; Enabled controls the audio.
+The EQ spectrum is a rough 1024-sample FFT of the left output channel, updated with the meter. Its scale is -72 to 0 dBFS, separate from the response curve's +/-24 dB scale. Low frequencies have limited resolution and it is not a stereo analyzer.
 
 Frequency plots use logarithmic frequency with labeled limits. Timing sketches
 state their window; reverb guides use nominal decay or explicitly relative scales.

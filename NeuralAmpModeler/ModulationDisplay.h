@@ -35,7 +35,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   {
     const int mode = static_cast<int>(value(uJunoMode));
     text.SetFormatted(64, "%s | 1.7-5.4 ms", mode == 0 ? "I" : mode == 1 ? "I+II" : "II"); caption(text.Get());
-    text.SetFormatted(80,"L / R delays | Brightness %.0f%%",value(uJunoBrightness)); PlotDetail(g,plot,text.Get());
+    text.SetFormatted(80,"L / R delays | Bright %.0f%% | Wet %.0f%%",value(uJunoBrightness),value(uJunoMix)); PlotDetail(g,plot,text.Get());
     for (int voice = 0; voice < 2; ++voice)
       if ((voice == 0 && mode != 2) || (voice == 1 && mode != 0))
         for (bool right : {true, false})
@@ -43,7 +43,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
             const double phase = t * 2. * (voice ? .863 : .513);
             const double triangle = grid_hq::Tri(phase - std::floor(phase));
             return 1.66 + 3.69 * (right ? 1. - triangle : triangle);
-          }, 1., 6., (right ? ampColor : color).WithOpacity((voice ? .65f : 1.f) * (.1f + .9f * value(uJunoMix) * .01)));
+          }, 1., 6., (right ? ampColor : color).WithOpacity(voice ? .65f : 1.f));
     timeLabel(2.);
   }
   else if (rotary)
@@ -51,13 +51,13 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     const double speed = value(uRotarySpeed) >= .5 ? value(uRotaryFast) : value(uRotarySlow);
     const double spread = value(uRotarySpread) * .01;
     text.SetFormatted(64, "Horn %.1f / Drum %.1f Hz", speed, speed * .73); caption(text.Get());
-    text.SetFormatted(80,"Settled gain | ramp %.1fs | drive %.0fdB",value(uRotaryAccel),value(uRotaryDrive)); PlotDetail(g,plot,text.Get());
+    text.SetFormatted(80,"Ramp %.1fs | Drive %.0fdB | Wet %.0f%%",value(uRotaryAccel),value(uRotaryDrive),value(uRotaryMix)); PlotDetail(g,plot,text.Get());
     for (bool right : {true, false})
     {
       curve([&](double t) { return .72 + .28 * std::cos(2. * grid_fx::pi * (t * 2. * speed + (right ? .25 * spread : 0.))); },
-            0., 1.1, (right ? ampColor : color).WithOpacity(.1f + .9f * value(uRotaryMix) * .01));
+            0., 1.1, right ? ampColor : color);
       curve([&](double t) { return .78 + .22 * std::sin(2. * grid_fx::pi * t * 2. * speed * .73 + (right ? spread : 0.)); },
-            0., 1.1, (right ? ampColor : color).WithOpacity(.1f+.3f*value(uRotaryMix)*.01), 1.f);
+            0., 1.1, (right ? ampColor : color).WithOpacity(.4f), 1.f);
     }
     timeLabel(2.);
   }
@@ -118,7 +118,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     const double center = flange ? 3. : vibrato ? 8. : 18.;
     const double excursion = flange ? 2.5 : 6.;
     text.SetFormatted(64, "Delay | %.2f Hz", rate); caption(text.Get());
-    PlotDetail(g,plot,vibrato ? "0 - 16 ms | motion changes pitch" : "0 - 26 ms | L / R voices, wet prominence");
+    text.SetFormatted(80,vibrato ? "0 - 16 ms | motion changes pitch" : "0 - 26 ms | L / R voices | Wet %.0f%%",value(uModMix));
+    PlotDetail(g,plot,text.Get());
     for (bool right : {true, false})
     {
       if (right && effect != SlotEffect::Chorus) continue;
@@ -129,7 +130,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
                                 + .25 * character * std::sin(4. * grid_fx::pi * phase + .7);
         return center + excursion * depth * wobble;
       }, 0., flange ? 6. : vibrato ? 16. : 26.,
-      (right ? ampColor : color).WithOpacity(vibrato ? 1.f : .1f + .9f * value(uModMix) * .01));
+      right ? ampColor : color);
     }
     timeLabel(2.);
   }

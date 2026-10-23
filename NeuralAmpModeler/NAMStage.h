@@ -34,6 +34,8 @@ struct SlotMeterData
   float beforeMakeup = 0.f;
   LoFiTapeHistory lofi;
   std::array<float, 2> filterCutoff{}, filterQ{};
+  std::array<float, 1024> eqSignal{};
+  bool eqSignalReady = false;
 };
 
 class NAMStage
@@ -235,12 +237,23 @@ public:
     mMix = 0.;
     mFirst = true;
     mMeter = {};
+    mEQSignal = {};
+    mEQSignalWrite = mEQSignalCount = 0;
   }
   SlotMeterData TakeMeter()
   {
     auto result = mMonitoring ? mMeter : SlotMeterData{};
     if (auto* p = mExchange.Active(); mMonitoring && p && p->effect == SlotEffect::LoFiTape)
       result.lofi = p->lofi.History();
+    if (auto* p = mExchange.Active(); mMonitoring && p &&
+        (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ ||
+         p->effect == SlotEffect::ParametricEQ || p->effect == SlotEffect::SynthFilter) &&
+        mEQSignalCount == mEQSignal.size())
+    {
+      for (size_t i = 0; i < mEQSignal.size(); ++i)
+        result.eqSignal[i] = mEQSignal[(mEQSignalWrite + i) % mEQSignal.size()];
+      result.eqSignalReady = true;
+    }
     mMeter = {};
     return result;
   } // audio only
@@ -426,6 +439,13 @@ public:
           rightSamples[i] = (p->right->dry[i] * (1. - mMix) + p->right->wet[i] * mOut * mMix) * mSwitchGain;
         }
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
+        if (mMonitoring && (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ ||
+            p->effect == SlotEffect::ParametricEQ || p->effect == SlotEffect::SynthFilter))
+        {
+          mEQSignal[mEQSignalWrite] = static_cast<float>(samples[i]);
+          mEQSignalWrite = (mEQSignalWrite + 1) % mEQSignal.size();
+          mEQSignalCount = std::min(mEQSignalCount + 1, mEQSignal.size());
+        }
         if (mMonitoring) mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(
           1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
         if (mMonitoring && !p->dynamicsMonitor.empty())
@@ -509,6 +529,8 @@ private:
   bool mFirst = true;
   bool mMonitoring = false;
   SlotMeterData mMeter;
+  std::array<float, 1024> mEQSignal{};
+  size_t mEQSignalWrite = 0, mEQSignalCount = 0;
 };
 
 struct PreparedIR

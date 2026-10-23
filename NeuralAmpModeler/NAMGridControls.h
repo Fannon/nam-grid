@@ -1345,7 +1345,9 @@ private:
     }
     const auto path = std::filesystem::u8path(PLUG()->GetSlotPath(mSlot));
     if (path.empty()) return;
-    const auto files = nam_library::SiblingFiles(path, effect == SlotEffect::CabinetIR);
+    const bool ir = effect == SlotEffect::CabinetIR;
+    const auto files = nam_library::SiblingFiles(
+      path, ir, PLUG()->GetLibraryFolders(ir ? nam_library::FileKind::IR : nam_library::FileKind::NAM));
     if (files.empty()) return;
     const auto found = std::find(files.begin(), files.end(), path);
     const int current = found == files.end() ? -1 : static_cast<int>(found - files.begin());

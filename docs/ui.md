@@ -102,7 +102,9 @@ Library & settings lists every source folder with its type: **NAM**, **IR** or *
 **+ NAM folder**, **+ IR folder** and **+ Preset folder** add to the matching list, and each
 row has **Remove**. A folder is scanned only for its list's file type (`.nam`, `.wav` or
 `.ngrid`); add a mixed folder to several lists. This is the only place to add or remove
-folders; the browser's **Library folders...** opens it. The
+folders; the browser's **Library folders...** opens it. A `.ignore` file inside a folder
+excludes files and subfolders like a `.gitignore` (see
+[browser.md](browser.md#excluding-files-with-ignore)). The
 status line counts files and folders per type. Up to 32 roots are retained per type in project
 state and the per-user preference; the earlier combined NAM/IR list is not migrated.
 Startup rescan is optional (default on); when off, use Rescan all, which indexes every list.

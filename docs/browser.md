@@ -73,6 +73,38 @@ with a valid, bounded preset envelope; invalid files count as unreadable. IR dec
 and full rig/DSP validation happen on load. **Rescan** refreshes external filesystem
 changes; the existing startup rescan preference applies to all sources.
 
+## Excluding files with `.ignore`
+
+Put a `.ignore` text file in a library folder or any of its subfolders to hide files and
+folders from scans, the browser and the module previous/next arrows. It works like a
+`.gitignore`. Windows Explorer often saves a new text file as `.ignore.txt`; that name is
+accepted too. Rescan after editing it.
+
+```gitignore
+# Work folders and exports
+Catalog/
+_Export/
+# Direct-input captures, except one
+*DI.nam
+!Keep DI.nam
+# Only the top-level file of this name
+/notes.nam
+# Any "old" folder below Packs
+Packs/**/old/
+```
+
+- One pattern per line; blank lines and lines starting with `#` are skipped.
+- `*` matches within a name, `?` one character, `[abc]` or `[a-z]` one of a set, and
+  `**` any number of folders.
+- A trailing `/` matches folders only. A `/` at the start or in the middle anchors the
+  pattern to the `.ignore`'s folder; without one it matches a name at any depth.
+- `!` re-includes something an earlier pattern excluded. Later lines and `.ignore` files
+  in deeper folders win, but a file inside an excluded folder cannot be re-included.
+- Matching ignores letter case. Use `\#` or `\!` for names that start with those characters.
+
+Rules apply within the configured library folder that contains them. A `.ignore` above
+that folder is not read, so add the folder that holds it, or copy its rules down.
+
 The layout uses the familiar folder/results/info structure of preset browsers such as
 u-he's Diva, with a smaller feature set. File kinds and caller permissions are explicit;
 a future saved FX-slot preset kind is reserved separately from today's built-in Modules.

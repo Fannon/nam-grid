@@ -1130,10 +1130,16 @@ std::vector<std::filesystem::path> NeuralAmpModeler::GetRigPresetFiles() const
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   std::vector<std::filesystem::path> files;
   if (mPresetDirectory.empty()) return files;
+  // The arrows skip presets that a containing preset folder's .ignore rules exclude.
+  std::vector<nam_library::IgnoreRules> rules;
+  for (const auto& folder : mPresetFolders)
+    rules.emplace_back(std::filesystem::u8path(folder));
   std::error_code error;
   for (std::filesystem::directory_iterator it(std::filesystem::u8path(mPresetDirectory), error), end;
        !error && it != end; it.increment(error))
-    if (HasRigPresetExtension(it->path()) && it->is_regular_file(error)) files.push_back(it->path());
+    if (HasRigPresetExtension(it->path()) && it->is_regular_file(error)
+        && std::none_of(rules.begin(), rules.end(), [&](auto& rule) { return rule.Ignored(it->path(), false); }))
+      files.push_back(it->path());
   std::sort(files.begin(), files.end(), [](const auto& a, const auto& b) { return a.filename() < b.filename(); });
   return files;
 }

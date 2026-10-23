@@ -9,6 +9,7 @@
 #include "json.hpp"
 #include "RigPresetTests.h"
 #include "EffectPresentationTests.h"
+#include "LibraryIgnoreTests.h"
 
 using namespace nam_library;
 using Menu = iplug::igraphics::IPopupMenu;
@@ -378,5 +379,6 @@ int main(int argc, char** argv)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   assert(result && result->root == root / "missing" && !result->error.empty());
   TestLibraryBrowser(root);
+  TestLibraryIgnoreFiles(root);
   std::cout << "Library scan, typed browser, ranked search, preset folders, metadata, selection and cancellation passed\n";
 }

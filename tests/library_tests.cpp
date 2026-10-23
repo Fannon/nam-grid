@@ -309,15 +309,17 @@ int main(int argc, char** argv)
   assert(NormalizeFolders({folders[0], folders[0], folders[1]}).size() == 2);
   std::ofstream(preferences) << json{{"CaptureFolder", folders[0]}}; // Prototype key is not read.
   assert(ReadFolderSettings(preferences).empty());
-  std::ofstream(preferences) << json{{"CaptureFolders", {1, "bad"}}};
+  std::ofstream(preferences) << json{{"NamFolders", {1, "bad"}}};
   assert(ReadFolderSettings(preferences).empty());
+  std::ofstream(preferences) << json{{"CaptureFolders", folders}}; // The pre-split combined list is not migrated.
+  assert(ReadSettings(preferences).namFolders.empty() && ReadSettings(preferences).irFolders.empty());
   assert(ReadSettings(preferences).rescanOnStartup);
   assert(WriteSettings(preferences, {folders, false, false}));
   // Replacement is atomic: no temporary siblings remain and the file always parses.
   for (const auto& sibling : std::filesystem::directory_iterator(preferences.parent_path()))
     assert(sibling.path().filename().string().find(".tmp-") == std::string::npos);
   assert(json::parse(std::ifstream(preferences)).is_object());
-  assert(!ReadSettings(preferences).rescanOnStartup && ReadSettings(preferences).folders == folders);
+  assert(!ReadSettings(preferences).rescanOnStartup && ReadSettings(preferences).namFolders == folders);
   assert(!ReadSettings(preferences).showVisualizations);
   assert(WriteFolderSettings(preferences, {folders[0]}));
   assert(!ReadSettings(preferences).rescanOnStartup); // Editing folders must retain the startup preference.

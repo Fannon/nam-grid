@@ -134,7 +134,8 @@ int main(int argc, char** argv)
   base["Pre 2 In"] = 1.;
   base["Pre 2 Trim"] = -2.;
   base["Output"] = -6.;
-  base["CaptureFolders"] = {fixtures.string()};
+  base["NamFolders"] = {fixtures.string()};
+  base["IrFolders"] = {fixtures.string()};
   load(base);
   assert(save().config() == base);
   auto recalled = save();
@@ -184,7 +185,7 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
-  for (const char* folderField : {"CaptureFolders", "PresetFolders"})
+  for (const char* folderField : {"CaptureFolders", "NamFolders", "IrFolders", "PresetFolders"})
   for (const json& folders : {json(123), json::array({"valid", 123}), json::array({std::string("bad\0path", 8)}),
                               json(std::vector<std::string>(33, "folder"))})
   {
@@ -214,9 +215,15 @@ int main(int argc, char** argv)
   assert(!loadRaw(pathOnEffect));
   assert(save().config() == utilityState);
   auto multipleFolders = base;
-  multipleFolders["CaptureFolders"] = {fixtures.string(), (fixtures / "IRs").string()};
+  multipleFolders["NamFolders"] = {fixtures.string(), (fixtures / "IRs").string()};
+  multipleFolders["IrFolders"] = {(fixtures / "IRs").string()};
   load(multipleFolders);
   assert(save().config() == multipleFolders);
+  // The pre-split combined list still validates but is not read or migrated.
+  auto legacyFolders = base;
+  legacyFolders["CaptureFolders"] = {(fixtures / "IRs").string()};
+  assert(loadRaw(legacyFolders));
+  assert(save().config() == base);
   load(base);
   Stream bad;
   bad.string("###nam-grid###");
@@ -872,7 +879,8 @@ int main(int argc, char** argv)
   const auto libraryIR = irLibrary / "cabinet.wav";
   std::filesystem::copy_file(irFile, libraryIR, std::filesystem::copy_options::overwrite_existing);
   auto browserState = cleared;
-  browserState["CaptureFolders"] = {libraryFolder.string(), irLibrary.string()};
+  browserState["NamFolders"] = {libraryFolder.string()};
+  browserState["IrFolders"] = {irLibrary.string()};
   browserState["PresetFolders"] = json::array();
   load(browserState);
   auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
@@ -998,7 +1006,7 @@ int main(int argc, char** argv)
   }
   if (browserOnly)
   {
-    click(910, 28); click(260, 132); click(915, 44);
+    click(910, 28); click(90, 132); click(915, 44);
     pumpFor(250); // Exercise configured sources even when the user's startup rescan is off.
   }
   if (!browserOnly)
@@ -1080,7 +1088,7 @@ int main(int argc, char** argv)
         }
     load(browserState);
     std::cout << "Slot edit menus passed; checking module menus\n";
-    click(910, 28); click(260, 132); click(915, 44); // Rescan all from library settings.
+    click(910, 28); click(90, 132); click(915, 44); // Rescan all from library settings.
     pumpFor(250);
     // Recall follows the saved content even when the old filename disappeared or
     // now points at another model. Both loader types resolve through the index.
@@ -1235,7 +1243,7 @@ int main(int argc, char** argv)
   load(externalFile); click(170, 120); pumpFor(250);
   keyAtEditor(VK_RETURN);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == path2);
-  assert(save().config()["CaptureFolders"] == browserState["CaptureFolders"]);
+  assert(save().config()["NamFolders"] == browserState["NamFolders"] && save().config()["IrFolders"] == browserState["IrFolders"]);
   auto moduleBrowser = eqUI;
   moduleBrowser["Pre 1 EQ Bass"] = 6.;
   load(moduleBrowser); click(170, 120);
@@ -1427,9 +1435,9 @@ int main(int argc, char** argv)
   assert(savedRig["SlotEffects"][3] == static_cast<int>(SlotEffect::LoFiTape));
   assert(savedRig["Pre 4 LoFi Speed"] == 3.75 && savedRig["Pre 4 LoFi Wear"] == 80.);
   assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
-  assert(!savedRig.contains("CaptureFolders") && !savedRig.contains("PresetFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
+  assert(!savedRig.contains("NamFolders") && !savedRig.contains("IrFolders") && !savedRig.contains("PresetFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
   auto anotherRig = cleared;
-  anotherRig["CaptureFolders"] = {irLibrary.string()};
+  anotherRig["IrFolders"] = {irLibrary.string()};
   anotherRig["PresetFolders"] = json::array();
   anotherRig["Tuner Reference"] = 442.; anotherRig["Tuner Mute"] = 1.;
   load(anotherRig);
@@ -1447,7 +1455,7 @@ int main(int argc, char** argv)
     assert(restoredRig[name] == savedRig[name]);
   }
   assert(restoredRig["Pre 3 Noise Learn"] == 0. && restoredRig["Pre 3 Noise Gate Threshold"] == -42.);
-  assert(restoredRig["CaptureFolders"] == anotherRig["CaptureFolders"] && restoredRig["Tuner Reference"] == 442.);
+  assert(restoredRig["IrFolders"] == anotherRig["IrFolders"] && restoredRig["Tuner Reference"] == 442.);
   assert(restoredRig["Pre 1 Freeze Hold"] == 0. && restoredRig["PresetName"] == presetFile.stem().string());
   assert(host.dirty && (host.rescanned & CLAP_PARAM_RESCAN_VALUES));
   win_file_dialog::Choose({}, [&] { presetMenu(L"Load preset file..."); }, true);
@@ -1476,6 +1484,16 @@ int main(int argc, char** argv)
   click(664, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
   std::cout << "Preset folder selection and previous/next passed\n";
+  // Deleting the selected (current) preset removes only its file, after confirmation.
+  const auto beforeDelete = save().config();
+  click(470, 28);
+  win_file_dialog::Confirm(false, [&] { click(916, 74); });
+  assert(std::filesystem::exists(presetFile));
+  win_file_dialog::Confirm(true, [&] { click(916, 74); });
+  assert(!std::filesystem::exists(presetFile) && std::filesystem::exists(presetDirectory / "Second rig.ngrid"));
+  assert(save().config() == beforeDelete);
+  keyAtEditor(VK_ESCAPE);
+  std::cout << "Preset delete passed\n";
   if (browserOnly)
   {
     if (argc == 4)
@@ -1818,9 +1836,9 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
   const auto beforeSettings = save().config();
   click(910, 36);
-  click(700, 132); // Global visualizations off.
+  click(530, 132); // Global visualizations off.
   assert(save().config() == beforeSettings); // Editor preference is outside the rig.
-  click(700, 132); // Restore preference for subsequent tests/previews.
+  click(530, 132); // Restore preference for subsequent tests/previews.
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // NAM Input underneath; the settings reference dial starts below this point.
@@ -1954,11 +1972,11 @@ int main(int argc, char** argv)
   click(915, 44); // Close overlay
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
-  unequal["CaptureFolders"] = {libraryFolder.string()};
+  unequal["NamFolders"] = {libraryFolder.string()};
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);
-  click(910, 28); click(260, 132); click(915, 44); pumpFor(250);
+  click(910, 28); click(90, 132); click(915, 44); pumpFor(250);
   assert(plugin->activate(plugin, 44100., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;

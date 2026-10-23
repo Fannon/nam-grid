@@ -93,8 +93,14 @@ never audio or automation ownership. The main card bounds do not clip the bottom
 
 ## Multiple sources
 
-Library & settings provides Add folder, Remove and Rescan all. Up to 32 roots are retained
-per list in project state and the per-user preference. The browser has a separate preset-folder list. Startup rescan is optional (default on); when off, use Rescan all. More than seven roots scroll. Missing sources
+Library & settings lists every source folder with its type: **NAM**, **IR** or **Presets**.
+**+ NAM folder**, **+ IR folder** and **+ Preset folder** add to the matching list, and each
+row has **Remove**. A folder is scanned only for its list's file type (`.nam`, `.wav` or
+`.ngrid`); add a mixed folder to several lists. The browser tabs edit the same lists. The
+status line counts files and folders per type. Up to 32 roots are retained per type in project
+state and the per-user preference; the earlier combined NAM/IR list is not migrated.
+Startup rescan is optional (default on); when off, use Rescan all, which indexes every list.
+More than seven rows scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
 file paths are deduplicated; identical source basenames receive distinct menu names. Root and
 nested folder names remain in the index. The dedicated [browser](browser.md) supplies

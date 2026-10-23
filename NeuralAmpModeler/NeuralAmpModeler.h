@@ -140,12 +140,11 @@ public:
   }
 
   // Native library controls; all called on the control/UI thread.
-  void SetCaptureFolders(std::vector<std::string> folders, bool fromUI = false);
-  std::vector<std::string> GetCaptureFolders() const;
-  void AddCaptureFolder(const char* folder);
-  void RemoveCaptureFolder(size_t index);
-  void SetPresetFolders(std::vector<std::string> folders, bool fromUI = false);
-  std::vector<std::string> GetPresetFolders() const;
+  // NAM, IR and RigPreset each have their own source list, scanned only for that kind.
+  void SetLibraryFolders(nam_library::FileKind kind, std::vector<std::string> folders, bool fromUI = false);
+  std::vector<std::string> GetLibraryFolders(nam_library::FileKind kind) const;
+  void AddLibraryFolder(nam_library::FileKind kind, const char* folder);
+  void RemoveLibraryFolder(nam_library::FileKind kind, size_t index);
   void OpenLibraryBrowser(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot = 0);
   size_t GetSelectedSlot() const { return mSelectedSlot; }
   void SelectSlot(size_t slot);
@@ -181,6 +180,9 @@ public:
   std::string SaveRigPreset(const std::filesystem::path& path);
   std::string LoadRigPreset(const std::filesystem::path& path);
   void PromptRigPreset(bool save);
+  // Deletes the .ngrid file only; the loaded rig and its name are unchanged.
+  bool ConfirmDeleteRigPreset(const std::filesystem::path& path);
+  std::string DeleteRigPreset(const std::filesystem::path& path);
   std::vector<std::filesystem::path> GetRigPresetFiles() const;
   std::string GetRigPresetName() const;
   void StepRigPreset(int direction);
@@ -260,8 +262,8 @@ private:
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
-  std::vector<std::string> mCaptureFolders;
-  std::vector<std::string> mPresetFolders;
+  std::vector<std::string> mNamFolders, mIrFolders, mPresetFolders;
+  std::vector<std::string>* _LibraryFolders(nam_library::FileKind kind);
   size_t mSelectedSlot = 0; // Editor selection only; never read by the audio thread.
   std::unique_ptr<PreparedSlot> mPreviewOriginal;
   size_t mPreviewSlot = 0;

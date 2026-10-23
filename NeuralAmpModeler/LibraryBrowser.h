@@ -168,6 +168,12 @@ inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKi
   for (size_t i = 0; i < roots.size(); ++i)
   {
     const auto root = std::filesystem::u8path(roots[i]);
+    // Hide roots that only hold other kinds (e.g. an IR-only folder in NAM captures).
+    // Empty, missing or unscanned roots stay listed so they can still be removed.
+    bool other = false, matching = false;
+    for (const auto& file : library.captures)
+      if (Within(file.path, root)) (file.kind == kind ? matching : other) = true;
+    if (other && !matching) continue;
     auto label = PathText(root.filename());
     if (label.empty()) label = roots[i];
     // Same basenames stay distinguishable, including empty or unavailable sources.

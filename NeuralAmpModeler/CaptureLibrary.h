@@ -28,12 +28,14 @@ enum class Gear
 };
 const char* GearName(Gear gear);
 std::string PathText(const std::filesystem::path& path);
+// Each source list indexes only its own file kind; a folder may appear in several lists.
 struct Settings
 {
-  std::vector<std::string> folders;
+  std::vector<std::string> namFolders;
   bool rescanOnStartup = true;
   bool showVisualizations = true;
   std::vector<std::string> presetFolders;
+  std::vector<std::string> irFolders;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings);
@@ -80,9 +82,10 @@ const Capture* FindHash(const Snapshot& library, const std::string& hash, bool i
 std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR);
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled = {});
 
+// Scans roots for both NAM captures and IRs.
 Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled = {});
-Snapshot ScanLibrary(const std::vector<std::string>& captureRoots, const std::vector<std::string>& presetRoots,
-                     const std::function<bool()>& cancelled = {});
+Snapshot ScanLibrary(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
+                     const std::vector<std::string>& presetRoots, const std::function<bool()>& cancelled = {});
 
 // Latest request wins. Results are handed back to the control thread, never to ProcessBlock.
 class Worker
@@ -90,16 +93,18 @@ class Worker
 public:
   Worker();
   ~Worker();
+  // Single-list requests index NAM captures and IRs together.
   void Request(const std::string& root);
   void Request(const std::vector<std::string>& roots);
-  void Request(const std::vector<std::string>& roots, const std::vector<std::string>& presetRoots);
+  void Request(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
+               const std::vector<std::string>& presetRoots);
   std::shared_ptr<const Snapshot> TakeResult();
 
 private:
   void Run();
   std::mutex mMutex;
   std::condition_variable mChanged;
-  std::vector<std::string> mRoots, mPresetRoots;
+  std::vector<std::string> mNamRoots, mIrRoots, mPresetRoots;
   std::shared_ptr<const Snapshot> mResult;
   std::atomic<unsigned> mRevision{0};
   std::atomic<bool> mStop{false};

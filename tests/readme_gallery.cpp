@@ -98,7 +98,8 @@ int main(int argc, char** argv)
   config["Pre 3 In"] = 6.; config["Pre 3 Trim"] = 12.; config["B 1 In"] = 3.; config["B 1 Trim"] = 10.;
   config["Pre 4 IR Level"] = -12.; config["B 2 IR Level"] = -18.;
   config["Post 1 Parametric Frequency"] = 2400.; config["Post 1 Parametric Gain"] = 4.; config["Post 1 Parametric Q"] = 1.2;
-  config["CaptureFolders"] = {captures.string(), irs.string()};
+  config["NamFolders"] = {captures.string()};
+  config["IrFolders"] = {irs.string()};
   config["PresetFolders"] = {presets.string()};
   config["PresetName"] = "Ambient pedalboard"; config["PresetDirectory"] = presets.string();
   config["Global Input"] = 0.; config["Output"] = -3.; config["Parallel Blend"] = 40.;
@@ -108,7 +109,7 @@ int main(int argc, char** argv)
 
   // Example rig presets for the preset browser, written like Save preset as.
   auto rigOf = [&](json rig, const char* name) {
-    for (const char* key : {"PresetDirectory", "CaptureFolders", "PresetFolders", "Tuner", "Tuner Reference", "Tuner Mute"})
+    for (const char* key : {"PresetDirectory", "NamFolders", "IrFolders", "PresetFolders", "Tuner", "Tuner Reference", "Tuner Mute"})
       rig.erase(key);
     rig["PresetName"] = name;
     return json{{"format", "nam-grid-preset"}, {"version", 1}, {"rig", rig}};

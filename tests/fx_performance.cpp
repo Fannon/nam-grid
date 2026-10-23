@@ -257,7 +257,8 @@ public:
 static json Configure(json config, const json& scenario)
 {
   const auto effect = static_cast<SlotEffect>(scenario.at("effect").get<int>());
-  config["CaptureFolders"] = json::array();
+  config["NamFolders"] = json::array();
+  config["IrFolders"] = json::array();
   config["Tuner"] = 0.;
   config["Tuner Mute"] = 0.;
   config["Pre 2 In"] = config["Output"] = 0.;

@@ -107,13 +107,7 @@ public:
     mModules = modules;
     AddChildControl(new Button(IRECT(548, 14, 640, 42), [this](IControl*) {
       PLUG()->RescanCaptureFolder();
-      if (!mContextRoot.empty())
-      {
-        const std::vector<std::string> roots{nam_library::PathText(mContextRoot)};
-        const bool presets = mContextKind == nam_library::FileKind::RigPreset;
-        mContextWorker.Request(presets ? std::vector<std::string>{} : roots,
-                               presets ? roots : std::vector<std::string>{});
-      }
+      if (!mContextRoot.empty()) RequestContextScan();
     }, "Rescan"));
     mSave = new Button(IRECT(650, 14, 778, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save preset as...");
     AddChildControl(mSave);
@@ -149,39 +143,28 @@ public:
       GetUI()->CreatePopupMenu(*this, mMenu, mGear->GetRECT());
     }, "All gear");
     AddChildControl(mGear);
-    mAdd = new Button(IRECT(548, 60, 682, 88), [this](IControl*) {
-      const bool presets = mKind == nam_library::FileKind::RigPreset;
+    mAdd = new Button(IRECT(548, 60, 656, 88), [this](IControl*) {
       WDL_String folder;
-      GetUI()->PromptForDirectory(folder, [plugin = PLUG(), presets](const WDL_String&, const WDL_String& chosen) {
-        if (!chosen.GetLength()) return;
-        if (!presets) plugin->AddCaptureFolder(chosen.Get());
-        else
-        {
-          auto roots = plugin->GetPresetFolders();
-          if (roots.size() < 32) roots.emplace_back(chosen.Get());
-          plugin->SetPresetFolders(std::move(roots), true);
-        }
+      GetUI()->PromptForDirectory(folder, [plugin = PLUG(), kind = mKind](const WDL_String&, const WDL_String& chosen) {
+        if (chosen.GetLength()) plugin->AddLibraryFolder(kind, chosen.Get());
       });
     }, "+ Add folder");
     AddChildControl(mAdd);
-    mRemove = new Button(IRECT(692, 60, 782, 88), [this](IControl*) {
+    mRemove = new Button(IRECT(664, 60, 782, 88), [this](IControl*) {
       const auto root = std::find_if(mFolders.begin(), mFolders.end(), [this](const auto& folder) {
         return nam_library::SamePath(folder.path, View().folder) && folder.rootIndex >= 0 && folder.rootIndex < ConfiguredRoots().size();
       });
       if (root == mFolders.end()) return;
       const auto index = root->rootIndex;
       View().folder.clear();
-      if (mKind != nam_library::FileKind::RigPreset) PLUG()->RemoveCaptureFolder(index);
-      else
-      {
-        auto roots = PLUG()->GetPresetFolders();
-        if (index < roots.size()) roots.erase(roots.begin() + index);
-        PLUG()->SetPresetFolders(std::move(roots), true);
-      }
+      PLUG()->RemoveLibraryFolder(mKind, index);
       Rebuild();
-    }, "Remove");
-    mRemove->SetTooltip("Remove the selected library root from the library. Files stay on disk.");
+    }, "Remove folder");
+    mRemove->SetTooltip("Remove the selected source folder from the library. Its files stay on disk.");
     AddChildControl(mRemove);
+    mDelete = new Button(IRECT(856, 60, 976, 88), [this](IControl*) { DeleteSelectedPreset(); }, "Delete preset");
+    mDelete->SetTooltip("Delete the selected preset file from disk after confirmation. The current rig stays loaded.");
+    AddChildControl(mDelete);
     mAdd->SetTooltip("Add a source folder and index its files and subfolders in the background.");
     mGear->SetTooltip("Filter NAM captures by metadata or gear inferred from their filenames and folders.");
   }
@@ -235,9 +218,7 @@ public:
       {
         mContextRoot = view.folder;
         mPendingSelection = true;
-        const auto root = std::vector<std::string>{nam_library::PathText(mContextRoot)};
-        mContextWorker.Request(kind == nam_library::FileKind::RigPreset ? std::vector<std::string>{} : root,
-                               kind == nam_library::FileKind::RigPreset ? root : std::vector<std::string>{});
+        RequestContextScan();
       }
     }
     mFolderKind = nam_library::FileKind::SlotPreset; // Opening may add a temporary current folder.
@@ -267,6 +248,7 @@ public:
       mFile->Hide(mKind == nam_library::FileKind::Module);
       mAdd->Hide(mKind == nam_library::FileKind::Module);
       mRemove->Hide(mKind == nam_library::FileKind::Module);
+      mDelete->Hide(mKind != nam_library::FileKind::RigPreset);
     }
     if (GetUI()) GetUI()->SetAllControlsDirty();
   }
@@ -291,6 +273,7 @@ public:
         return folder.rootIndex >= 0 && folder.rootIndex < ConfiguredRoots().size() && nam_library::SamePath(folder.path, View().folder);
       });
       Disabled(mRemove, !removable);
+      Disabled(mDelete, !Selected() || Selected()->kind != nam_library::FileKind::RigPreset);
     }
     return IContainerBase::IsDirty();
   }
@@ -407,8 +390,7 @@ private:
   State& View() { return mViews[static_cast<int>(mKind)]; }
   std::vector<std::string> ConfiguredRoots()
   {
-    return mKind == nam_library::FileKind::Module ? std::vector<std::string>{}
-           : mKind == nam_library::FileKind::RigPreset ? PLUG()->GetPresetFolders() : PLUG()->GetCaptureFolders();
+    return PLUG()->GetLibraryFolders(mKind);
   }
   std::vector<std::string> Roots()
   {
@@ -420,10 +402,14 @@ private:
     }
     return roots;
   }
-  bool ContextApplies() const
+  bool ContextApplies() const { return mKind != nam_library::FileKind::Module && mKind == mContextKind; }
+  // Index the current file's folder temporarily, for its own kind only.
+  void RequestContextScan()
   {
-    return mKind != nam_library::FileKind::Module
-           && (mKind == nam_library::FileKind::RigPreset) == (mContextKind == nam_library::FileKind::RigPreset);
+    const std::vector<std::string> root{nam_library::PathText(mContextRoot)}, none;
+    mContextWorker.Request(mContextKind == nam_library::FileKind::NAM ? root : none,
+                           mContextKind == nam_library::FileKind::IR ? root : none,
+                           mContextKind == nam_library::FileKind::RigPreset ? root : none);
   }
   static void Disabled(IControl* control, bool value)
   { if (control->IsDisabled() != value) control->SetDisabled(value); }
@@ -456,6 +442,7 @@ private:
     mFile->Hide(kind == nam_library::FileKind::Module);
     mAdd->Hide(kind == nam_library::FileKind::Module);
     mRemove->Hide(kind == nam_library::FileKind::Module);
+    mDelete->Hide(kind != nam_library::FileKind::RigPreset);
     Rebuild();
   }
   void Rebuild()
@@ -546,6 +533,33 @@ private:
     mStatus = error.empty() ? "Loaded " + nam_library::PathText(path.stem()) : error;
     if (error.empty()) Hide(true);
     SetDirty(false);
+  }
+  void DeleteSelectedPreset()
+  {
+    FinishSearch();
+    const auto* file = Selected();
+    if (!file || file->kind != nam_library::FileKind::RigPreset) return;
+    const auto path = file->path;
+    if (!PLUG()->ConfirmDeleteRigPreset(path)) return;
+    // Keep the selection in place: the following preset, or the previous one at the end.
+    const int row = SelectedRow();
+    const int neighbour = row + 1 < static_cast<int>(mResults.size()) ? row + 1 : row - 1;
+    const auto next = neighbour >= 0 ? nam_library::PathText(mLibrary->captures[mResults[neighbour]].path) : std::string{};
+    const auto error = PLUG()->DeleteRigPreset(path);
+    mStatus = error.empty() ? "Deleted " + nam_library::PathText(path.stem()) : error;
+    if (error.empty())
+    {
+      View().selected = next;
+      if (mContextLibrary)
+      {
+        auto context = std::make_shared<nam_library::Snapshot>(*mContextLibrary);
+        context->captures.erase(std::remove_if(context->captures.begin(), context->captures.end(),
+          [&](const auto& entry) { return nam_library::SamePath(entry.path, path); }), context->captures.end());
+        mContextLibrary = context;
+      }
+      mScanLibrary.reset();
+    }
+    Rebuild();
   }
   void PreviewSelected(bool force = false)
   {
@@ -654,7 +668,7 @@ private:
   NAMBrowserSearchControl* mSearch = nullptr;
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
-  grid_ui::Button *mAdd = nullptr, *mRemove = nullptr, *mSort = nullptr, *mSave = nullptr, *mGear = nullptr, *mFile = nullptr;
+  grid_ui::Button *mAdd = nullptr, *mRemove = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr, *mGear = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};
   IPopupMenu mMenu;
 };

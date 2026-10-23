@@ -28,7 +28,9 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
-constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19, kReverbDelaySchema = 20, kCosmicSchema = 21, kCutoffNamesSchema = 22, kTunerAutomationSchema = 23, kOutboardSchema = 24, kAirDynamicsSchema = 25, kGridStateSchema = kAirDynamicsSchema;
+constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19,
+              kReverbDelaySchema = 20, kCosmicSchema = 21, kCutoffNamesSchema = 22, kTunerAutomationSchema = 23,
+              kOutboardSchema = 24, kAirDynamicsSchema = 25, kGridStateSchema = kEffectStateSchema;
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -107,14 +109,16 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       const auto& p = kEffectParameters[i];
       auto* param = GetParam(SlotUtilityParam(slot, i));
       const auto choices = EffectChoices(i);
+      const int flags = IsAlgorithmMode(i) ? IParam::kFlagCannotAutomate : 0;
       if (!choices.empty())
       {
-        param->InitEnum((name + " " + p.name).c_str(), static_cast<int>(p.initial), static_cast<int>(choices.size()));
+        param->InitEnum(
+          (name + " " + p.name).c_str(), static_cast<int>(p.initial), static_cast<int>(choices.size()), "", flags);
         for (int choice = 0; choice < choices.size(); ++choice)
           param->SetDisplayText(choice, choices[choice]);
       }
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
-        param->InitBool((name + " " + p.name).c_str(), p.initial >= .5);
+        param->InitBool((name + " " + p.name).c_str(), p.initial >= .5, "", flags);
       else if (p.power != 1.)
         param->InitDouble(
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapePowCurve(p.power));
@@ -1225,12 +1229,15 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       if (!config.contains("schema") || !config["schema"].is_number_integer())
         return -1;
       const auto& schemaValue = config["schema"];
-      if (grid ? (schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7 && schemaValue != 8
-                  && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
+      const bool modernSchema = schemaValue >= kInitialEffectStateSchema && schemaValue <= kGridStateSchema;
+      if (grid ? (!modernSchema && schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7
+                  && schemaValue != 8 && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
                   && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
                   && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
                   && schemaValue != kFilterModeSchema && schemaValue != kLoFiSchema && schemaValue != kIdentitySchema
-                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema && schemaValue != kCutoffNamesSchema && schemaValue != kTunerAutomationSchema && schemaValue != kOutboardSchema && schemaValue != kGridStateSchema)
+                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema
+                  && schemaValue != kCutoffNamesSchema && schemaValue != kTunerAutomationSchema
+                  && schemaValue != kOutboardSchema && schemaValue != kAirDynamicsSchema)
                : schemaValue != 1)
         return -1;
       const int schema = schemaValue.get<int>();
@@ -1271,6 +1278,12 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
             const auto it = scene.find(GetParam(i)->GetName());
             if (it == scene.end()) continue;
             if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
+            if (IsAlgorithmMode(parameter_layout::UtilityControl(i)))
+            {
+              const double value = it->get<double>();
+              if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
+                return -1;
+            }
             ++recognized;
           }
           if (recognized != scene.size()) return -1;
@@ -1357,32 +1370,37 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       for (int i = 0; i < count; ++i)
       {
         const char* name = GetParam(i)->GetName();
-        if (grid && (schema < kAirDynamicsSchema || schema >= 1001) && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uBlackThreshold)
+        const int utility = parameter_layout::UtilityControl(i);
+        // Default only fields introduced after the saved version. Missing fields
+        // that should already exist remain invalid rather than silently resetting.
+        if (utility >= 0 && schema < kEffectParameters[utility].introducedIn && !config.contains(name))
           config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < kOutboardSchema || schema >= 1001) && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uStripLowCut)
+        if (grid && (schema < kAirDynamicsSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) >= uBlackThreshold)
+          config[name] = GetParam(i)->GetDefault();
+        if (grid && (schema < kOutboardSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) >= uStripLowCut)
           config[name] = GetParam(i)->GetDefault();
         if (grid && i == kTunerActive && (schema < kTunerAutomationSchema || schema >= 1001)) config[name] = 0.;
-        if (grid && schema < kReverbDelaySchema && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uTapeHeads)
+        if (grid && schema < kReverbDelaySchema && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) >= uTapeHeads)
           config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < kCosmicSchema || schema >= 1001) && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uCosmicTime)
+        if (grid && (schema < kCosmicSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) >= uCosmicTime)
           config[name] = GetParam(i)->GetDefault();
-        if (grid && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uLoFiSpeed && (schema < kLoFiSchema || schema >= 1001))
+        if (grid && parameter_layout::UtilityControl(i) >= 0 && parameter_layout::UtilityControl(i) >= uLoFiSpeed
+            && (schema < kLoFiSchema || schema >= 1001))
           config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase && i < kNumParams)
+        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase && i <= kTunerActive)
           config[name] = GetParam(i)->GetDefault();
         if (grid && (schema < 12 || schema >= 1001) && i == kGridParamBase + grid_performance::InputGain)
           config[name] = GetParam(i)->GetDefault();
-        if (grid && schema == 1001 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls == uNoiseGateThreshold)
+        if (grid && schema == 1001 && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) == uNoiseGateThreshold)
           config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
-        if (grid && i >= kUtilityBase && i < kTunerReference)
+        if (grid && parameter_layout::UtilityControl(i) >= 0)
         {
-          const int control = (i - kUtilityBase) % kUtilityControls;
+          const int control = parameter_layout::UtilityControl(i);
           if ((schema <= 13 && control >= uNoiseLearn)
               || (schema >= 1001 && control >= uUtilityDelay && control < uNoiseLearn))
             config[name] = GetParam(i)->GetDefault();
@@ -1399,40 +1417,49 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         // Schemas 6/7 had 30/41 named utility controls per slot. Fill only newly added
         // controls; the expanded per-slot stride does not change saved names.
         if (grid && schema >= 6 && schema < 10
-            && ((i >= kTunerReference && schema < 8)
-                || (i >= kUtilityBase && i < kTunerReference
-                    && (i - kUtilityBase) % kUtilityControls >= (schema == 6   ? 30
-                                                                 : schema == 7 ? 41
-                                                                 : schema == 8 ? 48 : 61))))
+            && ((i >= kTunerReference && parameter_layout::UtilityControl(i) < 0 && schema < 8)
+                || (parameter_layout::UtilityControl(i) >= 0
+                    && parameter_layout::UtilityControl(i) >= (schema == 6   ? 30
+                                                               : schema == 7 ? 41
+                                                               : schema == 8 ? 48
+                                                                             : 61))))
           config[name] = GetParam(i)->GetDefault();
         // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
-        if (grid && schema >= 11 && schema <= 12 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= uDistStyle)
+        if (grid && schema >= 11 && schema <= 12 && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) >= uDistStyle)
           config[name] = GetParam(i)->GetDefault();
-        if (grid && schema == 10 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls >= 103)
+        if (grid && schema == 10 && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) >= 103)
           config[name] = GetParam(i)->GetDefault();
-        if (grid && schema == 8 && i >= kUtilityBase && i < kTunerReference
-            && (i - kUtilityBase) % kUtilityControls == uUtilityStereo)
+        if (grid && schema == 8 && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) == uUtilityStereo)
         {
-          const auto oldName = GridSlotName((i - kUtilityBase) / kUtilityControls) + " Utility Width";
+          const auto oldName = GridSlotName(parameter_layout::UtilitySlot(i)) + " Utility Width";
           if (!config.contains(oldName) || !config[oldName].is_number()
               || !std::isfinite(config[oldName].get<double>()))
             return -1;
           config[name] = config[oldName].get<double>() - 100.;
         }
-        if (grid && (schema < kGateModeSchema || schema >= 1001)
-            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kUtilityControls == uGateMode)
+        if (grid && (schema < kGateModeSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) == uGateMode)
         {
-          const size_t slot = (i - kUtilityBase) / kUtilityControls;
+          const size_t slot = parameter_layout::UtilitySlot(i);
           config[name] = config.contains("SlotEffects")
                            && config["SlotEffects"][slot] == static_cast<int>(SlotEffect::TightGate) ? 1. : 0.;
         }
-        if (grid && (schema < kFilterModeSchema || schema >= 1001)
-            && i >= kUtilityBase && i < kTunerReference && (i - kUtilityBase) % kUtilityControls == uFilterMode)
+        if (grid && (schema < kFilterModeSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
+            && parameter_layout::UtilityControl(i) == uFilterMode)
           config[name] = 0.;
         if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
           return -1;
+        // An unknown algorithm must fail before applying any state, rather than
+        // silently clamp to a different sound. Native mode IDs never normalize.
+        if (IsAlgorithmMode(parameter_layout::UtilityControl(i)))
+        {
+          const double value = config[name].get<double>();
+          if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
+            return -1;
+        }
       }
       if (config.contains("SlotHashes"))
       {
@@ -1462,7 +1489,9 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       }
       else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
                || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kLoFiSchema
-               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema || schema == kCosmicSchema || schema == kCutoffNamesSchema || schema == kTunerAutomationSchema || schema == kOutboardSchema || schema == kGridStateSchema)
+               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema
+               || schema == kCosmicSchema || schema == kCutoffNamesSchema || schema == kTunerAutomationSchema
+               || schema == kOutboardSchema || schema == kAirDynamicsSchema || modernSchema)
         return -1;
       _UnserializeApplyConfig(config);
       return pos;
@@ -1508,6 +1537,8 @@ void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
       ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       ui->GetControlWithTag(kCtrlTagPerformance)->Hide(true);
     }
+  if (source == EParamSource::kUI && IsAlgorithmMode(parameter_layout::UtilityControl(paramIdx)))
+    _NotifyHostStateChanged(); // Algorithm selection is saved state, not an automation gesture.
   _UpdateTunerControls();
   // Refresh labels/quality and selected-module controls after automation or preset recall.
   if (auto* ui = GetUI())

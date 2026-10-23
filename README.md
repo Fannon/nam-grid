@@ -30,8 +30,8 @@ Add your own NAM captures and cabinet IRs when building an amp rig.*
 **Preview software.** Automated Windows and macOS builds are available through
 [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain).
 DAW listening tests, low-buffer sessions and VST3 host validation remain part of
-the [release checklist](docs/release-checklist.md). Project and automation
-compatibility may change during the preview.
+the [release checklist](docs/release-checklist.md). Existing control IDs and mappings follow the
+[compatibility contract](docs/development.md#parameter-and-project-compatibility).
 
 | Platform | Preview archive | Status |
 | --- | --- | --- |
@@ -132,9 +132,11 @@ upstream installer and standalone scripts are historical.
 See the [documentation index](docs/README.md) for all guides. Reviews and
 measurement reports belong in PR descriptions/comments or ignored `tmp/` files.
 
-The existing CLAP/VST3 plugin IDs are retained for host identification. Preview
-parameter IDs, names and enum ranges may change; prototype project and
-automation compatibility is not guaranteed.
+The existing CLAP/VST3 plugin IDs are retained for host identification. Existing
+control IDs and mappings follow the [compatibility contract](docs/development.md#parameter-and-project-compatibility).
+Algorithm selections are saved in presets/projects and are not automatable.
+This cleanup resets prototype automation IDs; earlier preview automation must
+be recreated. The compatibility guarantee begins with this baseline.
 
 ## License and credits
 

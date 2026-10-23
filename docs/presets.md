@@ -28,6 +28,13 @@ modules, whereas a rig preset can replace module types and models. Loading a rig
 prepares models on the control thread and uses the existing DSP publication and
 host-restart policy; it can briefly occupy the editor for large models.
 
+Algorithm selections are retained in rigs, projects and scenes and are changed
+in the editor rather than through automation. Adding new modes preserves saved
+choices and the other controls' automation mappings from the new baseline onward.
+Older preview presets are read on a best-effort basis; their automation IDs are
+not migrated. See
+[parameter compatibility](development.md#parameter-and-project-compatibility).
+
 ## Gain placement
 
 - **IN** is before the whole grid, tuner and envelope follower.

@@ -454,7 +454,20 @@ int main(int argc, char** argv)
   clap_audio_buffer in{nullptr, ins, inInfo.channel_count, 0, 0}, out{nullptr, outs, outInfo.channel_count, 0, 0};
   clap_input_events events{nullptr, [](const clap_input_events*) -> uint32_t { return 0; },
                            [](const clap_input_events*, uint32_t) -> const clap_event_header* { return nullptr; }};
-  clap_output_events sent{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
+  std::vector<clap_id> algorithmAutomation;
+  clap_output_events sent{
+    &algorithmAutomation, [](const clap_output_events* list, const clap_event_header* event) {
+      if (event->space_id != CLAP_CORE_EVENT_SPACE_ID)
+        return true;
+      clap_id id = CLAP_INVALID_ID;
+      if (event->type == CLAP_EVENT_PARAM_VALUE)
+        id = reinterpret_cast<const clap_event_param_value*>(event)->param_id;
+      else if (event->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || event->type == CLAP_EVENT_PARAM_GESTURE_END)
+        id = reinterpret_cast<const clap_event_param_gesture*>(event)->param_id;
+      if (id != CLAP_INVALID_ID && IsAlgorithmMode(parameter_layout::UtilityControl(static_cast<int>(id))))
+        static_cast<std::vector<clap_id>*>(list->ctx)->push_back(id);
+      return true;
+    }};
   clap_process process{};
   process.audio_inputs = &in;
   process.audio_outputs = &out;
@@ -1633,6 +1646,11 @@ int main(int argc, char** argv)
         const auto& descriptor = kEffectParameters[p];
         const std::string name = std::string("Pre 1 ") + descriptor.name;
         const auto before = save().config();
+        if (IsAlgorithmMode(p))
+        {
+          host.dirty = false;
+          algorithmAutomation.clear();
+        }
         // Drag down at an upper limit (Tape Mix defaults to 100%).
         const int position = effect_presentation::Position(effect, p);
         const int x = grid_layout::KnobX(position);
@@ -1650,6 +1668,12 @@ int main(int argc, char** argv)
         pumpFor(30);
         if (save().config()[name] == before[name]) std::cerr << "Unchanged UI parameter: " << name << " effect=" << id << "\n";
         assert(save().config()[name] != before[name]);
+        if (IsAlgorithmMode(p))
+        {
+          params->flush(plugin, &events, &sent);
+          assert(host.dirty); // Saved-state notification replaces automation.
+          assert(algorithmAutomation.empty());
+        }
       }
     click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
     assert(save().config()["Drive Enabled"] == 0.);

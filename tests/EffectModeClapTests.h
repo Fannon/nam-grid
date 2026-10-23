@@ -1,4 +1,5 @@
 #pragma once
+#include "../NeuralAmpModeler/ParameterLayout.h"
 
 template<class Save, class Load>
 void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load load)
@@ -7,7 +8,7 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
   clap_output_events sent{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
   // Verify actual host metadata for every slot, including bank boundaries. The
   // first utility ID follows the fixed input/dynamics/EQ/quality controls.
-  constexpr uint32_t firstUtility = 284;
+
   for (int slot = 0; slot < 16; ++slot)
   {
     const auto label = std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ")
@@ -15,10 +16,11 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
     for (int p = 0; p < kUtilityControls; ++p)
     {
       clap_param_info info{};
-      const uint32_t id = firstUtility + slot * kUtilityControls + p;
+      const uint32_t id = SlotUtilityParam(slot, p);
       assert(params->get_info(plugin, id, &info));
       const auto name = label + " " + kEffectParameters[p].name;
       assert(info.id == id && name == info.name);
+      assert(bool(info.flags & CLAP_PARAM_IS_AUTOMATABLE) == !IsAlgorithmMode(p));
       const auto choices = EffectChoices(p);
       if (choices.empty()) continue;
       assert((info.flags & CLAP_PARAM_IS_ENUM) && (info.flags & CLAP_PARAM_IS_STEPPED));
@@ -31,6 +33,17 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
         assert(std::strcmp(text, choices[choice]) == 0);
         assert(params->text_to_value(plugin, id, text, &value) && value == choice);
         if (slot != 0 && slot != 15) continue;
+        if (IsAlgorithmMode(p))
+        {
+          // Exercise boundary-bank recall alongside the full host integration.
+          // parameter-contract covers every mode in all banks in one load per
+          // mode, avoiding hundreds of redundant whole-rig preparations here.
+          auto configured = save().config();
+          configured[name] = choice;
+          load(configured);
+          assert(save().config()[name] == choice);
+          continue;
+        }
         clap_event_param_value event{};
         event.header.size = sizeof(event); event.header.type = CLAP_EVENT_PARAM_VALUE;
         event.param_id = id; event.value = choice;
@@ -147,5 +160,5 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
   assert(save().config()["Pre 1 Console Colour Desk"]==6.);
   assert(save().config()["Pre 1 Black Threshold"]==-55.);
   load(cleared);
-  std::cout << "FX modes: contiguous host banks, choice labels/ranges, automation and state recall passed\n";
+  std::cout << "FX modes: stable host IDs, state-only algorithms, musical automation and recall passed\n";
 }

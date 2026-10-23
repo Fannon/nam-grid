@@ -50,96 +50,7 @@ private:
   LevelAnalysis mAnalysis;
 };
 
-enum EParams
-{
-  // These need to be the first ones because I use their indices to place
-  // their rects in the GUI.
-  kInputLevel = 0,
-  kNoiseGateThreshold,
-  kToneBass,
-  kToneMid,
-  kToneTreble,
-  kOutputLevel,
-  // The rest is fine though.
-  kNoiseGateActive,
-  kEQActive,
-  kIRToggle,
-  // Input calibration
-  kCalibrateInput,
-  kInputCalibrationLevel,
-  kOutputMode,
-  kSlim,
-  kDriveInput,
-  kDriveTrim,
-  kDriveActive,
-  kAmpTrim,
-  kAmpActive,
-  kGridSlotBase,
-  kParallelBlend = kGridSlotBase + 14 * 3,
-  kDynamicsBase,
-  kEQBase = kDynamicsBase + 16 * 6,
-  kQualityBase = kEQBase + 16 * 7,
-  kUtilityBase = kQualityBase + 15,
-  kTunerReference = kUtilityBase + 16 * kUtilityControls,
-  kTunerMute,
-  kGridParamBase,
-  kTunerActive = kGridParamBase + grid_performance::Count,
-  kNumParams
-};
-
-constexpr int kDualNumParams = kGridSlotBase;
-constexpr int kGridV2NumParams = kDynamicsBase;
-constexpr int kGridV3NumParams = kEQBase;
-constexpr int SlotUtilityParam(size_t slot, int control)
-{
-  return kUtilityBase + static_cast<int>(slot) * kUtilityControls + control;
-}
-constexpr int SlotEQParam(size_t slot, int control)
-{ return kEQBase + static_cast<int>(slot) * 7 + control; }
-constexpr int SlotFullParam(size_t slot)
-{ return slot == 1 ? kSlim : kQualityBase + static_cast<int>(slot) - (slot > 1 ? 1 : 0); }
-constexpr int SlotDynamicsParam(size_t slot, int control)
-{ return kDynamicsBase + static_cast<int>(slot) * 6 + control; }
-constexpr int SlotInputParam(size_t slot)
-{ return slot == 0 ? kDriveInput : slot == 1 ? kInputLevel : kGridSlotBase + (slot - 2) * 3; }
-constexpr int SlotTrimParam(size_t slot)
-{ return slot == 0 ? kDriveTrim : slot == 1 ? kAmpTrim : SlotInputParam(slot) + 1; }
-constexpr int SlotActiveParam(size_t slot)
-{ return slot == 0 ? kDriveActive : slot == 1 ? kAmpActive : SlotInputParam(slot) + 2; }
-// Only parameters collected into the per-slot audio snapshot belong here.
-constexpr int SlotControlOwner(int index)
-{
-  if (index >= kUtilityBase && index < kTunerReference) return (index - kUtilityBase) / kUtilityControls;
-  if (index >= kEQBase && index < kQualityBase) return (index - kEQBase) / 7;
-  if (index >= kDynamicsBase && index < kEQBase) return (index - kDynamicsBase) / 6;
-  if (index >= kGridSlotBase && index < kParallelBlend) return 2 + (index - kGridSlotBase) / 3;
-  if (index >= kDriveInput && index <= kDriveActive) return 0;
-  if (index == kInputLevel || index == kAmpTrim || index == kAmpActive) return 1;
-  return -1;
-}
-inline std::string GridSlotName(size_t slot)
-{ return std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ") + std::to_string(slot % 4 + 1); }
-constexpr std::array<int, 17 + kUtilityControls> SlotParamIndices(size_t slot)
-{
-  std::array<int, 17 + kUtilityControls> result{SlotInputParam(slot), SlotTrimParam(slot), SlotActiveParam(slot)};
-  for (int i = 0; i < 6; ++i)
-    result[3 + i] = SlotDynamicsParam(slot, i);
-  for (int i = 0; i < 7; ++i)
-    result[9 + i] = SlotEQParam(slot, i);
-  result[16] = SlotFullParam(slot);
-  for (int i = 0; i < kUtilityControls; ++i)
-    result[17 + i] = SlotUtilityParam(slot, i);
-  return result;
-}
-static_assert([] {
-  for (size_t slot = 0; slot < 16; ++slot)
-  {
-    const auto indices = SlotParamIndices(slot);
-    for (size_t i = 0; i < indices.size(); ++i)
-      if (i != 16 && SlotControlOwner(indices[i]) != static_cast<int>(slot)) return false;
-  }
-  return SlotControlOwner(kOutputLevel) == -1 && SlotControlOwner(kGridParamBase) == -1;
-}(), "Every cached slot parameter must invalidate its owning bank");
+#include "ParameterLayout.h"
 
 const int numKnobs = 6;
 
@@ -227,6 +138,23 @@ public:
 
   void OnParamChange(int paramIdx) override;
   void OnParamChangeUI(int paramIdx, iplug::EParamSource source) override;
+  // Keep the existing parameter handles for editor/state compatibility, but do
+  // not emit automation gestures or values for expandable algorithm selectors.
+  void BeginInformHostOfParamChange(int index) override
+  {
+    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+      iplug::Plugin::BeginInformHostOfParamChange(index);
+  }
+  void InformHostOfParamChange(int index, double value) override
+  {
+    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+      iplug::Plugin::InformHostOfParamChange(index, value);
+  }
+  void EndInformHostOfParamChange(int index) override
+  {
+    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+      iplug::Plugin::EndInformHostOfParamChange(index);
+  }
   bool OnMessage(int msgTag, int ctrlTag, int dataSize, const void* pData) override;
 
   // Native library controls; all called on the control/UI thread.

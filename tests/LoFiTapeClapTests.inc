@@ -30,17 +30,17 @@
   Stream missing; missing.string("###NAMGrid-v1###"); missing.string(malformed.dump());
   assert(!loadBytes(missing) && save().config() == tapeState);
 
-  // Every slot has the same contiguous bank, including the tape controls.
+  // Every FX control has a stable block of slot IDs, including tape controls.
   std::array<bool, 3> checked{};
   for (uint32_t index = 0; index < params->count(plugin); ++index)
   {
     clap_param_info info{}; assert(params->get_info(plugin, index, &info));
     if (std::strcmp(info.name, "Pre 1 LoFi Speed") == 0)
-    { assert(info.id == 284 + uLoFiSpeed); checked[0] = true; }
+    { assert(info.id == SlotUtilityParam(0, uLoFiSpeed)); checked[0] = true; }
     if (std::strcmp(info.name, "Post 4 Noise Gate Threshold") == 0)
-    { assert(info.id == 284 + 15 * kUtilityControls + uNoiseGateThreshold); checked[1] = true; }
+    { assert(info.id == SlotUtilityParam(15, uNoiseGateThreshold)); checked[1] = true; }
     if (std::strcmp(info.name, "Tuner Reference") == 0)
-    { assert(info.id == 284 + 16 * kUtilityControls); checked[2] = true; }
+    { assert(info.id == kTunerReference); checked[2] = true; }
   }
   assert(checked[0] && checked[1] && checked[2]);
   // Real CLAP automation reaches all seven controls and survives state recall.

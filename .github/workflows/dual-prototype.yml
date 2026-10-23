@@ -38,7 +38,7 @@ jobs:
           python-version: '3.11'
       - run: python scripts/setup-deps.py
       - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
       # Hosted Windows runners only expose the GDI OpenGL 1.1 renderer, which the
       # NanoVG editor cannot use (created contexts are unusable and the GUI tests
       # crash). Supply Mesa's llvmpipe so the editor tests run on a real GL 4.x.

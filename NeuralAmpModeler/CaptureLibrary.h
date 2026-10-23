@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -76,11 +77,40 @@ struct Snapshot
   size_t duplicates = 0;
 };
 
+// `.ignore` files (also `.ignore.txt`, as Windows Explorer names new text files) exclude
+// files and folders from a library folder like .gitignore: one pattern per line, `#`
+// comments, `!` re-includes, a trailing `/` matches folders only, any other `/` anchors
+// the pattern to the .ignore's folder, and `*`, `?`, `[...]` and `**` wildcards. Matching
+// ignores case. A file applies to its folder and subfolders within `root`; later and
+// deeper patterns win, and a file inside an excluded folder cannot be re-included.
+class IgnoreRules
+{
+public:
+  explicit IgnoreRules(std::filesystem::path root) : mRoot(std::move(root)) {}
+  // Whether `path` (inside root) or one of its folders below root is excluded.
+  bool Ignored(const std::filesystem::path& path, bool directory);
+  // Only the entry itself, for scans that never descend into excluded folders.
+  bool Matches(const std::filesystem::path& path, bool directory);
+
+private:
+  struct Pattern
+  {
+    std::vector<std::string> segments;
+    bool negate = false, directoryOnly = false;
+  };
+  const std::vector<Pattern>& Patterns(const std::filesystem::path& folder);
+  std::filesystem::path mRoot;
+  std::map<std::filesystem::path, std::vector<Pattern>> mFolders;
+};
+
 // Shared by the background worker and deterministic scanner tests.
 Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root);
 std::string ContentHash(const std::filesystem::path& file, const std::function<bool()>& cancelled = {});
 const Capture* FindHash(const Snapshot& library, const std::string& hash, bool isIR);
-std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR);
+// Files of the same kind in the selected file's folder, by name. Files that the .ignore
+// rules of a containing library folder in `roots` exclude are left out.
+std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR,
+                                                const std::vector<std::string>& roots = {});
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled = {});
 
 // Scans roots for both NAM captures and IRs.

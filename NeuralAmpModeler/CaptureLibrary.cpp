@@ -5,6 +5,7 @@
 #include <fstream>
 #include <functional>
 #include <sstream>
+#include <string_view>
 #include <map>
 #include <set>
 #include <utility>
@@ -146,6 +147,198 @@ std::string PathText(const std::filesystem::path& path)
 {
   const auto text = path.u8string();
   return {text.begin(), text.end()};
+}
+
+namespace
+{
+// One path segment against one .ignore pattern segment: `*`, `?`, `[...]` classes and
+// `\` escapes, ignoring ASCII case.
+bool MatchSegment(std::string_view pattern, std::string_view text)
+{
+  const auto fold = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
+  // Length of the pattern element at `at` when it matches `c`, otherwise 0.
+  const auto element = [&](size_t at, char c) -> size_t {
+    if (pattern[at] == '?')
+      return 1;
+    if (pattern[at] == '\\' && at + 1 < pattern.size())
+      return fold(pattern[at + 1]) == fold(c) ? 2 : 0;
+    if (pattern[at] == '[')
+    {
+      size_t i = at + 1;
+      const bool negate = i < pattern.size() && (pattern[i] == '!' || pattern[i] == '^');
+      if (negate)
+        ++i;
+      bool found = false;
+      for (bool first = true; i < pattern.size() && (first || pattern[i] != ']'); first = false)
+      {
+        const char low = fold(pattern[i++]);
+        char high = low;
+        if (i + 1 < pattern.size() && pattern[i] == '-' && pattern[i + 1] != ']')
+        {
+          high = fold(pattern[i + 1]);
+          i += 2;
+        }
+        found |= fold(c) >= low && fold(c) <= high;
+      }
+      if (i < pattern.size())
+        return found != negate ? i + 1 - at : 0;
+      // An unclosed '[' is an ordinary character.
+    }
+    return fold(pattern[at]) == fold(c) ? 1 : 0;
+  };
+  size_t p = 0, t = 0, star = std::string_view::npos, starText = 0;
+  while (t < text.size())
+  {
+    if (p < pattern.size() && pattern[p] == '*')
+    {
+      star = ++p;
+      starText = t;
+      continue;
+    }
+    if (p < pattern.size())
+      if (const size_t length = element(p, text[t]))
+      {
+        p += length;
+        ++t;
+        continue;
+      }
+    if (star == std::string_view::npos)
+      return false;
+    p = star;
+    t = ++starText;
+  }
+  while (p < pattern.size() && pattern[p] == '*')
+    ++p;
+  return p == pattern.size();
+}
+
+// `**` matches any number of folders; a trailing `**` matches everything inside a folder
+// but not the folder itself.
+bool MatchSegments(const std::vector<std::string>& pattern, size_t p, const std::vector<std::string>& path, size_t t)
+{
+  if (p == pattern.size())
+    return t == path.size();
+  if (pattern[p] == "**")
+  {
+    for (size_t next = p + 1 == pattern.size() ? t + 1 : t; next <= path.size(); ++next)
+      if (MatchSegments(pattern, p + 1, path, next))
+        return true;
+    return false;
+  }
+  return t < path.size() && MatchSegment(pattern[p], path[t]) && MatchSegments(pattern, p + 1, path, t + 1);
+}
+
+// Path components of `path` below `root`; empty when it is not inside. Case-insensitive
+// on Windows, where library folders and saved paths may differ in case.
+std::vector<std::string> SegmentsBelow(const std::filesystem::path& path, const std::filesystem::path& root)
+{
+  std::vector<std::string> segments, rootParts, pathParts;
+  for (const auto& part : root.lexically_normal())
+    if (!part.empty()) rootParts.push_back(PathText(part));
+  for (const auto& part : path.lexically_normal())
+    if (!part.empty()) pathParts.push_back(PathText(part));
+  if (pathParts.size() <= rootParts.size())
+    return segments;
+  for (size_t i = 0; i < rootParts.size(); ++i)
+  {
+#ifdef _WIN32
+    if (Lower(rootParts[i]) != Lower(pathParts[i]))
+#else
+    if (rootParts[i] != pathParts[i])
+#endif
+      return segments;
+  }
+  segments.assign(pathParts.begin() + static_cast<std::ptrdiff_t>(rootParts.size()), pathParts.end());
+  return segments;
+}
+} // namespace
+
+const std::vector<IgnoreRules::Pattern>& IgnoreRules::Patterns(const std::filesystem::path& folder)
+{
+  const auto [found, inserted] = mFolders.try_emplace(folder);
+  auto& patterns = found->second;
+  if (!inserted)
+    return patterns;
+  for (const char* name : {".ignore", ".ignore.txt"})
+  {
+    std::error_code error;
+    const auto file = folder / name;
+    if (!std::filesystem::is_regular_file(file, error) || std::filesystem::file_size(file, error) > 65536 || error)
+      continue;
+    std::ifstream input(file, std::ios::binary);
+    std::string line;
+    for (bool first = true; std::getline(input, line); first = false)
+    {
+      if (first && line.starts_with("\xEF\xBB\xBF"))
+        line.erase(0, 3); // Notepad's UTF-8 byte order mark.
+      if (!line.empty() && line.back() == '\r')
+        line.pop_back();
+      // Trailing spaces end a pattern unless escaped with a backslash.
+      while (!line.empty() && line.back() == ' ' && !(line.size() > 1 && line[line.size() - 2] == '\\'))
+        line.pop_back();
+      if (line.empty() || line[0] == '#')
+        continue;
+      Pattern pattern;
+      if (line[0] == '!')
+      {
+        pattern.negate = true;
+        line.erase(0, 1);
+      }
+      else if (line.size() > 1 && line[0] == '\\' && (line[1] == '#' || line[1] == '!'))
+        line.erase(0, 1);
+      if (!line.empty() && line.back() == '/')
+      {
+        pattern.directoryOnly = true;
+        line.pop_back();
+      }
+      // A slash anywhere else anchors the pattern to this folder; otherwise it matches a
+      // name at any depth.
+      if (line.find('/') == std::string::npos)
+        pattern.segments.push_back("**");
+      for (size_t start = 0; start < line.size();)
+      {
+        const auto end = std::min(line.find('/', start), line.size());
+        if (end > start)
+          pattern.segments.push_back(line.substr(start, end - start));
+        start = end + 1;
+      }
+      if (!pattern.segments.empty() && !(pattern.segments.size() == 1 && pattern.segments[0] == "**"))
+        patterns.push_back(std::move(pattern));
+    }
+  }
+  return patterns;
+}
+
+bool IgnoreRules::Matches(const std::filesystem::path& path, bool directory)
+{
+  const auto segments = SegmentsBelow(path, mRoot);
+  if (segments.empty())
+    return false;
+  bool ignored = false;
+  auto folder = mRoot;
+  for (size_t depth = 0; depth < segments.size(); ++depth)
+  {
+    // Each folder's patterns see the entry relative to that folder; deeper ones win.
+    const std::vector<std::string> below(segments.begin() + static_cast<std::ptrdiff_t>(depth), segments.end());
+    for (const auto& pattern : Patterns(folder))
+      if ((directory || !pattern.directoryOnly) && MatchSegments(pattern.segments, 0, below, 0))
+        ignored = !pattern.negate;
+    folder /= std::filesystem::u8path(segments[depth]);
+  }
+  return ignored;
+}
+
+bool IgnoreRules::Ignored(const std::filesystem::path& path, bool directory)
+{
+  const auto segments = SegmentsBelow(path, mRoot);
+  auto folder = mRoot;
+  for (size_t i = 0; i + 1 < segments.size(); ++i)
+  {
+    folder /= std::filesystem::u8path(segments[i]);
+    if (Matches(folder, true))
+      return true; // A file inside an excluded folder cannot be re-included.
+  }
+  return !segments.empty() && Matches(path, directory);
 }
 
 const char* GearName(Gear gear)
@@ -357,12 +550,17 @@ const Capture* FindHash(const Snapshot& library, const std::string& hash, bool i
     }
   return fallback;
 }
-std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR)
+std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& selected, bool isIR,
+                                                const std::vector<std::string>& roots)
 {
   std::vector<std::filesystem::path> result;
+  std::vector<IgnoreRules> rules;
+  for (const auto& root : roots)
+    rules.emplace_back(std::filesystem::u8path(root));
   std::error_code error;
   for (std::filesystem::directory_iterator it(selected.parent_path(), error), end; !error && it != end; it.increment(error))
-    if (it->is_regular_file(error) && Lower(PathText(it->path().extension())) == (isIR ? ".wav" : ".nam"))
+    if (it->is_regular_file(error) && Lower(PathText(it->path().extension())) == (isIR ? ".wav" : ".nam")
+        && std::none_of(rules.begin(), rules.end(), [&](auto& rule) { return rule.Ignored(it->path(), false); }))
       result.push_back(it->path());
   std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
     const auto first = Lower(PathText(a.filename())), second = Lower(PathText(b.filename()));
@@ -404,6 +602,7 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
     result.error = "Library folder is missing or inaccessible";
     return result;
   }
+  IgnoreRules ignore(root);
   using Iterator = std::filesystem::recursive_directory_iterator;
   Iterator it(root, std::filesystem::directory_options::skip_permission_denied, error), end;
   for (; it != end && !error; it.increment(error))
@@ -415,6 +614,13 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
     if (it->is_symlink(statusError))
     {
       it.disable_recursion_pending();
+      continue;
+    }
+    const bool directory = it->is_directory(statusError);
+    if (ignore.Matches(it->path(), directory))
+    {
+      if (directory)
+        it.disable_recursion_pending();
       continue;
     }
     const auto extension = Lower(PathText(it->path().extension()));

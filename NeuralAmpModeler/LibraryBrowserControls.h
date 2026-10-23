@@ -143,29 +143,16 @@ public:
       GetUI()->CreatePopupMenu(*this, mMenu, mGear->GetRECT());
     }, "All gear");
     AddChildControl(mGear);
-    mAdd = new Button(IRECT(548, 60, 656, 88), [this](IControl*) {
-      WDL_String folder;
-      GetUI()->PromptForDirectory(folder, [plugin = PLUG(), kind = mKind](const WDL_String&, const WDL_String& chosen) {
-        if (chosen.GetLength()) plugin->AddLibraryFolder(kind, chosen.Get());
-      });
-    }, "+ Add folder");
-    AddChildControl(mAdd);
-    mRemove = new Button(IRECT(664, 60, 782, 88), [this](IControl*) {
-      const auto root = std::find_if(mFolders.begin(), mFolders.end(), [this](const auto& folder) {
-        return nam_library::SamePath(folder.path, View().folder) && folder.rootIndex >= 0 && folder.rootIndex < ConfiguredRoots().size();
-      });
-      if (root == mFolders.end()) return;
-      const auto index = root->rootIndex;
-      View().folder.clear();
-      PLUG()->RemoveLibraryFolder(mKind, index);
-      Rebuild();
-    }, "Remove folder");
-    mRemove->SetTooltip("Remove the selected source folder from the library. Its files stay on disk.");
-    AddChildControl(mRemove);
+    // Source folders are managed only in Library & settings, one list per file type.
+    mFoldersButton = new Button(IRECT(548, 60, 700, 88), [this](IControl*) {
+      Hide(true);
+      GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
+    }, "Library folders...");
+    mFoldersButton->SetTooltip("Add or remove NAM, IR and preset folders in Library & settings.");
+    AddChildControl(mFoldersButton);
     mDelete = new Button(IRECT(856, 60, 976, 88), [this](IControl*) { DeleteSelectedPreset(); }, "Delete preset");
     mDelete->SetTooltip("Delete the selected preset file from disk after confirmation. The current rig stays loaded.");
     AddChildControl(mDelete);
-    mAdd->SetTooltip("Add a source folder and index its files and subfolders in the background.");
     mGear->SetTooltip("Filter NAM captures by metadata or gear inferred from their filenames and folders.");
   }
 
@@ -246,8 +233,7 @@ public:
       mSave->Hide(mKind != nam_library::FileKind::RigPreset);
       mGear->Hide(mKind != nam_library::FileKind::NAM);
       mFile->Hide(mKind == nam_library::FileKind::Module);
-      mAdd->Hide(mKind == nam_library::FileKind::Module);
-      mRemove->Hide(mKind == nam_library::FileKind::Module);
+      mFoldersButton->Hide(mKind == nam_library::FileKind::Module);
       mDelete->Hide(mKind != nam_library::FileKind::RigPreset);
     }
     if (GetUI()) GetUI()->SetAllControlsDirty();
@@ -268,11 +254,6 @@ public:
         mDetailsTitle->SetTooltip((selected->kind == nam_library::FileKind::Module
           ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
           : nam_library::PathText(selected->path)).c_str());
-      Disabled(mAdd, ConfiguredRoots().size() >= 32);
-      const bool removable = std::any_of(mFolders.begin(), mFolders.end(), [this](const auto& folder) {
-        return folder.rootIndex >= 0 && folder.rootIndex < ConfiguredRoots().size() && nam_library::SamePath(folder.path, View().folder);
-      });
-      Disabled(mRemove, !removable);
       Disabled(mDelete, !Selected() || Selected()->kind != nam_library::FileKind::RigPreset);
     }
     return IContainerBase::IsDirty();
@@ -316,7 +297,11 @@ public:
     DrawDetails(g);
     if (mResults.empty())
     {
-      const char* message = PLUG()->IsLibraryScanning() ? "Scanning..." : mRoots.empty() ? "No folders" : "No matches";
+      const char* message = PLUG()->IsLibraryScanning() ? "Scanning..."
+        : !mRoots.empty() ? "No matches"
+        : mKind == nam_library::FileKind::RigPreset ? "No preset folders yet.\nAdd one with Library folders..."
+        : mKind == nam_library::FileKind::IR ? "No IR folders yet.\nAdd one with Library folders..."
+        : "No NAM folders yet.\nAdd one with Library folders...";
       g.DrawMultiLineText(Text(14.f, muted), message, IRECT(314, 270, 684, 390));
     }
     if (!mStatus.empty()) FittedText(g, Text(12.f, IColor(255, 238, 147, 122)), mStatus.c_str(), IRECT(24, 142, 976, 162));
@@ -440,8 +425,7 @@ private:
     mSave->Hide(kind != nam_library::FileKind::RigPreset);
     mGear->Hide(kind != nam_library::FileKind::NAM);
     mFile->Hide(kind == nam_library::FileKind::Module);
-    mAdd->Hide(kind == nam_library::FileKind::Module);
-    mRemove->Hide(kind == nam_library::FileKind::Module);
+    mFoldersButton->Hide(kind == nam_library::FileKind::Module);
     mDelete->Hide(kind != nam_library::FileKind::RigPreset);
     Rebuild();
   }
@@ -668,7 +652,7 @@ private:
   NAMBrowserSearchControl* mSearch = nullptr;
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
-  grid_ui::Button *mAdd = nullptr, *mRemove = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr, *mGear = nullptr, *mFile = nullptr;
+  grid_ui::Button *mFoldersButton = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr, *mGear = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};
   IPopupMenu mMenu;
 };

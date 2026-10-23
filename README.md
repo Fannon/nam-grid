@@ -111,9 +111,9 @@ DAW listening, low-buffer sessions and host validation are tracked in the
 
 1. Connect your guitar through an audio interface, select that input on your DAW
    track, and enable input monitoring.
-2. Click an empty **Pre** tile to open the browser. Choose **NAM captures**, then
-   **+ Add folder** to index your captures. Select a capture and double-click it
-   or press **Load**.
+2. Open **Library & settings** and add your captures with **+ NAM folder** (and
+   cabinet IRs with **+ IR folder**). Then click an empty **Pre** tile, choose
+   **NAM captures**, select a capture and double-click it or press **Load**.
 3. If it is an **amp-head / direct** capture without a cabinet, load a cabinet
    `.wav` IR in the next Pre slot. If the capture already includes a cabinet,
    start with that capture alone.
@@ -123,8 +123,9 @@ DAW listening, low-buffer sessions and host validation are tracked in the
    Click a tile and close the browser to edit its controls; use the small tile
    switch to bypass a module. Double-click a knob to restore its default, or
    click its value to type a setting.
-6. Click the preset name in the header and choose **Save preset as…** to keep
-   your rig. Open **Tuner** whenever you need to tune.
+6. Click **Save** in the header to keep your rig as a preset (the first save asks
+   for a filename), or **New** to start again from an empty grid. Open **Tuner**
+   whenever you need to tune.
 
 The signal follows four rows, left to right within each row:
 

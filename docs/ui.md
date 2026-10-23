@@ -4,8 +4,8 @@ The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, 
 surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
 selector or animated settings overlay is instantiated. Routing stays fixed.
 
-The compact header contains the logo, preset folder browser and arrows, Tuner,
-Grid / Control and Library & settings. IN gain sits before the first grid card;
+The compact header contains the logo, Grid / Control, the preset browser with its arrows,
+**New** and **Save**, Tuner and Library & settings. IN gain sits before the first grid card;
 OUT gain and A/B balance occupy the right gutter. Sixteen cards show slot ID, file/effect name,
 type, enabled state and slim input-left/output-right meters beside the card. Tile IDs carry
 their module colour, the same hue as the module head below, and the selected card brightens
@@ -96,7 +96,8 @@ never audio or automation ownership. The main card bounds do not clip the bottom
 Library & settings lists every source folder with its type: **NAM**, **IR** or **Presets**.
 **+ NAM folder**, **+ IR folder** and **+ Preset folder** add to the matching list, and each
 row has **Remove**. A folder is scanned only for its list's file type (`.nam`, `.wav` or
-`.ngrid`); add a mixed folder to several lists. The browser tabs edit the same lists. The
+`.ngrid`); add a mixed folder to several lists. This is the only place to add or remove
+folders; the browser's **Library folders...** opens it. The
 status line counts files and folders per type. Up to 32 roots are retained per type in project
 state and the per-user preference; the earlier combined NAM/IR list is not migrated.
 Startup rescan is optional (default on); when off, use Rescan all, which indexes every list.

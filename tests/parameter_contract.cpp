@@ -28,7 +28,7 @@ constexpr bool Preserves(std::span<const Segment> before, std::span<const Segmen
     }
   return true;
 }
-static_assert(Preserves(current, grown, g, s) && Preserves(grown, extended, g, s + 3));
+// The exhaustive ID comparison runs in main(): it exceeds Clang's constexpr step limit.
 // New IDs are unique, contiguous and start where the previous table ended.
 static_assert(parameter_layout::SlotID(grown, 0, s) == parameter_layout::Total(current));
 static_assert(parameter_layout::GlobalID(extended, g) == parameter_layout::Total(grown));
@@ -41,6 +41,8 @@ static_assert(parameter_layout::Total(current) == kNumParams);
 int main(int argc, char** argv)
 {
   assert(argc == 3 || argc == 4);
+  assert(future_layout::Preserves(future_layout::current, future_layout::grown, future_layout::g, future_layout::s));
+  assert(future_layout::Preserves(future_layout::grown, future_layout::extended, future_layout::g, future_layout::s + 3));
 #ifdef _WIN32
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
   assert(library);

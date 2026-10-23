@@ -84,7 +84,7 @@ public:
       "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
     AddChildControl(mTitle);
     mDetailsTitle = new HintLabel(IRECT(744, 164, 964, 192), "FILE DETAILS", Text(13.f, muted),
-      "The selected file's metadata and full path. NAM files can also be filtered by gear type.");
+      "The selected file's metadata and full path.");
     AddChildControl(mDetailsTitle);
     auto modules = std::make_shared<nam_library::Snapshot>();
     for (const auto& group : nam_library::kModuleGroups)
@@ -134,15 +134,9 @@ public:
       mRelevance = !mRelevance; Rebuild();
     }, "Sort: relevance");
     AddChildControl(mSort);
-    mGear = new Button(IRECT(744, 260, 964, 288), [this](IControl*) {
-      mMenu.Clear();
-      mMenu.AddItem(new IPopupMenu::Item("All gear", View().gear < 0 ? IPopupMenu::Item::kChecked : 0, 100));
-      for (int i = 0; i <= static_cast<int>(nam_library::Gear::Spaces); ++i)
-        mMenu.AddItem(new IPopupMenu::Item(nam_library::GearName(static_cast<nam_library::Gear>(i)),
-                                          View().gear == i ? IPopupMenu::Item::kChecked : 0, 101 + i));
-      GetUI()->CreatePopupMenu(*this, mMenu, mGear->GetRECT());
-    }, "All gear");
-    AddChildControl(mGear);
+    // The primary action, like Enter or double-click: load a preset or keep the auditioned item.
+    mApply = new Button(IRECT(744, 260, 964, 288), [this](IControl*) { LoadSelected(); }, "Apply");
+    AddChildControl(mApply);
     // Source folders are managed only in Library & settings, one list per file type.
     mFoldersButton = new Button(IRECT(548, 60, 700, 88), [this](IControl*) {
       Hide(true);
@@ -153,7 +147,6 @@ public:
     mDelete = new Button(IRECT(856, 60, 976, 88), [this](IControl*) { DeleteSelectedPreset(); }, "Delete preset");
     mDelete->SetTooltip("Delete the selected preset file from disk after confirmation. The current rig stays loaded.");
     AddChildControl(mDelete);
-    mGear->SetTooltip("Filter NAM captures by metadata or gear inferred from their filenames and folders.");
   }
 
   void Open(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot)
@@ -175,7 +168,7 @@ public:
     SwitchKind(kind);
     auto& view = View();
     view.selected.clear();
-    view.query.clear(); view.gear = -1; view.folder.clear(); view.scroll = view.folderScroll = 0;
+    view.query.clear(); view.folder.clear(); view.scroll = view.folderScroll = 0;
     mSearch->SetQuery("");
     if (kind == nam_library::FileKind::Module)
     {
@@ -231,7 +224,6 @@ public:
         }
       }
       mSave->Hide(mKind != nam_library::FileKind::RigPreset);
-      mGear->Hide(mKind != nam_library::FileKind::NAM);
       mFile->Hide(mKind == nam_library::FileKind::Module);
       mFoldersButton->Hide(mKind == nam_library::FileKind::Module);
       mDelete->Hide(mKind != nam_library::FileKind::RigPreset);
@@ -255,6 +247,7 @@ public:
           ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
           : nam_library::PathText(selected->path)).c_str());
       Disabled(mDelete, !Selected() || Selected()->kind != nam_library::FileKind::RigPreset);
+      Disabled(mApply, !Selected());
     }
     return IContainerBase::IsDirty();
   }
@@ -360,18 +353,13 @@ public:
     }
     return true; // Modal page: never pass keys to controls beneath it.
   }
-  void OnPopupMenuSelection(IPopupMenu* menu, int) override
-  {
-    const auto* item = menu ? menu->GetChosenItem() : nullptr;
-    if (item && item->GetTag() >= 100) { View().gear = item->GetTag() - 101; Rebuild(); }
-  }
 
 private:
   static constexpr float kRowHeight = 25.f, kResultsTop = 164.f, kFolderTop = 196.f;
   int Rows() const { return static_cast<int>((ListBottom() - kResultsTop) / kRowHeight); }
   int FolderRows() const { return static_cast<int>((ListBottom() - kFolderTop) / kRowHeight); }
   float ListBottom() const { return mRECT.B - 12.f; }
-  struct State { std::string query, selected; std::filesystem::path folder; int gear = -1, scroll = 0, folderScroll = 0; };
+  struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; };
   State& View() { return mViews[static_cast<int>(mKind)]; }
   std::vector<std::string> ConfiguredRoots()
   {
@@ -423,7 +411,6 @@ private:
     for (int i = 0; i < 4; ++i) mTabs[i]->SetActive(kind == kTabs[i]);
     mSearch->SetQuery(View().query);
     mSave->Hide(kind != nam_library::FileKind::RigPreset);
-    mGear->Hide(kind != nam_library::FileKind::NAM);
     mFile->Hide(kind == nam_library::FileKind::Module);
     mFoldersButton->Hide(kind == nam_library::FileKind::Module);
     mDelete->Hide(kind != nam_library::FileKind::RigPreset);
@@ -465,7 +452,7 @@ private:
         mFolders.push_back({mContextRoot, "Current folder"});
     }
     if (std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) { return nam_library::SamePath(f.path, View().folder); })) View().folder.clear();
-    mResults = nam_library::Browse(*mLibrary, mKind, View().query, View().folder, View().gear, mRelevance);
+    mResults = nam_library::Browse(*mLibrary, mKind, View().query, View().folder, -1, mRelevance);
     mSelectedRow = -1;
     const auto selected = std::filesystem::u8path(View().selected);
     for (int i = 0; i < mResults.size(); ++i)
@@ -475,7 +462,10 @@ private:
     View().scroll = std::clamp(View().scroll, 0, std::max(0, static_cast<int>(mResults.size()) - Rows()));
     View().folderScroll = std::clamp(View().folderScroll, 0, std::max(0, static_cast<int>(mFolders.size()) - FolderRows()));
     mSort->SetLabelStr(mRelevance ? "Sort: relevance" : "Sort: name");
-    mGear->SetLabelStr(View().gear < 0 ? "All gear" : nam_library::GearName(static_cast<nam_library::Gear>(View().gear)));
+    const bool preset = mKind == nam_library::FileKind::RigPreset;
+    mApply->SetLabelStr(preset ? "Load" : "Apply");
+    mApply->SetTooltip(preset ? "Load the selected rig preset (Enter or double-click)."
+                              : "Keep the auditioned selection in this slot (Enter or double-click). Close restores the original.");
     RevealSelection();
     SetDirty(false);
   }
@@ -581,7 +571,7 @@ private:
     {
       FittedText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, 188, 964, 214));
       const auto body = file->name + "\n\n" + ModuleParameters(static_cast<SlotEffect>(file->module));
-      g.DrawMultiLineText(Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, 220, 964, ListBottom() - 8));
+      g.DrawMultiLineText(Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, 300, 964, ListBottom() - 8));
       return;
     }
     g.DrawMultiLineText(Text(16.f, accent).WithVAlign(EVAlign::Top), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, 194, 964, 254));
@@ -591,7 +581,7 @@ private:
       : file->kind == nam_library::FileKind::IR ? "WAV impulse response" : "Complete NAM Grid rig";
     const auto body = metadata + (file->name.empty() ? "" : "\n" + file->name) + "\n\n" + nam_library::PathText(file->path);
     g.DrawMultiLineText(Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(),
-      IRECT(744, file->kind == nam_library::FileKind::NAM ? 300 : 264, 964, ListBottom() - 8));
+      IRECT(744, 300, 964, ListBottom() - 8));
   }
   static std::string ModuleParameters(SlotEffect effect)
   {
@@ -652,7 +642,6 @@ private:
   NAMBrowserSearchControl* mSearch = nullptr;
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
-  grid_ui::Button *mFoldersButton = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr, *mGear = nullptr, *mFile = nullptr;
+  grid_ui::Button *mFoldersButton = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr, *mApply = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};
-  IPopupMenu mMenu;
 };

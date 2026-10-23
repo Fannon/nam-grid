@@ -35,7 +35,7 @@ Common Latin accents fold, so `grun` finds `Grün`. Examples:
 `name:` means filename; `gear:` is also available for NAM metadata. Unclosed quotes
 are tolerated while typing. Relevance sorting prioritizes exact filename matches,
 then filename prefixes, substrings, and metadata/path matches. **Sort: name** switches
-to alphabetical order. NAM also has an **All gear** filter. Results use single-line
+to alphabetical order. Use `gear:` in search to narrow NAM captures by gear type. Results use single-line
 rows; FX categories appear alongside their names. File details retain the full path
 and metadata to distinguish identical filenames.
 
@@ -45,8 +45,8 @@ FX, NAM captures or IRs. Each choice remembers its edits during this visit. A ne
 starts with its musical defaults; NAM/IR files of the same kind retain gain settings
 for comparison. The current FX keeps its edits when the browser opens.
 
-Up/Down, Page Up/Down and Home/End move the selection. Enter or double-click accepts
-the auditioned module and its parameters. Closing the browser
+Up/Down, Page Up/Down and Home/End move the selection. Enter, double-click or **Apply**
+in the details panel accepts the auditioned module and its parameters. Closing the browser
 or pressing Escape restores the original module and parameters. Project autosaves and
 rig exports retain the original slot until acceptance. Closing the plugin editor also
 cancels the audition. Load failures leave the browser open with the error.
@@ -54,7 +54,7 @@ cancels the audition. Load failures leave the browser open with the error.
 Enter finishes an active search edit first; press Enter again to accept. Ctrl/Cmd+F
 focuses search. Escape cancels an active search edit, then closes the browser.
 Rig presets use a full-height inspection layout; selecting one changes audio only
-after Enter or double-click. Switching to Presets cancels any slot audition.
+after Enter, double-click or **Load**. Switching to Presets cancels any slot audition.
 
 NAM captures, IR files and Presets each have their own folder list, and a folder is
 scanned only for its tab's file type (`.nam`, `.wav` or `.ngrid`). Folders are added and

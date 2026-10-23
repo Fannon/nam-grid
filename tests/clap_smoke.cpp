@@ -1482,7 +1482,7 @@ int main(int argc, char** argv)
   if (save().config()["PresetName"] != "Clean rig" || save().config()["Output"] != -8.)
     std::cerr << "Previous preset: " << save().config()["PresetName"] << ", output=" << save().config()["Output"] << '\n';
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
-  click(470, 28); chooseBrowserItem("SECOND RIG");
+  click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(854, 274); // Load button.
   assert(save().config()["PresetName"] == "Second rig");
   click(584, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");

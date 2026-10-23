@@ -85,9 +85,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uBlackMode: return "Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.";
     case uBlackThreshold: return "Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.";
     case uBlackMix: return "Blend the gate and its darkened closing texture with the original signal. Zero restores the dry sound before Output.";
-    case uBlackOutput: case uPressureOutput: return "Final gain after dry/wet blending. Match bypass loudness before judging the effect.";
-    case uPressureCompress: return "Pressure6 stereo-linked intensity. Either channel drives one shared detector, applying equal detector gain to left and right. The sine output adds colour.";
-    case uPressureMix: return "Conventional outer dry/wet blend. The processed voice retains Pressure6's native 90 percent nonlinear blend internally.";
+    case uBlackOutput: return "Final gain after dry/wet blending. Match bypass loudness before judging the effect.";
     case uColourDesk: return "Eight console voices. Desk changes fade through dry while the convolution and sag histories reset.";
     case uColourInput: return "Gain into the console colour, in real dB. More level drives the nonlinear convolution and saturation harder.";
     case uColourOutput: return "Wet-path output trim in real dB. Match desk loudness; Mix zero preserves the exact dry signal.";
@@ -248,7 +246,6 @@ inline const char* Sound(SlotEffect e)
   switch (e)
   {
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
-    case SlotEffect::Pressure: return "Stereo-linked compression and sine colour; either channel controls the shared gain.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
     case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input trim drives colour, Output trim matches loudness.";
     case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; bars show settings, not a linear EQ response.";

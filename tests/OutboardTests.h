@@ -105,12 +105,11 @@ void TestOutboard()
 void TestAirDynamics()
 {
   std::array<std::array<double, 5>, 2> closure{};
-  std::array<double, 5> recovery{};
   int rateIndex = 0;
   for (double rate : {44100., 48000., 88200., 96000., 192000.})
   {
-    for (auto effect : {SlotEffect::DigitalBlack, SlotEffect::Pressure})
-      for (int mode = 0; mode < (effect == SlotEffect::DigitalBlack ? 2 : 1); ++mode)
+    for (auto effect : {SlotEffect::DigitalBlack})
+      for (int mode = 0; mode < 2; ++mode)
       {
         const auto render = [&](bool varied, bool automate) {
           SlotConfig config;
@@ -135,9 +134,7 @@ void TestAirDynamics()
               for (int j = 0; j < 3; ++j)
               {
                 const auto& b = kEffectParameters[uBlackThreshold + j];
-                const auto& p = kEffectParameters[uPressureCompress + j];
                 c.black[j] = segment % 2 ? b.maximum : b.minimum;
-                c.pressure[j] = segment % 2 ? p.maximum : p.minimum;
               }
               c.blackMode = segment % 2;
             }
@@ -169,7 +166,6 @@ void TestAirDynamics()
         UtilityControls c;
         c.blackMode = mode;
         c.black = {-55., 0., 0.};
-        c.pressure = {80., 0., 0.};
         std::array<double, 4> l{0., .1, -.2, 1.2}, r{-.1, 0., .3, -1.1};
         const auto beforeL = l, beforeR = r;
         dry.Process(l.data(), r.data(), 4, c);
@@ -203,61 +199,10 @@ void TestAirDynamics()
       closure[mode][rateIndex] = last / rate - .1;
       assert(closure[mode][rateIndex] > .015 && closure[mode][rateIndex] < .8);
     }
-    SlotAirDynamics pressure;
-    pressure.Reset(rate, SlotEffect::Pressure);
-    UtilityControls pc;
-    double energy = 0.;
-    int measured = 0;
-    for (int pos = 0; pos < static_cast<int>(rate);)
-    {
-      std::array<double, 128> l{}, r{};
-      const int n = std::min(128, static_cast<int>(rate) - pos);
-      for (int i = 0; i < n; ++i)
-      {
-        const double t = (pos + i) / rate;
-        l[i] = .05 * std::sin(2. * grid_fx::pi * 220. * t);
-        r[i] = t < .15 ? .3 * std::sin(2. * grid_fx::pi * 330. * t) : 0.;
-      }
-      pressure.Process(l.data(), r.data(), n, pc);
-      for (int i = 0; i < n; ++i)
-        if ((pos + i) / rate >= .5 && (pos + i) / rate < .8)
-        {
-          energy += l[i] * l[i];
-          ++measured;
-        }
-      pos += n;
-    }
-    recovery[rateIndex] = std::sqrt(energy / measured);
     ++rateIndex;
   }
   for (const auto& times : closure)
     assert(*std::max_element(times.begin(), times.end()) - *std::min_element(times.begin(), times.end()) < .015);
-  assert(*std::max_element(recovery.begin(), recovery.end()) / *std::min_element(recovery.begin(), recovery.end())
-         < 1.03);
-
-  // A loud right channel must reduce a quiet left probe through the linked
-  // detector. Running Pressure as two dual-mono instances would fail this.
-  const auto probe = [](bool hotRight) {
-    SlotAirDynamics pressure;
-    pressure.Reset(48000., SlotEffect::Pressure);
-    UtilityControls c;
-    double energy = 0.;
-    for (int block = 0; block < 400; ++block)
-    {
-      std::array<double, 128> l{}, r{};
-      for (int i = 0; i < 128; ++i)
-      {
-        l[i] = .05 * std::sin((block * 128 + i) * .04);
-        r[i] = hotRight ? .35 * std::sin((block * 128 + i) * .057) : 0.;
-      }
-      pressure.Process(l.data(), r.data(), 128, c);
-      if (block > 200)
-        for (double x : l)
-          energy += x * x;
-    }
-    return energy;
-  };
-  assert(probe(true) < probe(false) * .8);
-  std::cout << "Air dynamics: five rates, both gate modes, closing-time compensation, linked detector, exact dry, no "
+  std::cout << "Air dynamics: five rates, both gate modes, closing-time compensation, exact dry, no "
                "allocation\n";
 }

@@ -30,26 +30,29 @@ const int kNumPresets = 1;
 // Stereo grid; mono NAM slots deliberately collapse to mono for one inference pass.
 constexpr size_t kNumChannelsInternal = 2;
 
+// Left/right sample peaks per UI frame for the grid IN/OUT meters; a mono source feeds both.
 class NAMSender : public iplug::ISender<1, 64, std::pair<float, float>>
 {
 public:
-  void Reset(double rate) { mAnalysis.Reset(rate); }
+  void Reset(double rate) { for (auto& analysis : mAnalysis) analysis.Reset(rate); }
   void ProcessBlock(iplug::sample** inputs, int frames, int tag, int channels)
   {
     if (channels <= 0) return;
     for (int i = 0; i < frames; ++i)
     {
-      const double mono = channels == 1 ? inputs[0][i] : .5 * (inputs[0][i] + inputs[1][i]);
-      if (mAnalysis.Push(mono))
+      // Both channels share one window position, so they report together.
+      const bool ready = mAnalysis[0].Push(inputs[0][i]);
+      mAnalysis[1].Push(inputs[channels > 1 ? 1 : 0][i]);
+      if (ready)
       {
         iplug::ISenderData<1, std::pair<float, float>> packet(tag, 1, 0);
-        packet.vals[0] = {static_cast<float>(mAnalysis.peak), static_cast<float>(mAnalysis.rms)};
+        packet.vals[0] = {static_cast<float>(mAnalysis[0].peak), static_cast<float>(mAnalysis[1].peak)};
         PushData(packet);
       }
     }
   }
 private:
-  LevelAnalysis mAnalysis;
+  std::array<LevelAnalysis, 2> mAnalysis;
 };
 
 #include "ParameterLayout.h"
@@ -318,6 +321,7 @@ private:
   // One output window for the selected spectrum view only. Its packet size
   // differs from the meter packet, which is how slot controls tell them apart.
   iplug::ISender<1, 4, grid_eq_signal::Window> mSlotSignalSender;
+  iplug::ISenderData<1, grid_eq_signal::Window> mSignalPacket{iplug::kNoTag, 1, 0}; // Audio thread only.
   static_assert(sizeof(iplug::ISenderData<1, grid_eq_signal::Window>) != sizeof(iplug::ISenderData<1, SlotMeterData>));
   std::atomic<int> mSpectrumSlot{0}; // Selected slot while visualizations are shown, else -1.
   int mMeterFrames = 0;

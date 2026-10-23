@@ -35,18 +35,31 @@ public:
 #ifdef _WIN32
     SetFocus(static_cast<HWND>(GetUI()->GetWindow()));
 #endif
-    GetUI()->CreateTextEntry(*this, mText, mRECT.GetHPadded(-12).GetVPadded(-3), GetStr());
+    // The editor stops short of the clear button, so it stays clickable while typing.
+    GetUI()->CreateTextEntry(*this, mText, mRECT.GetHPadded(-12).GetVPadded(-3).GetReducedFromRight(24), GetStr());
   }
-  void OnMouseDown(float, float, const IMouseMod&) override { BeginEdit(); }
+  void OnMouseDown(float x, float, const IMouseMod&) override
+  {
+    if (mLive.empty() || x < ClearButton().L) { BeginEdit(); return; }
+    auto* entry = GetUI()->GetTextEntryControl();
+    if (entry && entry->EditInProgress() && GetUI()->GetControlInTextEntry() == this) entry->CommitEdit();
+    SetQuery(""); mChanged("");
+  }
   void Draw(IGraphics& g) override
   {
     g.FillRoundRect(grid_ui::surface, mRECT, 4.f);
     auto* entry = GetUI()->GetTextEntryControl();
     const bool editing = entry && entry->EditInProgress() && GetUI()->GetControlInTextEntry() == this;
     g.DrawRoundRect(editing ? grid_ui::accent : grid_ui::border, mRECT, 4.f);
+    if (!mLive.empty())
+    {
+      const auto x = ClearButton().MW(), y = ClearButton().MH();
+      g.DrawLine(grid_ui::muted, x - 5, y - 5, x + 5, y + 5, nullptr, 1.5f);
+      g.DrawLine(grid_ui::muted, x - 5, y + 5, x + 5, y - 5, nullptr, 1.5f);
+    }
     if (editing) return;
     grid_ui::FittedText(g, grid_ui::Text(14.f, GetStr()[0] ? grid_ui::text : grid_ui::muted),
-                       GetStr()[0] ? GetStr() : "Search...", mRECT.GetHPadded(-12));
+                       GetStr()[0] ? GetStr() : "Search...", mRECT.GetHPadded(-12).GetReducedFromRight(24));
   }
   bool IsDirty() override
   {
@@ -69,6 +82,7 @@ public:
   void OnTextEntryCompletion(const char* text, int) override
   { SetQuery(nam_library::BoundedQuery(text)); mChanged(mLive); }
 private:
+  IRECT ClearButton() const { return IRECT(mRECT.R - 34, mRECT.T, mRECT.R - 4, mRECT.B); }
   std::string mLive;
   std::function<void(const std::string&)> mChanged;
 };
@@ -80,10 +94,11 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui;
-    mTitle = new HintLabel(IRECT(24, 8, 530, 48), "Library browser", Text(28.f),
+    // The title names the target, so the tabs share its row.
+    mTitle = new HintLabel(IRECT(24, 8, 240, 48), "Library browser", Text(24.f),
       "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
     AddChildControl(mTitle);
-    mDetailsTitle = new HintLabel(IRECT(744, 164, 964, 192), "FILE DETAILS", Text(13.f, muted),
+    mDetailsTitle = new HintLabel(IRECT(744, kPanelTop, 876, kListTop), "DETAILS", Text(13.f, muted),
       "The selected file's metadata and full path.");
     AddChildControl(mDetailsTitle);
     auto modules = std::make_shared<nam_library::Snapshot>();
@@ -105,48 +120,54 @@ public:
         modules->captures.push_back(std::move(item));
       }
     mModules = modules;
-    AddChildControl(new Button(IRECT(548, 14, 640, 42), [this](IControl*) {
-      PLUG()->RescanCaptureFolder();
-      if (!mContextRoot.empty()) RequestContextScan();
-    }, "Rescan"));
-    mSave = new Button(IRECT(650, 14, 778, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save preset as...");
+    // "..." marks the actions that open a file dialog. Save as is a rig action, top right;
+    // Open file is the alternative to searching, so it sits beside the search field.
+    mSave = new Button(IRECT(864, 14, 976, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...");
+    mSave->SetTooltip("Save the current rig as a new preset file.");
     AddChildControl(mSave);
-    mFile = new Button(IRECT(788, 14, 882, 42), [this](IControl*) { ChooseFile(); }, "Open file...");
+    mFile = new Button(IRECT(864, 58, 976, 92), [this](IControl*) { ChooseFile(); }, "Open file...");
+    mFile->SetTooltip("Choose a file outside the library folders.");
     AddChildControl(mFile);
-    AddChildControl(new Button(IRECT(896, 14, 976, 42), [this](IControl*) { Hide(true); }, "Close"));
     for (int i = 0; i < 4; ++i)
     {
-      mTabs[i] = new NAMBrowserTab(IRECT(24.f + i * 128, 60, 142.f + i * 128, 88), [this, i](IControl*) {
+      mTabs[i] = new NAMBrowserTab(TabBounds(i), [this, i](IControl*) {
         SwitchKind(kTabs[i]);
       }, i == 0 ? "Modules" : i == 1 ? "NAM captures" : i == 2 ? "IR files" : "Presets");
       AddChildControl(mTabs[i]);
     }
-    mSearch = new NAMBrowserSearchControl(IRECT(24, 104, 724, 140), [this](const std::string& text) {
+    mSearch = new NAMBrowserSearchControl(IRECT(24, 58, 976, 92), [this](const std::string& text) {
       if (View().query != text) { View().selected.clear(); View().scroll = 0; }
       View().query = text; Rebuild();
     });
     AddChildControl(mSearch);
-    mSearch->SetTooltip("Match all words across names, paths and metadata. Use quoted phrases, -exclude, maker:vox, model:ac30, path:clean or gear:amp. Ctrl/Cmd+F focuses search.");
-    AddChildControl(new Button(IRECT(734, 104, 798, 140), [this](IControl*) {
-      FinishSearch(); View().query.clear(); mSearch->SetQuery(""); Rebuild();
-    }, "Clear"));
-    mSort = new Button(IRECT(808, 104, 976, 140), [this](IControl*) {
+    mSearch->SetTooltip("Match all words across names, paths and metadata. Use quoted phrases, -exclude, maker:vox, model:ac30, path:clean or gear:amp. Ctrl/Cmd+F focuses search; the cross clears it.");
+    mSort = new Button(IRECT(584, kPanelTop + 2, 706, kListTop - 2), [this](IControl*) {
       mRelevance = !mRelevance; Rebuild();
     }, "Sort: relevance");
+    mSort->SetTooltip("Relevance ranks exact and leading filename matches first; Name sorts alphabetically.");
     AddChildControl(mSort);
-    // The primary action, like Enter or double-click: load a preset or keep the auditioned item.
-    mApply = new Button(IRECT(744, 260, 964, 288), [this](IControl*) { LoadSelected(); }, "Apply");
-    AddChildControl(mApply);
-    // Source folders are managed only in Library & settings, one list per file type.
-    mFoldersButton = new Button(IRECT(548, 60, 700, 88), [this](IControl*) {
-      Hide(true);
-      GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
-    }, "Library folders...");
-    mFoldersButton->SetTooltip("Add or remove NAM, IR and preset folders in Library & settings.");
-    AddChildControl(mFoldersButton);
-    mDelete = new Button(IRECT(856, 60, 976, 88), [this](IControl*) { DeleteSelectedPreset(); }, "Delete preset");
+    mDelete = new Button(IRECT(), [this](IControl*) { DeleteSelectedPreset(); }, "Delete...");
     mDelete->SetTooltip("Delete the selected preset file from disk after confirmation. The current rig stays loaded.");
     AddChildControl(mDelete);
+    // Source folders belong to the folder column. They are managed only in Library & settings,
+    // one list per file type; "Manage folders" opens that page rather than a dialog.
+    mFoldersButton = new Button(IRECT(), [this](IControl*) {
+      Hide(true);
+      GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
+    }, "Manage folders");
+    mFoldersButton->SetTooltip("Add or remove NAM, IR and preset folders in Library & settings.");
+    AddChildControl(mFoldersButton);
+    mRescan = new Button(IRECT(), [this](IControl*) {
+      PLUG()->RescanCaptureFolder();
+      if (!mContextRoot.empty()) RequestContextScan();
+    }, "Rescan");
+    mRescan->SetTooltip("Index changes made outside NAM Grid in every library folder.");
+    AddChildControl(mRescan);
+    // Dialog convention: the secondary action left of the primary one, bottom right.
+    mCancel = new Button(IRECT(), [this](IControl*) { Hide(true); }, "Cancel");
+    AddChildControl(mCancel);
+    mApply = new Button(IRECT(), [this](IControl*) { LoadSelected(); }, "Apply");
+    AddChildControl(mApply);
   }
 
   void Open(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot)
@@ -157,7 +178,6 @@ public:
     mContextKind = kind;
     mSlot = context == nam_library::BrowserContext::Library ? PLUG()->GetSelectedSlot() : slot;
     mPreview = context != nam_library::BrowserContext::Rig && kind != nam_library::FileKind::RigPreset;
-    mTitle->SetStr(context == nam_library::BrowserContext::Rig ? "Rig presets" : "Library browser");
     mTitle->SetTooltip(mPreview
       ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; Ctrl/Cmd+F searches."
       : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
@@ -210,24 +230,7 @@ public:
     IContainerBase::Hide(hide);
     // This composite page and the live text editor share a single redraw region.
     if (GetUI()) GetUI()->SetStrictDrawing(!hide);
-    if (!hide)
-    {
-      int position = 0;
-      for (int i = 0; i < 4; ++i)
-      {
-        const bool allowed = nam_library::Allows(mContext, kTabs[i]);
-        mTabs[i]->Hide(!allowed);
-        if (allowed)
-        {
-          mTabs[i]->SetTargetAndDrawRECTs(IRECT(24.f + position * 128, 60, 142.f + position * 128, 88));
-          ++position;
-        }
-      }
-      mSave->Hide(mKind != nam_library::FileKind::RigPreset);
-      mFile->Hide(mKind == nam_library::FileKind::Module);
-      mFoldersButton->Hide(mKind == nam_library::FileKind::Module);
-      mDelete->Hide(mKind != nam_library::FileKind::RigPreset);
-    }
+    if (!hide) Layout();
     if (GetUI()) GetUI()->SetAllControlsDirty();
   }
   bool IsDirty() override
@@ -257,19 +260,23 @@ public:
   {
     using namespace grid_ui;
     g.FillRect(background, mRECT);
-    const auto target = mKind == nam_library::FileKind::RigPreset ? "" : GridSlotName(mSlot);
-    g.DrawText(Text(13.f, muted, EAlign::Far), target.c_str(), IRECT(788, 60, 976, 88));
     for (int i = 0; i < 4; ++i)
-      if (mKind == kTabs[i])
-      { const auto r = mTabs[i]->GetRECT(); g.FillRect(accent, IRECT(r.L, 91, r.R, 93)); }
-    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(24, 164, 266, ListBottom()), 4);
-    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(282, 164, 716, ListBottom()), 4);
-    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(732, 164, 976, ListBottom()), 4);
-    g.DrawText(Text(13.f, muted), mKind == nam_library::FileKind::Module ? "FX CATEGORIES" : mKind == nam_library::FileKind::RigPreset ? "PRESET FOLDERS" : "NAM / IR FOLDERS", IRECT(36, 164, 256, 192));
+      if (mKind == kTabs[i] && !mTabs[i]->IsHidden())
+      { const auto r = mTabs[i]->GetRECT(); g.FillRect(accent, IRECT(r.L, r.B + 3, r.R, r.B + 5)); }
+    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(24, kPanelTop, 266, ListBottom()), 4);
+    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(282, kPanelTop, 716, ListBottom()), 4);
+    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(732, kPanelTop, 976, ListBottom()), 4);
+    const char* folders = mKind == nam_library::FileKind::Module ? "FX CATEGORIES"
+                        : mKind == nam_library::FileKind::RigPreset ? "PRESET FOLDERS"
+                        : mKind == nam_library::FileKind::IR ? "IR FOLDERS" : "NAM FOLDERS";
+    g.DrawText(Text(13.f, muted), folders, IRECT(36, kPanelTop, 256, kListTop));
+    const auto count = std::to_string(mResults.size()) + (mResults.size() == 1 ? " RESULT" : " RESULTS");
+    g.DrawText(Text(13.f, muted), PLUG()->IsLibraryScanning() ? "SCANNING..." : count.c_str(), IRECT(294, kPanelTop, 576, kListTop));
+    if (HasSources()) g.DrawLine(border.WithOpacity(.6f), 36, FolderBottom() + 2, 254, FolderBottom() + 2);
     for (int row = 0; row < FolderRows() && View().folderScroll + row < mFolders.size(); ++row)
     {
       const auto& folder = mFolders[View().folderScroll + row];
-      const float y = kFolderTop + row * kRowHeight;
+      const float y = kListTop + row * kRowHeight;
       const bool selected = nam_library::SamePath(folder.path, View().folder);
       if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(26, y, 257, y + kRowHeight));
       FittedText(g, Text(14.f, selected ? accent : text), folder.label.c_str(),
@@ -278,55 +285,59 @@ public:
     for (int row = 0; row < Rows() && View().scroll + row < mResults.size(); ++row)
     {
       const auto& file = mLibrary->captures[mResults[View().scroll + row]];
-      const float y = kResultsTop + row * kRowHeight;
+      const float y = kListTop + row * kRowHeight;
       const bool selected = View().scroll + row == mSelectedRow;
       if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(284, y, 706, y + kRowHeight));
       const bool module = file.kind == nam_library::FileKind::Module;
       FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(294, y, module ? 586 : 696, y + kRowHeight));
       if (module) FittedText(g, Text(12.f, muted, EAlign::Far), nam_library::PathText(file.relative.parent_path()).c_str(), IRECT(594, y, 696, y + kRowHeight));
     }
-    Scrollbar(g, 257, View().folderScroll, mFolders.size(), FolderRows());
-    Scrollbar(g, 707, View().scroll, mResults.size(), Rows());
+    Scrollbar(g, 257, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
+    Scrollbar(g, 707, ListBottom(), View().scroll, mResults.size(), Rows());
     DrawDetails(g);
     if (mResults.empty())
     {
       const char* message = PLUG()->IsLibraryScanning() ? "Scanning..."
         : !mRoots.empty() ? "No matches"
-        : mKind == nam_library::FileKind::RigPreset ? "No preset folders yet.\nAdd one with Library folders..."
-        : mKind == nam_library::FileKind::IR ? "No IR folders yet.\nAdd one with Library folders..."
-        : "No NAM folders yet.\nAdd one with Library folders...";
-      g.DrawMultiLineText(Text(14.f, muted), message, IRECT(314, 270, 684, 390));
+        : mKind == nam_library::FileKind::RigPreset ? "No preset folders yet.\nAdd one with Manage folders."
+        : mKind == nam_library::FileKind::IR ? "No IR folders yet.\nAdd one with Manage folders."
+        : "No NAM folders yet.\nAdd one with Manage folders.";
+      g.DrawMultiLineText(Text(14.f, muted), message, IRECT(314, kListTop + 60, 684, kListTop + 180));
     }
-    if (!mStatus.empty()) FittedText(g, Text(12.f, IColor(255, 238, 147, 122)), mStatus.c_str(), IRECT(24, 142, 976, 162));
+    // Errors and load results sit just above the action they concern.
+    if (!mStatus.empty())
+      g.DrawMultiLineText(Text(12.f, IColor(255, 238, 147, 122)).WithVAlign(EVAlign::Bottom), mStatus.c_str(),
+                          IRECT(744, FooterTop() - 44, 964, FooterTop() - 6));
   }
 
   void OnMouseDown(float x, float y, const IMouseMod&) override
   {
-    if (y < kResultsTop || y >= ListBottom()) return;
-    if (x >= 257 && x <= 266) { mDrag = 1; DragScroll(y); return; }
+    if (y < kListTop || y >= ListBottom()) return;
+    const bool folderColumn = x >= 24 && x <= 266 && y < FolderBottom();
+    if (folderColumn && x >= 257) { mDrag = 1; DragScroll(y); return; }
     if (x >= 707 && x <= 716) { mDrag = 2; DragScroll(y); return; }
-    if (x >= 24 && x < 257 && y >= kFolderTop)
+    if (folderColumn)
     {
-      const int index = View().folderScroll + static_cast<int>((y - kFolderTop) / kRowHeight);
+      const int index = View().folderScroll + static_cast<int>((y - kListTop) / kRowHeight);
       if (index < mFolders.size()) { View().folder = mFolders[index].path; View().scroll = 0; Rebuild(); }
     }
     else if (x >= 282 && x < 707)
     {
-      const int index = View().scroll + static_cast<int>((y - kResultsTop) / kRowHeight);
+      const int index = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
       if (index < mResults.size()) { mSelectedRow = index; View().selected = nam_library::PathText(mLibrary->captures[mResults[index]].path); mStatus.clear(); SetDirty(false); }
     }
   }
   void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
   {
     OnMouseDown(x, y, mod);
-    const int row = View().scroll + static_cast<int>((y - kResultsTop) / kRowHeight);
-    if (x >= 282 && x < 707 && y >= kResultsTop && y < ListBottom() && row < mResults.size()) LoadSelected();
+    const int row = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
+    if (x >= 282 && x < 707 && y >= kListTop && y < ListBottom() && row < mResults.size()) LoadSelected();
   }
   void OnMouseDrag(float, float y, float, float, const IMouseMod&) override { if (mDrag) DragScroll(y); }
   void OnMouseUp(float, float, const IMouseMod&) override { mDrag = 0; }
   void OnMouseWheel(float x, float y, const IMouseMod&, float delta) override
   {
-    if (y < kResultsTop || y >= ListBottom()) return;
+    if (y < kListTop || y >= ListBottom()) return;
     const bool folders = x < 282;
     auto& scroll = folders ? View().folderScroll : View().scroll;
     const int maximum = std::max(0, static_cast<int>(folders ? mFolders.size() : mResults.size()) - (folders ? FolderRows() : Rows()));
@@ -355,10 +366,50 @@ public:
   }
 
 private:
-  static constexpr float kRowHeight = 25.f, kResultsTop = 164.f, kFolderTop = 196.f;
-  int Rows() const { return static_cast<int>((ListBottom() - kResultsTop) / kRowHeight); }
-  int FolderRows() const { return static_cast<int>((ListBottom() - kFolderTop) / kRowHeight); }
+  // Panels share one header row; lists start below it. Footer buttons pin to the panel bottom,
+  // which moves with the page height (audition above the editor, or full-height presets).
+  static constexpr float kRowHeight = 25.f, kPanelTop = 104.f, kListTop = 132.f;
+  int Rows() const { return static_cast<int>((ListBottom() - kListTop) / kRowHeight); }
+  int FolderRows() const { return static_cast<int>((FolderBottom() - kListTop) / kRowHeight); }
   float ListBottom() const { return mRECT.B - 12.f; }
+  float FooterTop() const { return ListBottom() - 40.f; }
+  bool HasSources() const { return mKind != nam_library::FileKind::Module; }
+  float FolderBottom() const { return HasSources() ? FooterTop() - 6.f : ListBottom(); }
+  static IRECT TabBounds(int position) { return IRECT(256.f + position * 124, 14, 372.f + position * 124, 42); }
+  void Layout()
+  {
+    const bool preset = mKind == nam_library::FileKind::RigPreset;
+    if (preset) mTitle->SetStr("Rig presets");
+    else
+    {
+      auto slot = GridSlotName(mSlot);
+      slot.erase(std::remove(slot.begin(), slot.end(), ' '), slot.end()); // Matches the tile ID.
+      mTitle->SetStr(("Browse for " + slot).c_str());
+    }
+    int allowed = 0;
+    for (int i = 0; i < 4; ++i) allowed += nam_library::Allows(mContext, kTabs[i]);
+    int position = 0;
+    for (int i = 0; i < 4; ++i)
+    {
+      // A single tab is not a choice: the title already says what is listed.
+      const bool shown = allowed > 1 && nam_library::Allows(mContext, kTabs[i]);
+      mTabs[i]->Hide(!shown);
+      if (shown) mTabs[i]->SetTargetAndDrawRECTs(TabBounds(position++));
+    }
+    mSave->Hide(!preset);
+    mFile->Hide(!HasSources());
+    mDelete->Hide(!preset);
+    mFoldersButton->Hide(!HasSources());
+    mRescan->Hide(!HasSources());
+    const float top = FooterTop() + 6.f, bottom = ListBottom() - 6.f;
+    mFoldersButton->SetTargetAndDrawRECTs(IRECT(32, top, 170, bottom));
+    mRescan->SetTargetAndDrawRECTs(IRECT(178, top, 258, bottom));
+    mSearch->SetTargetAndDrawRECTs(IRECT(24, 58, HasSources() ? 856 : 976, 92));
+    // Presets add Delete to the footer actions, left of Close and Load.
+    mDelete->SetTargetAndDrawRECTs(IRECT(740, top, 810, bottom));
+    mCancel->SetTargetAndDrawRECTs(preset ? IRECT(818, top, 888, bottom) : IRECT(740, top, 848, bottom));
+    mApply->SetTargetAndDrawRECTs(preset ? IRECT(896, top, 968, bottom) : IRECT(856, top, 968, bottom));
+  }
   struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; };
   State& View() { return mViews[static_cast<int>(mKind)]; }
   std::vector<std::string> ConfiguredRoots()
@@ -410,10 +461,7 @@ private:
       : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
     for (int i = 0; i < 4; ++i) mTabs[i]->SetActive(kind == kTabs[i]);
     mSearch->SetQuery(View().query);
-    mSave->Hide(kind != nam_library::FileKind::RigPreset);
-    mFile->Hide(kind == nam_library::FileKind::Module);
-    mFoldersButton->Hide(kind == nam_library::FileKind::Module);
-    mDelete->Hide(kind != nam_library::FileKind::RigPreset);
+    if (!IsHidden()) { Layout(); GetUI()->SetAllControlsDirty(); }
     Rebuild();
   }
   void Rebuild()
@@ -465,7 +513,9 @@ private:
     const bool preset = mKind == nam_library::FileKind::RigPreset;
     mApply->SetLabelStr(preset ? "Load" : "Apply");
     mApply->SetTooltip(preset ? "Load the selected rig preset (Enter or double-click)."
-                              : "Keep the auditioned selection in this slot (Enter or double-click). Close restores the original.");
+                              : "Keep the auditioned selection in this slot (Enter or double-click). Cancel restores the original.");
+    mCancel->SetLabelStr(mPreview ? "Cancel" : "Close");
+    mCancel->SetTooltip(mPreview ? "Restore the original module and parameters, then close (Escape)." : "Close the browser (Escape).");
     RevealSelection();
     SetDirty(false);
   }
@@ -567,21 +617,22 @@ private:
     using namespace grid_ui;
     const auto* file = Selected();
     if (!file) return;
+    // Content flows from the header down; the actions stay pinned to the footer.
+    const float bottom = FooterTop() - (mStatus.empty() ? 6.f : 48.f);
     if (file->kind == nam_library::FileKind::Module)
     {
-      FittedText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, 188, 964, 214));
+      FittedText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, kListTop, 964, kListTop + 26));
       const auto body = file->name + "\n\n" + ModuleParameters(static_cast<SlotEffect>(file->module));
-      g.DrawMultiLineText(Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, 300, 964, ListBottom() - 8));
+      g.DrawMultiLineText(Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 34, 964, bottom));
       return;
     }
-    g.DrawMultiLineText(Text(16.f, accent).WithVAlign(EVAlign::Top), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, 194, 964, 254));
+    g.DrawMultiLineText(Text(16.f, accent).WithVAlign(EVAlign::Top), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, kListTop + 4, 964, kListTop + 46));
     const auto metadata = file->kind == nam_library::FileKind::NAM
       ? std::string(nam_library::GearName(file->gear))
         + (file->maker.empty() ? "" : "\n" + file->maker) + (file->model.empty() ? "" : " / " + file->model)
       : file->kind == nam_library::FileKind::IR ? "WAV impulse response" : "Complete NAM Grid rig";
     const auto body = metadata + (file->name.empty() ? "" : "\n" + file->name) + "\n\n" + nam_library::PathText(file->path);
-    g.DrawMultiLineText(Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(),
-      IRECT(744, 300, 964, ListBottom() - 8));
+    g.DrawMultiLineText(Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 52, 964, bottom));
   }
   static std::string ModuleParameters(SlotEffect effect)
   {
@@ -602,21 +653,20 @@ private:
       }
     return result;
   }
-  void Scrollbar(IGraphics& g, float x, int offset, int count, int visible)
+  void Scrollbar(IGraphics& g, float x, float bottom, int offset, int count, int visible)
   {
     if (count <= visible) return;
-    const float top = x < 282 ? kFolderTop : kResultsTop;
-    g.FillRect(grid_ui::border.WithOpacity(.3f), IRECT(x, top, x + 7, ListBottom()));
-    const float height = std::max(24.f, (ListBottom() - top) * visible / count);
-    const float y = top + ((ListBottom() - top) - height) * offset / (count - visible);
+    g.FillRect(grid_ui::border.WithOpacity(.3f), IRECT(x, kListTop, x + 7, bottom));
+    const float height = std::max(24.f, (bottom - kListTop) * visible / count);
+    const float y = kListTop + ((bottom - kListTop) - height) * offset / (count - visible);
     g.FillRoundRect(grid_ui::muted.WithOpacity(.6f), IRECT(x, y, x + 7, y + height), 3);
   }
   void DragScroll(float y)
   {
     auto& offset = mDrag == 1 ? View().folderScroll : View().scroll;
     const int maximum = std::max(0, static_cast<int>(mDrag == 1 ? mFolders.size() : mResults.size()) - (mDrag == 1 ? FolderRows() : Rows()));
-    const float top = mDrag == 1 ? kFolderTop : kResultsTop;
-    offset = static_cast<int>(std::clamp((y - top) / (ListBottom() - top), 0.f, 1.f) * maximum); SetDirty(false);
+    const float bottom = mDrag == 1 ? FolderBottom() : ListBottom();
+    offset = static_cast<int>(std::clamp((y - kListTop) / (bottom - kListTop), 0.f, 1.f) * maximum); SetDirty(false);
   }
   nam_library::BrowserContext mContext = nam_library::BrowserContext::Library;
   nam_library::FileKind mKind = nam_library::FileKind::NAM;
@@ -642,6 +692,7 @@ private:
   NAMBrowserSearchControl* mSearch = nullptr;
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
-  grid_ui::Button *mFoldersButton = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr, *mApply = nullptr, *mFile = nullptr;
+  grid_ui::Button *mFoldersButton = nullptr, *mRescan = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr,
+                  *mCancel = nullptr, *mApply = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};
 };

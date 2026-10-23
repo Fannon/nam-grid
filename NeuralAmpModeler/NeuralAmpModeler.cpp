@@ -171,7 +171,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       const auto error = NewRig();
       if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "New rig", EMsgBoxType::kMB_OK);
     }, "New"), kCtrlTagPresetNew)->SetTooltip("Start a new empty rig. Library folders and tuner settings stay.");
-    ui->AttachControl(new grid_ui::Button(IRECT(710, 14, 762, 42), [this](IControl*) { QuickSaveRigPreset(); }, "Save"), kCtrlTagPresetSave);
+    ui->AttachControl(new NAMRigSaveControl(IRECT(710, 14, 762, 42)), kCtrlTagPresetSave);
     ui->AttachControl(new grid_ui::Button(
       IRECT(862, 14, 976, 42),
       [](IControl* caller) {
@@ -195,8 +195,9 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(81, 68, 84, 140), IRECT(0, 142, 76, 170)), kCtrlTagInputMeter);
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(922, 380, 927, 452), IRECT(928, 450, 1000, 478)), kCtrlTagOutputMeter);
+    // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(77, 68, 84, 140), IRECT(0, 140, 66, 158)), kCtrlTagInputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(921, 380, 928, 452), IRECT(932, 450, 1000, 468)), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
@@ -389,7 +390,6 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       readFamily(c.utility.butter, uButterCompress);
       c.utility.colourDesk = GetParam(SlotUtilityParam(slot, uColourDesk))->Int();
       readFamily(c.utility.black, uBlackThreshold);
-      readFamily(c.utility.pressure, uPressureCompress);
       c.utility.blackMode = GetParam(SlotUtilityParam(slot, uBlackMode))->Int();
     });
     // Host tempo can change without a parameter notification.
@@ -453,9 +453,12 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       mSlotMeterSender.PushData({kCtrlTagGridSlotBase + static_cast<int>(slot), {grid.stages[slot].TakeMeter()}});
     if (const int slot = mSpectrumSlot.load(std::memory_order_relaxed); slot >= 0 && slot < static_cast<int>(FixedNAMGrid::kSlots))
     {
-      grid_eq_signal::Window window;
-      if (grid.stages[slot].TakeSignalWindow(window))
-        mSlotSignalSender.PushData({kCtrlTagGridSlotBase + slot, {window}});
+      // The packet is a member: a 20 KB window does not belong on a host's audio-thread stack.
+      if (grid.stages[slot].TakeSignalWindow(mSignalPacket.vals[0]))
+      {
+        mSignalPacket.ctrlTag = kCtrlTagGridSlotBase + slot;
+        mSlotSignalSender.PushData(mSignalPacket);
+      }
     }
   }
   // Final DC blocker (upstream NAM issue 271).
@@ -1109,8 +1112,9 @@ void NeuralAmpModeler::_UpdatePresetControls()
       ui->GetControlWithTag(kCtrlTagPresetNext)->SetDisabled(empty);
       const auto file = GetRigPresetFile();
       ui->GetControlWithTag(kCtrlTagPresetSave)->SetTooltip(file.empty()
-        ? "Save this rig as a new preset file."
-        : ("Save over " + nam_library::PathText(file.filename()) + ". Use the preset browser for Save preset as...").c_str());
+        ? "Save this rig as a new preset file. Right-click for Save / Save as."
+        : ("Save as a new preset file. Shift- or Alt-click saves over " + nam_library::PathText(file.filename())
+           + " directly. Right-click for Save / Save as.").c_str());
     }
 }
 

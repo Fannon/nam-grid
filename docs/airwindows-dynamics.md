@@ -1,11 +1,15 @@
-# Digital Black Gate and Pressure
+# Digital Black Gate
 
-These are adapted Airwindows dynamics modules; the other native mappings are
-in [airwindows-outboard.md](airwindows-outboard.md).
-Both belong in Dynamics and have three knobs, Enabled, and their own stereo state.
-Digital Black Gate also has a header Mode selector.
+Digital Black Gate is an adapted Airwindows dynamics module; the other native mappings
+are in [airwindows-outboard.md](airwindows-outboard.md). It belongs in Dynamics and has
+three knobs, Enabled, a header Mode selector and its own stereo state.
 
-The MIT sources are DigitalBlack, CStrip's gate section and Pressure6 at the same
+Pressure6 was evaluated and left out. Its threshold is fixed and set by the Compress
+amount (`1 - (0.9 A)^3`), so at guitar levels most of the knob does nothing and the
+last tenth pumps hard. Butter Comp and Outboard Channel cover that character with
+usable control ranges.
+
+The MIT sources are DigitalBlack and CStrip's gate section at the same
 [`e68f75154ed0520fc5757fec9e7792dd1747e5ee`](https://github.com/airwindows/airwindows/tree/e68f75154ed0520fc5757fec9e7792dd1747e5ee/plugins/LinuxVST/src)
 revision as the first batch. `scripts/vendor-airwindows-outboard.py` generates the
 SDK-free double paths and extracts CStrip's gate alone; it imports none of that
@@ -52,54 +56,16 @@ from input and blended output energy, before Output; zero crossings use the
 native opening as a stable fallback. The meter floors at 120 dB for exact silence.
 It is labelled **Atten**, with complete live IN/OUT histories alongside it.
 
-## Pressure
-
-| Control | Range | Default |
-| --- | --- | --- |
-| Compress | Native 0…100% | 90% |
-| Mix | Conventional outer 0…100% | 100% |
-| Output | −18…+6 dB, after Mix | −2.5 dB |
-
-One Pressure6 core processes both channels using `max(abs(L), abs(R))`. Running
-two dual-mono copies would lose its central benefit: both channels share the
-same detector gain. Its sine stage remains independent per channel and can
-colour their peaks differently.
-
-The upstream **Ratio** is not a ratio, and it is not even a conventional mix:
-`wet = 0.9 B`, followed by `dry*(1 - 1.1*wet) + sin(clamp(x*wet))*wet`.
-The port fixes native B at 1, preserving that nonlinear voice, and adds a true
-outer Mix. Mix 0 with Output 0 dB is exactly dry; Mix 100 retains the native
-processed voice, including its tiny internal dry component. Compress 0 retains
-the sine colour, as upstream; it is not a bit-transparent bypass. The detector
-is nonlinear and can recover when driven very hard, so this is a character
-compressor rather than a peak guard.
-
-**Pressure6 also needed a deeper rate audit.** `adjSpd` already scales `muSpd`
-with rate, but its recovery divides by `muSpd²`, inadvertently squaring the rate
-scaling. Recovery becomes progressively slower at higher rates. The adaptation
-divides that squared denominator by `overallscale`, preserving the 44.1 kHz law
-and reference-time recovery. Before that correction the same default stimulus
-lost over 2 dB more at 192 kHz than at 44.1 kHz. After correction the measured
-default offsets are +0.063/+0.019/+0.064/−0.034/+0.016 dB at
-44.1/48/88.2/96/192 kHz. Controls and the native attack law retain their ranges.
-
-The GR tap is `previousMu * currentMu²`, before the automatic `1/threshold`
-gain, sine output and wrapper Output. This avoids confusing makeup or clipping
-with detector reduction. The display shows that detector GR and complete IN/OUT
-histories. The measured plucked stimulus reaches approximately 4.7 dB detector GR
-with nearly unity overall RMS, making the default audible without a level jump.
-
 ## Verification and cost
 
 The DSP suite checks all five rates, both gate modes, exact dry, stereo, full
 range automation, block invariance, zero processing allocations, true gate
-silence, gate closure consistency and Pressure's stereo linking. A recovery probe
-after a right-only burst catches the squared-rate recovery bug. Host tests cover
-the mode choices, native gestures, state recall and both ends of the parameter bank.
+silence and gate closure consistency. Host tests cover the mode choices, native
+gestures, state recall and both ends of the parameter bank.
 
 Use `nam-outboard-audition` for isolated stereo-wrapper measurements or the
 [FX performance tool](fx-performance.md) for plugin callback measurements.
-Both modules report zero compensation latency. Continuous controls smooth over
+The module reports zero compensation latency. Continuous controls smooth over
 20 ms; coefficients update every 32 samples on a persistent clock. Histories
 drain with silence for one second on bypass before suspension.
 

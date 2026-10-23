@@ -6,17 +6,29 @@ selector or animated settings overlay is instantiated. Routing stays fixed.
 
 The compact header contains the logo, Grid / Control, the preset browser with its arrows,
 **New** and **Save**, Tuner and Library & settings. IN gain sits before the first grid card;
-OUT gain and A/B balance occupy the right gutter. Sixteen cards show slot ID, file/effect name,
-type, enabled state and slim input-left/output-right meters beside the card. Tile IDs carry
-their module colour, the same hue as the module head below, and the selected card brightens
-its own hue rather than fading to a neutral outline, so selection stays readable next to the
-grey Dynamics modules. Clicking a tile selects its physical slot and opens the browser;
-accepting a choice or closing it reveals that slot's bottom editor. Empty tiles open Modules;
-loaded tiles focus the current FX category or NAM/IR folder and select the current item.
-The bypass switch and right-click edit menu remain direct actions. Click the module name
-in the editor for the quick module menu; its browser icon opens the full browser.
-Clear slot is first in both the module and right-click menus; the latter also has
-Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
+OUT gain and A/B balance occupy the right gutter. Each of the sixteen cards has two parts.
+Its header row shows the slot ID, the category badges (Amp and Cab for an amp + cab capture)
+and the bypass switch; below it, a name button shows the loaded file or effect, or
+**+ Add module** on an empty card. Slim input-left/output-right meters sit beside the card.
+Tile IDs carry their module colour, the same hue as the module head below, and the selected
+card brightens its own hue rather than fading to a neutral outline, so selection stays
+readable next to the grey Dynamics modules.
+
+Click the header row to select a slot without opening anything. Click the name button (or
+double-click anywhere on the card) to open the browser; accepting a choice or closing it
+reveals that slot's bottom editor. Empty cards open Modules; loaded cards focus the current
+FX category or NAM/IR folder and select the current item. Drag a loaded card onto another
+card to rearrange the grid. As in most DAWs:
+
+- **Drag** swaps two loaded cards, or moves a card into an empty one.
+- **Shift-drag** replaces the target card and empties the source.
+- **Alt/Option-drag** duplicates the card, replacing the target. Ctrl/Cmd-drag does the same,
+  as in Ableton Live and REAPER.
+
+The target card names the action while you drag. The bypass switch and right-click edit menu
+remain direct actions. Click the module name in the editor for the quick module menu; its
+browser icon opens the full browser. Clear slot is first in both the module and right-click
+menus; the latter also has Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
 with up to seven knobs followed by Enabled. Output, where a module has one, always sits
 bottom-left below the first control (NAM, IR and every built-in); the other controls keep
 their order around it. A full-height visualization sits to the right.
@@ -35,8 +47,16 @@ with each other and with your playing, using the module's actual DSP math:
   the current input peak, so threshold, knee, Mix and upstream gain all visibly move it.
   Gates shade the 3 dB band between opening and closing. Compressor histories exclude
   makeup gain and reflect parallel Mix.
-- **Measured IN > OUT:** NAM captures, Console Colour, Outboard Channel, Butter Comp,
-  Pressure and Digital Black plot recent input peaks against output peaks. Their real
+- **Program-dependent compressors:** Butter Comp has no static curve. It shows detector
+  gain reduction over time (0–24 dB, hanging from the top like a console GR meter) beside
+  the gray IN and coloured OUT level histories.
+- **Outboard Channel:** one view per stage. The cut response is measured by running the
+  module's own DSP on a quiet impulse with compression and saturation off, drawn over the
+  live output spectrum. The saturation curve is the strip's static Spiral stage at the
+  current Saturate, with a dot at the input peak. A slim gain-reduction history shows the
+  compressor; how fast it recovers reflects Comp speed, which the title also names.
+- **Measured IN > OUT:** NAM captures, Console Colour and Digital Black plot recent input
+  peaks against output peaks. Their real
   saturation/compression curve appears from playing; the diagonal is unity gain. NAM
   adds its post-capture EQ response with the same live output spectrum fill as the EQs,
   and the capture's input calibration when present.
@@ -44,9 +64,18 @@ with each other and with your playing, using the module's actual DSP math:
 - **Drive:** transfer curves with live input-range markers. Distortion's High cut/Mix/Output
   follow the shaper. Tube Boost's Tilt and High pass run before its saturator, so with
   Tilt or High pass active it also draws the curve for 100 Hz and 3 kHz content.
-- **EQ / Filter:** settled response with an approximate live output spectrum. Parametric
-  EQ shades its Q bandwidth; Filter shades the cutoff range its Envelope can reach, with
-  the full shift at -12 dBFS input peaks.
+- **EQ / Filter:** every module in the category draws its settled response over the same
+  live output spectrum. Parametric EQ shades its Q bandwidth; Filter shades the cutoff range
+  its Envelope can reach, with the full shift at -12 dBFS input peaks. Console EQ's curve is
+  measured by running its own DSP on a quiet impulse; its band density is level-dependent,
+  so louder notes add harmonics the curve does not show.
+- **Utility:** a goniometer of the live output, mid upward and side across, auto-scaled so
+  the shape reads at any level. Mono is a vertical line; Width spreads it, Balance tilts it,
+  and inverting one channel turns it horizontal. Beside it, a correlation meter (−1 to +1,
+  amber when negative) and left/right RMS bars show the same in numbers.
+- **Bitcrusher:** one cycle of a 220 Hz reference at 100% wet: the quantized, sample-held
+  staircase filled to zero over the gray dry sine, plus a line for the High cut result
+  when High cut is below its maximum. Mix and Output only blend and scale this shape.
 - **Delays:** echo timing and treble on a fixed dB scale. Modulation depth is given in
   cents, because it is heard as pitch. Digital Delay marks each repeat's ducked level
   while playing at -12 dBFS. Reverse Delay shows that each window plays backwards during
@@ -79,18 +108,23 @@ All FX share separate title, explanation, chart and footer rows. Frequency/dB
 limits, reference signals and measured histories are labeled. See the complete
 [module-by-module visualization audit](ui.md).
 
-Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Meters measure
+Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Card meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
 the card meters; the global IN meter replaces the first card's duplicate input bar.
-Global IN/OUT show peak dB above a smaller, explicitly labeled RMS reading. Peak holds for 1.5 seconds, then falls at 12 dB/second toward the current level. Their numeric levels measure the mono sum after IN gain and after OUT gain.
+Global IN/OUT are stereo peak meters (left and right bars) after IN gain and after OUT gain.
+Their value is the higher channel's peak in dBFS, held for 1.5 seconds, then falling at
+12 dB/second. Every meter uses the same scale, from -60 to +6 dBFS, with a line at 0 dBFS.
+Level above the line draws red, and the area above it stays red for 2 seconds after an over,
+as does the global value. The grid processes in floating point, so an over between modules
+is a warning rather than clipping; at OUT it is what the host receives.
 Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
 green pedals, light gray dynamics/gates, rose EQ, coral Boost/Tape, periwinkle
 modulation/filter, cyan delay, magenta Creative and violet reverb. Unclassified NAM files remain neutral.
 Selection brightens the border toward white, retaining the Amp-to-Cab border gradient.
 Knobs and switches use a neutral monochrome palette. Module header IDs use 22-point text
 and descriptions use 14-point text; the description extends across the controls area
-when no NAM quality button occupies that row. Tile IDs use 16-point text. Regular UI text uses size 14; compact legends, meter RMS
-readings, browser metadata and helper text use at least size 13. Plot footers have
+when no NAM quality button occupies that row. Tile IDs use 16-point text. Regular UI text uses size 14; compact legends, browser
+metadata and helper text use at least size 13. Plot footers have
 extra height for their larger labels.
 
 The bottom editors are independent containers with bounds enclosing their children. Their
@@ -103,7 +137,7 @@ Library & settings lists every source folder with its type: **NAM**, **IR** or *
 **+ NAM folder**, **+ IR folder** and **+ Preset folder** add to the matching list, and each
 row has **Remove**. A folder is scanned only for its list's file type (`.nam`, `.wav` or
 `.ngrid`); add a mixed folder to several lists. This is the only place to add or remove
-folders; the browser's **Library folders...** opens it. A `.ignore` file inside a folder
+folders; the browser's **Manage folders** opens it. A `.ignore` file inside a folder
 excludes files and subfolders like a `.gitignore` (see
 [browser.md](browser.md#excluding-files-with-ignore)). The
 status line counts files and folders per type. Up to 32 roots are retained per type in project
@@ -189,7 +223,7 @@ Measured IN/OUT histories describe level, not stereo correlation;
 mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe
 configured behavior, not an invented live LFO phase or a measured room impulse.
 A bypassed module can still show its settings; Enabled controls the audio.
-The output spectrum in the EQ, Filter and NAM views is a rough 1024-sample FFT of the selected slot's left output channel, updated with the meter. Each band shows its loudest bin. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's dB scale. Low frequencies have limited resolution and it is not a stereo analyzer.
+The output spectrum in the EQ / Filter, Outboard Channel and NAM views is a 4096-sample FFT of the selected slot's left output channel, updated with the meter. Each band shows its loudest bin. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's dB scale. Bins are about 12 Hz wide at 48 kHz, so the lowest octave is still coarse, and it is not a stereo analyzer.
 Measured IN > OUT clouds use the same peak meters as the histories: they show level behavior, not instantaneous waveform transfer.
 
 Frequency plots use logarithmic frequency with labeled limits. Timing sketches

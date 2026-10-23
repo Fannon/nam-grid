@@ -32,7 +32,7 @@ changes and tested the results, supported by an extensive automated test suite.
   parallel lanes A and B, Post). Any slot takes any module, so you can run
   several NAM captures, cabinet IRs or the same effect more than once, and
   blend the two lanes with **A/B**.
-- **55 built-in effects:** gates, compressors and outboard-style dynamics,
+- **54 built-in effects:** gates, compressors and outboard-style dynamics,
   EQs and filters, drives, modulation, pitch effects, delays and reverbs,
   including [Cosmic Echo](docs/cosmic-echo.md) and the
   [LoFi Tape Machine](docs/lofi-tape.md).
@@ -214,7 +214,7 @@ NAM Grid is built on the work of many open-source projects:
     [Tape](https://www.airwindows.com/tape/),
     [kPlate140](https://www.airwindows.com/kplate140/),
     [kGuitarHall2](https://www.airwindows.com/kguitarhall2/), Galactic3,
-    CStrip2, BussColors4, ButterComp2, DigitalBlack, CStrip's gate and Pressure6.
+    CStrip2, BussColors4, ButterComp2, DigitalBlack and CStrip's gate.
   - **[Faust reverb library](https://faustlibraries.grame.fr/libs/reverbs/)**
     (GRAME) — [JPverb](https://faustlibraries.grame.fr/libs/reverbs/#rejpverb),
     Greyhole, and David Braun's MIT Faust reconstruction of the

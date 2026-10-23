@@ -24,27 +24,6 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     }
   };
   WDL_String text;
-  if (effect == SlotEffect::ConsoleEQ)
-  {
-    caption("Band density | not a linear EQ curve");
-    line(0., .5, 1., .5, muted);
-    const char* names[]{"Bass", "Mid", "Treble"};
-    const int params[]{uConsoleBass, uConsoleMid, uConsoleTreble};
-    for (int i = 0; i < 3; ++i)
-    {
-      const double density = value(params[i]);
-      const float x = plot.L+plot.W()*(i+.5f)/3.f;
-      const float y = plot.MH()-static_cast<float>(density/6.)*(plot.H()*.5f-24.f);
-      g.FillRect(color.WithOpacity(.65f),IRECT(x-16,std::min(y,plot.MH()),x+16,std::max(y,plot.MH())+1));
-      text.SetFormatted(64,"%s %+.1f",names[i],density);
-      g.DrawText(Text(13.f,muted,EAlign::Center),text.Get(),IRECT(x-48,plot.B-18,x+48,plot.B));
-    }
-    text.SetFormatted(96,"Bass %.0f Hz | Treble %.0f Hz",value(uConsoleBassFreq),value(uConsoleTrebleFreq));
-    PlotDetail(g,plot,text.Get());
-    text.SetFormatted(96,"Cuts: low %.0f%% | high open %.0f%%",value(uConsoleLowCut),value(uConsoleHighCut));
-    foot(text.Get());
-    return true;
-  }
   if (effect == SlotEffect::Wah)
   {
     UtilityControls wah;
@@ -65,15 +44,32 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   {
     UtilityControls crush;
     for (int i=0;i<5;++i) crush.crusher[i]=value(uCrushBits+i);
-    caption("Quantize / sample hold / high cut");
-    text.SetFormatted(80,"%.0f bits | %.1fk samples/s",crush.crusher[0],std::min(rate,crush.crusher[1])/1000.);
-    PlotDetail(g,plot,text.Get()); PlotGrid(g,plot);
-    const auto reference=effect_preview::CrusherReference(crush,rate);
-    const double duration=std::max(384.,std::ceil(rate*3./220.))/rate;
-    PlotCurve(g,plot,[&](double x) { return .8*std::sin(2.*grid_fx::pi*220.*duration*x); },-2.,2.,muted.WithOpacity(.6f),1.f);
-    for (size_t i=1;i<reference.size();++i)
-      line((i-1)/384.,.5+reference[i-1]/4.,i/384.,.5+reference[i]/4.,color);
-    PlotFooter(g,plot,"220 Hz reference: dry / wet mix","+/-2");
+    text.SetFormatted(80,"%.0f bits | %.0f Hz hold | Mix %.0f%%",crush.crusher[0],std::min(rate,crush.crusher[1]),crush.crusher[3]);
+    caption(text.Get());
+    PlotDetail(g,plot,"One 220 Hz cycle, 100% wet");
+    // The classic crusher picture: the held, quantized staircase filled to zero over the dry sine.
+    const auto cycle=effect_preview::CrusherReference(crush,rate);
+    const size_t count=cycle.held.size();
+    const auto x=[&](size_t i) { return plot.L+plot.W()*static_cast<float>(i)/static_cast<float>(count-1); };
+    const auto y=[&](double v) { return plot.MH()-plot.H()*.5f*static_cast<float>(std::clamp(v,-1.,1.)); };
+    g.DrawLine(muted.WithOpacity(.5f),plot.L,plot.MH(),plot.R,plot.MH());
+    for (size_t i=0;i+1<count;++i)
+    {
+      const float top=y(cycle.held[i]);
+      g.FillRect(color.WithOpacity(.18f),IRECT(x(i),std::min(top,plot.MH()),x(i+1),std::max(top,plot.MH())));
+    }
+    for (size_t i=1;i<count;++i)
+      g.DrawLine(muted.WithOpacity(.7f),x(i-1),y(cycle.dry[i-1]),x(i),y(cycle.dry[i]),nullptr,1.f);
+    for (size_t i=0;i+1<count;++i)
+    {
+      g.DrawLine(color,x(i),y(cycle.held[i]),x(i+1),y(cycle.held[i]),nullptr,1.5f);
+      if (cycle.held[i+1]!=cycle.held[i]) g.DrawLine(color,x(i+1),y(cycle.held[i]),x(i+1),y(cycle.held[i+1]),nullptr,1.5f);
+    }
+    const bool cut=crush.crusher[2]<.45*rate-1.;
+    if (cut)
+      for (size_t i=1;i<count;++i)
+        g.DrawLine(grid_ui::text.WithOpacity(.8f),x(i-1),y(cycle.wet[i-1]),x(i),y(cycle.wet[i]),nullptr,1.2f);
+    PlotFooter(g,plot,"Gray: dry | fill: crushed",cut ? "Line: High cut" : "");
     return true;
   }
   UtilityControls c;
@@ -316,25 +312,6 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     }
     text.SetFormatted(32,"0 - %.1fk Hz",cascadeUpper/1000.);
     PlotFooter(g,plot,"Passes 0-8 | up colour, down amber",text.Get()); return true;
-  }
-  if (effect == SlotEffect::Utility)
-  {
-    text.SetFormatted(64, "M/S | side %.0f%%", 100. + value(uUtilityStereo)); caption(text.Get());
-    PlotDetail(g,plot,"Width scales existing stereo; mono stays mono");
-    const double width = 1. + value(uUtilityStereo) * .01, balance = value(uUtilityBalance) * .01;
-    const double gain = std::pow(10., value(uUtilityLevel) / 20.);
-    for (int channel = 0; channel < 2; ++channel)
-    {
-      const double level = gain * (1. - std::max(0., channel ? -balance : balance));
-      const double y = channel ? .3 : .7, end = .5 + (channel ? 1. : -1.) * .24 * width;
-      const auto ink=(channel ? ampColor : color).WithOpacity(static_cast<float>(.15+.85*std::min(1.,level)));
-      line(.5, .5, end, y, ink, static_cast<float>(1. + std::min(3., level)));
-      const bool inverted = value(channel ? uUtilityInvertR : uUtilityInvertL) >= .5;
-      g.DrawText(Text(13.f, ink, EAlign::Center), inverted ? "-" : "+",
-                 IRECT(plot.L + plot.W() * static_cast<float>(end) - 8, plot.B - plot.H() * static_cast<float>(y) - 8,
-                       plot.L + plot.W() * static_cast<float>(end) + 8, plot.B - plot.H() * static_cast<float>(y) + 8));
-    }
-    text.SetFormatted(64,"L / R | both delayed %.2f ms",value(uUtilityDelay)); foot(text.Get()); return true;
   }
   return false;
 }

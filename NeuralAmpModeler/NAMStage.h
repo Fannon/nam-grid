@@ -37,11 +37,14 @@ struct SlotMeterData
   std::array<float, 2> filterCutoff{}, filterQ{};
 };
 
-// Effects whose editor overlays a live output spectrum on the response curve.
+// Effects whose editor overlays a live output spectrum on the response curve: every
+// EQ / Filter module, the NAM post-EQ and Outboard Channel's cuts, all at one resolution.
 inline bool ShowsSignalSpectrum(SlotEffect effect)
 {
   return effect == SlotEffect::NAM || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ
-         || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter;
+         || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter
+         || effect == SlotEffect::OutboardChannel || effect == SlotEffect::ConsoleEQ || effect == SlotEffect::Wah
+         || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
 class NAMStage
@@ -251,7 +254,8 @@ public:
     mMix = 0.;
     mFirst = true;
     mMeter = {};
-    mEQSignal = {};
+    std::fill(mEQSignal.begin(), mEQSignal.end(), 0.f);
+    std::fill(mEQSignalRight.begin(), mEQSignalRight.end(), 0.f);
     mEQSignalWrite = mEQSignalCount = 0;
   }
   SlotMeterData TakeMeter()
@@ -271,6 +275,8 @@ public:
       return false;
     for (size_t i = 0; i < mEQSignal.size(); ++i)
       window.samples[i] = mEQSignal[(mEQSignalWrite + i) % mEQSignal.size()];
+    for (size_t i = 0; i < window.right.size(); ++i)
+      window.right[i] = mEQSignalRight[(mEQSignalWrite + mEQSignal.size() - window.right.size() + i) % mEQSignal.size()];
     return true;
   }
   int Latency() const
@@ -453,6 +459,7 @@ public:
         if (spectrum)
         {
           mEQSignal[mEQSignalWrite] = static_cast<float>(samples[i]);
+          mEQSignalRight[mEQSignalWrite] = static_cast<float>(rightSamples ? rightSamples[i] : samples[i]);
           mEQSignalWrite = (mEQSignalWrite + 1) % mEQSignal.size();
           mEQSignalCount = std::min(mEQSignalCount + 1, mEQSignal.size());
         }
@@ -539,6 +546,8 @@ private:
   bool mFirst = true;
   bool mMonitoring = false;
   SlotMeterData mMeter;
-  std::array<float, grid_eq_signal::windowSize> mEQSignal{};
+  // Heap-held once per stage: a 4096-sample window would make every grid too large for the stack.
+  std::vector<float> mEQSignal = std::vector<float>(grid_eq_signal::windowSize, 0.f);
+  std::vector<float> mEQSignalRight = std::vector<float>(grid_eq_signal::windowSize, 0.f);
   size_t mEQSignalWrite = 0, mEQSignalCount = 0;
 };

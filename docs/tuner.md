@@ -13,8 +13,8 @@ unmute a live tuner.
 
 The display shows note/octave, signed cents, frequency and a 430–450 Hz reference.
 The graph covers the last six seconds, from oldest on the left to now on the
-right, over ±50 cents. Green indicates ±3 cents, amber ±10 cents, and coral larger
-errors. The line fades with age and breaks at silence, note changes, long gaps
+right, over ±25 cents; larger offsets pin to the top or bottom edge. Green indicates
+±3 cents, amber ±10 cents, and coral larger errors. The line fades with age and breaks at silence, note changes, long gaps
 and jumps over 35 cents. Existing history follows a changed reference.
 
 Detection uses clean input before the grid, including right-only input. The

@@ -101,9 +101,5 @@ void TestEffectModeClap(const clap_plugin* plugin, json cleared, Save save, Load
     gate["Pre 1 Black Threshold"]=-60.; gate["Post 4 Black Mix"]=75.;
     load(gate); assert(save().config()==gate);
   }
-  auto pressure=cleared;
-  pressure["SlotEffects"][0]=pressure["SlotEffects"][15]=static_cast<int>(SlotEffect::Pressure);
-  pressure["Pre 1 Pressure Compress"]=63.; pressure["Post 4 Pressure Mix"]=80.;
-  load(pressure); assert(save().config()==pressure);
   std::cout << "FX modes: stable host IDs, state-only algorithms, musical automation and recall passed\n";
 }

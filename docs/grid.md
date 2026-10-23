@@ -24,8 +24,9 @@ audio; their gain controls take effect when a model is loaded. Slots are process
 right within each row. Both parallel rows receive the same output from Pre4. There are no
 cross-connections, sends, feedback, drag/drop routing, or routing graph.
 
-- Click **+ Add module** once on an empty card. Click a loaded card to select its
-  bottom editor; double-click it or use **Change module...** to replace it.
+- Click **+ Add module** once on an empty card. Click a card's header row to select its
+  bottom editor; click its name button, double-click it or use **Change module...** to replace it.
+  Drag cards to swap them; Shift-drag replaces and Alt/Option-drag duplicates (see [ui.md](ui.md)).
   Every FX lives in a category; indexed NAM captures and cabinet IRs have separate sections.
   `<` / `>` in the module editor traverse the library across configured folders.
 - Right-click a card to Clear, Copy/Move/Swap with a destination. Tall mono-sum input/output meters

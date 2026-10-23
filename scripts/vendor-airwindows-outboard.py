@@ -10,7 +10,7 @@ from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 REVISION = "e68f75154ed0520fc5757fec9e7792dd1747e5ee"
-PLUGINS = ("CStrip2", "ButterComp2", "BussColors4", "DigitalBlack", "Pressure6", "CStripGate")
+PLUGINS = ("CStrip2", "ButterComp2", "BussColors4", "DigitalBlack", "CStripGate")
 DEST = ROOT / "NeuralAmpModeler/dsp/airwindows/outboard"
 
 
@@ -47,14 +47,6 @@ def generate(name, source):
         body = body.replace("ZeroCrossL += 1;", "ZeroCrossL += 44100.0 / mRate;")
         body = body.replace("ZeroCrossR += 1;", "ZeroCrossR += 44100.0 / mRate;")
         public = "double Opening(int channel) const { return fmin(1., channel == 0 ? gaterollerL : gaterollerR); }"
-    if name == "Pressure6":
-        # adjSpd already scales muSpd with rate. Squaring it also squares the
-        # release time scaling; one rate factor restores reference-time recovery.
-        body = body.replace("(muSpd*muSpd)", "(muSpd*muSpd/overallscale)")
-        body = "double previousMu = muComp;\n" + body
-        body = body.replace("inputSampleL = (drySampleL*", "monitor0 = previousMu * muComp * muComp;\n\t\tinputSampleL = (drySampleL*")
-        public = "double Gain() const { return monitor0; }"
-        extra = "double monitor0 = 1.;"
     if name == "ButterComp2":
         # Replace function-static, signed-overflow residue noise with the core's
         # deterministic local PRNG. No shared mutable state or undefined overflow.

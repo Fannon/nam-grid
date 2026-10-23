@@ -989,7 +989,6 @@
     "Parametric EQ": 7,
     "Peak Limiter": 29,
     "Phaser": 19,
-    "Pressure": 56,
     "Punch Compressor": 3,
     "Reverse Delay": 32,
     "Ring Modulator": 37,
@@ -4882,60 +4881,6 @@
       "minimum": 0.0,
       "name": "Pre 1 Black Mode",
       "stepped": true
-    },
-    {
-      "default": 0.9,
-      "flags": 32800,
-      "id": 3489,
-      "mapping": [
-        "0.0 %",
-        "12.5 %",
-        "25.0 %",
-        "50.0 %",
-        "75.0 %",
-        "87.5 %",
-        "100.0 %"
-      ],
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "name": "Pre 1 Pressure Compress",
-      "stepped": false
-    },
-    {
-      "default": 1.0,
-      "flags": 32800,
-      "id": 3505,
-      "mapping": [
-        "0.0 %",
-        "12.5 %",
-        "25.0 %",
-        "50.0 %",
-        "75.0 %",
-        "87.5 %",
-        "100.0 %"
-      ],
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "name": "Pre 1 Pressure Mix",
-      "stepped": false
-    },
-    {
-      "default": 0.6458333333333334,
-      "flags": 32800,
-      "id": 3521,
-      "mapping": [
-        "-18.0 dB",
-        "-15.0 dB",
-        "-12.0 dB",
-        "-6.0 dB",
-        "0.0 dB",
-        "3.0 dB",
-        "6.0 dB"
-      ],
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "name": "Pre 1 Pressure Output",
-      "stepped": false
     }
   ],
   "state_schema": 1

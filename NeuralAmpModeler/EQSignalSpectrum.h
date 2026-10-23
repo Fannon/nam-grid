@@ -4,16 +4,19 @@
 #include <cmath>
 #include <complex>
 
-// UI-thread only: one 1024-point FFT of the latest EQ output window per meter
+// UI-thread only: one 4096-point FFT of the latest EQ output window per meter
 // update. The audio thread only copies the selected slot's samples into a
 // separate small sender; other slots' meter packets stay small.
 namespace grid_eq_signal
 {
-constexpr size_t windowSize = 1024;
-constexpr size_t bands = 64;
+constexpr size_t windowSize = 4096;
+constexpr size_t bands = 128;
+// The stereo scope only needs the newest samples of the right channel.
+constexpr size_t scopeSize = 1024;
 struct Window
 {
-  std::array<float, windowSize> samples{};
+  std::array<float, windowSize> samples{};  // Left output, oldest first.
+  std::array<float, scopeSize> right{};     // Right output (left for mono) for the last scopeSize samples.
 };
 
 inline std::array<float, bands> Analyze(const std::array<float, windowSize>& samples, double rate)

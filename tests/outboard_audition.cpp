@@ -11,7 +11,7 @@ int main()
   std::cout << "module,variant,rate,cpu_percent,gain_db,detector_gr_db\n";
   for (double rate : {44100., 48000., 88200., 96000., 192000.})
     for (auto effect : {SlotEffect::OutboardChannel, SlotEffect::ConsoleColour, SlotEffect::ConsoleEQ,
-                        SlotEffect::ButterComp, SlotEffect::DigitalBlack, SlotEffect::Pressure})
+                        SlotEffect::ButterComp, SlotEffect::DigitalBlack})
       for (int desk = 0; desk < (effect == SlotEffect::ConsoleColour  ? 8
                                  : effect == SlotEffect::DigitalBlack ? 2
                                                                       : 1);

@@ -211,9 +211,6 @@ enum UtilityParam
   uBlackMix = 195,
   uBlackOutput = 196,
   uBlackMode = 197,
-  uPressureCompress = 198,
-  uPressureMix = 199,
-  uPressureOutput = 200,
   kUtilityControls,
 };
 inline constexpr std::span<const char* const> EffectChoices(int control)
@@ -500,10 +497,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Black Threshold", "Threshold", -55, -74, -10, .1, "dB", 0},
    {"Black Mix", "Mix", 100, 0, 100, .1, "%", 1},
    {"Black Output", "Output", 0, -18, 6, .1, "dB", 2},
-   {"Black Mode", "Mode", 0, 0, 1, 1, "", 0},
-   {"Pressure Compress", "Compress", 90, 0, 100, .1, "%", 0},
-   {"Pressure Mix", "Mix", 100, 0, 100, .1, "%", 1},
-   {"Pressure Output", "Output", -2.5, -18, 6, .1, "dB", 2}}};
+   {"Black Mode", "Mode", 0, 0, 1, 1, "", 0}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -575,14 +569,13 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
-    case SlotEffect::DigitalBlack: case SlotEffect::Pressure: return true;
+    case SlotEffect::DigitalBlack: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
   if (e == SlotEffect::DigitalBlack) return p >= uBlackThreshold && p <= uBlackMode;
-  if (e == SlotEffect::Pressure) return p >= uPressureCompress && p <= uPressureOutput;
   if (e == SlotEffect::OutboardChannel) return p >= uStripLowCut && p <= uStripMix;
   if (e == SlotEffect::ConsoleColour) return p >= uColourInput && p <= uColourDesk;
   if (e == SlotEffect::ConsoleEQ) return p >= uConsoleTreble && p <= uConsoleLowCut;
@@ -692,6 +685,6 @@ struct UtilityControls
   int colourDesk = 0;
   std::array<double, 7> consoleEQ{0., 0., 0., 4750., 300., 100., 0.};
   std::array<double, 3> butter{35., -1., 100.};
-  std::array<double, 3> black{-55.,100.,0.}, pressure{90.,100.,-2.5};
+  std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
 };

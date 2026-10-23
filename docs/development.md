@@ -41,7 +41,7 @@ holds 49 globals (output, A/B blend, tuner, then the `grid_performance` controls
 followed by one block of 16 IDs per slot control: the 17 shared slot controls
 (In, Trim, Enabled, gate, compressor, EQ, IR level, Full Quality), then every
 module control (`UtilityParam`). Every slot has the same controls and names
-(`Pre 1 In` … `Post 4 Pressure Output`). The segment counts are literals:
+(`Pre 1 In` … `Post 4 Black Mode`). The segment counts are literals:
 adding a control fails to compile until it is allocated, and a compile-time check
 rejects edits to released segments.
 

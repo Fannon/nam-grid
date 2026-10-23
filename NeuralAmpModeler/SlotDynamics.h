@@ -65,8 +65,7 @@ enum class SlotEffect
   ConsoleEQ = 53,
   ButterComp = 54,
   DigitalBlack = 55,
-  Pressure = 56,
-  Last = Pressure,
+  Last = DigitalBlack,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -101,7 +100,6 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::ConsoleEQ: return "Console EQ";
     case SlotEffect::ButterComp: return "Butter Comp";
     case SlotEffect::DigitalBlack: return "Digital Black Gate";
-    case SlotEffect::Pressure: return "Pressure";
     case SlotEffect::Chorus: return "Chorus";
     case SlotEffect::Flanger: return "Flanger";
     case SlotEffect::Phaser: return "Phaser";

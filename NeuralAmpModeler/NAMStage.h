@@ -40,8 +40,8 @@ struct SlotMeterData
 // Effects whose editor overlays a live output spectrum on the response curve.
 inline bool ShowsSignalSpectrum(SlotEffect effect)
 {
-  return effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ
-         || effect == SlotEffect::SynthFilter;
+  return effect == SlotEffect::NAM || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ
+         || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter;
 }
 
 class NAMStage

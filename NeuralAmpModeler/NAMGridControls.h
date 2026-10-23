@@ -840,6 +840,7 @@ private:
       const grid_eq_response::Response tone(rate, SlotEffect::ToneEQ, eq, {});
       const grid_eq_response::Response cuts(rate, SlotEffect::CutEQ, eq, {});
       PlotGrid(g, eqPlot);
+      DrawSignalSpectrum(g, eqPlot);
       PlotCurve(g, eqPlot, [&](double x) {
         const double hz = 20. * std::pow(upper / 20., x);
         return 20. * std::log10(std::max(1.e-9, tone.Magnitude(hz) * cuts.Magnitude(hz)));
@@ -1082,22 +1083,7 @@ private:
         g.FillRect(color.WithOpacity(.08f), IRECT(frequencyX(center * std::exp2(-.5 * octaves)), plot.T,
                                                   frequencyX(center * std::exp2(.5 * octaves)), plot.B));
       }
-      if (Now() - mSpectrumTime < .5)
-      {
-        // A filled area on its own dBFS scale: different form from the response line.
-        const auto signalY = [&](float db) {
-          return plot.B - plot.H() * std::clamp((db + 72.f) / 72.f, 0.f, 1.f);
-        };
-        const float step = plot.W() / static_cast<float>(mSpectrum.size() - 1);
-        for (size_t i = 0; i < mSpectrum.size(); ++i)
-        {
-          const float x = plot.L + step * static_cast<float>(i);
-          g.FillRect(ampColor.WithOpacity(.2f), IRECT(std::max(plot.L, x - .5f * step), signalY(mSpectrum[i]),
-                                                      std::min(plot.R, x + .5f * step), plot.B));
-        }
-        g.DrawText(Text(11.f, ampColor, EAlign::Far), "0 dBFS", IRECT(plot.R - 60.f, plot.T, plot.R - 2.f, plot.T + 12.f));
-        g.DrawText(Text(11.f, ampColor, EAlign::Far), "-72", IRECT(plot.R - 60.f, plot.B - 12.f, plot.R - 2.f, plot.B));
-      }
+      DrawSignalSpectrum(g, plot);
       for (size_t i = 1; i < mEQCurve.size(); ++i)
       {
         if (filter && (std::abs(key[12] - key[14]) > 1. || std::abs(key[13] - key[15]) > .01))
@@ -1141,6 +1127,25 @@ private:
       else
         g.DrawText(Text(13.f,muted,EAlign::Center),"IR file unavailable",plot);
     }
+  }
+  // Live output spectrum as a filled area on its own dBFS scale: a different
+  // form from the response line. Stale spectra (no window for 0.5 s) are hidden.
+  void DrawSignalSpectrum(IGraphics& g, const IRECT& area)
+  {
+    using namespace grid_ui;
+    if (Now() - mSpectrumTime >= .5) return;
+    const auto signalY = [&](float db) {
+      return area.B - area.H() * std::clamp((db + 72.f) / 72.f, 0.f, 1.f);
+    };
+    const float step = area.W() / static_cast<float>(mSpectrum.size() - 1);
+    for (size_t i = 0; i < mSpectrum.size(); ++i)
+    {
+      const float x = area.L + step * static_cast<float>(i);
+      g.FillRect(ampColor.WithOpacity(.2f), IRECT(std::max(area.L, x - .5f * step), signalY(mSpectrum[i]),
+                                                  std::min(area.R, x + .5f * step), area.B));
+    }
+    g.DrawText(Text(11.f, ampColor, EAlign::Far), "0 dBFS", IRECT(area.R - 60.f, area.T, area.R - 2.f, area.T + 12.f));
+    g.DrawText(Text(11.f, ampColor, EAlign::Far), "-72", IRECT(area.R - 60.f, area.B - 12.f, area.R - 2.f, area.B));
   }
   // Measured IN vs OUT peaks as a cloud: the module's real level transfer
   // emerges from playing. Newer points are brighter; the diagonal is unity.

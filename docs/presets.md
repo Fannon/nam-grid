@@ -3,7 +3,10 @@
 Click the preset name in the header to open the [preset browser](browser.md). It focuses
 Presets only and selects the current rig in its folder. Add preset folders, search them
 recursively, and select a result before loading it with Enter, double-click or Load.
-Save preset as... and Open file... are available in the browser; right-clicking the header
+Preset folders are a separate list from NAM and IR folders and are scanned only for `.ngrid`
+files; manage them in the browser or in Library & settings. NAM Grid ships no preset files; every listed preset is a `.ngrid` file
+in one of your preset folders. Save preset as..., Open file... and Delete preset are
+available in the browser; right-clicking the header
 name also offers quick load/save actions and the last used folder's presets. The arrow
 buttons step through that folder in filename order and wrap. The name shows the last
 saved or loaded filename; subsequent edits are not saved automatically. Saving over an

@@ -58,7 +58,7 @@ changes and tested the results, supported by an extensive automated test suite.
     <td align="center" width="33%"><a href="docs/screenshots/browser-presets.png"><img src="docs/screenshots/browser-presets.png" alt="Rig presets: Full-height browser for complete rigs" width="300"></a><br><b>Rig presets</b><br><sub>Full-height browser for complete rigs</sub></td>
   </tr>
   <tr>
-    <td align="center" width="33%"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Library & settings: Capture and IR folders, scanning and visualizations" width="300"></a><br><b>Library & settings</b><br><sub>Capture and IR folders, scanning and visualizations</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Library & settings: NAM, IR and preset folders, scanning and visualizations" width="300"></a><br><b>Library & settings</b><br><sub>NAM, IR and preset folders, scanning and visualizations</sub></td>
     <td align="center" width="33%"><a href="docs/screenshots/control.png"><img src="docs/screenshots/control.png" alt="Grid / Control: LFO, envelope, sequencer and macro modulation" width="300"></a><br><b>Grid / Control</b><br><sub>LFO, envelope, sequencer and macro modulation</sub></td>
     <td align="center" width="33%"><a href="docs/screenshots/tuner.png"><img src="docs/screenshots/tuner.png" alt="Tuner: Tuner with cents, reference pitch and pitch history" width="300"></a><br><b>Tuner</b><br><sub>Tuner with cents, reference pitch and pitch history</sub></td>
   </tr>

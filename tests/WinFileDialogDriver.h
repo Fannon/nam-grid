@@ -118,5 +118,34 @@ void Choose(const std::filesystem::path& path, Click click, bool dismiss = false
   UnhookWindowsHookEx(hook);
   assert(dismiss || delivered);
 }
+
+// Answer the next native Yes/No message box raised by click().
+inline bool answerYes = false, answered = false;
+inline LRESULT CALLBACK Answer(int code, WPARAM w, LPARAM l)
+{
+  if (code == HCBT_ACTIVATE)
+  {
+    const auto box = reinterpret_cast<HWND>(w);
+    wchar_t type[32]{};
+    GetClassNameW(box, type, 32);
+    if (std::wstring(type) == L"#32770" && GetDlgItem(box, IDYES))
+    {
+      SetWindowPos(box, nullptr, -32000, -32000, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+      answered = true;
+      PostMessageW(box, WM_COMMAND, answerYes ? IDYES : IDNO, 0);
+    }
+  }
+  return CallNextHookEx(nullptr, code, w, l);
+}
+template <class Click>
+void Confirm(bool yes, Click click)
+{
+  answerYes = yes; answered = false;
+  const auto hook = SetWindowsHookExW(WH_CBT, Answer, nullptr, GetCurrentThreadId());
+  assert(hook);
+  click();
+  UnhookWindowsHookEx(hook);
+  assert(answered);
+}
 }
 #endif

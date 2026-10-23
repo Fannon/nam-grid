@@ -1398,56 +1398,56 @@ public:
   {
     using namespace grid_ui;
     g.FillRect(background, mRECT);
-    const auto folders = PLUG()->GetCaptureFolders();
-    mScroll = std::min(mScroll, std::max(0, static_cast<int>(folders.size()) - 7));
-    for (int row = 0; row < 7; ++row)
+    g.DrawText(Text(13.f, muted), "LIBRARY FOLDERS", IRECT(32, 160, 400, 190));
+    const auto rows = Rows();
+    mScroll = std::min(mScroll, std::max(0, static_cast<int>(rows.size()) - kRows));
+    for (int row = 0; row < kRows && mScroll + row < static_cast<int>(rows.size()); ++row)
     {
-      const int index = mScroll + row;
-      const float top = 164.f + row * 43.f;
-      const IRECT r(32, top, 968, top + 36);
-      if (index >= static_cast<int>(folders.size()))
-        break;
-      g.FillRoundRect(surface, r, 3.f);
-      g.DrawText(Text(14.f, muted), std::to_string(index + 1).c_str(), IRECT(43, top, 74, top + 36));
-      FittedText(g, Text(14.f), folders[index].c_str(), IRECT(80, top, 860, top + 36));
-      g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(866, top, 962, top + 36));
+      const auto& entry = rows[mScroll + row];
+      const float top = kListTop + row * kRowPitch;
+      g.FillRoundRect(surface, IRECT(32, top, 968, top + kRowHeight), 3.f);
+      g.DrawText(Text(14.f, muted), KindLabel(entry.kind), IRECT(44, top, 124, top + kRowHeight));
+      FittedText(g, Text(14.f), entry.path.c_str(), IRECT(128, top, 882, top + kRowHeight));
+      g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(888, top, 962, top + kRowHeight));
     }
-    if (folders.empty())
-      g.DrawText(
-        Text(14.f, muted), "No library folders", IRECT(52, 166, 840, 198));
+    if (rows.empty())
+      g.DrawText(Text(14.f, muted), "No library folders. Add NAM, IR and preset folders; each is scanned only for its own file type.",
+                 IRECT(44, kListTop, 960, kListTop + kRowHeight));
     g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
   }
   void OnAttached() override
   {
     using namespace grid_ui;
     AddChildControl(new HintLabel(IRECT(32, 24, 650, 64), "Library & settings", Text(23.f),
-      "Manage NAM / IR folders. Browse library to search files and add preset folders. Scroll the folder list for more sources (32 maximum)."));
+      "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type."));
     AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
     AddChildControl(new Button(IRECT(678, 28, 846, 60), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library"));
-    mAdd = new Button(
-      IRECT(32, 116, 190, 148),
-      [this](IControl*) {
+    for (int i = 0; i < 3; ++i)
+    {
+      const auto kind = kKinds[i];
+      mAdd[i] = new Button(kAddRects[i], [this, kind](IControl*) {
         WDL_String folder;
-        GetUI()->PromptForDirectory(folder, [plugin = PLUG()](const WDL_String&, const WDL_String& chosen) {
-          if (chosen.GetLength())
-            plugin->AddCaptureFolder(chosen.Get());
+        GetUI()->PromptForDirectory(folder, [plugin = PLUG(), kind](const WDL_String&, const WDL_String& chosen) {
+          if (chosen.GetLength()) plugin->AddLibraryFolder(kind, chosen.Get());
         });
-      },
-      "+ Add folder");
-    AddChildControl(mAdd);
-    mAdd->SetTooltip("Add a NAM / IR source folder. Files and subfolders are indexed in the background.");
+      }, i == 0 ? "+ NAM folder" : i == 1 ? "+ IR folder" : "+ Preset folder");
+      mAdd[i]->SetTooltip(i == 0 ? "Add a folder of .nam captures. Only .nam files in it and its subfolders are indexed."
+                          : i == 1 ? "Add a folder of .wav impulse responses. Only .wav files in it and its subfolders are indexed."
+                                   : "Add a rig preset folder. Only .ngrid files in it and its subfolders are indexed.");
+      AddChildControl(mAdd[i]);
+    }
     AddChildControl(
-      new Button(IRECT(200, 116, 320, 148), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan all"))->SetTooltip(
+      new Button(IRECT(32, 116, 152, 148), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan all"))->SetTooltip(
       "Index NAM, IR and preset folders. Use this when the library is not indexed or files have changed.");
     mStartupScan = new Button(
-      IRECT(340, 116, 570, 148), [this](IControl*) { PLUG()->SetRescanOnStartup(!PLUG()->GetRescanOnStartup()); },
+      IRECT(168, 116, 398, 148), [this](IControl*) { PLUG()->SetRescanOnStartup(!PLUG()->GetRescanOnStartup()); },
       "Startup rescan: ON");
     mStartupScan->SetTooltip(
       "Automatically index library folders when opening an instance or project. When off, choose Rescan all manually.");
     AddChildControl(mStartupScan);
-    mVisualizations = new Button(IRECT(590, 116, 826, 148), [this](IControl*) {
+    mVisualizations = new Button(IRECT(414, 116, 650, 148), [this](IControl*) {
       PLUG()->SetShowVisualizations(!PLUG()->GetShowVisualizations());
     }, "Visualizations: ON");
     AddChildControl(mVisualizations);
@@ -1467,26 +1467,33 @@ public:
       mVisualizations->SetLabelStr(visualLabel);
     if (mStartupScan && std::strcmp(mStartupScan->GetLabelStr(), scanLabel) != 0)
       mStartupScan->SetLabelStr(scanLabel);
-    if (mAdd && mAdd->IsDisabled() != (PLUG()->GetCaptureFolders().size() >= 32))
-      mAdd->SetDisabled(PLUG()->GetCaptureFolders().size() >= 32);
+    for (int i = 0; i < 3; ++i)
+    {
+      const bool full = PLUG()->GetLibraryFolders(kKinds[i]).size() >= 32;
+      if (mAdd[i] && mAdd[i]->IsDisabled() != full)
+        mAdd[i]->SetDisabled(full);
+    }
     return IContainerBase::IsDirty();
   }
   void OnMouseDown(float x, float y, const IMouseMod&) override
   {
-    if (x < 866 || x > 962 || y < 164 || y >= 465)
+    if (x < 888 || x > 962 || y < kListTop || y >= kListTop + kRows * kRowPitch)
       return;
-    const int row = static_cast<int>((y - 164) / 43);
-    if (y > 164 + row * 43 + 36)
+    const int row = static_cast<int>((y - kListTop) / kRowPitch);
+    if (y > kListTop + row * kRowPitch + kRowHeight)
       return;
-    PLUG()->RemoveCaptureFolder(static_cast<size_t>(mScroll + row));
+    const auto rows = Rows();
+    if (mScroll + row >= static_cast<int>(rows.size()))
+      return;
+    const auto& entry = rows[mScroll + row];
+    PLUG()->RemoveLibraryFolder(entry.kind, entry.index);
     SetDirty(false);
   }
   void OnMouseWheel(float, float y, const IMouseMod&, float delta) override
   {
-    if (y < 160 || y > 470)
+    if (y < kListTop || y > kListTop + kRows * kRowPitch)
       return;
-    mScroll = std::clamp(
-      mScroll + (delta < 0 ? 1 : -1), 0, std::max(0, static_cast<int>(PLUG()->GetCaptureFolders().size()) - 7));
+    mScroll = std::clamp(mScroll + (delta < 0 ? 1 : -1), 0, std::max(0, static_cast<int>(Rows().size()) - kRows));
     SetDirty(false);
   }
   bool OnKeyDown(float, float, const IKeyPress& key) override
@@ -1500,8 +1507,27 @@ public:
   }
 
 private:
+  // One list of all source folders, grouped by the single file kind each one indexes.
+  static constexpr std::array<nam_library::FileKind, 3> kKinds{
+    nam_library::FileKind::NAM, nam_library::FileKind::IR, nam_library::FileKind::RigPreset};
+  inline static const std::array<IRECT, 3> kAddRects{IRECT(544, 160, 672, 190), IRECT(684, 160, 812, 190), IRECT(824, 160, 968, 190)};
+  static constexpr float kListTop = 200.f, kRowPitch = 38.f, kRowHeight = 32.f;
+  static constexpr int kRows = 7;
+  struct Row { nam_library::FileKind kind; size_t index; std::string path; };
+  std::vector<Row> Rows()
+  {
+    std::vector<Row> rows;
+    for (const auto kind : kKinds)
+    {
+      const auto folders = PLUG()->GetLibraryFolders(kind);
+      for (size_t i = 0; i < folders.size(); ++i) rows.push_back({kind, i, folders[i]});
+    }
+    return rows;
+  }
+  static const char* KindLabel(nam_library::FileKind kind)
+  { return kind == nam_library::FileKind::NAM ? "NAM" : kind == nam_library::FileKind::IR ? "IR" : "Presets"; }
   int mScroll = 0;
-  grid_ui::Button* mAdd = nullptr;
+  std::array<grid_ui::Button*, 3> mAdd{};
   grid_ui::Button* mStartupScan = nullptr;
   grid_ui::Button* mVisualizations = nullptr;
 };

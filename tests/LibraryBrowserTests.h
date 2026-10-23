@@ -20,12 +20,17 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   std::ofstream(presets / "not-a-preset.nam") << "{}";
   std::ofstream(presets / "invalid.ngrid") << "{}";
   std::ofstream(presets / "oversized.ngrid") << std::string(rig_preset::kMaximumBytes + 1, ' ');
-  const auto library = ScanLibrary({PathText(captures)}, {PathText(presets), PathText(presets / "Acoustic")});
+  const auto library = ScanLibrary({PathText(captures)}, {PathText(captures)}, {PathText(presets), PathText(presets / "Acoustic")});
   assert(library.captures.size() == 5 && library.unreadable == 2);
   assert(Browse(library, FileKind::NAM, "").size() == 2);
   assert(Browse(library, FileKind::IR, "").size() == 1);
   assert(Browse(library, FileKind::RigPreset, "").size() == 2);
   assert(Browse(library, FileKind::SlotPreset, "").empty());
+  // Each source list indexes only its own kind, even for the same folder.
+  const auto namOnly = ScanLibrary({PathText(captures)}, {}, {});
+  assert(Browse(namOnly, FileKind::NAM, "").size() == 2 && Browse(namOnly, FileKind::IR, "").empty());
+  const auto irOnly = ScanLibrary({}, {PathText(captures)}, {});
+  assert(irOnly.captures.size() == 1 && Browse(irOnly, FileKind::IR, "").size() == 1);
   const auto matches = Browse(library, FileKind::NAM, "GRUN maker:VOX model:ac30 \"silver clean\" -pedal");
   assert(matches.size() == 1 && library.captures[matches.front()].path == nam);
   assert(Browse(library, FileKind::NAM, "-\"silver clean\"").size() == 1);
@@ -44,6 +49,10 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   const auto folders = BrowserFolders(library, FileKind::NAM, {PathText(captures), PathText(root / "missing")});
   assert(folders.size() == 5 && folders.front().path.empty() && folders.back().rootIndex == 1);
   assert(std::none_of(folders.begin(), folders.end(), [&](const auto& f) { return f.path == presets; }));
+  // Roots holding only other kinds are hidden; their configured index is kept for the rest.
+  assert(BrowserFolders(library, FileKind::NAM, {PathText(presets)}).size() == 1);
+  const auto presetFolders = BrowserFolders(library, FileKind::RigPreset, {PathText(captures), PathText(presets)});
+  assert(presetFolders.size() == 3 && presetFolders[1].path == presets && presetFolders[1].rootIndex == 1);
   Snapshot ranking;
   Capture exact; exact.path = root / "Clean.nam";
   Capture prefix; prefix.path = root / "Clean bright.nam";
@@ -66,16 +75,17 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   spoof.captures.push_back(presetEntry);
   assert(!FindHash(spoof, "hash", false) && !FindHash(spoof, "hash", true));
   const auto settings = root / "settings.json";
-  assert(WriteSettings(settings, {{PathText(captures)}, false, false, {PathText(presets)}}));
+  assert(WriteSettings(settings, {{PathText(captures)}, false, false, {PathText(presets)}, {PathText(captures)}}));
   assert(WriteFolderSettings(settings, {}));
   const auto roundTrip = ReadSettings(settings);
-  assert(roundTrip.folders.empty() && roundTrip.presetFolders == std::vector<std::string>{PathText(presets)});
+  assert(roundTrip.namFolders.empty() && roundTrip.presetFolders == std::vector<std::string>{PathText(presets)});
+  assert(roundTrip.irFolders == std::vector<std::string>{PathText(captures)});
   assert(!roundTrip.rescanOnStartup && !roundTrip.showVisualizations);
   assert(NormalizeFolders({PathText(captures / ""), PathText(captures)}).size() == 1);
   assert(BoundedQuery(std::string(511, 'a') + "\xc3\xbc") == std::string(511, 'a'));
-  assert(ScanLibrary({}, {PathText(presets)}, [] { return true; }).captures.empty());
+  assert(ScanLibrary({}, {}, {PathText(presets)}, [] { return true; }).captures.empty());
   Worker worker;
-  worker.Request({PathText(captures)}, {PathText(presets)});
+  worker.Request({PathText(captures)}, {PathText(captures)}, {PathText(presets)});
   std::shared_ptr<const Snapshot> result;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!(result = worker.TakeResult()) && std::chrono::steady_clock::now() < deadline)

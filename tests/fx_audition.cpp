@@ -119,7 +119,7 @@ int main(int argc,char** argv)
     for (int heads=0; heads<effect_modes::tapeHeadNames.size(); ++heads) candidates.emplace_back(SlotEffect::MultiHeadDelay,heads);
   for (const auto& [effect,mode] : candidates)
   {
-    auto config=base; config["CaptureFolders"]=json::array();
+    auto config=base; config["NamFolders"]=json::array(); config["IrFolders"]=json::array();
     config["SlotEffects"][0]=static_cast<int>(effect);
     const auto defaults=SlotDefaultValues(effect);
     for(int p=0;p<kUtilityControls;++p) config[std::string("Pre 1 ")+kEffectParameters[p].name]=defaults[17+p];
@@ -136,7 +136,7 @@ int main(int argc,char** argv)
     }
     const auto label=std::to_string(static_cast<int>(effect))+"-"+name;
     auto rig=config; rig["PresetName"]=name;
-    for(const auto* key:{"PresetDirectory","CaptureFolders","Tuner Reference","Tuner Mute","Tuner"}) rig.erase(key);
+    for(const auto* key:{"PresetDirectory","NamFolders","IrFolders","Tuner Reference","Tuner Mute","Tuner"}) rig.erase(key);
     rig_preset::Write(destination/(label+".ngrid"),rig);
     auto [mixed,cpu]=render(config,false); WriteWave(destination/(label+"-pluck.wav"),mixed,rate);
     double peak=0.; for(const auto& channel:mixed) for(double value:channel) peak=std::max(peak,std::abs(value));

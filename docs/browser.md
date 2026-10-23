@@ -11,7 +11,9 @@ NAM captures and IR files, and cannot load a complete rig. **Library & settings 
 library** opens all categories, targeting the currently selected cell for NAM, IR and FX.
 
 The page has a folder/category list, results and file details. Choose a folder to search
-it and its subfolders, or choose **All folders / All categories**. The existing file
+it and its subfolders, or choose **All folders / All categories**. A root that only
+holds other indexed file types (for example a folder in both the NAM and IR lists that
+contains only IRs) is hidden; empty or missing roots stay listed so they can be removed. The existing file
 or FX category is focused when opening from a tile or browser icon. A current file
 outside configured roots gets a temporary background scan of its folder, without
 adding that folder to the library.
@@ -54,15 +56,22 @@ focuses search. Escape cancels an active search edit, then closes the browser.
 Rig presets use a full-height inspection layout; selecting one changes audio only
 after Enter or double-click. Switching to Presets cancels any slot audition.
 
-**+ Add folder** in NAM or IR adds a shared capture source. In Presets it adds a
-separate preset source. **Remove** removes the selected configured root from the
-library, leaving its files on disk; select a root rather than a nested folder to enable
-it. Each source list supports 32 roots. Both lists persist in project state and the
-per-user library preference. Rig presets do not replace these library choices.
+NAM captures, IR files and Presets each have their own folder list, and a folder is
+scanned only for its tab's file type (`.nam`, `.wav` or `.ngrid`). **+ Add folder**
+adds to the current tab's list; add a mixed pack folder to both NAM and IR if needed.
+**Library & settings** shows all three lists together. **Remove folder** removes the
+selected configured root from that list, leaving its files on disk; select a root rather
+than a nested folder to enable it. Each list supports 32 roots. All lists persist in
+project state and the per-user library preference. Rig presets do not replace these
+library choices.
 Current folders outside the library are temporary and cannot be removed as sources.
 
+In Presets, **Delete preset** deletes the selected `.ngrid` file from disk after a
+confirmation; this cannot be undone. The loaded rig and its header name stay as they
+are, so **Save preset as...** can recreate the file. The selection moves to the next preset.
+
 Scans recurse in the background, ignore directory links, deduplicate overlapping paths
-and retain separate copies of identical captures. Preset sources index `.ngrid` files
+and retain separate copies of identical captures. Preset folders index `.ngrid` files
 with a valid, bounded preset envelope; invalid files count as unreadable. IR decoding
 and full rig/DSP validation happen on load. **Rescan** refreshes external filesystem
 changes; the existing startup rescan preference applies to all sources.

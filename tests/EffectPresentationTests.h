@@ -49,6 +49,26 @@ void TestEffectPresentation()
             occupied[position] = true;
           }
         }
+  // Output always sits bottom-left; the remaining controls keep their designed order.
+  int outputs = 0;
+  for (const auto& group : nam_library::kModuleGroups)
+    for (const auto effect : group.effects)
+    {
+      const int output = effect_presentation::OutputControl(effect);
+      if (output < 0) continue;
+      ++outputs;
+      assert(effect_presentation::Position(effect, output) == effect_presentation::kOutputPosition);
+      for (int a = 0; a < kUtilityControls; ++a)
+        for (int b = 0; b < kUtilityControls; ++b)
+          if (a != output && b != output && effect_presentation::Visible(effect, a) && effect_presentation::Visible(effect, b)
+              && !effect_presentation::HeaderControl(a) && !effect_presentation::HeaderControl(b)
+              && effect_presentation::DesignedPosition(effect, a) < effect_presentation::DesignedPosition(effect, b))
+            assert(effect_presentation::Position(effect, a) < effect_presentation::Position(effect, b));
+    }
+  assert(outputs >= 20);
+  assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourInput) == 0);
+  assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourMix) == 1);
+  assert(effect_presentation::OutputControl(SlotEffect::RoomReverb) < 0);
   assert(!effect_presentation::Visible(SlotEffect::ReverseDelay, uDelayPingPong));
   assert(effect_presentation::Visible(SlotEffect::DualDelay, uDelayPingPong));
   assert(!effect_presentation::Visible(SlotEffect::UniVibe, uModMix, false, false, true));

@@ -510,6 +510,10 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
 void NeuralAmpModeler::OnReset()
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (mPreviewOriginal)
+    if (auto* ui = GetUI())
+      ui->GetControlWithTag(kCtrlTagLibraryBrowser)->Hide(true);
+  EndSlotPreview(false);
   const auto sampleRate = GetSampleRate();
   const int maxBlockSize = std::max(1, GetBlockSize());
   mSampleRatePrepared = sampleRate;
@@ -693,11 +697,11 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
     return;
   const int index = SlotFullParam(slot);
   const double value = GetParam(index)->Value() >= .5 ? 0. : 1.;
-  BeginInformHostOfParamChange(index);
-  SetParameterValue(index, value);
+  BeginInformHostOfParamChangeFromUI(index);
+  SendParameterValueFromUI(index, value);
   SendParameterValueFromDelegate(index, value, true);
-  EndInformHostOfParamChange(index);
-  _NotifyHostStateChanged();
+  EndInformHostOfParamChangeFromUI(index);
+  if (!mPreviewOriginal) _NotifyHostStateChanged();
 }
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
@@ -734,6 +738,75 @@ std::string NeuralAmpModeler::LoadSlotIR(size_t slot, const char* path)
   if (error.empty())
     _NotifyHostStateChanged();
   return error;
+}
+
+std::string NeuralAmpModeler::BeginSlotPreview(size_t slot)
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  EndSlotPreview(false);
+  if (slot >= FixedNAMGrid::kSlots) return "Invalid grid slot";
+  try
+  {
+    // Prepare a rollback before auditioning: cancellation never needs to reopen a file.
+    const auto original = _GetSlotConfig(slot);
+    auto rollback = original;
+    // Unresolved files already have an empty DSP; retain their path for cancellation.
+    if (!IsSlotLoaded(slot)) rollback.path.clear();
+    mPreviewOriginal = std::make_unique<PreparedSlot>(PrepareSlot(std::move(rollback), mSampleRatePrepared, mMaxBlockPrepared));
+    mPreviewOriginal->config = original;
+    mPreviewSlot = slot;
+    mPreviewChoices.clear();
+    SelectSlot(slot);
+    return {};
+  }
+  catch (const std::exception& error) { return error.what(); }
+}
+
+std::string NeuralAmpModeler::PreviewSlot(SlotEffect effect, const std::string& path)
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (!mPreviewOriginal) return "Preview is unavailable";
+  auto current = _GetSlotConfig(mPreviewSlot);
+  const auto currentChoice = current.effect == SlotEffect::TightGate ? SlotEffect::NaturalGate : current.effect;
+  if (effect == currentChoice && path == current.path) return {};
+  mPreviewChoices[{currentChoice, current.path}] = current;
+  try
+  {
+    SlotConfig config{effect};
+    const auto found = mPreviewChoices.find({effect, path});
+    if (found != mPreviewChoices.end()) config = found->second;
+    else
+    {
+      // Keep NAM/IR gain edits while comparing files of the same kind.
+      if (current.effect == effect) config.values = current.values;
+      config.path = path;
+      if (!path.empty()) config.hash = nam_library::ContentHash(std::filesystem::u8path(path));
+    }
+    _CommitSlot(mPreviewSlot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), true, false);
+    return {};
+  }
+  catch (const std::exception& error) { return error.what(); }
+}
+
+void NeuralAmpModeler::EndSlotPreview(bool accept)
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (!mPreviewOriginal) return;
+  auto original = std::move(mPreviewOriginal);
+  mPreviewChoices.clear();
+  if (accept)
+  {
+    const auto indices = SlotParamIndices(mPreviewSlot);
+    for (size_t i = 0; i < indices.size(); ++i)
+      if (GetParam(indices[i])->Value() != original->config.values[i])
+      {
+        BeginInformHostOfParamChange(indices[i]);
+        SetParameterValue(indices[i], GetParam(indices[i])->GetNormalized());
+        EndInformHostOfParamChange(indices[i]);
+      }
+    _NotifyHostStateChanged();
+  }
+  else _CommitSlot(mPreviewSlot, std::move(*original), true, false);
 }
 
 noise_print::Profile NeuralAmpModeler::GetNoiseProfile(size_t slot) const
@@ -907,11 +980,11 @@ std::string NeuralAmpModeler::GetCaptureStatus() const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (mCaptureFolders.empty() && mPresetFolders.empty())
-    return "Add NAM / IR folders or preset folders in the browser.";
+    return "No library folders";
   if (mLibraryScanning)
-    return "Scanning NAM, IR and preset files...";
+    return "Scanning...";
   if (!mLibraryIndexed)
-    return "Library not indexed. Choose Rescan all (startup rescan is off).";
+    return "Library not indexed";
   if (mLibraryDefaultSaveFailed)
     return "Folder saved in project; unable to save the default for new instances.";
   if (!mLibrary->error.empty())
@@ -1051,6 +1124,20 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
     config[GetParam(i)->GetName()] = GetParam(i)->Value();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     config[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.; // Learning is transient.
+  if (mPreviewOriginal)
+  {
+    // Host autosaves and rig exports retain the committed slot until acceptance.
+    const auto& original = mPreviewOriginal->config;
+    config["SlotPaths"][mPreviewSlot] = original.path;
+    config["SlotHashes"][mPreviewSlot] = original.hash;
+    config["SlotEffects"][mPreviewSlot] = static_cast<int>(original.effect);
+    config["NoisePrintProfiles"][mPreviewSlot] = noise_print::Save(original.noiseProfile);
+    if (mPreviewSlot < 2)
+      config[mPreviewSlot == 0 ? "DrivePath" : "NAMPath"] = original.effect == SlotEffect::NAM ? original.path : "";
+    const auto indices = SlotParamIndices(mPreviewSlot);
+    for (size_t i = 0; i < indices.size(); ++i)
+      config[GetParam(indices[i])->GetName()] = original.values[i];
+  }
   chunk.PutStr("###NAMGrid-v1###");
   return chunk.PutStr(config.dump().c_str()) > 0;
 }
@@ -1204,6 +1291,10 @@ void NeuralAmpModeler::PromptRigPreset(bool save)
 int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (mPreviewOriginal)
+    if (auto* ui = GetUI())
+      ui->GetControlWithTag(kCtrlTagLibraryBrowser)->Hide(true);
+  EndSlotPreview(false);
   try
   {
     if (chunk.Size() > 1024 * 1024 || startPos < 0)
@@ -1491,6 +1582,36 @@ void NeuralAmpModeler::OnUIOpen()
   _UpdateControlsFromModel();
 }
 
+void NeuralAmpModeler::OnUIClose()
+{
+  EndSlotPreview(false);
+  iplug::Plugin::OnUIClose();
+}
+
+void NeuralAmpModeler::BeginInformHostOfParamChangeFromUI(int paramIdx)
+{
+  if (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot))
+    iplug::Plugin::BeginInformHostOfParamChangeFromUI(paramIdx);
+}
+
+void NeuralAmpModeler::SendParameterValueFromUI(int paramIdx, double value)
+{
+  if (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot))
+    iplug::Plugin::SendParameterValueFromUI(paramIdx, value);
+  else
+  {
+    GetParam(paramIdx)->SetNormalized(value);
+    OnParamChange(paramIdx);
+    OnParamChangeUI(paramIdx, EParamSource::kUI);
+  }
+}
+
+void NeuralAmpModeler::EndInformHostOfParamChangeFromUI(int paramIdx)
+{
+  if (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot))
+    iplug::Plugin::EndInformHostOfParamChangeFromUI(paramIdx);
+}
+
 void NeuralAmpModeler::OnParamChange(int paramIdx)
 {
   if (const int slot = SlotControlOwner(paramIdx); slot >= 0)
@@ -1698,7 +1819,7 @@ std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const s
   return "";
 }
 
-void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters)
+void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters, bool notifyHost)
 {
   const auto& config = prepared.config;
   const auto info = prepared.dsp->Info();
@@ -1721,10 +1842,18 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
       if (GetParam(index)->Value() == config.values[i])
         continue;
       const double normalized = GetParam(index)->ToNormalized(config.values[i]);
-      BeginInformHostOfParamChange(index);
-      SetParameterValue(index, normalized);
+      if (notifyHost)
+      {
+        BeginInformHostOfParamChange(index);
+        SetParameterValue(index, normalized);
+      }
+      else
+      {
+        GetParam(index)->SetNormalized(normalized);
+        OnParamChange(index);
+      }
       SendParameterValueFromDelegate(index, normalized, true);
-      EndInformHostOfParamChange(index);
+      if (notifyHost) EndInformHostOfParamChange(index);
     }
   }
   if (slot == 0)

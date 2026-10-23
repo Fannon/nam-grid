@@ -17,7 +17,9 @@ The bypass switch and right-click edit menu remain direct actions. Click the mod
 in the editor for the quick module menu; its browser icon opens the full browser.
 Clear slot is first in both the module and right-click menus; the latter also has
 Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
-with up to seven knobs followed by Enabled. A full-height visualization sits to the right.
+with up to seven knobs followed by Enabled. Output, where a module has one, always sits
+bottom-left below the first control (NAM, IR and every built-in); the other controls keep
+their order around it. A full-height visualization sits to the right.
 The browser icon beside a built-in FX name opens its category; for NAM captures and IRs it opens the current folder.
 Previous/next arrows follow the same category or folder. NAM uses Input, Bass, Mid and Treble, then Output, Low cut and High cut,
 keeping Input and Output in the left column;

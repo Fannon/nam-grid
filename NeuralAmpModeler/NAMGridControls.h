@@ -619,7 +619,7 @@ public:
     const char* eqLabels[] = {"Bass", "Mid", "Treble", "Low cut", "High cut", "Presence", "Output"};
     for (int i = 0; i < 7; ++i)
     {
-      mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? 0 : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
+      mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? effect_presentation::kOutputPosition : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
       mEditor->AddChildControl(mEQKnobs[i]);
     }
     for (int i = 0; i < kUtilityControls; ++i)

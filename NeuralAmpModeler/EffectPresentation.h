@@ -22,7 +22,9 @@ inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, 
   if (e == SlotEffect::UniVibe && p == uModMix && vibrato) return false;
   return UsesUtility(e, p);
 }
-inline int Position(SlotEffect e, int p)
+// Every module's output gain sits bottom-left, below its first control, as for NAM and IR.
+inline constexpr int kOutputPosition = 4;
+inline int DesignedPosition(SlotEffect e, int p)
 {
   // Keep Spring's shared damping control in one compact, unambiguous sequence.
   if (e == SlotEffect::SpringReverb)
@@ -39,6 +41,33 @@ inline int Position(SlotEffect e, int p)
     if (p == uDelayOutput) return 3;
   }
   return kEffectParameters[p].position;
+}
+// The module's output gain control ("... Output" host parameter), or -1.
+inline int OutputControl(SlotEffect e)
+{
+  for (int p = 0; p < kUtilityControls; ++p)
+  {
+    const std::string_view name = kEffectParameters[p].name;
+    if (UsesUtility(e, p) && name.size() >= 7 && name.substr(name.size() - 7) == " Output")
+      return p;
+  }
+  return -1;
+}
+inline int Position(SlotEffect e, int p)
+{
+  const int position = DesignedPosition(e, p);
+  const int output = OutputControl(e);
+  if (output < 0)
+    return position;
+  if (p == output)
+    return kOutputPosition;
+  // Move Output to its place; the other controls keep their order and close the gap.
+  const int from = DesignedPosition(e, output);
+  if (from < kOutputPosition && position > from && position <= kOutputPosition)
+    return position - 1;
+  if (from > kOutputPosition && position >= kOutputPosition && position < from)
+    return position + 1;
+  return position;
 }
 inline const char* Label(SlotEffect e, int p)
 {

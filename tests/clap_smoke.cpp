@@ -1290,12 +1290,13 @@ int main(int argc, char** argv)
       original["SlotPaths"][0] = (ir ? libraryIR : libraryTwin).string();
     }
     const char* parameter = nam ? "Pre 1 In" : ir ? "Pre 1 IR Level" : "Pre 1 EQ Bass";
+    const int knob = ir ? effect_presentation::kOutputPosition : 0; // IR Output sits below the first column.
     load(original); selectTile(170, 120);
     const auto committed = save().config();
     const auto before = liveValue(parameter);
     click(356, grid_layout::moduleButtonY);
     host.dirty = host.flushRequested = false;
-    dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
+    dragAt(grid_layout::KnobX(knob), grid_layout::KnobGestureY(knob));
     const auto audition = liveValue(parameter);
     assert(std::abs(audition - before) > .01);
     assert(save().config() == committed);
@@ -1303,7 +1304,7 @@ int main(int argc, char** argv)
     keyAtEditor(VK_ESCAPE);
     assert(std::abs(liveValue(parameter) - before) < .01 && save().config() == committed);
     click(356, grid_layout::moduleButtonY);
-    dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
+    dragAt(grid_layout::KnobX(knob), grid_layout::KnobGestureY(knob));
     const auto accepted = liveValue(parameter);
     keyAtEditor(VK_RETURN);
     assert(host.dirty);
@@ -1647,8 +1648,8 @@ int main(int argc, char** argv)
   selectTile(390, 120); // Select IN2 Cut EQ; only its controls may receive gestures.
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 2 EQ High Pass"] != 0.);
-  selectTile(610, 120); // Select IN3 IR loader.
-  dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
+  selectTile(610, 120); // Select IN3 IR loader; its Output sits below the first column.
+  dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
   assert(save().config()["Pre 3 IR Level"] != -18.);
   auto utilities = browserState;
   utilities["SlotEffects"][0] = static_cast<int>(SlotEffect::ParametricEQ);

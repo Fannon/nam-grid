@@ -43,10 +43,20 @@ static json Case(const std::string& id, const std::string& name, SlotEffect effe
       mode += "; ";
     mode += it.key() + "=" + value;
   }
+  // Continuous controls let the render audit automate each module's knobs.
+  json knobs = json::array();
+  for (int p = 0; p < kUtilityControls; ++p)
+  {
+    const auto& descriptor = kEffectParameters[p];
+    const bool binary = descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.;
+    if (effect != SlotEffect::NAM && effect_presentation::Visible(effect, p) && EffectChoices(p).empty() && !binary)
+      knobs.push_back({{"name", descriptor.name}, {"minimum", descriptor.minimum}, {"maximum", descriptor.maximum}});
+  }
   return {{"id", id},
           {"module", name},
           {"effect", static_cast<int>(effect)},
           {"controls", controls},
+          {"knobs", knobs},
           {"mode", mode.empty() ? "insertion defaults" : mode}};
 }
 
@@ -384,7 +394,10 @@ static json Measure(const Library& library, const json& scenario, const json& se
       if (std::string(info.name) == change.at("name").get<std::string>())
       {
         value.param_id = info.id;
-        const auto text = std::to_string(change.at("value").get<double>());
+        // Enumerations (e.g. modulation targets) convert from their display text.
+        const auto& requested = change.at("value");
+        const auto text =
+          requested.is_string() ? requested.get<std::string>() : std::to_string(requested.get<double>());
         Check(
           params->text_to_value(instance.plugin, info.id, text.c_str(), &value.value), "Cannot convert audit value");
         found = true;

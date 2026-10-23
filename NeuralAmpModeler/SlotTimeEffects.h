@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include "EffectParameters.h"
+#include "ExactMemo.h"
 #include "TempoSync.h"
 
 // Original MIT implementations for nam-grid. No third-party plugin SDK or DSP
@@ -20,14 +21,21 @@ public:
   {
     mData.assign(std::max(4, capacity + 3), 0.);
     mIndex = 0;
+    mMaxDelay = static_cast<double>(mData.size() - 2);
   }
-  double Read(double delay) const
+  // Same result as std::clamp (NaN included). MSVC keeps value ternaries in
+  // registers; reference-returning std::clamp costs measurably in reverb loops.
+  double Read(double delay) const { return ReadInRange(delay < 1. ? 1. : mMaxDelay < delay ? mMaxDelay : delay); }
+  // Precondition: 1 <= delay <= MaxDelay(), e.g. already clamped by the caller.
+  double ReadInRange(double delay) const
   {
-    delay = std::clamp(delay, 1., MaxDelay());
     // Split the integer offset before wrapping: adding the ring size to a tiny
     // negative fractional position can round up to size(), an out-of-bounds read.
-    const auto whole = static_cast<size_t>(delay);
-    const double fraction = delay - whole;
+    // Signed conversions are single x64 instructions (unsigned ones are not on MSVC);
+    // the clamped value is positive and exactly representable either way.
+    const auto integer = static_cast<int64_t>(delay);
+    const auto whole = static_cast<size_t>(integer);
+    const double fraction = delay - static_cast<double>(integer);
     const auto a = mIndex >= whole ? mIndex - whole : mData.size() - (whole - mIndex);
     const auto b = a == 0 ? mData.size() - 1 : a - 1;
     return mData[a] + fraction * (mData[b] - mData[a]);
@@ -38,11 +46,12 @@ public:
     if (++mIndex == mData.size())
       mIndex = 0;
   }
-  double MaxDelay() const { return static_cast<double>(mData.size() - 2); }
+  double MaxDelay() const { return mMaxDelay; }
 
 private:
   std::vector<double> mData;
   size_t mIndex = 0;
+  double mMaxDelay = 0.; // Cached: size_t -> double is not a single x64 conversion.
 };
 template <size_t N>
 class SmoothControls
@@ -102,6 +111,7 @@ public:
     mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
     mPing.Target({right && controls.pingPong ? 1. : 0.}, uDelayPingPong);
     const double dcCoefficient = std::exp(-2. * grid_fx::pi * 70. / mRate);
+    const double envelopeAttack = std::exp(-1. / (.003 * mRate)), envelopeRelease = std::exp(-1. / (.15 * mRate));
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
@@ -142,7 +152,7 @@ public:
         }
       }
       const double send[2]{(1. - ping) * x[0] + ping * .5 * (x[0] + x[1]), (1. - ping) * x[1]};
-      const double output = std::pow(10., extra[1] * .05);
+      const double output = mOutput(extra[1] * .05, [](double x) { return std::pow(10., x); });
       for (int ch = 0; ch < count; ++ch)
       {
         auto& tank = *channels[ch];
@@ -151,7 +161,7 @@ public:
         tank.mLine.Push((effect == SlotEffect::DigitalDelay ? send[ch] : send[ch] - tank.mDC)
                         + (draining ? 0. : c[1] * .01) * feedback);
         const double peak = (1. - ping) * std::abs(x[ch]) + ping * std::max(std::abs(x[0]), std::abs(x[1]));
-        tank.mEnv = grid_fx::Flush(peak + std::exp(-1. / ((peak > tank.mEnv ? .003 : .15) * mRate)) * (tank.mEnv - peak));
+        tank.mEnv = grid_fx::Flush(peak + (peak > tank.mEnv ? envelopeAttack : envelopeRelease) * (tank.mEnv - peak));
         const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * tank.mEnv) : 1.;
         (ch == 0 ? samples : rightSamples)[i] = ((1. - mix) * x[ch] + mix * wet[ch] * duck) * output;
       }
@@ -163,6 +173,7 @@ private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
   grid_fx::SmoothControls<1> mPing;
+  grid_fx::Memo mOutput;
   double mRate = 48000., mLP = 0., mLP2 = 0., mDC = 0., mEnv = 0., mPhase = 0., mDamping = 0.;
   int mCounter = 0;
 };
@@ -187,12 +198,13 @@ public:
       values[0] = 1. / grid_tempo::Seconds(controls.tempo, controls.division);
     mControls.Target(values, uModRate, controls.sync);
     mSpread.Target({effect == SlotEffect::Chorus && right ? controls.chorusSpread : 0.}, uChorusSpread);
+    const double envelopeAttack = std::exp(-1. / (.005 * mRate)), envelopeRelease = std::exp(-1. / (.15 * mRate));
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
       const double x = samples[i], depth = c[1] * .01, character = c[3] * .01, mix = c[4] * .01;
       const double peak = std::abs(x);
-      mEnv = grid_fx::Flush(peak + std::exp(-1. / ((peak > mEnv ? .005 : .15) * mRate)) * (mEnv - peak));
+      mEnv = grid_fx::Flush(peak + (peak > mEnv ? envelopeAttack : envelopeRelease) * (mEnv - peak));
       mPhase += c[0] * (effect == SlotEffect::Tremolo && !controls.sync ? 1. + character * std::min(3., mEnv * 6.) : 1.)
                 / mRate;
       if (mPhase >= 1.)
@@ -203,7 +215,7 @@ public:
       if (effect == SlotEffect::Tremolo)
       {
         const double shape = 1. + 5. * character;
-        wet = x * (1. - .5 * depth * (1. + std::tanh(shape * lfo) / std::tanh(shape)));
+        wet = x * (1. - .5 * depth * (1. + std::tanh(shape * lfo) / mShape(shape, [](double s) { return std::tanh(s); })));
       }
       else if (effect == SlotEffect::Phaser)
       {
@@ -231,8 +243,9 @@ public:
         const double excursion = flange ? .0025 : vibrato ? .006 : .006;
         const double wobble = (1. - .25 * character) * lfo + .25 * character * std::sin(4. * grid_fx::pi * phase + .7);
         wet = mLine.Read(mRate * (centre + excursion * depth * wobble));
-        mTone =
-          grid_fx::Flush(wet + std::exp(-2. * grid_fx::pi * (12000. - 9000. * character) / mRate) * (mTone - wet));
+        const double tone = mToneCoefficient(-2. * grid_fx::pi * (12000. - 9000. * character) / mRate,
+                                             [](double x) { return std::exp(x); });
+        mTone = grid_fx::Flush(wet + tone * (mTone - wet));
         wet += character * (mTone - wet);
         mLine.Push(x + (flange ? c[2] * .01 * (1. - 2. * character) * std::tanh(wet) : 0.));
       }
@@ -245,6 +258,7 @@ private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mSpread;
   std::array<double, 6> mAllpass{};
+  grid_fx::Memo mShape, mToneCoefficient;
   double mRate = 48000., mPhase = 0., mFeedback = 0., mEnv = 0., mTone = 0., mCoefficient = 0.;
   int mCounter = 0;
 };

@@ -19,6 +19,26 @@ Native-double render files are generated only for this explicit audit and remove
 after comparison. The JSON retains per-case errors, sample counts and binary hashes.
 Rendering and audit automation are absent from ordinary benchmark settings.
 
+For module DSP changes, `verify-fx-processing.py` renders every benchmark case
+(each FX mode, the NAM fixtures and IR fixtures) through both binaries:
+
+```sh
+python scripts/verify-fx-processing.py --before /path/to/before.clap --after build-grid/out/nam-grid.clap --output tmp/fx-audit
+```
+
+Each render automates the slot's shared dynamics/EQ/level controls and every
+visible continuous control of the module twice, then switches on all modulation
+sources (LFO, follower, sequencer and both macros) aimed at module parameters.
+Cases that latch Freeze, Shimmer Freeze or Noise Learn render without automation,
+since the host reserves its event for that trigger. Defaults are 44.1/48 kHz and
+32/37/128 frames; the odd size exercises partial control quanta. Outputs must be
+bit-identical unless `--tolerance` sets a maximum absolute sample difference.
+`--module`, `--filter`, `--rates`, `--buffers`, `--nam` and `--ir` narrow or extend
+the run, as for the benchmark. `report.json` keeps each case's maximum error,
+mismatch count and first differing sample. Audit events may name an enumerated
+parameter by its display text, such as `"Reverb mix"` for a modulation target;
+numeric text does not select an enumerated choice.
+
 ## Build and run
 
 Prepare dependencies as described in [build.md](build.md), then use a Release build:
@@ -177,6 +197,7 @@ The report implementation has focused on-demand checks:
 
 ```sh
 python -m unittest discover -s tests -p test_fx_performance.py
+python -m unittest discover -s tests -p test_verify_fx_processing.py
 build-grid/NeuralAmpModeler/nam-fx-performance --self-test
 ```
 
@@ -194,6 +215,26 @@ independence, state recall and truncation policy. Quantify output error against
 the direct reference with impulses, silence/tails, variable blocks, reset and IR
 replacement. Prepare plans/buffers off audio and verify processing allocations
 and locks separately. Do not claim speedups from library descriptions alone.
+
+### Per-sample idioms
+
+Small-buffer cost is dominated by per-sample work, so these patterns keep
+module loops cheap without changing output:
+
+- Recompute `exp`/`pow`/`tan` of smoothed controls only when the argument
+  changes. `grid_fx::Memo` (`ExactMemo.h`) caches by the argument's exact bits;
+  pass the function's complete argument, including any sample-rate term.
+  Hoist expressions of the sample rate alone out of the loop. It does not help
+  values that move every sample, such as gain reduction or LFO-swept filters.
+- Avoid `size_t`/`double` conversions in delay reads (they are multi-instruction
+  on MSVC x64), redundant `std::clamp` of doubles, and integer `%` on ring
+  indices; compare-and-wrap gives the same index.
+- Prepare per-callback copies once; modulation restores only the slots it edits
+  for each 16-sample quantum.
+
+Confirm such changes are bit-identical with `verify-fx-processing.py`. A change
+that alters rounding, such as recurrence oscillators or a different FFT
+partitioning, is a sound change and needs its own error budget and listening.
 
 Keep generated measurements and comparisons in ignored `tmp/` or attach findings
 to the relevant PR. Only enduring instructions belong in this guide.

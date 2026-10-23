@@ -19,9 +19,9 @@ public:
     {
       const auto& c = mControls.Tick();
       // Heel/toe endpoints move together with Range; Position follows a log sweep.
-      const double heel = 250. * std::exp2(c[2] * .01);
-      const double hz = std::min(.35 * mRate, heel * std::pow(6.8, c[0] * .01));
-      const double g = std::tan(grid_fx::pi * hz / mRate), k = 1. / c[1];
+      const double heel = 250. * mRange(c[2] * .01, [](double x) { return std::exp2(x); });
+      const double hz = std::min(.35 * mRate, heel * mSweep(c[0] * .01, [](double x) { return std::pow(6.8, x); }));
+      const double g = mWarp(grid_fx::pi * hz / mRate, [](double x) { return std::tan(x); }), k = 1. / c[1];
       const double x = samples[i];
       // Trapezoidal integration solves the two integrators' feedback together.
       const double band = (mS1 + g * (x - mS2)) / (1. + g * (g + k));
@@ -30,12 +30,13 @@ public:
       mS2 = grid_fx::Flush(2. * low - mS2);
       // A little broadband body avoids the thinness of an isolated band-pass.
       const double wet = .35 * x + 1.65 * k * band, mix = c[3] * .01;
-      samples[i] = ((1. - mix) * x + mix * wet) * std::pow(10., c[4] * .05);
+      samples[i] = ((1. - mix) * x + mix * wet) * mOutput(c[4] * .05, [](double exponent) { return std::pow(10., exponent); });
     }
   }
 
 private:
   grid_fx::SmoothControls<5> mControls;
+  grid_fx::Memo mRange, mSweep, mWarp, mOutput;
   double mRate = 48000., mS1 = 0., mS2 = 0.;
 };
 
@@ -85,7 +86,7 @@ public:
       mCounter %= 32;
       const double dry[2]{left[i], right ? right[i] : left[i]};
       double send[2]{};
-      const double drive = std::pow(10., c[1] * .05);
+      const double drive = mDrive(c[1] * .05, [](double x) { return std::pow(10., x); });
       for (int ch = 0; ch < 2; ++ch)
       {
         mInputLow[ch] = grid_fx::Flush(dry[ch] + hp * (mInputLow[ch] - dry[ch]));
@@ -111,7 +112,7 @@ public:
         wetRight += (1. - pan[tank]) * tap;
       }
       const double mid = .5 * (wetLeft + wetRight), side = .5 * (wetLeft - wetRight) * width;
-      const double mix = c[3] * .01, output = std::pow(10., c[4] * .05);
+      const double mix = c[3] * .01, output = mOutput(c[4] * .05, [](double x) { return std::pow(10., x); });
       left[i] = ((1. - mix) * dry[0] + mix * (mid + side)) * output;
       if (right)
         right[i] = ((1. - mix) * dry[1] + mix * (mid - side)) * output;
@@ -126,6 +127,7 @@ private:
   std::array<std::array<double, 16>, 3> mStretch{};
   std::array<double, 2> mInputLow{};
   std::array<double, 3> mDamp{}, mFeedback{};
+  grid_fx::Memo mDrive, mOutput;
   double mRate = 48000., mDamping = 0.;
   int mCounter = 0;
 };

@@ -431,12 +431,15 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   {
     // A bounded control quantum avoids audio-rate model inference and keeps
     // modulation responsive without allocating or writing host parameters.
+    // Copy every slot once per callback; quanta restore only the slots modulation edits.
+    mAnimatedControls = controls;
     for (int offset = 0; offset < nFrames;)
     {
       const int count = std::min(mModulation.Quantum(), nFrames - offset);
-      auto animated = controls; double animatedBlend = blend;
-      mModulation.Apply(animated, animatedBlend, performance);
-      mGrid.Process(mOutputPointers[0] + offset, count, animated, animatedBlend, mOutputPointers[1] + offset, routing);
+      mModulation.Restore(mAnimatedControls, controls, performance);
+      double animatedBlend = blend;
+      mModulation.Apply(mAnimatedControls, animatedBlend, performance);
+      mGrid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset, routing);
       mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, tempo);
       offset += count;
     }

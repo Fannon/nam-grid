@@ -20,13 +20,15 @@ public:
   }
   double Read(double samples)
   {
-    mClipped |= samples > mLine.MaxDelay() || samples < 1.;
-    samples = std::clamp(samples, 1., mLine.MaxDelay());
+    const double maximum = mLine.MaxDelay();
+    mClipped |= samples > maximum || samples < 1.;
+    samples = samples < 1. ? 1. : maximum < samples ? maximum : samples; // std::clamp, without its reference cost
     if (mFirst) { mFrom = mTo = samples; mFirst = false; }
     if (mFade >= 1. && std::abs(samples - mTo) >= .25)
     { mFrom = mTo; mTo = samples; mFade = 0.; }
-    if (mFade >= 1.) return mLine.Read(mTo);
-    const double from = mLine.Read(mFrom), to = mLine.Read(mTo);
+    // Both positions were clamped above; skip DelayLine's identical second clamp.
+    if (mFade >= 1.) return mLine.ReadInRange(mTo);
+    const double from = mLine.ReadInRange(mFrom), to = mLine.ReadInRange(mTo);
     const double value = from + mFade * (to - from);
     mFade = std::min(1., mFade + mStep);
     return value;

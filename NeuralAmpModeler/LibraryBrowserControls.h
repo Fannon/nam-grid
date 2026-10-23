@@ -590,7 +590,7 @@ private:
     const auto metadata = file->kind == nam_library::FileKind::NAM
       ? std::string(nam_library::GearName(file->gear))
         + (file->maker.empty() ? "" : "\n" + file->maker) + (file->model.empty() ? "" : " / " + file->model)
-      : file->kind == nam_library::FileKind::IR ? "WAV impulse response" : "Complete nam-grid rig";
+      : file->kind == nam_library::FileKind::IR ? "WAV impulse response" : "Complete NAM Grid rig";
     const auto body = metadata + (file->name.empty() ? "" : "\n" + file->name) + "\n\n" + nam_library::PathText(file->path);
     g.DrawMultiLineText(Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(),
       IRECT(744, file->kind == nam_library::FileKind::NAM ? 300 : 264, 964, ListBottom() - 8));

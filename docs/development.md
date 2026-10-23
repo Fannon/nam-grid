@@ -23,7 +23,7 @@ unsupported or malformed data must be rejected before mutating the current rig.
 
 ## Parameter and project compatibility
 
-nam-grid 0.1.0 is the compatibility baseline. Earlier previews used other plugin
+NAM Grid 0.1.0 is the compatibility baseline. Earlier previews used other plugin
 IDs, parameter IDs and state formats; their projects, automation and `.ngrid`
 presets are not loaded and must be rebuilt. From 0.1.0 onward, these remain stable:
 

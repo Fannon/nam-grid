@@ -1,7 +1,7 @@
 #pragma once
 #include "SlotTimeEffects.h"
 
-// Original nam-grid DSP. All storage is prepared while processing is stopped.
+// Original NAM Grid DSP. All storage is prepared while processing is stopped.
 // These are musical algorithms, not reproductions of commercial products.
 namespace grid_roadmap
 {

@@ -43,7 +43,7 @@ int main(int argc, char** argv)
   auto* factory = static_cast<const clap_plugin_factory*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
   assert(factory && factory->get_plugin_count(factory) == 1);
   const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
-  assert(std::strcmp(descriptor->name, "nam-grid") == 0);
+  assert(std::strcmp(descriptor->name, "NAM Grid") == 0);
   assert(std::strcmp(descriptor->id, "io.github.fannon.nam-grid") == 0);
   assert(std::strcmp(descriptor->vendor, "Simon Heimler") == 0);
   Host host;

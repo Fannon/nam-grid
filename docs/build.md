@@ -1,6 +1,6 @@
-# Build nam-grid
+# Build NAM Grid
 
-nam-grid builds `nam-grid.clap` and `nam-grid.vst3` with CMake. Its persistent
+NAM Grid builds `nam-grid.clap` and `nam-grid.vst3` with CMake. Its persistent
 host identity is CLAP ID `io.github.fannon.nam-grid`, vendor **Simon Heimler**,
 and VST3 plugin/manufacturer IDs `NGrd`/`Fann` (see
 [`config.h`](../NeuralAmpModeler/config.h)). Hosts use these IDs to find the
@@ -127,6 +127,9 @@ NAM and IR loading, see [fx-performance.md](fx-performance.md). Those tools are
 opt-in and run separately from CTest.
 
 ## Editor screenshots
+
+The README gallery comes from the opt-in, Windows-only `nam-readme-gallery`
+target; see [screenshots/README.md](screenshots/README.md).
 
 For browser UI iteration on Windows, set `NAM_GRID_BROWSER_SMOKE=1` when running
 `nam-clap-smoke`. This retains the DSP/state setup and the browser/preset interaction

@@ -1,6 +1,6 @@
 # Reverb cores
 
-These are rate-scaled double-precision adaptations for nam-grid's control and
+These are rate-scaled double-precision adaptations for NAM Grid's control and
 preparation lifecycle, with different stereo/decay/range choices. They are not
 bit-identical ports or physical simulations. The adjoining LICENSE.txt preserves
 the permissive source notices.

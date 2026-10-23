@@ -25,7 +25,7 @@ Digital Black Threshold spans −74…−10 dB, staying inside its native floor.
 retains its nonlinear native blend inside the conventional outer Mix. Both receive
 additional [rate and meter corrections](airwindows-dynamics.md) from the source audit.
 
-These defaults are nam-grid design choices, not another product's factory
+These defaults are NAM Grid design choices, not another product's factory
 presets. Treat them as starting points and adjust input-dependent thresholds and
 makeup to the actual instrument. Source ranges and reset values live in
 `EffectParameters.h` and `SlotDefaults.h`.

@@ -103,6 +103,6 @@ jobs:
             gh release upload "$RELEASE_TAG" artifacts/nam-grid-*.zip --clobber
           else
             gh release create "$RELEASE_TAG" artifacts/nam-grid-*.zip \
-              --verify-tag --draft --title "nam-grid $RELEASE_TAG" \
+              --verify-tag --draft --title "NAM Grid $RELEASE_TAG" \
               --notes-file docs/release-notes.md
           fi

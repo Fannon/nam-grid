@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run only on demand: isolate CLAP scenarios and write CPU/deadline reports.
 
-Requires an explicitly built Release nam-fx-performance and nam-grid CLAP.
+Requires an explicitly built Release nam-fx-performance and NAM Grid CLAP.
 No audio device is opened. See docs/fx-performance.md for measurement limits.
 """
 import argparse
@@ -231,7 +231,7 @@ def write_reports(folder, metadata, rows):
             writer.writerow(flat)
     errors = [r for r in rows if r["status"] == "ERROR"]
     overruns = [r for r in rows if r["status"] == "OVERRUN"]
-    lines = ["# nam-grid FX performance", "", f"Generated: {metadata['generated_utc']}", "",
+    lines = ["# NAM Grid FX performance", "", f"Generated: {metadata['generated_utc']}", "",
              f"Plugin SHA256: `{metadata['plugin_sha256']}`", "",
              "Run complete." if complete else f"PARTIAL RUN: {len(rows)} of {metadata['planned_measurements']} planned measurements.", "",
              f"{len(rows)} measurements; {len(errors)} errors; {len(overruns)} rows with deadline misses (including warm-up).", "",

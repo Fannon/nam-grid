@@ -28,7 +28,7 @@ inline nlohmann::json Read(const std::filesystem::path& path)
   if (!document.is_object() || document.value("format", "") != "nam-grid-preset"
       || !document.contains("version") || !document["version"].is_number_integer() || document["version"] != 1
       || !document.contains("rig") || !document["rig"].is_object())
-    throw std::runtime_error("This is not a supported nam-grid preset.");
+    throw std::runtime_error("This is not a supported NAM Grid preset.");
   return document["rig"];
 }
 

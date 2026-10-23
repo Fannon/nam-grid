@@ -154,7 +154,7 @@ private:
 };
 
 // Lush stereo allpass-loop reverb. The early/late arrangement is adapted from
-// JPverb; bounds, rates, decay calibration and filtering are nam-grid specific.
+// JPverb; bounds, rates, decay calibration and filtering are NAM Grid specific.
 class CloudTank
 {
 public:

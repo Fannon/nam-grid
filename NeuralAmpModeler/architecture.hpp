@@ -95,7 +95,7 @@ inline void disable_denormals() noexcept {
 			_mm_setcsr(_mm_getcsr() | 0x8040);
 		#endif
 	#elif defined(ARCH_ARM64) && (defined(__GNUC__) || defined(__clang__))
-		// nam-grid: AArch64 (Apple Silicon) has no FPSCR; set FPCR.FZ (bit 24) instead.
+		// NAM Grid: AArch64 (Apple Silicon) has no FPSCR; set FPCR.FZ (bit 24) instead.
 		unsigned long long fpcr;
 		__asm__ volatile("mrs %0, fpcr" : "=r"(fpcr));
 		__asm__ volatile("msr fpcr, %0" : : "r"(fpcr | (1ull << 24)));

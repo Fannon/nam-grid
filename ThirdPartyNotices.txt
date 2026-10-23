@@ -1,12 +1,12 @@
 Third-Party Notices
 ===================
 
-nam-grid is distributed as CLAP and VST3 plugins for Windows and macOS. It is
+NAM Grid is distributed as CLAP and VST3 plugins for Windows and macOS. It is
 based on the Neural Amp Modeler plugin and includes the open-source software,
 adapted algorithms and font listed below. Keep this file and the accompanying
 notices/ folder with every copy of the plugins.
 
-nam-grid itself is MIT licensed; see LICENSE in the source repository at
+NAM Grid itself is MIT licensed; see LICENSE in the source repository at
 https://github.com/Fannon/nam-grid.
 
 
@@ -578,7 +578,7 @@ Shimwash / Junologue Chorus / Ruminant reference algorithms
 -----------------------------------------------------------
 
 The Shimmer, Juno Chorus and Frequency Shifter grid modules were implemented
-for nam-grid in original, rate-scaled double-precision C++. Their algorithms
+for NAM Grid in original, rate-scaled double-precision C++. Their algorithms
 were informed by the following MIT-licensed projects:
 
 - Shimwash (shimmer reverb): Copyright (c) 2026 Dan
@@ -676,7 +676,7 @@ FFTConvolver (HiFi-LoFi)
 
 Source: https://github.com/HiFi-LoFi/FFTConvolver
 Revision: f2cdeb04c42141d2caec19ca4f137398b2a76b85
-The uniform convolver, AudioFFT and utilities are included. nam-grid modifies
+The uniform convolver, AudioFFT and utilities are included. NAM Grid modifies
 tail trimming to preserve every nonzero IR coefficient.
 
 MIT License

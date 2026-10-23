@@ -1,4 +1,4 @@
-# nam-grid: fixed 4x4 signal chain
+# NAM Grid: fixed 4x4 signal chain
 
 The current plugin has 16 slots arranged as four serial input stages, two
 parallel four-slot lanes and four serial output stages. Build outputs are in
@@ -99,7 +99,7 @@ is tracked in the [release checklist](release-checklist.md).
 
 ## Manual DAW check
 
-1. Add `build-grid/out` to Bitwig's plugin locations and load **nam-grid**.
+1. Add `build-grid/out` to Bitwig's plugin locations and load **NAM Grid**.
 2. Add NAM and IR folders in Library & settings; load a pedal into Pre 1 and different full rigs into A1/B1.
    Use no cabinet module for full rigs. Sweep Blend A/B and check unity/phase by ear.
 3. Load and bypass captures in all four rows. Verify that output-row changes affect both lanes.

@@ -1,4 +1,4 @@
-# nam-grid plugin source
+# NAM Grid plugin source
 
 This directory contains the native plugin UI, DSP integration and CMake targets.
 Start with the [project README](../README.md),

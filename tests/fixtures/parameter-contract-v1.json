@@ -1009,7 +1009,7 @@
   },
   "plugin": {
     "clap_id": "io.github.fannon.nam-grid",
-    "name": "nam-grid",
+    "name": "NAM Grid",
     "vendor": "Simon Heimler"
   },
   "slot": [

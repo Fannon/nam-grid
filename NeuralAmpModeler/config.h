@@ -1,4 +1,5 @@
-#define PLUG_NAME "nam-grid"
+// Display name in hosts and the editor. Files, IDs and folders use "nam-grid".
+#define PLUG_NAME "NAM Grid"
 #define PLUG_MFR "Simon Heimler"
 #define PLUG_VERSION_HEX 0x00000100
 #define PLUG_VERSION_STR "0.1.0"

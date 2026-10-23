@@ -1,4 +1,4 @@
-# Contributing to nam-grid
+# Contributing to NAM Grid
 
 Report bugs and propose changes in [this fork's issues](https://github.com/Fannon/nam-grid/issues).
 For bugs, include the build/commit, OS, plugin format, DAW, sample rate, block size,

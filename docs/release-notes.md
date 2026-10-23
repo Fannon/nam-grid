@@ -1,6 +1,6 @@
-# nam-grid 0.1.0
+# NAM Grid 0.1.0
 
-The first release of nam-grid: a 16-slot guitar rig in one CLAP / VST3 plugin.
+The first release of NAM Grid: a 16-slot guitar rig in one CLAP / VST3 plugin.
 Combine Neural Amp Modeler captures, cabinet IRs and 55 built-in effects across
 four Pre slots, two parallel four-slot lanes with A/B blend, and four Post slots.
 It includes rig presets, a library browser, a tuner, macros, modulation and
@@ -19,7 +19,7 @@ and are not included.
 
 ## Compatibility
 
-0.1.0 establishes nam-grid's permanent plugin identity (CLAP
+0.1.0 establishes NAM Grid's permanent plugin identity (CLAP
 `io.github.fannon.nam-grid`, vendor Simon Heimler) and parameter layout. Projects,
 automation and `.ngrid` presets from earlier preview builds do not load and must be
 recreated; remove old preview binaries from your plugin folders and rescan. From

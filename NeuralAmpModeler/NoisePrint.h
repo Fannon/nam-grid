@@ -8,7 +8,7 @@
   #include <emmintrin.h>
 #endif
 
-// Original MIT nam-grid experiment. Public product descriptions of multiband
+// Original MIT NAM Grid experiment. Public product descriptions of multiband
 // expanders informed the concept; no Klevgrand code or proprietary assets used.
 namespace noise_print
 {

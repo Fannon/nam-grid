@@ -1,6 +1,6 @@
 # Release checklist and validation limits
 
-nam-grid is preview software. Automated DSP, state and native-editor tests do not
+NAM Grid is preview software. Automated DSP, state and native-editor tests do not
 establish listening quality, DAW stability or complete CLAP/VST3 host coverage.
 Windows x64 and macOS arm64 are the CI build targets; Linux has no supported
 plugin build with the current framework. See [build.md](build.md) for packaging

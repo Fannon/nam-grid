@@ -11,7 +11,7 @@ struct LoFiTapeHistory
   uint64_t sequence = 0;
 };
 
-// Original nam-grid transport/degradation effect. No third-party tape DSP.
+// Original NAM Grid transport/degradation effect. No third-party tape DSP.
 // A shared transport and dropout envelope preserve stereo placement; audio and
 // hiss have independent channel histories. All memory is allocated in Reset.
 class SlotLoFiTape

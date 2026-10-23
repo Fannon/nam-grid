@@ -167,7 +167,7 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y)); play(300);
   };
   const auto tile = [&](int slot) { return std::pair{88 + 212 * (slot % 4) + 94, 64 + 104 * (slot / 4) + 40}; };
-  const auto select = [&](int slot) { const auto [x, y] = tile(slot); click(x, y); click(932, 28); }; // Open, then close the browser.
+  const auto select = [&](int slot) { const auto [x, y] = tile(slot); click(x, y - 26); }; // The ID row only selects.
   const auto shot = [&](const char* name) { CaptureEditor(editor, out / (std::string(name) + ".bmp")); };
 
   play(2500); // Library scan and model preparation
@@ -176,8 +176,8 @@ int main(int argc, char** argv)
   select(3); play(1000); shot("ir");
   select(5); play(3000); shot("delay");
   select(12); play(3000); shot("eq");
-  { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(932, 28);
-  click(470, 28); play(1500); shot("browser-presets"); click(932, 28);
+  { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
+  click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
   click(919, 28); play(800); shot("settings"); click(915, 44);
   click(225, 28); click(296, 104); play(2000); shot("control"); click(915, 44);
   sustained = true; play(500); click(810, 28); play(3000); shot("tuner"); click(810, 28);

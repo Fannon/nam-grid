@@ -51,19 +51,21 @@ void TestFXVisualizationMath()
     for(double bits : {2.,8.,16.})
       for(double holdRate : {100.,3500.,48000.})
       {
-        UtilityControls c; c.crusher={bits,holdRate,3500.,65.,-3.};
+        // At 100% wet and 0 dB the plugin's output is exactly the preview's High cut line.
+        UtilityControls c; c.crusher={bits,holdRate,3500.,100.,0.};
         const auto preview=effect_preview::CrusherReference(c,rate);
         grid_roadmap::Texture crusher; crusher.Reset(rate);
-        const int count=std::max(384,static_cast<int>(std::ceil(rate*3./220.)));
-        int next=0;
-        for(int i=0;i<=count;++i)
+        const int count=preview.start+static_cast<int>(preview.wet.size());
+        for(int i=0;i<count;++i)
         {
           double output=.8*std::sin(2.*grid_fx::pi*220.*i/rate);
           crusher.Process(&output,1,SlotEffect::Bitcrusher,c);
-          if(next<=384 && i>=static_cast<int>(std::lround(next*count/384.)))
-            assert(std::abs(output-preview[next++])<1.e-12);
+          if(i>=preview.start)
+          {
+            assert(std::abs(output-preview.wet[i-preview.start])<1.e-12);
+            assert(std::abs(preview.dry[i-preview.start]-.8*std::sin(2.*grid_fx::pi*220.*i/rate))<1.e-12);
+          }
         }
-        assert(next==385);
       }
   }
   assert(effect_preview::TailDB(2.,2.)==-60.);

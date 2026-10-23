@@ -15,14 +15,12 @@ The first [Airwindows outboard modules](airwindows-outboard.md) add these defaul
 | Console EQ | Bands 0 dB; Treble coefficient scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Neutral insertion; first Bass adjustment targets the low end of its native range |
 | Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Gentle ButterComp2 glue with output-dependent recovery |
 | Digital Black Gate | Threshold −55 dB; Mix 100%; Output 0 dB; Zero crossing mode | Darkening closure; header Hysteresis offers CStrip's re-arming behaviour |
-| Pressure | Compress 90%; Mix 100%; Output −2.5 dB | Linked stereo compression and sine colour with measured level compensation |
 
 Capacitor cuts use native percentages rather than uncalibrated Hz. Low cut 0 is
 off; High cut 100 is open. Band gains are nominal ±6 dB density controls with
 level-dependent harmonics. Compress and Comp speed use native 0–100%, with no
 invented ratio/attack/release units. See the implementation audit for exact mappings.
-Digital Black Threshold spans −74…−10 dB, staying inside its native floor. Pressure
-retains its nonlinear native blend inside the conventional outer Mix. Both receive
+Digital Black Threshold spans −74…−10 dB, staying inside its native floor. It receives
 additional [rate and meter corrections](airwindows-dynamics.md) from the source audit.
 
 These defaults are NAM Grid design choices, not another product's factory

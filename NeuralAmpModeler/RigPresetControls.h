@@ -55,3 +55,43 @@ private:
   IPopupMenu mMenu;
   std::vector<std::filesystem::path> mFiles;
 };
+
+// Click is Save as, the safe default. Shift- or Alt-click saves over the loaded
+// preset file directly; right-click offers both. Without a file, Save falls back to Save as.
+class NAMRigSaveControl : public grid_ui::Button
+{
+public:
+  explicit NAMRigSaveControl(const IRECT& r)
+  : grid_ui::Button(r, [this](IControl*) {
+      auto* plug = static_cast<NeuralAmpModeler*>(GetDelegate());
+      if (mOverwrite) plug->QuickSaveRigPreset();
+      else plug->PromptRigPreset(true);
+    }, "Save")
+  {}
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  {
+    if (!mod.R)
+    {
+      mOverwrite = mod.S || mod.A;
+      grid_ui::Button::OnMouseDown(x, y, mod);
+      return;
+    }
+    const auto file = static_cast<NeuralAmpModeler*>(GetDelegate())->GetRigPresetFile();
+    const auto save = file.empty() ? std::string("Save") : "Save over " + nam_library::PathText(file.filename());
+    mMenu.Clear();
+    mMenu.AddItem(new IPopupMenu::Item(save.c_str(), file.empty() ? IPopupMenu::Item::kDisabled : 0, 1));
+    mMenu.AddItem(new IPopupMenu::Item("Save as...", 0, 2));
+    GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
+  }
+  void OnPopupMenuSelection(IPopupMenu* menu, int) override
+  {
+    const auto* item = menu ? menu->GetChosenItem() : nullptr;
+    if (!item) return;
+    auto* plug = static_cast<NeuralAmpModeler*>(GetDelegate());
+    if (item->GetTag() == 1) plug->QuickSaveRigPreset();
+    else if (item->GetTag() == 2) plug->PromptRigPreset(true);
+  }
+private:
+  IPopupMenu mMenu;
+  bool mOverwrite = false;
+};

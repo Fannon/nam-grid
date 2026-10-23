@@ -1,16 +1,28 @@
 # Library browser
 
-Click a grid tile or the browser icon beside the current module name. Empty cells open
+Click a grid tile's name button or the browser icon beside the current module name. Empty cells open
 **Modules**; loaded effects open their FX category with the current effect selected.
 NAM and IR cells open their own category and current folder, selecting the exact file
-even if another library entry has the same name or content. The tile's bypass switch
-and right-click Clear / Copy / Move / Swap menu remain direct actions.
+even if another library entry has the same name or content. The tile's header row only
+selects; its bypass switch and right-click Clear / Copy / Move / Swap menu remain direct actions.
 
 Click the header preset name to open **Presets** only. A cell browser offers Modules,
 NAM captures and IR files, and cannot load a complete rig. **Library & settings > Browse
 library** opens all categories, targeting the currently selected cell for NAM, IR and FX.
 
-The page has a folder/category list, results and file details. Choose a folder to search
+The title names what you are choosing for, such as **Browse for A1**, with the Modules,
+NAM captures and IR files tabs beside it; a page with a single kind, such as Rig presets,
+shows no tabs; presets have **Save as...** top right. Below is the search field, with
+**Open file...** beside it for files outside the library: you either search the library
+or pick a file from disk. Three columns follow:
+
+- **Folders or FX categories**, with **Manage folders** and **Rescan** at the foot of the
+  column for NAM captures, IR files and presets. Modules have neither, as they need no files.
+- **Results**, headed by the result count and the **Sort** toggle.
+- **Details** of the selection, with the actions pinned to the bottom right: **Cancel** and
+  **Apply** while auditioning for a slot; **Delete...**, **Close** and **Load** for presets.
+
+Choose a folder to search
 it and its subfolders, or choose **All folders / All categories**. A root that only
 holds other indexed file types (for example a folder in both the NAM and IR lists that
 contains only IRs) is hidden; empty or missing roots stay listed so they can be removed. The existing file
@@ -18,7 +30,7 @@ or FX category is focused when opening from a tile or browser icon. A current fi
 outside configured roots gets a temporary background scan of its folder, without
 adding that folder to the library.
 
-Hover the browser title, search field or file-details header for usage hints,
+Hover the browser title, search field or details header for usage hints,
 search syntax and full paths. FX details include a short sound description and control
 summary. Settings guidance and calibration explanations
 are available on the corresponding headers and controls as tooltips.
@@ -46,31 +58,32 @@ starts with its musical defaults; NAM/IR files of the same kind retain gain sett
 for comparison. The current FX keeps its edits when the browser opens.
 
 Up/Down, Page Up/Down and Home/End move the selection. Enter, double-click or **Apply**
-in the details panel accepts the auditioned module and its parameters. Closing the browser
-or pressing Escape restores the original module and parameters. Project autosaves and
+accepts the auditioned module and its parameters. **Cancel** or Escape restores the original
+module and parameters. Project autosaves and
 rig exports retain the original slot until acceptance. Closing the plugin editor also
 cancels the audition. Load failures leave the browser open with the error.
 
 Enter finishes an active search edit first; press Enter again to accept. Ctrl/Cmd+F
-focuses search. Escape cancels an active search edit, then closes the browser.
+focuses search, and the cross at its right end clears it. Escape cancels an active search
+edit, then closes the browser.
 Rig presets use a full-height inspection layout; selecting one changes audio only
 after Enter, double-click or **Load**. Switching to Presets cancels any slot audition.
 
 NAM captures, IR files and Presets each have their own folder list, and a folder is
 scanned only for its tab's file type (`.nam`, `.wav` or `.ngrid`). Folders are added and
-removed only in **Library & settings**; **Library folders...** in the browser opens it, and
-an empty tab points there. Each list supports 32 roots. All lists persist in project state
+removed only in **Library & settings**; **Manage folders** in the browser opens that page
+rather than a dialog, so it has no "...", and an empty tab points there. Each list supports 32 roots. All lists persist in project state
 and the per-user library preference. Rig presets do not replace these library choices.
 Current folders outside the library are temporary and are not added as sources.
 
-In Presets, **Delete preset** deletes the selected `.ngrid` file from disk after a
+In Presets, **Delete...** deletes the selected `.ngrid` file from disk after a
 confirmation; this cannot be undone. The loaded rig and its header name stay as they
-are, so **Save preset as...** can recreate the file. The selection moves to the next preset.
+are, so **Save as...** can recreate the file. The selection moves to the next preset.
 
 Scans recurse in the background, ignore directory links, deduplicate overlapping paths
 and retain separate copies of identical captures. Preset folders index `.ngrid` files
 with a valid, bounded preset envelope; invalid files count as unreadable. IR decoding
-and full rig/DSP validation happen on load. **Rescan** refreshes external filesystem
+and full rig/DSP validation happen on load. **Rescan**, beside Manage folders, refreshes external filesystem
 changes; the existing startup rescan preference applies to all sources.
 
 ## Excluding files with `.ignore`

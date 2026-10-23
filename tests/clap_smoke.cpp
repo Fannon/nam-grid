@@ -162,7 +162,7 @@ int main(int argc, char** argv)
     assert(save().config() == base);
   }
   for (const char* required : {"schema", "SlotPaths", "SlotEffects", "SlotHashes", "NoisePrintProfiles",
-                               "PerformanceScenes", "Pre 1 In", "Post 4 Pressure Output", "Tuner"})
+                               "PerformanceScenes", "Pre 1 In", "Post 4 Black Mode", "Tuner"})
   {
     auto incomplete = base;
     incomplete.erase(required);
@@ -923,7 +923,15 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
-  const auto selectTile = [&](int x, int y) { click(x, y); click(932, 28); };
+  // The tile ID row selects without opening the browser; the name button below opens it.
+  const auto selectTile = [&](int x, int y) {
+    click(x, grid_layout::cardTop + grid_layout::rowPitch * ((y - grid_layout::cardTop) / grid_layout::rowPitch) + 14);
+  };
+  const auto shiftClick = [&](int x, int y) {
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, MAKELPARAM(x, y));
+    SendMessage(editor, WM_LBUTTONUP, MK_SHIFT, MAKELPARAM(x, y));
+    pumpFor(250);
+  };
   if(fxVisuals)
   {
     const std::array<const char*,17> names{{"In","Trim","Enabled","Gate Threshold","Gate Release","Gate Reduction",
@@ -1203,7 +1211,7 @@ int main(int argc, char** argv)
     assert(SetKeyboardState(previous)); pumpFor(20);
   };
   const auto enterBrowserSearch = [&](const std::string& query) {
-    click(200, 122);
+    click(200, 75);
     if (IsWindowVisible(editor)) assert(GetFocus() == editor);
     for (const char ch : query) keyAtEditor(ch == ' ' ? VK_SPACE : ch);
     pumpFor(150); // Results must update before Enter commits the search editor.
@@ -1230,8 +1238,8 @@ int main(int argc, char** argv)
   keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == librarySecond);
   click(356, grid_layout::moduleButtonY);
-  click(350, 74); // Cell context allows IR, but offers no complete rig presets.
-  click(480, 74); // A hidden preset tab must not accept input.
+  click(560, 28); // Cell context allows IR, but offers no complete rig presets.
+  click(680, 28); // A hidden preset tab must not accept input.
   chooseBrowserItem("CABINET");
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::CabinetIR));
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryIR);
@@ -1345,31 +1353,69 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   const auto editedBass = liveValue("Pre 1 EQ Bass");
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
-  click(765, 122); // Clear search before returning to the original FX.
+  click(957, 75); // The search field's cross clears it before returning to the original FX.
   enterBrowserSearch("GUITAR EQ"); keyAtEditor(VK_RETURN);
   assert(std::abs(liveValue("Pre 1 EQ Bass") - editedBass) < .01);
   keyAtEditor(VK_ESCAPE);
   assert(save().config()["Pre 1 EQ Bass"] == 6.);
   click(356, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
-  SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(400, 176));
-  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(400, 176)); pumpFor(100);
+  SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(400, 144));
+  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(400, 144)); pumpFor(100);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
   load(moduleBrowser); selectTile(170, 120);
   const auto beforeLibraryAudition = save().config();
   click(910, 28); // Browse from settings must audition the selected slot too.
   click(760, 44);
-  click(80, 74);
+  click(310, 28); // Modules tab
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config() == beforeLibraryAudition);
-  click(460, 74); // Switching to complete rigs cancels the slot audition.
+  click(680, 28); // Switching to complete rigs cancels the slot audition.
   assert(save().config() == beforeLibraryAudition);
   assert(std::abs(liveValue("Pre 1 EQ Bass") - 6.) < .01);
   keyAtEditor(VK_ESCAPE);
   std::cout << "FX/NAM/IR live parameter audition, autosave isolation, cancellation and acceptance passed\n";
   load(eqUI); selectTile(170, 120);
   std::cout << "Context browser tile/icon entry, exact current selection, live search and NAM/IR/FX targeting passed\n";
+  {
+    // Drag from a tile's ID row: plain drag swaps or moves, Shift replaces, Alt duplicates.
+    const auto header = [](int slot) { return std::pair{88 + 212 * (slot % 4) + 60, grid_layout::cardTop + grid_layout::rowPitch * (slot / 4) + 14}; };
+    const auto dragTile = [&](int from, int to, WPARAM keys = 0, bool alt = false) {
+      BYTE previous[256]{}, state[256]{};
+      assert(GetKeyboardState(previous)); std::copy(std::begin(previous), std::end(previous), state);
+      if (alt) { state[VK_MENU] = 0x80; assert(SetKeyboardState(state)); }
+      const auto [x0, y0] = header(from); const auto [x1, y1] = header(to);
+      SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON | keys, MAKELPARAM(x0, y0));
+      SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON | keys, MAKELPARAM((x0 + x1) / 2, (y0 + y1) / 2));
+      SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON | keys, MAKELPARAM(x1, y1));
+      SendMessage(editor, WM_LBUTTONUP, keys, MAKELPARAM(x1, y1));
+      if (alt) assert(SetKeyboardState(previous));
+      pumpFor(150);
+    };
+    const auto effects = [&] {
+      const auto config = save().config();
+      std::array<int, 4> result{};
+      for (int slot = 0; slot < 4; ++slot) result[slot] = config["SlotEffects"][slot];
+      return result;
+    };
+    const int tone = static_cast<int>(SlotEffect::ToneEQ), cut = static_cast<int>(SlotEffect::CutEQ);
+    const int ir = static_cast<int>(SlotEffect::CabinetIR), none = static_cast<int>(SlotEffect::NAM);
+    assert((effects() == std::array<int, 4>{tone, cut, ir, none}));
+    dragTile(0, 1); // Occupied target: swap.
+    assert((effects() == std::array<int, 4>{cut, tone, ir, none}));
+    dragTile(1, 3); // Empty target: move.
+    assert((effects() == std::array<int, 4>{cut, none, ir, tone}));
+    dragTile(0, 2, MK_SHIFT); // Shift replaces the target and empties the source.
+    assert((effects() == std::array<int, 4>{none, none, cut, tone}));
+    assert(save().config()["SlotPaths"][2] == "");
+    dragTile(2, 0, 0, true); // Alt duplicates.
+    assert((effects() == std::array<int, 4>{cut, none, cut, tone}));
+    dragTile(1, 3); // An empty tile cannot be dragged.
+    assert((effects() == std::array<int, 4>{cut, none, cut, tone}));
+    load(eqUI); selectTile(170, 120);
+    std::cout << "Tile drag swap, move, Shift replace and Alt duplicate passed\n";
+  }
   const auto resetDial = [&](int x, int y) {
     SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(x, y));
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y)); pumpFor(30);
@@ -1467,8 +1513,8 @@ int main(int argc, char** argv)
   rig_preset::Write(presetDirectory / "Second rig.ngrid", secondRig);
   // Preset folders are added in Library & settings; the browser links there.
   click(470, 28);
-  click(220, 74); // Preset context has no NAM tab here.
-  click(624, 74); // Library folders... opens settings.
+  click(430, 28); // Preset context shows no tabs, so no NAM tab here.
+  click(100, 688); // Manage folders opens settings.
   win_file_dialog::Choose(presetDirectory, [&] { click(896, 175); }, false, true);
   pumpFor(250);
   assert(save().config()["PresetFolders"] == json::array({nam_library::PathText(presetDirectory)}));
@@ -1483,7 +1529,7 @@ int main(int argc, char** argv)
   if (save().config()["PresetName"] != "Clean rig" || save().config()["Output"] != -8.)
     std::cerr << "Previous preset: " << save().config()["PresetName"] << ", output=" << save().config()["Output"] << '\n';
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
-  click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(854, 274); // Load button.
+  click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(932, 688); // Load button.
   assert(save().config()["PresetName"] == "Second rig");
   click(584, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
@@ -1566,28 +1612,28 @@ int main(int argc, char** argv)
   switchB["SlotEffects"][0] = static_cast<int>(SlotEffect::TubeBoost); switchB["Output"] = -6.;
   rig_preset::Write(switchDirectory / "Switch A.ngrid", switchA);
   rig_preset::Write(switchDirectory / "Switch B.ngrid", switchB);
-  click(470, 28); click(594, 28); // Rescan picks up the new folder.
+  click(470, 28); click(218, 688); // Rescan, beside Manage folders, picks up the new folder.
   pumpFor(500);
   chooseBrowserItem("SWITCH A");
   assert(save().config()["PresetName"] == "Switch A");
   measureSwitch(false);
   click(910, 28); click(784, 132); click(915, 44); // Library & settings: Preset switch -> Crossfade.
   measureSwitch(true);
-  click(470, 28); click(100, 208); chooseBrowserItem("CLEAN RIG"); // All folders, then search.
+  click(470, 28); click(100, 144); chooseBrowserItem("CLEAN RIG"); // All folders, then search.
   assert(save().config()["PresetName"] == "Clean rig");
   std::cout << "Preset switch short fade and crossfade passed\n";
-  // Header Save writes over the loaded preset file without a dialog.
+  // Shift-click on header Save writes over the loaded preset file without a dialog.
   auto quickEdit = save().config(); quickEdit["Output"] = -5.;
   load(quickEdit);
-  click(736, 28);
+  shiftClick(736, 28);
   assert(rig_preset::Read(presetFile)["Output"] == -5. && save().config()["PresetName"] == "Clean rig");
   std::cout << "Header quick save passed\n";
   // Deleting the selected (current) preset removes only its file, after confirmation.
   const auto beforeDelete = save().config();
   click(470, 28);
-  win_file_dialog::Confirm(false, [&] { click(916, 74); });
+  win_file_dialog::Confirm(false, [&] { click(775, 688); });
   assert(std::filesystem::exists(presetFile));
-  win_file_dialog::Confirm(true, [&] { click(916, 74); });
+  win_file_dialog::Confirm(true, [&] { click(775, 688); });
   assert(!std::filesystem::exists(presetFile) && std::filesystem::exists(presetDirectory / "Second rig.ngrid"));
   assert(save().config() == beforeDelete);
   keyAtEditor(VK_ESCAPE);
@@ -1596,6 +1642,10 @@ int main(int argc, char** argv)
   const auto savedAgain = presetDirectory / "Saved again.ngrid";
   win_file_dialog::Choose(savedAgain, [&] { click(736, 28); });
   assert(std::filesystem::exists(savedAgain) && save().config()["PresetName"] == "Saved again");
+  // With a loaded file, a plain click is still Save as: overwriting needs Shift/Alt or the right-click menu.
+  const auto savedCopy = presetDirectory / "Saved copy.ngrid";
+  win_file_dialog::Choose(savedCopy, [&] { click(736, 28); });
+  assert(std::filesystem::exists(savedCopy) && save().config()["PresetName"] == "Saved copy");
   // New asks first, then starts an empty grid and keeps library folders and the preset folder.
   const auto beforeNew = save().config();
   win_file_dialog::Confirm(false, [&] { click(675, 28); });
@@ -1613,11 +1663,26 @@ int main(int argc, char** argv)
     if (argc == 4)
     {
       // Representative dense screens for typography/layout review; no audio device.
-      for (const auto [effect, name] : std::array<std::pair<SlotEffect, const char*>, 8>{{
+      {
+        // Long capture names wrap to two lines on the tile before an ellipsis.
+        const auto longName = fixtures / "Fender Super Reverb 1977 - Clean Channel Bright Switch On.nam";
+        const auto longToken = fixtures / "Marshall_JCM800_2203_Lead_Channel_Gain7_Presence6_SM57.nam";
+        std::filesystem::copy_file(path2, longName, std::filesystem::copy_options::overwrite_existing);
+        std::filesystem::copy_file(path2, longToken, std::filesystem::copy_options::overwrite_existing);
+        auto names = browserState;
+        names["SlotPaths"][4] = longName.string(); names["SlotPaths"][5] = longToken.string();
+        names["SlotEffects"][6] = static_cast<int>(SlotEffect::ButterComp);
+        load(names); selectTile(170, 224); pumpFor(250);
+        CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid-long-names.bmp");
+        selectTile(594, 224); pumpFor(250);
+        CaptureEditor(editor, std::filesystem::path(argv[3]) / "butter-comp.bmp");
+      }
+      for (const auto [effect, name] : std::array<std::pair<SlotEffect, const char*>, 11>{{
              {SlotEffect::ConsoleEQ, "console-eq"}, {SlotEffect::DigitalDelay, "delay"},
              {SlotEffect::CosmicEcho, "cosmic"}, {SlotEffect::Chorus, "chorus"},
              {SlotEffect::LoFiTape, "lofi"}, {SlotEffect::OutboardChannel, "outboard"},
-             {SlotEffect::Octaver, "octaver"}, {SlotEffect::Utility, "utility"}}})
+             {SlotEffect::Octaver, "octaver"}, {SlotEffect::Utility, "utility"}, {SlotEffect::Bitcrusher, "bitcrusher"},
+             {SlotEffect::Wah, "wah"}, {SlotEffect::MultiHeadDelay, "multi-head"}}})
       {
         auto preview = browserState;
         preview["SlotEffects"][0] = static_cast<int>(effect);

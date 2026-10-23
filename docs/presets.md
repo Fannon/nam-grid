@@ -4,14 +4,16 @@ Click the preset name in the header to open the [preset browser](browser.md). It
 Presets only and selects the current rig in its folder. Search your preset folders
 recursively, and select a result before loading it with Enter, double-click or Load.
 Preset folders are a separate list from NAM and IR folders, scanned only for `.ngrid`
-files, and are added in Library & settings (the browser's **Library folders...** opens it).
+files, and are added in Library & settings (the browser's **Manage folders** opens it).
 NAM Grid ships no preset files; every listed preset is a `.ngrid` file in one of your
-preset folders. Save preset as..., Open file... and Delete preset are available in the
+preset folders. Save as..., Open file... and Delete... are available in the
 browser; right-clicking the header name also offers quick load/save actions and the last
 used folder's presets. The arrow buttons step through that folder in filename order and wrap.
 
-The header **Save** button writes over the loaded preset's file without asking; for a rig
-that has no file yet it opens Save preset as. **New** asks for confirmation, then starts an
+Clicking the header **Save** button opens Save as, so a click never overwrites a preset by
+accident. Shift- or Alt-click writes over the loaded preset's file without asking; right-click
+offers both **Save over** *file* and **Save as...**. For a rig that has no file yet, every
+form of Save opens Save as. **New** asks for confirmation, then starts an
 empty grid named Untitled. It keeps library folders, tuner settings and the current preset
 folder for the arrows and Save as. The name shows the last saved or loaded filename;
 subsequent edits are not saved automatically. Save preset as asks before overwriting an

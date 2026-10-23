@@ -91,7 +91,6 @@ The first [Airwindows outboard additions](airwindows-outboard.md) are:
 | Console EQ | Treble, Mid, Bass, Treble freq, Bass freq, High cut, Low cut | Nonlinear ±6 dB band density and rate-compensated Capacitor; EQ / Filter group |
 | Butter Comp | Compress, Output, Mix | Native ButterComp2 polarity-sensitive compression and output-dependent recovery; Dynamics group |
 | Digital Black Gate | Threshold, Mix, Output; header Mode | DigitalBlack darkening gate or CStrip hysteresis; reference-time counters and release |
-| Pressure | Compress, Mix, Output | Pressure6 shared stereo detector and sine colour; corrected recovery scaling |
 
 The cuts use native percentages: low cut 0 is off, high cut 100 is open. Their
 rotating ladder cannot honestly be described by a single unmeasured cutoff Hz.
@@ -99,10 +98,9 @@ Console EQ's frequency labels retain the source coefficient scales. All four
 are zero-latency and preserve independent stereo histories. The strip and Butter
 Comp have related but different detector/recovery math. See the linked audit for
 the source decisions, ranges, defaults, GR semantics and measurements.
-The [two additional dynamics modules](airwindows-dynamics.md) preserve independent
-gate histories and Pressure's linked detector respectively. Digital Black meters
-actual attenuation including its rectified closing fill; Pressure meters detector
-reduction before makeup and sine colour. Both have live IN/OUT histories.
+The [Digital Black Gate](airwindows-dynamics.md) preserves independent gate histories
+and meters actual attenuation, including its rectified closing fill, with live IN/OUT
+histories.
 
 The **Distortion** category contains Distortion, Boost, Tube Boost, Airwindows Tape
 and Bitcrusher. The general Distortion module offers **Soft clip**, **Hard clip**,

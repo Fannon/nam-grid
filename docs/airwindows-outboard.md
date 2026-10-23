@@ -2,7 +2,7 @@
 
 This page documents Outboard Channel, Console Colour, Console EQ and Butter
 Comp: source pins, deliberate adaptations and control mappings. See
-[airwindows-dynamics.md](airwindows-dynamics.md) for Digital Black Gate and Pressure.
+[airwindows-dynamics.md](airwindows-dynamics.md) for Digital Black Gate.
 
 Sources are the double-precision LinuxVST paths of CStrip2, BussColors4 and
 ButterComp2 at
@@ -37,8 +37,9 @@ their sine/cosine shaping makes the actual gain level-dependent. Flat with cuts
 open is exactly dry, including digital silence. Bass defaults to 300 rather
 than upstream's surprising 4225 coefficient scale, so the first Bass adjustment
 works in the useful lower part of its native range. Treble retains upstream's
-4750 scale. A band-density diagram communicates these settings without drawing
-a misleading linear EQ curve.
+4750 scale. The display measures the strip's quiet-signal response from an impulse
+through its own DSP and draws it over the live output spectrum; louder input adds band
+density that this linear curve leaves out.
 
 **Outboard Channel retains the native unity-to-Spiral section.** EQ is flat;
 Capacitor precedes the native compressor. Saturate maps to `J = (1 + s) / 3`,
@@ -70,10 +71,10 @@ output-dependent recovery follows the compressed signal.
 
 | Module | Insertion settings | Display |
 | --- | --- | --- |
-| Outboard Channel | Low cut 0%; High cut 100%; Compress 40%; Comp speed 25%; Saturate 15%; Output −1.5 dB; Mix 100% | Detector attenuation bar and live stereo peak IN/OUT histories |
+| Outboard Channel | Low cut 0%; High cut 100%; Compress 40%; Comp speed 25%; Saturate 15%; Output −1.5 dB; Mix 100% | Measured cut response over the output spectrum, Spiral saturation curve and detector gain-reduction history |
 | Console Colour | Dark desk; Input/Output trim 0 dB; Mix 100% | Desk name and live stereo peak IN/OUT histories |
-| Console EQ | Bands 0; Treble scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Three signed band-density bars, frequency scales and cut amounts |
-| Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Detector attenuation bar and live stereo peak IN/OUT histories |
+| Console EQ | Bands 0; Treble scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Measured quiet-signal response over the live output spectrum |
+| Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Detector gain-reduction history beside live peak IN/OUT histories |
 
 Compressor percentages are intensity/speed, not threshold, ratio, or milliseconds.
 The GR tap reads the native per-sample multiplier, blended by Mix, before automatic

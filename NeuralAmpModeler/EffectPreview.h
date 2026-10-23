@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include <vector>
 
 // Settled-control sketches, not measurements of live audio or hidden LFO phase.
 namespace effect_preview
@@ -156,22 +157,25 @@ inline double RingGain(double phase, const UtilityControls& c, double rate)
 }
 // Exact sample-and-hold/quantizer/post-filter on a quiet 220 Hz test tone.
 // Only the UI/tests run this reference; it never touches a live processor.
-inline std::array<double, 385> CrusherReference(const UtilityControls& c, double rate)
+// One cycle of a 220 Hz reference through the Bitcrusher's own steps, after one settling
+// cycle: the quantized sample-and-hold staircase, and that staircase after High cut. Both
+// are 100% wet; Mix and Output only blend and scale them.
+struct CrusherCycle { std::vector<double> dry, held, wet; int start = 0; };
+inline CrusherCycle CrusherReference(const UtilityControls& c, double rate)
 {
-  std::array<double,385> result{};
-  const int count=std::max(384,static_cast<int>(std::ceil(rate*3./220.)));
+  CrusherCycle result;
+  const int period=std::max(8,static_cast<int>(std::lround(rate/220.)));
   const double steps=std::exp2(std::round(c.crusher[0])-1.);
   const double pole=std::exp(-2.*3.14159265358979323846*std::min(.45*rate,c.crusher[2])/rate);
-  const double mix=c.crusher[3]*.01,gain=std::pow(10.,c.crusher[4]*.05);
-  double phase=0.,held=0.,low=0.; int next=0;
-  for (int i=0;i<=count;++i)
+  double phase=0.,held=0.,low=0.;
+  result.start=period;
+  for (int i=0;i<=2*period;++i)
   {
     const double dry=.8*std::sin(2.*3.14159265358979323846*220.*i/rate);
     phase+=std::min(c.crusher[1],rate)/rate;
     if (phase>=1.) { phase-=1.; held=std::round(dry*steps)/steps; }
     low=held+pole*(low-held);
-    if (next<=384 && i>=static_cast<int>(std::lround(next*count/384.)))
-      result[next++]=(dry+mix*(low-dry))*gain;
+    if (i>=period) { result.dry.push_back(dry); result.held.push_back(held); result.wet.push_back(low); }
   }
   return result;
 }

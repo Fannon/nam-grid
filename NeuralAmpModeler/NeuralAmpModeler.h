@@ -64,6 +64,8 @@ enum ECtrlTags
   kCtrlTagPresetName,
   kCtrlTagPresetPrevious,
   kCtrlTagPresetNext,
+  kCtrlTagPresetSave,
+  kCtrlTagPresetNew,
   kCtrlTagLibraryBrowser,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
@@ -107,6 +109,8 @@ public:
   int UnserializeState(const iplug::IByteChunk& chunk, int startPos) override;
   void OnUIOpen() override;
   void OnUIClose() override;
+  void OnRestoreState() override { _SendAllParamValuesToUI(); }
+  void OnParamReset(iplug::EParamSource source) override;
   void BeginInformHostOfParamChangeFromUI(int paramIdx) override;
   void SendParameterValueFromUI(int paramIdx, double value) override;
   void EndInformHostOfParamChangeFromUI(int paramIdx) override;
@@ -180,6 +184,13 @@ public:
   std::string SaveRigPreset(const std::filesystem::path& path);
   std::string LoadRigPreset(const std::filesystem::path& path);
   void PromptRigPreset(bool save);
+  // Saves over the loaded preset file, or prompts Save as when there is none.
+  void QuickSaveRigPreset();
+  // The loaded preset's existing file, or empty for an unsaved rig.
+  std::filesystem::path GetRigPresetFile() const;
+  // Replaces the rig with a fresh instance's empty grid; folders and tuner stay.
+  bool ConfirmNewRig();
+  std::string NewRig();
   // Deletes the .ngrid file only; the loaded rig and its name are unchanged.
   bool ConfirmDeleteRigPreset(const std::filesystem::path& path);
   std::string DeleteRigPreset(const std::filesystem::path& path);
@@ -191,6 +202,11 @@ private:
   // Allocates mInputPointers and mOutputPointers
   void _AllocateIOPointers(const size_t nChans);
   void _UpdatePresetControls();
+  void _SendAllParamValuesToUI();
+  void _RefreshParamDependentUI(bool tunerChanged);
+  nlohmann::json _CurrentRig() const;
+  void _ApplyRig(nlohmann::json rig, const std::string& name, const std::string& directory);
+  nlohmann::json mEmptyRig;
   std::string mPresetName = "Untitled", mPresetDirectory;
   // Deallocates mInputPointers and mOutputPointers
   void _DeallocateIOPointers();

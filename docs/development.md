@@ -63,6 +63,12 @@ descriptor's `introducedIn` to that schema. Older states then receive that
 control's default; a field that the saved schema already had stays required.
 Never lower or reuse a schema number.
 
+Editor open, state restore and parameter reset push values to the UI in one pass over
+the controls (`_SendAllParamValuesToUI`, `OnParamReset`). iPlug2's defaults handle one
+parameter at a time, scanning every control and refreshing every slot card per
+parameter, which took seconds at NAM Grid's size. Bulk updates should use the same
+single pass instead of looping `SendParameterValueFromDelegate`.
+
 ### Adding a mode or module
 
 1. Append an explicit permanent ID; never reorder, renumber or reuse old IDs.

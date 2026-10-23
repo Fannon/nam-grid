@@ -39,7 +39,8 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   becoming 6 dB louder. To use a single modeled lane without mixing in the other lane's dry
   signal, turn the blend fully toward the modeled lane.
 - The header preset name opens file Save/Load and presets in the last used folder;
-  its arrows step through that folder. Global IN is at the input, OUT at the
+  its arrows step through that folder, **Save** writes over the loaded preset and
+  **New** starts an empty grid. Global IN is at the input, OUT at the
   output, and A/B on the right. See [presets.md](presets.md).
 - There is no shared gate, EQ or IR processing: add those as modules. Only OUT and a 5 Hz
   DC blocker follow the grid.

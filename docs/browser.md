@@ -57,14 +57,11 @@ Rig presets use a full-height inspection layout; selecting one changes audio onl
 after Enter or double-click. Switching to Presets cancels any slot audition.
 
 NAM captures, IR files and Presets each have their own folder list, and a folder is
-scanned only for its tab's file type (`.nam`, `.wav` or `.ngrid`). **+ Add folder**
-adds to the current tab's list; add a mixed pack folder to both NAM and IR if needed.
-**Library & settings** shows all three lists together. **Remove folder** removes the
-selected configured root from that list, leaving its files on disk; select a root rather
-than a nested folder to enable it. Each list supports 32 roots. All lists persist in
-project state and the per-user library preference. Rig presets do not replace these
-library choices.
-Current folders outside the library are temporary and cannot be removed as sources.
+scanned only for its tab's file type (`.nam`, `.wav` or `.ngrid`). Folders are added and
+removed only in **Library & settings**; **Library folders...** in the browser opens it, and
+an empty tab points there. Each list supports 32 roots. All lists persist in project state
+and the per-user library preference. Rig presets do not replace these library choices.
+Current folders outside the library are temporary and are not added as sources.
 
 In Presets, **Delete preset** deletes the selected `.ngrid` file from disk after a
 confirmation; this cannot be undone. The loaded rig and its header name stay as they

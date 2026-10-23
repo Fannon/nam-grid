@@ -134,6 +134,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
+  mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
 
   mMakeGraphicsFunc = [&]() {
 
@@ -161,9 +162,15 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagPerformance)->Hide(false);
     }, "Grid / Control"));
-    ui->AttachControl(new NAMRigPresetControl(IRECT(300, 14, 640, 42)), kCtrlTagPresetName);
-    ui->AttachControl(new grid_ui::Button(IRECT(648, 14, 680, 42), [this](IControl*) { StepRigPreset(-1); }, "<"), kCtrlTagPresetPrevious);
-    ui->AttachControl(new grid_ui::Button(IRECT(688, 14, 720, 42), [this](IControl*) { StepRigPreset(1); }, ">"), kCtrlTagPresetNext);
+    ui->AttachControl(new NAMRigPresetControl(IRECT(300, 14, 560, 42)), kCtrlTagPresetName);
+    ui->AttachControl(new grid_ui::Button(IRECT(568, 14, 600, 42), [this](IControl*) { StepRigPreset(-1); }, "<"), kCtrlTagPresetPrevious);
+    ui->AttachControl(new grid_ui::Button(IRECT(608, 14, 640, 42), [this](IControl*) { StepRigPreset(1); }, ">"), kCtrlTagPresetNext);
+    ui->AttachControl(new grid_ui::Button(IRECT(648, 14, 702, 42), [this](IControl*) {
+      if (!ConfirmNewRig()) return;
+      const auto error = NewRig();
+      if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "New rig", EMsgBoxType::kMB_OK);
+    }, "New"), kCtrlTagPresetNew)->SetTooltip("Start a new empty rig. Library folders and tuner settings stay.");
+    ui->AttachControl(new grid_ui::Button(IRECT(710, 14, 762, 42), [this](IControl*) { QuickSaveRigPreset(); }, "Save"), kCtrlTagPresetSave);
     ui->AttachControl(new grid_ui::Button(
       IRECT(862, 14, 976, 42),
       [](IControl* caller) {
@@ -1029,6 +1036,10 @@ void NeuralAmpModeler::_UpdatePresetControls()
       const bool empty = GetRigPresetFiles().empty();
       ui->GetControlWithTag(kCtrlTagPresetPrevious)->SetDisabled(empty);
       ui->GetControlWithTag(kCtrlTagPresetNext)->SetDisabled(empty);
+      const auto file = GetRigPresetFile();
+      ui->GetControlWithTag(kCtrlTagPresetSave)->SetTooltip(file.empty()
+        ? "Save this rig as a new preset file."
+        : ("Save over " + nam_library::PathText(file.filename()) + ". Use the preset browser for Save preset as...").c_str());
     }
 }
 
@@ -1068,6 +1079,28 @@ void NeuralAmpModeler::StepRigPreset(int direction)
   if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "Rig preset", EMsgBoxType::kMB_OK);
 }
 
+// The rig part of the state: no instance folders, tuner choices or held audio.
+nlohmann::json NeuralAmpModeler::_CurrentRig() const
+{
+  IByteChunk chunk;
+  if (!SerializeState(chunk)) throw std::runtime_error("Cannot serialize this rig.");
+  WDL_String header, text;
+  const int pos = chunk.GetStr(header, 0);
+  if (pos < 0 || chunk.GetStr(text, pos) < 0) throw std::runtime_error("Cannot read this rig's state.");
+  auto rig = nlohmann::json::parse(text.Get());
+  rig.erase("PresetDirectory");
+  for (const char* field : {"NamFolders", "IrFolders", "PresetFolders"}) rig.erase(field);
+  rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
+  rig.erase(GetParam(kTunerActive)->GetName());
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
+    rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+    rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
+  }
+  return rig;
+}
+
 std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
@@ -1075,23 +1108,8 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
   {
     const auto name = nam_library::PathText(path.stem());
     if (name.empty() || name.size() > 512) throw std::runtime_error("Choose a shorter preset filename.");
-    IByteChunk chunk;
-    if (!SerializeState(chunk)) throw std::runtime_error("Cannot serialize this rig.");
-    WDL_String header, text;
-    const int pos = chunk.GetStr(header, 0);
-    if (pos < 0 || chunk.GetStr(text, pos) < 0) throw std::runtime_error("Cannot read this rig's state.");
-    auto rig = nlohmann::json::parse(text.Get());
+    auto rig = _CurrentRig();
     rig["PresetName"] = name;
-    rig.erase("PresetDirectory");
-    for (const char* field : {"NamFolders", "IrFolders", "PresetFolders"}) rig.erase(field);
-    rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
-    rig.erase(GetParam(kTunerActive)->GetName());
-    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    {
-      rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
-      rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
-      rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
-    }
     rig_preset::Write(path, rig);
     mPresetName = name; mPresetDirectory = nam_library::PathText(path.parent_path());
     for (const auto& folder : mPresetFolders)
@@ -1102,6 +1120,40 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
   catch (const std::exception& error) { return error.what(); }
 }
 
+void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, const std::string& directory)
+{
+  rig["PresetName"] = name;
+  rig["PresetDirectory"] = directory;
+  // Library folders and tuner choices belong to this instance, not the rig.
+  rig["NamFolders"] = mNamFolders;
+  rig["IrFolders"] = mIrFolders;
+  rig["PresetFolders"] = mPresetFolders;
+  rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
+  rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
+  rig[GetParam(kTunerActive)->GetName()] = GetParam(kTunerActive)->Value();
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
+    rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+    rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
+  }
+  IByteChunk chunk;
+  chunk.PutStr(kStateHeader); chunk.PutStr(rig.dump().c_str());
+  if (UnserializeState(chunk, 0) < 0) throw std::runtime_error("Preset contains invalid or unsupported rig state.");
+  mPresetDirectory = directory;
+  OnRestoreState();
+#ifdef CLAP_API
+  // A rig has more parameters than iPlug2's 512-event UI queue. Ask the host
+  // to read all current values instead of enqueueing thousands of gestures.
+  const auto* host = _host.host();
+  if (auto* params = static_cast<const clap_host_params*>(host->get_extension(host, CLAP_EXT_PARAMS)))
+    params->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+#else
+  DirtyParametersFromUI();
+#endif
+  _UpdateControlsFromModel(); _NotifyHostStateChanged();
+}
+
 std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
@@ -1110,39 +1162,46 @@ std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
     auto rig = rig_preset::Read(path);
     const auto name = nam_library::PathText(path.stem());
     if (name.empty() || name.size() > 512) throw std::runtime_error("Preset filename is too long.");
-    rig["PresetName"] = name;
-    rig["PresetDirectory"] = nam_library::PathText(path.parent_path());
-    // Library folders and tuner choices belong to this instance, not the rig.
-    rig["NamFolders"] = mNamFolders;
-    rig["IrFolders"] = mIrFolders;
-    rig["PresetFolders"] = mPresetFolders;
-    rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
-    rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
-    rig[GetParam(kTunerActive)->GetName()] = GetParam(kTunerActive)->Value();
-    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    {
-      rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
-      rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
-      rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
-    }
-    IByteChunk chunk;
-    chunk.PutStr(kStateHeader); chunk.PutStr(rig.dump().c_str());
-    if (UnserializeState(chunk, 0) < 0) throw std::runtime_error("Preset contains invalid or unsupported rig state.");
-    mPresetDirectory = nam_library::PathText(path.parent_path());
-    OnRestoreState();
-#ifdef CLAP_API
-    // A rig has more parameters than iPlug2's 512-event UI queue. Ask the host
-    // to read all current values instead of enqueueing thousands of gestures.
-    const auto* host = _host.host();
-    if (auto* params = static_cast<const clap_host_params*>(host->get_extension(host, CLAP_EXT_PARAMS)))
-      params->rescan(host, CLAP_PARAM_RESCAN_VALUES);
-#else
-    DirtyParametersFromUI();
-#endif
-    _UpdateControlsFromModel(); _NotifyHostStateChanged();
+    _ApplyRig(std::move(rig), name, nam_library::PathText(path.parent_path()));
     return {};
   }
   catch (const std::exception& error) { return error.what(); }
+}
+
+bool NeuralAmpModeler::ConfirmNewRig()
+{
+  auto* ui = GetUI();
+  return ui && _ShowMessageBox(ui, "Start a new empty rig?\n\nUnsaved changes to the current rig are lost.", "New rig",
+                               EMsgBoxType::kMB_YESNO) == EMsgBoxResult::kYES;
+}
+
+std::string NeuralAmpModeler::NewRig()
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  try
+  {
+    // Keep the preset folder so Save as and the arrows stay where the user works.
+    _ApplyRig(mEmptyRig, "Untitled", mPresetDirectory);
+    return {};
+  }
+  catch (const std::exception& error) { return error.what(); }
+}
+
+std::filesystem::path NeuralAmpModeler::GetRigPresetFile() const
+{
+  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  if (mPresetDirectory.empty()) return {};
+  const auto path = std::filesystem::u8path(mPresetDirectory) / std::filesystem::u8path(mPresetName + ".ngrid");
+  std::error_code error;
+  return std::filesystem::is_regular_file(path, error) ? path : std::filesystem::path{};
+}
+
+void NeuralAmpModeler::QuickSaveRigPreset()
+{
+  const auto path = GetRigPresetFile();
+  if (path.empty()) { PromptRigPreset(true); return; }
+  const auto error = SaveRigPreset(path);
+  if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "Rig preset", EMsgBoxType::kMB_OK);
 }
 
 void NeuralAmpModeler::PromptRigPreset(bool save)
@@ -1324,11 +1383,37 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
 void NeuralAmpModeler::OnUIOpen()
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  iplug::Plugin::OnUIOpen();
+  _SendAllParamValuesToUI();
   _UpdateLibraryControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
   _UpdateControlsFromModel();
+}
+
+// iPlug2's default full sync sends each parameter separately: a scan of every control plus
+// OnParamChangeUI per parameter, which took seconds with this many parameters and controls.
+// One pass over the controls sets the same values; the dependent UI refresh then runs once.
+void NeuralAmpModeler::_SendAllParamValuesToUI()
+{
+  auto* ui = GetUI();
+  if (!ui)
+    return;
+  for (int c = 0; c < ui->NControls(); ++c)
+  {
+    auto* control = ui->GetControl(c);
+    for (int v = 0; v < control->NVals(); ++v)
+      if (const int index = control->GetParamIdx(v); index > kNoParameter && index < NParams())
+        control->SetValueFromDelegate(GetParam(index)->GetNormalized(), v);
+  }
+  _RefreshParamDependentUI(true);
+}
+
+// iPlug2's default also runs OnParamChangeUI for every parameter after a state load.
+void NeuralAmpModeler::OnParamReset(iplug::EParamSource)
+{
+  for (int i = 0; i < NParams(); ++i)
+    OnParamChange(i);
+  _RefreshParamDependentUI(true);
 }
 
 void NeuralAmpModeler::OnUIClose()
@@ -1372,15 +1457,20 @@ void NeuralAmpModeler::OnParamChange(int paramIdx)
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 {
-  if (paramIdx == kTunerActive && IsTunerActive())
+  if (source == EParamSource::kUI && IsAlgorithmMode(parameter_layout::UtilityControl(paramIdx))
+      && (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot)))
+    _NotifyHostStateChanged(); // Algorithm selection is saved state, not an automation gesture.
+  _RefreshParamDependentUI(paramIdx == kTunerActive);
+}
+
+void NeuralAmpModeler::_RefreshParamDependentUI(bool tunerChanged)
+{
+  if (tunerChanged && IsTunerActive())
     if (auto* ui = GetUI())
     {
       ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       ui->GetControlWithTag(kCtrlTagPerformance)->Hide(true);
     }
-  if (source == EParamSource::kUI && IsAlgorithmMode(parameter_layout::UtilityControl(paramIdx))
-      && (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot)))
-    _NotifyHostStateChanged(); // Algorithm selection is saved state, not an automation gesture.
   _UpdateTunerControls();
   // Refresh labels/quality and selected-module controls after automation or preset recall.
   if (auto* ui = GetUI())

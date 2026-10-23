@@ -1,16 +1,21 @@
 # Rig presets and grid gains
 
 Click the preset name in the header to open the [preset browser](browser.md). It focuses
-Presets only and selects the current rig in its folder. Add preset folders, search them
+Presets only and selects the current rig in its folder. Search your preset folders
 recursively, and select a result before loading it with Enter, double-click or Load.
-Preset folders are a separate list from NAM and IR folders and are scanned only for `.ngrid`
-files; manage them in the browser or in Library & settings. NAM Grid ships no preset files; every listed preset is a `.ngrid` file
-in one of your preset folders. Save preset as..., Open file... and Delete preset are
-available in the browser; right-clicking the header
-name also offers quick load/save actions and the last used folder's presets. The arrow
-buttons step through that folder in filename order and wrap. The name shows the last
-saved or loaded filename; subsequent edits are not saved automatically. Saving over an
-existing filename asks for overwrite confirmation. Cancel leaves the rig intact.
+Preset folders are a separate list from NAM and IR folders, scanned only for `.ngrid`
+files, and are added in Library & settings (the browser's **Library folders...** opens it).
+NAM Grid ships no preset files; every listed preset is a `.ngrid` file in one of your
+preset folders. Save preset as..., Open file... and Delete preset are available in the
+browser; right-clicking the header name also offers quick load/save actions and the last
+used folder's presets. The arrow buttons step through that folder in filename order and wrap.
+
+The header **Save** button writes over the loaded preset's file without asking; for a rig
+that has no file yet it opens Save preset as. **New** asks for confirmation, then starts an
+empty grid named Untitled. It keeps library folders, tuner settings and the current preset
+folder for the arrows and Save as. The name shows the last saved or loaded filename;
+subsequent edits are not saved automatically. Save preset as asks before overwriting an
+existing filename. Cancel leaves the rig intact.
 
 Presets include all 16 module types, NAM/IR file references, slot controls, quality,
 input/output gain, lane balance, routing, shared modulation, macros and stored

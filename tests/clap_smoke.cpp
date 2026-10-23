@@ -1463,27 +1463,35 @@ int main(int argc, char** argv)
   assert(save().config() == restoredRig); // Cancel leaves the complete rig unchanged.
   auto secondRig = savedRig; secondRig["Output"] = -10.;
   rig_preset::Write(presetDirectory / "Second rig.ngrid", secondRig);
-  // Add preset roots using the actual directory picker, then browse them recursively.
+  // Preset folders are added in Library & settings; the browser links there.
   click(470, 28);
   click(220, 74); // Preset context has no NAM tab here.
-  win_file_dialog::Choose(presetDirectory, [&] { click(615, 74); }, false, true);
+  click(624, 74); // Library folders... opens settings.
+  win_file_dialog::Choose(presetDirectory, [&] { click(896, 175); }, false, true);
   pumpFor(250);
   assert(save().config()["PresetFolders"] == json::array({nam_library::PathText(presetDirectory)}));
+  click(915, 44); click(470, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-presets.bmp");
   chooseBrowserItem("SECOND RIG");
   assert(save().config()["Output"] == -10. && save().config()["PresetFolders"].size() == 1);
-  click(664, 28);
-  click(704, 28);
+  click(584, 28);
+  click(624, 28);
   assert(save().config()["PresetName"] == "Second rig" && save().config()["Output"] == -10.);
-  click(664, 28);
+  click(584, 28);
   if (save().config()["PresetName"] != "Clean rig" || save().config()["Output"] != -8.)
     std::cerr << "Previous preset: " << save().config()["PresetName"] << ", output=" << save().config()["Output"] << '\n';
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
   click(470, 28); chooseBrowserItem("SECOND RIG");
   assert(save().config()["PresetName"] == "Second rig");
-  click(664, 28);
+  click(584, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
   std::cout << "Preset folder selection and previous/next passed\n";
+  // Header Save writes over the loaded preset file without a dialog.
+  auto quickEdit = save().config(); quickEdit["Output"] = -5.;
+  load(quickEdit);
+  click(736, 28);
+  assert(rig_preset::Read(presetFile)["Output"] == -5. && save().config()["PresetName"] == "Clean rig");
+  std::cout << "Header quick save passed\n";
   // Deleting the selected (current) preset removes only its file, after confirmation.
   const auto beforeDelete = save().config();
   click(470, 28);
@@ -1494,6 +1502,22 @@ int main(int argc, char** argv)
   assert(save().config() == beforeDelete);
   keyAtEditor(VK_ESCAPE);
   std::cout << "Preset delete passed\n";
+  // Without an existing file, header Save falls back to Save as.
+  const auto savedAgain = presetDirectory / "Saved again.ngrid";
+  win_file_dialog::Choose(savedAgain, [&] { click(736, 28); });
+  assert(std::filesystem::exists(savedAgain) && save().config()["PresetName"] == "Saved again");
+  // New asks first, then starts an empty grid and keeps library folders and the preset folder.
+  const auto beforeNew = save().config();
+  win_file_dialog::Confirm(false, [&] { click(675, 28); });
+  assert(save().config() == beforeNew);
+  win_file_dialog::Confirm(true, [&] { click(675, 28); });
+  const auto fresh = save().config();
+  assert(fresh["PresetName"] == "Untitled" && fresh["PresetDirectory"] == beforeNew["PresetDirectory"]);
+  assert(fresh["PresetFolders"] == beforeNew["PresetFolders"] && fresh["NamFolders"] == beforeNew["NamFolders"]);
+  assert(fresh["Output"] == 0. && fresh["Global Input"] == 0.);
+  for (int slot = 0; slot < 16; ++slot)
+    assert(fresh["SlotEffects"][slot] == static_cast<int>(SlotEffect::NAM) && fresh["SlotPaths"][slot] == "");
+  std::cout << "Header Save as fallback and New passed\n";
   if (browserOnly)
   {
     if (argc == 4)

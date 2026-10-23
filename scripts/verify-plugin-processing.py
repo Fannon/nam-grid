@@ -21,23 +21,22 @@ def main():
     folder = args.output.resolve()
     folder.mkdir(parents=True, exist_ok=False)
     subprocess.run([str(args.host), '--fixtures', str(folder/'fixtures')], check=True, capture_output=True)
+    modules = json.loads(subprocess.check_output([str(args.host), '--modules'], text=True, encoding='utf-8'))
     # Native parameter values are converted to the adapter's host representation.
-    shared = [(5, 'Bass', 8.), (6, 'Middle', 2.), (7, 'Treble', 9.), (20, 'ToneStack', 1.),
-              (60, 'ToneStack', 0.), (70, 'Bass', 1.), (80, 'ToneStack', 1.),
-              (100, 'Split Crossover', 1.), (120, 'Split Frequency', 3500.),
+    shared = [(100, 'Split Crossover', 1.), (120, 'Split Frequency', 3500.),
               (160, 'Lane A Level', -6.), (180, 'Lane B Level', 3.),
               (200, 'Parallel Blend', 60.), (240, 'Lane Fine Timing', 1.),
               (260, 'Split Frequency', 40.), (300, 'Lane A Mute', 1.),
               (330, 'Lane A Mute', 0.), (370, 'Split Crossover', 0.),
-              (400, 'ToneStack', 0.), (420, 'Global Input', -12.),
+              (420, 'Global Input', -12.),
               (440, 'Output', -6.), (460, 'Tuner', 1.), (480, 'Tuner Mute', 1.),
               (520, 'Tuner Mute', 0.), (540, 'Tuner', 0.)]
-    ir_changes = [(10, 'Pre 1 IR Level', -6.), (80, 'Drive Enabled', 0.),
-                  (400, 'Drive Enabled', 1.), (500, 'Pre 1 IR Level', 0.),
+    ir_changes = [(10, 'Pre 1 IR Level', -6.), (80, 'Pre 1 Enabled', 0.),
+                  (400, 'Pre 1 Enabled', 1.), (500, 'Pre 1 IR Level', 0.),
                   (600, 'LFO Target', 'Parallel blend'), (601, 'LFO Depth', 40.)]
     cases = [('shared', {'id': 'empty', 'effect': 0, 'controls': {}}, shared)]
     for name in ['ir-2048.wav', 'ir-16384.wav']:
-        cases.append((name, {'id': name, 'effect': 7, 'controls': {},
+        cases.append((name, {'id': name, 'effect': modules['Cabinet IR'], 'controls': {},
                              'asset': str(folder/'fixtures'/name)}, ir_changes))
     rows = []
     try:

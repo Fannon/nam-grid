@@ -1,7 +1,6 @@
 # Adaptive cabinet convolution
 
-`AdaptiveIR` is the shared cabinet processor for grid slots and the legacy global
-IR. The WAV decoder, cubic resampling, rate-dependent gain, maximum 8192 resampled
+`AdaptiveIR` is the cabinet processor for Cabinet IR slots. The WAV decoder, cubic resampling, rate-dependent gain, maximum 8192 resampled
 taps, mono-kernel API and independent L/R histories are retained. Parameters,
 module IDs and saved state are unchanged. No IR Lite control is introduced.
 
@@ -46,10 +45,7 @@ The accompanying grid changes remove repeat work while retaining its state:
   exactly unchanged. Reset invalidates it for the new sample rate.
 - Tail reporting avoids slot parameter reads when the freeze-capable module mask
   is empty. Freeze/Shimmer active/hold semantics are retained.
-- The disabled legacy tone stack no longer recalculates coefficients; all three
-  current controls are applied before the next enabled block.
-- The settled legacy IR fade skips multiplication by unity, and modulation
-  reuses the host tempo snapshot already taken for that callback.
+- Modulation reuses the host tempo snapshot already taken for that callback.
 
 No empty-grid bypass shortcuts skip slot staging, routing smoothing, metering or
 tuner activity. The remaining cost is small; a broader routing rewrite is not

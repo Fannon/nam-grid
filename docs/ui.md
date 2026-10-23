@@ -2,7 +2,7 @@
 
 The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, dark flat
 surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
-selector or animated settings overlay is instantiated. Routing stays fixed. This unreleased prototype does not guarantee old parameter IDs or project compatibility.
+selector or animated settings overlay is instantiated. Routing stays fixed.
 
 The compact header contains the logo, preset folder browser and arrows, Tuner,
 Grid / Control and Library & settings. IN gain sits before the first grid card;
@@ -125,17 +125,9 @@ The previous/next buttons stay within the same physical folder and file type for
 or within the current module-menu category for built-in effects. Both directions wrap.
 An empty NAM slot stays empty until a file is chosen. The main chooser can select any category.
 
-`CaptureFolders` is retained in project state. `CaptureFolder` remains a first-root alias
-for older readers. Older single-root projects and user preferences migrate automatically.
+Library folders (`CaptureFolders`) are saved in project state.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
-
-## Older project processing
-
-New instance defaults disable the former shared gate, EQ and IR. Those stages are now chosen
-as modules. Their old host parameter IDs and saved values remain readable, for the older formats that remain readable. Older unreleased grid states can require rebuilding after the Pre/Post parameter-name changes. When any inherited processing is enabled, settings exposes Legacy
-gate / EQ / IR toggles to disable it. Previous Pre 2 input calibration/output-mode behavior remains
-in a flat settings section, separate from musical input gain. This change introduces no DSP latency.
 
 ## Tuner and performance controls
 

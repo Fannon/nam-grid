@@ -213,7 +213,7 @@ public:
       if (const auto* group = nam_library::ModuleGroupFor(effect))
       {
         view.folder = std::filesystem::u8path(group->name);
-        view.selected = nam_library::PathText(view.folder / SlotEffectName(effect == SlotEffect::TightGate ? SlotEffect::NaturalGate : effect));
+        view.selected = nam_library::PathText(view.folder / SlotEffectName(effect));
       }
     }
     else if (kind != nam_library::FileKind::RigPreset) view.selected = PLUG()->GetSlotPath(mSlot);
@@ -537,7 +537,7 @@ private:
     {
       const auto effect = static_cast<SlotEffect>(file->module);
       const auto current = PLUG()->GetSlotEffect(mSlot);
-      if (effect != (current == SlotEffect::TightGate ? SlotEffect::NaturalGate : current)) PLUG()->SetSlotEffect(mSlot, effect);
+      if (effect != current) PLUG()->SetSlotEffect(mSlot, effect);
       Hide(true); return;
     }
     const auto error = file->kind == nam_library::FileKind::RigPreset ? PLUG()->LoadRigPreset(path)
@@ -599,7 +599,7 @@ private:
   {
     switch (effect)
     {
-      case SlotEffect::NaturalGate: case SlotEffect::TightGate: return "Threshold, Release, Reduction";
+      case SlotEffect::NoiseGate: return "Threshold, Release, Reduction";
       case SlotEffect::SmoothComp: case SlotEffect::PunchComp: return "Threshold, Release, Makeup";
       case SlotEffect::ToneEQ: return "Bass, Mid, Treble";
       case SlotEffect::CutEQ: return "Low cut, High cut, Presence";

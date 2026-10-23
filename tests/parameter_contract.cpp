@@ -3,29 +3,40 @@
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include <set>
 
-// Simulate several future additions without adding selectable dummy controls.
-static_assert(parameter_layout::UtilityID(15, 200) == 3546);
-static_assert(parameter_layout::UtilityID(0, 201) == 3547);
-static_assert(parameter_layout::UtilityID(15, 201) == 3562);
-static_assert(parameter_layout::UtilityID(0, 202) == 3563);
-static_assert(
-  [] {
-    constexpr int futureCount = 205;
-    for (int slot = 0; slot < 16; ++slot)
-      for (int control = 0; control < futureCount; ++control)
-      {
-        const int id = parameter_layout::UtilityID(slot, control);
-        if (parameter_layout::UtilitySlot(id, futureCount) != slot
-            || parameter_layout::UtilityControl(id, futureCount) != control)
-          return false;
-        if (id != 331 + control * 16 + slot)
-          return false;
-        if (control >= 201 && id <= 3546)
-          return false;
-      }
-    return true;
-  }(),
-  "Growing the effect bank must preserve every old ID and ownership");
+// Simulate future growth with hypothetical segment tables: appending controls to
+// the last segment, then a global segment, then more slot controls, must never
+// move an existing ID or change which slot/control owns it.
+namespace future_layout
+{
+using parameter_layout::Segment;
+inline constexpr int g = parameter_layout::globalControls, s = parameter_layout::slotControls;
+inline constexpr Segment current[]{{g, s}};
+inline constexpr Segment grown[]{{g, s + 3}};
+inline constexpr Segment extended[]{{g, s + 3}, {2, 0}, {0, 4}};
+constexpr bool Preserves(std::span<const Segment> before, std::span<const Segment> after, int globals, int controls)
+{
+  for (int i = 0; i < globals; ++i)
+    if (parameter_layout::GlobalID(after, i) != parameter_layout::GlobalID(before, i))
+      return false;
+  for (int control = 0; control < controls; ++control)
+    for (int slot = 0; slot < parameter_layout::slots; ++slot)
+    {
+      const int id = parameter_layout::SlotID(before, slot, control);
+      if (id < 0 || parameter_layout::SlotID(after, slot, control) != id
+          || parameter_layout::SlotOf(after, id) != slot || parameter_layout::ControlOf(after, id) != control)
+        return false;
+    }
+  return true;
+}
+static_assert(Preserves(current, grown, g, s) && Preserves(grown, extended, g, s + 3));
+// New IDs are unique, contiguous and start where the previous table ended.
+static_assert(parameter_layout::SlotID(grown, 0, s) == parameter_layout::Total(current));
+static_assert(parameter_layout::GlobalID(extended, g) == parameter_layout::Total(grown));
+static_assert(parameter_layout::SlotID(extended, 0, s + 3) == parameter_layout::Total(grown) + 2);
+static_assert(parameter_layout::SlotID(extended, 15, s + 6) == parameter_layout::Total(extended) - 1);
+static_assert(parameter_layout::SlotOf(extended, parameter_layout::GlobalID(extended, g + 1)) == -1);
+static_assert(parameter_layout::Total(current) == kNumParams);
+} // namespace future_layout
 
 int main(int argc, char** argv)
 {
@@ -55,7 +66,7 @@ int main(int argc, char** argv)
   };
   auto load = [&](const json& config) {
     Stream data;
-    data.string("###NAMGrid-v1###");
+    data.string("###nam-grid###");
     data.string(config.dump());
     clap_istream stream{&data, Stream::read};
     return state->load(plugin, &stream);
@@ -85,47 +96,49 @@ int main(int argc, char** argv)
                 {"stepped", bool(info.flags & CLAP_PARAM_IS_STEPPED)},
                 {"mapping", text}};
   };
+  const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
   const std::filesystem::path fixture = argv[2];
   if (argc == 4)
   {
     assert(std::string(argv[3]) == "--record");
-    json snapshot{{"baseline", "Stable layout v1; algorithm selectors are state only"},
+    json snapshot{{"baseline", "nam-grid 0.1.0 host layout; algorithm selectors are state only"},
+                  {"plugin", {{"clap_id", descriptor->id}, {"vendor", descriptor->vendor}, {"name", descriptor->name}}},
                   {"state_schema", kEffectStateSchema},
-                  {"utility", json::array()},
+                  {"slot", json::array()},
                   {"global", json::array()},
                   {"algorithms", json::object()},
                   {"modules", json::object()}};
-    for (int p = 0; p < kUtilityControls; ++p)
+    for (int control = 0; control < parameter_layout::slotControls; ++control)
     {
-      snapshot["utility"].push_back(metadata(SlotUtilityParam(0, p)));
-      if (IsAlgorithmMode(p))
+      snapshot["slot"].push_back(metadata(SlotParam(0, control)));
+      const int p = control - parameter_layout::standardControls;
+      if (p >= 0 && IsAlgorithmMode(p))
         for (const auto& mode : AlgorithmIdentities(p))
           snapshot["algorithms"][kEffectParameters[p].name][mode.key] = mode.value;
     }
-    for (int id = 0; id < parameter_layout::utilityBase; ++id)
-      if (parameter_layout::UtilityControl(id) < 0)
-        snapshot["global"].push_back(metadata(id));
-    for (const auto& group : nam_library::kModuleGroups)
-      for (auto effect : group.effects)
-        snapshot["modules"][SlotEffectName(effect)] = static_cast<int>(effect);
-    // File modules and the legacy gate alias are not separate catalog entries.
-    snapshot["modules"]["NAM"] = static_cast<int>(SlotEffect::NAM);
-    snapshot["modules"]["Cabinet IR"] = static_cast<int>(SlotEffect::CabinetIR);
-    snapshot["legacy_tight_gate"] = static_cast<int>(SlotEffect::TightGate);
+    for (int index = 0; index < parameter_layout::globalControls; ++index)
+      snapshot["global"].push_back(metadata(parameter_layout::GlobalID(index)));
+    for (int effect = 0; effect <= static_cast<int>(SlotEffect::Last); ++effect)
+      snapshot["modules"][SlotEffectName(static_cast<SlotEffect>(effect))] = effect;
     std::ofstream(fixture) << snapshot.dump(2) << '\n';
   }
   json snapshot;
   std::ifstream(fixture) >> snapshot;
+  assert(snapshot["plugin"]["clap_id"] == descriptor->id && snapshot["plugin"]["vendor"] == descriptor->vendor
+         && snapshot["plugin"]["name"] == descriptor->name);
   assert(params->count(plugin) == kNumParams);
+  assert(snapshot["slot"].size() <= parameter_layout::slotControls);
   for (int slot = 0; slot < 16; ++slot)
-    for (int p = 0; p < snapshot["utility"].size(); ++p)
+    for (int control = 0; control < snapshot["slot"].size(); ++control)
     {
-      const int id = SlotUtilityParam(slot, p);
-      auto expected = snapshot["utility"][p];
-      expected["id"] = snapshot["utility"][p]["id"].get<int>() + slot;
+      const int id = SlotParam(slot, control);
+      auto expected = snapshot["slot"][control];
+      // Slot 0's name begins "Pre 1 "; every slot shares the remaining control name.
+      expected["id"] = expected["id"].get<int>() + slot;
       expected["name"] = GridSlotName(slot) + " " + expected["name"].get<std::string>().substr(6);
       auto actual = metadata(id);
-      if (IsAlgorithmMode(p))
+      const int p = control - parameter_layout::standardControls;
+      if (p >= 0 && IsAlgorithmMode(p))
       {
         // Algorithm menus may grow. Their integer identities remain frozen, and
         // unlike musical controls they must never acquire automation flags.
@@ -141,7 +154,12 @@ int main(int argc, char** argv)
       assert(actual == expected);
     }
   for (const auto& expected : snapshot["global"])
-    assert(metadata(expected["id"].get<int>()) == expected);
+  {
+    const auto actual = metadata(expected["id"].get<int>());
+    if (actual != expected)
+      std::cerr << "Parameter contract changed: " << expected << "\nActual: " << actual << '\n';
+    assert(actual == expected);
+  }
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p))
     {
@@ -156,18 +174,14 @@ int main(int argc, char** argv)
           modes.begin(), modes.end(), [&](const auto& mode) { return identity == mode.key && value == mode.value; }));
       }
     }
+  // Module IDs are permanent; display names may change only by re-recording a reviewed baseline.
+  for (const auto& [name, id] : snapshot["modules"].items())
+    assert(IsValidSlotEffect(static_cast<SlotEffect>(id.get<int>()))
+           && name == SlotEffectName(static_cast<SlotEffect>(id.get<int>())));
   std::set<int> moduleIDs;
   for (const auto& group : nam_library::kModuleGroups)
     for (auto effect : group.effects)
-    {
-      assert(moduleIDs.insert(static_cast<int>(effect)).second);
-      const auto previous = snapshot["modules"].find(SlotEffectName(effect));
-      if (previous != snapshot["modules"].end())
-        assert(*previous == static_cast<int>(effect));
-    }
-  for (const auto& [name, id] : snapshot["modules"].items())
-    assert(name == SlotEffectName(static_cast<SlotEffect>(id.get<int>())));
-  assert(snapshot["legacy_tight_gate"] == static_cast<int>(SlotEffect::TightGate));
+      assert(moduleIDs.insert(static_cast<int>(effect)).second && IsValidSlotEffect(effect));
 
   // All selectors, all current choices and all slots must survive state recall.
   // Scenes retain raw algorithm identities too; no normalized values are saved.
@@ -176,7 +190,8 @@ int main(int argc, char** argv)
   // original baseline preset gains defaults without losing any existing values.
   auto historical = base;
   historical["schema"] = snapshot["state_schema"];
-  for (int p = static_cast<int>(snapshot["utility"].size()); p < kUtilityControls; ++p)
+  for (int p = static_cast<int>(snapshot["slot"].size()) - parameter_layout::standardControls;
+       p < kUtilityControls; ++p)
     for (int slot = 0; slot < 16; ++slot)
       historical.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
   assert(load(historical));
@@ -217,6 +232,6 @@ int main(int argc, char** argv)
 #else
   dlclose(library);
 #endif
-  std::cout << "Parameter compatibility: stable v1 IDs/mappings, append-only growth, all algorithms/modules, "
+  std::cout << "Parameter compatibility: frozen 0.1.0 IDs/mappings, append-only growth, all algorithms/modules, "
                "preset/scene recall and atomic rejection passed\n";
 }

@@ -1,7 +1,7 @@
 # README screenshots
 
-Captured on Windows x64 from `main` commit `17f6217` on 2026-10-22,
-after rebuilding the Release CLAP plugin in `build-grid/out`.
+Captured on Windows x64 from the 0.1.0 release candidate on 2026-10-23,
+using the Release CLAP plugin in `build-grid/out`.
 
 - `grid.png`: an illustrative built-in-effects pedalboard, with B1 Cosmic Echo
   selected and generated audio driving the meters. “Ambient pedalboard” is the

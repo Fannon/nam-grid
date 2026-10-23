@@ -29,7 +29,7 @@ void TestEffectPresentation()
           for (int p = 0; p < kUtilityControls; ++p)
             assert(defaults[17+p] >= kEffectParameters[p].minimum && defaults[17+p] <= kEffectParameters[p].maximum);
           std::array<bool, 7> occupied{};
-          if (effect == SlotEffect::NaturalGate || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp
+          if (effect == SlotEffect::NoiseGate || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp
               || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
             occupied[0] = occupied[1] = occupied[2] = true;
           if (effect == SlotEffect::ParametricEQ) occupied[3] = occupied[4] = true;

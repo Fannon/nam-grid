@@ -12,7 +12,7 @@ For a waveform audit against a preserved CLAP binary, use the explicitly built
 python scripts/verify-plugin-processing.py --before /path/to/before.clap --after build-grid/out/nam-grid.clap --output build-grid/processing-audit
 ```
 
-This compares crossover, lane/input/output gains, legacy EQ toggles, tuner mute,
+This compares crossover, lane/input/output gains, tuner mute,
 IR levels/bypass and modulation at four rates and three buffers. Shared processing
 must match exactly; IR output has a 1e-6 maximum error tolerance for FFT rounding.
 Native-double render files are generated only for this explicit audit and removed
@@ -124,14 +124,14 @@ and after runs to distinguish improvements from changes in machine load.
 ## Coverage
 
 The host reads `kModuleGroups`, `SlotDefaultValues`, shared effect choices and
-presentation metadata directly from C++. Adding catalog modules, enum choices,
+presentation metadata directly from C++; `--modules` prints module names and IDs, so the
+Python scripts never hard-code module IDs. Adding catalog modules, enum choices,
 or binary switches extends the benchmark automatically. It tests the Cartesian
 product of each module's enum and binary controls, including distortion styles,
 filter/gate/Juno modes, console desks, tape-head patterns, Cosmic topologies,
 mono/stereo reverb, ping-pong, rotary speed, vibrato, hold/freeze, and tempo sync.
 Every tempo division is also tested with other mode controls at insertion defaults;
 divisions are not multiplied through every other mode combination.
-The legacy Tight Gate is covered by Noise Gate's Tight mode.
 
 Airwindows reverb processing-resolution minimum, default and maximum are sampled.
 Other continuous knobs use their module's insertion defaults, so these figures

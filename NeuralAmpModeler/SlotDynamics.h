@@ -4,68 +4,68 @@
 
 // Algorithm references: AudioDSPTools (MIT, Steven Atkinson) and LEAF's
 // tCompressor (MIT, Jeff Snyder). Independent mono implementation; no LEAF runtime.
-// See docs/modules.md and installer/ThirdPartyNotices.txt for provenance/notices.
+// See docs/modules.md and ThirdPartyNotices.txt for provenance/notices.
 enum class SlotEffect
 {
-  // Persistent IDs: append only. Never renumber or reuse retired entries.
+  // Persistent IDs saved in projects and presets: append only. Never renumber,
+  // reorder or reuse an ID; retire a module by leaving its ID unused.
   NAM = 0,
-  NaturalGate = 1,
-  TightGate = 2,
-  SmoothComp = 3,
-  PunchComp = 4,
-  ToneEQ = 5,
-  CutEQ = 6,
-  CabinetIR = 7,
-  ParametricEQ = 8,
-  Boost = 9,
-  SynthFilter = 10,
-  AutoSwell = 11,
-  DigitalDelay = 12,
-  AnalogDelay = 13,
-  TapeDelay = 14,
-  RoomReverb = 15,
-  PlateReverb = 16,
-  CloudReverb = 17,
-  Chorus = 18,
-  Flanger = 19,
-  Phaser = 20,
-  Tremolo = 21,
-  Vibrato = 22,
-  Tape = 23,
-  TubeBoost = 24,
-  Utility = 25,
-  SpringReverb = 26,
-  Wah = 27,
-  Rotary = 28,
-  UniVibe = 29,
-  Limiter = 30,
-  Octaver = 31,
-  Doubler = 32,
-  ReverseDelay = 33,
-  DualDelay = 34,
-  Freeze = 35,
-  Stutter = 36,
-  Bitcrusher = 37,
-  RingMod = 38,
-  ShimmerReverb = 39,
-  JunoChorus = 40,
-  FrequencyShifter = 41,
-  Distortion = 42,
-  LoFiTape = 43,
-  NoisePrint = 64,
-  HallReverb = 65,
-  MultiHeadDelay = 66,
-  DiffusedDelay = 67,
-  AirPlate = 68,
-  AirHall = 69,
-  GalacticSpace = 70,
-  CosmicEcho = 71,
-  OutboardChannel = 72,
-  ConsoleColour = 73,
-  ConsoleEQ = 74,
-  ButterComp = 75,
-  DigitalBlack = 76,
-  Pressure = 77,
+  NoiseGate = 1,
+  SmoothComp = 2,
+  PunchComp = 3,
+  ToneEQ = 4,
+  CutEQ = 5,
+  CabinetIR = 6,
+  ParametricEQ = 7,
+  Boost = 8,
+  SynthFilter = 9,
+  AutoSwell = 10,
+  DigitalDelay = 11,
+  AnalogDelay = 12,
+  TapeDelay = 13,
+  RoomReverb = 14,
+  PlateReverb = 15,
+  CloudReverb = 16,
+  Chorus = 17,
+  Flanger = 18,
+  Phaser = 19,
+  Tremolo = 20,
+  Vibrato = 21,
+  Tape = 22,
+  TubeBoost = 23,
+  Utility = 24,
+  SpringReverb = 25,
+  Wah = 26,
+  Rotary = 27,
+  UniVibe = 28,
+  Limiter = 29,
+  Octaver = 30,
+  Doubler = 31,
+  ReverseDelay = 32,
+  DualDelay = 33,
+  Freeze = 34,
+  Stutter = 35,
+  Bitcrusher = 36,
+  RingMod = 37,
+  ShimmerReverb = 38,
+  JunoChorus = 39,
+  FrequencyShifter = 40,
+  Distortion = 41,
+  LoFiTape = 42,
+  NoisePrint = 43,
+  HallReverb = 44,
+  MultiHeadDelay = 45,
+  DiffusedDelay = 46,
+  AirPlate = 47,
+  AirHall = 48,
+  GalacticSpace = 49,
+  CosmicEcho = 50,
+  OutboardChannel = 51,
+  ConsoleColour = 52,
+  ConsoleEQ = 53,
+  ButterComp = 54,
+  DigitalBlack = 55,
+  Pressure = 56,
   Last = Pressure,
 };
 inline const char* SlotEffectName(SlotEffect effect)
@@ -73,8 +73,7 @@ inline const char* SlotEffectName(SlotEffect effect)
   switch (effect)
   {
     case SlotEffect::NAM: return "NAM";
-    case SlotEffect::NaturalGate:
-    case SlotEffect::TightGate: return "Noise Gate";
+    case SlotEffect::NoiseGate: return "Noise Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";
     case SlotEffect::PunchComp: return "Punch Compressor";
     case SlotEffect::ToneEQ: return "Guitar EQ";
@@ -134,13 +133,13 @@ inline const char* SlotEffectName(SlotEffect effect)
   return "Unknown";
 }
 inline bool IsValidSlotEffect(SlotEffect effect)
-{ return (effect >= SlotEffect::NAM && effect <= SlotEffect::LoFiTape) || (effect >= SlotEffect::NoisePrint && effect <= SlotEffect::Last); }
+{ return effect >= SlotEffect::NAM && effect <= SlotEffect::Last; }
 struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;
   double compThreshold = -18., compRelease = 120., compMakeup = 0.;
   double compAttack = 8., compMix = 100., punchAttack = 25.;
-  int gateMode = -1; // Unspecified retains the legacy DSP entry point; hosts supply Natural=0 / Tight=1.
+  int gateMode = 0; // Natural = 0, Tight = 1
 };
 
 class SlotDynamics
@@ -169,8 +168,8 @@ public:
   void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls, double* beforeMakeup = nullptr)
   {
     mMinimumMonitorGain = 1.;
-    const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
-    const bool tight = controls.gateMode < 0 ? effect == SlotEffect::TightGate : controls.gateMode == 1;
+    const bool gate = effect == SlotEffect::NoiseGate;
+    const bool tight = controls.gateMode == 1;
     const bool punch = effect == SlotEffect::PunchComp;
     const double threshold =
       std::clamp(gate ? controls.gateThreshold : controls.compThreshold, gate ? -90. : -48., gate ? -10. : 0.);

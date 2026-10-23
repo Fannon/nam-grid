@@ -49,7 +49,7 @@ void TestOutboard()
           allocations = deletions = 0;
           tracking = true;
           Eigen::internal::set_is_malloc_allowed(false);
-          stage.Process(audio[0].data() + pos, n, true, 0., 0., false, 0., 0, 1., {}, {}, c, audio[1].data() + pos);
+          stage.Process(audio[0].data() + pos, n, true, 0., 0., {}, {}, c, audio[1].data() + pos);
           Eigen::internal::set_is_malloc_allowed(true);
           tracking = false;
           assert(allocations == 0 && deletions == 0);
@@ -146,7 +146,7 @@ void TestAirDynamics()
             allocations = deletions = 0;
             tracking = true;
             Eigen::internal::set_is_malloc_allowed(false);
-            stage.Process(audio[0].data() + pos, n, true, 0., 0., false, 0., 0, 1., {}, {}, c, audio[1].data() + pos);
+            stage.Process(audio[0].data() + pos, n, true, 0., 0., {}, {}, c, audio[1].data() + pos);
             Eigen::internal::set_is_malloc_allowed(true);
             tracking = false;
             assert(allocations == 0 && deletions == 0);

@@ -20,7 +20,7 @@ struct SavedLibrarySettings
   {
     wchar_t folder[MAX_PATH]{};
     assert(SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, folder)));
-    file = std::filesystem::path(folder) / "NAMDualPrototype" / "library.json";
+    file = std::filesystem::path(folder) / "nam-grid" / "library.json";
     existed = std::filesystem::exists(file);
     if (existed)
     {

@@ -30,9 +30,8 @@ host-restart policy; it can briefly occupy the editor for large models.
 
 Algorithm selections are retained in rigs, projects and scenes and are changed
 in the editor rather than through automation. Adding new modes preserves saved
-choices and the other controls' automation mappings from the new baseline onward.
-Older preview presets are read on a best-effort basis; their automation IDs are
-not migrated. See
+choices and the other controls' automation mappings. Presets from builds before
+0.1.0 are rejected and must be rebuilt. See
 [parameter compatibility](development.md#parameter-and-project-compatibility).
 
 ## Gain placement

@@ -11,7 +11,7 @@
 
 // MPM key-peak selection adapted from trace-tuner/src/core.rs at
 // 2e1ff89243698b8f4fca33dc4505a2cd749d9e67 (MIT, Simon Heimler, 2026).
-// See installer/ThirdPartyNotices.txt. Direct autocorrelation replaces RustFFT;
+// See ThirdPartyNotices.txt. Direct autocorrelation replaces RustFFT;
 // all detection runs on the worker, never in the host's processing callback.
 namespace grid_tuner
 {

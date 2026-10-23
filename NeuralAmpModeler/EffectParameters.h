@@ -282,13 +282,16 @@ inline constexpr bool IsAlgorithmMode(int control)
   // New enum selectors must register permanent identities above (asserted below).
   return (!EffectChoices(control).empty() && control != uTempoDivision) || control == uEQMode || control == uVibeMode;
 }
-inline constexpr int kInitialEffectStateSchema = 26;
-inline constexpr int kEffectStateSchema = 26;
+// Project/preset state schema. 1 is the 0.1.0 baseline. Bump kEffectStateSchema
+// when adding saved fields, and set `introducedIn` on each new control so older
+// states gain that control's default. Never lower or reuse a schema number.
+inline constexpr int kInitialEffectStateSchema = 1;
+inline constexpr int kEffectStateSchema = 1;
 
 struct EffectParameter
 {
-  // `name` is also the permanent preset/scene storage key. Change `label` for
-  // editor wording; renaming a storage key requires an explicit migration.
+  // `name` is also the permanent host parameter name and preset/scene storage
+  // key. Change `label` for editor wording; never rename a released `name`.
   const char* name;
   const char* label;
   double initial, minimum, maximum, step;
@@ -299,12 +302,6 @@ struct EffectParameter
   // Set explicitly for future controls when bumping kEffectStateSchema.
   int introducedIn = kInitialEffectStateSchema;
 };
-// Read presets/scenes from the preceding audition builds after clarifying
-// frequency-cutoff names. The controls and values themselves are unchanged.
-inline constexpr std::array<std::pair<int, const char*>, 8> kPreviousCutoffNames{{
-  {uDelayTone,"Delay Tone"}, {uOctTone,"Octaver Tone"}, {uFreezeTone,"Freeze Tone"},
-  {uCrushTone,"Crusher Tone"}, {uRingTone,"Ring Tone"}, {uShiftTone,"Shifter Tone"},
-  {uDistTone,"Distortion Tone"}, {uCosmicTone,"Cosmic Tone"}}};
 inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters{
   {{"Parametric Frequency", "Frequency", 800, 20, 20000, 1, "Hz", 0, true},
    {"Parametric Gain", "Gain", 0, -12, 12, .1, "dB", 1},
@@ -599,7 +596,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::DiffusedDelay)
     return (p >= uDelayTime && p <= uDelayTone) || p == uDelayDiffusion || p == uDelayMotion || p == uDelayMix || p == uDelayOutput;
   if (e == SlotEffect::LoFiTape) return p >= uLoFiSpeed && p <= uLoFiOutput;
-  if (e == SlotEffect::NaturalGate || e == SlotEffect::TightGate) return p == uGateMode;
+  if (e == SlotEffect::NoiseGate) return p == uGateMode;
   if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
   if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
   if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;

@@ -168,7 +168,7 @@ void TestSlotFeatures()
       allocations = deletions = 0;
       tracking = true;
       Eigen::internal::set_is_malloc_allowed(false);
-      toneStage.Process(actual.data(), n, true, 6., -3., false, 0., 0, 1., {}, tone);
+      toneStage.Process(actual.data(), n, true, 6., -3., {}, tone);
       referenceModel->model->process(&in, &out, n);
       referenceEQ.Process(out, n, false, tone);
       referenceCuts.Process(out, n, true, tone);
@@ -185,7 +185,7 @@ void TestSlotFeatures()
       for (int b = 0; b < 3; ++b)
       {
         actual.fill(.1);
-        toneStage.Process(actual.data(), 512, false, 6., -3., false, 0., 0, 1., {}, tone);
+        toneStage.Process(actual.data(), 512, false, 6., -3., {}, tone);
         if (b > 0)
           for (double x : actual)
             assert(x == .1);
@@ -222,7 +222,7 @@ void TestSlotFeatures()
         allocations = deletions = 0;
         tracking = true;
         Eigen::internal::set_is_malloc_allowed(false);
-        stage.Process(signal.data(), n, true, 0., 0., false, 0., 0, 1., {}, cuts, settings);
+        stage.Process(signal.data(), n, true, 0., 0., {}, cuts, settings);
         Eigen::internal::set_is_malloc_allowed(true);
         tracking = false;
         assert(allocations == 0 && deletions == 0 && stage.Latency() == 0);
@@ -238,7 +238,7 @@ void TestSlotFeatures()
       for (int b = 0; b < 3; ++b)
       {
         signal.fill(.05);
-        stage.Process(signal.data(), 512, false, 0., 0., false, 0., 0, 1., {}, cuts, settings);
+        stage.Process(signal.data(), 512, false, 0., 0., {}, cuts, settings);
         if (b > 0)
           for (double x : signal)
             assert(x == .05);
@@ -265,7 +265,7 @@ void TestSlotFeatures()
       allocations = deletions = 0;
       tracking = true;
       Eigen::internal::set_is_malloc_allowed(false);
-      cabinet.Process(buffer.data(), n, true, 12., 12., false, 0., 0, 1., {}, controls);
+      cabinet.Process(buffer.data(), n, true, 12., 12., {}, controls);
       auto* expected = reference.Process(&refPointer, 1, n);
       Eigen::internal::set_is_malloc_allowed(true);
       tracking = false;
@@ -276,7 +276,7 @@ void TestSlotFeatures()
     cabinet.ResetStopped(rate, 1);
     double sample = 1.;
     tracking = true;
-    cabinet.Process(&sample, 1, true, 0., 0., false, 0., 0, 1., {}, controls);
+    cabinet.Process(&sample, 1, true, 0., 0., {}, controls);
     tracking = false;
     assert(std::isfinite(sample) && allocations == 0 && deletions == 0);
     // Full/Lite are both prepared outside audio and matched to the direct A2 child model.
@@ -300,8 +300,8 @@ void TestSlotFeatures()
         allocations = deletions = 0;
         tracking = true;
         Eigen::internal::set_is_malloc_allowed(false);
-        stage.Process(buffer.data(), n, true, 0., 0., false, 0., 0, quality);
-        direct.Process(ref.data(), n, true, 0., 0., false, 0., 0, 1.);
+        stage.Process(buffer.data(), n, true, 0., 0.);
+        direct.Process(ref.data(), n, true, 0., 0.);
         Eigen::internal::set_is_malloc_allowed(true);
         tracking = false;
         assert(allocations == 0 && deletions == 0);
@@ -347,7 +347,7 @@ void TestSlotFeatures()
   NAMStage empty;
   empty.ResetStopped(48000., 512);
   double impulse = 1.5;
-  empty.Process(&impulse, 1, true, 0., 0., false, 0., 0, 1.);
+  empty.Process(&impulse, 1, true, 0., 0.);
   auto meter = empty.TakeMeter();
   assert(meter.input == 0.f && meter.output == 0.f && meter.reduction == 0.f);
   assert(empty.TakeMeter().input == 0.f);
@@ -360,7 +360,7 @@ void TestSlotFeatures()
   for (int i = 0; i < 100; ++i)
   {
     loud.fill(.5);
-    compressor.Process(loud.data(), 512, true, 0., 0., false, 0., 0, 1.);
+    compressor.Process(loud.data(), 512, true, 0., 0.);
   }
   meter = compressor.TakeMeter();
   assert(meter.input == .5f && meter.output <= .5f && meter.reduction > 7.f && meter.reduction < 8.f);
@@ -389,7 +389,7 @@ void TestRealCaptureQuality(const char* path)
         audio[i] = .05 * std::sin((b * 512 + i) * .03);
       tracking = true;
       Eigen::internal::set_is_malloc_allowed(false);
-      stage.Process(audio.data(), n, true, 0., 0., false, 0., 0, 1.);
+      stage.Process(audio.data(), n, true, 0., 0.);
       Eigen::internal::set_is_malloc_allowed(true);
       tracking = false;
       for (int i = 0; i < n; ++i)

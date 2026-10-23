@@ -63,7 +63,7 @@ void TestDSPReviewFixes()
         const int n = std::min(duration - pos, std::array<int, 4>{1, 3, 64, 127}[block++ % 4]);
         left.fill(phase == 0 ? .25 : 0.); right.fill(phase == 0 ? -.125 : 0.);
         allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
-        cabinet.Process(left.data(), n, phase != 1, 0., 0., false, 0., 0, 1., {}, {}, {}, right.data());
+        cabinet.Process(left.data(), n, phase != 1, 0., 0., {}, {}, {}, right.data());
         Eigen::internal::set_is_malloc_allowed(true); tracking = false;
         assert(allocations == 0 && deletions == 0);
         for (int i = 0; i < n; ++i)
@@ -83,11 +83,11 @@ void TestDSPReviewFixes()
     assert(std::abs(slowAudio[static_cast<int>(rate)] / .2 - .5) < .002);
     assert(std::abs(slowAudio.back() - .2) < 1.e-10);
     std::array<double, 2> signal{.25, -.125};
-    cabinet.Process(signal.data(), 2, false, 0., 0., false, 0., 0, 1.);
+    cabinet.Process(signal.data(), 2, false, 0., 0.);
     const auto bypassed = cabinet.TakeMeter();
     assert(bypassed.input == 0.f && bypassed.output == 0.f && bypassed.reduction == 0.f);
     NAMStage empty; empty.ResetStopped(rate, 2);
-    empty.Process(signal.data(), 2, true, 0., 0., false, 0., 0, 1.);
+    empty.Process(signal.data(), 2, true, 0., 0.);
     const auto unloaded = empty.TakeMeter();
     assert(unloaded.input == 0.f && unloaded.output == 0.f && unloaded.reduction == 0.f);
 

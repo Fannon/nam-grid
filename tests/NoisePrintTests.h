@@ -220,7 +220,7 @@ void TestNoisePrint()
   a.fill(.001);
   allocations = deletions = 0;
   tracking = true;
-  stage.Process(a.data(), 512, true, 0., 0., false, 0., 0, 1.);
+  stage.Process(a.data(), 512, true, 0., 0.);
   tracking = false;
   assert(allocations == 0 && deletions == 0);
   assert(stage.GetNoiseProfile(17, {}) == learned);
@@ -228,7 +228,7 @@ void TestNoisePrint()
   for (int block = 0; block < 4; ++block)
   {
     a.fill(.123);
-    stage.Process(a.data(), 512, false, 0., 0., false, 0., 0, 1.);
+    stage.Process(a.data(), 512, false, 0., 0.);
   }
   for (double x : a)
     assert(x == .123);

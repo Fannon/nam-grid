@@ -31,7 +31,7 @@ mid-band RT60 target, rather than a guarantee for every individual frequency.
 Airwindows' separately credited audition ports retain native sustain/resolution
 controls and live output histories rather than claiming calibrated decay times.
 
-CosmicReverb is the later three-style ambient echo/reverb prototype, adapting
+CosmicReverb is the ambient echo/reverb behind Cosmic Echo, adapting
 David Braun's MIT Faust Supermassive reconstruction. See [COSMIC.md](COSMIC.md)
 for its distinct line/interpolation laws, fixed controls, source and transition
 policy; it does not use the conventional Decay/Size wrapper above.

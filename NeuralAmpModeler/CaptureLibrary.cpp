@@ -198,9 +198,7 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
       return result;
     std::ifstream stream(settingsFile, std::ios::binary);
     const auto config = nlohmann::json::parse(stream);
-    result.folders = config.contains("CaptureFolders")
-                       ? NormalizeFolders(config.at("CaptureFolders").get<std::vector<std::string>>())
-                       : NormalizeFolders({config.value("CaptureFolder", std::string{})});
+    result.folders = NormalizeFolders(config.value("CaptureFolders", std::vector<std::string>{}));
     result.rescanOnStartup = config.value("RescanOnStartup", true);
     result.showVisualizations = config.value("ShowVisualizations", true);
     result.presetFolders = NormalizeFolders(config.value("PresetFolders", std::vector<std::string>{}));
@@ -216,13 +214,11 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
   try
   {
     std::filesystem::create_directories(settingsFile.parent_path());
-    std::ofstream stream(settingsFile, std::ios::binary | std::ios::trunc);
-    stream << nlohmann::json{{"CaptureFolders", settings.folders}, {"RescanOnStartup", settings.rescanOnStartup},
-                            {"ShowVisualizations", settings.showVisualizations},
-                            {"PresetFolders", settings.presetFolders}}.dump(
-      2);
-    stream.close();
-    return !stream.fail();
+    rig_preset::WriteAtomically(settingsFile,
+      nlohmann::json{{"CaptureFolders", settings.folders}, {"RescanOnStartup", settings.rescanOnStartup},
+                     {"ShowVisualizations", settings.showVisualizations},
+                     {"PresetFolders", settings.presetFolders}}.dump(2));
+    return true;
   }
   catch (const std::exception&)
   {

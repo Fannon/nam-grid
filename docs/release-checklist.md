@@ -4,7 +4,7 @@ nam-grid is preview software. Automated DSP, state and native-editor tests do no
 establish listening quality, DAW stability or complete CLAP/VST3 host coverage.
 Windows x64 and macOS arm64 are the CI build targets; Linux has no supported
 plugin build with the current framework. See [build.md](build.md) for packaging
-and [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml)
+and [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml)
 for results for individual commits.
 
 Record the commit, platform, host, plugin format and results for each check before
@@ -14,7 +14,9 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
 
 - [ ] Build CLAP and VST3 from a clean checkout with the pinned dependencies and
   tracked patches, following [build.md](build.md).
-- [ ] Run CTest: capture-library, wav-decoder, resampling, stages, clap-smoke and tuner.
+- [ ] Run CTest (ir-convolution, capture-library, wav-decoder, resampling, stages,
+  clap-smoke with the native editor, tuner, parameter-contract and, on Windows,
+  vst3-parameter-contract) and the Python tool tests.
 - [ ] Confirm the CI matrix passes for every platform included in the release.
 - [ ] Download and inspect the actual archives: plugin bundles, resources,
   `ThirdPartyNotices.txt` and `notices/`; retain macOS executable permissions.
@@ -40,7 +42,9 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
   wording, including remaining limits and external capture/IR requirements.
 - [ ] Create a preview tag, verify its draft release and archives, then review the
   draft before publication. See [release workflow instructions](build.md).
-- [ ] Preserve existing plugin identities. Document compatibility changes to
-  prototype projects, parameter IDs, names or enum ranges.
+- [ ] Preserve plugin identities, parameter IDs/names/ranges, module and algorithm
+  IDs and saved-state fields. `parameter-contract` must pass without re-recording.
+- [ ] Check that `ThirdPartyNotices.txt` lists every shipped dependency, adapted
+  algorithm and the font, and that `notices/` holds the SDK licenses.
 
 Record review evidence and results in the release PR or ignored `tmp/` reports.

@@ -1,4 +1,4 @@
-# Cosmic Echo prototype
+# Cosmic Echo
 
 Cosmic Echo adapts six modes from David Braun's MIT
 `re.valhallaSupermassive` reconstruction in `reverbs.lib`, pinned at
@@ -41,8 +41,8 @@ Deliberate integration differences:
   is in the header. Modulation rate is fixed at 0.3 Hz, stereo width at full,
   low cut at 80 Hz. They are documented choices, not hidden inactive parameters.
 - Time spans 20–8000 ms, Feedback 0–98%, High cut 200 Hz–16 kHz; other controls span
-  0–100%. Avoid the zero-time and infinite-feedback endpoints in this prototype.
-  Tempo sync remains unexposed in this prototype. The longer Time range reserves
+  0–100%. The ranges avoid the zero-time and infinite-feedback endpoints.
+  Tempo sync is not exposed. The longer Time range reserves
   eight seconds per line, increasing memory relative to the source's two-second limit.
 - Smoothed controls update coefficients every 32 samples; the oscillator and
   all feedback clocks advance per sample. Interpolation reads both integer

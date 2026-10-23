@@ -1,15 +1,14 @@
 #pragma once
 
+// AudioDSPTools resampling and IGraphics menus expect these iPlug2/WDL headers first.
+#include "IGraphicsStructs.h"
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
-#include "../AudioDSPTools/dsp/NoiseGate.h"
 #include "../AudioDSPTools/dsp/dsp.h"
 #include "../AudioDSPTools/dsp/wav.h"
 #include "../AudioDSPTools/dsp/ResamplingContainer/ResamplingContainer.h"
 #include "../NeuralAmpModelerCore/NAM/dsp.h"
 #include "../NeuralAmpModelerCore/NAM/slimmable.h"
 
-#include "Colors.h"
-#include "ToneStack.h"
 #include "NAMStage.h"
 #include "FixedNAMGrid.h"
 #include "AudioControlCache.h"
@@ -54,27 +53,11 @@ private:
 
 #include "ParameterLayout.h"
 
-const int numKnobs = 6;
-
 enum ECtrlTags
 {
-  kCtrlTagModelFileBrowser = 0,
-  kCtrlTagIRFileBrowser,
-  kCtrlTagInputMeter,
+  kCtrlTagInputMeter = 0,
   kCtrlTagOutputMeter,
   kCtrlTagSettingsBox,
-  kCtrlTagOutputMode,
-  kCtrlTagCalibrateInput,
-  kCtrlTagInputCalibrationLevel,
-  kCtrlTagSlimmableIcon,
-  kCtrlTagSlimOverlayBackdrop,
-  kCtrlTagSlimKnob,
-  kCtrlTagDriveFileBrowser,
-  kCtrlTagCaptureFolder,
-  kCtrlTagCaptureStatus,
-  kCtrlTagCaptureSearch,
-  kCtrlTagGearFilter,
-  kCtrlTagClearFilter,
   kCtrlTagTuner,
   kCtrlTagTunerButton,
   kCtrlTagPerformance,
@@ -86,17 +69,11 @@ enum ECtrlTags
   kNumCtrlTags
 };
 
+// Delegate -> slot control messages.
 enum EMsgTags
 {
-  // These tags are used from UI -> DSP
-  kMsgTagClearModel = 0,
-  kMsgTagClearIR,
-  kMsgTagHighlightColor,
-  // The following tags are from DSP -> UI
-  kMsgTagLoadFailed,
+  kMsgTagLoadFailed = 0,
   kMsgTagLoadedModel,
-  kMsgTagLoadedIR,
-  kMsgTagClearDrive,
   kNumMsgTags
 };
 
@@ -161,10 +138,8 @@ public:
     if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
       iplug::Plugin::EndInformHostOfParamChange(index);
   }
-  bool OnMessage(int msgTag, int ctrlTag, int dataSize, const void* pData) override;
 
   // Native library controls; all called on the control/UI thread.
-  void SetCaptureFolder(const char* folder, bool fromUI = false);
   void SetCaptureFolders(std::vector<std::string> folders, bool fromUI = false);
   std::vector<std::string> GetCaptureFolders() const;
   void AddCaptureFolder(const char* folder);
@@ -181,7 +156,6 @@ public:
   void SetRescanOnStartup(bool enabled);
   std::string GetLibraryMatchStatus() const;
   bool IsLibraryScanning() const { return mLibraryScanning; }
-  std::string GetCaptureFolder() const;
   std::string GetCaptureStatus() const;
   std::shared_ptr<const nam_library::Snapshot> GetCaptureLibrary() const;
   nam_library::Filter GetCaptureFilter() const;
@@ -214,8 +188,6 @@ public:
 private:
   // Allocates mInputPointers and mOutputPointers
   void _AllocateIOPointers(const size_t nChans);
-  // Adopts a prepared IR at silence; retirement is collected by OnIdle.
-  void _ApplyDSPStaging();
   void _UpdatePresetControls();
   std::string mPresetName = "Untitled", mPresetDirectory;
   // Deallocates mInputPointers and mOutputPointers
@@ -224,19 +196,12 @@ private:
   size_t _GetBufferNumChannels() const;
   size_t _GetBufferNumFrames() const;
   std::atomic<double> mEffectTailSeconds{2.};
-  void _InitToneStack();
-  // Loads/prepares a NAM model on the control thread, then publishes to its fixed slot.
+  // Loads/prepares a slot on the control thread, then publishes it to the audio thread.
   // Returns an empty string on success, or an error message on failure.
-  std::string _StageModel(const WDL_String& dspFile, size_t slot = 1);
   std::string _StageSlot(size_t slot, SlotEffect effect, const std::string& path, const std::string& expectedHash = {});
   void _ResolveLibraryFiles();
   SlotConfig _GetSlotConfig(size_t slot) const;
   void _CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters, bool notifyHost = true);
-  // Loads/prepares an IR on the control thread.
-  // Return status code so that error messages can be relayed if
-  // it wasn't successful.
-  dsp::wav::LoadReturnCode _StageIR(const WDL_String& irPath);
-
   void _ClearModel(size_t slot, SlotEffect effect = SlotEffect::NAM);
   // Prepare the input & output buffers
   void _PrepareBuffers(const size_t numChannels, const size_t numFrames);
@@ -251,16 +216,7 @@ private:
   // :param nChansOut: Out to external
   void _ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames, const size_t nChansIn,
                       const size_t nChansOut);
-  // Resetting for models and IRs, called by OnReset
-  void _ResetModelAndIR(const double sampleRate, const int maxBlockSize);
-
-
-  // See: Unserialization.cpp
   void _UnserializeApplyConfig(nlohmann::json& config);
-  // 0.7.9 and later
-  int _UnserializeStateWithKnownVersion(const iplug::IByteChunk& chunk, int startPos);
-  // Hopefully 0.7.3-0.7.8, but no gurantees
-  int _UnserializeStateWithUnknownVersion(const iplug::IByteChunk& chunk, int startPos);
 
   // Update all controls that depend on a model
   void _UpdateControlsFromModel();
@@ -272,12 +228,6 @@ private:
   void _UpdateLibraryControls();
   void _NotifyHostStateChanged();
 
-  // Update level meters
-  // Called within ProcessBlock().
-  // Assume _ProcessInput() and _ProcessOutput() were run immediately before.
-  void _UpdateMeters(iplug::sample** inputPointer, iplug::sample** outputPointer, const size_t nFrames,
-                     const size_t nChansIn, const size_t nChansOut);
-
   // Member data
 
   // Input arrays to NAM
@@ -288,9 +238,6 @@ private:
   iplug::sample** mInputPointers = nullptr;
   iplug::sample** mOutputPointers = nullptr;
 
-  // Noise gates
-  dsp::noise_gate::Trigger mNoiseGateTrigger;
-  dsp::noise_gate::Gain mNoiseGateGain;
   FixedNAMGrid mGrid;
   AudioControlCache<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAudioControls;
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAnimatedControls{}; // audio only
@@ -313,7 +260,6 @@ private:
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   nam_library::Worker mLibraryWorker;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
-  std::string mCaptureFolder; // First root alias for older project readers.
   std::vector<std::string> mCaptureFolders;
   std::vector<std::string> mPresetFolders;
   size_t mSelectedSlot = 0; // Editor selection only; never read by the audio thread.
@@ -326,28 +272,10 @@ private:
   bool mRescanOnStartup = true;
   bool mShowVisualizations = true;
   bool mLibraryDefaultSaveFailed = false;
-  RealtimeExchange<PreparedIR> mCabinet;
-  NAMModelInfo mAmpInfo;
-  bool mDriveLoaded = false, mIRLoaded = false;
   double mSampleRatePrepared = 48000.0;
   int mMaxBlockPrepared = 2048;
   std::array<int, FixedNAMGrid::kSlots> mRequestedLatencies{};
-  double mIRSwitchGain = 1.;
-  // Tone stack modules
-  std::unique_ptr<dsp::tone_stack::AbstractToneStack> mToneStack;
-
-  // Post-IR filters
-  GridDCBlocker mHighPass;
-  //  recursive_linear_filter::LowPass mLowPass;
-
-  // Path to model's config.json or model.nam
-  WDL_String mNAMPath;
-  WDL_String mDrivePath;
-  // Path to IR (.wav file)
-  WDL_String mIRPath;
-
-  WDL_String mHighLightColor{PluginColors::NAM_THEMECOLOR.ToColorCode()};
-
+  GridDCBlocker mHighPass; // Final DC blocker
   NAMSender mInputSender, mOutputSender;
   iplug::ISender<1, 128, SlotMeterData> mSlotMeterSender;
   // One output window for the selected spectrum view only. Its packet size

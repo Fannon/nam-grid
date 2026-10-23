@@ -26,32 +26,46 @@ void TestDynamics()
   assert(std::abs(SlotDynamics::CompressionDB(-18., -18., 4., 6.) - .5625) < 1.e-12);
   assert(SlotDynamics::CompressionDB(-15., -18., 4., 6.) == 2.25);
   assert(SlotDynamics::CompressionDB(-6., -18., 4., 6.) == 9.);
-  // Both modes match their original algorithms, including live mode changes.
   for (double rate : {44100., 48000., 96000., 192000.})
   {
-    SlotDynamics modeGate, reference;
-    modeGate.Reset(rate); reference.Reset(rate);
-    DynamicsControls mode, legacy;
-    std::array<double, 512> actual{}, expected{};
+    // Gate Mode is the only Natural/Tight selector: Tight closes gaps to the full
+    // reduction, Natural expands gradually. Mode changes never allocate.
+    SlotDynamics natural, tight;
+    natural.Reset(rate); tight.Reset(rate);
+    DynamicsControls naturalMode, tightMode;
+    tightMode.gateMode = 1;
+    std::array<double, 512> naturalOut{}, tightOut{};
+    double naturalGap = 0., tightGap = 0.;
     allocations = deletions = 0;
     for (int block = 0; block < 400; ++block)
     {
-      mode.gateMode = (block / 100) % 2;
-      for (int i = 0; i < actual.size(); ++i)
-        actual[i] = expected[i] = (block % 80 < 20 ? .2 : .0001) * std::sin((block * 512 + i) * .031);
+      for (int i = 0; i < naturalOut.size(); ++i)
+        naturalOut[i] = tightOut[i] = (block % 80 < 20 ? .2 : .0001) * std::sin((block * 512 + i) * .031);
       tracking = true;
-      modeGate.Process(actual.data(), 512, SlotEffect::NaturalGate, mode);
-      reference.Process(expected.data(), 512, mode.gateMode ? SlotEffect::TightGate : SlotEffect::NaturalGate, legacy);
+      natural.Process(naturalOut.data(), 512, SlotEffect::NoiseGate, naturalMode);
+      tight.Process(tightOut.data(), 512, SlotEffect::NoiseGate, tightMode);
       tracking = false;
-      assert(actual == expected && allocations == 0 && deletions == 0);
+      assert(allocations == 0 && deletions == 0);
+      for (int i = 0; i < naturalOut.size(); ++i)
+      {
+        assert(std::isfinite(naturalOut[i]) && std::isfinite(tightOut[i]));
+        if (block % 80 >= 40)
+        {
+          naturalGap += std::abs(naturalOut[i]);
+          tightGap += std::abs(tightOut[i]);
+        }
+      }
     }
+    assert(tightGap < naturalGap);
   }
   for (double rate : {44100., 48000., 96000.})
     for (int kind = 1; kind <= 4; ++kind)
     {
-      const auto effect = static_cast<SlotEffect>(kind);
+      // 1/2: Natural/Tight gate, 3: Smooth, 4: Punch compressor.
+      const auto effect = kind <= 2 ? SlotEffect::NoiseGate : kind == 3 ? SlotEffect::SmoothComp : SlotEffect::PunchComp;
       DynamicsControls c;
       c.gateThreshold = -40.;
+      c.gateMode = kind == 2 ? 1 : 0;
       SlotDynamics positive, negative;
       positive.Reset(rate);
       negative.Reset(rate);
@@ -140,7 +154,7 @@ void TestDynamics()
         {
           a.fill(.1);
           tracking = true;
-          stage.Process(a.data(), 512, block < 30, 12., 12., true, 12., 2, 1., c);
+          stage.Process(a.data(), 512, block < 30, 12., 12., c);
           tracking = false;
           for (auto value : a)
             assert(std::isfinite(value) && (block < 35 || value == .1));
@@ -151,7 +165,7 @@ void TestDynamics()
       stage.ResetStopped(rate, 1);
       double x = .1;
       tracking = true;
-      stage.Process(&x, 1, true, 0., 0., false, 0., 0, 1., c);
+      stage.Process(&x, 1, true, 0., 0., c);
       tracking = false;
       assert(std::isfinite(x) && allocations == 0 && deletions == 0);
     }
@@ -201,7 +215,7 @@ void TestDynamics()
   for (const auto slot : {0, 12})
   {
     auto p = std::make_unique<NAMStage::Prepared>();
-    p->effect = slot == 0 ? SlotEffect::NaturalGate : SlotEffect::SmoothComp;
+    p->effect = slot == 0 ? SlotEffect::NoiseGate : SlotEffect::SmoothComp;
     mixed.stages[slot].Publish(std::move(p));
   }
   mixed.ResetStopped(48000., 512);

@@ -19,7 +19,7 @@ int main(int argc, char** argv)
   auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));
   auto* state = static_cast<const clap_plugin_state*>(plugin->get_extension(plugin, CLAP_EXT_STATE));
   const auto save = [&] { Stream data; clap_ostream stream{&data, Stream::write}; assert(state->save(plugin, &stream)); return data; };
-  const auto load = [&](json config) { Stream data; data.string("###NAMGrid-v1###"); data.string(config.dump()); clap_istream stream{&data, Stream::read}; assert(state->load(plugin, &stream)); };
+  const auto load = [&](json config) { Stream data; data.string("###nam-grid###"); data.string(config.dump()); clap_istream stream{&data, Stream::read}; assert(state->load(plugin, &stream)); };
   const auto parameter = [&](const char* name) {
     clap_param_info info{};
     for (uint32_t i = 0; i < params->count(plugin); ++i)
@@ -29,8 +29,6 @@ int main(int argc, char** argv)
   const auto tuner = parameter("Tuner"), mute = parameter("Tuner Mute");
   assert((tuner.flags & CLAP_PARAM_IS_AUTOMATABLE) && (tuner.flags & CLAP_PARAM_IS_STEPPED));
   const auto base = save().config(); assert(base["Tuner"] == 0.);
-  auto previous = base; previous["schema"] = 22; previous.erase("Tuner"); load(previous);
-  assert(save().config() == base);
   std::vector<uint16_t> tunerEvents;
   clap_output_events sent{&tunerEvents, [](const clap_output_events* list, const clap_event_header* event) {
     auto& events = *static_cast<std::vector<uint16_t>*>(list->ctx);

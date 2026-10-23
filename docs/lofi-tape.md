@@ -71,7 +71,7 @@ speed-dependent high-frequency loss, wow/flutter sidebands, dropouts, noise-off
 silence and noise-on output, deterministic reset, stereo isolation, exact dry Mix,
 sample-rate scaling at 44.1/48/88.2/96/192 kHz, host block partition invariance,
 zero audio allocations/deletions, bypass drain, measured visualization values,
-schema migration, malformed-state rejection, automation and editor gestures.
+state recall, malformed-state rejection, automation and editor gestures.
 
 The module reports zero compensation latency. Use [build.md](build.md) for
 tests and [fx-performance.md](fx-performance.md) to measure the current build.

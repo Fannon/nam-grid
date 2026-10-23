@@ -71,13 +71,13 @@ void TestEQResponse()
   {
     left.fill(.25); right.fill(.001);
     tracking = true;
-    stage.Process(left.data(), 512, true, 0., 0., false, 0., 0, 1., {}, {}, utility, right.data());
+    stage.Process(left.data(), 512, true, 0., 0., {}, {}, utility, right.data());
     tracking = false;
   }
   const auto meter = stage.TakeMeter();
   assert(meter.filterCutoff[0] > 2 * meter.filterCutoff[1] && meter.filterCutoff[1] >= 300.f);
   assert(std::abs(meter.filterQ[0] - 1.6f) < 1.e-4f && std::abs(meter.filterQ[1] - 1.6f) < 1.e-4f);
-  stage.Process(left.data(), 512, false, 0., 0., false, 0., 0, 1., {}, {}, utility, right.data());
+  stage.Process(left.data(), 512, false, 0., 0., {}, {}, utility, right.data());
   assert((stage.TakeMeter().filterCutoff == std::array<float, 2>{}));
   assert(allocations == 0 && deletions == 0);
   for (double rate : {44100., 48000., 96000., 192000.})

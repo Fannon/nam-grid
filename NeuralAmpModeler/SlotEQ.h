@@ -12,7 +12,7 @@ struct EQControls
 // RBJ Audio EQ Cookbook low/high-pass equations (12 dB/octave, Butterworth Q).
 // Mathematical formulas: https://www.w3.org/TR/audio-eq-cookbook/
 // Formula reference copyright (c) 2021 W3C (MIT, ERCIM, Keio, Beihang).
-// New C++ implementation; reference notice retained in installer/ThirdPartyNotices.txt.
+// New C++ implementation; reference notice retained in ThirdPartyNotices.txt.
 template <bool HighPass>
 class CutCoefficients : public recursive_linear_filter::Biquad
 {

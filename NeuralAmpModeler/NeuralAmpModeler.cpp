@@ -6,7 +6,6 @@
 #include <iostream>
 #include <utility>
 
-#include "Colors.h"
 #include "../NeuralAmpModelerCore/NAM/activations.h"
 #include "../NeuralAmpModelerCore/NAM/get_dsp.h"
 // clang-format off
@@ -15,9 +14,7 @@
 #include "NeuralAmpModeler.h"
 #include "IPlug_include_in_plug_src.h"
 // clang-format on
-#include "architecture.hpp"
-
-#include "NeuralAmpModelerControls.h"
+#include "architecture.hpp" // disable_denormals
 #include "NAMGridControls.h"
 #include "GridPerformanceControls.h"
 #include "LibraryBrowserControls.h"
@@ -28,9 +25,8 @@ using namespace iplug;
 using namespace igraphics;
 
 const double kDCBlockerFrequency = 5.0;
-constexpr int kGateModeSchema = 15, kFilterModeSchema = 16, kLoFiSchema = 17, kIdentitySchema = 18, kFXNamesSchema = 19,
-              kReverbDelaySchema = 20, kCosmicSchema = 21, kCutoffNamesSchema = 22, kTunerAutomationSchema = 23,
-              kOutboardSchema = 24, kAirDynamicsSchema = 25, kGridStateSchema = kEffectStateSchema;
+// Project/rig state: one header plus a JSON object whose "schema" is kEffectStateSchema.
+const char* const kStateHeader = "###nam-grid###";
 
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
@@ -43,54 +39,26 @@ EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char
 #endif
 }
 
-const std::string kCalibrateInputParamName = "CalibrateInput";
-const bool kDefaultCalibrateInput = false;
-const std::string kInputCalibrationLevelParamName = "InputCalibrationLevel";
-const double kDefaultInputCalibrationLevel = 12.0;
-
 static std::filesystem::path CaptureSettingsFile()
 {
   WDL_String support;
   AppSupportPath(support);
-  return support.GetLength() ? std::filesystem::u8path(support.Get()) / "NAMDualPrototype" / "library.json"
+  return support.GetLength() ? std::filesystem::u8path(support.Get()) / "nam-grid" / "library.json"
                              : std::filesystem::path{};
 }
 
 NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
 : iplug::Plugin(info, MakeConfig(kNumParams, kNumPresets))
 {
-  _InitToneStack();
   nam::activations::Activation::enable_fast_tanh();
-  GetParam(kInputLevel)->InitGain("Input", 0.0, -40.0, 40.0, 0.1);
-  GetParam(kToneBass)->InitDouble("Bass", 5.0, 0.0, 10.0, 0.1);
-  GetParam(kToneMid)->InitDouble("Middle", 5.0, 0.0, 10.0, 0.1);
-  GetParam(kToneTreble)->InitDouble("Treble", 5.0, 0.0, 10.0, 0.1);
   GetParam(kOutputLevel)->InitGain("Output", 0.0, -40.0, 40.0, 0.1);
-  GetParam(kNoiseGateThreshold)->InitGain("Threshold", -80.0, -100.0, 0.0, 0.1);
-  GetParam(kNoiseGateActive)->InitBool("NoiseGateActive", false);
-  GetParam(kEQActive)->InitBool("ToneStack", false);
-  GetParam(kOutputMode)->InitEnum("OutputMode", 0, {"Raw", "Normalized", "Calibrated"}); // TODO DRY w/ control
-  GetParam(kIRToggle)->InitBool("IRToggle", false);
-  GetParam(kCalibrateInput)->InitBool(kCalibrateInputParamName.c_str(), kDefaultCalibrateInput);
-  GetParam(kInputCalibrationLevel)
-    ->InitDouble(kInputCalibrationLevelParamName.c_str(), kDefaultInputCalibrationLevel, -60.0, 60.0, 0.1, "dBu");
-  GetParam(kDriveInput)->InitGain("Drive Input", 0., -40., 40., .1);
-  GetParam(kDriveTrim)->InitGain("Drive Trim", 0., -40., 40., .1);
-  GetParam(kDriveActive)->InitBool("Drive Enabled", true);
-  GetParam(kAmpTrim)->InitGain("Amp Trim", 0., -40., 40., .1);
-  GetParam(kAmpActive)->InitBool("Amp Enabled", true);
-  GetParam(kSlim)->InitDouble("Slim", 1.0, 0.0, 1.0, 0.01);
-  for (size_t slot = 2; slot < FixedNAMGrid::kSlots; ++slot)
+  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "%");
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto name = GridSlotName(slot);
     GetParam(SlotInputParam(slot))->InitGain((name + " In").c_str(), 0., -40., 40., .1);
     GetParam(SlotTrimParam(slot))->InitGain((name + " Trim").c_str(), 0., -40., 40., .1);
     GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
-  }
-  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "%");
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-  {
-    const auto name = GridSlotName(slot);
     GetParam(SlotDynamicsParam(slot, 0))->InitDouble((name + " Gate Threshold").c_str(), -55., -90., -10., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Release").c_str(), 120., 20., 500., 1., "ms");
     GetParam(SlotDynamicsParam(slot, 2))->InitDouble((name + " Gate Reduction").c_str(), 60., 0., 80., .1, "dB");
@@ -130,15 +98,14 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       if (i == uNoiseGateThreshold)
         param->SetDisplayText(p.minimum, "Off");
     }
-    if (slot != 1)
-      GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
+    GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
   }
   GetParam(kTunerReference)->InitDouble("Tuner Reference", 440., 430., 450., .1, "Hz");
   GetParam(kTunerMute)->InitBool("Tuner Mute", true);
   GetParam(kTunerActive)->InitBool("Tuner", false);
   for (int i = 0; i < grid_performance::Count; ++i)
   {
-    const auto& p = grid_performance::parameters[i]; auto* param = GetParam(kGridParamBase + i);
+    const auto& p = grid_performance::parameters[i]; auto* param = GetParam(PerformanceParam(i));
     if (i == grid_performance::LFOSlot || i == grid_performance::EnvSlot || i == grid_performance::StepSlot
         || i == grid_performance::Macro1Slot || i == grid_performance::Macro2Slot)
     {
@@ -166,8 +133,6 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mShowVisualizations = librarySettings.showVisualizations;
   mPresetFolders = librarySettings.presetFolders;
   SetCaptureFolders(librarySettings.folders);
-
-  mNoiseGateTrigger.AddListener(&mNoiseGateGain);
 
   mMakeGraphicsFunc = [&]() {
 
@@ -215,7 +180,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + grid_layout::cardHeight), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(0, 67, 74, 135), kGridParamBase + grid_performance::InputGain, "IN"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(0, 67, 74, 135), PerformanceParam(grid_performance::InputGain), "IN"))
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 235, 1000, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
@@ -283,28 +248,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
   mTuner.Enable(IsTunerActive());
   mTuner.Push(mInputPointers[0], mInputPointers[1], nFrames, sampleRate);
-  _ApplyDSPStaging();
-  const bool noiseGateActive = GetParam(kNoiseGateActive)->Value();
-  const bool toneStackActive = GetParam(kEQActive)->Value();
-
-  // Noise gate trigger
-  sample** triggerOutput = mInputPointers;
-  if (noiseGateActive)
-  {
-    const double time = 0.01;
-    const double threshold = GetParam(kNoiseGateThreshold)->Value(); // GetParam...
-    const double ratio = 0.1; // Quadratic...
-    const double openTime = 0.005;
-    const double holdTime = 0.01;
-    const double closeTime = 0.05;
-    const dsp::noise_gate::TriggerParams triggerParams(time, threshold, ratio, openTime, holdTime, closeTime);
-    mNoiseGateTrigger.SetParams(triggerParams);
-    mNoiseGateTrigger.SetSampleRate(sampleRate);
-    triggerOutput = mNoiseGateTrigger.Process(mInputPointers, numChannelsInternal, numFrames);
-  }
-
   for (size_t channel = 0; channel < numChannelsInternal; ++channel)
-    std::copy_n(triggerOutput[channel], nFrames, mOutputPointers[channel]);
+    std::copy_n(mInputPointers[channel], nFrames, mOutputPointers[channel]);
   auto& controls = mAudioControls.Values();
   const double tempo = GetTempo();
   for (size_t slot = 0; slot < controls.size(); ++slot)
@@ -418,13 +363,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     // Host tempo can change without a parameter notification.
     controls[slot].utility.tempo = tempo;
   }
-  // Preserve the former Amp's calibration/normalization controls on Pre 2 for migrated states.
-  controls[1].calibrate = GetParam(kCalibrateInput)->Bool();
-  controls[1].calibrationDB = GetParam(kInputCalibrationLevel)->Value();
-  controls[1].outputMode = GetParam(kOutputMode)->Int();
-  controls[1].slim = GetParam(kSlim)->Value();
   grid_performance::Values performance{};
-  for (int i = 0; i < grid_performance::Count; ++i) performance[i] = GetParam(kGridParamBase + i)->Value();
+  for (int i = 0; i < grid_performance::Count; ++i) performance[i] = GetParam(PerformanceParam(i))->Value();
   const auto routing = grid_performance::Route(performance);
   const double blend = GetParam(kParallelBlend)->Value() * .01;
   if (mModulation.Active(performance))
@@ -462,62 +402,14 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
         mSlotSignalSender.PushData({kCtrlTagGridSlotBase + slot, {window}});
     }
   }
-  // Apply the noise gate after the NAM
-  sample** gateGainOutput =
-    noiseGateActive ? mNoiseGateGain.Process(mOutputPointers, numChannelsInternal, numFrames) : mOutputPointers;
-
-  sample** toneStackOutPointers = gateGainOutput;
-  if (toneStackActive && mToneStack != nullptr)
-  {
-    mToneStack->SetParam("bass", GetParam(kToneBass)->Value());
-    mToneStack->SetParam("middle", GetParam(kToneMid)->Value());
-    mToneStack->SetParam("treble", GetParam(kToneTreble)->Value());
-    toneStackOutPointers = mToneStack->Process(gateGainOutput, numChannelsInternal, nFrames);
-  }
-
-  sample** irPointers = toneStackOutPointers;
-  sample* legacyIRPointers[2]{};
-  auto* cabinet = mCabinet.Active();
-  if (cabinet && cabinet->ir && GetParam(kIRToggle)->Bool())
-  {
-    auto* l = toneStackOutPointers[0];
-    auto* r = toneStackOutPointers[1];
-    legacyIRPointers[0] = cabinet->ir->Process(&l, 1, numFrames)[0];
-    legacyIRPointers[1] = cabinet->right->Process(&r, 1, numFrames)[0];
-    irPointers = legacyIRPointers;
-  }
-  const bool switchingIR = mCabinet.HasPending();
-  const double switchStep = 1. / (sampleRate * .005);
-  if (switchingIR || mIRSwitchGain != 1.)
-  {
-    for (size_t i = 0; i < numFrames; ++i)
-    {
-      mIRSwitchGain = switchingIR ? std::max(0., mIRSwitchGain - switchStep) : std::min(1., mIRSwitchGain + switchStep);
-      for (size_t channel = 0; channel < numChannelsInternal; ++channel)
-        irPointers[channel][i] *= mIRSwitchGain;
-    }
-  }
-
-  // And the HPF for DC offset (Issue 271)
-  const double highPassCutoffFreq = kDCBlockerFrequency;
-  // const double lowPassCutoffFreq = 20000.0;
-  const recursive_linear_filter::HighPassParams highPassParams(sampleRate, highPassCutoffFreq);
-  // const recursive_linear_filter::LowPassParams lowPassParams(sampleRate, lowPassCutoffFreq);
-  mHighPass.SetParams(highPassParams);
-  // mLowPass.SetParams(lowPassParams);
-  sample** hpfPointers = mHighPass.Process(irPointers, numChannelsInternal, numFrames);
-  // sample** lpfPointers = mLowPass.Process(hpfPointers, numChannelsInternal, numFrames);
-
-  // restore previous floating point state
+  // Final DC blocker (upstream NAM issue 271).
+  mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
+  sample** hpfPointers = mHighPass.Process(mOutputPointers, numChannelsInternal, numFrames);
   std::feupdateenv(&fe_state);
-
-  // Let's get outta here
   // Mono host outputs downmix; stereo host outputs retain independent channels.
   _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut);
-  // _ProcessOutput(lpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut);
-  // * Output of input leveling (inputs -> mInputPointers),
-  // * Output of output leveling (mOutputPointers -> outputs)
-  _UpdateMeters(mInputPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut);
+  mOutputSender.ProcessBlock(
+    outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
 }
 
 void NeuralAmpModeler::OnReset()
@@ -535,7 +427,7 @@ void NeuralAmpModeler::OnReset()
   mAudioControls.InvalidateAll();
   mModulation.Reset(sampleRate);
   mMasterGain = GetParam(kOutputLevel)->DBToAmp();
-  mGlobalInputGain = GetParam(kGridParamBase + grid_performance::InputGain)->DBToAmp();
+  mGlobalInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
   mMasterCoefficient = std::exp(-1. / (.005 * sampleRate));
   _PrepareBuffers(kNumChannelsInternal, maxBlockSize);
   for (auto& channel : mInputArray)
@@ -546,23 +438,16 @@ void NeuralAmpModeler::OnReset()
   _UpdateTailSize();
   mInputSender.Reset(sampleRate);
   mOutputSender.Reset(sampleRate);
-  // If there is a model or IR loaded, they need to be checked for resampling.
-  _ResetModelAndIR(sampleRate, maxBlockSize);
-  mToneStack->Reset(sampleRate, maxBlockSize);
+  // Adopt pending slots and prepare them for the new rate and maximum block.
+  mGrid.ResetStopped(sampleRate, maxBlockSize);
+  for (size_t i = 0; i < mGrid.stages.size(); ++i)
+    mRequestedLatencies[i] = mGrid.stages[i].Latency();
   _UpdateLatency();
-  // Prime all reused DSP paths, including currently bypassed ones, outside ProcessBlock.
-  mNoiseGateTrigger.SetSampleRate(sampleRate);
-  mNoiseGateTrigger.SetParams(dsp::noise_gate::TriggerParams(.01, -80., .1, .005, .01, .05));
-  mNoiseGateTrigger.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
-  mNoiseGateGain.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
-  mToneStack->Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
+  // Prime the reused output filter outside ProcessBlock.
   mHighPass.ClearHistory();
   mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
   mHighPass.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
 }
-
-void NeuralAmpModeler::SetCaptureFolder(const char* folder, bool fromUI)
-{ SetCaptureFolders(folder && folder[0] ? std::vector<std::string>{folder} : std::vector<std::string>{}, fromUI); }
 
 void NeuralAmpModeler::SetCaptureFolders(std::vector<std::string> folders, bool fromUI)
 {
@@ -570,7 +455,6 @@ void NeuralAmpModeler::SetCaptureFolders(std::vector<std::string> folders, bool 
   auto normalized = nam_library::NormalizeFolders(folders);
   const bool needsIndex = normalized != mCaptureFolders || (!mLibraryIndexed && !mLibraryScanning);
   mCaptureFolders = std::move(normalized);
-  mCaptureFolder = mCaptureFolders.empty() ? std::string{} : mCaptureFolders.front();
   if (needsIndex && (fromUI || mRescanOnStartup))
     RescanCaptureFolder();
   else if (needsIndex)
@@ -740,7 +624,7 @@ void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI
 
 std::string NeuralAmpModeler::LoadSlot(size_t slot, const char* path)
 {
-  const auto error = _StageModel(WDL_String(path), slot);
+  const auto error = _StageSlot(slot, SlotEffect::NAM, path);
   if (error.empty())
     _NotifyHostStateChanged();
   return error;
@@ -781,7 +665,7 @@ std::string NeuralAmpModeler::PreviewSlot(SlotEffect effect, const std::string& 
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (!mPreviewOriginal) return "Preview is unavailable";
   auto current = _GetSlotConfig(mPreviewSlot);
-  const auto currentChoice = current.effect == SlotEffect::TightGate ? SlotEffect::NaturalGate : current.effect;
+  const auto currentChoice = current.effect;
   if (effect == currentChoice && path == current.path) return {};
   mPreviewChoices[{currentChoice, current.path}] = current;
   try
@@ -966,12 +850,6 @@ void NeuralAmpModeler::RescanCaptureFolder()
   _UpdateLibraryControls();
 }
 
-std::string NeuralAmpModeler::GetCaptureFolder() const
-{
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  return mCaptureFolder;
-}
-
 std::shared_ptr<const nam_library::Snapshot> NeuralAmpModeler::GetCaptureLibrary() const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
@@ -1033,20 +911,8 @@ std::string NeuralAmpModeler::GetLibraryMatchStatus() const
 void NeuralAmpModeler::_UpdateLibraryControls()
 {
   if (auto* ui = GetUI())
-  {
     if (auto* control = ui->GetControlWithTag(kCtrlTagSettingsBox))
       control->SetDirty(false);
-    if (auto* control = ui->GetControlWithTag(kCtrlTagCaptureSearch))
-      control->As<ITextControl>()->SetStr(mCaptureFilter.search.c_str());
-    if (auto* control = ui->GetControlWithTag(kCtrlTagGearFilter))
-      control->As<IVButtonControl>()->SetLabelStr(
-        mCaptureFilter.gear < 0 ? "All gear"
-                                : nam_library::GearName(static_cast<nam_library::Gear>(mCaptureFilter.gear)));
-    if (auto* control = ui->GetControlWithTag(kCtrlTagCaptureStatus))
-      control->As<IVButtonControl>()->SetLabelStr(GetLibraryMatchStatus().c_str());
-    if (auto* control = ui->GetControlWithTag(kCtrlTagClearFilter))
-      control->SetDisabled(mCaptureFilter.search.empty() && mCaptureFilter.gear < 0);
-  }
 }
 
 void NeuralAmpModeler::OnIdle()
@@ -1093,11 +959,21 @@ void NeuralAmpModeler::OnIdle()
   }
   for (auto& stage : mGrid.stages)
     stage.Collect();
-  mCabinet.Collect();
   mInputSender.TransmitData(*this);
   mOutputSender.TransmitData(*this);
   mSlotMeterSender.TransmitData(*this);
   mSlotSignalSender.TransmitData(*this);
+}
+
+// First state schema that saved a host parameter. Older states default it; a
+// missing parameter that the saved schema already had makes the state invalid.
+static int IntroducedIn(int index)
+{
+  if (const int utility = parameter_layout::UtilityControl(index); utility >= 0)
+    return kEffectParameters[utility].introducedIn;
+  if (const int performance = PerformanceIndex(index); performance >= 0)
+    return grid_performance::parameters[performance].introducedIn;
+  return kInitialEffectStateSchema;
 }
 
 static int ReadStateString(const IByteChunk& chunk, WDL_String& value, int pos)
@@ -1116,13 +992,9 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   nlohmann::json config;
-  config["schema"] = kGridStateSchema;
+  config["schema"] = kEffectStateSchema;
   config["PresetName"] = mPresetName;
   config["PresetDirectory"] = mPresetDirectory;
-  config["DrivePath"] = mDrivePath.Get();
-  config["NAMPath"] = mNAMPath.Get();
-  config["IRPath"] = mIRPath.Get();
-  config["CaptureFolder"] = mCaptureFolder;
   config["CaptureFolders"] = mCaptureFolders;
   config["PresetFolders"] = mPresetFolders;
   config["PerformanceScenes"] = mPerformanceScenes;
@@ -1148,13 +1020,11 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
     config["SlotHashes"][mPreviewSlot] = original.hash;
     config["SlotEffects"][mPreviewSlot] = static_cast<int>(original.effect);
     config["NoisePrintProfiles"][mPreviewSlot] = noise_print::Save(original.noiseProfile);
-    if (mPreviewSlot < 2)
-      config[mPreviewSlot == 0 ? "DrivePath" : "NAMPath"] = original.effect == SlotEffect::NAM ? original.path : "";
     const auto indices = SlotParamIndices(mPreviewSlot);
     for (size_t i = 0; i < indices.size(); ++i)
       config[GetParam(indices[i])->GetName()] = original.values[i];
   }
-  chunk.PutStr("###NAMGrid-v1###");
+  chunk.PutStr(kStateHeader);
   return chunk.PutStr(config.dump().c_str()) > 0;
 }
 
@@ -1220,7 +1090,7 @@ std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
     auto rig = nlohmann::json::parse(text.Get());
     rig["PresetName"] = name;
     rig.erase("PresetDirectory");
-    rig.erase("CaptureFolder"); rig.erase("CaptureFolders"); rig.erase("PresetFolders");
+    rig.erase("CaptureFolders"); rig.erase("PresetFolders");
     rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
     rig.erase(GetParam(kTunerActive)->GetName());
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1250,7 +1120,7 @@ std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
     rig["PresetName"] = name;
     rig["PresetDirectory"] = nam_library::PathText(path.parent_path());
     // Library folders and tuner choices belong to this instance, not the rig.
-    rig["CaptureFolder"] = mCaptureFolder; rig["CaptureFolders"] = mCaptureFolders;
+    rig["CaptureFolders"] = mCaptureFolders;
     rig["PresetFolders"] = mPresetFolders;
     rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
     rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
@@ -1262,7 +1132,7 @@ std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
       rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
     }
     IByteChunk chunk;
-    chunk.PutStr("###NAMGrid-v1###"); chunk.PutStr(rig.dump().c_str());
+    chunk.PutStr(kStateHeader); chunk.PutStr(rig.dump().c_str());
     if (UnserializeState(chunk, 0) < 0) throw std::runtime_error("Preset contains invalid or unsupported rig state.");
     mPresetDirectory = nam_library::PathText(path.parent_path());
     OnRestoreState();
@@ -1319,289 +1189,105 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     int pos = ReadStateString(chunk, header, startPos);
     if (pos < 0)
       return -1;
-    const bool grid = strcmp(header.Get(), "###NAMGrid-v1###") == 0;
-    if (grid || strcmp(header.Get(), "###NAMDual-v1###") == 0)
-    {
-      WDL_String serialized;
-      pos = ReadStateString(chunk, serialized, pos);
-      if (pos < 0)
-        return -1;
-      auto config = nlohmann::json::parse(serialized.Get());
-      if (!config.is_object())
-        return -1;
-      if (!config.contains("schema") || !config["schema"].is_number_integer())
-        return -1;
-      const auto& schemaValue = config["schema"];
-      const bool modernSchema = schemaValue >= kInitialEffectStateSchema && schemaValue <= kGridStateSchema;
-      if (grid ? (!modernSchema && schemaValue != 2 && schemaValue != 3 && schemaValue != 6 && schemaValue != 7
-                  && schemaValue != 8 && schemaValue != 9 && schemaValue != 10 && schemaValue != 11 && schemaValue != 12
-                  && schemaValue != 13 && schemaValue != 1001 && schemaValue != noise_print::experimentSchema
-                  && schemaValue != noise_print::integratedSchema && schemaValue != kGateModeSchema
-                  && schemaValue != kFilterModeSchema && schemaValue != kLoFiSchema && schemaValue != kIdentitySchema
-                  && schemaValue != kFXNamesSchema && schemaValue != kReverbDelaySchema && schemaValue != kCosmicSchema
-                  && schemaValue != kCutoffNamesSchema && schemaValue != kTunerAutomationSchema
-                  && schemaValue != kOutboardSchema && schemaValue != kAirDynamicsSchema)
-               : schemaValue != 1)
-        return -1;
-      const int schema = schemaValue.get<int>();
-      if (grid && schema < kCutoffNamesSchema)
-      {
-        const auto renameCutoffs = [&](nlohmann::json& values) {
-          for (size_t slot=0; slot<FixedNAMGrid::kSlots; ++slot)
-            for (const auto& [control, previous] : kPreviousCutoffNames)
-            {
-              const auto prefix=GridSlotName(slot)+" ";
-              const auto oldName=prefix+previous, name=prefix+kEffectParameters[control].name;
-              const auto it=values.find(oldName);
-              if (it == values.end()) continue;
-              if (!values.contains(name)) values[name]=*it;
-              values.erase(oldName);
-            }
-        };
-        renameCutoffs(config);
-        if (config.contains("PerformanceScenes") && config["PerformanceScenes"].is_array())
-          for (auto& scene : config["PerformanceScenes"]) if (scene.is_object()) renameCutoffs(scene);
-      }
-      if (config.contains("PresetName") && (!config["PresetName"].is_string()
-          || config["PresetName"].get<std::string>().size() > 512
-          || config["PresetName"].get<std::string>().find('\0') != std::string::npos)) return -1;
-      if (config.contains("PresetDirectory") && (!config["PresetDirectory"].is_string()
-          || config["PresetDirectory"].get<std::string>().size() > 32768
-          || config["PresetDirectory"].get<std::string>().find('\0') != std::string::npos)) return -1;
-      if (config.contains("PerformanceScenes"))
-      {
-        const auto& scenes = config["PerformanceScenes"];
-        if (!scenes.is_array() || scenes.size() != 3) return -1;
-        for (const auto& scene : scenes)
-        {
-          if (!scene.is_object() || scene.size() > kNumParams) return -1;
-          size_t recognized = 0;
-          for (int i = 0; i < kNumParams; ++i)
-          {
-            const auto it = scene.find(GetParam(i)->GetName());
-            if (it == scene.end()) continue;
-            if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
-            if (IsAlgorithmMode(parameter_layout::UtilityControl(i)))
-            {
-              const double value = it->get<double>();
-              if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
-                return -1;
-            }
-            ++recognized;
-          }
-          if (recognized != scene.size()) return -1;
-        }
-      }
-      for (const char* field : {"CaptureFolders", "PresetFolders"})
+    if (strcmp(header.Get(), kStateHeader) != 0)
+      return -1;
+    WDL_String serialized;
+    pos = ReadStateString(chunk, serialized, pos);
+    if (pos < 0)
+      return -1;
+    auto config = nlohmann::json::parse(serialized.Get());
+    // Check integer domains on the JSON value itself: get<int>() would wrap out-of-range values.
+    const auto integerIn = [](const nlohmann::json& value, int64_t minimum, int64_t maximum) {
+      if (value.is_number_unsigned())
+        return value.get<uint64_t>() <= static_cast<uint64_t>(maximum)
+               && static_cast<int64_t>(value.get<uint64_t>()) >= minimum;
+      return value.is_number_integer() && value.get<int64_t>() >= minimum && value.get<int64_t>() <= maximum;
+    };
+    if (!config.is_object() || !config.contains("schema")
+        || !integerIn(config["schema"], kInitialEffectStateSchema, kEffectStateSchema))
+      return -1;
+    // Newer states are rejected. Older schemas default only controls introduced after them.
+    const int schema = config["schema"].get<int>();
+    const auto validText = [](const nlohmann::json& value, size_t limit) {
+      return value.is_string() && value.get<std::string>().size() <= limit
+             && value.get<std::string>().find('\0') == std::string::npos;
+    };
+    const auto slotArray = [&](const char* field) {
+      return config.contains(field) && config[field].is_array() && config[field].size() == FixedNAMGrid::kSlots;
+    };
+    if (config.contains("PresetName") && !validText(config["PresetName"], 512)) return -1;
+    if (config.contains("PresetDirectory") && !validText(config["PresetDirectory"], 32768)) return -1;
+    for (const char* field : {"CaptureFolders", "PresetFolders"})
       if (config.contains(field))
       {
         const auto& folders = config[field];
         if (!folders.is_array() || folders.size() > 32)
           return -1;
         for (const auto& folder : folders)
-          if (!folder.is_string() || folder.get<std::string>().size() > 32768
-              || folder.get<std::string>().find('\0') != std::string::npos)
+          if (!validText(folder, 32768))
             return -1;
       }
-      for (const char* name : {"DrivePath", "NAMPath", "IRPath"})
-        if (!config.contains(name) || !config[name].is_string() || config[name].get<std::string>().size() > 32768
-            || config[name].get<std::string>().find('\0') != std::string::npos)
-          return -1;
-      if (config.contains("CaptureFolder")
-          && (!config["CaptureFolder"].is_string() || config["CaptureFolder"].get<std::string>().size() > 32768
-              || config["CaptureFolder"].get<std::string>().find('\0') != std::string::npos))
-        return -1;
-      if (grid)
+    if (!config.contains("PerformanceScenes") || !config["PerformanceScenes"].is_array()
+        || config["PerformanceScenes"].size() != mPerformanceScenes.size())
+      return -1;
+    for (const auto& scene : config["PerformanceScenes"])
+    {
+      if (!scene.is_object() || scene.size() > kNumParams) return -1;
+      size_t recognized = 0;
+      for (int i = 0; i < kNumParams; ++i)
       {
-        if (!config.contains("SlotPaths") || !config["SlotPaths"].is_array()
-            || config["SlotPaths"].size() != FixedNAMGrid::kSlots)
-          return -1;
-        for (const auto& path : config["SlotPaths"])
-          if (!path.is_string() || path.get<std::string>().size() > 32768
-              || path.get<std::string>().find('\0') != std::string::npos)
-            return -1;
-        if (schema >= 3)
-        {
-          if (!config.contains("SlotEffects") || !config["SlotEffects"].is_array()
-              || config["SlotEffects"].size() != FixedNAMGrid::kSlots)
-            return -1;
-          for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-          {
-            const auto& effect = config["SlotEffects"][slot];
-            if (!effect.is_number_integer() || effect < 0
-                || effect > (schema == 3    ? 4
-                             : schema == 6  ? static_cast<int>(SlotEffect::Tape)
-                             : schema == 7  ? static_cast<int>(SlotEffect::TubeBoost)
-                             : schema == 8  ? static_cast<int>(SlotEffect::Utility)
-                             : schema == 9  ? static_cast<int>(SlotEffect::Wah)
-                             : schema == 10 ? static_cast<int>(SlotEffect::RingMod)
-                             : schema <= 12 ? static_cast<int>(SlotEffect::FrequencyShifter)
-                             : schema == 13 ? static_cast<int>(SlotEffect::Distortion)
-                             : schema < 20 ? static_cast<int>(SlotEffect::HallReverb)
-                             : schema == kReverbDelaySchema ? static_cast<int>(SlotEffect::GalacticSpace)
-                             : schema < kOutboardSchema ? static_cast<int>(SlotEffect::CosmicEcho)
-                             : schema < kAirDynamicsSchema ? static_cast<int>(SlotEffect::ButterComp)
-                                            : static_cast<int>(SlotEffect::Last))
-                || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>()))
-                || (effect == static_cast<int>(SlotEffect::LoFiTape) && (schema < kLoFiSchema || schema >= 1001))
-                || (effect != 0 && effect != 7 && config["SlotPaths"][slot] != ""))
-              return -1;
-          }
-        }
-        for (int slot = 0; slot < 2; ++slot)
-        {
-          const auto expected =
-            schema >= 3 && config["SlotEffects"][slot] != 0 ? nlohmann::json("") : config["SlotPaths"][slot];
-          if (config[slot == 0 ? "DrivePath" : "NAMPath"] != expected)
-            return -1;
-        }
-      }
-      else
-      {
-        config.erase("SlotPaths");
-        for (int i = kDualNumParams; i < kNumParams; ++i)
-          config.erase(GetParam(i)->GetName());
-      }
-      const int count = !grid         ? kDualNumParams
-                        : schema == 2 ? kGridV2NumParams
-                        : schema == 3 ? kGridV3NumParams
-                                      : kNumParams;
-      if (schema < 3)
-        config.erase("SlotEffects");
-      for (int i = count; i < kNumParams; ++i)
-        config.erase(GetParam(i)->GetName());
-      for (int i = 0; i < count; ++i)
-      {
-        const char* name = GetParam(i)->GetName();
-        const int utility = parameter_layout::UtilityControl(i);
-        // Default only fields introduced after the saved version. Missing fields
-        // that should already exist remain invalid rather than silently resetting.
-        if (utility >= 0 && schema < kEffectParameters[utility].introducedIn && !config.contains(name))
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < kAirDynamicsSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) >= uBlackThreshold)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < kOutboardSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) >= uStripLowCut)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && i == kTunerActive && (schema < kTunerAutomationSchema || schema >= 1001)) config[name] = 0.;
-        if (grid && schema < kReverbDelaySchema && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) >= uTapeHeads)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < kCosmicSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) >= uCosmicTime)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && parameter_layout::UtilityControl(i) >= 0 && parameter_layout::UtilityControl(i) >= uLoFiSpeed
-            && (schema < kLoFiSchema || schema >= 1001))
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < 10 || schema >= 1001) && i >= kGridParamBase && i <= kTunerActive)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && (schema < 12 || schema >= 1001) && i == kGridParamBase + grid_performance::InputGain)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && schema == 1001 && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) == uNoiseGateThreshold)
-          config[name] = GetParam(i)->GetDefault(); // First Noise Print experiment had no gate.
-        if (grid && parameter_layout::UtilityControl(i) >= 0)
-        {
-          const int control = parameter_layout::UtilityControl(i);
-          if ((schema <= 13 && control >= uNoiseLearn)
-              || (schema >= 1001 && control >= uUtilityDelay && control < uNoiseLearn))
-            config[name] = GetParam(i)->GetDefault();
-        }
-        // Prior WIP states called the gate close time Decay. Keep their value
-        // while exposing the accurate Release name to hosts and new states.
-        if (i >= kDynamicsBase && i < kEQBase && (i - kDynamicsBase) % 6 == 1)
-        {
-          const auto oldName = GridSlotName((i - kDynamicsBase) / 6) + " Gate Decay";
-          if (!config.contains(name) && config.contains(oldName))
-            config[name] = config[oldName];
-          config.erase(oldName);
-        }
-        // Schemas 6/7 had 30/41 named utility controls per slot. Fill only newly added
-        // controls; the expanded per-slot stride does not change saved names.
-        if (grid && schema >= 6 && schema < 10
-            && ((i >= kTunerReference && parameter_layout::UtilityControl(i) < 0 && schema < 8)
-                || (parameter_layout::UtilityControl(i) >= 0
-                    && parameter_layout::UtilityControl(i) >= (schema == 6   ? 30
-                                                               : schema == 7 ? 41
-                                                               : schema == 8 ? 48
-                                                                             : 61))))
-          config[name] = GetParam(i)->GetDefault();
-        // Schema 10 had 103 utility controls per slot; the three HQ modules append 17.
-        if (grid && schema >= 11 && schema <= 12 && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) >= uDistStyle)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && schema == 10 && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) >= 103)
-          config[name] = GetParam(i)->GetDefault();
-        if (grid && schema == 8 && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) == uUtilityStereo)
-        {
-          const auto oldName = GridSlotName(parameter_layout::UtilitySlot(i)) + " Utility Width";
-          if (!config.contains(oldName) || !config[oldName].is_number()
-              || !std::isfinite(config[oldName].get<double>()))
-            return -1;
-          config[name] = config[oldName].get<double>() - 100.;
-        }
-        if (grid && (schema < kGateModeSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) == uGateMode)
-        {
-          const size_t slot = parameter_layout::UtilitySlot(i);
-          config[name] = config.contains("SlotEffects")
-                           && config["SlotEffects"][slot] == static_cast<int>(SlotEffect::TightGate) ? 1. : 0.;
-        }
-        if (grid && (schema < kFilterModeSchema || schema >= 1001) && parameter_layout::UtilityControl(i) >= 0
-            && parameter_layout::UtilityControl(i) == uFilterMode)
-          config[name] = 0.;
-        if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
-          return -1;
-        // An unknown algorithm must fail before applying any state, rather than
-        // silently clamp to a different sound. Native mode IDs never normalize.
+        const auto it = scene.find(GetParam(i)->GetName());
+        if (it == scene.end()) continue;
+        if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
         if (IsAlgorithmMode(parameter_layout::UtilityControl(i)))
         {
-          const double value = config[name].get<double>();
+          const double value = it->get<double>();
           if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
             return -1;
         }
+        ++recognized;
       }
-      if (config.contains("SlotHashes"))
-      {
-        const auto& hashes = config["SlotHashes"];
-        if (!hashes.is_array() || hashes.size() != FixedNAMGrid::kSlots) return -1;
-        for (const auto& hash : hashes)
-        {
-          if (!hash.is_string()) return -1;
-          const auto value = hash.get<std::string>();
-          if (!value.empty() && (value.size() != 40 || !std::all_of(value.begin(), value.end(), [](char ch) {
-                return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'); }))) return -1;
-        }
-      }
-      if (config.contains("NoisePrintProfiles"))
-      {
-        const auto& profiles = config["NoisePrintProfiles"];
-        if (!profiles.is_array() || profiles.size() != FixedNAMGrid::kSlots)
-          return -1;
-        for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-        {
-          const auto profile = noise_print::Load(profiles[slot]);
-          if (profile.valid
-              && (!grid || !config.contains("SlotEffects")
-                  || config["SlotEffects"][slot] != static_cast<int>(SlotEffect::NoisePrint)))
-            return -1;
-        }
-      }
-      else if (schema == 1001 || schema == noise_print::experimentSchema || schema == noise_print::integratedSchema
-               || schema == kGateModeSchema || schema == kFilterModeSchema || schema == kLoFiSchema
-               || schema == kIdentitySchema || schema == kFXNamesSchema || schema == kReverbDelaySchema
-               || schema == kCosmicSchema || schema == kCutoffNamesSchema || schema == kTunerAutomationSchema
-               || schema == kOutboardSchema || schema == kAirDynamicsSchema || modernSchema)
-        return -1;
-      _UnserializeApplyConfig(config);
-      return pos;
+      if (recognized != scene.size()) return -1;
     }
-    if (strcmp(header.Get(), "###NeuralAmpModeler###") == 0)
-      return _UnserializeStateWithKnownVersion(chunk, pos);
-    return _UnserializeStateWithUnknownVersion(chunk, startPos);
+    if (!slotArray("SlotPaths") || !slotArray("SlotEffects") || !slotArray("SlotHashes") || !slotArray("NoisePrintProfiles"))
+      return -1;
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    {
+      const auto& path = config["SlotPaths"][slot];
+      const auto& effect = config["SlotEffects"][slot];
+      if (!validText(path, 32768) || !integerIn(effect, 0, static_cast<int>(SlotEffect::Last))
+          || !IsValidSlotEffect(static_cast<SlotEffect>(effect.get<int>())))
+        return -1;
+      const auto type = static_cast<SlotEffect>(effect.get<int>());
+      if (type != SlotEffect::NAM && type != SlotEffect::CabinetIR && path != "")
+        return -1;
+      const auto& hash = config["SlotHashes"][slot];
+      if (!hash.is_string()) return -1;
+      const auto value = hash.get<std::string>();
+      if (!value.empty() && (value.size() != 40 || !std::all_of(value.begin(), value.end(), [](char ch) {
+            return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'); }))) return -1;
+      if (noise_print::Load(config["NoisePrintProfiles"][slot]).valid && type != SlotEffect::NoisePrint)
+        return -1;
+    }
+    for (int i = 0; i < kNumParams; ++i)
+    {
+      const char* name = GetParam(i)->GetName();
+      const int utility = parameter_layout::UtilityControl(i);
+      if (schema < IntroducedIn(i) && !config.contains(name))
+        config[name] = GetParam(i)->GetDefault();
+      if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
+        return -1;
+      // An unknown algorithm must fail before applying any state, rather than
+      // silently clamp to a different sound. Native mode IDs never normalize.
+      if (IsAlgorithmMode(utility))
+      {
+        const double value = config[name].get<double>();
+        if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
+          return -1;
+      }
+    }
+    _UnserializeApplyConfig(config);
+    return pos;
   }
   catch (const std::exception&)
   {
@@ -1616,10 +1302,6 @@ void NeuralAmpModeler::OnUIOpen()
   _UpdateLibraryControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
-  if (mIRPath.GetLength())
-    SendControlMsgFromDelegate(kCtrlTagIRFileBrowser, kMsgTagLoadedIR, mIRPath.GetLength() + 1, mIRPath.Get());
-  if (mIRPath.GetLength() && !mIRLoaded)
-    SendControlMsgFromDelegate(kCtrlTagIRFileBrowser, kMsgTagLoadFailed);
   _UpdateControlsFromModel();
 }
 
@@ -1681,46 +1363,6 @@ void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
         control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
 }
 
-bool NeuralAmpModeler::OnMessage(int msgTag, int ctrlTag, int dataSize, const void* pData)
-{
-  switch (msgTag)
-  {
-    case kMsgTagClearModel: _ClearModel(1); return true;
-    case kMsgTagClearDrive: _ClearModel(0); return true;
-    case kMsgTagClearIR:
-    {
-      std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-      mCabinet.Publish(std::make_unique<PreparedIR>());
-      mIRPath.Set("");
-      mIRLoaded = false;
-      return true;
-    }
-    case kMsgTagHighlightColor:
-    {
-      mHighLightColor.Set((const char*)pData);
-
-      if (GetUI())
-      {
-        GetUI()->ForStandardControlsFunc([&](IControl* pControl) {
-          if (auto* pVectorBase = pControl->As<IVectorBase>())
-          {
-            IColor color = IColor::FromColorCodeStr(mHighLightColor.Get());
-
-            pVectorBase->SetColor(kX1, color);
-            pVectorBase->SetColor(kPR, color.WithOpacity(0.3f));
-            pVectorBase->SetColor(kFR, color.WithOpacity(0.4f));
-            pVectorBase->SetColor(kX3, color.WithContrast(0.1f));
-          }
-          pControl->GetUI()->SetAllControlsDirty();
-        });
-      }
-
-      return true;
-    }
-    default: return false;
-  }
-}
-
 // Private methods ============================================================
 
 void NeuralAmpModeler::_AllocateIOPointers(const size_t nChans)
@@ -1735,12 +1377,6 @@ void NeuralAmpModeler::_AllocateIOPointers(const size_t nChans)
   mOutputPointers = new sample*[nChans];
   if (mOutputPointers == nullptr)
     throw std::runtime_error("Failed to allocate pointer to output buffer!\n");
-}
-
-void NeuralAmpModeler::_ApplyDSPStaging()
-{
-  if (mCabinet.HasPending() && mIRSwitchGain <= 0.)
-    mCabinet.Adopt();
 }
 
 void NeuralAmpModeler::_DeallocateIOPointers()
@@ -1760,25 +1396,6 @@ void NeuralAmpModeler::_DeallocateIOPointers()
   if (mOutputPointers != nullptr)
     throw std::runtime_error("Failed to deallocate pointer to output buffer!\n");
 }
-
-void NeuralAmpModeler::_ResetModelAndIR(const double sampleRate, const int maxBlockSize)
-{
-  mGrid.ResetStopped(sampleRate, maxBlockSize);
-  mCabinet.Collect();
-  mCabinet.Adopt();
-  mCabinet.Collect();
-  if (auto* cabinet = mCabinet.Active())
-  {
-    if (cabinet->ir && cabinet->ir->GetSampleRate() != sampleRate)
-      cabinet->ir = std::make_unique<AdaptiveIR>(cabinet->ir->GetData(), sampleRate, maxBlockSize);
-    cabinet->Prepare(maxBlockSize);
-  }
-  for (size_t i = 0; i < mGrid.stages.size(); ++i)
-    mRequestedLatencies[i] = mGrid.stages[i].Latency();
-}
-
-std::string NeuralAmpModeler::_StageModel(const WDL_String& modelPath, size_t slot)
-{ return _StageSlot(slot, SlotEffect::NAM, modelPath.Get()); }
 
 void NeuralAmpModeler::_ResolveLibraryFiles()
 {
@@ -1807,8 +1424,6 @@ void NeuralAmpModeler::_ResolveLibraryFiles()
     {
       // Identical content is already processing: only update its canonical file reference.
       mSlotPaths[slot].Set(path.c_str()); mSlotGear[slot] = capture->gear;
-      if (slot == 0) mDrivePath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
-      if (slot == 1) mNAMPath.Set(effect == SlotEffect::NAM ? path.c_str() : "");
       SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
       changed = true;
     }
@@ -1900,16 +1515,6 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
       if (notifyHost) EndInformHostOfParamChange(index);
     }
   }
-  if (slot == 0)
-  {
-    mDrivePath.Set(config.effect == SlotEffect::NAM ? config.path.c_str() : "");
-    mDriveLoaded = config.effect == SlotEffect::NAM && info.loaded;
-  }
-  else if (slot == 1)
-  {
-    mNAMPath.Set(config.effect == SlotEffect::NAM ? config.path.c_str() : "");
-    mAmpInfo = config.effect == SlotEffect::NAM ? info : NAMModelInfo{};
-  }
   mSlotPaths[slot].Set(config.path.c_str());
   mSlotHashes[slot] = config.hash;
   mSlotEffects[slot] = config.effect;
@@ -1947,38 +1552,6 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mPreparedQuality[slot] = config.values[16];
   _UpdateLatency(latencyChanged);
   SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
-  if (slot == 1)
-    _UpdateControlsFromModel();
-}
-
-dsp::wav::LoadReturnCode NeuralAmpModeler::_StageIR(const WDL_String& irPath)
-{
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  try
-  {
-    // Check data before constructing IR (an empty IR underflows its history length).
-    std::vector<float> raw;
-    double rate;
-    const auto status = dsp::wav::Load(irPath.Get(), raw, rate);
-    if (status != dsp::wav::LoadReturnCode::SUCCESS || raw.empty() || rate <= 0.)
-      throw std::runtime_error("Invalid or empty impulse response");
-    auto prepared = std::make_unique<PreparedIR>();
-    dsp::ImpulseResponse::IRData data;
-    data.mRawAudio = std::move(raw);
-    data.mRawAudioSampleRate = rate;
-    prepared->ir = std::make_unique<AdaptiveIR>(data, mSampleRatePrepared, mMaxBlockPrepared);
-    prepared->Prepare(mMaxBlockPrepared);
-    mCabinet.Publish(std::move(prepared));
-    mIRPath = irPath;
-    mIRLoaded = true;
-    SendControlMsgFromDelegate(kCtrlTagIRFileBrowser, kMsgTagLoadedIR, irPath.GetLength() + 1, irPath.Get());
-    return dsp::wav::LoadReturnCode::SUCCESS;
-  }
-  catch (const std::exception&)
-  {
-    SendControlMsgFromDelegate(kCtrlTagIRFileBrowser, kMsgTagLoadFailed);
-    return dsp::wav::LoadReturnCode::ERROR_OTHER;
-  }
 }
 
 size_t NeuralAmpModeler::_GetBufferNumChannels() const
@@ -1994,11 +1567,6 @@ size_t NeuralAmpModeler::_GetBufferNumFrames() const
   return mInputArray[0].size();
 }
 
-void NeuralAmpModeler::_InitToneStack()
-{
-  // If you want to customize the tone stack, then put it here!
-  mToneStack = std::make_unique<dsp::tone_stack::BasicNamToneStack>();
-}
 void NeuralAmpModeler::_PrepareBuffers(const size_t numChannels, const size_t numFrames)
 {
   const bool updateChannels = numChannels != _GetBufferNumChannels();
@@ -2041,7 +1609,7 @@ void NeuralAmpModeler::_PrepareIOPointers(const size_t numChannels)
 void NeuralAmpModeler::_ProcessInput(iplug::sample** inputs, const size_t nFrames, const size_t nChansIn,
                                      const size_t nChansOut)
 {
-  const double target = GetParam(kGridParamBase + grid_performance::InputGain)->DBToAmp();
+  const double target = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
   for (size_t s = 0; s < nFrames; ++s)
   {
     mGlobalInputGain = target + mMasterCoefficient * (mGlobalInputGain - target);
@@ -2127,15 +1695,42 @@ void NeuralAmpModeler::_UpdateLatency(bool forceRestart)
     SetLatency(latency);
 }
 
-void NeuralAmpModeler::_UpdateMeters(sample** inputPointer, sample** outputPointer, const size_t nFrames,
-                                     const size_t nChansIn, const size_t nChansOut)
+// Applies a state that UnserializeState has completely validated.
+void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
 {
-  mOutputSender.ProcessBlock(
-    outputPointer, static_cast<int>(nFrames), kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, nChansOut)));
-}
+  mPresetName = config.value("PresetName", std::string("Untitled"));
+  mPresetDirectory = config.value("PresetDirectory", std::string{});
+  _UpdatePresetControls();
+  for (size_t i = 0; i < mPerformanceScenes.size(); ++i)
+    mPerformanceScenes[i] = config["PerformanceScenes"][i];
+  ENTER_PARAMS_MUTEX
+  // JSON object lookup avoids a full parameter-name scan for every saved value.
+  for (int i = 0; i < kNumParams; ++i)
+    GetParam(i)->Set(config[GetParam(i)->GetName()].get<double>());
+  OnParamReset(iplug::EParamSource::kPresetRecall);
+  LEAVE_PARAMS_MUTEX
 
-// HACK
-#include "Unserialization.cpp"
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    _ClearModel(slot);
+  if (config.contains("CaptureFolders")) SetCaptureFolders(config["CaptureFolders"].get<std::vector<std::string>>());
+  // States without a preset library keep this user's default.
+  if (config.contains("PresetFolders")) SetPresetFolders(config["PresetFolders"].get<std::vector<std::string>>());
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+  {
+    const auto path = config["SlotPaths"][slot].get<std::string>();
+    const auto effect = static_cast<SlotEffect>(config["SlotEffects"][slot].get<int>());
+    const auto hash = config["SlotHashes"][slot].get<std::string>();
+    mNoiseProfiles[slot] = noise_print::Load(config["NoisePrintProfiles"][slot]);
+    if (!_StageSlot(slot, effect, path, hash).empty())
+    {
+      // A missing file remains selected for relinking, with a safely empty processor.
+      _ClearModel(slot, effect);
+      mSlotPaths[slot].Set(path.c_str());
+      mSlotHashes[slot] = hash;
+      SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
+    }
+  }
+}
 
 void NeuralAmpModeler::_ClearModel(size_t slot, SlotEffect effect)
 { _StageSlot(slot, effect, ""); }

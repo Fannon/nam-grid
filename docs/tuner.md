@@ -9,7 +9,7 @@ the output. Turn it off, press Escape or click Close to restore sound through a
 Tuner/mute automation continues when the plugin window closes. A host project
 saves the Tuner switch, reference and mute preference. Rig presets and performance
 scenes leave them unchanged, so recalling a sound cannot unexpectedly mute or
-unmute a live tuner. Older projects default to Tuner OFF.
+unmute a live tuner.
 
 The display shows note/octave, signed cents, frequency and a 430–450 Hz reference.
 The graph covers the last six seconds, from oldest on the left to now on the
@@ -30,6 +30,6 @@ the editor does not determine the history sampling rate. The current pitch clear
 after detection stops; history ages out instead of implying a sustained note.
 
 Tests cover pitch/reference conversion, wrap/expiry, enable generations, trace
-breaks, real worker history, no audio allocations, older state migration, the
+breaks, real worker history, no audio allocations, state recall, the
 native editor controls, and automation/mute with the editor destroyed. Listening
 and host automation mapping should still be auditioned in the target DAW.

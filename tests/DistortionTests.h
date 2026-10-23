@@ -75,7 +75,7 @@ void TestDistortionAndMonoMeters()
     for (const auto& levels : std::array<std::pair<double, double>, 3>{{{.5, .5}, {.5, -.5}, {.5, 0.}}})
     {
       l.fill(levels.first); r.fill(levels.second);
-      meter.Process(l.data(), 64, true, 0., 0., false, 0., 0, 1., {}, {}, {}, r.data());
+      meter.Process(l.data(), 64, true, 0., 0., {}, {}, {}, r.data());
       const auto reading = meter.TakeMeter();
       const double mono = std::abs(.5 * (levels.first + levels.second));
       assert(std::abs(reading.input - mono) < 1.e-6 && std::abs(reading.output - mono) < 1.e-6);

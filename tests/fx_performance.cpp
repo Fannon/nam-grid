@@ -247,7 +247,7 @@ public:
   void Load(const json& config)
   {
     Stream bytes;
-    bytes.string("###NAMGrid-v1###");
+    bytes.string("###nam-grid###");
     bytes.string(config.dump());
     clap_istream stream{&bytes, Stream::read};
     Check(state->load(plugin, &stream), "State load failed");
@@ -258,18 +258,16 @@ static json Configure(json config, const json& scenario)
 {
   const auto effect = static_cast<SlotEffect>(scenario.at("effect").get<int>());
   config["CaptureFolders"] = json::array();
-  config["CaptureFolder"] = "";
-  config["DrivePath"] = config["NAMPath"] = config["IRPath"] = "";
-  config["NoiseGateActive"] = config["ToneStack"] = config["IRToggle"] = config["Tuner"] = 0.;
+  config["Tuner"] = 0.;
   config["Tuner Mute"] = 0.;
-  config["Input"] = config["Output"] = 0.;
+  config["Pre 2 In"] = config["Output"] = 0.;
   config["SlotPaths"] = std::vector<std::string>(16, "");
   config["SlotHashes"] = std::vector<std::string>(16, "");
   config["SlotEffects"] = std::vector<int>(16, 0);
   config["SlotEffects"][0] = static_cast<int>(effect);
   const auto defaults = SlotDefaultValues(effect);
   const std::array<const char*, 17> names{
-    "Drive Input",          "Drive Trim",           "Drive Enabled",      "Pre 1 Gate Threshold", "Pre 1 Gate Release",
+    "Pre 1 In",          "Pre 1 Trim",           "Pre 1 Enabled",      "Pre 1 Gate Threshold", "Pre 1 Gate Release",
     "Pre 1 Gate Reduction", "Pre 1 Comp Threshold", "Pre 1 Comp Release", "Pre 1 Comp Makeup",    "Pre 1 EQ Bass",
     "Pre 1 EQ Mid",         "Pre 1 EQ Treble",      "Pre 1 EQ High Pass", "Pre 1 EQ Low Pass",    "Pre 1 EQ Presence",
     "Pre 1 IR Level",       "Pre 1 Full Quality"};
@@ -280,11 +278,7 @@ static json Configure(json config, const json& scenario)
   for (auto it = scenario.at("controls").begin(); it != scenario.at("controls").end(); ++it)
     config["Pre 1 " + it.key()] = it.value();
   if (scenario.contains("asset"))
-  {
     config["SlotPaths"][0] = scenario["asset"];
-    if (effect == SlotEffect::NAM)
-      config["DrivePath"] = scenario["asset"];
-  }
   if (effect == SlotEffect::NoisePrint && !scenario.value("untrained", false))
     config["NoisePrintProfiles"][0] = {{"version", 1}, {"power", std::vector<double>(noise_print::bands, 1.e-6)}};
   return config;
@@ -547,6 +541,15 @@ try
     std::cout << Catalog().dump() << '\n';
     return 0;
   }
+  if (argc == 2 && std::string(argv[1]) == "--modules")
+  {
+    // Module name -> permanent ID, so scripts never hard-code renumberable IDs.
+    json modules = json::object();
+    for (int effect = 0; effect <= static_cast<int>(SlotEffect::Last); ++effect)
+      modules[SlotEffectName(static_cast<SlotEffect>(effect))] = effect;
+    std::cout << modules.dump() << '\n';
+    return 0;
+  }
   if (argc == 3 && std::string(argv[1]) == "--fixtures")
   {
     WriteFixtures(argv[2]);
@@ -567,7 +570,7 @@ try
               == count,
             "Mode coverage regression");
     for (int effect = 1; effect <= static_cast<int>(SlotEffect::Last); ++effect)
-      if (IsValidSlotEffect(static_cast<SlotEffect>(effect)) && effect != static_cast<int>(SlotEffect::TightGate)
+      if (IsValidSlotEffect(static_cast<SlotEffect>(effect))
           && effect != static_cast<int>(SlotEffect::CabinetIR))
         Check(
           std::any_of(cases.begin(), cases.end(), [&](const json& c) { return c["effect"] == effect; }), "Missing FX");

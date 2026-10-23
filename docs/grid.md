@@ -4,11 +4,8 @@ The current plugin has 16 slots arranged as four serial input stages, two
 parallel four-slot lanes and four serial output stages. Build outputs are in
 `build-grid/out`; see [build.md](build.md) for dependencies and commands.
 
-The grid plugin is named **nam-grid** (`NGr1`), distinct from the dual prototype (`NDu1`).
-Artifacts are `nam-grid.clap` / `nam-grid.vst3`. This unreleased prototype does not guarantee
-old parameter-name/ID or project compatibility. Pre/Post labels replace the former IN/OUT rows. Remove older copies of the grid binary from
-scan paths when adopting the renamed binary, then rescan. This workspace archives its previous
-grid artifacts outside `build-grid/out`. Windows builds are copied to the system CLAP folder on request; restart the host to load replacements.
+Artifacts are `nam-grid.clap` / `nam-grid.vst3`; plugin identity and compatibility
+are described in [build.md](build.md) and [development.md](development.md#parameter-and-project-compatibility).
 
 ## Routing and controls
 
@@ -35,7 +32,8 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   appear beside active, loaded cards; gate/compressor reduction is shown in the selected module panel.
   See [development.md](development.md).
 - Add NAM and IR folders in **Library & settings**. Multiple source folders and their subfolders
-  become nested selection menus. The default preference file remains `NAMDualPrototype/library.json`.
+  become nested selection menus. Folders and editor preferences for new instances are stored in
+  `nam-grid/library.json` in the user's application-support folder.
 - **Blend A / B** is the percentage of lane B: 0% uses A, 50% averages both, 100% uses B.
   It uses a smoothed linear crossfade. Two identical or empty lanes remain unity instead of
   becoming 6 dB louder. To use a single modeled lane without mixing in the other lane's dry
@@ -43,12 +41,10 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
 - The header preset name opens file Save/Load and presets in the last used folder;
   its arrows step through that folder. Global IN is at the input, OUT at the
   output, and A/B on the right. See [presets.md](presets.md).
-- New instances have no shared gate, EQ or IR processing: add those as modules. Master and the
-  existing 5 Hz DC blocker remain after the grid. Recalled projects retain their legacy global
-  processing settings, with compatibility toggles in Settings when used; this preserves their sound.
-- The former Amp's optional calibration, output mode and Slim parameters apply to **Pre 2**,
-  Settings labels identify Pre 2. Other slots use raw NAM levels with
-  independent musical input gains/trims. Full/Lite is prepared outside audio and saved per slot.
+- There is no shared gate, EQ or IR processing: add those as modules. Only OUT and a 5 Hz
+  DC blocker follow the grid.
+- Every slot has the same controls. NAM slots use the capture's raw output level with
+  independent In and Trim gains. Full/Lite quality is prepared outside audio and saved per slot.
 - Stereo inputs remain stereo through empty and built-in slots. Mono input is duplicated.
   Each loaded mono NAM slot averages L/R, performs one inference pass, and broadcasts its
   wet result. Its bypass retains separate L/R and conversion latency. Use Utility after

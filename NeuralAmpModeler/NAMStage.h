@@ -271,9 +271,9 @@ public:
     return p ? p->latency : 0;
   }
   // Called exclusively by audio, or while host processing is stopped.
-  double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB, bool calibrate,
-                  double calibrationDB, int outputMode, double slim, const DynamicsControls& dynamics = {},
-                  const EQControls& eq = {}, const UtilityControls& utility = {}, double* rightSamples = nullptr)
+  double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB,
+                  const DynamicsControls& dynamics = {}, const EQControls& eq = {}, const UtilityControls& utility = {},
+                  double* rightSamples = nullptr)
   {
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
     if (switching && mSwitchGain <= 0.)
@@ -292,12 +292,6 @@ public:
       inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
     if (p && p->effect == SlotEffect::CabinetIR)
       trimDB = eq.irLevel + 18.; // Undo the reused convolver's fixed -18 dB; knob is actual IR gain.
-    if (calibrate && info.hasInput)
-      inputDB += calibrationDB - info.input;
-    if (outputMode == 1 && info.hasLoudness)
-      trimDB += -18. - info.loudness;
-    if (outputMode == 2 && info.hasOutput)
-      trimDB += info.output - calibrationDB;
     const double inTarget = std::pow(10., inputDB * .05), outTarget = std::pow(10., trimDB * .05);
     if (mFirst)
     {
@@ -539,18 +533,4 @@ private:
   SlotMeterData mMeter;
   std::array<float, grid_eq_signal::windowSize> mEQSignal{};
   size_t mEQSignalWrite = 0, mEQSignalCount = 0;
-};
-
-struct PreparedIR
-{
-  std::unique_ptr<AdaptiveIR> ir, right;
-  void Prepare(int block)
-  {
-    if (!ir)
-      return;
-    const auto data = ir->GetData();
-    const double rate = ir->GetSampleRate();
-    ir = std::make_unique<AdaptiveIR>(data, rate, block);
-    right = std::make_unique<AdaptiveIR>(data, rate, block);
-  }
 };

@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -29,6 +30,19 @@ int main(int argc, char** argv)
   assert(getFactory);
   auto* factory = getFactory();
   assert(factory);
+  // Hosts identify the plugin by these class IDs (derived from 'Fann'/'NGrd'); never change them.
+  PFactoryInfo vendor{};
+  assert(factory->getFactoryInfo(&vendor) == kResultOk && std::string(vendor.vendor) == "Simon Heimler");
+  // iPlug2 registers one single-component class with the processor ID.
+  const TUID processorID = INLINE_UID(0xF2AEE70D, 0x00DE4F4E, 'Fann', 'NGrd');
+  bool foundProcessor = false;
+  for (int i = 0; i < factory->countClasses(); ++i)
+  {
+    PClassInfo info{};
+    assert(factory->getClassInfo(i, &info) == kResultOk);
+    foundProcessor |= std::memcmp(info.cid, processorID, sizeof(TUID)) == 0;
+  }
+  assert(foundProcessor);
   IEditController* controller = nullptr;
   for (int i = 0; i < factory->countClasses(); ++i)
   {
@@ -110,11 +124,11 @@ int main(int argc, char** argv)
     }
   };
   for (int slot = 0; slot < 16; ++slot)
-    for (int p = 0; p < snapshot["utility"].size(); ++p)
+    for (int control = 0; control < snapshot["slot"].size(); ++control)
     {
-      auto expected = snapshot["utility"][p];
+      auto expected = snapshot["slot"][control];
       expected["name"] = GridSlotName(slot) + " " + expected["name"].get<std::string>().substr(6);
-      verify(SlotUtilityParam(slot, p), expected, p);
+      verify(SlotParam(slot, control), expected, control - parameter_layout::standardControls);
     }
   for (const auto& expected : snapshot["global"])
     verify(expected["id"], expected, -1);

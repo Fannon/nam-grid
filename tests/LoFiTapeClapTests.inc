@@ -1,33 +1,13 @@
-// Schema 16 -> current preserves existing controls while initializing new tape knobs.
+// LoFi Tape controls round-trip; a state missing one of them is rejected.
 {
-  auto prior = cleared;
-  prior["schema"] = 16;
-  prior["Post 4 Boost Gain"] = 13.;
-  for (int slot = 0; slot < 16; ++slot)
-  {
-    const auto label = std::string(slot < 4 ? "Pre " : slot < 8 ? "A " : slot < 12 ? "B " : "Post ")
-                       + std::to_string(slot % 4 + 1);
-    for (int p = uLoFiSpeed; p <= uLoFiOutput; ++p) prior.erase(label + " " + kEffectParameters[p].name);
-  }
-  load(prior);
-  const auto migrated = save().config();
-  assert(migrated["schema"] == cleared["schema"] && migrated["Post 4 Boost Gain"] == 13.);
-  for (const char* slot : {"Pre 1", "A 4", "B 4", "Post 4"})
-    for (int p = uLoFiSpeed; p <= uLoFiOutput; ++p)
-      assert(migrated[std::string(slot) + " " + kEffectParameters[p].name] == kEffectParameters[p].initial);
-
   auto tapeState = cleared;
   tapeState["SlotEffects"][0] = static_cast<int>(SlotEffect::LoFiTape);
   for (int p = uLoFiSpeed; p <= uLoFiOutput; ++p)
     tapeState[std::string("Pre 1 ") + kEffectParameters[p].name] = kEffectParameters[p].maximum;
   load(tapeState);
   assert(save().config() == tapeState);
-  Stream rejected;
-  auto oldTape = tapeState; oldTape["schema"] = 16;
-  rejected.string("###NAMGrid-v1###"); rejected.string(oldTape.dump());
-  assert(!loadBytes(rejected) && save().config() == tapeState);
   auto malformed = tapeState; malformed.erase("Pre 1 LoFi Wear");
-  Stream missing; missing.string("###NAMGrid-v1###"); missing.string(malformed.dump());
+  Stream missing; missing.string("###nam-grid###"); missing.string(malformed.dump());
   assert(!loadBytes(missing) && save().config() == tapeState);
 
   // Every FX control has a stable block of slot IDs, including tape controls.

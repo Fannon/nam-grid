@@ -21,7 +21,7 @@ benchmark = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(benchmark)
 
 # Shared slot controls (name, first value, second value or None), automated in every case.
-SHARED = [("Drive Input", 6., 3.), ("Drive Trim", -4., -2.), ("Pre 1 Gate Threshold", -40., -20.),
+SHARED = [("Pre 1 In", 6., 3.), ("Pre 1 Trim", -4., -2.), ("Pre 1 Gate Threshold", -40., -20.),
           ("Pre 1 Gate Release", 300., 150.), ("Pre 1 Gate Reduction", 30., 15.), ("Pre 1 Comp Threshold", -30., -15.),
           ("Pre 1 Comp Release", 300., 150.), ("Pre 1 Comp Makeup", 6., 3.), ("Pre 1 EQ Bass", 5., 2.5),
           ("Pre 1 EQ Mid", -4., -2.), ("Pre 1 EQ Treble", 3., 1.5), ("Pre 1 EQ High Pass", 120., 60.),
@@ -96,7 +96,8 @@ def main():
     nams += [ROOT / "NeuralAmpModelerCore" / "example_models" / n for n in ("lstm.nam", "wavenet.nam")] + args.nam
     irs = [fixtures / n for n in ("ir-2048.wav", "ir-16384.wav")] + args.ir
     cases = json.loads(subprocess.check_output([str(host), "--catalog"], text=True, encoding="utf-8"))
-    cases = benchmark.select_cases(cases + benchmark.asset_cases(nams, irs), args.module, args.filter)
+    modules = json.loads(subprocess.check_output([str(host), "--modules"], text=True, encoding="utf-8"))
+    cases = benchmark.select_cases(cases + benchmark.asset_cases(nams, irs, modules), args.module, args.filter)
     rows, failures = [], 0
     try:
         for index, case in enumerate(cases):

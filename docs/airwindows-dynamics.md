@@ -95,8 +95,7 @@ The DSP suite checks all five rates, both gate modes, exact dry, stereo, full
 range automation, block invariance, zero processing allocations, true gate
 silence, gate closure consistency and Pressure's stereo linking. A recovery probe
 after a right-only burst catches the squared-rate recovery bug. Host tests cover
-the new mode choices, native gestures, both ends of the parameter bank and
-schema-24 migration.
+the mode choices, native gestures, state recall and both ends of the parameter bank.
 
 Use `nam-outboard-audition` for isolated stereo-wrapper measurements or the
 [FX performance tool](fx-performance.md) for plugin callback measurements.

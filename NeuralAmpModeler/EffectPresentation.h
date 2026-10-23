@@ -226,7 +226,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::ButterComp: return "Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack.";
     case SlotEffect::NAM: return "Input drives the capture; EQ and Output shape its result.";
     case SlotEffect::CabinetIR: return "Cabinet convolution; the traces compare input and output level.";
-    case SlotEffect::NaturalGate: case SlotEffect::TightGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";
+    case SlotEffect::NoiseGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";
     case SlotEffect::NoisePrint: return "Learn the noise alone; Sensitivity and Reduction protect sustain.";
     case SlotEffect::SmoothComp: return "Gentle leveling; Attack preserves pick, Makeup restores level.";
     case SlotEffect::PunchComp: return "Firmer compression; slow Attack and parallel Mix retain punch.";

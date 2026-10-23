@@ -80,11 +80,11 @@ private:
   IControl* KnobAt(int page, float x, float y, int parameter, float width = 115.f)
   {
     const auto& p = grid_performance::parameters[parameter];
-    auto* control = new grid_ui::Knob(IRECT(x, y, x + width, y + 100), kGridParamBase + parameter, p.label);
+    auto* control = new grid_ui::Knob(IRECT(x, y, x + width, y + 100), PerformanceParam(parameter), p.label);
     Add(page, control); return control;
   }
   void ToggleAt(int page, float x, float y, int parameter)
-  { Add(page, new grid_ui::Toggle(IRECT(x, y, x + 150, y + 32), kGridParamBase + parameter, grid_performance::parameters[parameter].label)); }
+  { Add(page, new grid_ui::Toggle(IRECT(x, y, x + 150, y + 32), PerformanceParam(parameter), grid_performance::parameters[parameter].label)); }
   void SetPage(int page)
   {
     mPage = page;

@@ -55,7 +55,8 @@ def plugin_binary(path):
     raise ValueError(f"CLAP binary not found: {path}")
 
 
-def asset_cases(nam_paths, ir_paths):
+def asset_cases(nam_paths, ir_paths, modules={"NAM": 0, "Cabinet IR": 6}):
+    """File-module cases; `modules` maps names to IDs as printed by the host's --modules."""
     cases = []
     for index, asset in enumerate(nam_paths):
         with asset.open(encoding="utf-8-sig") as stream:
@@ -66,12 +67,12 @@ def asset_cases(nam_paths, ir_paths):
         qualities = (1, 0) if slimmable else (1,)
         for quality in qualities:
             quality_name = ("A2" if quality else "A2 Lite") if slimmable else "fixed"
-            cases.append({"id": f"nam-{index}-q{quality}", "module": "NAM", "effect": 0,
+            cases.append({"id": f"nam-{index}-q{quality}", "module": "NAM", "effect": modules["NAM"],
                           "controls": {"Full Quality": quality}, "asset": str(asset),
                           "architecture": architecture, "asset_sha256": sha256(asset),
                           "quality": quality_name, "mode": f"{asset.name} ({architecture}; {quality_name})"})
     for index, asset in enumerate(ir_paths):
-        cases.append({"id": f"ir-{index}", "module": "Cabinet IR", "effect": 7,
+        cases.append({"id": f"ir-{index}", "module": "Cabinet IR", "effect": modules["Cabinet IR"],
                       "controls": {}, "asset": str(asset), "asset_sha256": sha256(asset), "mode": asset.name})
     return cases
 
@@ -326,7 +327,8 @@ def main(argv=None):
     nam_paths = [fixtures / name for name in ("a2-small.nam", "a2-large.nam", "slimmable.nam")]
     nam_paths += [ROOT / "NeuralAmpModelerCore" / "example_models" / name for name in ("lstm.nam", "wavenet.nam")]
     ir_paths = [fixtures / name for name in ("ir-2048.wav", "ir-16384.wav")]
-    cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir])
+    modules = json.loads(subprocess.check_output([str(host), "--modules"], text=True, encoding="utf-8"))
+    cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir], modules)
     cases = select_cases(cases, args.module, args.filter)
     if args.list:
         for case in cases:

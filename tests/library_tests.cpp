@@ -186,7 +186,7 @@ int main(int argc, char** argv)
             assert(type > 0 && IsValidSlotEffect(static_cast<SlotEffect>(type)));
             if (type == static_cast<int>(SlotEffect::NoisePrint))
               assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate (Smart)");
-            if (type == static_cast<int>(SlotEffect::NaturalGate))
+            if (type == static_cast<int>(SlotEffect::NoiseGate))
               assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate");
             ++seen[type];
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
@@ -195,8 +195,7 @@ int main(int argc, char** argv)
         for (int i = 1; i <= static_cast<int>(SlotEffect::Last); ++i)
           assert(
             seen[i]
-            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR)
-                  && i != static_cast<int>(SlotEffect::TightGate) ? 1 : 0));
+            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR) ? 1 : 0));
         assert(menu.GetItem(index++)->GetIsSeparator());
         if (quality)
         {
@@ -308,12 +307,16 @@ int main(int argc, char** argv)
   assert(WriteFolderSettings(preferences, folders));
   assert(ReadFolderSettings(preferences) == folders);
   assert(NormalizeFolders({folders[0], folders[0], folders[1]}).size() == 2);
-  std::ofstream(preferences) << json{{"CaptureFolder", folders[0]}};
-  assert(ReadFolderSettings(preferences) == std::vector<std::string>{folders[0]});
+  std::ofstream(preferences) << json{{"CaptureFolder", folders[0]}}; // Prototype key is not read.
+  assert(ReadFolderSettings(preferences).empty());
   std::ofstream(preferences) << json{{"CaptureFolders", {1, "bad"}}};
   assert(ReadFolderSettings(preferences).empty());
   assert(ReadSettings(preferences).rescanOnStartup);
   assert(WriteSettings(preferences, {folders, false, false}));
+  // Replacement is atomic: no temporary siblings remain and the file always parses.
+  for (const auto& sibling : std::filesystem::directory_iterator(preferences.parent_path()))
+    assert(sibling.path().filename().string().find(".tmp-") == std::string::npos);
+  assert(json::parse(std::ifstream(preferences)).is_object());
   assert(!ReadSettings(preferences).rescanOnStartup && ReadSettings(preferences).folders == folders);
   assert(!ReadSettings(preferences).showVisualizations);
   assert(WriteFolderSettings(preferences, {folders[0]}));

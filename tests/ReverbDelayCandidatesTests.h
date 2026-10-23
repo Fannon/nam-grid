@@ -51,7 +51,7 @@ void TestReverbDelayCandidates()
           const int boundary = std::min(count, (segment + 1) * 2048);
           const int n = std::min(boundary-pos, tiny ? std::array<int, 5>{1, 3, 64, 127, 256}[block++%5] : 512);
           allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
-          stage.Process(audio[0].data()+pos, n, true, 0., 0., false, 0., 0, 1., {}, {}, c, audio[1].data()+pos);
+          stage.Process(audio[0].data()+pos, n, true, 0., 0., {}, {}, c, audio[1].data()+pos);
           Eigen::internal::set_is_malloc_allowed(true); tracking = false;
           assert(allocations == 0 && deletions == 0); pos += n;
         }

@@ -13,7 +13,7 @@ Use [build.md](build.md) for build, test and screenshot commands,
 | Effect labels, tooltips and conditional controls | [EffectPresentation.h](../NeuralAmpModeler/EffectPresentation.h) |
 | Insertion/reset settings | [SlotDefaults.h](../NeuralAmpModeler/SlotDefaults.h) |
 | Browser categories | [ModuleCatalog.h](../NeuralAmpModeler/ModuleCatalog.h) |
-| Host registration, state validation and migrations | [NeuralAmpModeler.cpp](../NeuralAmpModeler/NeuralAmpModeler.cpp) |
+| Host registration and state validation | [NeuralAmpModeler.cpp](../NeuralAmpModeler/NeuralAmpModeler.cpp) |
 | Slot transactions | [SlotOperations.h](../NeuralAmpModeler/SlotOperations.h) |
 | Prepared processor lifetime | [NAMStage.h](../NeuralAmpModeler/NAMStage.h), [RealtimeExchange.h](../NeuralAmpModeler/RealtimeExchange.h) |
 
@@ -23,64 +23,73 @@ unsupported or malformed data must be rejected before mutating the current rig.
 
 ## Parameter and project compatibility
 
-This change establishes a new automation compatibility baseline. Prototype host
-parameter IDs are intentionally reorganized; older preview automation envelopes
-must be recreated. The plugin identities are retained, but prototype automation
-is not migrated. The contract below applies from this baseline onward.
+nam-grid 0.1.0 is the compatibility baseline. Earlier previews used other plugin
+IDs, parameter IDs and state formats; their projects, automation and `.ngrid`
+presets are not loaded and must be rebuilt. From 0.1.0 onward, these remain stable:
 
-`ParameterLayout.h` places the fixed NAM/core controls and globals first, then
-assigns each extendable FX control a block of slot IDs. Adding a control appends a block; its ID never depends on the total
-number of controls in a slot. The same forward/reverse mapping drives audio-cache
-ownership and state handling. No hidden/dummy parameters or prototype-stride
-exceptions are needed. New global/performance controls need explicit extension
-allocation; compile-time checks prevent shifting the FX base.
+- **Plugin identity:** CLAP ID, vendor and VST3 class IDs in `config.h`.
+- **Host parameters:** every ID, name, range, scaling and meaning.
+- **Module and algorithm IDs:** the integers saved for modules (`SlotEffect`)
+  and algorithm selectors (`AlgorithmIdentities()`).
+- **Saved state:** the `###nam-grid###` header and every named field of schema 1.
 
-Algorithm selection is saved state, not automation. The editor, rig presets,
-projects and performance scenes retain native integer identities. Algorithm
-selectors keep their parameter handles for state/editor compatibility but have
-no CLAP/VST3 automation flag and emit no automation gestures or values. Editor
-changes mark the host project dirty. Shared controls such as Drive, Decay and
-Mix retain automation, as do tempo divisions, bypass, ping-pong, stereo switches
-and rotary speed.
+### Host parameter layout
 
-This covers Distortion Style, Cosmic Echo Style, Console Colour Desk, Digital
-Black Mode, Multi-head Tape patterns, Juno Mode, Noise Gate Mode, Filter Mode,
-Parametric EQ Bell/Notch and Uni-Vibe Chorus/Vibrato. Other reverbs and modules
-are selected through the existing state-only module chooser. Unknown or
-fractional algorithm IDs in presets/scenes are rejected without changing the rig.
+Host IDs are allocated in append-only segments in
+[ParameterLayout.h](../NeuralAmpModeler/ParameterLayout.h). The released segment
+holds 49 globals (output, A/B blend, tuner, then the `grid_performance` controls)
+followed by one block of 16 IDs per slot control: the 17 shared slot controls
+(In, Trim, Enabled, gate, compressor, EQ, IR level, Full Quality), then every
+module control (`UtilityParam`). Every slot has the same controls and names
+(`Pre 1 In` … `Post 4 Pressure Output`). The segment counts are literals:
+adding a control fails to compile until it is allocated, and a compile-time check
+rejects edits to released segments.
 
-When adding a mode or module:
+- **New module or shared slot control:** append the `UtilityParam`/descriptor and
+  grow the last segment's slot-control count, or append `{0, n}` after a global
+  segment. Its 16 IDs come after every existing ID.
+- **New global:** append `{n, 0}` and access it through `parameter_layout::GlobalID()`.
+  Never use contiguous arithmetic across globals; `PerformanceParam()` shows the pattern.
+
+### Saved state
+
+Projects and presets store named values, module IDs, file paths/hashes and Noise
+Gate (Smart) profiles under the state header with an integer `schema`. Newer
+schemas, unknown modules or algorithms, fractional or out-of-range IDs, missing
+fields and malformed data are rejected before the current rig changes.
+
+When adding saved data, bump `kEffectStateSchema` and set the new control
+descriptor's `introducedIn` to that schema. Older states then receive that
+control's default; a field that the saved schema already had stays required.
+Never lower or reuse a schema number.
+
+### Adding a mode or module
 
 1. Append an explicit permanent ID; never reorder, renumber or reuse old IDs.
    Register algorithm keys in `AlgorithmIdentities()`, and keep old DSP
    implementations. Display labels can change independently of identity.
-2. Expose only implemented choices. Growing a non-automatable algorithm menu
-   does not reinterpret saved VST3 normalized automation positions.
-3. Append new `UtilityParam` entries and descriptors. Older presets default only
-   missing appended keys according to each descriptor's `introducedIn` version.
-   Bump `kEffectStateSchema` for new controls and set that version on their
-   descriptors; missing fields that should already exist remain invalid. Keep
-   existing descriptor `name` values as permanent storage keys; use `label` for editor wording. Never change an existing
-   automatable control's range, scaling or meaning to accommodate a new mode.
-4. If an old algorithm's behavior must materially change, introduce a new mode
-   identity so existing rigs retain their sound.
+2. Expose only implemented choices. Algorithm selectors are saved state, not
+   automation: they have no CLAP/VST3 automation flag and editor changes mark the
+   project dirty instead. Growing an algorithm menu therefore never reinterprets
+   saved automation.
+3. Keep existing descriptor `name` values; they are host names and storage keys.
+   Use `label` for editor wording. Never change an existing automatable control's
+   range, scaling or meaning to accommodate a new mode.
+4. If an algorithm's behavior must materially change, add a new mode identity so
+   existing rigs keep their sound.
 5. Run the compatibility tests and the new algorithm's DSP/state tests.
 
-`nam-parameter-contract` checks every original parameter ID and sampled
-normalized-to-display mapping, native mode/scene recall, module identities and
-atomic rejection. It also simulates future control allocation without exposing
-placeholders. Windows builds add `nam-vst3-parameter-contract`, which loads the
-real VST3 controller to verify IDs, automation flags and normalized mappings.
-Native CLAP editor tests verify state notifications without mode automation.
-The historical fixture in `tests/fixtures/` must not be regenerated to bypass
-failures: adding new modes/controls preserves its existing expectations. Its
-explicit `--record` option is only for establishing a reviewed baseline.
-
-The fixture records the new stable layout, rather than preserving a prototype
-layout. Older named-state migrations remain best effort because retaining those
-readers is inexpensive; they are outside the new compatibility guarantee. Mode
-automation from earlier previews is intentionally unsupported. Metadata checks
-do not prove identical DSP output; sound changes still need DSP regressions and the [release acceptance checks](release-checklist.md).
+`nam-parameter-contract` compares the running plugin against
+[`tests/fixtures/parameter-contract-v1.json`](../tests/fixtures/parameter-contract-v1.json):
+plugin identity, every slot and global parameter (ID, name, flags, default and
+sampled normalized-to-display mappings), module and algorithm IDs, preset/scene
+recall of every algorithm and atomic rejection. It also simulates future segment
+growth. Windows builds add `nam-vst3-parameter-contract`, which loads the real VST3
+controller and checks its class ID. Appending controls preserves the fixture's
+expectations; never re-record it to bypass a failure. `--record` exists only for
+establishing a reviewed baseline. Metadata checks do not prove identical DSP output;
+sound changes still need DSP regressions and the
+[release acceptance checks](release-checklist.md).
 
 Changes to a module must keep its menu membership, descriptors, defaults,
 presentation, DSP dispatch, state handling and tail reporting consistent.
@@ -110,7 +119,7 @@ out of audio processing, and distinguish measured signals from parameter sketche
 
 ## Cabinet convolution
 
-Grid and legacy cabinet IRs use one [adaptive direct/FFT processor](adaptive-ir.md).
+Cabinet IR slots use one [adaptive direct/FFT processor](adaptive-ir.md).
 It selects the backend during preparation and preserves the full resampled IR
 without adding buffering latency or exposing a quality mode.
 
@@ -122,7 +131,7 @@ Preserve source pins, licenses and deliberate deviations beside the adapted DSP:
   [Cosmic Echo](../NeuralAmpModeler/dsp/reverb/COSMIC.md).
 - [Airwindows outboard mappings](airwindows-outboard.md) and
   [gate/compressor adaptations](airwindows-dynamics.md).
-- [Third-party notices](../NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+- [Third-party notices](../ThirdPartyNotices.txt)
   and accompanying license files. Vendor generators live in `scripts/`.
 
 Completed investigations and old benchmark results are available in Git history.

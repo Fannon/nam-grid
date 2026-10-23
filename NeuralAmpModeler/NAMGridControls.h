@@ -1,4 +1,5 @@
 #pragma once
+#include "IControls.h"
 #include "ModuleMenu.h"
 #include "GridLayout.h"
 #include "EQResponse.h"
@@ -6,6 +7,11 @@
 #include "LevelReadout.h"
 #include "EffectPreview.h"
 #include <chrono>
+
+#define PLUG() static_cast<PLUG_CLASS_NAME*>(GetDelegate())
+
+using namespace iplug;
+using namespace igraphics;
 
 namespace grid_ui
 {
@@ -25,7 +31,7 @@ struct NodeTone
 };
 inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
-  if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
+  if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect) || effect == SlotEffect::Pressure)
     return {compColor, compColor, "Compressor"};
@@ -878,10 +884,10 @@ private:
       DrawCosmicSetup(g,plot,[&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot,p))->Value(); },
         PLUG()->GetSampleRate()>0. ? PLUG()->GetSampleRate() : 48000.);
     }
-    else if (effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate || effect == SlotEffect::NoisePrint
+    else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
         || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
     {
-      const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
+      const bool gate = effect == SlotEffect::NoiseGate;
       const bool smart = effect == SlotEffect::NoisePrint;
       const double threshold = smart ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseGateThreshold))->Value()
                              : effect == SlotEffect::Limiter ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLimiterCeiling))->Value()
@@ -1196,7 +1202,7 @@ private:
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
-    const bool gate = effect == SlotEffect::NaturalGate || effect == SlotEffect::TightGate;
+    const bool gate = effect == SlotEffect::NoiseGate;
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
@@ -1410,15 +1416,12 @@ public:
       g.DrawText(
         Text(14.f, muted), "No library folders", IRECT(52, 166, 840, 198));
     g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
-    g.DrawLine(border, 32, 525, 968, 525);
   }
   void OnAttached() override
   {
     using namespace grid_ui;
     AddChildControl(new HintLabel(IRECT(32, 24, 650, 64), "Library & settings", Text(23.f),
       "Manage NAM / IR folders. Browse library to search files and add preset folders. Scroll the folder list for more sources (32 maximum)."));
-    AddChildControl(new HintLabel(IRECT(32, 528, 460, 554), "Input calibration / Pre 2", Text(14.f),
-      "Match the interface reference level independently of musical input gain. Raw output preserves the model output. Add gate, EQ and cabinet processing as grid modules."));
     AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
     AddChildControl(new Button(IRECT(678, 28, 846, 60), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
@@ -1449,27 +1452,10 @@ public:
     }, "Visualizations: ON");
     AddChildControl(mVisualizations);
     mVisualizations->SetTooltip("Show parameter plots and level displays beside the selected module's controls.");
-    AddChildControl(new Knob(IRECT(32, 583, 135, 685), kInputCalibrationLevel, "Reference (dBu)"))->SetTooltip(
-      "Your audio interface's reference input level in dBu, separate from the musical input gain.");
-    AddChildControl(new Toggle(IRECT(158, 625, 277, 657), kCalibrateInput))->SetTooltip("Enable interface input calibration for Pre 2.");
-    AddChildControl(new IVSwitchControl(IRECT(317, 610, 504, 672), kOutputMode, "Pre 2 output mode", grid_ui::Style()))->SetTooltip(
-      "Choose Pre 2 output normalization. Raw keeps the model output unchanged.");
-    // Expose inherited processing only for recalled projects that still use it.
-    mLegacy[0] =
-      AddChildControl(new IVToggleControl(IRECT(545, 610, 666, 672), kNoiseGateActive, "Legacy gate", grid_ui::Style()));
-    mLegacy[1] = AddChildControl(new IVToggleControl(IRECT(686, 610, 807, 672), kEQActive, "Legacy EQ", grid_ui::Style()));
-    mLegacy[2] = AddChildControl(new IVToggleControl(IRECT(827, 610, 948, 672), kIRToggle, "Legacy IR", grid_ui::Style()));
   }
   void Hide(bool hide) override
   {
     IContainerBase::Hide(hide);
-    if (!hide)
-    {
-      const bool legacy = GetDelegate()->GetParam(kNoiseGateActive)->Bool()
-                          || GetDelegate()->GetParam(kEQActive)->Bool() || GetDelegate()->GetParam(kIRToggle)->Bool();
-      for (auto* control : mLegacy)
-        control->Hide(!legacy);
-    }
     if (GetUI())
       GetUI()->SetAllControlsDirty();
   }
@@ -1518,7 +1504,6 @@ private:
   grid_ui::Button* mAdd = nullptr;
   grid_ui::Button* mStartupScan = nullptr;
   grid_ui::Button* mVisualizations = nullptr;
-  std::array<IControl*, 3> mLegacy{};
 };
 
 

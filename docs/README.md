@@ -34,7 +34,7 @@ guitar rig. These guides describe current usage, implementation and release chec
 - [Airwindows outboard implementation](airwindows-outboard.md) and
   [dynamics implementation](airwindows-dynamics.md).
 - [Reverb core adaptations](../NeuralAmpModeler/dsp/reverb/README.md).
-- [Third-party notices](../NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+- [Third-party notices](../ThirdPartyNotices.txt)
   and [screenshot provenance](screenshots/README.md).
 
 ## Maintaining these docs

@@ -1,6 +1,6 @@
 # nam-grid
 
-[![Build main](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml/badge.svg?branch=main)](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain)
+[![Build and test](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
 
 An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) captures,
@@ -27,32 +27,46 @@ Add your own NAM captures and cabinet IRs when building an amp rig.*
 
 ## Download and install
 
-**Preview software.** Automated Windows and macOS builds are available through
-[GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain).
-DAW listening tests, low-buffer sessions and VST3 host validation remain part of
-the [release checklist](docs/release-checklist.md). Existing control IDs and mappings follow the
-[compatibility contract](docs/development.md#parameter-and-project-compatibility).
+Download the latest release from
+[GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest):
 
-| Platform | Preview archive | Status |
+| Platform | Archive | Status |
 | --- | --- | --- |
-| Windows x64 | `nam-grid-windows-x64.zip` | Local build and native editor tests; Windows CI |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS CI; hands-on DAW validation still needed |
+| Windows x64 | `nam-grid-windows-x64.zip` | Built and tested in CI, including the native editor |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; not code-signed |
 | Linux | — | No plugin build available with the current framework |
 
-1. Open the [main build runs](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml?query=branch%3Amain)
-   and choose the latest **successful** run for `main`.
-2. Under **Artifacts**, download your platform's archive. GitHub requires sign-in
-   for artifact downloads; extract the downloaded artifact and its plugin ZIP.
-3. Install `nam-grid.clap` or the complete `nam-grid.vst3` bundle in a plugin
-   location your DAW scans. On Windows, you can use a separate test folder and add
-   it to your host's scan paths. On macOS, the per-user folders are
-   `~/Library/Audio/Plug-Ins/CLAP/` and `~/Library/Audio/Plug-Ins/VST3/`.
-4. Rescan plugins in your DAW and insert **nam-grid** on an audio track. Choose
-   either CLAP or VST3, according to your host's support.
+1. Extract the archive. It contains `nam-grid.clap`, the `nam-grid.vst3` bundle,
+   `ThirdPartyNotices.txt` and a `notices/` folder.
+2. Install `nam-grid.clap` or the complete `nam-grid.vst3` bundle in a plugin
+   location your DAW scans:
+   - Windows: `C:\Program Files\Common Files\CLAP\` or
+     `C:\Program Files\Common Files\VST3\`, or a test folder added to your
+     host's scan paths.
+   - macOS: `~/Library/Audio/Plug-Ins/CLAP/` or `~/Library/Audio/Plug-Ins/VST3/`.
+3. **macOS only:** the plugins are not code-signed or notarized, so macOS blocks
+   downloaded copies. After copying, clear the quarantine flag in Terminal:
 
-Keep `ThirdPartyNotices.txt` and `notices/` with the build when sharing it.
+   ```sh
+   xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/CLAP/nam-grid.clap ~/Library/Audio/Plug-Ins/VST3/nam-grid.vst3
+   ```
+
+4. Rescan plugins in your DAW and insert **nam-grid** (vendor Simon Heimler) on an
+   audio track. Choose either CLAP or VST3, according to your host's support.
+
+Keep `ThirdPartyNotices.txt` and `notices/` with the plugins when sharing them.
 There is no bundled NAM capture or cabinet IR collection. Built-in effects work
-without additional files; amp sounds require your own captures.
+without additional files; amp sounds require your own captures. Builds of every
+`main` commit are also available as
+[GitHub Actions artifacts](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
+(sign-in required).
+
+**0.1.0 is the first release.** Earlier preview builds used different plugin and
+parameter IDs; their projects and presets do not load and must be rebuilt. From
+0.1.0 onward, plugin IDs, automation and saved rigs remain compatible
+([compatibility contract](docs/development.md#parameter-and-project-compatibility)).
+DAW listening, low-buffer sessions and host validation are tracked in the
+[release checklist](docs/release-checklist.md).
 
 ## Your first guitar rig
 
@@ -117,8 +131,7 @@ For audio problems, include sample rate, buffer size and the modules involved.
 nam-grid is based on NAM, NAM Core, AudioDSPTools and iPlug2. The supported
 build entry point is **CMake**. Follow [build.md](docs/build.md) for dependencies,
 submodule patches, build commands, CTest and packaging, and
-[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. The retained
-upstream installer and standalone scripts are historical.
+[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance.
 
 - **Architecture and controls:** [grid routing](docs/grid.md),
   [implementation and compatibility](docs/development.md),
@@ -132,16 +145,14 @@ upstream installer and standalone scripts are historical.
 See the [documentation index](docs/README.md) for all guides. Reviews and
 measurement reports belong in PR descriptions/comments or ignored `tmp/` files.
 
-The existing CLAP/VST3 plugin IDs are retained for host identification. Existing
-control IDs and mappings follow the [compatibility contract](docs/development.md#parameter-and-project-compatibility).
+New controls, modules and modes follow the append-only
+[compatibility contract](docs/development.md#parameter-and-project-compatibility).
 Algorithm selections are saved in presets/projects and are not automatable.
-This cleanup resets prototype automation IDs; earlier preview automation must
-be recreated. The compatibility guarantee begins with this baseline.
 
 ## License and credits
 
-Licensed under [MIT](LICENSE). Adapted algorithms and dependencies retain their
-own notices; see [ThirdPartyNotices.txt](NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+Licensed under [MIT](LICENSE). Adapted algorithms, dependencies and the
+[Roboto](https://github.com/googlefonts/roboto) font (Apache 2.0) retain their own notices; see [ThirdPartyNotices.txt](ThirdPartyNotices.txt)
 and the accompanying notice files in distributed builds.
 
 ### Acknowledgments
@@ -153,12 +164,12 @@ nam-grid is built on the work of many open-source projects:
   [NAM Core](https://github.com/sdatkinson/NeuralAmpModelerCore) and
   [AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) (NAM captures,
   cabinet IRs, EQ and compressor filter coefficients).
-- **[Gateway](https://www.neuralampmodeler.com/)** — the pre-built official NAM
-  plugin by Steven Atkinson, the starting point for the dual-prototype editor.
+- **[Gateway](https://www.neuralampmodeler.com/)** — the official pre-built NAM
+  plugin by Steven Atkinson, the starting point for nam-grid's editor.
 - **[iPlug2](https://github.com/iPlug2/iPlug2)** — the C++ plugin framework behind
   the CLAP and VST3 builds.
 - FX algorithms adapted or informed by (all used under permissive licenses; see the
-  shipped [third-party notices](NeuralAmpModeler/installer/ThirdPartyNotices.txt)
+  shipped [third-party notices](ThirdPartyNotices.txt)
   for details and full license texts):
   - **[Airwindows](https://github.com/airwindows/airwindows)** (Chris Johnson) —
     [Tape](https://www.airwindows.com/tape/),
@@ -181,4 +192,4 @@ nam-grid is built on the work of many open-source projects:
   - **[LEAF](https://github.com/spiricom/LEAF)** — compressor dynamics.
 
 Thanks to all contributors credited in the
-[third-party notices](NeuralAmpModeler/installer/ThirdPartyNotices.txt).
+[third-party notices](ThirdPartyNotices.txt).

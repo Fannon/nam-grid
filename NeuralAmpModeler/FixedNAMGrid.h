@@ -12,9 +12,8 @@ public:
   static constexpr int kMaxLaneDelay = 65536;
   struct Controls
   {
-    bool enabled = true, calibrate = false;
-    double inputDB = 0., trimDB = 0., calibrationDB = 0., slim = 1.;
-    int outputMode = 0;
+    bool enabled = true;
+    double inputDB = 0., trimDB = 0.;
     DynamicsControls dynamics;
     EQControls eq;
     UtilityControls utility;
@@ -188,8 +187,7 @@ private:
     for (int i = first; i < first + 4; ++i)
     {
       const auto& c = controls[i];
-      stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.calibrate, c.calibrationDB, c.outputMode,
-                        c.slim, c.dynamics, c.eq, c.utility, right);
+      stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, right);
     }
   }
   std::array<int, 2> LaneLatencies() const

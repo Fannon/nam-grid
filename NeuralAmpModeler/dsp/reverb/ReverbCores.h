@@ -12,6 +12,9 @@ namespace grid_reverb
 class DiffusionFDN
 {
 public:
+  // Decay multipliers below 200 Hz and above the Damping frequency. Shared with
+  // the editor's per-band decay guide.
+  static constexpr double kLowDecayRatio = .65, kHighDecayRatio = .35;
   void Reset(double rate, bool hall)
   {
     mRate = rate; mHall = hall; mLoopSeconds = hall ? .11 : .055;
@@ -39,8 +42,8 @@ public:
     for (int ch = 0; ch < 8; ++ch)
     {
       mGain[ch] = std::pow(.001, mLoopTime[ch] * size / decay);
-      mLowRatio[ch] = std::pow(mGain[ch], 1. / .65 - 1.);
-      mHighRatio[ch] = std::pow(mGain[ch], 1. / .35 - 1.);
+      mLowRatio[ch] = std::pow(mGain[ch], 1. / kLowDecayRatio - 1.);
+      mHighRatio[ch] = std::pow(mGain[ch], 1. / kHighDecayRatio - 1.);
     }
   }
   Stereo Tick(Stereo in)
@@ -102,6 +105,9 @@ private:
 class PlateTank
 {
 public:
+  // One damped pass through either branch; each pass applies the loop gain and low-pass once.
+  static constexpr double PassSeconds(double size)
+  { return (kLong[0] + kLong[1] + kTank[0] + kTank[1] + kTank[2] + kTank[3]) * size * .5; }
   void Reset(double rate)
   {
     mRate = rate; mPhase = 0.; mLow = {}; mFeedback = {};
@@ -112,8 +118,7 @@ public:
   void Configure(double size, double decay, double tone, double motion)
   {
     mSize = size; mCoefficient = Coefficient(tone, mRate); mMotion = motion;
-    const double loop = (kLong[0] + kLong[1] + kTank[0] + kTank[1] + kTank[2] + kTank[3]) * size;
-    mGain = std::pow(.001, loop * .5 / decay);
+    mGain = std::pow(.001, PassSeconds(size) / decay);
   }
   Stereo Tick(Stereo in)
   {
@@ -153,6 +158,7 @@ private:
 class CloudTank
 {
 public:
+  static constexpr double PassSeconds(double size) { return .14 * size; }
   void Reset(double rate)
   {
     mRate = rate; mPhase = 0.; mFeedback = {}; mLow = {};
@@ -166,7 +172,7 @@ public:
   {
     mSize = size; mCoefficient = Coefficient(tone, mRate); mMotion = motion;
     // Approximate allpass group delay plus the long recirculating paths.
-    mGain = std::pow(.001, .14 * size / decay);
+    mGain = std::pow(.001, PassSeconds(size) / decay);
   }
   Stereo Tick(Stereo input)
   {

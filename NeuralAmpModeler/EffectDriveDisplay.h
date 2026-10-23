@@ -32,7 +32,13 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const auto yPos = [&](double y) { return shape.MH() - shape.H() * .5f * static_cast<float>(std::clamp(y / (clean ? 8. : 2.),-1.,1.)); };
   const char* caption = clean ? "Gain / EQ response" : tube ? "Tube shape / EQ + mix" : tape ? "Spiral stage / tape setup" : "Clip / high cut + mix";
   PlotTitle(g,plot,color,caption);
-  PlotDetail(g,plot,clean ? "Input +/-1 | gain +/-8 | EQ +/-36 dB" : tape ? "Input +/-1 | stage +/-2 | bump setup" : "Input +/-1 | stage +/-2 | EQ +/-36 dB");
+  // Tube Boost's Tilt / High pass run before its saturator: they set how hard
+  // each frequency hits the curve. Distortion's High cut runs after it.
+  const grid_eq_response::Boost preEQ(rate, 0., value(uBoostTilt), lowCut);
+  const bool voiced = tube && (std::abs(value(uBoostTilt)) > .05 || lowCut > 0.);
+  PlotDetail(g,plot,clean ? "Input +/-1 | gain +/-8 | EQ +/-36 dB" : tape ? "Input +/-1 | stage +/-2 | bump setup"
+                    : voiced ? "Pre-clip tilt: amber 100 Hz | white 3 kHz" : tube ? "Input +/-1 | stage +/-2 | EQ +/-36 dB"
+                    : "Shape > high cut > mix | EQ +/-36 dB");
   g.DrawLine(border, shape.L, shape.MH(), shape.R, shape.MH());
   g.DrawLine(border, shape.MW(), shape.T, shape.MW(), shape.B);
   g.DrawLine(border.WithOpacity(.5f), xPos(-1.), yPos(-1.), xPos(1.), yPos(1.));
@@ -51,6 +57,19 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
                nullptr, active ? 2.5f : 1.5f);
     previousValue = currentValue;
   }
+  if (voiced)
+    for (const auto& [hz, ink] : {std::pair{100., ampColor}, std::pair{3000., text}})
+    {
+      const double weight = std::abs(preEQ.At(hz));
+      double previous = SlotTubeBoost::Transfer(-weight, tubeDrive, tubeBias);
+      for (int i = 1; i <= 128; ++i)
+      {
+        const double a = -1. + 2. * (i - 1) / 128., b = -1. + 2. * i / 128.;
+        const double current = SlotTubeBoost::Transfer(b * weight, tubeDrive, tubeBias);
+        g.DrawLine(ink.WithOpacity(.8f), xPos(a), yPos(previous), xPos(b), yPos(current), nullptr, 1.f);
+        previous = current;
+      }
+    }
   if (level > 1.e-5)
     for (double input : {-level, level})
     {

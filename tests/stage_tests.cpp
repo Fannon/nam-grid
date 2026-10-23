@@ -64,6 +64,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "LoFiTapeTests.h"
 #include "EQResponseTests.h"
 #include "FXMusicalTests.h"
+#include "VisualizationTests.h"
 #include "ReverbDelayCandidatesTests.h"
 #include "CosmicEchoTests.h"
 #include "MultiHeadStereoTests.h"
@@ -191,6 +192,7 @@ try
   TestDualDelayMusicalControls();
   TestDistortionTonePreview();
   TestFXVisualizationMath();
+  TestVisualizationInteractions();
   TestDistortionModeHarmonics();
   TestReverbDelayCandidates();
   TestCosmicEcho();

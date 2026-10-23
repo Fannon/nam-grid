@@ -18,6 +18,7 @@
 #include "SlotGuitarEffects.h"
 #include "RoadmapEffects.h"
 #include "SlotHQEffects.h"
+#include "EQSignalSpectrum.h"
 #include "SlotDistortion.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
@@ -34,9 +35,14 @@ struct SlotMeterData
   float beforeMakeup = 0.f;
   LoFiTapeHistory lofi;
   std::array<float, 2> filterCutoff{}, filterQ{};
-  std::array<float, 1024> eqSignal{};
-  bool eqSignalReady = false;
 };
+
+// Effects whose editor overlays a live output spectrum on the response curve.
+inline bool ShowsSignalSpectrum(SlotEffect effect)
+{
+  return effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ
+         || effect == SlotEffect::SynthFilter;
+}
 
 class NAMStage
 {
@@ -245,18 +251,20 @@ public:
     auto result = mMonitoring ? mMeter : SlotMeterData{};
     if (auto* p = mExchange.Active(); mMonitoring && p && p->effect == SlotEffect::LoFiTape)
       result.lofi = p->lofi.History();
-    if (auto* p = mExchange.Active(); mMonitoring && p &&
-        (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ ||
-         p->effect == SlotEffect::ParametricEQ || p->effect == SlotEffect::SynthFilter) &&
-        mEQSignalCount == mEQSignal.size())
-    {
-      for (size_t i = 0; i < mEQSignal.size(); ++i)
-        result.eqSignal[i] = mEQSignal[(mEQSignalWrite + i) % mEQSignal.size()];
-      result.eqSignalReady = true;
-    }
     mMeter = {};
     return result;
   } // audio only
+  // Latest full output window for the editor's spectrum. Audio only; the caller
+  // asks only for the selected slot, so other slots never copy their window.
+  bool TakeSignalWindow(grid_eq_signal::Window& window) const
+  {
+    const auto* p = mExchange.Active();
+    if (!mMonitoring || !p || !ShowsSignalSpectrum(p->effect) || mEQSignalCount < mEQSignal.size())
+      return false;
+    for (size_t i = 0; i < mEQSignal.size(); ++i)
+      window.samples[i] = mEQSignal[(mEQSignalWrite + i) % mEQSignal.size()];
+    return true;
+  }
   int Latency() const
   {
     auto* p = mExchange.Active();
@@ -429,6 +437,7 @@ public:
         }
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
+      const bool spectrum = mMonitoring && ShowsSignalSpectrum(p->effect);
       for (int i = 0; i < frames; ++i)
       {
         mOut += outDelta;
@@ -439,8 +448,7 @@ public:
           rightSamples[i] = (p->right->dry[i] * (1. - mMix) + p->right->wet[i] * mOut * mMix) * mSwitchGain;
         }
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
-        if (mMonitoring && (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ ||
-            p->effect == SlotEffect::ParametricEQ || p->effect == SlotEffect::SynthFilter))
+        if (spectrum)
         {
           mEQSignal[mEQSignalWrite] = static_cast<float>(samples[i]);
           mEQSignalWrite = (mEQSignalWrite + 1) % mEQSignal.size();
@@ -529,7 +537,7 @@ private:
   bool mFirst = true;
   bool mMonitoring = false;
   SlotMeterData mMeter;
-  std::array<float, 1024> mEQSignal{};
+  std::array<float, grid_eq_signal::windowSize> mEQSignal{};
   size_t mEQSignalWrite = 0, mEQSignalCount = 0;
 };
 

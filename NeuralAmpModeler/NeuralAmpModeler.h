@@ -18,6 +18,7 @@
 #include "LevelAnalysis.h"
 #include "GridTuner.h"
 #include <array>
+#include <atomic>
 #include <mutex>
 #include <map>
 
@@ -187,6 +188,8 @@ public:
   void SetCaptureFilter(nam_library::Filter filter);
   std::string GetSlotPath(size_t slot) const;
   bool IsSlotLoaded(size_t slot) const;
+  NAMModelInfo GetSlotModelInfo(size_t slot) const
+  { return slot < mSlotInfo.size() ? mSlotInfo[slot] : NAMModelInfo{}; }
   SlotEffect GetSlotEffect(size_t slot) const;
   nam_library::Gear GetSlotGear(size_t slot) const;
   bool CanToggleSlotQuality(size_t slot) const;
@@ -346,5 +349,10 @@ private:
 
   NAMSender mInputSender, mOutputSender;
   iplug::ISender<1, 128, SlotMeterData> mSlotMeterSender;
+  // One output window for the selected spectrum view only. Its packet size
+  // differs from the meter packet, which is how slot controls tell them apart.
+  iplug::ISender<1, 4, grid_eq_signal::Window> mSlotSignalSender;
+  static_assert(sizeof(iplug::ISenderData<1, grid_eq_signal::Window>) != sizeof(iplug::ISenderData<1, SlotMeterData>));
+  std::atomic<int> mSpectrumSlot{0}; // Selected slot while visualizations are shown, else -1.
   int mMeterFrames = 0;
 };

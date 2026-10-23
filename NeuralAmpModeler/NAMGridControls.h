@@ -637,6 +637,20 @@ public:
 
   void OnMsgFromDelegate(int message, int size, const void* data) override
   {
+    if (message == 0 && data && size == sizeof(iplug::ISenderData<1, grid_eq_signal::Window>))
+    {
+      if (!ShowsSignalSpectrum(PLUG()->GetSlotEffect(mSlot))) return;
+      const auto& window = static_cast<const iplug::ISenderData<1, grid_eq_signal::Window>*>(data)->vals[0];
+      const auto analyzed = grid_eq_signal::Analyze(window.samples,
+        PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);
+      // Instant rise, gentle fall: transients stay visible without flicker.
+      const bool fresh = Now() - mSpectrumTime < .5;
+      for (size_t i = 0; i < mSpectrum.size(); ++i)
+        mSpectrum[i] = fresh ? std::max(analyzed[i], .65f * mSpectrum[i] + .35f * analyzed[i]) : analyzed[i];
+      mSpectrumTime = Now();
+      if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
+      return;
+    }
     if (message == 0 && data && size == sizeof(iplug::ISenderData<1, SlotMeterData>))
     {
       const auto& meter = static_cast<const iplug::ISenderData<1, SlotMeterData>*>(data)->vals[0];
@@ -650,18 +664,6 @@ public:
       }
       mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
       const auto monitoredEffect = PLUG()->GetSlotEffect(mSlot);
-      if (meter.eqSignalReady && mEditor && PLUG()->GetSelectedSlot() == mSlot &&
-          (monitoredEffect == SlotEffect::ToneEQ || monitoredEffect == SlotEffect::CutEQ ||
-           monitoredEffect == SlotEffect::ParametricEQ || monitoredEffect == SlotEffect::SynthFilter))
-      {
-        const auto analyzed = grid_eq_signal::Analyze(meter.eqSignal,
-          PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);
-        for (size_t i = 0; i < mSpectrum.size(); ++i)
-          mSpectrum[i] = mSpectrumReady ? std::max(analyzed[i], .65f * mSpectrum[i] + .35f * analyzed[i]) : analyzed[i];
-        mSpectrumReady = true;
-      }
-      else if (!meter.eqSignalReady)
-        mSpectrumReady = false;
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
       const bool compressor=monitoredEffect==SlotEffect::SmoothComp || monitoredEffect==SlotEffect::PunchComp;
@@ -813,10 +815,29 @@ private:
     };
     if (effect == SlotEffect::NAM)
     {
-      PlotTitle(g,plot,color,"Capture | measured levels");
-      PlotDetail(g,plot,"Gray: IN | colour: OUT (mono sum)");
-      levels(-60.f, plot);
-      PlotFooter(g,plot,"0 dB top / -60 dB floor","Older > now");
+      // Left: the capture's measured level transfer; Input moves the cloud along
+      // it. Right: the neutral post-capture EQ the Bass/Mid/Treble/cuts apply.
+      const IRECT scatter(plot.L, plot.T, plot.L + plot.H(), plot.B), eqPlot(scatter.R + 16.f, plot.T, plot.R, plot.B);
+      PlotTitle(g,plot,color,"Capture | measured IN > OUT");
+      const auto info = PLUG()->GetSlotModelInfo(mSlot);
+      WDL_String detail;
+      if (info.hasInput) detail.SetFormatted(80, "Peaks 0 / -60 dB | capture cal. %.1f dBu", info.input);
+      else detail.Set("Peaks 0 / -60 dB | right: post EQ");
+      PlotDetail(g,plot,detail.Get());
+      DrawTransferScatter(g, scatter, color, -60.f);
+      const auto eqValue = [&](int p) { return GetDelegate()->GetParam(SlotEQParam(mSlot, p))->Value(); };
+      const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+      const double upper = std::min(20000., .49 * rate);
+      EQControls eq; eq.bass = eqValue(0); eq.mid = eqValue(1); eq.treble = eqValue(2);
+      eq.highPass = eqValue(3); eq.lowPass = eqValue(4); eq.presence = 0.;
+      const grid_eq_response::Response tone(rate, SlotEffect::ToneEQ, eq, {});
+      const grid_eq_response::Response cuts(rate, SlotEffect::CutEQ, eq, {});
+      PlotGrid(g, eqPlot);
+      PlotCurve(g, eqPlot, [&](double x) {
+        const double hz = 20. * std::pow(upper / 20., x);
+        return 20. * std::log10(std::max(1.e-9, tone.Magnitude(hz) * cuts.Magnitude(hz)));
+      }, -12., 12., color);
+      PlotFooter(g,plot,"Faint = older | diagonal = unity","Post EQ +/-12");
     }
     else if (IsOutboardCompressor(effect) || effect == SlotEffect::ConsoleColour || IsAirDynamics(effect))
     {
@@ -835,14 +856,21 @@ private:
         g.FillRect(surface,IRECT(plot.L,538,plot.R,541));
         g.FillRect(ampColor,IRECT(plot.L,538,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),541));
       }
-      levels(effect==SlotEffect::DigitalBlack ? -90.f : -60.f,plot);
-      PlotDetail(g,plot,effect == SlotEffect::DigitalBlack ? "GR before trim | gray IN / colour OUT" : "Gray IN / colour OUT incl. gain + colour");
+      // These program-dependent processors have no single static curve. The
+      // measured IN > OUT cloud shows how Compress / desk / trims bend the levels.
+      const float floorDB = effect==SlotEffect::DigitalBlack ? -90.f : -60.f;
+      const IRECT scatter(plot.L, plot.T, plot.L + plot.H(), plot.B), history(scatter.R + 12.f, plot.T, plot.R, plot.B);
+      DrawTransferScatter(g, scatter, color, floorDB);
+      levels(floorDB, history);
+      PlotDetail(g,plot,effect == SlotEffect::DigitalBlack ? "GR before trim | IN > OUT, then history" : "Left: IN > OUT | right: gray IN, colour OUT");
       PlotFooter(g,plot,effect==SlotEffect::ConsoleColour ? "0 dB top / -60 dB floor" : effect==SlotEffect::DigitalBlack ? "0 / -90 dB | GR bar 0 - 24 dB" : "0 / -60 dB | GR bar 0 - 24 dB","Older > now");
       if(effect==SlotEffect::DigitalBlack)
       {
         const double threshold=GetDelegate()->GetParam(SlotUtilityParam(mSlot,uBlackThreshold))->Value();
-        const float y=plot.T+plot.H()*static_cast<float>(std::clamp(-threshold/90.,0.,1.));
-        for(float x=plot.L;x<plot.R;x+=8.f) g.DrawLine(ampColor,x,y,std::min(x+4.f,plot.R),y);
+        const float y=history.T+history.H()*static_cast<float>(std::clamp(-threshold/90.,0.,1.));
+        for(float x=history.L;x<history.R;x+=8.f) g.DrawLine(ampColor,x,y,std::min(x+4.f,history.R),y);
+        const float x=scatter.L+scatter.W()*static_cast<float>(std::clamp(1.+threshold/90.,0.,1.));
+        for(float py=scatter.T;py<scatter.B;py+=8.f) g.DrawLine(ampColor,x,py,x,std::min(py+4.f,scatter.B));
       }
     }
     else if (effect == SlotEffect::CosmicEcho)
@@ -879,19 +907,29 @@ private:
         const double range=GetDelegate()->GetParam(SlotDynamicsParam(mSlot,2))->Value();
         const bool tight=GetDelegate()->GetParam(SlotUtilityParam(mSlot,uGateMode))->Int()==1;
         PlotCurve(g,transfer,[&](double x) { return floor*(1.-x); },floor,18.,muted.WithOpacity(.5f),1.f);
-        PlotCurve(g,transfer,[&](double x) {
-          const double input=floor*(1.-x);
+        const auto response=[&](double input) {
           if(gate) return input-(input>=threshold ? 0. : tight ? range : std::min(range,threshold-input));
           if(!compressor) return std::min(input,threshold);
           const double reduction=SlotDynamics::CompressionDB(input,threshold,effect==SlotEffect::PunchComp ? 4. : 2.5,effect==SlotEffect::PunchComp ? 3. : 9.);
           return input+20.*std::log10(1.-mix+mix*std::pow(10.,(makeup-reduction)*.05));
-        },floor,18.,color);
+        };
+        PlotCurve(g,transfer,[&](double x) { return response(floor*(1.-x)); },floor,18.,color);
+        // Where the current input peak sits on the curve: threshold, knee, Mix
+        // and the upstream Input level all move this dot.
+        const float inputDB=20.f*std::log10(std::max(mMeter.input,1.e-6f));
+        if(inputDB>floor)
+        {
+          const float px=transfer.L+transfer.W()*std::clamp(1.f-inputDB/floor,0.f,1.f);
+          const float py=transfer.B-transfer.H()*static_cast<float>(std::clamp((response(inputDB)-floor)/(18.-floor),0.,1.));
+          g.FillCircle(text,px,py,3.f);
+        }
         WDL_String info;
         const double release=compressor ? GetDelegate()->GetParam(SlotDynamicsParam(mSlot,4))->Value()
                             : gate ? GetDelegate()->GetParam(SlotDynamicsParam(mSlot,1))->Value()
                             : GetDelegate()->GetParam(SlotUtilityParam(mSlot,uLimiterRelease))->Value();
-        if(compressor) info.Set("Curve + makeup / live before makeup");
-        else info.SetFormatted(80,"%s | release %.0f ms",gate ? "Closing curve / live IN-OUT" : "Static curve / live IN-reduced",release);
+        if(compressor) info.Set("Dot: live input | history before makeup");
+        else if(gate) info.SetFormatted(80,"Dot: live | closes 3 dB below | %.0f ms",release);
+        else info.SetFormatted(80,"Dot: live input | release %.0f ms",release);
         PlotDetail(g,plot,info.Get());
         info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
         PlotFooter(g,plot,info.Get(),gate ? "Live 0..-100" : "Live 0..-60");
@@ -902,6 +940,12 @@ private:
         PlotFooter(g,plot,"0 / -100 dB | GR bar 0 - 24 dB","Older > now");
       }
       levels(gate || smart ? -100.f : -60.f, history);
+      if (gate)
+      {
+        // Opens at the threshold, closes only 3 dB below it (after the hold).
+        const auto bandY = [&](double db) { return history.T+history.H()*std::clamp(static_cast<float>(db)/floor,0.f,1.f); };
+        g.FillRect(ampColor.WithOpacity(.12f),IRECT(history.L,bandY(threshold),history.R,bandY(threshold-3.)));
+      }
       if (!off)
       {
         const float y = history.T+history.H()*std::clamp(static_cast<float>(threshold)/floor,0.f,1.f);
@@ -909,14 +953,44 @@ private:
           g.DrawLine(ampColor, x, y, std::min(x + 4.f, history.R), y, nullptr, 1.5f);
       }
     }
+    else if (effect == SlotEffect::AutoSwell)
+    {
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      const double rise = value(uSwellRise), release = value(uSwellRelease), threshold = value(uSwellThreshold);
+      constexpr double hold = 40.;
+      const IRECT sketch(plot.L, plot.T, plot.MW() - 8.f, plot.B), history(plot.MW() + 8.f, plot.T, plot.R, plot.B);
+      WDL_String text;
+      text.SetFormatted(64, "Trigger %.0f dB | gain = OUT / IN", threshold); PlotTitle(g,plot,color,text.Get());
+      text.SetFormatted(80, "Rise %.0f | hold 40 | release %.0f ms", rise, release); PlotDetail(g,plot,text.Get());
+      // One shared time axis: Rise and Release change the shape, not only labels.
+      const double total = rise + hold + 3. * release;
+      const float riseEnd = sketch.L + sketch.W() * static_cast<float>(rise / total);
+      const float holdEnd = std::max(riseEnd + 2.f, sketch.L + sketch.W() * static_cast<float>((rise + hold) / total));
+      PlotGrid(g, sketch);
+      g.FillRect(color.WithOpacity(.14f), IRECT(riseEnd, sketch.T, holdEnd, sketch.B));
+      PlotCurve(g, sketch, [&](double x) {
+        const double t = x * total;
+        return t < rise ? t / rise : t < rise + hold ? 1. : std::exp(-(t - rise - hold) / release);
+      }, 0., 1., color);
+      // Live: OUT / IN is the swell gain. Legato notes inside the release keep
+      // the current gain instead of swelling again.
+      levels(-72.f, history);
+      const auto historyY = [&](double db) { return history.T + history.H() * static_cast<float>(std::clamp(db / -72., 0., 1.)); };
+      g.FillRect(ampColor.WithOpacity(.12f), IRECT(history.L, historyY(threshold), history.R, historyY(threshold - 3.)));
+      for (float x = history.L; x < history.R; x += 8.f)
+        g.DrawLine(ampColor, x, historyY(threshold), std::min(x + 4.f, history.R), historyY(threshold), nullptr, 1.5f);
+      text.SetFormatted(64, "Sketch %.1f s | live 0..-72 dB", total * .001);
+      PlotFooter(g,plot,text.Get(),"Older > now");
+    }
     else if (DrawEffectSetup(g, effect, plot, color,
                [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
-               PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000., mMeter.input))
+               PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.))
     {
     }
     else if (IsReverb(effect) || effect == SlotEffect::ShimmerReverb)
     {
-      DrawSpaceSetup(g,effect,plot,color,[&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot,p))->Value(); });
+      DrawSpaceSetup(g,effect,plot,color,[&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot,p))->Value(); },
+        PLUG()->GetSampleRate()>0. ? PLUG()->GetSampleRate() : 48000.);
     }
     else if (DrawModulationSetup(g, effect, plot, color,
                [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
@@ -974,8 +1048,13 @@ private:
       if (filter) caption.SetFormatted(64, "%s %.0f Hz", key[16] == 1 ? "HP" : key[16] == 2 ? "BP" : "LP", key[12]);
       else caption.Set("EQ response");
       PlotTitle(g,plot,color,caption.Get());
-      PlotDetail(g,plot,filter ? "Response +/-24 dB | signal -72..0 dBFS | marks: envelope"
-                               : "Response +/-24 dB | output signal -72..0 dBFS");
+      WDL_String detail;
+      if (filter) detail.Set("Shaded: envelope range, full at -12 dBFS");
+      else if (effect == SlotEffect::ParametricEQ && value(uEQMode) < .5)
+        detail.SetFormatted(80, "Response +/-24 dB | shaded: Q width %.2f oct",
+          2. / std::log(2.) * std::asinh(1. / (2. * std::clamp(value(uQ), .1, 20.))));
+      else detail.Set("Response +/-24 dB | fill: output signal");
+      PlotDetail(g,plot,detail.Get());
       PlotFrequencyAxis(g,plot,upper,"-24 / +24 dB");
       const auto y = [&](float db) { return plot.T + plot.H() * (24.f - std::clamp(db, -24.f, 24.f)) / 48.f; };
       for (int db : {-24, -12, 0, 12, 24})
@@ -985,17 +1064,32 @@ private:
         const float x = plot.L + static_cast<float>(plot.W() * std::log(hz / 20.) / span);
         if (hz < upper) g.DrawLine(border.WithOpacity(.35f), x, plot.T, x, plot.B);
       }
-      if (mSpectrumReady)
+      const auto frequencyX = [&](double hz) {
+        return plot.L + plot.W() * static_cast<float>(std::log(std::clamp(hz, 20., upper) / 20.) / span);
+      };
+      if (effect == SlotEffect::ParametricEQ && value(uEQMode) < .5)
       {
+        // RBJ bell: bandwidth in octaves between the -3 dB-from-peak points.
+        const double center = std::min(value(uFrequency), .4 * rate);
+        const double octaves = 2. / std::log(2.) * std::asinh(1. / (2. * std::clamp(value(uQ), .1, 20.)));
+        g.FillRect(color.WithOpacity(.08f), IRECT(frequencyX(center * std::exp2(-.5 * octaves)), plot.T,
+                                                  frequencyX(center * std::exp2(.5 * octaves)), plot.B));
+      }
+      if (Now() - mSpectrumTime < .5)
+      {
+        // A filled area on its own dBFS scale: different form from the response line.
         const auto signalY = [&](float db) {
           return plot.B - plot.H() * std::clamp((db + 72.f) / 72.f, 0.f, 1.f);
         };
-        for (size_t i = 1; i < mSpectrum.size(); ++i)
+        const float step = plot.W() / static_cast<float>(mSpectrum.size() - 1);
+        for (size_t i = 0; i < mSpectrum.size(); ++i)
         {
-          const float x0 = plot.L + plot.W() * static_cast<float>(i - 1) / static_cast<float>(mSpectrum.size() - 1);
-          const float x1 = plot.L + plot.W() * static_cast<float>(i) / static_cast<float>(mSpectrum.size() - 1);
-          g.DrawLine(ampColor.WithOpacity(.55f),x0,signalY(mSpectrum[i - 1]),x1,signalY(mSpectrum[i]),nullptr,1.f);
+          const float x = plot.L + step * static_cast<float>(i);
+          g.FillRect(ampColor.WithOpacity(.2f), IRECT(std::max(plot.L, x - .5f * step), signalY(mSpectrum[i]),
+                                                      std::min(plot.R, x + .5f * step), plot.B));
         }
+        g.DrawText(Text(11.f, ampColor, EAlign::Far), "0 dBFS", IRECT(plot.R - 60.f, plot.T, plot.R - 2.f, plot.T + 12.f));
+        g.DrawText(Text(11.f, ampColor, EAlign::Far), "-72", IRECT(plot.R - 60.f, plot.B - 12.f, plot.R - 2.f, plot.B));
       }
       for (size_t i = 1; i < mEQCurve.size(); ++i)
       {
@@ -1004,6 +1098,14 @@ private:
                                            plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][2]), nullptr, 1.f);
         g.DrawLine(color, plot.L + plot.W() * mEQCurve[i - 1][0], y(mEQCurve[i - 1][1]),
                           plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][1]), nullptr, 1.5f);
+      }
+      if(filter)
+      {
+        // Cutoff x 2^(Envelope x min(1, 4 x input peak)): the full shift needs
+        // -12 dBFS peaks, so quieter playing uses only part of this range.
+        const double rest=std::clamp(value(uFilterCutoff),20.,std::min(upper,.4*rate));
+        const double full=std::clamp(value(uFilterCutoff)*std::exp2(value(uFilterEnvelope)),20.,std::min(upper,.4*rate));
+        g.FillRect(ampColor.WithOpacity(.08f),IRECT(frequencyX(rest),plot.T,frequencyX(full),plot.B));
       }
       if(filter)
         for(double hz : {value(uFilterCutoff),value(uFilterCutoff)*std::exp2(value(uFilterEnvelope))})
@@ -1015,12 +1117,71 @@ private:
     }
     else
     {
-      // Reuse the existing mono meter packets: no audio capture or extra DSP work.
-      PlotTitle(g,plot,color,"IR | measured levels");
-      PlotDetail(g,plot,"Gray: IN | colour: OUT (mono sum)");
-      levels(-60.f, plot);
-      PlotFooter(g,plot,"0 dB top / -60 dB floor","Older > now");
+      // A cabinet IR is a fixed filter: its frequency response is the useful view.
+      // Computed once per file on the UI thread; audio is never touched.
+      UpdateIRResponse();
+      PlotTitle(g,plot,color,"IR | frequency response");
+      WDL_String detail;
+      detail.SetFormatted(80,"Relative to its peak | Level %+.1f dB",GetDelegate()->GetParam(SlotEQParam(mSlot, 6))->Value());
+      PlotDetail(g,plot,detail.Get());
+      PlotFrequencyAxis(g,plot,mIRUpper,"0 / -36 dB");
+      if (mIRResponseValid)
+        PlotCurve(g,plot,[&](double x) {
+          const double position=x*(mIRResponse.size()-1);
+          const size_t i=std::min(mIRResponse.size()-2,static_cast<size_t>(position));
+          return mIRResponse[i]+(position-i)*(mIRResponse[i+1]-mIRResponse[i]);
+        },-36.,0.,color);
+      else
+        g.DrawText(Text(13.f,muted,EAlign::Center),"IR file unavailable",plot);
     }
+  }
+  // Measured IN vs OUT peaks as a cloud: the module's real level transfer
+  // emerges from playing. Newer points are brighter; the diagonal is unity.
+  void DrawTransferScatter(IGraphics& g, const IRECT& area, IColor color, float floorDB)
+  {
+    using namespace grid_ui;
+    g.DrawRect(border.WithOpacity(.5f), area);
+    g.DrawLine(border.WithOpacity(.6f), area.L, area.B, area.R, area.T);
+    const auto position = [&](float db) { return std::clamp(1.f - db / floorDB, 0.f, 1.f); };
+    for (size_t i = 0; i < mInputHistory.size(); ++i)
+    {
+      const size_t index = (mReductionWrite + i) % mInputHistory.size();
+      const float in = 20.f * std::log10(std::max(mInputHistory[index], 1.e-6f));
+      const float out = 20.f * std::log10(std::max(mOutputHistory[index], 1.e-6f));
+      if (in <= floorDB) continue;
+      const float age = static_cast<float>(i) / static_cast<float>(mInputHistory.size() - 1);
+      g.FillCircle(color.WithOpacity(.15f + .85f * age), area.L + area.W() * position(in), area.B - area.H() * position(out), 1.6f);
+    }
+    g.DrawText(Text(11.f, muted, EAlign::Far), "IN", IRECT(area.R - 22.f, area.B - 13.f, area.R - 2.f, area.B));
+    g.DrawText(Text(11.f, muted), "OUT", IRECT(area.L + 2.f, area.T, area.L + 32.f, area.T + 13.f));
+  }
+  void UpdateIRResponse()
+  {
+    const auto path = PLUG()->GetSlotPath(mSlot);
+    if (path == mIRResponsePath) return;
+    mIRResponsePath = path; mIRResponseValid = false;
+    std::vector<float> taps; double rate = 0.;
+    if (path.empty() || dsp::wav::Load(path.c_str(), taps, rate) != dsp::wav::LoadReturnCode::SUCCESS || taps.empty() || !(rate > 0.))
+      return;
+    taps.resize(std::min<size_t>(taps.size(), 32768)); // Cabinet IRs are far shorter; cap pathological files.
+    mIRUpper = std::min(20000., .49 * rate);
+    float peak = -1.e9f;
+    for (size_t i = 0; i < mIRResponse.size(); ++i)
+    {
+      const double hz = 20. * std::pow(mIRUpper / 20., static_cast<double>(i) / (mIRResponse.size() - 1));
+      const auto step = std::polar(1., -2. * MATH_PI * hz / rate);
+      std::complex<double> phase(1., 0.), sum(0., 0.);
+      for (size_t n = 0; n < taps.size(); ++n)
+      {
+        sum += static_cast<double>(taps[n]) * phase;
+        phase *= step;
+        if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
+      }
+      mIRResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::abs(sum))));
+      peak = std::max(peak, mIRResponse[i]);
+    }
+    for (auto& value : mIRResponse) value -= peak;
+    mIRResponseValid = std::isfinite(peak);
   }
   void Refresh()
   {
@@ -1031,7 +1192,7 @@ private:
     if (effect != mPlotEffect || path != mPlotPath)
     {
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {};
-      mMeter.lofi = {}; mSpectrumReady = false;
+      mMeter.lofi = {}; mSpectrumTime = 0.;
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
@@ -1198,7 +1359,11 @@ private:
   std::array<double, 17> mEQKey{};
   std::array<std::array<float, 3>, 162> mEQCurve{};
   std::array<float, grid_eq_signal::bands> mSpectrum{};
-  bool mSpectrumReady = false;
+  double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.
+  std::string mIRResponsePath; // Cabinet IR whose response is cached below.
+  std::array<float, 120> mIRResponse{};
+  double mIRUpper = 20000.;
+  bool mIRResponseValid = false;
   size_t mReductionWrite = 0;
   float mReductionNow = 0.f;
   grid_ui::Toggle* mEnabled = nullptr;

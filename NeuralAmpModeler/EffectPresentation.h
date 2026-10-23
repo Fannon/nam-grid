@@ -134,7 +134,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uModDepth: return e == SlotEffect::Tremolo ? "How far the volume dips on each pulse." : "Width of the pitch, delay or filter sweep.";
     case uModFeedback: return "Return the swept signal into itself for a more resonant, pronounced effect.";
     case uModCharacter: return e == SlotEffect::Phaser ? "Raises the center of the six-stage phase sweep."
-      : e == SlotEffect::Flanger ? "Moves feedback from positive through zero to negative; also changes sweep texture."
+      : e == SlotEffect::Flanger ? "Moves feedback from positive through zero to negative. Turning it toward negative also darkens the wet path (12k to 3k) and changes the sweep shape."
       : e == SlotEffect::Tremolo ? "Sharpens pulses; stronger playing also speeds them up when tempo sync is off."
       : e == SlotEffect::UniVibe ? "Expands the uneven four-stage sweep for a deeper, more vocal swirl."
       : "Warmer tone and more uneven pitch movement; zero keeps a smooth sine sweep.";

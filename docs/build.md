@@ -65,9 +65,20 @@ their SDKs are absent.
 
 ## CI and releases
 
-`.github/workflows/build-test.yml` builds and tests Windows x64 and macOS arm64 for
-every pull request and every push to `main`. The weekly **Build Native** run and the
-release workflow reuse that job. Release archives are `nam-grid-windows-x64.zip` and
+`.github/workflows/build-test.yml` builds and tests the plugin. Hosted minutes are
+billed for this private repository (Windows x2, macOS x10), so the workflow is the
+merge gate rather than a post-merge check:
+
+- Pull requests build and test Windows x64 only; documentation-only changes
+  (`docs/**`, Markdown, `LICENSE`) do not build. A new push cancels the running build.
+- `main` is not rebuilt after merging.
+- macOS arm64 builds in the weekly **Build Native** run, on manual runs and for
+  releases, which all build both platforms.
+- sccache caches compiled objects in the GitHub Actions cache (Ninja + MSVC on
+  Windows), so unchanged dependencies are not recompiled. A 45-minute job timeout
+  stops hung editor tests; pull request artifacts are kept for 3 days, others for 14.
+
+The weekly **Build Native** run and the release workflow reuse that job. Release archives are `nam-grid-windows-x64.zip` and
 `nam-grid-macos-arm64.zip`; each contains CLAP, VST3, `ThirdPartyNotices.txt` and
 `notices/`. The packaging step fails if a required notice is missing. Archives are
 created before artifact upload to retain macOS executable permissions.

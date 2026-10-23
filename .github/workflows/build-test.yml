@@ -8,22 +8,40 @@ on:
         type: string
         default: ''
   workflow_dispatch:
+  # Hosted minutes are billed (Windows x2, macOS x10 on private repositories). Pull
+  # requests are the merge gate, so main is not rebuilt after merging, and
+  # documentation-only changes do not build at all.
   pull_request:
-  push:
-    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
 permissions:
   contents: read
+# A new push to a pull request supersedes its running build.
+concurrency:
+  group: build-test-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.source-ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build-test:
     strategy:
       fail-fast: false
+      # Pull requests build Windows only. macOS runs weekly (Build Native), for
+      # releases and on manual runs.
       matrix:
-        include:
-          - os: windows-2022
-            platform: windows-x64
-          - os: macos-15
-            platform: macos-arm64
+        include: ${{ fromJSON(github.event_name == 'pull_request'
+          && '[{"os":"windows-2022","platform":"windows-x64"}]'
+          || '[{"os":"windows-2022","platform":"windows-x64"},{"os":"macos-15","platform":"macos-arm64"}]') }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45 # A hung editor test must not consume the monthly budget.
+    env:
+      # Compiled objects are cached by content, so unchanged dependencies
+      # (iPlug2, NAM Core, Eigen, SDKs) are not recompiled on every run.
+      SCCACHE_GHA_ENABLED: 'true'
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+      CMAKE_OBJC_COMPILER_LAUNCHER: sccache
+      CMAKE_OBJCXX_COMPILER_LAUNCHER: sccache
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,7 +57,15 @@ jobs:
         with:
           python-version: '3.11'
       - run: python scripts/setup-deps.py
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      # Visual Studio generators ignore compiler launchers; Ninja with the MSVC
+      # environment lets sccache wrap cl.exe.
+      - uses: ilammy/msvc-dev-cmd@v1.13.0
+        if: runner.os == 'Windows'
+      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release
+        if: runner.os == 'Windows'
       - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+        if: runner.os != 'Windows'
       - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
       - name: Python tool tests
         run: python -m unittest discover -s tests -p "test_*.py"
@@ -67,6 +93,8 @@ jobs:
           Get-ChildItem -Recurse build-ci -Filter *.exe | ForEach-Object {
             Copy-Item "$mesa\x64\*.dll" $_.DirectoryName -Force
           }
+      - name: Compiler cache statistics
+        run: sccache --show-stats
       - run: ctest --test-dir build-ci -C Release --output-on-failure
         env:
           GALLIUM_DRIVER: llvmpipe
@@ -96,3 +124,5 @@ jobs:
           name: nam-grid-${{ matrix.platform }}
           path: build-ci/nam-grid-${{ matrix.platform }}.zip
           if-no-files-found: error
+          # Artifact storage is also billed; releases download them immediately.
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 14 }}

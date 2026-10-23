@@ -452,6 +452,12 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     mMeterFrames %= meterInterval;
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
       mSlotMeterSender.PushData({kCtrlTagGridSlotBase + static_cast<int>(slot), {mGrid.stages[slot].TakeMeter()}});
+    if (const int slot = mSpectrumSlot.load(std::memory_order_relaxed); slot >= 0 && slot < static_cast<int>(FixedNAMGrid::kSlots))
+    {
+      grid_eq_signal::Window window;
+      if (mGrid.stages[slot].TakeSignalWindow(window))
+        mSlotSignalSender.PushData({kCtrlTagGridSlotBase + slot, {window}});
+    }
   }
   // Apply the noise gate after the NAM
   sample** gateGainOutput =
@@ -604,6 +610,7 @@ void NeuralAmpModeler::SelectSlot(size_t slot)
   if (slot >= FixedNAMGrid::kSlots)
     return;
   mSelectedSlot = slot;
+  mSpectrumSlot.store(mShowVisualizations ? static_cast<int>(slot) : -1, std::memory_order_relaxed);
   if (auto* ui = GetUI())
     for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
       if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(i)))
@@ -929,6 +936,7 @@ bool NeuralAmpModeler::HasPerformanceScene(size_t scene) const
 void NeuralAmpModeler::SetShowVisualizations(bool enabled)
 {
   mShowVisualizations = enabled;
+  mSpectrumSlot.store(enabled ? static_cast<int>(mSelectedSlot) : -1, std::memory_order_relaxed);
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
   settings.showVisualizations = enabled;
   mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
@@ -1086,6 +1094,7 @@ void NeuralAmpModeler::OnIdle()
   mInputSender.TransmitData(*this);
   mOutputSender.TransmitData(*this);
   mSlotMeterSender.TransmitData(*this);
+  mSlotSignalSender.TransmitData(*this);
 }
 
 static int ReadStateString(const IByteChunk& chunk, WDL_String& value, int pos)

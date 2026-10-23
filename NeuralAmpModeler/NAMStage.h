@@ -18,6 +18,7 @@
 #include "SlotGuitarEffects.h"
 #include "RoadmapEffects.h"
 #include "SlotHQEffects.h"
+#include "EQSignalSpectrum.h"
 #include "SlotDistortion.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
@@ -35,6 +36,13 @@ struct SlotMeterData
   LoFiTapeHistory lofi;
   std::array<float, 2> filterCutoff{}, filterQ{};
 };
+
+// Effects whose editor overlays a live output spectrum on the response curve.
+inline bool ShowsSignalSpectrum(SlotEffect effect)
+{
+  return effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ
+         || effect == SlotEffect::SynthFilter;
+}
 
 class NAMStage
 {
@@ -235,6 +243,8 @@ public:
     mMix = 0.;
     mFirst = true;
     mMeter = {};
+    mEQSignal = {};
+    mEQSignalWrite = mEQSignalCount = 0;
   }
   SlotMeterData TakeMeter()
   {
@@ -244,6 +254,17 @@ public:
     mMeter = {};
     return result;
   } // audio only
+  // Latest full output window for the editor's spectrum. Audio only; the caller
+  // asks only for the selected slot, so other slots never copy their window.
+  bool TakeSignalWindow(grid_eq_signal::Window& window) const
+  {
+    const auto* p = mExchange.Active();
+    if (!mMonitoring || !p || !ShowsSignalSpectrum(p->effect) || mEQSignalCount < mEQSignal.size())
+      return false;
+    for (size_t i = 0; i < mEQSignal.size(); ++i)
+      window.samples[i] = mEQSignal[(mEQSignalWrite + i) % mEQSignal.size()];
+    return true;
+  }
   int Latency() const
   {
     auto* p = mExchange.Active();
@@ -416,6 +437,7 @@ public:
         }
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
+      const bool spectrum = mMonitoring && ShowsSignalSpectrum(p->effect);
       for (int i = 0; i < frames; ++i)
       {
         mOut += outDelta;
@@ -426,6 +448,12 @@ public:
           rightSamples[i] = (p->right->dry[i] * (1. - mMix) + p->right->wet[i] * mOut * mMix) * mSwitchGain;
         }
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
+        if (spectrum)
+        {
+          mEQSignal[mEQSignalWrite] = static_cast<float>(samples[i]);
+          mEQSignalWrite = (mEQSignalWrite + 1) % mEQSignal.size();
+          mEQSignalCount = std::min(mEQSignalCount + 1, mEQSignal.size());
+        }
         if (mMonitoring) mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(
           1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
         if (mMonitoring && !p->dynamicsMonitor.empty())
@@ -509,6 +537,8 @@ private:
   bool mFirst = true;
   bool mMonitoring = false;
   SlotMeterData mMeter;
+  std::array<float, grid_eq_signal::windowSize> mEQSignal{};
+  size_t mEQSignalWrite = 0, mEQSignalCount = 0;
 };
 
 struct PreparedIR

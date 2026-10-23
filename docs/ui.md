@@ -24,17 +24,39 @@ its neutral EQ acts after inference, not as controls of the captured amp. Compat
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
 shows the current mode. The module menu also offers A2 Lite. IR uses Level;
 see [modules.md](modules.md) for other controls.
-Every loaded module offers a visualization: signal history versus threshold and
-numeric GR and an orange reduction bar for dynamics; compressors, gates and the limiter also show their static/closing characteristic beside live levels. Compressor histories exclude makeup gain and reflect parallel Mix. Other views include echo timing/treble guides on a fixed dB scale for standard and Dual delays,
-live input/output level history for NAM captures, a gain-dependent distortion transfer curve with live input-range markers,
-the combined response curve for EQ modules and live LP/HP/BP Filter response, and input/output
-history for native nonlinear dynamics, Console Colour and IRs. Wah shows its actual bandpass/body/mix response; Bitcrusher shows quantization/sample holding/tone on a labeled reference tone. Distortion also shows its separate high-cut/mix/output response. Boost and Tube Boost show their gain/saturation curve and the combined Tilt/Low cut response; Tube labels its EQ as a small-signal response. Tape shows its Spiral saturation stage and Bump amount, explicitly excluding its stateful processing from the static curve.
-Capture modules show window, overlap and gate timing; Octaver shows layer levels,
-Doubler its detuned voices, Frequency Shifter its fixed-Hz sidebands, and Utility its mid/side routing.
-Modulation modules show their settings: Chorus/Juno/Vibrato
-delay voices, Phaser/Flanger response sweeps, Tremolo gain shape, Vibe stage sweeps,
-Rotary horn/drum motion and Ring Mod's tone/mix-aware carrier gain. Time-based previews label their time window;
-they describe the configured modulation rather than claiming to follow a live audio LFO phase.
+Every loaded module offers a visualization. Views aim to show how controls interact
+with each other and with your playing, using the module's actual DSP math:
+
+- **Dynamics:** signal history versus threshold, numeric GR and an orange reduction bar.
+  Compressors, gates and the limiter also show their static/closing curve with a dot at
+  the current input peak, so threshold, knee, Mix and upstream gain all visibly move it.
+  Gates shade the 3 dB band between opening and closing. Compressor histories exclude
+  makeup gain and reflect parallel Mix.
+- **Measured IN > OUT:** NAM captures, Console Colour, Outboard Channel, Butter Comp,
+  Pressure and Digital Black plot recent input peaks against output peaks. Their real
+  saturation/compression curve appears from playing; the diagonal is unity gain. NAM
+  adds its post-capture EQ response and the capture's input calibration when present.
+- **Cabinet IR:** the file's frequency response relative to its peak, computed once per file.
+- **Drive:** transfer curves with live input-range markers. Distortion's High cut/Mix/Output
+  follow the shaper. Tube Boost's Tilt and High pass run before its saturator, so with
+  Tilt or High pass active it also draws the curve for 100 Hz and 3 kHz content.
+- **EQ / Filter:** settled response with an approximate live output spectrum. Parametric
+  EQ shades its Q bandwidth; Filter shades the cutoff range its Envelope can reach, with
+  the full shift at -12 dBFS input peaks.
+- **Delays:** echo timing and treble on a fixed dB scale. Modulation depth is given in
+  cents, because it is heard as pitch. Digital Delay marks each repeat's ducked level
+  while playing at -12 dBFS. Reverse Delay shows that each window plays backwards during
+  the next one; Stutter shows a new slice every four windows.
+- **Pitch and spectrum:** Frequency Shifter draws its feedback cascade (each pass shifts
+  again by Shift); Ring Mod shows the kept partials and inharmonic sidebands of a 220 Hz
+  reference; Octaver draws the square sub-octaves its Tone control rounds.
+- **Modulation:** Chorus/Vibrato delay voices with the resulting pitch deviation;
+  Phaser/Flanger response sweeps (Flanger notes that negative feedback also darkens);
+  Uni-Vibe's response (notches in Chorus mode, flat in Vibrato mode); Tremolo gain
+  shape; Rotary speed ramp and horn Doppler depth; Juno delay voices.
+
+Time-based previews label their time window; they describe the configured modulation
+rather than claiming to follow a live audio LFO phase.
 Library & settings has one **Visualizations: ON/OFF** preference for all module editors.
 Category badges remain visible when visualizations are off. This preference is stored per user,
 outside project/rig state. NAM Amp + Cab uses separate Amp and Cab badges in both the card and editor.
@@ -44,8 +66,9 @@ applies its electric-guitar starting settings, including parameters shared with 
 Saved presets and slot edits retain their exact values. See [effect-defaults.md](effect-defaults.md)
 for all module defaults and acoustic/bass adjustments, and [presets.md](presets.md) for rig recall.
 
-Reverb previews share a field for early reflections, nominal -60 dB decay and damping guides. Size changes spacing; pre-delay shifts the onset. Logarithmic time is explicit. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer also shows pitch direction/amount and Freeze. These are parameter
-sketches, not measured room dimensions or impulse responses.
+Reverb previews share a field for early reflections and nominal -60 dB decay. Size changes spacing; pre-delay shifts the onset. Logarithmic time is explicit. Room and Hall add their exact low (<200 Hz) and high (above Damping) decay lines; Plate and Cloud add the decay at 5 kHz, which Damping, Size and Decay set together. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer shows its pitch layers (each tank pass shifts again, quieter by Amount) and Freeze. These are parameter
+sketches, not measured room dimensions or impulse responses. Wet Mix is shown as a number; it does not shrink the tank sketch.
+Auto Swell draws rise, the 40 ms hold and exponential release on one time axis, beside live IN/OUT history; OUT relative to IN is the swell gain. The hold resets while the input stays above threshold; release begins after the hold runs out and the detected level falls at least 3 dB below threshold (the shaded band). Notes played during the release continue from the current gain rather than swelling again.
 All FX share separate title, explanation, chart and footer rows. Frequency/dB
 limits, reference signals and measured histories are labeled. See the complete
 [module-by-module visualization audit](ui.md).
@@ -155,10 +178,12 @@ or invalid resource rejects the edit and keeps both slots unchanged.
 
 ## Reading visualizations
 
-Measured IN/OUT histories describe level, not spectrum or stereo correlation;
+Measured IN/OUT histories describe level, not stereo correlation;
 mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe
 configured behavior, not an invented live LFO phase or a measured room impulse.
 A bypassed module can still show its settings; Enabled controls the audio.
+The EQ spectrum is a rough 1024-sample FFT of the selected slot's left output channel, updated with the meter. Each band shows its loudest bin. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's +/-24 dB scale. Low frequencies have limited resolution and it is not a stereo analyzer.
+Measured IN > OUT clouds use the same peak meters as the histories: they show level behavior, not instantaneous waveform transfer.
 
 Frequency plots use logarithmic frequency with labeled limits. Timing sketches
 state their window; reverb guides use nominal decay or explicitly relative scales.

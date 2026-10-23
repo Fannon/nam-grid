@@ -2,6 +2,7 @@
 #include "EffectPresentation.h"
 #include "TempoSync.h"
 #include "dsp/reverb/CosmicReverb.h"
+#include "dsp/reverb/ReverbCores.h"
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -176,4 +177,47 @@ inline std::array<double, 385> CrusherReference(const UtilityControls& c, double
 }
 inline double TailDB(double seconds, double decay)
 { return -60.*std::max(0.,seconds)/std::max(.001,decay); }
+
+// Nominal decay time at one frequency. Room/Hall use the FDN's fixed shelf
+// ratios (below 200 Hz, above Damping); Plate/Cloud apply their one-pole
+// damping once per loop pass, so RT60(f) = 3T / (3T/decay - log10|LP(f)|).
+inline double ReverbDecay(SlotEffect effect, double hz, double decay, double size, double damping, double rate)
+{
+  if (effect == SlotEffect::RoomReverb || effect == SlotEffect::HallReverb)
+    return decay * (hz < 200. ? grid_reverb::DiffusionFDN::kLowDecayRatio
+                    : hz > damping ? grid_reverb::DiffusionFDN::kHighDecayRatio : 1.);
+  const double pass = effect == SlotEffect::PlateReverb ? grid_reverb::PlateTank::PassSeconds(size)
+                                                         : grid_reverb::CloudTank::PassSeconds(size);
+  // Same clamp as grid_reverb::Coefficient.
+  const double loss = -std::log10(std::max(1.e-12, std::abs(PoleResponse(hz, std::clamp(damping, 1., .4 * rate), rate))));
+  return 3. * pass / (3. * pass / std::max(.001, decay) + loss);
+}
+
+// Peak pitch deviation of a delay line swept by d(t) = excursion * w(rate * t):
+// pitch ratio = 1 - d'(t). slopeFactor is the peak of w' / (2 pi), e.g. 2.05
+// for sin + .15 sin(7x). Returned in cents for the larger (upward) swing.
+inline double SweepCents(double excursionSeconds, double rate, double slopeFactor = 1.)
+{
+  const double slope = excursionSeconds * 2. * 3.14159265358979323846 * rate * slopeFactor;
+  return 1200. * std::log2(1. + std::min(.99, slope));
+}
+
+// Uni-Vibe magnitude at one lamp value: four first-order allpasses; Chorus mode
+// averages them with dry (notches), Vibrato mode is the allpass alone (flat).
+inline double VibeMagnitude(double hz, double lamp, const UtilityControls& c, double rate)
+{
+  constexpr double pi = 3.14159265358979323846;
+  constexpr double centers[]{180., 430., 1050., 2900.};
+  const auto z = std::polar(1., -2. * pi * hz / rate);
+  std::complex<double> wet(1., 0.);
+  for (double center : centers)
+  {
+    const double f = std::min(.4 * rate, center * std::exp2(lamp * (1.2 + c.modulation[3] * .012)));
+    const double t = std::tan(pi * f / rate), a = (t - 1.) / (t + 1.);
+    wet *= (a + z) / (1. + a * z);
+  }
+  const double mode = c.vibeMode >= .5 ? 1. : 0., mix = c.modulation[4] * .01;
+  const auto voiced = .5 * (1. + wet) + .5 * mode * (wet - 1.);
+  return std::abs(1. - mix + mix * voiced);
+}
 } // namespace effect_preview

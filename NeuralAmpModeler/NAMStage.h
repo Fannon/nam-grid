@@ -319,11 +319,11 @@ public:
           r.input[i] = rightSamples[i] * mIn;
           r.dry[i] = p->latency ? r.delay[r.delayIndex] : rightSamples[i];
           r.delay[r.delayIndex] = rightSamples[i];
-          r.delayIndex = (r.delayIndex + 1) % r.delay.size();
+          if (++r.delayIndex == r.delay.size()) r.delayIndex = 0; // No per-sample integer division.
         }
         p->dry[i] = p->latency ? p->delay[p->delayIndex] : samples[i];
         p->delay[p->delayIndex] = samples[i];
-        p->delayIndex = (p->delayIndex + 1) % p->delay.size();
+        if (++p->delayIndex == p->delay.size()) p->delayIndex = 0;
       }
       // Drain temporal histories with silence after bypass, then suspend them.
       // Delay feedback stops once fully muted: one 8.1 s ring plus filter settling

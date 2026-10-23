@@ -34,7 +34,7 @@ def main():
               (520, 'Tuner Mute', 0.), (540, 'Tuner', 0.)]
     ir_changes = [(10, 'Pre 1 IR Level', -6.), (80, 'Drive Enabled', 0.),
                   (400, 'Drive Enabled', 1.), (500, 'Pre 1 IR Level', 0.),
-                  (600, 'LFO Target', 7.), (601, 'LFO Depth', 40.)]
+                  (600, 'LFO Target', 'Parallel blend'), (601, 'LFO Depth', 40.)]
     cases = [('shared', {'id': 'empty', 'effect': 0, 'controls': {}}, shared)]
     for name in ['ir-2048.wav', 'ir-16384.wav']:
         cases.append((name, {'id': name, 'effect': 7, 'controls': {},

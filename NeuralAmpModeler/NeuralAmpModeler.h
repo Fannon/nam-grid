@@ -293,6 +293,7 @@ private:
   dsp::noise_gate::Gain mNoiseGateGain;
   FixedNAMGrid mGrid;
   AudioControlCache<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAudioControls;
+  std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAnimatedControls{}; // audio only
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.

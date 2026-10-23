@@ -107,7 +107,7 @@ public:
   double ProcessSample(double input, int channel, double semitones)
   {
     const int ch = channel != 0 ? 1 : 0;
-    const double target = std::exp2(semitones / 12.);
+    const double target = mTarget[ch](semitones / 12., [](double x) { return std::exp2(x); });
     mRatio = target + mSmoothing * (mRatio - target);
     mLine[ch].Push(input);
     if (std::abs(mRatio - 1.) < 1.e-5)
@@ -127,6 +127,7 @@ public:
 
 private:
   std::array<grid_fx::DelayLine, 2> mLine;
+  std::array<grid_fx::Memo, 2> mTarget;
   double mRate = 48000., mRatio = 1., mSmoothing = 0., mPhase[2]{};
   int mWindow = 2048;
 };
@@ -153,6 +154,7 @@ public:
   {
     mControls.Target(c.shimmer, uShimmerMix);
     const double freezeTarget = (!draining && c.shimmer[6] >= .5) ? 1. : 0.;
+    const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
@@ -175,7 +177,6 @@ public:
       }
       mCounter %= 32;
       const double dryL = l[i], dryR = r ? r[i] : dryL;
-      const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
       mInputLow[0] = grid_fx::Flush(dryL + coefficient * (mInputLow[0] - dryL));
       mInputLow[1] = grid_fx::Flush(dryR + coefficient * (mInputLow[1] - dryR));
       const double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze)

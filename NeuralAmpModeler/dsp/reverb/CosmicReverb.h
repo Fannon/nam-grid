@@ -30,13 +30,16 @@ public:
     // Filled-count guards make unwritten samples inaccessible. Avoid touching
     // eight seconds of storage on every reset; physical pages fill as needed.
     mData.reset(new double[mCapacity]); Clear();
+    mMaximum = static_cast<double>(mCapacity-3);
   }
   void Clear() { mIndex = mFilled = 0; mPrevious = 0.; }
   double Tick(double input, double delay)
   {
-    delay = std::clamp(delay, 2., static_cast<double>(mCapacity-3));
-    const auto whole = static_cast<size_t>(delay-.49999);
-    const double fraction = delay-whole, a = (1.-fraction)/(1.+fraction);
+    // Same values as std::clamp and unsigned conversions; signed/value forms are cheaper on MSVC x64.
+    delay = delay < 2. ? 2. : mMaximum < delay ? mMaximum : delay;
+    const auto integer = static_cast<int64_t>(delay-.49999);
+    const auto whole = static_cast<size_t>(integer);
+    const double fraction = delay-static_cast<double>(integer), a = (1.-fraction)/(1.+fraction);
     const auto tap = [&](size_t offset) {
       if (offset > mFilled) return 0.;
       return mData[mIndex >= offset ? mIndex-offset : mCapacity-(offset-mIndex)];
@@ -50,7 +53,7 @@ public:
 private:
   std::unique_ptr<double[]> mData;
   size_t mIndex = 0, mFilled = 0, mCapacity = 0;
-  double mPrevious = 0.;
+  double mPrevious = 0., mMaximum = 0.;
 };
 
 class Core

@@ -144,6 +144,17 @@ public:
       if (++mFrames % 16 == 0) { mHeldPhase = mPhase; mHeldEnvelope = mEnvelope; mHeldStep = mStep; }
     }
   }
+  // Apply() edits at most these slots. Restoring them from the host values gives
+  // each quantum the same input as copying every slot again.
+  template<class Controls>
+  void Restore(Controls& animated, const Controls& base, const Values& v) const
+  {
+    for (const int slotIndex : {LFOSlot, EnvSlot, StepSlot, Macro1Slot, Macro2Slot})
+    {
+      const int slot = std::clamp(static_cast<int>(v[slotIndex]), 0, 15);
+      animated[slot] = base[slot];
+    }
+  }
   template<class Controls>
   void Apply(Controls& controls, double& blend, const Values& v) const
   {

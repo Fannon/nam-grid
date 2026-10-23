@@ -38,7 +38,8 @@ with each other and with your playing, using the module's actual DSP math:
 - **Measured IN > OUT:** NAM captures, Console Colour, Outboard Channel, Butter Comp,
   Pressure and Digital Black plot recent input peaks against output peaks. Their real
   saturation/compression curve appears from playing; the diagonal is unity gain. NAM
-  adds its post-capture EQ response and the capture's input calibration when present.
+  adds its post-capture EQ response with the same live output spectrum fill as the EQs,
+  and the capture's input calibration when present.
 - **Cabinet IR:** the file's frequency response relative to its peak, computed once per file.
 - **Drive:** transfer curves with live input-range markers. Distortion's High cut/Mix/Output
   follow the shaper. Tube Boost's Tilt and High pass run before its saturator, so with
@@ -188,7 +189,7 @@ Measured IN/OUT histories describe level, not stereo correlation;
 mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe
 configured behavior, not an invented live LFO phase or a measured room impulse.
 A bypassed module can still show its settings; Enabled controls the audio.
-The EQ spectrum is a rough 1024-sample FFT of the selected slot's left output channel, updated with the meter. Each band shows its loudest bin. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's +/-24 dB scale. Low frequencies have limited resolution and it is not a stereo analyzer.
+The output spectrum in the EQ, Filter and NAM views is a rough 1024-sample FFT of the selected slot's left output channel, updated with the meter. Each band shows its loudest bin. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's dB scale. Low frequencies have limited resolution and it is not a stereo analyzer.
 Measured IN > OUT clouds use the same peak meters as the histories: they show level behavior, not instantaneous waveform transfer.
 
 Frequency plots use logarithmic frequency with labeled limits. Timing sketches

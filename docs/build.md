@@ -43,8 +43,10 @@ For MSVC without the Visual Studio generator, use an x64 developer command promp
 and add `-G Ninja` to the configure command.
 
 The setup script applies the two MIT Core allocation fixes, the AudioDSPTools WAV
-decoder safety/polarity and resampler warm-up fixes, and the iPlug2 CLAP enum-metadata
-fix from `patches/`. The patch files are the reproducible source of these changes;
+decoder safety/polarity and resampler warm-up fixes, and two iPlug2 CLAP adapter fixes
+from `patches/`: enum metadata, and host-contract corrections (bounded value-to-text,
+canonical stepped text, looping short state writes, a value rescan after host state
+loads, and correct main-port configuration summaries). The patch files are the reproducible source of these changes;
 do not reset those submodules after setup without applying the patches again.
 Setup checks whether each patch is already applied, and refuses patches that cannot
 be applied cleanly.
@@ -100,7 +102,7 @@ before adding Linux to the release matrix.
 | `stages` | Every DSP module, slot stages, grid routing and realtime allocation checks |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
 | `tuner` | Tuner detection, mute and automation through CLAP |
-| `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity |
+| `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |
 | `vst3-parameter-contract` | Windows only: the built VST3 controller's IDs, class ID, automation flags and normalization |
 
 The Python unit tests cover the on-demand report and audit scripts. See the

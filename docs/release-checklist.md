@@ -20,8 +20,13 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
 - [ ] Confirm the CI matrix passes for every platform included in the release.
 - [ ] Download and inspect the actual archives: plugin bundles, resources,
   `ThirdPartyNotices.txt` and `notices/`; retain macOS executable permissions.
-- [ ] Validate VST3 with the SDK validator and CLAP with a dedicated validator.
-  Record host validation separately from a successful compile or link.
+- [ ] Validate VST3 with the SDK validator and CLAP with
+  [clap-validator](https://github.com/free-audio/clap-validator). Record host
+  validation separately from a successful compile or link.
+  Accepted deviation: the three `state-reproducibility-*` checks report only the
+  `Noise Learn` parameters. Learning is transient by design and always saved as
+  off, so reopening a project never restarts a noise capture. Any other difference
+  is a failure.
 
 ## DAW and listening checks
 

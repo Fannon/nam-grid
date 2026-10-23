@@ -1,4 +1,5 @@
 #include "ClapTestHost.h"
+#include "ClapHostContractTests.h"
 #include "../NeuralAmpModeler/ParameterLayout.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include <set>
@@ -98,6 +99,7 @@ int main(int argc, char** argv)
                 {"stepped", bool(info.flags & CLAP_PARAM_IS_STEPPED)},
                 {"mapping", text}};
   };
+  TestClapHostContract(plugin, host);
   const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
   const std::filesystem::path fixture = argv[2];
   if (argc == 4)

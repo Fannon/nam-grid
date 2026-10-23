@@ -248,7 +248,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
     case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input trim drives colour, Output trim matches loudness.";
-    case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; bars show settings, not a linear EQ response.";
+    case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; louder notes add harmonics beyond the curve.";
     case SlotEffect::ButterComp: return "Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack.";
     case SlotEffect::NAM: return "Input drives the capture; EQ and Output shape its result.";
     case SlotEffect::CabinetIR: return "Cabinet convolution; the traces compare input and output level.";

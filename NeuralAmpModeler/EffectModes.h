@@ -2,14 +2,24 @@
 #include <algorithm>
 #include <array>
 
-// Only implemented choices are exposed to hosts. Keep mode names/counts shared
-// by parameter registration, DSP, the editor and tests; no selectable spare slots.
+// Display labels may evolve. Stored integer identities below must never change:
+// append modes, retain old implementations, and never reuse an ID. Algorithm
+// selectors are saved state, not automatable parameters; no spare choices exist.
 namespace effect_modes
 {
 inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hysteresis"};
 inline constexpr std::array<const char*, 8> deskNames{"Dark", "Rock", "Lush", "Vibe", "Holo", "Punch", "Steel", "Tube"};
 
-enum class DistortionStyle { Soft, Hard, Fuzz, Foldback, Diode, Rectify, Count };
+enum class DistortionStyle
+{
+  Soft = 0,
+  Hard = 1,
+  Fuzz = 2,
+  Foldback = 3,
+  Diode = 4,
+  Rectify = 5,
+  Count
+};
 inline constexpr int distortionCount = static_cast<int>(DistortionStyle::Count);
 inline constexpr std::array<const char*, distortionCount> distortionNames{
   "Soft clip", "Hard clip", "Fuzz", "Foldback", "Diode", "Rectify"};
@@ -53,7 +63,16 @@ inline constexpr std::array<const char*, tapeHeadNames.size()> tapeHeadHelp{
   "Late pair: three-quarter and full Time, equally weighted. Feedback comes from the last head.",
   "Stereo dual: half Time on the left, full Time on the right. Last-head feedback crosses between channels; dry stereo stays intact.",
   "Stereo cascade: quarter/three-quarter Time on the left, half/full Time on the right. Last-head feedback crosses channels; dry stereo stays intact."};
-enum class CosmicStyle { Gemini, Sagittarius, Virgo, Centaurus, GreatAnnihilator, Lyra, Count };
+enum class CosmicStyle
+{
+  Gemini = 0,
+  Sagittarius = 1,
+  Virgo = 2,
+  Centaurus = 3,
+  GreatAnnihilator = 4,
+  Lyra = 5,
+  Count
+};
 inline constexpr int cosmicCount = static_cast<int>(CosmicStyle::Count);
 inline constexpr std::array<const char*, cosmicCount> cosmicNames{
   "Gemini", "Sagittarius", "Virgo", "Centaurus", "Great Annihilator", "Lyra"};

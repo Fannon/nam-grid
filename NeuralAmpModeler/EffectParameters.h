@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <span>
+#include <string_view>
 #include <utility>
 #include "EffectModes.h"
 #include "TempoSync.h"
@@ -11,105 +12,209 @@
 // the editor, so parameter ranges, defaults and the eight control positions agree.
 enum UtilityParam
 {
-  uFrequency,
-  uGain,
-  uQ,
-  uBoostGain,
-  uBoostTilt,
-  uFilterCutoff,
-  uFilterResonance,
-  uFilterEnvelope,
-  uSwellRise,
-  uSwellThreshold,
-  uSwellRelease,
-  uDelayTime,
-  uDelayFeedback,
-  uDelayTone,
-  uDelayCharacter,
-  uDelayMix,
-  uReverbDecay,
-  uReverbSize,
-  uReverbTone,
-  uReverbPredelay,
-  uReverbMix,
-  uModRate,
-  uModDepth,
-  uModFeedback,
-  uModCharacter,
-  uModMix,
-  uTapeDrive,
-  uTapeBump,
-  uTapeMix,
-  uTapeOutput,
-  uCompAttack,
-  uCompMix,
-  uDelayMotion,
-  uDelayOutput,
-  uReverbMotion,
-  uReverbHighPass,
-  uTubeDrive,
-  uTubeBias,
-  uTubeMix,
-  uTubeOutput,
-  uPunchAttack,
-  uTempoSync,
-  uTempoDivision,
-  uUtilityLevel,
-  uUtilityBalance,
-  uUtilityStereo,
-  uUtilityInvertL,
-  uUtilityInvertR,
-  uDelayPingPong,
-  uChorusSpread,
-  uReverbStereo,
-  uSpringDecay,
-  uSpringDwell,
-  uSpringDrip,
-  uSpringMix,
-  uSpringOutput,
-  uWahPosition,
-  uWahResonance,
-  uWahRange,
-  uWahMix,
-  uWahOutput,
-  uUtilityDelay,
-  uRotarySlow, uRotaryFast, uRotarySpeed, uRotaryAccel, uRotaryDrive, uRotarySpread, uRotaryMix,
-  uVibeMode,
-  uLimiterCeiling, uLimiterRelease,
-  uOctDry, uOctSub, uOctSub2, uOctTone, uOctOutput,
-  uDoubleDetune, uDoubleDelay, uDoubleSpread, uDoubleMix, uDoubleOutput,
-  uFreezeHold, uFreezeWindow, uFreezeFade, uFreezeTone, uFreezeMix,
-  uStutterTime, uStutterDuty, uStutterFade, uStutterMix,
-  uCrushBits, uCrushRate, uCrushTone, uCrushMix, uCrushOutput,
-  uRingFrequency, uRingDepth, uRingTone, uRingMix,
-  uDualRatio, uDualBalance,
-  uEQMode,
-  uJunoMode, uJunoMix, uJunoBrightness,
-  uShimmerMix, uShimmerDecay, uShimmerTone, uShimmerPitch, uShimmerAmount, uShimmerMod, uShimmerFreeze,
-  uShiftFrequency, uShiftFeedback, uShiftDelay, uShiftSide, uShiftTone, uShiftStereo, uShiftMix,
-  uDistStyle, uDistDrive, uDistTone, uDistBias, uDistMix, uDistOutput,
-  uNoiseLearn,
-  uNoiseSensitivity,
-  uNoiseReduction,
-  uNoiseAttack,
-  uNoiseRelease,
-  uNoiseMix,
-  uNoiseGateThreshold,
-  uGateMode,
-  uFilterMode,
-  uLoFiSpeed, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiMix, uLoFiOutput,
-  uTapeHeads, uDelayDiffusion,
-  uAirPlateInput, uAirPlateSustain, uAirPlateResolution, uAirPlatePredelay, uAirPlateMix, uAirPlateLowCut, uAirPlateOutput,
-  uAirHallSustain, uAirHallResolution, uAirHallTone, uAirHallEarly, uAirHallPosition, uAirHallMix, uAirHallOutput,
-  uSpaceReplace, uSpaceBrightness, uSpaceDetune, uSpaceSize, uSpaceResolution, uSpaceMix, uSpaceOutput,
-  uCosmicTime, uCosmicWarp, uCosmicFeedback, uCosmicDensity, uCosmicTone, uCosmicMotion, uCosmicMix, uCosmicStyle,
-  uStripLowCut, uStripHighCut, uStripCompress, uStripSpeed, uStripSaturate, uStripOutput, uStripMix,
-  uColourInput, uColourOutput, uColourMix, uColourDesk,
-  uConsoleTreble, uConsoleMid, uConsoleBass, uConsoleTrebleFreq, uConsoleBassFreq, uConsoleHighCut, uConsoleLowCut,
-  uButterCompress, uButterOutput, uButterMix,
-  uBlackThreshold, uBlackMix, uBlackOutput, uBlackMode,
-  uPressureCompress, uPressureMix, uPressureOutput,
-  kUtilityControls
+  // Persistent IDs: append only. Never renumber or reuse retired entries.
+  uFrequency = 0,
+  uGain = 1,
+  uQ = 2,
+  uBoostGain = 3,
+  uBoostTilt = 4,
+  uFilterCutoff = 5,
+  uFilterResonance = 6,
+  uFilterEnvelope = 7,
+  uSwellRise = 8,
+  uSwellThreshold = 9,
+  uSwellRelease = 10,
+  uDelayTime = 11,
+  uDelayFeedback = 12,
+  uDelayTone = 13,
+  uDelayCharacter = 14,
+  uDelayMix = 15,
+  uReverbDecay = 16,
+  uReverbSize = 17,
+  uReverbTone = 18,
+  uReverbPredelay = 19,
+  uReverbMix = 20,
+  uModRate = 21,
+  uModDepth = 22,
+  uModFeedback = 23,
+  uModCharacter = 24,
+  uModMix = 25,
+  uTapeDrive = 26,
+  uTapeBump = 27,
+  uTapeMix = 28,
+  uTapeOutput = 29,
+  uCompAttack = 30,
+  uCompMix = 31,
+  uDelayMotion = 32,
+  uDelayOutput = 33,
+  uReverbMotion = 34,
+  uReverbHighPass = 35,
+  uTubeDrive = 36,
+  uTubeBias = 37,
+  uTubeMix = 38,
+  uTubeOutput = 39,
+  uPunchAttack = 40,
+  uTempoSync = 41,
+  uTempoDivision = 42,
+  uUtilityLevel = 43,
+  uUtilityBalance = 44,
+  uUtilityStereo = 45,
+  uUtilityInvertL = 46,
+  uUtilityInvertR = 47,
+  uDelayPingPong = 48,
+  uChorusSpread = 49,
+  uReverbStereo = 50,
+  uSpringDecay = 51,
+  uSpringDwell = 52,
+  uSpringDrip = 53,
+  uSpringMix = 54,
+  uSpringOutput = 55,
+  uWahPosition = 56,
+  uWahResonance = 57,
+  uWahRange = 58,
+  uWahMix = 59,
+  uWahOutput = 60,
+  uUtilityDelay = 61,
+  uRotarySlow = 62,
+  uRotaryFast = 63,
+  uRotarySpeed = 64,
+  uRotaryAccel = 65,
+  uRotaryDrive = 66,
+  uRotarySpread = 67,
+  uRotaryMix = 68,
+  uVibeMode = 69,
+  uLimiterCeiling = 70,
+  uLimiterRelease = 71,
+  uOctDry = 72,
+  uOctSub = 73,
+  uOctSub2 = 74,
+  uOctTone = 75,
+  uOctOutput = 76,
+  uDoubleDetune = 77,
+  uDoubleDelay = 78,
+  uDoubleSpread = 79,
+  uDoubleMix = 80,
+  uDoubleOutput = 81,
+  uFreezeHold = 82,
+  uFreezeWindow = 83,
+  uFreezeFade = 84,
+  uFreezeTone = 85,
+  uFreezeMix = 86,
+  uStutterTime = 87,
+  uStutterDuty = 88,
+  uStutterFade = 89,
+  uStutterMix = 90,
+  uCrushBits = 91,
+  uCrushRate = 92,
+  uCrushTone = 93,
+  uCrushMix = 94,
+  uCrushOutput = 95,
+  uRingFrequency = 96,
+  uRingDepth = 97,
+  uRingTone = 98,
+  uRingMix = 99,
+  uDualRatio = 100,
+  uDualBalance = 101,
+  uEQMode = 102,
+  uJunoMode = 103,
+  uJunoMix = 104,
+  uJunoBrightness = 105,
+  uShimmerMix = 106,
+  uShimmerDecay = 107,
+  uShimmerTone = 108,
+  uShimmerPitch = 109,
+  uShimmerAmount = 110,
+  uShimmerMod = 111,
+  uShimmerFreeze = 112,
+  uShiftFrequency = 113,
+  uShiftFeedback = 114,
+  uShiftDelay = 115,
+  uShiftSide = 116,
+  uShiftTone = 117,
+  uShiftStereo = 118,
+  uShiftMix = 119,
+  uDistStyle = 120,
+  uDistDrive = 121,
+  uDistTone = 122,
+  uDistBias = 123,
+  uDistMix = 124,
+  uDistOutput = 125,
+  uNoiseLearn = 126,
+  uNoiseSensitivity = 127,
+  uNoiseReduction = 128,
+  uNoiseAttack = 129,
+  uNoiseRelease = 130,
+  uNoiseMix = 131,
+  uNoiseGateThreshold = 132,
+  uGateMode = 133,
+  uFilterMode = 134,
+  uLoFiSpeed = 135,
+  uLoFiWow = 136,
+  uLoFiFlutter = 137,
+  uLoFiNoise = 138,
+  uLoFiWear = 139,
+  uLoFiMix = 140,
+  uLoFiOutput = 141,
+  uTapeHeads = 142,
+  uDelayDiffusion = 143,
+  uAirPlateInput = 144,
+  uAirPlateSustain = 145,
+  uAirPlateResolution = 146,
+  uAirPlatePredelay = 147,
+  uAirPlateMix = 148,
+  uAirPlateLowCut = 149,
+  uAirPlateOutput = 150,
+  uAirHallSustain = 151,
+  uAirHallResolution = 152,
+  uAirHallTone = 153,
+  uAirHallEarly = 154,
+  uAirHallPosition = 155,
+  uAirHallMix = 156,
+  uAirHallOutput = 157,
+  uSpaceReplace = 158,
+  uSpaceBrightness = 159,
+  uSpaceDetune = 160,
+  uSpaceSize = 161,
+  uSpaceResolution = 162,
+  uSpaceMix = 163,
+  uSpaceOutput = 164,
+  uCosmicTime = 165,
+  uCosmicWarp = 166,
+  uCosmicFeedback = 167,
+  uCosmicDensity = 168,
+  uCosmicTone = 169,
+  uCosmicMotion = 170,
+  uCosmicMix = 171,
+  uCosmicStyle = 172,
+  uStripLowCut = 173,
+  uStripHighCut = 174,
+  uStripCompress = 175,
+  uStripSpeed = 176,
+  uStripSaturate = 177,
+  uStripOutput = 178,
+  uStripMix = 179,
+  uColourInput = 180,
+  uColourOutput = 181,
+  uColourMix = 182,
+  uColourDesk = 183,
+  uConsoleTreble = 184,
+  uConsoleMid = 185,
+  uConsoleBass = 186,
+  uConsoleTrebleFreq = 187,
+  uConsoleBassFreq = 188,
+  uConsoleHighCut = 189,
+  uConsoleLowCut = 190,
+  uButterCompress = 191,
+  uButterOutput = 192,
+  uButterMix = 193,
+  uBlackThreshold = 194,
+  uBlackMix = 195,
+  uBlackOutput = 196,
+  uBlackMode = 197,
+  uPressureCompress = 198,
+  uPressureMix = 199,
+  uPressureOutput = 200,
+  kUtilityControls,
 };
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
@@ -127,8 +232,63 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     default: return {};
   }
 }
+// This registry identifies algorithms independently of translated/display labels.
+// Values are the native integers already stored in presets and scenes. Both the
+// numeric value and key are permanent; new algorithms append at the end.
+struct AlgorithmIdentity
+{
+  int value;
+  const char* key;
+};
+namespace algorithm_identities
+{
+inline constexpr AlgorithmIdentity distortion[]{
+  {0, "soft"}, {1, "hard"}, {2, "fuzz"}, {3, "foldback"}, {4, "diode"}, {5, "rectify"}};
+inline constexpr AlgorithmIdentity juno[]{{0, "i"}, {1, "i-ii"}, {2, "ii"}};
+inline constexpr AlgorithmIdentity gate[]{{0, "natural"}, {1, "tight"}};
+inline constexpr AlgorithmIdentity filter[]{{0, "low-pass"}, {1, "high-pass"}, {2, "band-pass"}};
+inline constexpr AlgorithmIdentity heads[]{{0, "single"},      {1, "dual"},          {2, "syncopated"},
+                                           {3, "all"},         {4, "early-pair"},    {5, "late-pair"},
+                                           {6, "stereo-dual"}, {7, "stereo-cascade"}};
+inline constexpr AlgorithmIdentity cosmic[]{
+  {0, "gemini"}, {1, "sagittarius"}, {2, "virgo"}, {3, "centaurus"}, {4, "great-annihilator"}, {5, "lyra"}};
+inline constexpr AlgorithmIdentity desk[]{
+  {0, "dark"}, {1, "rock"}, {2, "lush"}, {3, "vibe"}, {4, "holo"}, {5, "punch"}, {6, "steel"}, {7, "tube"}};
+inline constexpr AlgorithmIdentity black[]{{0, "zero-crossing"}, {1, "hysteresis"}};
+inline constexpr AlgorithmIdentity eq[]{{0, "bell"}, {1, "notch"}};
+inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
+} // namespace algorithm_identities
+inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
+{
+  using namespace algorithm_identities;
+  switch (control)
+  {
+    case uDistStyle: return distortion;
+    case uJunoMode: return juno;
+    case uGateMode: return gate;
+    case uFilterMode: return filter;
+    case uTapeHeads: return heads;
+    case uCosmicStyle: return cosmic;
+    case uColourDesk: return desk;
+    case uBlackMode: return black;
+    case uEQMode: return eq;
+    case uVibeMode: return vibe;
+    default: return {};
+  }
+}
+inline constexpr bool IsAlgorithmMode(int control)
+{
+  // Tempo division is a musical performance control and remains automatable.
+  // New enum selectors must register permanent identities above (asserted below).
+  return (!EffectChoices(control).empty() && control != uTempoDivision) || control == uEQMode || control == uVibeMode;
+}
+inline constexpr int kInitialEffectStateSchema = 26;
+inline constexpr int kEffectStateSchema = 26;
+
 struct EffectParameter
 {
+  // `name` is also the permanent preset/scene storage key. Change `label` for
+  // editor wording; renaming a storage key requires an explicit migration.
   const char* name;
   const char* label;
   double initial, minimum, maximum, step;
@@ -136,6 +296,8 @@ struct EffectParameter
   int position;
   bool exponential = false;
   double power = 1.;
+  // Set explicitly for future controls when bumping kEffectStateSchema.
+  int introducedIn = kInitialEffectStateSchema;
 };
 // Read presets/scenes from the preceding audition builds after clarifying
 // frequency-cutoff names. The controls and values themselves are unchanged.
@@ -349,10 +511,26 @@ static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
     const auto& p = kEffectParameters[i];
-    if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum
-        || p.step <= 0. || p.power <= 0. || p.position < 0 || p.position >= 7) return false;
+    if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum || p.step <= 0. || p.power <= 0.
+        || p.position < 0 || p.position >= 7 || p.introducedIn < kInitialEffectStateSchema
+        || p.introducedIn > kEffectStateSchema)
+      return false;
     const auto choices = EffectChoices(i);
     if (!choices.empty() && (p.minimum != 0. || p.maximum != choices.size() - 1 || p.step != 1.)) return false;
+    if (IsAlgorithmMode(i))
+    {
+      const auto identities = AlgorithmIdentities(i);
+      if (identities.size() != static_cast<size_t>(p.maximum + 1))
+        return false;
+      for (size_t mode = 0; mode < identities.size(); ++mode)
+      {
+        if (identities[mode].value != mode || !identities[mode].key || !identities[mode].key[0])
+          return false;
+        for (size_t previous = 0; previous < mode; ++previous)
+          if (std::string_view(identities[mode].key) == identities[previous].key)
+            return false;
+      }
+    }
   }
   return true;
 }(), "Every utility parameter needs a valid descriptor and one of the seven editor positions");

@@ -23,7 +23,9 @@ in the PR.
 ## Change scope
 
 - Keep existing plugin identity, parameter IDs and serialized names stable.
-  Add migration and state-rejection coverage when changing saved data.
+  Add migration and state-rejection coverage when changing saved data. Follow
+  the [parameter compatibility contract](docs/development.md#parameter-and-project-compatibility)
+  for new controls, modes and modules; preserve the historical test fixture.
 - Keep file I/O, allocation, DSP preparation and destruction off the audio thread.
   Extend the stage allocation checks when introducing a new processing path.
 - Keep module menus, parameter ownership, defaults, DSP dispatch and tail reporting

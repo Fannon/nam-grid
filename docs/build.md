@@ -25,7 +25,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-clap-bench nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-clap-bench nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
@@ -85,6 +85,10 @@ report Linux as unsupported, and `IGraphicsLinux.cpp` is an unfinished stub.
 Adding a Linux runner alone cannot build this plugin; a working Linux framework
 backend and CLAP/VST3 platform integration are required before adding Linux to the
 release matrix. No Linux plugin archive is currently produced.
+
+The `parameter-contract` CTest protects IDs, algorithm identity and preset/scene
+recall. Windows also runs `vst3-parameter-contract` against the built VST3 plugin.
+See the [compatibility contract](development.md#parameter-and-project-compatibility).
 
 ## Using a local build
 

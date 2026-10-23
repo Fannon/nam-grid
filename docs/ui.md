@@ -19,7 +19,8 @@ Clear slot is first in both the module and right-click menus; the latter also ha
 Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
 with up to seven knobs followed by Enabled. A full-height visualization sits to the right.
 The browser icon beside a built-in FX name opens its category; for NAM captures and IRs it opens the current folder.
-Previous/next arrows follow the same category or folder. NAM uses Input, Bass, Mid, Treble, Low cut, High cut, Output trim;
+Previous/next arrows follow the same category or folder. NAM uses Input, Bass, Mid and Treble, then Output, Low cut and High cut,
+keeping Input and Output in the left column;
 its neutral EQ acts after inference, not as controls of the captured amp. Compatible captures show
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
 shows the current mode. The module menu also offers A2 Lite. IR uses Level;

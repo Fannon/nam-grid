@@ -230,6 +230,14 @@ public:
     mExchange.Publish(std::move(item));
   }
   void Collect() { mExchange.Collect(); }
+  // Frees the processor while audio cannot use this stage (host stopped or inactive grid).
+  void ClearStopped()
+  {
+    mExchange.ClearStopped();
+    mWaitForReset.store(false);
+    mFirst = true;
+    mMeter = {};
+  }
   void ResetStopped(double rate, int block)
   {
     Collect();

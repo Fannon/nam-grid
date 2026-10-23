@@ -51,6 +51,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 }
 #include "GridTests.h"
 #include "AudioControlCacheTests.h"
+#include "RigTransitionTests.h"
 #include "DynamicsTests.h"
 #include "SlotFeaturesTests.h"
 #include "TimeEffectsTests.h"
@@ -176,6 +177,7 @@ try
   }
   TestFixedGrid();
   TestAudioControlCache();
+  TestRigTransition();
   TestDynamics();
   TestSlotFeatures();
   TestTimeEffects();

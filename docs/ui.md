@@ -58,6 +58,8 @@ with each other and with your playing, using the module's actual DSP math:
 Time-based previews label their time window; they describe the configured modulation
 rather than claiming to follow a live audio LFO phase.
 Library & settings has one **Visualizations: ON/OFF** preference for all module editors.
+**Preset switch: Short fade / Crossfade** sets how rig presets change while audio plays
+(see [presets.md](presets.md)); it is also a per-user preference.
 Category badges remain visible when visualizations are off. This preference is stored per user,
 outside project/rig state. NAM Amp + Cab uses separate Amp and Cab badges in both the card and editor.
 All knobs show editable values and units below the dial;

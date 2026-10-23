@@ -110,7 +110,16 @@ invalid or missing resources leave the slots unchanged. Automation remains
 attached to physical slots. Captures and IRs are external files, not copied assets.
 
 Model changes that alter CLAP latency request host reactivation. Same-latency
-replacement uses the existing switching fades. A2 quality changes reload and
+replacement uses the existing switching fades.
+
+The plugin owns two grids. Slot edits go to the edited grid, which is the audible
+one except during a rig preset switch. `RigTransition` coordinates a switch: the
+control thread asks audio to hold the audible rig's controls (slot banks, routing,
+blend, IN/OUT), stages the new rig into the other grid, resets that grid and starts
+the switch. Audio freezes the outgoing rig's last controls and either dips or
+crossfades into the new grid. OnIdle frees the previous grid once audio reports
+idle. If audio does not acknowledge the hold within 250 ms, the rig is applied to
+the audible grid directly, as for host state loads. A2 quality changes reload and
 prepare the selected submodel on the control thread; Core's size setter must
 not be called from audio processing. Rapid quality requests can coalesce.
 

@@ -131,6 +131,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   const auto librarySettings = nam_library::ReadSettings(CaptureSettingsFile());
   mRescanOnStartup = librarySettings.rescanOnStartup;
   mShowVisualizations = librarySettings.showVisualizations;
+  mPresetCrossfade = librarySettings.presetCrossfade;
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
@@ -251,16 +252,39 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   std::fenv_t fe_state;
   std::feholdexcept(&fe_state);
   disable_denormals();
+  // A rig switch first holds the audible rig's controls while the next rig is prepared.
+  const auto transition = mRigTransition.Begin();
+  const bool holding = transition == RigTransition::kHolding;
+  const bool switching = transition == RigTransition::kRunning;
+  if (mRigTransition.Started())
+  {
+    // Freeze the outgoing rig exactly as it last sounded; the new rig reads fresh controls.
+    mOutgoingControls = mLastModulated ? mAnimatedControls : mAudioControls.Values();
+    mOutgoingRouting = grid_performance::Route(mHeldPerformance);
+    mOutgoingBlend = mHeldBlend;
+    mOutgoingGrid = mAudibleGrid;
+    mAudibleGrid = mRigTransition.Target();
+  }
+  if (!holding)
+  {
+    mHeldInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
+    mHeldOutputGain = GetParam(kOutputLevel)->DBToAmp();
+  }
   // Preserve host stereo until a mono NAM slot explicitly collapses it.
-  _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal);
+  _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal, mHeldInputGain);
   mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
   mTuner.Enable(IsTunerActive());
   mTuner.Push(mInputPointers[0], mInputPointers[1], nFrames, sampleRate);
   for (size_t channel = 0; channel < numChannelsInternal; ++channel)
     std::copy_n(mInputPointers[channel], nFrames, mOutputPointers[channel]);
+  const bool outgoing = switching && mRigTransition.OutgoingAudible();
+  if (outgoing)
+    for (size_t channel = 0; channel < mOutgoingBuffers.size(); ++channel)
+      std::copy_n(mInputPointers[std::min(channel, numChannelsInternal - 1)], nFrames, mOutgoingBuffers[channel].data());
   auto& controls = mAudioControls.Values();
   const double tempo = GetTempo();
-  for (size_t slot = 0; slot < controls.size(); ++slot)
+  // A held rig keeps the controls it last used; new values wait in the cache.
+  for (size_t slot = 0; !holding && slot < controls.size(); ++slot)
   {
     mAudioControls.Refresh(slot, [&](auto& c) {
       c.enabled = GetParam(SlotActiveParam(slot))->Bool();
@@ -371,11 +395,19 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     // Host tempo can change without a parameter notification.
     controls[slot].utility.tempo = tempo;
   }
-  grid_performance::Values performance{};
-  for (int i = 0; i < grid_performance::Count; ++i) performance[i] = GetParam(PerformanceParam(i))->Value();
+  if (!holding)
+  {
+    for (int i = 0; i < grid_performance::Count; ++i) mHeldPerformance[i] = GetParam(PerformanceParam(i))->Value();
+    mHeldBlend = GetParam(kParallelBlend)->Value() * .01;
+  }
+  const auto& performance = mHeldPerformance;
   const auto routing = grid_performance::Route(performance);
-  const double blend = GetParam(kParallelBlend)->Value() * .01;
-  if (mModulation.Active(performance))
+  const double blend = mHeldBlend;
+  auto& grid = mGrids[mAudibleGrid];
+  // A dip leaves the incoming rig silent at first; it starts once it becomes audible.
+  const bool incoming = !switching || mRigTransition.IncomingAudible(nFrames);
+  mLastModulated = incoming && mModulation.Active(performance);
+  if (mLastModulated)
   {
     // A bounded control quantum avoids audio-rate model inference and keeps
     // modulation responsive without allocating or writing host parameters.
@@ -387,14 +419,30 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       mModulation.Restore(mAnimatedControls, controls, performance);
       double animatedBlend = blend;
       mModulation.Apply(mAnimatedControls, animatedBlend, performance);
-      mGrid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset, routing);
+      grid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset, routing);
       mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, tempo);
       offset += count;
     }
   }
-  else
+  else if (incoming)
   {
-    mGrid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
+    grid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
+  }
+  if (switching)
+  {
+    auto* left = mOutgoingBuffers[0].data();
+    auto* right = mOutgoingBuffers[1].data();
+    if (outgoing)
+      mGrids[mOutgoingGrid].Process(left, nFrames, mOutgoingControls, mOutgoingBlend, right, mOutgoingRouting);
+    for (int i = 0; i < nFrames; ++i)
+    {
+      const double in = mRigTransition.IncomingGain(), out = outgoing ? mRigTransition.OutgoingGain() : 0.;
+      mOutputPointers[0][i] = in * mOutputPointers[0][i] + (outgoing ? out * left[i] : 0.);
+      mOutputPointers[1][i] = in * mOutputPointers[1][i] + (outgoing ? out * right[i] : 0.);
+      mRigTransition.Advance();
+    }
+    if (mRigTransition.Done())
+      mRigTransition.Finish(); // The outgoing grid is not touched again.
   }
   mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));
@@ -402,11 +450,11 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   {
     mMeterFrames %= meterInterval;
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-      mSlotMeterSender.PushData({kCtrlTagGridSlotBase + static_cast<int>(slot), {mGrid.stages[slot].TakeMeter()}});
+      mSlotMeterSender.PushData({kCtrlTagGridSlotBase + static_cast<int>(slot), {grid.stages[slot].TakeMeter()}});
     if (const int slot = mSpectrumSlot.load(std::memory_order_relaxed); slot >= 0 && slot < static_cast<int>(FixedNAMGrid::kSlots))
     {
       grid_eq_signal::Window window;
-      if (mGrid.stages[slot].TakeSignalWindow(window))
+      if (grid.stages[slot].TakeSignalWindow(window))
         mSlotSignalSender.PushData({kCtrlTagGridSlotBase + slot, {window}});
     }
   }
@@ -415,7 +463,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   sample** hpfPointers = mHighPass.Process(mOutputPointers, numChannelsInternal, numFrames);
   std::feupdateenv(&fe_state);
   // Mono host outputs downmix; stereo host outputs retain independent channels.
-  _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut);
+  _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, mHeldOutputGain);
   mOutputSender.ProcessBlock(
     outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
 }
@@ -446,10 +494,17 @@ void NeuralAmpModeler::OnReset()
   _UpdateTailSize();
   mInputSender.Reset(sampleRate);
   mOutputSender.Reset(sampleRate);
-  // Adopt pending slots and prepare them for the new rate and maximum block.
-  mGrid.ResetStopped(sampleRate, maxBlockSize);
-  for (size_t i = 0; i < mGrid.stages.size(); ++i)
-    mRequestedLatencies[i] = mGrid.stages[i].Latency();
+  // Adopt pending slots and prepare them for the new rate and maximum block. Any rig
+  // switch is complete: the edited grid is audible and the other one is released.
+  mRigTransition.FinishStopped();
+  mGrids[1 - mEditGrid].ClearStopped();
+  mInactiveGridUsed = false;
+  mGrids[mEditGrid].ResetStopped(sampleRate, maxBlockSize);
+  mAudibleGrid = mOutgoingGrid = mEditGrid;
+  for (auto& buffer : mOutgoingBuffers)
+    buffer.assign(maxBlockSize, 0.);
+  for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
+    mRequestedLatencies[i] = mGrids[mEditGrid].stages[i].Latency();
   _UpdateLatency();
   // Prime the reused output filter outside ProcessBlock.
   mHighPass.ClearHistory();
@@ -708,7 +763,7 @@ noise_print::Profile NeuralAmpModeler::GetNoiseProfile(size_t slot) const
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   if (slot >= FixedNAMGrid::kSlots || mSlotEffects[slot] != SlotEffect::NoisePrint)
     return {};
-  return mGrid.stages[slot].GetNoiseProfile(mNoiseEpochs[slot], mNoiseProfiles[slot]);
+  return mGrids[mEditGrid].stages[slot].GetNoiseProfile(mNoiseEpochs[slot], mNoiseProfiles[slot]);
 }
 
 SlotConfig NeuralAmpModeler::_GetSlotConfig(size_t slot) const
@@ -814,6 +869,15 @@ bool NeuralAmpModeler::HasPerformanceScene(size_t scene) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   return scene < mPerformanceScenes.size() && !mPerformanceScenes[scene].empty();
+}
+
+void NeuralAmpModeler::SetPresetCrossfade(bool enabled)
+{
+  mPresetCrossfade = enabled;
+  auto settings = nam_library::ReadSettings(CaptureSettingsFile());
+  settings.presetCrossfade = enabled;
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
+  _UpdateLibraryControls();
 }
 
 void NeuralAmpModeler::SetShowVisualizations(bool enabled)
@@ -930,7 +994,7 @@ void NeuralAmpModeler::OnIdle()
     }
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
-    const auto sequence = mGrid.stages[slot].NoiseSequence();
+    const auto sequence = mGrids[mEditGrid].stages[slot].NoiseSequence();
     if (sequence != mNoiseSeen[slot])
     {
       const auto profile = GetNoiseProfile(slot);
@@ -954,8 +1018,15 @@ void NeuralAmpModeler::OnIdle()
       _UpdateLibraryControls();
     }
   }
-  for (auto& stage : mGrid.stages)
-    stage.Collect();
+  for (auto& grid : mGrids)
+    for (auto& stage : grid.stages)
+      stage.Collect();
+  // After a rig switch, free the previous rig once audio has stopped using its grid.
+  if (mInactiveGridUsed && mRigTransition.Idle())
+  {
+    mGrids[1 - mEditGrid].ClearStopped();
+    mInactiveGridUsed = false;
+  }
   mInputSender.TransmitData(*this);
   mOutputSender.TransmitData(*this);
   mSlotMeterSender.TransmitData(*this);
@@ -1139,7 +1210,25 @@ void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, co
   }
   IByteChunk chunk;
   chunk.PutStr(kStateHeader); chunk.PutStr(rig.dump().c_str());
-  if (UnserializeState(chunk, 0) < 0) throw std::runtime_error("Preset contains invalid or unsupported rig state.");
+  // While audio holds the current rig, stage the new one in the other grid, then switch.
+  // Without a running host there is nothing to fade: edit the audible grid directly.
+  const bool switching = mRigTransition.Hold(std::chrono::milliseconds(250));
+  const int previousGrid = mEditGrid;
+  if (switching)
+    mEditGrid = 1 - mEditGrid;
+  if (UnserializeState(chunk, 0) < 0)
+  {
+    mEditGrid = previousGrid;
+    if (switching) mRigTransition.Release();
+    throw std::runtime_error("Preset contains invalid or unsupported rig state.");
+  }
+  if (switching)
+  {
+    mGrids[mEditGrid].ResetStopped(mSampleRatePrepared, mMaxBlockPrepared); // Audio does not use this grid yet.
+    mInactiveGridUsed = true;
+    mRigTransition.Start(mEditGrid, mPresetCrossfade ? RigTransition::Mode::Crossfade : RigTransition::Mode::Dip,
+                         mSampleRatePrepared);
+  }
   mPresetDirectory = directory;
   OnRestoreState();
 #ifdef CLAP_API
@@ -1604,9 +1693,9 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mNoiseEpochs[slot] = ++mNextNoiseEpoch;
   prepared.dsp->noiseEpoch = mNoiseEpochs[slot];
 #ifdef CLAP_API
-  mGrid.stages[slot].Publish(std::move(prepared.dsp), latencyChanged);
+  mGrids[mEditGrid].stages[slot].Publish(std::move(prepared.dsp), latencyChanged);
 #else
-  mGrid.stages[slot].Publish(std::move(prepared.dsp));
+  mGrids[mEditGrid].stages[slot].Publish(std::move(prepared.dsp));
 #endif
   if (updateParameters)
   {
@@ -1723,9 +1812,8 @@ void NeuralAmpModeler::_PrepareIOPointers(const size_t numChannels)
 }
 
 void NeuralAmpModeler::_ProcessInput(iplug::sample** inputs, const size_t nFrames, const size_t nChansIn,
-                                     const size_t nChansOut)
+                                     const size_t nChansOut, double target)
 {
-  const double target = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
   for (size_t s = 0; s < nFrames; ++s)
   {
     mGlobalInputGain = target + mMasterCoefficient * (mGlobalInputGain - target);
@@ -1735,9 +1823,8 @@ void NeuralAmpModeler::_ProcessInput(iplug::sample** inputs, const size_t nFrame
 }
 
 void NeuralAmpModeler::_ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames,
-                                      const size_t nChansIn, const size_t nChansOut)
+                                      const size_t nChansIn, const size_t nChansOut, double gain)
 {
-  const double gain = GetParam(kOutputLevel)->DBToAmp();
   const double target = mTuner.Enabled() && GetParam(kTunerMute)->Bool() ? 0. : 1.;
   const double step = 1. / std::max(1., GetSampleRate() * .005);
   for (size_t s = 0; s < nFrames; ++s)

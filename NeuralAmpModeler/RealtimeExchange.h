@@ -35,6 +35,14 @@ public:
     return true;
   }
   T* Active() const { return mActive; } // audio only, or host stopped
+  // Frees everything. Only while audio cannot use this exchange (host stopped or inactive grid).
+  void ClearStopped()
+  {
+    delete mPending.exchange(nullptr);
+    delete mRetired.exchange(nullptr);
+    delete mActive;
+    mActive = nullptr;
+  }
   T* PendingStopped() const { return mPending.load(); }
 
 private:

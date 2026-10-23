@@ -60,6 +60,12 @@ public:
     mFirstBlend = true;
   }
 
+  void ClearStopped()
+  {
+    for (auto& stage : stages)
+      stage.ClearStopped();
+  }
+
   void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
                double* right = nullptr, const grid_performance::Routing& routing = {})
   {

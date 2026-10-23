@@ -11,6 +11,7 @@
 
 #include "NAMStage.h"
 #include "FixedNAMGrid.h"
+#include "RigTransition.h"
 #include "AudioControlCache.h"
 #include "SlotOperations.h"
 #include "LibraryBrowser.h"
@@ -156,6 +157,9 @@ public:
   bool GetRescanOnStartup() const { return mRescanOnStartup; }
   bool GetShowVisualizations() const { return mShowVisualizations; }
   void SetShowVisualizations(bool enabled);
+  // Rig preset switches crossfade both rigs, or dip (old out, then new in) to spare CPU.
+  bool GetPresetCrossfade() const { return mPresetCrossfade; }
+  void SetPresetCrossfade(bool enabled);
   void SetRescanOnStartup(bool enabled);
   std::string GetLibraryMatchStatus() const;
   bool IsLibraryScanning() const { return mLibraryScanning; }
@@ -228,12 +232,13 @@ private:
   // Copy the input buffer to the object, applying input level.
   // :param nChansIn: In from external
   // :param nChansOut: Out to the internal of the DSP routine
-  void _ProcessInput(iplug::sample** inputs, const size_t nFrames, const size_t nChansIn, const size_t nChansOut);
+  void _ProcessInput(iplug::sample** inputs, const size_t nFrames, const size_t nChansIn, const size_t nChansOut,
+                     double gain);
   // Copy the output to the output buffer, applying output level.
   // :param nChansIn: In from internal
   // :param nChansOut: Out to external
   void _ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames, const size_t nChansIn,
-                      const size_t nChansOut);
+                      const size_t nChansOut, double gain);
   void _UnserializeApplyConfig(nlohmann::json& config);
 
   // Update all controls that depend on a model
@@ -256,7 +261,20 @@ private:
   iplug::sample** mInputPointers = nullptr;
   iplug::sample** mOutputPointers = nullptr;
 
-  FixedNAMGrid mGrid;
+  // Two grids let a rig preset switch prepare the next rig while the current one plays.
+  std::array<FixedNAMGrid, 2> mGrids;
+  int mEditGrid = 0;              // control thread: receives slot edits and staged rigs
+  bool mInactiveGridUsed = false; // control thread: the other grid still holds an old rig
+  int mAudibleGrid = 0, mOutgoingGrid = 0; // audio thread, or host stopped
+  RigTransition mRigTransition;
+  // Audio only: the held rig's controls, and the frozen outgoing rig during a switch.
+  grid_performance::Values mHeldPerformance{};
+  double mHeldBlend = .5, mHeldInputGain = 1., mHeldOutputGain = 1.;
+  std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mOutgoingControls{};
+  grid_performance::Routing mOutgoingRouting{};
+  double mOutgoingBlend = .5;
+  bool mLastModulated = false;
+  std::array<std::vector<double>, 2> mOutgoingBuffers;
   AudioControlCache<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAudioControls;
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAnimatedControls{}; // audio only
   grid_tuner::Tuner mTuner;
@@ -289,6 +307,7 @@ private:
   bool mLibraryIndexed = false;
   bool mRescanOnStartup = true;
   bool mShowVisualizations = true;
+  bool mPresetCrossfade = false;
   bool mLibraryDefaultSaveFailed = false;
   double mSampleRatePrepared = 48000.0;
   int mMaxBlockPrepared = 2048;

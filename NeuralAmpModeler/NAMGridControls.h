@@ -1452,6 +1452,13 @@ public:
     }, "Visualizations: ON");
     AddChildControl(mVisualizations);
     mVisualizations->SetTooltip("Show parameter plots and level displays beside the selected module's controls.");
+    mPresetSwitch = new Button(IRECT(666, 116, 902, 148), [this](IControl*) {
+      PLUG()->SetPresetCrossfade(!PLUG()->GetPresetCrossfade());
+    }, "Preset switch: Short fade");
+    AddChildControl(mPresetSwitch);
+    mPresetSwitch->SetTooltip("How rig presets change while audio plays. Short fade dips the output for about 25 ms "
+                              "and runs one rig at a time. Crossfade blends both rigs over 40 ms for a seamless change, "
+                              "briefly using about twice the CPU.");
   }
   void Hide(bool hide) override
   {
@@ -1465,6 +1472,9 @@ public:
     const char* visualLabel = PLUG()->GetShowVisualizations() ? "Visualizations: ON" : "Visualizations: OFF";
     if (mVisualizations && std::strcmp(mVisualizations->GetLabelStr(), visualLabel) != 0)
       mVisualizations->SetLabelStr(visualLabel);
+    const char* switchLabel = PLUG()->GetPresetCrossfade() ? "Preset switch: Crossfade" : "Preset switch: Short fade";
+    if (mPresetSwitch && std::strcmp(mPresetSwitch->GetLabelStr(), switchLabel) != 0)
+      mPresetSwitch->SetLabelStr(switchLabel);
     if (mStartupScan && std::strcmp(mStartupScan->GetLabelStr(), scanLabel) != 0)
       mStartupScan->SetLabelStr(scanLabel);
     for (int i = 0; i < 3; ++i)
@@ -1530,6 +1540,7 @@ private:
   std::array<grid_ui::Button*, 3> mAdd{};
   grid_ui::Button* mStartupScan = nullptr;
   grid_ui::Button* mVisualizations = nullptr;
+  grid_ui::Button* mPresetSwitch = nullptr;
 };
 
 

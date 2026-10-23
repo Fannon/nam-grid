@@ -147,6 +147,16 @@ public:
         return;
       }
   }
+  void DrawLabel(IGraphics& g) override
+  {
+    if (mSlot < 0) { IVKnobControl::DrawLabel(g); return; }
+    if (mLabelBounds.H() && mStyle.showLabel)
+    {
+      auto label = mStyle.labelText;
+      label.mFGColor = Tone(PLUG()->GetSlotEffect(mSlot), PLUG()->GetSlotGear(mSlot)).first;
+      g.DrawText(label, GetLabelStr(), mLabelBounds, &mBlend);
+    }
+  }
   void DrawHandle(IGraphics& g, const IRECT& r) override { g.FillCircle(surface, r.MW(), r.MH(), r.W() * .5f); }
   void DrawIndicatorTrack(IGraphics& g, float angle, float cx, float cy, float radius) override
   {
@@ -164,6 +174,16 @@ public:
   Button(const IRECT& r, IActionFunction action, const char* label)
   : IVButtonControl(r, action, label, Style().WithLabelText(Text(14.f, text, EAlign::Center)))
   {
+  }
+};
+class HintLabel : public ITextControl
+{
+public:
+  HintLabel(const IRECT& r, const char* label, const IText& style, const char* hint)
+  : ITextControl(r, label, style)
+  {
+    SetIgnoreMouse(false);
+    SetTooltip(hint);
   }
 };
 class ModuleButton : public Button
@@ -250,7 +270,11 @@ public:
   {
     const bool tall = mRECT.H() > 60.f;
     if (tall)
-      g.DrawText(Text(15.f, muted, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
+    {
+      const int slot = SlotControlOwner(GetParamIdx());
+      const auto labelColor = slot < 0 ? muted : Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
+      g.DrawText(Text(15.f, labelColor, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
+    }
     const auto button = tall ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT;
     const bool on = GetValue() >= .5;
     g.FillRoundRect(on ? IColor(255, 49, 53, 59) : surface, button, 3.f);
@@ -1078,9 +1102,11 @@ private:
     const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectName(effect))
                                           : nam_library::PathText(std::filesystem::u8path(path).stem());
     mModelButton->SetLabelStr(moduleLabel.c_str());
+    mModelButton->SetDirty(false);
     mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel).c_str());
     SetTooltip(path.empty() ? "Click to browse modules. Right-click for Clear / Copy / Move / Swap."
                             : path.c_str());
+    if (mEditor && selected) mEditor->SetDirty(false);
     SetDirty(false);
   }
   void Load(const std::string& path)
@@ -1201,9 +1227,6 @@ public:
   {
     using namespace grid_ui;
     g.FillRect(background, mRECT);
-    g.DrawText(Text(23.f), "Library & settings", IRECT(32, 24, 650, 64));
-    g.DrawText(Text(14.f, muted), "Manage NAM / IR folders here. Open the browser to search files and add preset folders.",
-               IRECT(32, 76, 950, 104));
     const auto folders = PLUG()->GetCaptureFolders();
     mScroll = std::min(mScroll, std::max(0, static_cast<int>(folders.size()) - 7));
     for (int row = 0; row < 7; ++row)
@@ -1220,21 +1243,17 @@ public:
     }
     if (folders.empty())
       g.DrawText(
-        Text(14.f, muted), "No library folders yet. Add a folder above to get started.", IRECT(52, 166, 840, 198));
+        Text(14.f, muted), "No library folders", IRECT(52, 166, 840, 198));
     g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
-    if (folders.size() > 7)
-      g.DrawText(Text(14.f, muted), "Scroll the list to see more folders (32 maximum).", IRECT(32, 505, 960, 523));
     g.DrawLine(border, 32, 525, 968, 525);
-    g.DrawText(Text(14.f), "Input calibration / Pre 2", IRECT(32, 528, 460, 554));
-    g.DrawText(Text(14.f, muted),
-               "Interface reference level, separate from musical input gain. Raw keeps the model output unchanged.",
-               IRECT(32, 556, 960, 578));
-    g.DrawText(
-      Text(14.f, muted), "All new gate, EQ and cabinet processing belongs in grid modules.", IRECT(32, 688, 950, 710));
   }
   void OnAttached() override
   {
     using namespace grid_ui;
+    AddChildControl(new HintLabel(IRECT(32, 24, 650, 64), "Library & settings", Text(23.f),
+      "Manage NAM / IR folders. Browse library to search files and add preset folders. Scroll the folder list for more sources (32 maximum)."));
+    AddChildControl(new HintLabel(IRECT(32, 528, 460, 554), "Input calibration / Pre 2", Text(14.f),
+      "Match the interface reference level independently of musical input gain. Raw output preserves the model output. Add gate, EQ and cabinet processing as grid modules."));
     AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
     AddChildControl(new Button(IRECT(678, 28, 846, 60), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
@@ -1250,8 +1269,10 @@ public:
       },
       "+ Add folder");
     AddChildControl(mAdd);
+    mAdd->SetTooltip("Add a NAM / IR source folder. Files and subfolders are indexed in the background.");
     AddChildControl(
-      new Button(IRECT(200, 116, 320, 148), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan all"));
+      new Button(IRECT(200, 116, 320, 148), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan all"))->SetTooltip(
+      "Index NAM, IR and preset folders. Use this when the library is not indexed or files have changed.");
     mStartupScan = new Button(
       IRECT(340, 116, 570, 148), [this](IControl*) { PLUG()->SetRescanOnStartup(!PLUG()->GetRescanOnStartup()); },
       "Startup rescan: ON");
@@ -1262,9 +1283,12 @@ public:
       PLUG()->SetShowVisualizations(!PLUG()->GetShowVisualizations());
     }, "Visualizations: ON");
     AddChildControl(mVisualizations);
-    AddChildControl(new Knob(IRECT(32, 583, 135, 685), kInputCalibrationLevel, "Reference (dBu)"));
-    AddChildControl(new Toggle(IRECT(158, 625, 277, 657), kCalibrateInput));
-    AddChildControl(new IVSwitchControl(IRECT(317, 610, 504, 672), kOutputMode, "Pre 2 output mode", grid_ui::Style()));
+    mVisualizations->SetTooltip("Show parameter plots and level displays beside the selected module's controls.");
+    AddChildControl(new Knob(IRECT(32, 583, 135, 685), kInputCalibrationLevel, "Reference (dBu)"))->SetTooltip(
+      "Your audio interface's reference input level in dBu, separate from the musical input gain.");
+    AddChildControl(new Toggle(IRECT(158, 625, 277, 657), kCalibrateInput))->SetTooltip("Enable interface input calibration for Pre 2.");
+    AddChildControl(new IVSwitchControl(IRECT(317, 610, 504, 672), kOutputMode, "Pre 2 output mode", grid_ui::Style()))->SetTooltip(
+      "Choose Pre 2 output normalization. Raw keeps the model output unchanged.");
     // Expose inherited processing only for recalled projects that still use it.
     mLegacy[0] =
       AddChildControl(new IVToggleControl(IRECT(545, 610, 666, 672), kNoiseGateActive, "Legacy gate", grid_ui::Style()));

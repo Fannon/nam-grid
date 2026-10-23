@@ -19,6 +19,7 @@
 #include "GridTuner.h"
 #include <array>
 #include <mutex>
+#include <map>
 
 #include "IPlug_include_in_plug_hdr.h"
 #include "ISender.h"
@@ -127,6 +128,10 @@ public:
   bool SerializeState(iplug::IByteChunk& chunk) const override;
   int UnserializeState(const iplug::IByteChunk& chunk, int startPos) override;
   void OnUIOpen() override;
+  void OnUIClose() override;
+  void BeginInformHostOfParamChangeFromUI(int paramIdx) override;
+  void SendParameterValueFromUI(int paramIdx, double value) override;
+  void EndInformHostOfParamChangeFromUI(int paramIdx) override;
   bool IsTunerActive() const { return GetParam(kTunerActive)->Bool(); }
   auto TunerHistory() const { return mTuner.ReadHistory(); }
   double TunerFrequency() const { return mTuner.Frequency(); }
@@ -190,6 +195,9 @@ public:
   void SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI = true);
   std::string LoadSlot(size_t slot, const char* path);
   std::string LoadSlotIR(size_t slot, const char* path);
+  std::string BeginSlotPreview(size_t slot);
+  std::string PreviewSlot(SlotEffect effect, const std::string& path);
+  void EndSlotPreview(bool accept);
   std::string EditSlot(size_t source, size_t destination, SlotEditMode mode);
   void ClearSlot(size_t slot);
   void LoadSlapbackPreset(size_t slot);
@@ -220,7 +228,7 @@ private:
   std::string _StageSlot(size_t slot, SlotEffect effect, const std::string& path, const std::string& expectedHash = {});
   void _ResolveLibraryFiles();
   SlotConfig _GetSlotConfig(size_t slot) const;
-  void _CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters);
+  void _CommitSlot(size_t slot, PreparedSlot prepared, bool updateParameters, bool notifyHost = true);
   // Loads/prepares an IR on the control thread.
   // Return status code so that error messages can be relayed if
   // it wasn't successful.
@@ -305,6 +313,9 @@ private:
   std::vector<std::string> mCaptureFolders;
   std::vector<std::string> mPresetFolders;
   size_t mSelectedSlot = 0; // Editor selection only; never read by the audio thread.
+  std::unique_ptr<PreparedSlot> mPreviewOriginal;
+  size_t mPreviewSlot = 0;
+  std::map<std::pair<SlotEffect, std::string>, SlotConfig> mPreviewChoices;
   nam_library::Filter mCaptureFilter;
   bool mLibraryScanning = false;
   bool mLibraryIndexed = false;

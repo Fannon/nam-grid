@@ -25,7 +25,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-clap-bench nam-library-tests nam-wav-tests nam-resampling-tests --parallel 3
+cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-clap-bench nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
 ctest --test-dir build-grid -C Release --output-on-failure
 ```
 
@@ -99,6 +99,11 @@ slot editing, external file references and project recall.
 For an on-demand report covering every built-in FX mode, NAM, IR loading and
 small-buffer callback deadlines, see [fx-performance.md](fx-performance.md).
 That tool is opt-in and runs separately from CTest and CI.
+
+`nam-ir-tests` (`ir-convolution` in CTest) compares the adaptive production IR path
+with the original direct processor, including variable blocks, resampling, quiet
+tails and allocation checks. Backend selection is prepared off the audio thread.
+The vendored MIT FFTConvolver subset is pinned and needs no additional download.
 
 For DSP/state regression checks without opening the native editor, set
 `NAM_GRID_HEADLESS_SMOKE=1` when running `nam-clap-smoke`. This includes Smart Gate

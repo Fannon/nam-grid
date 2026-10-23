@@ -5,6 +5,20 @@ plus NAM models and WAV cabinet IRs. It opens no editor or audio device.
 It is disabled by default, excluded from the default build, and never registered
 with CTest or invoked by CI. Run it explicitly when investigating performance.
 
+For a waveform audit against a preserved CLAP binary, use the explicitly built
+`nam-fx-performance` host with:
+
+```sh
+python scripts/verify-plugin-processing.py --before /path/to/before.clap --after build-grid/out/nam-grid.clap --output build-grid/processing-audit
+```
+
+This compares crossover, lane/input/output gains, legacy EQ toggles, tuner mute,
+IR levels/bypass and modulation at four rates and three buffers. Shared processing
+must match exactly; IR output has a 1e-6 maximum error tolerance for FFT rounding.
+Native-double render files are generated only for this explicit audit and removed
+after comparison. The JSON retains per-case errors, sample counts and binary hashes.
+Rendering and audit automation are absent from ordinary benchmark settings.
+
 ## Build and run
 
 Prepare dependencies as described in [build.md](build.md), then use a Release build:
@@ -183,3 +197,6 @@ and locks separately. Do not claim speedups from library descriptions alone.
 
 Keep generated measurements and comparisons in ignored `tmp/` or attach findings
 to the relevant PR. Only enduring instructions belong in this guide.
+
+For a standalone comparison of direct, uniform FFT, two-stage FFT and WDL
+convolution, see [IR engine comparison](ir-convolution-comparison.md).

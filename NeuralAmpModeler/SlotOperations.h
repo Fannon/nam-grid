@@ -49,7 +49,7 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
     if (data.mRawAudio.empty() || !std::isfinite(data.mRawAudioSampleRate) || data.mRawAudioSampleRate <= 0.
         || !std::all_of(data.mRawAudio.begin(), data.mRawAudio.end(), [](float x) { return std::isfinite(x); }))
       throw std::runtime_error("Invalid or empty impulse response");
-    p->ir = std::make_unique<dsp::ImpulseResponse>(data, rate);
+    p->ir = std::make_unique<AdaptiveIR>(data, rate, block);
   }
   else if (!config.path.empty())
     throw std::runtime_error("This effect does not use a file");

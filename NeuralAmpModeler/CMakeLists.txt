@@ -1,5 +1,24 @@
 include(${IPLUG2_DIR}/iPlug2.cmake)
 find_package(Threads REQUIRED)
+set(NAM_IR_SOURCES AdaptiveIR.cpp
+  third_party/fftconvolver/FFTConvolver.cpp third_party/fftconvolver/AudioFFT.cpp
+  third_party/fftconvolver/Utilities.cpp)
+set(NAM_IR_DEFINES)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|x86_64|x64")
+  list(APPEND NAM_IR_DEFINES FFTCONVOLVER_USE_SSE)
+endif()
+add_executable(nam-ir-tests ../tests/adaptive_ir_tests.cpp ${NAM_IR_SOURCES}
+  ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/wav.cpp)
+target_include_directories(nam-ir-tests PRIVATE . ../eigen)
+target_compile_features(nam-ir-tests PRIVATE cxx_std_20)
+target_compile_definitions(nam-ir-tests PRIVATE NOMINMAX EIGEN_RUNTIME_NO_MALLOC ${NAM_IR_DEFINES})
+if(MSVC)
+  target_compile_options(nam-ir-tests PRIVATE /UNDEBUG)
+else()
+  target_compile_options(nam-ir-tests PRIVATE -UNDEBUG)
+endif()
+add_test(NAME ir-convolution COMMAND nam-ir-tests)
+set_tests_properties(ir-convolution PROPERTIES TIMEOUT 60)
 add_executable(nam-library-tests ../tests/library_tests.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
 add_executable(nam-outboard-audition ../tests/outboard_audition.cpp)
 target_include_directories(nam-outboard-audition PRIVATE .)
@@ -85,13 +104,13 @@ foreach(dependency CLAP_SDK CLAP_HELPERS VST3_SDK)
     list(APPEND NAM_RESOURCES "${copy}")
   endif()
 endforeach()
-add_executable(nam-stage-tests ../tests/stage_tests.cpp ${NAM_CORE_SOURCES}
+add_executable(nam-stage-tests ../tests/stage_tests.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
   ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp
   ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/wav.cpp)
 target_include_directories(nam-stage-tests PRIVATE . ../eigen
   ../NeuralAmpModelerCore/Dependencies/nlohmann ../iPlug2/IPlug ../iPlug2/WDL)
 target_compile_features(nam-stage-tests PRIVATE cxx_std_20)
-target_compile_definitions(nam-stage-tests PRIVATE NAM_ENABLE_A2_FAST EIGEN_RUNTIME_NO_MALLOC NOMINMAX)
+target_compile_definitions(nam-stage-tests PRIVATE NAM_ENABLE_A2_FAST EIGEN_RUNTIME_NO_MALLOC NOMINMAX ${NAM_IR_DEFINES})
 if(APPLE)
   target_link_libraries(nam-stage-tests PRIVATE "-framework Accelerate")
 endif()
@@ -165,12 +184,12 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
 endif()
 iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
-  SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h ToneStack.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES}
+  SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h ToneStack.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/NoiseGate.cpp
     ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp
     ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}
-  DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f)
+  DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f ${NAM_IR_DEFINES})
 target_include_directories(_nam-grid-base INTERFACE
   ../eigen ../NeuralAmpModelerCore/Dependencies/nlohmann)
 target_link_libraries(_nam-grid-base INTERFACE Threads::Threads)

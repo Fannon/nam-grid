@@ -600,7 +600,8 @@ public:
     mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(7), SlotActiveParam(mSlot), "Enabled");
     mEditor->AddChildControl(mEnabled);
     mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true, mSlot);
-    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(6), SlotTrimParam(mSlot), "Output trim", true, mSlot);
+    // Gain staging stays in the left column: Input on top, Output below it.
+    mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(4), SlotTrimParam(mSlot), "Output", true, mSlot);
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
     const char* labels[] = {"Threshold", "Release", "Reduction", "Threshold", "Release", "Makeup"};
@@ -1255,8 +1256,8 @@ private:
       {
         mEQKnobs[3]->Hide(false);
         mEQKnobs[4]->Hide(false);
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(4));
-        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(5));
+        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(5));
+        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(6));
       }
       if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
       {

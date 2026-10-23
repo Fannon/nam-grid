@@ -113,7 +113,7 @@ DAW listening, low-buffer sessions and host validation are tracked in the
    track, and enable input monitoring.
 2. Open **Library & settings** and add your captures with **+ NAM folder** (and
    cabinet IRs with **+ IR folder**). Then click an empty **Pre** tile, choose
-   **NAM captures**, select a capture and double-click it or press **Load**.
+   **NAM captures**, select a capture to hear it, then double-click it or press **Apply**.
 3. If it is an **amp-head / direct** capture without a cabinet, load a cabinet
    `.wav` IR in the next Pre slot. If the capture already includes a cabinet,
    start with that capture alone.
@@ -143,9 +143,10 @@ when you want to keep their width. See [routing](docs/grid.md) for details.
 ## Find sounds and save rigs
 
 Click a tile to browse effects, captures or IRs for that slot. Search by name,
-folder or NAM metadata, inspect a result, then double-click or press **Load**.
-Browsing and selecting results leave the current sound playing until you load
-your choice. Click the header preset name to browse complete rigs instead.
+folder or NAM metadata. Selecting a result auditions it in that slot; double-click,
+Enter or **Apply** keeps it, and **Close** restores the original. Click the header
+preset name to browse complete rigs instead; a preset loads only with **Load**,
+Enter or double-click.
 
 Captures and IRs stay as **external files**: presets reference them rather than
 embedding or copying them. Include those files when sharing a rig. If you move

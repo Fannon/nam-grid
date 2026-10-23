@@ -137,7 +137,7 @@ Auto Swell Rise spans **10–2000 ms**.
 Boost defaults to clean gain: Tilt 0 dB and high pass off. It adds no saturation;
 use Tape when nonlinear character is wanted. Swell has no lookahead: it responds
 to the incoming phrase and preserves a continuous gain envelope. NAM's Bass/Mid/
-Treble and HP/LP controls are neutral post-capture processing before output trim, not inferred
+Treble and HP/LP controls are neutral post-capture processing before Output, not inferred
 controls of the captured amplifier.
 
 The existing MIT AudioDSPTools coefficients and a new scalar implementation of

@@ -1482,7 +1482,7 @@ int main(int argc, char** argv)
   if (save().config()["PresetName"] != "Clean rig" || save().config()["Output"] != -8.)
     std::cerr << "Previous preset: " << save().config()["PresetName"] << ", output=" << save().config()["Output"] << '\n';
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
-  click(470, 28); chooseBrowserItem("SECOND RIG");
+  click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(854, 274); // Load button.
   assert(save().config()["PresetName"] == "Second rig");
   click(584, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
@@ -1845,8 +1845,13 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2));
   dragAt(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
+  // Output sits below Input; Low cut and High cut follow.
   dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
+  assert(save().config()["Pre 1 Trim"] != qualityState["Pre 1 Trim"]);
+  assert(save().config()["Pre 1 EQ High Pass"] == qualityState["Pre 1 EQ High Pass"]);
   dragAt(grid_layout::KnobX(5), grid_layout::KnobGestureY(5));
+  assert(save().config()["Pre 1 EQ High Pass"] != qualityState["Pre 1 EQ High Pass"]);
+  assert(save().config()["Pre 1 EQ Low Pass"] == qualityState["Pre 1 EQ Low Pass"]);
   dragAt(grid_layout::KnobX(6), grid_layout::KnobGestureY(6));
   const auto namControls = save().config();
   assert(namControls["Pre 1 In"] != qualityState["Pre 1 In"]);

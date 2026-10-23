@@ -1667,7 +1667,8 @@ void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
       ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       ui->GetControlWithTag(kCtrlTagPerformance)->Hide(true);
     }
-  if (source == EParamSource::kUI && IsAlgorithmMode(parameter_layout::UtilityControl(paramIdx)))
+  if (source == EParamSource::kUI && IsAlgorithmMode(parameter_layout::UtilityControl(paramIdx))
+      && (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot)))
     _NotifyHostStateChanged(); // Algorithm selection is saved state, not an automation gesture.
   _UpdateTunerControls();
   // Refresh labels/quality and selected-module controls after automation or preset recall.

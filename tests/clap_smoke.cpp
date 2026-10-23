@@ -1457,6 +1457,18 @@ int main(int argc, char** argv)
     }
     assert(false); return 0.;
   };
+  const auto rawValue = [&](const char* name) {
+    clap_param_info info{};
+    for (uint32_t i = 0; i < params->count(plugin); ++i)
+    {
+      assert(params->get_info(plugin, i, &info));
+      if (std::strcmp(info.name, name) != 0) continue;
+      double value = 0.;
+      assert(params->get_value(plugin, info.id, &value));
+      return value;
+    }
+    assert(false); return 0.;
+  };
   // Auditions use the real lower editor, while autosave retains the original slot.
   for (const auto kind : {nam_library::FileKind::Module, nam_library::FileKind::NAM, nam_library::FileKind::IR})
   {
@@ -1499,6 +1511,25 @@ int main(int argc, char** argv)
       assert(std::abs(save().config()[parameter].get<double>() - gain) < .11);
     }
   }
+  auto previewMode = moduleBrowser;
+  previewMode["SlotEffects"][0] = static_cast<int>(SlotEffect::CosmicEcho);
+  previewMode["Pre 1 Cosmic Style"] = 0.;
+  load(previewMode); selectTile(170, 120);
+  click(356, grid_layout::moduleButtonY);
+  host.dirty = host.flushRequested = false;
+  click(558, grid_layout::optionsY); // A mode edit remains part of the audition.
+  assert(rawValue("Pre 1 Cosmic Style") == 1.);
+  assert(save().config() == previewMode);
+  assert(!host.dirty && !host.flushRequested);
+  keyAtEditor(VK_ESCAPE);
+  assert(rawValue("Pre 1 Cosmic Style") == 0.);
+  assert(save().config() == previewMode);
+  assert(!host.dirty && !host.flushRequested);
+  click(356, grid_layout::moduleButtonY);
+  click(558, grid_layout::optionsY);
+  keyAtEditor(VK_RETURN); // Accepting commits the mode edit and tells the host once.
+  assert(host.dirty);
+  assert(rawValue("Pre 1 Cosmic Style") == 1. && save().config()["Pre 1 Cosmic Style"] == 1.);
   load(moduleBrowser); selectTile(170, 120);
   click(356, grid_layout::moduleButtonY);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));

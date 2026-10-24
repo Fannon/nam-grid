@@ -45,17 +45,15 @@ int main(int argc, char** argv)
   assert(std::strcmp(descriptor->id, "io.github.fannon.nam-grid") == 0);
   assert(std::strcmp(descriptor->vendor, "Simon Heimler") == 0);
   Host host;
-#ifdef _WIN32
   {
     // A first start creates settings.json, the three default folders and an Empty preset.
     auto* first = factory->create_plugin(factory, &host.host, descriptor->id);
     assert(first && first->init(first));
-    first->destroy(first);
     const auto settings = nam_library::ReadSettings(settingsBackup.file);
     assert(settings.namChosen && settings.irChosen && settings.presetChosen);
-    assert(settings.namFolders == std::vector<std::string>{nam_library::PathText(settingsBackup.home / "NAM Captures")});
-    assert(settings.irFolders == std::vector<std::string>{nam_library::PathText(settingsBackup.home / "IRs")});
-    assert(settings.presetFolders == std::vector<std::string>{nam_library::PathText(settingsBackup.home / "Presets")});
+    assert(settings.namFolders == nam_library::NormalizeFolders({nam_library::PathText(settingsBackup.home / "NAM Captures")}));
+    assert(settings.irFolders == nam_library::NormalizeFolders({nam_library::PathText(settingsBackup.home / "IRs")}));
+    assert(settings.presetFolders == nam_library::NormalizeFolders({nam_library::PathText(settingsBackup.home / "Presets")}));
     const auto empty = rig_preset::Read(settingsBackup.home / "Presets" / "Empty.ngrid");
     for (int slot = 0; slot < 16; ++slot)
       assert(empty["SlotEffects"][slot] == static_cast<int>(SlotEffect::NAM) && empty["SlotPaths"][slot] == "");
@@ -65,14 +63,26 @@ int main(int argc, char** argv)
     const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
     assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
     assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));
-    std::cout << "First start: settings folder, default library folders, bundled capture and presets passed\n";
+    // The first scan must include installed defaults, without a manual rescan.
+    const auto indexFile = settingsBackup.home / "cache" / "library-index.json";
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!std::filesystem::exists(indexFile) && std::chrono::steady_clock::now() < deadline)
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    assert(std::filesystem::exists(indexFile));
+    const auto index = nam_library::ReadIndex(indexFile);
+    for (const auto& file : {capture, settingsBackup.home / "Presets" / "Empty.ngrid",
+                             settingsBackup.home / "Presets" / "Clean Default.ngrid"})
+      assert(std::any_of(index.begin(), index.end(), [&](const auto& entry) {
+        return std::filesystem::equivalent(entry.second.capture.path, file);
+      }));
+    first->destroy(first);
+    std::cout << "First start: settings folder, default library folders, bundled capture, presets and first index passed\n";
     // The rest of the test starts from its own preferences and no default folders.
     nam_library::Settings preferences;
     preferences.showVisualizations = true;
     preferences.presetCrossfade = false; // The preset switch measurement starts from Short fade.
     assert(nam_library::WriteSettings(settingsBackup.file, preferences));
   }
-#endif
   auto* plugin = factory->create_plugin(factory, &host.host, factory->get_plugin_descriptor(factory, 0)->id);
   assert(plugin && plugin->init(plugin));
   auto* state = static_cast<const clap_plugin_state*>(plugin->get_extension(plugin, CLAP_EXT_STATE));
@@ -135,7 +145,6 @@ int main(int argc, char** argv)
   };
   auto base = save().config();
   assert(!base.contains("NamFolders") && !base.contains("IrFolders") && !base.contains("PresetFolders"));
-#ifdef _WIN32
   {
     // The bundled Clean Default rig loads as saved, with its capture from the default folder.
     auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
@@ -146,7 +155,6 @@ int main(int argc, char** argv)
     assert(loaded["Pre 1 Black Hold"] == 0.); // Saved before Hold existed: schema 1 defaults it.
     assert(loadRaw(base));
   }
-#endif
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
   assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
   // Every slot exposes the same host controls; no upstream single-amp parameters remain.

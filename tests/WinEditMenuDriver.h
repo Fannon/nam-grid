@@ -5,6 +5,7 @@
   #include <cassert>
   #include <string>
   #include <iostream>
+  #include <span>
 
 // Hidden-host tests cannot use foreground keyboard navigation. Resolve a command
 // from the plugin's actual generated Win32 menu, dismiss that menu, then queue the
@@ -18,6 +19,9 @@ inline int mode = 0;
 inline UINT command = UINT(-1);
 inline bool delivered = false;
 inline std::wstring label;
+inline std::span<const char* const> choices;
+inline int choice = 0, currentChoice = 0;
+inline bool dismissChoice = false;
 inline void StartDeadline()
 {
   SetTimer(editor, 0x4e4755, 3000, [](HWND window, UINT, UINT_PTR timer, DWORD) {
@@ -53,7 +57,20 @@ inline LRESULT CALLBACK Observe(int code, WPARAM w, LPARAM l)
     if (message.hwnd == editor && message.message == WM_INITMENUPOPUP && !root)
     {
       const auto menu = reinterpret_cast<HMENU>(message.wParam);
-      if (mode == -1)
+      if (mode == -2)
+      {
+        assert(GetMenuItemCount(menu) == static_cast<int>(choices.size()));
+        for (size_t i = 0; i < choices.size(); ++i)
+        {
+          char caption[512]{}; GetMenuStringA(menu, static_cast<UINT>(i), caption, 512, MF_BYPOSITION);
+          assert(std::string(caption).starts_with(choices[i]));
+          assert(((GetMenuState(menu, static_cast<UINT>(i), MF_BYPOSITION) & MF_CHECKED) != 0)
+                 == (static_cast<int>(i) == currentChoice));
+        }
+        root = menu;
+        if (!dismissChoice) command = GetMenuItemID(menu, choice);
+      }
+      else if (mode == -1)
       {
         command = FindNamedItem(menu);
         if (command != UINT(-1)) root = menu;
@@ -63,7 +80,7 @@ inline LRESULT CALLBACK Observe(int code, WPARAM w, LPARAM l)
         root = menu;
         command = GetMenuItemID(destinations, 0);
       }
-      if (root && command != UINT(-1))
+      if (root && (command != UINT(-1) || (mode == -2 && dismissChoice)))
       {
         SetTimer(editor, 0x4e4754, 20, [](HWND window, UINT, UINT_PTR timer, DWORD) {
           KillTimer(window, timer);
@@ -72,12 +89,28 @@ inline LRESULT CALLBACK Observe(int code, WPARAM w, LPARAM l)
       }
     }
     if (message.hwnd == editor && message.message == WM_UNINITMENUPOPUP
-        && reinterpret_cast<HMENU>(message.wParam) == root && command != UINT(-1))
+        && reinterpret_cast<HMENU>(message.wParam) == root)
     {
-      delivered = PostMessage(editor, WM_COMMAND, command, 0) != FALSE;
+      if (mode == -2 && dismissChoice) delivered = true;
+      else if (command != UINT(-1)) delivered = PostMessage(editor, WM_COMMAND, command, 0) != FALSE;
     }
   }
   return CallNextHookEx(nullptr, code, w, l);
+}
+inline void SelectChoice(HWND window, int x, int y, std::span<const char* const> options,
+                         int selected, int current, bool dismiss = false)
+{
+  editor = window; root = nullptr; mode = -2; choices = options;
+  choice = selected; currentChoice = current; dismissChoice = dismiss;
+  command = UINT(-1); delivered = false;
+  const auto hook = SetWindowsHookEx(WH_CALLWNDPROC, Observe, nullptr, GetCurrentThreadId());
+  assert(hook);
+  StartDeadline();
+  SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+  KillTimer(editor, 0x4e4755);
+  UnhookWindowsHookEx(hook);
+  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+  assert(delivered);
 }
 inline void SelectNamedItem(HWND window, int x, int y, const wchar_t* name, bool rightClick = false)
 {

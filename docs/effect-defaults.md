@@ -75,7 +75,7 @@ Times are milliseconds unless marked seconds. Percentages are explicit. Controls
 | Airwindows Plate | Input 0 dB; Sustain 50%; Resolution 100%; Pre-delay 15; Low cut 100 Hz; Mix 18% | Native kPlate140 tank with standard outer mix |
 | Airwindows Guitar Hall | Sustain 50%; Resolution 100%; Brightness 50%; Early level 50%; Position 50%; Mix 20% | Native kGuitarHall2 guitar-focused space |
 | Galactic Space | Replace 50%; Brightness 50%; Detune 35%; Size 60%; Resolution 100%; Mix 25% | Galactic3's slowly evolving ambient pad |
-| Cosmic Echo | Smooth; Time 300; Warp 65%; Feedback 65%; Density 80%; Tone 6 kHz; Motion 25%; Mix 25% | Shared starting point for the three ambient styles |
+| Cosmic Echo | Virgo; Time 280; Warp 51.6%; Feedback 30.9%; Density 49.2%; High cut 7461 Hz; Motion 29.5%; Mix 18% | Sparse ambient echoes with a restrained wet blend |
 | Spring Reverb | Decay 1.8 s; Dwell +3 dB; Damping 5 kHz; Drip 60%; Mix 18% | Recognizable amp-style spring |
 | Shimmer | Mix 25%; Decay 5 s; Damping 6 kHz; Pitch +12 st; Amount 25%; Modulation 30%; Freeze off | Octave ambience with a moderate initial blend |
 | Freeze / Hold | Hold off; Capture 500; Crossfade 20; Tone 6 kHz; Held level 35% | Ready to capture a played chord without latching silence |

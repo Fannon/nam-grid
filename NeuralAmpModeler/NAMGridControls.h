@@ -334,20 +334,62 @@ inline void DisableTunerFromUI(IGraphics* ui)
 class Choice : public IControl
 {
 public:
-  Choice(const IRECT& bounds, int parameter) : IControl(bounds, parameter) {}
+  Choice(const IRECT& bounds, int parameter, int control, const char* label = "")
+  : IControl(bounds, parameter), mControl(control), mLabel(label) {}
   void Draw(IGraphics& g) override
   {
+    const bool tall = mRECT.H() > 60.f;
+    if (tall)
+    {
+      const int slot = SlotControlOwner(GetParamIdx());
+      const auto color = Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
+      g.DrawText(Text(15.f, color, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
+    }
+    const auto box = Box();
+    const bool dropdown = effect_presentation::ChoiceDropdown(mControl);
     WDL_String label; GetParam()->GetDisplay(GetValue(), true, label);
-    g.FillRoundRect(surface, mRECT, 3.f); g.DrawRoundRect(border, mRECT, 3.f);
-    FittedText(g, Text(13.f, text, EAlign::Center), label.Get(), mRECT.GetHPadded(-4.f));
+    g.FillRoundRect(surface, box, 3.f); g.DrawRoundRect(mMouseIsOver ? muted : border, box, 3.f);
+    FittedText(g, Text(13.f, text, EAlign::Center), label.Get(), IRECT(box.L + 5, box.T, box.R - (dropdown ? 20 : 5), box.B));
+    if (dropdown)
+    {
+      g.DrawLine(muted, box.R - 14, box.MH() - 2, box.R - 10, box.MH() + 2);
+      g.DrawLine(muted, box.R - 10, box.MH() + 2, box.R - 6, box.MH() - 2);
+    }
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
     if (!mod.L) return;
     const int value = static_cast<int>(GetParam()->FromNormalized(GetValue()));
-    const int next = value >= GetParam()->GetMax() ? 0 : value + 1;
-    SetValue(GetParam()->ToNormalized(next)); SetDirty(true);
+    if (!effect_presentation::ChoiceDropdown(mControl))
+    {
+      const int next = value >= GetParam()->GetMax() ? static_cast<int>(GetParam()->GetMin()) : value + 1;
+      SetValueFromUserInput(GetParam()->ToNormalized(next));
+      return;
+    }
+    mMenu.Clear();
+    const auto choices = EffectChoices(mControl);
+    for (size_t i = 0; i < choices.size(); ++i)
+    {
+      const int option = static_cast<int>(GetParam()->GetMin()) + static_cast<int>(i);
+      std::string caption = choices[i];
+      const char* description = effect_presentation::ChoiceDescription(mControl, option);
+      if (*description) caption += std::string(" - ") + description;
+      mMenu.AddItem(new IPopupMenu::Item(caption.c_str(), option == value ? IPopupMenu::Item::kChecked : 0, option));
+    }
+    GetUI()->CreatePopupMenu(*this, mMenu, Box());
   }
+  void OnPopupMenuSelection(IPopupMenu* menu, int) override
+  {
+    if (const auto* item = menu ? menu->GetChosenItem() : nullptr)
+      if (item->GetTag() != static_cast<int>(GetParam()->FromNormalized(GetValue())))
+        SetValueFromUserInput(GetParam()->ToNormalized(item->GetTag()));
+  }
+private:
+  IRECT Box() const
+  { return mRECT.H() > 60.f ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT; }
+  int mControl;
+  std::string mLabel;
+  IPopupMenu mMenu;
 };
 
 // One peak scale for the grid IN/OUT and every module meter: -60 to +6 dBFS. The line marks
@@ -735,8 +777,10 @@ public:
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(380, 510, 490, 534), SlotUtilityParam(mSlot, i), "Tempo sync");
-      else if (i == uTapeHeads || i == uCosmicStyle || i == uColourDesk || i == uBlackMode)
-        mUtilityKnobs[i] = new grid_ui::Choice(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i));
+      else if (!EffectChoices(i).empty())
+        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(496, 510, 620, 534)
+                                                                                 : grid_ui::ControlBounds(p.position),
+                                             SlotUtilityParam(mSlot, i), i, p.label);
       else if (i == uDelayPingPong || i == uReverbStereo)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)

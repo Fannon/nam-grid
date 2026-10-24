@@ -15,8 +15,9 @@ Faust reconstruction. Keep Galactic Space alongside it while comparing textures.
 | Motion | 0–100% | Shared 0.3 Hz modulation depth, from still echoes toward obvious pitch movement |
 | Mix | 0–100% | Standard linear dry/wet blend; zero is exact stereo dry |
 
-The initial settings are 500 ms, Warp 65%, Feedback 65%, Density 80%, High cut 6 kHz,
-Motion 25% and Mix 25%. Modulation rate is fixed at 0.3 Hz, width at full stereo
+The insertion and dial-reset settings are Virgo, Time 280 ms, Warp 51.6%,
+Feedback 30.9%, Density 49.2%, High cut 7461 Hz, Motion 29.5% and Mix 18%.
+Modulation rate is fixed at 0.3 Hz, width at full stereo
 and low cut at 80 Hz. Tempo sync is not available for this module.
 
 **Gemini** gives quick, dense ambience; reduce Warp/Density to hear the echo

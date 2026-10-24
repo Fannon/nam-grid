@@ -4,3 +4,4 @@
 - Put reviews, audits, benchmark results and development reports in gitignored `tmp/`, or in the relevant PR description/comments. Do not commit report files or maintain a documentation archive.
 - Fold useful, lasting conclusions into the appropriate guide. Preserve DSP source attribution and licenses beside the implementation and in third-party notices.
 - Keep guides focused on current behavior; avoid copied schema counts, local paths and historical test results. Update links when moving or removing docs.
+- Maintain `CHANGELOG.md` (newest first). Every release updates it; every PR with user-facing changes adds an entry under `[Unreleased]`.

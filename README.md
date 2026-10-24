@@ -7,6 +7,10 @@ An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 cabinet impulse responses and built-in effects, then blend two parallel chains
 for anything from a simple amp sound to layered ambient textures.
 
+**[Download NAM Grid from GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest)**:
+one archive per platform (Windows x64, macOS Apple Silicon, Linux x64), each with
+CLAP and VST3. See [Download and install](#download-and-install) for setup.
+
 ![NAM Grid with a clean amp-and-cab capture, Tube Boost, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
 
 *The Clean Default rig that comes with the plugin: a gate, compression, a clean
@@ -70,13 +74,14 @@ changes and tested the results, supported by an extensive automated test suite.
 
 ## Download and install
 
-Download the latest release from
-[GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest):
+Releases are published on
+[GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest). Under
+**Assets**, download the archive for your platform:
 
 | Platform | Archive | Status |
 | --- | --- | --- |
 | Windows x64 | `nam-grid-windows-x64.zip` | Built and tested in CI, including the native editor |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; ad-hoc signed |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; ad-hoc signed; macOS 11 or newer |
 | Linux x64 | `nam-grid-linux-x64.zip` | Preview: built and tested locally (Ubuntu 22.04 base, X11 editor); little real-DAW testing yet |
 
 1. Extract the archive. It contains `nam-grid.clap`, the `nam-grid.vst3` bundle,

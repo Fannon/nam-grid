@@ -120,6 +120,7 @@ Auto Swell Rise spans **10–2000 ms**.
 | Noise Gate | Threshold, Release, Reduction, Mode | Natural: gentle 2:1 expansion, 1.5 ms opening, 40 ms hold. Tight: deep closure, .3 ms opening, 15 ms hold |
 | Smooth Compressor | Threshold, Release, Makeup, Attack, Mix | 2.5:1, 9 dB knee, 8 ms default attack |
 | Punch Compressor | Threshold, Release, Makeup, Attack, Mix | 4:1, 3 dB knee, 25 ms default attack |
+| Peak Limiter | Ceiling, Release, Clip | Zero-lookahead linked peak limiter. Clip soft-clips from 3 dB below the ceiling first, so fast transients need less gain reduction; 0% is off |
 | Guitar EQ | Bass, Mid, Treble | 150 Hz shelf, broad 800 Hz bell, 3 kHz shelf |
 | Cut EQ | High pass, Low pass, Presence | Rumble/fizz cuts and 3.5 kHz shelf |
 | Parametric EQ | Frequency, Gain, Q, High pass, Low pass | One 20–20000 Hz bell, ±12 dB, Q .1–20, optional Notch mode |

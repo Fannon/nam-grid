@@ -328,6 +328,47 @@ int main(int argc, char** argv)
   assert(WriteSettings(preferences, {folders, true}));
   assert(ReadSettings(preferences).rescanOnStartup);
   assert(ReadSettings(preferences).showVisualizations);
+  {
+    // First use: the config folder and settings.json appear, and every list that was never
+    // chosen gets its default folder, created below the content folder.
+    const auto home = root / ("UserSettings-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto settingsFile = home / "config" / "settings.json";
+    const auto first = PrepareUserSettings(settingsFile, {}, home);
+    assert(first.saved && std::filesystem::exists(settingsFile));
+    assert(first.settings.namFolders == std::vector<std::string>{PathText(home / "NAM Captures")});
+    assert(first.settings.irFolders == std::vector<std::string>{PathText(home / "IRs")});
+    assert(first.settings.presetFolders == std::vector<std::string>{PathText(home / "Presets")});
+    assert(first.newPresetFolder == home / "Presets");
+    for (const char* folder : {"NAM Captures", "IRs", "Presets"})
+    {
+      // Each default folder has a commented .ignore that shows the feature but hides nothing.
+      assert(std::filesystem::is_directory(home / folder) && std::filesystem::exists(home / folder / ".ignore"));
+      IgnoreRules rules(home / folder);
+      assert(!rules.Ignored(home / folder / "DI.nam", false) && !rules.Ignored(home / folder / "Old captures", true));
+    }
+    // Later starts keep the file as it is and report no new preset folder.
+    const auto again = PrepareUserSettings(settingsFile, {}, home);
+    assert(again.newPresetFolder.empty() && again.settings.namFolders == first.settings.namFolders);
+    // An explicitly emptied list stays empty; a list missing from the file is still defaulted.
+    auto chosen = again.settings;
+    chosen.irFolders.clear();
+    assert(WriteSettings(settingsFile, chosen));
+    auto stored = json::parse(std::ifstream(settingsFile));
+    stored.erase("PresetFolders");
+    std::ofstream(settingsFile) << stored;
+    const auto edited = PrepareUserSettings(settingsFile, {}, home);
+    assert(edited.settings.irFolders.empty() && edited.settings.namFolders == first.settings.namFolders);
+    assert(edited.settings.presetFolders == first.settings.presetFolders && edited.newPresetFolder == home / "Presets");
+    assert(ReadSettings(settingsFile).irChosen && ReadSettings(settingsFile).presetChosen);
+    // A legacy library.json migrates once: its folders and preferences are kept, and its empty
+    // lists (older builds had no defaults) receive the defaults.
+    const auto migrated = home / "migrated" / "settings.json", legacy = home / "legacy" / "library.json";
+    assert(WriteSettings(legacy, {folders, false, false}));
+    const auto moved = PrepareUserSettings(migrated, legacy, home / "content");
+    assert(moved.settings.namFolders == folders && !moved.settings.rescanOnStartup && !moved.settings.showVisualizations);
+    assert(moved.settings.irFolders == std::vector<std::string>{PathText(home / "content" / "IRs")});
+    assert(ReadSettings(migrated).namFolders == folders && std::filesystem::exists(legacy));
+  }
   // Content identity is independent of filenames, roots, extension case and metadata hints.
   const auto identities = root / ("HashIdentity-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(identities / "deep" / "nested");

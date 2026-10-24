@@ -43,7 +43,7 @@ Times are milliseconds unless marked seconds. Percentages are explicit. Controls
 | Noise Gate (Smart) | Learn off; Sensitivity +1.5 dB; Reduction 24 dB; Attack 2; Release 120; Gate threshold off; Mix 100% | Preserve the auditioned learned-noise behavior |
 | Smooth Compressor | Threshold −24 dB; Release 150; Makeup +3 dB; Attack 10; Mix 100% | Moderate leveling/sustain |
 | Punch Compressor | Threshold −18 dB; Release 100; Makeup +2 dB; Attack 25; Mix 80% | Preserve pick transients with parallel compression |
-| Peak Limiter | Ceiling −1 dB; Release 75 | Catch peaks; no default input boost |
+| Peak Limiter | Ceiling −1 dB; Release 75; Clip 0% | Catch peaks; no default input boost or clipping |
 | Guitar EQ | Bass/Mid/Treble flat | Neutral tone shaping |
 | Cut EQ | High-pass 80 Hz; Low-pass 10 kHz; Presence flat | Electric-guitar cleanup |
 | Parametric EQ | 800 Hz; Gain 0 dB; Q 0.7; Notch off; cuts off | Neutral band, ready to locate a problem |

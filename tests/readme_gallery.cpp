@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 {
   assert(argc == 4);
   const std::filesystem::path repository = argv[2];
-  win_file_dialog::SavedLibrarySettings settingsBackup; // Restores the user's preferences on exit.
+  win_file_dialog::IsolatedUserHome settingsBackup("nam-grid-gallery"); // Never touches the user's preferences.
   {
     nam_library::Settings settings;
     settings.rescanOnStartup = settings.showVisualizations = true;

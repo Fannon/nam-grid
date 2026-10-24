@@ -17,15 +17,32 @@ inline double Low(double x, double& state, double coefficient)
 class Limiter
 {
 public:
-  void Reset(double rate) { mRate = rate; mGain = 1.; mReduction = 0.; mControls.Reset(rate); }
+  void Reset(double rate) { mRate = rate; mGain = 1.; mReduction = 0.; mControls.Reset(rate); mClip.Reset(rate); }
+  // Clip then limit: a soft knee from 3 dB below the ceiling, flattening towards 3 dB above it,
+  // shaves the fastest peaks so the limiter's gain moves less; the limiter still holds the ceiling.
+  static double SoftClip(double x, double ceiling)
+  {
+    constexpr double knee = .70794578438, top = 1.41253754462; // -3 dB and +3 dB re the ceiling
+    const double level = std::abs(x) / ceiling;
+    if (level <= knee) return x;
+    return std::copysign(ceiling * (knee + (top - knee) * std::tanh((level - knee) / (top - knee))), x);
+  }
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.limiter, uLimiterCeiling);
+    mClip.Target({c.limiterClip}, uLimiterClip);
     double minimumGain = 1.;
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
-      const double ceiling = Gain(mCeiling, v[0]), peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.);
+      const double clip = mClip.Tick()[0] * .01;
+      const double ceiling = Gain(mCeiling, v[0]);
+      if (clip > 0.) // Exactly the plain limiter at 0%.
+      {
+        l[i] += clip * (SoftClip(l[i], ceiling) - l[i]);
+        if (r) r[i] += clip * (SoftClip(r[i], ceiling) - r[i]);
+      }
+      const double peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.);
       const double target = peak > ceiling ? ceiling / peak : 1.;
       const double release = mRelease(-1. / (.001 * v[1] * mRate), [](double x) { return std::exp(x); });
       mGain = std::min(target, 1. + release * (mGain - 1.));
@@ -38,6 +55,7 @@ public:
   double Reduction() const { return mReduction; }
 private:
   grid_fx::SmoothControls<2> mControls;
+  grid_fx::SmoothControls<1> mClip;
   grid_fx::Memo mCeiling, mRelease;
   double mRate = 48000., mGain = 1., mReduction = 0.;
 };

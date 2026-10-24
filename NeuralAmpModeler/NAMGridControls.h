@@ -5,6 +5,7 @@
 #include "EQResponse.h"
 #include "EQSignalSpectrum.h"
 #include "LevelReadout.h"
+#include "UserPaths.h"
 #include "EffectPreview.h"
 #include <chrono>
 
@@ -1805,7 +1806,8 @@ public:
       const float top = kListTop + row * kRowPitch;
       g.FillRoundRect(surface, IRECT(32, top, 968, top + kRowHeight), 3.f);
       g.DrawText(Text(14.f, muted), KindLabel(entry.kind), IRECT(44, top, 124, top + kRowHeight));
-      FittedText(g, Text(14.f), entry.path.c_str(), IRECT(128, top, 882, top + kRowHeight));
+      FittedText(g, Text(14.f), entry.path.c_str(), IRECT(128, top, 806, top + kRowHeight));
+      g.DrawText(Text(14.f, muted, EAlign::Center), "Open", IRECT(kOpenL, top, kOpenR, top + kRowHeight));
       g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(888, top, 962, top + kRowHeight));
     }
     if (rows.empty())
@@ -1816,12 +1818,17 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui;
-    AddChildControl(new HintLabel(IRECT(32, 24, 650, 64), "Library & settings", Text(23.f),
+    AddChildControl(new HintLabel(IRECT(32, 24, 480, 64), "Library & settings", Text(23.f),
       "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type."));
     AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
     AddChildControl(new Button(IRECT(678, 28, 846, 60), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library"));
+    // settings.json lives in the platform's per-user config folder (see UserPaths.h).
+    AddChildControl(new Button(IRECT(494, 28, 662, 60), [this](IControl*) {
+      Reveal(nam_library::PathText(user_paths::ConfigFolder()));
+    }, "Settings folder"))->SetTooltip(("Open the folder that holds settings.json: "
+                                        + nam_library::PathText(user_paths::ConfigFolder())).c_str());
     for (int i = 0; i < 3; ++i)
     {
       const auto kind = kKinds[i];
@@ -1885,7 +1892,8 @@ public:
   }
   void OnMouseDown(float x, float y, const IMouseMod&) override
   {
-    if (x < 888 || x > 962 || y < kListTop || y >= kListTop + kRows * kRowPitch)
+    const bool open = x >= kOpenL && x <= kOpenR;
+    if ((!open && (x < 888 || x > 962)) || y < kListTop || y >= kListTop + kRows * kRowPitch)
       return;
     const int row = static_cast<int>((y - kListTop) / kRowPitch);
     if (y > kListTop + row * kRowPitch + kRowHeight)
@@ -1894,7 +1902,8 @@ public:
     if (mScroll + row >= static_cast<int>(rows.size()))
       return;
     const auto& entry = rows[mScroll + row];
-    PLUG()->RemoveLibraryFolder(entry.kind, entry.index);
+    if (open) Reveal(entry.path);
+    else PLUG()->RemoveLibraryFolder(entry.kind, entry.index);
     SetDirty(false);
   }
   void OnMouseWheel(float, float y, const IMouseMod&, float delta) override
@@ -1919,7 +1928,15 @@ private:
   static constexpr std::array<nam_library::FileKind, 3> kKinds{
     nam_library::FileKind::NAM, nam_library::FileKind::IR, nam_library::FileKind::RigPreset};
   inline static const std::array<IRECT, 3> kAddRects{IRECT(544, 160, 672, 190), IRECT(684, 160, 812, 190), IRECT(824, 160, 968, 190)};
-  static constexpr float kListTop = 200.f, kRowPitch = 38.f, kRowHeight = 32.f;
+  static constexpr float kListTop = 200.f, kRowPitch = 38.f, kRowHeight = 32.f, kOpenL = 812.f, kOpenR = 882.f;
+  // Explorer on Windows, Finder on macOS. A missing folder is created first, so opening never fails silently.
+  void Reveal(const std::string& folder)
+  {
+    std::error_code error;
+    std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+    WDL_String path(folder.c_str());
+    GetUI()->RevealPathInExplorerOrFinder(path, false);
+  }
   static constexpr int kRows = 7;
   struct Row { nam_library::FileKind kind; size_t index; std::string path; };
   std::vector<Row> Rows()
@@ -2007,7 +2024,7 @@ public:
     {
       const float y = yFor(cents);
       g.DrawLine(cents == 0 ? muted.WithOpacity(.6f) : border.WithOpacity(.45f), plot.L, y, plot.R, y);
-      WDL_String tick; tick.SetFormatted(16, "%+d", cents);
+      WDL_String tick; tick.SetFormatted(16, cents ? "%+d" : "%d", cents);
       g.DrawText(Text(13.f, muted, EAlign::Far), tick.Get(), IRECT(panel.L + 2, y - 8, plot.L - 7, y + 8));
     }
     const auto now = grid_tuner::Tuner::Now();

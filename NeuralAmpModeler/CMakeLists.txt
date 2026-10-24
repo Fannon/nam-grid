@@ -227,3 +227,7 @@ if(TARGET nam-grid-clap)
   endif()
 endif()
 set_tests_properties(stages PROPERTIES TIMEOUT 60)
+# Every test that loads the plugin gets a private settings and default-folder home, so no test
+# reads or rewrites the developer's own settings.json or Documents/NAM Grid.
+get_property(nam_grid_tests DIRECTORY PROPERTY TESTS)
+set_tests_properties(${nam_grid_tests} PROPERTIES ENVIRONMENT "NAM_GRID_HOME=${CMAKE_CURRENT_BINARY_DIR}/test-home")

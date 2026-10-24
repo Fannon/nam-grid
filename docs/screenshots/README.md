@@ -42,7 +42,7 @@ cmake --build build-grid --config Release --target nam-grid-clap nam-readme-gall
 build-grid/NeuralAmpModeler/nam-readme-gallery build-grid/out/nam-grid.clap . tmp/gallery
 ```
 
-It creates the demo library, renders every view as BMP and restores your library
-preferences afterwards. Convert the BMPs losslessly to PNG; see
+It creates the demo library and renders every view as BMP, using a private temporary
+`NAM_GRID_HOME`, so your own settings are never touched. Convert the BMPs losslessly to PNG; see
 [ui.md](../ui.md) for the views and [build.md](../build.md#editor-screenshots) for
 the smoke-test screenshot modes.

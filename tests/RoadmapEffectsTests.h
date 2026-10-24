@@ -69,6 +69,34 @@ void TestRoadmapEffects()
       }
     }
     assert(limiter.Reduction() > 6.);
+    {
+      // Clip: 0% is the plain limiter exactly; 100% still holds the ceiling, and shaving
+      // peaks first leaves the limiter less gain reduction to apply.
+      const auto run = [&](double clip, std::array<double, 512>& out) {
+        grid_roadmap::Limiter clipped; clipped.Reset(rate); UtilityControls cc; cc.limiter = {-6., 75.}; cc.limiterClip = clip;
+        double reduction = 0.;
+        for (int block = 0; block < 8; ++block)
+        {
+          for (int i = 0; i < 512; ++i) { out[i] = 1.2 * std::sin(i * .15 + block); }
+          clipped.Process(out.data(), nullptr, 512, cc);
+          for (double x : out) assert(std::abs(x) <= std::pow(10., -.3) + 1.e-12);
+          reduction = std::max(reduction, clipped.Reduction());
+        }
+        return reduction;
+      };
+      std::array<double, 512> plain{}, none{}, full{};
+      grid_roadmap::Limiter reference; reference.Reset(rate); UtilityControls rc; rc.limiter = {-6., 75.};
+      for (int block = 0; block < 8; ++block)
+      {
+        for (int i = 0; i < 512; ++i) plain[i] = 1.2 * std::sin(i * .15 + block);
+        reference.Process(plain.data(), nullptr, 512, rc);
+      }
+      const double withoutClip = run(0., none), withClip = run(100., full);
+      assert(none == plain);
+      assert(withClip < withoutClip - 1.);
+      assert(std::abs(grid_roadmap::Limiter::SoftClip(.1, .5) - .1) < 1.e-15); // Below the knee: untouched.
+      assert(grid_roadmap::Limiter::SoftClip(100., .5) <= .5 * 1.41253754462 + 1.e-12); // Never past +3 dB.
+    }
 
     // A held capture continues after input stops and resets to actual silence.
     grid_roadmap::Capture capture; capture.Reset(rate); c = {}; c.freeze[1] = 50.;

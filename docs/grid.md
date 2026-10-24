@@ -34,7 +34,7 @@ cross-connections, sends, feedback, drag/drop routing, or routing graph.
   See [development.md](development.md).
 - Add NAM and IR folders in **Library & settings**. Multiple source folders and their subfolders
   become nested selection menus. Folders and editor preferences for new instances are stored in
-  `nam-grid/library.json` in the user's application-support folder.
+  the per-user `settings.json` (see [ui.md](ui.md#settings-and-default-folders)).
 - **Blend A / B** is the percentage of lane B: 0% uses A, 50% averages both, 100% uses B.
   It uses a smoothed linear crossfade. Two identical or empty lanes remain unity instead of
   becoming 6 dB louder. To use a single modeled lane without mixing in the other lane's dry

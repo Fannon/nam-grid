@@ -322,6 +322,8 @@ private:
   // differs from the meter packet, which is how slot controls tell them apart.
   iplug::ISender<1, 4, grid_eq_signal::Window> mSlotSignalSender;
   iplug::ISenderData<1, grid_eq_signal::Window> mSignalPacket{iplug::kNoTag, 1, 0}; // Audio thread only.
+  SignalCapture mSignalCapture; // Audio thread only; attached to the selected slot's stage.
+  int mCaptureSlot = -2, mCaptureGrid = -1;
   static_assert(sizeof(iplug::ISenderData<1, grid_eq_signal::Window>) != sizeof(iplug::ISenderData<1, SlotMeterData>));
   std::atomic<int> mSpectrumSlot{0}; // Selected slot while visualizations are shown, else -1.
   int mMeterFrames = 0;

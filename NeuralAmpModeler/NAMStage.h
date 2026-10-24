@@ -47,6 +47,32 @@ inline bool ShowsSignalSpectrum(SlotEffect effect)
          || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
+// The newest output samples of one slot, for the editor's spectrum and stereo scope. A plugin
+// owns one and attaches it only to the selected slot's stage, so 32 stages share 32 KB.
+struct SignalCapture
+{
+  std::vector<float> left = std::vector<float>(grid_eq_signal::windowSize, 0.f);
+  std::vector<float> right = std::vector<float>(grid_eq_signal::windowSize, 0.f);
+  size_t write = 0, count = 0;
+  void Clear() { write = count = 0; }
+  void Push(double l, double r)
+  {
+    left[write] = static_cast<float>(l);
+    right[write] = static_cast<float>(r);
+    write = (write + 1) % left.size();
+    count = std::min(count + 1, left.size());
+  }
+  bool Take(grid_eq_signal::Window& window) const
+  {
+    if (count < left.size()) return false;
+    for (size_t i = 0; i < left.size(); ++i)
+      window.samples[i] = left[(write + i) % left.size()];
+    for (size_t i = 0; i < window.right.size(); ++i)
+      window.right[i] = right[(write + left.size() - window.right.size() + i) % left.size()];
+    return true;
+  }
+};
+
 class NAMStage
 {
 public:
@@ -254,9 +280,13 @@ public:
     mMix = 0.;
     mFirst = true;
     mMeter = {};
-    std::fill(mEQSignal.begin(), mEQSignal.end(), 0.f);
-    std::fill(mEQSignalRight.begin(), mEQSignalRight.end(), 0.f);
-    mEQSignalWrite = mEQSignalCount = 0;
+    if (mCapture) mCapture->Clear();
+  }
+  // Audio only (or while processing is stopped): route this stage's output into the shared capture.
+  void AttachCapture(SignalCapture* capture)
+  {
+    if (capture && capture != mCapture) capture->Clear();
+    mCapture = capture;
   }
   SlotMeterData TakeMeter()
   {
@@ -266,18 +296,12 @@ public:
     mMeter = {};
     return result;
   } // audio only
-  // Latest full output window for the editor's spectrum. Audio only; the caller
-  // asks only for the selected slot, so other slots never copy their window.
+  // Latest full output window for the editor's spectrum. Audio only; only the
+  // selected slot's stage has the capture attached.
   bool TakeSignalWindow(grid_eq_signal::Window& window) const
   {
     const auto* p = mExchange.Active();
-    if (!mMonitoring || !p || !ShowsSignalSpectrum(p->effect) || mEQSignalCount < mEQSignal.size())
-      return false;
-    for (size_t i = 0; i < mEQSignal.size(); ++i)
-      window.samples[i] = mEQSignal[(mEQSignalWrite + i) % mEQSignal.size()];
-    for (size_t i = 0; i < window.right.size(); ++i)
-      window.right[i] = mEQSignalRight[(mEQSignalWrite + mEQSignal.size() - window.right.size() + i) % mEQSignal.size()];
-    return true;
+    return mCapture && mMonitoring && p && ShowsSignalSpectrum(p->effect) && mCapture->Take(window);
   }
   int Latency() const
   {
@@ -445,7 +469,7 @@ public:
         }
       }
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
-      const bool spectrum = mMonitoring && ShowsSignalSpectrum(p->effect);
+      const bool spectrum = mCapture && mMonitoring && ShowsSignalSpectrum(p->effect);
       for (int i = 0; i < frames; ++i)
       {
         mOut += outDelta;
@@ -457,12 +481,7 @@ public:
         }
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
         if (spectrum)
-        {
-          mEQSignal[mEQSignalWrite] = static_cast<float>(samples[i]);
-          mEQSignalRight[mEQSignalWrite] = static_cast<float>(rightSamples ? rightSamples[i] : samples[i]);
-          mEQSignalWrite = (mEQSignalWrite + 1) % mEQSignal.size();
-          mEQSignalCount = std::min(mEQSignalCount + 1, mEQSignal.size());
-        }
+          mCapture->Push(samples[i], rightSamples ? rightSamples[i] : samples[i]);
         if (mMonitoring) mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(
           1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
         if (mMonitoring && !p->dynamicsMonitor.empty())
@@ -546,8 +565,5 @@ private:
   bool mFirst = true;
   bool mMonitoring = false;
   SlotMeterData mMeter;
-  // Heap-held once per stage: a 4096-sample window would make every grid too large for the stack.
-  std::vector<float> mEQSignal = std::vector<float>(grid_eq_signal::windowSize, 0.f);
-  std::vector<float> mEQSignalRight = std::vector<float>(grid_eq_signal::windowSize, 0.f);
-  size_t mEQSignalWrite = 0, mEQSignalCount = 0;
+  SignalCapture* mCapture = nullptr; // Shared, owned by the plugin; set only on the selected slot.
 };

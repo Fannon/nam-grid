@@ -211,6 +211,7 @@ enum UtilityParam
   uBlackMix = 195,
   uBlackOutput = 196,
   uBlackMode = 197,
+  uLimiterClip = 198,
   kUtilityControls,
 };
 inline constexpr std::span<const char* const> EffectChoices(int control)
@@ -283,7 +284,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 1;
+inline constexpr int kEffectStateSchema = 2; // 2 adds Limiter Clip.
 
 struct EffectParameter
 {
@@ -497,7 +498,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Black Threshold", "Threshold", -55, -74, -10, .1, "dB", 0},
    {"Black Mix", "Mix", 100, 0, 100, .1, "%", 1},
    {"Black Output", "Output", 0, -18, 6, .1, "dB", 2},
-   {"Black Mode", "Mode", 0, 0, 1, 1, "", 0}}};
+   {"Black Mode", "Mode", 0, 0, 1, 1, "", 0},
+   {"Limiter Clip", "Clip", 0, 0, 100, .1, "%", 2, false, 1., 2}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -593,7 +595,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::Distortion) return p >= uDistStyle && p <= uDistOutput;
   if (e == SlotEffect::Rotary) return p >= uRotarySlow && p <= uRotaryMix;
   if (e == SlotEffect::UniVibe) return p == uModRate || p == uModDepth || p == uModCharacter || p == uModMix || p == uVibeMode;
-  if (e == SlotEffect::Limiter) return p >= uLimiterCeiling && p <= uLimiterRelease;
+  if (e == SlotEffect::Limiter) return (p >= uLimiterCeiling && p <= uLimiterRelease) || p == uLimiterClip;
   if (e == SlotEffect::Octaver) return p >= uOctDry && p <= uOctOutput;
   if (e == SlotEffect::Doubler) return p >= uDoubleDetune && p <= uDoubleOutput;
   if (e == SlotEffect::Freeze) return p >= uFreezeHold && p <= uFreezeMix;
@@ -662,6 +664,7 @@ struct UtilityControls
   double fineDelay = 0., vibeMode = 0., eqMode = 0.;
   std::array<double, 7> rotary{.8, 6., 0., 1., 3., 80., 75.};
   std::array<double, 2> limiter{-1., 75.};
+  double limiterClip = 0.; // Not contiguous with Ceiling/Release: appended in schema 2.
   std::array<double, 5> octaver{100., 50., 0., 1000., 0.}, doubler{9., 12., 100., 35., 0.};
   std::array<double, 5> freeze{0., 500., 20., 6000., 35.};
   std::array<double, 4> stutter{125., 75., 5., 50.}, ring{440., 100., 12000., 50.};

@@ -80,9 +80,9 @@ Releases are published on
 
 | Platform | Archive | Status |
 | --- | --- | --- |
-| Windows x64 | `nam-grid-windows-x64.zip` | Built and tested in CI, including the native editor |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; ad-hoc signed; macOS 11 or newer |
-| Linux x64 | `nam-grid-linux-x64.zip` | Preview: built and tested locally (Ubuntu 22.04 base, X11 editor); little real-DAW testing yet |
+| Windows x64 | `nam-grid-windows-x64.zip` | Automated tests include the native editor |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Automated DSP and state tests; ad-hoc signed; macOS 11 or newer |
+| Linux x64 | `nam-grid-linux-x64.zip` | Preview: automated tests include the X11 editor; little real-DAW testing yet |
 
 1. Extract the archive. It contains `nam-grid.clap`, the `nam-grid.vst3` bundle,
    `ThirdPartyNotices.txt` and a `notices/` folder.
@@ -110,10 +110,10 @@ On first start NAM Grid creates its library folders in `Documents/NAM Grid` and 
 clean amp-and-cab capture (RiffSmith Clean, MIT) and two rig presets there, **Empty** and
 **Clean Default**, so you can play right away. There is no larger capture or IR collection:
 add your own, such as the free NAM captures and cabinet IRs on
-[TONE3000](https://www.tone3000.com). Development builds are
-GitHub Actions artifacts (sign-in required): the weekly
-[Build Native](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml) run of
-`main` for Windows, macOS and Linux, and pull request builds for Windows.
+[TONE3000](https://www.tone3000.com). Between releases, the
+[Build Native](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml)
+workflow can provide development builds of `main` as GitHub Actions artifacts
+(sign-in required).
 
 **0.1.0 is the first release.** Earlier preview builds used different plugin and
 parameter IDs; their projects and presets do not load and must be rebuilt. From

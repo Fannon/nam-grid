@@ -1,6 +1,13 @@
-# NAM Grid 0.1.0
+# NAM Grid 0.1.1
 
-Our first release! NAM Grid is a 16-slot guitar rig in one CLAP / VST3 plugin. Mix Neural Amp Modeler captures, cabinet IRs and 54 built-in effects across four Pre slots, two parallel lanes with A/B blend, and four Post slots — plus rig presets, a library browser, tuner, macros, modulation and performance scenes. The [README](https://github.com/Fannon/nam-grid#readme) gets you installed with your first sound, and the [module guide](https://github.com/Fannon/nam-grid/blob/main/docs/modules/README.md) covers every module.
+A small polish update to [0.1.0](https://github.com/Fannon/nam-grid/releases/tag/v0.1.0). Just replace the plugin files; your rigs and projects keep working as they are.
+
+## What's new
+
+- **Tidier header:** every box has the same height and outline, the rig preset name has more room for longer names, and **Modulation** now sits next to **Tuner**.
+- **Compact module editors:** modules with only a few controls keep them together, filled from the left, instead of spreading them across both rows.
+- **Clearer signal path:** the IN and OUT lines now reach their knobs, and the stereo meters have a little more space next to the first and last modules.
+- **Help at hand:** Library & settings links to the documentation, the source code and the issue tracker.
 
 ## Downloads
 
@@ -8,9 +15,7 @@ Our first release! NAM Grid is a 16-slot guitar rig in one CLAP / VST3 plugin. M
 - `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs (macOS 11 or newer). The Mac build isn't signed yet, so macOS will ask you to confirm it once — see the README.
 - `nam-grid-linux-x64.zip`: CLAP and VST3 for 64-bit Linux (Ubuntu 22.04 or newer works well). Linux is still an early preview.
 
-Just getting started? Everything is included to make sound right away: one clean amp-and-cab capture (RiffSmith Clean) and two starter rigs, Empty and Clean Default. Add your own NAM captures and IRs anytime through the library browser.
-
-If you tried an earlier preview build, please remove those old plugin files and rescan your DAW. 0.1.0 is a fresh start — your rigs and projects from here on will keep working in future updates.
+New to NAM Grid? Everything is included to make sound right away: one clean amp-and-cab capture (RiffSmith Clean) and two starter rigs, Empty and Clean Default. The [README](https://github.com/Fannon/nam-grid#readme) gets you installed, and the [module guide](https://github.com/Fannon/nam-grid/blob/main/docs/modules/README.md) covers every module.
 
 ## Good to know
 

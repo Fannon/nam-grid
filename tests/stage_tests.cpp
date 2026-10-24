@@ -1,4 +1,5 @@
 #include "A2Fixture.h"
+#include "A2PlanarTests.h"
 #include <array>
 #include <cassert>
 #include <cstdlib>
@@ -77,6 +78,7 @@ try
 {
   assert(argc >= 2 && argc <= 6);
   nam::activations::Activation::enable_fast_tanh();
+  TestA2Planar();
   nam::activations::ActivationPReLU prelu(std::vector<float>{.01f, .05f});
   Eigen::MatrixXf activationInput(2, 3);
   activationInput.setConstant(-1.f);

@@ -33,7 +33,13 @@ public:
   {
     GetUI()->ReleaseMouseCapture();
 #ifdef _WIN32
-    SetFocus(static_cast<HWND>(GetUI()->GetWindow()));
+    // Bitwig on Windows can keep its own window in the foreground over a plugin window; SetFocus
+    // alone then leaves the keyboard with the host, and typed letters trigger host shortcuts.
+    // The click or shortcut that starts editing allows this process to raise its window first.
+    const auto view = static_cast<HWND>(GetUI()->GetWindow());
+    const auto root = GetAncestor(view, GA_ROOT);
+    if (GetForegroundWindow() != root) SetForegroundWindow(root);
+    SetFocus(view);
 #endif
     // The editor stops short of the clear button, so it stays clickable while typing.
     GetUI()->CreateTextEntry(*this, mText, mRECT.GetHPadded(-12).GetVPadded(-3).GetReducedFromRight(24), GetStr());

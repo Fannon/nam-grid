@@ -1,0 +1,4495 @@
+Linux platform support for iPlug2 (X11 window, GLX/NanoVG GL3, CLAP posix-fd/timer and
+VST3 X11 embedding), from upstream iPlug2 PR #1336 by RangerRick (MIT, as iPlug2).
+Source: https://github.com/iPlug2/iPlug2/pull/1336
+Commit: 03d3c1af13d3456b09df1e94800dc48546f3aaef
+Rebased onto the pinned d54f690 after the iplug2-clap-* patches, which keep their
+contract-tested CLAP state-write and value-to-text code. CI, documentation, presets and
+ReaperExt changes are omitted. setup-deps.py applies it on Linux only.
+
+diff --git a/Dependencies/IGraphics/NanoVG/src/nanovg_gl_utils.h b/Dependencies/IGraphics/NanoVG/src/nanovg_gl_utils.h
+index f7384d803..b1af24125 100644
+--- a/Dependencies/IGraphics/NanoVG/src/nanovg_gl_utils.h
++++ b/Dependencies/IGraphics/NanoVG/src/nanovg_gl_utils.h
+@@ -93,10 +93,12 @@ NVGLUframebuffer* nvgluCreateFramebuffer(NVGcontext* ctx, int w, int h, int imag
+ 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+ #ifdef GL_DEPTH24_STENCIL8
+ 		// If GL_STENCIL_INDEX8 is not supported, try GL_DEPTH24_STENCIL8 as a fallback.
+-		// Some graphics cards require a depth buffer along with a stencil.
++		// Some graphics cards (including llvmpipe/Mesa) require a combined depth+stencil
++		// attachment. GL_DEPTH24_STENCIL8 must use GL_DEPTH_STENCIL_ATTACHMENT, not
++		// GL_STENCIL_ATTACHMENT, otherwise glCheckFramebufferStatus returns incomplete.
+ 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+ 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fb->texture, 0);
+-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fb->rbo);
++		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fb->rbo);
+ 
+ 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+ #endif // GL_DEPTH24_STENCIL8
+diff --git a/IGraphics/Drawing/IGraphicsNanoVG.cpp b/IGraphics/Drawing/IGraphicsNanoVG.cpp
+index 53c45bac1..f3fd519e2 100644
+--- a/IGraphics/Drawing/IGraphicsNanoVG.cpp
++++ b/IGraphics/Drawing/IGraphicsNanoVG.cpp
+@@ -47,7 +47,13 @@
+       #error Define either IGRAPHICS_GL2 or IGRAPHICS_GL3 when using IGRAPHICS_GL and IGRAPHICS_NANOVG with OS_WIN
+     #endif
+   #elif defined OS_LINUX
+-    #error NOT IMPLEMENTED
++    #if defined IGRAPHICS_GL2
++      #define NANOVG_GL2_IMPLEMENTATION
++    #elif defined IGRAPHICS_GL3
++      #define NANOVG_GL3_IMPLEMENTATION
++    #else
++      #error "Define either IGRAPHICS_GL2 or IGRAPHICS_GL3 when using IGRAPHICS_NANOVG with OS_LINUX"
++    #endif
+   #elif defined OS_WEB
+     #if defined IGRAPHICS_GLES2
+       #define NANOVG_GLES2_IMPLEMENTATION
+@@ -488,14 +494,27 @@ void IGraphicsNanoVG::DrawResize()
+   ScopedGLContext scopedGLCtx {this};
+ 
+   if (mMainFrameBuffer != nullptr)
++  {
+     nvgDeleteFramebuffer(mMainFrameBuffer);
+-  
++    mMainFrameBuffer = nullptr;
++  }
++
+   if (mVG)
+   {
+-    mMainFrameBuffer = nvgCreateFramebuffer(mVG, WindowWidth() * GetScreenScale(), WindowHeight() * GetScreenScale(), 0);
+-  
++#if defined IGRAPHICS_GL
++    // Flush and sync all pending GL commands, and drain any accumulated GL
++    // errors, before creating the FBO. On llvmpipe/Xwayland, NanoVG shader
++    // setup and font loading leave stale GL error state that causes
++    // glCheckFramebufferStatus to fail unless cleared first.
++    glFinish();
++    while (glGetError() != GL_NO_ERROR) {}
++#endif
++    int w = (int)(WindowWidth() * GetScreenScale());
++    int h = (int)(WindowHeight() * GetScreenScale());
++    mMainFrameBuffer = nvgCreateFramebuffer(mVG, w, h, 0);
++
+     if (mMainFrameBuffer == nullptr)
+-      DBGMSG("Could not init FBO.\n");
++      DBGMSG("Could not init FBO (w=%d h=%d).\n", w, h);
+   }
+ }
+ 
+@@ -520,9 +539,20 @@ void IGraphicsNanoVG::BeginFrame()
+ void IGraphicsNanoVG::EndFrame()
+ {
+   nvgEndFrame(mVG); // end main frame buffer update
++
++  // When the FBO is unavailable (e.g. llvmpipe/Xwayland software renderer),
++  // BeginFrame rendered directly to the window framebuffer, so no compositing
++  // pass is needed.  Skip the second nvgBeginFrame/EndFrame entirely.
++  if (mMainFrameBuffer == nullptr)
++  {
++    mInDraw = false;
++    ClearFBOStack();
++    return;
++  }
++
+   nvgBindFramebuffer(nullptr);
+   nvgBeginFrame(mVG, WindowWidth(), WindowHeight(), GetScreenScale());
+-  
++
+   NVGpaint img = nvgImagePattern(mVG, 0, 0, WindowWidth(), WindowHeight(), 0, mMainFrameBuffer->image, 1.0f);
+ 
+   nvgSave(mVG);
+diff --git a/IGraphics/IGraphics.cpp b/IGraphics/IGraphics.cpp
+index 698415787..90dd5b8cd 100644
+--- a/IGraphics/IGraphics.cpp
++++ b/IGraphics/IGraphics.cpp
+@@ -94,8 +94,7 @@ void IGraphics::Resize(int w, int h, float scale, bool needsPlatformResize)
+   scale = Clip(scale, mMinScale, mMaxScale);
+   
+   if (w == Width() && h == Height() && scale == GetDrawScale()) return;
+-  
+-  //DBGMSG("resize %i, resize %i, scale %f\n", w, h, scale);
++
+   ReleaseMouseCapture();
+ 
+   mDrawScale = scale;
+@@ -334,11 +333,21 @@ void IGraphics::AttachCornerResizer(EUIResizerMode sizeMode, bool layoutOnResize
+ 
+ void IGraphics::AttachCornerResizer(ICornerResizerControl* pControl, EUIResizerMode sizeMode, bool layoutOnResize)
+ {
+-#ifndef AUv3_API
++#if defined(AUv3_API)
++  DBGMSG("AttachCornerResizer() is disabled for AUv3");
++#elif defined(OS_LINUX)
++  // On Linux, the host (or window manager for standalone) provides
++  // its own resize handle. The corner resizer conflicts because both
++  // catch mouse events in the same region, causing feedback loops.
++  // Still set the resize mode so Scale/Size mode works correctly.
++  mGUISizeMode = sizeMode;
++  mLayoutOnResize = layoutOnResize;
++  delete pControl;
++#else
+   assert(!mCornerResizer); // only want one corner resizer
+ 
+   std::unique_ptr<ICornerResizerControl> control(pControl);
+-    
++
+   if (!mCornerResizer)
+   {
+     mCornerResizer.swap(control);
+@@ -346,8 +355,6 @@ void IGraphics::AttachCornerResizer(ICornerResizerControl* pControl, EUIResizerM
+     mLayoutOnResize = layoutOnResize;
+     mCornerResizer->SetDelegate(*GetDelegate());
+   }
+-#else
+-DBGMSG("AttachCornerResizer() is disabled for AUv3");
+ #endif
+ }
+ 
+@@ -1521,7 +1528,10 @@ void IGraphics::OnDragResize(float x, float y)
+     float scaleX = (x * GetDrawScale()) / mMouseDownX;
+     float scaleY = (y * GetDrawScale()) / mMouseDownY;
+ 
+-    Resize(Width(), Height(), std::min(scaleX, scaleY));
++    // Use drag-start dimensions as the base, not current Width()/Height().
++    // When the host drives resize (e.g. VST3 onSize), Width() changes between
++    // drag events while mMouseDownX stays fixed, causing runaway growth.
++    Resize(mDragStartWidth, mDragStartHeight, std::min(scaleX, scaleY));
+   }
+   else
+   {
+@@ -2173,7 +2183,7 @@ void IGraphics::ApplyLayerDropShadow(ILayerPtr& layer, const IShadow& shadow)
+   kernel.Resize(iSize);
+         
+   for (int i = 0; i < iSize; i++)
+-    kernel.Get()[i] = static_cast<uint8_t>(std::round(255.f * std::expf(-(i * i) * blurConst)));
++    kernel.Get()[i] = static_cast<uint8_t>(std::round(255.f * std::exp(-(i * i) * blurConst)));
+   
+   // Kernel normalisation
+   int normFactor = kernel.Get()[0];
+diff --git a/IGraphics/IGraphics.h b/IGraphics/IGraphics.h
+index a016f9d9e..86e43e987 100644
+--- a/IGraphics/IGraphics.h
++++ b/IGraphics/IGraphics.h
+@@ -1159,6 +1159,9 @@ public:
+   /** @return true if resizing is in process */
+   bool GetResizingInProcess() const { return mResizingInProcess; }
+ 
++  /** Cancel any in-progress corner-resizer drag (e.g. when host takes over resize) */
++  void CancelDragResize() { mResizingInProcess = false; }
++
+   /** Enable/disable multi touch, if platform supports it
+     * @return \c true if platform supports it */
+   bool EnableMultiTouch(bool enable)
+@@ -1271,13 +1274,23 @@ private:
+   void DoCreatePopupMenu(IControl& control, IPopupMenu& menu, const IRECT& bounds, int valIdx, bool isContext);
+   
+   /** Called by ICornerResizer when drag resize commences */
+-  void StartDragResize() { mResizingInProcess = true; }
+-  
++  void StartDragResize() { mResizingInProcess = true; mDragStartWidth = Width(); mDragStartHeight = Height(); }
++
+   /** Called when drag resize ends */
+   void EndDragResize();
+ 
+ #pragma mark - Control management
+ public:
++  /** Called on the host UI thread immediately before host-initiated resize so that
++   *  platform implementations can serialise it with the render thread.
++   *  @param physW Physical width the host requested (pixels)
++   *  @param physH Physical height the host requested (pixels)
++   *  Paired with OnEndHostResize(). Default is a no-op. */
++  virtual void OnBeginHostResize(int physW, int physH) {}
++
++  /** Paired release for OnBeginHostResize(). */
++  virtual void OnEndHostResize() {}
++
+   /** For all controls, including the "special controls" call a method
+    * @param func A std::function to perform on each control */
+   void ForAllControlsFunc(IControlFunction func);
+@@ -1860,6 +1873,8 @@ private:
+   int mMouseOverIdx = -1;
+   float mMouseDownX = -1.f;
+   float mMouseDownY = -1.f;
++  int mDragStartWidth = 0;
++  int mDragStartHeight = 0;
+   float mMinScale;
+   float mMaxScale;
+   int mLastClickedParam = kNoParameter;
+diff --git a/IGraphics/IGraphicsEditorDelegate.cpp b/IGraphics/IGraphicsEditorDelegate.cpp
+index c8c82f8a8..543a5afe1 100644
+--- a/IGraphics/IGraphicsEditorDelegate.cpp
++++ b/IGraphics/IGraphicsEditorDelegate.cpp
+@@ -11,6 +11,13 @@
+ #include "IGraphicsEditorDelegate.h"
+ #include "IGraphics.h"
+ #include "IControl.h"
++#include <algorithm>
++
++#ifdef OS_LINUX
++#define IPLUG_GFX_LOCK std::lock_guard<std::recursive_mutex> gfxLock(mGfxMutex)
++#else
++#define IPLUG_GFX_LOCK ((void)0)
++#endif
+ 
+ using namespace iplug;
+ using namespace igraphics;
+@@ -26,6 +33,7 @@ IGEditorDelegate::~IGEditorDelegate()
+ 
+ void* IGEditorDelegate::OpenWindow(void* pParent)
+ {
++  IPLUG_GFX_LOCK;
+   if(!mGraphics)
+   {
+     mGraphics = std::unique_ptr<IGraphics>(CreateGraphics());
+@@ -41,6 +49,7 @@ void* IGEditorDelegate::OpenWindow(void* pParent)
+ 
+ void IGEditorDelegate::CloseWindow()
+ {
++  IPLUG_GFX_LOCK;
+   if (!mClosing)
+   {
+     mClosing = true;
+@@ -61,21 +70,51 @@ void IGEditorDelegate::CloseWindow()
+ 
+ void IGEditorDelegate::OnParentWindowResize(int width, int height)
+ {
+-  if (auto* pGraphics = GetUI()) 
++  IPLUG_GFX_LOCK;
++  if (auto* pGraphics = GetUI())
+   {
+-    const auto scale = pGraphics->GetPlatformWindowScale();
+-    pGraphics->Resize(static_cast<int>(width / scale), static_cast<int>(height / scale), 1.0f, false);
++    if (pGraphics->GetResizingInProcess())
++    {
++      pGraphics->CancelDragResize();
++    }
++
++    const float platScale = pGraphics->GetPlatformWindowScale();
++    const int physW = static_cast<int>(width / platScale);
++    const int physH = static_cast<int>(height / platScale);
++    pGraphics->OnBeginHostResize(physW, physH);
++
++    if (pGraphics->GetResizerMode() == EUIResizerMode::Scale)
++    {
++      // Scale mode: keep logical dimensions, adjust draw scale.
++      // Use min so the entire UI fits within the window. If the host
++      // doesn't constrain to the design aspect ratio, this letterboxes
++      // rather than clipping the top/bottom or sides.
++      const int logW = pGraphics->Width();
++      const int logH = pGraphics->Height();
++      const float scaleX = static_cast<float>(physW) / logW;
++      const float scaleY = static_cast<float>(physH) / logH;
++      const float newScale = std::min(scaleX, scaleY);
++      pGraphics->Resize(logW, logH, newScale, false);
++    }
++    else
++    {
++      pGraphics->Resize(physW, physH, 1.0f, false);
++    }
++
++    pGraphics->OnEndHostResize();
+   }
+ }
+ 
+ void IGEditorDelegate::SetScreenScale(float scale)
+ {
++  IPLUG_GFX_LOCK;
+   if (GetUI())
+     mGraphics->SetScreenScale(scale);
+ }
+ 
+ void IGEditorDelegate::SendControlValueFromDelegate(int ctrlTag, double normalizedValue)
+ {
++  IPLUG_GFX_LOCK;
+   if(!mGraphics)
+     return;
+ 
+@@ -91,6 +130,7 @@ void IGEditorDelegate::SendControlValueFromDelegate(int ctrlTag, double normaliz
+ 
+ void IGEditorDelegate::SendControlMsgFromDelegate(int ctrlTag, int msgTag, int dataSize, const void* pData)
+ {
++  IPLUG_GFX_LOCK;
+   if(!mGraphics)
+     return;
+   
+@@ -106,6 +146,7 @@ void IGEditorDelegate::SendControlMsgFromDelegate(int ctrlTag, int msgTag, int d
+ 
+ void IGEditorDelegate::SendParameterValueFromDelegate(int paramIdx, double value, bool normalized)
+ {
++  IPLUG_GFX_LOCK;
+   if(mGraphics)
+   {
+     if (!normalized)
+@@ -134,6 +175,7 @@ void IGEditorDelegate::SendParameterValueFromDelegate(int paramIdx, double value
+ 
+ void IGEditorDelegate::SendMidiMsgFromDelegate(const IMidiMsg& msg)
+ {
++  IPLUG_GFX_LOCK;
+   if(mGraphics)
+   {
+     for (auto c = 0; c < mGraphics->NControls(); c++) // TODO: could keep a map
+@@ -152,6 +194,7 @@ void IGEditorDelegate::SendMidiMsgFromDelegate(const IMidiMsg& msg)
+ 
+ bool IGEditorDelegate::SerializeEditorSize(IByteChunk& data) const
+ {
++  IPLUG_GFX_LOCK;
+   bool savedOK = true;
+     
+   int width = mGraphics ? mGraphics->Width() : mLastWidth;
+@@ -167,6 +210,7 @@ bool IGEditorDelegate::SerializeEditorSize(IByteChunk& data) const
+ 
+ int IGEditorDelegate::UnserializeEditorSize(const IByteChunk& data, int startPos)
+ {
++  IPLUG_GFX_LOCK;
+   int width = 0;
+   int height = 0;
+   float scale = 0.f;
+@@ -202,8 +246,9 @@ int IGEditorDelegate::UnserializeEditorState(const IByteChunk& chunk, int startP
+ 
+ bool IGEditorDelegate::OnKeyDown(const IKeyPress& key)
+ {
++  IPLUG_GFX_LOCK;
+   IGraphics* pGraphics = GetUI();
+-  
++
+   if (pGraphics)
+   {
+     float x, y;
+@@ -216,6 +261,7 @@ bool IGEditorDelegate::OnKeyDown(const IKeyPress& key)
+ 
+ bool IGEditorDelegate::OnKeyUp(const IKeyPress& key)
+ {
++  IPLUG_GFX_LOCK;
+   IGraphics* pGraphics = GetUI();
+ 
+   if (pGraphics)
+diff --git a/IGraphics/IGraphicsEditorDelegate.h b/IGraphics/IGraphicsEditorDelegate.h
+index 940b5eb05..f3ed9e185 100644
+--- a/IGraphics/IGraphicsEditorDelegate.h
++++ b/IGraphics/IGraphicsEditorDelegate.h
+@@ -11,6 +11,9 @@
+ #pragma once
+ 
+ #include <memory>
++#ifdef OS_LINUX
++#include <mutex>
++#endif
+ 
+ #include "IPlugEditorDelegate.h"
+ 
+@@ -90,15 +93,29 @@ public:
+    * @return The new chunk position (endPos) */
+   int UnserializeEditorSize(const IByteChunk& chunk, int startPos);
+     
++#ifdef OS_LINUX
++  /** Mutex protecting mGraphics access from concurrent threads on Linux.
++   *  The host may call SendParameterValueFromDelegate, CloseWindow, etc.
++   *  from any thread while the timer/draw thread is running. Recursive
++   *  because resize paths re-enter (e.g. OnParentWindowResize calls
++   *  OnBeginHostResize/Resize/OnEndHostResize, and DrawResize may be
++   *  called from within OnDisplayTimer while the lock is held). */
++  std::recursive_mutex& GfxMutex() { return mGfxMutex; }
++#endif
++
+ protected:
+   std::function<IGraphics*()> mMakeGraphicsFunc = nullptr;
+   std::function<void(IGraphics* pGraphics)> mLayoutFunc = nullptr;
++
+ private:
+   std::unique_ptr<IGraphics> mGraphics;
+   int mLastWidth = 0;
+   int mLastHeight = 0;
+   float mLastScale = 0.f;
+   bool mClosing = false; // used to prevent re-entrancy on closing
++#ifdef OS_LINUX
++  mutable std::recursive_mutex mGfxMutex;
++#endif
+ };
+ 
+ END_IGRAPHICS_NAMESPACE
+diff --git a/IGraphics/IGraphicsPrivate.h b/IGraphics/IGraphicsPrivate.h
+index edcf19b00..303ab3f77 100644
+--- a/IGraphics/IGraphicsPrivate.h
++++ b/IGraphics/IGraphicsPrivate.h
+@@ -73,9 +73,12 @@
+ #elif defined OS_WIN
+   #include "wingdi.h"
+   #define FONT_DESCRIPTOR_TYPE HFONT
++#elif defined OS_LINUX
++  // Linux uses a path string to locate fonts (resolved via Fontconfig)
++  #define FONT_DESCRIPTOR_TYPE WDL_String*
+ #elif defined OS_WEB
+   #define FONT_DESCRIPTOR_TYPE std::pair<WDL_String, WDL_String>*
+-#else 
++#else
+   // NO_IGRAPHICS
+ #endif
+ 
+diff --git a/IGraphics/IGraphicsStructs.h b/IGraphics/IGraphicsStructs.h
+index 313421572..58742e4fc 100644
+--- a/IGraphics/IGraphicsStructs.h
++++ b/IGraphics/IGraphicsStructs.h
+@@ -463,7 +463,7 @@ struct IColor
+     };
+ 
+     IColor col;
+-    h = std::fmodf(h, 1.0f);
++    h = std::fmod(h, 1.0f);
+     if (h < 0.0f) h += 1.0f;
+     s = Clip(s, 0.0f, 1.0f);
+     l = Clip(l, 0.0f, 1.0f);
+diff --git a/IGraphics/IGraphics_include_in_plug_hdr.h b/IGraphics/IGraphics_include_in_plug_hdr.h
+index e755dd5a4..4c90e7863 100644
+--- a/IGraphics/IGraphics_include_in_plug_hdr.h
++++ b/IGraphics/IGraphics_include_in_plug_hdr.h
+@@ -42,8 +42,8 @@
+     #elif defined IGRAPHICS_GL3
+       #include <OpenGL/gl3.h>
+     #endif
+-  #else
+-    #include <OpenGL/gl.h>
++  #elif defined OS_LINUX
++    #include <glad/glad.h>
+   #endif
+ #endif
+ 
+diff --git a/IGraphics/IGraphics_include_in_plug_src.h b/IGraphics/IGraphics_include_in_plug_src.h
+index b9c37071b..04cb447b8 100644
+--- a/IGraphics/IGraphics_include_in_plug_src.h
++++ b/IGraphics/IGraphics_include_in_plug_src.h
+@@ -88,6 +88,11 @@
+     RegisterGraphicsInstance(pGraphics);
+     return pGraphics;
+   }
++  #elif defined OS_LINUX
++  IGraphics* MakeGraphics(IGEditorDelegate& dlg, int w, int h, int fps = 0, float scale = 1.)
++  {
++    return new IGraphicsLinux(dlg, w, h, fps, scale);
++  }
+   #else
+     #error "No OS defined!"
+   #endif
+diff --git a/IGraphics/IGraphics_select.h b/IGraphics/IGraphics_select.h
+index 5ac54119d..c5b7f7c12 100644
+--- a/IGraphics/IGraphics_select.h
++++ b/IGraphics/IGraphics_select.h
+@@ -41,8 +41,8 @@
+       #elif defined IGRAPHICS_GL3
+         #include <OpenGL/gl3.h>
+       #endif
+-    #else
+-      #include <OpenGL/gl.h>
++    #elif defined OS_LINUX
++      #include <glad/glad.h>
+     #endif
+   #endif
+ 
+diff --git a/IGraphics/Platforms/IGraphicsLinux.cpp b/IGraphics/Platforms/IGraphicsLinux.cpp
+index 90ca0bff6..3440a7555 100644
+--- a/IGraphics/Platforms/IGraphicsLinux.cpp
++++ b/IGraphics/Platforms/IGraphicsLinux.cpp
+@@ -8,4 +8,1828 @@
+  ==============================================================================
+ */
+ 
+-/\todo
++#include <pthread.h>
++#include <unistd.h>
++#include <sys/time.h>
++#include <mutex>
++#include <cstring>
++#include <cstdlib>
++#include <cstdio>
++#include <dlfcn.h>
++// Fontconfig is loaded via dlopen so the plugin works without it installed.
++// Only the font-by-name lookup (LoadPlatformFont) needs it; embedded fonts work regardless.
++
++// X11 headers first — they define macros (None, Bool, True, False, Status, Complex...)
++// that conflict with C++ identifiers. IGraphicsLinux.h undefines them.
++#include <X11/Xlib.h>
++#include <X11/Xutil.h>
++#include <X11/cursorfont.h>
++#include <X11/Xatom.h>
++#include <X11/keysym.h>
++
++// glad must come before GL/glx.h: glad sets __gl_h_ so that glx.h's own
++// #include <GL/gl.h> is skipped. If glx.h included gl.h first, glad would
++// detect __gl_h_ and throw a compile-time error.
++// Note: IGRAPHICS_GL is defined inside IGraphics_select.h (not yet processed here),
++// so we use the CMake-passed IGRAPHICS_GL2/GL3 defines directly.
++#if defined(IGRAPHICS_GL2) || defined(IGRAPHICS_GL3)
++#include <glad/glad.h>
++// After glad, Bool is still defined (= int from X11/Xlib.h) so GLX
++// function declarations that use Bool compile correctly.
++#include <GL/glx.h>
++#endif
++
++// IGraphicsLinux.h undefs the conflicting X11 macros (None, Bool, etc.) and
++// then includes IGraphics_select.h. The glad and GLX_H guards prevent those
++// headers from being re-included.
++#include "IGraphicsLinux.h"
++#include "IGraphicsStructs.h"
++
++using namespace iplug;
++using namespace igraphics;
++
++// Timer interval in microseconds (60 fps = ~16667 us)
++static constexpr int TIMER_INTERVAL_US = 16667;
++
++// ---- Font helpers -----------------------------------------------------------
++
++/** Loads a TTF font from a file path; GetFontData() reads the bytes on demand. */
++class LinuxFileFont final : public PlatformFont
++{
++public:
++  LinuxFileFont(const char* filePath, bool isSystem)
++  : PlatformFont(isSystem)
++  {
++    mPath.Set(filePath);
++  }
++
++  IFontDataPtr GetFontData() override
++  {
++    IFontDataPtr fontData(new IFontData());
++    FILE* fp = fopen(mPath.Get(), "rb");
++    if (!fp)
++      return fontData;
++
++    fseek(fp, 0, SEEK_END);
++    long fileSize = ftell(fp);
++    if (fileSize <= 0)
++    {
++      fclose(fp);
++      return fontData;
++    }
++    fontData = std::make_unique<IFontData>((int)fileSize);
++
++    if (!fontData->GetSize())
++    {
++      fclose(fp);
++      return fontData;
++    }
++
++    fseek(fp, 0, SEEK_SET);
++    size_t readSize = fread(fontData->Get(), 1, fontData->GetSize(), fp);
++    fclose(fp);
++
++    if (readSize && readSize == (size_t)fontData->GetSize())
++      fontData->SetFaceIdx(0);
++
++    return fontData;
++  }
++
++private:
++  WDL_String mPath;
++};
++
++/** Wraps pre-loaded raw font bytes; takes a copy so the caller can free its buffer. */
++class LinuxMemFont final : public PlatformFont
++{
++public:
++  LinuxMemFont(const void* pData, int dataSize)
++  : PlatformFont(false)
++  {
++    mData.Set((const unsigned char*)pData, dataSize);
++  }
++
++  IFontDataPtr GetFontData() override
++  {
++    return IFontDataPtr(new IFontData(mData.Get(), mData.GetSize(), 0));
++  }
++
++private:
++  WDL_TypedBuf<unsigned char> mData;
++};
++
++// ---- Runtime GTK3 (optional — loaded via dlopen so the plugin works without GTK) ----
++
++struct GdkRGBA { double red, green, blue, alpha; };
++struct GdkRectangle { int x, y, width, height; };
++
++// GdkGravity values for gtk_menu_popup_at_rect anchoring
++static constexpr int kGDK_GRAVITY_NORTH_WEST = 1;
++static constexpr int kGDK_GRAVITY_SOUTH_WEST = 7;
++
++// Opaque GTK/GDK types — only used as void* through the function pointers below.
++struct _GtkWidget;
++
++// GTK response codes (subset we need)
++static constexpr int kGTK_RESPONSE_OK     = -5;
++static constexpr int kGTK_RESPONSE_CANCEL = -6;
++static constexpr int kGTK_RESPONSE_YES    = -8;
++static constexpr int kGTK_RESPONSE_NO     = -9;
++
++// GTK file-chooser action codes
++static constexpr int kGTK_FILE_CHOOSER_ACTION_OPEN          = 0;
++static constexpr int kGTK_FILE_CHOOSER_ACTION_SAVE          = 1;
++static constexpr int kGTK_FILE_CHOOSER_ACTION_SELECT_FOLDER = 2;
++
++// GTK button presets used by message dialogs
++static constexpr int kGTK_BUTTONS_OK        = 1;
++static constexpr int kGTK_BUTTONS_YES_NO    = 4;
++static constexpr int kGTK_BUTTONS_OK_CANCEL = 5;
++
++// GTK message-dialog icon types
++static constexpr int kGTK_MESSAGE_INFO     = 0;
++static constexpr int kGTK_MESSAGE_QUESTION = 3;
++
++struct GTK3
++{
++  void* handle = nullptr;
++
++  // Core
++  using fn_init_check               = int   (*)(int*, char***);
++  using fn_events_pending           = int   (*)();
++  using fn_main_iteration_do        = int   (*)(int);
++  // Dialogs
++  using fn_dialog_run               = int   (*)(void*);
++  using fn_widget_destroy           = void  (*)(void*);
++  using fn_window_set_title         = void  (*)(void*, const char*);
++  // File chooser
++  using fn_file_chooser_dialog_new  = void* (*)(const char*, void*, int,
++                                                const char*, ...);
++  using fn_file_chooser_get_filename        = char* (*)(void*);
++  using fn_file_chooser_set_current_folder  = int   (*)(void*, const char*);
++  using fn_file_chooser_set_current_name    = void  (*)(void*, const char*);
++  using fn_file_filter_new          = void* (*)();
++  using fn_file_filter_set_name     = void  (*)(void*, const char*);
++  using fn_file_filter_add_pattern  = void  (*)(void*, const char*);
++  using fn_file_chooser_add_filter  = void  (*)(void*, void*);
++  // Color chooser
++  using fn_color_chooser_dialog_new = void* (*)(const char*, void*);
++  using fn_color_chooser_get_rgba   = void  (*)(void*, GdkRGBA*);
++  using fn_color_chooser_set_rgba   = void  (*)(void*, const GdkRGBA*);
++  // Message dialog
++  using fn_message_dialog_new       = void* (*)(void*, int, int, int,
++                                                const char*, ...);
++  // Popup menu
++  using fn_menu_new                 = void* (*)();
++  using fn_menu_item_new_with_label = void* (*)(const char*);
++  using fn_check_menu_item_new_with_label = void* (*)(const char*);
++  using fn_separator_menu_item_new  = void* (*)();
++  using fn_menu_shell_append        = void  (*)(void*, void*);
++  using fn_menu_item_set_submenu    = void  (*)(void*, void*);
++  using fn_check_menu_item_set_active = void (*)(void*, int);
++  using fn_widget_set_sensitive     = void  (*)(void*, int);
++  using fn_widget_show_all          = void  (*)(void*);
++  using fn_menu_popup_at_pointer    = void  (*)(void*, void*);
++  // gtk_menu_popup_at_rect: positions menu relative to a GdkWindow rectangle.
++  // args: menu, rect_window, rect(GdkRectangle*), rect_anchor, menu_anchor, trigger_event
++  using fn_menu_popup_at_rect       = void  (*)(void*, void*, const void*,
++                                                int, int, void*);
++  using fn_main                     = void  (*)();
++  using fn_main_quit                = void  (*)();
++  // g_signal_connect is a macro over g_signal_connect_data in GObject
++  using fn_signal_connect_data      = unsigned long (*)(void*, const char*,
++                                                        void*, void*,
++                                                        void*, int);
++  // Window management (for dialog parenting)
++  using fn_window_set_modal         = void  (*)(void*, int);
++  using fn_window_present           = void  (*)(void*);
++  // GDK helpers for popup menu positioning
++  using fn_gdk_display_get_default  = void* (*)();
++  using fn_gdk_x11_window_foreign   = void* (*)(void*, unsigned long);
++  using fn_g_object_unref           = void  (*)(void*);
++  // Entry dialog
++  using fn_entry_new                = void* (*)();
++  using fn_entry_set_text           = void  (*)(void*, const char*);
++  using fn_entry_get_text           = const char* (*)(void*);
++  using fn_entry_set_max_length     = void  (*)(void*, int);
++  using fn_dialog_new_with_buttons  = void* (*)(const char*, void*, int,
++                                                const char*, ...);
++  using fn_dialog_get_content_area  = void* (*)(void*);
++  using fn_dialog_response          = void  (*)(void*, int);
++  using fn_box_pack_start           = void  (*)(void*, void*, int, int, unsigned);
++
++  fn_init_check               init_check               = nullptr;
++  fn_events_pending           events_pending           = nullptr;
++  fn_main_iteration_do        main_iteration_do        = nullptr;
++  fn_dialog_run               dialog_run               = nullptr;
++  fn_widget_destroy           widget_destroy           = nullptr;
++  fn_window_set_title         window_set_title         = nullptr;
++  fn_file_chooser_dialog_new  file_chooser_dialog_new  = nullptr;
++  fn_file_chooser_get_filename       file_chooser_get_filename       = nullptr;
++  fn_file_chooser_set_current_folder file_chooser_set_current_folder = nullptr;
++  fn_file_chooser_set_current_name   file_chooser_set_current_name   = nullptr;
++  fn_file_filter_new          file_filter_new          = nullptr;
++  fn_file_filter_set_name     file_filter_set_name     = nullptr;
++  fn_file_filter_add_pattern  file_filter_add_pattern  = nullptr;
++  fn_file_chooser_add_filter  file_chooser_add_filter  = nullptr;
++  fn_color_chooser_dialog_new color_chooser_dialog_new = nullptr;
++  fn_color_chooser_get_rgba   color_chooser_get_rgba   = nullptr;
++  fn_color_chooser_set_rgba   color_chooser_set_rgba   = nullptr;
++  fn_message_dialog_new       message_dialog_new       = nullptr;
++  fn_menu_new                 menu_new                 = nullptr;
++  fn_menu_item_new_with_label menu_item_new_with_label = nullptr;
++  fn_check_menu_item_new_with_label check_menu_item_new_with_label = nullptr;
++  fn_separator_menu_item_new  separator_menu_item_new  = nullptr;
++  fn_menu_shell_append        menu_shell_append        = nullptr;
++  fn_menu_item_set_submenu    menu_item_set_submenu    = nullptr;
++  fn_check_menu_item_set_active check_menu_item_set_active = nullptr;
++  fn_widget_set_sensitive     widget_set_sensitive     = nullptr;
++  fn_widget_show_all          widget_show_all          = nullptr;
++  fn_menu_popup_at_pointer    menu_popup_at_pointer    = nullptr;
++  fn_menu_popup_at_rect       menu_popup_at_rect       = nullptr;
++  fn_main                     main                     = nullptr;
++  fn_main_quit                main_quit                = nullptr;
++  fn_signal_connect_data      signal_connect_data      = nullptr;
++  fn_entry_new                entry_new                = nullptr;
++  fn_entry_set_text           entry_set_text           = nullptr;
++  fn_entry_get_text           entry_get_text           = nullptr;
++  fn_entry_set_max_length     entry_set_max_length     = nullptr;
++  fn_window_set_modal         window_set_modal         = nullptr;
++  fn_window_present           window_present           = nullptr;
++  fn_gdk_display_get_default  gdk_display_get_default  = nullptr;
++  fn_gdk_x11_window_foreign   gdk_x11_window_foreign   = nullptr;
++  fn_g_object_unref           g_object_unref           = nullptr;
++  fn_dialog_new_with_buttons  dialog_new_with_buttons  = nullptr;
++  fn_dialog_get_content_area  dialog_get_content_area  = nullptr;
++  fn_dialog_response          dialog_response          = nullptr;
++  fn_box_pack_start           box_pack_start           = nullptr;
++};
++
++#define LOAD_GTK_SYM(g, name) \
++  g.name = (GTK3::fn_##name)dlsym(g.handle, "gtk_" #name)
++
++static GTK3* LoadGTK3()
++{
++  static GTK3 gtk;
++  static bool sTried = false;
++  if (sTried)
++    return gtk.handle ? &gtk : nullptr;
++  sTried = true;
++
++  // RTLD_LOCAL keeps GTK's symbols out of the host's global namespace; all
++  // GTK calls go through the explicit function-pointer table below.
++  gtk.handle = dlopen("libgtk-3.so.0", RTLD_NOW | RTLD_LOCAL);
++  if (!gtk.handle)
++    return nullptr;
++
++  LOAD_GTK_SYM(gtk, init_check);
++  LOAD_GTK_SYM(gtk, events_pending);
++  LOAD_GTK_SYM(gtk, main_iteration_do);
++  LOAD_GTK_SYM(gtk, dialog_run);
++  LOAD_GTK_SYM(gtk, widget_destroy);
++  LOAD_GTK_SYM(gtk, window_set_title);
++  LOAD_GTK_SYM(gtk, file_chooser_dialog_new);
++  LOAD_GTK_SYM(gtk, file_chooser_get_filename);
++  LOAD_GTK_SYM(gtk, file_chooser_set_current_folder);
++  LOAD_GTK_SYM(gtk, file_chooser_set_current_name);
++  LOAD_GTK_SYM(gtk, file_filter_new);
++  LOAD_GTK_SYM(gtk, file_filter_set_name);
++  LOAD_GTK_SYM(gtk, file_filter_add_pattern);
++  LOAD_GTK_SYM(gtk, file_chooser_add_filter);
++  LOAD_GTK_SYM(gtk, color_chooser_dialog_new);
++  LOAD_GTK_SYM(gtk, color_chooser_get_rgba);
++  LOAD_GTK_SYM(gtk, color_chooser_set_rgba);
++  LOAD_GTK_SYM(gtk, message_dialog_new);
++  LOAD_GTK_SYM(gtk, menu_new);
++  LOAD_GTK_SYM(gtk, menu_item_new_with_label);
++  LOAD_GTK_SYM(gtk, check_menu_item_new_with_label);
++  LOAD_GTK_SYM(gtk, separator_menu_item_new);
++  LOAD_GTK_SYM(gtk, menu_shell_append);
++  LOAD_GTK_SYM(gtk, menu_item_set_submenu);
++  LOAD_GTK_SYM(gtk, check_menu_item_set_active);
++  LOAD_GTK_SYM(gtk, widget_set_sensitive);
++  LOAD_GTK_SYM(gtk, widget_show_all);
++  LOAD_GTK_SYM(gtk, menu_popup_at_pointer);
++  LOAD_GTK_SYM(gtk, menu_popup_at_rect);
++  LOAD_GTK_SYM(gtk, main);
++  LOAD_GTK_SYM(gtk, main_quit);
++  // g_signal_connect_data is in libgobject, but GTK re-exports it
++  gtk.signal_connect_data = (GTK3::fn_signal_connect_data)dlsym(gtk.handle, "g_signal_connect_data");
++  LOAD_GTK_SYM(gtk, entry_new);
++  LOAD_GTK_SYM(gtk, entry_set_text);
++  LOAD_GTK_SYM(gtk, entry_get_text);
++  LOAD_GTK_SYM(gtk, entry_set_max_length);
++  LOAD_GTK_SYM(gtk, window_set_modal);
++  LOAD_GTK_SYM(gtk, window_present);
++  // GDK/GLib symbols (not gtk_ prefixed — load directly)
++  gtk.gdk_display_get_default = (GTK3::fn_gdk_display_get_default)
++    dlsym(gtk.handle, "gdk_display_get_default");
++  gtk.gdk_x11_window_foreign = (GTK3::fn_gdk_x11_window_foreign)
++    dlsym(gtk.handle, "gdk_x11_window_foreign_new_for_display");
++  gtk.g_object_unref = (GTK3::fn_g_object_unref)
++    dlsym(gtk.handle, "g_object_unref");
++  LOAD_GTK_SYM(gtk, dialog_new_with_buttons);
++  LOAD_GTK_SYM(gtk, dialog_get_content_area);
++  LOAD_GTK_SYM(gtk, dialog_response);
++  LOAD_GTK_SYM(gtk, box_pack_start);
++
++  if (!gtk.init_check || !gtk.dialog_run || !gtk.widget_destroy ||
++      !gtk.file_chooser_dialog_new || !gtk.file_chooser_get_filename)
++  {
++    dlclose(gtk.handle);
++    gtk.handle = nullptr;
++    return nullptr;
++  }
++
++  if (!gtk.init_check(nullptr, nullptr))
++  {
++    dlclose(gtk.handle);
++    gtk.handle = nullptr;
++    return nullptr;
++  }
++  return &gtk;
++}
++
++static void GtkDrainEvents(GTK3* g)
++{
++  if (g->events_pending && g->main_iteration_do)
++    while (g->events_pending())
++      g->main_iteration_do(0 /* non-blocking */);
++}
++
++// Present a GTK dialog as modal so the WM grants it focus and input grabs.
++// Without this, file-chooser dropdowns and color-picker sub-dialogs fail
++// on compositing WMs (Mutter, KWin) because GTK can't acquire a GDK grab.
++static void GtkPresentDialog(GTK3* g, void* dialog)
++{
++  if (g->window_set_modal)
++    g->window_set_modal(dialog, 1);
++  if (g->window_present)
++    g->window_present(dialog);
++}
++
++// ---- Runtime fontconfig (optional — loaded via dlopen so plugins work without it) ----
++
++// Fontconfig opaque types — only used through function pointers below.
++struct _FcPattern;
++struct _FcConfig;
++
++// Fontconfig constants we need (match the enum values from fontconfig.h)
++static constexpr int kFC_WEIGHT_REGULAR = 80;
++static constexpr int kFC_WEIGHT_BOLD    = 200;
++static constexpr int kFC_SLANT_ROMAN    = 0;
++static constexpr int kFC_SLANT_ITALIC   = 100;
++static constexpr int kFC_MatchPattern   = 0;   // FcMatchKind
++static constexpr int kFC_ResultMatch    = 0;   // FcResult
++
++struct Fontconfig
++{
++  void* handle = nullptr;
++
++  using fn_PatternCreate     = _FcPattern* (*)();
++  using fn_PatternAddString  = int (*)(_FcPattern*, const char*, const unsigned char*);
++  using fn_PatternAddInteger = int (*)(_FcPattern*, const char*, int);
++  using fn_ConfigSubstitute  = int (*)(_FcConfig*, _FcPattern*, int);
++  using fn_DefaultSubstitute = void (*)(_FcPattern*);
++  using fn_FontMatch         = _FcPattern* (*)(_FcConfig*, _FcPattern*, int*);
++  using fn_PatternDestroy    = void (*)(_FcPattern*);
++  using fn_PatternGetString  = int (*)(_FcPattern*, const char*, int, unsigned char**);
++
++  fn_PatternCreate     PatternCreate     = nullptr;
++  fn_PatternAddString  PatternAddString  = nullptr;
++  fn_PatternAddInteger PatternAddInteger = nullptr;
++  fn_ConfigSubstitute  ConfigSubstitute  = nullptr;
++  fn_DefaultSubstitute DefaultSubstitute = nullptr;
++  fn_FontMatch         FontMatch         = nullptr;
++  fn_PatternDestroy    PatternDestroy    = nullptr;
++  fn_PatternGetString  PatternGetString  = nullptr;
++};
++
++#define LOAD_FC_SYM(fc, name) \
++  fc.name = (Fontconfig::fn_##name)dlsym(fc.handle, "Fc" #name)
++
++static Fontconfig* LoadFontconfig()
++{
++  static Fontconfig fc;
++
++  if (fc.handle || fc.PatternCreate)
++    return fc.handle ? &fc : nullptr;
++
++  fc.handle = dlopen("libfontconfig.so.1", RTLD_NOW);
++  if (!fc.handle)
++    return nullptr;
++
++  LOAD_FC_SYM(fc, PatternCreate);
++  LOAD_FC_SYM(fc, PatternAddString);
++  LOAD_FC_SYM(fc, PatternAddInteger);
++  LOAD_FC_SYM(fc, ConfigSubstitute);
++  LOAD_FC_SYM(fc, DefaultSubstitute);
++  LOAD_FC_SYM(fc, FontMatch);
++  LOAD_FC_SYM(fc, PatternDestroy);
++  LOAD_FC_SYM(fc, PatternGetString);
++
++  if (!fc.PatternCreate || !fc.FontMatch || !fc.PatternGetString)
++  {
++    dlclose(fc.handle);
++    fc.handle = nullptr;
++    return nullptr;
++  }
++
++  return &fc;
++}
++
++IGraphicsLinux::IGraphicsLinux(IGEditorDelegate& dlg, int w, int h, int fps, float scale)
++: IGRAPHICS_DRAW_CLASS(dlg, w, h, fps, scale)
++{
++  // Required before any Xlib calls from multiple threads
++  XInitThreads();
++}
++
++IGraphicsLinux::~IGraphicsLinux()
++{
++  CloseWindow();
++}
++
++static int sIgnoreX11Error(Display*, XErrorEvent*) { return 0; }
++
++void* IGraphicsLinux::OpenWindow(void* pParent)
++{
++  mDisplay = XOpenDisplay(nullptr);
++  if (!mDisplay)
++    return nullptr;
++
++  int screen = DefaultScreen(mDisplay);
++  Window root = RootWindow(mDisplay, screen);
++
++  // Validate pParent is an actual X11 Window, not a SWELL generic HWND pointer.
++  // In standalone mode the APP host passes gHWND, which is a heap pointer —
++  // XGetWindowAttributes will fail for it and we fall back to root.
++  mParentWnd = root;
++  if (pParent)
++  {
++    XErrorHandler prev = XSetErrorHandler(sIgnoreX11Error);
++    XWindowAttributes wa = {};
++    int ok = XGetWindowAttributes(mDisplay, (Window)(uintptr_t)pParent, &wa);
++    XSync(mDisplay, 0 /* discard=False */);
++    XSetErrorHandler(prev);
++    if (ok)
++      mParentWnd = (Window)(uintptr_t)pParent;
++  }
++
++  // Detect HiDPI scale factor. The standalone APP sets IPLUG2_SCREEN_SCALE after
++  // querying gdk_window_get_scale_factor(). Plugin hosts may set GDK_SCALE.
++  // Note: on Xwayland the X11 coordinate space uses physical pixels, not logical
++  // pixels, so XDisplayWidth returns the logical (scaled-down) extent. Do NOT
++  // compare physW against XDisplayWidth — it will always exceed the logical extent
++  // on HiDPI displays. Trust gdk_window_get_scale_factor instead.
++  {
++    int gdkScale = 1;
++    const char* s = getenv("IPLUG2_SCREEN_SCALE");
++    if (!s) s = getenv("GDK_SCALE");
++    if (s) gdkScale = std::clamp(atoi(s), 1, 8);
++    if (gdkScale > 1)
++      SetScreenScale(static_cast<float>(gdkScale));
++    // SetScreenScale is safe here: mPlugWnd==0 so PlatformResize skips,
++    // and mVG==nullptr so DrawResize skips.
++  }
++
++  // In standalone mode the parent window is SWELL's GDK window which includes
++  // the non-client area (menu bar). IPlugAPP_host exports the menu bar height
++  // so we can offset the plugin window below it. Querying XGetWindowAttributes
++  // on a separate Display connection returns stale geometry, so we use the env
++  // var set by the host instead.
++  int clientOffY = 0;
++  {
++    const char* menuOff = getenv("IPLUG2_MENU_OFFSET");
++    if (menuOff)
++      clientOffY = std::clamp(atoi(menuOff), 0, 100);
++  }
++
++#ifdef IGRAPHICS_GL
++  XVisualInfo* vi = CreateGLContext();
++  if (!mGLContext)
++  {
++    XCloseDisplay(mDisplay);
++    mDisplay = nullptr;
++    return nullptr;
++  }
++  // Create a colormap compatible with the GL visual so the window and context
++  // share the same visual — required for glXMakeCurrent to succeed.
++  mGLColormap = XCreateColormap(mDisplay, root, vi->visual, AllocNone);
++
++  XSetWindowAttributes attrs = {};
++  attrs.event_mask = ExposureMask | StructureNotifyMask | ButtonPressMask |
++                     ButtonReleaseMask | PointerMotionMask | KeyPressMask |
++                     KeyReleaseMask | EnterWindowMask | LeaveWindowMask |
++                     FocusChangeMask | PropertyChangeMask;
++  attrs.colormap = mGLColormap;
++
++  // X11 window must be in physical pixels (WindowWidth/Height are logical).
++  const auto physW = (unsigned)(WindowWidth()  * GetScreenScale());
++  const auto physH = (unsigned)(WindowHeight() * GetScreenScale());
++
++  mPlugWnd = XCreateWindow(
++    mDisplay, mParentWnd,
++    0, clientOffY, physW, physH,
++    0, vi->depth, InputOutput, vi->visual,
++    CWColormap | CWEventMask, &attrs
++  );
++  mLastPhysW = physW;
++  mLastPhysH = physH;
++  XFree(vi);
++#else
++  XSetWindowAttributes attrs = {};
++  attrs.event_mask = ExposureMask | StructureNotifyMask | ButtonPressMask |
++                     ButtonReleaseMask | PointerMotionMask | KeyPressMask |
++                     KeyReleaseMask | EnterWindowMask | LeaveWindowMask |
++                     FocusChangeMask | PropertyChangeMask;
++  attrs.background_pixel = BlackPixel(mDisplay, screen);
++
++  const auto physW = (unsigned)(WindowWidth()  * GetScreenScale());
++  const auto physH = (unsigned)(WindowHeight() * GetScreenScale());
++
++  mPlugWnd = XCreateWindow(
++    mDisplay, mParentWnd,
++    0, clientOffY, physW, physH,
++    0, CopyFromParent, InputOutput, CopyFromParent,
++    CWEventMask | CWBackPixel, &attrs
++  );
++  mLastPhysW = physW;
++  mLastPhysH = physH;
++#endif
++
++  if (!mPlugWnd)
++  {
++#ifdef IGRAPHICS_GL
++    DestroyGLContext();
++    if (mGLColormap)
++    {
++      XFreeColormap(mDisplay, mGLColormap);
++      mGLColormap = 0;
++    }
++#endif
++    XCloseDisplay(mDisplay);
++    mDisplay = nullptr;
++    return nullptr;
++  }
++
++  mWMDeleteMessage  = XInternAtom(mDisplay, "WM_DELETE_WINDOW",  0 /* False */);
++  mClipboardAtom    = XInternAtom(mDisplay, "CLIPBOARD",         0 /* False */);
++  mUTF8StringAtom   = XInternAtom(mDisplay, "UTF8_STRING",       0 /* False */);
++  mTargetsAtom      = XInternAtom(mDisplay, "TARGETS",           0 /* False */);
++  mSelDataAtom      = XInternAtom(mDisplay, "IPLUG2_SEL_DATA",   0 /* False */);
++
++  // WM protocols and size hints are only appropriate for top-level windows.
++  // When embedded in a host parent, setting them causes the window manager to
++  // adopt and reparent the plugin window, making it appear as a second window.
++  bool isTopLevel = (mParentWnd == (Window)XRootWindow(mDisplay, DefaultScreen(mDisplay)));
++  if (isTopLevel)
++  {
++    XSetWMProtocols(mDisplay, mPlugWnd, &mWMDeleteMessage, 1);
++
++    // Tell the WM the fixed (or resizable) size range so it doesn't arbitrarily
++    // resize the plugin window to the screen dimensions on first map.
++    XSizeHints hints = {};
++    hints.flags  = PSize | PMinSize;
++    hints.width  = WindowWidth();
++    hints.height = WindowHeight();
++    hints.min_width  = WindowWidth();
++    hints.min_height = WindowHeight();
++    XSetWMNormalHints(mDisplay, mPlugWnd, &hints);
++  }
++
++  XMapWindow(mDisplay, mPlugWnd);
++  XFlush(mDisplay);
++
++#ifdef IGRAPHICS_GL
++  if (!glXMakeCurrent(mDisplay, mPlugWnd, (GLXContext)mGLContext))
++  {
++    DestroyGLContext();
++    if (mGLColormap) { XFreeColormap(mDisplay, mGLColormap); mGLColormap = 0; }
++    XDestroyWindow(mDisplay, mPlugWnd); mPlugWnd = 0;
++    XCloseDisplay(mDisplay); mDisplay = nullptr;
++    return nullptr;
++  }
++  gladLoadGL();
++  // Keep GL context current through OnViewInitialized, LayoutUI, and DrawResize —
++  // NanoVG context creation, font loading, and FBO initialisation all need active GL.
++  OnViewInitialized(nullptr);
++  GetDelegate()->LayoutUI(this);
++  SetAllControlsDirty();
++  DrawResize();
++  glXMakeCurrent(mDisplay, 0, nullptr);
++#else
++  OnViewInitialized(nullptr);
++  GetDelegate()->LayoutUI(this);
++  SetAllControlsDirty();
++  DrawResize();
++#endif
++
++  GetDelegate()->OnUIOpen();
++
++  // Mark dirty so the first timer tick renders immediately, even if no
++  // Expose event arrives before the initial frame.
++  mNeedsRedraw = true;
++  StartTimer();
++
++  return (void*)(uintptr_t)mPlugWnd;
++}
++
++void IGraphicsLinux::CloseWindow()
++{
++  if (!mDisplay)
++    return;
++
++  StopTimer();
++  OnViewDestroyed();
++
++#ifdef IGRAPHICS_GL
++  DestroyGLContext();
++#endif
++
++  if (mBlankCursor)
++  {
++    XFreeCursor(mDisplay, mBlankCursor);
++    mBlankCursor = 0;
++  }
++
++  if (mPlugWnd)
++  {
++    XDestroyWindow(mDisplay, mPlugWnd);
++    mPlugWnd = 0;
++  }
++
++#ifdef IGRAPHICS_GL
++  if (mGLColormap)
++  {
++    XFreeColormap(mDisplay, mGLColormap);
++    mGLColormap = 0;
++  }
++#endif
++
++  XCloseDisplay(mDisplay);
++  mDisplay = nullptr;
++}
++
++void IGraphicsLinux::PlatformResize(bool parentHasResized)
++{
++  // When handling a ConfigureNotify or host-driven resize, the X server (or
++  // host) already sized our window. Calling XResizeWindow here would create an
++  // oscillation or fight the host's window manager.
++  if (mInConfigureNotify || mInHostResize || mHostDidResize)
++  {
++    mHostDidResize = false;
++    return;
++  }
++
++  if (mDisplay && mPlugWnd)
++  {
++    // X11 window must be in physical pixels (WindowWidth/Height are logical).
++    auto w = (unsigned)(WindowWidth()  * GetScreenScale());
++    auto h = (unsigned)(WindowHeight() * GetScreenScale());
++    XResizeWindow(mDisplay, mPlugWnd, w, h);
++    mLastPhysW = w;
++    mLastPhysH = h;
++  }
++}
++
++void IGraphicsLinux::DrawResize()
++{
++  std::lock_guard<std::recursive_mutex> lock(GetDelegate()->GfxMutex());
++  IGRAPHICS_DRAW_CLASS::DrawResize();
++}
++
++void IGraphicsLinux::OnBeginHostResize(int physW, int physH)
++{
++  mInHostResize = true;
++  mHostPhysW = static_cast<unsigned>(physW);
++  mHostPhysH = static_cast<unsigned>(physH);
++}
++
++void IGraphicsLinux::OnEndHostResize()
++{
++  // Resize our X11 window to match the host's requested size exactly.
++  // In Scale mode, WindowWidth()/WindowHeight() may differ from the
++  // host's size due to aspect ratio correction (max(scaleX, scaleY)),
++  // so use the stored host size to avoid oscillation.
++  if (mDisplay && mPlugWnd && mHostPhysW && mHostPhysH)
++  {
++    XResizeWindow(mDisplay, mPlugWnd, mHostPhysW, mHostPhysH);
++    mLastPhysW = mHostPhysW;
++    mLastPhysH = mHostPhysH;
++  }
++
++  mInHostResize = false;
++  mHostDidResize = true;
++}
++
++void IGraphicsLinux::ForceEndUserEdit()
++{
++}
++
++void IGraphicsLinux::HideMouseCursor(bool hide, bool lock)
++{
++  if (!mDisplay || !mPlugWnd)
++    return;
++
++  if (hide)
++  {
++    if (!mBlankCursor)
++    {
++      static const char emptyData[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
++      XColor black = {};
++      Pixmap emptyBitmap = XCreateBitmapFromData(mDisplay, mPlugWnd, emptyData, 8, 8);
++      mBlankCursor = XCreatePixmapCursor(mDisplay, emptyBitmap, emptyBitmap, &black, &black, 0, 0);
++      XFreePixmap(mDisplay, emptyBitmap);
++    }
++    XDefineCursor(mDisplay, mPlugWnd, mBlankCursor);
++    mCursorHidden = true;
++    mCursorLock = lock;
++    if (lock)
++    {
++      mHiddenCursorX = mCursorX;
++      mHiddenCursorY = mCursorY;
++    }
++  }
++  else
++  {
++    XUndefineCursor(mDisplay, mPlugWnd);
++    if (mCursorLock)
++      MoveMouseCursor(mHiddenCursorX, mHiddenCursorY);
++    mCursorHidden = false;
++    mCursorLock = false;
++  }
++}
++
++void IGraphicsLinux::MoveMouseCursor(float x, float y)
++{
++  if (mDisplay && mPlugWnd)
++  {
++    const float scale = GetTotalScale();
++    XWarpPointer(mDisplay, 0 /* None */, mPlugWnd,
++                 0, 0, 0, 0,
++                 (int)(x * scale), (int)(y * scale));
++  }
++}
++
++ECursor IGraphicsLinux::SetMouseCursor(ECursor cursorType)
++{
++  if (!mDisplay || !mPlugWnd)
++    return cursorType;
++
++  unsigned int shape = XC_left_ptr;
++  switch (cursorType)
++  {
++    case ECursor::ARROW:       shape = XC_left_ptr;      break;
++    case ECursor::IBEAM:       shape = XC_xterm;         break;
++    case ECursor::WAIT:        shape = XC_watch;         break;
++    case ECursor::CROSS:       shape = XC_crosshair;     break;
++    case ECursor::UPARROW:     shape = XC_sb_up_arrow;   break;
++    case ECursor::SIZENWSE:    shape = XC_sizing;        break;
++    case ECursor::SIZENESW:    shape = XC_sizing;        break;
++    case ECursor::SIZEWE:      shape = XC_sb_h_double_arrow; break;
++    case ECursor::SIZENS:      shape = XC_sb_v_double_arrow; break;
++    case ECursor::SIZEALL:     shape = XC_fleur;         break;
++    case ECursor::INO:         shape = XC_X_cursor;      break;
++    case ECursor::HAND:        shape = XC_hand2;         break;
++    case ECursor::APPSTARTING: shape = XC_watch;         break;
++    case ECursor::HELP:        shape = XC_question_arrow; break;
++    default:                   shape = XC_left_ptr;      break;
++  }
++
++  Cursor cursor = XCreateFontCursor(mDisplay, shape);
++  XDefineCursor(mDisplay, mPlugWnd, cursor);
++  XFreeCursor(mDisplay, cursor);
++  return cursorType;
++}
++
++void IGraphicsLinux::GetMouseLocation(float& x, float& y) const
++{
++  if (!mDisplay || !mPlugWnd)
++  {
++    x = y = 0.f;
++    return;
++  }
++
++  Window root, child;
++  int rootX, rootY, winX, winY;
++  unsigned int mask;
++  XQueryPointer(mDisplay, mPlugWnd, &root, &child, &rootX, &rootY, &winX, &winY, &mask);
++  x = (float)winX;
++  y = (float)winY;
++}
++
++EMsgBoxResult IGraphicsLinux::ShowMessageBox(const char* str, const char* title,
++                                             EMsgBoxType type,
++                                             IMsgBoxCompletionHandlerFunc completionHandler)
++{
++  GTK3* g = LoadGTK3();
++  if (!g || !g->message_dialog_new)
++  {
++    if (completionHandler)
++      completionHandler(EMsgBoxResult::kOK);
++    return EMsgBoxResult::kOK;
++  }
++
++  int gtkMsgType  = kGTK_MESSAGE_INFO;
++  int gtkBtnType  = kGTK_BUTTONS_OK;
++  switch (type)
++  {
++    case kMB_OKCANCEL:    gtkMsgType = kGTK_MESSAGE_QUESTION; gtkBtnType = kGTK_BUTTONS_OK_CANCEL; break;
++    case kMB_YESNO:       gtkMsgType = kGTK_MESSAGE_QUESTION; gtkBtnType = kGTK_BUTTONS_YES_NO;    break;
++    case kMB_YESNOCANCEL: gtkMsgType = kGTK_MESSAGE_QUESTION; gtkBtnType = kGTK_BUTTONS_OK_CANCEL; break;
++    default:              break;
++  }
++
++  void* dialog = g->message_dialog_new(nullptr, 0, gtkMsgType, gtkBtnType, "%s", str);
++  if (title && g->window_set_title)
++    g->window_set_title(dialog, title);
++  GtkPresentDialog(g, dialog);
++
++  int resp = g->dialog_run(dialog);
++  g->widget_destroy(dialog);
++  GtkDrainEvents(g);
++
++  EMsgBoxResult result = kOK;
++  switch (resp)
++  {
++    case kGTK_RESPONSE_OK:     result = kOK;     break;
++    case kGTK_RESPONSE_YES:    result = kYES;    break;
++    case kGTK_RESPONSE_NO:     result = kNO;     break;
++    case kGTK_RESPONSE_CANCEL: result = kCANCEL; break;
++    default:                   result = kCANCEL; break;
++  }
++
++  if (completionHandler)
++    completionHandler(result);
++  return result;
++}
++
++bool IGraphicsLinux::RevealPathInExplorerOrFinder(WDL_String& path, bool select)
++{
++  // Open parent directory with xdg-open
++  WDL_String dir(path);
++  if (select)
++  {
++    char* lastSlash = strrchr(dir.Get(), '/');
++    if (lastSlash)
++      *lastSlash = '\0';
++  }
++
++  pid_t pid = fork();
++  if (pid == 0)
++  {
++    execlp("xdg-open", "xdg-open", dir.Get(), nullptr);
++    _exit(127);
++  }
++  return pid > 0;
++}
++
++void IGraphicsLinux::PromptForFile(WDL_String& fileName, WDL_String& path,
++                                   EFileAction action, const char* ext,
++                                   IFileDialogCompletionHandlerFunc completionHandler)
++{
++  GTK3* g = LoadGTK3();
++  if (!g)
++  {
++    if (completionHandler)
++      completionHandler(WDL_String{}, WDL_String{});
++    return;
++  }
++
++  const bool isSave = (action == EFileAction::Save);
++  const int  gtkAction  = isSave ? kGTK_FILE_CHOOSER_ACTION_SAVE : kGTK_FILE_CHOOSER_ACTION_OPEN;
++  const char* acceptBtn = isSave ? "_Save" : "_Open";
++
++  void* dialog = g->file_chooser_dialog_new(
++    isSave ? "Save File" : "Open File", nullptr, gtkAction,
++    "_Cancel", kGTK_RESPONSE_CANCEL,
++    acceptBtn,  kGTK_RESPONSE_OK,
++    nullptr
++  );
++
++  // Add extension filter
++  if (ext && ext[0] && g->file_filter_new)
++  {
++    void* filter = g->file_filter_new();
++    WDL_String pat("*.");
++    pat.Append(ext);
++    if (g->file_filter_set_name)  g->file_filter_set_name(filter, ext);
++    if (g->file_filter_add_pattern) g->file_filter_add_pattern(filter, pat.Get());
++    if (g->file_chooser_add_filter) g->file_chooser_add_filter(dialog, filter);
++
++    void* all = g->file_filter_new();
++    if (g->file_filter_set_name)    g->file_filter_set_name(all, "All Files");
++    if (g->file_filter_add_pattern) g->file_filter_add_pattern(all, "*");
++    if (g->file_chooser_add_filter) g->file_chooser_add_filter(dialog, all);
++  }
++
++  // Set initial directory
++  if (path.GetLength() && g->file_chooser_set_current_folder)
++    g->file_chooser_set_current_folder(dialog, path.Get());
++
++  // For save dialogs, suggest filename
++  if (isSave && fileName.GetLength() && g->file_chooser_set_current_name)
++    g->file_chooser_set_current_name(dialog, fileName.Get());
++  GtkPresentDialog(g, dialog);
++
++  WDL_String outFile, outPath;
++  if (g->dialog_run(dialog) == kGTK_RESPONSE_OK)
++  {
++    char* chosen = g->file_chooser_get_filename(dialog);
++    if (chosen)
++    {
++      outFile.Set(chosen);
++      const char* slash = strrchr(chosen, '/');
++      if (slash)
++        outPath.Set(chosen, (int)(slash - chosen + 1));
++      free(chosen);
++    }
++  }
++
++  g->widget_destroy(dialog);
++  GtkDrainEvents(g);
++
++  if (completionHandler)
++    completionHandler(outFile, outPath);
++}
++
++void IGraphicsLinux::PromptForDirectory(WDL_String& dir,
++                                        IFileDialogCompletionHandlerFunc completionHandler)
++{
++  GTK3* g = LoadGTK3();
++  if (!g)
++  {
++    if (completionHandler)
++      completionHandler(WDL_String{}, WDL_String{});
++    return;
++  }
++
++  void* dialog = g->file_chooser_dialog_new(
++    "Select Folder", nullptr, kGTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
++    "_Cancel", kGTK_RESPONSE_CANCEL,
++    "_Select", kGTK_RESPONSE_OK,
++    nullptr
++  );
++
++  if (dir.GetLength() && g->file_chooser_set_current_folder)
++    g->file_chooser_set_current_folder(dialog, dir.Get());
++  GtkPresentDialog(g, dialog);
++
++  WDL_String outDir;
++  if (g->dialog_run(dialog) == kGTK_RESPONSE_OK)
++  {
++    char* chosen = g->file_chooser_get_filename(dialog);
++    if (chosen)
++    {
++      outDir.Set(chosen);
++      free(chosen);
++    }
++  }
++
++  g->widget_destroy(dialog);
++  GtkDrainEvents(g);
++
++  if (completionHandler)
++    completionHandler(outDir, WDL_String{});
++}
++
++bool IGraphicsLinux::PromptForColor(IColor& color, const char* str,
++                                    IColorPickerHandlerFunc func)
++{
++  GTK3* g = LoadGTK3();
++  if (!g || !g->color_chooser_dialog_new)
++    return false;
++
++  void* dialog = g->color_chooser_dialog_new(str ? str : "Choose Color", nullptr);
++
++  if (g->color_chooser_set_rgba)
++  {
++    GdkRGBA rgba = { color.R / 255.0, color.G / 255.0,
++                     color.B / 255.0, color.A / 255.0 };
++    g->color_chooser_set_rgba(dialog, &rgba);
++  }
++  GtkPresentDialog(g, dialog);
++
++  const bool accepted = (g->dialog_run(dialog) == kGTK_RESPONSE_OK);
++
++  if (accepted && g->color_chooser_get_rgba)
++  {
++    GdkRGBA rgba = {};
++    g->color_chooser_get_rgba(dialog, &rgba);
++    color.R = (int)(rgba.red   * 255.0 + 0.5);
++    color.G = (int)(rgba.green * 255.0 + 0.5);
++    color.B = (int)(rgba.blue  * 255.0 + 0.5);
++    color.A = (int)(rgba.alpha * 255.0 + 0.5);
++    if (func)
++      func(color);
++  }
++
++  g->widget_destroy(dialog);
++  GtkDrainEvents(g);
++  return accepted;
++}
++
++bool IGraphicsLinux::OpenURL(const char* url, const char* msgWindowTitle, const char* confirmMsg, const char* errMsgOnFailure)
++{
++  pid_t pid = fork();
++  if (pid == 0)
++  {
++    execlp("xdg-open", "xdg-open", url, nullptr);
++    _exit(127);
++  }
++  return pid > 0;
++}
++
++bool IGraphicsLinux::GetTextFromClipboard(WDL_String& str)
++{
++  if (!mDisplay || !mPlugWnd || !mClipboardAtom)
++    return false;
++
++  // Ask the clipboard owner to convert to UTF-8 and store in our scratch property
++  XConvertSelection(mDisplay, mClipboardAtom, mUTF8StringAtom, mSelDataAtom,
++                    mPlugWnd, 0L /* CurrentTime */);
++  XFlush(mDisplay);
++
++  // Poll up to 500 ms; the timer thread processes SelectionNotify for us
++  for (int i = 0; i < 50; ++i)
++  {
++    usleep(10000); // 10 ms
++
++    XEvent ev;
++    if (XCheckTypedWindowEvent(mDisplay, mPlugWnd, SelectionNotify, &ev))
++    {
++      if (ev.xselection.selection != mClipboardAtom)
++        continue;
++
++      if (ev.xselection.property == 0 /* None */)
++        return false; // owner couldn't convert
++
++      Atom type;
++      int fmt;
++      unsigned long nitems, remaining;
++      unsigned char* data = nullptr;
++
++      XGetWindowProperty(mDisplay, mPlugWnd, mSelDataAtom,
++                         0, 65536, 1 /* delete after read */,
++                         AnyPropertyType, &type, &fmt,
++                         &nitems, &remaining, &data);
++      // Require remaining == 0 so we never report success on a truncated
++      // read, and bound nitems before the int cast to avoid UB.
++      if (data && nitems > 0 && remaining == 0 && nitems <= 0x7FFFFFFFUL)
++      {
++        str.Set((const char*)data, (int)nitems);
++        XFree(data);
++        return true;
++      }
++      if (data) XFree(data);
++      return false;
++    }
++  }
++  return false;
++}
++
++bool IGraphicsLinux::SetTextInClipboard(const char* str)
++{
++  if (!mDisplay || !mPlugWnd || !mClipboardAtom)
++    return false;
++
++  mClipboardText.Set(str);
++  XSetSelectionOwner(mDisplay, mClipboardAtom, mPlugWnd, 0L /* CurrentTime */);
++  XFlush(mDisplay);
++  return XGetSelectionOwner(mDisplay, mClipboardAtom) == mPlugWnd;
++}
++
++// State passed through GTK menu-item activation callbacks.
++struct GtkMenuState
++{
++  IPopupMenu* pMenu = nullptr;
++  int chosenIdx = -1;
++};
++
++/** Recursively builds a GtkMenu from an IPopupMenu.
++ *  Each leaf item's "activate" signal stores the selected index. */
++static void* BuildGtkMenu(GTK3* g, IPopupMenu& menu, GtkMenuState* pState)
++{
++  void* gtkMenu = g->menu_new();
++
++  for (int i = 0; i < menu.NItems(); ++i)
++  {
++    IPopupMenu::Item* pItem = menu.GetItem(i);
++    void* gtkItem = nullptr;
++
++    if (pItem->GetIsSeparator())
++    {
++      gtkItem = g->separator_menu_item_new();
++    }
++    else if (pItem->GetChecked() && g->check_menu_item_new_with_label)
++    {
++      gtkItem = g->check_menu_item_new_with_label(pItem->GetText());
++      if (g->check_menu_item_set_active)
++        g->check_menu_item_set_active(gtkItem, 1);
++    }
++    else
++    {
++      gtkItem = g->menu_item_new_with_label(pItem->GetText());
++    }
++
++    if (!gtkItem)
++      continue;
++
++    // Disabled or title items are insensitive
++    if (!pItem->GetEnabled() || pItem->GetIsTitle())
++    {
++      if (g->widget_set_sensitive)
++        g->widget_set_sensitive(gtkItem, 0);
++    }
++
++    // Submenus
++    if (pItem->GetSubmenu() && g->menu_item_set_submenu)
++    {
++      void* sub = BuildGtkMenu(g, *pItem->GetSubmenu(), pState);
++      g->menu_item_set_submenu(gtkItem, sub);
++    }
++    else if (pItem->GetEnabled() && !pItem->GetIsTitle()
++             && !pItem->GetIsSeparator() && g->signal_connect_data)
++    {
++      // Store the menu pointer and index in the state for the callback.
++      // We use a small lambda-like static function with user data.
++      struct ActivateData { GtkMenuState* state; IPopupMenu* menu; int idx; };
++      auto* ad = new ActivateData{ pState, &menu, i };
++
++      // GCallback signature: void callback(GtkMenuItem*, gpointer)
++      auto activateCb = +[](void*, void* userData) {
++        auto* d = static_cast<ActivateData*>(userData);
++        d->state->pMenu = d->menu;
++        d->state->chosenIdx = d->idx;
++      };
++
++      // GDestroyNotify frees the ActivateData when the signal is disconnected.
++      auto destroyCb = +[](void* userData) {
++        delete static_cast<ActivateData*>(userData);
++      };
++
++      g->signal_connect_data(gtkItem, "activate",
++                             (void*)activateCb, ad,
++                             (void*)destroyCb, 0);
++    }
++
++    g->menu_shell_append(gtkMenu, gtkItem);
++  }
++
++  if (g->widget_show_all)
++    g->widget_show_all(gtkMenu);
++
++  return gtkMenu;
++}
++
++IPopupMenu* IGraphicsLinux::CreatePlatformPopupMenu(IPopupMenu& menu, const IRECT bounds, bool& isAsync)
++{
++  isAsync = false;
++
++  GTK3* g = LoadGTK3();
++  if (!g || !g->menu_new || !g->menu_item_new_with_label
++      || !g->menu_shell_append || !g->main || !g->main_quit)
++    return nullptr;
++
++  GtkMenuState state;
++  void* gtkMenu = BuildGtkMenu(g, menu, &state);
++
++  // Quit the GTK main loop when the menu is dismissed (deactivate signal).
++  if (g->signal_connect_data)
++  {
++    auto deactivateCb = +[](void*, void*) {
++      // LoadGTK3() returns cached pointer; safe to call again
++      GTK3* gInner = LoadGTK3();
++      if (gInner && gInner->main_quit)
++        gInner->main_quit();
++    };
++    g->signal_connect_data(gtkMenu, "deactivate",
++                           (void*)deactivateCb, nullptr, nullptr, 0);
++  }
++
++  // Position the popup menu anchored to the control's bounding rectangle.
++  // gtk_menu_popup_at_rect is the non-deprecated GTK3 API (since 3.22).
++  // It needs a GdkWindow — we create a "foreign" wrapper around mPlugWnd.
++  // Falls back to gtk_menu_popup_at_pointer(NULL) on older GTK or if the
++  // foreign window can't be created (e.g. Wayland without X11 backend).
++  bool popped = false;
++
++  if (g->menu_popup_at_rect && g->gdk_display_get_default
++      && g->gdk_x11_window_foreign && mPlugWnd)
++  {
++    void* gdkDisplay = g->gdk_display_get_default();
++    if (gdkDisplay)
++    {
++      void* gdkWindow = g->gdk_x11_window_foreign(
++        gdkDisplay, static_cast<unsigned long>(mPlugWnd));
++
++      if (gdkWindow)
++      {
++        float s = GetScreenScale();
++        GdkRectangle rect;
++        rect.x      = static_cast<int>(bounds.L * s);
++        rect.y      = static_cast<int>(bounds.B * s);
++        rect.width  = static_cast<int>(bounds.W() * s);
++        rect.height = 1;
++
++        g->menu_popup_at_rect(gtkMenu, gdkWindow, &rect,
++                              kGDK_GRAVITY_NORTH_WEST,
++                              kGDK_GRAVITY_NORTH_WEST,
++                              nullptr);
++        popped = true;
++
++        if (g->g_object_unref)
++          g->g_object_unref(gdkWindow);
++      }
++    }
++  }
++
++  if (!popped && g->menu_popup_at_pointer)
++    g->menu_popup_at_pointer(gtkMenu, nullptr);
++
++  // Run a nested GTK main loop — blocks until the menu closes.
++  g->main();
++
++  // GTK owns the menu widget tree; destroy it.
++  g->widget_destroy(gtkMenu);
++  GtkDrainEvents(g);
++
++  if (state.pMenu && state.chosenIdx >= 0)
++  {
++    state.pMenu->SetChosenItemIdx(state.chosenIdx);
++
++    if (state.pMenu->GetFunction())
++      state.pMenu->ExecFunction();
++
++    return state.pMenu;
++  }
++
++  return nullptr;
++}
++
++void IGraphicsLinux::CreatePlatformTextEntry(int paramIdx, const IText& text,
++                                              const IRECT& bounds, int length,
++                                              const char* str)
++{
++  // GTK dialog flags: GTK_DIALOG_MODAL = 1, GTK_DIALOG_DESTROY_WITH_PARENT = 2
++  static constexpr int kGTK_DIALOG_MODAL = 1;
++
++  GTK3* g = LoadGTK3();
++  if (!g || !g->dialog_new_with_buttons || !g->dialog_get_content_area
++      || !g->entry_new || !g->entry_get_text || !g->box_pack_start)
++  {
++    SetControlValueAfterTextEdit(str);
++    return;
++  }
++
++  void* dialog = g->dialog_new_with_buttons(
++    "Edit Value", nullptr, kGTK_DIALOG_MODAL,
++    "_Cancel", kGTK_RESPONSE_CANCEL,
++    "_OK", kGTK_RESPONSE_OK,
++    nullptr
++  );
++
++  void* entry = g->entry_new();
++  if (g->entry_set_text && str)
++    g->entry_set_text(entry, str);
++  if (g->entry_set_max_length && length > 0)
++    g->entry_set_max_length(entry, length);
++
++  // Wire Enter key in the entry to trigger the OK response
++  if (g->signal_connect_data && g->dialog_response)
++  {
++    auto activateCb = +[](void*, void* userData) {
++      GTK3* gInner = LoadGTK3();
++      if (gInner && gInner->dialog_response)
++        gInner->dialog_response(userData, kGTK_RESPONSE_OK);
++    };
++    g->signal_connect_data(entry, "activate",
++                           (void*)activateCb, dialog, nullptr, 0);
++  }
++
++  void* contentArea = g->dialog_get_content_area(dialog);
++  g->box_pack_start(contentArea, entry, 1, 1, 0);
++
++  if (g->widget_show_all)
++    g->widget_show_all(dialog);
++  GtkPresentDialog(g, dialog);
++
++  int response = g->dialog_run(dialog);
++
++  if (response == kGTK_RESPONSE_OK)
++  {
++    const char* result = g->entry_get_text(entry);
++    SetControlValueAfterTextEdit(result ? result : "");
++  }
++  else
++  {
++    SetControlValueAfterTextEdit(str);
++  }
++
++  g->widget_destroy(dialog);
++  GtkDrainEvents(g);
++}
++
++PlatformFontPtr IGraphicsLinux::LoadPlatformFont(const char* fontID, const char* fileNameOrResID)
++{
++  WDL_String fullPath;
++  const EResourceLocation loc = LocateResource(fileNameOrResID, "ttf", fullPath,
++                                               GetBundleID(), nullptr, nullptr);
++  if (loc == EResourceLocation::kNotFound)
++    return nullptr;
++
++  return PlatformFontPtr(new LinuxFileFont(fullPath.Get(), false));
++}
++
++PlatformFontPtr IGraphicsLinux::LoadPlatformFont(const char* fontID, const char* fontName,
++                                                 ETextStyle style)
++{
++  Fontconfig* fc = LoadFontconfig();
++  if (!fc)
++    return nullptr;
++
++  _FcPattern* pattern = fc->PatternCreate();
++  if (!pattern)
++    return nullptr;
++
++  fc->PatternAddString(pattern, "family", (const unsigned char*)fontName);
++  fc->PatternAddInteger(pattern, "weight",
++                        style == ETextStyle::Bold ? kFC_WEIGHT_BOLD : kFC_WEIGHT_REGULAR);
++  fc->PatternAddInteger(pattern, "slant",
++                        style == ETextStyle::Italic ? kFC_SLANT_ITALIC : kFC_SLANT_ROMAN);
++
++  fc->ConfigSubstitute(nullptr, pattern, kFC_MatchPattern);
++  fc->DefaultSubstitute(pattern);
++
++  int result = 1; // FcResultNoMatch
++  _FcPattern* matched = fc->FontMatch(nullptr, pattern, &result);
++  fc->PatternDestroy(pattern);
++
++  if (!matched)
++    return nullptr;
++
++  PlatformFontPtr ret;
++  unsigned char* path = nullptr;
++  if (fc->PatternGetString(matched, "file", 0, &path) == kFC_ResultMatch && path)
++    ret = PlatformFontPtr(new LinuxFileFont((const char*)path, true));
++
++  fc->PatternDestroy(matched);
++  return ret;
++}
++
++PlatformFontPtr IGraphicsLinux::LoadPlatformFont(const char* fontID, void* pData, int dataSize)
++{
++  return PlatformFontPtr(new LinuxMemFont(pData, dataSize));
++}
++
++void IGraphicsLinux::CachePlatformFont(const char* fontID, const PlatformFontPtr& font)
++{
++  // NanoVG caches loaded fonts in its own atlas; no additional platform cache needed.
++}
++
++void IGraphicsLinux::ActivateGLContext()
++{
++#ifdef IGRAPHICS_GL
++  if (!mDisplay || !mGLContext) return;
++  glXMakeCurrent(mDisplay, mPlugWnd, (GLXContext)mGLContext);
++#endif
++}
++
++void IGraphicsLinux::DeactivateGLContext()
++{
++#ifdef IGRAPHICS_GL
++  if (!mDisplay) return;
++  glXMakeCurrent(mDisplay, 0, nullptr);
++#endif
++}
++
++#ifdef IGRAPHICS_GL
++XVisualInfo* IGraphicsLinux::CreateGLContext()
++{
++  // Classic GLX 1.2 API — compatible with all Mesa drivers including software
++  // renderers (llvmpipe, softpipe) on Xwayland where the GLX 1.3 FBConfig +
++  // glXCreateNewContext path fails to create DRI drawables.
++  int screen = DefaultScreen(mDisplay);
++
++  int attribs[] = {
++    GLX_RGBA,
++    GLX_DOUBLEBUFFER,
++    GLX_RED_SIZE,   8,
++    GLX_GREEN_SIZE, 8,
++    GLX_BLUE_SIZE,  8,
++    GLX_DEPTH_SIZE, 24,
++    0 /* None */
++  };
++
++  XVisualInfo* vi = glXChooseVisual(mDisplay, screen, attribs);
++  if (!vi)
++    return nullptr;
++
++  mGLContext = (void*)glXCreateContext(mDisplay, vi, nullptr, GL_TRUE);
++  if (!mGLContext)
++  {
++    XFree(vi);
++    return nullptr;
++  }
++  // Caller owns vi and must XFree() it after creating the X window
++  return vi;
++}
++
++void IGraphicsLinux::DestroyGLContext()
++{
++  if (mDisplay && mGLContext)
++  {
++    glXMakeCurrent(mDisplay, 0, nullptr);
++    glXDestroyContext(mDisplay, (GLXContext)mGLContext);
++    mGLContext = nullptr;
++  }
++}
++#endif
++
++// Map X11 keysym to Windows virtual key code (used by IKeyPress).
++// Covers the subset that iPlug2 controls actually handle.
++static int KeysymToVK(KeySym ks)
++{
++  switch (ks)
++  {
++    case XK_BackSpace:    return kVK_BACK;
++    case XK_Tab:          return kVK_TAB;
++    case XK_Return:       return kVK_RETURN;
++    case XK_Escape:       return kVK_ESCAPE;
++    case XK_space:        return kVK_SPACE;
++    case XK_Prior:        return kVK_PRIOR;
++    case XK_Next:         return kVK_NEXT;
++    case XK_End:          return kVK_END;
++    case XK_Home:         return kVK_HOME;
++    case XK_Left:         return kVK_LEFT;
++    case XK_Up:           return kVK_UP;
++    case XK_Right:        return kVK_RIGHT;
++    case XK_Down:         return kVK_DOWN;
++    case XK_Insert:       return kVK_INSERT;
++    case XK_Delete:       return kVK_DELETE;
++    case XK_F1:           return kVK_F1;
++    case XK_F2:           return kVK_F2;
++    case XK_F3:           return kVK_F3;
++    case XK_F4:           return kVK_F4;
++    case XK_F5:           return kVK_F5;
++    case XK_F6:           return kVK_F6;
++    case XK_F7:           return kVK_F7;
++    case XK_F8:           return kVK_F8;
++    case XK_F9:           return kVK_F9;
++    case XK_F10:          return kVK_F10;
++    case XK_F11:          return kVK_F11;
++    case XK_F12:          return kVK_F12;
++    case XK_Shift_L:
++    case XK_Shift_R:      return kVK_SHIFT;
++    case XK_Control_L:
++    case XK_Control_R:    return kVK_CONTROL;
++    case XK_Alt_L:
++    case XK_Alt_R:        return kVK_MENU;
++    default:
++      if (ks >= XK_0 && ks <= XK_9) return kVK_0 + (int)(ks - XK_0);
++      if (ks >= XK_a && ks <= XK_z) return kVK_A + (int)(ks - XK_a);
++      if (ks >= XK_A && ks <= XK_Z) return kVK_A + (int)(ks - XK_A);
++      return kVK_NONE;
++  }
++}
++
++void IGraphicsLinux::ProcessX11Events()
++{
++  if (!mDisplay || !mPlugWnd)
++    return;
++
++  const float scale = GetTotalScale();
++
++  while (XPending(mDisplay))
++  {
++    XEvent ev;
++    XNextEvent(mDisplay, &ev);
++
++    switch (ev.type)
++    {
++      case Expose:
++      {
++        // Handled by the render path below; drain duplicate exposures
++        while (XCheckTypedWindowEvent(mDisplay, mPlugWnd, Expose, &ev))
++          ;
++        mNeedsRedraw = true;
++        break;
++      }
++
++      case ConfigureNotify:
++      {
++        XConfigureEvent& ce = ev.xconfigure;
++        if (ce.window != mPlugWnd)
++          break;
++
++        // Drain all pending ConfigureNotify events and use the latest.
++        // During rapid resizing (corner-resizer drag or host resize),
++        // multiple ConfigureNotify events queue up. Processing stale
++        // intermediate sizes would cause unnecessary FBO recreations
++        // and potential size oscillations. Only the final size matters.
++        {
++          XEvent next;
++          while (XCheckTypedWindowEvent(mDisplay, mPlugWnd,
++                                        ConfigureNotify, &next))
++          {
++            ce = next.xconfigure;
++          }
++        }
++
++        // Update tracking to the actual X11 window size.
++        mLastPhysW = (unsigned)ce.width;
++        mLastPhysH = (unsigned)ce.height;
++
++        const float ss = GetScreenScale();
++        const int physW = ce.width;
++        const int physH = ce.height;
++        // Check if the internal state already matches this physical
++        // size (e.g. OnParentWindowResize already processed it).
++        const int curPhysW = static_cast<int>(
++          WindowWidth() * GetScreenScale());
++        const int curPhysH = static_cast<int>(
++          WindowHeight() * GetScreenScale());
++        if (physW == curPhysW && physH == curPhysH)
++        {
++          break;
++        }
++
++        // The X server resized our window. Suppress PlatformResize to
++        // avoid a resize oscillation.
++        mInConfigureNotify = true;
++
++        if (GetResizerMode() == EUIResizerMode::Scale)
++        {
++          // Scale mode: keep logical dimensions, adjust drawScale
++          const int logW = Width();
++          const int logH = Height();
++          const float scaleX = static_cast<float>(physW) / (logW * ss);
++          const float scaleY = static_cast<float>(physH) / (logH * ss);
++          const float newScale = std::max(scaleX, scaleY);
++          Resize(logW, logH, newScale, false);
++        }
++        else
++        {
++          // Size mode: physical pixels to logical
++          const int w = static_cast<int>(physW / ss);
++          const int h = static_cast<int>(physH / ss);
++          Resize(w, h, 1.0f, false);
++        }
++
++        mInConfigureNotify = false;
++        break;
++      }
++
++      case ButtonPress:
++      case ButtonRelease:
++      {
++        XButtonEvent& be = ev.xbutton;
++        const float x = be.x / scale;
++        const float y = be.y / scale;
++        const bool shift   = (be.state & ShiftMask)   != 0;
++        const bool ctrl    = (be.state & ControlMask) != 0;
++        const bool alt     = (be.state & Mod1Mask)    != 0;
++
++        if (be.button == Button4 || be.button == Button5)
++        {
++          // Scroll wheel — only fire on press
++          if (ev.type == ButtonPress)
++          {
++            const float delta = (be.button == Button4) ? 1.f : -1.f;
++            IMouseMod mod(false, false, shift, ctrl, alt);
++            OnMouseWheel(x, y, mod, delta);
++          }
++          break;
++        }
++
++        const bool left   = (be.button == Button1);
++        const bool right  = (be.button == Button3);
++        const bool middle = (be.button == Button2);
++        IMouseMod mod(left, right, shift, ctrl, alt);
++
++        mCursorX = x;
++        mCursorY = y;
++
++        IMouseInfo info;
++        info.x  = x;
++        info.y  = y;
++        info.dX = 0.f;
++        info.dY = 0.f;
++        info.ms = mod;
++        std::vector<IMouseInfo> list{ info };
++
++        if (ev.type == ButtonPress)
++        {
++          // X11 has no native double-click event; detect via timestamp.
++          static constexpr unsigned long kDblClickTimeoutMs = 400;
++          if (left && (be.time - mLastLeftClickTime) < kDblClickTimeoutMs)
++          {
++            OnMouseDblClick(x, y, mod);
++            mLastLeftClickTime = 0;  // reset so triple-click doesn't fire again
++          }
++          else
++          {
++            OnMouseDown(list);
++            if (left)
++              mLastLeftClickTime = be.time;
++          }
++        }
++        else
++        {
++          OnMouseUp(list);
++        }
++        break;
++      }
++
++      case MotionNotify:
++      {
++        XMotionEvent& me = ev.xmotion;
++        const float x     = me.x / scale;
++        const float y     = me.y / scale;
++        const bool shift  = (me.state & ShiftMask)   != 0;
++        const bool ctrl   = (me.state & ControlMask) != 0;
++        const bool alt    = (me.state & Mod1Mask)    != 0;
++        const bool lbtn   = (me.state & Button1Mask) != 0;
++        const bool rbtn   = (me.state & Button3Mask) != 0;
++        IMouseMod mod(lbtn, rbtn, shift, ctrl, alt);
++
++        IMouseInfo info;
++        info.x  = x;
++        info.y  = y;
++        info.dX = x - mCursorX;
++        info.dY = y - mCursorY;
++        info.ms = mod;
++        std::vector<IMouseInfo> list{ info };
++
++        if (lbtn || rbtn)
++        {
++          OnMouseDrag(list);
++          mCursorX = x;
++          mCursorY = y;
++        }
++        else
++        {
++          OnMouseOver(x, y, mod);
++          mCursorX = x;
++          mCursorY = y;
++        }
++        break;
++      }
++
++      case LeaveNotify:
++        OnMouseOut();
++        break;
++
++      case KeyPress:
++      case KeyRelease:
++      {
++        XKeyEvent& ke = ev.xkey;
++        char buf[8] = {};
++        KeySym ks = 0;
++        XLookupString(&ke, buf, sizeof(buf) - 1, &ks, nullptr);
++
++        const bool shift = (ke.state & ShiftMask)   != 0;
++        const bool ctrl  = (ke.state & ControlMask) != 0;
++        const bool alt   = (ke.state & Mod1Mask)    != 0;
++
++        IKeyPress keyPress(buf, KeysymToVK(ks), shift, ctrl, alt);
++        const float mx = mCursorX;
++        const float my = mCursorY;
++
++        if (ev.type == KeyPress)
++          OnKeyDown(mx, my, keyPress);
++        else
++          OnKeyUp(mx, my, keyPress);
++        break;
++      }
++
++      case ClientMessage:
++      {
++        if ((Atom)ev.xclient.data.l[0] == mWMDeleteMessage)
++          CloseWindow();
++        break;
++      }
++
++      // Another app is asking us to hand over our clipboard contents
++      case SelectionRequest:
++      {
++        XSelectionRequestEvent& req = ev.xselectionrequest;
++        XEvent resp = {};
++        resp.xselection.type      = SelectionNotify;
++        resp.xselection.display   = mDisplay;
++        resp.xselection.requestor = req.requestor;
++        resp.xselection.selection = req.selection;
++        resp.xselection.target    = req.target;
++        resp.xselection.time      = req.time;
++
++        if (req.target == mTargetsAtom)
++        {
++          Atom targets[] = { mTargetsAtom, mUTF8StringAtom, XA_STRING };
++          XChangeProperty(mDisplay, req.requestor, req.property, XA_ATOM, 32,
++                          PropModeReplace, (unsigned char*)targets, 3);
++          resp.xselection.property = req.property;
++        }
++        else if (req.target == mUTF8StringAtom || req.target == XA_STRING)
++        {
++          XChangeProperty(mDisplay, req.requestor, req.property, req.target, 8,
++                          PropModeReplace,
++                          (unsigned char*)mClipboardText.Get(),
++                          mClipboardText.GetLength());
++          resp.xselection.property = req.property;
++        }
++        else
++        {
++          resp.xselection.property = 0 /* None */;
++        }
++        XSendEvent(mDisplay, req.requestor, 0 /* False */, 0, &resp);
++        XFlush(mDisplay);
++        break;
++      }
++
++      // We've lost clipboard ownership; discard our stored text
++      case SelectionClear:
++        mClipboardText.Set("");
++        break;
++
++      default:
++        break;
++    }
++  }
++}
++
++void* IGraphicsLinux::TimerThreadProc(void* pParam)
++{
++  IGraphicsLinux* pGraphics = reinterpret_cast<IGraphicsLinux*>(pParam);
++  while (pGraphics->mTimerRunning)
++  {
++    usleep(TIMER_INTERVAL_US);
++    if (pGraphics->mTimerRunning)
++      pGraphics->OnDisplayTimer();
++  }
++  return nullptr;
++}
++
++void IGraphicsLinux::StartTimer()
++{
++  if (mHostDriven)
++    return;  // host provides timer/fd callbacks; no internal thread needed
++  if (pthread_create(&mTimerThread, nullptr, TimerThreadProc, this) == 0)
++    mTimerRunning = true;
++}
++
++void IGraphicsLinux::StopTimer()
++{
++  if (mTimerRunning)
++  {
++    mTimerRunning = false;
++    pthread_join(mTimerThread, nullptr);
++    mTimerThread = 0;
++  }
++}
++
++void IGraphicsLinux::OnDisplayTimer()
++{
++  if (!mDisplay || !mPlugWnd)
++    return;
++
++  // Hold the GfxMutex for the entire timer tick so that host-thread calls
++  // (SendParameterValueFromDelegate, CloseWindow, resize, etc.) cannot
++  // concurrently modify IGraphics state while we process events or draw.
++  // The mutex is recursive so ProcessX11Events() -> DrawResize() can
++  // re-enter safely.
++  std::lock_guard<std::recursive_mutex> lock(GetDelegate()->GfxMutex());
++
++  ProcessX11Events();
++
++  IRECTList rects;
++  if (mNeedsRedraw || IsDirty(rects))
++  {
++    mNeedsRedraw = false;
++    if (!rects.Size())
++    {
++      // Full redraw (e.g. from Expose with no dirty rects yet)
++      const float scale = GetBackingPixelScale();
++      IRECT full(0, 0, (float)WindowWidth() / scale, (float)WindowHeight() / scale);
++      rects.Add(full);
++    }
++    ActivateGLContext();
++    Draw(rects);
++#if defined(IGRAPHICS_GL2) || defined(IGRAPHICS_GL3)
++    glXSwapBuffers(mDisplay, mPlugWnd);
++#endif
++    DeactivateGLContext();
++  }
++}
++
++#ifndef NO_IGRAPHICS
++#if defined IGRAPHICS_NANOVG
++  // Unity-build the NanoVG drawing backend into the platform translation unit.
++  // nanovg.c and glad.c are compiled separately via CMake sources.
++  #include "IGraphicsNanoVG.cpp"
++#elif defined IGRAPHICS_SKIA
++  #include "IGraphicsSkia.cpp"
++#else
++  #error "Either NO_IGRAPHICS or a drawing backend (IGRAPHICS_NANOVG, IGRAPHICS_SKIA) must be defined"
++#endif
++#endif
+diff --git a/IGraphics/Platforms/IGraphicsLinux.h b/IGraphics/Platforms/IGraphicsLinux.h
+index 0a457b82b..dba5ca202 100644
+--- a/IGraphics/Platforms/IGraphicsLinux.h
++++ b/IGraphics/Platforms/IGraphicsLinux.h
+@@ -10,49 +10,187 @@
+ 
+ #pragma once
+ 
++// X11/Xlib.h and X11/X.h define macros that conflict with C++ identifiers in
++// IGraphics and IPlug headers. We include X11 headers first to get the type
++// declarations, then undef the conflicting macros, then include IGraphics headers.
++// GL/glx.h must come AFTER IGraphics_select.h (which includes glad) because
++// glad checks that GL/gl.h has not been included yet.
++#include <X11/Xlib.h>
++#include <X11/Xutil.h>
++
++// Undef X11 macros that conflict with C++ enum identifiers and type names.
++// IGraphicsLinux.cpp includes X11 headers directly before this header, so the
++// macros are available there for X11 API calls. Function bodies use 0/1 literals
++// instead of None/False/True to avoid relying on the undefined names.
++#ifdef None
++#undef None
++#endif
++#ifdef Bool
++#undef Bool
++#endif
++#ifdef Status
++#undef Status
++#endif
++#ifdef True
++#undef True
++#endif
++#ifdef False
++#undef False
++#endif
++#ifdef Success
++#undef Success
++#endif
++#ifdef Complex
++#undef Complex
++#endif
++#ifdef Above
++#undef Above
++#endif
++#ifdef Below
++#undef Below
++#endif
++#ifdef Convex
++#undef Convex
++#endif
++#ifdef CurrentTime
++#undef CurrentTime
++#endif
++
++// IGraphics_select.h includes <glad/glad.h> for Linux (defines __gl_h_).
++// GL/glx.h must be included BEFORE this header (in the .cpp file) while Bool
++// is still defined from Xlib.h; the GLX_H include guard prevents re-inclusion.
++#include <atomic>
+ #include "IGraphics_select.h"
+ 
+ BEGIN_IPLUG_NAMESPACE
+ BEGIN_IGRAPHICS_NAMESPACE
+ 
+-/** IGraphics platform class for linux
+-*   @ingroup PlatformClasses
+-*/
++/** IGraphics platform class for Linux
++*   @ingroup PlatformClasses */
+ class IGraphicsLinux final : public IGRAPHICS_DRAW_CLASS
+ {
+ public:
+   IGraphicsLinux(IGEditorDelegate& dlg, int w, int h, int fps, float scale);
+-  virtual ~IGraphicsLinux);
++  ~IGraphicsLinux();
++
++  void ForceEndUserEdit() override;
++  /** Returns the screen scale factor so that requestResize() and
++   *  OnParentWindowResize() pass physical pixels, matching what the X11
++   *  server reports via ConfigureNotify (ce.width / GetScreenScale()). */
++  float GetPlatformWindowScale() const override { return GetScreenScale(); }
++
++  /** Returns the X11 display file descriptor, or -1 if not open.
++   *  Used by CLAP posix-fd support to register with the host's event loop. */
++  int GetX11Fd() const { return mDisplay ? XConnectionNumber(mDisplay) : -1; }
++
++  /** When host-driven = true the internal timer thread is suppressed.
++   *  The host drives rendering via onTimer / onPosixFd callbacks instead.
++   *  Safe to call after OpenWindow — stops the timer thread if running. */
++  void SetHostDriven(bool hostDriven)
++  {
++    mHostDriven = hostDriven;
++    if (hostDriven)
++      StopTimer();
++  }
++
++  /** Called by CLAP host timer callback to advance one display frame. */
++  void OnDisplayTimer();
++  /** Called by CLAP host posix-fd callback to drain pending X11 events. */
++  void ProcessX11Events();
+ 
+-  void* OpenWindow(void* pWindow) override;
+-  void CloseWindow() override;
+-  bool WindowIsOpen() override;
+   void PlatformResize(bool parentHasResized) override;
++  void DrawResize() override;
++  void OnBeginHostResize(int physW, int physH) override;
++  void OnEndHostResize() override;
++
++  void HideMouseCursor(bool hide, bool lock) override;
++  void MoveMouseCursor(float x, float y) override;
++  ECursor SetMouseCursor(ECursor cursorType) override;
+ 
+-  void HideMouseCursor() override;
+-  void ShowMouseCursor() override;
++  void GetMouseLocation(float& x, float& y) const override;
+ 
+   EMsgBoxResult ShowMessageBox(const char* str, const char* title, EMsgBoxType type, IMsgBoxCompletionHandlerFunc completionHandler) override;
+-  void ForceEndUserEdit() override;
+ 
+-  const char* GetPlatformAPIStr() override;
++  void* OpenWindow(void* pParent) override;
++  void CloseWindow() override;
++  bool WindowIsOpen() override { return mPlugWnd != 0; }
+ 
+-  void UpdateTooltips() override;
++  void UpdateTooltips() override {}
+ 
+   bool RevealPathInExplorerOrFinder(WDL_String& path, bool select) override;
+-  void PromptForFile(WDL_String& fileName, WDL_String& path, EFileAction action,  const char* ext, IColorPickerHandlerFunc func) override;
+-  bool PromptForColor(IColor& color, const char* str) override;
++  void PromptForFile(WDL_String& fileName, WDL_String& path, EFileAction action, const char* ext, IFileDialogCompletionHandlerFunc completionHandler) override;
++  void PromptForDirectory(WDL_String& dir, IFileDialogCompletionHandlerFunc completionHandler) override;
++  bool PromptForColor(IColor& color, const char* str, IColorPickerHandlerFunc func) override;
+ 
+   bool OpenURL(const char* url, const char* msgWindowTitle, const char* confirmMsg, const char* errMsgOnFailure) override;
+ 
+-  static int GetUserOSVersion();
++  void* GetWindow() override { return (void*)(uintptr_t)mPlugWnd; }
++
++  const char* GetPlatformAPIStr() override { return "x11"; }
++
+   bool GetTextFromClipboard(WDL_String& str) override;
+-  bool SetTextInClipboard(const char* str) override { return false; } // TODO
++  bool SetTextInClipboard(const char* str) override;
+ 
+ protected:
+-  IPopupMenu* CreatePlatformPopupMenu(const IPopupMenu& menu, IRECT& bounds) override;
++  IPopupMenu* CreatePlatformPopupMenu(IPopupMenu& menu, const IRECT bounds, bool& isAsync) override;
+   void CreatePlatformTextEntry(int paramIdx, const IText& text, const IRECT& bounds, int length, const char* str) override;
+-}
++
++private:
++  PlatformFontPtr LoadPlatformFont(const char* fontID, const char* fileNameOrResID) override;
++  PlatformFontPtr LoadPlatformFont(const char* fontID, const char* fontName, ETextStyle style) override;
++  PlatformFontPtr LoadPlatformFont(const char* fontID, void* pData, int dataSize) override;
++  void CachePlatformFont(const char* fontID, const PlatformFontPtr& font) override;
++
++  void ActivateGLContext() override;
++  void DeactivateGLContext() override;
++
++  XVisualInfo* CreateGLContext();  // returns the visual used; caller must XFree() it
++  void DestroyGLContext();
++  void* mGLContext  = nullptr;  // GLXContext
++  Colormap mGLColormap = 0;
++
++  Display* mDisplay = nullptr;
++  Window mPlugWnd = 0;
++  Window mParentWnd = 0;
++  Atom mWMDeleteMessage = 0;
++  std::atomic<bool> mTimerRunning{false};
++
++  float mHiddenCursorX = 0.f;
++  float mHiddenCursorY = 0.f;
++  Cursor mBlankCursor = 0;  // cached invisible cursor for HideMouseCursor
++  bool mNeedsRedraw = false;
++  unsigned long mLastLeftClickTime = 0;  // X11 server timestamp of last left-button press
++
++  // Clipboard atoms (interned in OpenWindow)
++  Atom mClipboardAtom = 0;
++  Atom mUTF8StringAtom = 0;
++  Atom mTargetsAtom = 0;
++  Atom mSelDataAtom = 0;
++  WDL_String mClipboardText;  // text we own as selection provider
++
++  bool mHostDriven = false;        // set true before OpenWindow when host drives the event loop
++  bool mInConfigureNotify = false; // suppress PlatformResize re-entry from ConfigureNotify
++  bool mInHostResize = false;      // suppress XResizeWindow during host-driven resize
++  bool mHostDidResize = false;     // set by OnEndHostResize; cleared by PlatformResize
++
++  // The physical size the host last passed via onSize → OnParentWindowResize.
++  // OnEndHostResize uses this to XResizeWindow to exactly the host's size,
++  // avoiding aspect-ratio drift from Scale mode's max(scaleX, scaleY).
++  unsigned mHostPhysW = 0;
++  unsigned mHostPhysH = 0;
++
++  // Last physical size we actually passed to XResizeWindow (or XCreateWindow).
++  // ConfigureNotify events for any other size are stale (from a superseded
++  // XResizeWindow request) and must be ignored to prevent mWidth from reverting.
++  unsigned mLastPhysW = 0;
++  unsigned mLastPhysH = 0;
++
++  void StartTimer();
++  void StopTimer();
++
++  static void* TimerThreadProc(void* pParam);
++  pthread_t mTimerThread = 0;
++};
+ 
+ END_IGRAPHICS_NAMESPACE
+ END_IPLUG_NAMESPACE
+diff --git a/IPlug/APP/IPlugAPP_dialog.cpp b/IPlug/APP/IPlugAPP_dialog.cpp
+index 9919d55b4..df33561fb 100644
+--- a/IPlug/APP/IPlugAPP_dialog.cpp
++++ b/IPlug/APP/IPlugAPP_dialog.cpp
+@@ -23,6 +23,10 @@ extern bool SaveWindowScreenshot(HWND hwnd, const char* path);
+ #elif defined OS_MAC
+ #define GET_MENU() SWELL_GetCurrentMenu()
+ extern "C" bool SaveWindowScreenshot(void* hwnd, const char* path);
++#elif defined OS_LINUX
++#include <unistd.h>
++#define GET_MENU() GetMenu(gHWND)
++static bool SaveWindowScreenshot(HWND, const char*) { return false; }
+ #endif
+ 
+ using namespace iplug;
+@@ -33,6 +37,10 @@ using namespace igraphics;
+ #endif
+ 
+ #define IDT_SCREENSHOT_TIMER 1001
++#ifdef OS_LINUX
++#define WM_USER_OPENWINDOW (WM_USER + 1)
++static bool sPlugWindowOpen = false; // guards WM_SIZE before plugin window is ready
++#endif
+ 
+ 
+ // check the input and output devices, find matching srs
+@@ -289,8 +297,16 @@ void IPlugAPPHost::PopulatePreferencesDialog(HWND hwndDlg)
+   PopulateAudioDialogs(hwndDlg);
+   PopulateMidiDialogs(hwndDlg);
+ }
+-#else
+-  #error NOT IMPLEMENTED
++#elif defined OS_LINUX
++void IPlugAPPHost::PopulatePreferencesDialog(HWND hwndDlg)
++{
++  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_DRIVER,CB_ADDSTRING,0,(LPARAM)"ALSA");
++  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_DRIVER,CB_ADDSTRING,0,(LPARAM)"JACK");
++  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_DRIVER,CB_SETCURSEL, mState.mAudioDriverType, 0);
++
++  PopulateAudioDialogs(hwndDlg);
++  PopulateMidiDialogs(hwndDlg);
++}
+ #endif
+ 
+ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+@@ -479,8 +495,14 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+             {
+               system("open \"/Applications/Utilities/Audio MIDI Setup.app\"");
+             }
+-            #else
+-              #error NOT IMPLEMENTED
++            #elif defined OS_LINUX
++            {
++              pid_t pid = fork();
++              if (pid == 0) {
++                execlp("xdg-open", "xdg-open", "https://alsa-project.org", nullptr);
++                _exit(127);
++              }
++            }
+             #endif
+           }
+           break;
+@@ -529,18 +551,18 @@ static void ClientResize(HWND hWnd, int width, int height)
+   POINT ptDiff;
+   int screenwidth, screenheight;
+   int x, y;
+-  
++
+   screenwidth  = GetSystemMetrics(SM_CXSCREEN);
+   screenheight = GetSystemMetrics(SM_CYSCREEN);
+   x = (screenwidth / 2) - (width / 2);
+   y = (screenheight / 2) - (height / 2);
+-  
++
+   GetClientRect(hWnd, &rcClient);
+   GetWindowRect(hWnd, &rcWindow);
+ 
+   ptDiff.x = (rcWindow.right - rcWindow.left) - rcClient.right;
+   ptDiff.y = (rcWindow.bottom - rcWindow.top) - rcClient.bottom;
+-  
++
+   SetWindowPos(hWnd, 0, x, y, width + ptDiff.x, height + ptDiff.y, 0);
+ }
+ 
+@@ -556,14 +578,27 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+       gHWND = hwndDlg;
+       IPlugAPP* pPlug = pAppHost->GetPlug();
+ 
++#ifdef OS_LINUX
++      // On Linux, show the dialog but don't resize or open the window yet.
++      // main() calls SetMenu first, then posts WM_USER_OPENWINDOW which
++      // triggers ClientResize + OpenWindow so the SWELL layout includes
++      // the menu bar before the plugin window is created.
++      ShowWindow(hwndDlg, SW_SHOW);
++#else
++      // Resize the dialog BEFORE creating the plugin view so the parent
++      // window is at its final size when the plugin's graphics layer
++      // initializes. The IGRAPHICS_VIEW is created at a fixed size
++      // matching the plugin dimensions — if the parent is still at its
++      // template size, the view's coordinate space won't match.
++      ClientResize(hwndDlg, pPlug->GetEditorWidth(), pPlug->GetEditorHeight());
++
+       if (!pAppHost->OpenWindow(gHWND))
+       {
+         DBGMSG("couldn't attach gui\n");
+       }
+ 
+-      ClientResize(hwndDlg, pPlug->GetEditorWidth(), pPlug->GetEditorHeight());
+-
+       ShowWindow(hwndDlg, SW_SHOW);
++#endif
+ 
+       // If in screenshot mode, start timer to take screenshot after UI initializes
+       if (pAppHost->IsScreenshotMode())
+@@ -573,8 +608,31 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+ 
+       return 1;
+     }
++#ifdef OS_LINUX
++    case WM_USER_OPENWINDOW:
++    {
++      // Posted from main() after SetMenu. Use a short timer to let the
++      // GDK event loop process the SetMenu resize before we size and
++      // open the plugin window.
++      SetTimer(hwndDlg, 0xF00D, 50, nullptr);
++      return 0;
++    }
++#endif
+     case WM_TIMER:
+     {
++#ifdef OS_LINUX
++      if (wParam == 0xF00D)
++      {
++        KillTimer(hwndDlg, 0xF00D);
++        IPlugAPP* pPlug2 = pAppHost->GetPlug();
++        ClientResize(hwndDlg, pPlug2->GetEditorWidth(),
++                     pPlug2->GetEditorHeight());
++        if (!pAppHost->OpenWindow(gHWND))
++          DBGMSG("couldn't attach gui\n");
++        sPlugWindowOpen = true;
++        return 0;
++      }
++#endif
+       if (wParam == IDT_SCREENSHOT_TIMER)
+       {
+         KillTimer(hwndDlg, IDT_SCREENSHOT_TIMER);
+@@ -590,13 +648,17 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+     case WM_DESTROY:
+       pAppHost->CloseWindow();
+       gHWND = NULL;
++#ifdef OS_LINUX
++      sPlugWindowOpen = false;
++#endif
+       IPlugAPPHost::sInstance = nullptr;
+       
+       #ifdef OS_WIN
+       PostQuitMessage(0);
+-      #else
++      #elif defined OS_MAC
+       SWELL_PostQuitMessage(hwndDlg);
+       #endif
++      // Linux: main loop exits when gHWND->m_hashaddestroy is set by DestroyWindow
+ 
+       return 0;
+     case WM_CLOSE:
+@@ -845,6 +907,13 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+       case SIZE_RESTORED:
+       case SIZE_MAXIMIZED:
+       {
++#ifdef OS_LINUX
++        // Ignore WM_SIZE events that fire before the plugin window opens.
++        // ShowWindow + ClientResize generate spurious resize events (including
++        // the dialog template size) that would recreate the FBO multiple times.
++        if (!sPlugWindowOpen)
++          return 0;
++#endif
+         if (pPlug->GetHostResizeEnabled())
+         {
+           RECT r;
+diff --git a/IPlug/APP/IPlugAPP_host.cpp b/IPlug/APP/IPlugAPP_host.cpp
+index 9a356d6af..42d6afde5 100644
+--- a/IPlug/APP/IPlugAPP_host.cpp
++++ b/IPlug/APP/IPlugAPP_host.cpp
+@@ -15,6 +15,11 @@
+ #include "win32_utf8.h"
+ #endif
+ 
++#ifdef OS_LINUX
++#include <alsa/asoundlib.h>
++#include <gdk/gdkx.h>  // GDK_WINDOW_XID
++#endif
++
+ #include "IPlugLogger.h"
+ 
+ using namespace iplug;
+@@ -75,7 +80,47 @@ bool IPlugAPPHost::Init()
+ 
+ bool IPlugAPPHost::OpenWindow(HWND pParent)
+ {
++#ifdef OS_LINUX
++  // pParent is a SWELL HWND (heap pointer, not an X11 Window).
++  // Extract the underlying X11 window so IGraphicsLinux can embed into it.
++  void* x11Parent = nullptr;
++  if (pParent)
++  {
++    GdkWindow* gdkWnd = static_cast<GdkWindow*>(SWELL_GetOSWindow(pParent, "GdkWindow"));
++    if (gdkWnd)
++    {
++      x11Parent = (void*)(uintptr_t)GDK_WINDOW_XID(gdkWnd);
++
++      // Export the GDK scale factor so IGraphicsLinux can create its X11 window
++      // at the correct physical-pixel size for HiDPI (Xwayland 200% etc.).
++      int scale = gdk_window_get_scale_factor(gdkWnd);
++      if (scale > 1)
++      {
++        char buf[16];
++        snprintf(buf, sizeof(buf), "%d", scale);
++        setenv("IPLUG2_SCREEN_SCALE", buf, 1 /* overwrite */);
++      }
++
++      // If the dialog has a menu bar, export its height so IGraphicsLinux
++      // can offset the plugin window below it. The GDK window includes the
++      // non-client area but XGetWindowAttributes may return stale geometry
++      // on a separate Display connection, so we pass the value explicitly.
++      if (GetMenu(pParent))
++      {
++        int menuH = GetSystemMetrics(SM_CYMENU);
++        if (menuH > 0)
++        {
++          char buf[16];
++          snprintf(buf, sizeof(buf), "%d", menuH);
++          setenv("IPLUG2_MENU_OFFSET", buf, 1 /* overwrite */);
++        }
++      }
++    }
++  }
++  return mIPlug->OpenWindow(x11Parent) != nullptr;
++#else
+   return mIPlug->OpenWindow(pParent) != nullptr;
++#endif
+ }
+ 
+ void IPlugAPPHost::CloseWindow()
+@@ -90,9 +135,19 @@ bool IPlugAPPHost::InitState()
+   SHGetSpecialFolderPathUTF8(NULL, strPath, MAX_PATH_LEN, CSIDL_LOCAL_APPDATA, FALSE);
+   mINIPath.SetFormatted(MAX_PATH_LEN, "%s\\%s\\", strPath, BUNDLE_NAME);
+ #elif defined OS_MAC
+-  mINIPath.SetFormatted(MAX_PATH_LEN, "%s/Library/Application Support/%s/", getenv("HOME"), BUNDLE_NAME);
+-#else
+-  #error NOT IMPLEMENTED
++  const char* home = getenv("HOME");
++  if (!home || !home[0])
++    return false;
++  mINIPath.SetFormatted(MAX_PATH_LEN, "%s/Library/Application Support/%s/", home, BUNDLE_NAME);
++#elif defined OS_LINUX
++  const char* xdgConfig = getenv("XDG_CONFIG_HOME");
++  const char* home = getenv("HOME");
++  if (xdgConfig && xdgConfig[0])
++    mINIPath.SetFormatted(MAX_PATH_LEN, "%s/%s/", xdgConfig, BUNDLE_NAME);
++  else if (home && home[0])
++    mINIPath.SetFormatted(MAX_PATH_LEN, "%s/.config/%s/", home, BUNDLE_NAME);
++  else
++    return false;
+ #endif
+ 
+   struct stat st;
+@@ -140,10 +195,8 @@ bool IPlugAPPHost::InitState()
+     CreateDirectory(mINIPath.Get(), NULL);
+     mINIPath.Append("settings.ini");
+     UpdateINI(); // will write file if doesn't exist
+-#elif defined OS_MAC
+-    mode_t process_mask = umask(0);
+-    int result_code = mkdir(mINIPath.Get(), S_IRWXU | S_IRWXG | S_IRWXO);
+-    umask(process_mask);
++#elif defined(OS_MAC) || defined(OS_LINUX)
++    int result_code = mkdir(mINIPath.Get(), S_IRWXU);
+ 
+     if (!result_code)
+     {
+@@ -154,8 +207,6 @@ bool IPlugAPPHost::InitState()
+     {
+       return false;
+     }
+-#else
+-  #error NOT IMPLEMENTED
+ #endif
+   }
+ 
+@@ -397,8 +448,11 @@ bool IPlugAPPHost::TryToChangeAudioDriverType()
+     mDAC = std::make_unique<RtAudio>(RtAudio::MACOSX_CORE);
+   //else
+   //mDAC = std::make_unique<RtAudio>(RtAudio::UNIX_JACK);
+-#else
+-  #error NOT IMPLEMENTED
++#elif defined OS_LINUX
++  if (mState.mAudioDriverType == kDeviceAlsa)
++    mDAC = std::make_unique<RtAudio>(RtAudio::LINUX_ALSA);
++  else if (mState.mAudioDriverType == kDeviceJack)
++    mDAC = std::make_unique<RtAudio>(RtAudio::UNIX_JACK);
+ #endif
+ 
+   if (mDAC)
+@@ -421,8 +475,8 @@ bool IPlugAPPHost::TryToChangeAudio()
+   auto inputID = GetAudioDeviceID(mState.mAudioDriverType == kDeviceASIO ? mState.mAudioOutDev.Get() : mState.mAudioInDev.Get());
+ #elif defined OS_MAC
+   auto inputID = GetAudioDeviceID(mState.mAudioInDev.Get());
+-#else
+-  #error NOT IMPLEMENTED
++#elif defined OS_LINUX
++  auto inputID = GetAudioDeviceID(mState.mAudioInDev.Get());
+ #endif
+   auto outputID = GetAudioDeviceID(mState.mAudioOutDev.Get());
+ 
+@@ -515,8 +569,12 @@ bool IPlugAPPHost::SelectMIDIDevice(ERoute direction, const char* pPortName)
+         mMidiIn->openPort(port-2);
+         return true;
+       }
+-  #else
+-   #error NOT IMPLEMENTED
++  #elif defined OS_LINUX
++      else
++      {
++        mMidiIn->openPort(port-1);
++        return true;
++      }
+   #endif
+     }
+   }
+@@ -555,8 +613,12 @@ bool IPlugAPPHost::SelectMIDIDevice(ERoute direction, const char* pPortName)
+         mMidiOut->openPort(port-2);
+         return true;
+       }
+-#else
+-  #error NOT IMPLEMENTED
++#elif defined OS_LINUX
++      else
++      {
++        mMidiOut->openPort(port-1);
++        return true;
++      }
+ #endif
+     }
+   }
+diff --git a/IPlug/APP/IPlugAPP_host.h b/IPlug/APP/IPlugAPP_host.h
+index e6712a4c1..460baa7ef 100644
+--- a/IPlug/APP/IPlugAPP_host.h
++++ b/IPlug/APP/IPlugAPP_host.h
+@@ -58,6 +58,9 @@
+   #define DEFAULT_OUTPUT_DEV "Built-in Output"
+ #elif defined(OS_LINUX)
+   #include "IPlugSWELL.h"
++  #define SLEEP(milliseconds) usleep((unsigned long)(milliseconds * 1000.0))
++  #define DEFAULT_INPUT_DEV "default"
++  #define DEFAULT_OUTPUT_DEV "default"
+ #endif
+ 
+ #include "RtAudio.h"
+diff --git a/IPlug/APP/IPlugAPP_main.cpp b/IPlug/APP/IPlugAPP_main.cpp
+index ca035176a..e34932cbe 100644
+--- a/IPlug/APP/IPlugAPP_main.cpp
++++ b/IPlug/APP/IPlugAPP_main.cpp
+@@ -259,8 +259,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
+     ReleaseMutex(hMutex);
+ #endif
+   }
+-  catch(std::exception e)
++  catch(const std::exception& e)
+   {
++    fprintf(stderr, "Fatal exception: %s\n", e.what());
+     DBGMSG("Exception: %s", e.what());
+     return 1;
+   }
+@@ -528,117 +529,81 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
+ 
+ #pragma mark - LINUX
+ #elif defined(OS_LINUX)
+-//#include <IPlugSWELL.h>
+-//#include "swell-internal.h" // fixes problem with HWND forward decl
+-//
+-//HWND gHWND;
+-//UINT gScrollMessage;
+-//extern HMENU SWELL_app_stocksysmenu;
+-//
+-//int main(int argc, char **argv)
+-//{
+-//  SWELL_initargs(&argc, &argv);
+-//  SWELL_Internal_PostMessage_Init();
+-//  SWELL_ExtendedAPI("APPNAME", (void*) "IGraphics Test");
+-//
+-//  HMENU menu = LoadMenu(NULL, MAKEINTRESOURCE(IDR_MENU1));
+-//  CreateDialog(gHINSTANCE, MAKEINTRESOURCE(IDD_DIALOG_MAIN), NULL, MainDlgProc);
+-//  SetMenu(gHWND, menu);
+-//
+-//  while (!gHWND->m_hashaddestroy)
+-//  {
+-//    SWELL_RunMessageLoop();
+-//    Sleep(10);
+-//  };
+-//
+-//  if (gHWND)
+-//    DestroyWindow(gHWND);
+-//
+-//  return 0;
+-//}
+-//
+-//INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
+-//{
+-//  switch (msg)
+-//  {
+-//    case SWELLAPP_ONLOAD:
+-//      break;
+-//    case SWELLAPP_LOADED:
+-//    {
+-//      HMENU menu = SWELL_GetCurrentMenu();
+-//
+-//      if (menu)
+-//      {
+-//        // work on a new menu
+-//        menu = SWELL_DuplicateMenu(menu);
+-//        HMENU src = LoadMenu(NULL, MAKEINTRESOURCE(IDR_MENU1));
+-//
+-//        for (auto x = 0; x < GetMenuItemCount(src)-1; x++)
+-//        {
+-//          HMENU sm = GetSubMenu(src,x);
+-//          if (sm)
+-//          {
+-//            char str[1024];
+-//            MENUITEMINFO mii = {sizeof(mii), MIIM_TYPE};
+-//            mii.dwTypeData = str;
+-//            mii.cch = sizeof(str);
+-//            str[0] = 0;
+-//            GetMenuItemInfo(src, x, TRUE, &mii);
+-//            MENUITEMINFO mi= {sizeof(mi), MIIM_STATE|MIIM_SUBMENU|MIIM_TYPE,MFT_STRING, 0, 0, SWELL_DuplicateMenu(sm), NULL, NULL, 0, str};
+-//            InsertMenuItem(menu, x+1, TRUE, &mi);
+-//          }
+-//        }
+-//      }
+-//
+-//      if (menu)
+-//      {
+-//        HMENU sm = GetSubMenu(menu, 1);
+-//        DeleteMenu(sm, ID_QUIT, MF_BYCOMMAND); // remove QUIT from our file menu, since it is in the system menu on OSX
+-//        DeleteMenu(sm, ID_PREFERENCES, MF_BYCOMMAND); // remove PREFERENCES from the file menu, since it is in the system menu on OSX
+-//
+-//        // remove any trailing separators
+-//        int a = GetMenuItemCount(sm);
+-//
+-//        while (a > 0 && GetMenuItemID(sm, a-1) == 0)
+-//          DeleteMenu(sm, --a, MF_BYPOSITION);
+-//
+-//        DeleteMenu(menu, 1, MF_BYPOSITION); // delete file menu
+-//      }
+-//
+-//      // if we want to set any default modifiers for items in the menus, we can use:
+-//      // SetMenuItemModifier(menu,commandID,MF_BYCOMMAND,'A',FCONTROL) etc.
+-//
+-//      HWND hwnd = CreateDialog(gHINST,MAKEINTRESOURCE(IDD_DIALOG_MAIN), NULL, MainDlgProc);
+-//
+-//      if (menu)
+-//      {
+-//        SetMenu(hwnd, menu); // set the menu for the dialog to our menu (on Windows that menu is set from the .rc, but on SWELL
+-//        SWELL_SetDefaultModalWindowMenu(menu); // other windows will get the stock (bundle) menus
+-//      }
+-//
+-//      break;
+-//    }
+-//    case SWELLAPP_ONCOMMAND:
+-//      // this is to catch commands coming from the system menu etc
+-//      if (gHWND && (parm1&0xffff))
+-//        SendMessage(gHWND, WM_COMMAND, parm1 & 0xffff, 0);
+-//      break;
+-//    case SWELLAPP_DESTROY:
+-//      if (gHWND)
+-//        DestroyWindow(gHWND);
+-//      break;
+-//    case SWELLAPP_PROCESSMESSAGE: // can hook keyboard input here
+-//      // parm1 = (MSG*), should we want it -- look in swell.h to see what the return values refer to
+-//      break;
+-//  }
+-//  return 0;
+-//}
+-//
+-//#define CBS_HASSTRINGS 0
+-//#define SWELL_DLG_SCALE_AUTOGEN 1
+-//#define SET_IDD_DIALOG_PREF_SCALE 1.5
+-//#include "swell-dlggen.h"
+-//#include "resources/main.rc_mac_dlg"
+-//#include "swell-menugen.h"
+-//#include "resources/main.rc_mac_menu"
++#include "IPlugSWELL.h"
++#include "swell-internal.h"
++#include <alsa/asoundlib.h>
++
++#define WM_USER_OPENWINDOW (WM_USER + 1)
++
++HWND gHWND;
++HINSTANCE gHINSTANCE;
++
++static bool gNoIO = false;
++
++// Suppress "Invalid CTL pulse" spam: ALSA probes the PulseAudio ALSA plugin
++// during library initialisation even when PulseAudio isn't running.
++static void _silentAlsaErrorHandler(const char*, int, const char*, int, const char*, ...) {}
++
++int main(int argc, char** argv)
++{
++  snd_lib_error_set_handler(_silentAlsaErrorHandler);
++  SWELL_initargs(&argc, &argv);
++  SWELL_Internal_PostMessage_Init();
++  SWELL_ExtendedAPI("APPNAME", (void*) BUNDLE_NAME);
++
++  // Parse command line arguments
++  for (int i = 1; i < argc; i++)
++  {
++    if (strcmp(argv[i], "--no-io") == 0)
++      gNoIO = true;
++  }
++
++  IPlugAPPHost* pAppHost = IPlugAPPHost::Create();
++
++  if (gNoIO)
++    pAppHost->SetNoIO(true);
++
++  pAppHost->Init();
++  pAppHost->TryToChangeAudio();
++
++  HMENU menu = LoadMenu(NULL, MAKEINTRESOURCE(IDR_MENU1));
++  CreateDialog(gHINSTANCE, MAKEINTRESOURCE(IDD_DIALOG_MAIN), NULL, IPlugAPPHost::MainDlgProc);
++
++  if (gHWND && menu)
++  {
++    SetMenu(gHWND, menu);
++#ifdef OS_LINUX
++    // Now that the menu bar is attached, post WM_USER_OPENWINDOW so the
++    // event loop can process the GDK resize before ClientResize + OpenWindow.
++    PostMessage(gHWND, WM_USER_OPENWINDOW, 0, 0);
++#endif
++  }
++
++  while (gHWND && !gHWND->m_hashaddestroy)
++  {
++    SWELL_RunMessageLoop();
++    Sleep(10);
++  }
++
++  if (gHWND)
++    DestroyWindow(gHWND);
++
++  return 0;
++}
++
++INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
++{
++  return 0;
++}
++
++#define CBS_HASSTRINGS 0
++#define SWELL_DLG_SCALE_AUTOGEN 1
++#define SET_IDD_DIALOG_PREF_SCALE 1.5
++#if PLUG_HOST_RESIZE
++#define SWELL_DLG_FLAGS_AUTOGEN SWELL_DLG_WS_FLIPPED|SWELL_DLG_WS_RESIZABLE
++#endif
++#include "swell-dlggen.h"
++#include "resources/main.rc_mac_dlg"
++#include "swell-menugen.h"
++#include "resources/main.rc_mac_menu"
+ #endif
+diff --git a/IPlug/CLAP/IPlugCLAP.cpp b/IPlug/CLAP/IPlugCLAP.cpp
+index b9914b292..66ca8c5b0 100644
+--- a/IPlug/CLAP/IPlugCLAP.cpp
++++ b/IPlug/CLAP/IPlugCLAP.cpp
+@@ -17,11 +17,21 @@
+ #include "IPlugPluginBase.h"
+ #include "plugin.hxx"
+ #include "host-proxy.hxx"
++#ifndef NO_IGRAPHICS
++  #if defined OS_LINUX
++    #include "IGraphicsLinux.h"
++  #else
++    #include "IGraphics.h"
++  #endif
++#endif
+ 
+ // TODO - respond to situations in which parameters can't be pushed (search try_push)
+ // Keep in the queue or discard?? - up to us?
+ 
+ using namespace iplug;
++#ifndef NO_IGRAPHICS
++using namespace igraphics;
++#endif
+ 
+ void ClapNameCopy(char* destination, const char* source)
+ {
+@@ -52,9 +62,22 @@ IPlugCLAP::IPlugCLAP(const InstanceInfo& info, const Config& config)
+   mAudioIO64.Resize(nChans);
+   
+   SetHost(info.mHost->name, version);
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++  // The idle timer starts in init(): a timer thread started here could call OnIdle() on a
++  // plugin whose derived constructor has not finished.
++#else
+   CreateTimer();
++#endif
+ }
+ 
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++IPlugCLAP::~IPlugCLAP()
++{
++  if (mIdleTimerId != CLAP_INVALID_ID)
++    GetClapHost().timerSupportUnregister(mIdleTimerId);
++}
++#endif
++
+ uint32_t IPlugCLAP::tailGet() const noexcept
+ {
+   return GetTailIsInfinite() ? std::numeric_limits<uint32_t>::max() : GetTailSize();
+@@ -149,6 +172,15 @@ bool IPlugCLAP::SendSysEx(const ISysEx& msg)
+ bool IPlugCLAP::init() noexcept
+ {
+   SetDefaultConfig();
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++  // Idle work runs on the host's main-thread timer, as the UI timer does on Windows and macOS.
++  // Hosts without timer support get the timer thread.
++  if (!GetClapHost().canUseTimerSupport() || !GetClapHost().timerSupportRegister(IDLE_TIMER_RATE, &mIdleTimerId))
++  {
++    mIdleTimerId = CLAP_INVALID_ID;
++    CreateTimer();
++  }
++#endif
+   
+   return true;
+ }
+@@ -413,7 +445,7 @@ bool IPlugCLAP::renderSetMode(clap_plugin_render_mode mode) noexcept
+ bool IPlugCLAP::stateSave(const clap_ostream* pStream) noexcept
+ {
+   IByteChunk chunk;
+-  
++
+   if (!SerializeState(chunk))
+     return false;
+ 
+@@ -509,7 +541,7 @@ bool IPlugCLAP::paramsValueToText(clap_id paramIdx, double value, char* display,
+     value = std::clamp(std::trunc(value), pParam->GetMin(), pParam->GetMax());
+ 
+   WDL_String str;
+-  
++
+   pParam->GetDisplay(value, isDoubleType, str);
+   
+   // Add Label
+@@ -878,8 +910,10 @@ bool IPlugCLAP::guiIsApiSupported(const char* api, bool isFloating) noexcept
+   return !isFloating && !strcmp(api, CLAP_WINDOW_API_COCOA);
+ #elif defined OS_WIN
+   return !isFloating && !strcmp(api, CLAP_WINDOW_API_WIN32);
++#elif defined OS_LINUX
++  return !isFloating && !strcmp(api, CLAP_WINDOW_API_X11);
+ #else
+-#error Not Implemented!
++  return false;
+ #endif
+ }
+ 
+@@ -889,8 +923,10 @@ bool IPlugCLAP::guiSetParent(const clap_window* pWindow) noexcept
+   return GUIWindowAttach(pWindow->cocoa);
+ #elif defined OS_WIN
+   return GUIWindowAttach(pWindow->win32);
++#elif defined OS_LINUX
++  return GUIWindowAttach((void*)(uintptr_t)pWindow->x11);
+ #else
+-#error Not Implemented!
++  return false;
+ #endif
+ }
+ 
+@@ -906,6 +942,9 @@ bool IPlugCLAP::guiCreate(const char* api, bool isFloating) noexcept
+ 
+ void IPlugCLAP::guiDestroy() noexcept
+ {
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++  UnregisterLinuxHostCallbacks();
++#endif
+   CloseWindow();
+   mGUIOpen = false;
+   mWindow = nullptr;
+@@ -980,6 +1019,16 @@ bool IPlugCLAP::GUIWindowAttach(void* pWindow) noexcept
+     OpenWindow(pWindow);
+     mWindow = pWindow;
+     mGUIOpen = true;
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++    // Switch to host-driven mode: stops the internal timer thread
++    // and lets the host drive rendering via onTimer / onPosixFd.
++    // Hosts without timer support keep the internal render thread.
++    if (_host.canUseTimerSupport())
++    {
++      static_cast<IGraphicsLinux*>(GetUI())->SetHostDriven(true);
++      RegisterLinuxHostCallbacks();
++    }
++#endif
+     return true;
+   }
+   else
+@@ -988,18 +1037,64 @@ bool IPlugCLAP::GUIWindowAttach(void* pWindow) noexcept
+   }
+ }
+ 
++bool IPlugCLAP::guiGetResizeHints(
++  clap_gui_resize_hints_t* pHints) noexcept
++{
++#ifndef NO_IGRAPHICS
++  if (!HasUI() || !GetUI())
++    return false;
++
++  pHints->can_resize_horizontally = true;
++  pHints->can_resize_vertically = true;
++
++  if (GetUI()->GetResizerMode() == EUIResizerMode::Scale)
++  {
++    pHints->preserve_aspect_ratio = true;
++    pHints->aspect_ratio_width = GetEditorWidth();
++    pHints->aspect_ratio_height = GetEditorHeight();
++  }
++  else
++  {
++    pHints->preserve_aspect_ratio = false;
++    pHints->aspect_ratio_width = 0;
++    pHints->aspect_ratio_height = 0;
++  }
++
++  return true;
++#else
++  return false;
++#endif
++}
++
+ bool IPlugCLAP::guiAdjustSize(uint32_t* pWidth, uint32_t* pHeight) noexcept
+ {
+   Trace(TRACELOC, "width:%i height:%i\n", *pWidth, *pHeight);
+-  
++
+   if (HasUI())
+   {
+     int w = *pWidth;
+     int h = *pHeight;
+     ConstrainEditorResize(w, h);
++
++#ifndef NO_IGRAPHICS
++    // In Scale mode, enforce the design aspect ratio so the host
++    // doesn't allow sizes that would clip the top/bottom or sides.
++    if (GetUI() &&
++        GetUI()->GetResizerMode() == EUIResizerMode::Scale)
++    {
++      const int logW = GetEditorWidth();
++      const int logH = GetEditorHeight();
++      const float scaleX = static_cast<float>(w) / logW;
++      const float scaleY = static_cast<float>(h) / logH;
++      const float scale = std::min(scaleX, scaleY);
++      w = static_cast<int>(logW * scale);
++      h = static_cast<int>(logH * scale);
++    }
++#endif
++
+     *pWidth = w;
+     *pHeight = h;
+-    
++
+     return true;
+   }
+   else
+@@ -1112,3 +1207,46 @@ uint32_t IPlugCLAP::NChannels(ERoute direction, uint32_t bus) const
+ {
+   return NChannels(direction, bus, mConfigIdx);
+ }
++
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++void IPlugCLAP::onTimer(clap_id timerId) noexcept
++{
++  if (timerId == mIdleTimerId)
++    OnIdleTick();
++  else if (timerId == mLinuxTimerId)
++    if (auto* pGraphics = static_cast<IGraphicsLinux*>(GetUI()))
++      pGraphics->OnDisplayTimer();
++}
++
++void IPlugCLAP::onPosixFd(int fd, clap_posix_fd_flags_t flags) noexcept
++{
++  if (auto* pGraphics = static_cast<IGraphicsLinux*>(GetUI()))
++    pGraphics->ProcessX11Events();
++}
++
++void IPlugCLAP::RegisterLinuxHostCallbacks() noexcept
++{
++  if (!HasUI())
++    return;
++  auto* pGraphics = static_cast<IGraphicsLinux*>(GetUI());
++  const int fd = pGraphics->GetX11Fd();
++  if (fd >= 0 && _host.canUsePosixFdSupport() && _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ))
++    mLinuxFd = fd;
++  const uint32_t periodMs = static_cast<uint32_t>(1000.0 / pGraphics->FPS());
++  _host.timerSupportRegister(periodMs, &mLinuxTimerId);
++}
++
++void IPlugCLAP::UnregisterLinuxHostCallbacks() noexcept
++{
++  if (mLinuxTimerId != CLAP_INVALID_ID)
++  {
++    _host.timerSupportUnregister(mLinuxTimerId);
++    mLinuxTimerId = CLAP_INVALID_ID;
++  }
++  if (mLinuxFd >= 0)
++  {
++    _host.posixFdSupportUnregister(mLinuxFd);
++    mLinuxFd = -1;
++  }
++}
++#endif
+diff --git a/IPlug/CLAP/IPlugCLAP.h b/IPlug/CLAP/IPlugCLAP.h
+index f5c200b2a..e4f00ca33 100644
+--- a/IPlug/CLAP/IPlugCLAP.h
++++ b/IPlug/CLAP/IPlugCLAP.h
+@@ -165,16 +165,33 @@ private:
+   bool guiGetSize(uint32_t* pWidth, uint32_t* pHeight) noexcept override;
+   
+   bool guiCanResize() const noexcept override;
++  bool guiGetResizeHints(clap_gui_resize_hints_t* pHints) noexcept override;
+   bool guiAdjustSize(uint32_t* pWidth, uint32_t* pHeight) noexcept override;
+   bool guiSetSize(uint32_t width, uint32_t height) noexcept override;
+ 
+   // clap_plugin_gui_cocoa/win32
+   bool guiIsApiSupported(const char* api, bool isFloating) noexcept override;
+   bool guiSetParent(const clap_window* pWindow) noexcept override;
+-  
++
+   // Helper to attach GUI Windows
+   bool GUIWindowAttach(void* parent) noexcept;
+ 
++#if defined OS_LINUX && !defined NO_IGRAPHICS
++  // clap_plugin_timer_support + clap_plugin_posix_fd_support (Linux only)
++  bool implementsTimerSupport() const noexcept override { return true; }
++  void onTimer(clap_id timerId) noexcept override;
++  bool implementsPosixFdSupport() const noexcept override { return true; }
++  void onPosixFd(int fd, clap_posix_fd_flags_t flags) noexcept override;
++  void RegisterLinuxHostCallbacks() noexcept;
++  void UnregisterLinuxHostCallbacks() noexcept;
++  clap_id mLinuxTimerId = CLAP_INVALID_ID;
++  int mLinuxFd = -1; // registered with the host's posix-fd support
++  clap_id mIdleTimerId = CLAP_INVALID_ID; // OnIdleTick on the host's main thread
++public:
++  ~IPlugCLAP();
++private:
++#endif
++
+   // Parameter flushing from GUI
+   void FlushParamsIfNeeded();
+ 
+diff --git a/IPlug/Extras/Synth/VoiceAllocator.h b/IPlug/Extras/Synth/VoiceAllocator.h
+index 20e643602..d3c840a64 100644
+--- a/IPlug/Extras/Synth/VoiceAllocator.h
++++ b/IPlug/Extras/Synth/VoiceAllocator.h
+@@ -20,6 +20,8 @@
+ #include <stdint.h>
+ #include <functional>
+ #include <bitset>
++#include <climits>
++#include <memory>
+ //#include <iostream>
+ 
+ #include "IPlugLogger.h"
+diff --git a/IPlug/Extras/WebView/IPlugWebView_linux.cpp b/IPlug/Extras/WebView/IPlugWebView_linux.cpp
+new file mode 100644
+index 000000000..2195e35b5
+--- /dev/null
++++ b/IPlug/Extras/WebView/IPlugWebView_linux.cpp
+@@ -0,0 +1,43 @@
++/*
++ ==============================================================================
++
++ This file is part of the iPlug 2 library. Copyright (C) the iPlug 2 developers.
++
++ See LICENSE.txt for  more info.
++
++ ==============================================================================
++*/
++
++// Stub IWebViewImpl for Linux — WebView is not yet implemented on Linux.
++// All methods are no-ops so that code linking against iPlug2::Extras::IWebViewControl
++// compiles and links; attempting to use a WebView at runtime will silently do nothing.
++
++#include "IPlugWebView.h"
++
++BEGIN_IPLUG_NAMESPACE
++
++class IWebViewImpl
++{
++public:
++  IWebViewImpl(IWebView*) {}
++  ~IWebViewImpl() {}
++
++  void* OpenWebView(void*, float, float, float, float, float) { return nullptr; }
++  void CloseWebView() {}
++  void HideWebView(bool) {}
++  void LoadHTML(const char*) {}
++  void LoadURL(const char*) {}
++  void LoadFile(const char*, const char*) {}
++  void ReloadPageContent() {}
++  void EvaluateJavaScript(const char*, IWebView::completionHandlerFunc) {}
++  void EnableScroll(bool) {}
++  void EnableInteraction(bool) {}
++  void SetWebViewBounds(float, float, float, float, float) {}
++  void GetLocalDownloadPathForFile(const char*, WDL_String&) {}
++  void GetWebRoot(WDL_String&) {}
++};
++
++END_IPLUG_NAMESPACE
++
++// Pull in the platform-independent IWebView glue code
++#include "IPlugWebView.cpp"
+diff --git a/IPlug/IPlugAPIBase.cpp b/IPlug/IPlugAPIBase.cpp
+index 0de0e4208..7b29247bd 100644
+--- a/IPlug/IPlugAPIBase.cpp
++++ b/IPlug/IPlugAPIBase.cpp
+@@ -89,11 +89,14 @@ bool IPlugAPIBase::CompareState(const uint8_t* pIncomingState, int startPos) con
+ }
+ 
+ bool IPlugAPIBase::EditorResizeFromUI(int viewWidth, int viewHeight, bool needsPlatformResize)
+-{  
++{
+   if (needsPlatformResize)
+     return EditorResize(viewWidth, viewHeight);
+-  else
+-    return true;
++
++  // Always keep mEditorWidth/mEditorHeight in sync so that VST3
++  // getSize() reports the actual window size after host-driven resizes.
++  SetEditorSize(viewWidth, viewHeight);
++  return true;
+ }
+ 
+ #pragma mark -
+@@ -140,6 +143,11 @@ void IPlugAPIBase::SendParameterValueFromAPI(int paramIdx, double value, bool no
+ }
+ 
+ void IPlugAPIBase::OnTimer(Timer& t)
++{
++  OnIdleTick();
++}
++
++void IPlugAPIBase::OnIdleTick()
+ {
+ // VST3 ********************************************************************************
+ #if defined VST3P_API || defined VST3_API
+diff --git a/IPlug/IPlugAPIBase.h b/IPlug/IPlugAPIBase.h
+index 5f43a7bc1..7c7b948f4 100644
+--- a/IPlug/IPlugAPIBase.h
++++ b/IPlug/IPlugAPIBase.h
+@@ -212,6 +212,8 @@ private:
+   virtual void TransmitSysExDataFromProcessor(const SysExData& data) {}
+ 
+   void OnTimer(Timer& t);
++  /** One idle tick: the queue transfers and OnIdle(). Hosts can drive it without a Timer. */
++  void OnIdleTick();
+ 
+   friend class IPlugAPP;
+   friend class IPlugAAX;
+diff --git a/IPlug/IPlugLogger.h b/IPlug/IPlugLogger.h
+index 42f04a505..168f0f4d9 100644
+--- a/IPlug/IPlugLogger.h
++++ b/IPlug/IPlugLogger.h
+@@ -144,7 +144,7 @@ BEGIN_IPLUG_NAMESPACE
+     int i = (int) strlen(cStr);
+     cStr[i++] = tz >= 0 ? '+' : '-';
+     if (tz < 0) tz = -tz;
+-    snprintf(&cStr[i], 32, "%02d%02d", tz / 60, tz % 60);
++    snprintf(&cStr[i], (size_t)(32 - i), "%02d%02d", tz / 60, tz % 60);
+     
+     static char sTimeStr[32];
+     strcpy(sTimeStr, cStr);
+diff --git a/IPlug/IPlugParameter.cpp b/IPlug/IPlugParameter.cpp
+index 2906f71f4..91bdab92b 100644
+--- a/IPlug/IPlugParameter.cpp
++++ b/IPlug/IPlugParameter.cpp
+@@ -363,7 +363,7 @@ double IParam::StringToValue(const char* str) const
+   if (mapped)
+     mapped = MapDisplayText(str, &v);
+ 
+-  if (!mapped && Type() != kTypeEnum && Type() != kTypeBool)
++  if (!mapped)
+   {
+     v = atof(str);
+ 
+@@ -371,7 +371,6 @@ double IParam::StringToValue(const char* str) const
+       v = -v;
+ 
+     v = Constrain(v);
+-    mapped = true;
+   }
+ 
+   return v;
+diff --git a/IPlug/IPlugPaths.cpp b/IPlug/IPlugPaths.cpp
+index 5044fb05e..8303af074 100644
+--- a/IPlug/IPlugPaths.cpp
++++ b/IPlug/IPlugPaths.cpp
+@@ -19,6 +19,10 @@
+ 
+ #if defined OS_WEB
+ #include <emscripten/val.h>
++#elif defined OS_LINUX
++#include <unistd.h>
++#include <climits>
++#include <dlfcn.h>
+ #elif defined OS_WIN
+ #include <windows.h>
+ #include <Shlobj.h>
+@@ -232,6 +236,148 @@ const void* LoadWinResource(const char* resid, const char* type, int& sizeInByte
+   }
+ }
+ 
++#elif defined OS_LINUX
++#pragma mark - OS_LINUX
++
++#include <cstdlib>
++#include <sys/stat.h>
++
++void AppSupportPath(WDL_String& path, bool isSystem)
++{
++  if (isSystem)
++  {
++    path.Set("/etc");
++  }
++  else
++  {
++    const char* xdgConfig = getenv("XDG_CONFIG_HOME");
++    if (xdgConfig && xdgConfig[0])
++      path.Set(xdgConfig);
++    else
++    {
++      const char* home = getenv("HOME");
++      if (!home || !home[0]) return;
++      path.SetFormatted(PATH_MAX, "%s/.config", home);
++    }
++  }
++}
++
++void DesktopPath(WDL_String& path)
++{
++  const char* home = getenv("HOME");
++  if (!home || !home[0]) return;
++  path.SetFormatted(PATH_MAX, "%s/Desktop", home);
++}
++
++void VST3PresetsPath(WDL_String& path, const char* mfrName, const char* pluginName, bool isSystem)
++{
++  if (isSystem)
++    path.SetFormatted(PATH_MAX, "/usr/share/vst3/presets/%s/%s", mfrName, pluginName);
++  else
++  {
++    const char* home = getenv("HOME");
++    if (!home || !home[0]) return;
++    path.SetFormatted(PATH_MAX, "%s/.vst3/presets/%s/%s", home, mfrName, pluginName);
++  }
++}
++
++EResourceLocation LocateResource(const char* name, const char* type, WDL_String& result,
++                                  const char*, void*, const char* sharedResourcesSubPath)
++{
++  if (!name || !name[0])
++    return EResourceLocation::kNotFound;
++
++  // If it's already an absolute path that exists, use it directly
++  struct stat st;
++  if (name[0] == '/' && stat(name, &st) == 0)
++  {
++    result.Set(name);
++    return EResourceLocation::kAbsolutePath;
++  }
++
++  const char* fileNameOnly = strrchr(name, '/');
++  fileNameOnly = fileNameOnly ? fileNameOnly + 1 : name;
++
++  WDL_String candidate;
++
++  // Use dladdr to find the directory of this plugin's own shared library (or executable).
++  // This correctly handles VST3/CLAP plugins loaded into a host — /proc/self/exe would
++  // give the host's path, not the plugin's.
++  Dl_info dlInfo = {};
++  if (dladdr((void*)LocateResource, &dlInfo) && dlInfo.dli_fname)
++  {
++    WDL_String soDir;
++    soDir.Set(dlInfo.dli_fname);
++    soDir.remove_filepart(true); // keep trailing slash
++
++    // Try <so_dir>/resources/<type>/<filename>  (APP, flat CLAP layout)
++    candidate.SetFormatted(PATH_MAX, "%sresources/%s/%s", soDir.Get(), type, fileNameOnly);
++    if (stat(candidate.Get(), &st) == 0)
++    {
++      result.Set(candidate.Get());
++      return EResourceLocation::kAbsolutePath;
++    }
++
++    // Try <so_dir>/../Resources/<type>/<filename>  (VST3 bundle: Contents/arch-linux/ -> Contents/Resources/)
++    candidate.SetFormatted(PATH_MAX, "%s../Resources/%s/%s", soDir.Get(), type, fileNameOnly);
++    if (stat(candidate.Get(), &st) == 0)
++    {
++      result.Set(candidate.Get());
++      return EResourceLocation::kAbsolutePath;
++    }
++
++    // Try <so_dir>/../Resources/<filename>
++    candidate.SetFormatted(PATH_MAX, "%s../Resources/%s", soDir.Get(), fileNameOnly);
++    if (stat(candidate.Get(), &st) == 0)
++    {
++      result.Set(candidate.Get());
++      return EResourceLocation::kAbsolutePath;
++    }
++
++    // Try <so_dir>/resources/<filename>
++    candidate.SetFormatted(PATH_MAX, "%sresources/%s", soDir.Get(), fileNameOnly);
++    if (stat(candidate.Get(), &st) == 0)
++    {
++      result.Set(candidate.Get());
++      return EResourceLocation::kAbsolutePath;
++    }
++  }
++
++  // Fallback: look next to the host executable (covers cases where dladdr is unavailable)
++  char buf[PATH_MAX];
++  ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
++  if (len > 0)
++  {
++    buf[len] = '\0';
++    WDL_String exePath;
++    exePath.Set(buf);
++    exePath.remove_filepart(true);
++
++    candidate.SetFormatted(PATH_MAX, "%sresources/%s/%s", exePath.Get(), type, fileNameOnly);
++    if (stat(candidate.Get(), &st) == 0)
++    {
++      result.Set(candidate.Get());
++      return EResourceLocation::kAbsolutePath;
++    }
++
++    candidate.SetFormatted(PATH_MAX, "%sresources/%s", exePath.Get(), fileNameOnly);
++    if (stat(candidate.Get(), &st) == 0)
++    {
++      result.Set(candidate.Get());
++      return EResourceLocation::kAbsolutePath;
++    }
++  }
++
++  // Try path as-is relative to cwd
++  if (stat(name, &st) == 0)
++  {
++    result.Set(name);
++    return EResourceLocation::kAbsolutePath;
++  }
++
++  return EResourceLocation::kNotFound;
++}
++
+ #elif defined OS_WEB
+ #pragma mark - OS_WEB
+ 
+diff --git a/IPlug/IPlugPlatform.h b/IPlug/IPlugPlatform.h
+index 326b85b87..b446560a4 100644
+--- a/IPlug/IPlugPlatform.h
++++ b/IPlug/IPlugPlatform.h
+@@ -30,7 +30,9 @@
+     #define OS_VISION
+   #endif
+ #elif defined __linux || defined __linux__ || defined linux
+-  #define OS_LINUX
++  #ifndef OS_LINUX
++    #define OS_LINUX
++  #endif
+ #elif defined __EMSCRIPTEN__
+   #define OS_WEB
+ #else
+diff --git a/IPlug/IPlugTimer.cpp b/IPlug/IPlugTimer.cpp
+index eab7523d7..a4dc391c4 100644
+--- a/IPlug/IPlugTimer.cpp
++++ b/IPlug/IPlugTimer.cpp
+@@ -143,4 +143,48 @@ void Timer_impl::TimerProc(void* userData)
+   Timer_impl* itimer = (Timer_impl*) userData;
+   itimer->mTimerFunc(*itimer);
+ }
++#elif defined OS_LINUX
++#include <unistd.h>
++
++Timer* Timer::Create(ITimerFunction func, uint32_t intervalMs)
++{
++  return new Timer_impl(func, intervalMs);
++}
++
++Timer_impl::Timer_impl(ITimerFunction func, uint32_t intervalMs)
++: mTimerFunc(func)
++, mIntervalMs(intervalMs)
++{
++  if (pthread_create(&mThread, nullptr, ThreadProc, this) == 0)
++    mRunning = true;
++}
++
++Timer_impl::~Timer_impl()
++{
++  Stop();
++}
++
++void Timer_impl::Stop()
++{
++  // compare_exchange makes the check-then-act atomic so concurrent Stop()
++  // calls (e.g. destructor racing an explicit Stop) cannot double-join.
++  bool expected = true;
++  if (mRunning.compare_exchange_strong(expected, false))
++  {
++    pthread_join(mThread, nullptr);
++    mThread = 0;
++  }
++}
++
++void* Timer_impl::ThreadProc(void* pParam)
++{
++  Timer_impl* pTimer = reinterpret_cast<Timer_impl*>(pParam);
++  while (pTimer->mRunning)
++  {
++    usleep((unsigned long)(pTimer->mIntervalMs) * 1000UL);
++    if (pTimer->mRunning)
++      pTimer->mTimerFunc(*pTimer);
++  }
++  return nullptr;
++}
+ #endif
+diff --git a/IPlug/IPlugTimer.h b/IPlug/IPlugTimer.h
+index 1f76348df..0d7302f98 100644
+--- a/IPlug/IPlugTimer.h
++++ b/IPlug/IPlugTimer.h
+@@ -31,6 +31,9 @@
+ #include <CoreFoundation/CoreFoundation.h>
+ #elif defined OS_WEB
+ #include <emscripten/html5.h>
++#elif defined OS_LINUX
++#include <atomic>
++#include <pthread.h>
+ #endif
+ 
+ BEGIN_IPLUG_NAMESPACE
+@@ -90,13 +93,26 @@ public:
+   ~Timer_impl();
+   void Stop() override;
+   static void TimerProc(void *userData);
+-  
++
+ private:
+   long ID = 0;
+   ITimerFunction mTimerFunc;
+ };
+-#else
+-  #error NOT IMPLEMENTED
++#elif defined OS_LINUX
++class Timer_impl : public Timer
++{
++public:
++  Timer_impl(ITimerFunction func, uint32_t intervalMs);
++  ~Timer_impl();
++  void Stop() override;
++
++private:
++  static void* ThreadProc(void* pParam);
++  ITimerFunction mTimerFunc;
++  uint32_t mIntervalMs;
++  std::atomic<bool> mRunning{false};
++  pthread_t mThread = 0;
++};
+ #endif
+ 
+ END_IPLUG_NAMESPACE
+diff --git a/IPlug/IPlug_include_in_plug_hdr.h b/IPlug/IPlug_include_in_plug_hdr.h
+index 49c8fba20..92db27f77 100644
+--- a/IPlug/IPlug_include_in_plug_hdr.h
++++ b/IPlug/IPlug_include_in_plug_hdr.h
+@@ -103,7 +103,9 @@ END_IPLUG_NAMESPACE
+   #endif
+   #define EXPORT __attribute__ ((visibility("default")))
+ #elif defined OS_LINUX
+-  //TODO:
++  #define EXPORT __attribute__ ((visibility("default")))
++  #define BUNDLE_ID ""
++  #define APP_GROUP_ID ""
+ #elif defined OS_WEB
+   #define BUNDLE_ID ""
+   #define APP_GROUP_ID ""
+diff --git a/IPlug/VST3/IPlugVST3.cpp b/IPlug/VST3/IPlugVST3.cpp
+index 0c354a983..e93698520 100644
+--- a/IPlug/VST3/IPlugVST3.cpp
++++ b/IPlug/VST3/IPlugVST3.cpp
+@@ -32,7 +32,9 @@ IPlugVST3::IPlugVST3(const InstanceInfo& info, const Config& config)
+ , IPlugVST3ControllerBase(parameters)
+ , mView(nullptr)
+ {
++#ifndef OS_LINUX
+   CreateTimer();
++#endif
+ }
+ 
+ IPlugVST3::~IPlugVST3() {}
+@@ -56,6 +58,11 @@ tresult PLUGIN_API IPlugVST3::initialize(FUnknown* context)
+     IPlugVST3GetHost(this, context);
+     OnHostIdentified();
+     OnParamReset(kReset);
++#ifdef OS_LINUX
++    // The Linux idle timer is a thread: run it only between initialize and terminate, when the
++    // plugin is completely constructed and not yet being destroyed.
++    CreateTimer();
++#endif
+     
+     return kResultOk;
+   }
+@@ -66,6 +73,10 @@ tresult PLUGIN_API IPlugVST3::initialize(FUnknown* context)
+ tresult PLUGIN_API IPlugVST3::terminate()
+ {
+   TRACE
++#ifdef OS_LINUX
++  if (mTimer)
++    mTimer->Stop();
++#endif
+ 
+   return SingleComponentEffect::terminate();
+ }
+diff --git a/IPlug/VST3/IPlugVST3_View.h b/IPlug/VST3/IPlugVST3_View.h
+index 6d61616e5..60b470399 100644
+--- a/IPlug/VST3/IPlugVST3_View.h
++++ b/IPlug/VST3/IPlugVST3_View.h
+@@ -42,20 +42,22 @@ public:
+ #ifdef OS_WIN
+       if (strcmp(type, Steinberg::kPlatformTypeHWND) == 0)
+         return Steinberg::kResultTrue;
+-      
+ #elif defined OS_MAC
+       if (strcmp(type, Steinberg::kPlatformTypeNSView) == 0)
+         return Steinberg::kResultTrue;
++#elif defined OS_LINUX
++      if (strcmp(type, Steinberg::kPlatformTypeX11EmbedWindowID) == 0)
++        return Steinberg::kResultTrue;
+ #endif
+     }
+-    
++
+     return Steinberg::kResultFalse;
+   }
+     
+   Steinberg::tresult PLUGIN_API onSize(Steinberg::ViewRect* pSize) override
+   {
+     TRACE
+-    
++
+     if (pSize && mOwner.GetHostResizeEnabled())
+     {
+       rect = *pSize;
+@@ -65,15 +67,17 @@ public:
+ 
+     return Steinberg::kResultFalse;
+   }
+-  
++
+   Steinberg::tresult PLUGIN_API getSize(Steinberg::ViewRect* pSize) override
+   {
+     TRACE
+-    
++
+     if (mOwner.HasUI())
+     {
+-      *pSize = Steinberg::ViewRect(0, 0, mOwner.GetEditorWidth(), mOwner.GetEditorHeight());
+-      
++      int ew = mOwner.GetEditorWidth();
++      int eh = mOwner.GetEditorHeight();
++      *pSize = Steinberg::ViewRect(0, 0, ew, eh);
++
+       return Steinberg::kResultTrue;
+     }
+     else
+@@ -81,28 +85,28 @@ public:
+       return Steinberg::kResultFalse;
+     }
+   }
+-  
++
+   Steinberg::tresult PLUGIN_API canResize() override
+   {
+     if (mOwner.HasUI() && mOwner.GetHostResizeEnabled())
+     {
+       return Steinberg::kResultTrue;
+     }
+-    
++
+     return Steinberg::kResultFalse;
+   }
+-  
++
+   Steinberg::tresult PLUGIN_API checkSizeConstraint(Steinberg::ViewRect* pRect) override
+   {
+     int w = pRect->getWidth();
+     int h = pRect->getHeight();
+-    
++
+     if(!mOwner.ConstrainEditorResize(w, h))
+     {
+       pRect->right = pRect->left + w;
+       pRect->bottom = pRect->top + h;
+     }
+-    
++
+     return Steinberg::kResultTrue;
+   }
+   
+@@ -110,19 +114,25 @@ public:
+   {
+     if (mOwner.HasUI())
+     {
+-      void* pView = nullptr;
+ #ifdef OS_WIN
+       if (strcmp(type, Steinberg::kPlatformTypeHWND) == 0)
+-        pView = mOwner.OpenWindow(pParent);
++        mOwner.OpenWindow(pParent);
++      else
++        return Steinberg::kResultFalse;
+ #elif defined OS_MAC
+       if (strcmp(type, Steinberg::kPlatformTypeNSView) == 0)
+-        pView = mOwner.OpenWindow(pParent);
+-      else // Carbon
++        mOwner.OpenWindow(pParent);
++      else
++        return Steinberg::kResultFalse;
++#elif defined OS_LINUX
++      if (strcmp(type, Steinberg::kPlatformTypeX11EmbedWindowID) == 0)
++        mOwner.OpenWindow(pParent);
++      else
+         return Steinberg::kResultFalse;
+ #endif
+       return Steinberg::kResultTrue;
+     }
+-    
++
+     return Steinberg::kResultFalse;
+   }
+     
+diff --git a/Scripts/cmake/APP.cmake b/Scripts/cmake/APP.cmake
+index 8850d0714..d0c95a364 100644
+--- a/Scripts/cmake/APP.cmake
++++ b/Scripts/cmake/APP.cmake
+@@ -96,7 +96,80 @@ if(NOT TARGET iPlug2::APP)
+       "-framework CoreAudio"
+     )
+   elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+-    message("Error - Linux not yet supported")
++    target_include_directories(iPlug2::APP INTERFACE ${SWELL_DIR})
++
++    set(_LICE_DIR "${SWELL_DIR}/../lice")
++    set(IPLUG2_SWELL_SRC
++      "${SWELL_DIR}/swell-appstub-generic.cpp"
++      "${SWELL_DIR}/swell-wnd-generic.cpp"
++      "${SWELL_DIR}/swell-dlg-generic.cpp"
++      "${SWELL_DIR}/swell-menu-generic.cpp"
++      "${SWELL_DIR}/swell-kb-generic.cpp"
++      "${SWELL_DIR}/swell-misc-generic.cpp"
++      "${SWELL_DIR}/swell-miscdlg-generic.cpp"
++      "${SWELL_DIR}/swell-gdi-generic.cpp"
++      "${SWELL_DIR}/swell-gdi-lice.cpp"
++      "${SWELL_DIR}/swell-generic-gdk.cpp"
++      "${SWELL_DIR}/swell-generic-headless.cpp"
++      "${SWELL_DIR}/swell-modstub-generic.cpp"
++      "${SWELL_DIR}/swell.cpp"
++      "${SWELL_DIR}/swell-ini.cpp"
++      # LICE sources required by swell-gdi-lice.cpp (matches WDL swell/Makefile LICE_OBJS)
++      "${_LICE_DIR}/lice.cpp"
++      "${_LICE_DIR}/lice_arc.cpp"
++      "${_LICE_DIR}/lice_colorspace.cpp"
++      "${_LICE_DIR}/lice_line.cpp"
++      "${_LICE_DIR}/lice_text.cpp"
++      "${_LICE_DIR}/lice_textnew.cpp"
++      "${_LICE_DIR}/lice_ico.cpp"
++      "${_LICE_DIR}/lice_bmp.cpp"
++      CACHE INTERNAL "SWELL source files for APP (Linux)"
++    )
++
++    target_sources(iPlug2::APP INTERFACE ${IPLUG2_SWELL_SRC})
++
++    find_package(PkgConfig REQUIRED)
++    pkg_check_modules(GDK3 REQUIRED gdk-3.0)
++    pkg_check_modules(FREETYPE REQUIRED freetype2)
++    pkg_check_modules(ALSA REQUIRED alsa)
++    pkg_check_modules(JACK REQUIRED jack)
++    pkg_check_modules(PULSEAUDIO REQUIRED libpulse libpulse-simple)
++
++    target_include_directories(iPlug2::APP INTERFACE
++      ${GDK3_INCLUDE_DIRS}
++      ${FREETYPE_INCLUDE_DIRS}
++      ${ALSA_INCLUDE_DIRS}
++      ${JACK_INCLUDE_DIRS}
++      ${PULSEAUDIO_INCLUDE_DIRS}
++    )
++
++    target_compile_definitions(iPlug2::APP INTERFACE
++      __LINUX_ALSA__
++      __LINUX_PULSE__
++      __UNIX_JACK__
++      SWELL_TARGET_GDK=3
++      SWELL_LICE_GDI
++      SWELL_FREETYPE
++      SWELL_FONTCONFIG
++      SWELL_COMPILED
++    )
++
++    # WDL assumes signed char; ARM Linux defaults to unsigned char
++    target_compile_options(iPlug2::APP INTERFACE -fsigned-char)
++
++    target_link_libraries(iPlug2::APP INTERFACE
++      ${GDK3_LIBRARIES}
++      ${FREETYPE_LIBRARIES}
++      ${ALSA_LINK_LIBRARIES}
++      ${JACK_LINK_LIBRARIES}
++      ${PULSEAUDIO_LINK_LIBRARIES}
++      pthread
++      dl
++      fontconfig
++      X11
++      Xi
++      GL
++    )
+   endif()
+   
+   target_link_libraries(iPlug2::APP INTERFACE iPlug2::IPlug)
+@@ -122,6 +195,14 @@ function(iplug_configure_app target project_name)
+     )
+   endif()
+ 
++  if(UNIX AND NOT APPLE)
++    set_source_files_properties(${IPLUG2_SWELL_SRC}
++      TARGET_DIRECTORY ${target}
++      PROPERTIES
++      COMPILE_FLAGS "-Wno-deprecated-declarations -Wno-unused-parameter -fsigned-char"
++    )
++  endif()
++
+   if(WIN32)
+     set(APP_OUTPUT_DIR "${CMAKE_BINARY_DIR}/out")
+     set_target_properties(${target} PROPERTIES
+@@ -182,5 +263,13 @@ function(iplug_configure_app target project_name)
+         COMMENT "Creating PkgInfo for ${project_name}.app"
+       )
+     endif()
++  elseif(UNIX AND NOT APPLE)
++    set(APP_OUTPUT_DIR "${CMAKE_BINARY_DIR}/out")
++    set_target_properties(${target} PROPERTIES
++      OUTPUT_NAME "${project_name}"
++      RUNTIME_OUTPUT_DIRECTORY "${APP_OUTPUT_DIR}"
++      RUNTIME_OUTPUT_DIRECTORY_DEBUG "${APP_OUTPUT_DIR}"
++      RUNTIME_OUTPUT_DIRECTORY_RELEASE "${APP_OUTPUT_DIR}"
++    )
+   endif()
+ endfunction()
+\ No newline at end of file
+diff --git a/Scripts/cmake/CLAP.cmake b/Scripts/cmake/CLAP.cmake
+index c54284af7..d682cc795 100644
+--- a/Scripts/cmake/CLAP.cmake
++++ b/Scripts/cmake/CLAP.cmake
+@@ -79,8 +79,7 @@ if(NOT TARGET iPlug2::CLAP)
+     # CLAP SDK is header-only and works on WASM
+     # Build as STATIC library with --no-entry linker option
+   elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+-    # Linux support - to be added later
+-    message(WARNING "CLAP Linux support not yet implemented")
++    target_link_libraries(iPlug2::CLAP INTERFACE pthread dl)
+   endif()
+ 
+   target_link_libraries(iPlug2::CLAP INTERFACE iPlug2::IPlug)
+@@ -123,6 +122,16 @@ function(iplug_configure_clap target project_name)
+         COMMENT "Creating PkgInfo for ${project_name}.clap"
+       )
+     endif()
++  elseif(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
++    set(CLAP_OUTPUT_DIR "${CMAKE_BINARY_DIR}/out")
++    set_target_properties(${target} PROPERTIES
++      OUTPUT_NAME "${project_name}"
++      SUFFIX ".clap"
++      PREFIX ""
++      LIBRARY_OUTPUT_DIRECTORY "${CLAP_OUTPUT_DIR}"
++      LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CLAP_OUTPUT_DIR}"
++      LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CLAP_OUTPUT_DIR}"
++    )
+   elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+     # WASM/Emscripten: Use --no-entry linker option
+     target_link_options(${target} PRIVATE --no-entry)
+diff --git a/Scripts/cmake/CopyIfExists.cmake b/Scripts/cmake/CopyIfExists.cmake
+new file mode 100644
+index 000000000..bb641ac8d
+--- /dev/null
++++ b/Scripts/cmake/CopyIfExists.cmake
+@@ -0,0 +1,5 @@
++# Copy a directory only if it exists. Called from Deploy.cmake post-build.
++# Usage: cmake -Dsrc=<path> -Ddst=<path> -P CopyIfExists.cmake
++if(IS_DIRECTORY "${src}")
++  file(COPY "${src}/" DESTINATION "${dst}")
++endif()
+diff --git a/Scripts/cmake/Deploy.cmake b/Scripts/cmake/Deploy.cmake
+index 91694424b..e7f1ee10a 100644
+--- a/Scripts/cmake/Deploy.cmake
++++ b/Scripts/cmake/Deploy.cmake
+@@ -9,6 +9,9 @@
+ # Plugin deployment configuration for iPlug2
+ # Supports symlink and copy deployment to standard system directories
+ 
++# Capture script directory at include time (CMAKE_CURRENT_LIST_DIR changes inside functions)
++set(_IPLUG_DEPLOY_SCRIPT_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "")
++
+ #------------------------------------------------------------------------
+ # Options
+ #------------------------------------------------------------------------
+@@ -166,6 +169,17 @@ function(_iplug_copy_plugin target source_path dest_dir plugin_name is_bundle)
+       COMMAND ${CMAKE_COMMAND} -E copy "${source_path}" "${dest_path}"
+       COMMENT "[iPlug2] Deploying ${plugin_name} (copy)"
+     )
++    # Also deploy the resources/ directory alongside flat plugins (CLAP/APP on Linux)
++    # Only copy if the resources directory exists (not all plugins have resources)
++    get_filename_component(_source_dir "${source_path}" DIRECTORY)
++    set(_res_src "${_source_dir}/resources")
++    set(_res_dst "${dest_dir}/resources")
++    add_custom_command(TARGET ${target} POST_BUILD
++      COMMAND ${CMAKE_COMMAND}
++        -Dsrc=${_res_src} -Ddst=${_res_dst}
++        -P ${_IPLUG_DEPLOY_SCRIPT_DIR}/CopyIfExists.cmake
++      COMMENT "[iPlug2] Deploying resources -> ${_res_dst}"
++    )
+   endif()
+ endfunction()
+ 
+diff --git a/Scripts/cmake/FindiPlug2.cmake b/Scripts/cmake/FindiPlug2.cmake
+index da6f5965f..48299629b 100644
+--- a/Scripts/cmake/FindiPlug2.cmake
++++ b/Scripts/cmake/FindiPlug2.cmake
+@@ -229,11 +229,9 @@ function(iplug_configure_target target target_type project_name)
+   string(REPLACE "_" "-" function_suffix ${lowercase_type})
+   cmake_language(CALL iplug_configure_${function_suffix} ${target} ${project_name})
+ 
+-  # Auto-deploy main plugin formats (skip AUv3 intermediate targets)
+-  set(DEPLOYABLE_TYPES APP VST2 VST3 CLAP AUv2 AAX)
+-  if(${target_type} IN_LIST DEPLOYABLE_TYPES)
+-    iplug_deploy_target(${target} ${target_type} ${project_name})
+-  endif()
++  # NOTE: Deployment is handled by callers AFTER resources are added,
++  # so that copy_directory captures the full bundle (including resources).
++  # See _iplug_create_desktop_targets in IPlugPlugin.cmake.
+ 
+   # Debuggable plugin types
+   set(DEBUGGABLE_TYPES "")
+diff --git a/Scripts/cmake/IGraphics.cmake b/Scripts/cmake/IGraphics.cmake
+index f293d3da5..676b7de80 100644
+--- a/Scripts/cmake/IGraphics.cmake
++++ b/Scripts/cmake/IGraphics.cmake
+@@ -43,7 +43,7 @@ if(NOT TARGET iPlug2::IGraphics)
+       ${IGRAPHICS_DIR}/Platforms/IGraphicsCoreText.mm
+     )
+   elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+-    message("Error - Linux not yet supported")
++    list(APPEND IGRAPHICS_SRC ${IGRAPHICS_DIR}/Platforms/IGraphicsLinux.cpp)
+   endif()
+ 
+   target_sources(iPlug2::IGraphics INTERFACE ${IGRAPHICS_SRC})
+@@ -80,7 +80,17 @@ if(NOT TARGET iPlug2::IGraphics)
+       "-framework QuartzCore"
+     )
+   elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+-    message("Error - Linux not yet supported")
++    find_package(X11 REQUIRED)
++    find_package(OpenGL REQUIRED)
++    target_include_directories(iPlug2::IGraphics INTERFACE
++      ${X11_INCLUDE_DIR}
++    )
++    target_link_libraries(iPlug2::IGraphics INTERFACE
++      ${X11_LIBRARIES}
++      OpenGL::GL
++      dl
++      pthread
++    )
+   endif()
+ 
+   target_link_libraries(iPlug2::IGraphics INTERFACE iPlug2::IPlug)
+@@ -142,6 +152,15 @@ if(NOT TARGET iPlug2::IGraphics::NanoVG)
+       ${IGRAPHICS_DEPS_DIR}/glad_GL2/include
+       ${IGRAPHICS_DEPS_DIR}/glad_GL2/src
+     )
++  elseif(UNIX AND NOT APPLE)
++    target_include_directories(iPlug2::IGraphics::NanoVG INTERFACE
++      ${IGRAPHICS_DEPS_DIR}/glad_GL2/include
++      ${IGRAPHICS_DEPS_DIR}/glad_GL2/src
++    )
++    target_sources(iPlug2::IGraphics::NanoVG INTERFACE
++      ${IGRAPHICS_DEPS_DIR}/glad_GL2/src/glad.c
++    )
++    target_link_libraries(iPlug2::IGraphics::NanoVG INTERFACE OpenGL::GL)
+   endif()
+ 
+   target_compile_definitions(iPlug2::IGraphics::NanoVG INTERFACE
+@@ -187,6 +206,15 @@ if(NOT TARGET iPlug2::IGraphics::NanoVG::GL3)
+       ${IGRAPHICS_DEPS_DIR}/glad_GL3/include
+       ${IGRAPHICS_DEPS_DIR}/glad_GL3/src
+     )
++  elseif(UNIX AND NOT APPLE)
++    target_include_directories(iPlug2::IGraphics::NanoVG::GL3 INTERFACE
++      ${IGRAPHICS_DEPS_DIR}/glad_GL3/include
++      ${IGRAPHICS_DEPS_DIR}/glad_GL3/src
++    )
++    target_sources(iPlug2::IGraphics::NanoVG::GL3 INTERFACE
++      ${IGRAPHICS_DEPS_DIR}/glad_GL3/src/glad.c
++    )
++    target_link_libraries(iPlug2::IGraphics::NanoVG::GL3 INTERFACE OpenGL::GL)
+   endif()
+ 
+   target_compile_definitions(iPlug2::IGraphics::NanoVG::GL3 INTERFACE
+@@ -431,6 +459,9 @@ if(NOT TARGET iPlug2_Extras_FlexBox_obj)
+   if(MSVC)
+     target_compile_options(iPlug2_Extras_FlexBox_obj PRIVATE /MT$<$<CONFIG:Debug>:d>)
+   endif()
++  if(UNIX AND NOT APPLE)
++    target_compile_options(iPlug2_Extras_FlexBox_obj PRIVATE -fsigned-char)
++  endif()
+ endif()
+ 
+ if(NOT TARGET iPlug2::Extras::FlexBox)
+@@ -468,6 +499,10 @@ if(NOT DEFINED IGRAPHICS_RENDERER)
+     set(DEFAULT_RENDERER "GL2")
+   elseif(APPLE OR IOS)
+     set(DEFAULT_RENDERER "METAL")
++  elseif(UNIX AND NOT APPLE)
++    # GL3 is required on Linux: NANOVG_FBO_VALID is only defined for GL3+,
++    # so nvgluCreateFramebuffer always returns NULL when built with GL2.
++    set(DEFAULT_RENDERER "GL3")
+   else()
+     set(DEFAULT_RENDERER "GL2")
+   endif()
+diff --git a/Scripts/cmake/IPlug.cmake b/Scripts/cmake/IPlug.cmake
+index 36fa664e1..105e1f2cb 100644
+--- a/Scripts/cmake/IPlug.cmake
++++ b/Scripts/cmake/IPlug.cmake
+@@ -116,7 +116,24 @@ if(NOT TARGET iPlug2::IPlug)
+       "-framework Foundation"
+     )
+   elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+-    message("Error - Linux not yet supported")
++    # WDL assumes signed char; ARM Linux defaults to unsigned char
++    # Force-include stdlib.h before any translation unit: WDL's heapbuf.h uses
++    # malloc/free/realloc without including stdlib.h itself, and they aren't
++    # pulled in transitively on GCC (unlike Clang on macOS).
++    target_compile_options(iPlug2::IPlug INTERFACE
++      -fsigned-char
++      -include stdlib.h
++      # VST2/FXP preset magic uses multi-character character constants ('CcnK', 'FxCk', etc.)
++      # intentionally — these are 4CC codes, not programmer errors.
++      -Wno-multichar
++      # GCC 14+ false positives on std::atomic in WDL/IPlug headers:
++      # __atomic_load_8 "writing 8 bytes into a region of size 0"
++      $<$<CXX_COMPILER_ID:GNU>:-Wno-stringop-overflow>
++      $<$<CXX_COMPILER_ID:GNU>:-Wno-stringop-overread>
++    )
++    target_compile_definitions(iPlug2::IPlug INTERFACE OS_LINUX)
++    target_link_options(iPlug2::IPlug INTERFACE -static-libstdc++ -static-libgcc)
++    target_link_libraries(iPlug2::IPlug INTERFACE pthread dl)
+   endif()
+ 
+   # Generate PkgInfo file for macOS bundles (used by VST2, CLAP, etc.)
+@@ -278,6 +295,10 @@ if(NOT TARGET iPlug2::Extras::IWebViewControl)
+     target_sources(iPlug2::Extras::IWebViewControl INTERFACE
+       $<TARGET_OBJECTS:iPlug2_Extras_IWebViewControl_obj>
+     )
++  elseif(UNIX AND NOT APPLE)
++    target_sources(iPlug2::Extras::IWebViewControl INTERFACE
++      ${IPLUG_DIR}/Extras/WebView/IPlugWebView_linux.cpp
++    )
+   endif()
+ 
+   target_include_directories(iPlug2::Extras::IWebViewControl INTERFACE
+diff --git a/Scripts/cmake/IPlugPlugin.cmake b/Scripts/cmake/IPlugPlugin.cmake
+index c12fdd612..f88c7b4a2 100644
+--- a/Scripts/cmake/IPlugPlugin.cmake
++++ b/Scripts/cmake/IPlugPlugin.cmake
+@@ -74,7 +74,7 @@ function(_iplug_expand_formats input_formats output_var)
+ endfunction()
+ 
+ # ============================================================================
+-# Add resources to a bundle target (macOS/iOS)
++# Add resources to a bundle target (macOS/iOS); copy next to executable on Linux.
+ # ============================================================================
+ function(_iplug_add_resources target resources)
+   if(NOT resources)
+@@ -84,6 +84,46 @@ function(_iplug_add_resources target resources)
+   set_source_files_properties(${resources} PROPERTIES
+     MACOSX_PACKAGE_LOCATION Resources
+   )
++  if(UNIX AND NOT APPLE)
++    # On Linux: copy resources so that IPlugPaths.cpp's LocateResource can find them.
++    #   APP (EXECUTABLE)       -> <bindir>/resources/<type>/<file>
++    #   CLAP (SHARED_LIBRARY, flat)   -> <libdir>/resources/<type>/<file>
++    #   VST3 (SHARED_LIBRARY, bundle) -> <libdir>/../Resources/<type>/<file>
++    #                                    (i.e. Contents/Resources/ in the bundle)
++    get_target_property(_target_type ${target} TYPE)
++    if("${_target_type}" STREQUAL "EXECUTABLE")
++      get_target_property(_outdir ${target} RUNTIME_OUTPUT_DIRECTORY)
++    elseif("${_target_type}" STREQUAL "SHARED_LIBRARY" OR "${_target_type}" STREQUAL "MODULE_LIBRARY")
++      get_target_property(_outdir ${target} LIBRARY_OUTPUT_DIRECTORY)
++    else()
++      set(_outdir "")
++    endif()
++    if(_outdir)
++      foreach(_res ${resources})
++        # Resolve to absolute path (resources may be specified relative to the
++        # project source dir, but add_custom_command runs in the build dir).
++        get_filename_component(_abs_res "${_res}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
++        get_filename_component(_filename "${_abs_res}" NAME)
++        get_filename_component(_ext "${_abs_res}" LAST_EXT)
++        string(TOLOWER "${_ext}" _ext_lower)
++        string(REPLACE "." "" _type "${_ext_lower}")
++        # VST3 bundles place the .so inside Contents/<arch>-linux/; resources go
++        # in the sibling Contents/Resources/ directory (one level up).
++        if("${_outdir}" MATCHES "-linux$")
++          set(_res_dest "${_outdir}/../Resources/${_type}/${_filename}")
++          set(_res_dir  "${_outdir}/../Resources/${_type}")
++        else()
++          set(_res_dest "${_outdir}/resources/${_type}/${_filename}")
++          set(_res_dir  "${_outdir}/resources/${_type}")
++        endif()
++        add_custom_command(TARGET ${target} POST_BUILD
++          COMMAND ${CMAKE_COMMAND} -E make_directory "${_res_dir}"
++          COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_abs_res}" "${_res_dest}"
++          COMMENT "Copying resource ${_filename} -> ${_res_dest}"
++        )
++      endforeach()
++    endif()
++  endif()
+ endfunction()
+ 
+ # ============================================================================
+@@ -114,6 +154,7 @@ function(_iplug_create_desktop_targets plugin_name formats sources ui_lib resour
+     iplug_configure_target(${plugin_name}-app APP ${plugin_name})
+     _iplug_add_resources(${plugin_name}-app "${resources}")
+     _iplug_add_web_resources(${plugin_name}-app "${web_resources}")
++    iplug_deploy_target(${plugin_name}-app APP ${plugin_name})
+   endif()
+ 
+   # VST2 (conditional on SDK availability - deprecated)
+@@ -125,6 +166,7 @@ function(_iplug_create_desktop_targets plugin_name formats sources ui_lib resour
+     iplug_configure_target(${plugin_name}-vst2 VST2 ${plugin_name})
+     _iplug_add_resources(${plugin_name}-vst2 "${resources}")
+     _iplug_add_web_resources(${plugin_name}-vst2 "${web_resources}")
++    iplug_deploy_target(${plugin_name}-vst2 VST2 ${plugin_name})
+   endif()
+ 
+   # VST3 (always available)
+@@ -136,6 +178,7 @@ function(_iplug_create_desktop_targets plugin_name formats sources ui_lib resour
+     iplug_configure_target(${plugin_name}-vst3 VST3 ${plugin_name})
+     _iplug_add_resources(${plugin_name}-vst3 "${resources}")
+     _iplug_add_web_resources(${plugin_name}-vst3 "${web_resources}")
++    iplug_deploy_target(${plugin_name}-vst3 VST3 ${plugin_name})
+   endif()
+ 
+   # CLAP (conditional on SDK availability)
+@@ -147,6 +190,7 @@ function(_iplug_create_desktop_targets plugin_name formats sources ui_lib resour
+     iplug_configure_target(${plugin_name}-clap CLAP ${plugin_name})
+     _iplug_add_resources(${plugin_name}-clap "${resources}")
+     _iplug_add_web_resources(${plugin_name}-clap "${web_resources}")
++    iplug_deploy_target(${plugin_name}-clap CLAP ${plugin_name})
+   endif()
+ 
+   # AAX (conditional on SDK availability)
+@@ -158,6 +202,7 @@ function(_iplug_create_desktop_targets plugin_name formats sources ui_lib resour
+     iplug_configure_target(${plugin_name}-aax AAX ${plugin_name})
+     _iplug_add_resources(${plugin_name}-aax "${resources}")
+     _iplug_add_web_resources(${plugin_name}-aax "${web_resources}")
++    iplug_deploy_target(${plugin_name}-aax AAX ${plugin_name})
+   endif()
+ endfunction()
+ 
+@@ -178,6 +223,7 @@ function(_iplug_create_au_targets plugin_name formats sources ui_lib resources w
+     iplug_configure_target(${plugin_name}-au AUv2 ${plugin_name})
+     _iplug_add_resources(${plugin_name}-au "${resources}")
+     _iplug_add_web_resources(${plugin_name}-au "${web_resources}")
++    iplug_deploy_target(${plugin_name}-au AUv2 ${plugin_name})
+   endif()
+ endfunction()
+ 
+diff --git a/Scripts/cmake/VST3.cmake b/Scripts/cmake/VST3.cmake
+index cd6c3ceea..fa6953623 100644
+--- a/Scripts/cmake/VST3.cmake
++++ b/Scripts/cmake/VST3.cmake
+@@ -44,6 +44,7 @@ if(NOT TARGET iPlug2::VST3)
+     ${VST3_SDK_DIR}/base/source/fdebug.cpp
+     ${VST3_SDK_DIR}/base/source/fobject.cpp
+     ${VST3_SDK_DIR}/base/source/fstring.cpp
++    ${VST3_SDK_DIR}/base/source/timer.cpp
+     ${VST3_SDK_DIR}/base/source/updatehandler.cpp
+     ${VST3_SDK_DIR}/base/thread/source/flock.cpp
+   )
+@@ -123,8 +124,10 @@ if(NOT TARGET iPlug2::VST3)
+       "-framework Cocoa"
+     )
+   elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+-    # Linux support - to be added later
+-    message(WARNING "VST3 Linux support not yet implemented")
++    target_sources(iPlug2::VST3 INTERFACE
++      ${VST3_SDK_DIR}/public.sdk/source/main/linuxmain.cpp
++    )
++    target_link_libraries(iPlug2::VST3 INTERFACE pthread dl)
+   endif()
+ 
+   target_link_libraries(iPlug2::VST3 INTERFACE iPlug2::IPlug)
+@@ -190,5 +193,30 @@ function(iplug_configure_vst3 target project_name)
+         COMMENT "Creating PkgInfo for ${project_name}.vst3"
+       )
+     endif()
++  elseif(UNIX AND NOT APPLE)
++    # VST3 on Linux uses a bundle-like directory structure
++    # The subdirectory name is "{cpu_arch}-linux" per the VST3 spec
++    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
++      set(VST3_ARCH "aarch64-linux")
++    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
++      set(VST3_ARCH "x86_64-linux")
++    else()
++      set(VST3_ARCH "i386-linux")
++    endif()
++
++    set(VST3_OUTPUT_DIR "${CMAKE_BINARY_DIR}/out/${project_name}.vst3/Contents/${VST3_ARCH}")
++    set_target_properties(${target} PROPERTIES
++      OUTPUT_NAME "${project_name}"
++      SUFFIX ".so"
++      PREFIX ""
++      LIBRARY_OUTPUT_DIRECTORY "${VST3_OUTPUT_DIR}"
++      LIBRARY_OUTPUT_DIRECTORY_DEBUG "${VST3_OUTPUT_DIR}"
++      LIBRARY_OUTPUT_DIRECTORY_RELEASE "${VST3_OUTPUT_DIR}"
++    )
++
++    add_custom_command(TARGET ${target} POST_BUILD
++      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/out/${project_name}.vst3/Contents/Resources"
++      COMMENT "Creating VST3 bundle structure for ${project_name}"
++    )
+   endif()
+ endfunction()
+diff --git a/Scripts/cmake/WebView.cmake b/Scripts/cmake/WebView.cmake
+index fbdca4532..77decb4d1 100644
+--- a/Scripts/cmake/WebView.cmake
++++ b/Scripts/cmake/WebView.cmake
+@@ -89,6 +89,11 @@ if(NOT TARGET iPlug2::WebView)
+       ${WEBVIEW_DIR}/IPlugWebViewEditorDelegate.cpp
+       ${WEBVIEW_DIR}/IPlugWebView_web.cpp
+     )
++  elseif(UNIX AND NOT APPLE)
++    set(WEBVIEW_SRC
++      ${WEBVIEW_DIR}/IPlugWebViewEditorDelegate.cpp
++      ${WEBVIEW_DIR}/IPlugWebView_linux.cpp
++    )
+   endif()
+ 
+   target_sources(iPlug2::WebView INTERFACE ${WEBVIEW_SRC})
+@@ -126,5 +131,7 @@ if(NOT TARGET iPlug2::WebView)
+     target_link_libraries(iPlug2::WebView INTERFACE
+       iPlug2::IPlug
+     )
++  elseif(UNIX AND NOT APPLE)
++    target_link_libraries(iPlug2::WebView INTERFACE iPlug2::IPlug)
+   endif()
+ endif()

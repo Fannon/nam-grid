@@ -113,6 +113,17 @@ add_custom_command(OUTPUT "${NAM_DEFAULT_CONTENT}"
     -P "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
   DEPENDS "${NAM_DEFAULT_CAPTURE}" "${NAM_DEFAULT_PRESET}" "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
   COMMENT "Embedding the default NAM capture and preset" VERBATIM)
+set(NAM_PLATFORM_SOURCES)
+if(UNIX AND NOT APPLE)
+  set(NAM_EMBEDDED_FONT "${CMAKE_BINARY_DIR}/generated/EmbeddedFont.cpp")
+  set(NAM_FONT "${CMAKE_CURRENT_SOURCE_DIR}/resources/fonts/Roboto-Regular.ttf")
+  add_custom_command(OUTPUT "${NAM_EMBEDDED_FONT}"
+    COMMAND "${CMAKE_COMMAND}" -DOUTPUT=${NAM_EMBEDDED_FONT} -DNAMESPACE=embedded_font
+      "-DFILES=Roboto=${NAM_FONT}" -P "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
+    DEPENDS "${NAM_FONT}" "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
+    COMMENT "Embedding the editor font" VERBATIM)
+  list(APPEND NAM_PLATFORM_SOURCES "${NAM_EMBEDDED_FONT}")
+endif()
 set(riffsmith_notice "${CMAKE_BINARY_DIR}/out/notices/RiffSmith-LICENSE.txt")
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/riffsmith-LICENSE.txt" "${riffsmith_notice}" COPYONLY)
 list(APPEND NAM_RESOURCES "${riffsmith_notice}")
@@ -149,6 +160,9 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
   add_executable(nam-clap-smoke ../tests/clap_smoke.cpp CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp)
   if(WIN32)
     target_link_libraries(nam-clap-smoke PRIVATE shell32)
+  elseif(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+    target_link_libraries(nam-clap-smoke PRIVATE X11::X11 X11::Xtst)
   endif()
   option(NAM_BUILD_PERFORMANCE_TESTS "Build the on-demand FX CPU/deadline report host" OFF)
   if(NAM_BUILD_PERFORMANCE_TESTS)
@@ -202,7 +216,7 @@ endif()
 iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
   SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
-    "${NAM_DEFAULT_CONTENT}"
+    "${NAM_DEFAULT_CONTENT}" ${NAM_PLATFORM_SOURCES}
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/ImpulseResponse.cpp
     ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}

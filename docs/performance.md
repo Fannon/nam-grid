@@ -101,6 +101,9 @@ changing state. Recall informs the host of changed parameters.
 
 Scenes are performance settings, not alternate complete rigs. This avoids synchronous
 model replacement and gives the existing effect histories continuity during recall.
+Scenes belong to the current rig: a rig preset saves its three scenes, and loading a
+preset replaces them with its own (empty if it stored none). To switch between rigs
+with different modules or captures, use rig presets.
 
 ## Processing and state
 

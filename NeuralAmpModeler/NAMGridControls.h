@@ -709,8 +709,6 @@ public:
         const float x = 276.f + 212.f * col;
         g.DrawLine(border, x, centre(row), x + 24, centre(row));
       }
-    g.DrawLine(border, 67, centre(0), 88, centre(0));
-    g.DrawLine(border, 912, centre(3), 928, centre(3));
     g.DrawLine(border, 912, centre(0), 928, centre(0));
     g.DrawLine(border, 928, centre(0), 928, gap(0));
     g.DrawLine(border, 928, gap(0), 69, gap(0));
@@ -724,6 +722,16 @@ public:
     g.DrawLine(border, 69, gap(2), 69, centre(3));
     g.DrawLine(border, 69, centre(3), 88, centre(3));
   }
+};
+
+// IN to the first card and the last card to OUT, drawn above the level meters they cross.
+class FlowLink : public IControl
+{
+public:
+  FlowLink(float left, float right, float y)
+  : IControl(IRECT(left, y - 1.f, right, y + 1.f))
+  { mIgnoreMouse = true; }
+  void Draw(IGraphics& g) override { g.DrawLine(border, mRECT.L, mRECT.MH(), mRECT.R, mRECT.MH()); }
 };
 } // namespace grid_ui
 
@@ -1647,7 +1655,8 @@ private:
     footer.SetFormatted(64, "Fine delay %.2f ms", value(uUtilityDelay));
     PlotFooter(g, plot, "Scope auto-scaled | RMS -60 to 0 dB", footer.Get());
   }
-  // Outboard Channel is a cut EQ, a compressor and a saturator in series; each gets its own view.
+  // Outboard Channel is a cut EQ, a compressor and a saturator in series. The cuts and the
+  // gain reduction get views; Saturate's static curve changes too little to read, so the title names it.
   void DrawOutboardChannel(IGraphics& g, const IRECT& plot, IColor color)
   {
     using namespace grid_ui;
@@ -1656,9 +1665,8 @@ private:
     WDL_String caption;
     caption.SetFormatted(96, "GR %.1f dB | Speed %.0f%% | Saturate %.0f%%", mReductionNow, value(uStripSpeed), value(uStripSaturate));
     PlotTitle(g, plot, color, caption.Get());
-    PlotDetail(g, plot, "Cuts + output spectrum | saturation | GR");
-    const IRECT eq(plot.L, plot.T, plot.L + 134.f, plot.B), shaper(eq.R + 10.f, plot.T, eq.R + 100.f, plot.B),
-      reduction(shaper.R + 10.f, plot.T, plot.R, plot.B);
+    PlotDetail(g, plot, "Cuts + output spectrum | GR");
+    const IRECT eq(plot.L, plot.T, plot.L + std::round(plot.W() * .62f), plot.B), reduction(eq.R + 10.f, plot.T, plot.R, plot.B);
 
     // Cuts: the module's own DSP measured with compression and saturation off.
     UpdateMeasuredResponse(SlotEffect::OutboardChannel, {value(uStripLowCut), value(uStripHighCut), 0., 25., 0., 0., 100.}, rate);
@@ -1675,23 +1683,8 @@ private:
       return MeasuredResponse(x);
     }, -24., 6., color);
 
-    // Saturation: CStrip2's static Spiral stage at the current Saturate, against unity.
-    const double saturate = value(uStripSaturate) * .01;
-    const auto spiral = [saturate](double x) {
-      if (saturate <= 0.) return x; // The native stage is bypassed at unity output gain.
-      const double raw = x * (1. + saturate), clipped = std::clamp(raw, -1., 1.) * 1.2533141373155;
-      const double shaped = clipped == 0. ? 0. : std::sin(clipped * std::abs(clipped)) / std::abs(clipped);
-      return raw * (1. - saturate) + shaped * saturate;
-    };
-    g.DrawRect(border.WithOpacity(.5f), shaper);
-    g.DrawLine(border.WithOpacity(.6f), shaper.L, shaper.B, shaper.R, shaper.T);
-    PlotCurve(g, shaper, [&](double x) { return spiral(x); }, 0., 1.2, color);
-    const double input = std::min(1., static_cast<double>(mMeter.input));
-    if (input > 1.e-3)
-      g.FillCircle(text, shaper.L + shaper.W() * static_cast<float>(input),
-                   shaper.B - shaper.H() * static_cast<float>(std::clamp(spiral(input) / 1.2, 0., 1.)), 2.5f);
     DrawReductionHistory(g, reduction);
-    PlotFooter(g, plot, "Cuts -24 / +6 dB | curve 0 - 1.2, dot: input peak", "GR 0 - 24 dB");
+    PlotFooter(g, plot, "Cuts -24 / +6 dB", "GR 0 - 24 dB");
   }
   // Console EQ: the measured small-signal response over the live output spectrum. Its band
   // density is level-dependent, so louder notes add harmonics this curve does not show.
@@ -2303,7 +2296,7 @@ class NAMGridTunerControl : public IContainerBase
 {
   // Left section: the note readout, then Mute output and Reference in a column; the tuning
   // bar spans both. The pitch history fills the right section.
-  static constexpr float kLeftL = 24.f, kLeftR = 356.f, kNoteR = 220.f, kColumnL = 232.f;
+  static constexpr float kLeftL = 24.f, kLeftR = 476.f, kNoteR = 290.f, kColumnL = 306.f, kHistoryL = 496.f;
 
 public:
   explicit NAMGridTunerControl(const IRECT& r) : IContainerBase(r) {}
@@ -2313,10 +2306,12 @@ public:
     AddChildControl(new Button(IRECT(896, 488, 976, 512), [this](IControl*) {
       DisableTunerFromUI(GetUI());
     }, "Close"));
-    // Right column of the left section: Mute output on top, a compact Reference knob below.
+    // Right column of the left section: Mute output on top, Reference below at module knob size.
     AddChildControl(new Toggle(IRECT(kColumnL, 520, kLeftR, 546), kTunerMute, "Mute output"))
       ->SetTooltip("Silence the output while tuning. Turning the tuner off always restores sound.");
-    AddChildControl(new Knob(IRECT(kColumnL + 14, 556, kLeftR - 14, 646), kTunerReference, "Reference"));
+    const float knobHalf = grid_layout::parameterWidth * .5f - 4.f, knobX = (kColumnL + kLeftR) * .5f;
+    AddChildControl(new Knob(IRECT(knobX - knobHalf, 558, knobX + knobHalf, 558 + grid_layout::knobBottom - grid_layout::knobTop),
+                             kTunerReference, "Reference", true));
   }
   void Refresh()
   {
@@ -2367,10 +2362,10 @@ public:
       g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 3, bar.T + 3, x + 3, bar.B - 3), 1.5f);
     }
 
-    const IRECT panel(372, 520, 976, 696), plot(410, 538, 964, 674);
+    const IRECT panel(kHistoryL, 520, 976, 696), plot(kHistoryL + 38, 538, 964, 674);
     g.FillRoundRect(IColor(255, 17, 21, 24), panel, 4.f);
-    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(372, 484, 570, 512));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(570, 488, 882, 512));
+    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(kHistoryL, 484, kHistoryL + 150, 512));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(kHistoryL + 150, 488, 882, 512));
     // Zoomed to ±25 cents, so the last few cents of tuning are visible; larger offsets pin to the edge.
     constexpr double range = 25.;
     const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -range, range) / range); };

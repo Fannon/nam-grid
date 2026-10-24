@@ -77,7 +77,7 @@ Download the latest release from
 | --- | --- | --- |
 | Windows x64 | `nam-grid-windows-x64.zip` | Built and tested in CI, including the native editor |
 | macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; ad-hoc signed |
-| Linux | — | No plugin build available with the current framework |
+| Linux x64 | `nam-grid-linux-x64.zip` | Preview: built and tested locally (Ubuntu 22.04 base, X11 editor); little real-DAW testing yet |
 
 1. Extract the archive. It contains `nam-grid.clap`, the `nam-grid.vst3` bundle,
    `ThirdPartyNotices.txt` and a `notices/` folder.
@@ -87,6 +87,8 @@ Download the latest release from
      `C:\Program Files\Common Files\VST3\`, or a test folder added to your
      host's scan paths.
    - macOS: `~/Library/Audio/Plug-Ins/CLAP/` or `~/Library/Audio/Plug-Ins/VST3/`.
+   - Linux: `~/.clap/` or `~/.vst3/`. Needs glibc 2.35 or newer and an X11 or XWayland
+     session; file dialogs use GTK 3 when it is installed.
 3. **macOS only:** the plugins are ad-hoc signed, without Developer ID signing or
    notarization, so macOS can block
    downloaded copies. After copying, clear the quarantine flag in Terminal:
@@ -106,7 +108,7 @@ add your own, such as the free NAM captures and cabinet IRs on
 [TONE3000](https://www.tone3000.com). Development builds are
 GitHub Actions artifacts (sign-in required): the weekly
 [Build Native](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml) run of
-`main` for Windows and macOS, and pull request builds for Windows.
+`main` for Windows, macOS and Linux, and pull request builds for Windows.
 
 **0.1.0 is the first release.** Earlier preview builds used different plugin and
 parameter IDs; their projects and presets do not load and must be rebuilt. From
@@ -170,9 +172,16 @@ Loading a large capture can briefly occupy the editor.
 | Tune and perform | [Tuner](docs/tuner.md), [macros, modulation and scenes](docs/performance.md) |
 | Reduce background noise | [Noise Gate (Smart)](docs/noise-gate-smart.md) |
 
-To report a problem, [open an issue](https://github.com/Fannon/nam-grid/issues)
-with your OS, DAW and version, plugin format, build commit and steps to reproduce.
+## Feedback and contributions
+
+Feedback, bug reports and ideas are welcome as
+[GitHub issues](https://github.com/Fannon/nam-grid/issues). To report a problem,
+include your OS, DAW and version, plugin format, build commit and steps to reproduce.
 For audio problems, include sample rate, buffer size and the modules involved.
+
+Pull requests are welcome too. NAM Grid is a side project, so please be aware that
+replies, reviews and releases happen in spare time and may take a while. Open an
+issue first for larger changes, and see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## For developers
 

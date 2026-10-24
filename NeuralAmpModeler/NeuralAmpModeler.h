@@ -329,6 +329,17 @@ private:
   std::array<nam_library::Gear, FixedNAMGrid::kSlots> mSlotGear{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
+  // Every control-state section locks through this. On Linux, iPlug2 draws and runs OnIdle on
+  // threads of its own and holds its graphics mutex while calling the plugin, so take both
+  // together: one lock order on every thread, and no deadlock with plugin-to-UI messages.
+#ifdef OS_LINUX
+  [[nodiscard]] std::scoped_lock<std::recursive_mutex, std::recursive_mutex> _LockControls() const
+  {
+    return std::scoped_lock(const_cast<NeuralAmpModeler*>(this)->GfxMutex(), mControlMutex);
+  }
+#else
+  [[nodiscard]] std::lock_guard<std::recursive_mutex> _LockControls() const { return std::lock_guard(mControlMutex); }
+#endif
   nam_library::Worker mLibraryWorker{user_paths::IndexFile()};
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
   std::vector<std::string> mNamFolders, mIrFolders, mPresetFolders;

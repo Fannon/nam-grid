@@ -132,6 +132,10 @@ see each source file for more information.
 Based on WDL-OL/iPlug by Oli Larkin (2011-2018), and the original iPlug v1
 (2008) by John Schwartz / Cockos.
 
+Linux builds add the iPlug2 Linux port (X11/GLX graphics, CLAP and VST3
+integration) contributed by RangerRick in iPlug2 pull request #1336, under the
+same license, as modified in patches/iplug2-linux-support.patch.
+
 This software is provided 'as-is', without any express or implied warranty. In
 no event will the authors be held liable for any damages arising from the use
 of this software.

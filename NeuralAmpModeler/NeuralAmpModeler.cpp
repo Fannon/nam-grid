@@ -1,5 +1,6 @@
 #include "NoisePrintState.h"
 #include "DefaultContent.h"
+#include "EmbeddedFont.h"
 #include <fstream>
 #include <algorithm> // std::clamp, std::min
 #include <cmath> // pow
@@ -191,7 +192,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachTextEntryControl();
     ui->EnableMouseOver(true);
     ui->EnableTooltips(true);
+#ifdef OS_LINUX
+    const auto font = embedded_font::Roboto();
+    ui->LoadFont("Roboto-Regular", const_cast<unsigned char*>(font.data()), static_cast<int>(font.size()));
+#else
     ui->LoadFont("Roboto-Regular", ROBOTO_FN);
+#endif
     const auto b = ui->GetBounds();
     const auto compact = grid_ui::Style();
     ui->AttachPanelBackground(COLOR_BLACK);
@@ -240,6 +246,9 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
     ui->AttachControl(new grid_ui::FlowMeter(IRECT(77, 68, 84, 140), IRECT(0, 140, 66, 158)), kCtrlTagInputMeter);
     ui->AttachControl(new grid_ui::FlowMeter(IRECT(921, 380, 928, 452), IRECT(932, 450, 1000, 468)), kCtrlTagOutputMeter);
+    const float firstRow = grid_layout::cardTop + grid_layout::cardHeight * .5f, lastRow = firstRow + 3 * grid_layout::rowPitch;
+    ui->AttachControl(new grid_ui::FlowLink(64, 88, firstRow));
+    ui->AttachControl(new grid_ui::FlowLink(912, 940, lastRow));
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridRoutingControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagRouting)->Hide(true);
@@ -453,7 +462,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
 
 void NeuralAmpModeler::OnReset()
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (mPreviewOriginal)
     if (auto* ui = GetUI())
       ui->GetControlWithTag(kCtrlTagLibraryBrowser)->Hide(true);
@@ -509,7 +518,7 @@ std::vector<std::string>* NeuralAmpModeler::_LibraryFolders(nam_library::FileKin
 
 void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector<std::string> folders, bool fromUI)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   auto* current = _LibraryFolders(kind);
   if (!current)
     return;
@@ -595,7 +604,7 @@ void NeuralAmpModeler::_ReloadLibraryFolders()
 
 std::vector<std::string> NeuralAmpModeler::GetLibraryFolders(nam_library::FileKind kind) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return kind == nam_library::FileKind::NAM ? mNamFolders
          : kind == nam_library::FileKind::IR ? mIrFolders
          : kind == nam_library::FileKind::RigPreset ? mPresetFolders : std::vector<std::string>{};
@@ -659,31 +668,31 @@ void NeuralAmpModeler::_NotifyHostStateChanged()
 
 std::string NeuralAmpModeler::GetSlotPath(size_t slot) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return slot < mSlotPaths.size() ? mSlotPaths[slot].Get() : "";
 }
 
 bool NeuralAmpModeler::IsSlotLoaded(size_t slot) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return slot < mSlotInfo.size() && mSlotInfo[slot].loaded;
 }
 
 SlotEffect NeuralAmpModeler::GetSlotEffect(size_t slot) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return slot < mSlotEffects.size() ? mSlotEffects[slot] : SlotEffect::NAM;
 }
 
 nam_library::Gear NeuralAmpModeler::GetSlotGear(size_t slot) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return slot < mSlotGear.size() ? mSlotGear[slot] : nam_library::Gear::Unknown;
 }
 
 bool NeuralAmpModeler::CanToggleSlotQuality(size_t slot) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return slot < FixedNAMGrid::kSlots && mSlotEffects[slot] == SlotEffect::NAM && mSlotInfo[slot].slimmable;
 }
 
@@ -702,7 +711,7 @@ void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 
 void NeuralAmpModeler::SetSlotEffect(size_t slot, SlotEffect effect, bool fromUI)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (slot >= FixedNAMGrid::kSlots || !IsValidSlotEffect(effect))
     return;
   try
@@ -738,7 +747,7 @@ std::string NeuralAmpModeler::LoadSlotIR(size_t slot, const char* path)
 
 std::string NeuralAmpModeler::BeginSlotPreview(size_t slot)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   EndSlotPreview(false);
   if (slot >= FixedNAMGrid::kSlots) return "Invalid grid slot";
   try
@@ -760,7 +769,7 @@ std::string NeuralAmpModeler::BeginSlotPreview(size_t slot)
 
 std::string NeuralAmpModeler::PreviewSlot(SlotEffect effect, const std::string& path)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (!mPreviewOriginal) return "Preview is unavailable";
   auto current = _GetSlotConfig(mPreviewSlot);
   const auto currentChoice = current.effect;
@@ -786,7 +795,7 @@ std::string NeuralAmpModeler::PreviewSlot(SlotEffect effect, const std::string& 
 
 void NeuralAmpModeler::EndSlotPreview(bool accept)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (!mPreviewOriginal) return;
   auto original = std::move(mPreviewOriginal);
   mPreviewChoices.clear();
@@ -807,7 +816,7 @@ void NeuralAmpModeler::EndSlotPreview(bool accept)
 
 noise_print::Profile NeuralAmpModeler::GetNoiseProfile(size_t slot) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (slot >= FixedNAMGrid::kSlots || mSlotEffects[slot] != SlotEffect::NoisePrint)
     return {};
   return mGrids[mEditGrid].stages[slot].GetNoiseProfile(mNoiseEpochs[slot], mNoiseProfiles[slot]);
@@ -829,7 +838,7 @@ SlotConfig NeuralAmpModeler::_GetSlotConfig(size_t slot) const
 
 std::string NeuralAmpModeler::EditSlot(size_t source, size_t destination, SlotEditMode mode)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (source >= FixedNAMGrid::kSlots || destination >= FixedNAMGrid::kSlots)
     return "Invalid grid slot";
   if (source == destination)
@@ -868,7 +877,7 @@ void NeuralAmpModeler::ClearSlot(size_t slot)
 
 void NeuralAmpModeler::LoadSlapbackPreset(size_t slot)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (slot >= FixedNAMGrid::kSlots) return;
   SlotConfig config{SlotEffect::DigitalDelay};
   config.values[17 + uDelayTime] = 90.; config.values[17 + uDelayFeedback] = 0.;
@@ -891,7 +900,7 @@ bool NeuralAmpModeler::IsPerformanceSceneParam(int index) const
 }
 void NeuralAmpModeler::StorePerformanceScene(size_t scene)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (scene >= mPerformanceScenes.size()) return;
   auto values = nlohmann::json::object();
   for (int i = 0; i < kNumParams; ++i) if (IsPerformanceSceneParam(i)) values[GetParam(i)->GetName()] = GetParam(i)->Value();
@@ -899,7 +908,7 @@ void NeuralAmpModeler::StorePerformanceScene(size_t scene)
 }
 void NeuralAmpModeler::ClearPerformanceScene(size_t scene)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (scene >= mPerformanceScenes.size() || mPerformanceScenes[scene].empty()) return;
   mPerformanceScenes[scene] = nlohmann::json::object();
   if (mActiveScene == static_cast<int>(scene)) mActiveScene = -1;
@@ -907,7 +916,7 @@ void NeuralAmpModeler::ClearPerformanceScene(size_t scene)
 }
 void NeuralAmpModeler::RecallPerformanceScene(size_t scene)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (scene >= mPerformanceScenes.size()) return;
   const auto& values = mPerformanceScenes[scene];
   if (values.empty()) return;
@@ -924,7 +933,7 @@ void NeuralAmpModeler::RecallPerformanceScene(size_t scene)
 }
 bool NeuralAmpModeler::HasPerformanceScene(size_t scene) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return scene < mPerformanceScenes.size() && !mPerformanceScenes[scene].empty();
 }
 
@@ -1009,7 +1018,7 @@ void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
 
 void NeuralAmpModeler::RescanCaptureFolder()
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   mLibrary = std::make_shared<nam_library::Snapshot>();
   mLibraryIndexed = false;
   mLibraryScanning = !mNamFolders.empty() || !mIrFolders.empty() || !mPresetFolders.empty();
@@ -1019,26 +1028,26 @@ void NeuralAmpModeler::RescanCaptureFolder()
 
 std::shared_ptr<const nam_library::Snapshot> NeuralAmpModeler::GetCaptureLibrary() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return mLibrary;
 }
 
 nam_library::Filter NeuralAmpModeler::GetCaptureFilter() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return mCaptureFilter;
 }
 
 void NeuralAmpModeler::SetCaptureFilter(nam_library::Filter filter)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   mCaptureFilter = std::move(filter);
   _UpdateLibraryControls();
 }
 
 std::string NeuralAmpModeler::GetCaptureStatus() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (mNamFolders.empty() && mIrFolders.empty() && mPresetFolders.empty())
     return "No library folders";
   if (mLibraryScanning)
@@ -1064,7 +1073,7 @@ std::string NeuralAmpModeler::GetCaptureStatus() const
 
 std::string NeuralAmpModeler::GetLibraryMatchStatus() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (mLibraryScanning)
     return "Scanning library...";
   if (mNamFolders.empty() && mIrFolders.empty())
@@ -1085,7 +1094,7 @@ void NeuralAmpModeler::_UpdateLibraryControls()
 
 void NeuralAmpModeler::OnIdle()
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   _UpdateTunerControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     if (CanToggleSlotQuality(slot) && GetParam(SlotFullParam(slot))->Value() != mPreparedQuality[slot])
@@ -1165,7 +1174,7 @@ static int ReadStateString(const IByteChunk& chunk, WDL_String& value, int pos)
 
 bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   nlohmann::json config;
   config["schema"] = kEffectStateSchema;
   config["PresetName"] = mPresetName;
@@ -1222,7 +1231,7 @@ void NeuralAmpModeler::_UpdatePresetControls()
 
 std::string NeuralAmpModeler::GetRigPresetName() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   return mPresetName;
 }
 static bool HasRigPresetExtension(const std::filesystem::path& path)
@@ -1233,7 +1242,7 @@ static bool HasRigPresetExtension(const std::filesystem::path& path)
 }
 std::vector<std::filesystem::path> NeuralAmpModeler::GetRigPresetFiles() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   std::vector<std::filesystem::path> files;
   if (mPresetDirectory.empty()) return files;
   // The arrows skip presets that a containing preset folder's .ignore rules exclude.
@@ -1285,7 +1294,7 @@ nlohmann::json NeuralAmpModeler::_CurrentRig() const
 
 std::string NeuralAmpModeler::SaveRigPreset(const std::filesystem::path& path)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   try
   {
     const auto name = nam_library::PathText(path.stem());
@@ -1353,7 +1362,7 @@ void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, co
 
 std::string NeuralAmpModeler::LoadRigPreset(const std::filesystem::path& path)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   try
   {
     auto rig = rig_preset::Read(path);
@@ -1374,7 +1383,7 @@ bool NeuralAmpModeler::ConfirmNewRig()
 
 std::string NeuralAmpModeler::NewRig()
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   try
   {
     // Keep the preset folder so Save as and the arrows stay where the user works.
@@ -1386,7 +1395,7 @@ std::string NeuralAmpModeler::NewRig()
 
 std::filesystem::path NeuralAmpModeler::GetRigPresetFile() const
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (mPresetDirectory.empty()) return {};
   const auto path = std::filesystem::u8path(mPresetDirectory) / std::filesystem::u8path(mPresetName + ".ngrid");
   std::error_code error;
@@ -1436,7 +1445,7 @@ bool NeuralAmpModeler::ConfirmDeleteRigPreset(const std::filesystem::path& path)
 
 std::string NeuralAmpModeler::DeleteRigPreset(const std::filesystem::path& path)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   std::error_code error;
   if (!HasRigPresetExtension(path) || !std::filesystem::is_regular_file(path, error))
     return "Only existing .ngrid preset files can be deleted.";
@@ -1458,7 +1467,7 @@ std::string NeuralAmpModeler::DeleteRigPreset(const std::filesystem::path& path)
 
 int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (mPreviewOriginal)
     if (auto* ui = GetUI())
       ui->GetControlWithTag(kCtrlTagLibraryBrowser)->Hide(true);
@@ -1568,7 +1577,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
 
 void NeuralAmpModeler::OnUIOpen()
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   _SendAllParamValuesToUI();
   _UpdateLibraryControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1722,7 +1731,7 @@ void NeuralAmpModeler::_DeallocateIOPointers()
 
 void NeuralAmpModeler::_ResolveLibraryFiles()
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (!mLibrary) return;
   bool changed = false;
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1756,7 +1765,7 @@ void NeuralAmpModeler::_ResolveLibraryFiles()
 }
 std::string NeuralAmpModeler::_StageSlot(size_t slot, SlotEffect effect, const std::string& path, const std::string& expectedHash)
 {
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
+  const auto guard = _LockControls();
   if (slot >= FixedNAMGrid::kSlots)
     return "Invalid grid slot";
   const int tag = kCtrlTagGridSlotBase + static_cast<int>(slot);

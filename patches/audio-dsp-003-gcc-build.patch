@@ -1,0 +1,25 @@
+GCC rejects the unqualified LanczosResampler alias inside ResamplingContainer, because the
+name changes meaning within the class, and needs <memory> for std::unique_ptr. Qualify the
+alias and include the header; the generated code is unchanged.
+
+diff --git a/dsp/ResamplingContainer/ResamplingContainer.h b/dsp/ResamplingContainer/ResamplingContainer.h
+index 0b8db39..60952b9 100644
+--- a/dsp/ResamplingContainer/ResamplingContainer.h
++++ b/dsp/ResamplingContainer/ResamplingContainer.h
+@@ -46,6 +46,7 @@ iPlug 2 includes the following 3rd party libraries (see each license info):
+ 
+ #include <iostream>
+ #include <functional>
++#include <memory>
+ #include <cmath>
+ 
+ // #include "IPlugPlatform.h"
+@@ -86,7 +87,7 @@ class ResamplingContainer
+ {
+ public:
+   using BlockProcessFunc = std::function<void(T**, T**, int)>;
+-  using LanczosResampler = LanczosResampler<T, NCHANS, A>;
++  using LanczosResampler = dsp::LanczosResampler<T, NCHANS, A>;
+ 
+   // :param renderingSampleRate: The sample rate required by the code to be encapsulated.
+   ResamplingContainer(double renderingSampleRate)

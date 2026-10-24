@@ -3,6 +3,7 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SDK_ROOT = ROOT / "iPlug2" / "Dependencies" / "IPlug"
@@ -24,6 +25,9 @@ def apply_dependency_patches():
                                 ("iPlug2", "iplug2-*.patch")):
         directory = ROOT / dependency
         for patch in sorted((ROOT / "patches").glob(pattern)):
+            # Platform ports leave the Windows and macOS sources unchanged.
+            if patch.name.startswith("iplug2-linux-") and not sys.platform.startswith("linux"):
+                continue
             applied = subprocess.run(["git", "-C", str(directory), "apply", "--reverse", "--check", str(patch)],
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
             if not applied:

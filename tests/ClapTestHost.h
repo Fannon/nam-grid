@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <utility>
 #include <vector>
 #ifdef _WIN32
   #include <windows.h>
@@ -55,8 +56,38 @@ struct Host
 {
   bool restart = false, callback = false, dirty = false, flushRequested = false;
   clap_param_rescan_flags rescanned = 0;
+#ifdef __linux__
+  // Linux editors run on the host's main-thread timer and X11 connection, as in Bitwig or REAPER.
+  std::vector<std::pair<clap_id, uint32_t>> timers;
+  std::vector<int> fds;
+  clap_id nextTimer = 1;
+#endif
   static const void* extension(const clap_host*, const char* id)
   {
+#ifdef __linux__
+    static const clap_host_timer_support timer{
+      [](const clap_host* h, uint32_t period, clap_id* timerId) {
+        auto* self = static_cast<Host*>(h->host_data);
+        *timerId = self->nextTimer++;
+        self->timers.emplace_back(*timerId, period);
+        return true;
+      },
+      [](const clap_host* h, clap_id timerId) {
+        auto& timers = static_cast<Host*>(h->host_data)->timers;
+        return std::erase_if(timers, [&](const auto& entry) { return entry.first == timerId; }) == 1;
+      }};
+    static const clap_host_posix_fd_support posixFd{
+      [](const clap_host* h, int fd, clap_posix_fd_flags_t) {
+        static_cast<Host*>(h->host_data)->fds.push_back(fd);
+        return true;
+      },
+      [](const clap_host*, int, clap_posix_fd_flags_t) { return true; },
+      [](const clap_host* h, int fd) { return std::erase(static_cast<Host*>(h->host_data)->fds, fd) == 1; }};
+    if (std::strcmp(id, CLAP_EXT_TIMER_SUPPORT) == 0)
+      return &timer;
+    if (std::strcmp(id, CLAP_EXT_POSIX_FD_SUPPORT) == 0)
+      return &posixFd;
+#endif
     static const clap_host_latency latency{[](const clap_host*) {}};
     static const clap_host_state state{[](const clap_host* h) { static_cast<Host*>(h->host_data)->dirty = true; }};
     static const clap_host_params params{

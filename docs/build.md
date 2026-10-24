@@ -12,6 +12,16 @@ plugin in saved projects; they must never change after a release.
   Python >= 3.8, Git. Ninja is optional.
 - macOS arm64: Xcode command-line tools, CMake, Python, Git. CI builds and tests
   this target; real-host acceptance is tracked in the [release checklist](release-checklist.md).
+- Linux x64: GCC >= 12, CMake, Ninja, Python, Git and the X11, OpenGL, FreeType,
+  Fontconfig and GTK 3 development packages. On Ubuntu 22.04, the oldest supported
+  release base (glibc 2.35):
+
+  ```sh
+  sudo apt-get install g++-12 ninja-build pkg-config libfreetype-dev libfontconfig-dev     libx11-dev libxi-dev libxext-dev libxrender-dev libxrandr-dev libxfixes-dev     libxcursor-dev libxinerama-dev libxtst-dev libgl-dev libgtk-3-dev xvfb libgl1-mesa-dri
+  ```
+
+  Configure with `CC=gcc-12 CXX=g++-12` and `-G Ninja`. Run CTest under
+  `xvfb-run -a` on machines without a display; see [Linux](#linux).
 - Recursive submodules pinned in this repository: iPlug2, NAM Core,
   AudioDSPTools and Eigen.
 - SDKs downloaded by `scripts/setup-deps.py`: CLAP 1.2.10 at `a47f6ba`, helpers at
@@ -43,7 +53,7 @@ For MSVC without the Visual Studio generator, use an x64 developer command promp
 and add `-G Ninja` to the configure command.
 
 The setup script applies the two MIT Core allocation fixes, the AudioDSPTools WAV
-decoder safety/polarity and resampler warm-up fixes, and two iPlug2 CLAP adapter fixes
+decoder safety/polarity, resampler warm-up and GCC build fixes, and two iPlug2 CLAP adapter fixes
 from `patches/`: enum metadata, and host-contract corrections (bounded value-to-text,
 canonical stepped text, looping short state writes, a value rescan after host state
 loads, and correct main-port configuration summaries). The patch files are the reproducible source of these changes;
@@ -70,6 +80,9 @@ Output:
 - Windows CLAP: `build-grid/out/nam-grid.clap`
 - Windows VST3: `build-grid/out/nam-grid.vst3/Contents/x86_64-win/nam-grid.vst3`
 - macOS CLAP/VST3: bundles under `build-grid/out`.
+- Linux CLAP: the single file `build-grid/out/nam-grid.clap`, with the font embedded.
+  VST3: the `build-grid/out/nam-grid.vst3` bundle (`Contents/x86_64-linux/nam-grid.so`).
+  The build also leaves loose `resources/` copies in `out/`; the plugins do not need them.
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
 - The plugin embeds `NeuralAmpModeler/resources/defaults` (the RiffSmith Clean capture and the
   Clean Default preset) through `cmake/EmbedFiles.cmake`, which needs no extra tools. A fresh
@@ -84,22 +97,23 @@ their SDKs are absent.
 ## CI and releases
 
 `.github/workflows/build-test.yml` builds and tests the plugin. Hosted minutes are
-billed for this private repository (Windows x2, macOS x10), so the workflow is the
+billed for this private repository (Linux x1, Windows x2, macOS x10), so the workflow is the
 merge gate rather than a post-merge check:
 
 - Pull requests build and test Windows x64 only; documentation-only changes
   (`docs/**`, Markdown, `LICENSE`) do not build. A new push cancels the running build.
 - `main` is not rebuilt after merging.
-- macOS arm64 builds in the weekly **Build Native** run, on manual runs and for
-  releases, which all build both platforms.
+- macOS arm64 and Linux x64 build in the weekly **Build Native** run, on manual runs
+  and for releases, which all build every platform.
 - sccache caches compiled objects in the GitHub Actions cache (Ninja + MSVC on
   Windows), so unchanged dependencies are not recompiled. A 45-minute job timeout
   stops hung editor tests; pull request artifacts are kept for 3 days, others for 14.
 
-The weekly **Build Native** run and the release workflow reuse that job. Release archives are `nam-grid-windows-x64.zip` and
-`nam-grid-macos-arm64.zip`; each contains CLAP, VST3, `ThirdPartyNotices.txt` and
-`notices/`. The packaging step fails if a required notice is missing. Archives are
-created before artifact upload to retain macOS executable permissions.
+The weekly **Build Native** run and the release workflow reuse that job. Release archives are
+`nam-grid-windows-x64.zip`, `nam-grid-macos-arm64.zip` and `nam-grid-linux-x64.zip`; each
+contains CLAP, VST3, `ThirdPartyNotices.txt` and `notices/`. `scripts/package-release.py`
+creates them and fails if a required notice is missing. Archives are created before
+artifact upload to retain executable permissions.
 
 To release, set the version in `config.h` (`PLUG_VERSION_STR`, `PLUG_VERSION_HEX`,
 `PLUG_VERSION_RC`) and both `resources/nam-grid-*-Info.plist` files, then push a
@@ -116,10 +130,48 @@ macOS builds ad-hoc sign each complete plugin bundle after linking. They are not
 Developer ID signed or notarized. The [README](../README.md) explains how users
 clear the download quarantine.
 
-Linux plugin releases are blocked by the pinned iPlug2 framework. Its CMake modules
-report Linux as unsupported, and `IGraphicsLinux.cpp` is an unfinished stub.
-A working Linux framework backend and CLAP/VST3 platform integration are required
-before adding Linux to the release matrix.
+## Linux
+
+The pinned iPlug2 has no Linux backend. On Linux only, setup applies
+`patches/iplug2-linux-support.patch`: the X11/GLX NanoVG backend, CLAP and VST3
+integration from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336), rebased
+onto the pinned commit after the CLAP patches. Windows and macOS sources are unchanged.
+The patch also lets hosts without CLAP timer support keep the editor's own render thread,
+and tracks the registered X11 file descriptor. When upstream merges Linux support,
+update the iPlug2 pin and remove the patch.
+
+The editor uses X11 (XWayland on Wayland desktops). File dialogs load GTK 3 at runtime.
+CLAP hosts drive the editor through their timer and the X11 connection's file descriptor;
+the `clap-smoke` test does the same in an X11 parent window, renders the editor, clicks
+through the X server, and reopens it. Without a display those editor checks are skipped,
+so run CTest under `xvfb-run -a -s "-screen 0 1920x1080x24"`. The VST3 controller test is
+Windows only.
+
+Build releases on Ubuntu 22.04 so they run on that glibc and newer. On Windows, a
+dedicated WSL distribution works without changing others:
+`wsl --install Ubuntu-22.04 --name nam-linux-build`, then build in its Linux file system,
+not under `/mnt/c`.
+
+## Manual releases
+
+Without GitHub Actions, build, test and package each platform locally from the tagged
+commit, then upload the archives:
+
+```sh
+git checkout v0.1.0 && git submodule update --init --recursive && python scripts/setup-deps.py
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release   # add -G Ninja on Windows and Linux
+cmake --build build-release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+ctest --test-dir build-release -C Release --output-on-failure   # xvfb-run -a ... on Linux
+python scripts/package-release.py --build-dir build-release --platform macos-arm64
+gh release upload v0.1.0 build-release/nam-grid-macos-arm64.zip --repo Fannon/nam-grid
+```
+
+`--platform` is `windows-x64`, `macos-arm64` or `linux-x64`. Create the draft release
+once, with `gh release create v0.1.0 --draft --verify-tag --title "NAM Grid v0.1.0"
+--notes-file docs/release-notes.md --repo Fannon/nam-grid`, and publish it from GitHub
+Releases after all archives are attached and inspected. Check the version strings first,
+as the release workflow does. On Windows, also add `nam-vst3-parameter-contract` to the
+build targets.
 
 ## Tests
 

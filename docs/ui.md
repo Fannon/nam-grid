@@ -60,11 +60,11 @@ with each other and with your playing, using the module's actual DSP math:
 - **Program-dependent compressors:** Butter Comp has no static curve. It shows detector
   gain reduction over time (0–24 dB, hanging from the top like a console GR meter) beside
   the gray IN and coloured OUT level histories.
-- **Outboard Channel:** one view per stage. The cut response is measured by running the
-  module's own DSP on a quiet impulse with compression and saturation off, drawn over the
-  live output spectrum. The saturation curve is the strip's static Spiral stage at the
-  current Saturate, with a dot at the input peak. A slim gain-reduction history shows the
-  compressor; how fast it recovers reflects Comp speed, which the title also names.
+- **Outboard Channel:** the cut response is measured by running the module's own DSP on
+  a quiet impulse with compression and saturation off, drawn over the live output
+  spectrum. Beside it, a gain-reduction history shows the compressor; how fast it
+  recovers reflects Comp speed. The title names the gain reduction, Comp speed and
+  Saturate; Saturate's static curve changes too little to be worth its own view.
 - **Measured IN > OUT:** NAM captures, Console Colour and Digital Black plot recent input
   peaks against output peaks. Their real
   saturation/compression curve appears from playing; the diagonal is unity gain. NAM

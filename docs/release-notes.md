@@ -14,6 +14,9 @@ every module's controls.
 - `nam-grid-windows-x64.zip`: CLAP and VST3 for 64-bit Windows.
 - `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs. These builds are
   not code-signed or notarized; follow the README to clear the download quarantine.
+- `nam-grid-linux-x64.zip`: CLAP and VST3 for 64-bit Linux (glibc 2.35 or newer, such as
+  Ubuntu 22.04+, Debian 12+ or Fedora 36+), with an X11 editor that also runs under
+  XWayland. Linux support is a preview: see Known limits.
 
 Each archive includes `ThirdPartyNotices.txt` and `notices/`; keep them with the
 plugins when redistributing. The plugin brings one clean amp-and-cab capture (RiffSmith
@@ -32,7 +35,9 @@ compatible.
 ## Known limits
 
 Automated Windows tests exercise DSP, state recall, CLAP hosting and the native
-editor; macOS CI builds and runs the non-editor tests. Use moderate buffer sizes
+editor; macOS CI builds and runs the non-editor tests. Linux builds pass the same DSP,
+state and contract tests and an X11 editor check, but have had little testing in real
+Linux DAWs; the editor uses a community iPlug2 port. Use moderate buffer sizes
 first and report problems with your OS, DAW, plugin format, sample rate and buffer
-size at <https://github.com/Fannon/nam-grid/issues>. Linux, Audio Unit, AAX and a
-standalone application are not provided.
+size at <https://github.com/Fannon/nam-grid/issues>. Audio Unit, AAX and a standalone
+application are not provided.

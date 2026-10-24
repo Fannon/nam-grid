@@ -96,7 +96,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for platform in windows-x64 macos-arm64; do
+          for platform in windows-x64 macos-arm64 linux-x64; do
             test -s "artifacts/nam-grid-$platform.zip"
           done
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then

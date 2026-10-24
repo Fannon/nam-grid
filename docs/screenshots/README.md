@@ -1,9 +1,10 @@
 # README screenshots
 
-The main image, `grid.png`, is a supplied screenshot of the "Clean Bright Twin"
-rig, preserved at its original resolution. It shows a gate and Punch Compressor
-in Pre, two bypassed NAM pedal captures, an amp-and-cab capture in lane A, and
-Analog Echo, Cosmic Echo and Peak Limiter in Post. Post 2 Cosmic Echo is selected.
+The main image, `grid.png`, is a supplied screenshot preserved at its original
+resolution. It shows Digital Black Gate, Punch Compressor and an Ibanez TS9
+NAM pedal capture in Pre; a Tone King Imperial Mk II amp-and-cab capture in
+lane A; and Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected,
+showing the amp capture controls and measured input/output display.
 The captures shown are external files, not bundled content.
 
 The remaining gallery images are captured from the native Windows editor with
@@ -25,7 +26,7 @@ The generated gallery uses a demo library containing:
 
 | File | View |
 | --- | --- |
-| `grid.png` | Clean Bright Twin rig with Post 2 Cosmic Echo selected |
+| `grid.png` | Guitar rig with A1 amp-and-cab capture selected |
 | `nam.png` | Pre 3 NAM capture with its measured input/output curve |
 | `ir.png` | Pre 4 cabinet IR frequency response |
 | `delay.png` | A2 Tape Echo |

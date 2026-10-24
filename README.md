@@ -7,10 +7,10 @@ An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 cabinet impulse responses and built-in effects, then blend two parallel chains
 for anything from a simple amp sound to layered ambient textures.
 
-![NAM Grid with a clean amp-and-cab capture, a few supporting effects, and the Cosmic Echo editor](docs/screenshots/grid.png)
+![NAM Grid with an overdrive capture, an amp-and-cab capture, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
 
-*An example clean rig with an amp-and-cab capture, a gate, compression and ambient
-effects, with Cosmic Echo selected. Captures and IRs are supplied separately;
+*An example rig with an overdrive capture, an amp-and-cab capture, a gate,
+compression and ambient effects, with the amp capture selected. Captures and IRs are supplied separately;
 find sounds for your own rigs on
 [TONE3000](https://www.tone3000.com), which hosts free NAM captures and IRs.*
 

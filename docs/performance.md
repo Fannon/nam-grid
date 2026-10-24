@@ -105,35 +105,16 @@ Scenes belong to the current rig: a rig preset saves its three scenes, and loadi
 preset replaces them with its own (empty if it stored none). To switch between rigs
 with different modules or captures, use rig presets.
 
-## Processing and state
+## Tails and bypass
 
-Storage is allocated/reset outside audio processing. Capture processors swap
-preallocated banks at boundaries rather than copy entire multi-second windows.
-Stereo-linked processors run once on both channels; the mono NAM policy still
-uses one downmixed inference pass. New module preparation uses the existing
-publish/retire handoff. No audio-thread mutex or new runtime dependency was added.
+Scenes switch controls smoothly because the modules themselves stay loaded.
+Delay and reverb tails behave musically around bypass:
 
-Main's finite host render-tail policy remains capped at 60 seconds. An enabled
-Freeze with Hold active instead reports an infinite tail; releasing Hold restores
-the finite policy. Bypassing Freeze retains the held pad for re-enabling. Bypassed
-delays stop feedback while draining; Dual Delay reserves 17 seconds to clear its
-maximum 16-second history. Intentional delay/pitch-window behavior is separate
-from the conversion latency reported to the host.
+- Bypassing Freeze keeps the held pad, so re-enabling resumes it. Releasing Hold lets it end.
+- Bypassed delays stop feeding back while their repeats drain out.
+- Bypassed cabinets and Stutter resume their remaining sound if re-enabled quickly; after the tail has fully drained they start fresh. A Decay setting shapes the sound rather than acting as a hard end time.
 
-Cabinet IR drains 8,192 silent frames after its bypass fade, covering the
-convolver's maximum resampled FIR length before processing suspends. Re-enabling
-after drainage cannot replay earlier input. Re-enabling sooner can resume its
-remaining history during the ordinary fade. Stutter's 33-second drain covers four
-maximum eight-second synced windows; a Decay setting is not a hard reverb end time.
-
-Independent dynamics and envelope followers can change the stereo balance of
-asymmetric input; fixed EQ/filter histories are also independent. The Peak Limiter
-uses linked gain. No new stereo-link option or nonlinear oversampling is implied.
-
-Capture and delay history storage grows with sample rate and the number of
-loaded slots. Histories are prepared off audio and are not resized during live
-processing. Compatibility and state handling are described in
-[development.md](development.md).
+Each channel keeps its own history, so dynamics and envelope followers can shift the stereo balance of lopsided input; the Peak Limiter stays linked.
 
 [Rig presets and global gain placement](presets.md) describe file Save/Load and
 the IN / A-B / OUT controls. Scenes remain parameter-only snapshots within a rig.

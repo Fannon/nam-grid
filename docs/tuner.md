@@ -22,19 +22,6 @@ right, over ±25 cents; larger offsets pin to the top or bottom edge. Green indi
 ±3 cents, amber ±10 cents, and coral larger errors. The line fades with age and breaks at silence, note changes, long gaps
 and jumps over 35 cents. Existing history follows a changed reference.
 
-Detection uses clean input before the grid, including right-only input. The
-existing MPM detector and the trace connection rules come from the MIT sibling
-trace-tuner revision `2e1ff89243698b8f4fca33dc4505a2cd749d9e67`.
-The compact meter/history arrangement also takes inspiration from the Bitwig
-example supplied during development. No Bitwig code or assets are included.
-
-A fixed atomic history ring is written by the detection worker and read by the
-UI. The audio callback only enables the detector and queues input; it does not
-allocate, take the detector mutex, or draw history. Opening, closing or repainting
-the editor does not determine the history sampling rate. The current pitch clears
+Detection uses clean input before the grid, including right-only input. Opening, closing or repainting
+the editor doesn't affect detection. The current pitch clears
 after detection stops; history ages out instead of implying a sustained note.
-
-Tests cover pitch/reference conversion, wrap/expiry, enable generations, trace
-breaks, real worker history, no audio allocations, state recall, the
-native editor controls, and automation/mute with the editor destroyed. Listening
-and host automation mapping should still be auditioned in the target DAW.

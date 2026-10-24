@@ -21,8 +21,7 @@ histories and hiss remain independent. Noise off preserves a centered mono image
 and does not crossfeed either channel. Slower speed changes tone and motion rather
 than performing a lasting playback-speed pitch shift.
 
-The host reports zero compensation latency, like the existing vibrato/doubler:
-the delay is part of the effect. Partial dry/wet blends and parallel clean lanes
+The module adds no latency — the delay is part of the effect. Partial dry/wet blends and parallel clean lanes
 can therefore produce chorus/comb coloration. Full wet is the starting point for
 a tape-machine treatment. This is an original character effect, not a measured
 cassette/deck emulation or magnetic-hysteresis model. No Dusk/CHOWTape DSP is copied.
@@ -57,22 +56,7 @@ These are suggested settings, not bundled preset files. Adjust Output to match
 levels when comparing, and audition with a sustained clean chord as well as
 distorted guitar. Add Airwindows Tape separately for saturation.
 
-## Integration and verification
+## Compatibility
 
-The module appends effect ID 43, preserving existing IDs including Noise Print 64.
-Its named controls use the normal slot bank for Copy/Move/Swap, scenes and
-`.ngrid` presets. Preview compatibility is described in [development.md](development.md).
-
-All delay memory is allocated in Reset outside audio. Bypass drains with silent
-input and disables hiss generation before suspending after one second.
-
-Automated coverage is in `tests/LoFiTapeTests.h` and `tests/LoFiTapeClapTests.inc`:
-speed-dependent high-frequency loss, wow/flutter sidebands, dropouts, noise-off
-silence and noise-on output, deterministic reset, stereo isolation, exact dry Mix,
-sample-rate scaling at 44.1/48/88.2/96/192 kHz, host block partition invariance,
-zero audio allocations/deletions, bypass drain, measured visualization values,
-state recall, malformed-state rejection, automation and editor gestures.
-
-The module reports zero compensation latency. Use [build.md](build.md) for
-tests and [fx-performance.md](fx-performance.md) to measure the current build.
-Real-guitar listening and DAW acceptance remain separate checks.
+Its controls work with Copy/Move/Swap, scenes and
+`.ngrid` presets like any other module.

@@ -14,3 +14,9 @@ mkcert*
 
 NeuralAmpModeler/*.wav
 NeuralAmpModeler/peaks/
+# VitePress docs site (docs/ has its own package.json)
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+# Local-only MCP/tooling config
+.mcp.json

@@ -4,8 +4,7 @@ Every built-in module starts with settings for electric guitar, designed to make
 recognizable without overwhelming the dry guitar. They are starting points, not
 loudness-matched presets. NAM captures, Guitar EQ, Parametric EQ and Utility start neutral,
 so acoustic and bass chains can start cleanly too. The [module guide](modules/README.md)
-lists each module's starting value next to every control; the values live in
-[SlotDefaults.h](../NeuralAmpModeler/SlotDefaults.h).
+lists each module's starting value next to every control.
 
 - Adding or replacing a module applies its starting settings, including controls it shares
   with the previous module in that slot. Double-clicking a knob resets it to the same value.

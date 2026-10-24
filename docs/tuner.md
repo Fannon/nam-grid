@@ -1,10 +1,15 @@
 # Tuner and tuning history
 
-The **Tuner** button in the header is a host-automatable on/off parameter. It
-replaces the lower module editor with a tuner while keeping the routing grid
-visible. With **Mute output** enabled (the default), turning Tuner on also mutes
-the output. Turn it off, press Escape or click Close to restore sound through a
-5 ms ramp. Disable Mute output to hear the processed signal while tuning.
+The **Tuner** button in the header works like selecting a module: while it is lit,
+the tuner replaces the lower module editor and the routing grid stays visible. It is a
+host-automatable on/off parameter. With **Mute output** on (the default, at the top of
+the tuner's control column), the tuner also mutes the output. Click Tuner again, select
+any slot, press Escape or click Close to leave it and restore sound through a 5 ms ramp.
+Turn Mute output off to hear the processed signal while tuning.
+
+The left section shows the note, cents and frequency, with the **Reference** knob below
+Mute output, and a tuning bar across the whole section: ±50 cents, with the ±3 cent window
+shaded.
 
 Tuner/mute automation continues when the plugin window closes. A host project
 saves the Tuner switch, reference and mute preference. Rig presets and performance

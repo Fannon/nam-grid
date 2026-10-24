@@ -47,7 +47,7 @@ static void WriteExampleCabinet(const std::filesystem::path& path)
   for (double v : x) { const int32_t s = static_cast<int32_t>(v / peak * .9 * 8388607.); out.write(reinterpret_cast<const char*>(&s), 3); }
 }
 
-int main(int argc, char** argv)
+static int Run(int argc, char** argv)
 {
   assert(argc == 4);
   const std::filesystem::path repository = argv[2];
@@ -220,4 +220,15 @@ int main(int argc, char** argv)
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
   gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
   std::cout << "Captured gallery into " << out.string() << "\n";
+  return 0;
+}
+
+int main(int argc, char** argv)
+{
+  try { return Run(argc, argv); }
+  catch (const std::exception& error)
+  {
+    std::cerr << "Gallery capture failed: " << error.what() << '\n';
+    return 1;
+  }
 }

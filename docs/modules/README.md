@@ -86,9 +86,11 @@ Each display says what it shows in its title, detail and footer rows. There are 
 - **Settings over time:** delay repeats, reverb decay, modulation shapes. These show what
   the settings do; they do not follow a live LFO phase.
 
-The **level strip** shows input and output RMS (bar) and peak (tick) from -60 to 0 dBFS
-over the last 0.4 s, the **Gain** between them and the **Crest** factor (peak to RMS) at
-both ends. Gain near 0 dB is a fair comparison with bypass. A crest that drops through the
+The **level strip** shows input and output as "RMS / peak" on the card meters' scale
+(-60 to +6 dBFS, red above 0 dBFS and for 2 s after an over): the RMS bar averages the last
+0.4 s, the peak tick holds 1.5 s. It also shows the **Gain** between them and the **Crest**
+factor (peak to RMS) at both ends. RMS sits well below the peaks for picked notes, so a
+clipping card meter goes with a peak near 0 dBFS, not with the RMS number. Gain near 0 dB is a fair comparison with bypass. A crest that drops through the
 module means it compresses or saturates; one that rises means it expands or sharpens
 attacks. Library & settings can turn displays and the strip off; audio is unaffected.
 

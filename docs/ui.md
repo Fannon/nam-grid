@@ -238,12 +238,13 @@ use it so they never touch your own settings.
 
 ## Tuner and performance controls
 
-The automatable **Tuner** button sits beside Library & settings. When active,
-the tuner replaces the lower module editor while the grid stays visible. It shows
+The automatable **Tuner** button sits beside Library & settings and works like
+selecting a module: while it is lit, the tuner replaces the lower module editor and the
+grid stays visible; click it again, or select any slot, to leave it. It shows
 note/octave, cents, frequency, A-reference (430–450 Hz), Mute output and a six-second
 pitch-history graph. The trace fades with age, highlights ±3 cents and breaks at
 silence, note changes or large jumps. Reference changes reinterpret the frequency
-history against the new reference. Escape, Close or Tuner OFF disables it and
+history against the new reference. Escape, Close, the Tuner button or selecting a slot disables it and
 restores output through a 5 ms ramp. With Mute output ON (the default), the Tuner
 parameter doubles as a host-automatable mute, including with the window closed.
 Project state retains it; rig presets and performance scenes leave it unchanged.
@@ -272,8 +273,11 @@ or invalid resource rejects the edit and keeps both slots unchanged.
 ## Reading visualizations
 
 The **level strip** below every module editor compares the module's input with its output
-over the last 0.4 s: RMS bars with a peak tick (-60 to 0 dBFS) and their values, the
-**Gain** between them, and the **Crest** factor (peak to RMS) at both ends. Use Gain to
+on the slot meters' scale, -60 to +6 dBFS with a line at 0 dBFS: an RMS bar over the last
+0.4 s and a peak tick held like the global meters (1.5 s, then falling 12 dB/second), both
+read as "RMS / peak". Above 0 dBFS draws red and stays red for 2 seconds after an over,
+exactly like the card meters. It also shows the **Gain** between input and output and the
+**Crest** factor (peak to RMS) at both ends. Use Gain to
 match bypass loudness before judging a module. A crest that drops through the module means
 it compresses or saturates, the more the stronger; a crest that rises means it expands or
 sharpens attacks. Like the slot meters it measures the mono sum, and it shows nothing while

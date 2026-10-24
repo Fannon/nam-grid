@@ -100,9 +100,9 @@ void TestLinuxEditor(const clap_plugin* plugin, Host& host, Config&& config, con
     if (pass == 0)
     {
       // The header Tuner toggle, through the X server's own pointer input.
-      click(810, 28);
+      click((grid_layout::tunerLeft + grid_layout::tunerRight) / 2, grid_layout::headerY);
       assert(config()["Tuner"] == 1.);
-      click(810, 28);
+      click((grid_layout::tunerLeft + grid_layout::tunerRight) / 2, grid_layout::headerY);
       assert(config()["Tuner"] == 0.);
     }
     assert(gui->hide(plugin));

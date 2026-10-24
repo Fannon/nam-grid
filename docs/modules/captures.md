@@ -38,7 +38,7 @@ Loads a Neural Amp Modeler capture (.nam): an amp, a pedal or a full rig. The EQ
 
 ![Cabinet IR editor](../screenshots/ir.png)
 
-Loads a mono cabinet impulse response (.wav). Direct and FFT convolution switch automatically; IRs are not normalized.
+Loads a mono cabinet impulse response (.wav). Short and long IRs are handled automatically; IRs are not normalized.
 
 **Output** (-36 dB to 18 dB; starts at -18 dB) IR gain. 0 dB gives unity gain for a unit impulse; -18 dB is the usual cabinet headroom.
 

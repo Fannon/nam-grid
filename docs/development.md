@@ -128,7 +128,11 @@ invalid or missing resources leave the slots unchanged. Automation remains
 attached to physical slots. Captures and IRs are external files, not copied assets.
 
 Model changes that alter CLAP latency request host reactivation. Same-latency
-replacement uses the existing switching fades.
+replacement uses the existing switching fades. Lane timing is compensated the
+same way: the shorter lane is delayed to match the longer one, so the reported
+host latency is the Pre sum plus the longer lane plus the Post sum. Legacy
+Buffer-based NAM models with zero prewarm samples receive a silence block
+during preparation so their lazily allocated buffers are reserved in time.
 
 The plugin owns two grids. Slot edits go to the edited grid, which is the audible
 one except during a rig preset switch. `RigTransition` coordinates a switch: the

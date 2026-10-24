@@ -1,20 +1,12 @@
-# Flat editor and library
+# The editor
 
-The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, dark flat
-surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
-selector or animated settings overlay is instantiated. Routing stays fixed.
-
-The compact header contains the logo, **Modulation**, the scene buttons **1 2 3**, the
-preset browser with its arrows, **New** and **Save**, Tuner and Library & settings. IN gain
-sits before the first grid card; OUT gain, A/B balance and the **Routing** button occupy the
-right gutter. Routing replaces the module editor below the grid until you select a slot,
+The editor is dark with flat surfaces and mint accents. The compact header holds the logo, **Modulation**, the scene buttons **1 2 3**, the preset browser with its arrows, **New** and **Save**, Tuner and Library & settings. IN gain sits before the first grid card; OUT gain, A/B balance and the **Routing** button occupy the right gutter. Routing replaces the module editor below the grid until you select a slot,
 close it or press Escape (see [performance.md](performance.md)). Each of the sixteen cards has two parts.
 Its header row shows the slot ID, the category badges (Amp and Cab for an amp + cab capture)
 and the bypass switch; below it, a name button shows the loaded file or effect, or
-**+ Add module** on an empty card. Slim input-left/output-right meters sit beside the card.
+**+ Add module** on an empty card. Slim input-left/output-right meters sit beside the card. Cards are colour-coded by category: amber amps, blue cabinets, green pedals, and so on.
 Tile IDs carry their module colour, the same hue as the module head below, and the selected
-card brightens its own hue rather than fading to a neutral outline, so selection stays
-readable next to the grey Dynamics modules.
+card brightens instead of fading to a neutral outline.
 
 Click the header row to select a slot without opening anything. Click the name button (or
 double-click anywhere on the card) to open the browser; accepting a choice or closing it
@@ -49,8 +41,8 @@ its neutral EQ acts after inference, not as controls of the captured amp. Compat
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
 shows the current mode. The module menu also offers A2 Lite. Cabinet IR has one Output knob;
 see the [module guide](modules/README.md) for every module's controls.
-Every loaded module offers a visualization. Views aim to show how controls interact
-with each other and with your playing, using the module's actual DSP math:
+Every loaded module offers a visualization. Views show how the controls interact
+with each other and with your playing:
 
 - **Dynamics:** signal history versus threshold, numeric GR and an orange reduction bar.
   Compressors, gates and the limiter also show their static/closing curve with a dot at
@@ -95,8 +87,8 @@ with each other and with your playing, using the module's actual DSP math:
 - **Pitch and spectrum:** Frequency Shifter draws its feedback cascade (each pass shifts
   again by Shift); Ring Mod shows the kept partials and inharmonic sidebands of a 220 Hz
   reference; Octaver draws the square sub-octaves its Tone control rounds.
-- **Cosmic Echo:** the module's measured wet response to one impulse, rendered by a private
-  copy of its DSP off the audio thread whenever a setting changes. Separate spikes are
+- **Cosmic Echo:** the module's measured wet response to one impulse, re-measured
+  each time a setting changes. Separate spikes are
   distinct echoes; Warp spreads the delay lines into a wash and Density then thickens it.
   The previous measurement stays dimmed until the new one arrives.
 - **Modulation:** Chorus/Vibrato delay voices with the resulting pitch deviation;
@@ -139,19 +131,6 @@ Their value is the higher channel's peak in dBFS, held for 1.5 seconds, then fal
 Level above the line draws red, and the area above it stays red for 2 seconds after an over,
 as does the global value. The grid processes in floating point, so an over between modules
 is a warning rather than clipping; at OUT it is what the host receives.
-Colors are semantic: amber amps, blue cabinets/IR, an amber-to-blue gradient for amp+cab,
-green pedals, light gray dynamics/gates, rose EQ, coral Boost/Tape, periwinkle
-modulation/filter, cyan delay, magenta Creative and violet reverb. Unclassified NAM files remain neutral.
-Selection brightens the border toward white, retaining the Amp-to-Cab border gradient.
-Knobs and switches use a neutral monochrome palette. Module header IDs use 22-point text
-and descriptions use 14-point text; the description extends across the controls area
-when no NAM quality button occupies that row. Tile IDs use 16-point text. Regular UI text uses size 14; compact legends, browser
-metadata and helper text use at least size 13. Plot footers have
-extra height for their larger labels.
-
-The bottom editors are independent containers with bounds enclosing their children. Their
-parameter bindings remain attached to their physical slots; selection changes visibility,
-never audio or automation ownership. The main card bounds do not clip the bottom panel.
 
 ## Multiple sources
 
@@ -169,27 +148,15 @@ More than seven rows scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
 file paths are deduplicated; identical source basenames receive distinct menu names. Root and
 nested folder names remain in the index. The dedicated [browser](browser.md) supplies
-live ranked search, folder scoping, metadata details and category-specific entry points. The scanner runs on its existing background worker;
-latest request wins, and menus retain immutable snapshots while open.
-The scanner computes SHA-1 content hashes for captures/IRs. The hash is a recall aid, not a
-menu filter: byte-identical files keep their own entry, so a pack folder stays complete when a
-curated copy of the same capture exists elsewhere, and repeats are only counted. Overlapping
-roots and repeated roots still index each physical path once. Slots, projects, rig presets and
-Copy/Move/Swap retain the content hash. Recall keeps the saved or explicitly chosen path while
-that file still holds the remembered content, so picking one of several identical captures is
-never redirected to another copy. The hash only takes over when the file was renamed, moved or
-replaced, and completed rescans relink slots whose file disappeared or changed; a different file
-at the old path is never silently substituted. Missing indexed matches retain the original
-path/hash for a future rescan.
+live ranked search, folder scoping, metadata details and category-specific entry points.
+Renamed or moved files are recognized and relinked automatically on rescan; nothing is ever silently swapped for a different file.
 
 Both `.nam` and `.wav` extensions are indexed case-insensitively. WAV entries are tagged IR /
 Cabinet. NAM captures and Cabinet IRs have separate menu categories. Shared folder
 levels are skipped until a branch or file. Every menu level lists folders before
 files, with case-insensitive alphabetical ordering within each group and original
-snapshot tags retained. Selecting an IR (including via previous/next) uses LoadSlotIR, changing both slot type
-and processor; selecting NAM switches back. WAV contents are validated by the existing IR
-loader on selection, not by the indexer. Non-IR WAV files can appear as candidates; missing or
-invalid loads preserve the currently loaded module. No new decoder or audio dependency is added.
+snapshot tags retained. Selecting an IR (including via previous/next) changes the slot to a cabinet; selecting NAM switches back. Non-IR WAV files can appear as candidates; missing or
+invalid loads keep the currently loaded module.
 File menu labels contain only the filename stem. The down arrow beside the selected capture/IR
 opens a flat list of files of the same type in its physical folder; it does not recurse.
 The previous/next buttons stay within the same physical folder and file type for NAM/IRs,
@@ -237,8 +204,7 @@ but it opens and hashes only files whose size or time changed, so a rescan of a 
 is nearly instant. Deleting the file is safe; the next scan rebuilds it.
 
 `NAM_GRID_HOME` replaces all three locations: settings then live in `$NAM_GRID_HOME/config`,
-the index in `$NAM_GRID_HOME/cache` and the default folders in `$NAM_GRID_HOME`. The tests
-use it so they never touch your own settings.
+the index in `$NAM_GRID_HOME/cache` and the default folders in `$NAM_GRID_HOME`.
 
 ## Tuner and performance controls
 
@@ -260,9 +226,9 @@ Division replaces Time or Rate in the first position; manual values remain store
 Ping-pong, Stereo wet and the mode selectors share the header's second option place.
 Unique control names agree across the editor and host.
 Each selected module has a short sound explanation beneath its title. Hover its
-controls for audible-effect guidance. See the [module guide](modules/README.md) for controls and [development.md](development.md) for parameter ownership.
+controls for audible-effect guidance. See the [module guide](modules/README.md) for controls.
 
-Grid toggles have equal 12-pixel top/right insets and a 32-pixel hit area. Bypassed cards use a darker background, subdued text/badges and an unfilled toggle with a minus mark.
+Bypassed cards use a darker background, subdued text/badges and an unfilled toggle with a minus mark.
 
 Empty slots are inactive add targets. They show no bypass toggle on the card and no Enabled or previous/next controls in the bottom editor; click + Add module or the module picker to fill one.
 
@@ -270,8 +236,7 @@ Empty slots are inactive add targets. They show no bypass toggle on the card and
 
 Right-click a card to Copy, Move or Swap with another slot. Copy/Move replace
 the destination; Move empties the source. Controls, bypass and model quality
-travel together, while files stay on disk and automation stays attached to the
-physical slots. Both processors are prepared before an edit commits. A missing
+travel together, while files stay on disk and automation stays with the slot, not the module. A missing
 or invalid resource rejects the edit and keeps both slots unchanged.
 
 ## Reading visualizations
@@ -291,14 +256,11 @@ Measured IN/OUT histories describe level, not stereo correlation;
 mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe
 configured behavior, not an invented live LFO phase or a measured room impulse.
 A bypassed module can still show its settings; Enabled controls the audio.
-The output spectrum in the EQ / Filter, Outboard Channel and NAM views is a 4096-sample FFT of the selected slot's left output channel, updated with the meter. Each band shows its loudest bin. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's dB scale. Bins are about 12 Hz wide at 48 kHz, so the lowest octave is still coarse, and it is not a stereo analyzer.
+The output spectrum in the EQ / Filter, Outboard Channel and NAM views shows the slot's left output channel, updated with the meter. Its filled area uses a -72 to 0 dBFS scale, labelled on the right and separate from the response curve's dB scale. Low frequencies read coarsely, and it is not a stereo analyzer.
 Measured IN > OUT clouds use the same peak meters as the histories: they show level behavior, not instantaneous waveform transfer.
 
 Frequency plots use logarithmic frequency with labeled limits. Timing sketches
 state their window; reverb guides use nominal decay or explicitly relative scales.
-Native Airwindows intensity/size controls must not be presented as calibrated RT60.
-Distinguish nonlinear transfer curves from small-signal EQ responses and measured
-gain reduction. Source pins and mappings are in the implementation notes.
 
 The global Visualizations preference hides plots without changing audio or saved
-rig controls. For native screenshot sweeps and editor checks, use [build.md](build.md).
+rig controls.

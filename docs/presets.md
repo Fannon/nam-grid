@@ -50,15 +50,14 @@ switches. **Preset switch** in Library & settings chooses how:
   when a rig is already close to the CPU limit.
 
 The old rig's delay and reverb tails end with the fade. A rig whose total latency
-differs from the current one still asks the host to restart processing. Without
+differs from the current one may make your DAW briefly restart processing. Without
 running audio, and for host project loads, the rig applies directly. Preparing
 large models can briefly occupy the editor.
 
 Algorithm selections are retained in rigs, projects and scenes and are changed
 in the editor rather than through automation. Adding new modes preserves saved
 choices and the other controls' automation mappings. Presets from builds before
-0.1.0 are rejected and must be rebuilt. See
-[parameter compatibility](development.md#parameter-and-project-compatibility).
+0.1.0 are rejected and must be rebuilt.
 
 ## Gain placement
 

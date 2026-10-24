@@ -114,3 +114,17 @@ output, block-size independence, zero audio-thread allocation, echo timing, reve
 bypass draining and reset, and project recall and editor gestures for every module in the
 native editor. See [build.md](build.md) for the commands. Listening and host validation are
 tracked in the [release checklist](release-checklist.md).
+
+## Audition renders
+
+The `nam-fx-audition` target renders one `.ngrid` preset and paired WAVs per
+effect style, plus `measurements.csv`, for example:
+
+```powershell
+cmake --build build-grid --config Release --target nam-grid-clap nam-fx-audition
+& .\build-grid\NeuralAmpModeler\nam-fx-audition.exe .\build-grid\out\nam-grid.clap .\tmp\cosmic-audition cosmic
+```
+
+Output goes to the directory passed to the exporter; `tmp/` is gitignored.
+These renders are generated developer artifacts: they are not checked in or
+copied into release archives.

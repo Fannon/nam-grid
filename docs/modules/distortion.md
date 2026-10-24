@@ -1,7 +1,6 @@
 # Distortion
 
-Drives, boosts and saturation. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Drives, boosts and saturation. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -16,7 +15,7 @@ Drives, boosts and saturation. Each module shows its editor with the starting se
 
 ![Distortion editor](../screenshots/modules/distortion.png)
 
-An original waveshaper with six styles, from soft clipping to rectified octave buzz. Bias makes the curve asymmetric for even harmonics; a DC blocker removes the offset. There is no oversampling, so bright, high-drive settings can alias.
+Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the symmetry for different harmonics and attack textures. Bright, high-drive settings can introduce aliasing.
 
 **Drive** (0 dB to 36 dB; starts at 9 dB) Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output.
 
@@ -24,9 +23,9 @@ An original waveshaper with six styles, from soft clipping to rectified octave b
 
 **Bias** (-100% to 100%; starts at 0%) Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC.
 
-**Output** (-24 dB to 6 dB; starts at -6 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-24 dB to 6 dB; starts at -6 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -61,7 +60,7 @@ A clean level boost with opposing shelves around 800 Hz (Tilt) and a low cut. It
 
 ![Tube Boost editor](../screenshots/modules/tube-boost.png)
 
-Tube-inspired biased soft saturation with adjustable asymmetry, the Boost's Tilt and Low cut, and a DC blocker. It is not a circuit emulation; strong Drive can alias.
+Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut for shaping the drive. Strong settings can introduce aliasing.
 
 **Drive** (0 dB to 24 dB; starts at 6 dB) Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output.
 
@@ -71,9 +70,9 @@ Tube-inspired biased soft saturation with adjustable asymmetry, the Boost's Tilt
 
 **Asymmetry** (0% to 100%; starts at 25%) Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC.
 
-**Output** (-18 dB to 18 dB; starts at -3 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 18 dB; starts at -3 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The saturation curve with the input span you reach, and the small-signal EQ.
 
@@ -91,9 +90,9 @@ A native port of Airwindows Tape: tape saturation and head bump, with no wow or 
 
 **Bump** (0% to 100%; starts at 25%) Low-frequency tape head emphasis; more adds body and bass resonance.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The Spiral stage curve and the head-bump amount.
 
@@ -105,7 +104,7 @@ A native port of Airwindows Tape: tape saturation and head bump, with no wow or 
 
 ![Console Colour editor](../screenshots/modules/console-colour.png)
 
-Eight console voices from Airwindows BussColors4: nonlinear convolution and saturation with fixed per-desk level matching. Desk changes fade through dry.
+Eight Airwindows console voices, from subtle density to stronger colour. Each desk has its own level match, and changes fade smoothly.
 
 **Input** (-18 dB to 18 dB; starts at 0 dB) Gain into the console colour, in real dB. More level drives the nonlinear convolution and saturation harder.
 
@@ -135,9 +134,9 @@ Bit-depth and sample-rate reduction with a high cut after the crush.
 
 **High cut** (200 Hz to 20000 Hz; starts at 6500 Hz) High-cut frequency of the processed signal. Lower values tame brightness and harshness.
 
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 50%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** One cycle of a test tone, dry against crushed, with the high cut applied.
 

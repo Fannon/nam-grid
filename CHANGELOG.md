@@ -16,6 +16,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - Library & settings page links to the documentation site, the open-source repository and the issue tracker.
 - Documentation website scaffold (VitePress, dark by default) presenting the guides and module pages.
+- Documentation design and manual refresh: clearer musician-focused navigation, concise task-based guides, focused module screenshots and a wider navbar search.
 - User guides rewritten from the player's point of view: routing, editor, performance,
   tuner and effect deep-dives no longer carry implementation details (headers, buffers,
   SIMD paths, test coverage). Internals now live in `development.md` and

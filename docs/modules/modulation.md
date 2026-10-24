@@ -1,7 +1,6 @@
 # Modulation
 
-Chorus, flanger, phaser, tremolo, rotary and ring modulation. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Chorus, flanger, phaser, tremolo, rotary and ring modulation. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -19,7 +18,7 @@ Chorus, flanger, phaser, tremolo, rotary and ring modulation. Each module shows 
 
 ![Chorus editor](../screenshots/modules/chorus.png)
 
-A fractional-delay chorus. Texture darkens the voices and adds uneven motion; Spread offsets the left and right voices.
+A wide, moving chorus. Texture adds warmth and less regular motion; Spread separates the left and right voices.
 
 **Rate** (0.05 Hz to 10 Hz; starts at 0.8 Hz) Speed of the modulation cycle. Tempo sync substitutes a rhythmic division.
 
@@ -29,12 +28,12 @@ A fractional-delay chorus. Texture darkens the voices and adds uneven motion; Sp
 
 **Spread** (0% to 100%; starts at 75%) Phase offset between left and right chorus voices; zero is centered, 100 is opposite motion.
 
-**Mix** (0% to 100%; starts at 40%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 40%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Rate to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Rate while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The left and right delay times over two seconds.
 
@@ -42,11 +41,11 @@ In the header:
 
 ![Juno Chorus editor](../screenshots/modules/juno-chorus.png)
 
-Two triangle-LFO bucket-brigade voices after the Juno-60 chorus measurements used by the MIT Junologue project, with I, I+II and II modes. An original implementation, not a circuit emulation.
+Classic Juno-style chorus with I, I+II and II modes, from a subtle single voice to the familiar combined shimmer.
 
 **Brightness** (0% to 100%; starts at 80%) Treble retained in the wet voices; lower values soften the chorus.
 
-**Mix** (0% to 100%; starts at 50%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -58,7 +57,7 @@ In the header:
 
 ![Flanger editor](../screenshots/modules/flanger.png)
 
-A short swept comb. Feedback sign moves feedback from positive through zero to negative, which also darkens the wet path.
+A sweeping jet-like flanger. Feedback adds intensity; Feedback sign changes its character and darkness.
 
 **Rate** (0.05 Hz to 10 Hz; starts at 0.25 Hz) Speed of the modulation cycle. Tempo sync substitutes a rhythmic division.
 
@@ -68,12 +67,12 @@ A short swept comb. Feedback sign moves feedback from positive through zero to n
 
 **Feedback sign** (0% to 100%; starts at 30%) Moves feedback from positive through zero to negative. Turning it toward negative also darkens the wet path (12k to 3k) and changes the sweep shape.
 
-**Mix** (0% to 100%; starts at 50%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Rate to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Rate while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The comb response at several points of the sweep.
 
@@ -81,7 +80,7 @@ In the header:
 
 ![Phaser editor](../screenshots/modules/phaser.png)
 
-Six allpass stages swept by an LFO; Sweep center raises the sweep.
+A smooth, swirling phase effect. Sweep center moves the sweep into a different part of the guitar's tone.
 
 **Rate** (0.05 Hz to 10 Hz; starts at 0.35 Hz) Speed of the modulation cycle. Tempo sync substitutes a rhythmic division.
 
@@ -91,12 +90,12 @@ Six allpass stages swept by an LFO; Sweep center raises the sweep.
 
 **Sweep center** (0% to 100%; starts at 20%) Raises the center of the six-stage phase sweep.
 
-**Mix** (0% to 100%; starts at 50%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Rate to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Rate while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The phaser response at several points of the sweep.
 
@@ -112,12 +111,12 @@ Rounded volume pulses. Pulse / feel sharpens them and, without tempo sync, speed
 
 **Pulse / feel** (0% to 100%; starts at 0%) Sharpens pulses; stronger playing also speeds them up when tempo sync is off.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Rate to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Rate while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The gain over two seconds, including the dry blend.
 
@@ -135,8 +134,8 @@ Fully wet pitch modulation; Texture adds drift and darkening.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Rate to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Rate while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The delay sweep and its pitch excursion in cents.
 
@@ -158,7 +157,7 @@ A rotating-speaker simulation with separate slow and fast rates, a ramp between 
 
 **Spread** (0% to 100%; starts at 80%) Stereo separation of horn/drum motion; zero centers the wet signal.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The speed ramp and the horn and rotor motion.
 
@@ -170,7 +169,7 @@ A rotating-speaker simulation with separate slow and fast rates, a ramp between 
 
 ![Uni-Vibe editor](../screenshots/modules/uni-vibe.png)
 
-An uneven four-stage phase sweep in the style of a photocell vibe. Vibrato mode removes the dry blend for pitch vibrato.
+A pulsing, uneven photocell-vibe sweep. Vibrato mode removes the dry sound for pitch movement.
 
 **Rate** (0.05 Hz to 10 Hz; starts at 1.2 Hz) Speed of the modulation cycle. Tempo sync substitutes a rhythmic division.
 
@@ -178,12 +177,12 @@ An uneven four-stage phase sweep in the style of a photocell vibe. Vibrato mode 
 
 **Sweep color** (0% to 100%; starts at 35%) Expands the uneven four-stage sweep for a deeper, more vocal swirl.
 
-**Mix** (0% to 100%; starts at 50%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Rate to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Rate while synced: 1/32 to 1/1, including triplets and dotted notes.
 - **Vibrato mode** (off / on; starts off) Vibrato uses only the phase-shifted signal; chorus mode retains the selected dry/wet blend.
 
 **Display:** The notches at three lamp positions.
@@ -200,6 +199,6 @@ Multiplies the guitar with a sine carrier for metallic, inharmonic sidebands.
 
 **High cut** (200 Hz to 20000 Hz; starts at 6000 Hz) High-cut frequency of the processed signal. Lower values tame brightness and harshness.
 
-**Mix** (0% to 100%; starts at 30%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 30%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The partials of a 110 Hz note and the sidebands the carrier creates.

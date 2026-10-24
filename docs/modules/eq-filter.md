@@ -1,7 +1,6 @@
 # EQ / Filter
 
-Tone shaping, filters and wah. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Tone shaping, filters and wah. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -74,7 +73,7 @@ In the header:
 
 ![Console EQ editor](../screenshots/modules/console-eq.png)
 
-Airwindows-style nonlinear console EQ: band density that adds harmonics on louder notes, and native Capacitor cuts in percent. See [Airwindows outboard](../airwindows-outboard.md).
+Airwindows-style console EQ with broad, overlapping bands and extra harmonic colour on louder notes. Its native cuts use percentages rather than calibrated frequencies.
 
 **Treble** (-6 dB to 6 dB; starts at 0 dB) Native nonlinear band density, labelled with its nominal -6 to +6 dB mapping. Adds harmonics; measured gain depends on input level.
 
@@ -126,9 +125,9 @@ An automatable wah sweep: a resonant band-pass with body. Map Position to an exp
 
 **Register** (0% to 100%; starts at 50%) Raises both heel and toe endpoints; it changes the register, not the sweep width.
 
-**Output** (-12 dB to 12 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-12 dB to 12 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The wah peak over the live output spectrum.
 

@@ -1,69 +1,41 @@
-# Rig presets and grid gains
+# Rig presets
 
-Click the preset name in the header to open the [preset browser](browser.md). It focuses
-Presets only and selects the current rig in its folder. Search your preset folders
-recursively, and select a result before loading it with Enter, double-click or Load.
-Preset folders are a separate list from NAM and IR folders, scanned only for `.ngrid`
-files, and are added in Library & settings (the browser's **Manage folders** opens it).
-Every listed preset is a `.ngrid` file in one of your preset folders. On first start the
-default `Documents/NAM Grid/Presets` folder receives **Empty**, the empty grid, and
-**Clean Default**, a clean rig built on the bundled capture (see
-[ui.md](ui.md#settings-and-default-folders)). Rig presets are
-listed only in NAM Grid's own browser; listing them in a DAW's preset browser through CLAP's
-preset-discovery extension remains future work. Save as..., Open file... and Delete... are available in the
-browser; right-clicking the header name also offers quick load/save actions and the last
-used folder's presets. The arrow buttons step through that folder in filename order and wrap.
+A rig preset saves the complete 16-slot setup: modules, capture/IR references, controls, routing, modulation, macros, and performance scenes.
 
-Clicking the header **Save** button opens Save as, so a click never overwrites a preset by
-accident. Shift- or Alt-click writes over the loaded preset's file without asking; right-click
-offers both **Save over** *file* and **Save as...**. For a rig that has no file yet, every
-form of Save opens Save as. **New** asks for confirmation, then starts an
-empty grid named Untitled. It keeps library folders, tuner settings and the current preset
-folder for the arrows and Save as. The name shows the last saved or loaded filename;
-subsequent edits are not saved automatically. Save preset as asks before overwriting an
-existing filename. Cancel leaves the rig intact.
+## Load and save
 
-Presets include all 16 module types, NAM/IR file references, slot controls, quality,
-input/output gain, lane balance, routing, shared modulation, macros and stored
-performance scenes. They use readable JSON with a format/version marker and the
-same validated rig-state loader as project recall. Invalid or unsupported files
-are rejected before changing the rig. A failed file replacement preserves the
-previous preset. Presets are limited to 1 MiB.
+Click the preset name in the header to open the [preset browser](browser.md). Search your preset folders, then choose **Load**, press Enter, or double-click. The arrows beside the preset name step through the current folder.
 
-Library folders are your per-user settings, so neither rigs nor projects store or change
-them. Tuner activation, reference and mute remain local to the current instance.
-Project state and automation retain the Tuner switch; rig and scene recall do not change it.
-Captured/held audio is not stored; Freeze Hold and Shimmer Freeze are released on
-recall. Models and IRs are referenced at their existing paths, not embedded or
-copied. Keep those files available when sharing a preset. Missing references
-remain selected for relinking through the normal module chooser.
+- **New** starts an empty rig after confirmation.
+- **Save** opens **Save as...**, so an ordinary click never overwrites a file.
+- **Shift-click** or **Alt-click Save** overwrites the loaded preset. Right-clicking also offers **Save over** and **Save as...**.
+- Edits after loading or saving are not written automatically.
 
-Performance scenes are different: they change controls within the existing
-modules, whereas a rig preset can replace module types and models. Loading a rig
-prepares it in a second grid while the current rig keeps playing unchanged, then
-switches. **Preset switch** in Library & settings chooses how:
+**Empty** and **Clean Default** are included in the default `Documents/NAM Grid/Presets` folder. Add other preset folders in **Library & settings**.
 
-- **Short fade** (default) fades the old rig out, then the new one in, about 25 ms in
-  total with a few milliseconds near silence. Only one rig runs at a time.
-- **Crossfade** blends both rigs over 40 ms with equal power, without a gap. Both
-  rigs run during that time, so the CPU load briefly doubles; prefer Short fade
-  when a rig is already close to the CPU limit.
+Presets use `.ngrid` files. They reference NAM and IR files by path rather than embedding them, so keep those files in place when moving or sharing a rig. If a referenced file is missing, relink it through the module browser; NAM Grid will not silently substitute another file.
 
-The old rig's delay and reverb tails end with the fade. A rig whose total latency
-differs from the current one may make your DAW briefly restart processing. Without
-running audio, and for host project loads, the rig applies directly. Preparing
-large models can briefly occupy the editor.
+## Switching while you play
 
-Algorithm selections are retained in rigs, projects and scenes and are changed
-in the editor rather than through automation. Adding new modes preserves saved
-choices and the other controls' automation mappings. Presets from builds before
-0.1.0 are rejected and must be rebuilt.
+Choose **Library & settings > Preset switch**:
+
+- **Short fade** (default): a brief fade out and in, about 25 ms total. Best when CPU headroom is limited.
+- **Crossfade:** a 40 ms blend without the gap. Both rigs run briefly, so allow extra CPU headroom.
+
+Old delay and reverb tails end with the transition. Large rigs can take a moment to prepare. A rig with different latency may also cause your DAW to restart audio processing briefly.
+
+## Presets, projects, and scenes
+
+- A **rig preset** can replace modules and captures as well as controls.
+- A **DAW project** recalls the current rig and host automation as part of the project.
+- A **performance scene** changes controls within the current modules; it cannot load a different capture or module.
+
+Your library folders are personal settings and are not replaced by a rig or project. Tuner activation, reference, and mute are also left unchanged by rigs and scenes. Frozen or held audio is not saved.
 
 ## Gain placement
 
-- **IN** is before the whole grid, tuner and envelope follower.
-- **OUT** is the final master gain.
-- **A/B** selects the lane balance: 0% A, 50% equal, 100% B.
+- **IN** sets the level before the grid, tuner, and envelope follower.
+- **A/B** balances the parallel lanes: 0% A, 50% equal, 100% B.
+- **OUT** sets the final level sent to your DAW.
 
-All three are automated and saved with the rig; per-slot input/trim controls remain
-independent. See [ui.md](ui.md) for the editor and [grid.md](grid.md) for routing.
+All three can be automated and are saved with the rig. See [Grid & routing](grid.md) for signal flow and [Performance controls](performance.md) for scenes.

@@ -1,7 +1,6 @@
 # Reverb
 
-Rooms, plates, halls, springs, shimmer and ambient echoes. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Rooms, plates, halls, springs, shimmer and ambient echoes. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -20,7 +19,7 @@ Rooms, plates, halls, springs, shimmer and ambient echoes. Each module shows its
 
 ![Room editor](../screenshots/modules/room.png)
 
-Short multistage diffusion, early reflections and a small Householder network: a supportive room.
+A close, supportive room that adds depth without pushing the guitar far back.
 
 **Decay** (0.15 s to 30 s; starts at 0.8 s) Tail decay time. Higher values let notes overlap into a larger ambient wash.
 
@@ -34,7 +33,7 @@ Short multistage diffusion, early reflections and a small Householder network: a
 
 **Low cut** (0 Hz to 500 Hz; starts at 120 Hz) Remove bass from the reverb send to keep the tail from getting boomy.
 
-**Mix** (0% to 100%; starts at 12%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 12%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -50,7 +49,7 @@ In the header:
 
 ![Dense Plate editor](../screenshots/modules/dense-plate.png)
 
-Four input diffusers into a cross-coupled two-branch tank: a voiced digital plate, not a physical model.
+A smooth, dense plate that sits easily behind picked notes and chords.
 
 **Decay** (0.15 s to 30 s; starts at 2.4 s) Tail decay time. Higher values let notes overlap into a larger ambient wash.
 
@@ -64,7 +63,7 @@ Four input diffusers into a cross-coupled two-branch tank: a voiced digital plat
 
 **Low cut** (0 Hz to 500 Hz; starts at 120 Hz) Remove bass from the reverb send to keep the tail from getting boomy.
 
-**Mix** (0% to 100%; starts at 18%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 18%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -80,7 +79,7 @@ In the header:
 
 ![Cloud editor](../screenshots/modules/cloud.png)
 
-A rotating stereo allpass loop with slow delay motion for long, moving washes.
+A long, slowly moving stereo wash for pads and ambient playing.
 
 **Decay** (0.15 s to 30 s; starts at 6 s) Tail decay time. Higher values let notes overlap into a larger ambient wash.
 
@@ -94,7 +93,7 @@ A rotating stereo allpass loop with slow delay motion for long, moving washes.
 
 **Low cut** (0 Hz to 500 Hz; starts at 150 Hz) Remove bass from the reverb send to keep the tail from getting boomy.
 
-**Mix** (0% to 100%; starts at 30%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 30%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -110,7 +109,7 @@ In the header:
 
 ![Hall editor](../screenshots/modules/hall.png)
 
-A larger diffusion network with bass and treble decay shaping and wide reflection spacing.
+A wide, spacious hall with a long tail and separate bass and treble damping.
 
 **Decay** (0.15 s to 30 s; starts at 3.2 s) Tail decay time. Higher values let notes overlap into a larger ambient wash.
 
@@ -124,7 +123,7 @@ A larger diffusion network with bass and treble decay shaping and wide reflectio
 
 **Low cut** (0 Hz to 500 Hz; starts at 120 Hz) Remove bass from the reverb send to keep the tail from getting boomy.
 
-**Mix** (0% to 100%; starts at 22%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 22%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -140,7 +139,7 @@ In the header:
 
 ![Spring Reverb editor](../screenshots/modules/spring-reverb.png)
 
-Three dispersive spring tanks with driven excitation: spring-inspired, not a measured model of a named tank. Strong Dwell can alias.
+Splashy, spring-like repeats with extra edge when you push Dwell.
 
 **Decay** (0.3 s to 4 s; starts at 1.8 s) Tail decay time. Higher values let notes overlap into a larger ambient wash.
 
@@ -150,9 +149,9 @@ Three dispersive spring tanks with driven excitation: spring-inspired, not a mea
 
 **Damping** (800 Hz to 12000 Hz; starts at 5000 Hz) Treble damping in the reverb. Lower settings make the tail darker than the dry signal.
 
-**Output** (-12 dB to 12 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-12 dB to 12 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 18%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 18%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
@@ -164,7 +163,7 @@ In the header:
 
 ![Shimmer editor](../screenshots/modules/shimmer.png)
 
-An eight-line reverb with granular pitched feedback: each pass climbs (or falls) by Pitch. Freeze holds the tail and stops new input.
+A reverb whose tail climbs or falls in pitch with each pass. Freeze holds the tail and stops new input.
 
 **Decay** (0.5 s to 20 s; starts at 5 s) Tail decay time. Higher values let notes overlap into a larger ambient wash.
 
@@ -178,7 +177,7 @@ An eight-line reverb with granular pitched feedback: each pass climbs (or falls)
 
 **Freeze** (off / on; starts at off) Sustain the tank and stop feeding new notes; release to return to the normal decay.
 
-**Mix** (0% to 100%; starts at 25%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The decay with the pitch steps each pass adds.
 
@@ -186,7 +185,7 @@ An eight-line reverb with granular pitched feedback: each pass climbs (or falls)
 
 ![Airwindows Plate editor](../screenshots/modules/airwindows-plate.png)
 
-A native port of Airwindows kPlate140.
+Airwindows kPlate140 plate ambience, with its original Sustain and Resolution character.
 
 **Input** (-18 dB to 0 dB; starts at 0 dB) Pad the input to Airwindows kPlate140's nonlinear excitation. Zero dB sends the original level.
 
@@ -196,11 +195,11 @@ A native port of Airwindows kPlate140.
 
 **Pre-delay** (0 ms to 200 ms; starts at 15 ms) Gap before the plate send, in milliseconds. Separates the attack without changing the tank size.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Low cut** (0 Hz to 500 Hz; starts at 100 Hz) Remove bass from the plate send. Zero is off; higher values keep driven guitar from making the tank boomy.
 
-**Mix** (0% to 100%; starts at 18%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 18%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The relative tank fill; Sustain and Resolution are native controls, not calibrated decay times.
 
@@ -208,7 +207,7 @@ A native port of Airwindows kPlate140.
 
 ![Airwindows Guitar Hall editor](../screenshots/modules/airwindows-guitar-hall.png)
 
-A native port of Airwindows kGuitarHall2 with selectable early-reflection positions.
+Airwindows kGuitarHall2 ambience, with selectable early-reflection positions for different room shapes.
 
 **Sustain** (0% to 95%; starts at 50%) Native kGuitarHall2 regeneration. More lengthens the hall; limited below its maximum for controlled tails.
 
@@ -218,11 +217,11 @@ A native port of Airwindows kGuitarHall2 with selectable early-reflection positi
 
 **Early level** (0% to 100%; starts at 50%) Level of the hall's early reflections; adds a closer, more defined room around the long tail.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Position** (0% to 100%; starts at 50%) Selects a different early-reflection delay configuration. The native algorithm has discrete positions, so transitions can be audible.
 
-**Mix** (0% to 100%; starts at 20%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 20%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The relative tank fill with the early reflections.
 
@@ -230,7 +229,7 @@ A native port of Airwindows kGuitarHall2 with selectable early-reflection positi
 
 ![Galactic Space editor](../screenshots/modules/galactic-space.png)
 
-A native port of Airwindows Galactic3: a huge, slowly evolving stereo pad. Replace sets how quickly new notes enter the wash.
+Airwindows Galactic3's huge, slowly evolving stereo space. Replace sets how quickly new notes enter the wash.
 
 **Replace** (5% to 100%; starts at 50%) How quickly new notes replace the existing space. Lower settings retain a longer wash; minimum stays above the infinite-hold endpoint.
 
@@ -240,11 +239,11 @@ A native port of Airwindows Galactic3: a huge, slowly evolving stereo pad. Repla
 
 **Size** (5% to 100%; starts at 60%) Native Galactic3 delay-buffer scale. Together with Resolution it sets space size; resizing a sounding tank can make pitch/noise artifacts.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Resolution** (25% to 100%; starts at 100%) Internal processing resolution. Lower settings enlarge/darken the space through undersampling. Rate steps are part of the original algorithm and may be audible when automated.
 
-**Mix** (0% to 100%; starts at 25%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The relative tank fill.
 

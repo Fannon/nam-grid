@@ -1,7 +1,6 @@
 # Creative
 
-Freeze, stutter and lo-fi tape. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Freeze, stutter and lo-fi tape. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -43,12 +42,12 @@ Gated slices of the signal at a set window, with soft edges.
 
 **Edge fade** (0.1 ms to 20 ms; starts at 5 ms) Fade at each gate edge; smooths clicks and can soften very short gates.
 
-**Mix** (0% to 100%; starts at 50%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Window to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Window while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The slice gate over time.
 
@@ -66,10 +65,10 @@ Tape transport character: speed-dependent bandwidth, wow, flutter, hiss, wear an
 
 **Noise** (0% to 100%; starts at 0%) Independent stereo tape hiss, including between notes. Zero turns hiss off.
 
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Wear** (0% to 100%; starts at 0%) Darker tape and irregular level dropouts. This control does not add saturation.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The measured wow and flutter pitch motion of the transport.

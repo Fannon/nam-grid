@@ -1,27 +1,14 @@
-# Tuner and tuning history
+# Tuner
 
-The **Tuner** button in the header works like selecting a module: while it is lit,
-the tuner replaces the lower module editor and the routing grid stays visible. It is a
-host-automatable on/off parameter. With **Mute output** on (the default, at the top of
-the tuner's control column), the tuner also mutes the output. Click Tuner again, select
-any slot, press Escape or click Close to leave it and restore sound through a 5 ms ramp.
-Turn Mute output off to hear the processed signal while tuning.
+Click **Tuner** in the header to tune without leaving your rig. The tuner replaces the lower module editor while the grid stays visible.
 
-The left section shows the note, cents and frequency, with the **Reference** knob below
-Mute output, and a tuning bar across the whole section: ±50 cents, with the ±3 cent window
-shaded.
+![NAM Grid tuner](screenshots/tuner.png)
 
-Tuner/mute automation continues when the plugin window closes. A host project
-saves the Tuner switch, reference and mute preference. Rig presets and performance
-scenes leave them unchanged, so recalling a sound cannot unexpectedly mute or
-unmute a live tuner.
+- **Mute output** is on by default. Turn it off to hear the processed rig while tuning.
+- Tune toward **0 cents**. The center band marks ±3 cents.
+- **Reference** sets concert pitch from 430 to 450 Hz; 440 Hz is the usual starting point.
+- The six-second history helps you see whether a note drifts sharp or flat after the attack. It fades with age and breaks at silence or a new note.
 
-The display shows note/octave, signed cents, frequency and a 430–450 Hz reference.
-The graph covers the last six seconds, from oldest on the left to now on the
-right, over ±25 cents; larger offsets pin to the top or bottom edge. Green indicates
-±3 cents, amber ±10 cents, and coral larger errors. The line fades with age and breaks at silence, note changes, long gaps
-and jumps over 35 cents. Existing history follows a changed reference.
+Click **Tuner** again, select a module, close the tuner, or press Escape to return. Output is restored smoothly.
 
-Detection uses clean input before the grid, including right-only input. Opening, closing or repainting
-the editor doesn't affect detection. The current pitch clears
-after detection stops; history ages out instead of implying a sustained note.
+The tuner listens to the clean input before the grid, including a right-only input. Tuner on/off and mute can be automated by your DAW and continue to work with the plugin window closed. DAW projects retain tuner settings; rig presets and performance scenes leave them unchanged, so loading a sound cannot unexpectedly mute you.

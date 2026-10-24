@@ -5,7 +5,7 @@ export default defineConfig({
   description:
     'Open-source guitar rig in one CLAP/VST3 plugin: NAM captures, cab IRs and effects on a 16-slot grid',
   base: '/nam-grid/',
-  // Dark theme by default (like the plugin editor); readers can switch to light.
+  // Match the plugin on first visit; readers can switch to light.
   appearance: { initialValue: 'dark' },
   ignoreDeadLinks: true,
   // Directory indexes live in README.md files (GitHub convention); serve them as the section root.
@@ -27,8 +27,8 @@ export default defineConfig({
     siteTitle: 'NAM Grid',
     nav: [
       { text: 'Overview', link: '/' },
-      { text: 'Modules', link: '/modules/' },
-      { text: 'All guides', link: '/README' },
+      { text: 'Manual', link: '/README' },
+      { text: 'Module guide', link: '/modules/' },
       { text: 'Download', link: 'https://github.com/Fannon/nam-grid/releases/latest' },
     ],
     sidebar: [
@@ -36,14 +36,14 @@ export default defineConfig({
         text: 'Start here',
         items: [
           { text: 'Overview', link: '/' },
-          { text: 'All guides', link: '/README' },
-          { text: 'Grid & routing', link: '/grid' },
-          { text: 'Editor & library', link: '/ui' },
-          { text: 'Library browser', link: '/browser' },
-          { text: 'Presets', link: '/presets' },
-          { text: 'Performance controls', link: '/performance' },
-          { text: 'Starting settings', link: '/effect-defaults' },
+          { text: 'Manual home', link: '/README' },
+          { text: 'Build a rig', link: '/grid' },
+          { text: 'Editor', link: '/ui' },
+          { text: 'Find & audition sounds', link: '/browser' },
+          { text: 'Save & load presets', link: '/presets' },
           { text: 'Tuner', link: '/tuner' },
+          { text: 'Perform with scenes & macros', link: '/performance' },
+          { text: 'Starting settings', link: '/effect-defaults' },
         ],
       },
       {
@@ -63,20 +63,21 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Deep dives',
+        text: 'Module deep dives',
         items: [
           { text: 'Noise Gate (Smart)', link: '/noise-gate-smart' },
           { text: 'LoFi Tape Machine', link: '/lofi-tape' },
           { text: 'Cosmic Echo', link: '/cosmic-echo' },
-          { text: 'Module implementation', link: '/module-implementation' },
-          { text: 'Adaptive cabinet convolution', link: '/adaptive-ir' },
         ],
       },
       {
-        text: 'Contributing',
+        text: 'Build & contribute',
+        collapsed: true,
         items: [
           { text: 'Build & test', link: '/build' },
           { text: 'Development', link: '/development' },
+          { text: 'Module implementation', link: '/module-implementation' },
+          { text: 'Adaptive cabinet convolution', link: '/adaptive-ir' },
           { text: 'Release checklist', link: '/release-checklist' },
           { text: 'Release notes', link: '/release-notes' },
         ],

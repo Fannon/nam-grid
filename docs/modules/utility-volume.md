@@ -1,7 +1,6 @@
 # Utility / Volume
 
-Stereo utilities and volume swells. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Stereo utilities and volume swells. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -22,7 +21,7 @@ Balance, width, polarity and a short fine delay for aligning parallel lanes.
 
 **Invert R** (off / on; starts at off) Reverse this channel's polarity for phase alignment; not an on/off mute.
 
-**Output** (-60 dB to 12 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-60 dB to 12 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Fine delay** (0 ms to 20 ms; starts at 0 ms) Delay both channels by a few milliseconds for parallel-path alignment; this is an audible offset.
 

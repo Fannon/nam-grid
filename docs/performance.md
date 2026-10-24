@@ -82,8 +82,8 @@ their own smoothing, so jumps in time controls such as delay time are heard as p
 steps. Sources run only while a row is active, and reset on host reactivation. Tempo
 sync controls periods; these sources are not PPQ-position-locked. Host parameter values
 remain the base settings; modulation does not write host automation. Row sources,
-destinations and Via, Listen at and the Retrigger modes are saved state, like algorithm
-selectors; depths, macros and the other source settings are automatable.
+destinations and Via, the LFO Shape, Listen at and the Retrigger modes are saved state,
+like algorithm selectors; depths, macros and the other source settings are automatable.
 
 ## Performance scenes
 

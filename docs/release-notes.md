@@ -5,7 +5,9 @@ Combine Neural Amp Modeler captures, cabinet IRs and 54 built-in effects across
 four Pre slots, two parallel four-slot lanes with A/B blend, and four Post slots.
 It includes rig presets, a library browser, a tuner, macros, modulation and
 performance scenes. See the [README](https://github.com/Fannon/nam-grid#readme)
-for installation and a first rig.
+for installation and a first rig, and the
+[module guide](https://github.com/Fannon/nam-grid/blob/main/docs/modules/README.md) for
+every module's controls.
 
 ## Downloads
 

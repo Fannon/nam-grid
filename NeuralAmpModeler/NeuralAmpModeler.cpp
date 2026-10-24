@@ -109,7 +109,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     }
     else if (i == grid_performance::LFOShape)
     {
-      param->InitEnum(p.name, 0, static_cast<int>(grid_performance::lfoShapeNames.size()));
+      param->InitEnum(p.name, 0, static_cast<int>(grid_performance::lfoShapeNames.size()), "", IParam::kFlagCannotAutomate);
       for (int shape = 0; shape < grid_performance::lfoShapeNames.size(); ++shape)
         param->SetDisplayText(shape, grid_performance::lfoShapeNames[shape]);
     }

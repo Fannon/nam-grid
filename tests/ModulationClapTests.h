@@ -167,8 +167,8 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
       clap_param_info info{};
       assert(params->get_info(plugin, i, &info));
       const std::string name = info.name;
-      const bool selector = name == "Envelope Listen At" || name == "LFO Retrigger" || name == "Sequencer Retrigger";
-      const bool control = name == "LFO Shape" || name == "Macro 3" || name == "Macro 4" || name == "Envelope Threshold"
+      const bool selector = name == "LFO Shape" || name == "Envelope Listen At" || name == "LFO Retrigger" || name == "Sequencer Retrigger";
+      const bool control = name == "Macro 3" || name == "Macro 4" || name == "Envelope Threshold"
                            || name == "Envelope Curve" || name == "LFO One Shot";
       if (name.rfind("Mod ", 0) != 0 && !selector && !control) continue;
       const bool depth = name.size() > 6 && name.substr(name.size() - 6) == " Depth";

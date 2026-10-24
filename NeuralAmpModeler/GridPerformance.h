@@ -181,11 +181,12 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Mod 8 Depth", "Depth", 0, -100, 100, .1, "%", 0},
   {"Mod 8 Via", "Via", 0, 0, 7, 1, "", 0}
 }};
-// Matrix routing choices are saved state, like algorithm selectors: no host automation,
-// so a longer source or destination list never reinterprets recorded automation.
+// Matrix routing, the LFO shape, Listen at and the Retrigger modes are saved state, like
+// algorithm selectors: no host automation, so a longer list never reinterprets recorded
+// automation. Tempo divisions stay automatable; their list of ten values is frozen.
 inline constexpr bool StateOnly(int parameter)
 {
-  if (parameter == EnvInput || parameter == LFORetrigger || parameter == StepRetrigger) return true;
+  if (parameter == LFOShape || parameter == EnvInput || parameter == LFORetrigger || parameter == StepRetrigger) return true;
   if (parameter < ModRow || parameter >= RowParam(rows, 0)) return false;
   const int field = (parameter - ModRow) % RowFields;
   return field != RowDepth;

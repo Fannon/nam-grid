@@ -41,7 +41,7 @@ void TestModulationMatrix()
   assert(ValidDestination(gridSlot, GridSplit) && !ValidDestination(gridSlot, GridDestinations) && !ValidDestination(17, 0));
   for (int i = 0; i < Count; ++i)
     assert(StateOnly(i) == ((i >= ModRow && i < RowParam(rows, 0) && (i - ModRow) % RowFields != RowDepth)
-                            || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
+                            || i == LFOShape || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
 
   // Collection: inactive and invalid rows are skipped; shared destinations add; Via scales.
   {

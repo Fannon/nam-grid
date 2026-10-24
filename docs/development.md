@@ -28,7 +28,9 @@ IDs, parameter IDs and state formats; their projects, automation and `.ngrid`
 presets are not loaded and must be rebuilt. From 0.1.0 onward, these remain stable:
 
 - **Plugin identity:** CLAP ID, vendor and VST3 class IDs in `config.h`.
-- **Host parameters:** every ID, name, range, scaling and meaning.
+- **Host parameters:** every ID, name, range, scaling and meaning. Automatable lists are
+  frozen too (the ten tempo divisions); lists that may grow, such as algorithm modes, the
+  LFO shape and matrix routing, are saved state without host automation.
 - **Module and algorithm IDs:** the integers saved for modules (`SlotEffect`)
   and algorithm selectors (`AlgorithmIdentities()`).
 - **Saved state:** the `###nam-grid###` header and every named field of schema 1.
@@ -66,7 +68,7 @@ Never lower or reuse a schema number.
 
 Modulation matrix rows ([GridPerformance.h](../NeuralAmpModeler/GridPerformance.h),
 [ModulationMatrix.h](../NeuralAmpModeler/ModulationMatrix.h)) follow the algorithm-selector
-rule: Source, Slot, Destination and Via, the envelope's Listen at and the Retrigger
+rule: Source, Slot, Destination and Via, the LFO Shape, the envelope's Listen at and the Retrigger
 modes are saved state without automation flags (`IsStateOnlyParam`), so their lists
 can grow; Depth is automatable. MIDI input exists only to retrigger modulation; CMake
 sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy parameters. Destinations store

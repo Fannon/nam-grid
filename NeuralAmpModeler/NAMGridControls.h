@@ -1092,6 +1092,13 @@ public:
     auto* item = menu->GetChosenItem();
     if (!item)
       return;
+    // A quick-menu choice is final, like Apply: keep what the slot holds now and close an
+    // open browser first, so its Cancel or Apply cannot replace this choice afterwards.
+    if (auto* browser = GetUI()->GetControlWithTag(kCtrlTagLibraryBrowser); browser && !browser->IsHidden())
+    {
+      PLUG()->EndSlotPreview(true);
+      browser->Hide(true);
+    }
     if (item->GetTag() == -10)
     {
       WDL_String file, directory;

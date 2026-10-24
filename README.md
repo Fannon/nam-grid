@@ -7,11 +7,11 @@ An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 cabinet impulse responses and built-in effects, then blend two parallel chains
 for anything from a simple amp sound to layered ambient textures.
 
-![NAM Grid with an overdrive capture, an amp-and-cab capture, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
+![NAM Grid with a clean amp-and-cab capture, Tube Boost, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
 
-*An example rig with an overdrive capture, an amp-and-cab capture, a gate,
-compression and ambient effects, with the amp capture selected. Captures and IRs are supplied separately;
-find sounds for your own rigs on
+*The Clean Default rig that comes with the plugin: a gate, compression, a clean
+amp-and-cab capture and ambient effects, with the capture selected. Find more
+captures and IRs for your own rigs on
 [TONE3000](https://www.tone3000.com), which hosts free NAM captures and IRs.*
 
 ## About this project
@@ -98,9 +98,11 @@ Download the latest release from
    audio track. Choose either CLAP or VST3, according to your host's support.
 
 Keep `ThirdPartyNotices.txt` and `notices/` with the plugins when sharing them.
-There is no bundled NAM capture or cabinet IR collection. Built-in effects work
-without additional files; amp sounds require your own captures, such as the free NAM
-captures and cabinet IRs on [TONE3000](https://www.tone3000.com). Development builds are
+On first start NAM Grid creates its library folders in `Documents/NAM Grid` and puts one
+clean amp-and-cab capture (RiffSmith Clean, MIT) and two rig presets there, **Empty** and
+**Clean Default**, so you can play right away. There is no larger capture or IR collection:
+add your own, such as the free NAM captures and cabinet IRs on
+[TONE3000](https://www.tone3000.com). Development builds are
 GitHub Actions artifacts (sign-in required): the weekly
 [Build Native](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml) run of
 `main` for Windows and macOS, and pull request builds for Windows.

@@ -46,7 +46,8 @@ Settings ReadSettings(const std::filesystem::path& settingsFile);
 struct UserSettings
 {
   Settings settings;
-  std::filesystem::path newPresetFolder; // The default Presets folder, when it was just adopted.
+  // The default NAM Captures and Presets folders, when they were just adopted.
+  std::filesystem::path newNamFolder, newPresetFolder;
   bool saved = true;
 };
 // Loads the per-user settings. On first use it migrates a legacy file, then gives every list

@@ -218,8 +218,10 @@ when missing, and updating the plugin keeps them.
 Until you choose folders yourself, each list uses a default folder in your Documents, created
 on first start: `Documents/NAM Grid/NAM Captures`, `IRs` and `Presets`. Each gets a `.ignore`
 of comments that shows how to [hide files](browser.md#excluding-files-with-ignore); it hides
-nothing until you add a pattern. The Presets folder starts with **Empty**, a preset of the
-empty grid. Removing every folder from a list is
+nothing until you add a pattern. A new NAM Captures folder receives the bundled
+`riffsmith-clean.nam` (RiffSmith Clean by Matt Hartman, MIT), and a new Presets folder
+receives **Empty**, the empty grid, and **Clean Default**, a clean rig built on that
+capture. Existing files and folders you chose are never touched. Removing every folder from a list is
 remembered as a choice, so the default does not come back. Settings from earlier builds
 (`nam-grid/library.json` in the local app-data folder) are migrated once; their empty lists
 receive the defaults.

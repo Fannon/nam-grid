@@ -57,6 +57,10 @@ Output:
 - Windows VST3: `build-grid/out/nam-grid.vst3/Contents/x86_64-win/nam-grid.vst3`
 - macOS CLAP/VST3: bundles under `build-grid/out`.
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
+- The plugin embeds `NeuralAmpModeler/resources/defaults` (the RiffSmith Clean capture and the
+  Clean Default preset) through `cmake/EmbedFiles.cmake`, which needs no extra tools. A fresh
+  install writes them into its new default library folders. The preset names its capture by
+  filename; keep it loadable, as the smoke test checks.
 
 Automatic deployment is disabled. Point your DAW at `build-grid/out` for local
 evaluation, or copy the artifact to a separate test location, then rescan plugins.

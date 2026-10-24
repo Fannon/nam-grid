@@ -16,8 +16,9 @@ every module's controls.
   not code-signed or notarized; follow the README to clear the download quarantine.
 
 Each archive includes `ThirdPartyNotices.txt` and `notices/`; keep them with the
-plugins when redistributing. NAM captures and impulse responses are external files
-and are not included.
+plugins when redistributing. The plugin brings one clean amp-and-cab capture (RiffSmith
+Clean, MIT) and the Empty and Clean Default rig presets, written into its new library
+folders on first start. Other NAM captures and impulse responses are external files.
 
 ## Compatibility
 

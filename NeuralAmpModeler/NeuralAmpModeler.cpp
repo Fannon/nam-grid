@@ -1,4 +1,6 @@
 #include "NoisePrintState.h"
+#include "DefaultContent.h"
+#include <fstream>
 #include <algorithm> // std::clamp, std::min
 #include <cmath> // pow
 #include <cctype>
@@ -170,19 +172,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mPresetFolders = librarySettings.presetFolders;
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
-  if (!prepared.newPresetFolder.empty())
-    try
-    {
-      // A new default Presets folder starts with the empty grid, so the browser is never blank.
-      const auto empty = prepared.newPresetFolder / "Empty.ngrid";
-      if (!std::filesystem::exists(empty))
-      {
-        auto rig = mEmptyRig;
-        rig["PresetName"] = "Empty";
-        rig_preset::Write(empty, rig);
-      }
-    }
-    catch (const std::exception&) {} // Optional convenience; the plugin works without it.
+  _InstallDefaultContent(prepared.newNamFolder, prepared.newPresetFolder);
 
   mMakeGraphicsFunc = [&]() {
 
@@ -540,6 +530,54 @@ void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector
     _NotifyHostStateChanged();
   }
   _UpdateLibraryControls();
+}
+
+// A fresh install's new default folders get a clean capture, the Empty grid and the Clean
+// Default rig that uses that capture, so a first start is not blank. Existing files and
+// folders the user chose are never touched. Optional: the plugin works without any of it.
+void NeuralAmpModeler::_InstallDefaultContent(const std::filesystem::path& namFolder,
+                                              const std::filesystem::path& presetFolder)
+{
+  std::error_code error;
+  const auto capture = namFolder.empty() ? namFolder : namFolder / default_content::kCleanCaptureName;
+  try
+  {
+    if (!capture.empty() && !std::filesystem::exists(capture, error))
+    {
+      const auto bytes = default_content::CleanCapture();
+      std::ofstream(capture, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    }
+  }
+  catch (const std::exception&) {}
+  if (presetFolder.empty()) return;
+  try
+  {
+    const auto empty = presetFolder / "Empty.ngrid";
+    if (!std::filesystem::exists(empty, error))
+    {
+      auto rig = mEmptyRig;
+      rig["PresetName"] = "Empty";
+      rig_preset::Write(empty, rig);
+    }
+  }
+  catch (const std::exception&) {}
+  try
+  {
+    const auto preset = presetFolder / default_content::kCleanPresetName;
+    if (capture.empty() || !std::filesystem::is_regular_file(capture, error) || std::filesystem::exists(preset, error)) return;
+    const auto bytes = default_content::CleanPreset();
+    auto document = nlohmann::json::parse(bytes.begin(), bytes.end());
+    auto& rig = document.at("rig");
+    // Bundled captures are named by filename; point them at the installed copies.
+    for (auto& path : rig.at("SlotPaths"))
+    {
+      const auto name = path.get<std::string>();
+      if (!name.empty() && !std::filesystem::u8path(name).has_parent_path())
+        path = nam_library::PathText(namFolder / std::filesystem::u8path(name));
+    }
+    rig_preset::Write(preset, rig);
+  }
+  catch (const std::exception&) {}
 }
 
 void NeuralAmpModeler::_ReloadLibraryFolders()

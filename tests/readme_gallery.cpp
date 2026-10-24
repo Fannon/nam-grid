@@ -7,6 +7,7 @@
 #include "WinFileDialogDriver.h"
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
+#include "../NeuralAmpModeler/RigPreset.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include <cctype>
 #include <random>
@@ -72,6 +73,10 @@ static int Run(int argc, char** argv)
     std::filesystem::copy_file(repository / "NeuralAmpModelerCore" / "example_models" / source, target,
                                std::filesystem::copy_options::overwrite_existing);
   WriteExampleCabinet(cab);
+  // The bundled default capture and Clean Default rig (resources/defaults) for the main image.
+  const auto defaults = repository / "NeuralAmpModeler" / "resources" / "defaults";
+  const auto cleanCapture = captures / "riffsmith-clean.nam";
+  std::filesystem::copy_file(defaults / "riffsmith-clean.nam", cleanCapture, std::filesystem::copy_options::overwrite_existing);
 
   const auto path = std::filesystem::absolute(argv[1]);
   auto library = LoadLibraryW(path.c_str()); assert(library);
@@ -186,7 +191,7 @@ static int Run(int argc, char** argv)
   };
 
   play(2500); // Library scan and model preparation
-  select(10); play(3000); shot("grid");
+
   select(2); play(4000); shot("nam");
   select(3); play(1000); shot("ir");
   select(5); play(3000); shot("delay");
@@ -217,6 +222,17 @@ static int Run(int argc, char** argv)
       while (!slug.empty() && slug.back() == '-') slug.pop_back();
       shot("modules/" + slug, 476);
     }
+  // The README main image: the bundled Clean Default rig with A1's capture selected.
+  {
+    auto clean = rig_preset::Read(defaults / "Clean Default.ngrid");
+    for (auto& path : clean["SlotPaths"])
+      if (path == "riffsmith-clean.nam") path = cleanCapture.string();
+    clean["Tuner"] = 0.; clean["Tuner Reference"] = 440.; clean["Tuner Mute"] = 1.;
+    Stream cleanBytes; cleanBytes.string("###nam-grid###"); cleanBytes.string(clean.dump());
+    clap_istream cleanInput{&cleanBytes, Stream::read}; assert(state->load(plugin, &cleanInput));
+    play(2500); // Model preparation
+    select(4); play(4000); shot("grid");
+  }
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
   gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
   std::cout << "Captured gallery into " << out.string() << "\n";

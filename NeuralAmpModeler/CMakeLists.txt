@@ -91,6 +91,20 @@ file(GLOB NAM_CORE_SOURCES CONFIGURE_DEPENDS
 file(GLOB NAM_RESOURCES CONFIGURE_DEPENDS "resources/fonts/*.ttf")
 list(APPEND NAM_RESOURCES "${PROJECT_SOURCE_DIR}/ThirdPartyNotices.txt")
 configure_file("${PROJECT_SOURCE_DIR}/ThirdPartyNotices.txt" "${CMAKE_BINARY_DIR}/out/ThirdPartyNotices.txt" COPYONLY)
+# The bundled default content (DefaultContent.h): one capture and the preset that uses it,
+# embedded so a fresh install can write them into its new library folders.
+set(NAM_DEFAULT_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/riffsmith-clean.nam")
+set(NAM_DEFAULT_PRESET "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/Clean Default.ngrid")
+set(NAM_DEFAULT_CONTENT "${CMAKE_BINARY_DIR}/generated/DefaultContent.cpp")
+add_custom_command(OUTPUT "${NAM_DEFAULT_CONTENT}"
+  COMMAND "${CMAKE_COMMAND}" -DOUTPUT=${NAM_DEFAULT_CONTENT} -DNAMESPACE=default_content
+    "-DFILES=CleanCapture=${NAM_DEFAULT_CAPTURE}|CleanPreset=${NAM_DEFAULT_PRESET}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
+  DEPENDS "${NAM_DEFAULT_CAPTURE}" "${NAM_DEFAULT_PRESET}" "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
+  COMMENT "Embedding the default NAM capture and preset" VERBATIM)
+set(riffsmith_notice "${CMAKE_BINARY_DIR}/out/notices/RiffSmith-LICENSE.txt")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/riffsmith-LICENSE.txt" "${riffsmith_notice}" COPYONLY)
+list(APPEND NAM_RESOURCES "${riffsmith_notice}")
 foreach(dependency CLAP_SDK CLAP_HELPERS VST3_SDK)
   if(dependency STREQUAL "VST3_SDK")
     set(license_name LICENSE.txt)
@@ -177,6 +191,7 @@ endif()
 iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
   SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
+    "${NAM_DEFAULT_CONTENT}"
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/ImpulseResponse.cpp
     ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}

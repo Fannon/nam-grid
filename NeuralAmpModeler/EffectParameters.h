@@ -281,11 +281,11 @@ inline constexpr bool IsAlgorithmMode(int control)
   // New enum selectors must register permanent identities above (asserted below).
   return (!EffectChoices(control).empty() && control != uTempoDivision) || control == uEQMode || control == uVibeMode;
 }
-// Project/preset state schema. 1 is the 0.1.0 baseline. Bump kEffectStateSchema
+// Project/preset state schema. 1 is the baseline layout of tests/fixtures. Bump kEffectStateSchema
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 1;
+inline constexpr int kEffectStateSchema = 2; // 2 adds Digital Black Hold.
 
 struct EffectParameter
 {
@@ -501,7 +501,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Black Output", "Output", 0, -18, 6, .1, "dB", 4},
    {"Black Mode", "Mode", 0, 0, 1, 1, "", 0},
    {"Limiter Clip", "Clip", 0, 0, 100, .1, "%", 2},
-   {"Black Hold", "Hold", 0, 0, 200, .1, "ms", 1, false, 2.}}};
+   {"Black Hold", "Hold", 0, 0, 200, .1, "ms", 1, false, 2., 2}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {

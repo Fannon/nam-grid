@@ -59,7 +59,13 @@ int main(int argc, char** argv)
     const auto empty = rig_preset::Read(settingsBackup.home / "Presets" / "Empty.ngrid");
     for (int slot = 0; slot < 16; ++slot)
       assert(empty["SlotEffects"][slot] == static_cast<int>(SlotEffect::NAM) && empty["SlotPaths"][slot] == "");
-    std::cout << "First start: settings folder, default library folders and Empty preset passed\n";
+    // The bundled capture lands in NAM Captures, and Clean Default points at that copy.
+    const auto capture = settingsBackup.home / "NAM Captures" / "riffsmith-clean.nam";
+    assert(std::filesystem::is_regular_file(capture));
+    const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
+    assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
+    assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));
+    std::cout << "First start: settings folder, default library folders, bundled capture and presets passed\n";
     // The rest of the test starts from its own preferences and no default folders.
     nam_library::Settings preferences;
     preferences.showVisualizations = true;
@@ -129,6 +135,18 @@ int main(int argc, char** argv)
   };
   auto base = save().config();
   assert(!base.contains("NamFolders") && !base.contains("IrFolders") && !base.contains("PresetFolders"));
+#ifdef _WIN32
+  {
+    // The bundled Clean Default rig loads as saved, with its capture from the default folder.
+    auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
+    clean["Tuner"] = 0.; clean["Tuner Reference"] = 440.; clean["Tuner Mute"] = 1.;
+    assert(loadRaw(clean));
+    const auto loaded = save().config();
+    assert(loaded["SlotPaths"][4] == clean["SlotPaths"][4] && loaded["SlotEffects"] == clean["SlotEffects"]);
+    assert(loaded["Pre 1 Black Hold"] == 0.); // Saved before Hold existed: schema 1 defaults it.
+    assert(loadRaw(base));
+  }
+#endif
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
   assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
   // Every slot exposes the same host controls; no upstream single-amp parameters remain.
@@ -1456,6 +1474,14 @@ int main(int argc, char** argv)
   assert(std::abs(liveValue("Pre 1 EQ Bass") - editedBass) < .01);
   keyAtEditor(VK_ESCAPE);
   assert(save().config()["Pre 1 EQ Bass"] == 6.);
+  // A quick-menu choice while the browser auditions is final: it closes the browser, so
+  // Escape (or Cancel) can no longer restore the original afterwards.
+  click(356, grid_layout::moduleButtonY);
+  enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
+  win_edit_menu::SelectNamedItem(editor, 200, grid_layout::moduleButtonY, L"Clear slot"); pumpFor(50);
+  keyAtEditor(VK_ESCAPE);
+  assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::NAM) && save().config()["SlotPaths"][0] == "");
+  load(moduleBrowser); selectTile(170, 120);
   // Cancel top right, where every full page closes, restores the original like Escape.
   click(356, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);

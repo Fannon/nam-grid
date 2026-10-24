@@ -117,14 +117,14 @@ public:
       }
       if (mColour)
       {
-        const double input = std::pow(10., s[0] / 20.);
+        const double input = mInput(s[0] / 20., [](double x) { return std::pow(10., x); });
         wetL *= input;
         wetR *= input;
         mColour->Tick(wetL, wetR);
         // Fixed 48 kHz plucked-tone RMS calibration; this preserves each desk's
         // spectral shape and is deliberately not program-dependent auto gain.
         constexpr std::array<double, 8> deskMatchDB{.8841, .6937, -1.3250, 1.0910, .5984, .7611, 2.7876, 1.1550};
-        const double trim = std::pow(10., (s[1] + deskMatchDB[mDesk]) / 20.);
+        const double trim = mTrim((s[1] + deskMatchDB[mDesk]) / 20., [](double x) { return std::pow(10., x); });
         wetL *= trim;
         wetR *= trim;
         mix = s[2] * .01 * mVoice;
@@ -151,6 +151,7 @@ private:
   std::unique_ptr<airwindows_outboard::BussColors4::Core> mColour;
   grid_fx::SmoothControls<7> mControls;
   grid_fx::SmoothControls<3> mShort;
+  grid_fx::Memo mInput, mTrim;
   std::array<double, 7> mUnused{};
   std::array<double, 3> mUnusedShort{};
   SlotEffect mEffect = SlotEffect::OutboardChannel;

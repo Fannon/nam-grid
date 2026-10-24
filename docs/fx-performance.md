@@ -227,6 +227,8 @@ module loops cheap without changing output:
   pass the function's complete argument, including any sample-rate term.
   Hoist expressions of the sample rate alone out of the loop. It does not help
   values that move every sample, such as gain reduction or LFO-swept filters.
+  Measure each cache: the comparison and branch can cost more than the function
+  it replaces. Check parameter automation as well as settled controls.
 - Avoid `size_t`/`double` conversions in delay reads (they are multi-instruction
   on MSVC x64), redundant `std::clamp` of doubles, and integer `%` on ring
   indices; compare-and-wrap gives the same index.

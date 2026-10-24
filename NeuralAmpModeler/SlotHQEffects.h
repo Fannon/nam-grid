@@ -57,8 +57,10 @@ public:
       const double brightness = v[2] * .01;
       const double preCutoff = std::min(.45 * mRate, 2000. + brightness * brightness * 18000.);
       const double postCutoff = std::min(.45 * mRate, 6000. + brightness * brightness * 14000.);
-      const double preCoefficient = std::exp(-2. * grid_fx::pi * preCutoff / mRate);
-      const double postCoefficient = std::exp(-2. * grid_fx::pi * postCutoff / mRate);
+      const double preCoefficient =
+        mPreCoefficient(-2. * grid_fx::pi * preCutoff / mRate, [](double x) { return std::exp(x); });
+      const double postCoefficient =
+        mPostCoefficient(-2. * grid_fx::pi * postCutoff / mRate, [](double x) { return std::exp(x); });
       const double dryL = l[i], dryR = r ? r[i] : dryL;
       const double mono = SoftLimit(.5 * (dryL + dryR));
       mPre = grid_fx::Flush(mono + preCoefficient * (mPre - mono));
@@ -90,6 +92,7 @@ public:
 private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<3> mControls;
+  grid_fx::Memo mPreCoefficient, mPostCoefficient;
   double mRate = 48000., mPre = 0., mPost[2]{}, mPhase[2]{}, mGainA = 1., mGainB = 0.;
   bool mFirst = true;
 };

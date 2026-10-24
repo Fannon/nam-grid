@@ -1,7 +1,6 @@
 # Delay
 
-Echoes from clean digital to tape and diffused. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Echoes from clean digital to tape and diffused. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -27,14 +26,14 @@ Clean repeats with a high cut. Ducking lowers the repeats while you play and bri
 
 **Ducking** (0% to 100%; starts at 0%) Ducks repeats while you play; echoes recover in the gaps.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 20%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 20%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 - **Ping-pong** (off / on; starts off) Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.
 
 **Display:** The repeats on a dB scale. A thin line inside each stem shows how much survives above 5 kHz; ticks show the ducked level.
@@ -43,7 +42,7 @@ In the header:
 
 ![Analog Echo editor](../screenshots/modules/analog-echo.png)
 
-Darker, softer repeats: two-pole darkening and soft saturation in the feedback. Age increases the wear.
+Darker, softer repeats with gradually worn-in character. Age adds more darkening and saturation.
 
 **Time** (5 ms to 4000 ms; starts at 320 ms) Time to the first repeat. Changing it while repeats sound bends their pitch, like tape.
 
@@ -53,16 +52,16 @@ Darker, softer repeats: two-pole darkening and soft saturation in the feedback. 
 
 **Age** (0% to 100%; starts at 35%) More darkening and soft saturation on each repeat.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Modulation** (0% to 100%; starts at 10%) Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble.
 
-**Mix** (0% to 100%; starts at 22%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 22%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 - **Ping-pong** (off / on; starts off) Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.
 
 **Display:** The repeats on a dB scale; the thin line inside each stem shows the content above 5 kHz.
@@ -81,16 +80,16 @@ Filtered, saturated repeats with tape-style wow and flutter from Modulation.
 
 **Saturation** (0% to 100%; starts at 30%) Soft saturation on repeats. Modulation controls the tape wobble separately.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Modulation** (0% to 100%; starts at 20%) Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble.
 
-**Mix** (0% to 100%; starts at 22%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 22%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 - **Ping-pong** (off / on; starts off) Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.
 
 **Display:** The repeats on a dB scale; the thin line inside each stem shows the content above 5 kHz.
@@ -109,16 +108,16 @@ Up to four playback heads in eight patterns, including stereo modes; only the la
 
 **Saturation** (0% to 100%; starts at 25%) Soft saturation on repeats. Modulation controls the tape wobble separately.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Modulation** (0% to 100%; starts at 12%) Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble.
 
-**Mix** (0% to 100%; starts at 25%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 - **Heads** (Single, Dual, Syncopated, All heads, Early pair, Late pair, Stereo dual, Stereo cascade; starts at Dual) Single: the last head, at full Time. Feedback always comes from the last head.
 
 **Display:** Each head's repeats on a dB scale.
@@ -133,14 +132,14 @@ Records a window and plays it backwards one window later.
 
 **High cut** (800 Hz to 12000 Hz; starts at 6000 Hz) High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 30%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 30%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The captured windows and when each plays reversed.
 
@@ -158,16 +157,16 @@ Two delay taps; the right tap's time is Time multiplied by Time ratio. Ping-pong
 
 **Time ratio** (0.25× to 2×; starts at 0.75×) Right delay time divided by left time. 0.75 gives a dotted-eighth partner to a quarter-note left delay.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Tap balance** (0% to 100%; starts at 50%) Balance between the two wet taps; center keeps both at full level. Dry stereo stays unchanged.
 
-**Mix** (0% to 100%; starts at 25%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 - **Ping-pong** (off / on; starts off) Cross-feedback mode: feed the mono sum into the left tap, then alternate through left and right delay times.
 
 **Display:** Left and right repeats on a dB scale.
@@ -190,15 +189,15 @@ Repeats smear into stereo reflection clusters as Diffusion rises; zero is a plai
 
 **Diffusion** (0% to 100%; starts at 60%) Smear each repeat through rotating allpass stages. Zero is a clear echo; higher values spread attacks into stereo clouds.
 
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Modulation** (0% to 100%; starts at 15%) Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble.
 
-**Mix** (0% to 100%; starts at 25%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 In the header:
 
-- **Tempo sync** follows the host tempo. Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.
-- **Division** (1/32 to 1/1, including triplets and dotted notes) replaces the time or rate knob while Tempo sync is on.
+- **Tempo sync** locks Time to your DAW tempo, or 120 BPM when no tempo is available.
+- **Division** replaces Time while synced: 1/32 to 1/1, including triplets and dotted notes.
 
 **Display:** The repeats with their diffusion clusters.

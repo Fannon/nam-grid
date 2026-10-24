@@ -1,126 +1,79 @@
 # Library browser
 
-Click a grid tile's name button or the browser icon beside the current module name. Empty cells open
-**Modules**; loaded effects open their FX category with the current effect selected.
-NAM and IR cells open their own category and current folder, selecting the exact file
-even if another library entry has the same name or content. The tile's header row only
-selects; its bypass switch and right-click Clear / Copy / Move / Swap menu remain direct actions.
+Find effects, NAM captures, cabinet IRs, and rig presets in one place. You can listen before deciding: slot choices are auditions until you apply them.
 
-Click the header preset name to open **Presets** only. A cell browser offers Modules,
-NAM captures and IR files, and cannot load a complete rig. **Library & settings > Browse
-library** opens all categories, targeting the currently selected cell for NAM, IR and FX.
+![Library browser showing modules](screenshots/browser-modules.png)
 
-The title names what you are choosing for, such as **Browse for A1**, with the Modules,
-NAM captures and IR files tabs beside it; a page with a single kind, such as Rig presets,
-shows no tabs; presets have **Save as...** top right. Below is the search field, with
-**Open file...** beside it for files outside the library: you either search the library
-or pick a file from disk. Three columns follow:
+## Open the right browser
 
-- **Folders or FX categories**, with **Manage folders** and **Rescan** at the foot of the
-  column for NAM captures, IR files and presets. Modules have neither, as they need no files.
-- **Results**, headed by the result count and the **Sort** toggle.
-- **Details** of the selection, with the actions pinned to the bottom right: **Cancel** and
-  **Apply** while auditioning for a slot; **Delete...**, **Close** and **Load** for presets.
-  **Cancel** (or **Close**) also sits top right, where every full page closes; for presets,
-  **Save as...** sits beside it.
+- Click **+ Add module** or a module name to choose something for that slot.
+- Click the browser icon in a module editor to jump to its current category or folder.
+- Click the preset name in the header to browse complete rigs.
+- Open **Library & settings > Browse library** to search all sound content.
 
-Choose a folder to search
-it and its subfolders, or choose **All folders / All categories**. A root that only
-holds other indexed file types (for example a folder in both the NAM and IR lists that
-contains only IRs) is hidden; empty or missing roots stay listed so they can be removed. The existing file
-or FX category is focused when opening from a tile or browser icon. A current file
-outside configured roots gets a temporary background scan of its folder, without
-adding that folder to the library.
+The slot browser offers **Modules**, **NAM captures**, and **IR files**. The preset browser handles complete `.ngrid` rigs; it does not change individual slots.
 
-Hover the browser title, search field or details header for usage hints,
-search syntax and full paths. FX details include a short sound description and control
-summary. Settings guidance and calibration explanations
-are available on the corresponding headers and controls as tooltips.
+## Browse and audition
 
-Search updates while typing. It matches all words across filenames, full paths and
-available NAM metadata (name, maker, model and gear); preset names are also searchable.
-Common Latin accents fold, so `grun` finds `Grün`. Examples:
+Choose a folder or category, then select a result. The details pane describes the selection and shows capture metadata or a module's controls.
 
-- `vox clean` matches both terms, even in different fields.
-- `"silver clean" -bright` requires the phrase and excludes bright.
-- `maker:vox model:ac30` limits terms to those metadata fields.
-- `path:"amp heads" -name:test` searches a folder phrase while excluding test filenames.
+For modules, captures, and IRs:
 
-`name:` means filename; `gear:` is also available for NAM metadata. Unclosed quotes
-are tolerated while typing. Relevance sorting prioritizes exact filename matches,
-then filename prefixes, substrings, and metadata/path matches. **Sort: name** switches
-to alphabetical order. Use `gear:` in search to narrow NAM captures by gear type. Results use single-line
-rows; FX categories appear alongside their names. File details retain the full path
-and metadata to distinguish identical filenames.
+1. Select a result to hear it in the current slot.
+2. Adjust the module below the browser while comparing.
+3. Choose **Apply**, press Enter twice from search, or double-click to keep it.
+4. Choose **Cancel** or press Escape to restore the original module and settings.
 
-The FX, NAM and IR browsers leave the parameter editor and visualization visible below them.
-Selecting a result auditions its sound; adjust the parameters below while comparing
-FX, NAM captures or IRs. Each choice remembers its edits during this visit. A new FX
-starts with its musical defaults; NAM/IR files of the same kind retain gain settings
-for comparison. The current FX keeps its edits when the browser opens.
+Each effect you audition keeps its temporary adjustments during that visit. Capture and IR changes retain comparable gain settings. Closing the plugin window also cancels an unapplied audition.
 
-Up/Down, Page Up/Down and Home/End move the selection. Enter, double-click or **Apply**
-accepts the auditioned module and its parameters. **Cancel** or Escape restores the original
-module and parameters. Project autosaves and
-rig exports retain the original slot until acceptance. Closing the plugin editor also
-cancels the audition. Load failures leave the browser open with the error.
+Use **Open file...** for a capture, IR, or preset outside your library. This does not add its folder as a permanent source.
 
-Enter finishes an active search edit first; press Enter again to accept. Ctrl/Cmd+F
-focuses search, and the cross at its right end clears it. Escape cancels an active search
-edit, then closes the browser.
-Rig presets use a full-height inspection layout; selecting one changes audio only
-after Enter, double-click or **Load**. Switching to Presets cancels any slot audition.
+## Search
 
-NAM captures, IR files and Presets each have their own folder list, and a folder is
-scanned only for its tab's file type (`.nam`, `.wav` or `.ngrid`). Folders are added and
-removed only in **Library & settings**; **Manage folders** in the browser opens that page
-rather than a dialog, so it has no "...", and an empty tab points there. Each list supports 32 roots. All lists persist in project state
-and the per-user library preference. Rig presets do not replace these library choices.
-Current folders outside the library are temporary and are not added as sources.
+Search matches filenames, paths, preset names, and available NAM metadata. All ordinary words must match; common Latin accents are ignored, so `grun` finds `Grün`.
 
-In Presets, **Delete...** deletes the selected `.ngrid` file from disk after a
-confirmation; this cannot be undone. The loaded rig and its header name stay as they
-are, so **Save as...** can recreate the file. The selection moves to the next preset.
+| Example | Finds |
+| --- | --- |
+| `vox clean` | Items containing both words |
+| `"silver clean" -bright` | That phrase, excluding `bright` |
+| `maker:vox model:ac30` | Matching capture maker and model |
+| `path:"amp heads" -name:test` | A folder phrase, excluding test filenames |
 
-Scans recurse in the background, ignore directory links, deduplicate overlapping paths
-and retain separate copies of identical captures. A JSON index lets a rescan skip reading
-unchanged files (see [ui.md](ui.md#settings-and-default-folders)). Preset folders index `.ngrid` files
-with a valid, bounded preset envelope; invalid files count as unreadable. IR decoding
-and full rig/DSP validation happen on load. **Rescan**, beside Manage folders, refreshes external filesystem
-changes; the existing startup rescan preference applies to all sources.
+Use `name:` for filenames and `gear:` for capture type. Relevance sorting puts exact filename matches first; **Sort: name** switches to alphabetical order.
+
+**Ctrl/Cmd+F** focuses search. Use Up/Down, Page Up/Down, Home/End to move through results. Enter accepts a choice; while editing search, the first Enter finishes the edit and the second accepts. Escape first leaves search editing, then cancels the browser.
+
+## Presets
+
+Preset choices do not change your sound until you choose **Load**, press Enter, or double-click. **Save as...** creates a rig file; **Delete...** permanently removes the selected preset after confirmation. See [Rig presets](presets.md).
+
+## Manage folders
+
+NAM, IR, and preset sources are separate lists. Add or remove them in **Library & settings**; **Manage folders** in the browser opens the same page. **Rescan** refreshes external changes.
+
+Folders are scanned only for their own file type: `.nam`, `.wav`, or `.ngrid`. Folder choices are saved per user, not inside rigs or DAW projects. Missing or invalid files are reported without silently substituting another sound.
 
 ## Excluding files with `.ignore`
 
-Put a `.ignore` text file in a library folder or any of its subfolders to hide files and
-folders from scans, the browser and the module previous/next arrows. It works like a
-`.gitignore`. Windows Explorer often saves a new text file as `.ignore.txt`; that name is
-accepted too. Rescan after editing it.
+Put a `.ignore` text file in a library folder or subfolder to hide files from scans, browsing, and previous/next navigation. Its patterns work like `.gitignore`. On Windows, `.ignore.txt` is accepted too. Rescan after editing it.
 
 ```gitignore
-# Work folders and exports
+# Hide work folders and exports
 Catalog/
 _Export/
-# Direct-input captures, except one
+
+# Hide direct-input captures, except one
 *DI.nam
 !Keep DI.nam
-# Only the top-level file of this name
+
+# Hide only this top-level file
 /notes.nam
-# Any "old" folder below Packs
-Packs/**/old/
 ```
 
-- One pattern per line; blank lines and lines starting with `#` are skipped.
-- `*` matches within a name, `?` one character, `[abc]` or `[a-z]` one of a set, and
-  `**` any number of folders.
-- A trailing `/` matches folders only. A `/` at the start or in the middle anchors the
-  pattern to the `.ignore`'s folder; without one it matches a name at any depth.
-- `!` re-includes something an earlier pattern excluded. Later lines and `.ignore` files
-  in deeper folders win, but a file inside an excluded folder cannot be re-included.
-- Matching ignores letter case. Use `\#` or `\!` for names that start with those characters.
+- One pattern per line; blank lines and `#` comments are ignored.
+- `*` matches within a name, `?` one character, and `**` any number of folders.
+- A trailing `/` matches folders only. A leading or middle `/` anchors the rule to the `.ignore` folder.
+- `!` re-includes a match from an earlier rule. Deeper `.ignore` files and later rules take priority.
+- Matching ignores letter case. Escape a leading `#` or `!` with `\`.
 
-Rules apply within the configured library folder that contains them. A `.ignore` above
-that folder is not read, so add the folder that holds it, or copy its rules down.
-
-The layout uses the familiar folder/results/info structure of preset browsers such as
-u-he's Diva, with a smaller feature set. File kinds and caller permissions are explicit;
-a future saved FX-slot preset kind is reserved separately from today's built-in Modules.
+Rules apply only inside the configured library folder containing the `.ignore` file. A file above that folder is not read.

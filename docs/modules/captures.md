@@ -1,7 +1,6 @@
 # Captures
 
-NAM captures and cabinet IRs. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Load Neural Amp Modeler captures and cabinet impulse responses. The controls below shape their sound without changing the original files.
 
 | Module | In short |
 | --- | --- |
@@ -10,9 +9,9 @@ NAM captures and cabinet IRs. Each module shows its editor with the starting set
 
 ## NAM
 
-![NAM editor](../screenshots/nam.png)
+![NAM capture parameter pane](../screenshots/modules/nam.png)
 
-Loads a Neural Amp Modeler capture (.nam): an amp, a pedal or a full rig. The EQ after the capture is neutral processing, not the captured amp's controls. A2 captures packaged with a smaller submodel offer **Quality: A2 / A2 Lite** in the header.
+Load a `.nam` capture of an amp, pedal, or full rig. Bass, Mid, and Treble are NAM Grid's post-capture EQ, not the captured amp's original controls. Compatible A2 captures offer **Quality: A2 / A2 Lite** in the header.
 
 **Input** (-40 dB to 40 dB; starts at 0 dB) Drives the capture.
 
@@ -36,9 +35,9 @@ Loads a Neural Amp Modeler capture (.nam): an amp, a pedal or a full rig. The EQ
 
 ## Cabinet IR
 
-![Cabinet IR editor](../screenshots/ir.png)
+![Cabinet IR parameter pane](../screenshots/modules/cabinet-ir.png)
 
-Loads a mono cabinet impulse response (.wav). Short and long IRs are handled automatically; IRs are not normalized.
+Load a mono cabinet impulse response (`.wav`). IR levels vary, so match the output volume when comparing cabinets.
 
 **Output** (-36 dB to 18 dB; starts at -18 dB) IR gain. 0 dB gives unity gain for a unit impulse; -18 dB is the usual cabinet headroom.
 

@@ -1,99 +1,61 @@
 # Module guide
 
-NAM Grid has 54 built-in effects plus NAM captures and cabinet IRs. Any slot takes any
-module. This guide explains how a module editor works; the category guides describe each
-module with a screenshot of its editor at its starting settings, every control with its
-range and starting value, what its display shows, and a few tips.
+Choose any module in any grid slot: NAM captures, cabinet IRs, or 54 built-in effects. Start with the sound you want, then use the category guide for controls and tips.
 
-| Guide | Modules |
+| Sound | Guide |
 | --- | --- |
-| [Captures](captures.md) | NAM, Cabinet IR |
-| [Distortion](distortion.md) | Distortion, Boost, Tube Boost, Airwindows Tape, Console Colour, Bitcrusher |
-| [Dynamics](dynamics.md) | Noise Gate, Noise Gate (Smart), Digital Black Gate, Smooth Compressor, Punch Compressor, Butter Comp, Outboard Channel, Peak Limiter |
-| [EQ / Filter](eq-filter.md) | Guitar EQ, Cut EQ, Parametric EQ, Console EQ, Filter, Wah |
-| [Modulation](modulation.md) | Chorus, Juno Chorus, Flanger, Phaser, Auto Tremolo, Vibrato, Rotary, Uni-Vibe, Ring Modulator |
-| [Pitch / Frequency](pitch-frequency.md) | Mono Octaver, Stereo Doubler, Frequency Shifter |
-| [Delay](delay.md) | Digital Delay, Analog Echo, Tape Echo, Multi-head Tape, Reverse Delay, Dual Delay, Diffused Delay |
-| [Reverb](reverb.md) | Room, Dense Plate, Cloud, Hall, Spring Reverb, Shimmer, Airwindows Plate, Airwindows Guitar Hall, Galactic Space, Cosmic Echo |
-| [Creative](creative.md) | Freeze / Hold, Stutter, LoFi Tape Machine |
-| [Utility / Volume](utility-volume.md) | Utility, Auto Swell |
+| Amp captures and cabinets | [Captures & cabinets](captures.md) |
+| Drive, boost, tape colour, and crushed textures | [Distortion](distortion.md) |
+| Noise control, compression, and limiting | [Dynamics](dynamics.md) |
+| Tone shaping, filtering, and wah | [EQ / Filter](eq-filter.md) |
+| Chorus, phaser, tremolo, rotary, and more | [Modulation](modulation.md) |
+| Octave, doubling, and frequency effects | [Pitch / Frequency](pitch-frequency.md) |
+| Digital, tape, reverse, and rhythmic echoes | [Delay](delay.md) |
+| Rooms, plates, springs, shimmer, and ambience | [Reverb](reverb.md) |
+| Freeze, stutter, and lo-fi tape | [Creative](creative.md) |
+| Stereo control and volume swells | [Utility / Volume](utility-volume.md) |
 
-## The module editor
+## Use the module editor
 
-![Tape Echo in the module editor](../screenshots/delay.png)
+![Tape Echo selected in the NAM Grid module editor](../screenshots/delay.png)
 
-Select a tile in the grid and its editor opens below. Every module uses the same layout:
+Select a grid card to open its module below the grid. Each category page shows the same focused parameter-pane view.
 
-- **First row:** the slot (here A2), the module name, which opens the quick module menu,
-  the browser icon, the previous/next arrows that step through the module's category, and
-  the category badge.
-- **Second row:** a one-line description of the module, then its saved options on the
-  right: **Tempo sync** for delays and modulation, and one mode or option such as
-  **Style**, **Mode**, **Desk**, **Heads**, **Ping-pong**, **Stereo wet** or
-  **Notch mode**. Options read "Label: value". Modes with three or more choices open a
-  menu; two-choice options switch on click. Options are saved with the rig but are not
-  host-automatable, so a longer list never changes recorded automation.
-- **Controls:** two rows of four positions, filled from the left. A module with up to four
-  controls shows them in one row: main controls, then **Output**, then **Mix**. Larger
-  modules fill the top row with their main controls; **Output** starts the bottom row and
-  **Mix** ends it. **Enabled** (the module bypass) is always at the bottom right. Modes such
-  as Tempo sync only hide or swap a control, so the others never move.
-- **Display:** the panel on the right shows what the controls do (see below).
-- **Level strip:** the line below the editor compares the module's input and output.
+- **Name and navigation:** open the quick module menu, browse, or use previous/next within the category.
+- **Options:** choose tempo sync and module-specific modes. Two-choice options toggle on click; longer lists open a menu.
+- **Controls:** up to four controls share one row. Larger modules place **Output** at the start of the second row and **Mix** at the end; **Enabled** is always at the bottom right.
+- **Knobs:** drag or click a value to type. Double-click restores the starting value. Right-click assigns [modulation](../performance.md).
+- **Display:** see the effect's response, timing, or interaction with your playing.
+- **Level strip:** compare input/output and match volume when judging a tone.
 
-Working with controls:
+Every knob and Enabled can be automated by your DAW. Header options are saved with the rig but are not host-automatable.
 
-- Drag a knob, or click its value to type one. Double-click resets it to the module's
-  starting value. Every knob and Enabled is host-automatable.
-- Right-click a knob to modulate it from the LFO, the envelope, the sequencer or a macro;
-  Alt/Option-drag a modulated knob to change its depth. See
-  [macros, modulation and scenes](../performance.md).
-- When **Tempo sync** is on, **Division** (1/32 to 1/1, with triplets and dotted notes)
-  replaces Time or Rate. The manual value is kept for when sync is off again.
+When **Tempo sync** is on, **Division** replaces Time or Rate. Choose 1/32 to 1/1, including dotted notes and triplets. Your manual setting remains stored for when you turn sync off.
 
-Adding or replacing a module applies its starting settings, which are chosen for electric
-guitar: audible, but without overwhelming the dry sound. See
-[starting settings](../effect-defaults.md) for acoustic and bass adjustments.
+New modules use electric-guitar starting settings that make the effect easy to hear without burying the dry sound. See [starting settings](../effect-defaults.md) for reset behavior and acoustic/bass suggestions.
 
 ## Common controls
 
-The same words mean the same thing in every module:
-
-| Control | Meaning |
+| Control | What it does |
 | --- | --- |
-| **Mix** | Blend of the dry and processed sound. 0% is the exact dry signal. |
-| **Output** | Final level after the Mix blend. Use it to match bypass loudness. |
-| **Drive**, **Input** | Level into a nonlinear stage: more saturation or colour. |
-| **High cut**, **Low cut** | Filters on the processed path (or the repeats), in Hz. A few Airwindows modules use native percentages instead, noted in their guide. |
-| **Damping** | How quickly a reverb's treble dies away. Lower is darker. |
-| **Brightness** | A native tone control without a calibrated frequency. |
-| **Modulation** | Amount of pitch or delay-line movement. |
-| **Feedback** | Amount sent back for another pass: more repeats or resonance. |
+| **Mix** | Balances dry sound and effect. 0% is dry; 100% is fully processed. |
+| **Output** | Sets final level after Mix. Match bypass volume for a fair tone comparison. |
+| **Drive / Input** | Pushes a saturating stage harder for more distortion or colour. |
+| **High cut / Low cut** | Removes treble or bass from the processed path. |
+| **Damping** | Controls how quickly reverb treble fades; lower is darker. |
+| **Modulation** | Adds delay-line or pitch movement. |
+| **Feedback** | Sends sound around again for more repeats or resonance. |
 
-Host automation names combine the slot, the family and the control, for example
-`A 2 Delay Mix`. Modules of one family share their controls within a slot, so
-`A 2 Delay Character` is Ducking, Age or Saturation depending on the delay, and
-`A 2 Mod Character` is Texture, Sweep center, Feedback sign, Pulse / feel or Sweep color.
+Ranges and starting values are listed with every control. Native Airwindows controls sometimes use percentages rather than calibrated frequencies or times; the relevant guide calls this out.
 
-## Reading the display
+## Read the display
 
-Each display says what it shows in its title, detail and footer rows. There are three kinds:
+Displays fall into three groups:
 
-- **Measured:** the live output spectrum behind the EQ curves, the NAM capture's input
-  against output, the compressor and gate histories, Cosmic Echo's impulse response,
-  and the LoFi Tape Machine's pitch motion.
-- **Curves from the module's own math:** shaper and compressor curves, EQ and filter
-  responses, the cabinet IR's frequency response.
-- **Settings over time:** delay repeats, reverb decay, modulation shapes. These show what
-  the settings do; they do not follow a live LFO phase.
+- **Live audio:** input/output histories, spectra, gain reduction, and measured responses.
+- **Response curves:** EQ, filter, drive, and compressor shapes.
+- **Timing guides:** repeats, reverb decay, and modulation shapes based on current settings—not a live LFO position.
 
-The **level strip** shows input and output as "RMS / peak" on the card meters' scale
-(-60 to +6 dBFS, red above 0 dBFS and for 2 s after an over): the RMS bar averages the last
-0.4 s, the peak tick holds 1.5 s. It also shows the **Gain** between them and the **Crest**
-factor (peak to RMS) at both ends. RMS sits well below the peaks for picked notes, so a
-clipping card meter goes with a peak near 0 dBFS, not with the RMS number. Gain near 0 dB is a fair comparison with bypass. A crest that drops through the
-module means it compresses or saturates; one that rises means it expands or sharpens
-attacks. Library & settings can turn displays and the strip off; audio is unaffected.
+The **level strip** shows RMS and peak at input and output. **Gain** near 0 dB makes bypass comparisons fair. A falling **Crest** value usually indicates compression or saturation; a rising value indicates sharper attacks or expansion. Red peak readings warn of levels above 0 dBFS.
 
-For implementation notes (real-time behavior, latency, tails and sources) see
-[module implementation](../module-implementation.md).
+Disable displays in **Library & settings > Visualizations** without changing the sound or saved controls.

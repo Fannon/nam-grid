@@ -1,7 +1,6 @@
 # Pitch / Frequency
 
-Octaves, doubling and frequency shifting. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Octaves, doubling and frequency shifting. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -13,7 +12,7 @@ Octaves, doubling and frequency shifting. Each module shows its editor with the 
 
 ![Mono Octaver editor](../screenshots/modules/mono-octaver.png)
 
-One and two octaves down, tracked from single notes with flip-flop dividers and rounded by the high cut. It expects a clear fundamental; chords confuse it.
+Add one or two octaves below single notes. High cut rounds the generated tone. Play cleanly: chords and weak fundamentals confuse tracking.
 
 **Dry** (0% to 100%; starts at 100%) Level of the original guitar alongside the generated sub-octaves.
 
@@ -23,7 +22,7 @@ One and two octaves down, tracked from single notes with flip-flop dividers and 
 
 **High cut** (80 Hz to 5000 Hz; starts at 1000 Hz) High-cut frequency for the generated sub-octaves; the dry guitar keeps its original tone.
 
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
 **Display:** A 110 Hz note and the two sub-octave square waves.
 
@@ -39,9 +38,9 @@ Opposite pitch detuning and short delays on the left and right suggest a second 
 
 **Spread** (0% to 100%; starts at 100%) Spread of detuned voices; zero centers the wet pair, 100 keeps them on opposite sides.
 
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
+**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
 
-**Mix** (0% to 100%; starts at 25%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** Pitch up and down against the stereo spread.
 
@@ -49,7 +48,7 @@ Opposite pitch detuning and short delays on the left and right suggest a second 
 
 ![Frequency Shifter editor](../screenshots/modules/frequency-shifter.png)
 
-A Bode-style single-sideband shifter in a filtered feedback delay: every partial moves by the same number of hertz, which makes metallic and barber-pole sounds. Not a pitch shifter.
+Move every partial by the same number of hertz for metallic, shifting, and continuously rising or falling textures. This is not a musical pitch shifter.
 
 **Shift** (-2000 Hz to 2000 Hz; starts at 2 Hz) Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.
 
@@ -63,6 +62,6 @@ A Bode-style single-sideband shifter in a filtered feedback delay: every partial
 
 **Spread** (0% to 100%; starts at 0%) Carrier phase difference between channels; widens the shifted texture.
 
-**Mix** (0% to 100%; starts at 30%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 30%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** How each pass through the feedback moves the partials.

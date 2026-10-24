@@ -3,51 +3,62 @@ layout: home
 
 hero:
   name: NAM Grid
-  text: Open-source guitar rig in one plugin
-  tagline: NAM captures, cabinet IRs and effects on a 16-slot grid. Free, in CLAP and VST3.
+  text: Your whole guitar rig. In a 4×4 grid.
+  tagline: Pair NAM captures and cabinet IRs with 54 effects, then shape the signal your way. Free and open source, in CLAP and VST3.
   actions:
     - theme: brand
-      text: Download
+      text: Download NAM Grid
       link: https://github.com/Fannon/nam-grid/releases/latest
     - theme: alt
-      text: How it works
+      text: Build your first rig
       link: /grid
     - theme: alt
-      text: Module guide
+      text: Explore the modules
       link: /modules/
 
 features:
-  - title: A grid, not a fixed chain
-    details: 16 slots in four rows — Pre, two parallel lanes with A/B blend, Post. Any slot takes any module.
+  - title: Route it your way
+    details: Sixteen slots across Pre, parallel A/B lanes, and Post. Put any module anywhere and blend the lanes.
     link: /grid
-  - title: Captures, cabinets and effects
-    details: Neural Amp Modeler captures, cabinet impulse responses and built-in effects, with a library browser and rig presets.
-    link: /modules/
-  - title: Playable live
-    details: Tuner, macros, modulation and performance scenes, with an editor that shows what each module is doing.
+    linkText: See the signal flow
+  - title: Find your sound
+    details: Browse NAM captures, cabinet IRs, and effects while you play. Compare settings before you commit.
+    link: /browser
+    linkText: Open the browser guide
+  - title: Made to perform
+    details: Keep essential controls on macros, add playing-responsive modulation, and switch between three scenes.
     link: /performance
-  - title: Free and open source
-    details: Make sound right away with the bundled clean capture and starter rigs, then dig into the code.
+    linkText: Explore live controls
+  - title: Yours to keep
+    details: Free and open source, with a clean capture and starter rigs included. No account or activation required.
     link: https://github.com/Fannon/nam-grid
+    linkText: View the source
 ---
 
 <div class="plugin-window">
-  <div class="plugin-window-bar"><span></span><span></span><span></span><em>NAM Grid — Clean Default rig</em></div>
-  <img src="/screenshots/grid.png" alt="The NAM Grid editor showing the Clean Default rig" />
+  <div class="plugin-window-bar"><span></span><span></span><span></span><em>NAM Grid · Ambient pedalboard</em></div>
+  <img src="/screenshots/grid.png" alt="NAM Grid with a full ambient guitar rig and Tape Echo selected" />
 </div>
 
-## Download
+<div class="quick-start">
+  <span class="quick-start-label">First sound</span>
+  <ol>
+    <li><strong>Install</strong> the CLAP or VST3 plugin.</li>
+    <li><strong>Load</strong> the included Clean Default rig.</li>
+    <li><strong>Play</strong>, then make it yours.</li>
+  </ol>
+</div>
 
-One archive per platform from [GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest), each with **CLAP and VST3**:
+## Pick your platform
 
-| Platform | Download | Notes |
+Each release includes **CLAP and VST3** in one archive.
+
+| Platform | Download | Good to know |
 | --- | --- | --- |
 | Windows x64 | `nam-grid-windows-x64.zip` | 64-bit Windows |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS 11 or newer; confirm once, the build isn't signed yet |
-| Linux x64 | `nam-grid-linux-x64.zip` | Ubuntu 22.04 or newer works well; still an early preview |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS 11+; unsigned build requires one-time confirmation |
+| Linux x64 | `nam-grid-linux-x64.zip` | Early preview; Ubuntu 22.04+ recommended |
 
-Everything is included to make sound right away: one clean amp-and-cab capture (RiffSmith Clean) and two starter rigs, Empty and Clean Default. Add your own NAM captures and IRs anytime through the library browser.
+[Download the latest release](https://github.com/Fannon/nam-grid/releases/latest) · [Installation instructions](https://github.com/Fannon/nam-grid#download-and-install)
 
-## Learn more
-
-Read [how it works](/grid) to see how a rig fits together, or browse the [module guide](/modules/) for every module's controls.
+The included **RiffSmith Clean** capture and **Clean Default** rig get you started without downloading anything else. Add your own NAM captures and cabinet WAVs in the [library browser](/browser).

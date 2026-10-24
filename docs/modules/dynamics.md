@@ -1,7 +1,6 @@
 # Dynamics
 
-Gates, compressors and limiting. Each module shows its editor with the starting settings while guitar plays; see the
-[module guide](README.md) for how the editor, its display and the level strip work.
+Gates, compressors and limiting. Screenshots show each parameter pane at its starting settings.
 
 | Module | In short |
 | --- | --- |
@@ -54,7 +53,7 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 **Gate threshold** (-100 dB to 0 dB; starts at -100 dB) Optional final gate after denoising. Minimum is Off; raise carefully to avoid cutting sustain.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** Gain reduction, input and output over time, and the gate threshold.
 
@@ -66,7 +65,7 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 ![Digital Black Gate editor](../screenshots/modules/digital-black-gate.png)
 
-Airwindows DigitalBlack's darkening gate, or CStrip's re-arming hysteresis gate in Hysteresis mode. Mode changes fade through dry. Hold is a NAM Grid addition; see [Airwindows dynamics](../airwindows-dynamics.md).
+Airwindows DigitalBlack's darkening gate, or CStrip's firmer re-arming gate in Hysteresis mode. Changes fade smoothly.
 
 **Threshold** (-74 dB to -10 dB; starts at -55 dB) Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.
 
@@ -100,7 +99,7 @@ Gentle 2.5:1 compression with a soft 9 dB knee for leveling and sustain.
 
 **Attack** (0.5 ms to 50 ms; starts at 10 ms) How quickly compression catches a note. Slower attack lets more pick transient through.
 
-**Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
@@ -122,7 +121,7 @@ Firmer 4:1 compression with a 3 dB knee and a slower default attack, so the pick
 
 **Attack** (0.5 ms to 50 ms; starts at 25 ms) How quickly compression catches a note. Slower attack lets more pick transient through.
 
-**Mix** (0% to 100%; starts at 80%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
+**Mix** (0% to 100%; starts at 80%) Balance the dry sound and effect. Output, when present, is applied after this blend.
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
@@ -134,7 +133,7 @@ Firmer 4:1 compression with a 3 dB knee and a slower default attack, so the pick
 
 ![Butter Comp editor](../screenshots/modules/butter-comp.png)
 
-A native port of Airwindows ButterComp2: polarity-sensitive glue compression with output-dependent recovery and automatic gain.
+Airwindows ButterComp2 glue compression with automatic level recovery. Try it across a full rig for subtle cohesion.
 
 **Compress** (0% to 100%; starts at 35%) ButterComp2 intensity and automatic gain recovery, with output-dependent release and independent left/right detectors.
 
@@ -170,7 +169,7 @@ Airwindows CStrip2: Capacitor cuts into compression and Spiral saturation. The c
 
 ![Peak Limiter editor](../screenshots/modules/peak-limiter.png)
 
-A zero-lookahead linked peak limiter. Clip soft-clips from 3 dB below the ceiling first, so fast transients need less gain reduction.
+A fast peak limiter for catching transients at the end of the rig. Clip rounds peaks before limiting, so fast notes need less gain reduction.
 
 **Ceiling** (-24 dB to 0 dB; starts at -1 dB) Peak target. This zero-lookahead limiter cannot guarantee an intersample true-peak ceiling.
 

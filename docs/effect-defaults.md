@@ -17,8 +17,7 @@ lists each module's starting value next to every control.
   Cabinet IRs start at -18 dB Output, the usual cabinet headroom; IRs vary in level, so use
   the level strip below the editor to match it.
 
-These are NAM Grid design choices, not another product's factory presets. Thresholds and
-makeup depend on your instrument and interface: set them by ear and with the level strip.
+Thresholds and makeup depend on your instrument and interface: set them by ear and with the level strip.
 
 ## Acoustic and bass adjustments
 
@@ -30,6 +29,5 @@ makeup depend on your instrument and interface: set them by ear and with the lev
   blends low so low notes stay distinct.
 - Mono Octaver follows single notes and needs a clear fundamental. On bass, start with less
   sub level, and check tracking in your register.
-- Gain, compression and gate defaults cannot compensate for different interfaces or pickup
-  outputs. Check the input and output levels and adjust thresholds or trims. There is no
-  instrument selector or hidden automatic EQ.
+- Interfaces and pickups vary widely. Check input/output levels and adjust gains, compression
+  thresholds, and gate thresholds for your instrument.

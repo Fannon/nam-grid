@@ -1,48 +1,33 @@
-# Documentation
+# NAM Grid manual
 
-Start with the [main README](../README.md) for downloads, installation and a first
-guitar rig. These guides describe current usage, implementation and release checks.
+New here? [Download NAM Grid](/) and load **Clean Default**, then learn the [grid](/grid) or explore the [module guide](/modules/).
 
-## Playing and building rigs
+## Play and build rigs
 
-| Guide | Contents |
+| Guide | What it covers |
 | --- | --- |
-| [Editor](ui.md) | Grid cards, controls, meters and visualizations |
-| [Library browser](browser.md) | Find effects, NAM captures, cabinet IRs and presets |
-| [Module guide](modules/README.md) | Every module with its editor, controls, display and tips |
-| [Starting settings](effect-defaults.md) | How modules start, and acoustic/bass adjustments |
-| [Routing](grid.md) | Pre/Post stages, parallel lanes, stereo and latency |
-| [Presets](presets.md) | Save, recall and share complete rigs |
-| [Tuner](tuner.md) | Tuning, reference pitch, mute and history |
-| [Performance controls](performance.md) | Macros, modulation, scenes and lane controls |
-| [Noise Gate (Smart)](noise-gate-smart.md) | Learn and reduce a noise profile |
-| [LoFi Tape Machine](lofi-tape.md) | Tape transport and degradation effects |
-| [Cosmic Echo](cosmic-echo.md) | Ambient echo styles and controls |
+| [Editor](/ui) | Build, arrange, adjust, and monitor a rig |
+| [Grid & routing](/grid) | Pre/Post stages, parallel lanes, and blend |
+| [Library browser](/browser) | Find and audition effects, captures, IRs, and presets |
+| [Module guide](/modules/) | Every module, its controls, and useful starting points |
+| [Rig presets](/presets) | Save, recall, and share complete rigs |
+| [Tuner](/tuner) | Tune quietly and check pitch drift |
+| [Performance controls](/performance) | Routing, macros, modulation, and scenes |
+| [Starting settings](/effect-defaults) | Reset behavior and acoustic/bass suggestions |
 
-## Development and release
+## Module deep dives
 
-- [Build and test](build.md) and [contribution guidance](../CONTRIBUTING.md).
-- [Release checklist and known validation limits](release-checklist.md).
-  [Release notes](release-notes.md) are used by the release workflow.
-- [Implementation and compatibility](development.md),
-  [module implementation](module-implementation.md) and
-  [on-demand FX benchmarks](fx-performance.md).
-- [Adaptive cabinet convolution](adaptive-ir.md) and the
-  [standalone IR engine comparison](ir-convolution-comparison.md).
+- [Noise Gate (Smart)](/noise-gate-smart) — learn and reduce your rig's noise.
+- [LoFi Tape Machine](/lofi-tape) — tape transport, wear, and degradation.
+- [Cosmic Echo](/cosmic-echo) — ambient echo and reverb styles.
 
-## DSP implementation sources
+## Build and contribute
 
-- [Airwindows outboard implementation](airwindows-outboard.md) and
-  [dynamics implementation](airwindows-dynamics.md).
-- [Reverb core adaptations](../NeuralAmpModeler/dsp/reverb/README.md).
-- [Third-party notices](../ThirdPartyNotices.txt)
-  and [screenshot provenance](screenshots/README.md).
+These pages are for developers, not required for using the plugin.
 
-## Maintaining these docs
-
-Keep lasting usage, build and implementation information in the guides above.
-Use lowercase kebab-case filenames, keeping conventional names such as `README.md`.
-Put reviews, audits, measurements and handoffs in gitignored `tmp/`, or in the
-relevant PR description/comments. Git history preserves removed reports.
-Check GitHub Actions for the status of a specific commit; old test timings are
-not a current validation claim. See [AGENTS.md](../AGENTS.md).
+- [Build and test](/build), [development](/development), and [module implementation](/module-implementation).
+- [Release checklist](/release-checklist) and [release notes](/release-notes).
+- [Adaptive cabinet convolution](/adaptive-ir) and [IR engine comparison](/ir-convolution-comparison).
+- [On-demand FX benchmarks](/fx-performance).
+- [Airwindows outboard](/airwindows-outboard) and [dynamics implementation](/airwindows-dynamics).
+- [Third-party notices](../ThirdPartyNotices.txt) and [screenshot provenance](/screenshots/README).

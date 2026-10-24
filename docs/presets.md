@@ -7,7 +7,9 @@ Preset folders are a separate list from NAM and IR folders, scanned only for `.n
 files, and are added in Library & settings (the browser's **Manage folders** opens it).
 NAM Grid ships no preset files; every listed preset is a `.ngrid` file in one of your
 preset folders. On first start the default `Documents/NAM Grid/Presets` folder receives
-**Empty**, the empty grid (see [ui.md](ui.md#settings-and-default-folders)). Save as..., Open file... and Delete... are available in the
+**Empty**, the empty grid (see [ui.md](ui.md#settings-and-default-folders)). Rig presets are
+listed only in NAM Grid's own browser; listing them in a DAW's preset browser through CLAP's
+preset-discovery extension remains future work. Save as..., Open file... and Delete... are available in the
 browser; right-clicking the header name also offers quick load/save actions and the last
 used folder's presets. The arrow buttons step through that folder in filename order and wrap.
 

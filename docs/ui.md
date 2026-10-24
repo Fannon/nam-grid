@@ -201,10 +201,17 @@ remembered as a choice, so the default does not come back. Settings from earlier
 (`nam-grid/library.json` in the local app-data folder) are migrated once; their empty lists
 receive the defaults.
 
-`NAM_GRID_HOME` replaces both locations: settings then live in `$NAM_GRID_HOME/config` and
-the default folders in `$NAM_GRID_HOME`. The tests use it so they never touch your own
-settings. The library index itself is not stored; Startup rescan rebuilds it when an
-instance opens.
+The library index is a rebuildable cache, `library-index.json`, in the per-user cache folder:
+`%LOCALAPPDATA%\NAM Grid` on Windows, `~/Library/Caches/NAM Grid` on macOS and
+`$XDG_CACHE_HOME/nam-grid` (default `~/.cache/nam-grid`) on Linux. For every indexed file it
+keeps the size, modification time and what a scan reads: name, maker, model, gear type and
+content hash. A rescan still walks your folders, so new, moved and deleted files are found,
+but it opens and hashes only files whose size or time changed, so a rescan of a large library
+is nearly instant. Deleting the file is safe; the next scan rebuilds it.
+
+`NAM_GRID_HOME` replaces all three locations: settings then live in `$NAM_GRID_HOME/config`,
+the index in `$NAM_GRID_HOME/cache` and the default folders in `$NAM_GRID_HOME`. The tests
+use it so they never touch your own settings.
 
 ## Tuner and performance controls
 

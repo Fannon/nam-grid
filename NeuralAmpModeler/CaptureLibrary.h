@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace nam_library
@@ -128,14 +129,35 @@ Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& ca
 
 // Scans roots for both NAM captures and IRs.
 Snapshot ScanFolders(const std::vector<std::string>& roots, const std::function<bool()>& cancelled = {});
+// What a scan learned about each file, keyed by path. A file whose size and modification time
+// still match is not opened or hashed again. Stored as JSON in the cache folder; a missing or
+// damaged index only costs one full scan. Bump kIndexVersion when Inspect, gear inference or the
+// content hash changes, so older entries are ignored.
+inline constexpr int kIndexVersion = 1;
+struct IndexEntry
+{
+  std::uintmax_t size = 0;
+  long long modified = 0;
+  Capture capture; // Without root-relative fields; those depend on the folder that found it.
+};
+using IndexEntries = std::unordered_map<std::string, IndexEntry>;
+struct IndexCache
+{
+  IndexEntries previous; // Read from the file or the last scan.
+  IndexEntries next;     // Filled by the current scan: exactly the files it found.
+};
+IndexEntries ReadIndex(const std::filesystem::path& file);
+bool WriteIndex(const std::filesystem::path& file, const IndexEntries& entries);
 Snapshot ScanLibrary(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
-                     const std::vector<std::string>& presetRoots, const std::function<bool()>& cancelled = {});
+                     const std::vector<std::string>& presetRoots, const std::function<bool()>& cancelled = {},
+                     IndexCache* index = nullptr);
 
 // Latest request wins. Results are handed back to the control thread, never to ProcessBlock.
 class Worker
 {
 public:
-  Worker();
+  // With an index file, scans reuse and refresh it; without one, every scan reads every file.
+  explicit Worker(std::filesystem::path indexFile = {});
   ~Worker();
   // Single-list requests index NAM captures and IRs together.
   void Request(const std::string& root);
@@ -152,6 +174,9 @@ private:
   std::shared_ptr<const Snapshot> mResult;
   std::atomic<unsigned> mRevision{0};
   std::atomic<bool> mStop{false};
+  std::filesystem::path mIndexFile;
+  IndexCache mIndex; // Worker thread only.
+  bool mIndexLoaded = false;
   std::thread mThread;
 };
 } // namespace nam_library

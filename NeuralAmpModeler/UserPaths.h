@@ -71,6 +71,28 @@ inline std::filesystem::path ContentFolder()
 #endif
   return documents.empty() ? documents : documents / "NAM Grid";
 }
+// Rebuildable data, such as the library index, belongs in the per-user cache folder:
+// %LOCALAPPDATA%\NAM Grid (Windows), ~/Library/Caches/NAM Grid (macOS), $XDG_CACHE_HOME/nam-grid.
+inline std::filesystem::path CacheFolder()
+{
+  if (const auto home = Home(); !home.empty()) return home / "cache";
+#ifdef _WIN32
+  const auto local = KnownFolder(CSIDL_LOCAL_APPDATA);
+  return local.empty() ? local : local / "NAM Grid";
+#elif defined(__APPLE__)
+  const auto user = Environment("HOME");
+  return user.empty() ? user : user / "Library" / "Caches" / "NAM Grid";
+#else
+  if (const auto xdg = Environment("XDG_CACHE_HOME"); !xdg.empty()) return xdg / "nam-grid";
+  const auto user = Environment("HOME");
+  return user.empty() ? user : user / ".cache" / "nam-grid";
+#endif
+}
+inline std::filesystem::path IndexFile()
+{
+  const auto folder = CacheFolder();
+  return folder.empty() ? folder : folder / "library-index.json";
+}
 // Builds before the settings folder kept library.json in the local app-support folder.
 inline std::filesystem::path LegacySettingsFile()
 {

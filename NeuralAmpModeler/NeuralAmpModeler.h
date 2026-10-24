@@ -17,6 +17,7 @@
 #include "LibraryBrowser.h"
 #include "LevelAnalysis.h"
 #include "GridTuner.h"
+#include "UserPaths.h"
 #include <array>
 #include <atomic>
 #include <mutex>
@@ -297,7 +298,7 @@ private:
   std::array<nam_library::Gear, FixedNAMGrid::kSlots> mSlotGear{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
-  nam_library::Worker mLibraryWorker;
+  nam_library::Worker mLibraryWorker{user_paths::IndexFile()};
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
   std::vector<std::string> mNamFolders, mIrFolders, mPresetFolders;
   std::vector<std::string>* _LibraryFolders(nam_library::FileKind kind);

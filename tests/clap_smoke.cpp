@@ -1,3 +1,4 @@
+#include "IsolatedUserHome.h"
 #include "A2Fixture.h"
 #include "ClapTestHost.h"
 #include <atomic>
@@ -24,8 +25,8 @@ int main(int argc, char** argv)
 {
   std::cout << std::unitbuf;
   assert(argc == 3 || argc == 4);
+  IsolatedUserHome settingsBackup("nam-grid-smoke"); // Never the user's settings or library.
 #ifdef _WIN32
-  win_file_dialog::IsolatedUserHome settingsBackup("nam-grid-smoke");
   const bool fxVisuals = std::getenv("NAM_GRID_FX_VISUALS") != nullptr;
   const bool browserOnly = std::getenv("NAM_GRID_BROWSER_SMOKE") != nullptr;
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
@@ -112,7 +113,22 @@ int main(int argc, char** argv)
     s.string(config.dump());
     return loadBytes(std::move(s));
   };
+  // Library folders are per-user settings, never project state: tests choose them in the
+  // isolated settings.json, which every state load reads.
+  const auto pathTexts = [](const std::vector<std::filesystem::path>& paths) {
+    std::vector<std::string> texts;
+    for (const auto& path : paths) texts.push_back(nam_library::PathText(path));
+    return nam_library::NormalizeFolders(texts);
+  };
+  auto userFolders = [&] { return nam_library::ReadSettings(settingsBackup.file); };
+  auto useFolders = [&](std::vector<std::filesystem::path> nam, std::vector<std::filesystem::path> ir,
+                        std::vector<std::filesystem::path> presets) {
+    auto settings = userFolders();
+    settings.namFolders = pathTexts(nam); settings.irFolders = pathTexts(ir); settings.presetFolders = pathTexts(presets);
+    assert(nam_library::WriteSettings(settingsBackup.file, settings));
+  };
   auto base = save().config();
+  assert(!base.contains("NamFolders") && !base.contains("IrFolders") && !base.contains("PresetFolders"));
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
   assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
   // Every slot exposes the same host controls; no upstream single-amp parameters remain.
@@ -153,8 +169,7 @@ int main(int argc, char** argv)
   base["Pre 2 NAM Input"] = 1.;
   base["Pre 2 NAM Output"] = -2.;
   base["Output"] = -6.;
-  base["NamFolders"] = {fixtures.string()};
-  base["IrFolders"] = {fixtures.string()};
+  useFolders({fixtures}, {fixtures}, {});
   load(base);
   assert(save().config() == base);
   auto recalled = save();
@@ -204,14 +219,18 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
+  // Folder lists in a state (from earlier builds or another machine) are ignored: loading a
+  // project never replaces this user's library folders.
   for (const char* folderField : {"NamFolders", "IrFolders", "PresetFolders"})
-  for (const json& folders : {json(123), json::array({"valid", 123}), json::array({std::string("bad\0path", 8)}),
-                              json(std::vector<std::string>(33, "folder"))})
   {
-    auto invalidFolders = base;
-    invalidFolders[folderField] = folders;
-    assert(!loadRaw(invalidFolders));
+    const auto before = userFolders();
+    auto withFolders = base;
+    withFolders[folderField] = json::array({(fixtures / "elsewhere").string()});
+    assert(loadRaw(withFolders));
     assert(save().config() == base);
+    const auto after = userFolders();
+    assert(after.namFolders == before.namFolders && after.irFolders == before.irFolders
+           && after.presetFolders == before.presetFolders);
   }
   auto namEQState = base;
   namEQState["Pre 1 EQ Bass"] = 6.;
@@ -233,11 +252,10 @@ int main(int argc, char** argv)
   pathOnEffect["SlotPaths"][0] = path1.string();
   assert(!loadRaw(pathOnEffect));
   assert(save().config() == utilityState);
+  useFolders({fixtures, fixtures / "IRs"}, {fixtures / "IRs"}, {});
   auto multipleFolders = base;
-  multipleFolders["NamFolders"] = {fixtures.string(), (fixtures / "IRs").string()};
-  multipleFolders["IrFolders"] = {(fixtures / "IRs").string()};
   load(multipleFolders);
-  assert(save().config() == multipleFolders);
+  assert(save().config() == multipleFolders && userFolders().namFolders.size() == 2);
   load(base);
   Stream bad;
   bad.string("###nam-grid###");
@@ -894,9 +912,7 @@ int main(int argc, char** argv)
   const auto libraryIR = irLibrary / "cabinet.wav";
   std::filesystem::copy_file(irFile, libraryIR, std::filesystem::copy_options::overwrite_existing);
   auto browserState = cleared;
-  browserState["NamFolders"] = {libraryFolder.string()};
-  browserState["IrFolders"] = {irLibrary.string()};
-  browserState["PresetFolders"] = json::array();
+  useFolders({libraryFolder}, {irLibrary}, {});
   load(browserState);
   auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
   assert(gui);
@@ -1334,7 +1350,7 @@ int main(int argc, char** argv)
   load(externalFile); click(170, 120); pumpFor(250);
   keyAtEditor(VK_RETURN);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == path2);
-  assert(save().config()["NamFolders"] == browserState["NamFolders"] && save().config()["IrFolders"] == browserState["IrFolders"]);
+  assert(userFolders().namFolders == pathTexts({libraryFolder}) && userFolders().irFolders == pathTexts({irLibrary}));
   auto moduleBrowser = eqUI;
   moduleBrowser["Pre 1 EQ Bass"] = 6.;
   load(moduleBrowser); click(170, 120);
@@ -1567,8 +1583,6 @@ int main(int argc, char** argv)
   assert(savedRig["NoisePrintProfiles"][2] == learnedNoiseState["NoisePrintProfiles"][0]);
   assert(!savedRig.contains("NamFolders") && !savedRig.contains("IrFolders") && !savedRig.contains("PresetFolders") && !savedRig.contains("Tuner Reference") && !savedRig.contains("Tuner"));
   auto anotherRig = cleared;
-  anotherRig["IrFolders"] = {irLibrary.string()};
-  anotherRig["PresetFolders"] = json::array();
   anotherRig["Tuner Reference"] = 442.; anotherRig["Tuner Mute"] = 1.;
   load(anotherRig);
   host.dirty = false; host.rescanned = 0;
@@ -1585,7 +1599,7 @@ int main(int argc, char** argv)
     assert(restoredRig[name] == savedRig[name]);
   }
   assert(restoredRig["Pre 3 Noise Learn"] == 0. && restoredRig["Pre 3 Noise Gate Threshold"] == -42.);
-  assert(restoredRig["IrFolders"] == anotherRig["IrFolders"] && restoredRig["Tuner Reference"] == 442.);
+  assert(userFolders().irFolders == pathTexts({irLibrary}) && restoredRig["Tuner Reference"] == 442.);
   assert(restoredRig["Pre 1 Freeze Hold"] == 0. && restoredRig["PresetName"] == presetFile.stem().string());
   assert(host.dirty && (host.rescanned & CLAP_PARAM_RESCAN_VALUES));
   win_file_dialog::Choose({}, [&] { presetMenu(L"Load preset file..."); }, true);
@@ -1599,11 +1613,11 @@ int main(int argc, char** argv)
   click(100, 688); // Manage folders opens settings.
   win_file_dialog::Choose(presetDirectory, [&] { click(912, 138); }, false, true);
   pumpFor(250);
-  assert(save().config()["PresetFolders"] == json::array({nam_library::PathText(presetDirectory)}));
+  assert(userFolders().presetFolders == pathTexts({presetDirectory})); // Saved for this user, not the project.
   click(936, 28); click(470, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-presets.bmp");
   chooseBrowserItem("SECOND RIG");
-  assert(save().config()["Output"] == -10. && save().config()["PresetFolders"].size() == 1);
+  assert(save().config()["Output"] == -10. && userFolders().presetFolders.size() == 1);
   click(584, 28);
   click(624, 28);
   assert(save().config()["PresetName"] == "Second rig" && save().config()["Output"] == -10.);
@@ -1735,7 +1749,7 @@ int main(int argc, char** argv)
   win_file_dialog::Confirm(true, [&] { click(675, 28); });
   const auto fresh = save().config();
   assert(fresh["PresetName"] == "Untitled" && fresh["PresetDirectory"] == beforeNew["PresetDirectory"]);
-  assert(fresh["PresetFolders"] == beforeNew["PresetFolders"] && fresh["NamFolders"] == beforeNew["NamFolders"]);
+  assert(userFolders().presetFolders.size() == 1 && userFolders().namFolders == pathTexts({libraryFolder}));
   assert(fresh["Output"] == 0. && fresh["Input"] == 0.);
   for (int slot = 0; slot < 16; ++slot)
     assert(fresh["SlotEffects"][slot] == static_cast<int>(SlotEffect::NAM) && fresh["SlotPaths"][slot] == "");
@@ -2258,8 +2272,7 @@ int main(int argc, char** argv)
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
-  auto unequal = cleared;
-  unequal["NamFolders"] = {libraryFolder.string()};
+  auto unequal = cleared; // The library still holds libraryFolder.
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);

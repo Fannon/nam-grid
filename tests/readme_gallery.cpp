@@ -51,14 +51,18 @@ int main(int argc, char** argv)
 {
   assert(argc == 4);
   const std::filesystem::path repository = argv[2];
-  win_file_dialog::IsolatedUserHome settingsBackup("nam-grid-gallery"); // Never touches the user's preferences.
-  {
-    nam_library::Settings settings;
-    settings.rescanOnStartup = settings.showVisualizations = true;
-    assert(nam_library::WriteSettings(settingsBackup.file, settings));
-  }
+  IsolatedUserHome settingsBackup("nam-grid-gallery"); // Never touches the user's preferences.
   const auto demo = std::filesystem::path("C:/Users/Public/Documents/NAM Grid demo").make_preferred();
   const auto captures = demo / "Captures", irs = demo / "IRs", presets = demo / "Presets";
+  {
+    // Library folders are per-user settings; the plugin reads them at startup and on every state load.
+    nam_library::Settings settings;
+    settings.rescanOnStartup = settings.showVisualizations = true;
+    settings.namFolders = {nam_library::PathText(captures)};
+    settings.irFolders = {nam_library::PathText(irs)};
+    settings.presetFolders = {nam_library::PathText(presets)};
+    assert(nam_library::WriteSettings(settingsBackup.file, settings));
+  }
   const auto amp1 = captures / "Example WaveNet amp.nam", amp2 = captures / "Example LSTM amp.nam";
   const auto cab = irs / "Example 4x12 cabinet.wav";
   const auto out = std::filesystem::absolute(argv[3]);
@@ -101,9 +105,6 @@ int main(int argc, char** argv)
   config["Pre 3 NAM Input"] = 6.; config["Pre 3 NAM Output"] = 12.; config["B 1 NAM Input"] = 3.; config["B 1 NAM Output"] = 10.;
   config["Pre 4 IR Output"] = -12.; config["B 2 IR Output"] = -18.;
   config["Post 1 Parametric Frequency"] = 2400.; config["Post 1 Parametric Gain"] = 4.; config["Post 1 Parametric Q"] = 1.2;
-  config["NamFolders"] = {captures.string()};
-  config["IrFolders"] = {irs.string()};
-  config["PresetFolders"] = {presets.string()};
   config["PresetName"] = "Ambient pedalboard"; config["PresetDirectory"] = presets.string();
   config["Input"] = 0.; config["Output"] = -3.; config["A/B Blend"] = 40.;
   // Matrix rows: source (1 LFO, 2 Envelope, 4 Macro 1), slot, slot control (17 shared + module control), depth.
@@ -119,7 +120,7 @@ int main(int argc, char** argv)
 
   // Example rig presets for the preset browser, written like Save preset as.
   auto rigOf = [&](json rig, const char* name) {
-    for (const char* key : {"PresetDirectory", "NamFolders", "IrFolders", "PresetFolders", "Tuner", "Tuner Reference", "Tuner Mute"})
+    for (const char* key : {"PresetDirectory", "Tuner", "Tuner Reference", "Tuner Mute"})
       rig.erase(key);
     rig["PresetName"] = name;
     return json{{"format", "nam-grid-preset"}, {"version", 1}, {"rig", rig}};

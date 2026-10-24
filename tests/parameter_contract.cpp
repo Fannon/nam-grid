@@ -1,3 +1,4 @@
+#include "IsolatedUserHome.h"
 #include "ClapTestHost.h"
 #include "ClapHostContractTests.h"
 #include "../NeuralAmpModeler/ParameterLayout.h"
@@ -41,6 +42,7 @@ static_assert(parameter_layout::Total(current) == kNumParams);
 
 int main(int argc, char** argv)
 {
+  IsolatedUserHome userHome("nam-grid-parameter-contract"); // Never the user's settings or library.
   assert(argc == 3 || argc == 4);
   assert(future_layout::Preserves(future_layout::current, future_layout::grown, future_layout::g, future_layout::s));
   assert(future_layout::Preserves(future_layout::grown, future_layout::extended, future_layout::g, future_layout::s + 3));

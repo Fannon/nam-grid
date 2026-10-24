@@ -162,8 +162,8 @@ row has **Open** (Explorer or Finder) and **Remove**. A folder is scanned only f
 folders; the browser's **Manage folders** opens it. A `.ignore` file inside a folder
 excludes files and subfolders like a `.gitignore` (see
 [browser.md](browser.md#excluding-files-with-ignore)). The
-status line counts files and folders per type. Up to 32 roots are retained per type in project
-state and the per-user preference; the earlier combined NAM/IR list is not migrated.
+status line counts files and folders per type. Up to 32 roots are kept per type in your
+per-user settings; the earlier combined NAM/IR list is not migrated.
 Startup rescan is optional (default on); when off, use Rescan all, which indexes every list.
 More than seven rows scroll. Missing sources
 report an error while readable sources still populate. Canonical duplicate roots and overlapping
@@ -196,9 +196,10 @@ The previous/next buttons stay within the same physical folder and file type for
 or within the current module-menu category for built-in effects. Both directions wrap.
 An empty NAM slot stays empty until a file is chosen. The main chooser can select any category.
 
-Library folders (`CaptureFolders`) are saved in project state.
-Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
-before modifying project state. Removing a library source never deletes a file or unloads a module.
+Library folders belong to you, not to a project: they live only in `settings.json`, so
+opening a project or rig never replaces them, and every open instance re-reads them when it
+loads a state. Folder lists that older builds saved in projects are ignored. Removing a
+library source never deletes a file or unloads a module.
 
 ## Settings and default folders
 

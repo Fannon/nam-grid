@@ -1,5 +1,6 @@
 // Windows VST3 controller smoke test: inspect the built plugin rather than
 // assuming CLAP metadata proves VST3 normalization/automation compatibility.
+#include "IsolatedUserHome.h"
 #include <windows.h>
 #include <cassert>
 #include <cmath>
@@ -19,6 +20,7 @@ using json = nlohmann::json;
 
 int main(int argc, char** argv)
 {
+  IsolatedUserHome userHome("nam-grid-vst3-parameter-contract"); // Never the user's settings or library.
   assert(argc == 3);
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str());
   assert(library);

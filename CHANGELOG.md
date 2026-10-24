@@ -7,6 +7,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ### Added
 
 - Library & settings page links to the documentation site, the open-source repository and the issue tracker.
+- Documentation website scaffold (VitePress, dark by default) presenting the guides and module pages.
 
 ## [0.1.0] - 2026-10-24
 

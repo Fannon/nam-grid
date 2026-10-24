@@ -1,0 +1,38 @@
+/* NAM Grid docs theme: the flat black editor with restrained mint accents. */
+
+:root {
+  --vp-font-family-base: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
+
+  --vp-c-brand-1: #2f7a68;
+  --vp-c-brand-2: #276554;
+  --vp-c-brand-3: #1f5244;
+  --vp-c-brand-soft: rgba(113, 199, 178, 0.14);
+}
+
+.dark {
+  --vp-c-brand-1: #71c7b2;
+  --vp-c-brand-2: #5fbfa8;
+  --vp-c-brand-3: #4ea88f;
+  --vp-c-brand-soft: rgba(113, 199, 178, 0.14);
+
+  --vp-c-bg: #000000;
+  --vp-c-bg-alt: #171a1e;
+  --vp-c-bg-elv: #171a1e;
+  --vp-c-bg-soft: #171a1e;
+
+  --vp-c-border: #4e555f;
+  --vp-c-divider: #4e555f;
+  --vp-c-gutter: #4e555f;
+
+  --vp-c-text-1: #e8ebef;
+  --vp-c-text-2: #b7bec8;
+  --vp-c-text-3: #8d959f;
+
+  --vp-c-bg-alpha: rgba(0, 0, 0, 0.72);
+}
+
+/* Mimic the editor's flat dark cards. */
+.dark .VPDoc .vp-doc > div,
+.dark .VPFeature {
+  border-color: var(--vp-c-divider);
+}

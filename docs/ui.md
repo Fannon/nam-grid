@@ -101,6 +101,12 @@ applies its electric-guitar starting settings, including parameters shared with 
 Saved presets and slot edits retain their exact values. See [effect-defaults.md](effect-defaults.md)
 for all module defaults and acoustic/bass adjustments, and [presets.md](presets.md) for rig recall.
 
+Mode controls with three or more choices open a dropdown listing every option,
+with the current choice checked. Cosmic Echo, Distortion and Juno Chorus also
+include short sound descriptions. Selecting the current choice or dismissing
+the menu keeps the setting;
+two-choice modes toggle on click.
+
 Reverb previews share a field for early reflections and nominal -60 dB decay. Size changes spacing; pre-delay shifts the onset. Logarithmic time is explicit. Room and Hall add their exact low (<200 Hz) and high (above Damping) decay lines; Plate and Cloud add the decay at 5 kHz, which Damping, Size and Decay set together. Native Airwindows sustain/size controls use a relative scale rather than an invented RT60. Shimmer shows its pitch layers (each tank pass shifts again, quieter by Amount) and Freeze. These are parameter
 sketches, not measured room dimensions or impulse responses. Wet Mix is shown as a number; it does not shrink the tank sketch.
 Auto Swell draws rise, the 40 ms hold and exponential release on one time axis, beside live IN/OUT history; OUT relative to IN is the swell gain. The hold resets while the input stays above threshold; release begins after the hold runs out and the detected level falls at least 3 dB below threshold (the shaded band). Notes played during the release continue from the current gain rather than swelling again.

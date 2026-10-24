@@ -66,6 +66,11 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::ShimmerReverb:
       set(uShimmerMix, 25.); set(uShimmerDecay, 5.); set(uShimmerTone, 6000.);
       set(uShimmerAmount, 25.); set(uShimmerMod, 30.); break;
+    case SlotEffect::CosmicEcho:
+      set(uCosmicStyle, static_cast<int>(effect_modes::CosmicStyle::Virgo));
+      set(uCosmicTime, 280.); set(uCosmicWarp, 51.6); set(uCosmicFeedback, 30.9);
+      set(uCosmicDensity, 49.2); set(uCosmicTone, 7461.); set(uCosmicMotion, 29.5);
+      set(uCosmicMix, 18.); break;
     case SlotEffect::Chorus:
       mod(.8, 35., 0., 0., 40.); break;
     case SlotEffect::JunoChorus:
@@ -105,7 +110,7 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::ParametricEQ: case SlotEffect::Wah: case SlotEffect::Utility: case SlotEffect::Limiter:
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
     case SlotEffect::NoisePrint: case SlotEffect::AirPlate: case SlotEffect::AirHall:
-    case SlotEffect::GalacticSpace: case SlotEffect::CosmicEcho:
+    case SlotEffect::GalacticSpace:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DigitalBlack: break;
   }

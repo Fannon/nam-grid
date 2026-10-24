@@ -951,6 +951,74 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, MK_SHIFT, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  const auto selectChoice = [&](int control, int choice, int current, bool dismiss = false, SlotEffect effect = SlotEffect::NAM) {
+    const bool header = effect_presentation::HeaderControl(control);
+    const int position = effect_presentation::Position(effect, control);
+    const int x = header ? 558 : grid_layout::KnobX(position);
+    const int y = header ? grid_layout::optionsY : grid_layout::ToggleY(position);
+    win_edit_menu::SelectChoice(editor, x, y, EffectChoices(control), choice, current, dismiss);
+    pumpFor(50);
+  };
+  {
+    auto previous = save().config();
+    const std::pair<SlotEffect, int> modes[]{
+      {SlotEffect::CosmicEcho, uCosmicStyle}, {SlotEffect::MultiHeadDelay, uTapeHeads},
+      {SlotEffect::ConsoleColour, uColourDesk}, {SlotEffect::Distortion, uDistStyle},
+      {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
+      {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
+      {SlotEffect::DigitalBlack, uBlackMode}};
+    for (const auto& [effect, control] : modes)
+    {
+      auto original = cleared;
+      original["SlotEffects"][0] = static_cast<int>(effect);
+      const auto defaults = SlotDefaultValues(effect);
+      for (int p = 0; p < kUtilityControls; ++p)
+        original[std::string("Pre 1 ") + kEffectParameters[p].name] = defaults[17 + p];
+      const std::string parameter = std::string("Pre 1 ") + kEffectParameters[control].name;
+      original[parameter] = 0.;
+      if (control == uTempoDivision) original["Pre 1 Tempo Sync"] = 1.;
+      load(original); selectTile(170, 120);
+      const auto before = save().config();
+      if (effect_presentation::ChoiceDropdown(control))
+      {
+        host.dirty = host.flushRequested = false;
+        selectChoice(control, 0, 0, true, effect);
+        assert(save().config() == before && !host.dirty && !host.flushRequested);
+        selectChoice(control, 0, 0, false, effect);
+        assert(save().config() == before && !host.dirty && !host.flushRequested);
+        int current = 0;
+        for (int choice = static_cast<int>(EffectChoices(control).size()) - 1; choice >= 0; --choice)
+        {
+          selectChoice(control, choice, current, false, effect);
+          auto expected = before; expected[parameter] = static_cast<double>(choice);
+          assert(save().config() == expected);
+          current = choice;
+        }
+        selectChoice(control, 2, 0, false, effect);
+        auto stored = save().config();
+        load(stored); selectTile(170, 120);
+        selectChoice(control, 0, 2, true, effect);
+        assert(save().config() == stored);
+      }
+      else
+      {
+        const int position = effect_presentation::Position(effect, control);
+        const int x = effect_presentation::HeaderControl(control) ? 558 : grid_layout::KnobX(position);
+        const int y = effect_presentation::HeaderControl(control) ? grid_layout::optionsY : grid_layout::ToggleY(position);
+        click(x, y); assert(save().config()[parameter] == 1.);
+        click(x, y); assert(save().config() == before);
+      }
+      if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / ("mode-" + std::to_string(control) + ".bmp"));
+    }
+    load(previous);
+    std::cout << "Native mode menus: every choice, checked selection, cancellation, unchanged selection, recall and two-choice toggles passed\n";
+    if (std::getenv("NAM_GRID_MODE_SMOKE"))
+    {
+      gui->destroy(plugin); DestroyWindow(parent);
+      plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+      return 0;
+    }
+  }
   if(fxVisuals)
   {
     const std::array<const char*,17> names{{"In","Trim","Enabled","Gate Threshold","Gate Release","Gate Reduction",
@@ -1354,7 +1422,7 @@ int main(int argc, char** argv)
   load(previewMode); selectTile(170, 120);
   click(356, grid_layout::moduleButtonY);
   host.dirty = host.flushRequested = false;
-  click(558, grid_layout::optionsY); // A mode edit remains part of the audition.
+  selectChoice(uCosmicStyle, 1, 0); // A mode edit remains part of the audition.
   assert(rawValue("Pre 1 Cosmic Style") == 1.);
   assert(save().config() == previewMode);
   assert(!host.dirty && !host.flushRequested);
@@ -1363,7 +1431,7 @@ int main(int argc, char** argv)
   assert(save().config() == previewMode);
   assert(!host.dirty && !host.flushRequested);
   click(356, grid_layout::moduleButtonY);
-  click(558, grid_layout::optionsY);
+  selectChoice(uCosmicStyle, 1, 0);
   keyAtEditor(VK_RETURN); // Accepting commits the mode edit and tells the host once.
   assert(host.dirty);
   assert(rawValue("Pre 1 Cosmic Style") == 1. && save().config()["Pre 1 Cosmic Style"] == 1.);
@@ -1787,7 +1855,14 @@ int main(int argc, char** argv)
         // Drag down at an upper limit (Tape Mix defaults to 100%).
         const int position = effect_presentation::Position(effect, p);
         const int x = grid_layout::KnobX(position);
-        if (p == uTapeHeads || p == uCosmicStyle || p == uColourDesk || p == uBlackMode) click(558, grid_layout::optionsY);
+        if (!EffectChoices(p).empty())
+        {
+          const int current = static_cast<int>(before[name].get<double>());
+          const int next = current >= descriptor.maximum ? static_cast<int>(descriptor.minimum) : current + 1;
+          if (effect_presentation::ChoiceDropdown(p)) selectChoice(p, next, current, false, effect);
+          else click(effect_presentation::HeaderControl(p) ? 558 : x,
+                     effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
+        }
         else if (EffectChoices(p).empty() && descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
           click(x, grid_layout::ToggleY(position));
         else

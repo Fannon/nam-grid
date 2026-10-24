@@ -1,18 +1,20 @@
 # README screenshots
 
-Captured on Windows x64 from the 0.1.0 release candidate on 2026-10-23, using
-the Release CLAP plugin in `build-grid/out`. Every image is the native editor at
-its original 1000 × 720 resolution, captured directly from its OpenGL surface
-with [`CaptureEditor`](../../tests/WinEditorCapture.h) while generated guitar-like
-audio plays, and converted losslessly from BMP to PNG. No desktop chrome or
-personal paths appear.
+The main image, `grid.png`, is a supplied screenshot of the "Clean Bright Twin"
+rig, preserved at its original resolution. It shows a gate and Punch Compressor
+in Pre, two bypassed NAM pedal captures, an amp-and-cab capture in lane A, and
+Analog Echo, Cosmic Echo and Peak Limiter in Post. Post 2 Cosmic Echo is selected.
+The captures shown are external files, not bundled content.
 
-All images show one illustrative rig, "Ambient pedalboard" (not a bundled
-preset): Noise Gate, Tube Boost, a NAM capture and a cabinet IR in Pre; Juno
-Chorus, Tape Echo and Room in lane A; a second NAM capture, a cabinet IR and
-Cosmic Echo in lane B; Parametric EQ, Airwindows Tape and Peak Limiter in Post.
+The remaining gallery images are captured from the native Windows editor with
+[`CaptureEditor`](../../tests/WinEditorCapture.h) while generated guitar-like
+audio plays, and converted losslessly from BMP to PNG. They show the illustrative
+"Ambient pedalboard" rig: Noise Gate, Tube Boost, a NAM capture and a cabinet IR
+in Pre; Juno Chorus, Tape Echo and Room in lane A; a second NAM capture, a cabinet
+IR and Cosmic Echo in lane B; Parametric EQ, Airwindows Tape and Peak Limiter in
+Post. This rig is not a bundled preset.
 
-The demo library lives in `C:\Users\Public\Documents\NAM Grid demo`:
+The generated gallery uses a demo library containing:
 
 - `Example WaveNet amp.nam` and `Example LSTM amp.nam` are NAM Core's MIT
   example models (`example_models/wavenet.nam` and `lstm.nam`).
@@ -23,7 +25,7 @@ The demo library lives in `C:\Users\Public\Documents\NAM Grid demo`:
 
 | File | View |
 | --- | --- |
-| `grid.png` | Full rig with B3 Cosmic Echo selected |
+| `grid.png` | Clean Bright Twin rig with Post 2 Cosmic Echo selected |
 | `nam.png` | Pre 3 NAM capture with its measured input/output curve |
 | `ir.png` | Pre 4 cabinet IR frequency response |
 | `delay.png` | A2 Tape Echo |
@@ -34,8 +36,8 @@ The demo library lives in `C:\Users\Public\Documents\NAM Grid demo`:
 | `control.png` | Grid / Control modulation page: LFO source and three matrix rows (retaken 2026-10-24) |
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
 
-To retake them on Windows, build the opt-in `nam-readme-gallery` target and run
-it with the plugin, the repository root and an output folder:
+To regenerate the gallery on Windows, build the opt-in `nam-readme-gallery`
+target and run it with the plugin, the repository root and an output folder:
 
 ```sh
 cmake --build build-grid --config Release --target nam-grid-clap nam-readme-gallery
@@ -43,6 +45,7 @@ build-grid/NeuralAmpModeler/nam-readme-gallery build-grid/out/nam-grid.clap . tm
 ```
 
 It creates the demo library and renders every view as BMP, using a private temporary
-`NAM_GRID_HOME`, so your own settings are never touched. Convert the BMPs losslessly to PNG; see
+`NAM_GRID_HOME`, so your own settings are never touched. Keep the supplied main
+image when updating the gallery. Convert the other BMPs losslessly to PNG; see
 [ui.md](../ui.md) for the views and [build.md](../build.md#editor-screenshots) for
 the smoke-test screenshot modes.

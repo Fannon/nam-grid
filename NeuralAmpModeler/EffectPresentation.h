@@ -5,6 +5,26 @@
 // take their labels directly from the host/state parameter descriptors.
 namespace effect_presentation
 {
+inline bool ChoiceDropdown(int p) { return EffectChoices(p).size() >= 3; }
+inline const char* ChoiceDescription(int p, int mode)
+{
+  static constexpr const char* cosmic[]{
+    "Dense, smooth ambience", "Slow, swelling echoes", "Dark, sparse repeats",
+    "Swelling reverb bloom", "Long, evolving tails", "Clear, sparse repeats"};
+  static constexpr const char* distortion[]{
+    "Smooth, rounded drive", "Sharper, brighter drive", "Dense, compressed sustain",
+    "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz"};
+  static constexpr const char* juno[]{"Slower voice", "Both voices", "Faster voice"};
+  std::span<const char* const> descriptions;
+  switch (p)
+  {
+    case uCosmicStyle: descriptions = cosmic; break;
+    case uDistStyle: descriptions = distortion; break;
+    case uJunoMode: descriptions = juno; break;
+    default: break;
+  }
+  return mode >= 0 && mode < static_cast<int>(descriptions.size()) ? descriptions[mode] : "";
+}
 inline bool HeaderControl(int p)
 { return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uTapeHeads || p == uCosmicStyle || p == uColourDesk || p == uBlackMode; }
 inline bool PingPong(SlotEffect e)

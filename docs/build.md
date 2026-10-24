@@ -141,6 +141,12 @@ opt-in and run separately from CTest.
 
 ## Editor screenshots
 
+For focused native mode-selector checks on Windows, set `NAM_GRID_MODE_SMOKE=1`
+when running `nam-clap-smoke`. It checks every dropdown choice, the current-item
+checkmark, cancellation, unchanged selection, recall and two-choice toggles, then
+exits before the remaining editor checks. An optional screenshot directory captures
+the closed selectors for visual review. Unset it for the complete smoke test.
+
 The README gallery comes from the opt-in, Windows-only `nam-readme-gallery`
 target; see [screenshots/README.md](screenshots/README.md).
 

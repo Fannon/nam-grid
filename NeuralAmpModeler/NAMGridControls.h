@@ -326,6 +326,14 @@ public:
   : IVButtonControl(r, action, label, Style().WithLabelText(Text(14.f, text, EAlign::Center)))
   {
   }
+  // iPlug2 releases a pressed button only at the end of a click animation; these actions run
+  // directly, so release it on mouse-up instead of leaving it drawn pressed.
+  void OnMouseUp(float x, float y, const IMouseMod& mod) override
+  {
+    IVButtonControl::OnMouseUp(x, y, mod);
+    SetValue(0.);
+    SetDirty(false);
+  }
 };
 class HintLabel : public ITextControl
 {
@@ -412,9 +420,11 @@ inline IRECT ControlBounds(int position)
 class Toggle : public IVToggleControl
 {
 public:
-  Toggle(const IRECT& r, int param, const char* label = "")
+  // A selector shows only its label and lights up while on, like a selected tab.
+  Toggle(const IRECT& r, int param, const char* label = "", bool selector = false)
   : IVToggleControl(r, param, label, Style(), "OFF", "ON")
   , mLabel(label)
+  , mSelector(selector)
   {
   }
   void Draw(IGraphics& g) override
@@ -428,6 +438,13 @@ public:
     }
     const auto button = tall ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT;
     const bool on = GetValue() >= .5;
+    if (mSelector)
+    {
+      g.FillRoundRect(on ? accent.WithOpacity(.18f) : surface, button, 3.f);
+      g.DrawRoundRect(on ? accent : mMouseIsOver ? muted : border, button, 3.f);
+      g.DrawText(Text(14.f, on ? accent : text, EAlign::Center), mLabel.c_str(), button);
+      return;
+    }
     g.FillRoundRect(on ? IColor(255, 49, 53, 59) : surface, button, 3.f);
     g.DrawRoundRect(on ? muted : border, button, 3.f);
     const std::string caption = !tall && !mLabel.empty() ? mLabel + (on ? ": ON" : ": OFF") : on ? "ON" : "OFF";
@@ -437,6 +454,7 @@ public:
 
 private:
   std::string mLabel;
+  bool mSelector = false;
 };
 
 inline void DisableTunerFromUI(IGraphics* ui)
@@ -603,44 +621,74 @@ public:
   LevelStrip(const IRECT& r, const LevelComparison& levels, std::function<IColor()> ink)
   : IControl(r), mLevels(levels), mInk(std::move(ink))
   {
-    SetTooltip("Module input and output: RMS bar, peak tick, -60 to 0 dBFS, over the last 0.4 s. Gain is the RMS change. "
-               "Crest is peak to RMS: a lower crest at the output means the module compresses or saturates, a higher "
-               "one that it expands or sharpens attacks. Mono sums, like the slot meters.");
+    SetTooltip("Module input and output on the slot meters' scale, -60 to +6 dBFS (line at 0 dBFS): RMS bar over the last "
+               "0.4 s, held peak tick (1.5 s, then 12 dB/second), red above 0 dBFS and for 2 s after an over. Values read "
+               "RMS / peak. Gain is the RMS change. Crest is peak to RMS: a lower crest at the output means the module "
+               "compresses or saturates, a higher one that it expands or sharpens attacks. Mono sums, like the slot meters.");
+  }
+  // The same peaks the slot's card meters receive.
+  void Push(double inputPeak, double outputPeak)
+  {
+    const double now = Now();
+    mPeaks[0].Receive(0., inputPeak); mPeaks[1].Receive(0., outputPeak);
+    if (inputPeak >= 1.) mClipUntil[0] = now + kClipHoldSeconds;
+    if (outputPeak >= 1.) mClipUntil[1] = now + kClipHoldSeconds;
+    SetDirty(false);
+  }
+  bool IsDirty() override
+  {
+    const double now = Now();
+    for (auto& peak : mPeaks) peak.Tick(std::max(0., now - mTick), false);
+    mTick = now;
+    if (!IsHidden() && (mPeaks[0].peak > 0. || mPeaks[1].peak > 0. || now < std::max(mClipUntil[0], mClipUntil[1]) + .1))
+      SetDirty(false);
+    return IControl::IsDirty();
   }
   void Draw(IGraphics& g) override
   {
     if (!PLUG()->GetShowVisualizations()) return;
     const auto ink = mInk();
     const float y = mRECT.MH();
-    const auto bar = [&](float left, const char* label, const LevelComparison::Side& side) {
-      g.DrawText(Text(12.f, muted), label, IRECT(left, mRECT.T, left + 30.f, mRECT.B));
-      const IRECT track(left + 32.f, y - 3.f, left + 152.f, y + 3.f);
+    const double now = Now();
+    const auto bar = [&](float left, const char* label, const LevelComparison::Side& side, int index) {
+      g.DrawText(Text(12.f, muted), label, IRECT(left, mRECT.T, left + 26.f, mRECT.B));
+      const IRECT track(left + 28.f, y - 3.f, left + 132.f, y + 3.f);
+      const auto x = [&](double db) {
+        return track.L + track.W() * static_cast<float>(std::clamp((db - kMeterFloorDB) / (kMeterCeilingDB - kMeterFloorDB), 0., 1.));
+      };
+      const auto dB = [](double level) { return 20. * std::log10(std::max(level, 1.e-6)); };
+      const float zero = x(0.);
       g.FillRect(surface, track);
-      const auto x = [&](double db) { return track.L + track.W() * static_cast<float>(std::clamp((db + 60.) / 60., 0., 1.)); };
-      if (mLevels.valid)
-      {
-        g.FillRect(ink.WithOpacity(.75f), IRECT(track.L, track.T, x(side.rmsDB), track.B));
-        g.DrawLine(text, x(side.peakDB), track.T - 2.f, x(side.peakDB), track.B + 2.f, nullptr, 1.5f);
-      }
+      if (mLevels.valid) g.FillRect(ink.WithOpacity(.75f), IRECT(track.L, track.T, std::min(zero, x(side.rmsDB)), track.B));
+      const double peak = mPeaks[index].peak;
+      const bool clipped = now < mClipUntil[index];
+      if (clipped || peak > 1.) g.FillRect(COLOR_RED, IRECT(zero, track.T, clipped ? track.R : x(dB(peak)), track.B));
+      g.DrawLine(text.WithOpacity(.8f), zero, track.T - 1.f, zero, track.B + 1.f);
+      if (peak > 0.) g.DrawLine(text, x(dB(peak)), track.T - 2.f, x(dB(peak)), track.B + 2.f, nullptr, 1.5f);
       WDL_String value;
-      if (mLevels.valid) value.SetFormatted(16, "%.1f", side.rmsDB);
+      if (mLevels.valid && peak > 0.) value.SetFormatted(32, "%.1f / %.1f", side.rmsDB, dB(peak));
+      else if (peak > 0.) value.SetFormatted(32, "- / %.1f", dB(peak));
       else value.Set("-");
-      g.DrawText(Text(12.f, text, EAlign::Far), value.Get(), IRECT(track.R + 4.f, mRECT.T, track.R + 44.f, mRECT.B));
+      g.DrawText(Text(12.f, clipped ? COLOR_RED : text, EAlign::Far), value.Get(), IRECT(track.R + 2.f, mRECT.T, track.R + 82.f, mRECT.B));
     };
-    bar(mRECT.L, "IN", mLevels.input);
-    bar(mRECT.L + 214.f, "OUT", mLevels.output);
+    bar(mRECT.L, "IN", mLevels.input, 0);
+    bar(mRECT.L + 236.f, "OUT", mLevels.output, 1);
     WDL_String value;
     if (mLevels.valid)
       value.SetFormatted(96, "Gain %+.1f dB     Crest %.1f > %.1f dB (%+.1f)", mLevels.GainDB(), mLevels.input.crestDB,
                          mLevels.output.crestDB, mLevels.CrestChangeDB());
     else value.Set("Play to compare input and output");
-    g.DrawText(Text(12.f, muted), value.Get(), IRECT(mRECT.L + 436.f, mRECT.T, mRECT.R - 150.f, mRECT.B));
-    g.DrawText(Text(12.f, muted, EAlign::Far), "dB RMS / peak, 0.4 s", IRECT(mRECT.R - 150.f, mRECT.T, mRECT.R, mRECT.B));
+    g.DrawText(Text(12.f, muted), value.Get(), IRECT(mRECT.L + 470.f, mRECT.T, mRECT.R - 120.f, mRECT.B));
+    g.DrawText(Text(12.f, muted, EAlign::Far), "dB RMS / peak", IRECT(mRECT.R - 120.f, mRECT.T, mRECT.R, mRECT.B));
   }
 
 private:
+  static double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
   const LevelComparison& mLevels;
   std::function<IColor()> mInk;
+  std::array<LevelReadout, 2> mPeaks;
+  std::array<double, 2> mClipUntil{};
+  double mTick = 0.;
 };
 
 // Decorative wiring stays behind the cards; no bitmaps, shadows or animated routing.
@@ -1008,7 +1056,7 @@ public:
       const auto& meter = static_cast<const iplug::ISenderData<1, SlotMeterData>*>(data)->vals[0];
       mLevels.Receive(meter.inputEnergy, meter.outputEnergy, meter.input, meter.output, meter.frames,
                       PLUG()->GetSampleRate());
-      if (mLevelStrip && PLUG()->GetSelectedSlot() == mSlot) mLevelStrip->SetDirty(false);
+      if (mLevelStrip) mLevelStrip->Push(meter.input, meter.output);
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
@@ -2243,6 +2291,10 @@ private:
 
 class NAMGridTunerControl : public IContainerBase
 {
+  // Left section: the note readout, then Mute output and Reference in a column; the tuning
+  // bar spans both. The pitch history fills the right section.
+  static constexpr float kLeftL = 24.f, kLeftR = 356.f, kNoteR = 220.f, kColumnL = 232.f;
+
 public:
   explicit NAMGridTunerControl(const IRECT& r) : IContainerBase(r) {}
   void OnAttached() override
@@ -2251,8 +2303,10 @@ public:
     AddChildControl(new Button(IRECT(896, 488, 976, 512), [this](IControl*) {
       DisableTunerFromUI(GetUI());
     }, "Close"));
-    AddChildControl(new Knob(IRECT(216, 536, 340, 634), kTunerReference, "Reference"));
-    AddChildControl(new Toggle(IRECT(216, 646, 340, 680), kTunerMute, "Mute output"));
+    // Right column of the left section: Mute output on top, a compact Reference knob below.
+    AddChildControl(new Toggle(IRECT(kColumnL, 520, kLeftR, 546), kTunerMute, "Mute output"))
+      ->SetTooltip("Silence the output while tuning. Turning the tuner off always restores sound.");
+    AddChildControl(new Knob(IRECT(kColumnL + 14, 556, kLeftR - 14, 646), kTunerReference, "Reference"));
   }
   void Refresh()
   {
@@ -2282,17 +2336,26 @@ public:
     {
       const char* notes[]{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
       const std::string label = std::string(notes[(pitch.note % 12 + 12) % 12]) + std::to_string(pitch.note / 12 - 1);
-      g.DrawText(Text(64.f, pitchColor(pitch.cents), EAlign::Center), label.c_str(), IRECT(24, 525, 196, 605));
+      g.DrawText(Text(64.f, pitchColor(pitch.cents), EAlign::Center), label.c_str(), IRECT(kLeftL, 520, kNoteR, 600));
       WDL_String value; value.SetFormatted(64, "%+.1f cents", pitch.cents);
-      g.DrawText(Text(20.f, pitchColor(pitch.cents), EAlign::Center), value.Get(), IRECT(24, 604, 196, 634));
+      g.DrawText(Text(20.f, pitchColor(pitch.cents), EAlign::Center), value.Get(), IRECT(kLeftL, 598, kNoteR, 626));
       value.SetFormatted(64, "%.1f Hz", frequency);
-      g.DrawText(Text(13.f, muted, EAlign::Center), value.Get(), IRECT(24, 636, 196, 658));
-      const float x = 110.f + 1.7f * static_cast<float>(pitch.cents);
-      g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 2, 667, x + 2, 680), 1.f);
+      g.DrawText(Text(13.f, muted, EAlign::Center), value.Get(), IRECT(kLeftL, 626, kNoteR, 646));
     }
-    else g.DrawText(Text(23.f, muted, EAlign::Center), "Play a note", IRECT(24, 550, 196, 630));
-    g.DrawLine(border, 24, 674, 196, 674);
-    g.DrawLine(text, 110, 663, 110, 684);
+    else g.DrawText(Text(23.f, muted, EAlign::Center), "Play a note", IRECT(kLeftL, 545, kNoteR, 625));
+    // Tuning bar across the whole left section: ±50 cents, the ±3 cent window shaded green.
+    const IRECT bar(kLeftL, 664, kLeftR, 684);
+    const auto barX = [&](double cents) { return bar.MW() + bar.W() * .5f * static_cast<float>(std::clamp(cents, -50., 50.) / 50.); };
+    g.FillRect(accent.WithOpacity(.15f), IRECT(barX(-3.), bar.T + 4, barX(3.), bar.B - 4));
+    g.DrawLine(border, bar.L, bar.MH(), bar.R, bar.MH());
+    for (int cents : {-50, -25, -10, 10, 25, 50})
+      g.DrawLine(border, barX(cents), bar.MH() - 4, barX(cents), bar.MH() + 4);
+    g.DrawLine(text, bar.MW(), bar.T, bar.MW(), bar.B);
+    if (pitch.valid)
+    {
+      const float x = barX(pitch.cents);
+      g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 3, bar.T + 3, x + 3, bar.B - 3), 1.5f);
+    }
 
     const IRECT panel(372, 520, 976, 696), plot(410, 538, 964, 674);
     g.FillRoundRect(IColor(255, 17, 21, 24), panel, 4.f);
@@ -2328,6 +2391,6 @@ public:
     }
     g.DrawText(Text(13.f, muted), "6 s ago", IRECT(plot.L, 676, plot.L + 100, 696));
     g.DrawText(Text(13.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, 676, plot.R, 696));
-    g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents. Escape / Tuner OFF restores output.", IRECT(24, 696, 976, 719));
+    g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents. Escape, Tuner or selecting a slot restores output.", IRECT(24, 696, 976, 719));
   }
 };

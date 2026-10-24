@@ -2199,7 +2199,7 @@ int main(int argc, char** argv)
   load(cleared);
   click(808, 36); // Tuner beside Settings.
   assert(save().config()["Tuner"] == 1.);
-  dragAt(278, 579);
+  dragAt(294, 601); // The compact Reference knob below Mute output.
   assert(save().config()["Tuner Reference"] != 440.);
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
@@ -2219,6 +2219,18 @@ int main(int argc, char** argv)
   pumpFor(50);
   assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   assert(std::abs(output[0][400]) > .001);
+  // The Tuner button works like a module selector: click it again, or select a slot, to leave.
+  click(808, 36);
+  assert(save().config()["Tuner"] == 1.);
+  click(294, 533); // Mute output, at the top of the tuner's control column.
+  assert(save().config()["Tuner Mute"] == 0.);
+  click(294, 533);
+  assert(save().config()["Tuner Mute"] == 1.);
+  click(808, 36);
+  assert(save().config()["Tuner"] == 0.);
+  click(808, 36);
+  selectTile(390, 120);
+  assert(save().config()["Tuner"] == 0.);
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.

@@ -228,8 +228,9 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
       "Library & settings"));
-    ui->AttachControl(new grid_ui::Toggle(IRECT(770, 14, 850, 42), kTunerActive, "Tuner"), kCtrlTagTunerButton)
-      ->SetTooltip("Automatable tuner and output mute. Turn off to restore sound; Mute output can be disabled below.");
+    ui->AttachControl(new grid_ui::Toggle(IRECT(770, 14, 850, 42), kTunerActive, "Tuner", true), kCtrlTagTunerButton)
+      ->SetTooltip("Show the tuner in place of the module editor; click again or select a slot to leave it. "
+                   "Automatable; mutes the output while on unless Mute output is off.");
     ui->AttachControl(new grid_ui::Wiring(b));
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
@@ -581,6 +582,8 @@ void NeuralAmpModeler::SelectSlot(size_t slot)
     return;
   mSelectedSlot = slot;
   if (mRoutingOpen) SetRoutingOpen(false); // Choosing a slot shows its editor again.
+  // The Tuner button works like selecting a module: choosing a slot leaves the tuner.
+  if (IsTunerActive() && GetUI()) grid_ui::DisableTunerFromUI(GetUI());
   mSpectrumSlot.store(mShowVisualizations ? static_cast<int>(slot) : -1, std::memory_order_relaxed);
   if (auto* ui = GetUI())
     for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)

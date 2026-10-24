@@ -9,6 +9,7 @@
 #include "../NeuralAmpModeler/CaptureLibrary.h"
 #include "../NeuralAmpModeler/RigPreset.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
+#include "../NeuralAmpModeler/GridLayout.h"
 #include <cctype>
 #include <random>
 #include <thread>
@@ -199,8 +200,9 @@ static int Run(int argc, char** argv)
   { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
   click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
   click(919, 28); play(800); shot("settings"); click(936, 28);
-  click(225, 28); play(2000); shot("control"); click(936, 28);
-  sustained = true; play(500); click(810, 28); play(3000); shot("tuner"); click(810, 28);
+  click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY); play(2000); shot("control"); click(936, 28);
+  constexpr int tunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
+  sustained = true; play(500); click(tunerX, grid_layout::headerY); play(3000); shot("tuner"); click(tunerX, grid_layout::headerY);
   sustained = false;
   // Every built-in module with its defaults in the empty A4 slot, cropped to the editor panel.
   std::filesystem::create_directories(out / "modules");

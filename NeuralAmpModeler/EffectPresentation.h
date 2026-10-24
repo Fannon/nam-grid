@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include "EffectParameters.h"
 
 // Shared controls may have effect-specific wording and layout. Unique controls
@@ -44,17 +45,44 @@ inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, 
   if (e == SlotEffect::UniVibe && p == uModMix && vibrato) return false;
   return UsesUtility(e, p);
 }
-// Layout rule for the eight positions (0-3 top row, 4-7 bottom row): the module's
-// main controls fill the top row from the left, Output sits at 4 below the first
-// control, Mix at 6 and Enabled at 7. EffectPresentationTests checks every module.
-inline constexpr int kOutputPosition = 4, kMixPosition = 6;
-inline int Position(SlotEffect e, int p)
+// The eight positions are 0-3 (top row) and 4-7 (bottom row, Enabled at 7). The table places
+// main controls in the top row from the left, Output at 4 below the first control and Mix at 6.
+inline constexpr int kOutputPosition = 4;
+inline int TablePosition(SlotEffect e, int p)
 {
   // Shared family controls whose place differs for one module.
   if (e == SlotEffect::SpringReverb && p == uReverbTone) return 3;
   if (e == SlotEffect::ReverseDelay && p == uDelayTone) return 1;
   if (p == uModCharacter && e != SlotEffect::Flanger && e != SlotEffect::Phaser) return 2; // No feedback control.
   return kEffectParameters[p].position;
+}
+// Places held by the slot's own dynamics and EQ knobs rather than by module controls.
+inline std::array<bool, 7> FixedPlaces(SlotEffect e)
+{
+  std::array<bool, 7> fixed{};
+  if (e == SlotEffect::NoiseGate || e == SlotEffect::SmoothComp || e == SlotEffect::PunchComp
+      || e == SlotEffect::ToneEQ || e == SlotEffect::CutEQ)
+    fixed[0] = fixed[1] = fixed[2] = true;
+  if (e == SlotEffect::ParametricEQ) fixed[4] = fixed[5] = true;
+  if (e == SlotEffect::Boost || e == SlotEffect::TubeBoost) fixed[2] = true;
+  return fixed;
+}
+// Packs the table places a module uses in any mode, so few controls never sit apart. Up to
+// four places form one row, left to right (main controls, then Output, then Mix). Otherwise
+// the top row stays and the bottom row fills from the left. A mode only hides controls, so it
+// never moves the others. EffectPresentationTests checks every module.
+inline int Position(SlotEffect e, int p)
+{
+  auto used = FixedPlaces(e);
+  for (int q = 0; q < kUtilityControls; ++q)
+    if (!HeaderControl(q))
+      for (bool sync : {false, true})
+        for (bool alternate : {false, true})
+          if (Visible(e, q, sync, alternate, alternate)) used[TablePosition(e, q)] = true;
+  const int own = TablePosition(e, p);
+  const auto placesBefore = [&](int from) { return static_cast<int>(std::count(used.begin() + from, used.begin() + own, true)); };
+  if (std::count(used.begin(), used.end(), true) <= 4) return placesBefore(0);
+  return own < 4 ? own : kOutputPosition + placesBefore(kOutputPosition);
 }
 inline const char* Label(SlotEffect e, int p)
 {

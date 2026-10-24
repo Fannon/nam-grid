@@ -334,6 +334,16 @@ public:
     SetValue(0.);
     SetDirty(false);
   }
+  void Draw(IGraphics& g) override { DrawBox(g, mRECT.GetHPadded(-6.f)); }
+protected:
+  // The box tabs, scene buttons and selectors share: 3 px corners on the full bounds, so
+  // every header box has the same height, outline and text baseline.
+  void DrawBox(IGraphics& g, const IRECT& labelBounds)
+  {
+    g.FillRoundRect(GetValue() > .5 ? IColor(255, 49, 53, 59) : surface, mRECT, 3.f);
+    g.DrawRoundRect(mMouseIsOver && !IsDisabled() ? muted : border, mRECT, 3.f);
+    FittedText(g, Text(14.f, IsDisabled() ? muted : text, EAlign::Center), GetLabelStr(), labelBounds);
+  }
 };
 class HintLabel : public ITextControl
 {
@@ -709,6 +719,9 @@ public:
         const float x = 276.f + 212.f * col;
         g.DrawLine(border, x, centre(row), x + 24, centre(row));
       }
+    // IN and OUT reach their knobs, passing behind the stereo meters.
+    g.DrawLine(border, 64, centre(0), 88, centre(0));
+    g.DrawLine(border, 912, centre(3), 940, centre(3));
     g.DrawLine(border, 912, centre(0), 928, centre(0));
     g.DrawLine(border, 928, centre(0), 928, gap(0));
     g.DrawLine(border, 928, gap(0), 69, gap(0));
@@ -722,16 +735,6 @@ public:
     g.DrawLine(border, 69, gap(2), 69, centre(3));
     g.DrawLine(border, 69, centre(3), 88, centre(3));
   }
-};
-
-// IN to the first card and the last card to OUT, drawn above the level meters they cross.
-class FlowLink : public IControl
-{
-public:
-  FlowLink(float left, float right, float y)
-  : IControl(IRECT(left, y - 1.f, right, y + 1.f))
-  { mIgnoreMouse = true; }
-  void Draw(IGraphics& g) override { g.DrawLine(border, mRECT.L, mRECT.MH(), mRECT.R, mRECT.MH()); }
 };
 } // namespace grid_ui
 

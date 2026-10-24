@@ -4,6 +4,14 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-24
+
+### Changed
+
+- Tidier header: every box has the same height and outline, the rig preset name has more room, and Modulation now sits next to Tuner.
+- Modules with only a few controls keep them together, filled from the left, instead of spreading them across both rows.
+- The IN and OUT lines reach their knobs, passing behind the stereo meters, with a little more space between the meters and the first and last modules.
+
 ### Added
 
 - Library & settings page links to the documentation site, the open-source repository and the issue tracker.

@@ -2,6 +2,7 @@
 #include "EffectPreview.h"
 #include "ModuleCatalog.h"
 #include "SlotDefaults.h"
+#include <algorithm>
 #include <cstring>
 #include <string_view>
 
@@ -29,12 +30,8 @@ void TestEffectPresentation()
           const auto defaults = SlotDefaultValues(effect);
           for (int p = 0; p < kUtilityControls; ++p)
             assert(defaults[17+p] >= kEffectParameters[p].minimum && defaults[17+p] <= kEffectParameters[p].maximum);
-          std::array<bool, 7> occupied{};
-          if (effect == SlotEffect::NoiseGate || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp
-              || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
-            occupied[0] = occupied[1] = occupied[2] = true;
-          if (effect == SlotEffect::ParametricEQ) occupied[4] = occupied[5] = true;
-          if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost) occupied[2] = true;
+          auto occupied = effect_presentation::FixedPlaces(effect);
+          int output = -1, mix = -1;
           for (int p = 0; p < kUtilityControls; ++p)
           {
             if (!effect_presentation::Visible(effect, p, sync, alternate, alternate)) continue;
@@ -48,26 +45,33 @@ void TestEffectPresentation()
                         << " sync=" << sync << " alternate=" << alternate << '\n';
             assert(position >= 0 && position < 7 && !occupied[position]);
             occupied[position] = true;
-            // Output below the first control, Mix last before Enabled.
             const std::string_view name = kEffectParameters[p].name;
             const auto endsWith = [&](std::string_view suffix) {
               return name.size() > suffix.size() && name.substr(name.size() - suffix.size()) == suffix;
             };
-            if (endsWith(" Output")) assert(position == effect_presentation::kOutputPosition);
-            if (endsWith(" Mix")) assert(position == effect_presentation::kMixPosition);
+            if (endsWith(" Output")) output = position;
+            if (endsWith(" Mix")) mix = position;
           }
-          // The top row fills from the left without gaps (a mode may hide one control).
+          if (output >= 0 && mix >= 0) assert(output < mix); // Mix is the last module control.
+          // Both rows fill from the left without gaps (a mode may hide one control), and a
+          // module with up to four controls uses only the top row.
           if (alternate) continue;
-          for (int position = 1; position < 4; ++position)
-            if (occupied[position] && !occupied[position - 1])
-              std::cerr << "Top-row gap: effect=" << static_cast<int>(effect) << " position=" << position - 1 << '\n';
-          for (int position = 1; position < 4; ++position) assert(!occupied[position] || occupied[position - 1]);
+          for (int position = 1; position < 7; ++position)
+            if (position != 4 && occupied[position] && !occupied[position - 1])
+              std::cerr << "Gap: effect=" << static_cast<int>(effect) << " position=" << position - 1 << '\n';
+          for (int position = 1; position < 7; ++position)
+            assert(position == 4 || !occupied[position] || occupied[position - 1]);
+          if (std::count(occupied.begin(), occupied.end(), true) <= 4) assert(!occupied[4] && !occupied[5] && !occupied[6]);
         }
   // Mode selectors and saved options live in the header, never in the knob grid.
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p)) assert(effect_presentation::HeaderControl(p));
   assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourInput) == 0);
-  assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourMix) == effect_presentation::kMixPosition);
+  assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourOutput) == 1); // Input, Output, Mix: one row.
+  assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourMix) == 2);
+  assert(effect_presentation::Position(SlotEffect::JunoChorus, uJunoMix) == 1);
+  assert(effect_presentation::Position(SlotEffect::Bitcrusher, uCrushOutput) == 4); // The bottom row packs left.
+  assert(effect_presentation::Position(SlotEffect::Bitcrusher, uCrushMix) == 5);
   assert(effect_presentation::Position(SlotEffect::Chorus, uModCharacter) == 2);
   assert(effect_presentation::Position(SlotEffect::Phaser, uModCharacter) == 3);
   assert(!effect_presentation::Visible(SlotEffect::ReverseDelay, uDelayPingPong));

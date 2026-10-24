@@ -11,7 +11,7 @@ Every module uses the same eight-position editor (see the [module guide](modules
 Each control is a host parameter per slot, described in
 [EffectParameters.h](../NeuralAmpModeler/EffectParameters.h); its editor position and
 per-module label are in [EffectPresentation.h](../NeuralAmpModeler/EffectPresentation.h),
-whose layout rule (Output at position 4, Mix at 6, modes in the header) is checked for
+whose layout rule (controls packed from the left, Output before Mix, modes in the header) is checked for
 every module by `EffectPresentationTests.h`. Starting settings live in
 [SlotDefaults.h](../NeuralAmpModeler/SlotDefaults.h).
 

@@ -1,6 +1,6 @@
 # The editor
 
-The editor is dark with flat surfaces and mint accents. The compact header holds the logo, **Modulation**, the scene buttons **1 2 3**, the preset browser with its arrows, **New** and **Save**, Tuner and Library & settings. IN gain sits before the first grid card; OUT gain, A/B balance and the **Routing** button occupy the right gutter. Routing replaces the module editor below the grid until you select a slot,
+The editor is dark with flat surfaces and mint accents. The compact header holds the logo, the scene buttons **1 2 3**, the preset browser with its arrows, **New** and **Save**, then the views: **Modulation**, **Tuner** and Library & settings. All header boxes share one height and outline. IN gain sits before the first grid card; OUT gain, A/B balance and the **Routing** button occupy the right gutter. Routing replaces the module editor below the grid until you select a slot,
 close it or press Escape (see [performance.md](performance.md)). Each of the sixteen cards has two parts.
 Its header row shows the slot ID, the category badges (Amp and Cab for an amp + cab capture)
 and the bypass switch; below it, a name button shows the loaded file or effect, or
@@ -29,9 +29,9 @@ the browser icon, previous/next arrows and the category badge; the row below hol
 description and, on the right, the module's saved options: **Tempo sync** on the left, then
 one mode or option such as **Style**, **Mode**, **Desk**, **Heads**, **Ping-pong**,
 **Stereo wet** or **Notch mode**. Options read "Label: value". Two rows of four positions
-hold the automatable controls: the main controls fill the top row from the left, **Output**
-sits below the first control, **Mix** in the third column of the bottom row, and **Enabled**
-at the bottom right. A full-height display sits to the right, and a level strip runs below
+hold the automatable controls, filled from the left: up to four controls share one row
+(main controls, then **Output**, then **Mix**); larger modules start the bottom row with
+**Output** and end it with **Mix**. **Enabled** is always at the bottom right. A full-height display sits to the right, and a level strip runs below
 the editor (see [Reading visualizations](#reading-visualizations)). Each module is
 described with a screenshot in the [module guide](modules/README.md).
 The browser icon beside a built-in FX name opens its category; for NAM captures and IRs it opens the current folder.

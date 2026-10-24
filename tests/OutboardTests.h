@@ -1,4 +1,5 @@
 #pragma once
+#include <random>
 #include "SlotOperations.h"
 
 void TestOutboard()
@@ -203,6 +204,49 @@ void TestAirDynamics()
   }
   for (const auto& times : closure)
     assert(*std::max_element(times.begin(), times.end()) - *std::min_element(times.begin(), times.end()) < .015);
+  // Hold (a NAM Grid addition) stops chatter on noise near Threshold and delays the
+  // closing by about its own length; 0 ms keeps the native gates.
+  for (int mode = 0; mode < 2; ++mode)
+  {
+    const auto run = [&](double hold, bool noise) {
+      constexpr double rate = 48000.;
+      SlotAirDynamics gate;
+      gate.Reset(rate, SlotEffect::DigitalBlack);
+      UtilityControls c;
+      c.blackMode = mode;
+      c.blackHold = hold;
+      std::mt19937 random(11);
+      std::normal_distribution<double> gaussian;
+      int switches = 0, last = -1;
+      bool open = false;
+      const int count = static_cast<int>(rate * 1.2);
+      for (int pos = 0; pos < count;)
+      {
+        std::array<double, 128> l{}, r{};
+        const int n = std::min(128, count - pos);
+        for (int i = 0; i < n; ++i)
+        {
+          const double t = (pos + i) / rate;
+          // Noise whose peaks just reach the -55 dB threshold, or a note ending at 0.1 s.
+          l[i] = r[i] = noise ? .0007 * gaussian(random) : (t < .1 ? .2 : .0001) * std::sin(2. * grid_fx::pi * 220. * t);
+        }
+        gate.Process(l.data(), r.data(), n, c);
+        for (int i = 0; i < n; ++i)
+        {
+          const bool sounding = std::abs(l[i]) > 1.e-12;
+          if (sounding != open) { open = sounding; ++switches; }
+          if (sounding) last = pos + i;
+        }
+        pos += n;
+      }
+      return noise ? static_cast<double>(switches) : last / rate - .1;
+    };
+    const double chatter = run(0., true), held = run(50., true);
+    // Zero crossing reopens on every noise peak (about 150 switches here); Hysteresis already re-arms.
+    assert(held <= chatter && (mode == 1 || (chatter > 20. && held < chatter * .25)));
+    const double native = run(0., false), delayed = run(100., false);
+    assert(delayed - native > .08 && delayed - native < .13);
+  }
   std::cout << "Air dynamics: five rates, both gate modes, closing-time compensation, exact dry, no "
                "allocation\n";
 }

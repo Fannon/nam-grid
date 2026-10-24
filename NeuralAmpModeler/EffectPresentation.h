@@ -69,6 +69,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
+    case uBlackHold: return "Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold no longer chatters. A NAM Grid addition; 0 ms is the native gate.";
     case uBlackMode: return "Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.";
     case uBlackThreshold: return "Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.";
     case uBlackMix: return "Blend the gate and its darkened closing texture with the original signal. Zero restores the dry sound before Output.";

@@ -1,10 +1,11 @@
 # README screenshots
 
-The main image, `grid.png`, is a supplied screenshot preserved at its original
-resolution. It shows Digital Black Gate, Punch Compressor and an Ibanez TS9
-NAM pedal capture in Pre; a Tone King Imperial Mk II amp-and-cab capture in
-lane A; and Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected,
-showing the amp capture controls and measured input/output display.
+The main image, `grid.png`, is a supplied screenshot of the "Clean Default"
+rig, preserved at its original resolution. It shows Noise Gate, Punch Compressor,
+Tube Boost and a bypassed Ibanez TS9 NAM pedal capture in Pre; the `riffsmith-clean`
+amp-and-cab capture with bypassed Auto Tremolo and LoFi Tape Machine in lane A;
+and Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected, showing
+the amp capture controls and measured input/output display.
 The captures shown are external files, not bundled content.
 
 The remaining gallery images are captured from the native Windows editor with

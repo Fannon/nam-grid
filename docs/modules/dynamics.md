@@ -66,9 +66,11 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 ![Digital Black Gate editor](../screenshots/modules/digital-black-gate.png)
 
-Airwindows DigitalBlack's darkening gate, or CStrip's re-arming hysteresis gate in Hysteresis mode. Mode changes fade through dry. See [Airwindows dynamics](../airwindows-dynamics.md).
+Airwindows DigitalBlack's darkening gate, or CStrip's re-arming hysteresis gate in Hysteresis mode. Mode changes fade through dry. Hold is a NAM Grid addition; see [Airwindows dynamics](../airwindows-dynamics.md).
 
 **Threshold** (-74 dB to -10 dB; starts at -55 dB) Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.
+
+**Hold** (0 ms to 200 ms; starts at 0 ms) Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold no longer chatters. A NAM Grid addition; 0 ms is the native gate.
 
 **Output** (-18 dB to 6 dB; starts at 0 dB) Final gain after dry/wet blending. Match bypass loudness before judging the effect.
 
@@ -79,6 +81,10 @@ In the header:
 - **Mode** (Zero crossing, Hysteresis; starts at Zero crossing) Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.
 
 **Display:** Input against output with the threshold, and the attenuation history.
+
+**Tips:**
+
+- If noise near Threshold makes the gate chatter, raise Hold to 30 to 80 ms or set Threshold a few dB higher.
 
 ## Smooth Compressor
 
@@ -148,11 +154,11 @@ Airwindows CStrip2: Capacitor cuts into compression and Spiral saturation. The c
 
 **High cut** (0% to 100%; starts at 100%) Native Capacitor low-pass openness, with sample-rate pole compensation. 100 is open; lower values darken. Percentage is not a cutoff in Hz.
 
-**Compress** (0% to 100%; starts at 40%) CStrip2 drive into its polarity-sensitive compressor. This percentage controls intensity, not threshold or ratio.
+**Compress** (0% to 100%; starts at 20%) CStrip2 drive into its polarity-sensitive compressor. This percentage controls intensity, not threshold or ratio.
 
 **Comp speed** (0% to 100%; starts at 25%) CStrip2 native recovery speed. Higher values recover faster; this is not attack or release in milliseconds.
 
-**Output** (-18 dB to 6 dB; starts at -2 dB) Final gain after dry/wet blending, in dB. Match bypass loudness before judging compression.
+**Output** (-18 dB to 6 dB; starts at 0 dB) Final gain after dry/wet blending, in dB. Match bypass loudness before judging compression.
 
 **Saturate** (0% to 100%; starts at 15%) Native unity-to-Spiral output section: increases drive and blends saturation. Output independently matches final loudness.
 

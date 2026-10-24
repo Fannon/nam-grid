@@ -1456,6 +1456,15 @@ int main(int argc, char** argv)
   assert(std::abs(liveValue("Pre 1 EQ Bass") - editedBass) < .01);
   keyAtEditor(VK_ESCAPE);
   assert(save().config()["Pre 1 EQ Bass"] == 6.);
+  // Cancel top right, where every full page closes, restores the original like Escape.
+  click(356, grid_layout::moduleButtonY);
+  enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
+  assert(save().config()["SlotEffects"][0] != static_cast<int>(SlotEffect::ConsoleEQ)); // Auditioned, not saved.
+  click(936, 28);
+  assert(save().config()["Pre 1 EQ Bass"] == 6.);
+  dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // The browser closed: the editor takes gestures again.
+  assert(save().config()["Pre 1 EQ Bass"] != 6.);
+  load(moduleBrowser); selectTile(170, 120);
   click(356, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(400, 144));

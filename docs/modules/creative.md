@@ -60,15 +60,15 @@ Tape transport character: speed-dependent bandwidth, wow, flutter, hiss, wear an
 
 **Speed** (1.875 ips to 30 ips; starts at 7.5 ips) Tape speed in inches per second. Slower is darker and changes transport character without retuning the guitar.
 
-**Wow** (0% to 100%; starts at 15%) Slow pitch drift; the green trace shows measured wow motion in cents.
+**Wow** (0% to 100%; starts at 50%) Slow pitch drift; the green trace shows measured wow motion in cents.
 
-**Flutter** (0% to 100%; starts at 10%) Fast pitch vibration; the amber trace uses the same cents scale as wow.
+**Flutter** (0% to 100%; starts at 28%) Fast pitch vibration; the amber trace uses the same cents scale as wow.
 
-**Noise** (0% to 100%; starts at 5%) Independent stereo tape hiss, including between notes. Zero turns hiss off.
+**Noise** (0% to 100%; starts at 0%) Independent stereo tape hiss, including between notes. Zero turns hiss off.
 
 **Output** (-24 dB to 6 dB; starts at 0 dB) Final level after dry/wet blending. Match bypass loudness before judging the effect.
 
-**Wear** (0% to 100%; starts at 20%) Darker tape and irregular level dropouts. This control does not add saturation.
+**Wear** (0% to 100%; starts at 0%) Darker tape and irregular level dropouts. This control does not add saturation.
 
 **Mix** (0% to 100%; starts at 100%) Blend dry and processed sound; higher settings make the effect more prominent. Output, when present, follows the blend.
 

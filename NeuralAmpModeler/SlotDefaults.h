@@ -103,7 +103,9 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::Tape:
       set(uTapeBump, 25.); break;
     case SlotEffect::LoFiTape:
-      set(uLoFiWow, 15.); set(uLoFiFlutter, 10.); set(uLoFiNoise, 5.); set(uLoFiWear, 20.); break;
+      set(uLoFiWow, 50.); set(uLoFiFlutter, 28.); set(uLoFiNoise, 0.); set(uLoFiWear, 0.); break;
+    case SlotEffect::OutboardChannel:
+      set(uStripCompress, 20.); set(uStripOutput, 0.); break;
     // Neutral EQ/utility, modest octave blend, unlatched Freeze, and the
     // already auditioned Smart Gate retain the descriptor defaults.
     case SlotEffect::NAM: case SlotEffect::CabinetIR: case SlotEffect::ToneEQ:
@@ -111,7 +113,7 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
     case SlotEffect::NoisePrint: case SlotEffect::AirPlate: case SlotEffect::AirHall:
     case SlotEffect::GalacticSpace:
-    case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
+    case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DigitalBlack: break;
   }
   return v;

@@ -71,7 +71,7 @@ output-dependent recovery follows the compressed signal.
 
 | Module | Insertion settings | Display |
 | --- | --- | --- |
-| Outboard Channel | Low cut 0%; High cut 100%; Compress 40%; Comp speed 25%; Saturate 15%; Output −2 dB; Mix 100% | Measured cut response over the output spectrum, Spiral saturation curve and detector gain-reduction history |
+| Outboard Channel | Low cut 0%; High cut 100%; Compress 20%; Comp speed 25%; Saturate 15%; Output 0 dB; Mix 100% | Measured cut response over the output spectrum, Spiral saturation curve and detector gain-reduction history |
 | Console Colour | Dark desk; Input and Output 0 dB; Mix 100% | Desk name and live stereo peak IN/OUT histories |
 | Console EQ | Bands 0; Treble scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Measured quiet-signal response over the live output spectrum |
 | Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Detector gain-reduction history beside live peak IN/OUT histories |

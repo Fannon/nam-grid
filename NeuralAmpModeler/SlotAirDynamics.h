@@ -46,6 +46,8 @@ public:
         const double threshold = std::pow(10., v[0] / 20.);
         mBlack.Set({std::pow(std::clamp(3. * (threshold - .00018), 0., 1.), .25), 1.});
         mHysteresis.Set(threshold);
+        mBlack.SetHold(c.blackHold * .001);
+        mHysteresis.SetHold(c.blackHold * .001);
       }
       mCounter = (mCounter + 1) % 32;
       const double dryL = left[i], dryR = right ? right[i] : dryL;

@@ -5511,6 +5511,24 @@
       "minimum": 0.0,
       "name": "Pre 1 Limiter Clip",
       "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 32800,
+      "id": 3539,
+      "mapping": [
+        "0.0 ms",
+        "3.1 ms",
+        "12.5 ms",
+        "50.0 ms",
+        "112.5 ms",
+        "153.1 ms",
+        "200.0 ms"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Pre 1 Black Hold",
+      "stepped": false
     }
   ],
   "state_schema": 1

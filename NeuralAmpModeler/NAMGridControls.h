@@ -2139,6 +2139,9 @@ public:
                  IRECT(kLeft + 12, kListTop, kRight - 12, kListTop + kRowHeight));
     g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(),
                IRECT(kLeft, kListTop + kRows * kRowPitch + 4, kRight, kListTop + kRows * kRowPitch + 28));
+    // Footer: version and open-source links (Documentation, Source code, Report an issue).
+    g.DrawText(Text(13.f, muted), "NAM Grid " PLUG_VERSION_STR "  ·  Free and open source",
+               IRECT(kLeft, kFooterTop, kFooterLinksL - 12, kFooterTop + kFooterHeight));
   }
   void OnAttached() override
   {
@@ -2189,6 +2192,13 @@ public:
     mPresetSwitch->SetTooltip("How rig presets change while audio plays. Short fade dips the output for about 25 ms "
                               "and runs one rig at a time. Crossfade blends both rigs over 40 ms for a seamless change, "
                               "briefly using about twice the CPU.");
+    // Footer links: documentation site, open-source repository, issue tracker.
+    AddChildControl(new IURLControl(IRECT(560, kFooterTop, 690, kFooterTop + kFooterHeight),
+      "Documentation", CLAP_MANUAL_URL, Text(13.f, accent)))->SetTooltip("Open the NAM Grid documentation site.");
+    AddChildControl(new IURLControl(IRECT(702, kFooterTop, 822, kFooterTop + kFooterHeight),
+      "Source code", PLUG_URL_STR, Text(13.f, accent)))->SetTooltip("Open the NAM Grid source repository.");
+    AddChildControl(new IURLControl(IRECT(834, kFooterTop, kRight, kFooterTop + kFooterHeight),
+      "Report an issue", CLAP_SUPPORT_URL, Text(13.f, accent)))->SetTooltip("Report a problem or suggest an improvement.");
   }
   void Hide(bool hide) override
   {
@@ -2256,6 +2266,8 @@ private:
   inline static const std::array<IRECT, 3> kAddRects{IRECT(548, 124, 686, 152), IRECT(698, 124, 836, 152), IRECT(848, 124, kRight, 152)};
   static constexpr float kListTop = 164.f, kRowPitch = 38.f, kRowHeight = 32.f;
   static constexpr float kOpenL = 820.f, kOpenR = 890.f, kRemoveL = 896.f, kRemoveR = 968.f;
+  // Footer row with the version and open-source links.
+  static constexpr float kFooterTop = 668.f, kFooterHeight = 24.f, kFooterLinksL = 560.f;
   // Four equal option buttons across the page, below the divider.
   static IRECT OptionRect(int index)
   {

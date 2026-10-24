@@ -17,7 +17,7 @@
 #define BUNDLE_MFR "fannon"
 #define BUNDLE_DOMAIN "io.github"
 #define CLAP_SUPPORT_URL "https://github.com/Fannon/nam-grid/issues"
-#define CLAP_MANUAL_URL "https://github.com/Fannon/nam-grid#readme"
+#define CLAP_MANUAL_URL "https://fannon.github.io/nam-grid/"
 #define CLAP_DESCRIPTION "Guitar rig grid for Neural Amp Modeler captures, cabinet IRs and built-in effects"
 
 #define SHARED_RESOURCES_SUBPATH "nam-grid"

@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Added
+
+- Library & settings page links to the documentation site, the open-source repository and the issue tracker.
+
 ## [0.1.0] - 2026-10-24
 
 Our first release! NAM Grid is a 16-slot guitar rig in one CLAP / VST3 plugin.

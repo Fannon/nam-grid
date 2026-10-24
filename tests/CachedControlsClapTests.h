@@ -76,13 +76,13 @@ void TestCachedControlsClap(const clap_plugin* plugin, json cleared, Load load,
                                                   : "Post ")
                           + std::to_string(slot % 4 + 1);
       auto config = cleared;
-      config["Output"] = config["Global Input"] = config["Pre 2 In"] = config["Tuner"] = 0.;
-      config["Parallel Blend"] = slot >= 8 && slot < 12 ? 100. : 0.;
+      config["Output"] = config["Input"] = config["Pre 2 NAM Input"] = config["Tuner"] = 0.;
+      config["A/B Blend"] = slot >= 8 && slot < 12 ? 100. : 0.;
       config["SlotEffects"][slot] = static_cast<int>(effect);
       config[prefix + " Utility Output"] = 0.;
       const std::vector<std::string> names = effect == SlotEffect::Utility
                                                ? std::vector<std::string>{prefix + " Utility Output"}
-                                               : std::vector<std::string>{prefix + " In", prefix + " Trim"};
+                                               : std::vector<std::string>{prefix + " NAM Input", prefix + " NAM Output"};
       for (const auto& name : names)
         config[name] = 0.;
       config[prefix + " Enabled"] = 1.;

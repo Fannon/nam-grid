@@ -152,7 +152,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     g.DrawLine(border,chart.L,chart.B,chart.R,chart.B);
     if(echoes.horizon<1.) text.SetFormatted(32,"%.0f ms",echoes.horizon*1000.);
     else text.SetFormatted(32,"%.1f s",echoes.horizon);
-    PlotFooter(g,plot,duck<.999 ? "Tick: ducked | -60 to +12 dB" : "Bright: 5k | -60 to +12 dB",text.Get());
+    PlotFooter(g,plot,duck<.999 ? "Tick: ducked | -60 to +12 dB" : "Thin line: above 5 kHz | -60 to +12 dB",text.Get());
     return true;
   }
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)

@@ -27,14 +27,14 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   };
   const auto timeLabel = [&](double seconds) {
     WDL_String text; text.SetFormatted(32, seconds < .1 ? "%.1f ms" : "%.1f s", seconds < .1 ? seconds * 1000. : seconds);
-    PlotFooter(g,plot,"Parameter preview",text.Get());
+    PlotFooter(g,plot,"Modulation over time",text.Get());
   };
   WDL_String text;
   grid();
   if (juno)
   {
     const int mode = static_cast<int>(value(uJunoMode));
-    text.SetFormatted(64, "%s | 1.7-5.4 ms", mode == 0 ? "I" : mode == 1 ? "I+II" : "II"); caption(text.Get());
+    text.SetFormatted(64, "Mode %s | delay 1.7-5.4 ms", mode == 0 ? "I" : mode == 1 ? "I+II" : "II"); caption(text.Get());
     text.SetFormatted(80,"L / R delays | Bright %.0f%% | Wet %.0f%%",value(uJunoBrightness),value(uJunoMix)); PlotDetail(g,plot,text.Get());
     for (int voice = 0; voice < 2; ++voice)
       if ((voice == 0 && mode != 2) || (voice == 1 && mode != 0))

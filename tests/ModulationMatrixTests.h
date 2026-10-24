@@ -1,7 +1,6 @@
 #pragma once
 #include "ModulationMatrix.h"
 #include <set>
-#include <tuple>
 
 void TestModulationMatrix()
 {
@@ -42,63 +41,8 @@ void TestModulationMatrix()
   assert(ValidDestination(gridSlot, GridSplit) && !ValidDestination(gridSlot, GridDestinations) && !ValidDestination(17, 0));
   for (int i = 0; i < Count; ++i)
     assert(StateOnly(i) == ((i >= ModRow && i < RowParam(rows, 0) && (i - ModRow) % RowFields != RowDepth)
-                            || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
+                            || i == LFOShape || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
 
-  // Fixed 0.1 targets become rows with the same physical movement, on request only.
-  {
-    std::array<SlotEffect, gridSlot> effects{};
-    effects[6] = SlotEffect::AirHall;
-    auto v = Defaults();
-    v[RowParam(0, RowSource)] = SourceMacro3; v[RowParam(0, RowDepth)] = 10.; // A user row stays.
-    v[LFOSlot] = 5.; v[LFOTarget] = 2.; v[LFODepth] = 60.;
-    v[EnvSlot] = 6.; v[EnvTarget] = 5.; v[EnvDepth] = -30.;
-    v[Macro2Slot] = 3.; v[Macro2Target] = 7.; v[Macro2Depth] = 20.;
-    v[StepTarget] = 4.; v[StepDepth] = 0.; // Depth 0: plays nothing, needs no row.
-    LegacyPlan plan;
-    assert(PlanLegacy({v}, effects, plan).empty());
-    assert(plan.rows[0] == 1 && plan.rows[1] == 2 && plan.rows[2] == -1 && plan.rows[3] == -1 && plan.rows[4] == 3);
-    ApplyLegacy(v, plan, effects);
-    assert(v[LFOTarget] == 0. && v[EnvTarget] == 0. && v[Macro2Target] == 0. && v[StepTarget] == 4.);
-    assert(v[RowParam(0, RowSource)] == SourceMacro3);
-    assert(v[RowParam(1, RowSource)] == SourceLFO && v[RowParam(1, RowSlot)] == 5.);
-    assert(v[RowParam(1, RowDestination)] == standardControls + uFilterCutoff);
-    // Six octaves across 40..12000 Hz: 60% of six octaves is 3.6 octaves of an 8.23-octave range.
-    assert(std::abs(v[RowParam(1, RowDepth)] - 60. * 6. / std::log2(300.)) < 1.e-12);
-    assert(v[RowParam(2, RowSource)] == SourceEnvelope && v[RowParam(2, RowDestination)] == standardControls + uAirHallMix);
-    assert(v[RowParam(2, RowDepth)] == -30.);
-    assert(v[RowParam(3, RowSource)] == SourceMacro2 && v[RowParam(3, RowSlot)] == gridSlot && v[RowParam(3, RowDestination)] == GridBlend);
-    assert(v[RowParam(4, RowSource)] == SourceNone);
-    // Balance, trim and ring frequency scales.
-    for (const auto& [target, control, scale] : {std::tuple{3, standardControls + uUtilityBalance, .5},
-                                                 std::tuple{6, static_cast<int>(parameter_layout::kSlotTrim), .3},
-                                                 std::tuple{8, standardControls + uRingFrequency, 4. / std::log2(5000.)}})
-    {
-      const auto row = LegacyRow(target, 1, SlotEffect::Utility);
-      assert(row.slot == 1 && row.control == control && std::abs(row.scale - scale) < 1.e-12);
-    }
-    // Not exact, so refused: two assignments clamp one after the other on one control...
-    auto shared = Defaults();
-    shared[Macro1Slot] = shared[Macro2Slot] = 4.; shared[Macro1Target] = shared[Macro2Target] = 3.;
-    shared[Macro1Depth] = 80.; shared[Macro2Depth] = -80.;
-    assert(!PlanLegacy({shared}, effects, plan).empty());
-    // ...as do an assignment and a matrix row on one control (here in a scene only),
-    shared[Macro2Target] = 0.;
-    auto scene = shared;
-    scene[RowParam(5, RowSource)] = SourceLFO; scene[RowParam(5, RowDepth)] = 5.;
-    scene[RowParam(5, RowSlot)] = 4.; scene[RowParam(5, RowDestination)] = standardControls + uUtilityBalance;
-    assert(PlanLegacy({shared}, effects, plan).empty() && !PlanLegacy({shared, scene}, effects, plan).empty());
-    // ...and too few rows that are empty everywhere.
-    auto full = shared;
-    for (int r = 0; r < rows; ++r) { full[RowParam(r, RowSource)] = SourceMacro4; full[RowParam(r, RowSlot)] = 15.; }
-    assert(!PlanLegacy({full}, effects, plan).empty());
-    // Scenes share the plan: a scene without the assignment empties its row on recall.
-    auto withEnvelope = Defaults(); withEnvelope[EnvTarget] = 4.; withEnvelope[EnvDepth] = 25.;
-    auto without = Defaults();
-    assert(PlanLegacy({without, withEnvelope}, effects, plan).empty() && plan.rows[1] == 0);
-    ApplyLegacy(without, plan, effects); ApplyLegacy(withEnvelope, plan, effects);
-    assert(without[RowParam(0, RowSource)] == SourceNone && withEnvelope[RowParam(0, RowSource)] == SourceEnvelope);
-    assert(withEnvelope[EnvTarget] == 0. && withEnvelope[RowParam(0, RowDepth)] == 25.);
-  }
   // Collection: inactive and invalid rows are skipped; shared destinations add; Via scales.
   {
     Modulation sources; sources.Reset(48000.);

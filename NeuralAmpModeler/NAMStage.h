@@ -33,6 +33,9 @@ struct SlotMeterData
 {
   float input = 0.f, output = 0.f, reduction = 0.f;
   float beforeMakeup = 0.f;
+  // Mono-sum energy and frame count since the last take, for the editor's RMS level strip.
+  double inputEnergy = 0., outputEnergy = 0.;
+  int frames = 0;
   LoFiTapeHistory lofi;
   std::array<float, 2> filterCutoff{}, filterQ{};
 };
@@ -322,9 +325,15 @@ public:
     if (!mMonitoring) mMeter = {};
     float inputPeak = 0.f;
     if (mMonitoring)
+    {
       for (int i = 0; i < frames; ++i)
-        inputPeak = std::max(inputPeak, static_cast<float>(std::min(
-          1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
+      {
+        const double x = std::clamp(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i], -1.e6, 1.e6);
+        inputPeak = std::max(inputPeak, static_cast<float>(std::abs(x)));
+        mMeter.inputEnergy += x * x;
+      }
+      mMeter.frames += frames;
+    }
     mMeter.input = std::max(mMeter.input, inputPeak);
     if (p && p->effect != SlotEffect::NAM)
       inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
@@ -482,8 +491,12 @@ public:
         samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
         if (spectrum)
           mCapture->Push(samples[i], rightSamples ? rightSamples[i] : samples[i]);
-        if (mMonitoring) mMeter.output = std::max(mMeter.output, static_cast<float>(std::min(
-          1.e6, std::abs(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i]))));
+        if (mMonitoring)
+        {
+          const double x = std::clamp(rightSamples ? .5 * (samples[i] + rightSamples[i]) : samples[i], -1.e6, 1.e6);
+          mMeter.output = std::max(mMeter.output, static_cast<float>(std::abs(x)));
+          mMeter.outputEnergy += x * x;
+        }
         if (mMonitoring && !p->dynamicsMonitor.empty())
         {
           const double l=p->dry[i]*(1.-mMix)+p->dynamicsMonitor[i]*mMix;

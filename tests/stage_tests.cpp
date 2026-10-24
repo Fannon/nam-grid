@@ -197,6 +197,7 @@ try
   TestDistortionTonePreview();
   TestFXVisualizationMath();
   TestVisualizationInteractions();
+  TestMeasuredVisualizations();
   TestDistortionModeHarmonics();
   TestReverbDelayCandidates();
   TestCosmicEcho();

@@ -17,7 +17,7 @@ IN -> Pre1 -> Pre2 -> Pre3 -> Pre4 -+                         +- Post1 -> Post2 
 ```
 
 Every numbered position accepts a mono NAM capture (amp, rig, pedal, outboard or cabinet),
-or a [built-in effect](modules.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
+or a [built-in effect](modules/README.md): dynamics, EQ, cabinet IR, boost, filter, swell, tape,
 modulation, delay, spring reverb or Wah. NAM slots have input gain,
 output gain, Full/Lite where available, and bypass; built-ins expose at most seven knobs and Enabled. Empty slots pass
 audio; their gain controls take effect when a model is loaded. Slots are processed left to

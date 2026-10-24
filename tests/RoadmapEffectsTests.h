@@ -200,9 +200,6 @@ void TestRoadmapEffects()
   const auto renderModulation = [](bool variable) {
     grid_performance::Modulation mod; mod.Reset(48000.);
     auto v = grid_performance::Defaults();
-    v[grid_performance::LFOTarget] = 1.; v[grid_performance::LFODepth] = 35.;
-    v[grid_performance::EnvTarget] = 1.; v[grid_performance::EnvDepth] = 20.;
-    v[grid_performance::StepTarget] = 1.; v[grid_performance::StepDepth] = 10.;
     std::vector<double> values(16384); std::array<double, 512> signal{}; signal.fill(.1);
     int block = 0;
     for (int pos = 0; pos < values.size();)
@@ -211,9 +208,9 @@ void TestRoadmapEffects()
       for (int offset = 0; offset < n;)
       {
         const int count = std::min(mod.Quantum(), n - offset);
-        std::array<FixedNAMGrid::Controls, 16> c{}; double blend = .5;
-        mod.Apply(c, blend, v);
-        std::fill_n(values.data() + pos + offset, count, c[0].utility.wah[0]);
+        using namespace grid_performance;
+        const double value = .35 * mod.Value(SourceLFO, v) + .2 * mod.Value(SourceEnvelope, v) + .1 * mod.Value(SourceSequencer, v);
+        std::fill_n(values.data() + pos + offset, count, value);
         mod.Advance(signal.data(), nullptr, count, v, 120.); offset += count;
       }
       pos += n;

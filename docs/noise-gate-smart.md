@@ -13,7 +13,7 @@ host identity. No separate experimental plugin is required.
 
 1. Add **Dynamics > Noise Gate (Smart)** in a Pre slot, preferably before gain/NAM stages.
 2. Leave the guitar/interface at normal playing settings. Mute the strings without
-   turning the guitar volume down. Switch **Learn noise** on for 1–3 seconds, then
+   turning the guitar volume down. Switch **Learn** on for 1–3 seconds, then
    off. Audio continues while learning. Digital silence and captures shorter than
    about 300 ms do not replace an existing valid print.
 3. Start with the defaults. Increase **Sensitivity** to suppress more bands; lower

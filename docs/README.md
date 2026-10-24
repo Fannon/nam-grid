@@ -9,8 +9,8 @@ guitar rig. These guides describe current usage, implementation and release chec
 | --- | --- |
 | [Editor](ui.md) | Grid cards, controls, meters and visualizations |
 | [Library browser](browser.md) | Find effects, NAM captures, cabinet IRs and presets |
-| [Modules](modules.md) | Effect controls and processing behavior |
-| [Starting settings](effect-defaults.md) | Electric guitar defaults and acoustic/bass adjustments |
+| [Module guide](modules/README.md) | Every module with its editor, controls, display and tips |
+| [Starting settings](effect-defaults.md) | How modules start, and acoustic/bass adjustments |
 | [Routing](grid.md) | Pre/Post stages, parallel lanes, stereo and latency |
 | [Presets](presets.md) | Save, recall and share complete rigs |
 | [Tuner](tuner.md) | Tuning, reference pitch, mute and history |
@@ -24,7 +24,8 @@ guitar rig. These guides describe current usage, implementation and release chec
 - [Build and test](build.md) and [contribution guidance](../CONTRIBUTING.md).
 - [Release checklist and known validation limits](release-checklist.md).
   [Release notes](release-notes.md) are used by the release workflow.
-- [Implementation and compatibility](development.md) and
+- [Implementation and compatibility](development.md),
+  [module implementation](module-implementation.md) and
   [on-demand FX benchmarks](fx-performance.md).
 - [Adaptive cabinet convolution](adaptive-ir.md) and the
   [standalone IR engine comparison](ir-convolution-comparison.md).

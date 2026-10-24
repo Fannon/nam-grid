@@ -1,43 +1,45 @@
 #pragma once
 #include "EffectPreview.h"
+#include "ImpulseProbe.h"
 
 namespace grid_ui
 {
-// Parameter sketches share a time field and readable text; no synthetic audio
-// history or measured impulse response is implied by the reflection marks.
+// Cosmic Echo's measured wet response to one impulse (ImpulseProbe), on a dB scale
+// over a fixed time window. Separate spikes are distinct echoes; Warp spreads them,
+// Density and Feedback blur them into a smooth wash. Until the measurement for the
+// current settings arrives, the previous one is shown dimmed.
 template<class Value>
-void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, double rate)
+void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const ImpulseProbe::Result& measured, bool current)
 {
   const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,effect_modes::cosmicCount-1);
-  const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
-  const double horizon=effect_preview::TimeHorizon(plan.seconds[0]*1.03), density=value(uCosmicDensity)*.01;
-  const double motion=.010416667*std::pow(value(uCosmicMotion)*.01,2.);
-  const IRECT field=plot;
   WDL_String text;
   text.SetFormatted(64,"%s | %.0f ms",effect_modes::cosmicNames[style],value(uCosmicTime));
   PlotTitle(g,plot,delayColor,text.Get());
-  text.SetFormatted(80,"Line times | Density %.0f%% | FB %.0f%%",value(uCosmicDensity),value(uCosmicFeedback));
+  text.SetFormatted(80,"Warp %.0f%% | Density %.0f%% | FB %.0f%%",value(uCosmicWarp),value(uCosmicDensity),value(uCosmicFeedback));
   PlotDetail(g,plot,text.Get());
-  g.DrawLine(border,field.L,field.B,field.R,field.B);
-  for(int i=0;i<plan.count;++i)
+  PlotGrid(g,plot);
+  g.DrawLine(border,plot.L,plot.B,plot.R,plot.B);
+  if(measured.valid)
   {
-    const float x=field.L+field.W()*static_cast<float>(plan.seconds[i]/horizon);
-    const float height=field.H()*static_cast<float>(.3+.5*density);
-    const int channel=style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
-    const auto ink=channel ? ampColor : delayColor;
-    const float spread=std::clamp(static_cast<float>(field.W()*motion/horizon),0.f,12.f);
-    if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(field.L,x-spread),field.B-height,std::min(field.R,x+spread),field.B));
-    g.DrawLine(ink,x,field.B,x,field.B-height,nullptr,2.f);
-    if(i && density>.01)
+    float loudest=0.f;
+    for(const float peak : measured.peak) loudest=std::max(loudest,peak);
+    const auto y=[&](float peak) {
+      const double db=20.*std::log10(std::max(1.e-9,static_cast<double>(peak/std::max(loudest,1.e-9f))));
+      return plot.B-plot.H()*static_cast<float>(std::clamp((db+48.)/48.,0.,1.));
+    };
+    const float width=plot.W()/ImpulseProbe::bins, opacity=current ? 1.f : .35f;
+    for(int i=0;i<ImpulseProbe::bins;++i)
     {
-      const float previous=field.L+field.W()*static_cast<float>(plan.seconds[i-1]/horizon);
-      g.DrawLine(delayColor.WithOpacity(static_cast<float>(density*.3)),previous,field.B-height,x,field.B-height*.55f);
+      const float x=plot.L+width*i, top=y(measured.peak[i]);
+      g.FillRect(delayColor.WithOpacity(.25f*opacity),IRECT(x,top,x+width,plot.B));
+      if(i) g.DrawLine(delayColor.WithOpacity(opacity),x-width*.5f,y(measured.peak[i-1]),x+width*.5f,top,nullptr,1.5f);
     }
   }
-  // Colours distinguish line groups, not direct L/R output taps: the core
-  // mixes lines through a feedback network, and allpasses have feedthrough.
-  text.SetFormatted(64,"%.0f ms",horizon*1000.);
-  PlotFooter(g,plot,"Network sketch / motion halos",text.Get());
+  if(!current)
+    g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(plot.L,plot.T,plot.R,plot.T+20));
+  if(measured.seconds<1.) text.SetFormatted(32,"%.0f ms",measured.seconds*1000.);
+  else text.SetFormatted(32,"%.1f s",measured.seconds);
+  PlotFooter(g,plot,"Measured impulse | 0 to -48 dB",measured.valid ? text.Get() : "");
 }
 
 template<class Value>

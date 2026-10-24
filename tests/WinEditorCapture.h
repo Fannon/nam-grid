@@ -1,6 +1,7 @@
 #pragma once
 #ifdef _WIN32
   #include <windows.h>
+  #include <algorithm>
   #include <cassert>
   #include <filesystem>
   #include <fstream>
@@ -10,14 +11,18 @@
   #pragma comment(lib, "opengl32.lib")
 
 // Optional visual-review artifact from the plugin's own OpenGL surface, never the desktop.
-inline void CaptureEditor(HWND editor, const std::filesystem::path& file)
+// `top`/`bottom` keep only those editor rows (top-down pixels), e.g. the module panel.
+inline void CaptureEditor(HWND editor, const std::filesystem::path& file, int top = 0, int bottom = -1)
 {
   // Flush a complete frame before reading pixels, including labels outside the last dirty region.
   InvalidateRect(editor, nullptr, FALSE);
   UpdateWindow(editor);
   RECT rect{};
   GetClientRect(editor, &rect);
-  const int width = rect.right, height = rect.bottom;
+  const int width = rect.right;
+  bottom = bottom < 0 ? rect.bottom : (std::min)(bottom, static_cast<int>(rect.bottom));
+  top = std::clamp(top, 0, bottom - 1);
+  const int height = bottom - top;
   auto dc = GetDC(editor);
   auto previousDC = wglGetCurrentDC();
   auto previousContext = wglGetCurrentContext();
@@ -26,7 +31,7 @@ inline void CaptureEditor(HWND editor, const std::filesystem::path& file)
   std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 4);
   glReadBuffer(GL_FRONT);
   glPixelStorei(GL_PACK_ALIGNMENT, 4);
-  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+  glReadPixels(0, rect.bottom - bottom, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
   assert(glGetError() == GL_NO_ERROR);
   wglMakeCurrent(previousDC, previousContext);
   wglDeleteContext(context);

@@ -14,6 +14,7 @@
 #include "RigTransition.h"
 #include "AudioControlCache.h"
 #include "SlotOperations.h"
+#include "ImpulseProbe.h"
 #include "LibraryBrowser.h"
 #include "LevelAnalysis.h"
 #include "GridTuner.h"
@@ -123,6 +124,8 @@ public:
   void SendParameterValueFromUI(int paramIdx, double value) override;
   void EndInformHostOfParamChangeFromUI(int paramIdx) override;
   bool IsTunerActive() const { return GetParam(kTunerActive)->Bool(); }
+  // Editor only: measures built-in modules' impulse responses on a worker thread.
+  ImpulseProbe& GetImpulseProbe() { return mImpulseProbe; }
   auto TunerHistory() const { return mTuner.ReadHistory(); }
   double TunerFrequency() const { return mTuner.Frequency(); }
   void StorePerformanceScene(size_t scene);
@@ -140,10 +143,6 @@ public:
   // Adds or finds a row from `source` to a destination; returns the row, or -1 when all are used.
   int AddModulation(int source, int slot, int control, double depth = 25.);
   void ClearModulationRow(int row);
-  bool HasLegacyModulation() const;
-  // Converts the fixed 0.1 assignments of the settings and stored scenes into matrix
-  // rows when the rows sound the same; otherwise changes nothing and returns why.
-  std::string ConvertLegacyModulation();
   grid_performance::Values PerformanceValues() const;
   grid_performance::Modulation::Monitor ModulationMonitor() const { return mModulation.Read(); }
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
@@ -353,6 +352,7 @@ private:
   iplug::ISender<1, 4, grid_eq_signal::Window> mSlotSignalSender;
   iplug::ISenderData<1, grid_eq_signal::Window> mSignalPacket{iplug::kNoTag, 1, 0}; // Audio thread only.
   SignalCapture mSignalCapture; // Audio thread only; attached to the selected slot's stage.
+  ImpulseProbe mImpulseProbe;
   int mCaptureSlot = -2, mCaptureGrid = -1;
   static_assert(sizeof(iplug::ISenderData<1, grid_eq_signal::Window>) != sizeof(iplug::ISenderData<1, SlotMeterData>));
   std::atomic<int> mSpectrumSlot{0}; // Selected slot while visualizations are shown, else -1.

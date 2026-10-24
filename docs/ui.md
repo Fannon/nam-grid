@@ -30,17 +30,25 @@ card to rearrange the grid. As in most DAWs:
 The target card names the action while you drag. The bypass switch and right-click edit menu
 remain direct actions. Click the module name in the editor for the quick module menu; its
 browser icon opens the full browser. Clear slot is first in both the module and right-click
-menus; the latter also has Copy / Move / Swap. The bottom editor has two unboxed rows of four controls,
-with up to seven knobs followed by Enabled. Output, where a module has one, always sits
-bottom-left below the first control (NAM, IR and every built-in); the other controls keep
-their order around it. A full-height visualization sits to the right.
+menus; the latter also has Copy / Move / Swap.
+
+Every module editor uses the same layout. Its first row names the slot and module, with
+the browser icon, previous/next arrows and the category badge; the row below holds a short
+description and, on the right, the module's saved options: **Tempo sync** on the left, then
+one mode or option such as **Style**, **Mode**, **Desk**, **Heads**, **Ping-pong**,
+**Stereo wet** or **Notch mode**. Options read "Label: value". Two rows of four positions
+hold the automatable controls: the main controls fill the top row from the left, **Output**
+sits below the first control, **Mix** in the third column of the bottom row, and **Enabled**
+at the bottom right. A full-height display sits to the right, and a level strip runs below
+the editor (see [Reading visualizations](#reading-visualizations)). Each module is
+described with a screenshot in the [module guide](modules/README.md).
 The browser icon beside a built-in FX name opens its category; for NAM captures and IRs it opens the current folder.
 Previous/next arrows follow the same category or folder. NAM uses Input, Bass, Mid and Treble, then Output, Low cut and High cut,
 keeping Input and Output in the left column;
 its neutral EQ acts after inference, not as controls of the captured amp. Compatible captures show
 a **Quality: A2 / Quality: A2 Lite** button beside the file controls. Click to switch; its label
-shows the current mode. The module menu also offers A2 Lite. IR uses Level;
-see [modules.md](modules.md) for other controls.
+shows the current mode. The module menu also offers A2 Lite. Cabinet IR has one Output knob;
+see the [module guide](modules/README.md) for every module's controls.
 Every loaded module offers a visualization. Views aim to show how controls interact
 with each other and with your playing, using the module's actual DSP math:
 
@@ -67,7 +75,8 @@ with each other and with your playing, using the module's actual DSP math:
   follow the shaper. Tube Boost's Tilt and High pass run before its saturator, so with
   Tilt or High pass active it also draws the curve for 100 Hz and 3 kHz content.
 - **EQ / Filter:** every module in the category draws its settled response over the same
-  live output spectrum. Parametric EQ shades its Q bandwidth; Filter shades the cutoff range
+  live output spectrum. The curve's ±12 dB scale (±24 dB for Filter and Wah) is labelled
+  on the left in the module colour; the spectrum's dBFS scale on the right in amber. Parametric EQ shades its Q bandwidth; Filter shades the cutoff range
   its Envelope can reach, with the full shift at -12 dBFS input peaks. Console EQ's curve is
   measured by running its own DSP on a quiet impulse; its band density is level-dependent,
   so louder notes add harmonics the curve does not show.
@@ -78,13 +87,18 @@ with each other and with your playing, using the module's actual DSP math:
 - **Bitcrusher:** one cycle of a 220 Hz reference at 100% wet: the quantized, sample-held
   staircase filled to zero over the gray dry sine, plus a line for the High cut result
   when High cut is below its maximum. Mix and Output only blend and scale this shape.
-- **Delays:** echo timing and treble on a fixed dB scale. Modulation depth is given in
+- **Delays:** echo timing on a fixed dB scale; the thin line inside each stem is the part
+  of the repeat above 5 kHz, so High cut and Age visibly darken later repeats. Modulation depth is given in
   cents, because it is heard as pitch. Digital Delay marks each repeat's ducked level
   while playing at -12 dBFS. Reverse Delay shows that each window plays backwards during
   the next one; Stutter shows a new slice every four windows.
 - **Pitch and spectrum:** Frequency Shifter draws its feedback cascade (each pass shifts
   again by Shift); Ring Mod shows the kept partials and inharmonic sidebands of a 220 Hz
   reference; Octaver draws the square sub-octaves its Tone control rounds.
+- **Cosmic Echo:** the module's measured wet response to one impulse, rendered by a private
+  copy of its DSP off the audio thread whenever a setting changes. Separate spikes are
+  distinct echoes; Warp spreads the delay lines into a wash and Density then thickens it.
+  The previous measurement stays dimmed until the new one arrives.
 - **Modulation:** Chorus/Vibrato delay voices with the resulting pitch deviation;
   Phaser/Flanger response sweeps (Flanger notes that negative feedback also darkens);
   Uni-Vibe's response (notches in Chorus mode, flat in Vibrato mode); Tremolo gain
@@ -100,11 +114,12 @@ outside project/rig state. NAM Amp + Cab uses separate Amp and Cab badges in bot
 All knobs show editable values and units below the dial;
 double-click the dial to restore its module-specific default. Adding/replacing a built-in module
 applies its electric-guitar starting settings, including parameters shared with the prior module.
-Saved presets and slot edits retain their exact values. See [effect-defaults.md](effect-defaults.md)
-for all module defaults and acoustic/bass adjustments, and [presets.md](presets.md) for rig recall.
+Saved presets and slot edits retain their exact values. The [module guide](modules/README.md)
+lists every module's starting settings; see [effect-defaults.md](effect-defaults.md) for
+acoustic and bass adjustments, and [presets.md](presets.md) for rig recall.
 
-Mode controls with three or more choices open a dropdown listing every option,
-with the current choice checked. Cosmic Echo, Distortion and Juno Chorus also
+Mode controls sit in the editor header. Those with three or more choices open a dropdown
+listing every option, with the current choice checked. Cosmic Echo, Distortion and Juno Chorus also
 include short sound descriptions. Selecting the current choice or dismissing
 the menu keeps the setting;
 two-choice modes toggle on click.
@@ -113,8 +128,7 @@ Reverb previews share a field for early reflections and nominal -60 dB decay. Si
 sketches, not measured room dimensions or impulse responses. Wet Mix is shown as a number; it does not shrink the tank sketch.
 Auto Swell draws rise, the 40 ms hold and exponential release on one time axis, beside live IN/OUT history; OUT relative to IN is the swell gain. The hold resets while the input stays above threshold; release begins after the hold runs out and the detected level falls at least 3 dB below threshold (the shaded band). Notes played during the release continue from the current gain rather than swelling again.
 All FX share separate title, explanation, chart and footer rows. Frequency/dB
-limits, reference signals and measured histories are labeled. See the complete
-[module-by-module visualization audit](ui.md).
+limits, reference signals and measured histories are labeled.
 
 Rows are Pre, A, B and Post. IN/OUT controls sit outside the grid. Card meters measure
 the mono sum and only enabled, loaded modules monitor levels. Wiring is behind
@@ -235,18 +249,12 @@ Project state retains it; rig presets and performance scenes leave it unchanged.
 It measures clean input, including right-only input, and clears the current pitch
 after detection stops; old history ages out.
 
-Delays/modulation show a Tempo sync switch in the module-selection strip. When enabled,
-Division replaces Time/Rate in bottom position one; manual values remain stored.
-The eight bottom positions stay fixed. Utility uses Output, L/R balance, Width, Invert L,
-Invert R, Fine delay, one blank position and Enabled. Utility has the neutral gray category color.
-
-Standard/Dual Delay Ping-pong and reverb Stereo wet switches sit beside Tempo sync in the module
-strip. Chorus Spread uses position six. Spring and Wah appear under Reverb and
-Filter / Volume respectively, with six/five knobs and unused bottom cells blank.
-Utility Width is −100 mono / 0 unchanged / +100 wider; its host/state name is
-also Width. Unique control names now agree across the editor and host.
+Delays and modulation show a Tempo sync switch in the editor header. When enabled,
+Division replaces Time or Rate in the first position; manual values remain stored.
+Ping-pong, Stereo wet and the mode selectors share the header's second option place.
+Unique control names agree across the editor and host.
 Each selected module has a short sound explanation beneath its title. Hover its
-controls for audible-effect guidance. See [modules.md](modules.md) for controls and [development.md](development.md) for parameter ownership.
+controls for audible-effect guidance. See the [module guide](modules/README.md) for controls and [development.md](development.md) for parameter ownership.
 
 Grid toggles have equal 12-pixel top/right insets and a 32-pixel hit area. Bypassed cards use a darker background, subdued text/badges and an unfilled toggle with a minus mark.
 
@@ -261,6 +269,14 @@ physical slots. Both processors are prepared before an edit commits. A missing
 or invalid resource rejects the edit and keeps both slots unchanged.
 
 ## Reading visualizations
+
+The **level strip** below every module editor compares the module's input with its output
+over the last 0.4 s: RMS bars with a peak tick (-60 to 0 dBFS) and their values, the
+**Gain** between them, and the **Crest** factor (peak to RMS) at both ends. Use Gain to
+match bypass loudness before judging a module. A crest that drops through the module means
+it compresses or saturates, the more the stronger; a crest that rises means it expands or
+sharpens attacks. Like the slot meters it measures the mono sum, and it shows nothing while
+the module is bypassed or silent.
 
 Measured IN/OUT histories describe level, not stereo correlation;
 mono-sum metering can cancel opposite-polarity stereo. Parameter sketches describe

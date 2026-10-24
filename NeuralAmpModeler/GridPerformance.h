@@ -8,65 +8,48 @@ namespace grid_performance
 {
 enum Param
 {
-  // Persistent IDs: append only. Never renumber or reuse retired entries.
-  Crossover = 0,
-  CrossoverFrequency = 1,
-  LaneAGain = 2,
-  LaneBGain = 3,
-  LaneAMute = 4,
-  LaneBMute = 5,
-  LaneASolo = 6,
-  LaneBSolo = 7,
-  LaneTiming = 8,
-  // Fixed 0.1 assignments (slot / target / depth per source). Still applied for
-  // host automation; older states convert them to matrix rows on load.
-  LFOSlot = 9,
-  LFOTarget = 10,
-  LFORate = 11,
-  LFODepth = 12,
-  LFOSync = 13,
-  LFODivision = 14,
-  EnvSlot = 15,
-  EnvTarget = 16,
-  EnvSensitivity = 17,
-  EnvAttack = 18,
-  EnvRelease = 19,
-  EnvDepth = 20,
-  StepSlot = 21,
-  StepTarget = 22,
-  StepRate = 23,
-  StepDepth = 24,
-  StepSync = 25,
-  StepDivision = 26,
-  Step1 = 27,
-  Step2 = 28,
-  Step3 = 29,
-  Step4 = 30,
-  Step5 = 31,
-  Step6 = 32,
-  Step7 = 33,
-  Step8 = 34,
-  Macro1 = 35,
-  Macro1Slot = 36,
-  Macro1Target = 37,
-  Macro1Depth = 38,
-  Macro2 = 39,
-  Macro2Slot = 40,
-  Macro2Target = 41,
-  Macro2Depth = 42,
-  InputGain = 43,
-  LFOShape = 44,
-  Macro3 = 45,
-  Macro4 = 46,
-  // Eight modulation matrix rows of RowFields controls each; see RowParam().
-  ModRow = 47,
-  EnvThreshold = ModRow + 8 * 5,
-  EnvCurve,
-  EnvInput,       // 0: grid input; 1..16: after that slot.
+  // Persistent IDs from 0.1.0: append only. Never renumber or reuse retired entries.
+  InputGain = 0,
+  Crossover,
+  CrossoverFrequency,
+  LaneAGain,
+  LaneBGain,
+  LaneAMute,
+  LaneBMute,
+  LaneASolo,
+  LaneBSolo,
+  LaneTiming,
+  LFOShape,
+  LFORate,
+  LFOSync,
+  LFODivision,
   LFORetrigger,   // Retrigger modes: Free, audio onset, MIDI note.
   LFOOneShot,
+  EnvInput,       // 0: grid input; 1..16: after that slot.
+  EnvThreshold,
+  EnvSensitivity,
+  EnvAttack,
+  EnvRelease,
+  EnvCurve,
+  StepRate,
+  StepSync,
+  StepDivision,
   StepRetrigger,
-  Count,
+  Step1,
+  Step2,
+  Step3,
+  Step4,
+  Step5,
+  Step6,
+  Step7,
+  Step8,
+  Macro1,
+  Macro2,
+  Macro3,
+  Macro4,
+  // Eight modulation matrix rows of RowFields controls each; see RowParam().
+  ModRow,
+  Count = ModRow + 8 * 5,
 };
 enum RowField
 {
@@ -79,7 +62,7 @@ enum RowField
 };
 inline constexpr int rows = 8, gridSlot = 16;
 constexpr int RowParam(int row, int field) { return ModRow + row * RowFields + field; }
-static_assert(RowParam(rows, 0) == EnvThreshold);
+static_assert(RowParam(rows, 0) == Count);
 enum Source
 {
   SourceNone = 0,
@@ -118,108 +101,92 @@ enum Retrigger
 inline constexpr std::array<const char*, RetriggerModes> retriggerNames{"Free running", "Audio onset", "MIDI note"};
 // The follower's threshold control turns off at its minimum.
 inline constexpr double kThresholdOff = -90.;
-inline constexpr std::array<const char*, 9> targetNames{
-  "None", "Wah position", "Filter cutoff", "L/R balance", "Delay mix", "Reverb mix", "NAM trim", "Parallel blend", "Ring frequency"};
 inline constexpr std::array<EffectParameter, Count> parameters{{
-  {"Split Crossover", "Frequency split", 0, 0, 1, 1, "", 0},
-  {"Split Frequency", "Crossover", 250, 40, 5000, 1, "Hz", 0, true},
+  {"Input", "Input", 0, -40, 40, .1, "dB", 0},
+  {"Frequency Split", "Frequency split", 0, 0, 1, 1, "", 0},
+  {"Split Frequency", "Split frequency", 250, 40, 5000, 1, "Hz", 0, true},
   {"Lane A Level", "A level", 0, -60, 12, .1, "dB", 0},
   {"Lane B Level", "B level", 0, -60, 12, .1, "dB", 0},
   {"Lane A Mute", "Mute A", 0, 0, 1, 1, "", 0},
   {"Lane B Mute", "Mute B", 0, 0, 1, 1, "", 0},
   {"Lane A Solo", "Solo A", 0, 0, 1, 1, "", 0},
   {"Lane B Solo", "Solo B", 0, 0, 1, 1, "", 0},
-  {"Lane Fine Timing", "Lane timing", 0, -20, 20, .01, "ms", 0},
-  {"LFO Slot", "Target slot", 0, 0, 15, 1, "", 0},
-  {"LFO Target", "Target", 0, 0, 8, 1, "", 0},
+  {"Lane Timing", "Lane timing", 0, -20, 20, .01, "ms", 0},
+  {"LFO Shape", "Shape", 0, 0, 5, 1, "", 0},
   {"LFO Rate", "Rate", .5, .05, 10, .01, "Hz", 0, true},
-  {"LFO Depth", "Depth", 0, -100, 100, .1, "%", 0},
   {"LFO Sync", "Tempo sync", 0, 0, 1, 1, "", 0},
   {"LFO Division", "Division", 5, 0, 9, 1, "", 0},
-  {"Follower Slot", "Target slot", 0, 0, 15, 1, "", 0},
-  {"Follower Target", "Target", 0, 0, 8, 1, "", 0},
-  {"Follower Sensitivity", "Sensitivity", 12, 0, 36, .1, "dB", 0},
-  {"Follower Attack", "Attack", 10, .5, 100, .1, "ms", 0, true},
-  {"Follower Release", "Release", 150, 10, 1000, 1, "ms", 0, true},
-  {"Follower Depth", "Depth", 0, -100, 100, .1, "%", 0},
-  {"Sequencer Slot", "Target slot", 0, 0, 15, 1, "", 0},
-  {"Sequencer Target", "Target", 0, 0, 8, 1, "", 0},
-  {"Sequencer Rate", "Step rate", 4, .1, 20, .01, "Hz", 0, true},
-  {"Sequencer Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"LFO Retrigger", "Retrigger", 0, 0, 2, 1, "", 0},
+  {"LFO One Shot", "One shot", 0, 0, 1, 1, "", 0},
+  {"Envelope Listen At", "Listen at", 0, 0, 16, 1, "", 0},
+  {"Envelope Threshold", "Threshold", kThresholdOff, kThresholdOff, 0, .1, "dB", 0},
+  {"Envelope Sensitivity", "Sensitivity", 12, 0, 36, .1, "dB", 0},
+  {"Envelope Attack", "Attack", 10, .5, 100, .1, "ms", 0, true},
+  {"Envelope Release", "Release", 150, 10, 1000, 1, "ms", 0, true},
+  {"Envelope Curve", "Curve", 0, -100, 100, .1, "%", 0},
+  {"Sequencer Rate", "Rate", 4, .1, 20, .01, "Hz", 0, true},
   {"Sequencer Sync", "Tempo sync", 1, 0, 1, 1, "", 0},
   {"Sequencer Division", "Division", 1, 0, 9, 1, "", 0},
-  {"Sequence Step 1", "1", 0, 0, 100, 1, "%", 0},
-  {"Sequence Step 2", "2", 100, 0, 100, 1, "%", 0},
-  {"Sequence Step 3", "3", 25, 0, 100, 1, "%", 0},
-  {"Sequence Step 4", "4", 75, 0, 100, 1, "%", 0},
-  {"Sequence Step 5", "5", 0, 0, 100, 1, "%", 0},
-  {"Sequence Step 6", "6", 100, 0, 100, 1, "%", 0},
-  {"Sequence Step 7", "7", 50, 0, 100, 1, "%", 0},
-  {"Sequence Step 8", "8", 75, 0, 100, 1, "%", 0},
-  {"Macro One", "Macro 1", 0, 0, 100, .1, "%", 0},
-  {"Macro One Slot", "Target slot", 0, 0, 15, 1, "", 0},
-  {"Macro One Target", "Target", 0, 0, 8, 1, "", 0},
-  {"Macro One Depth", "Depth", 0, -100, 100, .1, "%", 0},
-  {"Macro Two", "Macro 2", 0, 0, 100, .1, "%", 0},
-  {"Macro Two Slot", "Target slot", 0, 0, 15, 1, "", 0},
-  {"Macro Two Target", "Target", 0, 0, 8, 1, "", 0},
-  {"Macro Two Depth", "Depth", 0, -100, 100, .1, "%", 0},
-  {"Global Input", "Input", 0, -40, 40, .1, "dB", 0},
-  {"LFO Shape", "Shape", 0, 0, 5, 1, "", 0, false, 1., 3},
-  {"Macro Three", "Macro 3", 0, 0, 100, .1, "%", 0, false, 1., 3},
-  {"Macro Four", "Macro 4", 0, 0, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 1 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 1 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 1 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 1 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 1 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 2 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 2 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 2 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 2 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 2 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 3 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 3 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 3 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 3 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 3 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 4 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 4 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 4 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 4 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 4 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 5 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 5 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 5 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 5 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 5 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 6 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 6 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 6 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 6 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 6 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 7 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 7 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 7 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 7 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 7 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 8 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Mod 8 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"Mod 8 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
-  {"Mod 8 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Mod 8 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
-  {"Follower Threshold", "Threshold", kThresholdOff, kThresholdOff, 0, .1, "dB", 0, false, 1., 3},
-  {"Follower Curve", "Curve", 0, -100, 100, .1, "%", 0, false, 1., 3},
-  {"Follower Input", "Listen at", 0, 0, 16, 1, "", 0, false, 1., 3},
-  {"LFO Retrigger", "Retrigger", 0, 0, 2, 1, "", 0, false, 1., 3},
-  {"LFO One Shot", "One shot", 0, 0, 1, 1, "", 0, false, 1., 3},
-  {"Sequencer Retrigger", "Retrigger", 0, 0, 2, 1, "", 0, false, 1., 3},
+  {"Sequencer Retrigger", "Retrigger", 0, 0, 2, 1, "", 0},
+  {"Sequencer Step 1", "1", 0, 0, 100, 1, "%", 0},
+  {"Sequencer Step 2", "2", 100, 0, 100, 1, "%", 0},
+  {"Sequencer Step 3", "3", 25, 0, 100, 1, "%", 0},
+  {"Sequencer Step 4", "4", 75, 0, 100, 1, "%", 0},
+  {"Sequencer Step 5", "5", 0, 0, 100, 1, "%", 0},
+  {"Sequencer Step 6", "6", 100, 0, 100, 1, "%", 0},
+  {"Sequencer Step 7", "7", 50, 0, 100, 1, "%", 0},
+  {"Sequencer Step 8", "8", 75, 0, 100, 1, "%", 0},
+  {"Macro 1", "Macro 1", 0, 0, 100, .1, "%", 0},
+  {"Macro 2", "Macro 2", 0, 0, 100, .1, "%", 0},
+  {"Macro 3", "Macro 3", 0, 0, 100, .1, "%", 0},
+  {"Macro 4", "Macro 4", 0, 0, 100, .1, "%", 0},
+  {"Mod 1 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 1 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 1 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 1 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 1 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 2 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 2 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 2 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 2 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 2 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 3 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 3 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 3 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 3 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 3 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 4 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 4 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 4 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 4 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 4 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 5 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 5 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 5 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 5 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 5 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 6 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 6 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 6 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 6 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 6 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 7 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 7 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 7 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 7 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 7 Via", "Via", 0, 0, 7, 1, "", 0},
+  {"Mod 8 Source", "Source", 0, 0, 7, 1, "", 0},
+  {"Mod 8 Slot", "Slot", 0, 0, 16, 1, "", 0},
+  {"Mod 8 Destination", "Destination", 0, 0, 1023, 1, "", 0},
+  {"Mod 8 Depth", "Depth", 0, -100, 100, .1, "%", 0},
+  {"Mod 8 Via", "Via", 0, 0, 7, 1, "", 0}
 }};
-// Matrix routing choices are saved state, like algorithm selectors: no host automation,
-// so a longer source or destination list never reinterprets recorded automation.
+// Matrix routing, the LFO shape, Listen at and the Retrigger modes are saved state, like
+// algorithm selectors: no host automation, so a longer list never reinterprets recorded
+// automation. Tempo divisions stay automatable; their list of ten values is frozen.
 inline constexpr bool StateOnly(int parameter)
 {
-  if (parameter == EnvInput || parameter == LFORetrigger || parameter == StepRetrigger) return true;
+  if (parameter == LFOShape || parameter == EnvInput || parameter == LFORetrigger || parameter == StepRetrigger) return true;
   if (parameter < ModRow || parameter >= RowParam(rows, 0)) return false;
   const int field = (parameter - ModRow) % RowFields;
   return field != RowDepth;
@@ -271,17 +238,11 @@ public:
     mMonitorRunning.store(false, std::memory_order_relaxed);
   }
   int Quantum() const { return 16 - static_cast<int>(mFrames % 16); }
-  bool LegacyActive(const Values& v) const
-  {
-    return (v[LFOTarget] > 0. && v[LFODepth] != 0.) || (v[EnvTarget] > 0. && v[EnvDepth] != 0.)
-        || (v[StepTarget] > 0. && v[StepDepth] != 0.) || (v[Macro1Target] > 0. && v[Macro1Depth] != 0.)
-        || (v[Macro2Target] > 0. && v[Macro2Depth] != 0.);
-  }
   bool Active(const Values& v) const
   {
     for (int row = 0; row < rows; ++row)
       if (RowActive(v, row)) return true;
-    return LegacyActive(v);
+    return false;
   }
   // Follower output 0..1: level above the threshold, times Sensitivity, bent by Curve.
   // At the defaults (threshold off, curve 0) this is the plain level times Sensitivity.
@@ -386,50 +347,6 @@ public:
         return std::clamp(v[macros[source - SourceMacro1]] * .01, 0., 1.);
       default: return 0.;
     }
-  }
-  // Apply() edits at most these slots. Restoring them from the host values gives
-  // each quantum the same input as copying every slot again.
-  template<class Controls>
-  void Restore(Controls& animated, const Controls& base, const Values& v) const
-  {
-    for (const int slotIndex : {LFOSlot, EnvSlot, StepSlot, Macro1Slot, Macro2Slot})
-    {
-      const int slot = std::clamp(static_cast<int>(v[slotIndex]), 0, 15);
-      animated[slot] = base[slot];
-    }
-  }
-  // The fixed 0.1 assignments. Matrix rows are applied by grid_modulation::Matrix.
-  template<class Controls>
-  void Apply(Controls& controls, double& blend, const Values& v) const
-  {
-    const auto assign = [&](int slotIndex, int targetIndex, double amount) {
-      const int slot = std::clamp(static_cast<int>(v[slotIndex]), 0, 15);
-      auto& c = controls[slot]; auto& u = c.utility;
-      switch (static_cast<int>(v[targetIndex]))
-      {
-        case 1: u.wah[0] = std::clamp(u.wah[0] + amount * 100., 0., 100.); break;
-        case 2: u.cutoff = std::clamp(u.cutoff * std::exp2(amount * 6.), 40., 12000.); break;
-        case 3: u.balance = std::clamp(u.balance + amount * 100., -100., 100.); break;
-        case 4: u.delay[4] = std::clamp(u.delay[4] + amount * 100., 0., 100.); break;
-        case 5:
-          u.reverb[4] = std::clamp(u.reverb[4] + amount * 100., 0., 100.);
-          u.airPlate[4] = std::clamp(u.airPlate[4] + amount * 100., 0., 100.);
-          u.airHall[5] = std::clamp(u.airHall[5] + amount * 100., 0., 100.);
-          u.space[5] = std::clamp(u.space[5] + amount * 100., 0., 100.);
-          u.cosmic[6] = std::clamp(u.cosmic[6] + amount * 100., 0., 100.);
-          u.shimmer[0] = std::clamp(u.shimmer[0] + amount * 100., 0., 100.);
-          u.spring[3] = std::clamp(u.spring[3] + amount * 100., 0., 100.); break;
-        case 6: c.trimDB = std::clamp(c.trimDB + amount * 24., -40., 40.); break;
-        case 7: blend = std::clamp(blend + amount, 0., 1.); break;
-        case 8: u.ring[0] = std::clamp(u.ring[0] * std::exp2(amount * 4.), 1., 5000.); break;
-        default: break;
-      }
-    };
-    assign(LFOSlot, LFOTarget, Value(SourceLFO, v) * v[LFODepth] * .01);
-    assign(EnvSlot, EnvTarget, Value(SourceEnvelope, v) * v[EnvDepth] * .01);
-    assign(StepSlot, StepTarget, Value(SourceSequencer, v) * v[StepDepth] * .01);
-    assign(Macro1Slot, Macro1Target, v[Macro1] * v[Macro1Depth] * .0001);
-    assign(Macro2Slot, Macro2Target, v[Macro2] * v[Macro2Depth] * .0001);
   }
 private:
   void NextRandom()

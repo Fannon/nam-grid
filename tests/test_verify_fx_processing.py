@@ -19,12 +19,13 @@ class EventTests(unittest.TestCase):
         self.assertEqual(names.count("Pre 1 Wah Position"), 2)
         self.assertEqual([e["value"] for e in events if e["name"] == "Pre 1 Wah Position"], [30., 70.])
         # Modulation starts after every control's first move, then depths change again.
-        first_modulation = names.index("LFO Target")
+        first_modulation = names.index("Mod 1 Depth")
         self.assertGreater(first_modulation, names.index("Pre 1 Wah Position"))
-        self.assertEqual(names.count("LFO Target"), 1)
-        self.assertEqual(names.count("LFO Depth"), 2)
-        # Enumerated targets are sent as display text, not numeric text.
-        self.assertIn({"block": events[first_modulation]["block"], "name": "LFO Target", "value": "Reverb mix"}, events)
+        self.assertEqual(names.count("LFO Rate"), 1)
+        self.assertEqual(names.count("Mod 1 Depth"), 2)
+        # Routing is saved state, never automation.
+        self.assertFalse(any(name.endswith(("Source", "Slot", "Destination")) for name in names))
+        self.assertEqual(audit.ROUTING["Mod 4 Slot"], 16)
 
     def test_latched_capture_cases_render_without_audit_events(self):
         for control in audit.LATCHED:

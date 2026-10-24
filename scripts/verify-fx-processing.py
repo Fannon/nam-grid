@@ -21,18 +21,21 @@ benchmark = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(benchmark)
 
 # Shared slot controls (name, first value, second value or None), automated in every case.
-SHARED = [("Pre 1 In", 6., 3.), ("Pre 1 Trim", -4., -2.), ("Pre 1 Gate Threshold", -40., -20.),
+SHARED = [("Pre 1 NAM Input", 6., 3.), ("Pre 1 NAM Output", -4., -2.), ("Pre 1 Gate Threshold", -40., -20.),
           ("Pre 1 Gate Release", 300., 150.), ("Pre 1 Gate Reduction", 30., 15.), ("Pre 1 Comp Threshold", -30., -15.),
           ("Pre 1 Comp Release", 300., 150.), ("Pre 1 Comp Makeup", 6., 3.), ("Pre 1 EQ Bass", 5., 2.5),
-          ("Pre 1 EQ Mid", -4., -2.), ("Pre 1 EQ Treble", 3., 1.5), ("Pre 1 EQ High Pass", 120., 60.),
-          ("Pre 1 EQ Low Pass", 6000., 3000.), ("Pre 1 EQ Presence", 4., 2.), ("Pre 1 IR Level", -6., -3.)]
-# Every shared modulation source targets slot 1, switched on after the first pass of
-# knob changes so each render covers both the plain and the modulated control paths.
-# Enumerated targets are sent as display text.
-MODULATION = [("LFO Target", "Reverb mix", None), ("LFO Rate", 3., None), ("LFO Depth", 40., -30.), ("Follower Target", "Delay mix", None),
-              ("Follower Depth", 60., 30.), ("Sequencer Target", "Wah position", None), ("Sequencer Depth", 50., -50.),
-              ("Macro One Target", "Filter cutoff", None), ("Macro One", 60., 30.), ("Macro One Depth", 50., -40.),
-              ("Macro Two Target", "Ring frequency", None), ("Macro Two", 40., 80.), ("Macro Two Depth", 30., 60.)]
+          ("Pre 1 EQ Mid", -4., -2.), ("Pre 1 EQ Treble", 3., 1.5), ("Pre 1 EQ Low Cut", 120., 60.),
+          ("Pre 1 EQ High Cut", 6000., 3000.), ("Pre 1 EQ Presence", 4., 2.), ("Pre 1 IR Output", -6., -3.)]
+# Matrix routing is saved state, not automation: every source gets a row to a slot 1
+# or routing destination at depth 0. The depths rise after the first pass of knob
+# changes, so each render covers both the plain and the modulated control paths.
+# Destinations are slot control indices (In, Trim, Gate Threshold, EQ Treble) or
+# Slot 16 with a routing destination (0 = A/B blend).
+ROUTING = {}
+for row, (source, slot, destination) in enumerate([(1, 0, 0), (2, 0, 1), (3, 0, 11), (4, 16, 0), (5, 0, 3)], 1):
+    ROUTING.update({f"Mod {row} Source": source, f"Mod {row} Slot": slot, f"Mod {row} Destination": destination})
+MODULATION = [("LFO Rate", 3., None), ("Mod 1 Depth", 40., -30.), ("Mod 2 Depth", 60., 30.), ("Mod 3 Depth", 50., -50.),
+              ("Macro 1", 60., 30.), ("Mod 4 Depth", 50., -40.), ("Macro 2", 40., 80.), ("Mod 5 Depth", 30., 60.)]
 LATCHED = ("Freeze Hold", "Shimmer Freeze", "Noise Learn")
 
 
@@ -56,7 +59,7 @@ def render(host, plugin, case, rate, buffer, seconds, warmup, folder):
     blocks = int(-(-(seconds + warmup) * rate // buffer))
     settings = {"rates": [rate], "buffers": [buffer], "seconds": seconds, "warmup_seconds": warmup, "repeats": 1,
                 "paced": False, "render_path": str(path), "parameter_events": events(case, blocks)}
-    (folder / "case.json").write_text(json.dumps(case), encoding="utf-8")
+    (folder / "case.json").write_text(json.dumps({**case, "globals": ROUTING}), encoding="utf-8")
     (folder / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
     run = subprocess.run([str(host), "--run", str(plugin), str(folder / "case.json"), str(folder / "settings.json")],
                          capture_output=True, text=True, timeout=300)

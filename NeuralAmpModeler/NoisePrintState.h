@@ -5,9 +5,7 @@
 
 namespace noise_print
 {
-// Read the isolated prototype's schema alongside the integrated main schema.
-inline constexpr int experimentSchema = 1002;
-inline constexpr int integratedSchema = 14;
+// A learned profile is saved per slot as {"version": 1, "power": [...]}.
 inline nlohmann::json Save(const Profile& profile)
 {
   if (!profile.valid)

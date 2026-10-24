@@ -76,17 +76,18 @@ int main(int argc, char** argv)
   assert(bypassCount == 1 && std::all_of(seen.begin(), seen.end(), [](bool found) { return found; }));
   json snapshot;
   std::ifstream(argv[2]) >> snapshot;
-  auto verify = [&](int id, json expected, int control) {
+  auto verify = [&](int id, json expected) {
     const auto& info = parameters[id];
     assert(info.id == id);
     std::string name;
     for (auto* c = info.title; *c; ++c)
       name.push_back(static_cast<char>(*c));
     assert(name == expected["name"].get<std::string>());
-    const bool algorithm = IsAlgorithmMode(control);
-    assert(bool(info.flags & ParameterInfo::kCanAutomate) == !algorithm);
-    if (algorithm)
-      return; // Algorithms may expand; normalized positions are not automated.
+    // Algorithm modes and matrix routing are saved state only; their lists may grow.
+    const bool stateOnly = IsStateOnlyParam(id);
+    assert(bool(info.flags & ParameterInfo::kCanAutomate) == !stateOnly);
+    if (stateOnly)
+      return;
     const bool stepped = expected["stepped"].get<bool>();
     const double minimum = expected["minimum"], maximum = expected["maximum"];
     const double initial = expected["default"];
@@ -130,10 +131,10 @@ int main(int argc, char** argv)
     {
       auto expected = snapshot["slot"][control];
       expected["name"] = GridSlotName(slot) + " " + expected["name"].get<std::string>().substr(6);
-      verify(SlotParam(slot, control), expected, control - parameter_layout::standardControls);
+      verify(SlotParam(slot, control), expected);
     }
   for (const auto& expected : snapshot["global"])
-    verify(expected["id"], expected, -1);
+    verify(expected["id"], expected);
   assert(controller->terminate() == kResultOk);
   controller->release();
   factory->release();

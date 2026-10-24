@@ -2,7 +2,7 @@
 #include "SlotTimeEffects.h"
 
 // Original MIT implementations. Mathematical references/provenance are in
-// docs/modules.md; no third-party implementation is copied.
+// docs/module-implementation.md; no third-party implementation is copied.
 class SlotWah
 {
 public:

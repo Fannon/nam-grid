@@ -157,9 +157,17 @@ int main(int argc, char** argv)
         std::cerr << "Parameter contract changed: " << expected << "\nActual: " << actual << '\n';
       assert(actual == expected);
     }
-  for (const auto& expected : snapshot["global"])
+  for (auto expected : snapshot["global"])
   {
-    const auto actual = metadata(expected["id"].get<int>());
+    const int id = expected["id"].get<int>();
+    auto actual = metadata(id);
+    if (IsStateOnlyParam(id))
+    {
+      // Matrix routing lists may grow like algorithm menus, and never become automatable.
+      assert(!(actual["flags"].get<int>() & CLAP_PARAM_IS_AUTOMATABLE));
+      assert(actual["maximum"].get<double>() >= expected["maximum"].get<double>());
+      for (auto* entry : {&actual, &expected}) { entry->erase("maximum"); entry->erase("mapping"); }
+    }
     if (actual != expected)
       std::cerr << "Parameter contract changed: " << expected << "\nActual: " << actual << '\n';
     assert(actual == expected);

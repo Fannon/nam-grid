@@ -3479,10 +3479,22 @@ index 0de0e4208..7b29247bd 100644
  // VST3 ********************************************************************************
  #if defined VST3P_API || defined VST3_API
 diff --git a/IPlug/IPlugAPIBase.h b/IPlug/IPlugAPIBase.h
-index 5f43a7bc1..7c7b948f4 100644
+index 5f43a7bc1..8624657a9 100644
 --- a/IPlug/IPlugAPIBase.h
 +++ b/IPlug/IPlugAPIBase.h
-@@ -212,6 +212,8 @@ private:
+@@ -183,6 +183,11 @@ public:
+ 
+   /** Called by the API class to create the timer that pumps the parameter/message queues */
+   void CreateTimer();
++
++  /** Stops the idle timer and waits for a running tick. Where the timer is a thread (Linux
++   * hosts without CLAP timer support), plugins call this first in their destructor, so no
++   * tick runs while their members are destroyed. */
++  void StopIdleTimer() { if (mTimer) mTimer->Stop(); }
+   
+ private:
+   /** Implementations call into the APIs resize hooks
+@@ -212,6 +217,8 @@ private:
    virtual void TransmitSysExDataFromProcessor(const SysExData& data) {}
  
    void OnTimer(Timer& t);

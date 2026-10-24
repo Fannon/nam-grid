@@ -22,6 +22,13 @@
 #include "../NeuralAmpModeler/GridLayout.h"
 #include "../NeuralAmpModeler/EffectPresentation.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
+// Header box centres (GridLayout.h), so tests follow the header layout.
+constexpr int kPreviousX = grid_layout::previousLeft + grid_layout::arrowWidth / 2;
+constexpr int kNextX = grid_layout::nextLeft + grid_layout::arrowWidth / 2;
+constexpr int kNewX = grid_layout::newLeft + grid_layout::fileButtonWidth / 2;
+constexpr int kSaveX = grid_layout::saveLeft + grid_layout::fileButtonWidth / 2;
+constexpr int kModulationX = (grid_layout::modulationLeft + grid_layout::modulationRight) / 2;
+constexpr int kTunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
 int main(int argc, char** argv)
 {
   std::cout << std::unitbuf;
@@ -1669,16 +1676,16 @@ int main(int argc, char** argv)
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-presets.bmp");
   chooseBrowserItem("SECOND RIG");
   assert(save().config()["Output"] == -10. && userFolders().presetFolders.size() == 1);
-  click(584, 28);
-  click(624, 28);
+  click(kPreviousX, grid_layout::headerY);
+  click(kNextX, grid_layout::headerY);
   assert(save().config()["PresetName"] == "Second rig" && save().config()["Output"] == -10.);
-  click(584, 28);
+  click(kPreviousX, grid_layout::headerY);
   if (save().config()["PresetName"] != "Clean rig" || save().config()["Output"] != -8.)
     std::cerr << "Previous preset: " << save().config()["PresetName"] << ", output=" << save().config()["Output"] << '\n';
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
   click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(932, 688); // Load button.
   assert(save().config()["PresetName"] == "Second rig");
-  click(584, 28);
+  click(kPreviousX, grid_layout::headerY);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
   std::cout << "Preset folder selection and previous/next passed\n";
   // Rig preset switches while audio plays: Short fade dips briefly, Crossfade never drops
@@ -1716,7 +1723,7 @@ int main(int argc, char** argv)
     pumpFor(500);
     const auto before = save().config()["PresetName"];
     const size_t switchAt = written;
-    click(584, 28); // Previous preset while audio plays.
+    click(kPreviousX, grid_layout::headerY); // Previous preset while audio plays.
     pumpFor(700);
     running = false;
     audio.join();
@@ -1772,7 +1779,7 @@ int main(int argc, char** argv)
   // Shift-click on header Save writes over the loaded preset file without a dialog.
   auto quickEdit = save().config(); quickEdit["Output"] = -5.;
   load(quickEdit);
-  shiftClick(736, 28);
+  shiftClick(kSaveX, grid_layout::headerY);
   assert(rig_preset::Read(presetFile)["Output"] == -5. && save().config()["PresetName"] == "Clean rig");
   std::cout << "Header quick save passed\n";
   // Deleting the selected (current) preset removes only its file, after confirmation.
@@ -1787,17 +1794,17 @@ int main(int argc, char** argv)
   std::cout << "Preset delete passed\n";
   // Without an existing file, header Save falls back to Save as.
   const auto savedAgain = presetDirectory / "Saved again.ngrid";
-  win_file_dialog::Choose(savedAgain, [&] { click(736, 28); });
+  win_file_dialog::Choose(savedAgain, [&] { click(kSaveX, grid_layout::headerY); });
   assert(std::filesystem::exists(savedAgain) && save().config()["PresetName"] == "Saved again");
   // With a loaded file, a plain click is still Save as: overwriting needs Shift/Alt or the right-click menu.
   const auto savedCopy = presetDirectory / "Saved copy.ngrid";
-  win_file_dialog::Choose(savedCopy, [&] { click(736, 28); });
+  win_file_dialog::Choose(savedCopy, [&] { click(kSaveX, grid_layout::headerY); });
   assert(std::filesystem::exists(savedCopy) && save().config()["PresetName"] == "Saved copy");
   // New asks first, then starts an empty grid and keeps library folders and the preset folder.
   const auto beforeNew = save().config();
-  win_file_dialog::Confirm(false, [&] { click(675, 28); });
+  win_file_dialog::Confirm(false, [&] { click(kNewX, grid_layout::headerY); });
   assert(save().config() == beforeNew);
-  win_file_dialog::Confirm(true, [&] { click(675, 28); });
+  win_file_dialog::Confirm(true, [&] { click(kNewX, grid_layout::headerY); });
   const auto fresh = save().config();
   assert(fresh["PresetName"] == "Untitled" && fresh["PresetDirectory"] == beforeNew["PresetDirectory"]);
   assert(userFolders().presetFolders.size() == 1 && userFolders().namFolders == pathTexts({libraryFolder}));
@@ -1841,9 +1848,9 @@ int main(int argc, char** argv)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
       click(936, 28); click(966, 328);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click(966, 328); click(225, 28);
+      click(966, 328); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
-      click(936, 28); click(808, 36);
+      click(936, 28); click(kTunerX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
       keyAtEditor(VK_ESCAPE);
     }
@@ -2008,7 +2015,7 @@ int main(int argc, char** argv)
     assert(save().config() == before);
     auto vibe = browserState; vibe["SlotEffects"][0] = static_cast<int>(SlotEffect::UniVibe);
     vibe["Pre 1 Vibe Vibrato Mode"] = 1.; vibe["Pre 1 Mod Mix"] = 50.;
-    const int mix = effect_presentation::kMixPosition;
+    const int mix = effect_presentation::Position(SlotEffect::UniVibe, uModMix);
     load(vibe); selectTile(170, 120); dragAt(grid_layout::KnobX(mix), grid_layout::KnobGestureY(mix));
     assert(save().config()["Pre 1 Mod Mix"] == 50.); // Fully wet mode hides Mix.
     vibe["Pre 1 Vibe Vibrato Mode"] = 0.; load(vibe); selectTile(170, 120);
@@ -2248,7 +2255,7 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "tempo-sync.bmp");
   }
   load(cleared);
-  click(808, 36); // Tuner beside Settings.
+  click(kTunerX, grid_layout::headerY); // Tuner beside Settings.
   assert(save().config()["Tuner"] == 1.);
   dragAt(391, 601); // The Reference knob below Mute output, at module knob size.
   assert(save().config()["Tuner Reference"] != 440.);
@@ -2271,15 +2278,15 @@ int main(int argc, char** argv)
   assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   assert(std::abs(output[0][400]) > .001);
   // The Tuner button works like a module selector: click it again, or select a slot, to leave.
-  click(808, 36);
+  click(kTunerX, grid_layout::headerY);
   assert(save().config()["Tuner"] == 1.);
   click(391, 533); // Mute output, at the top of the tuner's control column.
   assert(save().config()["Tuner Mute"] == 0.);
   click(391, 533);
   assert(save().config()["Tuner Mute"] == 1.);
-  click(808, 36);
+  click(kTunerX, grid_layout::headerY);
   assert(save().config()["Tuner"] == 0.);
-  click(808, 36);
+  click(kTunerX, grid_layout::headerY);
   selectTile(390, 120);
   assert(save().config()["Tuner"] == 0.);
   plugin->stop_processing(plugin);
@@ -2290,16 +2297,16 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Lane A level
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);
-  click(287, 28); // An empty scene recalls nothing.
+  click(grid_layout::SceneX(0), grid_layout::headerY); // An empty scene recalls nothing.
   assert(save().config()["Lane A Level"] == sceneGain);
-  win_edit_menu::SelectNamedItem(editor, 287, 28, L"Store in scene 1", true); pumpFor(30);
+  win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(0), grid_layout::headerY, L"Store in scene 1", true); pumpFor(30);
   const auto sceneState = save().config();
   assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
   assert(!sceneState["PerformanceScenes"][0].contains("Pre 1 Noise Learn"));
   assert(!sceneState["PerformanceScenes"][0].contains("Tuner"));
   automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
   assert(save().config()["Lane A Level"] == -60.);
-  click(287, 28); // Recall scene 1
+  click(grid_layout::SceneX(0), grid_layout::headerY); // Recall scene 1
   assert(save().config()["Lane A Level"] == sceneGain);
   const auto storedScene = save();
   load(cleared);
@@ -2317,10 +2324,10 @@ int main(int argc, char** argv)
   learnSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(learnSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
-  win_edit_menu::SelectNamedItem(editor, 319, 28, L"Store in scene 2", true); pumpFor(30);
-  win_edit_menu::SelectNamedItem(editor, 319, 28, L"Clear scene 2", true); pumpFor(30);
+  win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Store in scene 2", true); pumpFor(30);
+  win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Clear scene 2", true); pumpFor(30);
   assert(save().config()["PerformanceScenes"][1].empty());
-  click(225, 28); // Modulation
+  click(kModulationX, grid_layout::headerY); // Modulation
   dragAt(862, 141); // Matrix row 1 depth
   assert(save().config()["Mod 1 Depth"] > 0.);
   click(936, 28); // Close overlay
@@ -2364,7 +2371,7 @@ int main(int argc, char** argv)
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
   load(cleared);
-  click(808, 36);
+  click(kTunerX, grid_layout::headerY);
   gui->destroy(plugin);
   assert(save().config()["Tuner"] == 1.); // Closing the editor must not cancel host automation.
   assert(plugin->activate(plugin, 48000., 1, 512));

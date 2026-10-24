@@ -8,7 +8,7 @@ public:
   { SetTooltip("Browse rig presets. Right-click for quick load / save actions."); }
   void Draw(IGraphics& g) override
   {
-    grid_ui::Button::Draw(g);
+    DrawBox(g, mRECT.GetHPadded(-36.f)); // Centred, clear of the browse icon.
     const float x = mRECT.R - 19, y = mRECT.MH();
     g.DrawRoundRect(grid_ui::muted, IRECT(x - 8, y - 6, x + 8, y + 6), 1.5f);
     g.DrawLine(grid_ui::muted, x - 3, y - 6, x - 3, y + 6);

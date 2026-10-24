@@ -33,10 +33,11 @@ Select a tile in the grid and its editor opens below. Every module uses the same
   **Notch mode**. Options read "Label: value". Modes with three or more choices open a
   menu; two-choice options switch on click. Options are saved with the rig but are not
   host-automatable, so a longer list never changes recorded automation.
-- **Controls:** two rows of four positions. The module's main controls fill the top row
-  from the left. **Output** sits below the first control, **Mix** in the third column of
-  the bottom row, and **Enabled** (the module bypass) at the bottom right. Positions a
-  module does not use stay empty, so the same control is always in the same place.
+- **Controls:** two rows of four positions, filled from the left. A module with up to four
+  controls shows them in one row: main controls, then **Output**, then **Mix**. Larger
+  modules fill the top row with their main controls; **Output** starts the bottom row and
+  **Mix** ends it. **Enabled** (the module bypass) is always at the bottom right. Modes such
+  as Tempo sync only hide or swap a control, so the others never move.
 - **Display:** the panel on the right shows what the controls do (see below).
 - **Level strip:** the line below the editor compares the module's input and output.
 

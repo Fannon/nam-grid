@@ -202,30 +202,32 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto compact = grid_ui::Style();
     ui->AttachPanelBackground(COLOR_BLACK);
     ui->AttachControl(new ITextControl(IRECT(24, 8, 156, 48), PLUG_NAME, grid_ui::Text(28.f)));
-    ui->AttachControl(new grid_ui::Button(IRECT(165, 14, 265, 42), [](IControl* caller) {
-      caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
-      caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
-      caller->GetUI()->GetControlWithTag(kCtrlTagPerformance)->Hide(false);
-    }, "Modulation"))->SetTooltip("Modulation sources, macros and the modulation matrix.");
+    using namespace grid_layout;
+    const auto header = [](int left, int right) { return IRECT(left, headerTop, right, headerBottom); };
     for (int scene = 0; scene < 3; ++scene)
-      ui->AttachControl(new grid_ui::SceneButton(IRECT(273.f + 32.f * scene, 14, 301.f + 32.f * scene, 42), scene));
-    ui->AttachControl(new NAMRigPresetControl(IRECT(375, 14, 560, 42)), kCtrlTagPresetName);
-    ui->AttachControl(new grid_ui::Button(IRECT(568, 14, 600, 42), [this](IControl*) { StepRigPreset(-1); }, "<"), kCtrlTagPresetPrevious);
-    ui->AttachControl(new grid_ui::Button(IRECT(608, 14, 640, 42), [this](IControl*) { StepRigPreset(1); }, ">"), kCtrlTagPresetNext);
-    ui->AttachControl(new grid_ui::Button(IRECT(648, 14, 702, 42), [this](IControl*) {
+      ui->AttachControl(new grid_ui::SceneButton(header(sceneLeft + scenePitch * scene, sceneLeft + scenePitch * scene + sceneWidth), scene));
+    ui->AttachControl(new NAMRigPresetControl(header(presetLeft, presetRight)), kCtrlTagPresetName);
+    ui->AttachControl(new grid_ui::Button(header(previousLeft, previousLeft + arrowWidth), [this](IControl*) { StepRigPreset(-1); }, "<"), kCtrlTagPresetPrevious);
+    ui->AttachControl(new grid_ui::Button(header(nextLeft, nextLeft + arrowWidth), [this](IControl*) { StepRigPreset(1); }, ">"), kCtrlTagPresetNext);
+    ui->AttachControl(new grid_ui::Button(header(newLeft, newLeft + fileButtonWidth), [this](IControl*) {
       if (!ConfirmNewRig()) return;
       const auto error = NewRig();
       if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "New rig", EMsgBoxType::kMB_OK);
     }, "New"), kCtrlTagPresetNew)->SetTooltip("Start a new empty rig. Library folders and tuner settings stay.");
-    ui->AttachControl(new NAMRigSaveControl(IRECT(710, 14, 762, 42)), kCtrlTagPresetSave);
+    ui->AttachControl(new NAMRigSaveControl(header(saveLeft, saveLeft + fileButtonWidth)), kCtrlTagPresetSave);
+    ui->AttachControl(new grid_ui::Button(header(modulationLeft, modulationRight), [](IControl* caller) {
+      caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
+      caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
+      caller->GetUI()->GetControlWithTag(kCtrlTagPerformance)->Hide(false);
+    }, "Modulation"))->SetTooltip("Modulation sources, macros and the modulation matrix.");
     ui->AttachControl(new grid_ui::Button(
-      IRECT(862, 14, 976, 42),
+      header(settingsLeft, settingsRight),
       [](IControl* caller) {
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
       "Library & settings"));
-    ui->AttachControl(new grid_ui::Toggle(IRECT(770, 14, 850, 42), kTunerActive, "Tuner", true), kCtrlTagTunerButton)
+    ui->AttachControl(new grid_ui::Toggle(header(tunerLeft, tunerRight), kTunerActive, "Tuner", true), kCtrlTagTunerButton)
       ->SetTooltip("Show the tuner in place of the module editor; click again or select a slot to leave it. "
                    "Automatable; mutes the output while on unless Mute output is off.");
     ui->AttachControl(new grid_ui::Wiring(b));
@@ -244,11 +246,9 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
     // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(77, 68, 84, 140), IRECT(0, 140, 66, 158)), kCtrlTagInputMeter);
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(921, 380, 928, 452), IRECT(932, 450, 1000, 468)), kCtrlTagOutputMeter);
-    const float firstRow = grid_layout::cardTop + grid_layout::cardHeight * .5f, lastRow = firstRow + 3 * grid_layout::rowPitch;
-    ui->AttachControl(new grid_ui::FlowLink(64, 88, firstRow));
-    ui->AttachControl(new grid_ui::FlowLink(912, 940, lastRow));
+    // A small gap separates them from the first and last cards' own level strips.
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(72, 68, 79, 140), IRECT(0, 140, 66, 158)), kCtrlTagInputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(926, 380, 933, 452), IRECT(932, 450, 1000, 468)), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridRoutingControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagRouting)->Hide(true);

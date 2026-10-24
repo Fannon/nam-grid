@@ -284,7 +284,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 2; // 2 adds Limiter Clip.
+inline constexpr int kEffectStateSchema = 3; // 2 adds Limiter Clip; 3 adds the modulation matrix.
 
 struct EffectParameter
 {

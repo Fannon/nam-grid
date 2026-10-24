@@ -180,7 +180,8 @@ iplug_add_plugin(nam-grid
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/ImpulseResponse.cpp
     ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}
-  DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f ${NAM_IR_DEFINES})
+  # MIDI input only retriggers modulation; no VST3 MIDI-CC proxy parameters (see config.h).
+  DEFINES NAM_ENABLE_A2_FAST GRAYED_ALPHA=0.5f VST3_NUM_CC_CHANS=0 ${NAM_IR_DEFINES})
 target_include_directories(_nam-grid-base INTERFACE
   ../eigen ../NeuralAmpModelerCore/Dependencies/nlohmann)
 target_link_libraries(_nam-grid-base INTERFACE Threads::Threads)

@@ -67,6 +67,8 @@ int main(int argc, char** argv)
       ++bypassCount;
       continue;
     }
+    if (info.id >= kNumParams || seen[info.id])
+      std::cerr << "Unexpected VST3 parameter ID " << info.id << " (flags " << info.flags << ")\n";
     assert(info.id < kNumParams && !seen[info.id]);
     parameters[info.id] = info;
     seen[info.id] = true;

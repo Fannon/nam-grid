@@ -52,7 +52,10 @@ struct Segment
 // control fails to compile until it is allocated here. To extend, either grow
 // the LAST segment's slotControls, or append {newGlobals, 0} / {0, newControls}.
 // Never edit the counts of an earlier segment or the first segment's globals.
-inline constexpr Segment segments[]{{49, 216}}; // +1: Limiter Clip (state schema 2)
+// +1 slot control: Limiter Clip (state schema 2). +49 globals: LFO Shape, Macros 3/4,
+// the modulation matrix and follower/retrigger options (schema 3). New slot controls
+// now append {0, n}.
+inline constexpr Segment segments[]{{49, 216}, {49, 0}};
 inline constexpr Segment released[]{{49, 215}}; // NAM Grid 0.1.0
 
 constexpr int GlobalID(std::span<const Segment> table, int index)
@@ -166,6 +169,15 @@ constexpr int PerformanceIndex(int id)
     if (PerformanceParam(parameter) == id)
       return parameter;
   return -1;
+}
+
+// Saved selectors without host automation: algorithm modes and matrix routing.
+// Their lists may grow without reinterpreting recorded automation.
+constexpr bool IsStateOnlyParam(int id)
+{
+  if (IsAlgorithmMode(parameter_layout::UtilityControl(id))) return true;
+  const int performance = PerformanceIndex(id);
+  return performance >= 0 && grid_performance::StateOnly(performance);
 }
 
 constexpr int SlotParam(size_t slot, int control)

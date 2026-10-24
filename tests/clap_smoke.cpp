@@ -9,7 +9,9 @@
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include "../NeuralAmpModeler/GridPerformance.h"
+#include "../NeuralAmpModeler/ParameterLayout.h"
 #include "RoadmapClapTests.h"
+#include "ModulationClapTests.h"
 #include "EffectModeClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
@@ -864,6 +866,7 @@ int main(int argc, char** argv)
 #include "LoFiTapeClapTests.inc"
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
+  TestModulationMatrixClap(plugin, cleared, save, load, loadRaw);
   TestEffectModeClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
@@ -1776,13 +1779,11 @@ int main(int argc, char** argv)
       }
       click(910, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
-      click(915, 44); click(225, 28);
+      click(915, 44); click(966, 328);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click(295, 104);
+      click(966, 328); click(225, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
-      click(465, 104);
-      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-scenes.bmp");
-      click(915, 44); click(808, 36);
+      click(936, 28); click(808, 36);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
       keyAtEditor(VK_ESCAPE);
     }
@@ -2211,19 +2212,20 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
-  click(225, 28);
-  dragAt(95, 235);
+  click(966, 328); // Routing, below the A / B knob
+  dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Lane A level
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);
-  click(465, 104); // Scenes tab
-  click(110, 419); // Store scene 1
+  click(287, 28); // An empty scene recalls nothing.
+  assert(save().config()["Lane A Level"] == sceneGain);
+  win_edit_menu::SelectNamedItem(editor, 287, 28, L"Store in scene 1", true); pumpFor(30);
   const auto sceneState = save().config();
   assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
   assert(!sceneState["PerformanceScenes"][0].contains("Pre 1 Noise Learn"));
   assert(!sceneState["PerformanceScenes"][0].contains("Tuner"));
   automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
   assert(save().config()["Lane A Level"] == -60.);
-  click(245, 419); // Recall scene 1
+  click(287, 28); // Recall scene 1
   assert(save().config()["Lane A Level"] == sceneGain);
   const auto storedScene = save();
   load(cleared);
@@ -2241,10 +2243,50 @@ int main(int argc, char** argv)
   learnSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(learnSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
-  click(295, 104); // Modulation tab
-  dragAt(230, 315);
-  assert(save().config()["LFO Depth"] != 0.);
-  click(915, 44); // Close overlay
+  win_edit_menu::SelectNamedItem(editor, 319, 28, L"Store in scene 2", true); pumpFor(30);
+  win_edit_menu::SelectNamedItem(editor, 319, 28, L"Clear scene 2", true); pumpFor(30);
+  assert(save().config()["PerformanceScenes"][1].empty());
+  click(225, 28); // Modulation
+  dragAt(862, 141); // Matrix row 1 depth
+  assert(save().config()["Mod 1 Depth"] > 0.);
+  click(936, 28); // Close overlay
+  // Right-click a knob to modulate it: the routing panel (still open) has Lane A level, which
+  // takes the first free row.
+  win_edit_menu::SelectNamedItem(editor, grid_layout::KnobX(0), grid_layout::KnobGestureY(0), L"Modulate with Macro 1", true);
+  pumpFor(30);
+  {
+    const auto state = save().config();
+    assert(state["Mod 1 Source"] == grid_performance::SourceMacro1 && state["Mod 1 Slot"] == grid_performance::gridSlot);
+    assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
+  }
+  keyAtEditor(VK_ESCAPE); // Closes the routing panel.
+  // Older fixed assignments stay until Convert to rows, which also converts stored scenes.
+  {
+    auto legacy = cleared;
+    legacy["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
+    legacy["Macro One"] = 100.; legacy["Macro One Slot"] = 4.; legacy["Macro One Target"] = 3.; legacy["Macro One Depth"] = 20.;
+    const auto sceneWith = [&](double depth, double target) {
+      auto scene = json::object();
+      for (const auto& p : grid_performance::parameters) scene[p.name] = legacy[p.name];
+      scene["Macro One Depth"] = depth; scene["Macro One Target"] = target;
+      return scene;
+    };
+    legacy["PerformanceScenes"][0] = sceneWith(40., 3.);
+    legacy["PerformanceScenes"][1] = sceneWith(20., 0.);
+    load(legacy);
+    click(225, 28); // Modulation lists the fixed assignment and offers to convert it.
+    click(104, 659); // Convert to rows
+    click(936, 28);
+    const auto state = save().config();
+    const auto& scenes = state["PerformanceScenes"];
+    assert(state["Macro One Target"] == 0. && state["Mod 1 Source"] == grid_performance::SourceMacro1);
+    // Balance: +/-100 on a 200-wide range. Values pass through the host's normalized range.
+    const auto approximately = [](const json& value, double expected) { return std::abs(value.get<double>() - expected) < 1.e-9; };
+    assert(state["Mod 1 Slot"] == 4. && approximately(state["Mod 1 Depth"], 10.));
+    assert(scenes[0]["Macro One Target"] == 0. && scenes[0]["Mod 1 Source"] == grid_performance::SourceMacro1
+           && approximately(scenes[0]["Mod 1 Depth"], 20.));
+    assert(scenes[1]["Mod 1 Source"] == grid_performance::SourceNone);
+  }
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["NamFolders"] = {libraryFolder.string()};

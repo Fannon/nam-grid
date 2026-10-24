@@ -43,6 +43,8 @@ public:
     for (auto& buffer : mRightLane)
       buffer.assign(maxBlock, 0.);
     mSplitGain.assign(maxBlock, 1.);
+    for (auto& buffer : mTap)
+      buffer.assign(maxBlock, 0.);
     mSplitLow = {}; mSplitMix = 0.; mSplitFrequency = 250.;
     mSplitCoefficientFrequency = -1.;
     mGainA = mGainB = 1.; mRouteFirst = true; mRate = rate;
@@ -142,6 +144,11 @@ public:
     ProcessRow(samples, frames, controls, 12, right);
   }
 
+  // Copy one slot's output during Process for the envelope follower (-1: none).
+  void SetTap(int slot) { mTapSlot = slot; }
+  const double* TapLeft() const { return mTap[0].data(); }
+  const double* TapRight() const { return mTapStereo ? mTap[1].data() : nullptr; }
+
 private:
   struct Delay
   {
@@ -194,6 +201,12 @@ private:
     {
       const auto& c = controls[i];
       stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, right);
+      if (i == mTapSlot)
+      {
+        std::copy_n(samples, frames, mTap[0].data());
+        if (right) std::copy_n(right, frames, mTap[1].data());
+        mTapStereo = right != nullptr;
+      }
     }
   }
   std::array<int, 2> LaneLatencies() const
@@ -218,4 +231,7 @@ private:
   double mSplitSmoothing = 0.;
   double mSplitCoefficientFrequency = -1., mSplitCoefficient = 0.;
   bool mRouteFirst = true;
+  std::array<std::vector<double>, 2> mTap;
+  int mTapSlot = -1;
+  bool mTapStereo = false;
 };

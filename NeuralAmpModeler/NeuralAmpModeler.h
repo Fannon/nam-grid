@@ -57,6 +57,7 @@ private:
 };
 
 #include "ParameterLayout.h"
+#include "ModulationMatrix.h"
 
 enum ECtrlTags
 {
@@ -72,6 +73,8 @@ enum ECtrlTags
   kCtrlTagPresetSave,
   kCtrlTagPresetNew,
   kCtrlTagLibraryBrowser,
+  kCtrlTagRouting,
+  kCtrlTagRoutingButton,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -124,27 +127,46 @@ public:
   double TunerFrequency() const { return mTuner.Frequency(); }
   void StorePerformanceScene(size_t scene);
   void RecallPerformanceScene(size_t scene);
+  void ClearPerformanceScene(size_t scene);
   bool HasPerformanceScene(size_t scene) const;
+  // Last stored or recalled scene for the header buttons, or -1. Editor state only.
+  int GetActiveScene() const { return mActiveScene; }
+  // The routing panel replaces the module editor below the grid. Editor state only.
+  bool IsRoutingOpen() const { return mRoutingOpen; }
+  void SetRoutingOpen(bool open);
   bool IsPerformanceSceneParam(int index) const;
+  // Modulation matrix editing on the control/UI thread. Values are plain (not normalized).
+  void SetParameterFromUI(int index, double value);
+  // Adds or finds a row from `source` to a destination; returns the row, or -1 when all are used.
+  int AddModulation(int source, int slot, int control, double depth = 25.);
+  void ClearModulationRow(int row);
+  bool HasLegacyModulation() const;
+  // Converts the fixed 0.1 assignments of the settings and stored scenes into matrix
+  // rows when the rows sound the same; otherwise changes nothing and returns why.
+  std::string ConvertLegacyModulation();
+  grid_performance::Values PerformanceValues() const;
+  grid_performance::Modulation::Monitor ModulationMonitor() const { return mModulation.Read(); }
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
 
   void OnParamChange(int paramIdx) override;
+  // Note-ons retrigger the LFO and sequencer when their Retrigger is MIDI note.
+  void ProcessMidiMsg(const iplug::IMidiMsg& msg) override;
   void OnParamChangeUI(int paramIdx, iplug::EParamSource source) override;
   // Keep the existing parameter handles for editor/state compatibility, but do
-  // not emit automation gestures or values for expandable algorithm selectors.
+  // not emit automation gestures or values for expandable selectors (IsStateOnlyParam).
   void BeginInformHostOfParamChange(int index) override
   {
-    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+    if (!IsStateOnlyParam(index))
       iplug::Plugin::BeginInformHostOfParamChange(index);
   }
   void InformHostOfParamChange(int index, double value) override
   {
-    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+    if (!IsStateOnlyParam(index))
       iplug::Plugin::InformHostOfParamChange(index, value);
   }
   void EndInformHostOfParamChange(int index) override
   {
-    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+    if (!IsStateOnlyParam(index))
       iplug::Plugin::EndInformHostOfParamChange(index);
   }
 
@@ -283,6 +305,13 @@ private:
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAnimatedControls{}; // audio only
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
+  grid_modulation::Matrix mModulationMatrix;
+  // MIDI note-on frames of the current block; later notes beyond the limit are ignored.
+  static constexpr int kMaxNotesPerBlock = 128;
+  std::array<int, kMaxNotesPerBlock> mNoteFrames{};
+  int mNoteCount = 0;
+  int mActiveScene = -1;
+  bool mRoutingOpen = false;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.
   std::atomic<uint32_t> mFreezeMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};

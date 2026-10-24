@@ -41,13 +41,15 @@ holds 49 globals (output, A/B blend, tuner, then the `grid_performance` controls
 followed by one block of 16 IDs per slot control: the 17 shared slot controls
 (In, Trim, Enabled, gate, compressor, EQ, IR level, Full Quality), then every
 module control (`UtilityParam`). Every slot has the same controls and names
-(`Pre 1 In` … `Post 4 Black Mode`). The segment counts are literals:
+(`Pre 1 In` … `Post 4 Black Mode`). A second, global-only segment holds the LFO
+shape, Macros 3/4, the modulation matrix rows and the follower/retrigger options. The segment counts are literals:
 adding a control fails to compile until it is allocated, and a compile-time check
 rejects edits to released segments.
 
 - **New module or shared slot control:** append the `UtilityParam`/descriptor and
-  grow the last segment's slot-control count, or append `{0, n}` after a global
-  segment. Its 16 IDs come after every existing ID.
+  append a `{0, n}` segment (or grow it, once it is the last segment). Its 16 IDs
+  come after every existing ID. Matrix destinations store the slot-control index,
+  so new controls are modulatable without new matrix parameters.
 - **New global:** append `{n, 0}` and access it through `parameter_layout::GlobalID()`.
   Never use contiguous arithmetic across globals; `PerformanceParam()` shows the pattern.
 
@@ -62,6 +64,20 @@ When adding saved data, bump `kEffectStateSchema` and set the new control
 descriptor's `introducedIn` to that schema. Older states then receive that
 control's default; a field that the saved schema already had stays required.
 Never lower or reuse a schema number.
+
+Modulation matrix rows ([GridPerformance.h](../NeuralAmpModeler/GridPerformance.h),
+[ModulationMatrix.h](../NeuralAmpModeler/ModulationMatrix.h)) follow the algorithm-selector
+rule: Source, Slot, Destination and Via, the follower's Listen at and the Retrigger
+modes are saved state without automation flags (`IsStateOnlyParam`), so their lists
+can grow; Depth is automatable. MIDI input exists only to retrigger modulation; CMake
+sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy parameters. Destinations store
+slot-control indices. `grid_modulation::VisitSlotControls` maps every slot control to
+its audio-snapshot field for both the host refresh and the matrix, so a new snapshot
+field must be added there; the stage tests check that each control is mapped exactly once.
+The fixed 0.1 assignments (one slot/target/depth per source) are never converted on load:
+they keep playing through `Modulation::Apply`, so their host automation keeps its meaning.
+[LegacyModulation.h](../NeuralAmpModeler/LegacyModulation.h) converts them on request,
+together with the stored scenes, and refuses when matrix rows would not sound the same.
 
 Editor open, state restore and parameter reset push values to the UI in one pass over
 the controls (`_SendAllParamValuesToUI`, `OnParamReset`). iPlug2's defaults handle one

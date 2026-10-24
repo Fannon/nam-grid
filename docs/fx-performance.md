@@ -28,7 +28,7 @@ python scripts/verify-fx-processing.py --before /path/to/before.clap --after bui
 
 Each render automates the slot's shared dynamics/EQ/level controls and every
 visible continuous control of the module twice, then switches on all modulation
-sources (LFO, follower, sequencer and both macros) aimed at module parameters.
+sources (LFO, follower, sequencer and Macros 1-2) through their fixed 0.1 targets.
 Cases that latch Freeze, Shimmer Freeze or Noise Learn render without automation,
 since the host reserves its event for that trigger. Defaults are 44.1/48 kHz and
 32/37/128 frames; the odd size exercises partial control quanta. Outputs must be

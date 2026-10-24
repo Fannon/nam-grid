@@ -156,6 +156,26 @@ inline IVStyle Style()
     .WithColor(kHL, border)
     .WithColor(kX1, text);
 }
+// One hue per modulation source, shared by the matrix, knob rings and grid cards.
+inline IColor SourceColor(int source)
+{
+  switch (source)
+  {
+    case grid_performance::SourceLFO: return modulationColor;
+    case grid_performance::SourceEnvelope: return ampColor;
+    case grid_performance::SourceSequencer: return delayColor;
+    case grid_performance::SourceNone: return muted;
+    default: return accent; // Macros
+  }
+}
+inline void ShowNotice(IGraphics* ui, const char* title, const char* message)
+{
+#ifdef OS_MAC
+  ui->ShowMessageBox(title, message, kMB_OK);
+#else
+  ui->ShowMessageBox(message, title, kMB_OK);
+#endif
+}
 class Knob : public IVKnobControl
 {
 public:
@@ -164,7 +184,82 @@ public:
                   (compact ? Style().WithWidgetFrac(.82f).WithLabelText(Text(15.f, muted, EAlign::Center))
                            : Style()).WithValueText(Text(14.f, text, EAlign::Center).WithVAlign(EVAlign::Bottom)), true, false)
   , mSlot(slot)
+  , mDestination(grid_modulation::DestinationOf(parameter))
   {
+  }
+  // Right-click: assign a source to this knob (VST3 hosts add their own entries).
+  void CreateContextMenu(IPopupMenu& menu) override
+  {
+    using namespace grid_performance;
+    if (mDestination.first < 0) return;
+    for (int source = SourceLFO; source < SourceCount; ++source)
+      menu.AddItem((std::string("Modulate with ") + sourceNames[source]).c_str());
+    if (Ring().rows)
+    {
+      menu.AddSeparator();
+      menu.AddItem("Remove modulation");
+    }
+  }
+  void OnContextSelection(int item) override
+  {
+    using namespace grid_performance;
+    if (item >= 0 && item < SourceCount - 1)
+    {
+      if (PLUG()->AddModulation(item + 1, mDestination.first, mDestination.second) < 0)
+        ShowNotice(GetUI(), "Modulation", "All eight modulation rows are in use. Clear a row on the Grid / Control page.");
+    }
+    else if (item == SourceCount)
+    {
+      const auto v = PLUG()->PerformanceValues();
+      for (int row = 0; row < rows; ++row)
+        if (static_cast<int>(v[RowParam(row, RowSlot)]) == mDestination.first
+            && static_cast<int>(v[RowParam(row, RowDestination)]) == mDestination.second && v[RowParam(row, RowSource)] > 0.)
+          PLUG()->ClearModulationRow(row);
+    }
+    SetDirty(false);
+  }
+  // Alt/Option-drag adjusts the depth of the knob's first modulation row instead of its value.
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  {
+    mDepthRow = -1;
+    if (mod.A && mDestination.first >= 0)
+    {
+      const auto v = PLUG()->PerformanceValues();
+      for (int row = 0; row < grid_performance::rows && mDepthRow < 0; ++row)
+        if (grid_performance::RowActive(v, row) && static_cast<int>(v[grid_performance::RowParam(row, grid_performance::RowSlot)]) == mDestination.first
+            && static_cast<int>(v[grid_performance::RowParam(row, grid_performance::RowDestination)]) == mDestination.second)
+          mDepthRow = row;
+      if (mDepthRow >= 0) return;
+    }
+    IVKnobControl::OnMouseDown(x, y, mod);
+  }
+  void OnMouseDrag(float x, float y, float dX, float dY, const IMouseMod& mod) override
+  {
+    if (mDepthRow < 0) { IVKnobControl::OnMouseDrag(x, y, dX, dY, mod); return; }
+    const int param = PerformanceParam(grid_performance::RowParam(mDepthRow, grid_performance::RowDepth));
+    const double depth = GetDelegate()->GetParam(param)->Value() - dY * (mod.S ? .05 : .5);
+    PLUG()->SetParameterFromUI(param, std::clamp(depth, -100., 100.));
+    SetDirty(false);
+  }
+  void OnMouseUp(float x, float y, const IMouseMod& mod) override
+  {
+    if (mDepthRow < 0) IVKnobControl::OnMouseUp(x, y, mod);
+    mDepthRow = -1;
+  }
+  bool IsDirty() override
+  {
+    // Rings follow their sources while modulation runs, and any row edit.
+    if (!IsHidden() && mDestination.first >= 0)
+    {
+      const auto ring = Ring();
+      if (ring.rows != mLastRing.rows || ring.low != mLastRing.low || ring.high != mLastRing.high
+          || (ring.showLive && ring.live != mLastRing.live))
+      {
+        mLastRing = ring;
+        SetDirty(false);
+      }
+    }
+    return IVKnobControl::IsDirty();
   }
   void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
   {
@@ -194,11 +289,35 @@ public:
   {
     g.DrawArc(border, cx, cy, radius, -135.f, 135.f, &mBlend, 2.f);
     g.DrawArc(muted, cx, cy, radius, -135.f, angle, &mBlend, 2.f);
+    // Modulation ring: the reach of every row on this knob, plus a dot at the live value.
+    const auto ring = Ring();
+    if (!ring.rows) return;
+    const auto at = [&](double offset) {
+      return mAngle1 + (mAngle2 - mAngle1) * static_cast<float>(std::clamp(GetValue() + offset, 0., 1.));
+    };
+    const auto color = SourceColor(ring.source);
+    const float outer = radius + 4.f;
+    g.DrawArc(color.WithOpacity(.4f), cx, cy, outer, mAngle1, mAngle2, &mBlend, 1.f);
+    g.DrawArc(color, cx, cy, outer, at(ring.low), std::max(at(ring.high), at(ring.low) + 1.f), &mBlend, 3.f);
+    if (ring.showLive)
+    {
+      const float a = DegToRad(at(ring.live) - 90.f);
+      g.FillCircle(text, cx + outer * std::cos(a), cy + outer * std::sin(a), 2.5f, &mBlend);
+    }
   }
   void DrawPointer(IGraphics& g, float angle, float cx, float cy, float radius) override
   { g.DrawRadialLine(text, cx, cy, angle, radius * .55f, radius * .9f, &mBlend, 2.f); }
 private:
+  grid_modulation::Ring Ring()
+  {
+    if (mDestination.first < 0) return {};
+    return grid_modulation::DestinationRing(PLUG()->PerformanceValues(), PLUG()->ModulationMonitor(), mDestination.first,
+                                            mDestination.second);
+  }
   int mSlot;
+  std::pair<int, int> mDestination;
+  int mDepthRow = -1;
+  grid_modulation::Ring mLastRing;
 };
 class Button : public IVButtonControl
 {
@@ -566,6 +685,14 @@ public:
       CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
                      IRECT(mCardBounds.L + 22 + idText.W(), mCardBounds.T + 7, mCardBounds.R - 28, mCardBounds.T + 25), 12.f, false,
                      !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : nullptr, enabled ? 1.f : .4f);
+    // One dot per source modulating this card, left of the bypass switch.
+    float dotX = mCardBounds.R - (empty ? 14.f : 30.f);
+    for (int source = grid_performance::SourceLFO; source < grid_performance::SourceCount; ++source)
+      if (ModulationSources() & (1u << source))
+      {
+        g.FillCircle(SourceColor(source), dotX, mCardBounds.T + 12.f, 3.f);
+        dotX -= 9.f;
+      }
     if (!empty)
     {
       // Equal 12 px inset from the top and right, with a larger 32 px hit target.
@@ -694,6 +821,11 @@ public:
 
   bool IsDirty() override
   {
+    if (const auto sources = ModulationSources(); sources != mModulationSources)
+    {
+      mModulationSources = sources;
+      SetDirty(false);
+    }
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool(), loaded = PLUG()->IsSlotLoaded(mSlot);
     if (enabled != mLastEnabled || loaded != mLastLoaded)
     {
@@ -1597,7 +1729,7 @@ private:
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
-    mEditor->Hide(!selected || PLUG()->IsTunerActive());
+    mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen());
     if (selected)
     {
       const bool empty = nam && path.empty();
@@ -1822,7 +1954,20 @@ private:
   std::array<IControl*, kUtilityControls> mUtilityKnobs{};
   static double Now()
   { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+  // Bit per grid_performance::Source with an active matrix row on this slot.
+  uint32_t ModulationSources()
+  {
+    using namespace grid_performance;
+    const auto v = PLUG()->PerformanceValues();
+    uint32_t sources = 0;
+    for (int row = 0; row < rows; ++row)
+      if (RowActive(v, row) && static_cast<int>(v[RowParam(row, RowSlot)]) == static_cast<int>(mSlot)
+          && grid_modulation::Modulatable(static_cast<int>(v[RowParam(row, RowDestination)])))
+        sources |= 1u << static_cast<int>(v[RowParam(row, RowSource)]);
+    return sources;
+  }
   bool mLastSync = false, mLastEnabled = true, mLastLoaded = false;
+  uint32_t mModulationSources = 0;
   SlotMeterData mMeter;
   double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;

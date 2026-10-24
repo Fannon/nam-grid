@@ -52,12 +52,14 @@ profile and per-band detection for the return to quiet playing. The optional
 final broadband gate remains independent. Relaxing reduction further would be
 an audible algorithm change, rather than a CPU optimization.
 
-The 2026-10-22 optimization processes independent pairs of bands with baseline
-SSE2 on x64, retaining 96 bands, double precision and sample-by-sample detection,
-gain smoothing and learning. Other architectures retain the scalar implementation.
-There is no loud-signal bypass that suspends detector histories. The shared grid
-also caches unchanged slot controls; parameter events invalidate the affected
-bank, and host tempo is still refreshed every callback.
+Independent pairs of bands use baseline SSE2 on x64. ARM64 uses NEON for the
+independent gain updates, retaining the scalar synthesis summation order. Both
+paths retain 96 bands, double precision and sample-by-sample detection, gain
+smoothing and learning. Other architectures retain the scalar implementation;
+`NAM_NOISE_PRINT_SCALAR` also selects it for numerical comparisons. There is no
+loud-signal bypass that suspends detector histories. The shared grid caches
+unchanged slot controls; parameter events invalidate the affected bank, and host
+tempo is still refreshed every callback.
 
 The optional final gate is independent of the snapshot and spectral Mix/Reduction:
 it also works without learning. It detects the original input's maximum L/R peak,
@@ -100,5 +102,7 @@ the slot. Unsupported profile data must reject without corrupting current state.
 
 `NoisePrint.h` and `NoisePrintState.h` are independent of iPlug2. The standalone
 numerical audit is `scripts/verify-noise-print.py`; `--reference REV` chooses a
-historical implementation and `--scalar` verifies the non-SIMD fallback. It is an
-on-demand developer check, not a substitute for guitar and DAW listening.
+historical implementation and `--scalar` verifies the non-SIMD fallback. Add
+`--exact` to require bit-identical audio, learned profiles and meters against that
+reference with the current compiler, rather than the default error tolerances.
+It is an on-demand developer check, not a substitute for guitar and DAW listening.

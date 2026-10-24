@@ -6,6 +6,8 @@
 #include <cstdint>
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
   #include <emmintrin.h>
+#elif defined(__aarch64__) && !defined(NAM_NOISE_PRINT_SCALAR)
+  #include <arm_neon.h>
 #endif
 
 // Original MIT NAM Grid experiment. Public product descriptions of multiband
@@ -343,6 +345,41 @@ private:
     {
       bandSum[1] = SumPair(sumR);
       wet[1] = SumPair(wetR);
+    }
+#elif defined(__aarch64__) && !defined(NAM_NOISE_PRINT_SCALAR)
+    // Fused operations match scalar ARM rounding; the sums below stay ordered.
+    static_assert(bands % 2 == 0);
+    const auto one = vdupq_n_f64(1.), zero = vdupq_n_f64(0.);
+    for (int i = 0; i < bands; i += 2)
+    {
+      auto target = one;
+      if (reducing)
+      {
+        const auto ratio = vmulq_f64(vld1q_f64(&mPower[i]), vld1q_f64(&inverseThreshold[i]));
+        const auto knee = vminq_f64(one, vmaxq_f64(zero, vsubq_f64(ratio, one)));
+        const auto curve = vmulq_f64(vmulq_n_f64(knee, 1. - floor), knee);
+        target = vmaxq_f64(vdupq_n_f64(protection),
+                          vfmaq_f64(vdupq_n_f64(floor), curve, vfmsq_n_f64(vdupq_n_f64(3.), knee, 2.)));
+      }
+      const auto previous = vld1q_f64(&mGain[i]);
+      const auto coefficient = vbslq_f64(vcgtq_f64(target, previous), vdupq_n_f64(attack), vdupq_n_f64(release));
+      vst1q_f64(&mGain[i], vfmaq_f64(target, coefficient, vsubq_f64(previous, target)));
+    }
+    // Keep reductions in their original band order after updating gains in pairs.
+    for (int i = 0; i < bands; ++i)
+    {
+      gainSum += mGain[i];
+      if (synthesize)
+      {
+        reference = std::min(reference, mGain[i]);
+        bandSum[0] += split[0][i];
+        wet[0] += split[0][i] * mGain[i];
+        if (stereo)
+        {
+          bandSum[1] += split[1][i];
+          wet[1] += split[1][i] * mGain[i];
+        }
+      }
     }
 #else
     for (int i = 0; i < bands; ++i)

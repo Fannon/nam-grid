@@ -18,3 +18,5 @@ NeuralAmpModeler/peaks/
 docs/node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+# Local-only MCP/tooling config
+.mcp.json

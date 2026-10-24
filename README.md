@@ -76,7 +76,7 @@ Download the latest release from
 | Platform | Archive | Status |
 | --- | --- | --- |
 | Windows x64 | `nam-grid-windows-x64.zip` | Built and tested in CI, including the native editor |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; not code-signed |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | Built and tested in CI; ad-hoc signed |
 | Linux | — | No plugin build available with the current framework |
 
 1. Extract the archive. It contains `nam-grid.clap`, the `nam-grid.vst3` bundle,
@@ -87,7 +87,8 @@ Download the latest release from
      `C:\Program Files\Common Files\VST3\`, or a test folder added to your
      host's scan paths.
    - macOS: `~/Library/Audio/Plug-Ins/CLAP/` or `~/Library/Audio/Plug-Ins/VST3/`.
-3. **macOS only:** the plugins are not code-signed or notarized, so macOS blocks
+3. **macOS only:** the plugins are ad-hoc signed, without Developer ID signing or
+   notarization, so macOS can block
    downloaded copies. After copying, clear the quarantine flag in Terminal:
 
    ```sh

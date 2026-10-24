@@ -51,6 +51,20 @@ do not reset those submodules after setup without applying the patches again.
 Setup checks whether each patch is already applied, and refuses patches that cannot
 be applied cleanly.
 
+Setup also backports the planar NEON A2 kernels from
+[NAM Core PR #313](https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313)
+to the pinned Core API. Supported ARM targets select these kernels automatically;
+other targets retain the portable implementation. Release stage tests compare
+both implementations bit-for-bit, including odd block sizes and repeated prewarm.
+Do not enable fast-math: those transformations invalidate the arithmetic-order
+guarantee. To compare the portable path, add
+`-DCMAKE_CXX_FLAGS=-DNAM_DISABLE_A2_PLANAR` when configuring a separate build.
+
+macOS uses AudioFFT's Apple Accelerate backend for cabinet IR convolution.
+`-DNAM_USE_ACCELERATE_FFT=OFF` selects the portable FFT backend for comparisons.
+FFT rounding can differ between backends; convolution tests check the direct
+reference, variable blocks, silence/tails and processing allocations.
+
 Output:
 
 - Windows CLAP: `build-grid/out/nam-grid.clap`
@@ -98,8 +112,9 @@ Publishing a release also triggers the builds and attaches the archives; re-runn
 the workflow replaces its archives without changing the release notes or publication
 status. Manual **Build Native** runs only produce build artifacts.
 
-The macOS archives are not code-signed or notarized. The [README](../README.md)
-explains how users clear the download quarantine.
+macOS builds ad-hoc sign each complete plugin bundle after linking. They are not
+Developer ID signed or notarized. The [README](../README.md) explains how users
+clear the download quarantine.
 
 Linux plugin releases are blocked by the pinned iPlug2 framework. Its CMake modules
 report Linux as unsupported, and `IGraphicsLinux.cpp` is an unfinished stub.
@@ -114,7 +129,7 @@ before adding Linux to the release matrix.
 | `capture-library` | Library scanning, metadata, search, menus and atomic preference writes |
 | `wav-decoder` | WAV decoding and malformed-file rejection |
 | `resampling` | Resampler warm-up with exact WDL allocations |
-| `stages` | Every DSP module, slot stages, grid routing and realtime allocation checks |
+| `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks and ARM planar/portable A2 bit identity |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
 | `tuner` | Tuner detection, mute and automation through CLAP |
 | `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |

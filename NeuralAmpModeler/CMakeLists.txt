@@ -4,6 +4,14 @@ set(NAM_IR_SOURCES AdaptiveIR.cpp
   third_party/fftconvolver/FFTConvolver.cpp third_party/fftconvolver/AudioFFT.cpp
   third_party/fftconvolver/Utilities.cpp)
 set(NAM_IR_DEFINES)
+option(NAM_USE_ACCELERATE_FFT "Use Apple Accelerate for cabinet IR FFTs on macOS" ${APPLE})
+if(NAM_USE_ACCELERATE_FFT)
+  if(NOT APPLE)
+    message(FATAL_ERROR "NAM_USE_ACCELERATE_FFT requires macOS")
+  endif()
+  set_property(SOURCE third_party/fftconvolver/AudioFFT.cpp APPEND PROPERTY
+    COMPILE_DEFINITIONS AUDIOFFT_APPLE_ACCELERATE)
+endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|x86_64|x64")
   list(APPEND NAM_IR_DEFINES FFTCONVOLVER_USE_SSE)
 endif()
@@ -12,6 +20,9 @@ add_executable(nam-ir-tests ../tests/adaptive_ir_tests.cpp ${NAM_IR_SOURCES}
 target_include_directories(nam-ir-tests PRIVATE . ../eigen)
 target_compile_features(nam-ir-tests PRIVATE cxx_std_20)
 target_compile_definitions(nam-ir-tests PRIVATE NOMINMAX EIGEN_RUNTIME_NO_MALLOC ${NAM_IR_DEFINES})
+if(NAM_USE_ACCELERATE_FFT)
+  target_link_libraries(nam-ir-tests PRIVATE "-framework Accelerate")
+endif()
 if(MSVC)
   target_compile_options(nam-ir-tests PRIVATE /UNDEBUG)
 else()
@@ -218,6 +229,12 @@ foreach(format IN LISTS NAM_FORMATS)
         list(TRANSFORM definitions REPLACE "^OBJC_PREFIX=vnam-grid$" "OBJC_PREFIX=vnam_grid")
         set_property(TARGET nam-grid-${suffix} PROPERTY COMPILE_DEFINITIONS "${definitions}")
       endif()
+      # Seal the complete bundle, including resources and PkgInfo. The linker's
+      # ad-hoc binary signature alone does not validate as a plugin bundle.
+      add_custom_command(TARGET nam-grid-${suffix} POST_BUILD
+        COMMAND /usr/bin/codesign --force --sign - "$<TARGET_BUNDLE_DIR:nam-grid-${suffix}>"
+        COMMENT "Ad-hoc signing nam-grid.${suffix}"
+        VERBATIM)
     endif()
     if(WIN32)
       target_sources(nam-grid-${suffix} PRIVATE resources/main.rc)

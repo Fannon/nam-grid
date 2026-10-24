@@ -54,7 +54,7 @@ Windows requires the same x64 developer environment as the plugin build.
 The script finds both Ninja and Visual Studio Release target locations.
 Use `--build-dir` for a different build tree, or `--host` and `--plugin` for explicit
 paths. On macOS, the bundle executable is resolved automatically from
-`build-grid/out/nam-grid.clap`; this platform has not been validated locally.
+`build-grid/out/nam-grid.clap`.
 
 The default matrix is **44.1/48/96 kHz × 32/64/128 frames × three repeats**.
 Each tuple renders 0.5 seconds of warm-up followed by three seconds of measured

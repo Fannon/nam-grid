@@ -8,6 +8,10 @@ export default defineConfig({
   // Dark theme by default (like the plugin editor); readers can switch to light.
   appearance: { initialValue: 'dark' },
   ignoreDeadLinks: true,
+  // Directory indexes live in README.md files (GitHub convention); serve them as the section root.
+  rewrites: {
+    'modules/README.md': 'modules/index.md',
+  },
   head: [
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],

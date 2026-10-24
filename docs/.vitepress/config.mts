@@ -13,6 +13,9 @@ export default defineConfig({
     'modules/README.md': 'modules/index.md',
   },
   head: [
+    // head entries are not rebased automatically, so they carry the base path.
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/nam-grid/logo.svg' }],
+    ['link', { rel: 'apple-touch-icon', href: '/nam-grid/apple-touch-icon.png' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
     [
@@ -24,6 +27,7 @@ export default defineConfig({
     ],
   ],
   themeConfig: {
+    logo: '/logo.svg',
     siteTitle: 'NAM Grid',
     nav: [
       { text: 'Overview', link: '/' },
@@ -43,7 +47,6 @@ export default defineConfig({
           { text: 'Save & load presets', link: '/presets' },
           { text: 'Tuner', link: '/tuner' },
           { text: 'Perform with scenes & macros', link: '/performance' },
-          { text: 'Starting settings', link: '/effect-defaults' },
         ],
       },
       {
@@ -85,7 +88,10 @@ export default defineConfig({
     ],
     socialLinks: [{ icon: 'github', link: 'https://github.com/Fannon/nam-grid' }],
     footer: {
-      message: 'Free and open source. Keep ThirdPartyNotices.txt with the plugins when redistributing.',
+      message:
+        'Free and <a href="https://github.com/Fannon/nam-grid">open source</a>. Keep ' +
+        '<a href="https://github.com/Fannon/nam-grid/blob/main/ThirdPartyNotices.txt">ThirdPartyNotices.txt</a> ' +
+        'with the plugins when redistributing.',
       copyright: 'Copyright 2026 Simon Heimler',
     },
     search: { provider: 'local' },

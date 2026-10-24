@@ -32,7 +32,15 @@ Every knob and Enabled can be automated by your DAW. Header options are saved wi
 
 When **Tempo sync** is on, **Division** replaces Time or Rate. Choose 1/32 to 1/1, including dotted notes and triplets. Your manual setting remains stored for when you turn sync off.
 
-New modules use electric-guitar starting settings that make the effect easy to hear without burying the dry sound. See [starting settings](../effect-defaults.md) for reset behavior and acoustic/bass suggestions.
+## Starting settings
+
+New modules use electric-guitar starting settings that make the effect easy to hear without burying the dry sound. Each module page lists them next to every control.
+
+- Adding or replacing a module applies its starting settings; double-click a knob to return to its starting value. Saved rigs, projects and Copy/Move/Swap keep your exact settings.
+- Outputs start at unity unless a module page lists an offset, such as Distortion's -6 dB. Cabinet IRs start at -18 dB, the usual cabinet headroom; IRs vary, so match them with the level strip.
+- NAM captures, Guitar EQ, Parametric EQ and Utility start neutral. Thresholds and makeup depend on your instrument and interface, so set them by ear.
+
+**Acoustic guitar:** start with neutral EQ and a low Room or Dense Plate mix, and reduce or bypass gates if they trim finger noise or sustain. **Bass:** lower Cut EQ's Low cut to about 30–45 Hz or turn it off, keep delay and reverb mixes low, and give Mono Octaver less sub level.
 
 ## Common controls
 

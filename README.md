@@ -172,7 +172,7 @@ Loading a large capture can briefly occupy the editor.
 | Learn more | Guide |
 | --- | --- |
 | Choose and edit modules | [Editor](docs/ui.md), [library browser](docs/browser.md) |
-| Find an effect and a useful starting point | [Module guide](docs/modules/README.md), [starting settings](docs/effect-defaults.md) |
+| Find an effect and a useful starting point | [Module guide](docs/modules/README.md), [starting settings](docs/modules/README.md#starting-settings) |
 | Save, recall and share sounds | [Rig presets](docs/presets.md) |
 | Tune and perform | [Tuner](docs/tuner.md), [macros, modulation and scenes](docs/performance.md) |
 | Reduce background noise | [Noise Gate (Smart)](docs/noise-gate-smart.md) |

@@ -22,9 +22,9 @@ features:
     link: /grid
     linkText: See the signal flow
   - title: Find your sound
-    details: Browse NAM captures, cabinet IRs, and effects while you play. Compare settings before you commit.
-    link: /browser
-    linkText: Open the browser guide
+    details: Browse NAM captures, cabinet IRs, and effects while you play. TONE3000 hosts free captures and IRs to add to your library.
+    link: https://www.tone3000.com/
+    linkText: Find captures on TONE3000
   - title: Made to perform
     details: Keep essential controls on macros, add playing-responsive modulation, and switch between three scenes.
     link: /performance
@@ -36,8 +36,8 @@ features:
 ---
 
 <div class="plugin-window">
-  <div class="plugin-window-bar"><span></span><span></span><span></span><em>NAM Grid · Ambient pedalboard</em></div>
-  <img src="/screenshots/grid.png" alt="NAM Grid with a full ambient guitar rig and Tape Echo selected" />
+  <div class="plugin-window-bar"><span></span><span></span><span></span><em>NAM Grid · Clean Default</em></div>
+  <img src="/screenshots/grid.png" alt="NAM Grid with the bundled Clean Default rig and its amp capture selected" />
 </div>
 
 <div class="quick-start">

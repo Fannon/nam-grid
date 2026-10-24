@@ -13,7 +13,6 @@ New here? [Download NAM Grid](/) and load **Clean Default**, then learn the [gri
 | [Rig presets](/presets) | Save, recall, and share complete rigs |
 | [Tuner](/tuner) | Tune quietly and check pitch drift |
 | [Performance controls](/performance) | Routing, macros, modulation, and scenes |
-| [Starting settings](/effect-defaults) | Reset behavior and acoustic/bass suggestions |
 
 ## Module deep dives
 

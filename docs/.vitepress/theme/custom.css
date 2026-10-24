@@ -41,42 +41,68 @@
   --vp-c-bg-alpha: rgba(9, 11, 12, 0.82);
 }
 
-/* Wider, easier-to-hit search in the desktop navbar. */
-@media (min-width: 960px) {
-  .VPNavBar .wrapper {
-    max-width: 1600px;
-  }
+/* The navbar is its own bar, separate from the page on every route. */
+.VPNav {
+  background-color: var(--vp-c-bg-alt);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
 
+.VPNavBar,
+.VPNavBar.home.top,
+.VPNavBar .content-body,
+.VPNavBar.has-sidebar .title {
+  background-color: transparent !important;
+}
+
+.VPNavBar .divider {
+  display: none;
+}
+
+/* From tablet width: menu, then a search box that shrinks with the window, then the
+   appearance switch and GitHub link. Those stay in the bar from 960 px, so the "..." menu
+   only appears on tablets and phones. VitePress scopes its own rules, so these selectors
+   need the extra .content-body to win. */
+@media (min-width: 768px) {
   .VPNavBar .content-body {
     justify-content: flex-start;
   }
 
-  .VPNavBarMenu {
+  .VPNavBar .content-body .VPNavBarMenu {
     order: 1;
   }
 
-  .VPNavBarAppearance,
-  .VPNavBarSocialLinks {
-    order: 3;
-  }
-
-  .VPNavBarSearch {
+  .VPNavBar .content-body .VPNavBarSearch {
     order: 2;
     flex-grow: 1;
     justify-content: flex-end;
-    padding-left: 28px;
+    padding-left: 24px;
+  }
+
+  .VPNavBar .content-body .VPNavBarAppearance,
+  .VPNavBar .content-body .VPNavBarSocialLinks,
+  .VPNavBar .content-body .VPNavBarExtra {
+    order: 3;
   }
 
   .VPNavBarSearch .DocSearch-Button {
-    width: 240px;
+    width: clamp(140px, 22vw, 280px);
     max-width: none;
     margin: 0;
   }
 }
 
-@media (min-width: 1280px) {
-  .VPNavBarSearch .DocSearch-Button {
-    width: 280px;
+@media (min-width: 960px) {
+  .VPNavBar .wrapper {
+    max-width: 1600px;
+  }
+
+  .VPNavBar .content-body .VPNavBarAppearance,
+  .VPNavBar .content-body .VPNavBarSocialLinks {
+    display: flex;
+  }
+
+  .VPNavBar .content-body .VPNavBarExtra {
+    display: none;
   }
 }
 
@@ -98,20 +124,25 @@
   letter-spacing: -0.02em;
 }
 
-.VPNavBarTitle .title::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 9px;
-  border-radius: 2px;
-  background: var(--vp-c-brand-1);
-  box-shadow: 11px 0 0 var(--vp-c-brand-soft);
+/* Hero: a quiet signal-grid backdrop rather than a generic documentation banner. */
+/* VitePress leaves 96-128 px under the home page; the footer band follows the content closely.
+   Its own rules are scoped, hence the .Layout prefix. */
+.Layout .VPHome {
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
-/* Hero: a quiet signal-grid backdrop rather than a generic documentation banner. */
-.VPHome {
-  padding-bottom: 64px;
+.Layout .VPFooter {
+  margin-top: 48px;
+  border-top: 1px solid var(--vp-c-divider);
+  background-color: var(--vp-c-bg-alt);
+}
+
+.VPFooter .message a,
+.VPFooter .copyright a {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .VPHomeHero {
@@ -278,12 +309,20 @@
   display: grid;
   flex: 1;
   grid-template-columns: repeat(3, 1fr);
+  align-items: center;
   gap: 20px;
   margin: 0;
   padding: 0;
   list-style-position: inside;
   color: var(--vp-c-text-2);
   font-size: 14px;
+  line-height: 1.5;
+}
+
+/* VitePress spaces list items apart; the three steps share one line instead. */
+.quick-start li,
+.quick-start li + li {
+  margin: 0;
 }
 
 .quick-start strong {
@@ -335,6 +374,14 @@
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* VitePress makes tables scrollable blocks; from tablet width they fill their frame. */
+@media (min-width: 768px) {
+  .vp-doc table {
+    display: table;
+    width: 100%;
+  }
 }
 
 .vp-doc th {

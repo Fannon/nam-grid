@@ -36,7 +36,7 @@ Every module editor uses the same layout:
 
 Drag a knob or click its value to type a number. Double-click restores its starting value. Right-click a knob to assign modulation; see [Performance controls](performance.md).
 
-Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar starting settings; [starting settings](effect-defaults.md) includes acoustic and bass suggestions.
+Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 
 ### Displays and meters
 

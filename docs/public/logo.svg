@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NAM Grid">
+  <title>NAM Grid</title>
+  <!-- The grid's four rows (Pre, lanes A and B, Post) as a rig in module category colours; grey
+       cells are empty slots. The plugin header draws the same pattern (grid_ui::Logo in
+       NAMGridControls.h); keep both in step. -->
+  <g>
+    <rect x="2" y="2" width="13" height="13" rx="3" fill="#EEA45A"/>
+    <rect x="18" y="2" width="13" height="13" rx="3" fill="#6DAEFF"/>
+    <rect x="34" y="2" width="13" height="13" rx="3" fill="#4E555F" fill-opacity="0.55"/>
+    <rect x="50" y="2" width="13" height="13" rx="3" fill="#EE7E5F"/>
+
+    <rect x="2" y="18" width="13" height="13" rx="3" fill="#A899F5"/>
+    <rect x="18" y="18" width="13" height="13" rx="3" fill="#68CEE8"/>
+    <rect x="34" y="18" width="13" height="13" rx="3" fill="#C78FED"/>
+    <rect x="50" y="18" width="13" height="13" rx="3" fill="#4E555F" fill-opacity="0.55"/>
+
+    <rect x="2" y="34" width="13" height="13" rx="3" fill="#4E555F" fill-opacity="0.55"/>
+    <rect x="18" y="34" width="13" height="13" rx="3" fill="#87D86B"/>
+    <rect x="34" y="34" width="13" height="13" rx="3" fill="#4E555F" fill-opacity="0.55"/>
+    <rect x="50" y="34" width="13" height="13" rx="3" fill="#EB89DB"/>
+
+    <rect x="2" y="50" width="13" height="13" rx="3" fill="#E58CB6"/>
+    <rect x="18" y="50" width="13" height="13" rx="3" fill="#4E555F" fill-opacity="0.55"/>
+    <rect x="34" y="50" width="13" height="13" rx="3" fill="#68CEE8"/>
+    <rect x="50" y="50" width="13" height="13" rx="3" fill="#71C7B2"/>
+  </g>
+</svg>

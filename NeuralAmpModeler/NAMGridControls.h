@@ -2056,7 +2056,7 @@ private:
   bool mNameHover = false;
   // One drag at a time per editor; the owning UI keeps other plugin instances unaffected.
   struct Drop { const IGraphics* ui = nullptr; int source = -1, target = -1; SlotEditMode mode = SlotEditMode::Swap; bool occupied = false; };
-  static inline Drop sDrop;
+  static Drop sDrop;
   float mPressX = 0.f, mPressY = 0.f;
   bool mPressBrowse = false, mPressDrag = false, mDragging = false;
   IRECT mCardBounds;
@@ -2110,6 +2110,9 @@ private:
   IPopupMenu mMenu;
   std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
 };
+
+// Define after the enclosing class is complete so Clang can initialize Drop's defaults.
+inline NAMGridSlotControl::Drop NAMGridSlotControl::sDrop{};
 
 // Opaque full-page settings: child controls and their background share one coordinate system.
 class NAMGridSettingsControl : public IContainerBase

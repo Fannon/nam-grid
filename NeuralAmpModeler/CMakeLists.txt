@@ -218,6 +218,12 @@ foreach(format IN LISTS NAM_FORMATS)
         list(TRANSFORM definitions REPLACE "^OBJC_PREFIX=vnam-grid$" "OBJC_PREFIX=vnam_grid")
         set_property(TARGET nam-grid-${suffix} PROPERTY COMPILE_DEFINITIONS "${definitions}")
       endif()
+      # Seal the complete bundle, including resources and PkgInfo. The linker's
+      # ad-hoc binary signature alone does not validate as a plugin bundle.
+      add_custom_command(TARGET nam-grid-${suffix} POST_BUILD
+        COMMAND /usr/bin/codesign --force --sign - "$<TARGET_BUNDLE_DIR:nam-grid-${suffix}>"
+        COMMENT "Ad-hoc signing nam-grid.${suffix}"
+        VERBATIM)
     endif()
     if(WIN32)
       target_sources(nam-grid-${suffix} PRIVATE resources/main.rc)

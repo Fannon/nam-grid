@@ -98,8 +98,9 @@ Publishing a release also triggers the builds and attaches the archives; re-runn
 the workflow replaces its archives without changing the release notes or publication
 status. Manual **Build Native** runs only produce build artifacts.
 
-The macOS archives are not code-signed or notarized. The [README](../README.md)
-explains how users clear the download quarantine.
+macOS builds ad-hoc sign each complete plugin bundle after linking. They are not
+Developer ID signed or notarized. The [README](../README.md) explains how users
+clear the download quarantine.
 
 Linux plugin releases are blocked by the pinned iPlug2 framework. Its CMake modules
 report Linux as unsupported, and `IGraphicsLinux.cpp` is an unfinished stub.

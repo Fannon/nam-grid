@@ -369,6 +369,51 @@ int main(int argc, char** argv)
     assert(moved.settings.irFolders == std::vector<std::string>{PathText(home / "content" / "IRs")});
     assert(ReadSettings(migrated).namFolders == folders && std::filesystem::exists(legacy));
   }
+  {
+    // The JSON library index: a rescan reuses an unchanged file (same size and modification
+    // time) without reading it, reads a changed one again and forgets a deleted one.
+    const auto base = root / ("Index-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto library = base / "library", amp = library / "amp.nam", indexFile = base / "cache" / "library-index.json";
+    std::filesystem::create_directories(library);
+    const auto write = [&](const char* name) {
+      std::ofstream(amp, std::ios::binary) << json{{"metadata", {{"name", name}, {"gear_type", "amp"}}}}.dump();
+    };
+    const std::vector<std::string> roots{PathText(library)};
+    const auto scan = [&](IndexCache& index) {
+      index.next.clear();
+      const auto snapshot = ScanLibrary(roots, {}, {}, {}, &index);
+      assert(snapshot.captures.size() <= 1 && index.next.size() == snapshot.captures.size());
+      return snapshot.captures.empty() ? Capture{} : snapshot.captures.front();
+    };
+    write("Amp One");
+    IndexCache index;
+    const auto first = scan(index);
+    assert(first.name == "Amp One" && !first.hash.empty() && first.relative == "amp.nam");
+    assert(WriteIndex(indexFile, index.next));
+    index.previous = ReadIndex(indexFile);
+    assert(index.previous.size() == 1);
+    const auto& stored = index.previous.begin()->second.capture;
+    assert(stored.name == "Amp One" && stored.hash == first.hash && stored.gear == first.gear && stored.kind == FileKind::NAM);
+    // Same size and restored time: the stale name and hash prove the file was not read again.
+    const auto time = std::filesystem::last_write_time(amp);
+    write("Amp Two");
+    std::filesystem::last_write_time(amp, time);
+    const auto reused = scan(index);
+    assert(reused.name == "Amp One" && reused.hash == first.hash && reused.relative == "amp.nam");
+    // A newer modification time makes the scan read the file.
+    std::filesystem::last_write_time(amp, time + std::chrono::seconds(2));
+    const auto reread = scan(index);
+    assert(reread.name == "Amp Two" && reread.hash != first.hash);
+    index.previous = index.next;
+    std::filesystem::remove(amp);
+    scan(index);
+    assert(index.next.empty());
+    // A damaged or older index is ignored: it only costs one full scan.
+    std::ofstream(indexFile, std::ios::binary) << "{ not json";
+    assert(ReadIndex(indexFile).empty());
+    std::ofstream(indexFile, std::ios::binary) << json{{"Version", kIndexVersion + 1}, {"Files", json::array()}}.dump();
+    assert(ReadIndex(indexFile).empty());
+  }
   // Content identity is independent of filenames, roots, extension case and metadata hints.
   const auto identities = root / ("HashIdentity-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(identities / "deep" / "nested");

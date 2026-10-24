@@ -81,7 +81,8 @@ confirmation; this cannot be undone. The loaded rig and its header name stay as 
 are, so **Save as...** can recreate the file. The selection moves to the next preset.
 
 Scans recurse in the background, ignore directory links, deduplicate overlapping paths
-and retain separate copies of identical captures. Preset folders index `.ngrid` files
+and retain separate copies of identical captures. A JSON index lets a rescan skip reading
+unchanged files (see [ui.md](ui.md#settings-and-default-folders)). Preset folders index `.ngrid` files
 with a valid, bounded preset envelope; invalid files count as unreadable. IR decoding
 and full rig/DSP validation happen on load. **Rescan**, beside Manage folders, refreshes external filesystem
 changes; the existing startup rescan preference applies to all sources.

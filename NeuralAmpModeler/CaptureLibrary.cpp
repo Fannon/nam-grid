@@ -629,12 +629,85 @@ static void CountContentDuplicates(Snapshot& snapshot)
 // Bit mask of the file kinds a source list indexes.
 static constexpr unsigned Bit(FileKind kind) { return 1u << static_cast<unsigned>(kind); }
 static constexpr unsigned kCaptureKinds = Bit(FileKind::NAM) | Bit(FileKind::IR);
+static FileKind FileKindOf(const std::string& extension)
+{ return extension == ".wav" ? FileKind::IR : extension == ".ngrid" ? FileKind::RigPreset : FileKind::NAM; }
 static bool Indexes(unsigned kinds, const std::string& extension)
 {
   return (kinds & Bit(FileKind::NAM) && extension == ".nam") || (kinds & Bit(FileKind::IR) && extension == ".wav")
          || (kinds & Bit(FileKind::RigPreset) && extension == ".ngrid");
 }
-static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, const std::function<bool()>& cancelled)
+static std::string IndexKey(const std::filesystem::path& path)
+{
+  auto key = PathText(path.lexically_normal());
+#ifdef _WIN32
+  key = Lower(key);
+#endif
+  return key;
+}
+IndexEntries ReadIndex(const std::filesystem::path& file)
+{
+  IndexEntries entries;
+  try
+  {
+    std::error_code error;
+    if (file.empty() || !std::filesystem::exists(file, error) || std::filesystem::file_size(file, error) > 256u * 1024 * 1024)
+      return entries;
+    std::ifstream stream(file, std::ios::binary);
+    const auto index = nlohmann::json::parse(stream);
+    if (index.value("Version", 0) != kIndexVersion)
+      return entries;
+    for (const auto& item : index.at("Files"))
+    {
+      IndexEntry entry;
+      entry.size = item.at("Size").get<std::uintmax_t>();
+      entry.modified = item.at("Modified").get<long long>();
+      auto& capture = entry.capture;
+      capture.path = std::filesystem::u8path(item.at("Path").get<std::string>());
+      const int kind = item.at("Kind").get<int>(), gear = item.at("Gear").get<int>();
+      if (kind < static_cast<int>(FileKind::NAM) || kind > static_cast<int>(FileKind::RigPreset)
+          || gear < static_cast<int>(Gear::Unknown) || gear > static_cast<int>(Gear::Spaces))
+        continue;
+      capture.kind = static_cast<FileKind>(kind);
+      capture.isIR = capture.kind == FileKind::IR;
+      capture.gear = static_cast<Gear>(gear);
+      capture.inferred = item.value("Inferred", false);
+      capture.name = item.value("Name", std::string{});
+      capture.maker = item.value("Maker", std::string{});
+      capture.model = item.value("Model", std::string{});
+      capture.hash = item.value("Hash", std::string{});
+      entries[IndexKey(capture.path)] = std::move(entry);
+    }
+  }
+  catch (const std::exception&)
+  {
+    entries.clear(); // A damaged index is ignored; the next scan rewrites it.
+  }
+  return entries;
+}
+bool WriteIndex(const std::filesystem::path& file, const IndexEntries& entries)
+{
+  try
+  {
+    auto files = nlohmann::json::array();
+    for (const auto& [key, entry] : entries)
+    {
+      const auto& capture = entry.capture;
+      files.push_back({{"Path", PathText(capture.path)}, {"Size", entry.size}, {"Modified", entry.modified},
+                       {"Kind", static_cast<int>(capture.kind)}, {"Gear", static_cast<int>(capture.gear)},
+                       {"Inferred", capture.inferred}, {"Name", capture.name}, {"Maker", capture.maker},
+                       {"Model", capture.model}, {"Hash", capture.hash}});
+    }
+    std::filesystem::create_directories(file.parent_path());
+    rig_preset::WriteAtomically(file, nlohmann::json{{"Version", kIndexVersion}, {"Files", std::move(files)}}.dump());
+    return true;
+  }
+  catch (const std::exception&)
+  {
+    return false;
+  }
+}
+static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, const std::function<bool()>& cancelled,
+                           IndexCache* index = nullptr)
 {
   Snapshot result;
   result.root = root;
@@ -673,12 +746,20 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
     try
     {
       Capture capture;
-      if (extension == ".ngrid")
+      // An unchanged file (same size and modification time) reuses what the index knows.
+      std::error_code statError;
+      const auto size = it->file_size(statError);
+      const long long modified = statError ? 0 : it->last_write_time(statError).time_since_epoch().count();
+      const bool indexed = index && !statError;
+      const auto key = indexed ? IndexKey(it->path()) : std::string{};
+      const auto known = indexed ? index->previous.find(key) : IndexEntries::const_iterator{};
+      if (indexed && known != index->previous.end() && known->second.size == size && known->second.modified == modified
+          && known->second.capture.kind == FileKindOf(extension))
+        capture = known->second.capture;
+      else if (extension == ".ngrid")
       {
         // Validate the bounded file envelope on the worker; never instantiate DSP here.
         const auto rig = rig_preset::Read(it->path());
-        capture.path = it->path(); capture.source = root;
-        capture.relative = it->path().lexically_relative(root);
         capture.name = rig.value("PresetName", std::string{});
         if (capture.name.size() > 512 || capture.name.find('\0') != std::string::npos) capture.name.clear();
         capture.kind = FileKind::RigPreset;
@@ -689,6 +770,9 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
         capture.hash = ContentHash(capture.path, cancelled);
         if (capture.hash.empty()) return result;
       }
+      capture.path = it->path(); capture.source = root;
+      capture.relative = it->path().lexically_relative(root);
+      if (indexed) index->next[key] = {size, modified, capture};
       const auto parent = capture.relative.parent_path();
       capture.folderDepth = static_cast<size_t>(std::distance(parent.begin(), parent.end()));
       result.captures.push_back(std::move(capture));
@@ -712,7 +796,8 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled)
 { return ScanSource(root, kCaptureKinds, cancelled); }
 
-static Snapshot ScanRoots(const std::vector<std::string>& roots, unsigned kinds, const std::function<bool()>& cancelled)
+static Snapshot ScanRoots(const std::vector<std::string>& roots, unsigned kinds, const std::function<bool()>& cancelled,
+                          IndexCache* index = nullptr)
 {
   Snapshot result;
   std::unordered_map<std::string, size_t> seen;
@@ -722,7 +807,7 @@ static Snapshot ScanRoots(const std::vector<std::string>& roots, unsigned kinds,
   {
     if (cancelled && cancelled())
       return result;
-    auto part = ScanSource(std::filesystem::u8path(folder), kinds, cancelled);
+    auto part = ScanSource(std::filesystem::u8path(folder), kinds, cancelled, index);
     if (folders.size() == 1)
       result.root = part.root;
     result.unreadable += part.unreadable;
@@ -775,13 +860,14 @@ static void Append(Snapshot& result, Snapshot part)
 }
 
 Snapshot ScanLibrary(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
-                     const std::vector<std::string>& presetRoots, const std::function<bool()>& cancelled)
+                     const std::vector<std::string>& presetRoots, const std::function<bool()>& cancelled,
+                     IndexCache* index)
 {
   // Identical NAM and IR lists share one directory walk.
-  auto result = ScanRoots(namRoots, namRoots == irRoots ? kCaptureKinds : Bit(FileKind::NAM), cancelled);
+  auto result = ScanRoots(namRoots, namRoots == irRoots ? kCaptureKinds : Bit(FileKind::NAM), cancelled, index);
   if (namRoots != irRoots)
-    Append(result, ScanRoots(irRoots, Bit(FileKind::IR), cancelled));
-  Append(result, ScanRoots(presetRoots, Bit(FileKind::RigPreset), cancelled));
+    Append(result, ScanRoots(irRoots, Bit(FileKind::IR), cancelled, index));
+  Append(result, ScanRoots(presetRoots, Bit(FileKind::RigPreset), cancelled, index));
   return result;
 }
 
@@ -798,8 +884,9 @@ const char* KindName(FileKind kind)
   return "";
 }
 
-Worker::Worker()
-: mThread([this] { Run(); })
+Worker::Worker(std::filesystem::path indexFile)
+: mIndexFile(std::move(indexFile))
+, mThread([this] { Run(); })
 {
 }
 Worker::~Worker()
@@ -847,14 +934,29 @@ void Worker::Run()
     lock.unlock();
     auto cancelled = [&] { return mStop.load() || mRevision.load() != revision; };
     auto result = std::make_shared<Snapshot>();
+    const bool indexed = !mIndexFile.empty();
+    if (indexed && !mIndexLoaded)
+    {
+      mIndex.previous = ReadIndex(mIndexFile);
+      mIndexLoaded = true;
+    }
+    mIndex.next.clear();
     try
     {
-      *result = ScanLibrary(namRoots, irRoots, presetRoots, cancelled);
+      *result = ScanLibrary(namRoots, irRoots, presetRoots, cancelled, indexed ? &mIndex : nullptr);
     }
     catch (const std::exception&)
     {
       result->error = "Capture folder scan failed";
     }
+    // A scan that ran to the end replaces the index, so it lists exactly the files it found.
+    // Missing folders simply contribute nothing; their files are read again when they return.
+    if (indexed && !cancelled())
+    {
+      mIndex.previous = std::move(mIndex.next);
+      WriteIndex(mIndexFile, mIndex.previous);
+    }
+    mIndex.next.clear();
     lock.lock();
     if (!cancelled())
       mResult = std::move(result);

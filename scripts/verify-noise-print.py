@@ -13,7 +13,8 @@ import subprocess
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", default="214efc7", help="git revision of the independent reference processor")
-    parser.add_argument("--scalar", action="store_true", help="verify the portable fallback instead of SSE2")
+    parser.add_argument("--scalar", action="store_true", help="verify the portable fallback instead of SIMD")
+    parser.add_argument("--exact", action="store_true", help="require bit-identical output, learned profiles and meters")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     output = (root / "build-grid" / ("noise-optimization-scalar" if args.scalar else "noise-optimization")).resolve()
@@ -36,10 +37,14 @@ def main():
         command = [compiler, "/nologo", "/std:c++20", "/O2", "/EHsc", "/UNDEBUG",
                    f"/I{output}", str(source), f"/Fo{output / 'compare.obj'}", f"/Fe{executable}"]
     else:
-        command = [compiler, "-std=c++20", "-O2", "-UNDEBUG", f"-I{output}", str(source), "-o", str(executable)]
+        # Keep our executable named 'compare' out of the standard <compare> search.
+        command = [compiler, "-std=c++20", "-O2", "-UNDEBUG", "-iquote", str(output), str(source), "-o", str(executable)]
     if args.scalar:
         command.append("/DNAM_NOISE_PRINT_SCALAR" if Path(compiler).name.lower() in {"cl", "cl.exe", "clang-cl", "clang-cl.exe"}
                        else "-DNAM_NOISE_PRINT_SCALAR")
+    if args.exact:
+        command.append("/DNAM_NOISE_PRINT_REQUIRE_EXACT" if Path(compiler).name.lower() in {"cl", "cl.exe", "clang-cl", "clang-cl.exe"}
+                       else "-DNAM_NOISE_PRINT_REQUIRE_EXACT")
     subprocess.run(command, cwd=output, check=True)
     subprocess.run([str(executable)], cwd=output, check=True)
 

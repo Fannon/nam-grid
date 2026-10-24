@@ -2,6 +2,7 @@
 // from the committed, independently compiled pre-optimization implementation.
 #include "NoisePrintReference.h"
 #include "../NeuralAmpModeler/NoisePrint.h"
+#include <bit>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
@@ -11,6 +12,8 @@ int main()
 {
   double maximumError = 0., maximumProfileError = 0., maximumMeterError = 0.;
   uint64_t samples = 0;
+  uint64_t outputMismatches = 0, profileMismatches = 0, meterMismatches = 0;
+  const auto different = [](double a, double b) { return std::bit_cast<uint64_t>(a) != std::bit_cast<uint64_t>(b); };
   for (double rate : {44100., 48000., 96000., 192000.})
     for (bool stereo : {false, true})
     {
@@ -64,13 +67,16 @@ int main()
           {
             assert(std::isfinite(newLeft[i]) && std::isfinite(oldLeft[i]));
             maximumError = std::max(maximumError, std::abs(newLeft[i] - oldLeft[i]));
+            outputMismatches += different(newLeft[i], oldLeft[i]);
             if (stereo)
             {
               assert(std::isfinite(newRight[i]) && std::isfinite(oldRight[i]));
               maximumError = std::max(maximumError, std::abs(newRight[i] - oldRight[i]));
+              outputMismatches += different(newRight[i], oldRight[i]);
             }
           }
           maximumMeterError = std::max(maximumMeterError, std::abs(before.Reduction() - after.Reduction()));
+          meterMismatches += different(before.Reduction(), after.Reduction());
           samples += n * (stereo ? 2 : 1);
           done += n;
           position += n;
@@ -81,13 +87,21 @@ int main()
         assert(a.valid == b.valid);
         if (a.valid)
           for (int i = 0; i < noise_print::bands; ++i)
+          {
             maximumProfileError =
               std::max(maximumProfileError, std::abs(a.power[i] - b.power[i]) / std::max(1.e-30, a.power[i]));
+            profileMismatches += different(a.power[i], b.power[i]);
+          }
       }
     }
   std::cout << std::setprecision(17) << samples << " mono/stereo samples, 44.1/48/96/192 kHz\n"
             << "Maximum absolute output difference: " << maximumError << "\n"
             << "Maximum relative profile-power difference: " << maximumProfileError << "\n"
             << "Maximum meter difference (dB): " << maximumMeterError << "\n";
+  std::cout << "Bit mismatches (output/profile/meter): " << outputMismatches << "/" << profileMismatches << "/"
+            << meterMismatches << "\n";
   assert(maximumError < 2.e-11 && maximumProfileError < 1.e-11 && maximumMeterError < 1.e-8);
+#ifdef NAM_NOISE_PRINT_REQUIRE_EXACT
+  assert(outputMismatches == 0 && profileMismatches == 0 && meterMismatches == 0);
+#endif
 }

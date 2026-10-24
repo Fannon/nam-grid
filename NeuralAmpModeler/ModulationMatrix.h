@@ -3,6 +3,7 @@
 #include "EffectPresentation.h"
 #include "FixedNAMGrid.h"
 #include "ParameterLayout.h"
+#include "LegacyModulation.h"
 #include <algorithm>
 #include <type_traits>
 #include <vector>
@@ -237,71 +238,6 @@ private:
   std::array<const iplug::IParam*, parameter_layout::slotControls> mSlot{};
   std::array<const iplug::IParam*, GridDestinations> mGrid{};
 };
-
-// The fixed 0.1 assignments, in their editor order.
-struct LegacyAssignment
-{
-  int source, slot, target, depth;
-};
-inline constexpr std::array<LegacyAssignment, 5> legacyAssignments{{{SourceLFO, LFOSlot, LFOTarget, LFODepth},
-                                                                    {SourceEnvelope, EnvSlot, EnvTarget, EnvDepth},
-                                                                    {SourceSequencer, StepSlot, StepTarget, StepDepth},
-                                                                    {SourceMacro1, Macro1Slot, Macro1Target, Macro1Depth},
-                                                                    {SourceMacro2, Macro2Slot, Macro2Target, Macro2Depth}}};
-struct Row
-{
-  int slot = 0, control = 0;
-  double scale = 1.; // Matrix depth per legacy depth.
-};
-// The matrix row that sounds exactly like a legacy target. Fixed targets added
-// or multiplied in physical units; the matrix moves along each knob's curve.
-inline Row LegacyRow(int target, int slot, SlotEffect effect)
-{
-  const auto utility = [&](int p, double scale = 1.) { return Row{slot, standardControls + p, scale}; };
-  switch (target)
-  {
-    case 1: return utility(uWahPosition);
-    case 2: return utility(uFilterCutoff, 6. / std::log2(12000. / 40.)); // Six octaves of an exponential range.
-    case 3: return utility(uUtilityBalance, .5);                          // +/-100 on a 200-wide range.
-    case 4: return utility(uDelayMix);
-    case 5:
-      // The old target wrote every reverb family's Mix; only the slot's own module reads one.
-      for (const int p : {uReverbMix, uAirPlateMix, uAirHallMix, uSpaceMix, uCosmicMix, uShimmerMix, uSpringMix})
-        if (UsesUtility(effect, p)) return utility(p);
-      return utility(uReverbMix);
-    case 6: return {slot, parameter_layout::kSlotTrim, 24. / 80.}; // +/-24 dB on -40..40 dB.
-    case 7: return {gridSlot, GridBlend, 1.};
-    case 8: return utility(uRingFrequency, 4. / std::log2(5000.)); // Four octaves of 1..5000 Hz.
-    default: return {};
-  }
-}
-// Moves active legacy assignments into matrix rows and disables the legacy
-// target, keeping the sound. `fresh` rebuilds all rows (older states have none);
-// otherwise each assignment takes the first unused row while one is free.
-inline bool ConvertLegacy(Values& v, const std::array<SlotEffect, gridSlot>& effects, bool fresh)
-{
-  bool converted = false;
-  int next = 0;
-  if (fresh)
-    for (int i = RowParam(0, 0); i < RowParam(rows, 0); ++i) v[i] = parameters[i].initial;
-  for (const auto& legacy : legacyAssignments)
-  {
-    const int target = static_cast<int>(v[legacy.target]);
-    if (target <= 0 || target >= static_cast<int>(targetNames.size())) continue;
-    while (next < rows && v[RowParam(next, RowSource)] > 0.) ++next;
-    if (next >= rows) break;
-    const int slot = std::clamp(static_cast<int>(v[legacy.slot]), 0, gridSlot - 1);
-    const auto row = LegacyRow(target, slot, effects[slot]);
-    v[RowParam(next, RowSource)] = legacy.source;
-    v[RowParam(next, RowSlot)] = row.slot;
-    v[RowParam(next, RowDestination)] = row.control;
-    v[RowParam(next, RowDepth)] = std::clamp(v[legacy.depth] * row.scale, -100., 100.);
-    v[RowParam(next, RowVia)] = SourceNone;
-    v[legacy.target] = 0.;
-    converted = true;
-  }
-  return converted;
-}
 
 // Editor wording ----------------------------------------------------------
 

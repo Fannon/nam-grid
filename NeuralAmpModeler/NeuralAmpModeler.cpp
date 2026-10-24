@@ -394,9 +394,10 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     // The follower listens at the grid input or after one slot of this grid.
     const int tap = std::clamp(static_cast<int>(performance[grid_performance::EnvInput]), 0, 16) - 1;
     grid.SetTap(tap);
-    // First MIDI note-on of this block, or -1.
-    const int pending = mMidiNoteAt.exchange(std::numeric_limits<int>::max());
-    const int note = pending == std::numeric_limits<int>::max() ? -1 : std::clamp(pending, 0, nFrames - 1);
+    // Every MIDI note-on of this block, in frame order.
+    for (int i = 0; i < mNoteCount; ++i) mNoteFrames[i] = std::clamp(mNoteFrames[i], 0, nFrames - 1);
+    std::sort(mNoteFrames.begin(), mNoteFrames.begin() + mNoteCount);
+    int nextNote = 0;
     for (int offset = 0; offset < nFrames;)
     {
       const int count = std::min(mModulation.Quantum(), nFrames - offset);
@@ -414,19 +415,21 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       mModulationMatrix.Apply(mAnimatedControls, animatedBlend, animatedRouting, targets, modulated);
       grid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset,
                    animatedRouting);
-      const bool noteHere = note >= 0 && note >= offset && note < offset + count;
+      // This quantum's notes, as frames within it.
+      std::array<int, kMaxNotesPerBlock> notes;
+      int noteCount = 0;
+      for (; nextNote < mNoteCount && mNoteFrames[nextNote] < offset + count; ++nextNote)
+        notes[noteCount++] = mNoteFrames[nextNote] - offset;
       if (tap < 0)
-        mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, tempo,
-                            noteHere ? note - offset : -1);
+        mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, tempo, notes.data(), noteCount);
       else
-        mModulation.Advance(grid.TapLeft(), grid.TapRight(), count, performance, tempo, noteHere ? note - offset : -1);
+        mModulation.Advance(grid.TapLeft(), grid.TapRight(), count, performance, tempo, notes.data(), noteCount);
       offset += count;
     }
   }
   else
   {
     mModulation.Idle();
-    mMidiNoteAt.store(std::numeric_limits<int>::max(), std::memory_order_relaxed);
     grid.SetTap(-1);
     if (incoming)
       grid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
@@ -447,6 +450,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     if (mRigTransition.Done())
       mRigTransition.Finish(); // The outgoing grid is not touched again.
   }
+  mNoteCount = 0; // Notes act within their own block only.
   mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));
   if (mMeterFrames >= meterInterval)
@@ -488,6 +492,7 @@ void NeuralAmpModeler::OnReset()
   mMeterFrames = 0;
   mAudioControls.InvalidateAll();
   mModulation.Reset(sampleRate);
+  mNoteCount = 0;
   mMasterGain = GetParam(kOutputLevel)->DBToAmp();
   mGlobalInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
   mMasterCoefficient = std::exp(-1. / (.005 * sampleRate));
@@ -940,22 +945,52 @@ void NeuralAmpModeler::ClearModulationRow(int row)
 
 bool NeuralAmpModeler::HasLegacyModulation() const { return mModulation.LegacyActive(PerformanceValues()); }
 
-void NeuralAmpModeler::ConvertLegacyModulation()
+std::string NeuralAmpModeler::ConvertLegacyModulation()
 {
+  using namespace grid_performance;
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
   const auto before = PerformanceValues();
-  auto after = before;
-  std::array<SlotEffect, grid_performance::gridSlot> effects{};
+  std::array<SlotEffect, gridSlot> effects{};
   std::copy(mSlotEffects.begin(), mSlotEffects.end(), effects.begin());
-  if (!grid_modulation::ConvertLegacy(after, effects, false)) return;
+  // Scenes recall their own fixed assignments; each converts with the project, over its values.
+  std::vector<Values> sets{before};
+  std::vector<size_t> sceneOf;
+  for (size_t scene = 0; scene < mPerformanceScenes.size(); ++scene)
+  {
+    if (mPerformanceScenes[scene].empty()) continue;
+    auto v = before;
+    for (int i = 0; i < Count; ++i)
+      if (const auto it = mPerformanceScenes[scene].find(grid_performance::parameters[i].name); it != mPerformanceScenes[scene].end())
+        v[i] = it->get<double>();
+    sets.push_back(v);
+    sceneOf.push_back(scene);
+  }
+  grid_modulation::LegacyPlan plan;
+  if (auto error = grid_modulation::PlanLegacy(sets, effects, plan); !error.empty()) return error;
+  for (size_t set = 1; set < sets.size(); ++set)
+  {
+    auto& scene = mPerformanceScenes[sceneOf[set - 1]];
+    grid_modulation::ApplyLegacy(sets[set], plan, effects);
+    for (size_t i = 0; i < grid_modulation::legacyAssignments.size(); ++i)
+    {
+      if (plan.rows[i] < 0) continue;
+      scene[grid_performance::parameters[grid_modulation::legacyAssignments[i].target].name] = 0.;
+      for (int field = 0; field < RowFields; ++field)
+        scene[grid_performance::parameters[RowParam(plan.rows[i], field)].name] = sets[set][RowParam(plan.rows[i], field)];
+    }
+  }
+  auto after = before;
+  grid_modulation::ApplyLegacy(after, plan, effects);
   // Disable the legacy targets before the rows start, so modulation never doubles.
   for (const auto& legacy : grid_modulation::legacyAssignments)
     if (after[legacy.target] != before[legacy.target]) SetParameterFromUI(PerformanceParam(legacy.target), after[legacy.target]);
   // Sources last: a row only becomes active once its destination is complete.
   for (const bool sources : {false, true})
-    for (int i = grid_performance::RowParam(0, 0); i < grid_performance::RowParam(grid_performance::rows, 0); ++i)
-      if (after[i] != before[i] && sources == ((i - grid_performance::ModRow) % grid_performance::RowFields == grid_performance::RowSource))
+    for (int i = RowParam(0, 0); i < RowParam(rows, 0); ++i)
+      if (after[i] != before[i] && sources == ((i - ModRow) % RowFields == RowSource))
         SetParameterFromUI(PerformanceParam(i), after[i]);
+  _NotifyHostStateChanged();
+  return {};
 }
 
 void NeuralAmpModeler::SetPresetCrossfade(bool enabled)
@@ -1129,30 +1164,6 @@ static int IntroducedIn(int index)
   if (const int performance = PerformanceIndex(index); performance >= 0)
     return grid_performance::parameters[performance].introducedIn;
   return kInitialEffectStateSchema;
-}
-
-// Schema 3 moved the fixed 0.1 assignments into matrix rows. Older projects,
-// presets and their scenes convert on load with the same sound; scenes then
-// recall all eight rows, as they recalled every fixed assignment before.
-static void UpgradeLegacyModulation(nlohmann::json& config)
-{
-  std::array<SlotEffect, grid_performance::gridSlot> effects{};
-  for (size_t slot = 0; slot < effects.size(); ++slot)
-    effects[slot] = static_cast<SlotEffect>(config["SlotEffects"][slot].get<int>());
-  const auto convert = [&](nlohmann::json& values) {
-    auto v = grid_performance::Defaults();
-    for (int i = 0; i < grid_performance::Count; ++i)
-      if (const auto it = values.find(grid_performance::parameters[i].name); it != values.end())
-        v[i] = it->get<double>();
-    grid_modulation::ConvertLegacy(v, effects, true);
-    for (const auto& legacy : grid_modulation::legacyAssignments)
-      values[grid_performance::parameters[legacy.target].name] = v[legacy.target];
-    for (int i = grid_performance::RowParam(0, 0); i < grid_performance::RowParam(grid_performance::rows, 0); ++i)
-      values[grid_performance::parameters[i].name] = v[i];
-  };
-  convert(config);
-  for (auto& scene : config["PerformanceScenes"])
-    if (!scene.empty()) convert(scene);
 }
 
 static int ReadStateString(const IByteChunk& chunk, WDL_String& value, int pos)
@@ -1578,8 +1589,6 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           return -1;
       }
     }
-    if (schema < 3)
-      UpgradeLegacyModulation(config);
     _UnserializeApplyConfig(config);
     return pos;
   }
@@ -1657,11 +1666,10 @@ void NeuralAmpModeler::EndInformHostOfParamChangeFromUI(int paramIdx)
 
 void NeuralAmpModeler::ProcessMidiMsg(const IMidiMsg& msg)
 {
-  if (msg.StatusMsg() != IMidiMsg::kNoteOn || msg.Velocity() == 0) return;
-  // Keep the block's earliest note-on; a host may also flush events outside processing.
-  const int frame = std::max(0, msg.mOffset);
-  int pending = mMidiNoteAt.load(std::memory_order_relaxed);
-  while (frame < pending && !mMidiNoteAt.compare_exchange_weak(pending, frame, std::memory_order_relaxed)) {}
+  // Hosts deliver notes before processing their block (or, while not processing, from
+  // a parameter flush), so this list belongs to the processing context, like ProcessBlock.
+  if (msg.StatusMsg() == IMidiMsg::kNoteOn && msg.Velocity() > 0 && mNoteCount < kMaxNotesPerBlock)
+    mNoteFrames[mNoteCount++] = std::max(0, msg.mOffset);
 }
 
 void NeuralAmpModeler::SetRoutingOpen(bool open)

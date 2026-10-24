@@ -74,8 +74,10 @@ sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy parameters. Destination
 slot-control indices. `grid_modulation::VisitSlotControls` maps every slot control to
 its audio-snapshot field for both the host refresh and the matrix, so a new snapshot
 field must be added there; the stage tests check that each control is mapped exactly once.
-Schema 3 converts the fixed 0.1 assignments (one slot/target/depth per source) into rows
-on load with the same sound; those parameters still play when a host automates them.
+The fixed 0.1 assignments (one slot/target/depth per source) are never converted on load:
+they keep playing through `Modulation::Apply`, so their host automation keeps its meaning.
+[LegacyModulation.h](../NeuralAmpModeler/LegacyModulation.h) converts them on request,
+together with the stored scenes, and refuses when matrix rows would not sound the same.
 
 Editor open, state restore and parameter reset push values to the UI in one pass over
 the controls (`_SendAllParamValuesToUI`, `OnParamReset`). iPlug2's defaults handle one

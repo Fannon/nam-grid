@@ -767,7 +767,11 @@ public:
         ->SetTooltip("Via: another source scales this row's depth, from none (at its minimum) to all.");
       Add(new ClearCell(rowCell(956, pageRight), row));
     }
-    mConvert = Add(new Button(IRECT(pageLeft, 566, 204, 594), [this](IControl*) { PLUG()->ConvertLegacyModulation(); }, "Convert to rows"));
+    mConvert = Add(new Button(IRECT(pageLeft, 646, 184, 672), [this](IControl*) {
+      if (const auto error = PLUG()->ConvertLegacyModulation(); !error.empty()) ShowNotice(GetUI(), "Convert to rows", error.c_str());
+    }, "Convert to rows"));
+    mConvert->SetTooltip("Turn the fixed assignments of the settings and stored scenes into matrix rows with the same sound. "
+                         "Recorded automation of the old Slot, Target and Depth parameters then no longer applies.");
   }
   void Draw(IGraphics& g) override
   {
@@ -791,7 +795,25 @@ public:
     }
     g.DrawText(Text(17.f, accent), "Macros", IRECT(484, 484, pageRight, 508));
     if (mLegacy)
-      g.DrawText(Text(13.f, muted), "Host automation turned on an older fixed assignment.", IRECT(pageLeft, 540, 452, 560));
+    {
+      // Fixed assignments from earlier versions still play and follow their automation.
+      g.DrawText(Text(17.f, accent), "Fixed assignments", IRECT(pageLeft, 532, 452, 556));
+      const auto v = PLUG()->PerformanceValues();
+      float y = 560.f;
+      for (const auto& legacy : grid_modulation::legacyAssignments)
+      {
+        if (!grid_modulation::LegacyActive(v, legacy)) continue;
+        WDL_String line;
+        const int target = static_cast<int>(v[legacy.target]);
+        line.SetFormatted(160, "%s  ›  %s%s  %+.0f%%", sourceNames[legacy.source],
+                          target == 7 ? "" : (SlotID(grid_modulation::LegacySlot(v, legacy)) + " ").c_str(), targetNames[target],
+                          v[legacy.depth]);
+        g.FillCircle(SourceColor(legacy.source), pageLeft + 5.f, y + 8.f, 3.5f);
+        FittedText(g, Text(13.f, text), line.Get(), IRECT(pageLeft + 16.f, y, 452, y + 16));
+        y += 16.f;
+      }
+      FittedText(g, Text(12.f, muted), "From an earlier version; they follow their automation.", IRECT(192, 646, 452, 672));
+    }
     g.DrawText(Text(13.f, muted), "Right-click any module knob to modulate it. Alt-drag a modulated knob to change its depth.",
                IRECT(pageLeft, 676, pageRight, 700));
   }
@@ -799,6 +821,12 @@ public:
   {
     if (!IsHidden())
     {
+      // Any change to a fixed assignment redraws its list.
+      const auto v = PLUG()->PerformanceValues();
+      double legacySignature = 0.;
+      for (const auto& assignment : grid_modulation::legacyAssignments)
+        legacySignature = legacySignature * 31. + v[assignment.slot] * 7. + v[assignment.target] * 3. + v[assignment.depth];
+      if (legacySignature != mLegacySignature) { mLegacySignature = legacySignature; SetDirty(false); }
       const bool legacy = PLUG()->HasLegacyModulation();
       const bool lfoSync = PLUG()->GetParam(PerformanceParam(grid_performance::LFOSync))->Bool();
       const bool stepSync = PLUG()->GetParam(PerformanceParam(grid_performance::StepSync))->Bool();
@@ -851,4 +879,5 @@ private:
   std::array<bool, 2> mSync{};
   IControl* mConvert = nullptr;
   bool mLegacy = false;
+  double mLegacySignature = 0.;
 };

@@ -76,7 +76,8 @@ value while audio plays. Alt/Option-drag a modulated knob to change its first ro
 depth (Shift for fine steps). Grid cards show a dot per source modulating them.
 
 The engine processes bounded 16-sample control intervals and preserves that clock
-across variable host blocks; retriggers land on the next interval. Destinations use
+across variable host blocks. Retriggers land on their own sample, every note-on of a
+block counts, and held values update at the next interval. Destinations use
 their own smoothing, so jumps in time controls such as delay time are heard as pitch or
 steps. Sources run only while a row is active, and reset on host reactivation. Tempo
 sync controls periods; these sources are not PPQ-position-locked. Host parameter values
@@ -85,9 +86,14 @@ destinations and Via, Listen at and the Retrigger modes are saved state, like al
 selectors; depths, macros and the other source settings are automatable.
 
 Projects and presets from before the matrix had one fixed assignment per source
-(eight targets such as Delay mix or NAM trim). They load as matrix rows with the
-same sound. If host automation turns on such an assignment later, it still plays,
-and the Modulation page offers **Convert to rows**.
+(eight targets such as Delay mix or NAM trim). They load unchanged and keep playing,
+including their scenes and the host automation of their Slot, Target and Depth
+parameters. The Modulation page lists them under **Fixed assignments**. **Convert to
+rows** turns them, in the current settings and every stored scene, into matrix rows
+with the same sound; recorded automation of the old parameters then no longer applies.
+It converts only when the rows would sound the same: not when two assignments, or an
+assignment and a matrix row, modulate one control (fixed assignments limit the result
+after each one, rows after their sum), and not without enough empty rows.
 
 ## Performance scenes
 

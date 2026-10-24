@@ -1,11 +1,14 @@
 #pragma once
-// Modulation matrix through the real plugin: conversion of 0.1 fixed assignments,
-// generic and routing destinations, and state-only selectors.
+// Modulation matrix through the real plugin: 0.1 fixed assignments and their exact
+// conversion, generic and routing destinations, retrigger and state-only selectors.
+
+#include "../NeuralAmpModeler/LegacyModulation.h"
 
 template<class Save, class Load, class LoadRaw>
 void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save, Load load, LoadRaw loadRaw)
 {
   using namespace grid_performance;
+  using namespace grid_modulation;
   const auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));
   std::array<double, 512> l{}, r{}, outL{}, outR{};
   double* inputs[]{l.data(), r.data()}, *outputs[]{outL.data(), outR.data()};
@@ -16,26 +19,36 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
   clap_output_events sent{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
   clap_process process{}; process.audio_inputs_count = process.audio_outputs_count = 1;
   process.audio_inputs = &in; process.audio_outputs = &out; process.in_events = &empty; process.out_events = &sent;
-  // A MIDI note-on, sent in one chosen block.
+  // MIDI note-ons at chosen absolute frames, delivered in whichever host block holds them.
   clap_event_note note{};
   note.header.size = sizeof(note); note.header.type = CLAP_EVENT_NOTE_ON; note.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
   note.note_id = -1; note.port_index = 0; note.channel = 0; note.key = 60; note.velocity = 1.;
-  clap_input_events notes{&note, [](const clap_input_events*) -> uint32_t { return 1; },
-    [](const clap_input_events* e, uint32_t) -> const clap_event_header* { return &static_cast<clap_event_note*>(e->ctx)->header; }};
-  // Uneven host blocks: the 16-sample control clock must not depend on them.
-  const auto render = [&](int noteBlock = -1, uint32_t noteFrame = 0) {
+  std::vector<clap_event_note> blockNotes;
+  clap_input_events notes{&blockNotes,
+    [](const clap_input_events* e) -> uint32_t { return static_cast<uint32_t>(static_cast<std::vector<clap_event_note>*>(e->ctx)->size()); },
+    [](const clap_input_events* e, uint32_t i) -> const clap_event_header* {
+      return &(*static_cast<std::vector<clap_event_note>*>(e->ctx))[i].header; }};
+  // Uneven host blocks by default: the 16-sample control clock must not depend on them.
+  const auto render = [&](std::vector<int> noteFrames = {}, std::vector<int> sizes = {512, 127, 1, 256}) {
     std::vector<double> result;
     assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
-    int position = 0;
-    for (int block = 0; block < 48; ++block)
+    constexpr int total = 12 * (512 + 127 + 1 + 256);
+    for (int position = 0, block = 0; position < total; ++block)
     {
-      process.frames_count = std::array<int, 4>{512, 127, 1, 256}[block % 4];
-      note.header.time = std::min(noteFrame, process.frames_count - 1);
-      process.in_events = block == noteBlock ? &notes : &empty;
-      for (uint32_t i = 0; i < process.frames_count; ++i, ++position)
-      { l[i] = .2 * std::sin(position * .031); r[i] = .15 * std::sin(position * .017); }
+      process.frames_count = std::min(sizes[block % sizes.size()], total - position);
+      blockNotes.clear();
+      for (const int frame : noteFrames)
+        if (frame >= position && frame < position + static_cast<int>(process.frames_count))
+        {
+          note.header.time = static_cast<uint32_t>(frame - position);
+          blockNotes.push_back(note);
+        }
+      process.in_events = blockNotes.empty() ? &empty : &notes;
+      for (uint32_t i = 0; i < process.frames_count; ++i)
+      { l[i] = .2 * std::sin((position + i) * .031); r[i] = .15 * std::sin((position + i) * .017); }
       assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
       for (uint32_t i = 0; i < process.frames_count; ++i) { result.push_back(outL[i]); result.push_back(outR[i]); }
+      position += static_cast<int>(process.frames_count);
     }
     plugin->stop_processing(plugin); plugin->deactivate(plugin);
     process.in_events = &empty;
@@ -57,7 +70,43 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
   };
   const auto row = [](int index, int field) { return std::string(parameters[RowParam(index, field)].name); };
 
-  // Each fixed target sounds the same after conversion to a matrix row.
+  const auto values = [](const json& config) {
+    auto v = Defaults();
+    for (int i = 0; i < Count; ++i) v[i] = config[parameters[i].name].get<double>();
+    return v;
+  };
+  const auto setValues = [](json& config, const Values& v) {
+    for (int i = 0; i < Count; ++i) config[parameters[i].name] = v[i];
+  };
+  std::array<SlotEffect, gridSlot> effects{};
+  // Older projects keep their fixed assignments, which go on following host automation.
+  {
+    auto config = cleared;
+    config["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
+    config["Macro One"] = 100.; config["Macro One Slot"] = 4.; config["Macro One Target"] = 3.; config["Macro One Depth"] = 20.;
+    config["Parallel Blend"] = 0.;
+    auto old = older(config);
+    load(old);
+    auto state = save().config();
+    assert(state["Macro One Target"] == 3. && state[row(0, RowSource)] == SourceNone);
+    clap_param_info info{};
+    for (uint32_t i = 0; i < params->count(plugin); ++i)
+      if (params->get_info(plugin, i, &info) && std::strcmp(info.name, "Macro One Depth") == 0) break;
+    clap_event_param_value event{};
+    event.header.size = sizeof(event); event.header.type = CLAP_EVENT_PARAM_VALUE; event.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    event.param_id = info.id; event.value = .75; // +50% in the normalized CLAP range
+    event.note_id = event.port_index = event.channel = event.key = -1;
+    clap_input_events automation{&event, [](const clap_input_events*) -> uint32_t { return 1; },
+      [](const clap_input_events* e, uint32_t) -> const clap_event_header* { return &static_cast<clap_event_param_value*>(e->ctx)->header; }};
+    clap_output_events ignored{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
+    params->flush(plugin, &automation, &ignored);
+    const auto automated = render();
+    assert(save().config()["Macro One Depth"] == 50. && save().config()["Macro One Target"] == 3.);
+    config["Macro One Depth"] = 50.;
+    load(config);
+    assert(difference(automated, render()) == 0.);
+  }
+  // Converting on request: each fixed target sounds the same as its matrix row.
   struct Case { SlotEffect effect; int target; double depth; double tolerance; };
   for (const auto& test : {Case{SlotEffect::Utility, 3, 60., 1.e-12}, Case{SlotEffect::SynthFilter, 2, -45., 1.e-9},
                            Case{SlotEffect::RingMod, 8, 70., 1.e-9},
@@ -69,12 +118,15 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     config["Parallel Blend"] = 0.;
     load(config);
     const auto fixed = render();
-    auto converted = older(config);
+    effects[4] = test.effect;
+    auto v = values(config);
+    LegacyPlan plan;
+    assert(PlanLegacy({v}, effects, plan).empty() && plan.rows[0] == 0);
+    ApplyLegacy(v, plan, effects);
+    auto converted = config;
+    setValues(converted, v);
     load(converted);
-    const auto state = save().config();
-    assert(state["schema"] == kEffectStateSchema && state["LFO Target"] == 0.);
-    assert(state[row(0, RowSource)] == SourceLFO && state[row(0, RowSlot)] == 4.);
-    assert(state[row(1, RowSource)] == SourceNone);
+    assert(save().config()["LFO Target"] == 0. && save().config()[row(0, RowSource)] == SourceLFO);
     const auto matrix = render();
     if (difference(fixed, matrix) > test.tolerance)
       std::cerr << "Converted target " << test.target << " differs by " << difference(fixed, matrix) << '\n';
@@ -83,22 +135,16 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     load(config);
     assert(difference(render(), fixed) > 1.e-4); // The case modulates audibly.
   }
-  // Older scenes convert too, and recall all eight rows.
+  // Two assignments clamping on one control would not convert exactly, so they stay fixed.
   {
     auto config = cleared;
-    config["Macro One Slot"] = 7.; config["Macro One Target"] = 7.; config["Macro One Depth"] = 40.;
-    auto scene = json::object();
-    for (const auto& p : parameters) if (p.introducedIn < 3) scene[p.name] = config[p.name];
-    config["PerformanceScenes"][1] = scene;
-    load(config = older(config));
-    const auto state = save().config();
-    for (const auto& values : {state, state["PerformanceScenes"][1]})
-    {
-      assert(values["Macro One Target"] == 0. && values[row(0, RowSource)] == SourceMacro1);
-      assert(values[row(0, RowSlot)] == gridSlot && values[row(0, RowDestination)] == GridBlend && values[row(0, RowDepth)] == 40.);
-      assert(values.contains(row(7, RowVia)));
-    }
-    assert(state["PerformanceScenes"][0].empty());
+    config["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
+    config["A 1 Utility Balance"] = 80.; config["Macro One"] = config["Macro Two"] = 100.;
+    config["Macro One Slot"] = config["Macro Two Slot"] = 4.; config["Macro One Target"] = config["Macro Two Target"] = 3.;
+    config["Macro One Depth"] = 80.; config["Macro Two Depth"] = -80.;
+    effects[4] = SlotEffect::Utility;
+    LegacyPlan plan;
+    assert(!PlanLegacy({values(config)}, effects, plan).empty());
   }
   // Any modulatable slot control, and the lane levels: Macro 1 turns Utility down.
   {
@@ -156,11 +202,17 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     config[row(0, RowSource)] = SourceLFO; config[row(0, RowSlot)] = 0.;
     config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel; config[row(0, RowDepth)] = -40.;
     load(config);
-    const auto idle = render(), played = render(8, 100);
-    // Blocks 0-7 are two cycles of 512 + 127 + 1 + 256 stereo frames before the note's block.
-    const size_t before = 2 * 2 * (512 + 127 + 1 + 256) + 2 * 100;
-    for (size_t i = 0; i < before; ++i) assert(played[i] == idle[i]);
+    const int at = 2 * (512 + 127 + 1 + 256) + 100; // Inside a 512-frame block.
+    const auto idle = render(), played = render({at});
+    for (size_t i = 0; i < 2 * static_cast<size_t>(at); ++i) assert(played[i] == idle[i]);
     assert(difference(played, idle) > 1.e-3);
+    // Every note-on counts, also several in one host block: the result follows the
+    // timeline, not the host's block size.
+    config["LFO Rate"] = 20.;
+    load(config);
+    const auto both = render({0, 256}, {512});
+    assert(difference(both, render({0}, {512})) > 1.e-3);
+    assert(difference(both, render({0, 256}, {256})) < 1.e-12 && difference(both, render({0, 256}, {37, 500})) < 1.e-12);
   }
   // Selectors are integer state, never host automation; Depth remains automatable.
   {
@@ -185,5 +237,5 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     }
   }
   load(cleared);
-  std::cout << "Modulation matrix CLAP: exact 0.1 conversion, scenes, generic and routing destinations, Via, follower tap, MIDI retrigger and state-only selectors passed\n";
+  std::cout << "Modulation matrix CLAP: kept and exactly converted 0.1 assignments, generic and routing destinations, Via, follower tap, MIDI retrigger and state-only selectors passed\n";
 }

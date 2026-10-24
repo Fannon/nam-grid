@@ -2260,6 +2260,33 @@ int main(int argc, char** argv)
     assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
+  // Older fixed assignments stay until Convert to rows, which also converts stored scenes.
+  {
+    auto legacy = cleared;
+    legacy["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
+    legacy["Macro One"] = 100.; legacy["Macro One Slot"] = 4.; legacy["Macro One Target"] = 3.; legacy["Macro One Depth"] = 20.;
+    const auto sceneWith = [&](double depth, double target) {
+      auto scene = json::object();
+      for (const auto& p : grid_performance::parameters) scene[p.name] = legacy[p.name];
+      scene["Macro One Depth"] = depth; scene["Macro One Target"] = target;
+      return scene;
+    };
+    legacy["PerformanceScenes"][0] = sceneWith(40., 3.);
+    legacy["PerformanceScenes"][1] = sceneWith(20., 0.);
+    load(legacy);
+    click(225, 28); // Modulation lists the fixed assignment and offers to convert it.
+    click(104, 659); // Convert to rows
+    click(936, 28);
+    const auto state = save().config();
+    const auto& scenes = state["PerformanceScenes"];
+    assert(state["Macro One Target"] == 0. && state["Mod 1 Source"] == grid_performance::SourceMacro1);
+    // Balance: +/-100 on a 200-wide range. Values pass through the host's normalized range.
+    const auto approximately = [](const json& value, double expected) { return std::abs(value.get<double>() - expected) < 1.e-9; };
+    assert(state["Mod 1 Slot"] == 4. && approximately(state["Mod 1 Depth"], 10.));
+    assert(scenes[0]["Macro One Target"] == 0. && scenes[0]["Mod 1 Source"] == grid_performance::SourceMacro1
+           && approximately(scenes[0]["Mod 1 Depth"], 20.));
+    assert(scenes[1]["Mod 1 Source"] == grid_performance::SourceNone);
+  }
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["NamFolders"] = {libraryFolder.string()};

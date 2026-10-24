@@ -291,9 +291,10 @@ public:
     const double out = std::clamp((level - threshold) * std::pow(10., v[EnvSensitivity] * .05), 0., 1.);
     return v[EnvCurve] == 0. ? out : std::pow(out, std::exp2(-v[EnvCurve] * .02));
   }
-  // `l`/`r` is the follower's listening point. `midiAt` is the first frame of this
-  // span with a MIDI note-on, or -1; retriggering lands on that frame.
-  void Advance(const double* l, const double* r, int n, const Values& v, double tempo, int midiAt = -1)
+  // `l`/`r` is the follower's listening point. `notes` are this span's MIDI note-on
+  // frames in order; each retriggers on its frame.
+  void Advance(const double* l, const double* r, int n, const Values& v, double tempo, const int* notes = nullptr,
+               int noteCount = 0)
   {
     const double lfo = v[LFOSync] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[LFODivision])) : v[LFORate];
     const double steps = v[StepSync] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[StepDivision])) : v[StepRate];
@@ -306,6 +307,7 @@ public:
     const double fastAttack = std::exp(-1. / (.0005 * mRate)), fastRelease = std::exp(-1. / (.03 * mRate));
     const double slow = std::exp(-1. / (.04 * mRate));
     const double floor = v[EnvThreshold] <= kThresholdOff ? .00316 : std::pow(10., v[EnvThreshold] * .05);
+    int nextNote = 0;
     for (int i = 0; i < n; ++i)
     {
       const double peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.);
@@ -322,7 +324,8 @@ public:
         }
         else if (!mArmed && mFast < 1.25 * mSlow) mArmed = true;
       }
-      const bool midi = i == midiAt;
+      bool midi = false;
+      for (; nextNote < noteCount && notes[nextNote] <= i; ++nextNote) midi = true;
       if ((lfoRetrigger == RetriggerOnset && onset) || (lfoRetrigger == RetriggerMidi && midi))
       {
         mPhase = 0.; mFinished = false; NextRandom();

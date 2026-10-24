@@ -141,7 +141,9 @@ public:
   int AddModulation(int source, int slot, int control, double depth = 25.);
   void ClearModulationRow(int row);
   bool HasLegacyModulation() const;
-  void ConvertLegacyModulation();
+  // Converts the fixed 0.1 assignments of the settings and stored scenes into matrix
+  // rows when the rows sound the same; otherwise changes nothing and returns why.
+  std::string ConvertLegacyModulation();
   grid_performance::Values PerformanceValues() const;
   grid_performance::Modulation::Monitor ModulationMonitor() const { return mModulation.Read(); }
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
@@ -304,7 +306,10 @@ private:
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
   grid_modulation::Matrix mModulationMatrix;
-  std::atomic<int> mMidiNoteAt{std::numeric_limits<int>::max()}; // Earliest pending note-on frame.
+  // MIDI note-on frames of the current block; later notes beyond the limit are ignored.
+  static constexpr int kMaxNotesPerBlock = 128;
+  std::array<int, kMaxNotesPerBlock> mNoteFrames{};
+  int mNoteCount = 0;
   int mActiveScene = -1;
   bool mRoutingOpen = false;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.

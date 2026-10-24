@@ -44,25 +44,30 @@ void TestModulationMatrix()
     assert(StateOnly(i) == ((i >= ModRow && i < RowParam(rows, 0) && (i - ModRow) % RowFields != RowDepth)
                             || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
 
-  // Fixed 0.1 targets become rows with the same physical movement.
+  // Fixed 0.1 targets become rows with the same physical movement, on request only.
   {
     std::array<SlotEffect, gridSlot> effects{};
     effects[6] = SlotEffect::AirHall;
     auto v = Defaults();
+    v[RowParam(0, RowSource)] = SourceMacro3; v[RowParam(0, RowDepth)] = 10.; // A user row stays.
     v[LFOSlot] = 5.; v[LFOTarget] = 2.; v[LFODepth] = 60.;
     v[EnvSlot] = 6.; v[EnvTarget] = 5.; v[EnvDepth] = -30.;
     v[Macro2Slot] = 3.; v[Macro2Target] = 7.; v[Macro2Depth] = 20.;
-    v[StepTarget] = 0.; v[StepDepth] = 50.; // No target: stays off.
-    assert(ConvertLegacy(v, effects, true));
-    assert(v[LFOTarget] == 0. && v[EnvTarget] == 0. && v[Macro2Target] == 0.);
-    assert(v[RowParam(0, RowSource)] == SourceLFO && v[RowParam(0, RowSlot)] == 5.);
-    assert(v[RowParam(0, RowDestination)] == standardControls + uFilterCutoff);
+    v[StepTarget] = 4.; v[StepDepth] = 0.; // Depth 0: plays nothing, needs no row.
+    LegacyPlan plan;
+    assert(PlanLegacy({v}, effects, plan).empty());
+    assert(plan.rows[0] == 1 && plan.rows[1] == 2 && plan.rows[2] == -1 && plan.rows[3] == -1 && plan.rows[4] == 3);
+    ApplyLegacy(v, plan, effects);
+    assert(v[LFOTarget] == 0. && v[EnvTarget] == 0. && v[Macro2Target] == 0. && v[StepTarget] == 4.);
+    assert(v[RowParam(0, RowSource)] == SourceMacro3);
+    assert(v[RowParam(1, RowSource)] == SourceLFO && v[RowParam(1, RowSlot)] == 5.);
+    assert(v[RowParam(1, RowDestination)] == standardControls + uFilterCutoff);
     // Six octaves across 40..12000 Hz: 60% of six octaves is 3.6 octaves of an 8.23-octave range.
-    assert(std::abs(v[RowParam(0, RowDepth)] - 60. * 6. / std::log2(300.)) < 1.e-12);
-    assert(v[RowParam(1, RowSource)] == SourceEnvelope && v[RowParam(1, RowDestination)] == standardControls + uAirHallMix);
-    assert(v[RowParam(1, RowDepth)] == -30.);
-    assert(v[RowParam(2, RowSource)] == SourceMacro2 && v[RowParam(2, RowSlot)] == gridSlot && v[RowParam(2, RowDestination)] == GridBlend);
-    assert(v[RowParam(3, RowSource)] == SourceNone);
+    assert(std::abs(v[RowParam(1, RowDepth)] - 60. * 6. / std::log2(300.)) < 1.e-12);
+    assert(v[RowParam(2, RowSource)] == SourceEnvelope && v[RowParam(2, RowDestination)] == standardControls + uAirHallMix);
+    assert(v[RowParam(2, RowDepth)] == -30.);
+    assert(v[RowParam(3, RowSource)] == SourceMacro2 && v[RowParam(3, RowSlot)] == gridSlot && v[RowParam(3, RowDestination)] == GridBlend);
+    assert(v[RowParam(4, RowSource)] == SourceNone);
     // Balance, trim and ring frequency scales.
     for (const auto& [target, control, scale] : {std::tuple{3, standardControls + uUtilityBalance, .5},
                                                  std::tuple{6, static_cast<int>(parameter_layout::kSlotTrim), .3},
@@ -71,14 +76,28 @@ void TestModulationMatrix()
       const auto row = LegacyRow(target, 1, SlotEffect::Utility);
       assert(row.slot == 1 && row.control == control && std::abs(row.scale - scale) < 1.e-12);
     }
-    // A live conversion keeps the user's rows and takes the next free one.
-    auto live = Defaults();
-    live[RowParam(0, RowSource)] = SourceMacro3; live[RowParam(0, RowDepth)] = 10.;
-    live[Macro1Target] = 1.; live[Macro1Depth] = 40.; live[Macro1Slot] = 2.;
-    assert(ConvertLegacy(live, effects, false));
-    assert(live[RowParam(0, RowSource)] == SourceMacro3 && live[RowParam(1, RowSource)] == SourceMacro1);
-    assert(live[RowParam(1, RowDestination)] == standardControls + uWahPosition && live[RowParam(1, RowDepth)] == 40.);
-    assert(!ConvertLegacy(live, effects, false));
+    // Not exact, so refused: two assignments clamp one after the other on one control...
+    auto shared = Defaults();
+    shared[Macro1Slot] = shared[Macro2Slot] = 4.; shared[Macro1Target] = shared[Macro2Target] = 3.;
+    shared[Macro1Depth] = 80.; shared[Macro2Depth] = -80.;
+    assert(!PlanLegacy({shared}, effects, plan).empty());
+    // ...as do an assignment and a matrix row on one control (here in a scene only),
+    shared[Macro2Target] = 0.;
+    auto scene = shared;
+    scene[RowParam(5, RowSource)] = SourceLFO; scene[RowParam(5, RowDepth)] = 5.;
+    scene[RowParam(5, RowSlot)] = 4.; scene[RowParam(5, RowDestination)] = standardControls + uUtilityBalance;
+    assert(PlanLegacy({shared}, effects, plan).empty() && !PlanLegacy({shared, scene}, effects, plan).empty());
+    // ...and too few rows that are empty everywhere.
+    auto full = shared;
+    for (int r = 0; r < rows; ++r) { full[RowParam(r, RowSource)] = SourceMacro4; full[RowParam(r, RowSlot)] = 15.; }
+    assert(!PlanLegacy({full}, effects, plan).empty());
+    // Scenes share the plan: a scene without the assignment empties its row on recall.
+    auto withEnvelope = Defaults(); withEnvelope[EnvTarget] = 4.; withEnvelope[EnvDepth] = 25.;
+    auto without = Defaults();
+    assert(PlanLegacy({without, withEnvelope}, effects, plan).empty() && plan.rows[1] == 0);
+    ApplyLegacy(without, plan, effects); ApplyLegacy(withEnvelope, plan, effects);
+    assert(without[RowParam(0, RowSource)] == SourceNone && withEnvelope[RowParam(0, RowSource)] == SourceEnvelope);
+    assert(withEnvelope[EnvTarget] == 0. && withEnvelope[RowParam(0, RowDepth)] == 25.);
   }
   // Collection: inactive and invalid rows are skipped; shared destinations add; Via scales.
   {
@@ -161,9 +180,14 @@ void TestModulationMatrix()
     for (size_t i = 0; i < pluck.size(); ++i) pluck[i] = .5 * std::exp(-static_cast<double>(i) / 2000.) * std::sin(i * .05);
     auto v = Defaults();
     v[LFORate] = 1.; v[LFOShape] = 2.; v[StepRate] = 15.; v[StepSync] = 0.;
-    const auto run = [&](Modulation& m, const std::vector<double>& signal, int midiAt = -1) {
+    const auto run = [&](Modulation& m, const std::vector<double>& signal, std::vector<int> midi = {}) {
       for (size_t at = 0; at < signal.size(); at += 16)
-        m.Advance(signal.data() + at, nullptr, 16, v, 120., midiAt >= static_cast<int>(at) && midiAt < static_cast<int>(at) + 16 ? midiAt - static_cast<int>(at) : -1);
+      {
+        std::vector<int> notes;
+        for (const int frame : midi)
+          if (frame >= static_cast<int>(at) && frame < static_cast<int>(at) + 16) notes.push_back(frame - static_cast<int>(at));
+        m.Advance(signal.data() + at, nullptr, 16, v, 120., notes.data(), static_cast<int>(notes.size()));
+      }
     };
     // Free running ignores onsets: a 1 Hz saw is 0.1 into its cycle after 0.1 s.
     Modulation free; free.Reset(rate);
@@ -182,14 +206,14 @@ void TestModulationMatrix()
     v[EnvThreshold] = kThresholdOff;
     v[LFORetrigger] = RetriggerMidi; v[StepRetrigger] = RetriggerMidi;
     Modulation midi; midi.Reset(rate);
-    run(midi, quiet, 1600); // note-on at 33 ms
+    run(midi, quiet, {800, 1600}); // note-ons at 17 and 33 ms: the last one counts
     assert(std::abs(midi.Read().phase - (4800 - 1600) / rate) < .001 && midi.Read().step == 1);
     // One shot: a 1 Hz Saw down from the note, then held at its end.
     v[LFOOneShot] = 1.; v[LFOShape] = 3.;
     Modulation shot; shot.Reset(rate);
     run(shot, quiet);
     assert(shot.Value(SourceLFO, v) == -1.); // Idle until the first trigger.
-    run(shot, quiet, 0);
+    run(shot, quiet, {0});
     assert(std::abs(shot.Value(SourceLFO, v) - (1. - 2. * .1)) < .01);
     for (int i = 0; i < 10; ++i) run(shot, quiet);
     assert(shot.Value(SourceLFO, v) == -1.);

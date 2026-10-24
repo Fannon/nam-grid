@@ -1,7 +1,7 @@
 #pragma once
 
-// Grid / Control: routing, the modulation matrix with its sources, and scenes.
-// The header matches the main editor's; every page uses its 24 px side margins.
+// Modulation page (sources, macros and the matrix), the routing panel below the
+// grid, and the header scene buttons. Pages use the main editor's 24 px margins.
 namespace grid_ui
 {
 inline constexpr float pageLeft = 24.f, pageRight = 976.f, pageTop = 72.f;
@@ -382,7 +382,9 @@ public:
     if (v[LFOSync] >= .5) caption.SetFormatted(64, "%s  ·  %s", lfoShapeNames[shape], grid_tempo::names[static_cast<int>(v[LFODivision])]);
     else caption.SetFormatted(64, "%s  ·  %.2f Hz", lfoShapeNames[shape], v[LFORate]);
     g.DrawText(Text(14.f, SourceColor(SourceLFO)), caption.Get(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
-    g.DrawText(Text(12.f, muted, EAlign::Far), "one cycle · bipolar", IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
+    std::string mode = v[LFOOneShot] >= .5 ? "one shot" : "one cycle";
+    if (v[LFORetrigger] > 0.) mode += std::string("  ·  ") + retriggerNames[static_cast<int>(v[LFORetrigger])];
+    g.DrawText(Text(12.f, muted, EAlign::Far), mode.c_str(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     const auto plot = IRECT(mRECT.L + 14, mRECT.T + 38, mRECT.R - 14, mRECT.B - 14);
     g.DrawLine(border, plot.L, plot.MH(), plot.R, plot.MH());
     const auto y = [&](double value) { return plot.MH() - static_cast<float>(value) * plot.H() * .45f; };
@@ -418,8 +420,9 @@ public:
     if (!IsHidden())
     {
       const auto monitor = PLUG()->ModulationMonitor();
-      mHistory[mWrite] = monitor.running ? monitor.envelope : 0.f;
-      mWrite = (mWrite + 1) % mHistory.size();
+      mLevel[mWrite] = monitor.running ? monitor.input : 0.f;
+      mOutput[mWrite] = monitor.running ? monitor.envelope : 0.f;
+      mWrite = (mWrite + 1) % mOutput.size();
     }
     return LiveSourceControl::IsDirty();
   }
@@ -428,25 +431,40 @@ public:
     using namespace grid_performance;
     PanelBackground(g, mRECT);
     const auto v = PLUG()->PerformanceValues();
-    WDL_String caption;
-    caption.SetFormatted(96, "Input envelope  ·  %.0f dB sensitivity  ·  %.1f / %.0f ms", v[EnvSensitivity], v[EnvAttack], v[EnvRelease]);
+    WDL_String listen; PLUG()->GetParam(PerformanceParam(EnvInput))->GetDisplay(listen);
+    WDL_String caption; caption.SetFormatted(96, "Envelope  ·  %s  ·  %.1f / %.0f ms", listen.Get(), v[EnvAttack], v[EnvRelease]);
     const auto color = SourceColor(SourceEnvelope);
     g.DrawText(Text(14.f, color), caption.Get(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
+    g.DrawText(Text(12.f, muted, EAlign::Far), "grey: level  ·  colour: output", IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     const auto plot = IRECT(mRECT.L + 14, mRECT.T + 38, mRECT.R - 14, mRECT.B - 14);
     g.DrawLine(border, plot.L, plot.B, plot.R, plot.B);
-    const size_t count = mHistory.size();
+    // Level on a -60..0 dBFS scale, with the threshold; output on a 0..1 scale.
+    const auto levelY = [&](double level) {
+      const double db = 20. * std::log10(std::max(level, 1.e-6));
+      return plot.B - plot.H() * static_cast<float>(std::clamp((db + 60.) / 60., 0., 1.));
+    };
+    const size_t count = mOutput.size();
+    const float w = plot.W() / count;
     for (size_t i = 0; i < count; ++i)
     {
-      const float value = mHistory[(mWrite + i) % count];
-      const float x = plot.L + plot.W() * i / count, w = plot.W() / count + .5f;
-      g.FillRect(color.WithOpacity(.55f), IRECT(x, plot.B - plot.H() * value, x + w, plot.B));
+      const size_t at = (mWrite + i) % count;
+      const float x = plot.L + w * i;
+      g.FillRect(color.WithOpacity(.55f), IRECT(x, plot.B - plot.H() * mOutput[at], x + w + .5f, plot.B));
+      if (i) g.DrawLine(muted.WithOpacity(.8f), x - w, levelY(mLevel[(at + count - 1) % count]), x, levelY(mLevel[at]));
+    }
+    if (v[EnvThreshold] > kThresholdOff)
+    {
+      const float y = levelY(std::pow(10., v[EnvThreshold] * .05));
+      for (float x = plot.L; x < plot.R; x += 8.f) g.DrawLine(text.WithOpacity(.7f), x, y, std::min(x + 4.f, plot.R), y);
+      WDL_String label; label.SetFormatted(32, "threshold %.0f dB", v[EnvThreshold]);
+      g.DrawText(Text(11.f, text, EAlign::Far), label.Get(), IRECT(plot.L, y - 14.f, plot.R, y - 2.f));
     }
     if (!PLUG()->ModulationMonitor().running)
       g.DrawText(Text(13.f, muted, EAlign::Center), "Shown while a row uses a running source", plot);
   }
 
 private:
-  std::array<float, 180> mHistory{};
+  std::array<float, 180> mLevel{}, mOutput{};
   size_t mWrite = 0;
 };
 // Eight step values as bars around the centre (50% = no change). Drag across to draw.
@@ -536,14 +554,154 @@ public:
       }
     }
     g.DrawLine(muted.WithOpacity(on ? .9f : .4f), x(frequency), plot.T, x(frequency), plot.B);
-    g.DrawText(Text(12.f, ampColor), "A: lows", IRECT(plot.L, plot.B + 6, plot.L + 80, plot.B + 22));
-    g.DrawText(Text(12.f, cabColor, EAlign::Far), "B: highs", IRECT(plot.R - 80, plot.B + 6, plot.R, plot.B + 22));
+    if (on)
+    {
+      // Lane legend in the caption row, clear of the frequency labels.
+      const IRECT caption(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28);
+      g.DrawText(Text(12.f, cabColor, EAlign::Far), "B", caption);
+      g.DrawText(Text(12.f, ampColor, EAlign::Far), "A", caption.GetHShifted(-14.f));
+    }
     for (const auto& [hz, label] : {std::pair{100., "100"}, std::pair{1000., "1k"}, std::pair{10000., "10k"}})
       g.DrawText(Text(11.f, muted, EAlign::Center), label, IRECT(x(hz) - 20, plot.B + 6, x(hz) + 20, plot.B + 22));
   }
 };
+// Header scene buttons: click recalls a stored scene; right-click stores or clears.
+class SceneButton : public IControl
+{
+public:
+  SceneButton(const IRECT& r, int scene) : IControl(r), mScene(scene)
+  {
+    WDL_String tip;
+    tip.SetFormatted(160, "Scene %d: click to recall. Right-click to store the current settings here or clear it. "
+                          "Scenes keep the loaded models and modules.", scene + 1);
+    SetTooltip(tip.Get());
+  }
+  void Draw(IGraphics& g) override
+  {
+    const bool stored = PLUG()->HasPerformanceScene(mScene), active = PLUG()->GetActiveScene() == mScene;
+    g.FillRoundRect(active ? accent : stored ? accent.WithOpacity(.15f) : surface, mRECT, 3.f);
+    g.DrawRoundRect(stored ? accent.WithOpacity(mMouseIsOver ? 1.f : .7f) : mMouseIsOver ? muted : border, mRECT, 3.f);
+    const char* label[]{"1", "2", "3"};
+    g.DrawText(Text(14.f, active ? background : stored ? accent : muted, EAlign::Center), label[mScene], mRECT);
+  }
+  void OnMouseDown(float, float, const IMouseMod& mod) override
+  {
+    if (mod.R)
+    {
+      mMenu.Clear();
+      WDL_String store, clear;
+      store.SetFormatted(32, "Store in scene %d", mScene + 1);
+      clear.SetFormatted(32, "Clear scene %d", mScene + 1);
+      mMenu.AddItem(new IPopupMenu::Item(store.Get(), 0, 1));
+      mMenu.AddItem(new IPopupMenu::Item(clear.Get(), PLUG()->HasPerformanceScene(mScene) ? 0 : IPopupMenu::Item::kDisabled, 2));
+      GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
+    }
+    else if (mod.L)
+      PLUG()->RecallPerformanceScene(mScene);
+    SetDirty(false);
+  }
+  void OnPopupMenuSelection(IPopupMenu* menu, int) override
+  {
+    const auto* item = menu ? menu->GetChosenItem() : nullptr;
+    if (!item) return;
+    if (item->GetTag() == 1) PLUG()->StorePerformanceScene(mScene);
+    if (item->GetTag() == 2) PLUG()->ClearPerformanceScene(mScene);
+    SetDirty(false);
+  }
+  bool IsDirty() override
+  {
+    // Recall, store or a project load may change the state outside this button.
+    const int state = (PLUG()->HasPerformanceScene(mScene) ? 1 : 0) | (PLUG()->GetActiveScene() == mScene ? 2 : 0);
+    if (state != mState) { mState = state; SetDirty(false); }
+    return IControl::IsDirty();
+  }
+
+private:
+  int mScene, mState = -1;
+  IPopupMenu mMenu;
+};
+// Below the A / B knob: shows or hides the routing panel in place of the module editor.
+class RoutingButton : public IControl
+{
+public:
+  RoutingButton(const IRECT& r) : IControl(r)
+  { SetTooltip("Lane levels, mute/solo, timing and the frequency split, shown below the grid."); }
+  void Draw(IGraphics& g) override
+  {
+    const bool open = PLUG()->IsRoutingOpen();
+    g.FillRoundRect(open ? IColor(255, 49, 53, 59) : surface, mRECT, 3.f);
+    g.DrawRoundRect(open || mMouseIsOver ? muted : border, mRECT, 3.f);
+    g.DrawText(Text(13.f, open ? text : muted, EAlign::Center), "Routing", mRECT);
+  }
+  void OnMouseDown(float, float, const IMouseMod& mod) override
+  {
+    if (mod.L) PLUG()->SetRoutingOpen(!PLUG()->IsRoutingOpen());
+  }
+  bool IsDirty() override
+  {
+    if (PLUG()->IsRoutingOpen() != mOpen) { mOpen = !mOpen; SetDirty(false); }
+    return IControl::IsDirty();
+  }
+
+private:
+  bool mOpen = false;
+};
 } // namespace grid_ui
 
+// Routing replaces the module editor below the grid, laid out like one:
+// two rows of four controls with a visualization panel on the right.
+class NAMGridRoutingControl : public IContainerBase
+{
+public:
+  explicit NAMGridRoutingControl(const IRECT& r) : IContainerBase(r) {}
+  void OnAttached() override
+  {
+    using namespace grid_ui; using namespace grid_performance;
+    const auto knob = [&](int position, int parameter, const char* tip) {
+      AddChildControl(new Knob(ControlBounds(position), PerformanceParam(parameter), parameters[parameter].label, true))->SetTooltip(tip);
+    };
+    const auto toggle = [&](int position, int parameter, const char* tip) {
+      AddChildControl(new Toggle(ControlBounds(position), PerformanceParam(parameter), parameters[parameter].label))->SetTooltip(tip);
+    };
+    knob(0, LaneAGain, "Lane A level after its four slots. Right-click to modulate it.");
+    toggle(1, LaneAMute, "Silence lane A. Mute wins over solo.");
+    toggle(2, LaneASolo, "Hear only lane A, keeping its blend level. Soloing both lanes passes both.");
+    knob(3, CrossoverFrequency, "Split frequency of the first-order crossover. Right-click to modulate it.");
+    knob(4, LaneBGain, "Lane B level after its four slots. Right-click to modulate it.");
+    toggle(5, LaneBMute, "Silence lane B. Mute wins over solo.");
+    toggle(6, LaneBSolo, "Hear only lane B, keeping its blend level. Soloing both lanes passes both.");
+    knob(7, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
+                        "timing; it cannot correct every phase difference and never advances audio.");
+    AddChildControl(new Toggle(IRECT(444, 510, 620, 534), PerformanceParam(Crossover), "Frequency split"))
+      ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
+    AddChildControl(new Button(IRECT(540, 484, 620, 508), [](IControl* caller) {
+      static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close"))
+      ->SetTooltip("Back to the selected module (Escape).");
+    AddChildControl(new CrossoverView(IRECT(644, 484, pageRight, 600)));
+  }
+  void Draw(IGraphics& g) override
+  {
+    using namespace grid_ui;
+    g.FillRect(background, mRECT);
+    g.DrawText(Text(22.f, accent), "Routing", IRECT(pageLeft, 484, 300, 508));
+    FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(pageLeft, 510, 434, 533));
+    // The lanes' current modules, under the crossover view.
+    const auto panel = IRECT(644, 608, pageRight, grid_layout::editorBottom);
+    PanelBackground(g, panel);
+    for (int lane = 0; lane < 2; ++lane)
+    {
+      std::string chain;
+      for (int slot = 4 + lane * 4; slot < 8 + lane * 4; ++slot)
+        if (PLUG()->IsSlotLoaded(slot) || PLUG()->GetSlotEffect(slot) != SlotEffect::NAM)
+          chain += (chain.empty() ? "" : "  ›  ") + SlotModuleName(*PLUG(), slot);
+      const float y = panel.T + 12.f + lane * 38.f;
+      g.DrawText(Text(13.f, lane ? cabColor : ampColor), lane ? "Lane B" : "Lane A", IRECT(panel.L + 14, y, panel.R - 14, y + 16));
+      FittedText(g, Text(13.f, muted), chain.empty() ? "Empty" : chain, IRECT(panel.L + 14, y + 16, panel.R - 14, y + 32));
+    }
+  }
+};
+
+// Modulation: sources and macros beside the matrix, in one full page.
 class NAMGridPerformanceControl : public IContainerBase
 {
 public:
@@ -551,168 +709,103 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui; using namespace grid_performance;
-    mTabs = new Tabs(IRECT(232, 14, 592, 42), {"Routing", "Modulation", "Scenes"}, [this](int page) { SetPage(page); });
-    AddChildControl(mTabs);
     AddChildControl(new Button(IRECT(896, 14, pageRight, 42), [this](IControl*) { Hide(true); }, "Close"))
-      ->SetTooltip("Close Grid / Control (Escape).");
-
-    // Routing: one panel per lane, then timing and the frequency split.
-    for (int lane = 0; lane < 2; ++lane)
-    {
-      const auto panel = LanePanel(lane);
-      KnobAt(kRouting, panel.L + 16, panel.T + 64, lane ? LaneBGain : LaneAGain, 110.f)
-        ->SetTooltip("Lane level after its four slots. Right-click to modulate it.");
-      Add(kRouting, new Toggle(IRECT(panel.L + 150, panel.T + 64, panel.L + 260, panel.T + 164), PerformanceParam(lane ? LaneBMute : LaneAMute), "Mute"))
-        ->SetTooltip("Silence this lane. Mute wins over solo.");
-      Add(kRouting, new Toggle(IRECT(panel.L + 274, panel.T + 64, panel.L + 384, panel.T + 164), PerformanceParam(lane ? LaneBSolo : LaneASolo), "Solo"))
-        ->SetTooltip("Hear only this lane, keeping its blend level. Soloing both lanes passes both.");
-    }
-    KnobAt(kRouting, 40, 352, LaneTiming, 110.f)
-      ->SetTooltip("Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture timing; "
-                   "it cannot correct every phase difference and never advances audio.");
-    Add(kRouting, new Toggle(IRECT(176, 352, 296, 452), PerformanceParam(Crossover), "Frequency split"))
-      ->SetTooltip("Send lows to lane A and highs to lane B. With the main A / B blend centred, empty lanes rebuild the original signal.");
-    KnobAt(kRouting, 312, 352, CrossoverFrequency, 110.f)->SetTooltip("Split frequency of the first-order crossover.");
-    Add(kRouting, new CrossoverView(IRECT(452, 344, 960, 512)));
-
-    // Modulation: sources on the left, the matrix on the right.
+      ->SetTooltip("Close Modulation (Escape).");
     mSources = new Tabs(IRECT(pageLeft, pageTop, 452, pageTop + 26), {"LFO", "Envelope", "Sequencer"},
-                        [this](int) { SetPage(mPage); }, {SourceColor(SourceLFO), SourceColor(SourceEnvelope), SourceColor(SourceSequencer)});
-    Add(kModulation, mSources);
-    const IRECT display(pageLeft, 106, 452, 316);
+                        [this](int) { Show(); }, {SourceColor(SourceLFO), SourceColor(SourceEnvelope), SourceColor(SourceSequencer)});
+    Add(mSources);
+    const IRECT display(pageLeft, 106, 452, 300);
     AddSource(SourceLFO, new LFODisplay(display));
     AddSource(SourceEnvelope, new EnvelopeDisplay(display));
     AddSource(SourceSequencer, new StepEditor(display));
-    const auto column = [](int i) { return pageLeft + 107.f * i; };
-    AddSource(SourceLFO, new ParamMenu(IRECT(column(0), 328, column(1), 428), PerformanceParam(LFOShape), "Shape"));
-    mRate[0] = AddSource(SourceLFO, Dial(column(1), 328, LFORate));
-    mDivision[0] = AddSource(SourceLFO, new ParamMenu(IRECT(column(1), 328, column(2), 428), PerformanceParam(LFODivision), "Division"));
-    AddSource(SourceLFO, new Toggle(IRECT(column(2) + 4, 328, column(3) - 4, 428), PerformanceParam(LFOSync), "Tempo sync"));
-    AddSource(SourceEnvelope, Dial(column(0), 328, EnvSensitivity))
-      ->SetTooltip("Gain before the follower: raise it until normal playing nearly fills the display.");
-    AddSource(SourceEnvelope, Dial(column(1), 328, EnvAttack));
-    AddSource(SourceEnvelope, Dial(column(2), 328, EnvRelease));
-    mRate[1] = AddSource(SourceSequencer, Dial(column(0), 328, StepRate));
-    mDivision[1] = AddSource(SourceSequencer, new ParamMenu(IRECT(column(0), 328, column(1), 428), PerformanceParam(StepDivision), "Division"));
-    AddSource(SourceSequencer, new Toggle(IRECT(column(1) + 4, 328, column(2) - 4, 428), PerformanceParam(StepSync), "Tempo sync"));
+    const auto cell = [](int column, int row) {
+      const float x = pageLeft + 107.f * column, y = row ? 418.f : 310.f;
+      return IRECT(x, y, x + 107.f, y + 100.f);
+    };
+    const auto tip = [](IControl* control, const char* text) {
+      if (text) control->SetTooltip(text);
+      return control;
+    };
+    const auto dial = [&](int source, int column, int row, int parameter, const char* help = nullptr) {
+      return tip(AddSource(source, new Knob(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
+    };
+    const auto menu = [&](int source, int column, int row, int parameter, const char* help) {
+      return tip(AddSource(source, new ParamMenu(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
+    };
+    const auto toggle = [&](int source, int column, int row, int parameter, const char* help) {
+      return tip(AddSource(source, new Toggle(cell(column, row).GetHPadded(-4.f), PerformanceParam(parameter), parameters[parameter].label)), help);
+    };
+    menu(SourceLFO, 0, 0, LFOShape, "Random holds a new value for each cycle.");
+    mRate[0] = dial(SourceLFO, 1, 0, LFORate);
+    mDivision[0] = menu(SourceLFO, 1, 0, LFODivision, "Cycle length in host tempo.");
+    toggle(SourceLFO, 2, 0, LFOSync, "Follow the host tempo.");
+    menu(SourceLFO, 3, 0, LFORetrigger, "Restart the cycle on each played note (Audio onset, heard where the Envelope listens) "
+                                        "or on each MIDI note-on sent to the plugin.");
+    toggle(SourceLFO, 0, 1, LFOOneShot,
+           "Run one cycle per retrigger, then hold its end: Saw down becomes a decay envelope for each note.");
+    menu(SourceEnvelope, 0, 0, EnvInput, "Where the follower listens: the grid input, or after any slot (e.g. after the amp).");
+    dial(SourceEnvelope, 1, 0, EnvSensitivity, "Gain above the threshold: raise it until normal playing nearly fills the output.");
+    dial(SourceEnvelope, 2, 0, EnvThreshold, "Level the follower ignores, e.g. pick noise or quiet playing. Off at the minimum.");
+    dial(SourceEnvelope, 3, 0, EnvCurve, "Bends the response: positive reacts sooner, negative only to louder playing.");
+    dial(SourceEnvelope, 0, 1, EnvAttack);
+    dial(SourceEnvelope, 1, 1, EnvRelease, "How fast the output falls after you stop playing: the ducking recovery time.");
+    mRate[1] = dial(SourceSequencer, 0, 0, StepRate);
+    mDivision[1] = menu(SourceSequencer, 0, 0, StepDivision, "Step length in host tempo.");
+    toggle(SourceSequencer, 1, 0, StepSync, "Follow the host tempo.");
+    menu(SourceSequencer, 2, 0, StepRetrigger, "Restart at step 1 on each played note or MIDI note-on.");
     for (int i = 0; i < 4; ++i)
-      KnobAt(kModulation, column(i), 484, macros[i], 107.f)
+      Add(new Knob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 612), PerformanceParam(macros[i]), parameters[macros[i]].label))
         ->SetTooltip("Macro: a manual or host-automated source. Use it in the matrix, or right-click any module knob.");
     for (int row = 0; row < rows; ++row)
     {
       const float top = RowTop(row);
-      const auto cell = [&](float l, float r) { return IRECT(l, top, r, top + 32.f); };
-      Add(kModulation, new SourceCell(cell(504, 594), PerformanceParam(RowParam(row, RowSource)), false));
-      Add(kModulation, new DestinationCell(cell(600, 806), row));
-      Add(kModulation, new DepthCell(cell(812, 912), row));
-      Add(kModulation, new SourceCell(cell(918, 952), PerformanceParam(RowParam(row, RowVia)), true))
+      const auto rowCell = [&](float l, float r) { return IRECT(l, top, r, top + 32.f); };
+      Add(new SourceCell(rowCell(504, 594), PerformanceParam(RowParam(row, RowSource)), false));
+      Add(new DestinationCell(rowCell(600, 806), row));
+      Add(new DepthCell(rowCell(812, 912), row));
+      Add(new SourceCell(rowCell(918, 952), PerformanceParam(RowParam(row, RowVia)), true))
         ->SetTooltip("Via: another source scales this row's depth, from none (at its minimum) to all.");
-      Add(kModulation, new ClearCell(cell(956, pageRight), row));
+      Add(new ClearCell(rowCell(956, pageRight), row));
     }
-    mConvert = new Button(IRECT(484, 514, 664, 542), [this](IControl*) { PLUG()->ConvertLegacyModulation(); }, "Convert to rows");
-    Add(kModulation, mConvert);
-
-    // Scenes: three cards.
-    for (int scene = 0; scene < 3; ++scene)
-    {
-      const auto card = SceneCard(scene);
-      mSceneLabels[scene] = new ITextControl(IRECT(card.L + 20, card.T + 48, card.R - 20, card.T + 70), "Empty", Text(14.f, muted, EAlign::Near));
-      Add(kScenes, mSceneLabels[scene]);
-      Add(kScenes, new Button(IRECT(card.L + 20, card.B - 52, card.L + 150, card.B - 20), [this, scene](IControl*) {
-        PLUG()->RecallPerformanceScene(scene); SetDirty(false); }, "Recall"));
-      Add(kScenes, new Button(IRECT(card.L + 164, card.B - 52, card.R - 20, card.B - 20), [this, scene](IControl*) {
-        PLUG()->StorePerformanceScene(scene); SetDirty(false); }, "Store"))
-        ->SetTooltip("Overwrite this scene with the current controls.");
-    }
-    mTabs->Select(kRouting);
+    mConvert = Add(new Button(IRECT(pageLeft, 566, 204, 594), [this](IControl*) { PLUG()->ConvertLegacyModulation(); }, "Convert to rows"));
   }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui; using namespace grid_performance;
     g.FillRect(background, mRECT);
-    g.DrawText(Text(23.f), "Grid / Control", IRECT(pageLeft, 8, 220, 48));
+    g.DrawText(Text(23.f), "Modulation", IRECT(pageLeft, 8, 300, 48));
     g.DrawLine(border, pageLeft, 56, pageRight, 56);
-    const auto heading = [&](const char* label, float x, float y, float r = pageRight) {
-      g.DrawText(Text(17.f, accent), label, IRECT(x, y, r, y + 24));
+    g.DrawText(Text(17.f, accent), "Matrix", IRECT(484, pageTop, pageRight, pageTop + 24));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "Rows on one knob add, within its range", IRECT(484, pageTop, pageRight, pageTop + 24));
+    const auto columnLabel = [&](const char* label, float l, float r, EAlign align = EAlign::Near) {
+      g.DrawText(Text(12.f, muted, align), label, IRECT(l, 104, r, 120));
     };
-    if (mPage == kRouting)
+    columnLabel("Source", 504, 594);
+    columnLabel("Destination", 600, 806);
+    columnLabel("Depth", 812, 912, EAlign::Center);
+    columnLabel("Via", 918, 952, EAlign::Center);
+    for (int row = 0; row < rows; ++row)
     {
-      heading("Lanes", pageLeft, pageTop);
-      for (int lane = 0; lane < 2; ++lane)
-      {
-        const auto panel = LanePanel(lane);
-        PanelBackground(g, panel);
-        g.DrawText(Text(17.f), lane ? "Lane B" : "Lane A", IRECT(panel.L + 16, panel.T + 10, panel.R - 16, panel.T + 32));
-        std::string chain;
-        for (int slot = 4 + lane * 4; slot < 8 + lane * 4; ++slot)
-          if (PLUG()->IsSlotLoaded(slot) || PLUG()->GetSlotEffect(slot) != SlotEffect::NAM)
-            chain += (chain.empty() ? "" : "  ›  ") + SlotID(slot) + " " + SlotModuleName(*PLUG(), slot);
-        FittedText(g, Text(13.f, muted), chain.empty() ? "Empty: passes the Pre row's output" : chain,
-                   IRECT(panel.L + 16, panel.T + 34, panel.R - 16, panel.T + 54));
-      }
-      heading("Timing and split", pageLeft, 296);
-      PanelBackground(g, IRECT(pageLeft, 328, pageRight, 528));
-      g.DrawText(Text(13.f, muted), "Blend A / B stays on the main page, right of the grid.", IRECT(pageLeft, 540, pageRight, 560));
+      WDL_String index; index.SetFormatted(8, "%d", row + 1);
+      g.DrawText(Text(13.f, muted, EAlign::Center), index.Get(), IRECT(484, RowTop(row), 500, RowTop(row) + 32));
     }
-    else if (mPage == kModulation)
-    {
-      heading("Macros", pageLeft, 452, 452);
-      heading("Matrix", 484, pageTop);
-      g.DrawText(Text(13.f, muted, EAlign::Far), "Rows on one knob add, within its range", IRECT(484, pageTop, pageRight, pageTop + 24));
-      const auto columnLabel = [&](const char* label, float l, float r, EAlign align = EAlign::Near) {
-        g.DrawText(Text(12.f, muted, align), label, IRECT(l, 104, r, 120));
-      };
-      columnLabel("Source", 504, 594);
-      columnLabel("Destination", 600, 806);
-      columnLabel("Depth", 812, 912, EAlign::Center);
-      columnLabel("Via", 918, 952, EAlign::Center);
-      for (int row = 0; row < rows; ++row)
-      {
-        WDL_String index; index.SetFormatted(8, "%d", row + 1);
-        g.DrawText(Text(13.f, muted, EAlign::Center), index.Get(), IRECT(484, RowTop(row), 500, RowTop(row) + 32));
-      }
-      if (mLegacy)
-        g.DrawText(Text(13.f, muted), "Host automation turned on an older fixed assignment. Convert it to keep editing it here.",
-                   IRECT(484, 484, pageRight, 508));
-      g.DrawText(Text(13.f, muted), "Right-click any module knob to modulate it. Alt-drag a modulated knob to change its depth.",
-                 IRECT(pageLeft, 676, pageRight, 700));
-    }
-    else
-    {
-      g.DrawText(Text(14.f, muted), "Store up to three performance snapshots, then recall them here or automate the same parameters in your DAW.",
-                 IRECT(pageLeft, pageTop, pageRight, pageTop + 24));
-      for (int scene = 0; scene < 3; ++scene)
-      {
-        const auto card = SceneCard(scene);
-        PanelBackground(g, card);
-        WDL_String title; title.SetFormatted(16, "Scene %d", scene + 1);
-        g.DrawText(Text(19.f, PLUG()->HasPerformanceScene(scene) ? accent : text), title.Get(),
-                   IRECT(card.L + 20, card.T + 16, card.R - 20, card.T + 44));
-      }
-      g.DrawText(Text(13.f, muted), "Scenes recall controls, bypass and modulation rows. Models, module types, quality and captured audio stay in place.",
-                 IRECT(pageLeft, 288, pageRight, 312));
-    }
+    g.DrawText(Text(17.f, accent), "Macros", IRECT(484, 484, pageRight, 508));
+    if (mLegacy)
+      g.DrawText(Text(13.f, muted), "Host automation turned on an older fixed assignment.", IRECT(pageLeft, 540, 452, 560));
+    g.DrawText(Text(13.f, muted), "Right-click any module knob to modulate it. Alt-drag a modulated knob to change its depth.",
+               IRECT(pageLeft, 676, pageRight, 700));
   }
   bool IsDirty() override
   {
     if (!IsHidden())
     {
-      for (int scene = 0; scene < 3; ++scene)
-      {
-        const char* label = PLUG()->HasPerformanceScene(scene) ? "Stored" : "Empty";
-        if (mSceneLabels[scene] && std::strcmp(mSceneLabels[scene]->GetStr(), label) != 0)
-        {
-          mSceneLabels[scene]->SetStr(label);
-          SetDirty(false); // The card title changes colour too.
-        }
-      }
       const bool legacy = PLUG()->HasLegacyModulation();
       const bool lfoSync = PLUG()->GetParam(PerformanceParam(grid_performance::LFOSync))->Bool();
       const bool stepSync = PLUG()->GetParam(PerformanceParam(grid_performance::StepSync))->Bool();
       if (legacy != mLegacy || lfoSync != mSync[0] || stepSync != mSync[1])
       {
         mLegacy = legacy; mSync = {lfoSync, stepSync};
-        SetPage(mPage);
+        Show();
       }
     }
     return IContainerBase::IsDirty();
@@ -720,61 +813,42 @@ public:
   void Hide(bool hide) override
   {
     IContainerBase::Hide(hide);
-    if (!hide) SetPage(mPage);
+    if (!hide) Show();
     if (GetUI()) GetUI()->SetAllControlsDirty();
   }
 private:
-  enum Page { kRouting = 0, kModulation, kScenes, kPages };
-  static IRECT LanePanel(int lane) { return lane ? IRECT(512, 104, grid_ui::pageRight, 276) : IRECT(grid_ui::pageLeft, 104, 488, 276); }
-  static IRECT SceneCard(int scene)
-  {
-    const float left = grid_ui::pageLeft + scene * 324.f;
-    return IRECT(left, 108, left + 304.f, 268);
-  }
   static float RowTop(int row) { return 126.f + 44.f * row; }
-  IControl* Add(int page, IControl* control) { AddChildControl(control); mPages[page].push_back(control); return control; }
-  // Source controls also belong to the Modulation page, shown for their source tab only.
+  IControl* Add(IControl* control) { AddChildControl(control); mControls.push_back(control); return control; }
+  // Source controls are shown for their source tab only.
   IControl* AddSource(int source, IControl* control)
   {
-    Add(kModulation, control);
+    Add(control);
     mSourceOf[control] = source;
     return control;
   }
-  IControl* Dial(float x, float y, int parameter)
+  // Child visibility for the selected source, its sync mode and the legacy notice.
+  void Show()
   {
-    return new grid_ui::Knob(IRECT(x, y, x + 107.f, y + 100.f), PerformanceParam(parameter), grid_performance::parameters[parameter].label);
-  }
-  IControl* KnobAt(int page, float x, float y, int parameter, float width)
-  {
-    return Add(page, new grid_ui::Knob(IRECT(x, y, x + width, y + 100.f), PerformanceParam(parameter), grid_performance::parameters[parameter].label));
-  }
-  void SetPage(int page)
-  {
-    mPage = page;
     const int source = mSources ? mSources->Selected() + grid_performance::SourceLFO : grid_performance::SourceLFO;
-    for (int p = 0; p < kPages; ++p)
-      for (auto* c : mPages[p])
+    for (auto* c : mControls)
+    {
+      bool hidden = IsHidden();
+      if (const auto it = mSourceOf.find(c); it != mSourceOf.end()) hidden = hidden || it->second != source;
+      for (int i = 0; i < 2; ++i)
       {
-        bool hidden = IsHidden() || p != page;
-        if (const auto it = mSourceOf.find(c); it != mSourceOf.end()) hidden = hidden || it->second != source;
-        for (int i = 0; i < 2; ++i)
-        {
-          if (c == mRate[i]) hidden = hidden || mSync[i];
-          if (c == mDivision[i]) hidden = hidden || !mSync[i];
-        }
-        if (c == mConvert) hidden = hidden || !mLegacy;
-        c->Hide(hidden);
+        if (c == mRate[i]) hidden = hidden || mSync[i];
+        if (c == mDivision[i]) hidden = hidden || !mSync[i];
       }
+      if (c == mConvert) hidden = hidden || !mLegacy;
+      c->Hide(hidden);
+    }
     if (GetUI()) GetUI()->SetAllControlsDirty();
   }
-  grid_ui::Tabs* mTabs = nullptr;
   grid_ui::Tabs* mSources = nullptr;
-  std::array<std::vector<IControl*>, kPages> mPages;
+  std::vector<IControl*> mControls;
   std::map<IControl*, int> mSourceOf;
   std::array<IControl*, 2> mRate{}, mDivision{};
   std::array<bool, 2> mSync{};
   IControl* mConvert = nullptr;
-  std::array<ITextControl*, 3> mSceneLabels{};
   bool mLegacy = false;
-  int mPage = kRouting;
 };

@@ -42,7 +42,7 @@ followed by one block of 16 IDs per slot control: the 17 shared slot controls
 (In, Trim, Enabled, gate, compressor, EQ, IR level, Full Quality), then every
 module control (`UtilityParam`). Every slot has the same controls and names
 (`Pre 1 In` … `Post 4 Black Mode`). A second, global-only segment holds the LFO
-shape, Macros 3/4 and the modulation matrix rows. The segment counts are literals:
+shape, Macros 3/4, the modulation matrix rows and the follower/retrigger options. The segment counts are literals:
 adding a control fails to compile until it is allocated, and a compile-time check
 rejects edits to released segments.
 
@@ -67,8 +67,10 @@ Never lower or reuse a schema number.
 
 Modulation matrix rows ([GridPerformance.h](../NeuralAmpModeler/GridPerformance.h),
 [ModulationMatrix.h](../NeuralAmpModeler/ModulationMatrix.h)) follow the algorithm-selector
-rule: Source, Slot, Destination and Via are saved state without automation flags
-(`IsStateOnlyParam`), so their lists can grow; Depth is automatable. Destinations store
+rule: Source, Slot, Destination and Via, the follower's Listen at and the Retrigger
+modes are saved state without automation flags (`IsStateOnlyParam`), so their lists
+can grow; Depth is automatable. MIDI input exists only to retrigger modulation; CMake
+sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy parameters. Destinations store
 slot-control indices. `grid_modulation::VisitSlotControls` maps every slot control to
 its audio-snapshot field for both the host refresh and the matrix, so a new snapshot
 field must be added there; the stage tests check that each control is mapped exactly once.

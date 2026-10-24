@@ -73,6 +73,8 @@ enum ECtrlTags
   kCtrlTagPresetSave,
   kCtrlTagPresetNew,
   kCtrlTagLibraryBrowser,
+  kCtrlTagRouting,
+  kCtrlTagRoutingButton,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -125,7 +127,13 @@ public:
   double TunerFrequency() const { return mTuner.Frequency(); }
   void StorePerformanceScene(size_t scene);
   void RecallPerformanceScene(size_t scene);
+  void ClearPerformanceScene(size_t scene);
   bool HasPerformanceScene(size_t scene) const;
+  // Last stored or recalled scene for the header buttons, or -1. Editor state only.
+  int GetActiveScene() const { return mActiveScene; }
+  // The routing panel replaces the module editor below the grid. Editor state only.
+  bool IsRoutingOpen() const { return mRoutingOpen; }
+  void SetRoutingOpen(bool open);
   bool IsPerformanceSceneParam(int index) const;
   // Modulation matrix editing on the control/UI thread. Values are plain (not normalized).
   void SetParameterFromUI(int index, double value);
@@ -139,6 +147,8 @@ public:
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
 
   void OnParamChange(int paramIdx) override;
+  // Note-ons retrigger the LFO and sequencer when their Retrigger is MIDI note.
+  void ProcessMidiMsg(const iplug::IMidiMsg& msg) override;
   void OnParamChangeUI(int paramIdx, iplug::EParamSource source) override;
   // Keep the existing parameter handles for editor/state compatibility, but do
   // not emit automation gestures or values for expandable selectors (IsStateOnlyParam).
@@ -294,6 +304,9 @@ private:
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
   grid_modulation::Matrix mModulationMatrix;
+  std::atomic<int> mMidiNoteAt{std::numeric_limits<int>::max()}; // Earliest pending note-on frame.
+  int mActiveScene = -1;
+  bool mRoutingOpen = false;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.
   std::atomic<uint32_t> mFreezeMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};

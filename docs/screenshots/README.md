@@ -33,7 +33,7 @@ The generated gallery uses a demo library containing:
 | `browser-modules.png` | Module browser opened from A1 Juno Chorus |
 | `browser-presets.png` | Rig preset browser |
 | `settings.png` | Library & settings |
-| `control.png` | Grid / Control modulation page: LFO source and three matrix rows (retaken 2026-10-24) |
+| `control.png` | Modulation page: LFO source, three matrix rows and macros (retaken 2026-10-24) |
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
 
 To regenerate the gallery on Windows, build the opt-in `nam-readme-gallery`

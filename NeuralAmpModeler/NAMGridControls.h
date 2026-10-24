@@ -1729,7 +1729,7 @@ private:
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
-    mEditor->Hide(!selected || PLUG()->IsTunerActive());
+    mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen());
     if (selected)
     {
       const bool empty = nam && path.empty();

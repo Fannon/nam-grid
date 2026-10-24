@@ -60,7 +60,13 @@ enum Param
   Macro4 = 46,
   // Eight modulation matrix rows of RowFields controls each; see RowParam().
   ModRow = 47,
-  Count = ModRow + 8 * 5,
+  EnvThreshold = ModRow + 8 * 5,
+  EnvCurve,
+  EnvInput,       // 0: grid input; 1..16: after that slot.
+  LFORetrigger,   // Retrigger modes: Free, audio onset, MIDI note.
+  LFOOneShot,
+  StepRetrigger,
+  Count,
 };
 enum RowField
 {
@@ -73,7 +79,7 @@ enum RowField
 };
 inline constexpr int rows = 8, gridSlot = 16;
 constexpr int RowParam(int row, int field) { return ModRow + row * RowFields + field; }
-static_assert(RowParam(rows, 0) == Count);
+static_assert(RowParam(rows, 0) == EnvThreshold);
 enum Source
 {
   SourceNone = 0,
@@ -102,6 +108,16 @@ enum GridDestination
 inline constexpr std::array<const char*, GridDestinations> gridDestinationNames{
   "Blend A / B", "Lane A level", "Lane B level", "Split frequency"};
 inline constexpr std::array<const char*, 6> lfoShapeNames{"Sine", "Triangle", "Saw up", "Saw down", "Square", "Random"};
+enum Retrigger
+{
+  RetriggerFree = 0,
+  RetriggerOnset,
+  RetriggerMidi,
+  RetriggerModes
+};
+inline constexpr std::array<const char*, RetriggerModes> retriggerNames{"Free running", "Audio onset", "MIDI note"};
+// The follower's threshold control turns off at its minimum.
+inline constexpr double kThresholdOff = -90.;
 inline constexpr std::array<const char*, 9> targetNames{
   "None", "Wah position", "Filter cutoff", "L/R balance", "Delay mix", "Reverb mix", "NAM trim", "Parallel blend", "Ring frequency"};
 inline constexpr std::array<EffectParameter, Count> parameters{{
@@ -192,12 +208,19 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Mod 8 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
   {"Mod 8 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
   {"Mod 8 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Follower Threshold", "Threshold", kThresholdOff, kThresholdOff, 0, .1, "dB", 0, false, 1., 3},
+  {"Follower Curve", "Curve", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Follower Input", "Listen at", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"LFO Retrigger", "Retrigger", 0, 0, 2, 1, "", 0, false, 1., 3},
+  {"LFO One Shot", "One shot", 0, 0, 1, 1, "", 0, false, 1., 3},
+  {"Sequencer Retrigger", "Retrigger", 0, 0, 2, 1, "", 0, false, 1., 3},
 }};
 // Matrix routing choices are saved state, like algorithm selectors: no host automation,
 // so a longer source or destination list never reinterprets recorded automation.
 inline constexpr bool StateOnly(int parameter)
 {
-  if (parameter < ModRow || parameter >= Count) return false;
+  if (parameter == EnvInput || parameter == LFORetrigger || parameter == StepRetrigger) return true;
+  if (parameter < ModRow || parameter >= RowParam(rows, 0)) return false;
   const int field = (parameter - ModRow) % RowFields;
   return field != RowDepth;
 }
@@ -236,14 +259,15 @@ public:
   // Latest source values for the editor; written once per audio block.
   struct Monitor
   {
-    float phase = 0.f, lfo = 0.f, envelope = 0.f;
+    float phase = 0.f, lfo = 0.f, envelope = 0.f, input = 0.f; // input: follower level before shaping
     int step = 0;
     bool running = false;
   };
   void Reset(double rate)
   {
-    mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = 0.; mStep = mHeldStep = 0; mFrames = 0;
+    mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = mHeldInput = 0.; mStep = mHeldStep = 0; mFrames = 0;
     mRandom = mHeldRandom = 0.; mSeed = 0x2545F491u;
+    mFast = mSlow = 0.; mArmed = true; mHoldoff = 0; mFinished = true;
     mMonitorRunning.store(false, std::memory_order_relaxed);
   }
   int Quantum() const { return 16 - static_cast<int>(mFrames % 16); }
@@ -259,32 +283,78 @@ public:
       if (RowActive(v, row)) return true;
     return LegacyActive(v);
   }
-  void Advance(const double* l, const double* r, int n, const Values& v, double tempo)
+  // Follower output 0..1: level above the threshold, times Sensitivity, bent by Curve.
+  // At the defaults (threshold off, curve 0) this is the plain level times Sensitivity.
+  static double ShapeEnvelope(double level, const Values& v)
+  {
+    const double threshold = v[EnvThreshold] <= kThresholdOff ? 0. : std::pow(10., v[EnvThreshold] * .05);
+    const double out = std::clamp((level - threshold) * std::pow(10., v[EnvSensitivity] * .05), 0., 1.);
+    return v[EnvCurve] == 0. ? out : std::pow(out, std::exp2(-v[EnvCurve] * .02));
+  }
+  // `l`/`r` is the follower's listening point. `midiAt` is the first frame of this
+  // span with a MIDI note-on, or -1; retriggering lands on that frame.
+  void Advance(const double* l, const double* r, int n, const Values& v, double tempo, int midiAt = -1)
   {
     const double lfo = v[LFOSync] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[LFODivision])) : v[LFORate];
     const double steps = v[StepSync] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[StepDivision])) : v[StepRate];
-    const double sensitivity = std::pow(10., v[EnvSensitivity] * .05);
     const double attack = std::exp(-1. / (.001 * v[EnvAttack] * mRate));
     const double release = std::exp(-1. / (.001 * v[EnvRelease] * mRate));
+    const int lfoRetrigger = static_cast<int>(v[LFORetrigger]), stepRetrigger = static_cast<int>(v[StepRetrigger]);
+    const bool oneShot = v[LFOOneShot] >= .5, onsets = lfoRetrigger == RetriggerOnset || stepRetrigger == RetriggerOnset;
+    // Onsets: a fast follower jumping 6 dB above a slow one, above the threshold
+    // (or -50 dBFS while it is off), at most every 50 ms.
+    const double fastAttack = std::exp(-1. / (.0005 * mRate)), fastRelease = std::exp(-1. / (.03 * mRate));
+    const double slow = std::exp(-1. / (.04 * mRate));
+    const double floor = v[EnvThreshold] <= kThresholdOff ? .00316 : std::pow(10., v[EnvThreshold] * .05);
     for (int i = 0; i < n; ++i)
     {
-      const double peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.) * sensitivity;
+      const double peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.);
       mEnvelope = peak + (peak > mEnvelope ? attack : release) * (mEnvelope - peak);
-      const double phase = mPhase + lfo / mRate;
-      if (phase >= 1.)
+      bool onset = false;
+      if (onsets)
       {
-        // xorshift32: a new held value per Random cycle, without allocation or locks.
-        mSeed ^= mSeed << 13; mSeed ^= mSeed >> 17; mSeed ^= mSeed << 5;
-        mRandom = mSeed * (2. / 4294967295.) - 1.;
+        mFast = peak + (peak > mFast ? fastAttack : fastRelease) * (mFast - peak);
+        mSlow = peak + slow * (mSlow - peak);
+        if (mHoldoff > 0) --mHoldoff;
+        if (mArmed && mHoldoff == 0 && mFast > floor && mFast > 2. * mSlow)
+        {
+          onset = true; mArmed = false; mHoldoff = static_cast<int>(.05 * mRate);
+        }
+        else if (!mArmed && mFast < 1.25 * mSlow) mArmed = true;
       }
-      mPhase = std::fmod(phase, 1.);
+      const bool midi = i == midiAt;
+      if ((lfoRetrigger == RetriggerOnset && onset) || (lfoRetrigger == RetriggerMidi && midi))
+      {
+        mPhase = 0.; mFinished = false; NextRandom();
+      }
+      if ((stepRetrigger == RetriggerOnset && onset) || (stepRetrigger == RetriggerMidi && midi))
+      {
+        mStep = 0; mStepPhase = 0.;
+      }
+      if (oneShot)
+      {
+        // One cycle per trigger, then hold the cycle's end.
+        if (mFinished) mPhase = 1.;
+        else if ((mPhase += lfo / mRate) >= 1.) { mPhase = 1.; mFinished = true; }
+      }
+      else
+      {
+        const double phase = mPhase + lfo / mRate;
+        if (phase >= 1.) NextRandom();
+        mPhase = std::fmod(phase, 1.);
+      }
       mStepPhase += steps / mRate;
       if (mStepPhase >= 1.) { mStepPhase -= 1.; mStep = (mStep + 1) % 8; }
-      if (++mFrames % 16 == 0) { mHeldPhase = mPhase; mHeldEnvelope = mEnvelope; mHeldStep = mStep; mHeldRandom = mRandom; }
+      if (++mFrames % 16 == 0)
+      {
+        mHeldPhase = mPhase; mHeldInput = mEnvelope; mHeldEnvelope = ShapeEnvelope(mEnvelope, v);
+        mHeldStep = mStep; mHeldRandom = mRandom;
+      }
     }
     mMonitorPhase.store(static_cast<float>(mHeldPhase), std::memory_order_relaxed);
     mMonitorLFO.store(static_cast<float>(LFOValue(v)), std::memory_order_relaxed);
-    mMonitorEnvelope.store(static_cast<float>(std::clamp(mHeldEnvelope, 0., 1.)), std::memory_order_relaxed);
+    mMonitorEnvelope.store(static_cast<float>(mHeldEnvelope), std::memory_order_relaxed);
+    mMonitorInput.store(static_cast<float>(mHeldInput), std::memory_order_relaxed);
     mMonitorStep.store(mHeldStep, std::memory_order_relaxed);
     mMonitorRunning.store(true, std::memory_order_relaxed);
   }
@@ -293,8 +363,8 @@ public:
   Monitor Read() const
   {
     return {mMonitorPhase.load(std::memory_order_relaxed), mMonitorLFO.load(std::memory_order_relaxed),
-            mMonitorEnvelope.load(std::memory_order_relaxed), mMonitorStep.load(std::memory_order_relaxed),
-            mMonitorRunning.load(std::memory_order_relaxed)};
+            mMonitorEnvelope.load(std::memory_order_relaxed), mMonitorInput.load(std::memory_order_relaxed),
+            mMonitorStep.load(std::memory_order_relaxed), mMonitorRunning.load(std::memory_order_relaxed)};
   }
   double LFOValue(const Values& v) const
   {
@@ -307,7 +377,7 @@ public:
     switch (source)
     {
       case SourceLFO: return LFOValue(v);
-      case SourceEnvelope: return std::clamp(mHeldEnvelope, 0., 1.);
+      case SourceEnvelope: return mHeldEnvelope;
       case SourceSequencer: return v[Step1 + mHeldStep] * .02 - 1.;
       case SourceMacro1: case SourceMacro2: case SourceMacro3: case SourceMacro4:
         return std::clamp(v[macros[source - SourceMacro1]] * .01, 0., 1.);
@@ -359,14 +429,23 @@ public:
     assign(Macro2Slot, Macro2Target, v[Macro2] * v[Macro2Depth] * .0001);
   }
 private:
+  void NextRandom()
+  {
+    // xorshift32: a new held value per Random cycle, without allocation or locks.
+    mSeed ^= mSeed << 13; mSeed ^= mSeed >> 17; mSeed ^= mSeed << 5;
+    mRandom = mSeed * (2. / 4294967295.) - 1.;
+  }
   double mRate = 48000., mPhase = 0., mStepPhase = 0., mEnvelope = 0.;
   int mStep = 0;
-  double mHeldPhase = 0., mHeldEnvelope = 0.;
+  double mHeldPhase = 0., mHeldEnvelope = 0., mHeldInput = 0.;
   int mHeldStep = 0;
   double mRandom = 0., mHeldRandom = 0.;
   uint32_t mSeed = 0x2545F491u;
+  double mFast = 0., mSlow = 0.;
+  bool mArmed = true, mFinished = true;
+  int mHoldoff = 0;
   uint64_t mFrames = 0;
-  std::atomic<float> mMonitorPhase{0.f}, mMonitorLFO{0.f}, mMonitorEnvelope{0.f};
+  std::atomic<float> mMonitorPhase{0.f}, mMonitorLFO{0.f}, mMonitorEnvelope{0.f}, mMonitorInput{0.f};
   std::atomic<int> mMonitorStep{0};
   std::atomic<bool> mMonitorRunning{false};
 };

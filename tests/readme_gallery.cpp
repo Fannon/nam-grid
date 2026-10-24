@@ -186,7 +186,7 @@ int main(int argc, char** argv)
   { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
   click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
   click(919, 28); play(800); shot("settings"); click(915, 44);
-  click(225, 28); click(412, 28); play(2000); shot("control"); click(936, 28);
+  click(225, 28); play(2000); shot("control"); click(936, 28);
   sustained = true; play(500); click(810, 28); play(3000); shot("tuner"); click(810, 28);
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
   gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);

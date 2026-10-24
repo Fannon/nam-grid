@@ -1,46 +1,64 @@
 # Performance controls
 
-Use **Grid / Control** for routing, shared modulation, macros and scenes.
+**Modulation** in the header opens the modulation page; **Routing**, below the A / B
+knob, shows the lane controls; the header's **1 2 3** buttons are the scenes.
 See [modules.md](modules.md) for effect controls and [presets.md](presets.md) for complete rigs.
-
-## Grid / Control
-
-Open **Grid / Control** in the header. This full-page panel has Routing,
-Modulation and Scenes tabs beside its title and closes with Close or Escape.
 Hover a control for its explanation.
 
-### Routing
+## Routing
 
-- **Lane A / Lane B**: level, mute and solo per lane, with the lane's modules listed.
-  Solo preserves the current blend level; enabling both solos passes both lanes,
-  while mute takes precedence. **Blend A / B** stays on the main page.
+**Routing** replaces the module editor below the grid, with the same layout: two rows of
+controls and, on the right, the crossover response and the modules in each lane. Select
+a slot, click **Close** or press Escape to return to the module editor. The tuner uses the
+same area, so turning it on closes Routing.
+
+- **Lane A / Lane B**: level, mute and solo per lane. Solo preserves the current blend
+  level; enabling both solos passes both lanes, while mute takes precedence.
 - **Lane timing**: positive values delay A, negative values delay B, up to 20 ms.
   It never advances live audio. This is additional to the existing conversion-delay
   compensation and helps audition relative capture timing, not correct every phase difference.
-- **Frequency split**: optional complementary low/high split, drawn beside its controls.
+- **Frequency split**: optional complementary low/high split at the Crossover frequency.
   A receives the low band and B the residual high band. At centered Blend, neutral
   empty lanes reconstruct the original signal, including while the crossover fades
   on/off. Blend away from center changes the relative band levels. The split is a
   first-order complementary filter, not a steep multiband crossover.
 
-### Modulation
+## Modulation
 
-The left side edits the sources; the right side is the modulation matrix.
+**Modulation** in the header opens a full page: sources on the left, the matrix and
+the macros on the right. Close or Escape returns to the grid.
 
-**Sources.** Tabs select the LFO, the clean-input envelope follower and the
-eight-step sequencer, each with a live display:
+### Sources
+
+Tabs select the LFO, the envelope follower and the eight-step sequencer, each with
+a live display:
 
 - **LFO**: Sine, Triangle, Saw up, Saw down, Square or Random (a new held value
   each cycle), at a free rate or a host-tempo division.
-- **Envelope**: sensitivity, attack and release of a follower on the input after IN.
+- **Envelope**: follows the level where it listens (**Listen at**: the grid input after
+  IN, or after any slot, e.g. after the amp). **Threshold** ignores everything below it,
+  such as pick noise or quiet playing; **Sensitivity** sets how fast the output rises
+  above it; **Curve** bends the response (positive reacts sooner, negative only to louder
+  playing); **Attack** and **Release** set its speed. The display shows the level in grey
+  on a dBFS scale with the threshold line, and the output in colour.
 - **Sequencer**: drag across the eight bars to draw steps; above the centre line
   adds, below subtracts. Free rate or a tempo division.
-- **Macros 1-4**: manual or host-automated knobs below the sources.
+- **Macros 1-4**: manual or host-automated knobs below the matrix.
 
 The LFO and sequencer swing both ways around a knob's setting; the envelope and
-macros only add (or, with negative depth, only subtract).
+macros only add (or, with negative depth, only subtract). For ducking, use the
+Envelope with a negative depth, e.g. on a delay or reverb Mix: the effect drops while
+you play and returns over the Release time.
 
-**Matrix.** Eight rows, each with a source, a destination, a depth and an optional
+**Retrigger.** The LFO and the sequencer run freely, or restart on each **Audio onset**
+(a played note, heard where the Envelope listens and above its threshold) or on each
+**MIDI note** sent to the plugin. The plugin has a MIDI note input for this; notes do
+not change the audio. With **One shot**, the LFO runs one cycle per retrigger and then
+holds its end, so Saw down becomes a decay for each note.
+
+### Matrix
+
+Eight rows, each with a source, a destination, a depth and an optional
 **Via** source that scales the depth (from none at its minimum to all of it;
 the LFO and sequencer are centred, so their midpoint gives half). Destinations are
 any continuous knob of the module in a slot, listed with that module's own labels,
@@ -58,23 +76,28 @@ value while audio plays. Alt/Option-drag a modulated knob to change its first ro
 depth (Shift for fine steps). Grid cards show a dot per source modulating them.
 
 The engine processes bounded 16-sample control intervals and preserves that clock
-across variable host blocks. Destinations use their own smoothing, so jumps in time
-controls such as delay time are heard as pitch or steps. Sources run only while a
-row is active, and reset on host reactivation. Tempo sync controls periods; these
-sources are not PPQ-position-locked. Host parameter values remain the base settings;
-modulation does not write host automation. Row sources, destinations and Via are
-saved state, like algorithm selectors; depths, macros and source settings are
-automatable.
+across variable host blocks; retriggers land on the next interval. Destinations use
+their own smoothing, so jumps in time controls such as delay time are heard as pitch or
+steps. Sources run only while a row is active, and reset on host reactivation. Tempo
+sync controls periods; these sources are not PPQ-position-locked. Host parameter values
+remain the base settings; modulation does not write host automation. Row sources,
+destinations and Via, Listen at and the Retrigger modes are saved state, like algorithm
+selectors; depths, macros and the other source settings are automatable.
 
 Projects and presets from before the matrix had one fixed assignment per source
 (eight targets such as Delay mix or NAM trim). They load as matrix rows with the
 same sound. If host automation turns on such an assignment later, it still plays,
 and the Modulation page offers **Convert to rows**.
 
-### Performance scenes
+## Performance scenes
 
-Store and recall three sets of controls. Scenes include gains, bypass, EQ,
-dynamics, effects controls, routing, modulation sources and all matrix rows. They retain
+The header buttons **1 2 3** are three scenes. Click one to recall it; right-click to
+store the current settings there or clear it. Stored scenes are outlined in the accent
+colour and the last stored or recalled one is filled; empty scenes are grey and do
+nothing when clicked.
+
+Scenes include gains, bypass, EQ, dynamics, effects controls, routing, modulation
+sources and all matrix rows. They retain
 the current model paths, module types, quality settings and tuner preferences.
 Hold capture switches/audio are excluded. Store overwrites the chosen scene.
 Scene values persist with the project and malformed scene data rejects before

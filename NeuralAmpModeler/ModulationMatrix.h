@@ -283,7 +283,7 @@ inline bool ConvertLegacy(Values& v, const std::array<SlotEffect, gridSlot>& eff
   bool converted = false;
   int next = 0;
   if (fresh)
-    for (int i = RowParam(0, 0); i < Count; ++i) v[i] = parameters[i].initial;
+    for (int i = RowParam(0, 0); i < RowParam(rows, 0); ++i) v[i] = parameters[i].initial;
   for (const auto& legacy : legacyAssignments)
   {
     const int target = static_cast<int>(v[legacy.target]);

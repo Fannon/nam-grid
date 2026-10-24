@@ -4,9 +4,11 @@ The active CMake CLAP/VST3 editor uses a black background, regular Roboto text, 
 surfaces and restrained mint accents. No Gateway bitmap panel, Michroma title, textured file
 selector or animated settings overlay is instantiated. Routing stays fixed.
 
-The compact header contains the logo, Grid / Control, the preset browser with its arrows,
-**New** and **Save**, Tuner and Library & settings. IN gain sits before the first grid card;
-OUT gain and A/B balance occupy the right gutter. Each of the sixteen cards has two parts.
+The compact header contains the logo, **Modulation**, the scene buttons **1 2 3**, the
+preset browser with its arrows, **New** and **Save**, Tuner and Library & settings. IN gain
+sits before the first grid card; OUT gain, A/B balance and the **Routing** button occupy the
+right gutter. Routing replaces the module editor below the grid until you select a slot,
+close it or press Escape (see [performance.md](performance.md)). Each of the sixteen cards has two parts.
 Its header row shows the slot ID, the category badges (Amp and Cab for an amp + cab capture)
 and the bypass switch; below it, a name button shows the loaded file or effect, or
 **+ Add module** on an empty card. Slim input-left/output-right meters sit beside the card.

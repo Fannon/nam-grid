@@ -45,8 +45,9 @@ changes and tested the results, supported by an extensive automated test suite.
 - **Browse while you listen:** audition modules, captures and IRs in a slot
   before keeping them, and save complete rigs as `.ngrid` presets.
 - **Performance controls:** tuner, tempo sync, an eight-row modulation matrix
-  with an LFO, an input envelope, an eight-step sequencer and four macros
-  (right-click any knob to modulate it), lane controls and three scenes.
+  with an LFO, an envelope follower for ducking and swells, an eight-step
+  sequencer and four macros (right-click any knob to modulate it; notes or MIDI
+  can retrigger the LFO and sequencer), lane routing and three one-click scenes.
 
 <table>
   <tr>
@@ -61,7 +62,7 @@ changes and tested the results, supported by an extensive automated test suite.
   </tr>
   <tr>
     <td align="center" width="33%"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Library & settings: NAM, IR and preset folders, scanning and visualizations" width="300"></a><br><b>Library & settings</b><br><sub>NAM, IR and preset folders, scanning and visualizations</sub></td>
-    <td align="center" width="33%"><a href="docs/screenshots/control.png"><img src="docs/screenshots/control.png" alt="Grid / Control: modulation sources and matrix" width="300"></a><br><b>Grid / Control</b><br><sub>Modulation sources and matrix</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/control.png"><img src="docs/screenshots/control.png" alt="Modulation: sources, macros and matrix" width="300"></a><br><b>Modulation</b><br><sub>Sources, macros and matrix</sub></td>
     <td align="center" width="33%"><a href="docs/screenshots/tuner.png"><img src="docs/screenshots/tuner.png" alt="Tuner: Tuner with cents, reference pitch and pitch history" width="300"></a><br><b>Tuner</b><br><sub>Tuner with cents, reference pitch and pitch history</sub></td>
   </tr>
 </table>

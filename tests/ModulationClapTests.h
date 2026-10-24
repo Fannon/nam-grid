@@ -16,20 +16,29 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
   clap_output_events sent{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
   clap_process process{}; process.audio_inputs_count = process.audio_outputs_count = 1;
   process.audio_inputs = &in; process.audio_outputs = &out; process.in_events = &empty; process.out_events = &sent;
+  // A MIDI note-on, sent in one chosen block.
+  clap_event_note note{};
+  note.header.size = sizeof(note); note.header.type = CLAP_EVENT_NOTE_ON; note.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+  note.note_id = -1; note.port_index = 0; note.channel = 0; note.key = 60; note.velocity = 1.;
+  clap_input_events notes{&note, [](const clap_input_events*) -> uint32_t { return 1; },
+    [](const clap_input_events* e, uint32_t) -> const clap_event_header* { return &static_cast<clap_event_note*>(e->ctx)->header; }};
   // Uneven host blocks: the 16-sample control clock must not depend on them.
-  const auto render = [&] {
+  const auto render = [&](int noteBlock = -1, uint32_t noteFrame = 0) {
     std::vector<double> result;
     assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
     int position = 0;
     for (int block = 0; block < 48; ++block)
     {
       process.frames_count = std::array<int, 4>{512, 127, 1, 256}[block % 4];
+      note.header.time = std::min(noteFrame, process.frames_count - 1);
+      process.in_events = block == noteBlock ? &notes : &empty;
       for (uint32_t i = 0; i < process.frames_count; ++i, ++position)
       { l[i] = .2 * std::sin(position * .031); r[i] = .15 * std::sin(position * .017); }
       assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
       for (uint32_t i = 0; i < process.frames_count; ++i) { result.push_back(outL[i]); result.push_back(outR[i]); }
     }
     plugin->stop_processing(plugin); plugin->deactivate(plugin);
+    process.in_events = &empty;
     return result;
   };
   const auto difference = [](const std::vector<double>& a, const std::vector<double>& b) {
@@ -120,6 +129,39 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     load(config);
     assert(difference(render(), dry) < 1.e-9);
   }
+  // The follower listens after a chosen slot: here after a -40 dB Utility, it hardly ducks.
+  {
+    auto config = cleared;
+    for (int slot : {0, 1, 12}) config["SlotEffects"][slot] = static_cast<int>(SlotEffect::Utility);
+    config["Pre 1 Utility Output"] = -40.; config["Pre 2 Utility Output"] = 40.;
+    load(config);
+    const auto dry = render();
+    config[row(0, RowSource)] = SourceEnvelope; config[row(0, RowSlot)] = 12.;
+    config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel; config[row(0, RowDepth)] = -50.;
+    config["Follower Sensitivity"] = 12.;
+    load(config);
+    const auto input = render();
+    config["Follower Input"] = 1.; // After Pre 1
+    load(config);
+    const auto tapped = render();
+    assert(rms(input) < .3 * rms(dry) && rms(tapped) > .9 * rms(dry));
+  }
+  // MIDI: the plugin takes notes; a note-on restarts a one-shot LFO at its frame.
+  {
+    const auto* ports = static_cast<const clap_plugin_note_ports*>(plugin->get_extension(plugin, CLAP_EXT_NOTE_PORTS));
+    assert(ports && ports->count(plugin, true) == 1 && ports->count(plugin, false) == 0);
+    auto config = cleared;
+    config["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
+    config["LFO Shape"] = 3.; config["LFO One Shot"] = 1.; config["LFO Retrigger"] = RetriggerMidi; config["LFO Rate"] = 2.;
+    config[row(0, RowSource)] = SourceLFO; config[row(0, RowSlot)] = 0.;
+    config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel; config[row(0, RowDepth)] = -40.;
+    load(config);
+    const auto idle = render(), played = render(8, 100);
+    // Blocks 0-7 are two cycles of 512 + 127 + 1 + 256 stereo frames before the note's block.
+    const size_t before = 2 * 2 * (512 + 127 + 1 + 256) + 2 * 100;
+    for (size_t i = 0; i < before; ++i) assert(played[i] == idle[i]);
+    assert(difference(played, idle) > 1.e-3);
+  }
   // Selectors are integer state, never host automation; Depth remains automatable.
   {
     for (const auto& [name, value] : {std::pair{row(0, RowSource), 1.5}, std::pair{row(0, RowSlot), 17.},
@@ -133,12 +175,15 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
       clap_param_info info{};
       assert(params->get_info(plugin, i, &info));
       const std::string name = info.name;
-      if (name.rfind("Mod ", 0) != 0 && name != "LFO Shape" && name != "Macro Three" && name != "Macro Four") continue;
+      const bool selector = name == "Follower Input" || name == "LFO Retrigger" || name == "Sequencer Retrigger";
+      const bool control = name == "LFO Shape" || name == "Macro Three" || name == "Macro Four" || name == "Follower Threshold"
+                           || name == "Follower Curve" || name == "LFO One Shot";
+      if (name.rfind("Mod ", 0) != 0 && !selector && !control) continue;
       const bool depth = name.size() > 6 && name.substr(name.size() - 6) == " Depth";
       const bool automatable = info.flags & CLAP_PARAM_IS_AUTOMATABLE;
-      assert(automatable == (depth || name.rfind("Mod ", 0) != 0));
+      assert(automatable == (depth || control));
     }
   }
   load(cleared);
-  std::cout << "Modulation matrix CLAP: exact 0.1 conversion, scenes, generic and routing destinations, Via and state-only selectors passed\n";
+  std::cout << "Modulation matrix CLAP: exact 0.1 conversion, scenes, generic and routing destinations, Via, follower tap, MIDI retrigger and state-only selectors passed\n";
 }

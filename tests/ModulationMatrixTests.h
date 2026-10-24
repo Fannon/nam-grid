@@ -41,7 +41,8 @@ void TestModulationMatrix()
   assert(!Modulatable(standardControls + uFreezeHold) && !Modulatable(slotControls));
   assert(ValidDestination(gridSlot, GridSplit) && !ValidDestination(gridSlot, GridDestinations) && !ValidDestination(17, 0));
   for (int i = 0; i < Count; ++i)
-    assert(StateOnly(i) == (i >= ModRow && (i - ModRow) % RowFields != RowDepth));
+    assert(StateOnly(i) == ((i >= ModRow && i < RowParam(rows, 0) && (i - ModRow) % RowFields != RowDepth)
+                            || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
 
   // Fixed 0.1 targets become rows with the same physical movement.
   {
@@ -140,6 +141,76 @@ void TestModulationMatrix()
     sources.Idle();
     assert(!sources.Read().running);
   }
+  // Follower shaping: the defaults keep the plain level times Sensitivity.
+  {
+    auto v = Defaults();
+    v[EnvSensitivity] = 6.;
+    const double gain = std::pow(10., 6. * .05);
+    assert(Modulation::ShapeEnvelope(.1, v) == std::clamp(.1 * gain, 0., 1.) && Modulation::ShapeEnvelope(.9, v) == 1.);
+    v[EnvThreshold] = -20.; // .1 linear
+    assert(Modulation::ShapeEnvelope(.09, v) == 0. && std::abs(Modulation::ShapeEnvelope(.2, v) - .1 * gain) < 1.e-12);
+    v[EnvThreshold] = kThresholdOff; v[EnvCurve] = 50.; // exponent 1/2
+    assert(std::abs(Modulation::ShapeEnvelope(.125, v) - std::sqrt(.125 * gain)) < 1.e-12);
+    v[EnvCurve] = -50.;
+    assert(std::abs(Modulation::ShapeEnvelope(.125, v) - std::pow(.125 * gain, 2.)) < 1.e-12);
+  }
+  // Retrigger: onsets and MIDI notes restart the LFO and sequencer; one shot holds its end.
+  {
+    const double rate = 48000.;
+    std::vector<double> quiet(4800, 0.), pluck(4800, 0.);
+    for (size_t i = 0; i < pluck.size(); ++i) pluck[i] = .5 * std::exp(-static_cast<double>(i) / 2000.) * std::sin(i * .05);
+    auto v = Defaults();
+    v[LFORate] = 1.; v[LFOShape] = 2.; v[StepRate] = 15.; v[StepSync] = 0.;
+    const auto run = [&](Modulation& m, const std::vector<double>& signal, int midiAt = -1) {
+      for (size_t at = 0; at < signal.size(); at += 16)
+        m.Advance(signal.data() + at, nullptr, 16, v, 120., midiAt >= static_cast<int>(at) && midiAt < static_cast<int>(at) + 16 ? midiAt - static_cast<int>(at) : -1);
+    };
+    // Free running ignores onsets: a 1 Hz saw is 0.1 into its cycle after 0.1 s.
+    Modulation free; free.Reset(rate);
+    run(free, pluck);
+    assert(std::abs(free.Read().phase - .1) < .01);
+    v[LFORetrigger] = RetriggerOnset; v[StepRetrigger] = RetriggerOnset;
+    Modulation onset; onset.Reset(rate);
+    run(onset, quiet); run(onset, quiet); // 0.2 s in, then a plucked note restarts both.
+    run(onset, pluck);
+    assert(onset.Read().phase < .101 && onset.Read().phase > .09 && onset.Read().step == 1); // 0.1 s after the attack.
+    // Below the threshold nothing restarts.
+    v[EnvThreshold] = -3.;
+    Modulation gated; gated.Reset(rate);
+    run(gated, quiet); run(gated, quiet); run(gated, pluck);
+    assert(gated.Read().phase > .29);
+    v[EnvThreshold] = kThresholdOff;
+    v[LFORetrigger] = RetriggerMidi; v[StepRetrigger] = RetriggerMidi;
+    Modulation midi; midi.Reset(rate);
+    run(midi, quiet, 1600); // note-on at 33 ms
+    assert(std::abs(midi.Read().phase - (4800 - 1600) / rate) < .001 && midi.Read().step == 1);
+    // One shot: a 1 Hz Saw down from the note, then held at its end.
+    v[LFOOneShot] = 1.; v[LFOShape] = 3.;
+    Modulation shot; shot.Reset(rate);
+    run(shot, quiet);
+    assert(shot.Value(SourceLFO, v) == -1.); // Idle until the first trigger.
+    run(shot, quiet, 0);
+    assert(std::abs(shot.Value(SourceLFO, v) - (1. - 2. * .1)) < .01);
+    for (int i = 0; i < 10; ++i) run(shot, quiet);
+    assert(shot.Value(SourceLFO, v) == -1.);
+  }
+  // The follower can listen after any slot: the tap copies that slot's output. Lane A's
+  // level applies after its slots, so a tap in lane A hears the signal before it.
+  {
+    FixedNAMGrid grid; grid.ResetStopped(48000., 64);
+    std::array<FixedNAMGrid::Controls, 16> controls{};
+    Routing routing; routing.gainA = -20.;
+    for (int slot : {5, 13})
+    {
+      std::array<double, 64> l{}, r{};
+      grid.SetTap(slot);
+      l.fill(.5); r.fill(.25);
+      grid.Process(l.data(), 64, controls, 0., r.data(), routing);
+      assert(grid.TapRight() != nullptr && std::abs(l[63] - .05) < 1.e-9);
+      const double expected = slot == 13 ? .05 : .5;
+      assert(std::abs(grid.TapLeft()[63] - expected) < 1.e-9 && std::abs(grid.TapRight()[63] - expected * .5) < 1.e-9);
+    }
+  }
   // Destination lists use each module's own knob labels, in editor order.
   {
     const auto delay = Destinations(SlotEffect::DigitalDelay, false, false, false, false);
@@ -160,5 +231,5 @@ void TestModulationMatrix()
           assert(Modulatable(d.control) && d.label && *d.label);
     assert(std::string(ControlName(standardControls + uDelayMix)) == "Delay Mix");
   }
-  std::cout << "Modulation matrix: field map, destinations, 0.1 conversion, collection, rings and LFO shapes passed\n";
+  std::cout << "Modulation matrix: field map, destinations, 0.1 conversion, collection, rings, LFO shapes, follower shaping, retrigger and tap passed\n";
 }

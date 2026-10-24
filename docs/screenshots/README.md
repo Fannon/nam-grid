@@ -1,12 +1,11 @@
 # README screenshots
 
-The main image, `grid.png`, is a supplied screenshot of the "Clean Default"
-rig, preserved at its original resolution. It shows Noise Gate, Punch Compressor,
-Tube Boost and a bypassed Ibanez TS9 NAM pedal capture in Pre; the `riffsmith-clean`
-amp-and-cab capture with bypassed Auto Tremolo and LoFi Tape Machine in lane A;
-and Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected, showing
-the amp capture controls and measured input/output display.
-The captures shown are external files, not bundled content.
+The main image, `grid.png`, shows the bundled **Clean Default** rig: Noise Gate,
+Punch Compressor and a bypassed Tube Boost in Pre; the bundled `riffsmith-clean`
+amp-and-cab capture with bypassed Auto Tremolo and LoFi Tape Machine in lane A; and
+Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected, showing the
+capture's controls and measured input/output display. The gallery tool loads the rig
+from `NeuralAmpModeler/resources/defaults`, so this image is regenerated with the rest.
 
 The remaining gallery images are captured from the native Windows editor with
 [`CaptureEditor`](../../tests/WinEditorCapture.h) while generated guitar-like
@@ -27,7 +26,7 @@ The generated gallery uses a demo library containing:
 
 | File | View |
 | --- | --- |
-| `grid.png` | Guitar rig with A1 amp-and-cab capture selected |
+| `grid.png` | The bundled Clean Default rig with its A1 capture selected |
 | `nam.png` | Pre 3 NAM capture with its measured input/output curve |
 | `ir.png` | Pre 4 cabinet IR frequency response |
 | `delay.png` | A2 Tape Echo |

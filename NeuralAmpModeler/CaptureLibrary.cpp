@@ -459,7 +459,7 @@ UserSettings PrepareUserSettings(const std::filesystem::path& settingsFile, cons
     chosen = changed = true;
     return folder;
   };
-  adopt(settings.namFolders, settings.namChosen, "NAM Captures");
+  result.newNamFolder = adopt(settings.namFolders, settings.namChosen, "NAM Captures");
   adopt(settings.irFolders, settings.irChosen, "IRs");
   result.newPresetFolder = adopt(settings.presetFolders, settings.presetChosen, "Presets");
   if (changed && !settingsFile.empty())

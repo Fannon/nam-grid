@@ -267,6 +267,7 @@ private:
   void _UnserializeApplyConfig(nlohmann::json& config);
   // Library folders from this user's settings.json (control thread).
   void _ReloadLibraryFolders();
+  void _InstallDefaultContent(const std::filesystem::path& namFolder, const std::filesystem::path& presetFolder);
 
   // Update all controls that depend on a model
   void _UpdateControlsFromModel();

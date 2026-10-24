@@ -33,7 +33,8 @@ presets are not loaded and must be rebuilt. From 0.1.0 onward, these remain stab
   LFO shape and matrix routing, are saved state without host automation.
 - **Module and algorithm IDs:** the integers saved for modules (`SlotEffect`)
   and algorithm selectors (`AlgorithmIdentities()`).
-- **Saved state:** the `###nam-grid###` header and every named field of schema 1.
+- **Saved state:** the `###nam-grid###` header and every named field of schema 1. Later
+  schemas only add fields (schema 2 adds Digital Black Hold); older states load with their defaults.
 
 ### Host parameter layout
 

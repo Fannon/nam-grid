@@ -5,19 +5,16 @@ hero:
   name: NAM Grid
   text: Open-source guitar rig in one plugin
   tagline: NAM captures, cabinet IRs and effects on a 16-slot grid. Free, in CLAP and VST3.
-  image:
-    src: /screenshots/grid.png
-    alt: The NAM Grid editor showing the Clean Default rig
   actions:
     - theme: brand
       text: Download
       link: https://github.com/Fannon/nam-grid/releases/latest
     - theme: alt
-      text: Module guide
-      link: /modules/
-    - theme: alt
       text: How it works
       link: /grid
+    - theme: alt
+      text: Module guide
+      link: /modules/
 
 features:
   - title: A grid, not a fixed chain
@@ -35,8 +32,8 @@ features:
 ---
 
 <div class="plugin-window">
-  <div class="plugin-window-bar"><span></span><span></span><span></span><em>NAM Grid — Library browser</em></div>
-  <img src="/screenshots/browser-modules.png" alt="The NAM Grid library browser with modules, captures and presets" />
+  <div class="plugin-window-bar"><span></span><span></span><span></span><em>NAM Grid — Clean Default rig</em></div>
+  <img src="/screenshots/grid.png" alt="The NAM Grid editor showing the Clean Default rig" />
 </div>
 
 ## Download
@@ -53,4 +50,4 @@ Everything is included to make sound right away: one clean amp-and-cab capture (
 
 ## Learn more
 
-Read the [module guide](/modules/) for every module's controls, or start with [grid & routing](/grid) to see how a rig fits together.
+Read [how it works](/grid) to see how a rig fits together, or browse the [module guide](/modules/) for every module's controls.

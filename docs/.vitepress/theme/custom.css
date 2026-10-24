@@ -37,13 +37,6 @@
   border-color: var(--vp-c-divider);
 }
 
-/* Hero screenshot reads as the plugin window: rounded frame, border, shadow. */
-.VPHomeHero .image-src {
-  border-radius: 10px;
-  border: 1px solid var(--vp-c-divider);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
-}
-
 /* Window-chrome frame for full-width screenshots on the landing page. */
 .plugin-window {
   margin: 32px auto 8px;

@@ -242,7 +242,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 235, 1000, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
-    ui->AttachControl(new grid_ui::RoutingButton(IRECT(936, 316, 996, 340)), kCtrlTagRoutingButton);
+    ui->AttachControl(new grid_ui::RoutingButton(IRECT(936, 316, 992, 340)), kCtrlTagRoutingButton);
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
     // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.

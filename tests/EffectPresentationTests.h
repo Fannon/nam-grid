@@ -33,7 +33,7 @@ void TestEffectPresentation()
           if (effect == SlotEffect::NoiseGate || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp
               || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
             occupied[0] = occupied[1] = occupied[2] = true;
-          if (effect == SlotEffect::ParametricEQ) occupied[5] = occupied[6] = true;
+          if (effect == SlotEffect::ParametricEQ) occupied[4] = occupied[5] = true;
           if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost) occupied[2] = true;
           for (int p = 0; p < kUtilityControls; ++p)
           {

@@ -4,7 +4,7 @@
 
 // Algorithm references: AudioDSPTools (MIT, Steven Atkinson) and LEAF's
 // tCompressor (MIT, Jeff Snyder). Independent mono implementation; no LEAF runtime.
-// See docs/modules.md and ThirdPartyNotices.txt for provenance/notices.
+// See docs/module-implementation.md and ThirdPartyNotices.txt for provenance/notices.
 enum class SlotEffect
 {
   // Persistent IDs saved in projects and presets: append only. Never renumber,

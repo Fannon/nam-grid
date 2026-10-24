@@ -125,7 +125,8 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSwellRelease: return "How quickly the swell closes after the input falls below threshold.";
     case uDelayTime: return e == SlotEffect::MultiHeadDelay ? "Time of the last playback head. Other selected heads occur at one quarter, one half and three quarters of this interval."
                          : e == SlotEffect::ReverseDelay ? "Length of each reversed capture window; not a conventional first-echo delay."
-                                                         : "Time to the first repeat. In Dual Delay the right time is this value multiplied by Time ratio.";
+                         : e == SlotEffect::DualDelay ? "Time of the left tap. The right tap is this value multiplied by Time ratio."
+                                                      : "Time to the first repeat. Changing it while repeats sound bends their pitch, like tape.";
     case uDelayFeedback: return "Amount returned for another repeat. Higher settings make more repeats and longer tails.";
     case uDelayTone: return "High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar.";
     case uDelayCharacter: return e == SlotEffect::DigitalDelay ? "Ducks repeats while you play; echoes recover in the gaps."
@@ -235,19 +236,21 @@ inline const char* Sound(SlotEffect e)
   {
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
-    case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input trim drives colour, Output trim matches loudness.";
+    case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input drives the colour, Output matches loudness.";
     case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; louder notes add harmonics beyond the curve.";
     case SlotEffect::ButterComp: return "Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack.";
     case SlotEffect::NAM: return "Input drives the capture; EQ and Output shape its result.";
-    case SlotEffect::CabinetIR: return "Cabinet convolution; the traces compare input and output level.";
+    case SlotEffect::CabinetIR: return "Cabinet convolution; the curve is the loaded IR's frequency response.";
     case SlotEffect::NoiseGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";
     case SlotEffect::NoisePrint: return "Learn the noise alone; Sensitivity and Reduction protect sustain.";
     case SlotEffect::SmoothComp: return "Gentle leveling; Attack preserves pick, Makeup restores level.";
     case SlotEffect::PunchComp: return "Firmer compression; slow Attack and parallel Mix retain punch.";
     case SlotEffect::Limiter: return "Fast peak control; Ceiling and Release set grip and recovery.";
-    case SlotEffect::ToneEQ: case SlotEffect::CutEQ: case SlotEffect::ParametricEQ: return "The curve shows the combined EQ; compare against the 0 dB line.";
+    case SlotEffect::ToneEQ: return "Bass, Mid and Treble shape the tone; the curve shows the combined response.";
+    case SlotEffect::CutEQ: return "Low cut and High cut trim rumble and fizz; Presence adds bite.";
+    case SlotEffect::ParametricEQ: return "One bell or notch; Q sets its width, the cuts trim both ends.";
     case SlotEffect::SynthFilter: return "Cutoff and Resonance shape tone; Envelope follows playing strength.";
-    case SlotEffect::Wah: return "Position sweeps the peak; Range moves its heel/toe register.";
+    case SlotEffect::Wah: return "Position sweeps the peak; Register moves its heel and toe range.";
     case SlotEffect::Boost: return "Clean boost into the next module; Tilt balances body and bite.";
     case SlotEffect::TubeBoost: return "Softer clipping with asymmetric harmonics; Output matches loudness.";
     case SlotEffect::Distortion: return "Style changes harmonics; High cut softens edges, Mix restores dry attack.";
@@ -257,8 +260,8 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::DigitalDelay: return "Clean repeats; Ducking leaves room for notes, then reveals echoes.";
     case SlotEffect::AnalogDelay: return "Age darkens and saturates repeats; Modulation adds pitch drift.";
     case SlotEffect::TapeDelay: return "Saturated repeats; Modulation adds tape-like pitch wobble.";
-    case SlotEffect::DualDelay: return "Ratio makes two rhythms; Ping-pong alternates the feedback path.";
-    case SlotEffect::ReverseDelay: return "Reverses fresh windows; Time sets window length, High cut softens them.";
+    case SlotEffect::DualDelay: return "Two delays; Time ratio sets the second rhythm.";
+    case SlotEffect::ReverseDelay: return "Plays each window backwards; Time sets its length.";
     case SlotEffect::RoomReverb: return "Short reflections for intimacy; Size changes spacing, Decay the tail.";
     case SlotEffect::PlateReverb: return "Dense, smooth tail; Pre-delay keeps the dry attack distinct.";
     case SlotEffect::CloudReverb: return "Long moving wash; Damping and Low cut keep the tail clear.";
@@ -266,18 +269,18 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::AirPlate: return "Airwindows kPlate140: dense plate character with native sustain and resolution.";
     case SlotEffect::AirHall: return "Airwindows kGuitarHall2: colored hall with selectable early-reflection positions.";
     case SlotEffect::GalacticSpace: return "Airwindows Galactic3: huge stereo space; Replace controls how new notes enter the wash.";
-    case SlotEffect::CosmicEcho: return "Valhalla Supermassive-inspired; Warp spreads echoes, Density blends them.";
-    case SlotEffect::MultiHeadDelay: return "Eight head patterns; stereo modes spread taps and cross feedback. Time sets the last head.";
-    case SlotEffect::DiffusedDelay: return "Repeats spread into stereo clouds; Diffusion changes the shape of each echo.";
+    case SlotEffect::CosmicEcho: return "Valhalla Supermassive-inspired; Warp spreads echoes into a wash, Density then thickens it.";
+    case SlotEffect::MultiHeadDelay: return "Eight tape-head patterns; Time sets the last head.";
+    case SlotEffect::DiffusedDelay: return "Repeats smear into stereo clouds as Diffusion rises.";
     case SlotEffect::SpringReverb: return "Dwell excites the spring; Drip adds splash, Damping tames treble.";
     case SlotEffect::ShimmerReverb: return "Pitch and Amount build rising/falling tails; Freeze sustains them.";
     case SlotEffect::Chorus: return "Dry plus moving delay; Depth adds detune, Spread separates voices.";
-    case SlotEffect::JunoChorus: return "I/II choose moving voices; Brightness softens their wet tone.";
-    case SlotEffect::Flanger: return "Short swept delay makes comb notches; Feedback makes them sharper.";
+    case SlotEffect::JunoChorus: return "Mode chooses one or both moving voices; Brightness softens their wet tone.";
+    case SlotEffect::Flanger: return "Swept comb notches; Feedback sharpens them.";
     case SlotEffect::Phaser: return "Six swept phase stages; Feedback deepens the resonant swirl.";
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";
     case SlotEffect::Vibrato: return "Fully wet pitch motion; Rate and Depth set speed and excursion.";
-    case SlotEffect::Rotary: return "Slow/Fast changes rotation; Ramp time controls the speed transition.";
+    case SlotEffect::Rotary: return "Fast switches the rotation speed; Ramp time sets the transition.";
     case SlotEffect::UniVibe: return "Uneven phase sweep; Vibrato mode removes the dry blend.";
     case SlotEffect::Octaver: return "Sub-octave layers follow single notes; Dry retains the pick attack.";
     case SlotEffect::Doubler: return "Opposite detuning and delay suggest a second take; Spread widens it.";
@@ -285,7 +288,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Freeze: return "Hold adds a captured layer; Crossfade smooths and shortens its loop.";
     case SlotEffect::Stutter: return "Window sets repeats; Gate length and Edge fade carve each pulse.";
     case SlotEffect::Bitcrusher: return "Bits add grain; Sample rate adds aliasing, High cut softens the result.";
-    case SlotEffect::RingMod: return "Carrier and Depth create metallic sidebands; Mix restores dry tone.";
+    case SlotEffect::RingMod: return "Frequency and Depth create metallic sidebands; Mix restores dry tone.";
     case SlotEffect::Utility: return "Balance, Width and polarity reshape stereo; Fine delay aligns paths.";
     default: return "";
   }

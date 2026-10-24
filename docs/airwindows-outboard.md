@@ -50,7 +50,7 @@ Saturate 0, cuts off/open and Output 0 dB, nonzero input is unchanged.
 
 **Console Colour trims use actual dB.** BussColors4's upstream numeric trims
 use `/14`, not `/20`; carrying those numbers across as dB would be misleading.
-Its native trims stay at centre while wrapper Input and Output trims each cover
+Its native trims stay at centre while the wrapper Input and Output controls each cover
 ±18 real dB. Both affect only the wet path, so Mix 0 is bit-transparent at any
 trim. The eight upstream voices and built-in per-voice gains are retained, with
 additional fixed compensation for default-level comparison (see calibration below).
@@ -72,7 +72,7 @@ output-dependent recovery follows the compressed signal.
 | Module | Insertion settings | Display |
 | --- | --- | --- |
 | Outboard Channel | Low cut 0%; High cut 100%; Compress 40%; Comp speed 25%; Saturate 15%; Output −2 dB; Mix 100% | Measured cut response over the output spectrum, Spiral saturation curve and detector gain-reduction history |
-| Console Colour | Dark desk; Input/Output trim 0 dB; Mix 100% | Desk name and live stereo peak IN/OUT histories |
+| Console Colour | Dark desk; Input and Output 0 dB; Mix 100% | Desk name and live stereo peak IN/OUT histories |
 | Console EQ | Bands 0; Treble scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Measured quiet-signal response over the live output spectrum |
 | Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Detector gain-reduction history beside live peak IN/OUT histories |
 

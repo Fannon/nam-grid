@@ -1,11 +1,14 @@
 // On-demand README gallery: renders an example rig in the real CLAP editor and
-// captures each view. Windows only; see docs/screenshots/README.md.
+// captures each view, then every built-in module's editor panel for the module
+// guides (modules/<name>.bmp). Windows only; see docs/screenshots/README.md.
 //   nam-readme-gallery <nam-grid.clap> <repository root> <output directory>
 #include "ClapTestHost.h"
 #include "WinEditorCapture.h"
 #include "WinFileDialogDriver.h"
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
+#include "../NeuralAmpModeler/ModuleCatalog.h"
+#include <cctype>
 #include <random>
 #include <thread>
 
@@ -175,7 +178,11 @@ int main(int argc, char** argv)
   };
   const auto tile = [&](int slot) { return std::pair{88 + 212 * (slot % 4) + 94, 64 + 104 * (slot / 4) + 40}; };
   const auto select = [&](int slot) { const auto [x, y] = tile(slot); click(x, y - 26); }; // The ID row only selects.
-  const auto shot = [&](const char* name) { CaptureEditor(editor, out / (std::string(name) + ".bmp")); };
+  // Park the pointer on an empty spot first, so no button shows its hover state.
+  const auto shot = [&](const std::string& name, int top = 0) {
+    SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(630, 470)); play(100);
+    CaptureEditor(editor, out / (name + ".bmp"), top);
+  };
 
   play(2500); // Library scan and model preparation
   select(10); play(3000); shot("grid");
@@ -185,9 +192,30 @@ int main(int argc, char** argv)
   select(12); play(3000); shot("eq");
   { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
   click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
-  click(919, 28); play(800); shot("settings"); click(915, 44);
+  click(919, 28); play(800); shot("settings"); click(936, 28);
   click(225, 28); play(2000); shot("control"); click(936, 28);
   sustained = true; play(500); click(810, 28); play(3000); shot("tuner"); click(810, 28);
+  sustained = false;
+  // Every built-in module with its defaults in the empty A4 slot, cropped to the editor panel.
+  std::filesystem::create_directories(out / "modules");
+  for (const auto& group : nam_library::kModuleGroups)
+    for (const auto effect : group.effects)
+    {
+      auto rig = config;
+      const auto defaults = SlotDefaultValues(effect);
+      rig["SlotEffects"][7] = static_cast<int>(effect);
+      for (int i = 0; i < 17; ++i) rig[std::string("A 4 ") + standard[i]] = defaults[i];
+      for (int i = 0; i < kUtilityControls; ++i) rig[std::string("A 4 ") + kEffectParameters[i].name] = defaults[17 + i];
+      Stream moduleBytes; moduleBytes.string("###nam-grid###"); moduleBytes.string(rig.dump());
+      clap_istream moduleInput{&moduleBytes, Stream::read}; assert(state->load(plugin, &moduleInput));
+      select(7); play(1800);
+      std::string slug;
+      for (const char* c = SlotEffectName(effect); *c; ++c)
+        if (std::isalnum(static_cast<unsigned char>(*c))) slug += static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
+        else if (!slug.empty() && slug.back() != '-') slug += '-';
+      while (!slug.empty() && slug.back() == '-') slug.pop_back();
+      shot("modules/" + slug, 476);
+    }
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
   gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
   std::cout << "Captured gallery into " << out.string() << "\n";

@@ -1097,7 +1097,7 @@ int main(int argc, char** argv)
   }
   if (browserOnly)
   {
-    click(910, 28); click(90, 132); click(915, 44);
+    click(910, 28); click(138, 88); click(936, 28);
     pumpFor(250); // Exercise configured sources even when the user's startup rescan is off.
   }
   if (!browserOnly)
@@ -1179,7 +1179,7 @@ int main(int argc, char** argv)
         }
     load(browserState);
     std::cout << "Slot edit menus passed; checking module menus\n";
-    click(910, 28); click(90, 132); click(915, 44); // Rescan all from library settings.
+    click(910, 28); click(138, 88); click(936, 28); // Rescan all from library settings.
     pumpFor(250);
     // Recall follows the saved content even when the old filename disappeared or
     // now points at another model. Both loader types resolve through the index.
@@ -1448,7 +1448,7 @@ int main(int argc, char** argv)
   load(moduleBrowser); selectTile(170, 120);
   const auto beforeLibraryAudition = save().config();
   click(910, 28); // Browse from settings must audition the selected slot too.
-  click(760, 44);
+  click(808, 28);
   click(310, 28); // Modules tab
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
@@ -1597,10 +1597,10 @@ int main(int argc, char** argv)
   click(470, 28);
   click(430, 28); // Preset context shows no tabs, so no NAM tab here.
   click(100, 688); // Manage folders opens settings.
-  win_file_dialog::Choose(presetDirectory, [&] { click(896, 175); }, false, true);
+  win_file_dialog::Choose(presetDirectory, [&] { click(912, 138); }, false, true);
   pumpFor(250);
   assert(save().config()["PresetFolders"] == json::array({nam_library::PathText(presetDirectory)}));
-  click(915, 44); click(470, 28);
+  click(936, 28); click(470, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-presets.bmp");
   chooseBrowserItem("SECOND RIG");
   assert(save().config()["Output"] == -10. && save().config()["PresetFolders"].size() == 1);
@@ -1699,7 +1699,7 @@ int main(int argc, char** argv)
   chooseBrowserItem("SWITCH A");
   assert(save().config()["PresetName"] == "Switch A");
   measureSwitch(false);
-  click(910, 28); click(784, 132); click(915, 44); // Library & settings: Preset switch -> Crossfade.
+  click(910, 28); click(861, 88); click(936, 28); // Library & settings: Preset switch -> Crossfade.
   measureSwitch(true);
   click(470, 28); click(100, 144); chooseBrowserItem("CLEAN RIG"); // All folders, then search.
   assert(save().config()["PresetName"] == "Clean rig");
@@ -1774,7 +1774,7 @@ int main(int argc, char** argv)
       }
       click(910, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
-      click(915, 44); click(966, 328);
+      click(936, 28); click(966, 328);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
       click(966, 328); click(225, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
@@ -1802,7 +1802,7 @@ int main(int argc, char** argv)
   utilities["Pre 1 EQ High Cut"] = 10000.;
   load(utilities);
   selectTile(170, 120);
-  for (int position : {0, 1, 2, 5, 6}) // Frequency, Gain, Q, then Low cut and High cut side by side.
+  for (int position : {0, 1, 2, 4, 5}) // Frequency, Gain, Q, then Low cut and High cut side by side.
     dragAt(grid_layout::KnobX(position), grid_layout::KnobGestureY(position));
   auto editedUtility = save().config();
   assert(editedUtility["Pre 1 Parametric Frequency"] != utilities["Pre 1 Parametric Frequency"]);
@@ -2109,17 +2109,17 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
   const auto beforeSettings = save().config();
   click(910, 36);
-  click(530, 132); // Global visualizations off.
+  click(620, 88); // Global visualizations off.
   assert(save().config() == beforeSettings); // Editor preference is outside the rig.
-  click(530, 132); // Restore preference for subsequent tests/previews.
+  click(620, 88); // Restore preference for subsequent tests/previews.
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // NAM Input underneath; the settings reference dial starts below this point.
   assert(save().config() == beforeSettings);
-  click(915, 44);
+  click(936, 28);
   click(910, 36);
   // Escape closes settings so the selected module becomes editable again.
-  SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(915, 44));
+  SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(936, 28));
   SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
@@ -2263,7 +2263,7 @@ int main(int argc, char** argv)
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);
-  click(910, 28); click(90, 132); click(915, 44); pumpFor(250);
+  click(910, 28); click(138, 88); click(936, 28); pumpFor(250);
   assert(plugin->activate(plugin, 44100., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;

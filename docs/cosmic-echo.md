@@ -12,11 +12,11 @@ Faust reconstruction. Keep Galactic Space alongside it while comparing textures.
 | Feedback | 0–98% | Sustain; in Sagittarius/Centaurus it changes the buildup as well as decay |
 | Density | 0–100% | Scattering between lines: distinct echoes toward a denser stereo field |
 | High cut | 200 Hz–16 kHz | Wet treble; Virgo also darkens each feedback pass |
-| Motion | 0–100% | Shared 0.3 Hz modulation depth, from still echoes toward obvious pitch movement |
+| Modulation | 0–100% | Shared 0.3 Hz modulation depth, from still echoes toward obvious pitch movement |
 | Mix | 0–100% | Standard linear dry/wet blend; zero is exact stereo dry |
 
 The insertion and dial-reset settings are Virgo, Time 280 ms, Warp 51.6%,
-Feedback 30.9%, Density 49.2%, High cut 7461 Hz, Motion 29.5% and Mix 18%.
+Feedback 30.9%, Density 49.2%, High cut 7461 Hz, Modulation 29.5% and Mix 18%.
 Modulation rate is fixed at 0.3 Hz, width at full stereo
 and low cut at 80 Hz. Tempo sync is not available for this module.
 
@@ -29,9 +29,10 @@ Space, and with short attacks, held chords and high-gain guitar.
 
 Style changes fade and clear the old tail before bringing in the new style.
 Time/Warp automation moves allpass-interpolated reads and can bend the sounding
-tail. The visualization sketches nominal line lengths, Density's scattering and
-configured motion. It does not claim an exponential RT60 or show a measured
-impulse response.
+tail. The display shows the module's measured wet response to one impulse, rendered by a
+private copy of the DSP whenever a setting changes. With Warp at 0 the lines align into a
+few distinct echoes and Density changes little; Warp spreads them into a wash, and Density
+then fills it. It is a measurement of the current settings, not an RT60 estimate.
 
 ## Styles and implementation
 

@@ -1,6 +1,6 @@
 # NAM Grid
 
-[![Build and test](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
+[![Build Native](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml/badge.svg)](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml)
 
 An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) captures,
@@ -37,8 +37,9 @@ changes and tested the results, supported by an extensive automated test suite.
   EQs and filters, drives, modulation, pitch effects, delays and reverbs,
   including [Cosmic Echo](docs/cosmic-echo.md) and the
   [LoFi Tape Machine](docs/lofi-tape.md).
-- **Visualizations that explain each effect:** live curves, spectra and
-  response plots show what every control does and what your signal is doing.
+- **Visualizations that explain each effect:** curves, live spectra and measured
+  responses show what every control does, and a level strip under every module
+  compares its input and output: gain, and how much it squashes or saturates.
 - **Built for low latency:** no added buffering latency for effects or IRs;
   cabinet IRs switch between direct and FFT convolution automatically, and the
   DSP is tuned for small buffers with no allocation on the audio thread.
@@ -99,10 +100,10 @@ Download the latest release from
 Keep `ThirdPartyNotices.txt` and `notices/` with the plugins when sharing them.
 There is no bundled NAM capture or cabinet IR collection. Built-in effects work
 without additional files; amp sounds require your own captures, such as the free NAM
-captures and cabinet IRs on [TONE3000](https://www.tone3000.com). Builds of every
-`main` commit are also available as
-[GitHub Actions artifacts](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
-(sign-in required).
+captures and cabinet IRs on [TONE3000](https://www.tone3000.com). Development builds are
+GitHub Actions artifacts (sign-in required): the weekly
+[Build Native](https://github.com/Fannon/nam-grid/actions/workflows/build-native.yml) run of
+`main` for Windows and macOS, and pull request builds for Windows.
 
 **0.1.0 is the first release.** Earlier preview builds used different plugin and
 parameter IDs; their projects and presets do not load and must be rebuilt. From
@@ -125,7 +126,8 @@ DAW listening, low-buffer sessions and host validation are tracked in the
    Add a different chain to **B**, then raise A/B to blend it in.
 5. Adjust **IN** for the level driving the rig and **OUT** for listening volume.
    Click a tile and close the browser to edit its controls; use the small tile
-   switch to bypass a module. Double-click a knob to restore its default, or
+   switch to bypass a module. Each module's controls, display and starting settings
+   are described in the [module guide](docs/modules/README.md). Double-click a knob to restore its default, or
    click its value to type a setting.
 6. Click **Save** in the header to keep your rig as a preset (the first save asks
    for a filename), or **New** to start again from an empty grid. Open **Tuner**
@@ -160,7 +162,7 @@ Loading a large capture can briefly occupy the editor.
 | Learn more | Guide |
 | --- | --- |
 | Choose and edit modules | [Editor](docs/ui.md), [library browser](docs/browser.md) |
-| Find an effect and a useful starting point | [Module reference](docs/modules.md), [starting settings](docs/effect-defaults.md) |
+| Find an effect and a useful starting point | [Module guide](docs/modules/README.md), [starting settings](docs/effect-defaults.md) |
 | Save, recall and share sounds | [Rig presets](docs/presets.md) |
 | Tune and perform | [Tuner](docs/tuner.md), [macros, modulation and scenes](docs/performance.md) |
 | Reduce background noise | [Noise Gate (Smart)](docs/noise-gate-smart.md) |

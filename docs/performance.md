@@ -2,7 +2,7 @@
 
 **Modulation** in the header opens the modulation page; **Routing**, below the A / B
 knob, shows the lane controls; the header's **1 2 3** buttons are the scenes.
-See [modules.md](modules.md) for effect controls and [presets.md](presets.md) for complete rigs.
+See the [module guide](modules/README.md) for effect controls and [presets.md](presets.md) for complete rigs.
 Hover a control for its explanation.
 
 ## Routing
@@ -84,16 +84,6 @@ sync controls periods; these sources are not PPQ-position-locked. Host parameter
 remain the base settings; modulation does not write host automation. Row sources,
 destinations and Via, Listen at and the Retrigger modes are saved state, like algorithm
 selectors; depths, macros and the other source settings are automatable.
-
-Projects and presets from before the matrix had one fixed assignment per source
-(eight targets such as Delay mix or NAM trim). They load unchanged and keep playing,
-including their scenes and the host automation of their Slot, Target and Depth
-parameters. The Modulation page lists them under **Fixed assignments**. **Convert to
-rows** turns them, in the current settings and every stored scene, into matrix rows
-with the same sound; recorded automation of the old parameters then no longer applies.
-It converts only when the rows would sound the same: not when two assignments, or an
-assignment and a matrix row, modulate one control (fixed assignments limit the result
-after each one, rows after their sum), and not without enough empty rows.
 
 ## Performance scenes
 

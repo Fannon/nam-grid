@@ -595,6 +595,54 @@ private:
   std::function<void(IGraphics&)> mDraw;
 };
 
+// The selected module's level strip below the editor, the same for every module:
+// input and output RMS with their peaks, the gain between them and the crest change.
+class LevelStrip : public IControl
+{
+public:
+  LevelStrip(const IRECT& r, const LevelComparison& levels, std::function<IColor()> ink)
+  : IControl(r), mLevels(levels), mInk(std::move(ink))
+  {
+    SetTooltip("Module input and output: RMS bar, peak tick, -60 to 0 dBFS, over the last 0.4 s. Gain is the RMS change. "
+               "Crest is peak to RMS: a lower crest at the output means the module compresses or saturates, a higher "
+               "one that it expands or sharpens attacks. Mono sums, like the slot meters.");
+  }
+  void Draw(IGraphics& g) override
+  {
+    if (!PLUG()->GetShowVisualizations()) return;
+    const auto ink = mInk();
+    const float y = mRECT.MH();
+    const auto bar = [&](float left, const char* label, const LevelComparison::Side& side) {
+      g.DrawText(Text(12.f, muted), label, IRECT(left, mRECT.T, left + 30.f, mRECT.B));
+      const IRECT track(left + 32.f, y - 3.f, left + 152.f, y + 3.f);
+      g.FillRect(surface, track);
+      const auto x = [&](double db) { return track.L + track.W() * static_cast<float>(std::clamp((db + 60.) / 60., 0., 1.)); };
+      if (mLevels.valid)
+      {
+        g.FillRect(ink.WithOpacity(.75f), IRECT(track.L, track.T, x(side.rmsDB), track.B));
+        g.DrawLine(text, x(side.peakDB), track.T - 2.f, x(side.peakDB), track.B + 2.f, nullptr, 1.5f);
+      }
+      WDL_String value;
+      if (mLevels.valid) value.SetFormatted(16, "%.1f", side.rmsDB);
+      else value.Set("-");
+      g.DrawText(Text(12.f, text, EAlign::Far), value.Get(), IRECT(track.R + 4.f, mRECT.T, track.R + 44.f, mRECT.B));
+    };
+    bar(mRECT.L, "IN", mLevels.input);
+    bar(mRECT.L + 214.f, "OUT", mLevels.output);
+    WDL_String value;
+    if (mLevels.valid)
+      value.SetFormatted(96, "Gain %+.1f dB     Crest %.1f > %.1f dB (%+.1f)", mLevels.GainDB(), mLevels.input.crestDB,
+                         mLevels.output.crestDB, mLevels.CrestChangeDB());
+    else value.Set("Play to compare input and output");
+    g.DrawText(Text(12.f, muted), value.Get(), IRECT(mRECT.L + 436.f, mRECT.T, mRECT.R - 150.f, mRECT.B));
+    g.DrawText(Text(12.f, muted, EAlign::Far), "dB RMS / peak, 0.4 s", IRECT(mRECT.R - 150.f, mRECT.T, mRECT.R, mRECT.B));
+  }
+
+private:
+  const LevelComparison& mLevels;
+  std::function<IColor()> mInk;
+};
+
 // Decorative wiring stays behind the cards; no bitmaps, shadows or animated routing.
 class Wiring : public IControl
 {
@@ -744,12 +792,13 @@ public:
                                          : effect_presentation::Sound(effect));
     // The description stops before any option shown on its row (quality, tempo sync, modes).
     float hintRight = 620.f;
-    for (const IControl* option : std::initializer_list<const IControl*>{mQualityButton, mUtilityKnobs[uTempoSync],
-           mUtilityKnobs[uTapeHeads], mUtilityKnobs[uCosmicStyle], mUtilityKnobs[uColourDesk], mUtilityKnobs[uBlackMode],
-           mUtilityKnobs[uDelayPingPong], mUtilityKnobs[uReverbStereo]})
-      if (option && !option->IsHidden() && option->GetRECT().T >= 509.f && option->GetRECT().B <= 535.f)
-        hintRight = std::min(hintRight, option->GetRECT().L - 10.f);
-    if (!empty) FittedText(g, Text(14.f, muted), hint, IRECT(24, 510, hintRight, 533));
+    const auto shorten = [&](const IControl* option) {
+      if (option && !option->IsHidden()) hintRight = std::min(hintRight, option->GetRECT().L - 10.f);
+    };
+    shorten(mQualityButton);
+    for (int i = 0; i < kUtilityControls; ++i)
+      if (effect_presentation::HeaderControl(i)) shorten(mUtilityKnobs[i]);
+    if (!empty) FittedText(g, Text(14.f, muted), hint, IRECT(24, grid_layout::optionsTop, hintRight, grid_layout::optionsBottom));
     if (HasVisualization() && PLUG()->GetShowVisualizations()) DrawVisualization(g);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
@@ -875,13 +924,18 @@ public:
     mStepButtons[0] = new grid_ui::Button(IRECT(380, 484, 404, 508), [this](IControl*) { Step(-1); }, "<");
     mStepButtons[1] = new grid_ui::Button(IRECT(410, 484, 434, 508), [this](IControl*) { Step(1); }, ">");
     for (auto* button : mStepButtons) mEditor->AddChildControl(button);
-    mQualityButton = new grid_ui::Button(IRECT(444, 510, 620, 534), [this](IControl*) {
+    mQualityButton = new grid_ui::Button(IRECT(444, grid_layout::optionsTop, 620, grid_layout::optionsBottom), [this](IControl*) {
       PLUG()->ToggleSlotQuality(mSlot); Refresh();
     }, "Quality: A2");
     mQualityButton->SetTooltip("Click to switch between full A2 and lower-CPU A2 Lite for this capture.");
     mEditor->AddChildControl(mQualityButton);
     mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(7), SlotActiveParam(mSlot), "Enabled");
     mEditor->AddChildControl(mEnabled);
+    // Below the editor rect, so attached on its own and shown with the editor.
+    mLevelStrip = new grid_ui::LevelStrip(IRECT(24, grid_layout::editorBottom + 3, 976, grid_layout::height - 3), mLevels,
+      [this] { return grid_ui::Tone(PLUG()->GetSlotEffect(mSlot), PLUG()->GetSlotGear(mSlot)).first; });
+    GetUI()->AttachControl(mLevelStrip);
+    mLevelStrip->Hide(true);
     mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true, mSlot);
     // Gain staging stays in the left column: Input on top, Output below it.
     mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(4), SlotTrimParam(mSlot), "Output", true, mSlot);
@@ -909,13 +963,13 @@ public:
     {
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(380, 510, 490, 534), SlotUtilityParam(mSlot, i), "Tempo sync");
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(380, grid_layout::optionsTop, 490, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (!EffectChoices(i).empty())
-        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(496, 510, 620, 534)
+        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(496, grid_layout::optionsTop, 620, grid_layout::optionsBottom)
                                                                                  : grid_ui::ControlBounds(p.position),
                                              SlotUtilityParam(mSlot, i), i, p.label);
       else if (effect_presentation::HeaderControl(i))
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, grid_layout::optionsTop, 620, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
@@ -952,6 +1006,9 @@ public:
     if (message == 0 && data && size == sizeof(iplug::ISenderData<1, SlotMeterData>))
     {
       const auto& meter = static_cast<const iplug::ISenderData<1, SlotMeterData>*>(data)->vals[0];
+      mLevels.Receive(meter.inputEnergy, meter.outputEnergy, meter.input, meter.output, meter.frames,
+                      PLUG()->GetSampleRate());
+      if (mLevelStrip && PLUG()->GetSelectedSlot() == mSlot) mLevelStrip->SetDirty(false);
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
@@ -1120,7 +1177,7 @@ private:
       PlotTitle(g,plot,color,"Capture | measured IN > OUT");
       const auto info = PLUG()->GetSlotModelInfo(mSlot);
       WDL_String detail;
-      if (info.hasInput) detail.SetFormatted(80, "Peaks 0 / -60 dB | capture cal. %.1f dBu", info.input);
+      if (info.hasInput) detail.SetFormatted(80, "Peak levels 0 to -60 dBFS | calibrated %.1f dBu", info.input);
       else detail.Set("Peaks 0 / -60 dB | right: post EQ");
       PlotDetail(g,plot,detail.Get());
       DrawTransferScatter(g, scatter, color, -60.f);
@@ -1187,8 +1244,21 @@ private:
     }
     else if (effect == SlotEffect::CosmicEcho)
     {
-      DrawCosmicSetup(g,plot,[&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot,p))->Value(); },
-        PLUG()->GetSampleRate()>0. ? PLUG()->GetSampleRate() : 48000.);
+      const auto value=[&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot,p))->Value(); };
+      ImpulseProbe::Request request;
+      request.effect=SlotEffect::CosmicEcho;
+      auto& c=request.controls;
+      c.cosmicStyle=static_cast<int>(value(uCosmicStyle));
+      c.cosmic={value(uCosmicTime),value(uCosmicWarp),value(uCosmicFeedback),value(uCosmicDensity),value(uCosmicTone),
+                value(uCosmicMotion),100.}; // Wet only: the dry attack would hide the response.
+      request.seconds=effect_preview::CosmicProbeSeconds(c.cosmic[0]);
+      request.key=ImpulseProbe::Key(request.effect,{c.cosmic[0],c.cosmic[1],c.cosmic[2],c.cosmic[3],c.cosmic[4],c.cosmic[5],
+                                                    static_cast<double>(c.cosmicStyle)});
+      auto& probe=PLUG()->GetImpulseProbe();
+      probe.Ask(request);
+      const auto measured=probe.Latest();
+      DrawCosmicSetup(g,plot,value,measured,measured.key==request.key);
+      if(measured.key!=request.key) mEditor->SetDirty(false); // Redraw until the measurement arrives.
     }
     else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
         || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
@@ -1370,14 +1440,22 @@ private:
       WDL_String detail;
       if (filter) detail.Set("Shaded: envelope range, full at -12 dBFS");
       else if (effect == SlotEffect::ParametricEQ && value(uEQMode) < .5)
-        detail.SetFormatted(80, "Response +/-24 dB | shaded: Q width %.2f oct",
+        detail.SetFormatted(80, "Curve +/-12 dB | shaded: Q width %.2f oct",
           2. / std::log(2.) * std::asinh(1. / (2. * std::clamp(value(uQ), .1, 20.))));
-      else detail.Set("Response +/-24 dB | fill: output signal");
+      else detail.Set("Curve +/-12 dB | fill: output signal");
       PlotDetail(g,plot,detail.Get());
-      PlotFrequencyAxis(g,plot,upper,"-24 / +24 dB");
-      const auto y = [&](float db) { return plot.T + plot.H() * (24.f - std::clamp(db, -24.f, 24.f)) / 48.f; };
-      for (int db : {-24, -12, 0, 12, 24})
-        g.DrawLine(border.WithOpacity(db == 0 ? .9f : .4f), plot.L, y(static_cast<float>(db)), plot.R, y(static_cast<float>(db)));
+      // EQ gains stay within +/-12 dB; only a resonant filter needs +/-24 dB. The curve's
+      // scale is labelled on the left in its colour, the spectrum's dBFS on the right.
+      const float range = filter ? 24.f : 12.f;
+      WDL_String scale; scale.SetFormatted(32, "Curve -%.0f / +%.0f dB", range, range);
+      PlotFrequencyAxis(g,plot,upper,scale.Get());
+      const auto y = [&](float db) { return plot.T + plot.H() * (range - std::clamp(db, -range, range)) / (2.f * range); };
+      for (float db : {-range, -range * .5f, 0.f, range * .5f, range})
+        g.DrawLine(border.WithOpacity(db == 0.f ? .9f : .4f), plot.L, y(db), plot.R, y(db));
+      WDL_String tick; tick.SetFormatted(16, "+%.0f", range);
+      g.DrawText(Text(11.f, color), tick.Get(), IRECT(plot.L + 2.f, plot.T, plot.L + 40.f, plot.T + 12.f));
+      tick.SetFormatted(16, "-%.0f", range);
+      g.DrawText(Text(11.f, color), tick.Get(), IRECT(plot.L + 2.f, plot.B - 12.f, plot.L + 40.f, plot.B));
       for (double hz : {100., 1000., 10000.})
       {
         const float x = plot.L + static_cast<float>(plot.W() * std::log(hz / 20.) / span);
@@ -1722,7 +1800,7 @@ private:
     if (effect != mPlotEffect || path != mPlotPath)
     {
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mReductionHistory = {};
-      mMeter.lofi = {}; mSpectrumTime = 0.;
+      mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear();
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
@@ -1731,6 +1809,7 @@ private:
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen());
+    mLevelStrip->Hide(mEditor->IsHidden() || (effect == SlotEffect::NAM && path.empty()));
     if (selected)
     {
       const bool empty = nam && path.empty();
@@ -1767,8 +1846,8 @@ private:
       {
         mEQKnobs[3]->Hide(false);
         mEQKnobs[4]->Hide(false);
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(5));
-        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(6));
+        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(4));
+        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(5));
       }
       else
       {
@@ -1970,6 +2049,8 @@ private:
   bool mLastSync = false, mLastEnabled = true, mLastLoaded = false;
   uint32_t mModulationSources = 0;
   SlotMeterData mMeter;
+  LevelComparison mLevels;
+  grid_ui::LevelStrip* mLevelStrip = nullptr;
   double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;
   std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
@@ -1987,35 +2068,38 @@ public:
   {
     using namespace grid_ui;
     g.FillRect(background, mRECT);
-    g.DrawText(Text(13.f, muted), "LIBRARY FOLDERS", IRECT(32, 160, 400, 190));
+    // Same frame as the Modulation page and browsers: title, header buttons, divider.
+    g.DrawLine(border, kLeft, 56, kRight, 56);
+    g.DrawText(Text(13.f, muted), "LIBRARY FOLDERS", IRECT(kLeft, 124, 400, 152));
     const auto rows = Rows();
     mScroll = std::min(mScroll, std::max(0, static_cast<int>(rows.size()) - kRows));
     for (int row = 0; row < kRows && mScroll + row < static_cast<int>(rows.size()); ++row)
     {
       const auto& entry = rows[mScroll + row];
       const float top = kListTop + row * kRowPitch;
-      g.FillRoundRect(surface, IRECT(32, top, 968, top + kRowHeight), 3.f);
-      g.DrawText(Text(14.f, muted), KindLabel(entry.kind), IRECT(44, top, 124, top + kRowHeight));
-      FittedText(g, Text(14.f), entry.path.c_str(), IRECT(128, top, 806, top + kRowHeight));
+      g.FillRoundRect(surface, IRECT(kLeft, top, kRight, top + kRowHeight), 3.f);
+      g.DrawText(Text(14.f, muted), KindLabel(entry.kind), IRECT(kLeft + 12, top, kLeft + 92, top + kRowHeight));
+      FittedText(g, Text(14.f), entry.path.c_str(), IRECT(kLeft + 96, top, kOpenL - 8, top + kRowHeight));
       g.DrawText(Text(14.f, muted, EAlign::Center), "Open", IRECT(kOpenL, top, kOpenR, top + kRowHeight));
-      g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(888, top, 962, top + kRowHeight));
+      g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(kRemoveL, top, kRemoveR, top + kRowHeight));
     }
     if (rows.empty())
       g.DrawText(Text(14.f, muted), "No library folders. Add NAM, IR and preset folders; each is scanned only for its own file type.",
-                 IRECT(44, kListTop, 960, kListTop + kRowHeight));
-    g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(), IRECT(32, 476, 960, 506));
+                 IRECT(kLeft + 12, kListTop, kRight - 12, kListTop + kRowHeight));
+    g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(),
+               IRECT(kLeft, kListTop + kRows * kRowPitch + 4, kRight, kListTop + kRows * kRowPitch + 28));
   }
   void OnAttached() override
   {
     using namespace grid_ui;
-    AddChildControl(new HintLabel(IRECT(32, 24, 480, 64), "Library & settings", Text(23.f),
+    AddChildControl(new HintLabel(IRECT(kLeft, 8, 480, 48), "Library & settings", Text(23.f),
       "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type."));
-    AddChildControl(new Button(IRECT(862, 28, 968, 60), [this](IControl*) { Hide(true); }, "Close"));
-    AddChildControl(new Button(IRECT(678, 28, 846, 60), [this](IControl*) {
+    AddChildControl(new Button(IRECT(896, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close"));
+    AddChildControl(new Button(IRECT(732, 14, 884, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library"));
     // settings.json lives in the platform's per-user config folder (see UserPaths.h).
-    AddChildControl(new Button(IRECT(494, 28, 662, 60), [this](IControl*) {
+    AddChildControl(new Button(IRECT(568, 14, 720, 42), [this](IControl*) {
       Reveal(nam_library::PathText(user_paths::ConfigFolder()));
     }, "Settings folder"))->SetTooltip(("Open the folder that holds settings.json: "
                                         + nam_library::PathText(user_paths::ConfigFolder())).c_str());
@@ -2034,20 +2118,20 @@ public:
       AddChildControl(mAdd[i]);
     }
     AddChildControl(
-      new Button(IRECT(32, 116, 152, 148), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan all"))->SetTooltip(
+      new Button(OptionRect(0), [this](IControl*) { PLUG()->RescanCaptureFolder(); }, "Rescan all"))->SetTooltip(
       "Index NAM, IR and preset folders. Use this when the library is not indexed or files have changed.");
     mStartupScan = new Button(
-      IRECT(168, 116, 398, 148), [this](IControl*) { PLUG()->SetRescanOnStartup(!PLUG()->GetRescanOnStartup()); },
+      OptionRect(1), [this](IControl*) { PLUG()->SetRescanOnStartup(!PLUG()->GetRescanOnStartup()); },
       "Startup rescan: ON");
     mStartupScan->SetTooltip(
       "Automatically index library folders when opening an instance or project. When off, choose Rescan all manually.");
     AddChildControl(mStartupScan);
-    mVisualizations = new Button(IRECT(414, 116, 650, 148), [this](IControl*) {
+    mVisualizations = new Button(OptionRect(2), [this](IControl*) {
       PLUG()->SetShowVisualizations(!PLUG()->GetShowVisualizations());
     }, "Visualizations: ON");
     AddChildControl(mVisualizations);
     mVisualizations->SetTooltip("Show parameter plots and level displays beside the selected module's controls.");
-    mPresetSwitch = new Button(IRECT(666, 116, 902, 148), [this](IControl*) {
+    mPresetSwitch = new Button(OptionRect(3), [this](IControl*) {
       PLUG()->SetPresetCrossfade(!PLUG()->GetPresetCrossfade());
     }, "Preset switch: Short fade");
     AddChildControl(mPresetSwitch);
@@ -2083,7 +2167,7 @@ public:
   void OnMouseDown(float x, float y, const IMouseMod&) override
   {
     const bool open = x >= kOpenL && x <= kOpenR;
-    if ((!open && (x < 888 || x > 962)) || y < kListTop || y >= kListTop + kRows * kRowPitch)
+    if ((!open && (x < kRemoveL || x > kRemoveR)) || y < kListTop || y >= kListTop + kRows * kRowPitch)
       return;
     const int row = static_cast<int>((y - kListTop) / kRowPitch);
     if (y > kListTop + row * kRowPitch + kRowHeight)
@@ -2117,8 +2201,16 @@ private:
   // One list of all source folders, grouped by the single file kind each one indexes.
   static constexpr std::array<nam_library::FileKind, 3> kKinds{
     nam_library::FileKind::NAM, nam_library::FileKind::IR, nam_library::FileKind::RigPreset};
-  inline static const std::array<IRECT, 3> kAddRects{IRECT(544, 160, 672, 190), IRECT(684, 160, 812, 190), IRECT(824, 160, 968, 190)};
-  static constexpr float kListTop = 200.f, kRowPitch = 38.f, kRowHeight = 32.f, kOpenL = 812.f, kOpenR = 882.f;
+  static constexpr float kLeft = 24.f, kRight = 976.f; // The full-page margins (grid_ui::pageLeft/pageRight).
+  inline static const std::array<IRECT, 3> kAddRects{IRECT(548, 124, 686, 152), IRECT(698, 124, 836, 152), IRECT(848, 124, kRight, 152)};
+  static constexpr float kListTop = 164.f, kRowPitch = 38.f, kRowHeight = 32.f;
+  static constexpr float kOpenL = 820.f, kOpenR = 890.f, kRemoveL = 896.f, kRemoveR = 968.f;
+  // Four equal option buttons across the page, below the divider.
+  static IRECT OptionRect(int index)
+  {
+    const float width = (kRight - kLeft - 3 * 12.f) / 4.f, left = kLeft + index * (width + 12.f);
+    return IRECT(left, 72, left + width, 104);
+  }
   // Explorer on Windows, Finder on macOS. A missing folder is created first, so opening never fails silently.
   void Reveal(const std::string& folder)
   {

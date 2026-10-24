@@ -33,8 +33,9 @@ The generated gallery uses a demo library containing:
 | `browser-modules.png` | Module browser opened from A1 Juno Chorus |
 | `browser-presets.png` | Rig preset browser |
 | `settings.png` | Library & settings |
-| `control.png` | Modulation page: LFO source, three matrix rows and macros (retaken 2026-10-24) |
+| `control.png` | Modulation page: LFO source, three matrix rows and macros |
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
+| `modules/*.png` | Every built-in module's editor panel at its starting settings, for the [module guide](../modules/README.md) |
 
 To regenerate the gallery on Windows, build the opt-in `nam-readme-gallery`
 target and run it with the plugin, the repository root and an output folder:
@@ -44,8 +45,9 @@ cmake --build build-grid --config Release --target nam-grid-clap nam-readme-gall
 build-grid/NeuralAmpModeler/nam-readme-gallery build-grid/out/nam-grid.clap . tmp/gallery
 ```
 
-It creates the demo library and renders every view as BMP, using a private temporary
-`NAM_GRID_HOME`, so your own settings are never touched. Keep the supplied main
+It creates the demo library and renders every view as BMP, then each built-in module in
+the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. It uses a
+private temporary `NAM_GRID_HOME`, so your own settings are never touched. Keep the supplied main
 image when updating the gallery. Convert the other BMPs losslessly to PNG; see
 [ui.md](../ui.md) for the views and [build.md](../build.md#editor-screenshots) for
 the smoke-test screenshot modes.

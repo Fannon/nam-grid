@@ -288,7 +288,14 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
 }
 
 NeuralAmpModeler::~NeuralAmpModeler()
-{ _DeallocateIOPointers(); }
+{
+#ifdef OS_LINUX
+  // Without host timer support the Linux idle timer is a thread: finish its ticks before
+  // members go away.
+  StopIdleTimer();
+#endif
+  _DeallocateIOPointers();
+}
 
 void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outputs, int nFrames)
 {

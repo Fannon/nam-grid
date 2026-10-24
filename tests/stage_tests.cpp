@@ -57,6 +57,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "TimeEffectsTests.h"
 #include "TunerTempoUtilityTests.h"
 #include "RoadmapEffectsTests.h"
+#include "ModulationMatrixTests.h"
 #include "HQEffectsTests.h"
 #include "StereoGuitarEffectsTests.h"
 #include "DSPReviewTests.h"
@@ -183,6 +184,7 @@ try
   TestTimeEffects();
   TestTunerTempoUtility();
   TestRoadmapEffects();
+  TestModulationMatrix();
   TestHQEffects();
   TestStereoGuitarEffects();
   TestDSPReviewFixes();

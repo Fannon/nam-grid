@@ -31,7 +31,7 @@ The demo library lives in `C:\Users\Public\Documents\NAM Grid demo`:
 | `browser-modules.png` | Module browser opened from A1 Juno Chorus |
 | `browser-presets.png` | Rig preset browser |
 | `settings.png` | Library & settings |
-| `control.png` | Grid / Control modulation page |
+| `control.png` | Grid / Control modulation page: LFO source and three matrix rows (retaken 2026-10-24) |
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
 
 To retake them on Windows, build the opt-in `nam-readme-gallery` target and run

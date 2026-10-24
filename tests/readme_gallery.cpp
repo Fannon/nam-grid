@@ -103,9 +103,16 @@ int main(int argc, char** argv)
   config["PresetFolders"] = {presets.string()};
   config["PresetName"] = "Ambient pedalboard"; config["PresetDirectory"] = presets.string();
   config["Global Input"] = 0.; config["Output"] = -3.; config["Parallel Blend"] = 40.;
-  config["LFO Slot"] = 5.; config["LFO Target"] = 4.; config["LFO Rate"] = .4; config["LFO Depth"] = 35.;
-  config["Follower Slot"] = 6.; config["Follower Target"] = 5.; config["Follower Depth"] = 30.;
-  config["Macro One"] = 40.; config["Macro One Slot"] = 2.; config["Macro One Target"] = 6.; config["Macro One Depth"] = 50.;
+  // Matrix rows: source (1 LFO, 2 Envelope, 4 Macro 1), slot, slot control (17 shared + module control), depth.
+  const auto modulate = [&](int row, int source, int slot, int control, double depth) {
+    const auto name = "Mod " + std::to_string(row) + " ";
+    config[name + "Source"] = source; config[name + "Slot"] = slot;
+    config[name + "Destination"] = control; config[name + "Depth"] = depth;
+  };
+  config["LFO Rate"] = .4; config["Macro One"] = 40.;
+  modulate(1, 1, 5, 17 + uDelayMix, 35.);
+  modulate(2, 2, 6, 17 + uReverbMix, 30.);
+  modulate(3, 4, 2, 1, 15.); // Pre 3 capture output (Trim)
 
   // Example rig presets for the preset browser, written like Save preset as.
   auto rigOf = [&](json rig, const char* name) {
@@ -179,7 +186,7 @@ int main(int argc, char** argv)
   { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
   click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
   click(919, 28); play(800); shot("settings"); click(915, 44);
-  click(225, 28); click(296, 104); play(2000); shot("control"); click(915, 44);
+  click(225, 28); click(412, 28); play(2000); shot("control"); click(936, 28);
   sustained = true; play(500); click(810, 28); play(3000); shot("tuner"); click(810, 28);
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
   gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);

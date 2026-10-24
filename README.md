@@ -44,8 +44,9 @@ changes and tested the results, supported by an extensive automated test suite.
   DSP is tuned for small buffers with no allocation on the audio thread.
 - **Browse while you listen:** audition modules, captures and IRs in a slot
   before keeping them, and save complete rigs as `.ngrid` presets.
-- **Performance controls:** tuner, tempo sync, two macros, an LFO, an input
-  envelope and an eight-step sequencer, lane controls and three scenes.
+- **Performance controls:** tuner, tempo sync, an eight-row modulation matrix
+  with an LFO, an input envelope, an eight-step sequencer and four macros
+  (right-click any knob to modulate it), lane controls and three scenes.
 
 <table>
   <tr>
@@ -60,7 +61,7 @@ changes and tested the results, supported by an extensive automated test suite.
   </tr>
   <tr>
     <td align="center" width="33%"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Library & settings: NAM, IR and preset folders, scanning and visualizations" width="300"></a><br><b>Library & settings</b><br><sub>NAM, IR and preset folders, scanning and visualizations</sub></td>
-    <td align="center" width="33%"><a href="docs/screenshots/control.png"><img src="docs/screenshots/control.png" alt="Grid / Control: LFO, envelope, sequencer and macro modulation" width="300"></a><br><b>Grid / Control</b><br><sub>LFO, envelope, sequencer and macro modulation</sub></td>
+    <td align="center" width="33%"><a href="docs/screenshots/control.png"><img src="docs/screenshots/control.png" alt="Grid / Control: modulation sources and matrix" width="300"></a><br><b>Grid / Control</b><br><sub>Modulation sources and matrix</sub></td>
     <td align="center" width="33%"><a href="docs/screenshots/tuner.png"><img src="docs/screenshots/tuner.png" alt="Tuner: Tuner with cents, reference pitch and pitch history" width="300"></a><br><b>Tuner</b><br><sub>Tuner with cents, reference pitch and pitch history</sub></td>
   </tr>
 </table>

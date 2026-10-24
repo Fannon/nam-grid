@@ -9,7 +9,9 @@
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include "../NeuralAmpModeler/GridPerformance.h"
+#include "../NeuralAmpModeler/ParameterLayout.h"
 #include "RoadmapClapTests.h"
+#include "ModulationClapTests.h"
 #include "EffectModeClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
@@ -864,6 +866,7 @@ int main(int argc, char** argv)
 #include "LoFiTapeClapTests.inc"
   load(base);
   TestRoadmapClap(plugin, cleared, save, load);
+  TestModulationMatrixClap(plugin, cleared, save, load, loadRaw);
   TestEffectModeClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
@@ -2137,18 +2140,18 @@ int main(int argc, char** argv)
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
   click(225, 28);
-  dragAt(95, 235);
+  dragAt(95, 215); // Lane A level
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);
-  click(465, 104); // Scenes tab
-  click(110, 419); // Store scene 1
+  click(532, 28); // Scenes tab
+  click(248, 232); // Store scene 1
   const auto sceneState = save().config();
   assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
   assert(!sceneState["PerformanceScenes"][0].contains("Pre 1 Noise Learn"));
   assert(!sceneState["PerformanceScenes"][0].contains("Tuner"));
   automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
   assert(save().config()["Lane A Level"] == -60.);
-  click(245, 419); // Recall scene 1
+  click(109, 232); // Recall scene 1
   assert(save().config()["Lane A Level"] == sceneGain);
   const auto storedScene = save();
   load(cleared);
@@ -2166,10 +2169,10 @@ int main(int argc, char** argv)
   learnSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(learnSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
-  click(295, 104); // Modulation tab
-  dragAt(230, 315);
-  assert(save().config()["LFO Depth"] != 0.);
-  click(915, 44); // Close overlay
+  click(412, 28); // Modulation tab
+  dragAt(862, 141); // Matrix row 1 depth
+  assert(save().config()["Mod 1 Depth"] > 0.);
+  click(936, 28); // Close overlay
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["NamFolders"] = {libraryFolder.string()};

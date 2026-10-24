@@ -57,6 +57,7 @@ private:
 };
 
 #include "ParameterLayout.h"
+#include "ModulationMatrix.h"
 
 enum ECtrlTags
 {
@@ -126,25 +127,34 @@ public:
   void RecallPerformanceScene(size_t scene);
   bool HasPerformanceScene(size_t scene) const;
   bool IsPerformanceSceneParam(int index) const;
+  // Modulation matrix editing on the control/UI thread. Values are plain (not normalized).
+  void SetParameterFromUI(int index, double value);
+  // Adds or finds a row from `source` to a destination; returns the row, or -1 when all are used.
+  int AddModulation(int source, int slot, int control, double depth = 25.);
+  void ClearModulationRow(int row);
+  bool HasLegacyModulation() const;
+  void ConvertLegacyModulation();
+  grid_performance::Values PerformanceValues() const;
+  grid_performance::Modulation::Monitor ModulationMonitor() const { return mModulation.Read(); }
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }
 
   void OnParamChange(int paramIdx) override;
   void OnParamChangeUI(int paramIdx, iplug::EParamSource source) override;
   // Keep the existing parameter handles for editor/state compatibility, but do
-  // not emit automation gestures or values for expandable algorithm selectors.
+  // not emit automation gestures or values for expandable selectors (IsStateOnlyParam).
   void BeginInformHostOfParamChange(int index) override
   {
-    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+    if (!IsStateOnlyParam(index))
       iplug::Plugin::BeginInformHostOfParamChange(index);
   }
   void InformHostOfParamChange(int index, double value) override
   {
-    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+    if (!IsStateOnlyParam(index))
       iplug::Plugin::InformHostOfParamChange(index, value);
   }
   void EndInformHostOfParamChange(int index) override
   {
-    if (!IsAlgorithmMode(parameter_layout::UtilityControl(index)))
+    if (!IsStateOnlyParam(index))
       iplug::Plugin::EndInformHostOfParamChange(index);
   }
 
@@ -283,6 +293,7 @@ private:
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAnimatedControls{}; // audio only
   grid_tuner::Tuner mTuner;
   grid_performance::Modulation mModulation;
+  grid_modulation::Matrix mModulationMatrix;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.
   std::atomic<uint32_t> mFreezeMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};

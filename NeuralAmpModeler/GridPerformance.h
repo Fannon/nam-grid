@@ -1,6 +1,7 @@
 #pragma once
 #include "EffectParameters.h"
 #include "TempoSync.h"
+#include <atomic>
 #include <cstdint>
 
 namespace grid_performance
@@ -17,6 +18,8 @@ enum Param
   LaneASolo = 6,
   LaneBSolo = 7,
   LaneTiming = 8,
+  // Fixed 0.1 assignments (slot / target / depth per source). Still applied for
+  // host automation; older states convert them to matrix rows on load.
   LFOSlot = 9,
   LFOTarget = 10,
   LFORate = 11,
@@ -52,8 +55,53 @@ enum Param
   Macro2Target = 41,
   Macro2Depth = 42,
   InputGain = 43,
-  Count,
+  LFOShape = 44,
+  Macro3 = 45,
+  Macro4 = 46,
+  // Eight modulation matrix rows of RowFields controls each; see RowParam().
+  ModRow = 47,
+  Count = ModRow + 8 * 5,
 };
+enum RowField
+{
+  RowSource = 0,
+  RowSlot,        // Pre 1 ... Post 4, then gridSlot for routing destinations.
+  RowDestination, // Slot control index, or GridDestination for gridSlot.
+  RowDepth,
+  RowVia,         // Optional source that scales the depth (0 to 1).
+  RowFields
+};
+inline constexpr int rows = 8, gridSlot = 16;
+constexpr int RowParam(int row, int field) { return ModRow + row * RowFields + field; }
+static_assert(RowParam(rows, 0) == Count);
+enum Source
+{
+  SourceNone = 0,
+  SourceLFO,
+  SourceEnvelope,
+  SourceSequencer,
+  SourceMacro1,
+  SourceMacro2,
+  SourceMacro3,
+  SourceMacro4,
+  SourceCount
+};
+inline constexpr std::array<const char*, SourceCount> sourceNames{
+  "None", "LFO", "Envelope", "Sequencer", "Macro 1", "Macro 2", "Macro 3", "Macro 4"};
+// The LFO and sequencer swing both ways; the follower and macros only add.
+inline constexpr bool Bipolar(int source) { return source == SourceLFO || source == SourceSequencer; }
+inline constexpr std::array<int, 4> macros{Macro1, Macro2, Macro3, Macro4};
+enum GridDestination
+{
+  GridBlend = 0,
+  GridLaneA,
+  GridLaneB,
+  GridSplit,
+  GridDestinations
+};
+inline constexpr std::array<const char*, GridDestinations> gridDestinationNames{
+  "Blend A / B", "Lane A level", "Lane B level", "Split frequency"};
+inline constexpr std::array<const char*, 6> lfoShapeNames{"Sine", "Triangle", "Saw up", "Saw down", "Square", "Random"};
 inline constexpr std::array<const char*, 9> targetNames{
   "None", "Wah position", "Filter cutoff", "L/R balance", "Delay mix", "Reverb mix", "NAM trim", "Parallel blend", "Ring frequency"};
 inline constexpr std::array<EffectParameter, Count> parameters{{
@@ -100,8 +148,59 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Macro Two Slot", "Target slot", 0, 0, 15, 1, "", 0},
   {"Macro Two Target", "Target", 0, 0, 8, 1, "", 0},
   {"Macro Two Depth", "Depth", 0, -100, 100, .1, "%", 0},
-  {"Global Input", "Input", 0, -40, 40, .1, "dB", 0}
+  {"Global Input", "Input", 0, -40, 40, .1, "dB", 0},
+  {"LFO Shape", "Shape", 0, 0, 5, 1, "", 0, false, 1., 3},
+  {"Macro Three", "Macro 3", 0, 0, 100, .1, "%", 0, false, 1., 3},
+  {"Macro Four", "Macro 4", 0, 0, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 1 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 1 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 1 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 1 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 1 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 2 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 2 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 2 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 2 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 2 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 3 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 3 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 3 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 3 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 3 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 4 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 4 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 4 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 4 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 4 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 5 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 5 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 5 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 5 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 5 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 6 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 6 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 6 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 6 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 6 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 7 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 7 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 7 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 7 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 7 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 8 Source", "Source", 0, 0, 7, 1, "", 0, false, 1., 3},
+  {"Mod 8 Slot", "Slot", 0, 0, 16, 1, "", 0, false, 1., 3},
+  {"Mod 8 Destination", "Destination", 0, 0, 1023, 1, "", 0, false, 1., 3},
+  {"Mod 8 Depth", "Depth", 0, -100, 100, .1, "%", 0, false, 1., 3},
+  {"Mod 8 Via", "Via", 0, 0, 7, 1, "", 0, false, 1., 3},
 }};
+// Matrix routing choices are saved state, like algorithm selectors: no host automation,
+// so a longer source or destination list never reinterprets recorded automation.
+inline constexpr bool StateOnly(int parameter)
+{
+  if (parameter < ModRow || parameter >= Count) return false;
+  const int field = (parameter - ModRow) % RowFields;
+  return field != RowDepth;
+}
 using Values = std::array<double, Count>;
 inline Values Defaults()
 {
@@ -115,17 +214,50 @@ struct Routing
 inline Routing Route(const Values& v)
 { return {v[Crossover] >= .5, v[LaneAMute] >= .5, v[LaneBMute] >= .5, v[LaneASolo] >= .5, v[LaneBSolo] >= .5,
           v[CrossoverFrequency], v[LaneAGain], v[LaneBGain], v[LaneTiming]}; }
+inline bool RowActive(const Values& v, int row)
+{ return v[RowParam(row, RowSource)] > 0. && v[RowParam(row, RowDepth)] != 0.; }
+// One LFO cycle at phase 0..1; Random is held per cycle elsewhere.
+inline double LFOWave(int shape, double phase)
+{
+  switch (shape)
+  {
+    case 1: return 1. - 4. * std::abs(std::fmod(phase + .25, 1.) - .5);
+    case 2: return 2. * phase - 1.;
+    case 3: return 1. - 2. * phase;
+    case 4: return phase < .5 ? 1. : -1.;
+    default: return std::sin(6.283185307179586 * phase);
+  }
+}
 
+// Shared sources. Values are held for each 16-sample control quantum.
 class Modulation
 {
 public:
-  void Reset(double rate) { mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = 0.; mStep = mHeldStep = 0; mFrames = 0; }
+  // Latest source values for the editor; written once per audio block.
+  struct Monitor
+  {
+    float phase = 0.f, lfo = 0.f, envelope = 0.f;
+    int step = 0;
+    bool running = false;
+  };
+  void Reset(double rate)
+  {
+    mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = 0.; mStep = mHeldStep = 0; mFrames = 0;
+    mRandom = mHeldRandom = 0.; mSeed = 0x2545F491u;
+    mMonitorRunning.store(false, std::memory_order_relaxed);
+  }
   int Quantum() const { return 16 - static_cast<int>(mFrames % 16); }
-  bool Active(const Values& v) const
+  bool LegacyActive(const Values& v) const
   {
     return (v[LFOTarget] > 0. && v[LFODepth] != 0.) || (v[EnvTarget] > 0. && v[EnvDepth] != 0.)
         || (v[StepTarget] > 0. && v[StepDepth] != 0.) || (v[Macro1Target] > 0. && v[Macro1Depth] != 0.)
         || (v[Macro2Target] > 0. && v[Macro2Depth] != 0.);
+  }
+  bool Active(const Values& v) const
+  {
+    for (int row = 0; row < rows; ++row)
+      if (RowActive(v, row)) return true;
+    return LegacyActive(v);
   }
   void Advance(const double* l, const double* r, int n, const Values& v, double tempo)
   {
@@ -138,10 +270,48 @@ public:
     {
       const double peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.) * sensitivity;
       mEnvelope = peak + (peak > mEnvelope ? attack : release) * (mEnvelope - peak);
-      mPhase = std::fmod(mPhase + lfo / mRate, 1.);
+      const double phase = mPhase + lfo / mRate;
+      if (phase >= 1.)
+      {
+        // xorshift32: a new held value per Random cycle, without allocation or locks.
+        mSeed ^= mSeed << 13; mSeed ^= mSeed >> 17; mSeed ^= mSeed << 5;
+        mRandom = mSeed * (2. / 4294967295.) - 1.;
+      }
+      mPhase = std::fmod(phase, 1.);
       mStepPhase += steps / mRate;
       if (mStepPhase >= 1.) { mStepPhase -= 1.; mStep = (mStep + 1) % 8; }
-      if (++mFrames % 16 == 0) { mHeldPhase = mPhase; mHeldEnvelope = mEnvelope; mHeldStep = mStep; }
+      if (++mFrames % 16 == 0) { mHeldPhase = mPhase; mHeldEnvelope = mEnvelope; mHeldStep = mStep; mHeldRandom = mRandom; }
+    }
+    mMonitorPhase.store(static_cast<float>(mHeldPhase), std::memory_order_relaxed);
+    mMonitorLFO.store(static_cast<float>(LFOValue(v)), std::memory_order_relaxed);
+    mMonitorEnvelope.store(static_cast<float>(std::clamp(mHeldEnvelope, 0., 1.)), std::memory_order_relaxed);
+    mMonitorStep.store(mHeldStep, std::memory_order_relaxed);
+    mMonitorRunning.store(true, std::memory_order_relaxed);
+  }
+  // Editor only: stop drawing live values once processing has stopped or no source is used.
+  void Idle() { mMonitorRunning.store(false, std::memory_order_relaxed); }
+  Monitor Read() const
+  {
+    return {mMonitorPhase.load(std::memory_order_relaxed), mMonitorLFO.load(std::memory_order_relaxed),
+            mMonitorEnvelope.load(std::memory_order_relaxed), mMonitorStep.load(std::memory_order_relaxed),
+            mMonitorRunning.load(std::memory_order_relaxed)};
+  }
+  double LFOValue(const Values& v) const
+  {
+    const int shape = static_cast<int>(v[LFOShape]);
+    return shape == 5 ? mHeldRandom : LFOWave(shape, mHeldPhase);
+  }
+  // Held value of a source: -1..1 for the LFO and sequencer, 0..1 otherwise.
+  double Value(int source, const Values& v) const
+  {
+    switch (source)
+    {
+      case SourceLFO: return LFOValue(v);
+      case SourceEnvelope: return std::clamp(mHeldEnvelope, 0., 1.);
+      case SourceSequencer: return v[Step1 + mHeldStep] * .02 - 1.;
+      case SourceMacro1: case SourceMacro2: case SourceMacro3: case SourceMacro4:
+        return std::clamp(v[macros[source - SourceMacro1]] * .01, 0., 1.);
+      default: return 0.;
     }
   }
   // Apply() edits at most these slots. Restoring them from the host values gives
@@ -155,6 +325,7 @@ public:
       animated[slot] = base[slot];
     }
   }
+  // The fixed 0.1 assignments. Matrix rows are applied by grid_modulation::Matrix.
   template<class Controls>
   void Apply(Controls& controls, double& blend, const Values& v) const
   {
@@ -181,9 +352,9 @@ public:
         default: break;
       }
     };
-    assign(LFOSlot, LFOTarget, std::sin(6.283185307179586 * mHeldPhase) * v[LFODepth] * .01);
-    assign(EnvSlot, EnvTarget, std::clamp(mHeldEnvelope, 0., 1.) * v[EnvDepth] * .01);
-    assign(StepSlot, StepTarget, (v[Step1 + mHeldStep] * .02 - 1.) * v[StepDepth] * .01);
+    assign(LFOSlot, LFOTarget, Value(SourceLFO, v) * v[LFODepth] * .01);
+    assign(EnvSlot, EnvTarget, Value(SourceEnvelope, v) * v[EnvDepth] * .01);
+    assign(StepSlot, StepTarget, Value(SourceSequencer, v) * v[StepDepth] * .01);
     assign(Macro1Slot, Macro1Target, v[Macro1] * v[Macro1Depth] * .0001);
     assign(Macro2Slot, Macro2Target, v[Macro2] * v[Macro2Depth] * .0001);
   }
@@ -192,6 +363,11 @@ private:
   int mStep = 0;
   double mHeldPhase = 0., mHeldEnvelope = 0.;
   int mHeldStep = 0;
+  double mRandom = 0., mHeldRandom = 0.;
+  uint32_t mSeed = 0x2545F491u;
   uint64_t mFrames = 0;
+  std::atomic<float> mMonitorPhase{0.f}, mMonitorLFO{0.f}, mMonitorEnvelope{0.f};
+  std::atomic<int> mMonitorStep{0};
+  std::atomic<bool> mMonitorRunning{false};
 };
 } // namespace grid_performance

@@ -201,7 +201,9 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     const auto b = ui->GetBounds();
     const auto compact = grid_ui::Style();
     ui->AttachPanelBackground(COLOR_BLACK);
-    ui->AttachControl(new ITextControl(IRECT(24, 8, 156, 48), PLUG_NAME, grid_ui::Text(28.f)));
+    // The logo matches the header boxes' height, with equal left, top and bottom margins.
+    ui->AttachControl(new grid_ui::Logo(IRECT(grid_layout::headerTop, grid_layout::headerTop, grid_layout::headerBottom, grid_layout::headerBottom)));
+    ui->AttachControl(new ITextControl(IRECT(50, 8, 160, 48), PLUG_NAME, grid_ui::Text(28.f)));
     using namespace grid_layout;
     const auto header = [](int left, int right) { return IRECT(left, headerTop, right, headerBottom); };
     for (int scene = 0; scene < 3; ++scene)

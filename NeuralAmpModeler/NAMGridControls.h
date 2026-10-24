@@ -701,6 +701,28 @@ private:
   double mTick = 0.;
 };
 
+// The logo: the grid's four rows (Pre, lanes A and B, Post) as a rig in module category colours;
+// grey cells are empty slots. docs/public/logo.svg draws the same pattern; keep both in step.
+class Logo : public IControl
+{
+public:
+  explicit Logo(const IRECT& r) : IControl(r) { mIgnoreMouse = true; }
+  void Draw(IGraphics& g) override
+  {
+    const IColor empty = border.WithOpacity(.55f);
+    const std::array<IColor, 16> cells{ampColor, cabColor, empty, boostColor,
+                                       modulationColor, delayColor, reverbColor, empty,
+                                       empty, pedalColor, empty, creativeColor,
+                                       eqColor, empty, delayColor, accent};
+    // The SVG proportions: 13-unit cells on a 16-unit pitch with 3-unit corners, 61 units across.
+    const float unit = std::min(mRECT.W(), mRECT.H()) / 61.f;
+    for (int i = 0; i < 16; ++i)
+    {
+      const float x = mRECT.L + unit * 16.f * (i % 4), y = mRECT.T + unit * 16.f * (i / 4);
+      g.FillRoundRect(cells[i], IRECT(x, y, x + 13.f * unit, y + 13.f * unit), 3.f * unit);
+    }
+  }
+};
 // Decorative wiring stays behind the cards; no bitmaps, shadows or animated routing.
 class Wiring : public IControl
 {

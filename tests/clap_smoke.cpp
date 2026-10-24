@@ -18,6 +18,7 @@
 #include "CachedControlsClapTests.h"
 #include <cstdlib>
 #include "WinFileDialogDriver.h"
+#include "LinuxEditorSmoke.h"
 #include "../NeuralAmpModeler/GridLayout.h"
 #include "../NeuralAmpModeler/EffectPresentation.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
@@ -63,6 +64,10 @@ int main(int argc, char** argv)
     const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
     assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
     assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));
+    // Bundled rigs ship without stored scenes: a stale scene would change modules on recall.
+    for (const auto& rig : {empty, clean})
+      for (const auto& scene : rig["PerformanceScenes"])
+        assert(scene.empty());
     // The first scan must include installed defaults, without a manual rescan.
     const auto indexFile = settingsBackup.home / "cache" / "library-index.json";
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -920,6 +925,9 @@ int main(int argc, char** argv)
     std::cout << "Headless CLAP DSP, state, slot automation and model lifecycle checks passed\n";
     return 0;
   }
+#ifdef __linux__
+  TestLinuxEditor(plugin, host, [&] { return save().config(); }, argc == 4 ? argv[3] : nullptr);
+#endif
 #ifdef _WIN32
   // Create native editor attached to a hidden parent, without launching a visible application.
   const auto libraryFolder = fixtures / "library";
@@ -2242,7 +2250,7 @@ int main(int argc, char** argv)
   load(cleared);
   click(808, 36); // Tuner beside Settings.
   assert(save().config()["Tuner"] == 1.);
-  dragAt(294, 601); // The compact Reference knob below Mute output.
+  dragAt(391, 601); // The Reference knob below Mute output, at module knob size.
   assert(save().config()["Tuner Reference"] != 440.);
   assert(plugin->activate(plugin, 48000., 1, 512));
   assert(plugin->start_processing(plugin));
@@ -2265,9 +2273,9 @@ int main(int argc, char** argv)
   // The Tuner button works like a module selector: click it again, or select a slot, to leave.
   click(808, 36);
   assert(save().config()["Tuner"] == 1.);
-  click(294, 533); // Mute output, at the top of the tuner's control column.
+  click(391, 533); // Mute output, at the top of the tuner's control column.
   assert(save().config()["Tuner Mute"] == 0.);
-  click(294, 533);
+  click(391, 533);
   assert(save().config()["Tuner Mute"] == 1.);
   click(808, 36);
   assert(save().config()["Tuner"] == 0.);
@@ -2386,6 +2394,6 @@ int main(int argc, char** argv)
   std::cout << "CLAP factory, model files, state, missing/invalid files, reset, teardown and native editor passed\n";
 #else
   dlclose(library);
-  std::cout << "CLAP factory, model files, state, missing/invalid files, reset and teardown passed (no native editor checks)\n";
+  std::cout << "CLAP factory, model files, state, missing/invalid files, reset and teardown passed\n";
 #endif
 }

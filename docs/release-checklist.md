@@ -2,8 +2,8 @@
 
 NAM Grid is preview software. Automated DSP, state and native-editor tests do not
 establish listening quality, DAW stability or complete CLAP/VST3 host coverage.
-Windows x64 and macOS arm64 are the CI build targets; Linux has no supported
-plugin build with the current framework. See [build.md](build.md) for packaging
+Windows x64, macOS arm64 and Linux x64 are the build targets; Linux uses a patched
+iPlug2 port (X11). See [build.md](build.md) for packaging, manual releases
 and [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml)
 for results for individual commits.
 

@@ -20,6 +20,7 @@ strip's EQ, lowpass, compressor or TimeLag code. MIT notices ship with the plugi
 | Control | Range | Default |
 | --- | --- | --- |
 | Threshold | −74…−10 dB | −55 dB |
+| Hold | 0…200 ms (NAM Grid addition) | 0 ms |
 | Mix | 0…100% | 100% |
 | Output | −18…+6 dB, after Mix | 0 dB |
 | Mode (header) | Zero crossing / Hysteresis | Zero crossing |
@@ -27,8 +28,14 @@ strip's EQ, lowpass, compressor or TimeLag code. MIT notices ship with the plugi
 Threshold uses the native amplitude expression `A^4 / 3 + 0.00018`, inverted as
 `A = (3 * (10^(dB/20) - 0.00018))^0.25`. The native endpoints correspond to
 approximately −74.9…−9.54 dB, so a −90 dB knob would claim a range it cannot reach.
-The chosen −74…−10 dB range stays inside both cores' native thresholds. No invented
-Release, Hold or Reduction controls. Use Enabled to bypass.
+The chosen −74…−10 dB range stays inside both cores' native thresholds. Neither core has
+attack, release or reduction controls; use Enabled to bypass.
+
+**Hold** is NAM Grid's only addition to the native gates. Both cores compare every sample
+with Threshold, so noise whose peaks hover around it reopens the gate on each peak and
+sounds like a Geiger counter. Hold keeps the gate's roller from falling for that long after
+the gate last triggered, then the native release continues. At 0 ms (the default) the code
+path is exactly the native one.
 
 Zero crossing retains DigitalBlack's pitch-dependent opening/closing and its
 rectified `1-cos` fill. A quiet tail darkens before becoming exactly silent.

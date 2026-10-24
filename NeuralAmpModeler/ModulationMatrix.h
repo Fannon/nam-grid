@@ -123,6 +123,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uColourDesk, t.colourDesk);
   family(uBlackThreshold, t.black);
   u(uBlackMode, t.blackMode);
+  u(uBlackHold, t.blackHold);
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().
 template <class T>

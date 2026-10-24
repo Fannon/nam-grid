@@ -5,13 +5,13 @@ transport/degradation effect for worn tape and lo-fi guitar sounds. Use
 **Distortion > Airwindows Tape** before or after it when saturation is wanted.
 The new module does not duplicate that saturation processor.
 
-| Control | Range / default | Behavior |
+| Control | Range / starts at | Behavior |
 | --- | --- | --- |
 | Speed | 1.875–30 ips / 7.5 | Slower tape has less high-frequency bandwidth and slower wow/flutter cycles. Does not retune the average pitch. |
-| Wow | 0–100% / 25% | Slow, smooth pitch wander with a small irregular drift component. |
-| Flutter | 0–100% / 20% | Faster pitch vibration with a secondary harmonic. |
-| Noise | 0–100% / 20% | Band-limited, independent stereo hiss; 0 turns it off. Hiss continues between notes. |
-| Wear | 0–100% / 25% | Darkens the sound and adds smooth, randomly spaced level dropouts. |
+| Wow | 0–100% / 50% | Slow, smooth pitch wander with a small irregular drift component. |
+| Flutter | 0–100% / 28% | Faster pitch vibration with a secondary harmonic. |
+| Noise | 0–100% / 0% | Band-limited, independent stereo hiss; 0 turns it off. Hiss continues between notes. |
+| Wear | 0–100% / 0% | Darkens the sound and adds smooth, randomly spaced level dropouts. |
 | Mix | 0–100% / 100% | Blends immediate dry input with processed tape. |
 | Output | −24 to +6 dB / 0 | Level after the blend. |
 

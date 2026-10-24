@@ -21,6 +21,8 @@ or pick a file from disk. Three columns follow:
 - **Results**, headed by the result count and the **Sort** toggle.
 - **Details** of the selection, with the actions pinned to the bottom right: **Cancel** and
   **Apply** while auditioning for a slot; **Delete...**, **Close** and **Load** for presets.
+  **Cancel** (or **Close**) also sits top right, where every full page closes; for presets,
+  **Save as...** sits beside it.
 
 Choose a folder to search
 it and its subfolders, or choose **All folders / All categories**. A root that only

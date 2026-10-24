@@ -11,6 +11,8 @@ class Core
 {
 public:
   void Reset(double rate) { *this = Core{}; step = 44100.0 / rate; }
+  // NAM Grid addition: keep the gate open for this long after it last triggered.
+  void SetHold(double seconds) { holdSamples = (seconds > 0.0 ? seconds : 0.0) * 44100.0 / step; }
   void Set(double threshold) { onthreshold = threshold; offthreshold = threshold * 1.1; release = 0.028331119964586 * step; }
   void Tick(double& inputSampleL, double& inputSampleR)
   {
@@ -39,15 +41,18 @@ public:
 			if (ZeroCrossR > absmax)
 			{ZeroCrossR = floor(absmax);}
 
+			// NAM Grid addition: Hold postpones the release after the gate last triggered.
+			// At zero hold this is the native code path.
 			if (gateL == 0.0)
 			{
 				//if gate is totally silent
 				if (fabs(inputSampleL) > onthreshold)
 				{
-					if (gaterollerL == 0.0) gaterollerL = ZeroCrossL;
+					if (gaterollerL == 0.0) { gaterollerL = ZeroCrossL; holdL = holdSamples; }
 					else gaterollerL -= release;
 					// trigger from total silence only- if we're active then signal must clear offthreshold
 				}
+				else if (holdL > 0.0) holdL -= 1.0;
 				else gaterollerL -= release;
 			}
 			else
@@ -55,22 +60,27 @@ public:
 				//gate is not silent but closing
 				if (fabs(inputSampleL) > offthreshold)
 				{
+					holdL = holdSamples;
 					if (gaterollerL < ZeroCrossL) gaterollerL = ZeroCrossL;
 					else gaterollerL -= release;
 					//always trigger if gate is over offthreshold, otherwise close anyway
 				}
+				else if (holdL > 0.0) holdL -= 1.0;
 				else gaterollerL -= release;
 			}
 
+			// NAM Grid addition: Hold postpones the release after the gate last triggered.
+			// At zero hold this is the native code path.
 			if (gateR == 0.0)
 			{
 				//if gate is totally silent
 				if (fabs(inputSampleR) > onthreshold)
 				{
-					if (gaterollerR == 0.0) gaterollerR = ZeroCrossR;
+					if (gaterollerR == 0.0) { gaterollerR = ZeroCrossR; holdR = holdSamples; }
 					else gaterollerR -= release;
 					// trigger from total silence only- if we're active then signal must clear offthreshold
 				}
+				else if (holdR > 0.0) holdR -= 1.0;
 				else gaterollerR -= release;
 			}
 			else
@@ -78,10 +88,12 @@ public:
 				//gate is not silent but closing
 				if (fabs(inputSampleR) > offthreshold)
 				{
+					holdR = holdSamples;
 					if (gaterollerR < ZeroCrossR) gaterollerR = ZeroCrossR;
 					else gaterollerR -= release;
 					//always trigger if gate is over offthreshold, otherwise close anyway
 				}
+				else if (holdR > 0.0) holdR -= 1.0;
 				else gaterollerR -= release;
 			}
 
@@ -120,6 +132,7 @@ public:
 private:
   double onthreshold = 0.001778279410038923, offthreshold = onthreshold * 1.1;
   double step = 1., release = 0.028331119964586, absmax = 220.9, bridgerectifier = 0.;
+  double holdSamples = 0., holdL = 0., holdR = 0.; // NAM Grid addition (Hold)
   bool engageGate = true, WasNegativeL = false, WasNegativeR = false;
   uint32_t fpdL = 0x1745a23bu, fpdR = 0x62b7e149u;
   double ZeroCrossL = 0., ZeroCrossR = 0., gaterollerL = 0., gaterollerR = 0., gateL = 0., gateR = 0.;

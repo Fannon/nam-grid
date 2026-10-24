@@ -122,7 +122,7 @@ public:
     mModules = modules;
     // "..." marks the actions that open a file dialog. Save as is a rig action, top right;
     // Open file is the alternative to searching, so it sits beside the search field.
-    mSave = new Button(IRECT(864, 14, 976, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...");
+    mSave = new Button(IRECT(776, 14, 888, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...");
     mSave->SetTooltip("Save the current rig as a new preset file.");
     AddChildControl(mSave);
     mFile = new Button(IRECT(864, 58, 976, 92), [this](IControl*) { ChooseFile(); }, "Open file...");
@@ -166,6 +166,9 @@ public:
     // Dialog convention: the secondary action left of the primary one, bottom right.
     mCancel = new Button(IRECT(), [this](IControl*) { Hide(true); }, "Cancel");
     AddChildControl(mCancel);
+    // The same action top right, where every full page has its Close.
+    mTopCancel = new Button(IRECT(896, 14, 976, 42), [this](IControl*) { Hide(true); }, "Cancel");
+    AddChildControl(mTopCancel);
     mApply = new Button(IRECT(), [this](IControl*) { LoadSelected(); }, "Apply");
     AddChildControl(mApply);
   }
@@ -514,8 +517,11 @@ private:
     mApply->SetLabelStr(preset ? "Load" : "Apply");
     mApply->SetTooltip(preset ? "Load the selected rig preset (Enter or double-click)."
                               : "Keep the auditioned selection in this slot (Enter or double-click). Cancel restores the original.");
-    mCancel->SetLabelStr(mPreview ? "Cancel" : "Close");
-    mCancel->SetTooltip(mPreview ? "Restore the original module and parameters, then close (Escape)." : "Close the browser (Escape).");
+    for (auto* cancel : {mCancel, mTopCancel})
+    {
+      cancel->SetLabelStr(mPreview ? "Cancel" : "Close");
+      cancel->SetTooltip(mPreview ? "Restore the original module and parameters, then close (Escape)." : "Close the browser (Escape).");
+    }
     RevealSelection();
     SetDirty(false);
   }
@@ -693,6 +699,6 @@ private:
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
   grid_ui::Button *mFoldersButton = nullptr, *mRescan = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr,
-                  *mCancel = nullptr, *mApply = nullptr, *mFile = nullptr;
+                  *mCancel = nullptr, *mTopCancel = nullptr, *mApply = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};
 };

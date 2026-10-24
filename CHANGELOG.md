@@ -6,21 +6,15 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [0.1.1] - 2026-10-24
 
-### Changed
-
-- Tidier header: every box has the same height and outline, the rig preset name has more room, and Modulation now sits next to Tuner.
-- Modules with only a few controls keep them together, filled from the left, instead of spreading them across both rows.
-- The IN and OUT lines reach their knobs, passing behind the stereo meters, with a little more space between the meters and the first and last modules.
-
 ### Added
 
-- Library & settings page links to the documentation site, the open-source repository and the issue tracker.
-- Documentation website scaffold (VitePress, dark by default) presenting the guides and module pages.
-- Documentation design and manual refresh: clearer musician-focused navigation, concise task-based guides, focused module screenshots and a wider navbar search.
-- User guides rewritten from the player's point of view: routing, editor, performance,
-  tuner and effect deep-dives no longer carry implementation details (headers, buffers,
-  SIMD paths, test coverage). Internals now live in `development.md` and
-  `module-implementation.md`, including a new audition-renders section.
+- NAM Grid logo in the plugin header.
+- Library & settings links to the documentation, the source code and the issue tracker.
+
+### Changed
+
+- Tidier header with a wider rig preset name; Modulation now sits next to Tuner.
+- Modules with only a few controls keep them together instead of spreading them across both rows.
 
 ## [0.1.0] - 2026-10-24
 

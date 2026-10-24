@@ -279,9 +279,52 @@
   letter-spacing: 0.02em;
 }
 
-.plugin-window img {
+.vp-doc .plugin-window img {
   display: block;
   width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Home page screenshot gallery: a 3x3 grid of framed shots with captions, one column on phones. */
+.shot-gallery {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (min-width: 768px) {
+  .shot-gallery {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.vp-doc .shot-gallery figure {
+  margin: 0;
+}
+
+.vp-doc .shot-gallery figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vp-doc .shot-gallery img {
+  margin: 0 0 10px;
+  width: 100%;
+}
+
+.vp-doc .shot-gallery strong {
+  color: var(--vp-c-text-1);
+  font-size: 15px;
+}
+
+.vp-doc .shot-gallery span {
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .quick-start {

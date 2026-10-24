@@ -11,7 +11,8 @@ for anything from a simple amp sound to layered ambient textures.
 
 *An example rig: two NAM captures in parallel lanes, each followed by a cabinet IR,
 plus built-in effects, with Cosmic Echo selected. The captures are NAM Core's
-example models; use your own captures and IRs for real amp sounds.*
+example models; use your own captures and IRs for real amp sounds, for example from
+[TONE3000](https://www.tone3000.com), which hosts free NAM captures and IRs.*
 
 ## About this project
 
@@ -95,7 +96,8 @@ Download the latest release from
 
 Keep `ThirdPartyNotices.txt` and `notices/` with the plugins when sharing them.
 There is no bundled NAM capture or cabinet IR collection. Built-in effects work
-without additional files; amp sounds require your own captures. Builds of every
+without additional files; amp sounds require your own captures, such as the free NAM
+captures and cabinet IRs on [TONE3000](https://www.tone3000.com). Builds of every
 `main` commit are also available as
 [GitHub Actions artifacts](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml?query=branch%3Amain)
 (sign-in required).

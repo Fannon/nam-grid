@@ -33,4 +33,18 @@ features:
 
 ![The Clean Default rig: gate, compression, a clean amp-and-cab capture and ambient effects](screenshots/grid.png)
 
-NAM Grid is developed in the open. [Download a release](https://github.com/Fannon/nam-grid/releases/latest), read the [module guide](/modules/) for every module's controls, or browse [all guides](/README) — from [grid & routing](/grid) to [building from source](/build).
+## Download
+
+One archive per platform from [GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest), each with **CLAP and VST3**:
+
+| Platform | Download | Notes |
+| --- | --- | --- |
+| Windows x64 | `nam-grid-windows-x64.zip` | 64-bit Windows |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS 11 or newer; confirm once, the build isn't signed yet |
+| Linux x64 | `nam-grid-linux-x64.zip` | Ubuntu 22.04 or newer works well; still an early preview |
+
+Every download makes sound right away with the bundled clean capture (RiffSmith Clean) and two starter rigs. Add your own NAM captures and IRs anytime through the library browser.
+
+## Learn more
+
+NAM Grid is developed in the open. Read the [module guide](/modules/) for every module's controls, or browse [all guides](/README) — from [grid & routing](/grid) to [building from source](/build).

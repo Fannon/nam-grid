@@ -170,9 +170,10 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mPresetCrossfade = librarySettings.presetCrossfade;
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
-  SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
   _InstallDefaultContent(prepared.newNamFolder, prepared.newPresetFolder);
+  // Start the background scan only after the bundled files exist.
+  SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
 
   mMakeGraphicsFunc = [&]() {
 

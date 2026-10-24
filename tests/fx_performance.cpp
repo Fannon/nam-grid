@@ -261,23 +261,27 @@ static json Configure(json config, const json& scenario)
   config["IrFolders"] = json::array();
   config["Tuner"] = 0.;
   config["Tuner Mute"] = 0.;
-  config["Pre 2 In"] = config["Output"] = 0.;
+  config["Pre 2 NAM Input"] = config["Output"] = 0.;
   config["SlotPaths"] = std::vector<std::string>(16, "");
   config["SlotHashes"] = std::vector<std::string>(16, "");
   config["SlotEffects"] = std::vector<int>(16, 0);
   config["SlotEffects"][0] = static_cast<int>(effect);
   const auto defaults = SlotDefaultValues(effect);
   const std::array<const char*, 17> names{
-    "Pre 1 In",          "Pre 1 Trim",           "Pre 1 Enabled",      "Pre 1 Gate Threshold", "Pre 1 Gate Release",
+    "Pre 1 NAM Input",          "Pre 1 NAM Output",           "Pre 1 Enabled",      "Pre 1 Gate Threshold", "Pre 1 Gate Release",
     "Pre 1 Gate Reduction", "Pre 1 Comp Threshold", "Pre 1 Comp Release", "Pre 1 Comp Makeup",    "Pre 1 EQ Bass",
-    "Pre 1 EQ Mid",         "Pre 1 EQ Treble",      "Pre 1 EQ High Pass", "Pre 1 EQ Low Pass",    "Pre 1 EQ Presence",
-    "Pre 1 IR Level",       "Pre 1 Full Quality"};
+    "Pre 1 EQ Mid",         "Pre 1 EQ Treble",      "Pre 1 EQ Low Cut", "Pre 1 EQ High Cut",    "Pre 1 EQ Presence",
+    "Pre 1 IR Output",       "Pre 1 Full Quality"};
   for (int p = 0; p < names.size(); ++p)
     config[names[p]] = defaults[p];
   for (int p = 0; p < kUtilityControls; ++p)
     config[std::string("Pre 1 ") + kEffectParameters[p].name] = defaults[17 + p];
   for (auto it = scenario.at("controls").begin(); it != scenario.at("controls").end(); ++it)
     config["Pre 1 " + it.key()] = it.value();
+  // Saved global settings, such as modulation matrix routing, which is not automatable.
+  if (scenario.contains("globals"))
+    for (auto it = scenario["globals"].begin(); it != scenario["globals"].end(); ++it)
+      config[it.key()] = it.value();
   if (scenario.contains("asset"))
     config["SlotPaths"][0] = scenario["asset"];
   if (effect == SlotEffect::NoisePrint && !scenario.value("untrained", false))

@@ -48,12 +48,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
 {
   nam::activations::Activation::enable_fast_tanh();
   GetParam(kOutputLevel)->InitGain("Output", 0.0, -40.0, 40.0, 0.1);
-  GetParam(kParallelBlend)->InitDouble("Parallel Blend", 50., 0., 100., .1, "%");
+  GetParam(kParallelBlend)->InitDouble("A/B Blend", 50., 0., 100., .1, "%");
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto name = GridSlotName(slot);
-    GetParam(SlotInputParam(slot))->InitGain((name + " In").c_str(), 0., -40., 40., .1);
-    GetParam(SlotTrimParam(slot))->InitGain((name + " Trim").c_str(), 0., -40., 40., .1);
+    GetParam(SlotInputParam(slot))->InitGain((name + " NAM Input").c_str(), 0., -40., 40., .1);
+    GetParam(SlotTrimParam(slot))->InitGain((name + " NAM Output").c_str(), 0., -40., 40., .1);
     GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
     GetParam(SlotDynamicsParam(slot, 0))->InitDouble((name + " Gate Threshold").c_str(), -55., -90., -10., .1, "dB");
     GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Release").c_str(), 120., 20., 500., 1., "ms");
@@ -64,10 +64,10 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     GetParam(SlotEQParam(slot, 0))->InitDouble((name + " EQ Bass").c_str(), 0., -12., 12., .1, "dB");
     GetParam(SlotEQParam(slot, 1))->InitDouble((name + " EQ Mid").c_str(), 0., -12., 12., .1, "dB");
     GetParam(SlotEQParam(slot, 2))->InitDouble((name + " EQ Treble").c_str(), 0., -12., 12., .1, "dB");
-    GetParam(SlotEQParam(slot, 3))->InitDouble((name + " EQ High Pass").c_str(), 0., 0., 300., 1., "Hz");
-    GetParam(SlotEQParam(slot, 4))->InitDouble((name + " EQ Low Pass").c_str(), 20000., 2000., 20000., 10., "Hz");
+    GetParam(SlotEQParam(slot, 3))->InitDouble((name + " EQ Low Cut").c_str(), 0., 0., 300., 1., "Hz");
+    GetParam(SlotEQParam(slot, 4))->InitDouble((name + " EQ High Cut").c_str(), 20000., 2000., 20000., 10., "Hz");
     GetParam(SlotEQParam(slot, 5))->InitDouble((name + " EQ Presence").c_str(), 0., -6., 6., .1, "dB");
-    GetParam(SlotEQParam(slot, 6))->InitDouble((name + " IR Level").c_str(), -18., -36., 18., .1, "dB");
+    GetParam(SlotEQParam(slot, 6))->InitDouble((name + " IR Output").c_str(), -18., -36., 18., .1, "dB");
     for (int i = 0; i < kUtilityControls; ++i)
     {
       const auto& p = kEffectParameters[i];
@@ -102,20 +102,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   for (int i = 0; i < grid_performance::Count; ++i)
   {
     const auto& p = grid_performance::parameters[i]; auto* param = GetParam(PerformanceParam(i));
-    if (i == grid_performance::LFOSlot || i == grid_performance::EnvSlot || i == grid_performance::StepSlot
-        || i == grid_performance::Macro1Slot || i == grid_performance::Macro2Slot)
-    {
-      param->InitEnum(p.name, 0, 16);
-      for (int slot = 0; slot < 16; ++slot) param->SetDisplayText(slot, GridSlotName(slot).c_str());
-    }
-    else if (i == grid_performance::LFOTarget || i == grid_performance::EnvTarget || i == grid_performance::StepTarget
-             || i == grid_performance::Macro1Target || i == grid_performance::Macro2Target)
-    {
-      param->InitEnum(p.name, 0, static_cast<int>(grid_performance::targetNames.size()));
-      for (int target = 0; target < grid_performance::targetNames.size(); ++target)
-        param->SetDisplayText(target, grid_performance::targetNames[target]);
-    }
-    else if (i == grid_performance::LFODivision || i == grid_performance::StepDivision)
+    if (i == grid_performance::LFODivision || i == grid_performance::StepDivision)
     {
       param->InitEnum(p.name, static_cast<int>(p.initial), static_cast<int>(grid_tempo::names.size()));
       for (int d = 0; d < grid_tempo::names.size(); ++d) param->SetDisplayText(d, grid_tempo::names[d]);
@@ -390,7 +377,6 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     // modulation responsive without allocating or writing host parameters.
     // Copy every slot once per callback; quanta restore only the slots modulation edits.
     mAnimatedControls = controls;
-    const bool legacy = mModulation.LegacyActive(performance);
     // The follower listens at the grid input or after one slot of this grid.
     const int tap = std::clamp(static_cast<int>(performance[grid_performance::EnvInput]), 0, 16) - 1;
     grid.SetTap(tap);
@@ -407,11 +393,6 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       grid_modulation::Matrix::Restore(mAnimatedControls, controls, targets, modulated);
       double animatedBlend = blend;
       auto animatedRouting = routing;
-      if (legacy)
-      {
-        mModulation.Restore(mAnimatedControls, controls, performance);
-        mModulation.Apply(mAnimatedControls, animatedBlend, performance);
-      }
       mModulationMatrix.Apply(mAnimatedControls, animatedBlend, animatedRouting, targets, modulated);
       grid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset,
                    animatedRouting);
@@ -943,56 +924,6 @@ void NeuralAmpModeler::ClearModulationRow(int row)
     SetParameterFromUI(PerformanceParam(RowParam(row, field)), grid_performance::parameters[RowParam(row, field)].initial);
 }
 
-bool NeuralAmpModeler::HasLegacyModulation() const { return mModulation.LegacyActive(PerformanceValues()); }
-
-std::string NeuralAmpModeler::ConvertLegacyModulation()
-{
-  using namespace grid_performance;
-  std::lock_guard<std::recursive_mutex> guard(mControlMutex);
-  const auto before = PerformanceValues();
-  std::array<SlotEffect, gridSlot> effects{};
-  std::copy(mSlotEffects.begin(), mSlotEffects.end(), effects.begin());
-  // Scenes recall their own fixed assignments; each converts with the project, over its values.
-  std::vector<Values> sets{before};
-  std::vector<size_t> sceneOf;
-  for (size_t scene = 0; scene < mPerformanceScenes.size(); ++scene)
-  {
-    if (mPerformanceScenes[scene].empty()) continue;
-    auto v = before;
-    for (int i = 0; i < Count; ++i)
-      if (const auto it = mPerformanceScenes[scene].find(grid_performance::parameters[i].name); it != mPerformanceScenes[scene].end())
-        v[i] = it->get<double>();
-    sets.push_back(v);
-    sceneOf.push_back(scene);
-  }
-  grid_modulation::LegacyPlan plan;
-  if (auto error = grid_modulation::PlanLegacy(sets, effects, plan); !error.empty()) return error;
-  for (size_t set = 1; set < sets.size(); ++set)
-  {
-    auto& scene = mPerformanceScenes[sceneOf[set - 1]];
-    grid_modulation::ApplyLegacy(sets[set], plan, effects);
-    for (size_t i = 0; i < grid_modulation::legacyAssignments.size(); ++i)
-    {
-      if (plan.rows[i] < 0) continue;
-      scene[grid_performance::parameters[grid_modulation::legacyAssignments[i].target].name] = 0.;
-      for (int field = 0; field < RowFields; ++field)
-        scene[grid_performance::parameters[RowParam(plan.rows[i], field)].name] = sets[set][RowParam(plan.rows[i], field)];
-    }
-  }
-  auto after = before;
-  grid_modulation::ApplyLegacy(after, plan, effects);
-  // Disable the legacy targets before the rows start, so modulation never doubles.
-  for (const auto& legacy : grid_modulation::legacyAssignments)
-    if (after[legacy.target] != before[legacy.target]) SetParameterFromUI(PerformanceParam(legacy.target), after[legacy.target]);
-  // Sources last: a row only becomes active once its destination is complete.
-  for (const bool sources : {false, true})
-    for (int i = RowParam(0, 0); i < RowParam(rows, 0); ++i)
-      if (after[i] != before[i] && sources == ((i - ModRow) % RowFields == RowSource))
-        SetParameterFromUI(PerformanceParam(i), after[i]);
-  _NotifyHostStateChanged();
-  return {};
-}
-
 void NeuralAmpModeler::SetPresetCrossfade(bool enabled)
 {
   mPresetCrossfade = enabled;
@@ -1520,8 +1451,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     };
     if (config.contains("PresetName") && !validText(config["PresetName"], 512)) return -1;
     if (config.contains("PresetDirectory") && !validText(config["PresetDirectory"], 32768)) return -1;
-    // Legacy CaptureFolders is still validated so older projects load; it is not read.
-    for (const char* field : {"CaptureFolders", "NamFolders", "IrFolders", "PresetFolders"})
+    for (const char* field : {"NamFolders", "IrFolders", "PresetFolders"})
       if (config.contains(field))
       {
         const auto& folders = config[field];

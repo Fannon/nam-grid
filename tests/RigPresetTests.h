@@ -5,7 +5,7 @@ void TestRigPresetFiles(const std::filesystem::path& root)
 {
   const auto file = root / std::filesystem::u8path("Clean r\xc3\xa9verb.ngrid");
   const nlohmann::json rig{{"schema", 12}, {"SlotPaths", {"amp.nam", "cabinet.wav"}},
-                           {"Global Input", -3.}, {"Output", -8.}, {"PerformanceScenes", {nlohmann::json::object()}}};
+                           {"Input", -3.}, {"Output", -8.}, {"PerformanceScenes", {nlohmann::json::object()}}};
   rig_preset::Write(file, rig);
   assert(rig_preset::Read(file) == rig);
   auto changed = rig; changed["Output"] = -12.;

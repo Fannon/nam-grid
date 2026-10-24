@@ -206,7 +206,7 @@ public:
     if (item >= 0 && item < SourceCount - 1)
     {
       if (PLUG()->AddModulation(item + 1, mDestination.first, mDestination.second) < 0)
-        ShowNotice(GetUI(), "Modulation", "All eight modulation rows are in use. Clear a row on the Grid / Control page.");
+        ShowNotice(GetUI(), "Modulation", "All eight modulation rows are in use. Clear a row on the Modulation page.");
     }
     else if (item == SourceCount)
     {
@@ -424,7 +424,7 @@ public:
     {
       const int slot = SlotControlOwner(GetParamIdx());
       const auto labelColor = slot < 0 ? muted : Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
-      g.DrawText(Text(15.f, labelColor, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
+      g.DrawText(Text(15.f, labelColor, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(14));
     }
     const auto button = tall ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT;
     const bool on = GetValue() >= .5;
@@ -462,13 +462,14 @@ public:
     {
       const int slot = SlotControlOwner(GetParamIdx());
       const auto color = Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
-      g.DrawText(Text(15.f, color, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(22));
+      g.DrawText(Text(15.f, color, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(14));
     }
     const auto box = Box();
     const bool dropdown = effect_presentation::ChoiceDropdown(mControl);
     WDL_String label; GetParam()->GetDisplay(GetValue(), true, label);
+    const std::string caption = tall || mLabel.empty() ? std::string(label.Get()) : mLabel + ": " + label.Get();
     g.FillRoundRect(surface, box, 3.f); g.DrawRoundRect(mMouseIsOver ? muted : border, box, 3.f);
-    FittedText(g, Text(13.f, text, EAlign::Center), label.Get(), IRECT(box.L + 5, box.T, box.R - (dropdown ? 20 : 5), box.B));
+    FittedText(g, Text(13.f, text, EAlign::Center), caption, IRECT(box.L + 5, box.T, box.R - (dropdown ? 20 : 5), box.B));
     if (dropdown)
     {
       g.DrawLine(muted, box.R - 14, box.MH() - 2, box.R - 10, box.MH() + 2);
@@ -913,7 +914,7 @@ public:
         mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(496, 510, 620, 534)
                                                                                  : grid_ui::ControlBounds(p.position),
                                              SlotUtilityParam(mSlot, i), i, p.label);
-      else if (i == uDelayPingPong || i == uReverbStereo)
+      else if (effect_presentation::HeaderControl(i))
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, 510, 620, 534), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
@@ -1766,8 +1767,8 @@ private:
       {
         mEQKnobs[3]->Hide(false);
         mEQKnobs[4]->Hide(false);
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(3));
-        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(4));
+        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(5));
+        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(6));
       }
       else
       {

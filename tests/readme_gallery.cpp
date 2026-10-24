@@ -82,9 +82,9 @@ int main(int argc, char** argv)
     SlotEffect::JunoChorus, SlotEffect::TapeDelay, SlotEffect::RoomReverb, SlotEffect::NAM,
     SlotEffect::NAM, SlotEffect::CabinetIR, SlotEffect::CosmicEcho, SlotEffect::NAM,
     SlotEffect::ParametricEQ, SlotEffect::Tape, SlotEffect::Limiter, SlotEffect::NAM};
-  const char* standard[]{"In","Trim","Enabled","Gate Threshold","Gate Release","Gate Reduction",
-    "Comp Threshold","Comp Release","Comp Makeup","EQ Bass","EQ Mid","EQ Treble","EQ High Pass",
-    "EQ Low Pass","EQ Presence","IR Level","Full Quality"};
+  const char* standard[]{"NAM Input","NAM Output","Enabled","Gate Threshold","Gate Release","Gate Reduction",
+    "Comp Threshold","Comp Release","Comp Makeup","EQ Bass","EQ Mid","EQ Treble","EQ Low Cut",
+    "EQ High Cut","EQ Presence","IR Output","Full Quality"};
   for (int slot = 0; slot < 16; ++slot)
   {
     const auto prefix = std::string(slot<4 ? "Pre " : slot<8 ? "A " : slot<12 ? "B " : "Post ")+std::to_string(slot%4+1)+" ";
@@ -95,21 +95,21 @@ int main(int argc, char** argv)
   }
   config["SlotPaths"][2] = amp1.string(); config["SlotPaths"][3] = cab.string();
   config["SlotPaths"][8] = amp2.string(); config["SlotPaths"][9] = cab.string();
-  config["Pre 3 In"] = 6.; config["Pre 3 Trim"] = 12.; config["B 1 In"] = 3.; config["B 1 Trim"] = 10.;
-  config["Pre 4 IR Level"] = -12.; config["B 2 IR Level"] = -18.;
+  config["Pre 3 NAM Input"] = 6.; config["Pre 3 NAM Output"] = 12.; config["B 1 NAM Input"] = 3.; config["B 1 NAM Output"] = 10.;
+  config["Pre 4 IR Output"] = -12.; config["B 2 IR Output"] = -18.;
   config["Post 1 Parametric Frequency"] = 2400.; config["Post 1 Parametric Gain"] = 4.; config["Post 1 Parametric Q"] = 1.2;
   config["NamFolders"] = {captures.string()};
   config["IrFolders"] = {irs.string()};
   config["PresetFolders"] = {presets.string()};
   config["PresetName"] = "Ambient pedalboard"; config["PresetDirectory"] = presets.string();
-  config["Global Input"] = 0.; config["Output"] = -3.; config["Parallel Blend"] = 40.;
+  config["Input"] = 0.; config["Output"] = -3.; config["A/B Blend"] = 40.;
   // Matrix rows: source (1 LFO, 2 Envelope, 4 Macro 1), slot, slot control (17 shared + module control), depth.
   const auto modulate = [&](int row, int source, int slot, int control, double depth) {
     const auto name = "Mod " + std::to_string(row) + " ";
     config[name + "Source"] = source; config[name + "Slot"] = slot;
     config[name + "Destination"] = control; config[name + "Depth"] = depth;
   };
-  config["LFO Rate"] = .4; config["Macro One"] = 40.;
+  config["LFO Rate"] = .4; config["Macro 1"] = 40.;
   modulate(1, 1, 5, 17 + uDelayMix, 35.);
   modulate(2, 2, 6, 17 + uReverbMix, 30.);
   modulate(3, 4, 2, 1, 15.); // Pre 3 capture output (Trim)
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
   for (const char* name : {"Ambient pedalboard", "Clean chorus", "Crunch rhythm", "Dual amp lanes", "Lead with echo"})
   {
     auto rig = config;
-    if (std::string(name) == "Clean chorus") rig["Parallel Blend"] = 0.;
+    if (std::string(name) == "Clean chorus") rig["A/B Blend"] = 0.;
     if (std::string(name) == "Lead with echo") rig["A 2 Delay Mix"] = 35.;
     std::ofstream(presets / (std::string(name) + ".ngrid")) << rigOf(rig, name).dump(2);
   }

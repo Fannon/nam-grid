@@ -25,8 +25,10 @@ inline const char* ChoiceDescription(int p, int mode)
   }
   return mode >= 0 && mode < static_cast<int>(descriptions.size()) ? descriptions[mode] : "";
 }
+// Saved options sit in the editor header: Tempo sync on the left, one mode or option
+// on the right. The knob grid holds only the automatable musical controls.
 inline bool HeaderControl(int p)
-{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uTapeHeads || p == uCosmicStyle || p == uColourDesk || p == uBlackMode; }
+{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || IsAlgorithmMode(p); }
 inline bool PingPong(SlotEffect e)
 { return e == SlotEffect::DigitalDelay || e == SlotEffect::AnalogDelay || e == SlotEffect::TapeDelay || e == SlotEffect::DualDelay; }
 inline bool Tempo(SlotEffect e)
@@ -42,52 +44,17 @@ inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, 
   if (e == SlotEffect::UniVibe && p == uModMix && vibrato) return false;
   return UsesUtility(e, p);
 }
-// Every module's output gain sits bottom-left, below its first control, as for NAM and IR.
-inline constexpr int kOutputPosition = 4;
-inline int DesignedPosition(SlotEffect e, int p)
-{
-  // Keep Spring's shared damping control in one compact, unambiguous sequence.
-  if (e == SlotEffect::SpringReverb)
-  {
-    if (p == uSpringDrip) return 2;
-    if (p == uReverbTone) return 3;
-    if (p == uSpringMix) return 4;
-    if (p == uSpringOutput) return 5;
-  }
-  if (e == SlotEffect::ReverseDelay)
-  {
-    if (p == uDelayTone) return 1;
-    if (p == uDelayMix) return 2;
-    if (p == uDelayOutput) return 3;
-  }
-  return kEffectParameters[p].position;
-}
-// The module's output gain control ("... Output" host parameter), or -1.
-inline int OutputControl(SlotEffect e)
-{
-  for (int p = 0; p < kUtilityControls; ++p)
-  {
-    const std::string_view name = kEffectParameters[p].name;
-    if (UsesUtility(e, p) && name.size() >= 7 && name.substr(name.size() - 7) == " Output")
-      return p;
-  }
-  return -1;
-}
+// Layout rule for the eight positions (0-3 top row, 4-7 bottom row): the module's
+// main controls fill the top row from the left, Output sits at 4 below the first
+// control, Mix at 6 and Enabled at 7. EffectPresentationTests checks every module.
+inline constexpr int kOutputPosition = 4, kMixPosition = 6;
 inline int Position(SlotEffect e, int p)
 {
-  const int position = DesignedPosition(e, p);
-  const int output = OutputControl(e);
-  if (output < 0)
-    return position;
-  if (p == output)
-    return kOutputPosition;
-  // Move Output to its place; the other controls keep their order and close the gap.
-  const int from = DesignedPosition(e, output);
-  if (from < kOutputPosition && position > from && position <= kOutputPosition)
-    return position - 1;
-  if (from > kOutputPosition && position >= kOutputPosition && position < from)
-    return position + 1;
-  return position;
+  // Shared family controls whose place differs for one module.
+  if (e == SlotEffect::SpringReverb && p == uReverbTone) return 3;
+  if (e == SlotEffect::ReverseDelay && p == uDelayTone) return 1;
+  if (p == uModCharacter && e != SlotEffect::Flanger && e != SlotEffect::Phaser) return 2; // No feedback control.
+  return kEffectParameters[p].position;
 }
 inline const char* Label(SlotEffect e, int p)
 {

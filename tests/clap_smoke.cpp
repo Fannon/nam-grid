@@ -116,10 +116,10 @@ int main(int argc, char** argv)
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
   assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
   // Every slot exposes the same host controls; no upstream single-amp parameters remain.
-  for (const char* name : {"Input", "Threshold", "Bass", "ToneStack", "IRToggle", "OutputMode", "CalibrateInput",
+  for (const char* name : {"Threshold", "Bass", "ToneStack", "IRToggle", "OutputMode", "CalibrateInput",
                            "Slim", "Drive" " Input", "Amp" " Trim", "DrivePath", "NAMPath", "IRPath"})
     assert(!base.contains(name));
-  for (const char* name : {"Pre 1 In", "Pre 2 In", "Pre 3 In", "Post 4 In"})
+  for (const char* name : {"Pre 1 NAM Input", "Pre 2 NAM Input", "Pre 3 NAM Input", "Post 4 NAM Input"})
     for (double db : {-40., -30., 30., 40.})
     {
       clap_param_info info{};
@@ -148,10 +148,10 @@ int main(int argc, char** argv)
   std::ofstream(path2) << other.dump();
   base["SlotPaths"][0] = path1.string();
   base["SlotPaths"][1] = path2.string();
-  base["Pre 1 In"] = 2.;
-  base["Pre 1 Trim"] = -3.;
-  base["Pre 2 In"] = 1.;
-  base["Pre 2 Trim"] = -2.;
+  base["Pre 1 NAM Input"] = 2.;
+  base["Pre 1 NAM Output"] = -3.;
+  base["Pre 2 NAM Input"] = 1.;
+  base["Pre 2 NAM Output"] = -2.;
   base["Output"] = -6.;
   base["NamFolders"] = {fixtures.string()};
   base["IrFolders"] = {fixtures.string()};
@@ -180,7 +180,7 @@ int main(int argc, char** argv)
     assert(save().config() == base);
   }
   for (const char* required : {"schema", "SlotPaths", "SlotEffects", "SlotHashes", "NoisePrintProfiles",
-                               "PerformanceScenes", "Pre 1 In", "Post 4 Black Mode", "Tuner"})
+                               "PerformanceScenes", "Pre 1 NAM Input", "Post 4 Black Mode", "Tuner"})
   {
     auto incomplete = base;
     incomplete.erase(required);
@@ -204,7 +204,7 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
-  for (const char* folderField : {"CaptureFolders", "NamFolders", "IrFolders", "PresetFolders"})
+  for (const char* folderField : {"NamFolders", "IrFolders", "PresetFolders"})
   for (const json& folders : {json(123), json::array({"valid", 123}), json::array({std::string("bad\0path", 8)}),
                               json(std::vector<std::string>(33, "folder"))})
   {
@@ -238,11 +238,6 @@ int main(int argc, char** argv)
   multipleFolders["IrFolders"] = {(fixtures / "IRs").string()};
   load(multipleFolders);
   assert(save().config() == multipleFolders);
-  // The pre-split combined list still validates but is not read or migrated.
-  auto legacyFolders = base;
-  legacyFolders["CaptureFolders"] = {(fixtures / "IRs").string()};
-  assert(loadRaw(legacyFolders));
-  assert(save().config() == base);
   load(base);
   Stream bad;
   bad.string("###nam-grid###");
@@ -358,7 +353,7 @@ int main(int argc, char** argv)
     for (uint32_t index = 0; index < info->count(plugin); ++index)
     {
       assert(info->get_info(plugin, index, &automation));
-      if (std::strcmp(automation.name, "Pre 1 Trim") == 0)
+      if (std::strcmp(automation.name, "Pre 1 NAM Output") == 0)
         break;
     }
     clap_event_param_value change{};
@@ -375,7 +370,7 @@ int main(int argc, char** argv)
     params->flush(plugin, &automationEvents, &sent);
     double value = 0.;
     assert(params->get_value(plugin, automation.id, &value) && std::abs(value - change.value) < 1e-9);
-    assert(std::abs(save().config()["Pre 1 Trim"].get<double>() + 8.) < 1e-9);
+    assert(std::abs(save().config()["Pre 1 NAM Output"].get<double>() + 8.) < 1e-9);
     for (int replacement = 0; replacement < 6; ++replacement)
     {
       auto next = base;
@@ -415,11 +410,11 @@ int main(int argc, char** argv)
                                    : slot < 12 ? "B "
                                                : "Post ")
                        + std::to_string(slot % 4 + 1);
-    fullGrid[label + " In"] = .1 * slot;
-    fullGrid[label + " Trim"] = -.2 * slot;
+    fullGrid[label + " NAM Input"] = .1 * slot;
+    fullGrid[label + " NAM Output"] = -.2 * slot;
     fullGrid[label + " Enabled"] = slot % 3 == 0 ? 0. : 1.;
   }
-  fullGrid["Parallel Blend"] = 37.;
+  fullGrid["A/B Blend"] = 37.;
   load(fullGrid);
   assert(save().config() == fullGrid);
   for (double rate : {48000., 44100., 96000.})
@@ -743,14 +738,14 @@ int main(int argc, char** argv)
   auto eqIR = cleared;
   eqIR["SlotEffects"][0] = static_cast<int>(SlotEffect::CabinetIR);
   eqIR["SlotPaths"][0] = irFile.string();
-  eqIR["Pre 1 IR Level"] = -12.;
+  eqIR["Pre 1 IR Output"] = -12.;
   eqIR["SlotEffects"][3] = static_cast<int>(SlotEffect::ToneEQ);
   eqIR["Pre 4 EQ Bass"] = 3.;
   eqIR["Pre 4 EQ Mid"] = -4.;
   eqIR["Pre 4 EQ Treble"] = 2.;
   eqIR["SlotEffects"][12] = static_cast<int>(SlotEffect::CutEQ);
-  eqIR["Post 1 EQ High Pass"] = 75.;
-  eqIR["Post 1 EQ Low Pass"] = 7500.;
+  eqIR["Post 1 EQ Low Cut"] = 75.;
+  eqIR["Post 1 EQ High Cut"] = 7500.;
   eqIR["Post 1 EQ Presence"] = -2.;
   load(eqIR);
   assert(save().config() == eqIR);
@@ -807,11 +802,11 @@ int main(int argc, char** argv)
   timeEffects["Pre 1 Spring Drip"] = 73.;
   timeEffects["Pre 2 Wah Position"] = 28.;
   timeEffects["Pre 2 Wah Resonance"] = 4.;
-  timeEffects["Pre 3 Delay Ping Pong"] = 1.;
+  timeEffects["Pre 3 Delay Ping-Pong"] = 1.;
   timeEffects["B 1 Chorus Spread"] = 85.;
   timeEffects["Post 3 Tube Asymmetry"] = 63.;
   timeEffects["Post 3 Tube Mix"] = 47.;
-  timeEffects["A 2 Reverb High Pass"] = 175.;
+  timeEffects["A 2 Reverb Low Cut"] = 175.;
   timeEffects["A 2 Reverb Modulation"] = 71.;
   timeEffects["Pre 4 Delay Modulation"] = 83.;
   timeEffects["Pre 4 Delay Output"] = -4.;
@@ -1021,8 +1016,8 @@ int main(int argc, char** argv)
   }
   if(fxVisuals)
   {
-    const std::array<const char*,17> names{{"In","Trim","Enabled","Gate Threshold","Gate Release","Gate Reduction",
-      "Comp Threshold","Comp Release","Comp Makeup","EQ Bass","EQ Mid","EQ Treble","EQ High Pass","EQ Low Pass","EQ Presence","IR Level","Full Quality"}};
+    const std::array<const char*,17> names{{"NAM Input","NAM Output","Enabled","Gate Threshold","Gate Release","Gate Reduction",
+      "Comp Threshold","Comp Release","Comp Makeup","EQ Bass","EQ Mid","EQ Treble","EQ Low Cut","EQ High Cut","EQ Presence","IR Output","Full Quality"}};
     int reviewed=0;
     for(const auto& group : nam_library::kModuleGroups)
       for(auto effect : group.effects)
@@ -1134,8 +1129,8 @@ int main(int argc, char** argv)
         for (double gain : {-30., 30.})
         {
           const int destination = 1 - source;
-          const char* sourceGain = source == 0 ? "Pre 1 In" : "Pre 2 In";
-          const char* destinationGain = destination == 0 ? "Pre 1 In" : "Pre 2 In";
+          const char* sourceGain = source == 0 ? "Pre 1 NAM Input" : "Pre 2 NAM Input";
+          const char* destinationGain = destination == 0 ? "Pre 1 NAM Input" : "Pre 2 NAM Input";
           auto editState = browserState;
           editState["SlotPaths"][0] = libraryFirst.string();
           editState["SlotPaths"][1] = librarySecond.string();
@@ -1262,7 +1257,7 @@ int main(int argc, char** argv)
         for (int i = 0; i < kUtilityControls; ++i)
           assert(std::abs(inserted[std::string("Pre 1 ") + kEffectParameters[i].name].get<double>() - defaults[17 + i]) < 1.e-6);
         if (effect == SlotEffect::SmoothComp) assert(inserted["Pre 1 Comp Threshold"] == -24.);
-        if (effect == SlotEffect::CutEQ) assert(inserted["Pre 1 EQ High Pass"] == 80.);
+        if (effect == SlotEffect::CutEQ) assert(inserted["Pre 1 EQ Low Cut"] == 80.);
         win_edit_menu::SelectNamedItem(editor, 170, 105, L"Clear slot", true); pumpFor(30);
         assert(save().config()["SlotEffects"][0] == 0 && save().config()["SlotPaths"][0] == "");
       }
@@ -1384,7 +1379,7 @@ int main(int argc, char** argv)
       original["SlotEffects"][0] = static_cast<int>(ir ? SlotEffect::CabinetIR : SlotEffect::NAM);
       original["SlotPaths"][0] = (ir ? libraryIR : libraryTwin).string();
     }
-    const char* parameter = nam ? "Pre 1 In" : ir ? "Pre 1 IR Level" : "Pre 1 EQ Bass";
+    const char* parameter = nam ? "Pre 1 NAM Input" : ir ? "Pre 1 IR Output" : "Pre 1 EQ Bass";
     const int knob = ir ? effect_presentation::kOutputPosition : 0; // IR Output sits below the first column.
     load(original); selectTile(170, 120);
     const auto committed = save().config();
@@ -1528,7 +1523,7 @@ int main(int argc, char** argv)
   resetDial(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 1 EQ Bass"] == 0.);
   for (const auto& control : std::array<std::tuple<int, int, int, const char*, double>, 3>{{
-         {37, 130, 100, "Global Input", 0.}, {967, 298, 268, "Parallel Blend", 50.}, {967, 442, 412, "Output", 0.}}})
+         {37, 130, 100, "Input", 0.}, {967, 298, 268, "A/B Blend", 50.}, {967, 442, 412, "Output", 0.}}})
   {
     const auto [x, valueY, dialY, name, initial] = control;
     click(x, valueY); keyAtEditor('6'); keyAtEditor(VK_RETURN);
@@ -1538,10 +1533,10 @@ int main(int argc, char** argv)
   std::cout << "Editable values below module/IN/OUT/A-B dials and double-click defaults passed\n";
   const auto beforeGains = save().config();
   dragAt(38, 105); dragAt(967, 272); dragAt(967, 416);
-  assert(save().config()["Global Input"] != beforeGains["Global Input"]);
-  assert(save().config()["Parallel Blend"] != beforeGains["Parallel Blend"]);
+  assert(save().config()["Input"] != beforeGains["Input"]);
+  assert(save().config()["A/B Blend"] != beforeGains["A/B Blend"]);
   assert(save().config()["Output"] != beforeGains["Output"]);
-  assert(save().config()["Pre 2 In"] == beforeGains["Pre 2 In"]); // IN is global, not the Pre 2 NAM input.
+  assert(save().config()["Pre 2 NAM Input"] == beforeGains["Pre 2 NAM Input"]); // IN is global, not the Pre 2 NAM input.
   auto rigToSave = browserState;
   rigToSave["SlotEffects"][0] = static_cast<int>(SlotEffect::Rotary);
   rigToSave["SlotEffects"][2] = static_cast<int>(SlotEffect::NoisePrint);
@@ -1553,7 +1548,7 @@ int main(int argc, char** argv)
   rigToSave["Pre 3 Noise Gate Threshold"] = -42.;
   rigToSave["Pre 3 Noise Learn"] = 1.;
   rigToSave["SlotPaths"][1] = path2.string();
-  rigToSave["Global Input"] = -3.; rigToSave["Output"] = -8.; rigToSave["Lane A Level"] = 1.5;
+  rigToSave["Input"] = -3.; rigToSave["Output"] = -8.; rigToSave["Lane A Level"] = 1.5;
   rigToSave["Pre 1 Freeze Hold"] = 1.;
   load(rigToSave);
   const auto presetDirectory = fixtures / ("presets-" + std::to_string(GetTickCount64()));
@@ -1565,7 +1560,7 @@ int main(int argc, char** argv)
   std::cout << "Native preset save passed\n";
   assert(std::filesystem::exists(presetFile));
   const auto savedRig = rig_preset::Read(presetFile);
-  assert(savedRig["Global Input"] == -3. && savedRig["Pre 1 Freeze Hold"] == 0.);
+  assert(savedRig["Input"] == -3. && savedRig["Pre 1 Freeze Hold"] == 0.);
   assert(savedRig["Pre 3 Noise Learn"] == 0.);
   assert(savedRig["SlotEffects"][3] == static_cast<int>(SlotEffect::LoFiTape));
   assert(savedRig["Pre 4 LoFi Speed"] == 3.75 && savedRig["Pre 4 LoFi Wear"] == 80.);
@@ -1582,7 +1577,7 @@ int main(int argc, char** argv)
   const auto restoredRig = save().config();
   assert(restoredRig["SlotEffects"] == savedRig["SlotEffects"] && restoredRig["SlotPaths"] == savedRig["SlotPaths"]);
   assert(restoredRig["SlotHashes"] == savedRig["SlotHashes"]);
-  assert(restoredRig["Global Input"] == -3. && restoredRig["Output"] == -8. && restoredRig["Lane A Level"] == 1.5);
+  assert(restoredRig["Input"] == -3. && restoredRig["Output"] == -8. && restoredRig["Lane A Level"] == 1.5);
   assert(restoredRig["NoisePrintProfiles"] == savedRig["NoisePrintProfiles"]);
   for (int p = uLoFiSpeed; p <= uLoFiOutput; ++p)
   {
@@ -1741,7 +1736,7 @@ int main(int argc, char** argv)
   const auto fresh = save().config();
   assert(fresh["PresetName"] == "Untitled" && fresh["PresetDirectory"] == beforeNew["PresetDirectory"]);
   assert(fresh["PresetFolders"] == beforeNew["PresetFolders"] && fresh["NamFolders"] == beforeNew["NamFolders"]);
-  assert(fresh["Output"] == 0. && fresh["Global Input"] == 0.);
+  assert(fresh["Output"] == 0. && fresh["Input"] == 0.);
   for (int slot = 0; slot < 16; ++slot)
     assert(fresh["SlotEffects"][slot] == static_cast<int>(SlotEffect::NAM) && fresh["SlotPaths"][slot] == "");
   std::cout << "Header Save as fallback and New passed\n";
@@ -1797,24 +1792,24 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 1 EQ Bass"] != 0.);
   selectTile(390, 120); // Select IN2 Cut EQ; only its controls may receive gestures.
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
-  assert(save().config()["Pre 2 EQ High Pass"] != 0.);
+  assert(save().config()["Pre 2 EQ Low Cut"] != 0.);
   selectTile(610, 120); // Select IN3 IR loader; its Output sits below the first column.
   dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
-  assert(save().config()["Pre 3 IR Level"] != -18.);
+  assert(save().config()["Pre 3 IR Output"] != -18.);
   auto utilities = browserState;
   utilities["SlotEffects"][0] = static_cast<int>(SlotEffect::ParametricEQ);
   utilities["SlotEffects"][1] = static_cast<int>(SlotEffect::Boost);
-  utilities["Pre 1 EQ Low Pass"] = 10000.;
+  utilities["Pre 1 EQ High Cut"] = 10000.;
   load(utilities);
   selectTile(170, 120);
-  for (int position = 0; position < 5; ++position)
+  for (int position : {0, 1, 2, 5, 6}) // Frequency, Gain, Q, then Low cut and High cut side by side.
     dragAt(grid_layout::KnobX(position), grid_layout::KnobGestureY(position));
   auto editedUtility = save().config();
   assert(editedUtility["Pre 1 Parametric Frequency"] != utilities["Pre 1 Parametric Frequency"]);
   assert(editedUtility["Pre 1 Parametric Gain"] != utilities["Pre 1 Parametric Gain"]);
   assert(editedUtility["Pre 1 Parametric Q"] != utilities["Pre 1 Parametric Q"]);
-  assert(editedUtility["Pre 1 EQ High Pass"] != utilities["Pre 1 EQ High Pass"]);
-  assert(editedUtility["Pre 1 EQ Low Pass"] != utilities["Pre 1 EQ Low Pass"]);
+  assert(editedUtility["Pre 1 EQ Low Cut"] != utilities["Pre 1 EQ Low Cut"]);
+  assert(editedUtility["Pre 1 EQ High Cut"] != utilities["Pre 1 EQ High Cut"]);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "parametric-eq.bmp");
   selectTile(390, 120);
@@ -1823,8 +1818,8 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2));
   assert(save().config()["Pre 2 Boost Tilt"] != utilities["Pre 2 Boost Tilt"]);
-  assert(save().config()["Pre 2 EQ High Pass"] != utilities["Pre 2 EQ High Pass"]);
-  assert(save().config()["Pre 2 In"] == utilities["Pre 2 In"]);
+  assert(save().config()["Pre 2 EQ Low Cut"] != utilities["Pre 2 EQ Low Cut"]);
+  assert(save().config()["Pre 2 NAM Input"] == utilities["Pre 2 NAM Input"]);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "boost.bmp");
   // Every visible new knob must update its slot's automated parameter, with no
@@ -1862,7 +1857,8 @@ int main(int argc, char** argv)
                      effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
         }
         else if (EffectChoices(p).empty() && descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
-          click(x, grid_layout::ToggleY(position));
+          click(effect_presentation::HeaderControl(p) ? 558 : x,
+                effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
         else
         {
           const int distance = descriptor.step == 1. && descriptor.maximum - descriptor.minimum <= 4. ? 200 : 25;
@@ -1934,7 +1930,7 @@ int main(int argc, char** argv)
     load(switchState);
     selectTile(170, 120);
     const char* name = effect == static_cast<int>(SlotEffect::DigitalDelay) || effect == static_cast<int>(SlotEffect::DualDelay)
-                         ? "Pre 1 Delay Ping Pong" : "Pre 1 Reverb Stereo";
+                         ? "Pre 1 Delay Ping-Pong" : "Pre 1 Reverb Stereo Wet";
     const double before = save().config()[name].get<double>();
     click(558, grid_layout::optionsY);
     assert(save().config()[name].get<double>() == 1. - before);
@@ -1946,11 +1942,12 @@ int main(int argc, char** argv)
     click(558, grid_layout::optionsY); // No ineffective Ping-pong control here.
     assert(save().config() == before);
     auto vibe = browserState; vibe["SlotEffects"][0] = static_cast<int>(SlotEffect::UniVibe);
-    vibe["Pre 1 Vibe Vibrato"] = 1.; vibe["Pre 1 Mod Mix"] = 50.;
-    load(vibe); selectTile(170, 120); dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
+    vibe["Pre 1 Vibe Vibrato Mode"] = 1.; vibe["Pre 1 Mod Mix"] = 50.;
+    const int mix = effect_presentation::kMixPosition;
+    load(vibe); selectTile(170, 120); dragAt(grid_layout::KnobX(mix), grid_layout::KnobGestureY(mix));
     assert(save().config()["Pre 1 Mod Mix"] == 50.); // Fully wet mode hides Mix.
-    vibe["Pre 1 Vibe Vibrato"] = 0.; load(vibe); selectTile(170, 120);
-    dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
+    vibe["Pre 1 Vibe Vibrato Mode"] = 0.; load(vibe); selectTile(170, 120);
+    dragAt(grid_layout::KnobX(mix), grid_layout::KnobGestureY(mix));
     assert(save().config()["Pre 1 Mod Mix"] != 50.);
   }
   const auto packedPath = fixtures / "packed-a2.nam";
@@ -1958,7 +1955,7 @@ int main(int argc, char** argv)
   auto qualityState = browserState;
   qualityState["SlotPaths"][0] = packedPath.string();
   qualityState["Pre 1 Full Quality"] = 1.;
-  qualityState["Pre 1 EQ Low Pass"] = 10000.;
+  qualityState["Pre 1 EQ High Cut"] = 10000.;
   load(qualityState);
   pumpFor(100);
   assert(plugin->activate(plugin, 48000., 1, 512));
@@ -2005,20 +2002,20 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
   // Output sits below Input; Low cut and High cut follow.
   dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
-  assert(save().config()["Pre 1 Trim"] != qualityState["Pre 1 Trim"]);
-  assert(save().config()["Pre 1 EQ High Pass"] == qualityState["Pre 1 EQ High Pass"]);
+  assert(save().config()["Pre 1 NAM Output"] != qualityState["Pre 1 NAM Output"]);
+  assert(save().config()["Pre 1 EQ Low Cut"] == qualityState["Pre 1 EQ Low Cut"]);
   dragAt(grid_layout::KnobX(5), grid_layout::KnobGestureY(5));
-  assert(save().config()["Pre 1 EQ High Pass"] != qualityState["Pre 1 EQ High Pass"]);
-  assert(save().config()["Pre 1 EQ Low Pass"] == qualityState["Pre 1 EQ Low Pass"]);
+  assert(save().config()["Pre 1 EQ Low Cut"] != qualityState["Pre 1 EQ Low Cut"]);
+  assert(save().config()["Pre 1 EQ High Cut"] == qualityState["Pre 1 EQ High Cut"]);
   dragAt(grid_layout::KnobX(6), grid_layout::KnobGestureY(6));
   const auto namControls = save().config();
-  assert(namControls["Pre 1 In"] != qualityState["Pre 1 In"]);
+  assert(namControls["Pre 1 NAM Input"] != qualityState["Pre 1 NAM Input"]);
   assert(namControls["Pre 1 EQ Bass"] != qualityState["Pre 1 EQ Bass"]);
   assert(namControls["Pre 1 EQ Mid"] != qualityState["Pre 1 EQ Mid"]);
   assert(namControls["Pre 1 EQ Treble"] != qualityState["Pre 1 EQ Treble"]);
-  assert(namControls["Pre 1 Trim"] != qualityState["Pre 1 Trim"]);
-  assert(namControls["Pre 1 EQ High Pass"] != qualityState["Pre 1 EQ High Pass"]);
-  assert(namControls["Pre 1 EQ Low Pass"] != qualityState["Pre 1 EQ Low Pass"]);
+  assert(namControls["Pre 1 NAM Output"] != qualityState["Pre 1 NAM Output"]);
+  assert(namControls["Pre 1 EQ Low Cut"] != qualityState["Pre 1 EQ Low Cut"]);
+  assert(namControls["Pre 1 EQ High Cut"] != qualityState["Pre 1 EQ High Cut"]);
   click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
   assert(save().config()["Pre 1 Enabled"] == 0.);
   click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
@@ -2050,20 +2047,20 @@ int main(int argc, char** argv)
   selectTile(170, 120);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Selected IN1 gate threshold.
   assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
-  assert(save().config()["Pre 1 In"] == effectUI["Pre 1 In"]);
-  dragAt(grid_layout::KnobX(3), grid_layout::KnobGestureY(3), 200);
+  assert(save().config()["Pre 1 NAM Input"] == effectUI["Pre 1 NAM Input"]);
+  click(558, grid_layout::optionsY); // Gate Mode sits in the header with the other mode selectors.
   assert(save().config()["Pre 1 Gate Mode"] == 1.);
   auto gateModes = save();
   assert(loadBytes(gateModes));
   assert(save().config()["Pre 1 Gate Mode"] == 1.);
-  resetDial(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
+  click(558, grid_layout::optionsY);
   assert(save().config()["Pre 1 Gate Mode"] == 0.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
   selectTile(390, 120);
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2)); // Selected IN2 compressor makeup.
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
-  assert(save().config()["Pre 2 Trim"] == effectUI["Pre 2 Trim"]);
+  assert(save().config()["Pre 2 NAM Output"] == effectUI["Pre 2 NAM Output"]);
   // Card dot bypass and bottom editor toggle must share the same automated parameter.
   click(471, 80);
   assert(save().config()["Pre 2 Enabled"] == 0.);
@@ -2126,7 +2123,7 @@ int main(int argc, char** argv)
   SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
-  assert(save().config()["Pre 1 In"] != beforeSettings["Pre 1 In"]);
+  assert(save().config()["Pre 1 NAM Input"] != beforeSettings["Pre 1 NAM Input"]);
   if (argc == 4)
   {
     auto colors = browserState;
@@ -2167,7 +2164,7 @@ int main(int argc, char** argv)
       auto preview = browserState;
       preview["SlotEffects"][0] = effect;
       if (effect == static_cast<int>(SlotEffect::DigitalDelay))
-        preview["Pre 1 Delay Ping Pong"] = 1.;
+        preview["Pre 1 Delay Ping-Pong"] = 1.;
       load(preview);
       selectTile(170, 120);
       CaptureEditor(
@@ -2260,33 +2257,6 @@ int main(int argc, char** argv)
     assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
-  // Older fixed assignments stay until Convert to rows, which also converts stored scenes.
-  {
-    auto legacy = cleared;
-    legacy["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
-    legacy["Macro One"] = 100.; legacy["Macro One Slot"] = 4.; legacy["Macro One Target"] = 3.; legacy["Macro One Depth"] = 20.;
-    const auto sceneWith = [&](double depth, double target) {
-      auto scene = json::object();
-      for (const auto& p : grid_performance::parameters) scene[p.name] = legacy[p.name];
-      scene["Macro One Depth"] = depth; scene["Macro One Target"] = target;
-      return scene;
-    };
-    legacy["PerformanceScenes"][0] = sceneWith(40., 3.);
-    legacy["PerformanceScenes"][1] = sceneWith(20., 0.);
-    load(legacy);
-    click(225, 28); // Modulation lists the fixed assignment and offers to convert it.
-    click(104, 659); // Convert to rows
-    click(936, 28);
-    const auto state = save().config();
-    const auto& scenes = state["PerformanceScenes"];
-    assert(state["Macro One Target"] == 0. && state["Mod 1 Source"] == grid_performance::SourceMacro1);
-    // Balance: +/-100 on a 200-wide range. Values pass through the host's normalized range.
-    const auto approximately = [](const json& value, double expected) { return std::abs(value.get<double>() - expected) < 1.e-9; };
-    assert(state["Mod 1 Slot"] == 4. && approximately(state["Mod 1 Depth"], 10.));
-    assert(scenes[0]["Macro One Target"] == 0. && scenes[0]["Mod 1 Source"] == grid_performance::SourceMacro1
-           && approximately(scenes[0]["Mod 1 Depth"], 20.));
-    assert(scenes[1]["Mod 1 Source"] == grid_performance::SourceNone);
-  }
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared;
   unequal["NamFolders"] = {libraryFolder.string()};

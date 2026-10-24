@@ -49,14 +49,11 @@ struct Segment
   int slotControls; // Slot controls added by this segment, each taking 16 IDs.
 };
 // Released allocation. Literal counts are deliberate: adding a global or slot
-// control fails to compile until it is allocated here. To extend, either grow
-// the LAST segment's slotControls, or append {newGlobals, 0} / {0, newControls}.
-// Never edit the counts of an earlier segment or the first segment's globals.
-// +1 slot control: Limiter Clip (state schema 2). +49 globals: LFO Shape, Macros 3/4,
-// the modulation matrix and follower/retrigger options (schema 3). New slot controls
-// now append {0, n}.
-inline constexpr Segment segments[]{{49, 216}, {49, 0}};
-inline constexpr Segment released[]{{49, 215}}; // NAM Grid 0.1.0
+// control fails to compile until it is allocated here. To extend, append
+// {newGlobals, 0} or {0, newControls}, or grow the LAST segment's slotControls.
+// Never edit the counts of a released segment.
+inline constexpr Segment segments[]{{83, 216}};
+inline constexpr Segment released[]{{83, 216}}; // NAM Grid 0.1.0
 
 constexpr int GlobalID(std::span<const Segment> table, int index)
 {

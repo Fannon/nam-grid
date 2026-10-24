@@ -3,8 +3,10 @@
 #include "EffectPresentation.h"
 #include "FixedNAMGrid.h"
 #include "ParameterLayout.h"
-#include "LegacyModulation.h"
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <string>
 #include <type_traits>
 #include <vector>
 

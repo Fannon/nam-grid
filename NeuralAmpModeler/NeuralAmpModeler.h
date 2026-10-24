@@ -140,10 +140,6 @@ public:
   // Adds or finds a row from `source` to a destination; returns the row, or -1 when all are used.
   int AddModulation(int source, int slot, int control, double depth = 25.);
   void ClearModulationRow(int row);
-  bool HasLegacyModulation() const;
-  // Converts the fixed 0.1 assignments of the settings and stored scenes into matrix
-  // rows when the rows sound the same; otherwise changes nothing and returns why.
-  std::string ConvertLegacyModulation();
   grid_performance::Values PerformanceValues() const;
   grid_performance::Modulation::Monitor ModulationMonitor() const { return mModulation.Read(); }
   bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return true; }

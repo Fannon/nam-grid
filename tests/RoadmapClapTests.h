@@ -18,8 +18,8 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
   {
     auto config = cleared;
     config["SlotEffects"][0] = effect;
-    config["Pre 1 Utility Delay"] = 1.25;
-    config["Pre 1 Rotary Fast"] = 7.3;
+    config["Pre 1 Utility Fine Delay"] = 1.25;
+    config["Pre 1 Rotary Fast Rate"] = 7.3;
     config["Pre 1 Octaver 2 Oct Down"] = 25.;
     config["Pre 1 Doubler Detune"] = 14.;
     config["Pre 1 Dual Delay Ratio"] = 1.75;
@@ -30,8 +30,9 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
       config["Pre 1 Distortion High Cut"] = 3500.; config["Pre 1 Distortion Bias"] = 30.;
       config["Pre 1 Distortion Mix"] = 75.; config["Pre 1 Distortion Output"] = -9.;
     }
-    config["Lane A Level"] = -2.; config["Lane Fine Timing"] = .25;
-    config["LFO Target"] = 3.; config["LFO Depth"] = 20.;
+    config["Lane A Level"] = -2.; config["Lane Timing"] = .25;
+    config["Mod 1 Source"] = grid_performance::SourceLFO; config["Mod 1 Slot"] = 0.;
+    config["Mod 1 Destination"] = parameter_layout::standardControls + uUtilityBalance; config["Mod 1 Depth"] = 20.;
     load(config); assert(save().config() == config);
     for (double rate : {44100., 48000., 96000.})
     {

@@ -62,7 +62,7 @@ inline void TestClapHostContract(const clap_plugin* plugin, Host& host)
   }
 
   // Stepped values truncate fractional input, so text is canonical and round-trips.
-  for (const char* name : {"Tuner", "Pre 1 Distortion Style", "LFO Target"})
+  for (const char* name : {"Tuner", "Pre 1 Distortion Style", "LFO Shape"})
   {
     const auto info = find(name);
     assert(info.flags & CLAP_PARAM_IS_STEPPED);

@@ -1,14 +1,11 @@
 #pragma once
-// Modulation matrix through the real plugin: 0.1 fixed assignments and their exact
-// conversion, generic and routing destinations, retrigger and state-only selectors.
-
-#include "../NeuralAmpModeler/LegacyModulation.h"
+// Modulation matrix through the real plugin: host automation of depths, generic and
+// routing destinations, retrigger and state-only selectors.
 
 template<class Save, class Load, class LoadRaw>
 void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save, Load load, LoadRaw loadRaw)
 {
   using namespace grid_performance;
-  using namespace grid_modulation;
   const auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));
   std::array<double, 512> l{}, r{}, outL{}, outR{};
   double* inputs[]{l.data(), r.data()}, *outputs[]{outL.data(), outR.data()};
@@ -62,36 +59,19 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
   const auto rms = [](const std::vector<double>& a) {
     double sum = 0.; for (double x : a) sum += x * x; return std::sqrt(sum / a.size());
   };
-  // A 0.1-era state: no matrix controls, schema below the matrix.
-  const auto older = [](json config) {
-    config["schema"] = 2;
-    for (const auto& p : parameters) if (p.introducedIn >= 3) config.erase(p.name);
-    return config;
-  };
   const auto row = [](int index, int field) { return std::string(parameters[RowParam(index, field)].name); };
 
-  const auto values = [](const json& config) {
-    auto v = Defaults();
-    for (int i = 0; i < Count; ++i) v[i] = config[parameters[i].name].get<double>();
-    return v;
-  };
-  const auto setValues = [](json& config, const Values& v) {
-    for (int i = 0; i < Count; ++i) config[parameters[i].name] = v[i];
-  };
-  std::array<SlotEffect, gridSlot> effects{};
-  // Older projects keep their fixed assignments, which go on following host automation.
+  // A row's depth follows host automation like any other automatable parameter.
   {
     auto config = cleared;
     config["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
-    config["Macro One"] = 100.; config["Macro One Slot"] = 4.; config["Macro One Target"] = 3.; config["Macro One Depth"] = 20.;
-    config["Parallel Blend"] = 0.;
-    auto old = older(config);
-    load(old);
-    auto state = save().config();
-    assert(state["Macro One Target"] == 3. && state[row(0, RowSource)] == SourceNone);
+    config["Macro 1"] = 100.; config["A/B Blend"] = 0.;
+    config[row(0, RowSource)] = SourceMacro1; config[row(0, RowSlot)] = 4.;
+    config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityBalance; config[row(0, RowDepth)] = 20.;
+    load(config);
     clap_param_info info{};
     for (uint32_t i = 0; i < params->count(plugin); ++i)
-      if (params->get_info(plugin, i, &info) && std::strcmp(info.name, "Macro One Depth") == 0) break;
+      if (params->get_info(plugin, i, &info) && std::strcmp(info.name, row(0, RowDepth).c_str()) == 0) break;
     clap_event_param_value event{};
     event.header.size = sizeof(event); event.header.type = CLAP_EVENT_PARAM_VALUE; event.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
     event.param_id = info.id; event.value = .75; // +50% in the normalized CLAP range
@@ -101,50 +81,10 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     clap_output_events ignored{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
     params->flush(plugin, &automation, &ignored);
     const auto automated = render();
-    assert(save().config()["Macro One Depth"] == 50. && save().config()["Macro One Target"] == 3.);
-    config["Macro One Depth"] = 50.;
+    assert(save().config()[row(0, RowDepth)] == 50.);
+    config[row(0, RowDepth)] = 50.;
     load(config);
     assert(difference(automated, render()) == 0.);
-  }
-  // Converting on request: each fixed target sounds the same as its matrix row.
-  struct Case { SlotEffect effect; int target; double depth; double tolerance; };
-  for (const auto& test : {Case{SlotEffect::Utility, 3, 60., 1.e-12}, Case{SlotEffect::SynthFilter, 2, -45., 1.e-9},
-                           Case{SlotEffect::RingMod, 8, 70., 1.e-9},
-                           Case{SlotEffect::AirHall, 5, 50., 1.e-12}})
-  {
-    auto config = cleared;
-    config["SlotEffects"][4] = static_cast<int>(test.effect);
-    config["LFO Slot"] = 4.; config["LFO Target"] = test.target; config["LFO Depth"] = test.depth; config["LFO Rate"] = 3.;
-    config["Parallel Blend"] = 0.;
-    load(config);
-    const auto fixed = render();
-    effects[4] = test.effect;
-    auto v = values(config);
-    LegacyPlan plan;
-    assert(PlanLegacy({v}, effects, plan).empty() && plan.rows[0] == 0);
-    ApplyLegacy(v, plan, effects);
-    auto converted = config;
-    setValues(converted, v);
-    load(converted);
-    assert(save().config()["LFO Target"] == 0. && save().config()[row(0, RowSource)] == SourceLFO);
-    const auto matrix = render();
-    if (difference(fixed, matrix) > test.tolerance)
-      std::cerr << "Converted target " << test.target << " differs by " << difference(fixed, matrix) << '\n';
-    assert(difference(fixed, matrix) <= test.tolerance);
-    config["LFO Depth"] = 0.;
-    load(config);
-    assert(difference(render(), fixed) > 1.e-4); // The case modulates audibly.
-  }
-  // Two assignments clamping on one control would not convert exactly, so they stay fixed.
-  {
-    auto config = cleared;
-    config["SlotEffects"][4] = static_cast<int>(SlotEffect::Utility);
-    config["A 1 Utility Balance"] = 80.; config["Macro One"] = config["Macro Two"] = 100.;
-    config["Macro One Slot"] = config["Macro Two Slot"] = 4.; config["Macro One Target"] = config["Macro Two Target"] = 3.;
-    config["Macro One Depth"] = 80.; config["Macro Two Depth"] = -80.;
-    effects[4] = SlotEffect::Utility;
-    LegacyPlan plan;
-    assert(!PlanLegacy({values(config)}, effects, plan).empty());
   }
   // Any modulatable slot control, and the lane levels: Macro 1 turns Utility down.
   {
@@ -152,7 +92,7 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     config["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
     load(config);
     const auto dry = render();
-    config["Macro One"] = 100.;
+    config["Macro 1"] = 100.;
     config[row(2, RowSource)] = SourceMacro1; config[row(2, RowSlot)] = 0.;
     config[row(2, RowDestination)] = parameter_layout::standardControls + uUtilityLevel; config[row(2, RowDepth)] = -25.;
     load(config);
@@ -165,13 +105,13 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     load(config);
     assert(difference(render(), dry) < 1.e-9);
     // Routing destination: lane A's level, with the blend fully on A.
-    config = cleared; config["Parallel Blend"] = 0.; config["Macro One"] = 100.;
+    config = cleared; config["A/B Blend"] = 0.; config["Macro 1"] = 100.;
     config[row(0, RowSource)] = SourceMacro1; config[row(0, RowSlot)] = gridSlot;
     config[row(0, RowDestination)] = GridLaneA; config[row(0, RowDepth)] = -50.;
     load(config);
     assert(rms(render()) < rms(dry) * .1);
     // Via scales the row: Macro 2 at zero silences it.
-    config[row(0, RowVia)] = SourceMacro2; config["Macro Two"] = 0.;
+    config[row(0, RowVia)] = SourceMacro2; config["Macro 2"] = 0.;
     load(config);
     assert(difference(render(), dry) < 1.e-9);
   }
@@ -184,10 +124,10 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     const auto dry = render();
     config[row(0, RowSource)] = SourceEnvelope; config[row(0, RowSlot)] = 12.;
     config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel; config[row(0, RowDepth)] = -50.;
-    config["Follower Sensitivity"] = 12.;
+    config["Envelope Sensitivity"] = 12.;
     load(config);
     const auto input = render();
-    config["Follower Input"] = 1.; // After Pre 1
+    config["Envelope Listen At"] = 1.; // After Pre 1
     load(config);
     const auto tapped = render();
     assert(rms(input) < .3 * rms(dry) && rms(tapped) > .9 * rms(dry));
@@ -227,9 +167,9 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
       clap_param_info info{};
       assert(params->get_info(plugin, i, &info));
       const std::string name = info.name;
-      const bool selector = name == "Follower Input" || name == "LFO Retrigger" || name == "Sequencer Retrigger";
-      const bool control = name == "LFO Shape" || name == "Macro Three" || name == "Macro Four" || name == "Follower Threshold"
-                           || name == "Follower Curve" || name == "LFO One Shot";
+      const bool selector = name == "Envelope Listen At" || name == "LFO Retrigger" || name == "Sequencer Retrigger";
+      const bool control = name == "LFO Shape" || name == "Macro 3" || name == "Macro 4" || name == "Envelope Threshold"
+                           || name == "Envelope Curve" || name == "LFO One Shot";
       if (name.rfind("Mod ", 0) != 0 && !selector && !control) continue;
       const bool depth = name.size() > 6 && name.substr(name.size() - 6) == " Depth";
       const bool automatable = info.flags & CLAP_PARAM_IS_AUTOMATABLE;
@@ -237,5 +177,5 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     }
   }
   load(cleared);
-  std::cout << "Modulation matrix CLAP: kept and exactly converted 0.1 assignments, generic and routing destinations, Via, follower tap, MIDI retrigger and state-only selectors passed\n";
+  std::cout << "Modulation matrix CLAP: depth automation, generic and routing destinations, Via, follower tap, MIDI retrigger and state-only selectors passed\n";
 }

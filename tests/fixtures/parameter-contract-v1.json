@@ -44,7 +44,7 @@
       "i-ii": 1,
       "ii": 2
     },
-    "Parametric Notch": {
+    "Parametric Notch Mode": {
       "bell": 0,
       "notch": 1
     },
@@ -58,7 +58,7 @@
       "stereo-dual": 6,
       "syncopated": 2
     },
-    "Vibe Vibrato": {
+    "Vibe Vibrato Mode": {
       "chorus": 0,
       "vibrato": 1
     }
@@ -98,7 +98,7 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Parallel Blend",
+      "name": "A/B Blend",
       "stepped": false
     },
     {
@@ -156,9 +156,27 @@
       "stepped": true
     },
     {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 5,
+      "mapping": [
+        "-40.0 dB",
+        "-30.0 dB",
+        "-20.0 dB",
+        "0.0 dB",
+        "20.0 dB",
+        "30.0 dB",
+        "40.0 dB"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Input",
+      "stepped": false
+    },
+    {
       "default": 0.0,
       "flags": 32801,
-      "id": 5,
+      "id": 6,
       "mapping": [
         "off",
         "off",
@@ -170,13 +188,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Split Crossover",
+      "name": "Frequency Split",
       "stepped": true
     },
     {
       "default": 0.3795489612844045,
       "flags": 32800,
-      "id": 6,
+      "id": 7,
       "mapping": [
         "40 Hz",
         "73 Hz",
@@ -194,7 +212,7 @@
     {
       "default": 0.8333333333333334,
       "flags": 32800,
-      "id": 7,
+      "id": 8,
       "mapping": [
         "-60.0 dB",
         "-51.0 dB",
@@ -212,7 +230,7 @@
     {
       "default": 0.8333333333333334,
       "flags": 32800,
-      "id": 8,
+      "id": 9,
       "mapping": [
         "-60.0 dB",
         "-51.0 dB",
@@ -230,7 +248,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 9,
+      "id": 10,
       "mapping": [
         "off",
         "off",
@@ -248,7 +266,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 10,
+      "id": 11,
       "mapping": [
         "off",
         "off",
@@ -266,7 +284,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 11,
+      "id": 12,
       "mapping": [
         "off",
         "off",
@@ -284,7 +302,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 12,
+      "id": 13,
       "mapping": [
         "off",
         "off",
@@ -302,7 +320,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 13,
+      "id": 14,
       "mapping": [
         "-20.00 ms",
         "-15.00 ms",
@@ -314,43 +332,25 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Lane Fine Timing",
+      "name": "Lane Timing",
       "stepped": false
-    },
-    {
-      "default": 0.0,
-      "flags": 98337,
-      "id": 14,
-      "mapping": [
-        "Pre 1",
-        "Pre 3",
-        "A 1",
-        "B 1",
-        "B 4",
-        "Post 2",
-        "Post 4"
-      ],
-      "maximum": 15.0,
-      "minimum": 0.0,
-      "name": "LFO Slot",
-      "stepped": true
     },
     {
       "default": 0.0,
       "flags": 98337,
       "id": 15,
       "mapping": [
-        "None",
-        "Wah position",
-        "Filter cutoff",
-        "Delay mix",
-        "NAM trim",
-        "Parallel blend",
-        "Ring frequency"
+        "Sine",
+        "Triangle",
+        "Triangle",
+        "Saw down",
+        "Square",
+        "Square",
+        "Random"
       ],
-      "maximum": 8.0,
+      "maximum": 5.0,
       "minimum": 0.0,
-      "name": "LFO Target",
+      "name": "LFO Shape",
       "stepped": true
     },
     {
@@ -372,27 +372,9 @@
       "stepped": false
     },
     {
-      "default": 0.5,
-      "flags": 32800,
-      "id": 17,
-      "mapping": [
-        "-100.0 %",
-        "-75.0 %",
-        "-50.0 %",
-        "0.0 %",
-        "50.0 %",
-        "75.0 %",
-        "100.0 %"
-      ],
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "name": "LFO Depth",
-      "stepped": false
-    },
-    {
       "default": 0.0,
       "flags": 32801,
-      "id": 18,
+      "id": 17,
       "mapping": [
         "off",
         "off",
@@ -410,7 +392,7 @@
     {
       "default": 5.0,
       "flags": 98337,
-      "id": 19,
+      "id": 18,
       "mapping": [
         "1/32",
         "1/16",
@@ -427,44 +409,80 @@
     },
     {
       "default": 0.0,
-      "flags": 98337,
-      "id": 20,
+      "flags": 98305,
+      "id": 19,
       "mapping": [
-        "Pre 1",
-        "Pre 3",
-        "A 1",
-        "B 1",
-        "B 4",
-        "Post 2",
-        "Post 4"
+        "Free running",
+        "Free running",
+        "Audio onset",
+        "Audio onset",
+        "MIDI note",
+        "MIDI note",
+        "MIDI note"
       ],
-      "maximum": 15.0,
+      "maximum": 2.0,
       "minimum": 0.0,
-      "name": "Follower Slot",
+      "name": "LFO Retrigger",
       "stepped": true
     },
     {
       "default": 0.0,
-      "flags": 98337,
+      "flags": 32801,
+      "id": 20,
+      "mapping": [
+        "off",
+        "off",
+        "off",
+        "on",
+        "on",
+        "on",
+        "on"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "LFO One Shot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
       "id": 21,
       "mapping": [
-        "None",
-        "Wah position",
-        "Filter cutoff",
-        "Delay mix",
-        "NAM trim",
-        "Parallel blend",
-        "Ring frequency"
+        "Grid input",
+        "After Pre 2",
+        "After Pre 4",
+        "After A 4",
+        "After B 4",
+        "After Post 2",
+        "After Post 4"
       ],
-      "maximum": 8.0,
+      "maximum": 16.0,
       "minimum": 0.0,
-      "name": "Follower Target",
+      "name": "Envelope Listen At",
       "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32800,
+      "id": 22,
+      "mapping": [
+        "Off",
+        "-78.8",
+        "-67.5",
+        "-45.0",
+        "-22.5",
+        "-11.2",
+        "0.0"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Envelope Threshold",
+      "stepped": false
     },
     {
       "default": 0.3333333333333333,
       "flags": 32800,
-      "id": 22,
+      "id": 23,
       "mapping": [
         "0.0 dB",
         "4.5 dB",
@@ -476,13 +494,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Follower Sensitivity",
+      "name": "Envelope Sensitivity",
       "stepped": false
     },
     {
       "default": 0.5654120103239065,
       "flags": 32800,
-      "id": 23,
+      "id": 24,
       "mapping": [
         "0.5 ms",
         "1.0 ms",
@@ -494,13 +512,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Follower Attack",
+      "name": "Envelope Attack",
       "stepped": false
     },
     {
       "default": 0.5880456295278405,
       "flags": 32800,
-      "id": 24,
+      "id": 25,
       "mapping": [
         "10 ms",
         "18 ms",
@@ -512,13 +530,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Follower Release",
+      "name": "Envelope Release",
       "stepped": false
     },
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 25,
+      "id": 26,
       "mapping": [
         "-100.0 %",
         "-75.0 %",
@@ -530,49 +548,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Follower Depth",
+      "name": "Envelope Curve",
       "stepped": false
-    },
-    {
-      "default": 0.0,
-      "flags": 98337,
-      "id": 26,
-      "mapping": [
-        "Pre 1",
-        "Pre 3",
-        "A 1",
-        "B 1",
-        "B 4",
-        "Post 2",
-        "Post 4"
-      ],
-      "maximum": 15.0,
-      "minimum": 0.0,
-      "name": "Sequencer Slot",
-      "stepped": true
-    },
-    {
-      "default": 0.0,
-      "flags": 98337,
-      "id": 27,
-      "mapping": [
-        "None",
-        "Wah position",
-        "Filter cutoff",
-        "Delay mix",
-        "NAM trim",
-        "Parallel blend",
-        "Ring frequency"
-      ],
-      "maximum": 8.0,
-      "minimum": 0.0,
-      "name": "Sequencer Target",
-      "stepped": true
     },
     {
       "default": 0.6962360309717192,
       "flags": 32800,
-      "id": 28,
+      "id": 27,
       "mapping": [
         "0.10 Hz",
         "0.19 Hz",
@@ -588,27 +570,9 @@
       "stepped": false
     },
     {
-      "default": 0.5,
-      "flags": 32800,
-      "id": 29,
-      "mapping": [
-        "-100.0 %",
-        "-75.0 %",
-        "-50.0 %",
-        "0.0 %",
-        "50.0 %",
-        "75.0 %",
-        "100.0 %"
-      ],
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "name": "Sequencer Depth",
-      "stepped": false
-    },
-    {
       "default": 1.0,
       "flags": 32801,
-      "id": 30,
+      "id": 28,
       "mapping": [
         "off",
         "off",
@@ -626,7 +590,7 @@
     {
       "default": 1.0,
       "flags": 98337,
-      "id": 31,
+      "id": 29,
       "mapping": [
         "1/32",
         "1/16",
@@ -643,6 +607,42 @@
     },
     {
       "default": 0.0,
+      "flags": 98305,
+      "id": 30,
+      "mapping": [
+        "Free running",
+        "Free running",
+        "Audio onset",
+        "Audio onset",
+        "MIDI note",
+        "MIDI note",
+        "MIDI note"
+      ],
+      "maximum": 2.0,
+      "minimum": 0.0,
+      "name": "Sequencer Retrigger",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32800,
+      "id": 31,
+      "mapping": [
+        "0 %",
+        "13 %",
+        "25 %",
+        "50 %",
+        "75 %",
+        "88 %",
+        "100 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Sequencer Step 1",
+      "stepped": false
+    },
+    {
+      "default": 1.0,
       "flags": 32800,
       "id": 32,
       "mapping": [
@@ -656,11 +656,11 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 1",
+      "name": "Sequencer Step 2",
       "stepped": false
     },
     {
-      "default": 1.0,
+      "default": 0.25,
       "flags": 32800,
       "id": 33,
       "mapping": [
@@ -674,11 +674,11 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 2",
+      "name": "Sequencer Step 3",
       "stepped": false
     },
     {
-      "default": 0.25,
+      "default": 0.75,
       "flags": 32800,
       "id": 34,
       "mapping": [
@@ -692,11 +692,11 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 3",
+      "name": "Sequencer Step 4",
       "stepped": false
     },
     {
-      "default": 0.75,
+      "default": 0.0,
       "flags": 32800,
       "id": 35,
       "mapping": [
@@ -710,11 +710,11 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 4",
+      "name": "Sequencer Step 5",
       "stepped": false
     },
     {
-      "default": 0.0,
+      "default": 1.0,
       "flags": 32800,
       "id": 36,
       "mapping": [
@@ -728,11 +728,11 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 5",
+      "name": "Sequencer Step 6",
       "stepped": false
     },
     {
-      "default": 1.0,
+      "default": 0.5,
       "flags": 32800,
       "id": 37,
       "mapping": [
@@ -746,11 +746,11 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 6",
+      "name": "Sequencer Step 7",
       "stepped": false
     },
     {
-      "default": 0.5,
+      "default": 0.75,
       "flags": 32800,
       "id": 38,
       "mapping": [
@@ -764,25 +764,25 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 7",
+      "name": "Sequencer Step 8",
       "stepped": false
     },
     {
-      "default": 0.75,
+      "default": 0.0,
       "flags": 32800,
       "id": 39,
       "mapping": [
-        "0 %",
-        "13 %",
-        "25 %",
-        "50 %",
-        "75 %",
-        "88 %",
-        "100 %"
+        "0.0 %",
+        "12.5 %",
+        "25.0 %",
+        "50.0 %",
+        "75.0 %",
+        "87.5 %",
+        "100.0 %"
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Sequence Step 8",
+      "name": "Macro 1",
       "stepped": false
     },
     {
@@ -800,67 +800,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Macro One",
+      "name": "Macro 2",
       "stepped": false
     },
     {
       "default": 0.0,
-      "flags": 98337,
+      "flags": 32800,
       "id": 41,
-      "mapping": [
-        "Pre 1",
-        "Pre 3",
-        "A 1",
-        "B 1",
-        "B 4",
-        "Post 2",
-        "Post 4"
-      ],
-      "maximum": 15.0,
-      "minimum": 0.0,
-      "name": "Macro One Slot",
-      "stepped": true
-    },
-    {
-      "default": 0.0,
-      "flags": 98337,
-      "id": 42,
-      "mapping": [
-        "None",
-        "Wah position",
-        "Filter cutoff",
-        "Delay mix",
-        "NAM trim",
-        "Parallel blend",
-        "Ring frequency"
-      ],
-      "maximum": 8.0,
-      "minimum": 0.0,
-      "name": "Macro One Target",
-      "stepped": true
-    },
-    {
-      "default": 0.5,
-      "flags": 32800,
-      "id": 43,
-      "mapping": [
-        "-100.0 %",
-        "-75.0 %",
-        "-50.0 %",
-        "0.0 %",
-        "50.0 %",
-        "75.0 %",
-        "100.0 %"
-      ],
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "name": "Macro One Depth",
-      "stepped": false
-    },
-    {
-      "default": 0.0,
-      "flags": 32800,
-      "id": 44,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -872,49 +818,85 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Macro Two",
+      "name": "Macro 3",
       "stepped": false
     },
     {
       "default": 0.0,
-      "flags": 98337,
-      "id": 45,
+      "flags": 32800,
+      "id": 42,
+      "mapping": [
+        "0.0 %",
+        "12.5 %",
+        "25.0 %",
+        "50.0 %",
+        "75.0 %",
+        "87.5 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Macro 4",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 43,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 1 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 44,
       "mapping": [
         "Pre 1",
         "Pre 3",
         "A 1",
         "B 1",
-        "B 4",
-        "Post 2",
-        "Post 4"
+        "Post 1",
+        "Post 3",
+        "Grid"
       ],
-      "maximum": 15.0,
+      "maximum": 16.0,
       "minimum": 0.0,
-      "name": "Macro Two Slot",
+      "name": "Mod 1 Slot",
       "stepped": true
     },
     {
       "default": 0.0,
-      "flags": 98337,
-      "id": 46,
+      "flags": 32769,
+      "id": 45,
       "mapping": [
-        "None",
-        "Wah position",
-        "Filter cutoff",
-        "Delay mix",
-        "NAM trim",
-        "Parallel blend",
-        "Ring frequency"
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
       ],
-      "maximum": 8.0,
+      "maximum": 1023.0,
       "minimum": 0.0,
-      "name": "Macro Two Target",
+      "name": "Mod 1 Destination",
       "stepped": true
     },
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 47,
+      "id": 46,
       "mapping": [
         "-100.0 %",
         "-75.0 %",
@@ -926,26 +908,656 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Macro Two Depth",
+      "name": "Mod 1 Depth",
       "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 47,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 1 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 48,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 2 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 49,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 2 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 50,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 2 Destination",
+      "stepped": true
     },
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 48,
+      "id": 51,
       "mapping": [
-        "-40.0 dB",
-        "-30.0 dB",
-        "-20.0 dB",
-        "0.0 dB",
-        "20.0 dB",
-        "30.0 dB",
-        "40.0 dB"
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Global Input",
+      "name": "Mod 2 Depth",
       "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 52,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 2 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 53,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 3 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 54,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 3 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 55,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 3 Destination",
+      "stepped": true
+    },
+    {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 56,
+      "mapping": [
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Mod 3 Depth",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 57,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 3 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 58,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 4 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 59,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 4 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 60,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 4 Destination",
+      "stepped": true
+    },
+    {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 61,
+      "mapping": [
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Mod 4 Depth",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 62,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 4 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 63,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 5 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 64,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 5 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 65,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 5 Destination",
+      "stepped": true
+    },
+    {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 66,
+      "mapping": [
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Mod 5 Depth",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 67,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 5 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 68,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 6 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 69,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 6 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 70,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 6 Destination",
+      "stepped": true
+    },
+    {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 71,
+      "mapping": [
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Mod 6 Depth",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 72,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 6 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 73,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 7 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 74,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 7 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 75,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 7 Destination",
+      "stepped": true
+    },
+    {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 76,
+      "mapping": [
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Mod 7 Depth",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 77,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 7 Via",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 78,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 8 Source",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 79,
+      "mapping": [
+        "Pre 1",
+        "Pre 3",
+        "A 1",
+        "B 1",
+        "Post 1",
+        "Post 3",
+        "Grid"
+      ],
+      "maximum": 16.0,
+      "minimum": 0.0,
+      "name": "Mod 8 Slot",
+      "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32769,
+      "id": 80,
+      "mapping": [
+        "0",
+        "128",
+        "256",
+        "512",
+        "767",
+        "895",
+        "1023"
+      ],
+      "maximum": 1023.0,
+      "minimum": 0.0,
+      "name": "Mod 8 Destination",
+      "stepped": true
+    },
+    {
+      "default": 0.5,
+      "flags": 32800,
+      "id": 81,
+      "mapping": [
+        "-100.0 %",
+        "-75.0 %",
+        "-50.0 %",
+        "0.0 %",
+        "50.0 %",
+        "75.0 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Mod 8 Depth",
+      "stepped": false
+    },
+    {
+      "default": 0.0,
+      "flags": 98305,
+      "id": 82,
+      "mapping": [
+        "None",
+        "LFO",
+        "Envelope",
+        "Macro 1",
+        "Macro 2",
+        "Macro 3",
+        "Macro 4"
+      ],
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "name": "Mod 8 Via",
+      "stepped": true
     }
   ],
   "modules": {
@@ -1015,7 +1627,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 49,
+      "id": 83,
       "mapping": [
         "-40.0 dB",
         "-30.0 dB",
@@ -1027,13 +1639,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 In",
+      "name": "Pre 1 NAM Input",
       "stepped": false
     },
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 65,
+      "id": 99,
       "mapping": [
         "-40.0 dB",
         "-30.0 dB",
@@ -1045,13 +1657,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Trim",
+      "name": "Pre 1 NAM Output",
       "stepped": false
     },
     {
       "default": 1.0,
       "flags": 32801,
-      "id": 81,
+      "id": 115,
       "mapping": [
         "off",
         "off",
@@ -1069,7 +1681,7 @@
     {
       "default": 0.4375,
       "flags": 32800,
-      "id": 97,
+      "id": 131,
       "mapping": [
         "-90.0 dB",
         "-80.0 dB",
@@ -1087,7 +1699,7 @@
     {
       "default": 0.20833333333333334,
       "flags": 32800,
-      "id": 113,
+      "id": 147,
       "mapping": [
         "20 ms",
         "80 ms",
@@ -1105,7 +1717,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 129,
+      "id": 163,
       "mapping": [
         "0.0 dB",
         "10.0 dB",
@@ -1123,7 +1735,7 @@
     {
       "default": 0.625,
       "flags": 32800,
-      "id": 145,
+      "id": 179,
       "mapping": [
         "-48.0 dB",
         "-42.0 dB",
@@ -1141,7 +1753,7 @@
     {
       "default": 0.14285714285714285,
       "flags": 32800,
-      "id": 161,
+      "id": 195,
       "mapping": [
         "40 ms",
         "110 ms",
@@ -1159,7 +1771,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 177,
+      "id": 211,
       "mapping": [
         "0.0 dB",
         "2.2 dB",
@@ -1177,7 +1789,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 193,
+      "id": 227,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -1195,7 +1807,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 209,
+      "id": 243,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -1213,7 +1825,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 225,
+      "id": 259,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -1231,7 +1843,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 241,
+      "id": 275,
       "mapping": [
         "0 Hz",
         "38 Hz",
@@ -1243,13 +1855,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 EQ High Pass",
+      "name": "Pre 1 EQ Low Cut",
       "stepped": false
     },
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 257,
+      "id": 291,
       "mapping": [
         "2000 Hz",
         "4250 Hz",
@@ -1261,13 +1873,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 EQ Low Pass",
+      "name": "Pre 1 EQ High Cut",
       "stepped": false
     },
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 273,
+      "id": 307,
       "mapping": [
         "-6.0 dB",
         "-4.5 dB",
@@ -1285,7 +1897,7 @@
     {
       "default": 0.3333333333333333,
       "flags": 32800,
-      "id": 289,
+      "id": 323,
       "mapping": [
         "-36.0 dB",
         "-29.2 dB",
@@ -1297,13 +1909,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 IR Level",
+      "name": "Pre 1 IR Output",
       "stepped": false
     },
     {
       "default": 1.0,
       "flags": 32801,
-      "id": 305,
+      "id": 339,
       "mapping": [
         "off",
         "off",
@@ -1321,7 +1933,7 @@
     {
       "default": 0.5340199971093208,
       "flags": 32800,
-      "id": 321,
+      "id": 355,
       "mapping": [
         "20 Hz",
         "47 Hz",
@@ -1339,7 +1951,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 337,
+      "id": 371,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -1357,7 +1969,7 @@
     {
       "default": 0.030150753768844223,
       "flags": 32800,
-      "id": 353,
+      "id": 387,
       "mapping": [
         "0.10",
         "2.59",
@@ -1375,7 +1987,7 @@
     {
       "default": 0.3333333333333333,
       "flags": 32800,
-      "id": 369,
+      "id": 403,
       "mapping": [
         "0.0 dB",
         "2.2 dB",
@@ -1393,7 +2005,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 385,
+      "id": 419,
       "mapping": [
         "-6.0 dB",
         "-4.5 dB",
@@ -1411,7 +2023,7 @@
     {
       "default": 0.724986721551229,
       "flags": 32800,
-      "id": 401,
+      "id": 435,
       "mapping": [
         "40 Hz",
         "82 Hz",
@@ -1429,7 +2041,7 @@
     {
       "default": 0.05714285714285713,
       "flags": 32800,
-      "id": 417,
+      "id": 451,
       "mapping": [
         "0.50",
         "0.94",
@@ -1447,7 +2059,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 433,
+      "id": 467,
       "mapping": [
         "0.00 oct",
         "0.50 oct",
@@ -1465,7 +2077,7 @@
     {
       "default": 0.6075279380565616,
       "flags": 32800,
-      "id": 449,
+      "id": 483,
       "mapping": [
         "10 ms",
         "19 ms",
@@ -1483,7 +2095,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 465,
+      "id": 499,
       "mapping": [
         "-72.0 dB",
         "-64.5 dB",
@@ -1501,7 +2113,7 @@
     {
       "default": 0.48571917069012305,
       "flags": 32800,
-      "id": 481,
+      "id": 515,
       "mapping": [
         "20 ms",
         "32 ms",
@@ -1519,7 +2131,7 @@
     {
       "default": 0.2938672275608372,
       "flags": 32800,
-      "id": 497,
+      "id": 531,
       "mapping": [
         "5 ms",
         "67 ms",
@@ -1537,7 +2149,7 @@
     {
       "default": 0.4268292682926829,
       "flags": 32800,
-      "id": 513,
+      "id": 547,
       "mapping": [
         "0.0 %",
         "10.2 %",
@@ -1555,7 +2167,7 @@
     {
       "default": 0.6767162082159436,
       "flags": 32800,
-      "id": 529,
+      "id": 563,
       "mapping": [
         "800 Hz",
         "1122 Hz",
@@ -1573,7 +2185,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 545,
+      "id": 579,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1591,7 +2203,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 561,
+      "id": 595,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1609,7 +2221,7 @@
     {
       "default": 0.4888848640513657,
       "flags": 32800,
-      "id": 577,
+      "id": 611,
       "mapping": [
         "0.15 s",
         "0.29 s",
@@ -1627,7 +2239,7 @@
     {
       "default": 0.42857142857142855,
       "flags": 32800,
-      "id": 593,
+      "id": 627,
       "mapping": [
         "25.0 %",
         "46.9 %",
@@ -1645,7 +2257,7 @@
     {
       "default": 0.7119113385593662,
       "flags": 32800,
-      "id": 609,
+      "id": 643,
       "mapping": [
         "800 Hz",
         "1122 Hz",
@@ -1657,13 +2269,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Reverb Tone",
+      "name": "Pre 1 Reverb Damping",
       "stepped": false
     },
     {
       "default": 0.075,
       "flags": 32800,
-      "id": 625,
+      "id": 659,
       "mapping": [
         "0.0 ms",
         "25.0 ms",
@@ -1675,13 +2287,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Reverb Predelay",
+      "name": "Pre 1 Reverb Pre-delay",
       "stepped": false
     },
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 641,
+      "id": 675,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1699,7 +2311,7 @@
     {
       "default": 0.523296082591251,
       "flags": 32800,
-      "id": 657,
+      "id": 691,
       "mapping": [
         "0.05 Hz",
         "0.10 Hz",
@@ -1717,7 +2329,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 673,
+      "id": 707,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1735,7 +2347,7 @@
     {
       "default": 0.26666666666666666,
       "flags": 32800,
-      "id": 689,
+      "id": 723,
       "mapping": [
         "0.0 %",
         "9.4 %",
@@ -1753,7 +2365,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 705,
+      "id": 739,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1771,7 +2383,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 721,
+      "id": 755,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1789,7 +2401,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 737,
+      "id": 771,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -1807,7 +2419,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 753,
+      "id": 787,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1825,7 +2437,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 769,
+      "id": 803,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1843,7 +2455,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 785,
+      "id": 819,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -1861,7 +2473,7 @@
     {
       "default": 0.6020599913279623,
       "flags": 32800,
-      "id": 801,
+      "id": 835,
       "mapping": [
         "0.5 ms",
         "0.9 ms",
@@ -1879,7 +2491,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 817,
+      "id": 851,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1897,7 +2509,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 833,
+      "id": 867,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1915,7 +2527,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 849,
+      "id": 883,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -1933,7 +2545,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 865,
+      "id": 899,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -1951,7 +2563,7 @@
     {
       "default": 0.16,
       "flags": 32800,
-      "id": 881,
+      "id": 915,
       "mapping": [
         "0 Hz",
         "63 Hz",
@@ -1963,13 +2575,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Reverb High Pass",
+      "name": "Pre 1 Reverb Low Cut",
       "stepped": false
     },
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 897,
+      "id": 931,
       "mapping": [
         "0.0 dB",
         "3.0 dB",
@@ -1987,7 +2599,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 913,
+      "id": 947,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2005,7 +2617,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 929,
+      "id": 963,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2023,7 +2635,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 945,
+      "id": 979,
       "mapping": [
         "-18.0 dB",
         "-13.5 dB",
@@ -2041,7 +2653,7 @@
     {
       "default": 0.8494850021680093,
       "flags": 32800,
-      "id": 961,
+      "id": 995,
       "mapping": [
         "0.5 ms",
         "0.9 ms",
@@ -2059,7 +2671,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 977,
+      "id": 1011,
       "mapping": [
         "off",
         "off",
@@ -2077,7 +2689,7 @@
     {
       "default": 5.0,
       "flags": 98337,
-      "id": 993,
+      "id": 1027,
       "mapping": [
         "1/32",
         "1/16",
@@ -2095,7 +2707,7 @@
     {
       "default": 0.8333333333333334,
       "flags": 32800,
-      "id": 1009,
+      "id": 1043,
       "mapping": [
         "-60.0 dB",
         "-51.0 dB",
@@ -2113,7 +2725,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1025,
+      "id": 1059,
       "mapping": [
         "-100.0 %",
         "-75.0 %",
@@ -2131,7 +2743,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1041,
+      "id": 1075,
       "mapping": [
         "-100.0 %",
         "-75.0 %",
@@ -2149,7 +2761,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 1057,
+      "id": 1091,
       "mapping": [
         "off",
         "off",
@@ -2167,7 +2779,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 1073,
+      "id": 1107,
       "mapping": [
         "off",
         "off",
@@ -2185,7 +2797,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 1089,
+      "id": 1123,
       "mapping": [
         "off",
         "off",
@@ -2197,13 +2809,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Delay Ping Pong",
+      "name": "Pre 1 Delay Ping-Pong",
       "stepped": true
     },
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 1105,
+      "id": 1139,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2221,7 +2833,7 @@
     {
       "default": 1.0,
       "flags": 32801,
-      "id": 1121,
+      "id": 1155,
       "mapping": [
         "off",
         "off",
@@ -2233,13 +2845,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Reverb Stereo",
+      "name": "Pre 1 Reverb Stereo Wet",
       "stepped": true
     },
     {
       "default": 0.6917276693038205,
       "flags": 32800,
-      "id": 1137,
+      "id": 1171,
       "mapping": [
         "0.30 s",
         "0.41 s",
@@ -2257,7 +2869,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 1153,
+      "id": 1187,
       "mapping": [
         "0.0 dB",
         "1.5 dB",
@@ -2275,7 +2887,7 @@
     {
       "default": 0.6,
       "flags": 32800,
-      "id": 1169,
+      "id": 1203,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2293,7 +2905,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 1185,
+      "id": 1219,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2311,7 +2923,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1201,
+      "id": 1235,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -2329,7 +2941,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1217,
+      "id": 1251,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2347,7 +2959,7 @@
     {
       "default": 0.4,
       "flags": 32800,
-      "id": 1233,
+      "id": 1267,
       "mapping": [
         "1.00 Q",
         "1.62 Q",
@@ -2365,7 +2977,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1249,
+      "id": 1283,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2383,7 +2995,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 1265,
+      "id": 1299,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2401,7 +3013,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1281,
+      "id": 1315,
       "mapping": [
         "-12.0 dB",
         "-9.0 dB",
@@ -2419,7 +3031,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 1297,
+      "id": 1331,
       "mapping": [
         "0.00 ms",
         "2.50 ms",
@@ -2431,13 +3043,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Utility Delay",
+      "name": "Pre 1 Utility Fine Delay",
       "stepped": false
     },
     {
       "default": 0.368421052631579,
       "flags": 32800,
-      "id": 1313,
+      "id": 1347,
       "mapping": [
         "0.10 Hz",
         "0.34 Hz",
@@ -2449,13 +3061,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Rotary Slow",
+      "name": "Pre 1 Rotary Slow Rate",
       "stepped": false
     },
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1329,
+      "id": 1363,
       "mapping": [
         "2.00 Hz",
         "3.00 Hz",
@@ -2467,13 +3079,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Rotary Fast",
+      "name": "Pre 1 Rotary Fast Rate",
       "stepped": false
     },
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 1345,
+      "id": 1379,
       "mapping": [
         "off",
         "off",
@@ -2485,13 +3097,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Rotary Speed",
+      "name": "Pre 1 Rotary Fast",
       "stepped": true
     },
     {
       "default": 0.18367346938775508,
       "flags": 32800,
-      "id": 1361,
+      "id": 1395,
       "mapping": [
         "0.10 s",
         "0.71 s",
@@ -2509,7 +3121,7 @@
     {
       "default": 0.16666666666666666,
       "flags": 32800,
-      "id": 1377,
+      "id": 1411,
       "mapping": [
         "0.0 dB",
         "2.2 dB",
@@ -2527,7 +3139,7 @@
     {
       "default": 0.8,
       "flags": 32800,
-      "id": 1393,
+      "id": 1427,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2545,7 +3157,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 1409,
+      "id": 1443,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2563,7 +3175,7 @@
     {
       "default": 0.0,
       "flags": 32769,
-      "id": 1425,
+      "id": 1459,
       "mapping": [
         "off",
         "off",
@@ -2575,13 +3187,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Vibe Vibrato",
+      "name": "Pre 1 Vibe Vibrato Mode",
       "stepped": true
     },
     {
       "default": 0.9583333333333334,
       "flags": 32800,
-      "id": 1441,
+      "id": 1475,
       "mapping": [
         "-24.0 dB",
         "-21.0 dB",
@@ -2599,7 +3211,7 @@
     {
       "default": 0.5150539804460444,
       "flags": 32800,
-      "id": 1457,
+      "id": 1491,
       "mapping": [
         "10 ms",
         "16 ms",
@@ -2617,7 +3229,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 1473,
+      "id": 1507,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2635,7 +3247,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1489,
+      "id": 1523,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2653,7 +3265,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 1505,
+      "id": 1539,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2671,7 +3283,7 @@
     {
       "default": 0.6107924819110551,
       "flags": 32800,
-      "id": 1521,
+      "id": 1555,
       "mapping": [
         "80 Hz",
         "134 Hz",
@@ -2689,7 +3301,7 @@
     {
       "default": 0.8,
       "flags": 32800,
-      "id": 1537,
+      "id": 1571,
       "mapping": [
         "-24.0 dB",
         "-20.2 dB",
@@ -2707,7 +3319,7 @@
     {
       "default": 0.3333333333333333,
       "flags": 32800,
-      "id": 1553,
+      "id": 1587,
       "mapping": [
         "1.0 cents",
         "4.0 cents",
@@ -2725,7 +3337,7 @@
     {
       "default": 0.3793103448275862,
       "flags": 32800,
-      "id": 1569,
+      "id": 1603,
       "mapping": [
         "1.0 ms",
         "4.6 ms",
@@ -2743,7 +3355,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 1585,
+      "id": 1619,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2761,7 +3373,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 1601,
+      "id": 1635,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2779,7 +3391,7 @@
     {
       "default": 0.8,
       "flags": 32800,
-      "id": 1617,
+      "id": 1651,
       "mapping": [
         "-24.0 dB",
         "-20.2 dB",
@@ -2797,7 +3409,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 1633,
+      "id": 1667,
       "mapping": [
         "off",
         "off",
@@ -2815,7 +3427,7 @@
     {
       "default": 0.6241963505817848,
       "flags": 32800,
-      "id": 1649,
+      "id": 1683,
       "mapping": [
         "50 ms",
         "79 ms",
@@ -2827,13 +3439,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Freeze Window",
+      "name": "Pre 1 Freeze Capture",
       "stepped": false
     },
     {
       "default": 0.1919191919191919,
       "flags": 32800,
-      "id": 1665,
+      "id": 1699,
       "mapping": [
         "1.0 ms",
         "13.4 ms",
@@ -2851,7 +3463,7 @@
     {
       "default": 0.7761699471996201,
       "flags": 32800,
-      "id": 1681,
+      "id": 1715,
       "mapping": [
         "200 Hz",
         "346 Hz",
@@ -2869,7 +3481,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 1697,
+      "id": 1731,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2881,13 +3493,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Freeze Level",
+      "name": "Pre 1 Freeze Held Level",
       "stepped": false
     },
     {
       "default": 0.5484550065040282,
       "flags": 32800,
-      "id": 1713,
+      "id": 1747,
       "mapping": [
         "10 ms",
         "18 ms",
@@ -2899,13 +3511,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Stutter Time",
+      "name": "Pre 1 Stutter Window",
       "stepped": false
     },
     {
       "default": 0.7368421052631579,
       "flags": 32800,
-      "id": 1729,
+      "id": 1763,
       "mapping": [
         "5.0 %",
         "16.9 %",
@@ -2923,7 +3535,7 @@
     {
       "default": 0.2462311557788945,
       "flags": 32800,
-      "id": 1745,
+      "id": 1779,
       "mapping": [
         "0.1 ms",
         "2.6 ms",
@@ -2941,7 +3553,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1761,
+      "id": 1795,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -2959,7 +3571,7 @@
     {
       "default": 0.42857142857142855,
       "flags": 32800,
-      "id": 1777,
+      "id": 1811,
       "mapping": [
         "2 bits",
         "4 bits",
@@ -2977,7 +3589,7 @@
     {
       "default": 0.7754547472508433,
       "flags": 32800,
-      "id": 1793,
+      "id": 1827,
       "mapping": [
         "100 Hz",
         "216 Hz",
@@ -2989,13 +3601,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Crusher Rate",
+      "name": "Pre 1 Crusher Sample Rate",
       "stepped": false
     },
     {
       "default": 0.8010299956639813,
       "flags": 32800,
-      "id": 1809,
+      "id": 1843,
       "mapping": [
         "200 Hz",
         "356 Hz",
@@ -3013,7 +3625,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 1825,
+      "id": 1859,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3031,7 +3643,7 @@
     {
       "default": 0.8,
       "flags": 32800,
-      "id": 1841,
+      "id": 1875,
       "mapping": [
         "-24.0 dB",
         "-20.2 dB",
@@ -3049,7 +3661,7 @@
     {
       "default": 0.7146456103692299,
       "flags": 32800,
-      "id": 1857,
+      "id": 1891,
       "mapping": [
         "1.0 Hz",
         "2.9 Hz",
@@ -3067,7 +3679,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 1873,
+      "id": 1907,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3085,7 +3697,7 @@
     {
       "default": 0.8890756251918217,
       "flags": 32800,
-      "id": 1889,
+      "id": 1923,
       "mapping": [
         "200 Hz",
         "356 Hz",
@@ -3103,7 +3715,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1905,
+      "id": 1939,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3121,7 +3733,7 @@
     {
       "default": 0.7142857142857143,
       "flags": 32800,
-      "id": 1921,
+      "id": 1955,
       "mapping": [
         "0.25 x",
         "0.47 x",
@@ -3139,7 +3751,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1937,
+      "id": 1971,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3157,7 +3769,7 @@
     {
       "default": 0.0,
       "flags": 32769,
-      "id": 1953,
+      "id": 1987,
       "mapping": [
         "off",
         "off",
@@ -3169,13 +3781,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Parametric Notch",
+      "name": "Pre 1 Parametric Notch Mode",
       "stepped": true
     },
     {
       "default": 1.0,
       "flags": 98305,
-      "id": 1969,
+      "id": 2003,
       "mapping": [
         "I",
         "I",
@@ -3193,7 +3805,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 1985,
+      "id": 2019,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3211,7 +3823,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2001,
+      "id": 2035,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3229,7 +3841,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 2017,
+      "id": 2051,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3247,7 +3859,7 @@
     {
       "default": 0.5275071124607184,
       "flags": 32800,
-      "id": 2033,
+      "id": 2067,
       "mapping": [
         "0.50 s",
         "0.79 s",
@@ -3265,7 +3877,7 @@
     {
       "default": 0.6767162082159436,
       "flags": 32800,
-      "id": 2049,
+      "id": 2083,
       "mapping": [
         "800 Hz",
         "1122 Hz",
@@ -3283,7 +3895,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 2065,
+      "id": 2099,
       "mapping": [
         "-24 st",
         "-18 st",
@@ -3301,7 +3913,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 2081,
+      "id": 2115,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3319,7 +3931,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 2097,
+      "id": 2131,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3331,13 +3943,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Shimmer Mod",
+      "name": "Pre 1 Shimmer Modulation",
       "stepped": false
     },
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 2113,
+      "id": 2147,
       "mapping": [
         "off",
         "off",
@@ -3355,7 +3967,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2129,
+      "id": 2163,
       "mapping": [
         "-2000 Hz",
         "-1500 Hz",
@@ -3373,7 +3985,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 2145,
+      "id": 2179,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3391,7 +4003,7 @@
     {
       "default": 0.7859073861654803,
       "flags": 32800,
-      "id": 2161,
+      "id": 2195,
       "mapping": [
         "0.05 ms",
         "0.17 ms",
@@ -3409,7 +4021,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2177,
+      "id": 2211,
       "mapping": [
         "-100.0 %",
         "-75.0 %",
@@ -3427,7 +4039,7 @@
     {
       "default": 0.9009694709504107,
       "flags": 32800,
-      "id": 2193,
+      "id": 2227,
       "mapping": [
         "200 Hz",
         "334 Hz",
@@ -3445,7 +4057,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 2209,
+      "id": 2243,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3463,7 +4075,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2225,
+      "id": 2259,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3481,7 +4093,7 @@
     {
       "default": 0.0,
       "flags": 98305,
-      "id": 2241,
+      "id": 2275,
       "mapping": [
         "Soft clip",
         "Hard clip",
@@ -3499,7 +4111,7 @@
     {
       "default": 0.3333333333333333,
       "flags": 32800,
-      "id": 2257,
+      "id": 2291,
       "mapping": [
         "0.0 dB",
         "4.5 dB",
@@ -3517,7 +4129,7 @@
     {
       "default": 0.9009694709504107,
       "flags": 32800,
-      "id": 2273,
+      "id": 2307,
       "mapping": [
         "200 Hz",
         "334 Hz",
@@ -3535,7 +4147,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2289,
+      "id": 2323,
       "mapping": [
         "-100.0 %",
         "-75.0 %",
@@ -3553,7 +4165,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2305,
+      "id": 2339,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3571,7 +4183,7 @@
     {
       "default": 0.6,
       "flags": 32800,
-      "id": 2321,
+      "id": 2355,
       "mapping": [
         "-24.0 dB",
         "-20.2 dB",
@@ -3589,7 +4201,7 @@
     {
       "default": 0.0,
       "flags": 32801,
-      "id": 2337,
+      "id": 2371,
       "mapping": [
         "off",
         "off",
@@ -3607,7 +4219,7 @@
     {
       "default": 0.4166666666666667,
       "flags": 32800,
-      "id": 2353,
+      "id": 2387,
       "mapping": [
         "-6.0 dB",
         "-3.8 dB",
@@ -3625,7 +4237,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2369,
+      "id": 2403,
       "mapping": [
         "0.0 dB",
         "6.0 dB",
@@ -3643,7 +4255,7 @@
     {
       "default": 0.4999999999999999,
       "flags": 32800,
-      "id": 2385,
+      "id": 2419,
       "mapping": [
         "0.2 ms",
         "0.4 ms",
@@ -3661,7 +4273,7 @@
     {
       "default": 0.5566413762796892,
       "flags": 32800,
-      "id": 2401,
+      "id": 2435,
       "mapping": [
         "20 ms",
         "30 ms",
@@ -3679,7 +4291,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2417,
+      "id": 2451,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3697,7 +4309,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 2433,
+      "id": 2467,
       "mapping": [
         "Off",
         "-87.5",
@@ -3715,7 +4327,7 @@
     {
       "default": 0.0,
       "flags": 98305,
-      "id": 2449,
+      "id": 2483,
       "mapping": [
         "Natural",
         "Natural",
@@ -3733,7 +4345,7 @@
     {
       "default": 0.0,
       "flags": 98305,
-      "id": 2465,
+      "id": 2499,
       "mapping": [
         "Low-pass",
         "Low-pass",
@@ -3751,7 +4363,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2481,
+      "id": 2515,
       "mapping": [
         "1.875 ips",
         "2.652 ips",
@@ -3769,7 +4381,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 2497,
+      "id": 2531,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3787,7 +4399,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 2513,
+      "id": 2547,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3805,7 +4417,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 2529,
+      "id": 2563,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3823,7 +4435,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 2545,
+      "id": 2579,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3841,7 +4453,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2561,
+      "id": 2595,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3859,7 +4471,7 @@
     {
       "default": 0.8,
       "flags": 32800,
-      "id": 2577,
+      "id": 2611,
       "mapping": [
         "-24.0 dB",
         "-20.2 dB",
@@ -3877,7 +4489,7 @@
     {
       "default": 1.0,
       "flags": 98305,
-      "id": 2593,
+      "id": 2627,
       "mapping": [
         "Single",
         "Dual",
@@ -3895,7 +4507,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2609,
+      "id": 2643,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3913,7 +4525,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2625,
+      "id": 2659,
       "mapping": [
         "-18.0 dB",
         "-15.8 dB",
@@ -3931,7 +4543,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2641,
+      "id": 2675,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -3949,7 +4561,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2657,
+      "id": 2691,
       "mapping": [
         "25.0 %",
         "34.4 %",
@@ -3967,7 +4579,7 @@
     {
       "default": 0.075,
       "flags": 32800,
-      "id": 2673,
+      "id": 2707,
       "mapping": [
         "0.0 ms",
         "25.0 ms",
@@ -3985,7 +4597,7 @@
     {
       "default": 0.18,
       "flags": 32800,
-      "id": 2689,
+      "id": 2723,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4003,7 +4615,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 2705,
+      "id": 2739,
       "mapping": [
         "0 Hz",
         "63 Hz",
@@ -4021,7 +4633,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 2721,
+      "id": 2755,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -4039,7 +4651,7 @@
     {
       "default": 0.5263157894736842,
       "flags": 32800,
-      "id": 2737,
+      "id": 2771,
       "mapping": [
         "0.0 %",
         "11.9 %",
@@ -4057,7 +4669,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2753,
+      "id": 2787,
       "mapping": [
         "25.0 %",
         "34.4 %",
@@ -4075,7 +4687,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2769,
+      "id": 2803,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4093,7 +4705,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2785,
+      "id": 2819,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4111,7 +4723,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 2801,
+      "id": 2835,
       "mapping": [
         "0 %",
         "13 %",
@@ -4129,7 +4741,7 @@
     {
       "default": 0.2,
       "flags": 32800,
-      "id": 2817,
+      "id": 2851,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4147,7 +4759,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 2833,
+      "id": 2867,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -4165,7 +4777,7 @@
     {
       "default": 0.47368421052631576,
       "flags": 32800,
-      "id": 2849,
+      "id": 2883,
       "mapping": [
         "5.0 %",
         "16.9 %",
@@ -4183,7 +4795,7 @@
     {
       "default": 0.47368421052631576,
       "flags": 32800,
-      "id": 2865,
+      "id": 2899,
       "mapping": [
         "5.0 %",
         "16.9 %",
@@ -4201,7 +4813,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 2881,
+      "id": 2915,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4219,7 +4831,7 @@
     {
       "default": 0.5789473684210527,
       "flags": 32800,
-      "id": 2897,
+      "id": 2931,
       "mapping": [
         "5.0 %",
         "16.9 %",
@@ -4237,7 +4849,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 2913,
+      "id": 2947,
       "mapping": [
         "25.0 %",
         "34.4 %",
@@ -4255,7 +4867,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 2929,
+      "id": 2963,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4273,7 +4885,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 2945,
+      "id": 2979,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -4291,7 +4903,7 @@
     {
       "default": 0.24525573579398632,
       "flags": 32800,
-      "id": 2961,
+      "id": 2995,
       "mapping": [
         "20 ms",
         "145 ms",
@@ -4309,7 +4921,7 @@
     {
       "default": 0.65,
       "flags": 32800,
-      "id": 2977,
+      "id": 3011,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4327,7 +4939,7 @@
     {
       "default": 0.6632653061224489,
       "flags": 32800,
-      "id": 2993,
+      "id": 3027,
       "mapping": [
         "0.0 %",
         "12.2 %",
@@ -4345,7 +4957,7 @@
     {
       "default": 0.8,
       "flags": 32800,
-      "id": 3009,
+      "id": 3043,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4363,7 +4975,7 @@
     {
       "default": 0.7761699471996201,
       "flags": 32800,
-      "id": 3025,
+      "id": 3059,
       "mapping": [
         "200 Hz",
         "346 Hz",
@@ -4381,7 +4993,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 3041,
+      "id": 3075,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4393,13 +5005,13 @@
       ],
       "maximum": 1.0,
       "minimum": 0.0,
-      "name": "Pre 1 Cosmic Motion",
+      "name": "Pre 1 Cosmic Modulation",
       "stepped": false
     },
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 3057,
+      "id": 3091,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4417,7 +5029,7 @@
     {
       "default": 0.0,
       "flags": 98305,
-      "id": 3073,
+      "id": 3107,
       "mapping": [
         "Gemini",
         "Sagittarius",
@@ -4435,7 +5047,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 3089,
+      "id": 3123,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4453,7 +5065,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 3105,
+      "id": 3139,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4471,7 +5083,7 @@
     {
       "default": 0.4,
       "flags": 32800,
-      "id": 3121,
+      "id": 3155,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4489,7 +5101,7 @@
     {
       "default": 0.25,
       "flags": 32800,
-      "id": 3137,
+      "id": 3171,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4507,7 +5119,7 @@
     {
       "default": 0.15,
       "flags": 32800,
-      "id": 3153,
+      "id": 3187,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4525,7 +5137,7 @@
     {
       "default": 0.6666666666666666,
       "flags": 32800,
-      "id": 3169,
+      "id": 3203,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -4543,7 +5155,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 3185,
+      "id": 3219,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4561,7 +5173,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 3201,
+      "id": 3235,
       "mapping": [
         "-18.0 dB",
         "-13.5 dB",
@@ -4579,7 +5191,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 3217,
+      "id": 3251,
       "mapping": [
         "-18.0 dB",
         "-13.5 dB",
@@ -4597,7 +5209,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 3233,
+      "id": 3267,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4615,7 +5227,7 @@
     {
       "default": 0.0,
       "flags": 98305,
-      "id": 3249,
+      "id": 3283,
       "mapping": [
         "Dark",
         "Rock",
@@ -4633,7 +5245,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 3265,
+      "id": 3299,
       "mapping": [
         "-6.0 dB",
         "-4.5 dB",
@@ -4651,7 +5263,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 3281,
+      "id": 3315,
       "mapping": [
         "-6.0 dB",
         "-4.5 dB",
@@ -4669,7 +5281,7 @@
     {
       "default": 0.5,
       "flags": 32800,
-      "id": 3297,
+      "id": 3331,
       "mapping": [
         "-6.0 dB",
         "-4.5 dB",
@@ -4687,7 +5299,7 @@
     {
       "default": 0.5619818783608963,
       "flags": 32800,
-      "id": 3313,
+      "id": 3347,
       "mapping": [
         "1000 Hz",
         "1414 Hz",
@@ -4705,7 +5317,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 3329,
+      "id": 3363,
       "mapping": [
         "300 Hz",
         "493 Hz",
@@ -4723,7 +5335,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 3345,
+      "id": 3379,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4741,7 +5353,7 @@
     {
       "default": 0.0,
       "flags": 32800,
-      "id": 3361,
+      "id": 3395,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4759,7 +5371,7 @@
     {
       "default": 0.35,
       "flags": 32800,
-      "id": 3377,
+      "id": 3411,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4777,7 +5389,7 @@
     {
       "default": 0.7083333333333334,
       "flags": 32800,
-      "id": 3393,
+      "id": 3427,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -4795,7 +5407,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 3409,
+      "id": 3443,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4813,7 +5425,7 @@
     {
       "default": 0.296875,
       "flags": 32800,
-      "id": 3425,
+      "id": 3459,
       "mapping": [
         "-74.0 dB",
         "-66.0 dB",
@@ -4831,7 +5443,7 @@
     {
       "default": 1.0,
       "flags": 32800,
-      "id": 3441,
+      "id": 3475,
       "mapping": [
         "0.0 %",
         "12.5 %",
@@ -4849,7 +5461,7 @@
     {
       "default": 0.75,
       "flags": 32800,
-      "id": 3457,
+      "id": 3491,
       "mapping": [
         "-18.0 dB",
         "-15.0 dB",
@@ -4867,7 +5479,7 @@
     {
       "default": 0.0,
       "flags": 98305,
-      "id": 3473,
+      "id": 3507,
       "mapping": [
         "Zero crossing",
         "Zero crossing",
@@ -4881,6 +5493,24 @@
       "minimum": 0.0,
       "name": "Pre 1 Black Mode",
       "stepped": true
+    },
+    {
+      "default": 0.0,
+      "flags": 32800,
+      "id": 3523,
+      "mapping": [
+        "0.0 %",
+        "12.5 %",
+        "25.0 %",
+        "50.0 %",
+        "75.0 %",
+        "87.5 %",
+        "100.0 %"
+      ],
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "name": "Pre 1 Limiter Clip",
+      "stepped": false
     }
   ],
   "state_schema": 1

@@ -5,7 +5,7 @@ template <class Load>
 void TestGlobalInputGain(const clap_plugin* plugin, json cleared, Load load)
 {
   const auto render = [&](double gain, double output, bool tinyBlocks, double scale = 1.) {
-    auto config = cleared; config["Global Input"] = gain; config["Output"] = output;
+    auto config = cleared; config["Input"] = gain; config["Output"] = output;
     load(config);
     assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
     std::array<double, 512> left{}, right{}, outLeft{}, outRight{};

@@ -1,3 +1,4 @@
+#include "IsolatedUserHome.h"
 #include "ClapTestHost.h"
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/RigPreset.h"
@@ -39,6 +40,7 @@ static double EstimatedRT60(const Audio& audio, double rate)
 }
 int main(int argc,char** argv)
 {
+  IsolatedUserHome userHome("nam-grid-fx-audition"); // Never the user's settings or library.
   if (argc < 3 || argc > 4 || (argc == 4 && std::string(argv[3]) != "cosmic" && std::string(argv[3]) != "heads"))
   {
     std::cerr << "Usage: nam-fx-audition <plugin> <output-folder> [cosmic|heads]\n";
@@ -119,7 +121,7 @@ int main(int argc,char** argv)
     for (int heads=0; heads<effect_modes::tapeHeadNames.size(); ++heads) candidates.emplace_back(SlotEffect::MultiHeadDelay,heads);
   for (const auto& [effect,mode] : candidates)
   {
-    auto config=base; config["NamFolders"]=json::array(); config["IrFolders"]=json::array();
+    auto config=base;
     config["SlotEffects"][0]=static_cast<int>(effect);
     const auto defaults=SlotDefaultValues(effect);
     for(int p=0;p<kUtilityControls;++p) config[std::string("Pre 1 ")+kEffectParameters[p].name]=defaults[17+p];
@@ -136,7 +138,7 @@ int main(int argc,char** argv)
     }
     const auto label=std::to_string(static_cast<int>(effect))+"-"+name;
     auto rig=config; rig["PresetName"]=name;
-    for(const auto* key:{"PresetDirectory","NamFolders","IrFolders","Tuner Reference","Tuner Mute","Tuner"}) rig.erase(key);
+    for(const auto* key:{"PresetDirectory","Tuner Reference","Tuner Mute","Tuner"}) rig.erase(key);
     rig_preset::Write(destination/(label+".ngrid"),rig);
     auto [mixed,cpu]=render(config,false); WriteWave(destination/(label+"-pluck.wav"),mixed,rate);
     double peak=0.; for(const auto& channel:mixed) for(double value:channel) peak=std::max(peak,std::abs(value));

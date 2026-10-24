@@ -265,6 +265,8 @@ private:
   void _ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames, const size_t nChansIn,
                       const size_t nChansOut, double gain);
   void _UnserializeApplyConfig(nlohmann::json& config);
+  // Library folders from this user's settings.json (control thread).
+  void _ReloadLibraryFolders();
 
   // Update all controls that depend on a model
   void _UpdateControlsFromModel();

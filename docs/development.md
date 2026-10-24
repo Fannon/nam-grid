@@ -60,6 +60,10 @@ Projects and presets store named values, module IDs, file paths/hashes and Noise
 Gate (Smart) profiles under the state header with an integer `schema`. Newer
 schemas, unknown modules or algorithms, fractional or out-of-range IDs, missing
 fields and malformed data are rejected before the current rig changes.
+Per-user preferences, including the library folders, are never part of a state: they live in
+`settings.json` (see [ui.md](ui.md#settings-and-default-folders)), and loading a state re-reads
+them. Every test or tool that loads the plugin uses `IsolatedUserHome` so it never touches a
+developer's real settings or library.
 
 When adding saved data, bump `kEffectStateSchema` and set the new control
 descriptor's `introducedIn` to that schema. Older states then receive that

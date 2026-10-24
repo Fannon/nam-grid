@@ -1,4 +1,5 @@
 // On-demand host for the actual plugin; no audio device, editor or listening test.
+#include "IsolatedUserHome.h"
 #include "ClapTestHost.h"
 #include "A2Fixture.h"
 #include "../NeuralAmpModeler/EffectPresentation.h"
@@ -257,8 +258,6 @@ public:
 static json Configure(json config, const json& scenario)
 {
   const auto effect = static_cast<SlotEffect>(scenario.at("effect").get<int>());
-  config["NamFolders"] = json::array();
-  config["IrFolders"] = json::array();
   config["Tuner"] = 0.;
   config["Tuner Mute"] = 0.;
   config["Pre 2 NAM Input"] = config["Output"] = 0.;
@@ -540,6 +539,7 @@ static json Measure(const Library& library, const json& scenario, const json& se
 int main(int argc, char** argv)
 try
 {
+  IsolatedUserHome userHome("nam-grid-fx-performance"); // Never the user's settings or library.
   std::cout << std::unitbuf;
   if (argc == 2 && std::string(argv[1]) == "--catalog")
   {

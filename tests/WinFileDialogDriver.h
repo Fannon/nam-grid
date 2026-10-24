@@ -6,31 +6,13 @@
 #include <cassert>
 #include <fstream>
 #include <vector>
+#include "IsolatedUserHome.h"
 
 // Feed the actual common file dialog on this test thread. No foreground keys,
 // desktop-wide input injection, or production test interface is involved.
 namespace win_file_dialog
 {
-// Points the plugin's settings and default folders at a private, empty home before the plugin
-// loads, so tests never read or write the user's real configuration, even if they abort.
-struct IsolatedUserHome
-{
-  std::filesystem::path home, file;
-  explicit IsolatedUserHome(const std::string& name)
-  : home(std::filesystem::temp_directory_path() / (name + "-" + std::to_string(GetCurrentProcessId())))
-  , file(home / "config" / "settings.json")
-  {
-    std::error_code error;
-    std::filesystem::remove_all(home, error);
-    std::filesystem::create_directories(home);
-    assert(SetEnvironmentVariableW(L"NAM_GRID_HOME", home.c_str()));
-  }
-  ~IsolatedUserHome()
-  {
-    std::error_code error;
-    std::filesystem::remove_all(home, error);
-  }
-};
+using ::IsolatedUserHome; // Shared with the cross-platform tools; see IsolatedUserHome.h.
 inline std::wstring selected;
 inline bool delivered = false, cancel = false, directory = false;
 inline unsigned attempts = 0;

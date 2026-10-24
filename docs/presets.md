@@ -29,7 +29,8 @@ same validated rig-state loader as project recall. Invalid or unsupported files
 are rejected before changing the rig. A failed file replacement preserves the
 previous preset. Presets are limited to 1 MiB.
 
-Library folders and tuner activation/reference/mute remain local to the current instance.
+Library folders are your per-user settings, so neither rigs nor projects store or change
+them. Tuner activation, reference and mute remain local to the current instance.
 Project state and automation retain the Tuner switch; rig and scene recall do not change it.
 Captured/held audio is not stored; Freeze Hold and Shimmer Freeze are released on
 recall. Models and IRs are referenced at their existing paths, not embedded or

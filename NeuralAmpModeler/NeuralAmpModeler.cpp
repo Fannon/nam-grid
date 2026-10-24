@@ -541,6 +541,18 @@ void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector
   _UpdateLibraryControls();
 }
 
+void NeuralAmpModeler::_ReloadLibraryFolders()
+{
+  const auto file = CaptureSettingsFile();
+  std::error_code error;
+  if (file.empty() || !std::filesystem::exists(file, error)) return; // Keep the folders prepared at startup.
+  // Only lists the file holds: an unreadable file never empties the library.
+  const auto settings = nam_library::ReadSettings(file);
+  if (settings.namChosen) SetLibraryFolders(nam_library::FileKind::NAM, settings.namFolders);
+  if (settings.irChosen) SetLibraryFolders(nam_library::FileKind::IR, settings.irFolders);
+  if (settings.presetChosen) SetLibraryFolders(nam_library::FileKind::RigPreset, settings.presetFolders);
+}
+
 std::vector<std::string> NeuralAmpModeler::GetLibraryFolders(nam_library::FileKind kind) const
 {
   std::lock_guard<std::recursive_mutex> guard(mControlMutex);
@@ -1116,9 +1128,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["schema"] = kEffectStateSchema;
   config["PresetName"] = mPresetName;
   config["PresetDirectory"] = mPresetDirectory;
-  config["NamFolders"] = mNamFolders;
-  config["IrFolders"] = mIrFolders;
-  config["PresetFolders"] = mPresetFolders;
+  // Library folders are per-user settings (settings.json), never part of a project or rig.
   config["PerformanceScenes"] = mPerformanceScenes;
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
@@ -1220,7 +1230,6 @@ nlohmann::json NeuralAmpModeler::_CurrentRig() const
   if (pos < 0 || chunk.GetStr(text, pos) < 0) throw std::runtime_error("Cannot read this rig's state.");
   auto rig = nlohmann::json::parse(text.Get());
   rig.erase("PresetDirectory");
-  for (const char* field : {"NamFolders", "IrFolders", "PresetFolders"}) rig.erase(field);
   rig.erase(GetParam(kTunerReference)->GetName()); rig.erase(GetParam(kTunerMute)->GetName());
   rig.erase(GetParam(kTunerActive)->GetName());
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1255,10 +1264,7 @@ void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, co
 {
   rig["PresetName"] = name;
   rig["PresetDirectory"] = directory;
-  // Library folders and tuner choices belong to this instance, not the rig.
-  rig["NamFolders"] = mNamFolders;
-  rig["IrFolders"] = mIrFolders;
-  rig["PresetFolders"] = mPresetFolders;
+  // Tuner choices belong to this instance, not the rig.
   rig[GetParam(kTunerReference)->GetName()] = GetParam(kTunerReference)->Value();
   rig[GetParam(kTunerMute)->GetName()] = GetParam(kTunerMute)->Value();
   rig[GetParam(kTunerActive)->GetName()] = GetParam(kTunerActive)->Value();
@@ -1451,16 +1457,6 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     };
     if (config.contains("PresetName") && !validText(config["PresetName"], 512)) return -1;
     if (config.contains("PresetDirectory") && !validText(config["PresetDirectory"], 32768)) return -1;
-    for (const char* field : {"NamFolders", "IrFolders", "PresetFolders"})
-      if (config.contains(field))
-      {
-        const auto& folders = config[field];
-        if (!folders.is_array() || folders.size() > 32)
-          return -1;
-        for (const auto& folder : folders)
-          if (!validText(folder, 32768))
-            return -1;
-      }
     if (!config.contains("PerformanceScenes") || !config["PerformanceScenes"].is_array()
         || config["PerformanceScenes"].size() != mPerformanceScenes.size())
       return -1;
@@ -1996,10 +1992,9 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
 
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     _ClearModel(slot);
-  // States without a folder list keep this user's default for that list.
-  for (const auto& [field, kind] : {std::pair{"NamFolders", nam_library::FileKind::NAM}, std::pair{"IrFolders", nam_library::FileKind::IR},
-                                    std::pair{"PresetFolders", nam_library::FileKind::RigPreset}})
-    if (config.contains(field)) SetLibraryFolders(kind, config[field].get<std::vector<std::string>>());
+  // Library folders come from this user's settings, not from the state: a project never
+  // replaces them, and every instance picks up folders another instance changed.
+  _ReloadLibraryFolders();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto path = config["SlotPaths"][slot].get<std::string>();

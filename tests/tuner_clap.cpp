@@ -1,9 +1,11 @@
+#include "IsolatedUserHome.h"
 #include "ClapTestHost.h"
 #include <thread>
 #include "WinEditorCapture.h"
 
 int main(int argc, char** argv)
 {
+  IsolatedUserHome userHome("nam-grid-tuner-clap"); // Never the user's settings or library.
   assert(argc == 2 || argc == 3);
 #ifdef _WIN32
   auto library = LoadLibraryW(std::filesystem::path(argv[1]).c_str()); assert(library);

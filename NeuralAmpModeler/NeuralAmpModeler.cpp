@@ -20,6 +20,7 @@
 #include "LibraryBrowserControls.h"
 #include "RigPreset.h"
 #include "RigPresetControls.h"
+#include "UserPaths.h"
 
 using namespace iplug;
 using namespace igraphics;
@@ -39,13 +40,8 @@ EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char
 #endif
 }
 
-static std::filesystem::path CaptureSettingsFile()
-{
-  WDL_String support;
-  AppSupportPath(support);
-  return support.GetLength() ? std::filesystem::u8path(support.Get()) / "nam-grid" / "library.json"
-                             : std::filesystem::path{};
-}
+// Per-user settings.json in the platform's config folder; see UserPaths.h.
+static std::filesystem::path CaptureSettingsFile() { return user_paths::SettingsFile(); }
 
 NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
 : iplug::Plugin(info, MakeConfig(kNumParams, kNumPresets))
@@ -128,7 +124,10 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     else if (p.exponential) param->InitDouble(p.name, p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
     else param->InitDouble(p.name, p.initial, p.minimum, p.maximum, p.step, p.unit);
   }
-  const auto librarySettings = nam_library::ReadSettings(CaptureSettingsFile());
+  const auto prepared =
+    nam_library::PrepareUserSettings(CaptureSettingsFile(), user_paths::LegacySettingsFile(), user_paths::ContentFolder());
+  const auto& librarySettings = prepared.settings;
+  mLibraryDefaultSaveFailed = !prepared.saved;
   mRescanOnStartup = librarySettings.rescanOnStartup;
   mShowVisualizations = librarySettings.showVisualizations;
   mPresetCrossfade = librarySettings.presetCrossfade;
@@ -136,6 +135,19 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mPresetFolders = librarySettings.presetFolders;
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
+  if (!prepared.newPresetFolder.empty())
+    try
+    {
+      // A new default Presets folder starts with the empty grid, so the browser is never blank.
+      const auto empty = prepared.newPresetFolder / "Empty.ngrid";
+      if (!std::filesystem::exists(empty))
+      {
+        auto rig = mEmptyRig;
+        rig["PresetName"] = "Empty";
+        rig_preset::Write(empty, rig);
+      }
+    }
+    catch (const std::exception&) {} // Optional convenience; the plugin works without it.
 
   mMakeGraphicsFunc = [&]() {
 
@@ -365,6 +377,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       };
       readFamily(c.utility.rotary, uRotarySlow);
       readFamily(c.utility.limiter, uLimiterCeiling);
+      c.utility.limiterClip = GetParam(SlotUtilityParam(slot, uLimiterClip))->Value();
       readFamily(c.utility.octaver, uOctDry);
       readFamily(c.utility.doubler, uDoubleDetune);
       readFamily(c.utility.freeze, uFreezeHold);
@@ -404,6 +417,14 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   const auto routing = grid_performance::Route(performance);
   const double blend = mHeldBlend;
   auto& grid = mGrids[mAudibleGrid];
+  // The one spectrum/scope capture follows the selected slot of the audible grid.
+  if (const int slot = mSpectrumSlot.load(std::memory_order_relaxed); slot != mCaptureSlot || mAudibleGrid != mCaptureGrid)
+  {
+    for (auto& candidate : mGrids)
+      for (auto& stage : candidate.stages) stage.AttachCapture(nullptr);
+    if (slot >= 0 && slot < static_cast<int>(FixedNAMGrid::kSlots)) grid.stages[slot].AttachCapture(&mSignalCapture);
+    mCaptureSlot = slot; mCaptureGrid = mAudibleGrid;
+  }
   // A dip leaves the incoming rig silent at first; it starts once it becomes audible.
   const bool incoming = !switching || mRigTransition.IncomingAudible(nFrames);
   mLastModulated = incoming && mModulation.Active(performance);
@@ -1307,7 +1328,8 @@ void NeuralAmpModeler::PromptRigPreset(bool save)
 {
   if (auto* ui = GetUI())
   {
-    WDL_String file, directory(mPresetDirectory.c_str());
+    // Without a loaded preset, Save as / Open start in the first preset folder.
+    WDL_String file, directory((mPresetDirectory.empty() && !mPresetFolders.empty() ? mPresetFolders.front() : mPresetDirectory).c_str());
     if (save) file.Set((mPresetName + ".ngrid").c_str());
     ui->PromptForFile(file, directory, save ? EFileAction::Save : EFileAction::Open, "ngrid",
       [this, save](const WDL_String& chosen, const WDL_String&) {

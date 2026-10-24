@@ -135,7 +135,7 @@ never audio or automation ownership. The main card bounds do not clip the bottom
 
 Library & settings lists every source folder with its type: **NAM**, **IR** or **Presets**.
 **+ NAM folder**, **+ IR folder** and **+ Preset folder** add to the matching list, and each
-row has **Remove**. A folder is scanned only for its list's file type (`.nam`, `.wav` or
+row has **Open** (Explorer or Finder) and **Remove**. A folder is scanned only for its list's file type (`.nam`, `.wav` or
 `.ngrid`); add a mixed folder to several lists. This is the only place to add or remove
 folders; the browser's **Manage folders** opens it. A `.ignore` file inside a folder
 excludes files and subfolders like a `.gitignore` (see
@@ -177,6 +177,34 @@ An empty NAM slot stays empty until a file is chosen. The main chooser can selec
 Library folders (`CaptureFolders`) are saved in project state.
 Malformed arrays, non-string entries, embedded NULs and excessive root counts are rejected
 before modifying project state. Removing a library source never deletes a file or unloads a module.
+
+## Settings and default folders
+
+Preferences for new instances live in `settings.json`, in the platform's per-user config folder:
+
+| Platform | Settings folder |
+| --- | --- |
+| Windows | `%APPDATA%\NAM Grid` |
+| macOS | `~/Library/Application Support/NAM Grid` |
+| Linux | `$XDG_CONFIG_HOME/nam-grid` (default `~/.config/nam-grid`) |
+
+It holds the NAM, IR and preset folder lists, Startup rescan, Visualizations and Preset
+switch. **Settings folder** in Library & settings opens it. The folder and file are created
+when missing, and updating the plugin keeps them.
+
+Until you choose folders yourself, each list uses a default folder in your Documents, created
+on first start: `Documents/NAM Grid/NAM Captures`, `IRs` and `Presets`. Each gets a `.ignore`
+of comments that shows how to [hide files](browser.md#excluding-files-with-ignore); it hides
+nothing until you add a pattern. The Presets folder starts with **Empty**, a preset of the
+empty grid. Removing every folder from a list is
+remembered as a choice, so the default does not come back. Settings from earlier builds
+(`nam-grid/library.json` in the local app-data folder) are migrated once; their empty lists
+receive the defaults.
+
+`NAM_GRID_HOME` replaces both locations: settings then live in `$NAM_GRID_HOME/config` and
+the default folders in `$NAM_GRID_HOME`. The tests use it so they never touch your own
+settings. The library index itself is not stored; Startup rescan rebuilds it when an
+instance opens.
 
 ## Tuner and performance controls
 

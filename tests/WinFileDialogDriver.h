@@ -11,39 +11,24 @@
 // desktop-wide input injection, or production test interface is involved.
 namespace win_file_dialog
 {
-struct SavedLibrarySettings
+// Points the plugin's settings and default folders at a private, empty home before the plugin
+// loads, so tests never read or write the user's real configuration, even if they abort.
+struct IsolatedUserHome
 {
-  std::filesystem::path file;
-  std::vector<char> bytes;
-  bool existed = false;
-  SavedLibrarySettings()
+  std::filesystem::path home, file;
+  explicit IsolatedUserHome(const std::string& name)
+  : home(std::filesystem::temp_directory_path() / (name + "-" + std::to_string(GetCurrentProcessId())))
+  , file(home / "config" / "settings.json")
   {
-    wchar_t folder[MAX_PATH]{};
-    assert(SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, folder)));
-    file = std::filesystem::path(folder) / "nam-grid" / "library.json";
-    existed = std::filesystem::exists(file);
-    if (existed)
-    {
-      std::ifstream input(file, std::ios::binary);
-      assert(input);
-      bytes.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
-      assert(!input.bad());
-    }
+    std::error_code error;
+    std::filesystem::remove_all(home, error);
+    std::filesystem::create_directories(home);
+    assert(SetEnvironmentVariableW(L"NAM_GRID_HOME", home.c_str()));
   }
-  ~SavedLibrarySettings()
+  ~IsolatedUserHome()
   {
-    if (existed)
-    {
-      std::ofstream output(file, std::ios::binary | std::ios::trunc);
-      output.write(bytes.data(), bytes.size()); output.close();
-      assert(!output.fail());
-    }
-    else
-    {
-      std::error_code error;
-      std::filesystem::remove(file, error);
-      assert(!error);
-    }
+    std::error_code error;
+    std::filesystem::remove_all(home, error);
   }
 };
 inline std::wstring selected;

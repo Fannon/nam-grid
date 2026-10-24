@@ -52,7 +52,7 @@ struct Segment
 // control fails to compile until it is allocated here. To extend, either grow
 // the LAST segment's slotControls, or append {newGlobals, 0} / {0, newControls}.
 // Never edit the counts of an earlier segment or the first segment's globals.
-inline constexpr Segment segments[]{{49, 215}};
+inline constexpr Segment segments[]{{49, 216}}; // +1: Limiter Clip (state schema 2)
 inline constexpr Segment released[]{{49, 215}}; // NAM Grid 0.1.0
 
 constexpr int GlobalID(std::span<const Segment> table, int index)

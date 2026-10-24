@@ -38,8 +38,21 @@ struct Settings
   std::vector<std::string> presetFolders;
   std::vector<std::string> irFolders;
   bool presetCrossfade = false; // Rig preset switches crossfade instead of a short dip.
+  // Whether each list was ever set; an explicitly emptied list stays empty.
+  bool namChosen = false, irChosen = false, presetChosen = false;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
+struct UserSettings
+{
+  Settings settings;
+  std::filesystem::path newPresetFolder; // The default Presets folder, when it was just adopted.
+  bool saved = true;
+};
+// Loads the per-user settings. On first use it migrates a legacy file, then gives every list
+// that was never chosen its default folder below contentFolder (NAM Captures, IRs, Presets),
+// creating those folders, and writes the settings file, creating its folder.
+UserSettings PrepareUserSettings(const std::filesystem::path& settingsFile, const std::filesystem::path& legacyFile,
+                                 const std::filesystem::path& contentFolder);
 bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& settings);
 std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile);
 bool WriteFolderSettings(const std::filesystem::path& settingsFile, const std::vector<std::string>& folders);

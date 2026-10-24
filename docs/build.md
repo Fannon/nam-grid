@@ -148,8 +148,9 @@ For browser UI iteration on Windows, set `NAM_GRID_BROWSER_SMOKE=1` when running
 `nam-clap-smoke`. This retains the DSP/state setup and the browser/preset interaction
 checks, skipping the large slot-edit matrix and subsequent unrelated editor checks.
 An optional fourth argument names a screenshot directory; captures come from the
-plugin's own OpenGL surface. The native test restores library preferences after a
-successful run.
+plugin's own OpenGL surface. The native test runs in a private temporary
+`NAM_GRID_HOME`, so it never reads or changes your own settings or library folders,
+even if it aborts.
 
 For a native FX visualization sweep, set `NAM_GRID_FX_VISUALS=1` instead. It
 retains the DSP/state setup, then renders every catalog module at musical defaults

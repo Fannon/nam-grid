@@ -186,6 +186,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uVibeMode: return "Vibrato uses only the phase-shifted signal; chorus mode retains the selected dry/wet blend.";
     case uLimiterCeiling: return "Peak target. This zero-lookahead limiter cannot guarantee an intersample true-peak ceiling.";
     case uLimiterRelease: return "How quickly gain recovers after a loud peak; short settings can sound more aggressive.";
+    case uLimiterClip: return "Soft-clips peaks from 3 dB below the ceiling before limiting, so the gain moves less on fast transients. Adds harmonics; 0% is off.";
     case uOctDry: return "Level of the original guitar alongside the generated sub-octaves.";
     case uOctSub: case uOctSub2: return "Level of this generated sub-octave. Best tracking comes from clean, single-note playing.";
     case uOctTone: return "High-cut frequency for the generated sub-octaves; the dry guitar keeps its original tone.";

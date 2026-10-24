@@ -397,6 +397,9 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
     result.showVisualizations = config.value("ShowVisualizations", true);
     result.presetCrossfade = config.value("PresetCrossfade", false);
     result.presetFolders = NormalizeFolders(config.value("PresetFolders", std::vector<std::string>{}));
+    result.namChosen = config.contains("NamFolders");
+    result.irChosen = config.contains("IrFolders");
+    result.presetChosen = config.contains("PresetFolders");
     return result;
   }
   catch (const std::exception&)
@@ -421,6 +424,47 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
   {
     return false;
   }
+}
+UserSettings PrepareUserSettings(const std::filesystem::path& settingsFile, const std::filesystem::path& legacyFile,
+                                 const std::filesystem::path& contentFolder)
+{
+  UserSettings result;
+  auto& settings = result.settings;
+  std::error_code error;
+  const bool current = !settingsFile.empty() && std::filesystem::exists(settingsFile, error);
+  bool changed = !current;
+  if (current)
+    settings = ReadSettings(settingsFile);
+  else if (!legacyFile.empty() && std::filesystem::exists(legacyFile, error))
+  {
+    settings = ReadSettings(legacyFile);
+    // Older builds had no default folders, so an empty list there was never a choice.
+    settings.namChosen = !settings.namFolders.empty();
+    settings.irChosen = !settings.irFolders.empty();
+    settings.presetChosen = !settings.presetFolders.empty();
+  }
+  const auto adopt = [&](std::vector<std::string>& folders, bool& chosen, const char* name) {
+    if (chosen || contentFolder.empty()) return std::filesystem::path{};
+    const auto folder = contentFolder / name;
+    std::filesystem::create_directories(folder, error);
+    if (error) return std::filesystem::path{};
+    // A commented .ignore shows that hiding files is possible; comments match nothing.
+    if (const auto ignore = folder / ".ignore"; !std::filesystem::exists(ignore, error))
+      std::ofstream(ignore, std::ios::binary)
+        << "# Hide files and folders from NAM Grid's library: one pattern per line, as in .gitignore.\n"
+           "# Lines starting with # are comments. Rescan after editing. Examples:\n"
+           "# Old captures/\n"
+           "# *DI.nam\n";
+    folders = {PathText(folder)};
+    chosen = changed = true;
+    return folder;
+  };
+  adopt(settings.namFolders, settings.namChosen, "NAM Captures");
+  adopt(settings.irFolders, settings.irChosen, "IRs");
+  result.newPresetFolder = adopt(settings.presetFolders, settings.presetChosen, "Presets");
+  if (changed && !settingsFile.empty())
+    result.saved = WriteSettings(settingsFile, settings);
+  return result;
 }
 std::vector<std::string> ReadFolderSettings(const std::filesystem::path& settingsFile)
 { return ReadSettings(settingsFile).namFolders; }

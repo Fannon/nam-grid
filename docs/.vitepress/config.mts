@@ -47,6 +47,7 @@ export default defineConfig({
           { text: 'Save & load presets', link: '/presets' },
           { text: 'Tuner', link: '/tuner' },
           { text: 'Perform with scenes & macros', link: '/performance' },
+          { text: 'Release notes', link: '/release-notes' },
         ],
       },
       {
@@ -71,6 +72,7 @@ export default defineConfig({
           { text: 'Noise Gate (Smart)', link: '/noise-gate-smart' },
           { text: 'LoFi Tape Machine', link: '/lofi-tape' },
           { text: 'Cosmic Echo', link: '/cosmic-echo' },
+          { text: 'Cabinet IR processing', link: '/adaptive-ir' },
         ],
       },
       {
@@ -80,9 +82,7 @@ export default defineConfig({
           { text: 'Build & test', link: '/build' },
           { text: 'Development', link: '/development' },
           { text: 'Module implementation', link: '/module-implementation' },
-          { text: 'Adaptive cabinet convolution', link: '/adaptive-ir' },
           { text: 'Release checklist', link: '/release-checklist' },
-          { text: 'Release notes', link: '/release-notes' },
         ],
       },
     ],

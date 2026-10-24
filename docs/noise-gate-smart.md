@@ -1,9 +1,7 @@
 # Noise Gate (Smart)
 
-An original MIT noise-profile expander, inspired by the public description of
-frequency-selective gates and Learn in [Klevgrand Brusfri](https://klevgrand.com/products/brusfri).
-No Klevgrand implementation, assets or proprietary processing details were used.
-This does not claim Brusfri's sound, internal architecture or phase behavior.
+A noise gate that learns your rig's noise: play nothing, press **Learn**, and it reduces
+that noise frequency by frequency while you play, instead of only opening and closing.
 
 ## Try it
 

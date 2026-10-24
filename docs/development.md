@@ -156,7 +156,8 @@ out of audio processing, and distinguish measured signals from parameter sketche
 
 ## Cabinet convolution
 
-Cabinet IR slots use one [adaptive direct/FFT processor](adaptive-ir.md).
+Cabinet IR slots use one adaptive direct/FFT processor; its rules are documented in
+`NeuralAmpModeler/AdaptiveIR.h` and summarised for players in [cabinet IR processing](adaptive-ir.md).
 It selects the backend during preparation and preserves the full resampled IR
 without adding buffering latency or exposing a quality mode.
 

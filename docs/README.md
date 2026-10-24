@@ -13,20 +13,22 @@ New here? [Download NAM Grid](/) and load **Clean Default**, then learn the [gri
 | [Rig presets](/presets) | Save, recall, and share complete rigs |
 | [Tuner](/tuner) | Tune quietly and check pitch drift |
 | [Performance controls](/performance) | Routing, macros, modulation, and scenes |
+| [Release notes](/release-notes) | What's new in this version |
 
 ## Module deep dives
 
 - [Noise Gate (Smart)](/noise-gate-smart) — learn and reduce your rig's noise.
 - [LoFi Tape Machine](/lofi-tape) — tape transport, wear, and degradation.
 - [Cosmic Echo](/cosmic-echo) — ambient echo and reverb styles.
+- [Cabinet IR processing](/adaptive-ir) — how impulse responses are played without latency.
 
 ## Build and contribute
 
 These pages are for developers, not required for using the plugin.
 
 - [Build and test](/build), [development](/development), and [module implementation](/module-implementation).
-- [Release checklist](/release-checklist) and [release notes](/release-notes).
-- [Adaptive cabinet convolution](/adaptive-ir) and [IR engine comparison](/ir-convolution-comparison).
+- [Release checklist](/release-checklist).
+- [IR engine comparison](/ir-convolution-comparison); the engine rules are in `AdaptiveIR.h`.
 - [On-demand FX benchmarks](/fx-performance).
 - [Airwindows outboard](/airwindows-outboard) and [dynamics implementation](/airwindows-dynamics).
 - [Third-party notices](../ThirdPartyNotices.txt) and [screenshot provenance](/screenshots/README).

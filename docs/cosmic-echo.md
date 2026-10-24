@@ -2,7 +2,9 @@
 
 Find **Cosmic Echo** in the Reverb menu. The Style control offers **Gemini,
 Sagittarius, Virgo, Centaurus, Great Annihilator and Lyra**. The module is
-**Valhalla Supermassive-inspired**, adapted from David Braun's independent MIT
+directly inspired by the algorithms of
+[Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free
+plugin by Valhalla DSP worth trying on its own, and adapted from David Braun's independent MIT
 Faust reconstruction. Keep Galactic Space alongside it while comparing textures.
 
 | Control | Range | What to listen for |

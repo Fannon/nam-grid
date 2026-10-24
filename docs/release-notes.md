@@ -4,6 +4,7 @@ A small polish update to [0.1.0](https://github.com/Fannon/nam-grid/releases/tag
 
 ## What's new
 
+- **A logo:** NAM Grid now has its own logo, a 4×4 grid in the module colours, in the plugin header.
 - **Tidier header:** every box has the same height and outline, the rig preset name has more room for longer names, and **Modulation** now sits next to **Tuner**.
 - **Compact module editors:** modules with only a few controls keep them together, filled from the left, instead of spreading them across both rows.
 - **Clearer signal path:** the IN and OUT lines now reach their knobs, and the stereo meters have a little more space next to the first and last modules.

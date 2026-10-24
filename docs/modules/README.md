@@ -1,19 +1,19 @@
 # Module guide
 
-Choose any module in any grid slot: NAM captures, cabinet IRs, or 54 built-in effects. Start with the sound you want, then use the category guide for controls and tips.
+Choose any module in any grid slot: NAM captures, cabinet IRs, or 54 built-in effects. Pick a category for each module's controls and tips.
 
-| Sound | Guide |
+| Category | Modules |
 | --- | --- |
-| Amp captures and cabinets | [Captures & cabinets](captures.md) |
-| Drive, boost, tape colour, and crushed textures | [Distortion](distortion.md) |
-| Noise control, compression, and limiting | [Dynamics](dynamics.md) |
-| Tone shaping, filtering, and wah | [EQ / Filter](eq-filter.md) |
-| Chorus, phaser, tremolo, rotary, and more | [Modulation](modulation.md) |
-| Octave, doubling, and frequency effects | [Pitch / Frequency](pitch-frequency.md) |
-| Digital, tape, reverse, and rhythmic echoes | [Delay](delay.md) |
-| Rooms, plates, springs, shimmer, and ambience | [Reverb](reverb.md) |
-| Freeze, stutter, and lo-fi tape | [Creative](creative.md) |
-| Stereo control and volume swells | [Utility / Volume](utility-volume.md) |
+| [Captures & cabinets](captures.md) | NAM captures (amps, pedals, full rigs), Cabinet IR |
+| [Distortion](distortion.md) | Distortion, Boost, Tube Boost, Airwindows Tape, Console Colour, Bitcrusher |
+| [Dynamics](dynamics.md) | Noise Gate, Noise Gate (Smart), Digital Black Gate, Smooth Compressor, Punch Compressor, Butter Comp, Outboard Channel, Peak Limiter |
+| [EQ / Filter](eq-filter.md) | Guitar EQ, Cut EQ, Parametric EQ, Console EQ, Filter, Wah |
+| [Modulation](modulation.md) | Chorus, Juno Chorus, Flanger, Phaser, Auto Tremolo, Vibrato, Rotary, Uni-Vibe, Ring Modulator |
+| [Pitch / Frequency](pitch-frequency.md) | Mono Octaver, Stereo Doubler, Frequency Shifter |
+| [Delay](delay.md) | Digital Delay, Analog Echo, Tape Echo, Multi-head Tape, Reverse Delay, Dual Delay, Diffused Delay |
+| [Reverb](reverb.md) | Room, Dense Plate, Cloud, Hall, Spring Reverb, Shimmer, Airwindows Plate, Airwindows Guitar Hall, Galactic Space, Cosmic Echo |
+| [Creative](creative.md) | Freeze / Hold, Stutter, LoFi Tape Machine |
+| [Utility / Volume](utility-volume.md) | Utility, Auto Swell |
 
 ## Use the module editor
 

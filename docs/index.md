@@ -25,10 +25,10 @@ features:
     details: Browse NAM captures, cabinet IRs, and effects while you play. TONE3000 hosts free captures and IRs to add to your library.
     link: https://www.tone3000.com/
     linkText: Find captures on TONE3000
-  - title: Made to perform
-    details: Keep essential controls on macros, add playing-responsive modulation, and switch between three scenes.
-    link: /performance
-    linkText: Explore live controls
+  - title: 54 effects built in
+    details: Gates, compressors, EQs, drives, modulation, pitch, delays and reverbs, each with a display that shows what it does. No extra plugins needed.
+    link: /modules/
+    linkText: Browse the effects
   - title: Yours to keep
     details: Free and open source, with a clean capture and starter rigs included. No account or activation required.
     link: https://github.com/Fannon/nam-grid
@@ -61,4 +61,18 @@ Each release includes **CLAP and VST3** in one archive.
 
 [Download the latest release](https://github.com/Fannon/nam-grid/releases/latest) · [Installation instructions](https://github.com/Fannon/nam-grid#download-and-install)
 
-The included **RiffSmith Clean** capture and **Clean Default** rig get you started without downloading anything else. Add your own NAM captures and cabinet WAVs in the [library browser](/browser).
+The included **RiffSmith Clean** capture and **Clean Default** rig get you started without downloading anything else. Find more NAM captures and cabinet IRs on [TONE3000](https://www.tone3000.com/), then add them in the [library browser](/browser).
+
+## See it in action
+
+<div class="shot-gallery">
+  <figure><img src="./screenshots/nam.png" alt="NAM capture: Measured input/output curve of the loaded capture" loading="lazy" /><figcaption><strong>NAM capture</strong><span>Measured input/output curve of the loaded capture</span></figcaption></figure>
+  <figure><img src="./screenshots/ir.png" alt="Cabinet IR: Frequency response of the loaded impulse response" loading="lazy" /><figcaption><strong>Cabinet IR</strong><span>Frequency response of the loaded impulse response</span></figcaption></figure>
+  <figure><img src="./screenshots/delay.png" alt="Tape Echo: Echo pattern, modulation and saturation at a glance" loading="lazy" /><figcaption><strong>Tape Echo</strong><span>Echo pattern, modulation and saturation at a glance</span></figcaption></figure>
+  <figure><img src="./screenshots/eq.png" alt="Parametric EQ: EQ curve over the live output spectrum" loading="lazy" /><figcaption><strong>Parametric EQ</strong><span>EQ curve over the live output spectrum</span></figcaption></figure>
+  <figure><img src="./screenshots/browser-modules.png" alt="Module browser: Audition effects in a slot while you browse" loading="lazy" /><figcaption><strong>Module browser</strong><span>Audition effects in a slot while you browse</span></figcaption></figure>
+  <figure><img src="./screenshots/browser-presets.png" alt="Rig presets: A full-height browser for complete rigs" loading="lazy" /><figcaption><strong>Rig presets</strong><span>A full-height browser for complete rigs</span></figcaption></figure>
+  <figure><img src="./screenshots/settings.png" alt="Library & settings: Capture, IR and preset folders" loading="lazy" /><figcaption><strong>Library & settings</strong><span>Capture, IR and preset folders</span></figcaption></figure>
+  <figure><img src="./screenshots/control.png" alt="Modulation: Sources, macros and the modulation matrix" loading="lazy" /><figcaption><strong>Modulation</strong><span>Sources, macros and the modulation matrix</span></figcaption></figure>
+  <figure><img src="./screenshots/tuner.png" alt="Tuner: Cents, reference pitch and pitch history" loading="lazy" /><figcaption><strong>Tuner</strong><span>Cents, reference pitch and pitch history</span></figcaption></figure>
+</div>

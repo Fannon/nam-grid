@@ -95,10 +95,40 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
 
 void TestPedalDrive()
 {
-  // The minimum-phase resampling filters must be causal (no lookahead), settle within
-  // the dry alignment window, and keep unity DC gain.
+  // The minimum-phase resampling filters must be causal (no lookahead), peak
+  // promptly and keep unity DC gain.
   grid_pedal::Oversampler4x oversampler;
   oversampler.Reset();
+  // Independently reconstruct the released linear-phase design. The direct
+  // convolution oracle below shares production taps, so it cannot catch a
+  // regression in the minimum-phase conversion's bandwidth or alias rejection.
+  {
+    std::array<double, 257> linear{};
+    double dc = 0.;
+    for (int i = 0; i < 257; ++i)
+    {
+      const double x = i - 128.;
+      const double sinc = x == 0. ? .225 : std::sin(.225 * grid_pedal::pi * x) / (grid_pedal::pi * x);
+      linear[i] = sinc * (.42 - .5 * std::cos(2. * grid_pedal::pi * i / 256.)
+                              + .08 * std::cos(4. * grid_pedal::pi * i / 256.));
+      dc += linear[i];
+    }
+    for (double& x : linear) x /= dc;
+    for (int bin = 0; bin <= 2048; ++bin)
+    {
+      const double frequency = .5 * bin / 2048.; // Fraction of the oversampled rate.
+      std::complex<double> before{}, after{};
+      for (int tap = 0; tap < 257; ++tap)
+      {
+        const auto phase = std::polar(1., -2. * grid_pedal::pi * frequency * tap);
+        before += linear[tap] * phase;
+        after += oversampler.Kernel()[tap] * phase;
+      }
+      assert(std::abs(std::abs(before) - std::abs(after)) < 1.e-6);
+      if (frequency <= .1) assert(std::abs(20. * std::log10(std::abs(after) / std::abs(before))) < 1.e-4);
+      if (frequency >= .125) assert(std::abs(after) < 2.e-4); // At least 74 dB rejection.
+    }
+  }
   std::array<double, 256> impulse{};
   for (int i = 0; i < impulse.size(); ++i)
     impulse[i] = oversampler.Tick(i == 0 ? 1. : 0., [](double x) { return x; });
@@ -248,8 +278,8 @@ void TestPedalDrive()
   }
   assert(quietEnergy[0] > .001 && quietEnergy[1] < quietEnergy[0] * .001);
 
-  // A delayed dry drive in B must reconstruct the input with the clean low A
-  // lane, including when bypassed. This checks real stage and grid compensation.
+  // Dry drive in B must reconstruct the input with the clean low A lane,
+  // including when bypassed, without shifting either path.
   for (double rate : {44100., 48000., 96000.})
     for (bool enabled : {true, false})
     {

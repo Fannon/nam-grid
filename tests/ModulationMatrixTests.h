@@ -50,6 +50,24 @@ void TestModulationMatrix()
   static_assert(SourceLFO2 == 8 && SourceEnv2 == 9 && SourceSeq2 == 10);
   static_assert(SourceParam(LFO1Shape, 1) == LFO2Shape && SourceParam(Seq1Step8, 1) == Seq2Step8);
   assert(std::set<std::string>(sourceKeys.begin(), sourceKeys.end()).size() == SourceCount);
+  {
+    std::set<int> sources;
+    std::string previous;
+    for (int source : sourceMenuOrder)
+    {
+      assert(sources.insert(source).second);
+      const auto label = SourceLabel(source, "Test");
+      assert(previous <= label);
+      previous = label;
+      assert(sourceShortNames[source] && std::strlen(sourceShortNames[source]) > 0);
+    }
+    assert(sources.size() == SourceCount);
+    assert(SourceLabel(SourceMacro1, "Test") == "Macro 1: Test");
+    assert(SourceLabel(SourceMacro2, "Macro 2") == "Macro 2");
+    assert(std::string(sourceShortNames[SourceLFO2]) == "L2");
+    assert(std::string(sourceShortNames[SourceEnv2]) == "E2");
+    assert(std::string(sourceShortNames[SourceSeq2]) == "S2");
+  }
 
   // Different clocks, shapes, follower signals and step patterns remain independent.
   {

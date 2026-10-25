@@ -10,6 +10,7 @@
 #include "RigPresetTests.h"
 #include "EffectPresentationTests.h"
 #include "LibraryIgnoreTests.h"
+#include "LibraryWorkerTests.h"
 
 using namespace nam_library;
 using Menu = iplug::igraphics::IPopupMenu;
@@ -399,6 +400,7 @@ int main(int argc, char** argv)
     assert(WriteIndex(indexFile, index.next));
     index.previous = ReadIndex(indexFile);
     assert(index.previous.size() == 1);
+    TestLibraryWorkerCancellation(indexFile, roots);
     // Cancelling a startup scan must not replace the saved index with an empty one.
     {
       Worker cancelWorker(indexFile);

@@ -886,8 +886,9 @@ const char* KindName(FileKind kind)
   return "";
 }
 
-Worker::Worker(std::filesystem::path indexFile)
+Worker::Worker(std::filesystem::path indexFile, Scanner scanner)
 : mIndexFile(std::move(indexFile))
+, mScanner(std::move(scanner))
 , mThread([this] { Run(); })
 {
 }
@@ -962,12 +963,15 @@ void Worker::Run()
     mIndex.next.clear();
     try
     {
-      *result = ScanLibrary(namRoots, irRoots, presetRoots, cancelled, indexed ? &mIndex : nullptr);
+      *result = mScanner(namRoots, irRoots, presetRoots, cancelled, indexed ? &mIndex : nullptr);
     }
     catch (const std::exception&)
     {
       result->error = "Capture folder scan failed";
     }
+    // Serialize publication with Request/Cancel: an obsolete scan must neither
+    // overwrite the index nor consume a cancellation intended for the next revision.
+    lock.lock();
     // A scan that ran to the end replaces the index, so it lists exactly the files it found.
     // Missing folders simply contribute nothing; their files are read again when they return.
     if (indexed && !cancelled())
@@ -976,10 +980,7 @@ void Worker::Run()
       WriteIndex(mIndexFile, mIndex.previous);
     }
     mIndex.next.clear();
-    lock.lock();
-    if (cancelled())
-      mCancelRequested = false;
-    else
+    if (!cancelled())
       mResult = std::move(result);
     done = revision;
   }

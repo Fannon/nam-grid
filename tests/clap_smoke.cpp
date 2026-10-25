@@ -2469,7 +2469,7 @@ int main(int argc, char** argv)
   }
   {
     using namespace grid_performance;
-    const auto before = save().config();
+    auto before = save().config();
     auto named = before;
     named["MacroNames"][0] = "Test";
     load(named);

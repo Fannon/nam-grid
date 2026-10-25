@@ -65,8 +65,9 @@ In the header:
 
 **Display:** The Body/drive/High cut path and the clean low return.
 
-**Latency:** 64 samples for antialiasing (about 1.33 ms at 48 kHz), reported to
-your DAW. Dry Mix, bypass and parallel lanes are aligned.
+**Latency:** none. The antialiasing filters are minimum phase, so your DAW needs no
+extra delay compensation and stacking pedals does not add up. Dry Mix, bypass and
+parallel lanes stay aligned.
 
 Use Screamer or Treble Drive before a crunchy amp capture, Rodent for heavier rhythm,
 and Sustain Fuzz for dense leads or bass fuzz. Try Bass Edge with Low keep raised for

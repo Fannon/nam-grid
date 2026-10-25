@@ -187,7 +187,7 @@ public:
       }
       if (model)
         model->Reset(rate, block);
-      latency = model ? model->GetLatency() : effect == SlotEffect::PedalDrive ? SlotPedalDrive::latency : 0;
+      latency = model ? model->GetLatency() : 0; // Pedal Drive is minimum phase: no lookahead.
       input.assign(block, 0.);
       wet.assign(block, 0.);
       dry.assign(block, 0.);

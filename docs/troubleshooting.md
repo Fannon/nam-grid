@@ -88,3 +88,5 @@ Please [open a bug report](https://github.com/Fannon/nam-grid/issues/new/choose)
 - the modules involved and the steps to reproduce the problem.
 
 A rig preset that shows the problem helps a lot, if you can share it.
+
+For general discussion, or if you prefer a forum, post in the [NAM Grid thread on KVR Audio](https://www.kvraudio.com/forum/viewtopic.php?t=634501).

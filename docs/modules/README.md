@@ -21,7 +21,7 @@ Five modules have their own pages with more background and recipes: [Pedal Drive
 
 ![Tape Echo selected in the NAM Grid module editor](../screenshots/delay.png)
 
-Select a module in the grid to edit it below. Every module uses the same layout: name, navigation and an enable/bypass circle at the top, header options such as **Style** or **Tempo sync**, up to eight knobs, a display and a level strip. See [Shape a module](../ui.md#shape-a-module) for how to use it.
+Select a module in the grid to edit it below. Every module uses the same layout: name, navigation and an enable/bypass circle at the top, header options such as **Style** or **Tempo sync**, up to eight knobs, and a display with input/output meters in its footer. See [Shape a module](../ui.md#shape-a-module) for how to use it.
 
 Every knob and **Enabled** can be automated by your DAW. Other header options are saved with the rig but cannot be automated.
 
@@ -30,7 +30,7 @@ Every knob and **Enabled** can be automated by your DAW. Other header options ar
 New modules start with electric-guitar settings that make the effect easy to hear without burying the dry sound. Each category page lists them next to every control.
 
 - Adding or replacing a module applies its starting settings; double-click a knob to return to its starting value. Saved rigs, projects and Copy/Move/Swap keep your exact settings.
-- Outputs start at unity unless a module lists an offset, such as Distortion's -6 dB. Cabinet IRs start at -18 dB, the usual cabinet headroom; IRs vary, so match them with the level strip.
+- Outputs start at unity unless a module lists an offset, such as Distortion's -6 dB. Cabinet IRs start at -18 dB, the usual cabinet headroom; IRs vary, so match them with the level meters.
 - NAM captures, Guitar EQ, Parametric EQ and Utility start neutral. Thresholds and makeup depend on your instrument and interface, so set them by ear.
 
 **Acoustic guitar:** start with neutral EQ and a low Room or Dense Plate mix, and reduce or bypass gates if they trim finger noise or sustain.
@@ -63,4 +63,4 @@ Displays fall into three groups:
 - **Response curves:** EQ, filter, drive and compressor shapes.
 - **Timing guides:** repeats, reverb decay and modulation shapes drawn from the current settings, not a live LFO position.
 
-The level strip below every module compares its input and output; see [displays and meters](../ui.md#displays-and-meters). Turn all displays off in **Settings > Visualizations** without changing the sound.
+The meters in every module display footer compare its input and output; see [displays and meters](../ui.md#displays-and-meters). Turn all displays off in **Settings > Visualizations** without changing the sound.

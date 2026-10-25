@@ -30,7 +30,7 @@ features:
     link: /modules/
     linkText: Browse the effects
   - title: See what you hear
-    details: Every module has a display, from EQ curves to echo patterns, and a level strip for fair before-and-after comparisons.
+    details: Every module has a display, from EQ curves to echo patterns, and level meters for fair before-and-after comparisons.
     link: /ui#displays-and-meters
     linkText: Read the displays
   - title: Made for playing live

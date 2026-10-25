@@ -1380,19 +1380,19 @@ int main(int argc, char** argv)
   assert(save().config() == beforeBrowse);
   keyAtEditor(VK_RETURN); // The exact duplicate path remains selected.
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("DRIVE");
   assert(save().config()["SlotPaths"][0] == beforeBrowse["SlotPaths"][0]);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-nam-search.bmp");
   keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == librarySecond);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   click(560, 28); // Cell context allows IR, but offers no complete rig presets.
   click(680, 28); // A hidden preset tab must not accept input.
   chooseBrowserItem("CABINET");
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::CabinetIR));
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryIR);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-ir-current.bmp");
   keyAtEditor(VK_ESCAPE);
   // An external file's folder is browsable without adding it to the user's library.
@@ -1408,7 +1408,7 @@ int main(int argc, char** argv)
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-fx-current.bmp");
   keyAtEditor(VK_RETURN);
   assert(save().config()["Pre 1 EQ Bass"] == 6.); // Reselecting the FX retains edits.
-  click(356, grid_layout::moduleButtonY); chooseBrowserItem("CONSOLE EQ");
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("CONSOLE EQ");
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "module-header-readable.bmp");
   const auto liveValue = [&](const char* name) {
@@ -1451,7 +1451,7 @@ int main(int argc, char** argv)
     load(original); selectTile(170, 120);
     const auto committed = save().config();
     const auto before = liveValue(parameter);
-    click(356, grid_layout::moduleButtonY);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
     host.dirty = host.flushRequested = false;
     dragAt(grid_layout::KnobX(knob), grid_layout::KnobGestureY(knob));
     const auto audition = liveValue(parameter);
@@ -1460,7 +1460,7 @@ int main(int argc, char** argv)
     assert(!host.dirty && !host.flushRequested);
     keyAtEditor(VK_ESCAPE);
     assert(std::abs(liveValue(parameter) - before) < .01 && save().config() == committed);
-    click(356, grid_layout::moduleButtonY);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
     dragAt(grid_layout::KnobX(knob), grid_layout::KnobGestureY(knob));
     const auto accepted = liveValue(parameter);
     keyAtEditor(VK_RETURN);
@@ -1468,7 +1468,7 @@ int main(int argc, char** argv)
     assert(std::abs(save().config()[parameter].get<double>() - accepted) < .11);
     if (nam)
     {
-      click(356, grid_layout::moduleButtonY);
+      click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
       enterBrowserSearch("DRIVE"); keyAtEditor(VK_RETURN);
       dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
       const auto gain = liveValue(parameter);
@@ -1482,7 +1482,7 @@ int main(int argc, char** argv)
   previewMode["SlotEffects"][0] = static_cast<int>(SlotEffect::CosmicEcho);
   previewMode["Pre 1 Cosmic Style"] = 0.;
   load(previewMode); selectTile(170, 120);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   host.dirty = host.flushRequested = false;
   selectChoice(uCosmicStyle, 1, 0); // A mode edit remains part of the audition.
   assert(rawValue("Pre 1 Cosmic Style") == 1.);
@@ -1492,13 +1492,13 @@ int main(int argc, char** argv)
   assert(rawValue("Pre 1 Cosmic Style") == 0.);
   assert(save().config() == previewMode);
   assert(!host.dirty && !host.flushRequested);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   selectChoice(uCosmicStyle, 1, 0);
   keyAtEditor(VK_RETURN); // Accepting commits the mode edit and tells the host once.
   assert(host.dirty);
   assert(rawValue("Pre 1 Cosmic Style") == 1. && save().config()["Pre 1 Cosmic Style"] == 1.);
   load(moduleBrowser); selectTile(170, 120);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   const auto editedBass = liveValue("Pre 1 EQ Bass");
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
@@ -1509,14 +1509,14 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 1 EQ Bass"] == 6.);
   // A quick-menu choice while the browser auditions is final: it closes the browser, so
   // Escape (or Cancel) can no longer restore the original afterwards.
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   win_edit_menu::SelectNamedItem(editor, 200, grid_layout::moduleButtonY, L"Clear slot"); pumpFor(50);
   keyAtEditor(VK_ESCAPE);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::NAM) && save().config()["SlotPaths"][0] == "");
   load(moduleBrowser); selectTile(170, 120);
   // Cancel top right, where every full page closes, restores the original like Escape.
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   assert(save().config()["SlotEffects"][0] != static_cast<int>(SlotEffect::ConsoleEQ)); // Auditioned, not saved.
   click(936, 28);
@@ -1524,7 +1524,7 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // The browser closed: the editor takes gestures again.
   assert(save().config()["Pre 1 EQ Bass"] != 6.);
   load(moduleBrowser); selectTile(170, 120);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(400, 144));
   SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(400, 144)); pumpFor(100);
@@ -1968,9 +1968,9 @@ int main(int argc, char** argv)
     auto category = browserState;
     category["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalDelay);
     load(category); selectTile(170, 120);
-    click(356, grid_layout::moduleButtonY); chooseBrowserItem("TAPE ECHO"); pumpFor(30);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("TAPE ECHO"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::TapeDelay));
-    click(356, grid_layout::moduleButtonY); chooseBrowserItem("DUAL DELAY"); pumpFor(30);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("DUAL DELAY"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::DualDelay));
   }
   // The larger top-right grid toggle changes bypass without replacing the module.
@@ -2176,9 +2176,9 @@ int main(int argc, char** argv)
   auto navigation = browserState;
   navigation["SlotEffects"][0] = static_cast<int>(SlotEffect::JunoChorus);
   load(navigation); selectTile(170, 120);
-  click(422, grid_layout::moduleButtonY);
+  click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::Flanger));
-  click(392, grid_layout::moduleButtonY);
+  click(grid_layout::modulePreviousX, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::JunoChorus));
   // NAM/IR arrows use physical siblings, including outside configured roots.
   const auto neighbor = libraryFirst.parent_path() / "neighbor.nam";
@@ -2191,23 +2191,23 @@ int main(int argc, char** argv)
   navigation["SlotPaths"][0] = libraryFirst.string();
   navigation["SlotEffects"][1] = static_cast<int>(SlotEffect::CabinetIR); navigation["SlotPaths"][1] = libraryIR.string();
   load(navigation); selectTile(170, 120);
-  click(422, grid_layout::moduleButtonY);
+  click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
   assert(save().config()["SlotEffects"][0] == 0);
-  click(422, grid_layout::moduleButtonY); // Wrap without entering another folder or IR category.
+  click(grid_layout::moduleNextX, grid_layout::moduleButtonY); // Wrap without entering another folder or IR category.
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
-  click(392, grid_layout::moduleButtonY);
+  click(grid_layout::modulePreviousX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
-  click(356, grid_layout::moduleButtonY); chooseBrowserItem("AMP"); pumpFor(30);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("AMP"); pumpFor(30);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
-  selectTile(390, 120); click(422,grid_layout::moduleButtonY);
+  selectTile(390, 120); click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == neighborIR);
   assert(save().config()["SlotEffects"][1] == static_cast<int>(SlotEffect::CabinetIR));
-  click(392,grid_layout::moduleButtonY);
+  click(grid_layout::modulePreviousX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == libraryIR);
   if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/"ir.bmp");
   // Empty file slots cannot cycle into another category.
-  selectTile(170, 224); click(422,grid_layout::moduleButtonY);
+  selectTile(170, 224); click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][4] == 0 && save().config()["SlotPaths"][4] == "");
   // The settings page is opaque and intercepts clicks; grid/editor controls cannot receive them.
   selectTile(170, 120);

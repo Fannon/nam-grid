@@ -743,12 +743,19 @@ struct ModuleLevels
   void Push(double inputPeak, double outputPeak)
   {
     const double now = Now();
-    for (auto& peak : mPeaks) peak.Tick(std::max(0., now - mTick), false);
-    mTick = now;
+    Advance(now);
     mPeaks[0].Receive(0., inputPeak); mPeaks[1].Receive(0., outputPeak);
     if (inputPeak >= 1.) mClipUntil[0] = now + kClipHoldSeconds;
     if (outputPeak >= 1.) mClipUntil[1] = now + kClipHoldSeconds;
   }
+  void Advance(double now)
+  {
+    const double elapsed = std::max(0., now - mTick);
+    mTick = now;
+    for (auto& peak : mPeaks)
+      if (peak.peak > 0.) peak.Tick(elapsed, false);
+  }
+  bool Moving() const { return mPeaks[0].peak > 0. || mPeaks[1].peak > 0.; }
   double Peak(int index) const { return mPeaks[index].peak; }
   bool Clipped(int index) const { return Now() < mClipUntil[index]; }
 private:
@@ -1087,6 +1094,7 @@ public:
     }
     const double now = Now(), dt = std::max(0., now - mTick);
     mTick = now;
+    mModuleLevels.Advance(now);
     if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor)
       mEditor->SetDirty(false);
     const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
@@ -1101,6 +1109,8 @@ public:
       if (mEditor && PLUG()->GetSelectedSlot() == mSlot)
         mEditor->SetDirty(false);
     }
+    else if (mModuleLevels.Moving() && mEditor && PLUG()->GetSelectedSlot() == mSlot)
+      mEditor->SetDirty(false);
     return IControl::IsDirty();
   }
 
@@ -1112,13 +1122,13 @@ public:
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
     mModelButton = new grid_ui::ModuleButton(IRECT(92, grid_layout::moduleHeaderTop, 372, grid_layout::moduleHeaderBottom), [this](IControl*) { ShowMenu(); }, "Choose module...");
     mEditor->AddChildControl(mModelButton);
-    mBrowserButton = new grid_ui::BrowserButton(IRECT(496, grid_layout::moduleHeaderTop, 528, grid_layout::moduleHeaderBottom), [this](IControl*) { OpenBrowser(); }, "");
+    mBrowserButton = new grid_ui::BrowserButton(IRECT(grid_layout::moduleBrowseX - 16, grid_layout::moduleHeaderTop, grid_layout::moduleBrowseX + 16, grid_layout::moduleHeaderBottom), [this](IControl*) { OpenBrowser(); }, "");
     mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
     mEditor->AddChildControl(mBrowserButton);
-    mStepButtons[0] = new grid_ui::Button(IRECT(534, grid_layout::moduleHeaderTop, 558, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(-1); }, "<");
-    mStepButtons[1] = new grid_ui::Button(IRECT(564, grid_layout::moduleHeaderTop, 588, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(1); }, ">");
+    mStepButtons[0] = new grid_ui::Button(IRECT(grid_layout::modulePreviousX - 12, grid_layout::moduleHeaderTop, grid_layout::modulePreviousX + 12, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(-1); }, "<");
+    mStepButtons[1] = new grid_ui::Button(IRECT(grid_layout::moduleNextX - 12, grid_layout::moduleHeaderTop, grid_layout::moduleNextX + 12, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(1); }, ">");
     for (auto* button : mStepButtons) mEditor->AddChildControl(button);
-    mQualityButton = new grid_ui::Button(IRECT(grid_layout::qualityLeft, grid_layout::optionsTop, grid_layout::qualityLeft + 100, grid_layout::optionsBottom), [this](IControl*) {
+    mQualityButton = new grid_ui::Button(IRECT(grid_layout::qualityLeft, grid_layout::optionsTop, 620, grid_layout::optionsBottom), [this](IControl*) {
       PLUG()->ToggleSlotQuality(mSlot); Refresh();
     }, "Quality: A2");
     mQualityButton->SetTooltip("Click to switch between full A2 and lower-CPU A2 Lite for this capture.");
@@ -1155,11 +1165,11 @@ public:
       if (i == uTempoSync)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::tempoLeft, grid_layout::optionsTop, grid_layout::tempoLeft + 110, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (!EffectChoices(i).empty())
-        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::modeLeft + 124, grid_layout::optionsBottom)
+        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(grid_layout::modeLeft, grid_layout::optionsTop, 620, grid_layout::optionsBottom)
                                                                                  : grid_ui::ControlBounds(p.position),
                                              SlotUtilityParam(mSlot, i), i, p.label);
       else if (effect_presentation::HeaderControl(i))
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::modeLeft + 124, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::modeLeft, grid_layout::optionsTop, 620, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
@@ -1333,6 +1343,18 @@ private:
     const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
     const int style = std::clamp(static_cast<int>(value(uPedalStyle)), 0, effect_modes::pedalCount - 1);
     const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+    const std::array<double, 10> key{rate, value(uPedalStyle), value(uPedalDrive), value(uPedalTone),
+      value(uPedalBody), value(uPedalSplit), value(uPedalLowKeep), value(uPedalOutput), value(uPedalMix), value(uPedalCharacter)};
+    // Audio meters repaint continuously; regenerate synthetic curves only when their
+    // controls, sample rate or graphics scale change. The live meters draw afterward.
+    if (key == mPedalPreviewKey && g.CheckLayer(mPedalPreview))
+    {
+      g.DrawLayer(mPedalPreview);
+      return;
+    }
+    const IRECT bounds(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom);
+    g.StartLayer(this, bounds);
+    VisualizationBackground(g, bounds);
     const double driveDb = value(uPedalDrive), characterValue = value(uPedalCharacter);
     const double body = value(uPedalBody), highCut = value(uPedalTone), split = value(uPedalSplit);
     const double keep = value(uPedalLowKeep) * .01, mix = value(uPedalMix) * .01;
@@ -1344,7 +1366,7 @@ private:
     PlotDetail(g, plot, detail.Get());
     const IRECT shape(plot.L, plot.T, plot.MW() - 8.f, plot.B), tone(plot.MW() + 8.f, plot.T, plot.R, plot.B);
 
-    // Two periods of a 220 Hz test tone through the selected voice, at a loud and a quiet
+    // Up to two periods of a 220 Hz test tone through the selected voice, at a loud and a quiet
     // input. The pair shows what the knobs cannot: how far the pedal cleans up with playing
     // level. The quiet input stays faint, the loud input grey for reference.
     constexpr double hz = 220.;
@@ -1398,7 +1420,8 @@ private:
       const std::complex<double> z = std::polar(1., -2. * pi * hzValue / fs);
       return (1. - poleValue) / (1. - poleValue * z);
     };
-    const double bodyPole = pole(250., oversampled), cutPole = pole(highCut, oversampled), dcPole = pole(5., oversampled);
+    const double bodyPole = pole(250., oversampled), dcPole = pole(5., oversampled);
+    const double cutPole = std::exp(-2. * pi * std::min(highCut, .4 * rate) / oversampled);
     const double splitPole = pole(split, rate), bodyGain = std::pow(10., body * .05) - 1.;
     const auto magnitude = [&](double hzValue) {
       const auto lowBand = lowPass(splitPole, hzValue, rate);
@@ -1425,6 +1448,9 @@ private:
     WDL_String footer;
     footer.SetFormatted(96, "Body / high cut | Low keep %.0f%%", value(uPedalLowKeep));
     PlotFooter(g, plot, footer.Get(), "20 Hz - 20k");
+    mPedalPreview = g.EndLayer();
+    mPedalPreviewKey = key;
+    g.DrawLayer(mPedalPreview);
   }
 
   bool HasVisualization()
@@ -2297,6 +2323,8 @@ private:
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
+  ILayerPtr mPedalPreview;
+  std::array<double, 10> mPedalPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;
   std::string mPlotPath;
   std::array<float, 120> mInputHistory{}, mOutputHistory{}, mReductionHistory{};

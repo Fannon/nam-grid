@@ -16,7 +16,7 @@ Build your rig in the grid, then use the panel below it to shape the selected mo
 
 Settings, Tuner and Modulation have icons beside their names. The page-with-plus and disk icons beside the preset arrows are **New** and **Save**; hover over them for help. A divider and subtly lighter background mark the parameter area below the grid, including when auditioning modules in the browser.
 
-Visualizations use the same black as the grid, with matching space above and to the right of the module display.
+Visualizations use the same black as the grid, with matching space above, below and to the right of the module display.
 
 ## Build and arrange a rig
 
@@ -44,7 +44,7 @@ Displays help answer practical questions: Is the compressor working? How dark ar
 Use the **level meters** in the display footer to compare tones at similar volume. They read the same scale as the slot meters, -60 to +6 dBFS:
 
 - **Gain near 0 dB** means the module adds little overall level—useful for a fair bypass comparison.
-- The bar is RMS over the last 0.4 seconds; the tick and the number are the held peak. Values read RMS, then peak, in dB.
+- The bar is RMS over the last 0.4 seconds; the tick is the held peak. The two numbers read RMS, then peak, in dB.
 - Red above 0 dBFS warns of a hot level. Between modules this is headroom information; at **OUT**, it is the level sent to your DAW.
 
 Turn all displays on or off in **Settings > Visualizations**. This changes only the display, never the sound or saved settings. The [module guide](modules/README.md) explains each module's display.

@@ -54,7 +54,7 @@ static int Run(int argc, char** argv)
   assert(argc == 4);
   const std::filesystem::path repository = argv[2];
   IsolatedUserHome settingsBackup("nam-grid-gallery"); // Never touches the user's preferences.
-  const auto demo = std::filesystem::path("C:/Users/Public/Documents/NAM Grid demo").make_preferred();
+  const auto demo = settingsBackup.home / "Demo Library";
   const auto captures = demo / "Captures", irs = demo / "IRs", presets = demo / "Presets";
   {
     // Library folders are per-user settings; the plugin reads them at startup and on every state load.

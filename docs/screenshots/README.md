@@ -49,7 +49,7 @@ build-grid/NeuralAmpModeler/nam-readme-gallery build-grid/out/nam-grid.clap . tm
 It creates the demo library and renders every view as BMP, then each built-in module in
 the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. The NAM
 and Cabinet IR pane images are lossless 1000 × 244 crops from the bottom of `nam.png` and
-`ir.png`. The tool uses a private temporary `NAM_GRID_HOME`, so your own settings are never
-touched. Keep the supplied main image when updating the gallery. Convert the other BMPs
-losslessly to PNG; see [ui.md](../ui.md) for the views and
+`ir.png`. The tool uses a private temporary `NAM_GRID_HOME` for settings and demo files,
+so your own settings and libraries are never touched. Convert every BMP losslessly to PNG,
+including the newly generated main image; see [ui.md](../ui.md) for the views and
 [build.md](../build.md#editor-screenshots) for the smoke-test screenshot modes.

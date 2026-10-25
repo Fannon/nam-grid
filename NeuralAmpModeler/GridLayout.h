@@ -35,8 +35,9 @@ inline constexpr int descriptionTop = 516, descriptionBottom = 536;
 inline constexpr int optionsTop = descriptionTop, optionsBottom = descriptionBottom;
 inline constexpr int knobTop = 542, knobBottom = 620, knobRowPitch = 86;
 inline constexpr int enabledX = 608, enabledY = (moduleHeaderTop + moduleHeaderBottom) / 2;
+inline constexpr int moduleBrowseX = 512, modulePreviousX = 546, moduleNextX = 576;
 inline constexpr int moduleButtonY = (moduleHeaderTop + moduleHeaderBottom) / 2, optionsY = (optionsTop + optionsBottom) / 2;
-inline constexpr int qualityLeft = 520, tempoLeft = 380, modeLeft = 496;
+inline constexpr int qualityLeft = 504, tempoLeft = 332, modeLeft = 456;
 inline constexpr int KnobGestureY(int position) { return knobTop + (position / 4) * knobRowPitch + 43; }
 inline constexpr int ToggleY(int position) { return knobTop + (position / 4) * knobRowPitch + 55; }
 inline constexpr int KnobValueY(int position) { return knobBottom + (position / 4) * knobRowPitch - 6; }

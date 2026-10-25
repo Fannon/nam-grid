@@ -2,6 +2,7 @@
 #include "ClapTestHost.h"
 #include <thread>
 #include "WinEditorCapture.h"
+#include "../NeuralAmpModeler/GridLayout.h"
 
 int main(int argc, char** argv)
 {

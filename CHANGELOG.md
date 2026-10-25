@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Pedal Drive adds no latency. Its antialiasing filters are now minimum phase, with the same bandwidth and alias rejection, so the pedal no longer reports 64 samples and stacking pedals does not accumulate delay.
 - Pedal Drive uses about 20% less CPU on Apple Silicon, with unchanged sound. The oversampling filters now pair their independent phase sums; every other platform keeps the portable loop.
 
 ## [0.2.1] - 2026-10-25

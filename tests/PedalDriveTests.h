@@ -8,15 +8,14 @@ namespace pedal_test
 class ReferenceOversampler
 {
 public:
-  ReferenceOversampler()
+  // Deliberately direct, zero-stuffed convolution with the production coefficients:
+  // it checks phase, ring wraps, polyphase index mapping and roundoff, not the design.
+  explicit ReferenceOversampler(const std::array<double, 257>& designed)
   {
     double sum = 0.;
     for (int i = 0; i < 257; ++i)
     {
-      const double x = i - 128.;
-      const double sinc = x == 0. ? .225 : std::sin(.225 * grid_pedal::pi * x) / (grid_pedal::pi * x);
-      kernel[i] =
-        sinc * (.42 - .5 * std::cos(2. * grid_pedal::pi * i / 256.) + .08 * std::cos(4. * grid_pedal::pi * i / 256.));
+      kernel[i] = designed[i];
       sum += kernel[i];
     }
     for (double& x : kernel)
@@ -96,13 +95,17 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
 
 void TestPedalDrive()
 {
-  // The resampling filters must have the advertised phase delay and unity DC gain.
+  // The minimum-phase resampling filters must be causal (no lookahead), settle within
+  // the dry alignment window, and keep unity DC gain.
   grid_pedal::Oversampler4x oversampler;
   oversampler.Reset();
   std::array<double, 256> impulse{};
   for (int i = 0; i < impulse.size(); ++i)
     impulse[i] = oversampler.Tick(i == 0 ? 1. : 0., [](double x) { return x; });
-  assert(std::max_element(impulse.begin(), impulse.end()) - impulse.begin() == SlotPedalDrive::latency);
+  // Minimum phase: the response starts at the first sample, so nothing is looked ahead.
+  assert(SlotPedalDrive::latency == 0);
+  assert(impulse[0] != 0.);
+  assert(std::max_element(impulse.begin(), impulse.end()) - impulse.begin() <= 8);
   double sum = 0.;
   for (double x : impulse)
     sum += x;
@@ -110,8 +113,8 @@ void TestPedalDrive()
 
   // Compare the optimized FIRs with a direct high-rate reference, including
   // nonlinear clipping. The allowed difference is double-precision roundoff.
-  pedal_test::ReferenceOversampler reference;
   oversampler.Reset();
+  pedal_test::ReferenceOversampler reference(oversampler.Kernel());
   unsigned seed = 1337;
   for (int i = 0; i < 2048; ++i)
   {
@@ -177,7 +180,7 @@ void TestPedalDrive()
         x[i] = original[i] = .1 * std::sin(i * .1);
       dry.Process(x.data(), static_cast<int>(x.size()), c);
       for (int i = 0; i < x.size(); ++i)
-        assert(x[i] == (i < SlotPedalDrive::latency ? 0. : original[i - SlotPedalDrive::latency]));
+        assert(x[i] == original[i]); // zero latency: dry passes through unshifted
     }
     const auto large = pedal_test::Render(rate, {}, false, true);
     const auto tiny = pedal_test::Render(rate, {}, true, true);

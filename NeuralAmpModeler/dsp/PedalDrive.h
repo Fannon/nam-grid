@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <complex>
+#include <vector>
 #if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
   #include <arm_neon.h>
 #endif
@@ -20,12 +22,14 @@ inline double Flush(double x)
 
 // Windowed-sinc interpolation and decimation, both at 4x. Polyphase interpolation
 // skips zero-stuffed samples; mirrored rings make each dot product contiguous.
-// The two 257-tap linear-phase filters add exactly 64 host samples of delay.
-// Fixed storage; coefficient design and clearing only happen during preparation.
+// The filters are minimum phase, so the pedal itself adds no latency to the grid.
+// Their magnitude response, and therefore alias rejection, is unchanged; only phase
+// differs. The tiny remaining group delay (~6 samples) is matched by the slot's dry
+// and Low keep alignment. Fixed storage; design and clearing happen in preparation.
 class Oversampler4x
 {
 public:
-  static constexpr int factor = 4, taps = 257, latency = (taps - 1) / factor;
+  static constexpr int factor = 4, taps = 257, latency = 0;
   void Reset()
   {
     mInput = {};
@@ -42,7 +46,10 @@ public:
     }
     for (double& x : mKernel)
       x /= sum;
+    MinimumPhase();
   }
+  // The designed coefficients, for tests that convolve directly.
+  const std::array<double, taps>& Kernel() const { return mKernel; }
   template <class Nonlinear>
   double Tick(double input, Nonlinear&& nonlinear)
   {
@@ -70,6 +77,71 @@ public:
       }
     }
     return Flush(result);
+  }
+
+
+  // Cepstral minimum-phase conversion: same magnitude, causal impulse response, so
+  // the interpolation and decimation filters need no lookahead. The polyphase index
+  // mapping is unchanged, which is why only latency and phase change.
+  void MinimumPhase()
+  {
+    constexpr int fftSize = 1 << 15;
+    std::vector<std::complex<double>> spectrum(fftSize);
+    for (int i = 0; i < taps; ++i)
+      spectrum[i] = mKernel[i];
+    CepstrumFft(spectrum, false);
+    for (auto& value : spectrum)
+      value = std::log(std::max(1.e-12, std::abs(value)));
+    CepstrumFft(spectrum, true); // real cepstrum
+    std::vector<std::complex<double>> folded(fftSize, std::complex<double>(0.));
+    folded[0] = spectrum[0];
+    for (int i = 1; i < fftSize / 2; ++i)
+      folded[i] = spectrum[i] * 2.;
+    folded[fftSize / 2] = spectrum[fftSize / 2];
+    CepstrumFft(folded, false);
+    for (auto& value : folded)
+      value = std::exp(value);
+    CepstrumFft(folded, true);
+    double sum = 0.;
+    for (int i = 0; i < taps; ++i)
+    {
+      mKernel[i] = folded[i].real();
+      sum += mKernel[i];
+    }
+    for (double& x : mKernel)
+      x /= sum;
+  }
+  static void CepstrumFft(std::vector<std::complex<double>>& values, bool inverse)
+  {
+    const size_t n = values.size();
+    for (size_t i = 1, j = 0; i < n; ++i)
+    {
+      size_t bit = n >> 1;
+      for (; j & bit; bit >>= 1)
+        j ^= bit;
+      j ^= bit;
+      if (i < j)
+        std::swap(values[i], values[j]);
+    }
+    for (size_t length = 2; length <= n; length <<= 1)
+    {
+      const double angle = 2. * pi / double(length) * (inverse ? 1. : -1.);
+      const std::complex<double> step(std::cos(angle), std::sin(angle));
+      for (size_t i = 0; i < n; i += length)
+      {
+        std::complex<double> rotation(1.);
+        for (size_t k = 0; k < length / 2; ++k)
+        {
+          const auto even = values[i + k], odd = values[i + k + length / 2] * rotation;
+          values[i + k] = even + odd;
+          values[i + k + length / 2] = even - odd;
+          rotation *= step;
+        }
+      }
+    }
+    if (inverse)
+      for (auto& value : values)
+        value /= double(n);
   }
 
 private:

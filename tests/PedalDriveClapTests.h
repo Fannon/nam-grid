@@ -12,8 +12,8 @@ void TestPedalDriveClap(const clap_plugin* plugin, const json& cleared, Save sav
     load(rig);
     assert(save().config() == rig);
     assert(plugin->activate(plugin, 48000., 1, 512));
-    const bool boost = rig["SlotEffects"][0] == static_cast<int>(SlotEffect::Boost);
-    assert(latency->get(plugin) == (boost ? 0u : SlotPedalDrive::latency));
+    // Both the drive and the boost rig are minimum phase, so neither adds latency.
+    assert(latency->get(plugin) == 0u);
     assert(plugin->start_processing(plugin));
     std::array<double, 512> l{}, r{}, outL{}, outR{};
     double *inputs[]{l.data(), r.data()}, *outputs[]{outL.data(), outR.data()};

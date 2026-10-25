@@ -8,6 +8,8 @@
 class SlotPedalDrive
 {
 public:
+  // The minimum-phase filters need no lookahead, so the pedal adds no latency and
+  // needs no dry/Low keep delay lines to stay aligned with the rest of the grid.
   static constexpr int latency = grid_pedal::Oversampler4x::latency;
   void Reset(double rate)
   {
@@ -17,10 +19,8 @@ public:
     mCoefficients.Reset(4. * mRate);
     mVoices = {};
     mWeights = {};
-    mDry = {};
-    mLow = {};
     mLowState = mBodyState = mPrevious = mDC = mToneState = 0.;
-    mCounter = mDelayIndex = 0;
+    mCounter = 0;
     mFirst = true;
     mCached.fill(-1.e30);
   }
@@ -75,10 +75,7 @@ public:
       const double input = samples[i];
       mLowState = grid_pedal::Flush(input + mSplitPole * (mLowState - input));
       const double kept = mLowState * c[5] * .01;
-      const double dry = mDry[mDelayIndex], low = mLow[mDelayIndex];
-      mDry[mDelayIndex] = input;
-      mLow[mDelayIndex] = kept;
-      mDelayIndex = (mDelayIndex + 1) % latency;
+      const double dry = input, low = kept;
       const double processed = mOversampler.Tick(input - kept, [&](double x) {
         mBodyState = grid_pedal::Flush(x + mCoefficients.poles[grid_pedal::Coefficients::Body] * (mBodyState - x));
         x += mBody * mBodyState;
@@ -105,10 +102,9 @@ private:
   grid_pedal::Character mCharacter;
   std::array<grid_pedal::Voice, effect_modes::pedalCount> mVoices{};
   std::array<double, effect_modes::pedalCount> mWeights{};
-  std::array<double, latency> mDry{}, mLow{};
   std::array<double, 9> mCached{};
   double mRate = 48000., mLowState = 0., mBodyState = 0., mPrevious = 0., mDC = 0., mToneState = 0.;
   double mDrive = 1., mRootDrive = 1., mTonePole = 0., mSplitPole = 0., mBody = 0., mOutput = 1.;
-  int mCounter = 0, mDelayIndex = 0;
+  int mCounter = 0;
   bool mFirst = true;
 };

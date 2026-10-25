@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Changed
+
+- Pedal Drive uses about 20% less CPU on Apple Silicon, with unchanged sound. The oversampling filters now pair their independent phase sums; every other platform keeps the portable loop.
+
 ## [0.2.1] - 2026-10-25
 
 ### Changed

@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+  #include <arm_neon.h>
+#endif
 
 // Original MIT DSP for NAM Grid. Design references (no circuit-model code copied):
 // Aion Stratus, Helios, Refractor and Halo schematics; Darkglass B3K/X Ultra
@@ -48,9 +51,7 @@ public:
     // Accumulate the four interpolation phases together: each input load feeds
     // four independent sums, allowing SIMD without changing their tap order.
     std::array<double, factor> up{};
-    for (int sample = 0; sample < (taps - 1) / factor; ++sample)
-      for (int phase = 0; phase < factor; ++phase)
-        up[phase] += mKernel[factor * sample + phase] * mInput[mInputIndex + sample];
+    Interpolate(up.data());
     up[0] += mKernel[taps - 1] * mInput[mInputIndex + (taps - 1) / factor];
     double result = 0.;
     for (int phase = 0; phase < factor; ++phase)
@@ -64,9 +65,7 @@ public:
         // Independent sums remove the serial 257-add dependency. The kernel
         // and phase are unchanged; only roundoff from the final reduction differs.
         std::array<double, factor> down{};
-        for (int tap = 0; tap < taps - 1; tap += factor)
-          for (int j = 0; j < factor; ++j)
-            down[j] += mKernel[tap + j] * mHigh[mHighIndex + tap + j];
+        Decimate(down.data());
         result = ((down[0] + down[1]) + (down[2] + down[3])) + mKernel[taps - 1] * mHigh[mHighIndex + taps - 1];
       }
     }
@@ -74,6 +73,58 @@ public:
   }
 
 private:
+  // Each phase accumulates its own taps in the scalar order the reference uses,
+  // so pairing two phases in one SIMD register keeps the output bit-identical.
+  // On arm64 this halves the instructions per tap of the four dot products that
+  // dominate Pedal Drive's cost; other targets keep the portable loop.
+  void Interpolate(double* up) const
+  {
+#if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    float64x2_t low = vdupq_n_f64(0.), high = vdupq_n_f64(0.);
+    const double* in = &mInput[mInputIndex];
+    const double* kernel = mKernel.data();
+    for (int group = 0; group < (taps - 1) / (factor * 2); ++group)
+    {
+      const float64x2_t first = vdupq_n_f64(in[0]), second = vdupq_n_f64(in[1]);
+      low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel), first));
+      high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 2), first));
+      low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel + 4), second));
+      high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 6), second));
+      kernel += 2 * factor;
+      in += 2;
+    }
+    vst1q_f64(up, low);
+    vst1q_f64(up + 2, high);
+#else
+    for (int sample = 0; sample < (taps - 1) / factor; ++sample)
+      for (int phase = 0; phase < factor; ++phase)
+        up[phase] += mKernel[factor * sample + phase] * mInput[mInputIndex + sample];
+#endif
+  }
+  void Decimate(double* down) const
+  {
+#if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    float64x2_t low = vdupq_n_f64(0.), high = vdupq_n_f64(0.);
+    const double* ring = &mHigh[mHighIndex];
+    const double* kernel = mKernel.data();
+    for (int group = 0; group < (taps - 1) / (factor * 2); ++group)
+    {
+      low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel), vld1q_f64(ring)));
+      high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 2), vld1q_f64(ring + 2)));
+      low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel + 4), vld1q_f64(ring + 4)));
+      high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 6), vld1q_f64(ring + 6)));
+      kernel += 2 * factor;
+      ring += 2 * factor;
+    }
+    vst1q_f64(down, low);
+    vst1q_f64(down + 2, high);
+#else
+    for (int tap = 0; tap < taps - 1; tap += factor)
+      for (int j = 0; j < factor; ++j)
+        down[j] += mKernel[tap + j] * mHigh[mHighIndex + tap + j];
+#endif
+  }
+
   std::array<double, taps> mKernel{};
   std::array<double, 256> mInput{};
   std::array<double, 1024> mHigh{};

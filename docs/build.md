@@ -17,7 +17,7 @@ plugin in saved projects; they must never change after a release.
   release base (glibc 2.35):
 
   ```sh
-  sudo apt-get install g++-12 ninja-build pkg-config libfreetype-dev libfontconfig-dev     libx11-dev libxi-dev libxext-dev libxrender-dev libxrandr-dev libxfixes-dev     libxcursor-dev libxinerama-dev libxtst-dev libgl-dev libgtk-3-dev xvfb libgl1-mesa-dri
+  sudo apt-get install g++-12 ninja-build pkg-config libfreetype-dev libfontconfig-dev     libx11-dev libxi-dev libxext-dev libxrender-dev libxrandr-dev libxfixes-dev     libxcursor-dev libxinerama-dev libxtst-dev libgl-dev libgtk-3-dev libasound2-dev xvfb libgl1-mesa-dri
   ```
 
   Configure with `CC=gcc-12 CXX=g++-12` and `-G Ninja`. Run CTest under

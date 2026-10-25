@@ -672,32 +672,19 @@ public:
     toggle(6, LaneBSolo, "Hear only lane B, keeping its blend level. Soloing both lanes passes both.");
     knob(7, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
                         "timing; it cannot correct every phase difference and never advances audio.");
-    AddChildControl(new Toggle(IRECT(444, 510, 620, 534), PerformanceParam(Crossover), "Frequency split"))
+    AddChildControl(new Toggle(IRECT(444, grid_layout::descriptionTop, 620, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
       ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
-    AddChildControl(new Button(IRECT(540, 484, 620, 508), [](IControl* caller) {
+    AddChildControl(new Button(IRECT(540, grid_layout::moduleHeaderTop, 620, grid_layout::moduleHeaderBottom), [](IControl* caller) {
       static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close", Icon::Close))
       ->SetTooltip("Back to the selected module (Escape).");
-    AddChildControl(new CrossoverView(IRECT(644, grid_layout::visualizationTop, grid_layout::visualizationRight, 600)));
+    AddChildControl(new CrossoverView(IRECT(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom)));
   }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
     DrawEditorBackground(g, mRECT);
-    g.DrawText(Text(22.f, accent), "Routing", IRECT(pageLeft, 484, 300, 508));
-    FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(pageLeft, 510, 434, 533));
-    // The lanes' current modules, under the crossover view.
-    const auto panel = IRECT(644, 608, grid_layout::visualizationRight, grid_layout::editorBottom);
-    VisualizationBackground(g, panel);
-    for (int lane = 0; lane < 2; ++lane)
-    {
-      std::string chain;
-      for (int slot = 4 + lane * 4; slot < 8 + lane * 4; ++slot)
-        if (PLUG()->IsSlotLoaded(slot) || PLUG()->GetSlotEffect(slot) != SlotEffect::NAM)
-          chain += (chain.empty() ? "" : "  ›  ") + SlotModuleName(*PLUG(), slot);
-      const float y = panel.T + 12.f + lane * 38.f;
-      g.DrawText(Text(13.f, lane ? cabColor : ampColor), lane ? "Lane B" : "Lane A", IRECT(panel.L + 14, y, panel.R - 14, y + 16));
-      FittedText(g, Text(13.f, muted), chain.empty() ? "Empty" : chain, IRECT(panel.L + 14, y + 16, panel.R - 14, y + 32));
-    }
+    g.DrawText(Text(22.f, accent), "Routing", IRECT(pageLeft, grid_layout::moduleHeaderTop, 300, grid_layout::moduleHeaderBottom));
+    FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(pageLeft, grid_layout::descriptionTop, 434, grid_layout::descriptionBottom));
   }
 };
 
@@ -790,7 +777,7 @@ public:
     }
     g.DrawText(Text(17.f, accent), "Macros", IRECT(484, 484, pageRight, 508));
     g.DrawText(Text(13.f, muted), "Right-click any module knob to modulate it. Alt-drag a modulated knob to change its depth.",
-               IRECT(pageLeft, 676, pageRight, 700));
+               IRECT(pageLeft, grid_layout::visualizationBottom - 40, pageRight, grid_layout::visualizationBottom - 16));
   }
   bool IsDirty() override
   {

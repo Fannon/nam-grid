@@ -12,32 +12,6 @@ template <class Value>
 bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor color,
                    Value value, double lowCut, double rate, double inputLevel)
 {
-  if (effect == SlotEffect::PedalDrive)
-  {
-    const int style = std::clamp(static_cast<int>(value(uPedalStyle)), 0, effect_modes::pedalCount - 1);
-    PlotTitle(g, plot, color, effect_modes::pedalNames[style]);
-    PlotDetail(g, plot, "Drive path + clean low return");
-    const float row = plot.T + 4.f, width = (plot.W() - 24.f) / 3.f;
-    const auto box = [&](int index, const char* label) {
-      const float left = plot.L + index * (width + 12.f);
-      const IRECT bounds(left, row, left + width, row + 30.f);
-      g.DrawRoundRect(color.WithOpacity(.7f), bounds, 3.f);
-      g.DrawText(Text(12.f, text, EAlign::Center), label, bounds);
-      if (index < 2) g.DrawLine(muted, bounds.R, bounds.MH(), bounds.R + 12.f, bounds.MH());
-    };
-    box(0, "Body"); box(1, "Drive stages"); box(2, "High cut");
-    WDL_String detail;
-    detail.SetFormatted(100, "Low keep %.0f%% below %.0f Hz", value(uPedalLowKeep), value(uPedalSplit));
-    g.DrawText(Text(13.f, value(uPedalLowKeep) > 0. ? color : muted), detail.Get(),
-               IRECT(plot.L, row + 42.f, plot.R, row + 64.f));
-    g.DrawLine(color.WithOpacity(.6f), plot.L + 5.f, row + 32.f, plot.L + 5.f, row + 74.f);
-    g.DrawLine(color.WithOpacity(.6f), plot.L + 5.f, row + 74.f, plot.R - 5.f, row + 74.f);
-    g.DrawLine(color.WithOpacity(.6f), plot.R - 5.f, row + 74.f, plot.R - 5.f, row + 32.f);
-    detail.SetFormatted(100, "Output %+.1f dB | Mix %.0f%%", value(uPedalOutput), value(uPedalMix));
-    g.DrawText(Text(13.f, muted), detail.Get(), IRECT(plot.L, row + 84.f, plot.R, row + 106.f));
-    PlotFooter(g, plot, "Low keep bypasses Body and High cut");
-    return true;
-  }
   if (effect != SlotEffect::Distortion && effect != SlotEffect::Boost
       && effect != SlotEffect::TubeBoost && effect != SlotEffect::Tape) return false;
   const bool clean = effect == SlotEffect::Boost, tube = effect == SlotEffect::TubeBoost, tape = effect == SlotEffect::Tape;

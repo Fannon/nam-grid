@@ -398,9 +398,10 @@ public:
 class Button : public IVButtonControl
 {
 public:
-  Button(const IRECT& r, IActionFunction action, const char* label, Icon icon = Icon::None, bool iconOnly = false)
-  : IVButtonControl(r, action, label, Style().WithLabelText(Text(14.f, text, EAlign::Center)))
-  , mIcon(icon), mIconOnly(iconOnly)
+  Button(const IRECT& r, IActionFunction action, const char* label, Icon icon = Icon::None, bool iconOnly = false,
+         IColor ink = text)
+  : IVButtonControl(r, action, label, Style().WithLabelText(Text(14.f, ink, EAlign::Center)))
+  , mIcon(icon), mIconOnly(iconOnly), mInk(ink)
   {
   }
   // iPlug2 releases a pressed button only at the end of a click animation; these actions run
@@ -419,11 +420,12 @@ protected:
   {
     g.FillRoundRect(GetValue() > .5 ? IColor(255, 49, 53, 59) : surface, mRECT, 3.f);
     g.DrawRoundRect(mMouseIsOver && !IsDisabled() ? muted : border, mRECT, 3.f);
-    IconLabel(g, mIcon, GetLabelStr(), labelBounds, Text(14.f, IsDisabled() ? muted : text, EAlign::Center), mIconOnly);
+    IconLabel(g, mIcon, GetLabelStr(), labelBounds, Text(14.f, IsDisabled() ? muted : mInk, EAlign::Center), mIconOnly);
   }
 private:
   Icon mIcon;
   bool mIconOnly;
+  IColor mInk;
 };
 class HintLabel : public ITextControl
 {
@@ -496,7 +498,7 @@ inline float CategoryBadges(IGraphics& g, SlotEffect effect, nam_library::Gear g
     g.DrawText(Text(font, badges[i].second.WithOpacity(opacity), EAlign::Center), badges[i].first, box);
     x = box.R + 5.f;
   }
-  return left;
+  return right ? left : x - 5.f;
 }
 // Flow controls share numeric entry below the dial and double-click reset.
 class FlowKnob : public Knob
@@ -531,7 +533,7 @@ public:
       const auto labelColor = slot < 0 ? muted : Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
       g.DrawText(Text(15.f, labelColor, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(14));
     }
-    const auto button = tall ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT;
+    const auto button = tall ? IRECT(mRECT.L + 12, mRECT.B - 38, mRECT.R - 12, mRECT.B - 4) : mRECT;
     const bool on = GetValue() >= .5;
     if (mSelector)
     {
@@ -641,7 +643,7 @@ public:
   }
 private:
   IRECT Box() const
-  { return mRECT.H() > 60.f ? IRECT(mRECT.L + 12, mRECT.T + 40, mRECT.R - 12, mRECT.T + 74) : mRECT; }
+  { return mRECT.H() > 60.f ? IRECT(mRECT.L + 12, mRECT.B - 38, mRECT.R - 12, mRECT.B - 4) : mRECT; }
   int mControl;
   std::string mLabel;
   IPopupMenu mMenu;
@@ -730,83 +732,68 @@ private:
   std::function<void(IGraphics&)> mDraw;
 };
 
-// The selected module's level strip below the editor, the same for every module:
-// input and output RMS with their peaks, the gain between them and the crest change.
-class LevelStrip : public IControl
+// The selected module's input and output levels, drawn in the visualization footer: RMS bar
+// over the last 0.4 s, held peak tick (1.5 s, then 12 dB/second), red above 0 dBFS and for
+// 2 s after an over. Values read RMS / peak in dB; Gain is the RMS change.
+struct ModuleLevels
 {
-public:
-  LevelStrip(const IRECT& r, const LevelComparison& levels, std::function<IColor()> ink)
-  : IControl(r), mLevels(levels), mInk(std::move(ink))
-  {
-    SetTooltip("Module input and output on the slot meters' scale, -60 to +6 dBFS (line at 0 dBFS): RMS bar over the last "
-               "0.4 s, held peak tick (1.5 s, then 12 dB/second), red above 0 dBFS and for 2 s after an over. Values read "
-               "RMS / peak. Gain is the RMS change. Crest is peak to RMS: a lower crest at the output means the module "
-               "compresses or saturates, a higher one that it expands or sharpens attacks. Mono sums, like the slot meters.");
-  }
+  static double Now()
+  { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
   // The same peaks the slot's card meters receive.
   void Push(double inputPeak, double outputPeak)
   {
     const double now = Now();
+    for (auto& peak : mPeaks) peak.Tick(std::max(0., now - mTick), false);
+    mTick = now;
     mPeaks[0].Receive(0., inputPeak); mPeaks[1].Receive(0., outputPeak);
     if (inputPeak >= 1.) mClipUntil[0] = now + kClipHoldSeconds;
     if (outputPeak >= 1.) mClipUntil[1] = now + kClipHoldSeconds;
-    SetDirty(false);
   }
-  bool IsDirty() override
-  {
-    const double now = Now();
-    for (auto& peak : mPeaks) peak.Tick(std::max(0., now - mTick), false);
-    mTick = now;
-    if (!IsHidden() && (mPeaks[0].peak > 0. || mPeaks[1].peak > 0. || now < std::max(mClipUntil[0], mClipUntil[1]) + .1))
-      SetDirty(false);
-    return IControl::IsDirty();
-  }
-  void Draw(IGraphics& g) override
-  {
-    if (!PLUG()->GetShowVisualizations()) return;
-    const auto ink = mInk();
-    const float y = mRECT.MH();
-    const double now = Now();
-    const auto bar = [&](float left, const char* label, const LevelComparison::Side& side, int index) {
-      g.DrawText(Text(12.f, muted), label, IRECT(left, mRECT.T, left + 26.f, mRECT.B));
-      const IRECT track(left + 28.f, y - 3.f, left + 132.f, y + 3.f);
-      const auto x = [&](double db) {
-        return track.L + track.W() * static_cast<float>(std::clamp((db - kMeterFloorDB) / (kMeterCeilingDB - kMeterFloorDB), 0., 1.));
-      };
-      const auto dB = [](double level) { return 20. * std::log10(std::max(level, 1.e-6)); };
-      const float zero = x(0.);
-      g.FillRect(surface, track);
-      if (mLevels.valid) g.FillRect(ink.WithOpacity(.75f), IRECT(track.L, track.T, std::min(zero, x(side.rmsDB)), track.B));
-      const double peak = mPeaks[index].peak;
-      const bool clipped = now < mClipUntil[index];
-      if (clipped || peak > 1.) g.FillRect(COLOR_RED, IRECT(zero, track.T, clipped ? track.R : x(dB(peak)), track.B));
-      g.DrawLine(text.WithOpacity(.8f), zero, track.T - 1.f, zero, track.B + 1.f);
-      if (peak > 0.) g.DrawLine(text, x(dB(peak)), track.T - 2.f, x(dB(peak)), track.B + 2.f, nullptr, 1.5f);
-      WDL_String value;
-      if (mLevels.valid && peak > 0.) value.SetFormatted(32, "%.1f / %.1f", side.rmsDB, dB(peak));
-      else if (peak > 0.) value.SetFormatted(32, "- / %.1f", dB(peak));
-      else value.Set("-");
-      g.DrawText(Text(12.f, clipped ? COLOR_RED : text, EAlign::Far), value.Get(), IRECT(track.R + 2.f, mRECT.T, track.R + 82.f, mRECT.B));
-    };
-    bar(mRECT.L, "IN", mLevels.input, 0);
-    bar(mRECT.L + 236.f, "OUT", mLevels.output, 1);
-    WDL_String value;
-    if (mLevels.valid)
-      value.SetFormatted(96, "Gain %+.1f dB     Crest %.1f > %.1f dB (%+.1f)", mLevels.GainDB(), mLevels.input.crestDB,
-                         mLevels.output.crestDB, mLevels.CrestChangeDB());
-    else value.Set("Play to compare input and output");
-    g.DrawText(Text(12.f, muted), value.Get(), IRECT(mRECT.L + 470.f, mRECT.T, mRECT.R - 120.f, mRECT.B));
-    g.DrawText(Text(12.f, muted, EAlign::Far), "dB RMS / peak", IRECT(mRECT.R - 120.f, mRECT.T, mRECT.R, mRECT.B));
-  }
-
+  double Peak(int index) const { return mPeaks[index].peak; }
+  bool Clipped(int index) const { return Now() < mClipUntil[index]; }
 private:
-  static double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
-  const LevelComparison& mLevels;
-  std::function<IColor()> mInk;
   std::array<LevelReadout, 2> mPeaks;
   std::array<double, 2> mClipUntil{};
   double mTick = 0.;
 };
+
+// Compact enough to share the visualization footer with the module's own hint text.
+// The caller passes the plot's inner bounds, so the meters share the chart's margins.
+inline void DrawModuleLevels(IGraphics& g, const IRECT& r, const LevelComparison& levels,
+                             const ModuleLevels& state, IColor ink)
+{
+  const float y = r.MH(), labelWidth = 24.f, barWidth = 34.f, valueWidth = 68.f;
+  float x = r.L;
+  const auto meter = [&](const char* label, const LevelComparison::Side& side, int index) {
+    g.DrawText(Text(12.f, muted), label, IRECT(x, r.T, x + labelWidth, r.B));
+    const IRECT track(x + labelWidth, y - 3.f, x + labelWidth + barWidth, y + 3.f);
+    const auto at = [&](double db) {
+      return track.L + track.W() * static_cast<float>(std::clamp((db - kMeterFloorDB) / (kMeterCeilingDB - kMeterFloorDB), 0., 1.));
+    };
+    const auto dB = [](double level) { return 20. * std::log10(std::max(level, 1.e-6)); };
+    const float zero = at(0.);
+    const double peak = state.Peak(index);
+    const bool clipped = state.Clipped(index);
+    g.FillRect(surface, track);
+    if (levels.valid) g.FillRect(ink.WithOpacity(.75f), IRECT(track.L, track.T, std::min(zero, at(side.rmsDB)), track.B));
+    if (clipped || peak > 1.) g.FillRect(COLOR_RED, IRECT(zero, track.T, clipped ? track.R : at(dB(peak)), track.B));
+    g.DrawLine(text.WithOpacity(.8f), zero, track.T - 1.f, zero, track.B + 1.f);
+    if (peak > 0.) g.DrawLine(text, at(dB(peak)), track.T - 2.f, at(dB(peak)), track.B + 2.f, nullptr, 1.5f);
+    WDL_String value;
+    if (levels.valid && peak > 0.) value.SetFormatted(32, "%.1f/%.1f", side.rmsDB, dB(peak));
+    else if (peak > 0.) value.SetFormatted(32, "-/%.1f", dB(peak));
+    else value.Set("-");
+    g.DrawText(Text(11.f, clipped ? COLOR_RED : text, EAlign::Far), value.Get(),
+               IRECT(track.R + 3.f, r.T, track.R + 3.f + valueWidth, r.B));
+    x = track.R + 3.f + valueWidth + 6.f;
+  };
+  meter("IN", levels.input, 0);
+  meter("OUT", levels.output, 1);
+  WDL_String gain;
+  if (levels.valid) gain.SetFormatted(48, "Gain %+.1f", levels.GainDB());
+  else gain.Set("Gain -");
+  g.DrawText(Text(12.f, muted, EAlign::Far), gain.Get(), IRECT(x, r.T, r.R, r.B));
+}
 
 // The logo: the grid's four rows (Pre, lanes A and B, Post) as a rig in module category colours;
 // grey cells are empty slots. docs/public/logo.svg draws the same pattern; keep both in step.
@@ -971,8 +958,17 @@ public:
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
-    g.DrawText(Text(22.f, tone.first), slotName.c_str(), IRECT(24, 484, 84, 508));
-    if (!empty) CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), IRECT(482, 484, 620, 508), 13.f, true);
+    const auto idFont = Text(20.f, tone.first);
+    IRECT idText; g.MeasureText(idFont, slotName.c_str(), idText);
+    const float idRight = 24.f + idText.W();
+    g.DrawText(idFont, slotName.c_str(), IRECT(24, grid_layout::moduleHeaderTop, idRight + 2.f, grid_layout::moduleHeaderBottom));
+    // The badges follow the ID at its own width, so long IDs such as Post4 never crowd them.
+    float nameLeft = idRight + 12.f;
+    if (!empty)
+      nameLeft = CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
+                                IRECT(idRight + 10.f, grid_layout::moduleHeaderTop, 260, grid_layout::moduleHeaderBottom), 13.f) + 12.f;
+    const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, 486, grid_layout::moduleHeaderBottom);
+    if (mModelButton->GetRECT().L != nameBounds.L) mModelButton->SetRECT(nameBounds);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
     const auto hint = std::string(enabled ? "" : "Bypassed | ")
@@ -983,13 +979,21 @@ public:
     // The description stops before any option shown on its row (quality, tempo sync, modes).
     float hintRight = 620.f;
     const auto shorten = [&](const IControl* option) {
-      if (option && !option->IsHidden()) hintRight = std::min(hintRight, option->GetRECT().L - 10.f);
+      if (option && !option->IsHidden() && option->GetRECT().T < grid_layout::descriptionBottom)
+        hintRight = std::min(hintRight, option->GetRECT().L - 10.f);
     };
     shorten(mQualityButton);
     for (int i = 0; i < kUtilityControls; ++i)
       if (effect_presentation::HeaderControl(i)) shorten(mUtilityKnobs[i]);
-    if (!empty) FittedText(g, Text(14.f, muted), hint, IRECT(24, grid_layout::optionsTop, hintRight, grid_layout::optionsBottom));
-    if (HasVisualization() && PLUG()->GetShowVisualizations()) DrawVisualization(g);
+    if (!empty) FittedText(g, Text(14.f, muted), hint, IRECT(24, grid_layout::descriptionTop, hintRight, grid_layout::descriptionBottom));
+    if (HasVisualization() && PLUG()->GetShowVisualizations())
+    {
+      DrawVisualization(g);
+      // The selected module's own input and output sit in the visualization footer.
+      if (!empty)
+        DrawModuleLevels(g, IRECT(644 + 12, grid_layout::plotMetersTop, grid_layout::visualizationRight - 12, grid_layout::plotMetersBottom),
+                         mLevels, mModuleLevels, tone.first);
+    }
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
 
@@ -1102,30 +1106,26 @@ public:
 
   void OnAttached() override
   {
-    mEditor = new grid_ui::Editor(IRECT(24, grid_layout::editorTop, grid_layout::visualizationRight, grid_layout::editorBottom), [this](IGraphics& g) { DrawEditor(g); });
+    mEditor = new grid_ui::Editor(IRECT(24, grid_layout::editorTop, grid_layout::visualizationRight, grid_layout::visualizationBottom), [this](IGraphics& g) { DrawEditor(g); });
     GetUI()->AttachControl(mEditor);
     // Controls live in a shared bottom editor; each slot keeps its original automation bindings.
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
-    mModelButton = new grid_ui::ModuleButton(IRECT(92, 484, 372, 508), [this](IControl*) { ShowMenu(); }, "Choose module...");
+    mModelButton = new grid_ui::ModuleButton(IRECT(92, grid_layout::moduleHeaderTop, 372, grid_layout::moduleHeaderBottom), [this](IControl*) { ShowMenu(); }, "Choose module...");
     mEditor->AddChildControl(mModelButton);
-    mBrowserButton = new grid_ui::BrowserButton(IRECT(340, 484, 372, 508), [this](IControl*) { OpenBrowser(); }, "");
+    mBrowserButton = new grid_ui::BrowserButton(IRECT(496, grid_layout::moduleHeaderTop, 528, grid_layout::moduleHeaderBottom), [this](IControl*) { OpenBrowser(); }, "");
     mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
     mEditor->AddChildControl(mBrowserButton);
-    mStepButtons[0] = new grid_ui::Button(IRECT(380, 484, 404, 508), [this](IControl*) { Step(-1); }, "<");
-    mStepButtons[1] = new grid_ui::Button(IRECT(410, 484, 434, 508), [this](IControl*) { Step(1); }, ">");
+    mStepButtons[0] = new grid_ui::Button(IRECT(534, grid_layout::moduleHeaderTop, 558, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(-1); }, "<");
+    mStepButtons[1] = new grid_ui::Button(IRECT(564, grid_layout::moduleHeaderTop, 588, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(1); }, ">");
     for (auto* button : mStepButtons) mEditor->AddChildControl(button);
-    mQualityButton = new grid_ui::Button(IRECT(444, grid_layout::optionsTop, 620, grid_layout::optionsBottom), [this](IControl*) {
+    mQualityButton = new grid_ui::Button(IRECT(grid_layout::qualityLeft, grid_layout::optionsTop, grid_layout::qualityLeft + 100, grid_layout::optionsBottom), [this](IControl*) {
       PLUG()->ToggleSlotQuality(mSlot); Refresh();
     }, "Quality: A2");
     mQualityButton->SetTooltip("Click to switch between full A2 and lower-CPU A2 Lite for this capture.");
     mEditor->AddChildControl(mQualityButton);
-    mEnabled = new grid_ui::EnableButton(IRECT(grid_layout::enabledX - 14, 484, grid_layout::enabledX + 14, 508), SlotActiveParam(mSlot));
+    mEnabled = new grid_ui::EnableButton(IRECT(grid_layout::enabledX - 14, grid_layout::moduleHeaderTop, grid_layout::enabledX + 14, grid_layout::moduleHeaderBottom), SlotActiveParam(mSlot));
     mEditor->AddChildControl(mEnabled);
-    // Below the editor rect, so attached on its own and shown with the editor.
-    mLevelStrip = new grid_ui::LevelStrip(IRECT(24, grid_layout::editorBottom + 3, 976, grid_layout::height - 3), mLevels,
-      [this] { return grid_ui::Tone(PLUG()->GetSlotEffect(mSlot), PLUG()->GetSlotGear(mSlot)).first; });
-    GetUI()->AttachControl(mLevelStrip);
-    mLevelStrip->Hide(true);
+    // Levels live in the visualization footer, so the dials keep the full editor width.
     mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true, mSlot);
     // Gain staging stays in the left column: Input on top, Output below it.
     mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(4), SlotTrimParam(mSlot), "Output", true, mSlot);
@@ -1153,13 +1153,13 @@ public:
     {
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(380, grid_layout::optionsTop, 490, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Tempo sync");
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::tempoLeft, grid_layout::optionsTop, grid_layout::tempoLeft + 110, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (!EffectChoices(i).empty())
-        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(496, grid_layout::optionsTop, 620, grid_layout::optionsBottom)
+        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::modeLeft + 124, grid_layout::optionsBottom)
                                                                                  : grid_ui::ControlBounds(p.position),
                                              SlotUtilityParam(mSlot, i), i, p.label);
       else if (effect_presentation::HeaderControl(i))
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(496, grid_layout::optionsTop, 620, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::modeLeft + 124, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
@@ -1198,7 +1198,7 @@ public:
       const auto& meter = static_cast<const iplug::ISenderData<1, SlotMeterData>*>(data)->vals[0];
       mLevels.Receive(meter.inputEnergy, meter.outputEnergy, meter.input, meter.output, meter.frames,
                       PLUG()->GetSampleRate());
-      if (mLevelStrip) mLevelStrip->Push(meter.input, meter.output);
+      mModuleLevels.Push(meter.input, meter.output);
       mMeter.input = std::max(mMeter.input, meter.input);
       mMeter.output = std::max(mMeter.output, meter.output);
       mMeter.reduction = std::max(mMeter.reduction, meter.reduction);
@@ -1292,14 +1292,14 @@ private:
   void DrawTapeTransport(IGraphics& g)
   {
     using namespace grid_ui;
-    const IRECT bounds(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::editorBottom);
+    const IRECT bounds(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom);
     VisualizationBackground(g, bounds);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const double mix = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLoFiMix))->Value() * .01;
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    const IRECT plot(656,542,bounds.R - 12,658);
+    const IRECT plot(656,grid_layout::plotTop,bounds.R - 12,grid_layout::plotBottom);
     PlotTitle(g,plot,Tone(SlotEffect::LoFiTape,{}).first,status);
     PlotDetail(g,plot,"Measured head motion | +/-60 cents");
     PlotFooter(g,plot,"Speed also changes bandwidth","2.56 s");
@@ -1321,8 +1321,110 @@ private:
       WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
       g.DrawText(Text(13.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, plot.R, center - 21));
     };
-    trace("WOW", history.wow, Tone(SlotEffect::LoFiTape,{}).first, 577.f);
-    trace("FLUTTER", history.flutter, ampColor, 643.f);
+    trace("WOW", history.wow, Tone(SlotEffect::LoFiTape,{}).first, 582.f);
+    trace("FLUTTER", history.flutter, ampColor, 658.f);
+  }
+
+  // Pedal Drive: the style's own shaping of a test tone on the left, its voicing on the right.
+  // The voices are stateful, so a waveform preview is honest where a static clip curve is not.
+  void DrawPedalDrive(IGraphics& g, const IRECT& plot, IColor color)
+  {
+    using namespace grid_ui;
+    const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+    const int style = std::clamp(static_cast<int>(value(uPedalStyle)), 0, effect_modes::pedalCount - 1);
+    const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+    const double driveDb = value(uPedalDrive), characterValue = value(uPedalCharacter);
+    const double body = value(uPedalBody), highCut = value(uPedalTone), split = value(uPedalSplit);
+    const double keep = value(uPedalLowKeep) * .01, mix = value(uPedalMix) * .01;
+    const double output = std::pow(10., value(uPedalOutput) * .05);
+    PlotTitle(g, plot, color, effect_modes::pedalNames[style]);
+    WDL_String detail;
+    detail.SetFormatted(96, "Drive %+.1f dB | %s %+.0f%% | Output %+.1f dB", driveDb,
+                        effect_modes::pedalCharacterNames[style], characterValue, value(uPedalOutput));
+    PlotDetail(g, plot, detail.Get());
+    const IRECT shape(plot.L, plot.T, plot.MW() - 8.f, plot.B), tone(plot.MW() + 8.f, plot.T, plot.R, plot.B);
+
+    // Two periods of a 220 Hz test tone through the selected voice, at a loud and a quiet
+    // input. The pair shows what the knobs cannot: how far the pedal cleans up with playing
+    // level. The quiet input stays faint, the loud input grey for reference.
+    constexpr double hz = 220.;
+    const int samples = std::min(1024, std::max(64, static_cast<int>(rate / hz * 2.)));
+    const int warm = samples / 2;
+    grid_pedal::Coefficients coefficients; coefficients.Reset(rate);
+    const double gain = std::pow(10., driveDb * .05);
+    struct Render
+    {
+      std::array<float, 1024> input{}, shaped{};
+      float peak = 1.f;
+    };
+    const auto render = [&](double amplitude) {
+      Render result;
+      grid_pedal::Character voicing; voicing.Reset(characterValue * .01);
+      grid_pedal::Voice voice;
+      result.peak = static_cast<float>(std::abs(amplitude));
+      for (int i = 0; i < warm + samples; ++i)
+      {
+        const double x = amplitude * std::sin(2. * grid_pedal::pi * hz * i / rate);
+        const double y = voice.Tick(x, style, gain, std::sqrt(gain), driveDb / 36., voicing, coefficients);
+        if (i < warm) continue;
+        result.input[i - warm] = static_cast<float>(x);
+        result.shaped[i - warm] = static_cast<float>(y);
+        result.peak = std::max(result.peak, std::abs(static_cast<float>(y)));
+      }
+      return result;
+    };
+    const auto loud = render(.5), quiet = render(.125);
+    const float scale = std::max(loud.peak, quiet.peak);
+    const IRECT scope(shape.L, shape.T + 18.f, shape.R, shape.B);
+    g.DrawText(Text(11.f, muted), "Shape at -6 and -18 dBFS", IRECT(shape.L, shape.T, shape.R, shape.T + 14));
+    const auto at = [&](int i) { return scope.L + scope.W() * i / static_cast<float>(samples - 1); };
+    const auto yAt = [&](float v) { return scope.MH() - std::clamp(v / scale, -1.f, 1.f) * scope.H() * .5f; };
+    g.DrawLine(border.WithOpacity(.6f), scope.L, scope.MH(), scope.R, scope.MH());
+    for (int i = 1; i < samples; ++i)
+      g.DrawLine(muted.WithOpacity(.28f), at(i - 1), yAt(loud.input[i - 1]), at(i), yAt(loud.input[i]));
+    for (int i = 1; i < samples; ++i)
+      g.DrawLine(color, at(i - 1), yAt(loud.shaped[i - 1]), at(i), yAt(loud.shaped[i]), nullptr, 2.f);
+    for (int i = 1; i < samples; ++i)
+      g.DrawLine(color.WithOpacity(.45f), at(i - 1), yAt(quiet.shaped[i - 1]), at(i), yAt(quiet.shaped[i]), nullptr, 1.5f);
+
+    // Right: Body, High cut, the Low keep band, then Mix and Output, at small signal.
+    // Body, the 5 Hz DC blocker and High cut run at the 4x oversampled rate in SlotPedalDrive;
+    // the Low keep split runs at the host rate. Evaluating each one at its own rate keeps the
+    // curve within a tenth of a dB of the real filters, including near 20 kHz.
+    const double pi = 3.14159265358979323846, upper = std::min(20000., .49 * rate);
+    const double oversampled = 4. * rate;
+    const auto pole = [&](double hzValue, double fs) { return std::exp(-2. * pi * std::min(hzValue, .4 * fs) / fs); };
+    const auto lowPass = [&](double poleValue, double hzValue, double fs) {
+      const std::complex<double> z = std::polar(1., -2. * pi * hzValue / fs);
+      return (1. - poleValue) / (1. - poleValue * z);
+    };
+    const double bodyPole = pole(250., oversampled), cutPole = pole(highCut, oversampled), dcPole = pole(5., oversampled);
+    const double splitPole = pole(split, rate), bodyGain = std::pow(10., body * .05) - 1.;
+    const auto magnitude = [&](double hzValue) {
+      const auto lowBand = lowPass(splitPole, hzValue, rate);
+      const std::complex<double> z = std::polar(1., -2. * pi * hzValue / oversampled);
+      const auto dc = (1. - z) / (1. - dcPole * z);
+      const auto driven = (1. + bodyGain * lowPass(bodyPole, hzValue, oversampled))
+                          * lowPass(cutPole, hzValue, oversampled) * dc;
+      return std::abs(1. - mix + mix * (driven * (1. - keep * lowBand) + keep * lowBand)) * output;
+    };
+    const auto xFor = [&](double hzValue) { return tone.L + tone.W() * static_cast<float>(std::log(hzValue / 20.) / std::log(upper / 20.)); };
+    const auto yFor = [&](double db) { return tone.B - tone.H() * static_cast<float>((std::clamp(db, -18., 18.) + 18.) / 36.); };
+    for (double guide : {100., 1000., 10000.})
+      if (guide < upper) g.DrawLine(border.WithOpacity(.35f), xFor(guide), tone.T, xFor(guide), tone.B);
+    g.DrawLine(border, tone.L, yFor(0.), tone.R, yFor(0.));
+    if (keep > 0.)
+    {
+      g.FillRect(ampColor.WithOpacity(.08f + .12f * static_cast<float>(keep)),
+                 IRECT(tone.L, tone.T, xFor(split), tone.B));
+      g.DrawLine(ampColor.WithOpacity(.7f), xFor(split), tone.T, xFor(split), tone.B);
+    }
+    PlotCurve(g, tone, [&](double x) {
+      return 20. * std::log10(std::max(1.e-9, magnitude(20. * std::pow(upper / 20., x))));
+    }, -18., 18., color);
+    WDL_String footer;
+    footer.SetFormatted(96, "Body / high cut | Low keep %.0f%%", value(uPedalLowKeep));
+    PlotFooter(g, plot, footer.Get(), "20 Hz - 20k");
   }
 
   bool HasVisualization()
@@ -1339,8 +1441,8 @@ private:
       DrawTapeTransport(g);
       return;
     }
-    const IRECT box(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::editorBottom);
-    const IRECT plot(656, 542, box.R - 12, 658);
+    const IRECT box(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom);
+    const IRECT plot(656, grid_layout::plotTop, box.R - 12, grid_layout::plotBottom);
     VisualizationBackground(g, box);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
@@ -1584,6 +1686,8 @@ private:
                PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.))
     {
     }
+    else if (effect == SlotEffect::PedalDrive)
+      DrawPedalDrive(g, plot, color);
     else if (DrawDriveSetup(g, effect, plot, color,
                [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
                GetDelegate()->GetParam(SlotEQParam(mSlot, 3))->Value(),
@@ -1992,7 +2096,6 @@ private:
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen());
-    mLevelStrip->Hide(mEditor->IsHidden() || (effect == SlotEffect::NAM && path.empty()));
     if (selected)
     {
       const bool empty = nam && path.empty();
@@ -2002,7 +2105,6 @@ private:
       mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
-      mModelButton->SetRECT(IRECT(92, 484, 334, 508));
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -2234,7 +2336,7 @@ private:
   uint32_t mModulationSources = 0;
   SlotMeterData mMeter;
   LevelComparison mLevels;
-  grid_ui::LevelStrip* mLevelStrip = nullptr;
+  grid_ui::ModuleLevels mModuleLevels;
   double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;
   std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
@@ -2265,7 +2367,11 @@ public:
       const auto& entry = rows[mScroll + row];
       const float top = kListTop + row * kRowPitch;
       g.FillRoundRect(surface, IRECT(kLeft, top, kRight, top + kRowHeight), 3.f);
-      g.DrawText(Text(14.f, muted), KindLabel(entry.kind), IRECT(kLeft + 12, top, kLeft + 92, top + kRowHeight));
+      // The folder kind carries the same colour as that kind's module badges: captures orange,
+      // IRs blue, rig presets the plugin's own accent.
+      const IColor kindColor = entry.kind == nam_library::FileKind::NAM ? ampColor
+                             : entry.kind == nam_library::FileKind::IR ? cabColor : accent;
+      g.DrawText(Text(14.f, kindColor), KindLabel(entry.kind), IRECT(kLeft + 12, top, kLeft + 92, top + kRowHeight));
       FittedText(g, Text(14.f), entry.path.c_str(), IRECT(kLeft + 96, top, kOpenL - 8, top + kRowHeight));
       g.DrawText(Text(14.f, muted, EAlign::Center), "Open", IRECT(kOpenL, top, kOpenR, top + kRowHeight));
       g.DrawText(Text(14.f, muted, EAlign::Center), "Remove", IRECT(kRemoveL, top, kRemoveR, top + kRowHeight));
@@ -2310,7 +2416,8 @@ public:
         GetUI()->PromptForDirectory(folder, [plugin = PLUG(), kind](const WDL_String&, const WDL_String& chosen) {
           if (chosen.GetLength()) plugin->AddLibraryFolder(kind, chosen.Get());
         });
-      }, i == 0 ? "+ NAM folder" : i == 1 ? "+ IR folder" : "+ Preset folder");
+      }, i == 0 ? "+ NAM folder" : i == 1 ? "+ IR folder" : "+ Preset folder", Icon::None, false,
+         i == 0 ? ampColor : i == 1 ? cabColor : accent);
       mAdd[i]->SetTooltip(i == 0 ? "Add a folder of .nam captures. Only .nam files in it and its subfolders are indexed."
                           : i == 1 ? "Add a folder of .wav impulse responses. Only .wav files in it and its subfolders are indexed."
                                    : "Add a rig preset folder. Only .ngrid files in it and its subfolders are indexed.");
@@ -2411,8 +2518,8 @@ private:
   inline static const std::array<IRECT, 3> kAddRects{IRECT(548, 124, 686, 152), IRECT(698, 124, 836, 152), IRECT(848, 124, kRight, 152)};
   static constexpr float kListTop = 164.f, kRowPitch = 38.f, kRowHeight = 32.f;
   static constexpr float kOpenL = 820.f, kOpenR = 890.f, kRemoveL = 896.f, kRemoveR = 968.f;
-  // Footer row with the version and open-source links.
-  static constexpr float kFooterTop = 668.f, kFooterHeight = 24.f, kFooterLinksL = 560.f;
+  // Footer row with the version and open-source links, anchored to the page's bottom margin.
+  static constexpr float kFooterTop = grid_layout::height - 52.f, kFooterHeight = 24.f, kFooterLinksL = 560.f;
   // Four equal option buttons across the page, below the divider.
   static IRECT OptionRect(int index)
   {
@@ -2486,8 +2593,8 @@ public:
   {
     using namespace grid_ui;
     DrawEditorBackground(g, mRECT);
-    IconLabel(g, Icon::Tuner, "Tuner", IRECT(24, 484, 124, 512), Text(17.f, accent));
-    g.DrawText(Text(13.f, muted), "Clean input · before the grid", IRECT(124, 484, 370, 512));
+    IconLabel(g, Icon::Tuner, "Tuner", IRECT(24, grid_layout::moduleHeaderTop, 124, grid_layout::moduleHeaderTop + 28), Text(17.f, accent));
+    g.DrawText(Text(13.f, muted), "Clean input · before the grid", IRECT(124, grid_layout::moduleHeaderTop, 370, grid_layout::moduleHeaderTop + 28));
     const double reference = GetDelegate()->GetParam(kTunerReference)->Value();
     const double frequency = PLUG()->TunerFrequency();
     const auto pitch = grid_tuner::ToPitch(frequency, reference);
@@ -2519,10 +2626,10 @@ public:
       g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 3, bar.T + 3, x + 3, bar.B - 3), 1.5f);
     }
 
-    const IRECT panel(kHistoryL, 520, grid_layout::visualizationRight, 696), plot(kHistoryL + 38, 538, panel.R - 12, 674);
+    const IRECT panel(kHistoryL, 520, grid_layout::visualizationRight, grid_layout::visualizationBottom), plot(kHistoryL + 38, 538, panel.R - 12, panel.B - 42);
     VisualizationBackground(g, panel);
-    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(kHistoryL, 484, kHistoryL + 150, 512));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(kHistoryL + 150, 488, 882, 512));
+    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(kHistoryL, grid_layout::moduleHeaderTop, kHistoryL + 150, grid_layout::moduleHeaderTop + 28));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(kHistoryL + 150, grid_layout::moduleHeaderTop + 4, 882, grid_layout::moduleHeaderTop + 28));
     // Zoomed to ±25 cents, so the last few cents of tuning are visible; larger offsets pin to the edge.
     constexpr double range = 25.;
     const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -range, range) / range); };
@@ -2551,8 +2658,8 @@ public:
       else g.FillCircle(color, x, y, 1.5f);
       previous = current; previousTime = point.milliseconds; previousX = x; previousY = y;
     }
-    g.DrawText(Text(13.f, muted), "6 s ago", IRECT(plot.L, 676, plot.L + 100, 696));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, 676, plot.R, 696));
-    g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents. Escape, Tuner or selecting a slot restores output.", IRECT(24, 696, 976, 719));
+    g.DrawText(Text(13.f, muted), "6 s ago", IRECT(plot.L, panel.B - 20, plot.L + 100, panel.B));
+    g.DrawText(Text(13.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, panel.B - 20, plot.R, panel.B));
+    g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents.", IRECT(24, panel.B - 20, kLeftR, panel.B + 3));
   }
 };

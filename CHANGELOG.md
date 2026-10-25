@@ -4,28 +4,22 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-25
+
 ### Changed
 
 - Modulation uses compact knobs and aligned selectors and switches, matching the module pane. Source menus are alphabetical and renamed macros keep their number, for example `Macro 1: Test`.
 - Grid cells and the module header show the selected mode, such as the Pedal Drive style, Cosmic Echo topology or filter mode, so a rig can be read without opening each module.
 - Pedal Drive adds no latency. Its antialiasing filters are now minimum phase, with the same bandwidth and alias rejection, so the pedal no longer reports 64 samples and stacking pedals does not accumulate delay.
 - Pedal Drive uses about 20% less CPU on Apple Silicon, with unchanged sound. The oversampling filters now pair their independent phase sums; every other platform keeps the portable loop.
+- Documentation: full-width navigation on every page, a linked Module guide section, and a cleaner home page without the duplicate quick-start strip.
+- Documentation: link the KVR Audio discussion thread from the README and troubleshooting page.
 
 ### Fixed
 
 - Focus browser search when opening Add module, a module's browser or the preset browser, so typing can begin immediately.
 - Cancelling an in-progress library scan preserves the saved index and does not restart the cancelled scan.
 - Correct compact Via labels for the second LFO, envelope follower and sequencer.
-
-## [0.2.1] - 2026-10-25
-
-### Changed
-
-- Documentation: full-width navigation on every page, a linked Module guide section, and a cleaner home page without the duplicate quick-start strip.
-- Documentation: link the KVR Audio discussion thread from the README and troubleshooting page.
-
-### Fixed
-
 - Load projects and presets saved by 0.2.0 preview builds. State schema 6 now separates the Parametric EQ schema from the second modulation bank, so those files receive the new bank's defaults instead of failing validation.
 - Keep the saved library index when Startup rescan is off instead of replacing it with an empty index.
 

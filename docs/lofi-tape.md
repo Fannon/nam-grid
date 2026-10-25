@@ -1,62 +1,33 @@
 # LoFi Tape Machine
 
-Choose **Creative > LoFi Tape Machine** in any grid slot. This is a separate
-transport/degradation effect for worn tape and lo-fi guitar sounds. Use
-**Distortion > Airwindows Tape** before or after it when saturation is wanted.
-The new module does not duplicate that saturation processor.
+Worn tape for lo-fi guitar sounds: tone that darkens with tape speed, wow, flutter, hiss, wear and dropouts. Find it under **Creative > LoFi Tape Machine**. It adds no saturation; put [Airwindows Tape](modules/distortion.md#airwindows-tape) before or after it when you want that too.
 
-| Control | Range / starts at | Behavior |
-| --- | --- | --- |
-| Speed | 1.875–30 ips / 7.5 | Slower tape has less high-frequency bandwidth and slower wow/flutter cycles. Does not retune the average pitch. |
-| Wow | 0–100% / 50% | Slow, smooth pitch wander with a small irregular drift component. |
-| Flutter | 0–100% / 28% | Faster pitch vibration with a secondary harmonic. |
-| Noise | 0–100% / 0% | Band-limited, independent stereo hiss; 0 turns it off. Hiss continues between notes. |
-| Wear | 0–100% / 0% | Darkens the sound and adds smooth, randomly spaced level dropouts. |
-| Mix | 0–100% / 100% | Blends immediate dry input with processed tape. |
-| Output | −24 to +6 dB / 0 | Level after the blend. |
+![LoFi Tape Machine editor](screenshots/modules/lofi-tape-machine.png)
 
-The transport uses a 10 ms wet delay, modulated by up to 5 ms of wow and 0.35 ms
-of flutter. Both channels share the transport and dropout envelope; their audio
-histories and hiss remain independent. Noise off preserves a centered mono image
-and does not crossfeed either channel. Slower speed changes tone and motion rather
-than performing a lasting playback-speed pitch shift.
+## Starting points
 
-The module adds no latency — the delay is part of the effect. Partial dry/wet blends and parallel clean lanes
-can therefore produce chorus/comb coloration. Full wet is the starting point for
-a tape-machine treatment. This is an original character effect, not a measured
-cassette/deck emulation or magnetic-hysteresis model. No Dusk/CHOWTape DSP is copied.
+| Sound | Speed (ips) | Wow | Flutter | Noise | Wear | Mix |
+| --- | --- | --- | --- | --- | --- | --- |
+| Subtle drift | 15 | 10% | 5% | 0% | 10% | 100% |
+| Worn cassette | 3.75 | 35% | 25% | 20% | 50% | 100% |
+| Damaged tape | 1.875 | 70% | 60% | 35% | 90% | 100% |
 
-## Transport display
+Match the level with Output when comparing, and try each setting with a sustained clean chord as well as a distorted riff. The controls and their ranges are in the [module guide](modules/creative.md#lofi-tape-machine).
 
-Two traces above the controls show the actual read-head pitch modulation:
+## What the controls do
 
-- **Green Wow:** slow pitch drift.
-- **Amber Flutter:** rapid pitch vibration.
+- **Speed** is the tape speed in inches per second. Slower tape is darker, and its wow and flutter move more slowly. It does not change the pitch of your guitar.
+- **Wow** is slow, smooth pitch drift with a little irregular wander. **Flutter** is a faster pitch vibration.
+- **Noise** adds tape hiss, independent in each channel, that continues between notes.
+- **Wear** darkens the sound and adds randomly spaced level dropouts.
+- **Mix** blends the dry signal with the tape. The tape sound is slightly delayed, so partial blends, or a clean signal in the other lane, add some chorus and comb colouring. Fully wet is the usual starting point.
 
-Both use the same **2.56-second window and ±60-cent vertical scale**. Taller
-traces mean stronger pitch motion; more cycles mean faster modulation. The number
-at the right is the peak absolute pitch displacement in the displayed history.
-Pitch is calculated from changes in each read-head delay, so automation and the
-irregular wow component are represented. The display measures the modulation,
-not the incoming guitar pitch. It stays flat with the corresponding control at
-zero once prior history scrolls away. Noise and dropouts are not pitch motion.
+## Read the transport display
 
-History is captured at 100 Hz using fixed storage on audio and delivered through
-the existing meter queue. No UI timer invents movement when audio is stopped.
-The display dims at dry Mix, clears on bypass, and indicates when it is awaiting
-audio. The two components are shown separately, before Mix.
+The display shows the actual pitch movement of the tape, not the pitch of your guitar:
 
-## Starting settings
+- The **green** trace is wow and the **amber** trace is flutter, both over the last 2.56 seconds on a ±60 cent scale.
+- Taller traces mean more pitch movement; more cycles mean faster movement. The number on the right is the largest movement in the window.
+- Hiss and dropouts do not appear, because they do not move the pitch. The display dims when Mix is fully dry and clears when the module is bypassed.
 
-- **Worn cassette:** Speed 3.75, Wow 35, Flutter 25, Noise 20, Wear 50, Mix 100.
-- **Subtle drift:** Speed 15, Wow 10, Flutter 5, Noise 0, Wear 10, Mix 100.
-- **Damaged tape:** Speed 1.875, Wow 70, Flutter 60, Noise 35, Wear 90, Mix 100.
-
-These are suggested settings, not bundled preset files. Adjust Output to match
-levels when comparing, and audition with a sustained clean chord as well as
-distorted guitar. Add Airwindows Tape separately for saturation.
-
-## Compatibility
-
-Its controls work with Copy/Move/Swap, scenes and
-`.ngrid` presets like any other module.
+LoFi Tape Machine is an original character effect, not a model of a specific tape deck, and it adds no latency.

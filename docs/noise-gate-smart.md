@@ -1,64 +1,37 @@
 # Noise Gate (Smart)
 
-A noise gate that learns your rig's noise: play nothing, press **Learn**, and it reduces
-that noise frequency by frequency while you play, instead of only opening and closing.
+A noise gate that learns your rig's noise. Play nothing, switch on **Learn**, and it reduces that noise frequency by frequency while you play, instead of only opening and closing. Quiet picking and decaying chords stay more natural than with an ordinary gate.
 
-## Try it
+![Noise Gate (Smart) editor](screenshots/modules/noise-gate-smart.png)
 
-1. Add **Dynamics > Noise Gate (Smart)** in a Pre slot, preferably before gain/NAM stages.
-2. Leave the guitar/interface at normal playing settings. Mute the strings without
-   turning the guitar volume down. Switch **Learn** on for 1–3 seconds, then
-   off. Audio continues while learning. Digital silence and captures shorter than
-   about 300 ms do not replace an existing valid print.
-3. Start with the defaults. Increase **Sensitivity** to suppress more bands; lower
-   it if sustain loses detail. **Reduction** limits attenuation, **Attack** opens
-   bands, **Release** closes them, and **Mix** blends the spectral result.
-   **Gate threshold** adds an optional final broadband gate: its minimum (-100 dB)
-   displays **Off**, the default. Raise it just above the noise floor to silence
-   pauses. It uses the same Release knob, a fixed 0.5 ms opening ramp, 20 ms hold,
-   5 ms peak-detector decay and 3 dB hysteresis. Enabled occupies the last editor
-   position, filling all eight positions with seven controls and bypass. The GR
-   readout estimates band gain plus gate attenuation, capped at 120 dB; it is not
-   a measurement of perceptual noise reduction.
-4. Compare against bypass on low notes, quiet picking and decaying chords. Relearn
-   after changing pickups, guitar volume, input gain or recording conditions.
+## Set it up
 
-Completed snapshots and the seven controls survive project recall and Copy/Move/Swap.
-An in-progress Learn is saved/copied as off. During a new capture, the last completed
-print remains the recallable snapshot. With Gate Off, untrained, settled Mix=0 and
-Reduction=0 pass the exact finite input. Learning transitions to dry over 5 ms and
-opens the final gate. Very large/invalid samples are bounded to prevent poisoning
-the filter histories.
+1. Add **Dynamics > Noise Gate (Smart)** in a Pre slot, before drives and captures.
+2. Keep your guitar and interface at normal playing settings. Mute the strings with your hand, without turning the guitar's volume down.
+3. Switch **Learn** on for one to three seconds, then off. Audio keeps playing while it learns.
+4. Play with the starting settings first, and compare against bypass on low notes, quiet picking and decaying chords.
 
-## How it listens
+Learning ignores digital silence and captures shorter than about 300 ms; the previous noise profile stays in place.
 
-The gate listens in dozens of frequency bands, learned from your rig's own
-noise during Learn. Stereo channels share their open/close decisions, so the
-image doesn't wobble. A confidence guard relaxes suppression on strong notes,
-keeping sustain natural, then returns to the learned profile for quiet playing.
-The optional final broadband gate works independently of the spectral profile, and
-it also works without learning. It detects the original input's maximum L/R peak,
-applies one linked gain after the spectral mix, and closes linearly to exact zero
-over Release after the hold. Either channel can open it, including anti-phase input.
-An enabled gate starts closed after reset/recall to avoid an initial noise burst.
-Turning Gate Off reopens it over 0.5 ms. Keep the module before delay/reverb to
-preserve their tails. The standalone Noise Gate offers Natural and Tight modes.
+## Fine-tune
 
-Noise overlapping a wanted note can't be fully removed, and strong filtering can
-slightly change the tone.
+- **Sensitivity** sets how far above the learned noise a band must rise to pass. Raise it to suppress more noise; lower it if sustain loses detail.
+- **Reduction** limits how much a noisy band is turned down. Less keeps some natural room tone.
+- **Attack** and **Release** set how quickly bands open for new notes and close after them. Short attacks keep pick attacks; longer releases keep sustain.
+- **Mix** blends the denoised sound with the original.
+- **Gate threshold** adds an optional final gate that silences the pauses completely. It is **Off** at its minimum, the default. Raise it to just above the noise floor; it shares the Release knob and has a short hold so it does not chatter.
 
-The module adds no latency, though like any filter it isn't phase-neutral.
+The **GR** readout estimates the current reduction. It is a guide, not a measurement of how much quieter the noise sounds.
 
-Reset preserves the completed print but clears envelopes/histories. If you change
-sample rate, relearning gives the best results.
+## When to learn again
 
-## Cost and persistence
+Learn again after changing pickups, guitar volume or input gain, moving to a different room or interface, or changing the sample rate.
 
-An ordinary gate is cheaper when only silence
-between notes matters; assess pick attacks and long decays at matched levels.
+The learned profile is saved with your project and rig preset and travels with Copy, Move and Swap. Learn itself is never saved switched on, and scenes do not change the profile.
 
-Snapshots survive project recall, rig-preset save/load and Copy/Move/Swap. Learn
-is transient: it is saved off, suppressed on rig-preset load and excluded from
-performance scenes. Scenes adjust controls; the profile remains attached to
-the slot. Profiles saved by older builds that this version no longer understands
-are rejected without harming the current sound.
+## Good to know
+
+- Keep it before delays and reverbs, so their tails are not reduced.
+- Noise that overlaps a note cannot be removed completely, and strong settings can slightly change the tone.
+- It adds no latency.
+- When only the silence between notes matters, the standard [Noise Gate](modules/dynamics.md#noise-gate) does the job with less CPU.

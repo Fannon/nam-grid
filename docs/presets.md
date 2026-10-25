@@ -30,12 +30,4 @@ Old delay and reverb tails end with the transition. Large rigs can take a moment
 - A **DAW project** recalls the current rig and host automation as part of the project.
 - A **performance scene** changes controls within the current modules; it cannot load a different capture or module.
 
-Your library folders are personal settings and are not replaced by a rig or project. Tuner activation, reference, and mute are also left unchanged by rigs and scenes. Frozen or held audio is not saved.
-
-## Gain placement
-
-- **IN** sets the level before the grid, tuner, and envelope follower.
-- **A/B** balances the parallel lanes: 0% A, 50% equal, 100% B.
-- **OUT** sets the final level sent to your DAW.
-
-All three can be automated and are saved with the rig. See [Grid & routing](grid.md) for signal flow and [Performance controls](performance.md) for scenes.
+Your library folders are personal settings and are not replaced by a rig or project. **IN**, **A/B** and **OUT** are part of the rig. Tuner activation, reference, and mute are also left unchanged by rigs and scenes. Frozen or held audio is not saved.

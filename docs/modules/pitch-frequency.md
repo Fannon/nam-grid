@@ -1,6 +1,6 @@
 # Pitch / Frequency
 
-Octaves, doubling and frequency shifting. Screenshots show each parameter pane at its starting settings.
+Octaves, doubling and frequency shifting.
 
 | Module | In short |
 | --- | --- |
@@ -14,15 +14,13 @@ Octaves, doubling and frequency shifting. Screenshots show each parameter pane a
 
 Add one or two octaves below single notes. High cut rounds the generated tone. Play cleanly: chords and weak fundamentals confuse tracking.
 
-**Dry** (0% to 100%; starts at 100%) Level of the original guitar alongside the generated sub-octaves.
-
-**1 oct down** (0% to 100%; starts at 50%) Level of this generated sub-octave. Best tracking comes from clean, single-note playing.
-
-**2 oct down** (0% to 100%; starts at 0%) Level of this generated sub-octave. Best tracking comes from clean, single-note playing.
-
-**High cut** (80 Hz to 5000 Hz; starts at 1000 Hz) High-cut frequency for the generated sub-octaves; the dry guitar keeps its original tone.
-
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Dry** | 0–100% | 100% | Level of the original guitar alongside the generated sub-octaves. |
+| **1 oct down** | 0–100% | 50% | Level of this generated sub-octave. Best tracking comes from clean, single-note playing. |
+| **2 oct down** | 0–100% | 0% | Level of this generated sub-octave. Best tracking comes from clean, single-note playing. |
+| **High cut** | 80–5000 Hz | 1000 Hz | High-cut frequency for the generated sub-octaves; the dry guitar keeps its original tone. |
+| **Output** | -24 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 
 **Display:** A 110 Hz note and the two sub-octave square waves.
 
@@ -32,15 +30,13 @@ Add one or two octaves below single notes. High cut rounds the generated tone. P
 
 Opposite pitch detuning and short delays on the left and right suggest a second take.
 
-**Detune** (1 cents to 25 cents; starts at 6 cents) Opposite pitch offsets in cents; higher settings make a wider, more obvious double.
-
-**Delay** (1 ms to 30 ms; starts at 15 ms) Base separation before each detuned voice; increases the double-tracked feel.
-
-**Spread** (0% to 100%; starts at 100%) Spread of detuned voices; zero centers the wet pair, 100 keeps them on opposite sides.
-
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
-
-**Mix** (0% to 100%; starts at 25%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Detune** | 1–25 cents | 6 cents | Opposite pitch offsets in cents; higher settings make a wider, more obvious double. |
+| **Delay** | 1–30 ms | 15 ms | Base separation before each detuned voice; increases the double-tracked feel. |
+| **Spread** | 0–100% | 100% | Spread of detuned voices; zero centers the wet pair, 100 keeps them on opposite sides. |
+| **Output** | -24 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Mix** | 0–100% | 25% | Balance between dry sound and effect. |
 
 **Display:** Pitch up and down against the stereo spread.
 
@@ -50,18 +46,14 @@ Opposite pitch detuning and short delays on the left and right suggest a second 
 
 Move every partial by the same number of hertz for metallic, shifting, and continuously rising or falling textures. This is not a musical pitch shifter.
 
-**Shift** (-2000 Hz to 2000 Hz; starts at 2 Hz) Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.
-
-**Feedback** (0% to 100%; starts at 10%) Return shifted audio into the delay for progressively changing repeats.
-
-**Delay** (0.05 ms to 1000 ms; starts at 20 ms) Time between shifted feedback passes; short settings smear, long settings make distinct echoes.
-
-**Sideband** (-100% to 100%; starts at 100%) Lower sideband at -100, ring modulation at zero, upper sideband at +100.
-
-**High cut** (200 Hz to 12000 Hz; starts at 8000 Hz) High-cut frequency of the processed signal. Lower values tame brightness and harshness.
-
-**Spread** (0% to 100%; starts at 0%) Carrier phase difference between channels; widens the shifted texture.
-
-**Mix** (0% to 100%; starts at 30%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Shift** | -2000 to +2000 Hz | 2 Hz | Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz. |
+| **Feedback** | 0–100% | 10% | Return shifted audio into the delay for progressively changing repeats. |
+| **Delay** | 0.05–1000 ms | 20 ms | Time between shifted feedback passes; short settings smear, long settings make distinct echoes. |
+| **Sideband** | -100 to +100% | 100% | Lower sideband at -100, ring modulation at zero, upper sideband at +100. |
+| **High cut** | 200–12000 Hz | 8000 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
+| **Spread** | 0–100% | 0% | Carrier phase difference between channels; widens the shifted texture. |
+| **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
 
 **Display:** How each pass through the feedback moves the partials.

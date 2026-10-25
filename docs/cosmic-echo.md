@@ -1,55 +1,45 @@
 # Cosmic Echo
 
-Find **Cosmic Echo** in the Reverb menu. The Style control offers **Gemini,
-Sagittarius, Virgo, Centaurus, Great Annihilator and Lyra**. The module is
-directly inspired by the algorithms of
-[Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free
-plugin by Valhalla DSP worth trying on its own, and adapted from David Braun's independent MIT
-[Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#valhalla-supermassive). Keep Galactic Space alongside it while comparing textures.
+Six ambient echo and reverb styles, from rhythmic repeats to vast washes. Find **Cosmic Echo** in the Reverb category.
 
-| Control | Range | What to listen for |
-| --- | --- | --- |
-| Time | 20–8000 ms (quadratic dial) | Delay-line scale; Sagittarius can take several intervals to build up |
-| Warp | 0–100% | Equal-length echoes spread into uneven, reverb-like spacing |
-| Feedback | 0–98% | Sustain; in Sagittarius/Centaurus it changes the buildup as well as decay |
-| Density | 0–100% | Scattering between lines: distinct echoes toward a denser stereo field |
-| High cut | 200 Hz–16 kHz | Wet treble; Virgo also darkens each feedback pass |
-| Modulation | 0–100% | Shared 0.3 Hz modulation depth, from still echoes toward obvious pitch movement |
-| Mix | 0–100% | Standard linear dry/wet blend; zero is exact stereo dry |
+The module is directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). These are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical.
 
-The insertion and dial-reset settings are Virgo, Time 280 ms, Warp 51.6%,
-Feedback 30.9%, Density 49.2%, High cut 7461 Hz, Modulation 29.5% and Mix 18%.
-Modulation rate is fixed at 0.3 Hz, width at full stereo
-and low cut at 80 Hz. Tempo sync is not available for this module.
+![Cosmic Echo editor](screenshots/modules/cosmic-echo.png)
 
-**Gemini** gives quick, dense ambience; reduce Warp/Density to hear the echo
-structure. **Sagittarius** is the slow swelling option: try lower Feedback to hear its
-different attack rather than assuming Feedback only extends the end. **Virgo**
-leaves more space between echoes, with filters inside the loop. Compare at
-matched wet loudness, particularly against Cloud, Diffused Delay and Galactic
-Space, and with short attacks, held chords and high-gain guitar.
+## Styles
 
-Style changes fade and clear the old tail before bringing in the new style.
-Time/Warp automation moves allpass-interpolated reads and can bend the sounding
-tail. The display shows the module's measured wet response to one impulse, rendered by a
-private copy of the DSP whenever a setting changes. With Warp at 0 the lines align into a
-few distinct echoes and Density changes little; Warp spreads them into a wash, and Density
-then fills it. It is a measurement of the current settings, not an RT60 estimate.
-
-## Styles and implementation
-
-| Mode | Character and topology |
+| Style | Character |
 | --- | --- |
-| Gemini | Dense ambience from sixteen scattering delays |
-| Sagittarius | Slow buildup from eight serial stereo allpasses |
-| Virgo | Sparse, darker echoes with both cuts inside feedback |
-| Centaurus | Swelling ambience from four serial four-channel allpasses |
-| Great Annihilator | A delay stage and three matrix allpasses in global feedback |
-| Lyra | Clearer sparse echoes from four scattering delays, filters at output |
+| **Gemini** | Quick, dense and smooth ambience |
+| **Sagittarius** | Slow, swelling build-up |
+| **Virgo** | Sparse echoes that get darker with every repeat (the starting style) |
+| **Centaurus** | Swelling, enveloping ambience |
+| **Great Annihilator** | Delays and diffusion in one large feedback loop |
+| **Lyra** | Clearer, sparse echoes |
 
-Warp, Density, Feedback
-and modulation retain the source model's different interactions per topology.
-These are six modes of the independent model, not every mode in the
-commercial plugin, and do not claim identical sound.
+Changing the style fades out the old tail before the new style comes in.
 
-[Faust reference](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive)
+## Shape the sound
+
+| Control | What to listen for |
+| --- | --- |
+| **Time** | Overall delay scale, from 20 ms to 8 s. Sagittarius can take several intervals to build up. |
+| **Warp** | At 0, echoes are evenly spaced. Higher values spread them into uneven, reverb-like spacing. |
+| **Feedback** | Sustain. In Sagittarius and Centaurus it also changes how the sound builds up, not only how long it lasts. |
+| **Density** | From distinct echoes toward a dense stereo field. It works together with Warp and changes little at Warp 0. |
+| **High cut** | Treble of the effect. In Virgo every repeat gets darker. |
+| **Modulation** | From still echoes toward obvious pitch movement and chorus. |
+| **Mix** | Balance between dry sound and effect. |
+
+Some things are fixed: the modulation runs at 0.3 Hz, the effect is always fully stereo with an 80 Hz low cut, and there is no tempo sync. Automating Time or Warp bends the pitch of the sounding tail. Ranges and starting values are in the [module guide](modules/reverb.md#cosmic-echo).
+
+## Tips
+
+- Start with low Warp for rhythmic echoes, then raise Warp and Density for an ambient wash.
+- Gemini is dense straight away; lower Warp and Density to hear its echo structure.
+- For Sagittarius, try lower Feedback: it changes the swell, not just the length.
+- Compare at matched loudness against Cloud, Diffused Delay and Galactic Space, with short attacks, held chords and high-gain guitar.
+
+## The display
+
+The display shows the measured response of the current settings to a single click, on a dB scale. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.

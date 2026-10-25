@@ -1,34 +1,35 @@
-# NAM Grid manual
+# NAM Grid documentation
 
-New here? [Download NAM Grid](/) and load **Clean Default**, then learn the [grid](/grid) or explore the [module guide](/modules/).
+The player guides are published at **[fannon.github.io/nam-grid](https://fannon.github.io/nam-grid/)**. This page lists every guide in the repository.
 
-## Play and build rigs
+## Get started
+
+- [Getting started](getting-started.md): download, install, set up your DAW and play your first rig.
+- [Troubleshooting & FAQ](troubleshooting.md): common problems, questions and how to report a bug.
+- [Release notes](release-notes.md): what's new in this version. The full history is in the [changelog](../CHANGELOG.md).
+
+## Use NAM Grid
 
 | Guide | What it covers |
 | --- | --- |
-| [Editor](/ui) | Build, arrange, adjust, and monitor a rig |
-| [Grid & routing](/grid) | Pre/Post stages, parallel lanes, and blend |
-| [Library browser](/browser) | Find and audition effects, captures, IRs, and presets |
-| [Module guide](/modules/) | Every module, its controls, and useful starting points |
-| [Rig presets](/presets) | Save, recall, and share complete rigs |
-| [Tuner](/tuner) | Tune quietly and check pitch drift |
-| [Performance controls](/performance) | Routing, macros, modulation, and scenes |
-| [Release notes](/release-notes) | What's new in this version |
+| [Editor](ui.md) | The parts of the window, adjusting modules, displays, settings and shortcuts |
+| [Grid & routing](grid.md) | Signal flow, typical placement, parallel lanes, blend and the Routing page |
+| [Library browser](browser.md) | Finding and auditioning modules, captures, IRs and rigs; library folders |
+| [Rig presets](presets.md) | Saving, loading and sharing rigs; switching while you play |
+| [Tuner](tuner.md) | Tuning without leaving your rig |
+| [Modulation & scenes](performance.md) | LFO, envelope, sequencer, macros, the matrix and performance scenes |
 
-## Module deep dives
+## Modules
 
-- [Noise Gate (Smart)](/noise-gate-smart) — learn and reduce your rig's noise.
-- [LoFi Tape Machine](/lofi-tape) — tape transport, wear, and degradation.
-- [Cosmic Echo](/cosmic-echo) — ambient echo and reverb styles.
-- [Cabinet IR processing](/adaptive-ir) — how impulse responses are played without latency.
+- [Module guide](modules/README.md): every module, its controls, starting settings and tips.
+- Deep dives: [Noise Gate (Smart)](noise-gate-smart.md), [LoFi Tape Machine](lofi-tape.md), [Cosmic Echo](cosmic-echo.md) and [Cabinet IR processing](adaptive-ir.md).
 
 ## Build and contribute
 
-These pages are for developers, not required for using the plugin.
+These pages are for developers; you do not need them to use the plugin.
 
-- [Build and test](/build), [development](/development), and [module implementation](/module-implementation).
-- [Release checklist](/release-checklist).
-- [IR engine comparison](/ir-convolution-comparison); the engine rules are in `AdaptiveIR.h`.
-- [On-demand FX benchmarks](/fx-performance).
-- [Airwindows outboard](/airwindows-outboard) and [dynamics implementation](/airwindows-dynamics).
-- [Third-party notices](../ThirdPartyNotices.txt) and [screenshot provenance](/screenshots/README).
+- [Build and test](build.md), [development and compatibility](development.md), [module implementation](module-implementation.md) and the [release checklist](release-checklist.md).
+- [On-demand FX benchmarks](fx-performance.md) and the [IR convolution experiment](ir-convolution-comparison.md); the engine rules are in `AdaptiveIR.h`.
+- [Airwindows outboard](airwindows-outboard.md) and [Digital Black Gate](airwindows-dynamics.md) implementation notes.
+- [Screenshots](screenshots/README.md): how the gallery and module images are generated.
+- [Third-party notices](../ThirdPartyNotices.txt) and [contribution guidelines](../CONTRIBUTING.md).

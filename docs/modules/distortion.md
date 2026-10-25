@@ -1,6 +1,6 @@
 # Distortion
 
-Drives, boosts and saturation. Screenshots show each parameter pane at its starting settings.
+Drives, boosts and saturation.
 
 | Module | In short |
 | --- | --- |
@@ -17,15 +17,13 @@ Drives, boosts and saturation. Screenshots show each parameter pane at its start
 
 Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the symmetry for different harmonics and attack textures. Bright, high-drive settings can introduce aliasing.
 
-**Drive** (0 dB to 36 dB; starts at 9 dB) Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output.
-
-**High cut** (200 Hz to 12000 Hz; starts at 5500 Hz) High-cut frequency of the processed signal. Lower values tame brightness and harshness.
-
-**Bias** (-100% to 100%; starts at 0%) Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC.
-
-**Output** (-24 dB to 6 dB; starts at -6 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
-
-**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Drive** | 0–36 dB | 9 dB | Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output. |
+| **High cut** | 200–12000 Hz | 5500 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
+| **Bias** | -100 to +100% | 0% | Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC. |
+| **Output** | -24 to +6 dB | -6 dB | Final level. Match bypass volume when comparing tones. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 In the header:
 
@@ -44,11 +42,11 @@ In the header:
 
 A clean level boost with opposing shelves around 800 Hz (Tilt) and a low cut. It adds no saturation; use it to push the next module harder.
 
-**Gain** (0 dB to 18 dB; starts at 3 dB) Clean level boost before the next module. Drive a following NAM or distortion harder.
-
-**Tilt** (-6 dB to 6 dB; starts at 0 dB) Tilt around 800 Hz: positive is brighter/thinner, negative is darker/fuller.
-
-**Low cut** (0 Hz to 300 Hz; starts at 0 Hz) Removes low end before the boost; 0 is off.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Gain** | 0–18 dB | 3 dB | Clean level boost before the next module. Drive a following NAM or distortion harder. |
+| **Tilt** | -6 to +6 dB | 0 dB | Tilt around 800 Hz: positive is brighter/thinner, negative is darker/fuller. |
+| **Low cut** | 0–300 Hz | 0 Hz | Removes low end before the boost; 0 is off. |
 
 **Display:** The gain stage's transfer line and the Tilt/Low cut response.
 
@@ -62,17 +60,14 @@ A clean level boost with opposing shelves around 800 Hz (Tilt) and a low cut. It
 
 Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut for shaping the drive. Strong settings can introduce aliasing.
 
-**Drive** (0 dB to 24 dB; starts at 6 dB) Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output.
-
-**Tilt** (-6 dB to 6 dB; starts at 0 dB) Tilt around 800 Hz: positive is brighter/thinner, negative is darker/fuller.
-
-**Low cut** (0 Hz to 300 Hz; starts at 0 Hz) Removes low end before the boost; 0 is off.
-
-**Asymmetry** (0% to 100%; starts at 25%) Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC.
-
-**Output** (-18 dB to 18 dB; starts at -3 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
-
-**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Drive** | 0–24 dB | 6 dB | Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output. |
+| **Tilt** | -6 to +6 dB | 0 dB | Tilt around 800 Hz: positive is brighter/thinner, negative is darker/fuller. |
+| **Low cut** | 0–300 Hz | 0 Hz | Removes low end before the boost; 0 is off. |
+| **Asymmetry** | 0–100% | 25% | Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC. |
+| **Output** | -18 to +18 dB | -3 dB | Final level. Match bypass volume when comparing tones. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** The saturation curve with the input span you reach, and the small-signal EQ.
 
@@ -84,17 +79,16 @@ Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut f
 
 ![Airwindows Tape editor](../screenshots/modules/airwindows-tape.png)
 
-A native port of Airwindows Tape: tape saturation and head bump, with no wow or flutter (that lives in Tape Echo and LoFi Tape Machine).
+A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter (that lives in Tape Echo and LoFi Tape Machine).
 
-**Drive** (-12 dB to 12 dB; starts at 0 dB) Drive the Airwindows tape saturation harder. Use Output to match loudness.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Drive** | -12 to +12 dB | 0 dB | Drive the Airwindows tape saturation harder. Use Output to match loudness. |
+| **Bump** | 0–100% | 25% | Low-frequency tape head emphasis; more adds body and bass resonance. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
-**Bump** (0% to 100%; starts at 25%) Low-frequency tape head emphasis; more adds body and bass resonance.
-
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
-
-**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
-
-**Display:** The Spiral stage curve and the head-bump amount.
+**Display:** The saturation curve and the head-bump amount.
 
 **Tips:**
 
@@ -106,15 +100,15 @@ A native port of Airwindows Tape: tape saturation and head bump, with no wow or 
 
 Eight Airwindows console voices, from subtle density to stronger colour. Each desk has its own level match, and changes fade smoothly.
 
-**Input** (-18 dB to 18 dB; starts at 0 dB) Gain into the console colour, in real dB. More level drives the nonlinear convolution and saturation harder.
-
-**Output** (-18 dB to 18 dB; starts at 0 dB) Wet-path output trim in real dB. Match desk loudness; Mix zero preserves the exact dry signal.
-
-**Mix** (0% to 100%; starts at 100%) Blend console colour with the original stereo signal. Both trims affect only the processed path.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Input** | -18 to +18 dB | 0 dB | Level into the console. More level gives stronger colour and saturation. |
+| **Output** | -18 to +18 dB | 0 dB | Level of the coloured sound. Match bypass volume when comparing desks. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and console colour. Input and Output affect only the coloured sound. |
 
 In the header:
 
-- **Desk** (Dark, Rock, Lush, Vibe, Holo, Punch, Steel, Tube; starts at Dark) Eight console voices. Desk changes fade through dry while the convolution and sag histories reset.
+- **Desk** (Dark, Rock, Lush, Vibe, Holo, Punch, Steel, Tube; starts at Dark) Eight console voices, from subtle density to strong colour. Switching fades smoothly.
 
 **Display:** Measured input against output, and the output history.
 
@@ -128,15 +122,13 @@ In the header:
 
 Bit-depth and sample-rate reduction with a high cut after the crush.
 
-**Bits** (2 bits to 16 bits; starts at 10 bits) Bit depth of the quantizer; fewer bits add stronger grain and distortion.
-
-**Sample rate** (100 Hz to 48000 Hz; starts at 16000 Hz) Sample-and-hold rate, capped at the host rate. Lower settings add aliasing and stepped texture.
-
-**High cut** (200 Hz to 20000 Hz; starts at 6500 Hz) High-cut frequency of the processed signal. Lower values tame brightness and harshness.
-
-**Output** (-24 dB to 6 dB; starts at 0 dB) Final level after the dry/effect blend. Match bypass volume when comparing tones.
-
-**Mix** (0% to 100%; starts at 50%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Bits** | 2–16 bits | 10 bits | Bit depth of the quantizer; fewer bits add stronger grain and distortion. |
+| **Sample rate** | 100–48000 Hz | 16000 Hz | Sample-and-hold rate, capped at the host rate. Lower settings add aliasing and stepped texture. |
+| **High cut** | 200–20000 Hz | 6500 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
+| **Output** | -24 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Mix** | 0–100% | 50% | Balance between dry sound and effect. |
 
 **Display:** One cycle of a test tone, dry against crushed, with the high cut applied.
 

@@ -9,7 +9,8 @@ for anything from a simple amp sound to layered ambient textures.
 
 **[Download NAM Grid from GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest)**:
 one archive per platform (Windows x64, macOS Apple Silicon, Linux x64), each with
-CLAP and VST3. See [Download and install](#download-and-install) for setup.
+CLAP and VST3. See [Download and install](#download-and-install) for setup, and the
+**[NAM Grid manual](https://fannon.github.io/nam-grid/)** for everything else.
 
 ![NAM Grid with a clean amp-and-cab capture, Tube Boost, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
 
@@ -171,11 +172,13 @@ Loading a large capture can briefly occupy the editor.
 
 | Learn more | Guide |
 | --- | --- |
+| Install, set up your DAW and build a first rig | [Getting started](docs/getting-started.md) |
 | Choose and edit modules | [Editor](docs/ui.md), [library browser](docs/browser.md) |
 | Find an effect and a useful starting point | [Module guide](docs/modules/README.md), [starting settings](docs/modules/README.md#starting-settings) |
 | Save, recall and share sounds | [Rig presets](docs/presets.md) |
 | Tune and perform | [Tuner](docs/tuner.md), [macros, modulation and scenes](docs/performance.md) |
 | Reduce background noise | [Noise Gate (Smart)](docs/noise-gate-smart.md) |
+| Fix a problem | [Troubleshooting & FAQ](docs/troubleshooting.md) |
 
 ## Feedback and contributions
 

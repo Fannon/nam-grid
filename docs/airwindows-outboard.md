@@ -1,4 +1,4 @@
-# Airwindows outboard implementation â€” 2026-10-22
+# Airwindows outboard implementation
 
 This page documents Outboard Channel, Console Colour, Console EQ and Butter
 Comp: source pins, deliberate adaptations and control mappings. See

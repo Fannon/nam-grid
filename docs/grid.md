@@ -1,37 +1,52 @@
 # Grid & routing
 
-NAM Grid gives you 16 slots in four rows: **Pre**, parallel lanes **A** and **B**, and **Post**. Sound flows left to right; empty slots simply pass it through.
+NAM Grid gives you 16 slots in four rows: **Pre**, the parallel lanes **A** and **B**, and **Post**. Sound flows left to right through each row; empty slots simply pass it on.
 
-```text
-                                  +-- A1 -> A2 -> A3 -> A4 --+
-IN -> Pre1 -> Pre2 -> Pre3 -> Pre4 -+                         +- Post1 -> Post2 -> Post3 -> Post4 -> OUT
-                                  +-- B1 -> B2 -> B3 -> B4 --+
-```
+![Signal flow: IN, Pre 1–4, then lanes A and B in parallel, the A/B blend, Post 1–4 and OUT](images/signal-flow.svg)
 
-Any slot can hold a NAM capture, cabinet IR, or built-in effect. Click a slot's name or **+ Add module** to choose one.
+- **Pre** and **Post** process everything, before the split and after the blend.
+- **Lanes A and B** both receive the same sound from Pre 4. **A/B** blends their results.
+- **IN** sets the level reaching the rig, the tuner and the envelope follower. **OUT** sets the final level sent to your DAW.
 
-## Build your first rig
+Any slot can hold a NAM capture, a cabinet IR or a built-in effect. Click a slot's name or **+ Add module** to choose one; see [Editor](ui.md#build-and-arrange-a-rig) for moving, copying and bypassing modules.
 
-1. **Start with an amp capture.** Load a `.nam` file in Pre or lane A. The bundled **RiffSmith Clean** already includes an amp and cabinet.
-2. **Add a cabinet if your capture needs one.** Place a Cabinet IR after an amp-only capture. You do not need another cabinet after a full amp-and-cab capture.
-3. **Shape the sound.** Try a gate, boost, or drive before the capture; EQ, delay, or reverb after it.
-4. **Set a healthy level.** Use **IN** for the level reaching the rig, each module's Output for its own gain, and **OUT** for the final level. Match bypass volume before judging a tone.
+## Typical placement
 
-The included **Clean Default** preset is a ready-made example. Save your own version through the [preset browser](presets.md).
+There are no fixed rules, but this order is a good start:
+
+| Where | What | Why |
+| --- | --- | --- |
+| Before the amp | Gate, compressor, boost, drive, wah, octaver | They react to your playing and shape what the amp receives. |
+| Amp | NAM capture | A drive in front pushes it harder, like a pedal into an amp. |
+| After an amp-only capture | Cabinet IR | *Full rig* captures already include a cabinet. |
+| After the cabinet | EQ, modulation, delay, reverb | Stereo effects keep their width after the mono capture. |
+| Last in Post | Peak Limiter or Console Colour | Catch peaks or add glue to the whole rig. |
+
+NAM captures are mono: they combine both channels into one. Place stereo effects after the last capture to keep them wide.
+
+Set a healthy level as you go. Use **IN** for the level into the rig, each module's Output for its own gain, and **OUT** for the final level. Match the volume with the module bypassed before judging a tone; the [level strip](ui.md#displays-and-meters) helps.
 
 ## Parallel lanes and blend
 
-Both lanes receive the same sound from Pre4. **Blend A / B** sets their balance: 0% is A, 50% is both equally, and 100% is B. The blend moves smoothly and can be automated.
+**A/B** sets the balance between the lanes: 0% is A alone, 50% is both equally, and 100% is B alone. The blend moves smoothly and can be automated.
 
-- Turn Blend fully toward a modeled lane to hear it alone; otherwise the other lane's sound remains in the mix.
-- Try different amps or cabs in each lane, or keep one lane dry and add effects to the other.
-- Parallel captures can reinforce or cancel frequencies. If the combined tone sounds thin, adjust their levels or timing and compare in mono.
-- Captures use CPU even when Blend favors the other lane. Bypass unused models to save CPU.
+- Try different amps or cabinets in each lane, or keep one lane dry and put effects in the other.
+- An empty lane still passes the sound from Pre. Turn A/B fully toward a lane to hear only that lane.
+- Parallel captures can reinforce or cancel frequencies. If the combination sounds thin, adjust the lane levels or [Lane timing](#routing) and compare in mono.
+- Captures use CPU even when A/B favours the other lane. Bypass unused ones to save CPU.
 
-**Routing** opens per-lane level, mute/solo, timing, and frequency-split controls. See [Performance controls](performance.md#routing).
+## Routing
 
-## Move and relink modules
+Click **Routing** below the A/B knob for the lane controls. Select a module, close the page, or press Escape to return.
 
-Drag cards to rearrange them, or right-click for Copy, Move, Swap, and Clear. Controls and bypass travel with the module; host automation stays with the slot. See [Editor](ui.md#build-and-arrange-a-rig) for drag modifiers.
+- **Lane A / Lane B:** set each lane's level, or mute or solo it. Solo respects the current blend; if both lanes are soloed, both play. Mute wins over solo.
+- **Lane timing:** delay one lane by up to 20 ms to explore timing and phase between captures. Positive values delay A; negative values delay B.
+- **Frequency split:** send the lows to A and the highs to B, divided at **Crossover**. With both lanes empty and A/B centered, the original sound is reconstructed. This is a gentle split, not a steep multiband crossover.
 
-If a capture or IR moves, its slot keeps the reference and passes audio until you relink it. NAM Grid never silently substitutes a different file. Open the module browser to locate the file again.
+Use the split for rigs such as a clean low end in A and a driven high band in B. Check the combined tone in mono as well as stereo.
+
+Lane levels, the crossover and A/B can all be [modulated](performance.md#modulation).
+
+## Missing captures and IRs
+
+If a capture or IR file moves, its slot keeps the reference and passes the sound through until you relink it. NAM Grid never silently substitutes a different file. Open the module browser on that slot to select the file again, or add its new folder in **Library & settings** and rescan.

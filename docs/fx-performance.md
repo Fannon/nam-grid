@@ -9,7 +9,7 @@ For a waveform audit against a preserved CLAP binary, use the explicitly built
 `nam-fx-performance` host with:
 
 ```sh
-python scripts/verify-plugin-processing.py --before /path/to/before.clap --after build-grid/out/nam-grid.clap --output build-grid/processing-audit
+python scripts/verify-plugin-processing.py --before /path/to/before.clap --after build/windows/release/out/nam-grid.clap --output tmp/processing-audit/reports
 ```
 
 This compares crossover, lane/input/output gains, tuner mute,
@@ -23,7 +23,7 @@ For module DSP changes, `verify-fx-processing.py` renders every benchmark case
 (each FX mode, the NAM fixtures and IR fixtures) through both binaries:
 
 ```sh
-python scripts/verify-fx-processing.py --before /path/to/before.clap --after build-grid/out/nam-grid.clap --output tmp/fx-audit
+python scripts/verify-fx-processing.py --before /path/to/before.clap --after build/windows/release/out/nam-grid.clap --output tmp/fx-audit
 ```
 
 Each render automates the slot's shared dynamics/EQ/level controls and every
@@ -42,19 +42,21 @@ not select an enumerated choice.
 
 ## Build and run
 
-Prepare dependencies as described in [build.md](build.md), then use a Release build:
+Run `bash build.sh` first, then enable the optional benchmark target in that build.
+The commands below use Windows paths; substitute `macos` or `linux` on those systems:
 
 ```sh
-cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release -DNAM_BUILD_PERFORMANCE_TESTS=ON
-cmake --build build-grid --config Release --target nam-grid-clap nam-fx-performance --parallel 3
+cmake -S . -B build/windows/release -DCMAKE_BUILD_TYPE=Release -DNAM_BUILD_PERFORMANCE_TESTS=ON
+cmake --build build/windows/release --config Release --target nam-grid-clap nam-fx-performance --parallel 3
 python scripts/fx-performance.py --output tmp/fx-performance/full
 ```
 
-Windows requires the same x64 developer environment as the plugin build.
+The Windows shortcut selects Visual Studio, so a developer prompt is unnecessary.
+A manually configured Ninja/MSVC build still requires an x64 developer environment.
 The script finds both Ninja and Visual Studio Release target locations.
 Use `--build-dir` for a different build tree, or `--host` and `--plugin` for explicit
 paths. On macOS, the bundle executable is resolved automatically from
-`build-grid/out/nam-grid.clap`.
+`build/macos/release/out/nam-grid.clap`.
 
 The default matrix is **44.1/48/96 kHz × 32/64/128 frames × three repeats**.
 Each tuple renders 0.5 seconds of warm-up followed by three seconds of measured
@@ -83,7 +85,7 @@ python scripts/fx-performance.py --filter "Digital Black" --rates 48000 --buffer
 `--filter` is a case-insensitive substring of module name, readable mode, or case
 ID, and can be repeated (OR). The empty-grid baseline always runs. `--output`
 chooses a report directory; the default is a timestamped folder beneath
-`build-grid/fx-performance/` (also ignored). Use `--output tmp/<investigation>`
+`tmp/fx-performance/` (also ignored). Use `--output tmp/<investigation>`
 for local reports, as above. Exit code 1 means errors (or overruns when
 `--fail-on-overrun` is set); 2 means an invocation/setup failure. Other runs
 report overruns without making variable machine load a hard pass/fail gate.
@@ -108,9 +110,9 @@ binary if you want to repeat both versions under comparable background load;
 `--plugin` selects it explicitly. For a focused comparison:
 
 ```sh
-python scripts/fx-performance.py --module "Noise Gate (Smart)" --rates 48000 96000 --buffers 32 64 128 --seconds 5 --warmup 1 --repeats 3 --output build-grid/gate-before
+python scripts/fx-performance.py --module "Noise Gate (Smart)" --rates 48000 96000 --buffers 32 64 128 --seconds 5 --warmup 1 --repeats 3 --output tmp/gate-comparison/before
 # Rebuild the optimized plugin, then run the same settings.
-python scripts/fx-performance.py --module "Noise Gate (Smart)" --rates 48000 96000 --buffers 32 64 128 --seconds 5 --warmup 1 --repeats 3 --compare build-grid/gate-before/report.json --output build-grid/gate-after
+python scripts/fx-performance.py --module "Noise Gate (Smart)" --rates 48000 96000 --buffers 32 64 128 --seconds 5 --warmup 1 --repeats 3 --compare tmp/gate-comparison/before/report.json --output tmp/gate-comparison/after
 ```
 
 The second command also writes `comparison.md`, `comparison.csv` and
@@ -199,7 +201,7 @@ The report implementation has focused on-demand checks:
 ```sh
 python -m unittest discover -s tests -p test_fx_performance.py
 python -m unittest discover -s tests -p test_verify_fx_processing.py
-build-grid/NeuralAmpModeler/nam-fx-performance --self-test
+build/windows/release/NeuralAmpModeler/Release/nam-fx-performance.exe --self-test
 ```
 
 Use the `Release` subdirectory and `.exe` suffix for a Visual Studio generator.

@@ -3,21 +3,26 @@
 import argparse
 from array import array
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("fx_performance", ROOT / "scripts" / "fx-performance.py")
+benchmark = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(benchmark)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--before', type=Path, required=True)
     parser.add_argument('--after', type=Path, required=True)
-    parser.add_argument('--host', type=Path, default=ROOT/'build-grid/NeuralAmpModeler'/('nam-fx-performance.exe' if sys.platform == 'win32' else 'nam-fx-performance'))
+    parser.add_argument('--host', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
+    args.host = args.host or benchmark.find_executable(benchmark.DEFAULT_BUILD_DIR, 'nam-fx-performance')
     folder = args.output.resolve()
     folder.mkdir(parents=True, exist_ok=False)
     subprocess.run([str(args.host), '--fixtures', str(folder/'fixtures')], check=True, capture_output=True)

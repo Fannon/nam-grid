@@ -89,6 +89,10 @@ patches, build commands, CTest and packaging. The
 [documentation index](docs/README.md) lists every guide, including implementation,
 compatibility, verification and DSP-source notes.
 
+After installing the prerequisites, run `bash build.sh` for an incremental native
+CLAP/VST3 build, or `bash build.sh --test` to include the test suites. Plugin outputs
+are under `build/<platform>/release/out/`.
+
 New controls, modules and modes follow the append-only
 [compatibility contract](docs/development.md#parameter-and-project-compatibility).
 Between releases, the

@@ -43,8 +43,9 @@ To regenerate the gallery on Windows, build the opt-in `nam-readme-gallery`
 target and run it with the plugin, the repository root and an output folder:
 
 ```sh
-cmake --build build-grid --config Release --target nam-grid-clap nam-readme-gallery
-build-grid/NeuralAmpModeler/nam-readme-gallery build-grid/out/nam-grid.clap . tmp/gallery
+bash build.sh
+cmake --build build/windows/release --config Release --target nam-grid-clap nam-readme-gallery
+build/windows/release/NeuralAmpModeler/Release/nam-readme-gallery.exe build/windows/release/out/nam-grid.clap . tmp/gallery/screenshots
 ```
 
 It creates the demo library and renders every view as BMP, then each built-in module in

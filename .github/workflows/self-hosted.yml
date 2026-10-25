@@ -59,13 +59,13 @@ jobs:
           fi
       - run: python scripts/setup-deps.py
       - uses: mozilla-actions/sccache-action@v0.0.11
-      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release
         env:
           CC: gcc-12
           CXX: g++-12
-      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+      - run: cmake --build build/ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
       - name: Python tool tests
         run: python -m unittest discover -s tests -p "test_*.py"
       - name: Compiler cache statistics
         run: sccache --show-stats
-      - run: xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build-ci -C Release --output-on-failure
+      - run: xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build/ci -C Release --output-on-failure

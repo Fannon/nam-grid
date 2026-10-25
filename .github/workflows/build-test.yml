@@ -71,16 +71,16 @@ jobs:
       # environment lets sccache wrap cl.exe.
       - uses: ilammy/msvc-dev-cmd@v1.13.0
         if: runner.os == 'Windows'
-      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release
         if: runner.os == 'Windows'
-      - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release
         if: runner.os == 'macOS'
-      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release
         if: runner.os == 'Linux'
         env:
           CC: gcc-12
           CXX: g++-12
-      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+      - run: cmake --build build/ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
       - name: Python tool tests
         run: python -m unittest discover -s tests -p "test_*.py"
       # Hosted Windows runners only expose the GDI OpenGL 1.1 renderer, which the
@@ -104,26 +104,26 @@ jobs:
           }
           # App-local DLLs are resolved from the executable's directory only, so
           # place the renderer next to every test binary (the GUI runs there).
-          Get-ChildItem -Recurse build-ci -Filter *.exe | ForEach-Object {
+          Get-ChildItem -Recurse build/ci -Filter *.exe | ForEach-Object {
             Copy-Item "$mesa\x64\*.dll" $_.DirectoryName -Force
           }
       - name: Compiler cache statistics
         run: sccache --show-stats
-      - run: ctest --test-dir build-ci -C Release --output-on-failure
+      - run: ctest --test-dir build/ci -C Release --output-on-failure
         if: runner.os != 'Linux'
         env:
           GALLIUM_DRIVER: llvmpipe
       # The Linux editor checks need an X server; Xvfb renders through Mesa llvmpipe.
-      - run: xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build-ci -C Release --output-on-failure
+      - run: xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build/ci -C Release --output-on-failure
         if: runner.os == 'Linux'
       # Zip before artifact upload: GitHub artifacts otherwise discard the
       # executable permissions required by macOS plugin bundles.
       - name: Archive plugins and notices
-        run: python scripts/package-release.py --build-dir build-ci --platform ${{ matrix.platform }}
+        run: python scripts/package-release.py --build-dir build/ci --platform ${{ matrix.platform }}
       - uses: actions/upload-artifact@v4
         with:
           name: nam-grid-${{ matrix.platform }}
-          path: build-ci/nam-grid-${{ matrix.platform }}.zip
+          path: build/ci/nam-grid-${{ matrix.platform }}.zip
           if-no-files-found: error
           # Artifact storage is also billed; releases download them immediately.
           retention-days: ${{ github.event_name == 'pull_request' && 3 || 14 }}

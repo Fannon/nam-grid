@@ -45,9 +45,11 @@ def package(build_dir: Path, platform: str, output_dir: Path) -> Path:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", required=True, choices=PLATFORMS)
-    parser.add_argument("--build-dir", type=Path, default=Path("build-grid"))
+    parser.add_argument("--build-dir", type=Path, help="defaults to build/<platform>/release")
     parser.add_argument("--output-dir", type=Path, help="defaults to the build directory")
     args = parser.parse_args()
+    if args.build_dir is None:
+        args.build_dir = Path("build") / args.platform.split("-")[0] / "release"
     print(package(args.build_dir, args.platform, args.output_dir or args.build_dir))
 
 

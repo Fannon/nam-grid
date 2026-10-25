@@ -20,6 +20,7 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_BUILD_DIR = ROOT / "build" / {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux") / "release"
 
 
 def positive(value):
@@ -291,7 +292,7 @@ def write_reports(folder, metadata, rows):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--build-dir", type=Path, default=ROOT / "build-grid")
+    parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
     parser.add_argument("--host", type=Path, help="Release nam-fx-performance executable")
     parser.add_argument("--plugin", type=Path, help="CLAP binary (Mac: executable inside the .clap bundle)")
     parser.add_argument("--output", type=Path)
@@ -319,7 +320,7 @@ def main(argv=None):
     cache = build / "CMakeCache.txt"
     if cache.is_file() and "CMAKE_BUILD_TYPE:STRING=Debug" in cache.read_text(encoding="utf-8"):
         parser.error("Use a Release build for meaningful CPU results")
-    folder = (args.output or build / "fx-performance" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")).resolve()
+    folder = (args.output or ROOT / "tmp" / "fx-performance" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")).resolve()
     folder.mkdir(parents=True, exist_ok=True)
     fixtures = folder / "fixtures"
     subprocess.run([str(host), "--fixtures", str(fixtures)], check=True)

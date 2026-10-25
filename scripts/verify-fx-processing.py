@@ -89,7 +89,7 @@ def main():
     parser.add_argument("--module", action="append", default=[])
     parser.add_argument("--tolerance", type=float, default=0., help="maximum absolute sample difference")
     args = parser.parse_args()
-    host = (args.host or benchmark.find_executable(ROOT / "build-grid", "nam-fx-performance")).resolve()
+    host = (args.host or benchmark.find_executable(benchmark.DEFAULT_BUILD_DIR, "nam-fx-performance")).resolve()
     before, after = (benchmark.plugin_binary(p.resolve()) for p in (args.before, args.after))
     folder = args.output.resolve()
     folder.mkdir(parents=True, exist_ok=False)

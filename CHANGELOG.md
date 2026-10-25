@@ -11,7 +11,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
-- Documentation clarifies that Linux has not been tested in a real DAW environment and asks Linux users for feedback.
+- Compressor and limiter gain-reduction displays use a 16 dB scale instead of 24 dB, with 2 and 4 dB guides in Outboard Channel and Butter Comp histories so gentle compression is easier to see. Gate attenuation displays retain their wider ranges.
 
 ## [0.2.1] - 2026-10-25
 

@@ -234,6 +234,14 @@ module loops cheap without changing output:
   indices; compare-and-wrap gives the same index.
 - Prepare per-callback copies once; modulation restores only the slots it edits
   for each 16-sample quantum.
+- Where a loop has independent accumulators, such as the phases of a polyphase
+  filter or a band bank, let each accumulator keep its own tap order and vectorize
+  across accumulators. Pairing two of them in one register is bit-identical;
+  reordering taps within one, or letting the compiler contract multiply-add pairs,
+  is not. Pedal Drive's oversampling filters do this on arm64 and keep the portable
+  loop elsewhere; `-DNAM_PEDAL_DRIVE_SCALAR` forces the portable path for comparison.
+  Here that changed only instruction scheduling, and the four dot products lost
+  about a fifth of the module's CPU.
 
 Confirm such changes are bit-identical with `verify-fx-processing.py`. A change
 that alters rounding, such as recurrence oscillators or a different FFT

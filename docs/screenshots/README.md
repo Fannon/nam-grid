@@ -48,6 +48,9 @@ cmake --build build/windows/release --config Release --target nam-grid-clap nam-
 build/windows/release/NeuralAmpModeler/Release/nam-readme-gallery.exe build/windows/release/out/nam-grid.clap . tmp/gallery/screenshots
 ```
 
+With Ninja, the executable is directly under `NeuralAmpModeler/`, without the
+`Release/` subdirectory.
+
 It creates the demo library and renders every view as BMP, then each built-in module in
 the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. The NAM
 and Cabinet IR pane images are lossless full-width, 244-pixel-high crops from the bottom of `nam.png` and

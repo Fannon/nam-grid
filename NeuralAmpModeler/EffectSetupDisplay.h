@@ -44,8 +44,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   {
     UtilityControls crush;
     for (int i=0;i<5;++i) crush.crusher[i]=value(uCrushBits+i);
-    text.SetFormatted(80,"%.0f bits | %.0f Hz hold | Mix %.0f%%",crush.crusher[0],std::min(rate,crush.crusher[1]),crush.crusher[3]);
-    caption(text.Get());
+    caption("Sample hold / quantization");
     PlotDetail(g,plot,"One 220 Hz cycle, 100% wet");
     // The classic crusher picture: the held, quantized staircase filled to zero over the dry sine.
     const auto cycle=effect_preview::CrusherReference(crush,rate);
@@ -85,10 +84,6 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     const bool heads=effect==SlotEffect::MultiHeadDelay;
     const bool stereoHeads=heads && effect_modes::TapeHeads(c.tapeHeads).crossFeedback;
     const bool stereo=stereoHeads || c.pingPong || effect==SlotEffect::DualDelay;
-    const char* name=heads ? effect_modes::tapeHeadNames[std::clamp(c.tapeHeads,0,7)]
-                          : effect==SlotEffect::DiffusedDelay ? "Diffused" : c.pingPong ? "Ping-pong" : "Echoes";
-    text.SetFormatted(64,"%s | %.0f%% wet",name,c.delay[4]);
-    caption(text.Get());
     const int motion=static_cast<int>(value(uDelayMotion));
     // Delay modulation moves timing by well under a pixel at these horizons; what
     // you hear is pitch. Excursion and LFO rates follow each delay's DSP.
@@ -98,19 +93,13 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
                       : heads ? effect_preview::SweepCents(motion*.01*.001,.67,2.05) : 0.;
     // Digital Delay ducks only the wet output: 1 / (1 + 12 x Ducking x envelope).
     const double duck=effect==SlotEffect::DigitalDelay ? 1./(1.+12.*c.delay[3]*.01*.25) : 1.;
-    if(effect==SlotEffect::DiffusedDelay) text.SetFormatted(64,"Diff %.0f%% | Mod +/-%.1f ct",value(uDelayDiffusion),cents);
-    else if(effect==SlotEffect::TapeDelay || heads) text.SetFormatted(64,"Mod +/-%.1f ct | Sat %.0f%%",cents,c.delay[3]);
-    else if(effect==SlotEffect::AnalogDelay) text.SetFormatted(64,"Age %.0f%% | Mod +/-%.1f ct",c.delay[3],cents);
-    else if(duck<.999) text.SetFormatted(64,"Ducked %.1f dB at -12 dBFS",20.*std::log10(duck));
-    else text.SetFormatted(64,"High cut %.1fk | %+.0f dB out",c.delay[2]/1000.,c.delayOutput);
-    g.DrawText(Text(13.f,muted),text.Get(),IRECT(plot.L,515,plot.R-50,536));
-    if(effect==SlotEffect::DiffusedDelay && (value(uDelayDiffusion)>0. || motion>0))
-      g.DrawText(Text(13.f,color,EAlign::Far),"Stereo",IRECT(plot.R-50,515,plot.R,536));
-    else
+    if(cents>.01)
     {
-      g.DrawText(Text(13.f,delayColor),stereo ? "L" : "L=R",IRECT(plot.R-45,515,plot.R-23,536));
-      if(stereo) g.DrawText(Text(13.f,ampColor),"R",IRECT(plot.R-17,515,plot.R,536));
+      text.SetFormatted(80,"%s | modulation +/-%.1f ct",stereo ? "Stereo repeats" : "Wet repeats",cents);
+      caption(text.Get());
     }
+    else caption(stereo ? "Stereo repeats" : "Wet repeats");
+    PlotDetail(g,plot,"Cyan: left/shared repeats; amber: right. Thin lines show energy above 5 kHz; diffusion fills out the echoes. White ticks show ducked wet level at -12 dBFS input.");
     const IRECT chart=plot;
     const auto amplitudeY=[&](double amplitude) {
       return chart.B-chart.H()*static_cast<float>(std::clamp((20.*std::log10(std::max(1.e-9,amplitude))+60.)/72.,0.,1.));
@@ -164,7 +153,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     const double fade = reverse ? 5. : value(freeze ? uFreezeFade : uStutterFade);
     const double period = effect_preview::CapturePeriod(effect, window, fade);
     if (freeze) text.SetFormatted(64, "%s | %.0f ms loop", value(uFreezeHold) >= .5 ? "Hold requested" : "Hold off", period * 1000.);
-    else text.SetFormatted(64, reverse ? "Reverse | %.0f ms" : "Slice | %.0f ms", window);
+    else text.Set(reverse ? "Reverse windows" : "Slice pattern");
     caption(text.Get());
     const double duty = freeze || reverse ? 1. : value(uStutterDuty) * .01;
     const double overlap = std::min(.25, fade / std::max(1., window));
@@ -192,7 +181,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
         g.DrawLine(color, played.L + 6.f, arrowY, played.L + 11.f, arrowY + 3.f);
       }
       text.SetFormatted(64,"%.0f ms",4.*period*1000.);
-      WDL_String note; note.SetFormatted(80,"High cut %.1fk | %.0f%% wet",value(uDelayTone)/1000.,wet*100.);
+      WDL_String note; note.Set("Upper: input | lower: reversed output");
       PlotFooter(g,plot,note.Get(),text.Get());
       return true;
     }
@@ -223,14 +212,14 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       }
     text.SetFormatted(64,"%.0f ms",windows*period*1000.);
     WDL_String note;
-    if(freeze) note.SetFormatted(80,"High cut %.1fk | dry + held",value(uFreezeTone)/1000.);
+    if(freeze) note.Set("Dry + held | seam blend");
     else note.Set("0 - 100% gain");
     PlotFooter(g,plot,note.Get(),text.Get());
     return true;
   }
   if (effect == SlotEffect::Octaver)
   {
-    text.SetFormatted(64, "Octaves | high cut %.0f Hz", value(uOctTone)); caption(text.Get());
+    caption("Octave waveforms");
     PlotDetail(g,plot,"110 Hz note: subs are flip-flop squares; Tone rounds them");
     // The tracker flips a square on each rising crossing (-1) and on every
     // second flip (-2); the subs follow the input envelope through Tone's low-pass.
@@ -263,7 +252,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   }
   if (effect == SlotEffect::Doubler)
   {
-    text.SetFormatted(64, "+/-%.1f ct | %.0f ms", value(uDoubleDetune), value(uDoubleDelay)); caption(text.Get());
+    caption("Pitch / stereo sketch");
     PlotDetail(g,plot,"Pitch up/down | horizontal: stereo spread");
     const double spread = value(uDoubleSpread) * .01;
     line(0., .5, 1., .5, border);
@@ -276,20 +265,18 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       line(.5, .5, x, y, ink.WithOpacity(.4f));
       line(x - .12, y, x + .12, y, ink, 2.f);
     }
-    text.SetFormatted(64,"Wet %.0f%% | Out %+.0f dB",value(uDoubleMix),value(uDoubleOutput));
-    foot(text.Get()); return true;
+    foot("Lower / upper pitch | horizontal: stereo"); return true;
   }
   if (effect == SlotEffect::FrequencyShifter)
   {
-    text.SetFormatted(64, "Shift %+.0f Hz / pass", value(uShiftFrequency)); caption(text.Get());
+    caption("Successive frequency shifts");
     const double shift = value(uShiftFrequency), side = value(uShiftSide) * .01;
     const double mix = value(uShiftMix) * .01, feedback = value(uShiftFeedback) * .01;
     // Each feedback pass shifts again by Shift, after Delay, through High cut.
     // Columns are passes; dot height is frequency, brightness is level.
     constexpr int passes = 8;
     const double cascadeUpper = std::max(1200., 880. + passes * std::abs(shift));
-    text.SetFormatted(96,"Pass every %.0f ms | FB %.0f%% | Spread %.0f%%",value(uShiftDelay),feedback*100.,value(uShiftStereo));
-    PlotDetail(g,plot,text.Get()); PlotGrid(g,plot);
+    PlotDetail(g,plot,"Columns are successive feedback passes; height is frequency and brightness is level. Colour shifts up, amber shifts down; each pass follows Delay and High cut."); PlotGrid(g,plot);
     const auto columnX = [&](int pass) { return (pass + .5) / (passes + 1.); };
     for (int partial = 1; partial <= 4; ++partial)
     {

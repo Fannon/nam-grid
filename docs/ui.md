@@ -36,11 +36,19 @@ Every module editor uses the same layout:
 
 Drag a knob or click its value to type a number; double-click restores its starting value, and right-click assigns [modulation](performance.md). Every knob and **Enabled** can be automated by your DAW; other header options are saved with the rig but cannot be automated.
 
+The pointer becomes a text cursor over an editable value. Click the number below
+the knob, type the new value, and press **Enter** to apply it or **Escape** to cancel.
+
+If a module's description ends in `...`, hover over it to read the full description.
+
 Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 
 ### Displays and meters
 
 Displays help answer practical questions: Is the compressor working? How dark are the repeats? Where is the EQ cutting? Some show live audio; others sketch the current settings. Their labels identify which is which.
+
+Hover over a graph for its explanation and colour legend. Captions show live
+measurements and useful derived information; axis ranges stay visible.
 
 Compressor and limiter gain-reduction displays use a 0–16 dB scale, giving typical
 2–4 dB compression more room while allowing heavier reduction. Outboard Channel

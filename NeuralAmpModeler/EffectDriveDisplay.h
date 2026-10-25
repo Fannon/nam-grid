@@ -82,10 +82,6 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     const IRECT amount(tonePlot.L, tonePlot.T + 34, tonePlot.R, tonePlot.T + 46);
     g.FillRect(border.WithOpacity(.35f), amount);
     g.FillRect(color, IRECT(amount.L, amount.T, amount.L + amount.W() * value(uTapeBump) * .01, amount.B));
-    WDL_String settings; settings.SetFormatted(80, "%.0f%% bump | %.0f%% wet", value(uTapeBump), value(uTapeMix));
-    g.DrawText(Text(13.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 52, tonePlot.R, tonePlot.T + 76));
-    settings.SetFormatted(64, "Output %+.1f dB", value(uTapeOutput));
-    g.DrawText(Text(13.f, muted), settings.Get(), IRECT(tonePlot.L, tonePlot.T + 78, tonePlot.R, tonePlot.T + 100));
     PlotFooter(g,plot,"Stage only; tape has memory");
   }
   else

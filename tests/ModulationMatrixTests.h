@@ -192,6 +192,12 @@ void TestModulationMatrix()
     const auto nam = Destinations(SlotEffect::NAM, true, false, false, false);
     assert(nam.size() == 7 && nam.front().control == parameter_layout::kSlotIn && has(nam, parameter_layout::kSlotTrim));
     assert(Destinations(SlotEffect::NAM, false, false, false, false).empty());
+    const auto cuts = Destinations(SlotEffect::ParametricEQ, true, false, false, false);
+    const auto shelf = Destinations(SlotEffect::ParametricEQ, true, false, false, false, true);
+    assert(cuts.size() == 7 && shelf.size() == 8);
+    assert(cuts[3].control == parameter_layout::kSlotEQHighPass && cuts[3].position == 4);
+    assert(cuts[5].control == parameter_layout::kSlotEQLowPass && cuts[5].position == 6);
+    assert(std::string(shelf[4].label) == "Low shelf" && shelf[4].position == 4);
     assert(Destinations(SlotEffect::CabinetIR, true, false, false, false).front().control == parameter_layout::kSlotIRLevel);
     for (int e = 0; e <= static_cast<int>(SlotEffect::Last); ++e)
       if (IsValidSlotEffect(static_cast<SlotEffect>(e)))

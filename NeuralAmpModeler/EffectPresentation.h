@@ -35,14 +35,14 @@ inline bool PingPong(SlotEffect e)
 { return e == SlotEffect::DigitalDelay || e == SlotEffect::AnalogDelay || e == SlotEffect::TapeDelay || e == SlotEffect::DualDelay; }
 inline bool Tempo(SlotEffect e)
 { return IsDelay(e) || IsModulation(e) || e == SlotEffect::UniVibe || e == SlotEffect::Stutter; }
-inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, bool vibrato = false)
+inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, bool vibrato = false, bool shelf = false)
 {
   if (p == uTempoSync) return Tempo(e);
   if (p == uTempoDivision) return Tempo(e) && sync;
   if (p == uDelayPingPong) return PingPong(e);
   if (p == uReverbStereo) return IsReverb(e) && e != SlotEffect::AirPlate && e != SlotEffect::AirHall && e != SlotEffect::GalacticSpace;
   if (sync && (p == uDelayTime || p == uModRate || p == uStutterTime)) return false;
-  if (e == SlotEffect::ParametricEQ && p == uGain && notch) return false;
+  if (e == SlotEffect::ParametricEQ && ((p == uGain && notch) || (p == uParamShelfGain && !shelf))) return false;
   if (e == SlotEffect::UniVibe && p == uModMix && vibrato) return false;
   return UsesUtility(e, p);
 }
@@ -64,7 +64,7 @@ inline std::array<bool, 8> FixedPlaces(SlotEffect e)
   if (e == SlotEffect::NoiseGate || e == SlotEffect::SmoothComp || e == SlotEffect::PunchComp
       || e == SlotEffect::ToneEQ || e == SlotEffect::CutEQ)
     fixed[0] = fixed[1] = fixed[2] = true;
-  if (e == SlotEffect::ParametricEQ) fixed[4] = fixed[5] = true;
+  if (e == SlotEffect::ParametricEQ) fixed[4] = fixed[6] = true;
   if (e == SlotEffect::Boost || e == SlotEffect::TubeBoost) fixed[2] = true;
   return fixed;
 }
@@ -79,7 +79,7 @@ inline int Position(SlotEffect e, int p)
     if (!HeaderControl(q))
       for (bool sync : {false, true})
         for (bool alternate : {false, true})
-          if (Visible(e, q, sync, alternate, alternate)) used[TablePosition(e, q)] = true;
+          if (Visible(e, q, sync, alternate, alternate, alternate)) used[TablePosition(e, q)] = true;
   const int own = TablePosition(e, p);
   const auto placesBefore = [&](int from) { return static_cast<int>(std::count(used.begin() + from, used.begin() + own, true)); };
   if (std::count(used.begin(), used.end(), true) <= 4) return placesBefore(0);
@@ -154,6 +154,10 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSpaceSize: return "Native Galactic3 delay-buffer scale. Together with Resolution it sets space size; resizing a sounding tank can make pitch/noise artifacts.";
     case uFrequency: return "Center frequency of the bell or notch; Q sets how narrow the affected band is.";
     case uGain: return "Boost or cut the selected band. Notch mode removes this control because notch depth is fixed.";
+    case uParamLowQ: return "Resonance at the low cutoff, or the shelf corner. 0.71 gives the original Butterworth cut; higher values emphasize the corner.";
+    case uParamHighQ: return "Resonance at the high cutoff. 0.71 gives the original Butterworth cut; higher values emphasize the corner.";
+    case uParamShelfGain: return "Boost or cut below the low shelf frequency. Low Q shapes the corner; 0 Hz bypasses the low band.";
+    case uParamLowMode: return "Choose a 12 dB/octave low cut or a low shelf with adjustable gain. Frequency and Q stay in the same positions.";
     case uQ: return "Higher Q narrows the bell or notch; lower Q changes a broader part of the guitar tone.";
     case uBoostGain: return "Clean level boost before the next module. Drive a following NAM or distortion harder.";
     case uBoostTilt: return "Tilt around 800 Hz: positive is brighter/thinner, negative is darker/fuller.";
@@ -290,7 +294,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Limiter: return "Fast peak control; Ceiling and Release set grip and recovery.";
     case SlotEffect::ToneEQ: return "Bass, Mid and Treble shape the tone; the curve shows the combined response.";
     case SlotEffect::CutEQ: return "Low cut and High cut trim rumble and fizz; Presence adds bite.";
-    case SlotEffect::ParametricEQ: return "One bell or notch; Q sets its width, the cuts trim both ends.";
+    case SlotEffect::ParametricEQ: return "Bell or notch, a resonant low cut or shelf, and a resonant high cut.";
     case SlotEffect::SynthFilter: return "Cutoff and Resonance shape tone; Envelope follows playing strength.";
     case SlotEffect::Wah: return "Position sweeps the peak; Register moves its heel and toe range.";
     case SlotEffect::Boost: return "Clean boost into the next module; Tilt balances body and bite.";

@@ -12,6 +12,7 @@ Build your rig in the grid, then use the panel below it to shape the selected mo
 | **Grid** | Arrange modules across Pre, lanes A/B, and Post. See [Grid & routing](grid.md). |
 | **Module editor** | Adjust the selected module, switch its mode, and view its response. |
 | **IN / OUT** | Set the level entering and leaving the whole rig. |
+| **Macros** | Adjust four assignable controls below IN. Double-click a label to name it; names and values are saved with the rig. |
 | **A/B** | Balance the two parallel lanes. **Routing** opens their [level, timing, and split controls](grid.md#routing). |
 
 Settings, Tuner and Modulation have icons beside their names. The page-with-plus and disk icons beside the preset arrows are **New** and **Save**; hover over them for help. A divider and subtly lighter background mark the parameter area below the grid, including when auditioning modules in the browser.
@@ -28,7 +29,7 @@ Drag cards to move, swap or copy modules, or right-click a card for **Clear**, *
 
 Every module editor uses the same layout:
 
-- **Top row:** slot ID and category badges, then the module name. Browser, previous/next and the enable/bypass circle align on the right. The circle controls the same automatable Enabled parameter as the grid node.
+- **Top row:** slot ID, category badges and the enable/bypass circle, then the module name. Browser and previous/next align on the right. The circle controls the same automatable Enabled parameter as the grid node.
 - **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, **Quality** or **Heads**, on the right of the description row. Click a two-choice option to toggle it; longer lists open a menu.
 - **Knobs:** up to four per row, filled from the left. **Output** comes before **Mix**. All eight positions are available for sound controls.
 - **Display:** a visual guide to the module's response or your playing, with that module's input, output and gain in its footer.
@@ -54,6 +55,7 @@ Turn all displays on or off in **Settings > Visualizations**. This changes only 
 **Settings** in the header manages your capture, IR and preset folders (see [library folders](browser.md#library-folders)) and a few preferences:
 
 - **Visualizations** turns all module displays on or off.
+- **Main macros** shows or hides the four knobs below IN. They are shown by default; unassigned macros are dimmed. Hiding them preserves their values, names and assignments.
 - **Preset switch** chooses how rigs change while you play; see [rig presets](presets.md#switching-while-you-play).
 - **Startup rescan** rescans your folders whenever NAM Grid starts.
 - **Settings folder** opens the folder that stores these choices; see [where settings are stored](troubleshooting.md#where-are-my-settings-stored).

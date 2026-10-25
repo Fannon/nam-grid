@@ -41,6 +41,7 @@ struct Settings
   bool presetCrossfade = false; // Rig preset switches crossfade instead of a short dip.
   // Whether each list was ever set; an explicitly emptied list stays empty.
   bool namChosen = false, irChosen = false, presetChosen = false;
+  bool showMainMacros = true;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 struct UserSettings

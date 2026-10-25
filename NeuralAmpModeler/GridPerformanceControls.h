@@ -4,7 +4,7 @@
 // grid, and the header scene buttons. Pages use the main editor's 24 px margins.
 namespace grid_ui
 {
-inline constexpr float pageLeft = 24.f, pageRight = 976.f, pageTop = 72.f;
+inline constexpr float pageLeft = 24.f, pageRight = grid_layout::width - 24.f, pageTop = 72.f;
 
 // Segmented page or source selector; the selected segment is raised.
 class Tabs : public IControl
@@ -125,14 +125,14 @@ public:
       return;
     }
     g.FillCircle(color, mRECT.L + 11.f, mRECT.MH(), 3.5f);
-    FittedText(g, Text(13.f, text), grid_performance::sourceNames[source], mRECT.GetReducedFromLeft(20.f).GetReducedFromRight(4.f));
+    FittedText(g, Text(13.f, text), SourceName(*PLUG(), source), mRECT.GetReducedFromLeft(20.f).GetReducedFromRight(4.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
     if (!mod.L) return;
     mMenu.Clear();
     for (int source = 0; source < grid_performance::SourceCount; ++source)
-      mMenu.AddItem(new IPopupMenu::Item(grid_performance::sourceNames[source],
+      mMenu.AddItem(new IPopupMenu::Item(SourceName(*PLUG(), source).c_str(),
                                          GetParam()->Int() == source ? IPopupMenu::Item::kChecked : 0, source));
     GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
   }
@@ -165,7 +165,7 @@ inline std::vector<grid_modulation::Destination> SlotDestinations(const PLUG_CLA
 {
   const auto flag = [&](int p) { return plug.GetParam(SlotUtilityParam(slot, p))->Bool(); };
   return grid_modulation::Destinations(plug.GetSlotEffect(slot), !plug.GetSlotPath(slot).empty(), flag(uTempoSync),
-                                       flag(uEQMode), flag(uVibeMode));
+                                       flag(uEQMode), flag(uVibeMode), flag(uParamLowMode));
 }
 // Destination: "A2 › Mix" with the module name, or the routing control. The
 // nested menu lists each slot's module and its modulatable knobs.
@@ -648,6 +648,30 @@ private:
 };
 } // namespace grid_ui
 
+// Optional performance controls on the main page. These share the modulation page's
+// parameters, so host automation and edits in either view always stay in sync.
+class NAMGridMacroControl : public IContainerBase
+{
+public:
+  explicit NAMGridMacroControl(const IRECT& r) : IContainerBase(r) {}
+  void OnAttached() override
+  {
+    using namespace grid_ui; using namespace grid_performance;
+    for (int i = 0; i < 4; ++i)
+    {
+      auto* knob = new MacroKnob(IRECT(4, 178 + i * 72, grid_layout::sidebarRight - 4, 246 + i * 72), i, true);
+      AddChildControl(knob);
+      AddChildControl(new MacroLabel(knob->NameBounds(), i, true));
+    }
+  }
+  void Draw(IGraphics& g) override
+  {
+    const auto panel = IRECT(-12, mRECT.T, mRECT.R, mRECT.B);
+    g.FillRoundRect(grid_ui::editorBackground, panel, grid_layout::cardCornerRadius);
+    g.DrawRoundRect(grid_ui::border, panel, grid_layout::cardCornerRadius);
+  }
+};
+
 // Routing replaces the module editor below the grid, laid out like one:
 // two rows of four controls with a visualization panel on the right.
 class NAMGridRoutingControl : public IContainerBase
@@ -672,19 +696,19 @@ public:
     toggle(6, LaneBSolo, "Hear only lane B, keeping its blend level. Soloing both lanes passes both.");
     knob(7, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
                         "timing; it cannot correct every phase difference and never advances audio.");
-    AddChildControl(new Toggle(IRECT(444, grid_layout::descriptionTop, 620, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
+    AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 176, grid_layout::descriptionTop, grid_layout::parameterRight, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
       ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
-    AddChildControl(new Button(IRECT(540, grid_layout::moduleHeaderTop, 620, grid_layout::moduleHeaderBottom), [](IControl* caller) {
+    AddChildControl(new Button(IRECT(grid_layout::parameterRight - 80, grid_layout::moduleHeaderTop, grid_layout::parameterRight, grid_layout::moduleHeaderBottom), [](IControl* caller) {
       static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close", Icon::Close))
       ->SetTooltip("Back to the selected module (Escape).");
-    AddChildControl(new CrossoverView(IRECT(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom)));
+    AddChildControl(new CrossoverView(IRECT(grid_layout::visualizationLeft, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom)));
   }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
     DrawEditorBackground(g, mRECT);
-    g.DrawText(Text(22.f, accent), "Routing", IRECT(pageLeft, grid_layout::moduleHeaderTop, 300, grid_layout::moduleHeaderBottom));
-    FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(pageLeft, grid_layout::descriptionTop, 434, grid_layout::descriptionBottom));
+    g.DrawText(Text(22.f, accent), "Routing", IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, 300, grid_layout::moduleHeaderBottom));
+    FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop, grid_layout::parameterRight - 186, grid_layout::descriptionBottom));
   }
 };
 
@@ -696,7 +720,7 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui; using namespace grid_performance;
-    AddChildControl(new Button(IRECT(896, 14, pageRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close))
+    AddChildControl(new Button(IRECT(pageRight - 80, 14, pageRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close))
       ->SetTooltip("Close Modulation (Escape).");
     mSources = new Tabs(IRECT(pageLeft, pageTop, 452, pageTop + 26), {"LFO", "Envelope", "Sequencer"},
                         [this](int) { Show(); }, {SourceColor(SourceLFO), SourceColor(SourceEnvelope), SourceColor(SourceSequencer)});
@@ -741,8 +765,11 @@ public:
     toggle(SourceSequencer, 1, 0, StepSync, "Follow the host tempo.");
     menu(SourceSequencer, 2, 0, StepRetrigger, "Restart at step 1 on each played note or MIDI note-on.");
     for (int i = 0; i < 4; ++i)
-      Add(new Knob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 612), PerformanceParam(macros[i]), parameters[macros[i]].label))
-        ->SetTooltip("Macro: a manual or host-automated source. Use it in the matrix, or right-click any module knob.");
+    {
+      auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 612), i);
+      Add(knob);
+      Add(new MacroLabel(knob->NameBounds(), i));
+    }
     for (int row = 0; row < rows; ++row)
     {
       const float top = RowTop(row);

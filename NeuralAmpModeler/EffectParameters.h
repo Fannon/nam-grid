@@ -222,12 +222,18 @@ enum UtilityParam
   uPedalOutput = 206,
   uPedalMix = 207,
   uPedalCharacter = 208,
+  uParamLowQ = 209,
+  uParamHighQ = 210,
+  uParamShelfGain = 211,
+  uParamLowMode = 212,
   kUtilityControls,
 };
+inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
   {
+    case uParamLowMode: return kParamLowModes;
     case uTempoDivision: return grid_tempo::names;
     case uJunoMode: return effect_modes::junoNames;
     case uDistStyle: return effect_modes::distortionNames;
@@ -269,6 +275,7 @@ inline constexpr AlgorithmIdentity desk[]{
   {0, "dark"}, {1, "rock"}, {2, "lush"}, {3, "vibe"}, {4, "holo"}, {5, "punch"}, {6, "steel"}, {7, "tube"}};
 inline constexpr AlgorithmIdentity black[]{{0, "zero-crossing"}, {1, "hysteresis"}};
 inline constexpr AlgorithmIdentity eq[]{{0, "bell"}, {1, "notch"}};
+inline constexpr AlgorithmIdentity eqLow[]{{0, "cut"}, {1, "shelf"}};
 inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
@@ -286,6 +293,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uColourDesk: return desk;
     case uBlackMode: return black;
     case uEQMode: return eq;
+    case uParamLowMode: return eqLow;
     case uVibeMode: return vibe;
     default: return {};
   }
@@ -300,7 +308,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 4; // 2 adds Black Hold; 3 Pedal Drive; 4 Pedal Character.
+inline constexpr int kEffectStateSchema = 5; // 5 adds resonant Parametric EQ cuts and the low shelf.
 
 struct EffectParameter
 {
@@ -525,7 +533,11 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pedal Low Keep", "Low keep", 0, 0, 100, .1, "%", 6, false, 1., 3},
    {"Pedal Output", "Output", -6, -24, 12, .1, "dB", 4, false, 1., 3},
    {"Pedal Mix", "Mix", 100, 0, 100, .1, "%", 7, false, 1., 3},
-   {"Pedal Character", "Character", 0, -100, 100, .1, "%", 3, false, 1., 4}}};
+   {"Pedal Character", "Character", 0, -100, 100, .1, "%", 3, false, 1., 4},
+   {"Parametric Low Q", "Low Q", .7071067811865476, .1, 4, .01, "", 5, false, 1., 5},
+   {"Parametric High Q", "High Q", .7071067811865476, .1, 4, .01, "", 7, false, 1., 5},
+   {"Parametric Shelf Gain", "Shelf gain", 0, -12, 12, .1, "dB", 3, false, 1., 5},
+   {"Parametric Low Mode", "Low", 0, 0, 1, 1, "", 0, false, 1., 5}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -645,7 +657,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::Utility)
     return (p >= uUtilityLevel && p <= uUtilityInvertR) || p == uUtilityDelay;
   if (e == SlotEffect::ParametricEQ)
-    return (p >= uFrequency && p <= uQ) || p == uEQMode;
+    return (p >= uFrequency && p <= uQ) || p == uEQMode || (p >= uParamLowQ && p <= uParamLowMode);
   if (e == SlotEffect::Boost)
     return p == uBoostGain || p == uBoostTilt;
   if (e == SlotEffect::TubeBoost)
@@ -673,6 +685,8 @@ inline bool UsesUtility(SlotEffect e, int p)
 struct UtilityControls
 {
   double frequency = 800., gain = 0., q = .7, boost = 6., tilt = 0.;
+  double paramLowQ = .7071067811865476, paramHighQ = .7071067811865476, paramShelfGain = 0.;
+  int paramLowMode = 0;
   double cutoff = 2500., resonance = .7, envelope = 0.;
   int filterMode = 0;
   double rise = 250., threshold = -42., release = 120.;

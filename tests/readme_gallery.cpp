@@ -111,6 +111,9 @@ static int Run(int argc, char** argv)
   config["Pre 3 NAM Input"] = 6.; config["Pre 3 NAM Output"] = 12.; config["B 1 NAM Input"] = 3.; config["B 1 NAM Output"] = 10.;
   config["Pre 4 IR Output"] = -12.; config["B 2 IR Output"] = -18.;
   config["Post 1 Parametric Frequency"] = 2400.; config["Post 1 Parametric Gain"] = 4.; config["Post 1 Parametric Q"] = 1.2;
+  config["Post 1 EQ Low Cut"] = 180.; config["Post 1 EQ High Cut"] = 4200.;
+  config["Post 1 Parametric Low Q"] = 1.8; config["Post 1 Parametric High Q"] = 2.5;
+  config["Post 1 Parametric Shelf Gain"] = 6.;
   config["PresetName"] = "Ambient pedalboard"; config["PresetDirectory"] = presets.string();
   config["Input"] = 0.; config["Output"] = -3.; config["A/B Blend"] = 40.;
   // Matrix rows: source (1 LFO, 2 Envelope, 4 Macro 1), slot, slot control (17 shared + module control), depth.
@@ -169,6 +172,15 @@ static int Run(int argc, char** argv)
     const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
     while (std::chrono::steady_clock::now() < until)
     {
+      // Behave like a DAW when a module changes latency or prepares new DSP.
+      // Ignoring these requests can leave a new editor showing the previous processor's audio.
+      if (host.callback) { host.callback = false; plugin->on_main_thread(plugin); }
+      if (host.restart)
+      {
+        host.restart = false;
+        plugin->stop_processing(plugin); plugin->deactivate(plugin);
+        assert(plugin->activate(plugin, 48000, 1, 512)); assert(plugin->start_processing(plugin));
+      }
       for (int i = 0; i < 512; ++i)
       {
         const double t = (block * 512 + i) / 48000.;
@@ -183,7 +195,7 @@ static int Run(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y)); play(300);
   };
-  const auto tile = [&](int slot) { return std::pair{88 + 212 * (slot % 4) + 94, 64 + 104 * (slot / 4) + 40}; };
+  const auto tile = [&](int slot) { return std::pair{grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4) + 94, 64 + 104 * (slot / 4) + 40}; };
   const auto select = [&](int slot) { const auto [x, y] = tile(slot); click(x, y - 26); }; // The ID row only selects.
   // Park the pointer on an empty spot first, so no button shows its hover state.
   const auto shot = [&](const std::string& name, int top = 0) {
@@ -197,6 +209,8 @@ static int Run(int argc, char** argv)
   select(3); play(1000); shot("ir");
   select(5); play(3000); shot("delay");
   select(12); play(3000); shot("eq");
+  click(grid_layout::modeLeft + 82, grid_layout::optionsY); play(1000); shot("eq-shelf");
+  click(grid_layout::modeLeft + 82, grid_layout::optionsY);
   { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
   click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
   click(919, 28); play(800); shot("settings"); click(936, 28);

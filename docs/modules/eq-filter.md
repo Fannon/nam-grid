@@ -6,7 +6,7 @@ Tone shaping, filters and wah.
 | --- | --- |
 | [Guitar EQ](#guitar-eq) | Bass, Mid and Treble shape the tone; the curve shows the combined response. |
 | [Cut EQ](#cut-eq) | Low cut and High cut trim rumble and fizz; Presence adds bite. |
-| [Parametric EQ](#parametric-eq) | One bell or notch; Q sets its width, the cuts trim both ends. |
+| [Parametric EQ](#parametric-eq) | Bell or notch, resonant cuts, and an optional low shelf. |
 | [Console EQ](#console-eq) | Broad console bands with harmonic colour on louder notes. |
 | [Filter](#filter) | Cutoff and Resonance shape tone; Envelope follows playing strength. |
 | [Wah](#wah) | Position sweeps the peak; Register moves its heel and toe range. |
@@ -47,21 +47,29 @@ Low cut and high cut for rumble and fizz, plus a 3.5 kHz presence shelf.
 
 ![Parametric EQ editor](../screenshots/modules/parametric-eq.png)
 
-One bell or notch from 20 Hz to 20 kHz with ±12 dB and Q 0.1 to 20, plus low and high cuts. Notch mode removes Gain because the notch depth is fixed.
+One bell or notch from 20 Hz to 20 kHz with ±12 dB and Q 0.1 to 20, plus independent resonant low and high cuts. Switch the low cut to a shelf for a low-frequency boost or reduction. Notch mode hides Gain because the notch depth is fixed.
+
+The top row groups the bell/notch controls and optional Shelf gain. The bottom row pairs each end-band frequency with its Q: Low cut (or Low shelf), Low Q, High cut, High Q.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
 | **Frequency** | 20–20000 Hz | 800 Hz | Center frequency of the bell or notch; Q sets how narrow the affected band is. |
 | **Gain** | -12 to +12 dB | 0 dB | Boost or cut the selected band. Notch mode removes this control because notch depth is fixed. |
 | **Q** | 0.1–20 | 0.7 | Higher Q narrows the bell or notch; lower Q changes a broader part of the guitar tone. |
-| **Low cut** | 0–300 Hz | 0 Hz | Removes low end below this frequency; 0 is off. |
+| **Shelf gain** | -12 to +12 dB | 0 dB | Low-frequency boost or reduction; visible in Shelf mode. |
+| **Low cut / Low shelf** | 0–300 Hz | 0 Hz | Low-band frequency; 0 bypasses the low band in either mode. |
+| **Low Q** | 0.1–4 | 0.71 | Shapes the low cut or shelf transition; higher values add resonance. |
 | **High cut** | 2000–20000 Hz | 20000 Hz | Removes highs above this frequency; 20000 is open. |
+| **High Q** | 0.1–4 | 0.71 | Shapes the high-cut transition; higher values add resonance. |
 
 In the header:
 
-- **Notch mode** (off / on; starts off) Notch rejects a narrow band without a Gain control; bell boosts or cuts using Gain.
+- **Band: Bell / Notch** (starts at Bell): Notch rejects a narrow band without a Gain control; Bell boosts or cuts using Gain.
+- **Low: Cut / Shelf** (starts at Cut): Choose a resonant low cut or a low shelf with its own gain. Both use Low Q.
 
-**Display:** The EQ curve over the live output spectrum; the shaded band is the bell's width.
+**Display:** The combined EQ curve includes both end-band frequencies, Q values and the shelf gain over the live output spectrum; the shaded band is the bell's width. The curve scale expands when boosts or resonant peaks need more room. Existing presets retain their original cut response at the default end-band Q values.
+
+![Parametric EQ in Shelf mode, with independent end-band Q](../screenshots/eq-shelf.png)
 
 **Tips:**
 

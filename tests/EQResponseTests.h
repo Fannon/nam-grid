@@ -6,13 +6,19 @@ void TestEQResponse()
   // Compare the visualized magnitude with actual settled audio processing.
   for (double rate : {44100., 48000., 96000., 192000.})
     for (auto effect : {SlotEffect::ToneEQ, SlotEffect::CutEQ, SlotEffect::ParametricEQ, SlotEffect::SynthFilter})
-      for (int variant = 0; variant < 3; ++variant)
-        for (double hz : {250., 1000., 6000.})
+      for (int variant = 0; variant < 4; ++variant)
+        for (double hz : {50., 180., 250., 1000., 4200., 6000.})
         {
-          if (variant > (effect == SlotEffect::SynthFilter ? 2 : effect == SlotEffect::ParametricEQ ? 1 : 0)) continue;
+          if (variant > (effect == SlotEffect::SynthFilter ? 2 : effect == SlotEffect::ParametricEQ ? 3 : 0)) continue;
           EQControls eq; eq.bass = 6.; eq.mid = -5.; eq.treble = 8.;
           eq.highPass = 180.; eq.lowPass = 4000.; eq.presence = 3.;
           UtilityControls utility; utility.frequency = 1000.; utility.gain = 9.; utility.q = 2.; utility.eqMode = variant == 1;
+          if (effect == SlotEffect::ParametricEQ && variant > 0)
+          {
+            utility.paramLowQ = 1.8; utility.paramHighQ = 3.2;
+            utility.paramLowMode = variant >= 2 ? 1 : 0;
+            utility.paramShelfGain = variant == 2 ? 9. : -9.;
+          }
           utility.cutoff = 1000.; utility.resonance = 2.; utility.envelope = 0.;
           utility.filterMode = variant;
           grid_eq_response::Response response(rate, effect, eq, utility);
@@ -36,6 +42,38 @@ void TestEQResponse()
           }
           assert(std::abs(std::sqrt(outputPower / inputPower) - response.Magnitude(hz)) < 2.e-5);
         }
+  // New defaults preserve the original cut processing, including its startup ramps.
+  for (double rate : {44100., 48000., 96000.})
+  {
+    SlotParametricEQ current; current.Reset(rate);
+    SlotEQ legacy; legacy.Reset(rate); legacy.Process(nullptr, 0, true, {});
+    EQControls cuts; cuts.highPass = 180.; cuts.lowPass = 4200.;
+    std::array<double, 512> now{}, previous{};
+    for (int block = 0; block < 40; ++block)
+    {
+      for (int i = 0; i < 512; ++i) now[i] = previous[i] = .2 * std::sin((block * 512 + i) * .031);
+      current.Process(now.data(), 512, {}, cuts);
+      legacy.Process(previous.data(), 512, true, cuts);
+      for (int i = 0; i < 512; ++i) assert(std::abs(now[i] - previous[i]) < 1.e-11);
+    }
+    // Rapid Q, cutoff, gain and mode changes remain allocation-free and independent of block boundaries.
+    SlotParametricEQ whole, single; whole.Reset(rate); single.Reset(rate);
+    allocations = deletions = 0;
+    for (int block = 0; block < 120; ++block)
+    {
+      UtilityControls c; c.paramLowMode = block / 10 % 2;
+      c.paramLowQ = block % 3 == 0 ? .1 : 4.; c.paramHighQ = block % 3 == 1 ? .1 : 4.;
+      c.paramShelfGain = block % 2 ? -12. : 12.;
+      cuts.highPass = block % 2 ? 0. : 300.; cuts.lowPass = block % 2 ? 20000. : 2000.;
+      for (int i = 0; i < 512; ++i) now[i] = previous[i] = .1 * std::sin((block * 512 + i) * .031);
+      tracking = true;
+      whole.Process(now.data(), 512, c, cuts);
+      for (int i = 0; i < 512; ++i) single.Process(&previous[i], 1, c, cuts);
+      tracking = false;
+      assert(now == previous && allocations == 0 && deletions == 0);
+      for (double sample : now) assert(std::isfinite(sample) && std::abs(sample) < 100.);
+    }
+  }
   // Boost/Tilt/Low cut preview uses the same filters as the audio path.
   for (double rate : {44100., 48000., 96000., 192000.})
     for (double tilt : {-6., 0., 6.})

@@ -315,6 +315,7 @@ int main(int argc, char** argv)
   std::ofstream(preferences) << json{{"CaptureFolders", folders}}; // The pre-split combined list is not migrated.
   assert(ReadSettings(preferences).namFolders.empty() && ReadSettings(preferences).irFolders.empty());
   assert(ReadSettings(preferences).rescanOnStartup);
+  assert(ReadSettings(preferences).showMainMacros);
   assert(WriteSettings(preferences, {folders, false, false}));
   // Replacement is atomic: no temporary siblings remain and the file always parses.
   for (const auto& sibling : std::filesystem::directory_iterator(preferences.parent_path()))
@@ -322,9 +323,15 @@ int main(int argc, char** argv)
   assert(json::parse(std::ifstream(preferences)).is_object());
   assert(!ReadSettings(preferences).rescanOnStartup && ReadSettings(preferences).namFolders == folders);
   assert(!ReadSettings(preferences).showVisualizations);
+  auto hiddenMacros = ReadSettings(preferences);
+  hiddenMacros.showMainMacros = false;
+  hiddenMacros.presetCrossfade = true;
+  assert(WriteSettings(preferences, hiddenMacros));
+  assert(!ReadSettings(preferences).showMainMacros);
   assert(WriteFolderSettings(preferences, {folders[0]}));
   assert(!ReadSettings(preferences).rescanOnStartup); // Editing folders must retain the startup preference.
   assert(!ReadSettings(preferences).showVisualizations);
+  assert(!ReadSettings(preferences).showMainMacros && ReadSettings(preferences).presetCrossfade);
   assert(WriteSettings(preferences, {folders, true}));
   assert(ReadSettings(preferences).rescanOnStartup);
   assert(ReadSettings(preferences).showVisualizations);

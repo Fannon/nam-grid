@@ -128,10 +128,10 @@ public:
     mModules = modules;
     // "..." marks the actions that open a file dialog. Save as is a rig action, top right;
     // Open file is the alternative to searching, so it sits beside the search field.
-    mSave = new Button(IRECT(776, 14, 888, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...", Icon::Save);
+    mSave = new Button(IRECT(grid_layout::width - 224, 14, grid_layout::width - 112, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...", Icon::Save);
     mSave->SetTooltip("Save the current rig as a new preset file.");
     AddChildControl(mSave);
-    mFile = new Button(IRECT(864, 58, 976, 92), [this](IControl*) { ChooseFile(); }, "Open file...");
+    mFile = new Button(IRECT(grid_layout::width - 136, 58, grid_layout::width - 24, 92), [this](IControl*) { ChooseFile(); }, "Open file...");
     mFile->SetTooltip("Choose a file outside the library folders.");
     AddChildControl(mFile);
     for (int i = 0; i < 4; ++i)
@@ -141,7 +141,7 @@ public:
       }, i == 0 ? "Modules" : i == 1 ? "NAM captures" : i == 2 ? "IR files" : "Presets");
       AddChildControl(mTabs[i]);
     }
-    mSearch = new NAMBrowserSearchControl(IRECT(24, 58, 976, 92), [this](const std::string& text) {
+    mSearch = new NAMBrowserSearchControl(IRECT(24, 58, grid_layout::width - 24, 92), [this](const std::string& text) {
       if (View().query != text) { View().selected.clear(); View().scroll = 0; }
       View().query = text; Rebuild();
     });
@@ -173,7 +173,7 @@ public:
     mCancel = new Button(IRECT(), [this](IControl*) { Hide(true); }, "Cancel");
     AddChildControl(mCancel);
     // The same action top right, where every full page has its Close.
-    mTopCancel = new Button(IRECT(896, 14, 976, 42), [this](IControl*) { Hide(true); }, "Cancel", Icon::Close);
+    mTopCancel = new Button(IRECT(grid_layout::width - 104, 14, grid_layout::width - 24, 42), [this](IControl*) { Hide(true); }, "Cancel", Icon::Close);
     AddChildControl(mTopCancel);
     mApply = new Button(IRECT(), [this](IControl*) { LoadSelected(); }, "Apply");
     AddChildControl(mApply);
@@ -274,7 +274,7 @@ public:
       { const auto r = mTabs[i]->GetRECT(); g.FillRect(accent, IRECT(r.L, r.B + 3, r.R, r.B + 5)); }
     g.FillRoundRect(surface.WithOpacity(.5f), IRECT(24, kPanelTop, 266, ListBottom()), 4);
     g.FillRoundRect(surface.WithOpacity(.5f), IRECT(282, kPanelTop, 716, ListBottom()), 4);
-    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(732, kPanelTop, 976, ListBottom()), 4);
+    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(732, kPanelTop, grid_layout::width - 24, ListBottom()), 4);
     const char* folders = mKind == nam_library::FileKind::Module ? "FX CATEGORIES"
                         : mKind == nam_library::FileKind::RigPreset ? "PRESET FOLDERS"
                         : mKind == nam_library::FileKind::IR ? "IR FOLDERS" : "NAM FOLDERS";
@@ -413,11 +413,11 @@ private:
     const float top = FooterTop() + 6.f, bottom = ListBottom() - 6.f;
     mFoldersButton->SetTargetAndDrawRECTs(IRECT(32, top, 170, bottom));
     mRescan->SetTargetAndDrawRECTs(IRECT(178, top, 258, bottom));
-    mSearch->SetTargetAndDrawRECTs(IRECT(24, 58, HasSources() ? 856 : 976, 92));
+    mSearch->SetTargetAndDrawRECTs(IRECT(24, 58, HasSources() ? grid_layout::width - 144 : grid_layout::width - 24, 92));
     // Presets add Delete to the footer actions, left of Close and Load.
     mDelete->SetTargetAndDrawRECTs(IRECT(740, top, 810, bottom));
-    mCancel->SetTargetAndDrawRECTs(preset ? IRECT(818, top, 888, bottom) : IRECT(740, top, 848, bottom));
-    mApply->SetTargetAndDrawRECTs(preset ? IRECT(896, top, 968, bottom) : IRECT(856, top, 968, bottom));
+    mCancel->SetTargetAndDrawRECTs(preset ? IRECT(818, top, grid_layout::width - 112, bottom) : IRECT(740, top, grid_layout::width - 152, bottom));
+    mApply->SetTargetAndDrawRECTs(preset ? IRECT(grid_layout::width - 104, top, grid_layout::width - 32, bottom) : IRECT(grid_layout::width - 144, top, grid_layout::width - 32, bottom));
   }
   struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; };
   State& View() { return mViews[static_cast<int>(mKind)]; }

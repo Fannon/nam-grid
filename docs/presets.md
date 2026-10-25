@@ -1,6 +1,6 @@
 # Rig presets
 
-A rig preset saves the complete 16-slot setup: modules, capture/IR references, controls, routing, modulation, macros, and performance scenes.
+A rig preset saves the complete 16-slot setup: modules, capture/IR references, controls, routing, modulation, macro values and names, and performance scenes.
 
 ## Load and save
 

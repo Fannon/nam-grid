@@ -169,6 +169,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mLibraryDefaultSaveFailed = !prepared.saved;
   mRescanOnStartup = librarySettings.rescanOnStartup;
   mShowVisualizations = librarySettings.showVisualizations;
+  mShowMainMacros = librarySettings.showMainMacros;
   mPresetCrossfade = librarySettings.presetCrossfade;
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
@@ -237,22 +238,23 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachControl(new grid_ui::Wiring(b));
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {
-      const float left = 88.f + 212.f * (slot % 4);
+      const float left = grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4);
       const float top = grid_layout::cardTop + grid_layout::rowPitch * static_cast<float>(slot / 4);
       ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + grid_layout::cardHeight), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(0, 67, 74, 135), PerformanceParam(grid_performance::InputGain), "IN"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(4, 67, grid_layout::sidebarRight, 135), PerformanceParam(grid_performance::InputGain), "IN"))
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 235, 1000, 303), kParallelBlend, "A / B"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(width - 72, 235, width, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
-    ui->AttachControl(new grid_ui::RoutingButton(IRECT(936, 316, 992, 340)), kCtrlTagRoutingButton);
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(928, 379, 1000, 447), kOutputLevel, "OUT"))
+    ui->AttachControl(new grid_ui::RoutingButton(IRECT(width - 64, 316, width - 8, 340)), kCtrlTagRoutingButton);
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(width - 72, 379, width, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
     // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
     // A small gap separates them from the first and last cards' own level strips.
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(72, 68, 79, 140), IRECT(0, 140, 66, 158)), kCtrlTagInputMeter);
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(926, 380, 933, 452), IRECT(932, 450, 1000, 468)), kCtrlTagOutputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(72 + gridOffset, 68, 79 + gridOffset, 140), IRECT(4, 140, sidebarRight, 158)), kCtrlTagInputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(width - 74, 380, width - 67, 452), IRECT(width - 68, 450, width, 468)), kCtrlTagOutputMeter);
+    ui->AttachControl(new NAMGridMacroControl(IRECT(0, 170, sidebarRight, 468)), kCtrlTagMainMacros)->Hide(!mShowMainMacros);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridRoutingControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagRouting)->Hide(true);
@@ -546,8 +548,11 @@ void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector
   }
   if (fromUI)
   {
-    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(),
-      {mNamFolders, mRescanOnStartup, mShowVisualizations, mPresetFolders, mIrFolders});
+    auto settings = nam_library::ReadSettings(CaptureSettingsFile());
+    settings.namFolders = mNamFolders;
+    settings.irFolders = mIrFolders;
+    settings.presetFolders = mPresetFolders;
+    mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
     _NotifyHostStateChanged();
   }
   _UpdateLibraryControls();
@@ -979,6 +984,39 @@ grid_performance::Values NeuralAmpModeler::PerformanceValues() const
   return values;
 }
 
+std::string NeuralAmpModeler::GetMacroName(int macro) const
+{
+  const auto guard = _LockControls();
+  return macro >= 0 && macro < static_cast<int>(mMacroNames.size()) ? mMacroNames[macro] : std::string{};
+}
+
+void NeuralAmpModeler::SetMacroName(int macro, std::string name)
+{
+  const auto guard = _LockControls();
+  if (macro < 0 || macro >= static_cast<int>(mMacroNames.size()) || name.size() > 128) return;
+  for (auto& c : name) if (static_cast<unsigned char>(c) < 32 || c == 127) c = ' ';
+  const auto first = name.find_first_not_of(' '), last = name.find_last_not_of(' ');
+  name = first == std::string::npos ? "Macro " + std::to_string(macro + 1) : name.substr(first, last - first + 1);
+  if (mMacroNames[macro] == name) return;
+  mMacroNames[macro] = std::move(name);
+  if (auto* ui = GetUI()) ui->SetAllControlsDirty();
+  _NotifyHostStateChanged();
+}
+
+bool NeuralAmpModeler::IsMacroAssigned(int macro) const
+{
+  using namespace grid_performance;
+  if (macro < 0 || macro >= 4) return false;
+  const int source = SourceMacro1 + macro;
+  for (int row = 0; row < rows; ++row)
+  {
+    const int primary = GetParam(PerformanceParam(RowParam(row, RowSource)))->Int();
+    if (primary != SourceNone && (primary == source || GetParam(PerformanceParam(RowParam(row, RowVia)))->Int() == source))
+      return true;
+  }
+  return false;
+}
+
 int NeuralAmpModeler::AddModulation(int source, int slot, int control, double depth)
 {
   using namespace grid_performance;
@@ -1029,6 +1067,18 @@ void NeuralAmpModeler::SetShowVisualizations(bool enabled)
   settings.showVisualizations = enabled;
   mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
   if (auto* ui = GetUI()) ui->SetAllControlsDirty();
+}
+void NeuralAmpModeler::SetShowMainMacros(bool enabled)
+{
+  mShowMainMacros = enabled;
+  auto settings = nam_library::ReadSettings(CaptureSettingsFile());
+  settings.showMainMacros = enabled;
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
+  if (auto* ui = GetUI())
+  {
+    if (auto* macros = ui->GetControlWithTag(kCtrlTagMainMacros)) macros->Hide(!enabled);
+    ui->SetAllControlsDirty();
+  }
 }
 void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
 {
@@ -1206,6 +1256,7 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["PresetDirectory"] = mPresetDirectory;
   // Library folders are per-user settings (settings.json), never part of a project or rig.
   config["PerformanceScenes"] = mPerformanceScenes;
+  config["MacroNames"] = mMacroNames;
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
     config["SlotPaths"].push_back(path.Get());
@@ -1533,6 +1584,16 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     };
     if (config.contains("PresetName") && !validText(config["PresetName"], 512)) return -1;
     if (config.contains("PresetDirectory") && !validText(config["PresetDirectory"], 32768)) return -1;
+    if (config.contains("MacroNames"))
+    {
+      const auto& names = config["MacroNames"];
+      if (!names.is_array() || names.size() != mMacroNames.size()) return -1;
+      for (const auto& name : names)
+      {
+        if (!validText(name, 128)) return -1;
+        for (const unsigned char c : name.get<std::string>()) if (c < 32 || c == 127) return -1;
+      }
+    }
     if (!config.contains("PerformanceScenes") || !config["PerformanceScenes"].is_array()
         || config["PerformanceScenes"].size() != mPerformanceScenes.size())
       return -1;
@@ -2055,6 +2116,9 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
 {
   mPresetName = config.value("PresetName", std::string("Untitled"));
   mPresetDirectory = config.value("PresetDirectory", std::string{});
+  for (size_t i = 0; i < mMacroNames.size(); ++i)
+    mMacroNames[i] = config.contains("MacroNames") && !config["MacroNames"][i].get<std::string>().empty()
+      ? config["MacroNames"][i].get<std::string>() : "Macro " + std::to_string(i + 1);
   _UpdatePresetControls();
   for (size_t i = 0; i < mPerformanceScenes.size(); ++i)
     mPerformanceScenes[i] = config["PerformanceScenes"][i];

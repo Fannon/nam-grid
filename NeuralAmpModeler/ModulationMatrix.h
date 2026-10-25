@@ -73,6 +73,10 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uFrequency, t.frequency);
   u(uGain, t.gain);
   u(uQ, t.q);
+  u(uParamLowQ, t.paramLowQ);
+  u(uParamHighQ, t.paramHighQ);
+  u(uParamShelfGain, t.paramShelfGain);
+  u(uParamLowMode, t.paramLowMode);
   u(uBoostGain, t.boost);
   u(uBoostTilt, t.tilt);
   u(uFilterCutoff, t.cutoff);
@@ -251,7 +255,7 @@ struct Destination
   const char* label;
 };
 // The modulatable knobs a module shows, in editor order, with its own labels.
-inline std::vector<Destination> Destinations(SlotEffect effect, bool loaded, bool sync, bool notch, bool vibrato)
+inline std::vector<Destination> Destinations(SlotEffect effect, bool loaded, bool sync, bool notch, bool vibrato, bool shelf = false)
 {
   using namespace parameter_layout;
   std::vector<Destination> result;
@@ -267,12 +271,12 @@ inline std::vector<Destination> Destinations(SlotEffect effect, bool loaded, boo
   if (effect == SlotEffect::ToneEQ) result = {{kSlotEQBass, 0, "Bass"}, {kSlotEQMid, 1, "Mid"}, {kSlotEQTreble, 2, "Treble"}};
   if (effect == SlotEffect::CutEQ)
     result = {{kSlotEQHighPass, 0, "Low cut"}, {kSlotEQLowPass, 1, "High cut"}, {kSlotEQPresence, 2, "Presence"}};
-  if (effect == SlotEffect::ParametricEQ) result = {{kSlotEQHighPass, 3, "Low cut"}, {kSlotEQLowPass, 4, "High cut"}};
+  if (effect == SlotEffect::ParametricEQ) result = {{kSlotEQHighPass, 4, shelf ? "Low shelf" : "Low cut"}, {kSlotEQLowPass, 6, "High cut"}};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost) result = {{kSlotEQHighPass, 2, "Low cut"}};
   if (effect == SlotEffect::CabinetIR) result = {{kSlotIRLevel, effect_presentation::kOutputPosition, "Output"}};
   for (int p = 0; p < kUtilityControls; ++p)
     if (Modulatable(standardControls + p) && !effect_presentation::HeaderControl(p)
-        && effect_presentation::Visible(effect, p, sync, notch, vibrato))
+        && effect_presentation::Visible(effect, p, sync, notch, vibrato, shelf))
       result.push_back({standardControls + p, effect_presentation::Position(effect, p), effect_presentation::Label(effect, p)});
   std::stable_sort(result.begin(), result.end(), [](const auto& a, const auto& b) { return a.position < b.position; });
   return result;

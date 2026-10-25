@@ -31,6 +31,7 @@ The generated gallery uses a demo library containing:
 | `ir.png` | Pre 4 cabinet IR frequency response |
 | `delay.png` | A2 Tape Echo |
 | `eq.png` | Post 1 Parametric EQ over the live output spectrum |
+| `eq-shelf.png` | Post 1 Parametric EQ in low-shelf mode, with resonant end bands |
 | `browser-modules.png` | Module browser opened from A1 Juno Chorus |
 | `browser-presets.png` | Rig preset browser |
 | `settings.png` | Settings |
@@ -48,7 +49,7 @@ build-grid/NeuralAmpModeler/nam-readme-gallery build-grid/out/nam-grid.clap . tm
 
 It creates the demo library and renders every view as BMP, then each built-in module in
 the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. The NAM
-and Cabinet IR pane images are lossless 1000 × 244 crops from the bottom of `nam.png` and
+and Cabinet IR pane images are lossless full-width, 244-pixel-high crops from the bottom of `nam.png` and
 `ir.png`. The tool uses a private temporary `NAM_GRID_HOME` for settings and demo files,
 so your own settings and libraries are never touched. Convert every BMP losslessly to PNG,
 including the newly generated main image; see [ui.md](../ui.md) for the views and

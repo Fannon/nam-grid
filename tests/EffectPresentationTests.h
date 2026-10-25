@@ -34,7 +34,7 @@ void TestEffectPresentation()
           int output = -1, mix = -1;
           for (int p = 0; p < kUtilityControls; ++p)
           {
-            if (!effect_presentation::Visible(effect, p, sync, alternate, alternate)) continue;
+            if (!effect_presentation::Visible(effect, p, sync, alternate, alternate, alternate)) continue;
             assert(std::strlen(effect_presentation::Help(effect, p)) > 12);
             assert(std::strlen(effect_presentation::Label(effect, p)) > 0);
             if (effect_presentation::HeaderControl(p)) continue;
@@ -78,6 +78,10 @@ void TestEffectPresentation()
   assert(effect_presentation::Visible(SlotEffect::DualDelay, uDelayPingPong));
   assert(!effect_presentation::Visible(SlotEffect::UniVibe, uModMix, false, false, true));
   assert(!effect_presentation::Visible(SlotEffect::ParametricEQ, uGain, false, true));
+  assert(!effect_presentation::Visible(SlotEffect::ParametricEQ, uParamShelfGain));
+  assert(effect_presentation::Visible(SlotEffect::ParametricEQ, uParamShelfGain, false, false, false, true));
+  assert(effect_presentation::Position(SlotEffect::ParametricEQ, uParamLowQ) == 5);
+  assert(effect_presentation::Position(SlotEffect::ParametricEQ, uParamHighQ) == 7);
   assert(std::strcmp(effect_presentation::Label(SlotEffect::DigitalDelay, uDelayCharacter), "Ducking") == 0);
   assert(std::strcmp(effect_presentation::Label(SlotEffect::TapeDelay, uDelayCharacter), "Saturation") == 0);
   for (int style = 0; style < effect_modes::pedalCount; ++style)

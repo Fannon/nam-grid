@@ -22,6 +22,65 @@ public:
     _AssignCoefficients(1. + alpha, -2. * cosine, 1. - alpha, alpha, 0., -alpha);
   }
 };
+// Parametric EQ end bands. Reuses the RBJ coefficient implementations above and
+// in MIT AudioDSPTools. Frequencies, Q and shelf gain smooth over 5 ms; changing
+// Cut/Shelf crossfades between independently maintained filter histories.
+class SlotParametricCuts
+{
+public:
+  void Reset(double rate)
+  {
+    mRate = std::max(1., rate);
+    mSmoothing = std::exp(-1. / (.005 * mRate));
+    mCurrent = {0., 20000., .7071067811865476, .7071067811865476, 0.};
+    mHP.Reset(); mLP.Reset(); mShelf.Reset();
+    mHPMix = mLPMix = mShelfMix = 0.; mCounter = 0; mDirty = false;
+    Update();
+  }
+  void Process(double* samples, int frames, const UtilityControls& c, const EQControls& eq)
+  {
+    const std::array<double, 5> target{std::clamp(eq.highPass, 0., 300.), std::clamp(eq.lowPass, 2000., 20000.),
+      std::clamp(c.paramLowQ, .1, 4.), std::clamp(c.paramHighQ, .1, 4.), std::clamp(c.paramShelfGain, -12., 12.)};
+    for (int i = 0; i < frames; ++i)
+    {
+      for (size_t j = 0; j < target.size(); ++j)
+      {
+        const double next = std::abs(mCurrent[j] - target[j]) < 1.e-7 ? target[j]
+          : target[j] + mSmoothing * (mCurrent[j] - target[j]);
+        mDirty |= next != mCurrent[j]; mCurrent[j] = next;
+      }
+      if (mCounter++ == 0 && mDirty) { Update(); mDirty = false; }
+      mCounter %= 16;
+      mHPMix = Approach(mHPMix, target[0] > 0. ? 1. : 0.);
+      mLPMix = Approach(mLPMix, target[1] < 20000. ? 1. : 0.);
+      mShelfMix = Approach(mShelfMix, c.paramLowMode == 1 ? 1. : 0.);
+      const double hp = mHP.Tick(samples[i]), shelf = mShelf.Tick(samples[i]);
+      const double low = hp + mShelfMix * (shelf - hp);
+      const double x = samples[i] + mHPMix * (low - samples[i]);
+      const double lp = mLP.Tick(x);
+      samples[i] = x + mLPMix * (lp - x);
+    }
+  }
+private:
+  double Approach(double value, double target) const
+  { return value + std::clamp(target - value, -1. / (.005 * mRate), 1. / (.005 * mRate)); }
+  void Update()
+  {
+    using Params = recursive_linear_filter::BiquadParams;
+    const double low = std::min(std::max(1., mCurrent[0]), .4 * mRate);
+    mHP.SetParams(Params(mRate, low, mCurrent[2], 0.));
+    mShelf.SetParams(Params(mRate, low, mCurrent[2], mCurrent[4]));
+    mLP.SetParams(Params(mRate, std::min(.49 * mRate, mCurrent[1]), mCurrent[3], 0.));
+  }
+  ScalarFilter<CutCoefficients<true>> mHP;
+  ScalarFilter<CutCoefficients<false>> mLP;
+  ScalarFilter<recursive_linear_filter::LowShelf> mShelf;
+  std::array<double, 5> mCurrent{};
+  double mRate = 48000., mSmoothing = 0., mHPMix = 0., mLPMix = 0., mShelfMix = 0.;
+  int mCounter = 0;
+  bool mDirty = false;
+};
+
 class SlotParametricEQ
 {
 public:
@@ -36,12 +95,10 @@ public:
     mNotch.Reset(); mMode = 0.;
     Update(); // Allocate coefficient storage outside audio.
     mCuts.Reset(rate);
-    mCuts.Process(nullptr, 0, true, {});
   }
   void Process(double* samples, int frames, const UtilityControls& c, EQControls cuts)
   {
-    cuts.presence = 0.;
-    mCuts.Process(samples, frames, true, cuts);
+    mCuts.Process(samples, frames, c, cuts);
     const std::array<double, 3> target{
       std::clamp(c.frequency, 20., 20000.), std::clamp(c.gain, -12., 12.), std::clamp(c.q, .1, 20.)};
     for (int i = 0; i < frames; ++i)
@@ -74,7 +131,7 @@ private:
   }
   ScalarFilter<recursive_linear_filter::Peaking> mBell;
   ScalarFilter<NotchCoefficients> mNotch;
-  SlotEQ mCuts;
+  SlotParametricCuts mCuts;
   std::array<double, 3> mCurrent{};
   double mRate = 48000., mSmoothing = 0.;
   int mCounter = 0;

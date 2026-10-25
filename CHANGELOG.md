@@ -13,10 +13,15 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Pedal Drive's display shows the selected style shaping a test tone at the current Drive and Character, at a loud and a quiet input, plus a live Body / High cut / Low keep curve, instead of a static signal-flow sketch.
 - Module Enabled is now a circle in the parameter header, matching the grid node and freeing all eight dial positions.
 - Clearer editor header with icons for Settings, Tuner and Modulation, compact New/Save buttons, a wider preset selector, matching outer margins, and consistent page headers. Library & settings is now Settings.
 - A subtle background and divider separate the grid from module parameters, the tuner and routing controls without adding margins.
 - Wider, black visualization panels keep the parameter area to two background shades and match the top and right spacing.
+- The Routing page drops the list of modules in each lane; the crossover display fills that space instead.
+- Settings colours each library folder kind like the module badges, in the list and on the Add folder buttons: captures orange, IRs blue, rig presets the plugin accent.
+- Module category badges now sit beside the slot ID at its measured width, with browse, previous/next and bypass aligned on the right. The description row keeps a short guide to the module, with its options on the right.
+- Module input and output levels with their gain moved from below the dials into the visualization footer, sharing the chart's margins.
 - Documentation: clearer site navigation, module controls in tables, and player-focused deep dives for Noise Gate (Smart), LoFi Tape Machine and Cosmic Echo.
 
 ## [0.1.1] - 2026-10-24

@@ -28,11 +28,10 @@ Drag cards to move, swap or copy modules, or right-click a card for **Clear**, *
 
 Every module editor uses the same layout:
 
-- **Top row:** module name, browser, previous/next, an enable/bypass circle, and category. The circle controls the same automatable Enabled parameter as the grid node.
-- **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, or **Heads**. Click a two-choice option to toggle it; longer lists open a menu.
+- **Top row:** slot ID and category badges, then the module name. Browser, previous/next and the enable/bypass circle align on the right. The circle controls the same automatable Enabled parameter as the grid node.
+- **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, **Quality** or **Heads**, on the right of the description row. Click a two-choice option to toggle it; longer lists open a menu.
 - **Knobs:** up to four per row, filled from the left. **Output** comes before **Mix**. All eight positions are available for sound controls.
-- **Display:** a visual guide to the module's response or your playing.
-- **Level strip:** input and output levels, overall gain, and peak-to-average (crest) change.
+- **Display:** a visual guide to the module's response or your playing, with that module's input, output and gain in its footer.
 
 Drag a knob or click its value to type a number; double-click restores its starting value, and right-click assigns [modulation](performance.md). Every knob and **Enabled** can be automated by your DAW; other header options are saved with the rig but cannot be automated.
 
@@ -42,11 +41,10 @@ Previous/next stays within the current effect category or capture/IR folder. Add
 
 Displays help answer practical questions: Is the compressor working? How dark are the repeats? Where is the EQ cutting? Some show live audio; others sketch the current settings. Their labels identify which is which.
 
-Use the **level strip** to compare tones at similar volume:
+Use the **level meters** in the display footer to compare tones at similar volume. They read the same scale as the slot meters, -60 to +6 dBFS:
 
 - **Gain near 0 dB** means the module adds little overall level—useful for a fair bypass comparison.
-- **Peak** catches short transients; **RMS** reflects the average level.
-- **Crest** falling through a module usually means compression or saturation.
+- The bar is RMS over the last 0.4 seconds; the tick and the number are the held peak. Values read RMS, then peak, in dB.
 - Red above 0 dBFS warns of a hot level. Between modules this is headroom information; at **OUT**, it is the level sent to your DAW.
 
 Turn all displays on or off in **Settings > Visualizations**. This changes only the display, never the sound or saved settings. The [module guide](modules/README.md) explains each module's display.

@@ -144,7 +144,7 @@ in mono and leave Lane timing at zero unless you deliberately want a timing offs
 ## Example rigs
 
 Fresh installations include **Drive Examples** in the preset library. Existing users can
-choose **Library & settings > Add drive presets...**, select a folder and rescan if needed.
+choose **Settings > Add drive presets...**, select a folder and rescan if needed.
 The action adds the folder to the preset library and keeps existing files, including
 edited examples. Loading an example replaces the current rig.
 
@@ -185,8 +185,10 @@ The delay stays constant across styles and while bypassed.
 
 Style changes crossfade over 20 ms. Left and right channels have independent histories.
 Control changes are smoothed, and processing does not allocate memory in the audio callback.
-The signal-flow display shows routing; it does not claim to be the transfer function of
-the complete stateful drive.
+The display shows two views: the selected style's shaping of a 220 Hz test tone at the
+current Drive and Character, at a loud and a quiet input so its cleanup with playing level
+is visible, and a small-signal curve of Body, High cut and the Low keep band. Because the drive stages are stateful and level dependent, neither panel claims to be
+the complete transfer function.
 
 ## Design references
 

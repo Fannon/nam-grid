@@ -28,15 +28,81 @@ plugin in saved projects; they must never change after a release.
   `29389e4`, and MIT-licensed VST3 3.8.1 at `3cdf9ca`. No WebView, JUCE, or prebuilt
   graphics libraries are needed for this build.
 
+## Single-command build
+
+On Windows, install the standard tools from PowerShell:
+
+```powershell
+winget install --id Kitware.CMake --exact
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+Reopen the terminal after installation. Git and Python 3.8 or newer must also be
+on `PATH`. A portable Git installation supplies Bash but does not supply the
+compiler or CMake. If CMake was installed into the standard Program Files location,
+the script can find it even in a terminal opened before installation.
+The workload options follow Microsoft's [Visual Studio installation guidance](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio).
+
+After installing the platform prerequisites above, run this from the repository
+root in Bash (Git Bash/portable Git on Windows, WSL2, macOS or Linux):
+
+```sh
+bash build.sh
+```
+
+The first run initializes submodules, downloads the pinned SDKs, applies dependency
+patches, and builds Release CLAP and VST3 plugins. Later runs reuse dependencies and
+compiled files. After pulling changes to dependencies or patches, run
+`bash build.sh --setup` to refresh them. Internet access is needed for setup.
+Failures stop the script and return a nonzero exit code.
+
+Outputs are under `build/windows/release/out/`, `build/macos/release/out/` or
+`build/linux/release/out/`. Git Bash builds Windows plugins using Visual Studio 2022
+without needing a developer prompt. WSL2 builds Linux plugins using its Linux
+compiler and dependencies; keep that checkout in the WSL file system. The script
+uses Ninja on macOS/Linux when available, otherwise CMake's default generator.
+An initialized Windows MSVC environment with `cl` and Ninja on `PATH` also uses
+Ninja, including portable toolchains. Set `CMAKE_GENERATOR` to override the Windows
+generator on the first configure. Otherwise the script uses Visual Studio 2022.
+Use `CC=gcc-12 CXX=g++-12 bash build.sh` on Ubuntu 22.04.
+
+Use `bash build.sh --jobs 6` to change the default of three parallel compiler jobs.
+Run `bash build.sh --test` to also build and run the CTest and Python suites,
+including the VST3 parameter contract on Windows. On headless Linux it uses
+Xvfb automatically; install `xvfb-run` first. Run `bash build.sh --help` for options.
+Focused test and packaging commands below remain available separately. Preserve
+`ThirdPartyNotices.txt` and `notices/` from the output directory when sharing builds.
+
+### Local directories
+
+- `build/<platform>/release/`: the default CMake cache, compiler output and `out/`
+  plugin artifacts, separate for Windows, macOS and Linux.
+- `build/deps/`: downloaded SDK source caches.
+- `build/<platform>/<purpose>/`: opt-in configurations such as sanitizer builds.
+- `tmp/<task>/screenshots/`, `logs/` and `reports/`: temporary review artifacts.
+  Only selected images maintained with the guides go in `docs/screenshots/`.
+
+Each checkout/worktree owns its build and temporary directories. Prefer managed
+worktrees when available; otherwise use the sibling `../nam-grid-worktrees/<task>/`
+location described in [AGENTS.md](../AGENTS.md).
+
+Older `build-grid`, `build-release`, `build-cli-*` and similar folders are legacy
+caches. The shortcut does not migrate or delete them. CMake embeds absolute paths,
+so configure a fresh build in the new layout rather than moving a cache. Remove
+old folders only after checking that no DAW or other task still uses their plugins.
+
+## Manual build
+
 From the repository root:
 
 ```sh
+build_dir=build/windows/release  # use build/macos/release or build/linux/release there
 git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
-cmake -S . -B build-grid -DCMAKE_BUILD_TYPE=Release
-cmake --build build-grid --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
-ctest --test-dir build-grid -C Release --output-on-failure
+cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+ctest --test-dir "$build_dir" -C Release --output-on-failure
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
@@ -77,11 +143,11 @@ reference, variable blocks, silence/tails and processing allocations.
 
 Output:
 
-- Windows CLAP: `build-grid/out/nam-grid.clap`
-- Windows VST3: `build-grid/out/nam-grid.vst3/Contents/x86_64-win/nam-grid.vst3`
-- macOS CLAP/VST3: bundles under `build-grid/out`.
-- Linux CLAP: the single file `build-grid/out/nam-grid.clap`, with the font embedded.
-  VST3: the `build-grid/out/nam-grid.vst3` bundle (`Contents/x86_64-linux/nam-grid.so`).
+- Windows CLAP: `build/windows/release/out/nam-grid.clap`
+- Windows VST3: `build/windows/release/out/nam-grid.vst3/Contents/x86_64-win/nam-grid.vst3`
+- macOS CLAP/VST3: bundles under `build/macos/release/out`.
+- Linux CLAP: the single file `build/linux/release/out/nam-grid.clap`, with the font embedded.
+  VST3: the `build/linux/release/out/nam-grid.vst3` bundle (`Contents/x86_64-linux/nam-grid.so`).
   The build also leaves loose `resources/` copies in `out/`; the plugins do not need them.
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
 - The plugin embeds `NeuralAmpModeler/resources/defaults` (the RiffSmith Clean capture and the
@@ -89,12 +155,33 @@ Output:
   install writes them into its new default library folders. The preset names its capture by
   filename; keep it loadable, as the smoke test checks.
 
-Automatic deployment is disabled. Point your DAW at `build-grid/out` for local
+Automatic deployment is disabled. Point your DAW at `build/<platform>/release/out` for local
 evaluation, or copy the artifact to a separate test location, then rescan plugins.
 Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuration if
 their SDKs are absent.
 
 ## CI and releases
+
+To trigger release builds yourself from PowerShell or Bash, with GitHub CLI
+installed and authenticated:
+
+```sh
+gh workflow run release-native.yml -R Fannon/nam-grid -f tag=v0.2.1
+gh run list -R Fannon/nam-grid --workflow release-native.yml --limit 5
+```
+
+Replace the tag with the existing version you intend to release. This builds and
+tests that tagged commit on Windows x64, macOS Apple Silicon and Linux x64; it does
+not include uncommitted local changes. The workflow creates a draft release when
+none exists, or replaces the archives on the existing release while preserving its
+publication status. It requires repository workflow permissions and uses hosted
+runner minutes. macOS bundles are ad-hoc signed, not Developer ID signed or notarized.
+Use the manual **Build Native** workflow when you only want development artifacts
+without creating or updating a release:
+
+```sh
+gh workflow run build-native.yml -R Fannon/nam-grid
+```
 
 `.github/workflows/build-test.yml` builds and tests the plugin. Hosted minutes are
 billed for this private repository (Linux x1, Windows x2, macOS x10), so the workflow is the
@@ -168,11 +255,11 @@ commit, then upload the archives:
 
 ```sh
 git checkout v0.1.0 && git submodule update --init --recursive && python scripts/setup-deps.py
-cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release   # add -G Ninja on Windows and Linux
-cmake --build build-release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
-ctest --test-dir build-release -C Release --output-on-failure   # xvfb-run -a ... on Linux
-python scripts/package-release.py --build-dir build-release --platform macos-arm64
-gh release upload v0.1.0 build-release/nam-grid-macos-arm64.zip --repo Fannon/nam-grid
+cmake -S . -B build/macos/release -DCMAKE_BUILD_TYPE=Release   # add -G Ninja on Windows and Linux
+cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+ctest --test-dir build/macos/release -C Release --output-on-failure   # xvfb-run -a ... on Linux
+python scripts/package-release.py --build-dir build/macos/release --platform macos-arm64
+gh release upload v0.1.0 build/macos/release/nam-grid-macos-arm64.zip --repo Fannon/nam-grid
 ```
 
 `--platform` is `windows-x64`, `macos-arm64` or `linux-x64`. Create the draft release

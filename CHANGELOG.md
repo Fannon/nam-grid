@@ -4,6 +4,11 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Added
+
+- A single-command `bash build.sh` build for Git Bash on Windows, WSL2, macOS and Linux, with automatic first-run dependency setup, incremental builds under `build/<platform>/release/`, and `--test` to run the standard test suites.
+- Windows build guidance includes WinGet installation commands and portable MSVC/Ninja support; the build help documents manual cross-platform GitHub Actions builds and macOS signing limitations.
+
 ## [0.2.1] - 2026-10-25
 
 ### Changed

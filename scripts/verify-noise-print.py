@@ -1,13 +1,14 @@
 """Compare current Noise Print with the committed pre-optimization DSP.
 
 Run in a C++20 compiler environment (MSVC x64 developer prompt on Windows).
-Generated reference source, executable and objects stay in build-grid/noise-optimization.
+Generated reference source, executable and objects stay in build/<platform>/noise-optimization/.
 """
 import argparse
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 
 def main():
@@ -17,7 +18,8 @@ def main():
     parser.add_argument("--exact", action="store_true", help="require bit-identical output, learned profiles and meters")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    output = (root / "build-grid" / ("noise-optimization-scalar" if args.scalar else "noise-optimization")).resolve()
+    platform = {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux")
+    output = (root / "build" / platform / ("noise-optimization-scalar" if args.scalar else "noise-optimization")).resolve()
     if root not in output.parents:
         raise RuntimeError("Verification output must remain inside this checkout")
     output.mkdir(parents=True, exist_ok=True)

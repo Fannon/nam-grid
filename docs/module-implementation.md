@@ -190,8 +190,8 @@ The `nam-fx-audition` target renders one `.ngrid` preset and paired WAVs per
 effect style, plus `measurements.csv`, for example:
 
 ```powershell
-cmake --build build-grid --config Release --target nam-grid-clap nam-fx-audition
-& .\build-grid\NeuralAmpModeler\nam-fx-audition.exe .\build-grid\out\nam-grid.clap .\tmp\cosmic-audition cosmic
+cmake --build build/windows/release --config Release --target nam-grid-clap nam-fx-audition
+& .\build\windows\release\NeuralAmpModeler\Release\nam-fx-audition.exe .\build\windows\release\out\nam-grid.clap .\tmp\cosmic-audition cosmic
 ```
 
 Output goes to the directory passed to the exporter; `tmp/` is gitignored.

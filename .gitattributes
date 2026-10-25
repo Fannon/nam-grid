@@ -1,3 +1,6 @@
 # Patches apply byte for byte: a CRLF checkout (Windows runners) turns their blank context
 # lines into a lone CR, which git apply rejects as a corrupt patch.
 *.patch -text
+
+# Bash scripts must also run from Windows checkouts in Git Bash and WSL.
+*.sh text eol=lf

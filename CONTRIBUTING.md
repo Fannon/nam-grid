@@ -6,12 +6,17 @@ and reproduction steps. Include a minimal rig/model/IR example when it can be sh
 
 ## Build and tests
 
-Use the CMake instructions in [build.md](docs/build.md). Build both native formats
-and all test targets listed there, including `nam-ir-tests`, then run:
+Use the Bash shortcut by default; it builds both native formats and runs the
+CTest and Python suites:
 
 ```sh
-ctest --test-dir build-grid -C Release --output-on-failure
+bash build.sh --test
 ```
+
+Run `bash build.sh` for a plugin-only incremental build, or add `--setup` after
+dependency pins or patches change. See [build.md](docs/build.md) for prerequisites,
+the `build/<platform>/release/` output layout and focused checks. Keep temporary
+reports and screenshots in `tmp/<task>/`, following [AGENTS.md](AGENTS.md).
 
 The suites cover the capture library/presets, WAV decoding, resampling, IR convolution, DSP stages,
 CLAP hosting/native editor, and tuner. Assertions remain enabled in Release tests.

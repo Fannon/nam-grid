@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SDK_ROOT = ROOT / "iPlug2" / "Dependencies" / "IPlug"
-CACHE = ROOT / "build-deps"
+CACHE = ROOT / "build" / "deps"
 PINS = [
     ("CLAP_SDK", "https://github.com/free-audio/clap.git", "a47f6badb49d948fd009998f28309cdab78979c9"),
     ("CLAP_HELPERS", "https://github.com/free-audio/clap-helpers.git", "29389e43489b1af44b654ef5a7b4ee0af4bbc13b"),
@@ -39,7 +39,7 @@ def main():
     if not (ROOT / "iPlug2" / "iPlug2.cmake").is_file():
         raise SystemExit("Initialize the pinned git submodules first (see docs/build.md).")
     apply_dependency_patches()
-    CACHE.mkdir(exist_ok=True)
+    CACHE.mkdir(parents=True, exist_ok=True)
     for name, url, revision in PINS:
         source = CACHE / name
         if not source.exists():

@@ -4,7 +4,7 @@ Six ambient echo and reverb styles, from rhythmic repeats to vast washes. Find *
 
 The module is directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). These are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical.
 
-![Cosmic Echo editor](screenshots/modules/cosmic-echo.png)
+![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
 ## Styles
 
@@ -21,17 +21,11 @@ Changing the style fades out the old tail before the new style comes in.
 
 ## Shape the sound
 
-| Control | What to listen for |
-| --- | --- |
-| **Time** | Overall delay scale, from 20 ms to 8 s. Sagittarius can take several intervals to build up. |
-| **Warp** | At 0, echoes are evenly spaced. Higher values spread them into uneven, reverb-like spacing. |
-| **Feedback** | Sustain. In Sagittarius and Centaurus it also changes how the sound builds up, not only how long it lasts. |
-| **Density** | From distinct echoes toward a dense stereo field. It works together with Warp and changes little at Warp 0. |
-| **High cut** | Treble of the effect. In Virgo every repeat gets darker. |
-| **Modulation** | From still echoes toward obvious pitch movement and chorus. |
-| **Mix** | Balance between dry sound and effect. |
+The controls are listed in the [module guide](reverb.md#cosmic-echo). Two of them work as a pair: **Warp** spreads evenly spaced echoes into uneven, reverb-like spacing, and **Density** then fills that space in. At Warp 0, Density changes little.
 
-Some things are fixed: the modulation runs at 0.3 Hz, the effect is always fully stereo with an 80 Hz low cut, and there is no tempo sync. Automating Time or Warp bends the pitch of the sounding tail. Ranges and starting values are in the [module guide](modules/reverb.md#cosmic-echo).
+In Sagittarius and Centaurus, **Feedback** changes how the sound builds up, not only how long it lasts, and Sagittarius can take several Time intervals to swell.
+
+Some things are fixed: the modulation runs at 0.3 Hz, the effect is always fully stereo with an 80 Hz low cut, and there is no tempo sync. Automating Time or Warp bends the pitch of the sounding tail.
 
 ## Tips
 

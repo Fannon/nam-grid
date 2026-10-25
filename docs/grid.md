@@ -49,4 +49,4 @@ Lane levels, the crossover and A/B can all be [modulated](performance.md#modulat
 
 ## Missing captures and IRs
 
-If a capture or IR file moves, its slot keeps the reference and passes the sound through until you relink it. NAM Grid never silently substitutes a different file. Open the module browser on that slot to select the file again, or add its new folder in **Library & settings** and rescan.
+If a capture or IR file moves, its slot keeps the reference and passes the sound through until you relink it. NAM Grid never silently substitutes a different file. After a rescan, a file that was moved or renamed inside your library folders is recognized by its content and relinked automatically; see [missing captures](troubleshooting.md#a-capture-or-ir-is-missing).

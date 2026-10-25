@@ -2,7 +2,7 @@
 
 A noise gate that learns your rig's noise. Play nothing, switch on **Learn**, and it reduces that noise frequency by frequency while you play, instead of only opening and closing. Quiet picking and decaying chords stay more natural than with an ordinary gate.
 
-![Noise Gate (Smart) editor](screenshots/modules/noise-gate-smart.png)
+![Noise Gate (Smart) editor](../screenshots/modules/noise-gate-smart.png)
 
 ## Set it up
 
@@ -15,11 +15,11 @@ Learning ignores digital silence and captures shorter than about 300 ms; the pre
 
 ## Fine-tune
 
-- **Sensitivity** sets how far above the learned noise a band must rise to pass. Raise it to suppress more noise; lower it if sustain loses detail.
-- **Reduction** limits how much a noisy band is turned down. Less keeps some natural room tone.
-- **Attack** and **Release** set how quickly bands open for new notes and close after them. Short attacks keep pick attacks; longer releases keep sustain.
-- **Mix** blends the denoised sound with the original.
-- **Gate threshold** adds an optional final gate that silences the pauses completely. It is **Off** at its minimum, the default. Raise it to just above the noise floor; it shares the Release knob and has a short hold so it does not chatter.
+Change one control at a time; the [control table](dynamics.md#noise-gate-smart) lists them all.
+
+1. Raise **Sensitivity** until the remaining noise is gone, and back off if sustain loses detail.
+2. Lower **Reduction** if pauses sound unnaturally dead; a little room tone often sounds better than silence.
+3. Only if you want completely silent pauses, raise **Gate threshold** from **Off** to just above the noise floor. It shares the Release knob and has a short hold, so it does not chatter.
 
 The **GR** readout estimates the current reduction. It is a guide, not a measurement of how much quieter the noise sounds.
 
@@ -34,4 +34,4 @@ The learned profile is saved with your project and rig preset and travels with C
 - Keep it before delays and reverbs, so their tails are not reduced.
 - Noise that overlaps a note cannot be removed completely, and strong settings can slightly change the tone.
 - It adds no latency.
-- When only the silence between notes matters, the standard [Noise Gate](modules/dynamics.md#noise-gate) does the job with less CPU.
+- When only the silence between notes matters, the standard [Noise Gate](dynamics.md#noise-gate) does the job with less CPU.

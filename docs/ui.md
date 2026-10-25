@@ -16,13 +16,9 @@ Build your rig in the grid, then use the panel below it to shape the selected mo
 
 ## Build and arrange a rig
 
-- Click **+ Add module** or a loaded module's name to open the browser.
-- Click a card's header to select it without opening the browser.
-- Use the card's switch to bypass it. Right-click for **Clear**, **Copy**, **Move**, and **Swap**.
-- Drag a card onto another to move or swap them. **Shift-drag** replaces the target and empties the source; **Alt/Option-drag** or **Ctrl/Cmd-drag** copies it.
-- Dragging never copies or deletes files on disk. Host automation stays with the slot.
+Each grid card is one slot. Click **+ Add module** or a module's name to choose a module in the [library browser](browser.md), which lets you audition before you commit. Click the card's header to select it for editing, and use its switch to bypass it.
 
-The browser can audition sounds before you commit. **Apply** keeps your choice; **Cancel** or Escape restores the original module and settings. See [Library browser](browser.md).
+Drag cards to move, swap or copy modules, or right-click a card for **Clear**, **Copy**, **Move** and **Swap**; the [mouse and keyboard](#mouse-and-keyboard) table lists the drag modifiers. Controls and bypass travel with the module, while host automation stays with the slot. Moving modules never copies or deletes files on disk.
 
 ## Shape a module
 
@@ -34,7 +30,7 @@ Every module editor uses the same layout:
 - **Display:** a visual guide to the module's response or your playing.
 - **Level strip:** input and output levels, overall gain, and peak-to-average (crest) change.
 
-Drag a knob or click its value to type a number. Double-click restores its starting value. Right-click a knob to assign modulation; see [Modulation & scenes](performance.md). Every knob and **Enabled** can be automated by your DAW; header options are saved with the rig but cannot be automated.
+Drag a knob or click its value to type a number; double-click restores its starting value, and right-click assigns [modulation](performance.md). Every knob and **Enabled** can be automated by your DAW; header options are saved with the rig but cannot be automated.
 
 Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 

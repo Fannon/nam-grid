@@ -28,8 +28,8 @@ Quick answers to common problems and questions. If yours is not here, [report it
 
 Rigs refer to captures and IRs by their location on disk; they do not contain copies. When a file has moved, its slot keeps the reference and passes your sound through unprocessed. NAM Grid never silently substitutes a different file.
 
-- Add the file's new folder in **Library & settings** and **Rescan all**, or
-- Open the module browser on that slot and select the file again.
+- If the file is still inside one of your library folders, **Rescan all** in **Library & settings**. NAM Grid recognizes a moved or renamed file by its content and relinks it automatically.
+- Otherwise add its new folder to the library and rescan, or open the module browser on that slot and select the file again.
 
 When you share a rig, include its captures and IRs.
 
@@ -53,7 +53,7 @@ A `.nam` file: a [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpMod
 
 ### What is a cabinet IR?
 
-An impulse response: a short `.wav` recording of how a speaker cabinet and microphone shape the sound. NAM Grid plays it with no added latency; see [Cabinet IR processing](adaptive-ir.md).
+An impulse response: a short `.wav` recording of how a speaker cabinet and microphone shape the sound. NAM Grid plays it with no added latency; see [Cabinet IR processing](modules/ir-processing.md).
 
 ### What is the difference between a rig preset, a project and a scene?
 
@@ -81,7 +81,7 @@ Not yet. NAM Grid is available as CLAP and VST3.
 
 ## Report a problem
 
-Please open an issue on [GitHub](https://github.com/Fannon/nam-grid/issues) and include:
+Please [open a bug report](https://github.com/Fannon/nam-grid/issues/new/choose) on GitHub and include:
 
 - your NAM Grid version, operating system, DAW and its version, and plugin format (CLAP or VST3),
 - sample rate and buffer size, for audio problems,

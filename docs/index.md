@@ -65,13 +65,13 @@ const shots = [
 
 Each release has one archive per platform, with both **CLAP and VST3** inside.
 
-| Platform | Download | Good to know |
-| --- | --- | --- |
-| Windows x64 | `nam-grid-windows-x64.zip` | 64-bit Windows |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` | macOS 11 or newer; [allow the unsigned build](getting-started.md#macos-allow-the-plugin) once |
-| Linux x64 | `nam-grid-linux-x64.zip` | Early preview; Ubuntu 22.04 or newer |
+| Platform | Download |
+| --- | --- |
+| Windows x64 | `nam-grid-windows-x64.zip` |
+| macOS Apple Silicon | `nam-grid-macos-arm64.zip` |
+| Linux x64 (early preview) | `nam-grid-linux-x64.zip` |
 
-[Download the latest release](https://github.com/Fannon/nam-grid/releases/latest) · [Install and set up](getting-started.md)
+[Download the latest release](https://github.com/Fannon/nam-grid/releases/latest) · [Requirements and installation](getting-started.md)
 
 You can play right away: NAM Grid includes the **RiffSmith Clean** amp-and-cab capture and the **Clean Default** rig. When you want more, [TONE3000](https://www.tone3000.com/) hosts a large collection of free NAM captures and cabinet IRs to add to your [library](browser.md).
 

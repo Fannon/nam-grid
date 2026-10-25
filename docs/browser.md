@@ -45,7 +45,7 @@ Use `name:` for filenames and `gear:` for capture type. Relevance sorting puts e
 
 ## Presets
 
-Preset choices do not change your sound until you choose **Load**, press Enter, or double-click. **Save as...** creates a rig file; **Delete...** permanently removes the selected preset after confirmation. See [Rig presets](presets.md).
+The preset browser works the same way, except that selecting a rig does not audition it: your sound changes only when you choose **Load**, press Enter, or double-click. **Delete...** permanently removes the selected preset after confirmation. Saving is covered in [Rig presets](presets.md).
 
 ## Library folders
 

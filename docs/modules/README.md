@@ -15,7 +15,7 @@ Any slot can hold a NAM capture, a cabinet IR or one of 54 built-in effects. Eac
 | [Creative](creative.md) | [Freeze / Hold](creative.md#freeze-hold), [Stutter](creative.md#stutter), [LoFi Tape Machine](creative.md#lofi-tape-machine) |
 | [Utility / Volume](utility-volume.md) | [Utility](utility-volume.md#utility), [Auto Swell](utility-volume.md#auto-swell) |
 
-Four modules have their own pages with more background and recipes: [Noise Gate (Smart)](../noise-gate-smart.md), [LoFi Tape Machine](../lofi-tape.md), [Cosmic Echo](../cosmic-echo.md) and [Cabinet IR processing](../adaptive-ir.md).
+Four modules have their own pages with more background and recipes: [Noise Gate (Smart)](noise-gate-smart.md), [LoFi Tape Machine](lofi-tape.md), [Cosmic Echo](cosmic-echo.md) and [Cabinet IR processing](ir-processing.md).
 
 ## The module editor
 

@@ -65,7 +65,7 @@ export default defineConfig({
       {
         text: 'Modules',
         link: '/modules/',
-        activeMatch: '^/(modules/|noise-gate-smart|lofi-tape|cosmic-echo|adaptive-ir)',
+        activeMatch: '^/modules/',
       },
       { text: 'Help', link: '/troubleshooting', activeMatch: '^/(troubleshooting|release-notes)' },
       { text: 'Download', link: 'https://github.com/Fannon/nam-grid/releases/latest' },
@@ -108,10 +108,10 @@ export default defineConfig({
       {
         text: 'Module deep dives',
         items: [
-          { text: 'Noise Gate (Smart)', link: '/noise-gate-smart' },
-          { text: 'LoFi Tape Machine', link: '/lofi-tape' },
-          { text: 'Cosmic Echo', link: '/cosmic-echo' },
-          { text: 'Cabinet IR processing', link: '/adaptive-ir' },
+          { text: 'Noise Gate (Smart)', link: '/modules/noise-gate-smart' },
+          { text: 'LoFi Tape Machine', link: '/modules/lofi-tape' },
+          { text: 'Cosmic Echo', link: '/modules/cosmic-echo' },
+          { text: 'Cabinet IR processing', link: '/modules/ir-processing' },
         ],
       },
       {

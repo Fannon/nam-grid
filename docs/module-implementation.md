@@ -35,7 +35,7 @@ history.
   0.15–30 s; Size 25–200%; Damping 800–12000 Hz; Pre-delay 0–200 ms; Low cut filters only
   the wet input. See [reverb core adaptations](../NeuralAmpModeler/dsp/reverb/README.md).
 - **Cosmic Echo** uses David Braun's MIT Faust reconstruction of the Valhalla Supermassive
-  algorithms; see [Cosmic Echo](#cosmic-echo) below and the [player guide](cosmic-echo.md).
+  algorithms; see [Cosmic Echo](#cosmic-echo) below and the [player guide](modules/cosmic-echo.md).
 - **Shimmer** is an eight-line reverb with granular pitched feedback (±24 semitones); Freeze
   holds the tail and stops new input. Polyphonic pitch shifting and a harmonizer are not
   implemented.
@@ -131,7 +131,7 @@ is transient and never saved in presets.
 
 ## Cabinet IR
 
-A mono WAV loads through NAM's IR loader and the [adaptive convolver](adaptive-ir.md), which
+A mono WAV loads through NAM's IR loader and the [adaptive convolver](modules/ir-processing.md), which
 switches between direct and FFT convolution with zero added latency. Output 0 dB gives unity
 gain for a unit impulse at the IR's native rate; the -18 dB default is the upstream NAM
 cabinet headroom convention. IRs are not normalized. WAV parsing, resampling, history

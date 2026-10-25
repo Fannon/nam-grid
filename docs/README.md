@@ -22,7 +22,7 @@ The player guides are published at **[fannon.github.io/nam-grid](https://fannon.
 ## Modules
 
 - [Module guide](modules/README.md): every module, its controls, starting settings and tips.
-- Deep dives: [Noise Gate (Smart)](noise-gate-smart.md), [LoFi Tape Machine](lofi-tape.md), [Cosmic Echo](cosmic-echo.md) and [Cabinet IR processing](adaptive-ir.md).
+- Deep dives: [Noise Gate (Smart)](modules/noise-gate-smart.md), [LoFi Tape Machine](modules/lofi-tape.md), [Cosmic Echo](modules/cosmic-echo.md) and [Cabinet IR processing](modules/ir-processing.md).
 
 ## Build and contribute
 

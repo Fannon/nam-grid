@@ -33,7 +33,7 @@ Load a `.nam` capture of an amp, pedal, or full rig. Bass, Mid, and Treble are N
 
 ![Cabinet IR parameter pane](../screenshots/modules/cabinet-ir.png)
 
-Load a mono cabinet impulse response (`.wav`). IR levels vary, so match the output volume when comparing cabinets. See [Cabinet IR processing](../adaptive-ir.md) for how IRs are played.
+Load a mono cabinet impulse response (`.wav`). IR levels vary, so match the output volume when comparing cabinets. See [Cabinet IR processing](ir-processing.md) for how IRs are played.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

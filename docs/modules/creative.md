@@ -51,7 +51,7 @@ In the header:
 
 ![LoFi Tape Machine editor](../screenshots/modules/lofi-tape-machine.png)
 
-Tape transport character: speed-dependent bandwidth, wow, flutter, hiss, wear and dropouts. See [LoFi Tape Machine](../lofi-tape.md).
+Tape transport character: speed-dependent bandwidth, wow, flutter, hiss, wear and dropouts. See [LoFi Tape Machine](lofi-tape.md).
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

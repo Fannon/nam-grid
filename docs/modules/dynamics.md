@@ -39,7 +39,7 @@ In the header:
 
 ![Noise Gate (Smart) editor](../screenshots/modules/noise-gate-smart.png)
 
-Learns your rig's noise profile and reduces it frequency by frequency, with an optional final gate. See [Noise Gate (Smart)](../noise-gate-smart.md) for learning and measurements.
+Learns your rig's noise profile and reduces it frequency by frequency, with an optional final gate. See [Noise Gate (Smart)](noise-gate-smart.md) for setup and tips.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

@@ -216,7 +216,7 @@ Airwindows Galactic3's huge, slowly evolving stereo space. Replace sets how quic
 
 ![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
-Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction of the Valhalla Supermassive algorithms. See [Cosmic Echo](../cosmic-echo.md) for the styles.
+Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction of the Valhalla Supermassive algorithms. See [Cosmic Echo](cosmic-echo.md) for the styles.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -230,7 +230,7 @@ Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction o
 
 In the header:
 
-- **Style** (Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator, Lyra; starts at Virgo) Six echo and reverb characters; see [the styles](../cosmic-echo.md#styles). Switching fades out the old tail.
+- **Style** (Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator, Lyra; starts at Virgo) Six echo and reverb characters; see [the styles](cosmic-echo.md#styles). Switching fades out the old tail.
 
 **Display:** The measured wet response to one impulse, on a dB scale. Separate spikes are distinct echoes; Warp spreads the delay lines into a wash and Density then thickens it. At Warp 0, Density changes little.
 

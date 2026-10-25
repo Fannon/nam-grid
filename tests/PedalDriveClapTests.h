@@ -53,15 +53,27 @@ void TestPedalDriveClap(const clap_plugin* plugin, const json& cleared, Save sav
   auto historical = cleared;
   historical["schema"] = 2;
   historical["Post 4 Black Hold"] = 19.;
-  for (int p = uPedalStyle; p <= uPedalMix; ++p)
+  for (int p = uPedalStyle; p <= uPedalCharacter; ++p)
     for (int slot = 0; slot < 16; ++slot)
       historical.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
   load(historical);
   const auto upgraded = save().config();
   assert(upgraded["schema"] == kEffectStateSchema && upgraded["Post 4 Black Hold"] == 19.);
-  for (int p = uPedalStyle; p <= uPedalMix; ++p)
+  for (int p = uPedalStyle; p <= uPedalCharacter; ++p)
     assert(upgraded[GridSlotName(15) + " " + kEffectParameters[p].name] == kEffectParameters[p].initial);
+  // Schema 3 had the original seven styles but no character field. Loading it
+  // must retain its drive settings and use the centered character by default.
+  auto previous = cleared;
+  previous["schema"] = 3;
+  previous["SlotEffects"][0] = static_cast<int>(SlotEffect::PedalDrive);
+  previous["Pre 1 Pedal Style"] = 5.;
+  previous["Pre 1 Pedal Drive"] = 17.;
+  for (int slot = 0; slot < 16; ++slot)
+    previous.erase(GridSlotName(slot) + " Pedal Character");
+  load(previous);
+  assert(save().config()["Pre 1 Pedal Character"] == 0.);
+  assert(save().config()["Pre 1 Pedal Style"] == 5. && save().config()["Pre 1 Pedal Drive"] == 17.);
   auto restore = cleared;
   load(restore);
-  std::cout << "Pedal Drive CLAP: example rigs, schema 2 upgrade, stereo isolation and latency passed\n";
+  std::cout << "Pedal Drive CLAP: example rigs, schema 2/3 upgrades, stereo isolation and latency passed\n";
 }

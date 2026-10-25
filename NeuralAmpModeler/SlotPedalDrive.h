@@ -55,6 +55,8 @@ public:
           mSplitPole = std::exp(-2. * grid_pedal::pi * std::min(c[4], .4 * mRate) / mRate);
         if (c[6] != mCached[6])
           mOutput = std::pow(10., c[6] * .05);
+        if (c[8] != mCached[8])
+          mCharacter.Reset(c[8] * .01);
         mCached = c;
       }
       mCounter = (mCounter + 1) % 16;
@@ -82,11 +84,11 @@ public:
         x += mBody * mBodyState;
         double wet = 0.;
         if (settled)
-          wet = mVoices[style].Tick(x, style, mDrive, mRootDrive, c[1] / 36., mCoefficients);
+          wet = mVoices[style].Tick(x, style, mDrive, mRootDrive, c[1] / 36., mCharacter, mCoefficients);
         else
           for (int j = 0; j < effect_modes::pedalCount; ++j)
             if (mWeights[j] > 0.)
-              wet += mWeights[j] * mVoices[j].Tick(x, j, mDrive, mRootDrive, c[1] / 36., mCoefficients);
+              wet += mWeights[j] * mVoices[j].Tick(x, j, mDrive, mRootDrive, c[1] / 36., mCharacter, mCoefficients);
         mDC = grid_pedal::Flush(wet - mPrevious + mCoefficients.dc * mDC);
         mPrevious = wet;
         mToneState = grid_pedal::Flush(mDC + mTonePole * (mToneState - mDC));
@@ -97,13 +99,14 @@ public:
   }
 
 private:
-  grid_fx::SmoothControls<8> mControls;
+  grid_fx::SmoothControls<9> mControls;
   grid_pedal::Oversampler4x mOversampler;
   grid_pedal::Coefficients mCoefficients;
+  grid_pedal::Character mCharacter;
   std::array<grid_pedal::Voice, effect_modes::pedalCount> mVoices{};
   std::array<double, effect_modes::pedalCount> mWeights{};
   std::array<double, latency> mDry{}, mLow{};
-  std::array<double, 8> mCached{};
+  std::array<double, 9> mCached{};
   double mRate = 48000., mLowState = 0., mBodyState = 0., mPrevious = 0., mDC = 0., mToneState = 0.;
   double mDrive = 1., mRootDrive = 1., mTonePole = 0., mSplitPole = 0., mBody = 0., mOutput = 1.;
   int mCounter = 0, mDelayIndex = 0;

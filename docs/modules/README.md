@@ -21,9 +21,9 @@ Five modules have their own pages with more background and recipes: [Pedal Drive
 
 ![Tape Echo selected in the NAM Grid module editor](../screenshots/delay.png)
 
-Select a module in the grid to edit it below. Every module uses the same layout: name and navigation at the top, header options such as **Style** or **Tempo sync**, up to eight knobs, a display and a level strip. See [Shape a module](../ui.md#shape-a-module) for how to use it.
+Select a module in the grid to edit it below. Every module uses the same layout: name, navigation and an enable/bypass circle at the top, header options such as **Style** or **Tempo sync**, up to eight knobs, a display and a level strip. See [Shape a module](../ui.md#shape-a-module) for how to use it.
 
-Every knob and **Enabled** can be automated by your DAW. Header options are saved with the rig but cannot be automated.
+Every knob and **Enabled** can be automated by your DAW. Other header options are saved with the rig but cannot be automated.
 
 ## Starting settings
 

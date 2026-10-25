@@ -7,7 +7,8 @@ latency and tails. For controls, ranges and starting settings see the
 
 ## Controls and state
 
-Every module uses the same eight-position editor (see [Shape a module](ui.md#shape-a-module)).
+Enabled uses a parameter-bound circle in the editor header, sharing the grid node's
+automation identity. Every module uses the same eight-position dial editor (see [Shape a module](ui.md#shape-a-module)).
 Each control is a host parameter per slot, described in
 [EffectParameters.h](../NeuralAmpModeler/EffectParameters.h); its editor position and
 per-module label are in [EffectPresentation.h](../NeuralAmpModeler/EffectPresentation.h),
@@ -50,7 +51,9 @@ history.
   [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
   informed by documented pedal designs. It uses 4x FIR oversampling with 64 host
   samples of latency, aligned dry/bypass and local clean-low returns, independent
-  stereo histories and 20 ms style crossfades. The FIR loops share input loads
+  stereo histories and 20 ms style crossfades. Its centered character parameter
+  changes function/label by style; derived bias normalization is cached on the
+  16-sample control schedule. The FIR loops share input loads
   across interpolation phases and use independent decimation accumulators for
   portable vectorization. Settled styles use a single-voice path; only participating styles run during
   transitions; an inactive style starts with cleared filter history. See

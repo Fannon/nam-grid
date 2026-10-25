@@ -18,6 +18,7 @@ inline constexpr int cardTop = 64, rowPitch = 104, cardHeight = 80;
 inline constexpr int editorTop = 480, editorBottom = height - 24;
 inline constexpr int knobTop = 536, knobBottom = 614, knobRowPitch = 82;
 // Header option strip (Tempo sync, modes, Quality) between the module row and the knob labels.
+inline constexpr int enabledX = 458, enabledY = 496;
 inline constexpr int moduleButtonY = 496, optionsTop = 510, optionsBottom = 530, optionsY = (optionsTop + optionsBottom) / 2;
 inline constexpr int KnobGestureY(int position) { return knobTop + (position / 4) * knobRowPitch + 43; }
 inline constexpr int ToggleY(int position) { return knobTop + (position / 4) * knobRowPitch + 55; }

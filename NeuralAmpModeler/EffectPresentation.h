@@ -46,8 +46,8 @@ inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, 
   if (e == SlotEffect::UniVibe && p == uModMix && vibrato) return false;
   return UsesUtility(e, p);
 }
-// The eight positions are 0-3 (top row) and 4-7 (bottom row, Enabled at 7). The table places
-// main controls in the top row from the left, Output at 4 below the first control and Mix at 6.
+// The eight positions are 0-3 (top row) and 4-7 (bottom row). Enabled lives in
+// the header. Main controls fill from the left; Output precedes Mix.
 inline constexpr int kOutputPosition = 4;
 inline int TablePosition(SlotEffect e, int p)
 {
@@ -58,9 +58,9 @@ inline int TablePosition(SlotEffect e, int p)
   return kEffectParameters[p].position;
 }
 // Places held by the slot's own dynamics and EQ knobs rather than by module controls.
-inline std::array<bool, 7> FixedPlaces(SlotEffect e)
+inline std::array<bool, 8> FixedPlaces(SlotEffect e)
 {
-  std::array<bool, 7> fixed{};
+  std::array<bool, 8> fixed{};
   if (e == SlotEffect::NoiseGate || e == SlotEffect::SmoothComp || e == SlotEffect::PunchComp
       || e == SlotEffect::ToneEQ || e == SlotEffect::CutEQ)
     fixed[0] = fixed[1] = fixed[2] = true;
@@ -85,8 +85,10 @@ inline int Position(SlotEffect e, int p)
   if (std::count(used.begin(), used.end(), true) <= 4) return placesBefore(0);
   return own < 4 ? own : kOutputPosition + placesBefore(kOutputPosition);
 }
-inline const char* Label(SlotEffect e, int p)
+inline const char* Label(SlotEffect e, int p, int mode = 0)
 {
+  if (e == SlotEffect::PedalDrive && p == uPedalCharacter)
+    return effect_modes::pedalCharacterNames[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
   if (p == uDelayCharacter)
     return e == SlotEffect::DigitalDelay ? "Ducking" : e == SlotEffect::AnalogDelay ? "Age" : "Saturation";
   if (p == uModCharacter)
@@ -98,6 +100,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
+    case uPedalCharacter: return effect_modes::pedalCharacterHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
     case uPedalStyle: return effect_modes::pedalHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
     case uPedalDrive: return "Gain into the pedal stages. Each style has its own filtering and gain structure; match loudness with Output.";
     case uPedalTone: return "Wet high-cut frequency after the voiced drive stages. Does not filter the clean lows restored by Low keep.";
@@ -272,7 +275,7 @@ inline const char* Sound(SlotEffect e)
 {
   switch (e)
   {
-    case SlotEffect::PedalDrive: return "Seven voiced guitar and bass drives; Low keep restores clean lows within this slot.";
+    case SlotEffect::PedalDrive: return "Ten voiced guitar and bass drives; Low keep restores clean lows within this slot.";
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
     case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input drives the colour, Output matches loudness.";

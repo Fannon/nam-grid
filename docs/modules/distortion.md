@@ -5,7 +5,7 @@ Drives, boosts and saturation.
 | Module | In short |
 | --- | --- |
 | [Distortion](#distortion) | Style changes harmonics; High cut softens edges, Mix restores dry attack. |
-| [Pedal Drive](#pedal-drive) | Seven voiced guitar/bass drives; Low keep restores clean lows within the slot. |
+| [Pedal Drive](#pedal-drive) | Ten voiced guitar/bass drives; Low keep restores clean lows within the slot. |
 | [Boost](#boost) | Clean boost into the next module; Tilt balances body and bite. |
 | [Tube Boost](#tube-boost) | Softer clipping with asymmetric harmonics; Output matches loudness. |
 | [Airwindows Tape](#airwindows-tape) | Drive adds tape saturation; Bump adds low-end body. |
@@ -42,7 +42,8 @@ In the header:
 ![Pedal Drive editor](../screenshots/modules/pedal-drive.png)
 
 Voiced overdrive, distortion, fuzz and colored boost, with **Style** in the header:
-Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp and Treble Drive.
+Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp, Treble Drive,
+Blues OD, Transparent OD and Vintage Fuzz.
 Each voice has its own filtering and gain structure. These are original interpretations
 inspired by pedal families, rather than calibrated replicas.
 
@@ -51,6 +52,7 @@ inspired by pedal families, rather than calibrated replicas.
 | **Drive** | 0–36 dB | 9 dB | Gain into the drive stages. |
 | **High cut** | 200–12000 Hz | 5500 Hz | Darkens the driven path after its style-specific filters; restored clean lows are unaffected. |
 | **Body** | -6 to +6 dB | 0 dB | Broad bass shelf before drive: positive adds body; negative tightens clipping. Restored clean lows are unaffected. |
+| **Character** | -100 to +100% | 0% | Changes label and function with Style: Focus, Bite, Attack, Blend, Mids, Asymmetry, Clipping or Bias. Center is the base voice. |
 | **Split** | 50–500 Hz | 180 Hz | Local low-band frequency for Low keep. Inactive at Low keep 0%; independent of grid routing. |
 | **Output** | -24 to +12 dB | -6 dB | Final gain after Mix, including clean lows. |
 | **Low keep** | 0–100% | 0% | Diverts this share of the low band around the drive and restores it clean. The gentle split has overlapping bands. |
@@ -59,6 +61,7 @@ inspired by pedal families, rather than calibrated replicas.
 In the header:
 
 - **Style** (starts at Screamer) Selects the voice and its filtering and gain structure.
+- **Enable/bypass circle** Matches the grid node and leaves all eight dial positions free.
 
 **Display:** The Body/drive/High cut path and the clean low return.
 

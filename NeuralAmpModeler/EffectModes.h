@@ -16,11 +16,15 @@ enum class PedalStyle
   SustainFuzz = 4,
   CascadedPreamp = 5,
   TrebleDrive = 6,
+  BluesBreaker = 7,
+  TransparentOD = 8,
+  VintageFuzz = 9,
   Count
 };
 inline constexpr int pedalCount = static_cast<int>(PedalStyle::Count);
 inline constexpr std::array<const char*, pedalCount> pedalNames{
-  "Screamer", "Rodent", "Bass Edge", "Parallel OD", "Sustain Fuzz", "Cascaded Preamp", "Treble Drive"};
+  "Screamer", "Rodent", "Bass Edge", "Parallel OD", "Sustain Fuzz", "Cascaded Preamp", "Treble Drive",
+  "Blues OD", "Transparent OD", "Vintage Fuzz"};
 inline constexpr std::array<const char*, pedalCount> pedalHelp{
   "Screamer: mid-focused soft drive with reduced bass into clipping. Useful before a driven amp.",
   "Rodent: filtered high gain, slew rounding and hard clipping for crunch and heavy sustain.",
@@ -28,7 +32,23 @@ inline constexpr std::array<const char*, pedalCount> pedalHelp{
   "Parallel OD: Drive increases clipping while reducing an internal clean path. Mix remains independent.",
   "Sustain Fuzz: two clipping stages with interstage filtering and scooped mids for dense sustain.",
   "Cascaded Preamp: two gently asymmetric stages with interstage filtering for responsive breakup.",
-  "Treble Drive: bass-light, colored boost with asymmetric grit. Try it before a crunchy amp."};
+  "Treble Drive: bass-light, colored boost with asymmetric grit. Try it before a crunchy amp.",
+  "Blues OD: two-stage, lightly voiced overdrive. Clipping moves from open to harder distortion.",
+  "Transparent OD: restrained voicing, pre-drive bass shaping and post-drive treble filtering. Clipping changes compression and symmetry.",
+  "Vintage Fuzz: coupled, inverting stages for responsive fuzz. Bias moves from rounder sustain to pinched, gated decay."};
+inline constexpr std::array<const char*, pedalCount> pedalCharacterNames{
+  "Focus", "Bite", "Attack", "Blend", "Mids", "Asymmetry", "Focus", "Clipping", "Clipping", "Bias"};
+inline constexpr std::array<const char*, pedalCount> pedalCharacterHelp{
+  "Focus: negative restores more bass into clipping; positive tightens the drive's bass and emphasizes mids. Center keeps the original voice.",
+  "Bite: negative rounds the upper-mid gain and attack; positive increases bite and slew speed. Center keeps the original voice.",
+  "Attack: negative softens upper-mid emphasis; positive brings out pick attack. Center keeps the original voice.",
+  "Blend: negative adds internal clean sound; positive adds clipped sound. Drive still affects this blend; outer Mix remains independent.",
+  "Mids: negative deepens the scoop; positive fills in the mids. Center keeps the original scoop.",
+  "Asymmetry: negative makes the stages more symmetric; positive increases uneven clipping. Center keeps the original bias.",
+  "Focus: negative admits more low end; positive shifts emphasis toward higher frequencies. Center keeps the original treble drive.",
+  "Clipping: negative opens up soft clipping; center is the base soft drive; positive adds harder output clipping.",
+  "Clipping: negative compresses with symmetric clipping; center has open symmetric clipping; positive adds asymmetry.",
+  "Bias: negative gives rounder, more symmetric fuzz; positive pinches the waveform and gates quiet decays. Center is the base fuzz."};
 inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hysteresis"};
 inline constexpr std::array<const char*, 8> deskNames{"Dark", "Rock", "Lush", "Vibe", "Holo", "Punch", "Steel", "Tube"};
 

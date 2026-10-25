@@ -69,14 +69,15 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
     if (automate)
     {
       const int section = position / 512;
-      controls.pedal = {double(section < 8 ? section % effect_modes::pedalCount : 2),
+      controls.pedal = {double(section < 12 ? section % effect_modes::pedalCount : 2),
                         section % 2 ? 36. : 0.,
                         section % 2 ? 200. : 12000.,
                         section % 2 ? -6. : 6.,
                         section % 2 ? 50. : 500.,
                         section % 2 ? 100. : 0.,
                         -3.,
-                        75.};
+                        75.,
+                        section % 2 ? -100. : 100.};
     }
     const int n =
       std::min({count - position, 512 - position % 512, tiny ? std::array<int, 4>{1, 3, 64, 127}[block++ % 4] : 512});
@@ -153,6 +154,21 @@ void TestPedalDrive()
           difference += std::abs(voices[style][i] - voices[other][i]);
         assert(difference > 1.);
       }
+      // Each style's character changes its sound in both directions, while
+      // the center is the default. Exercise extremes at every supported rate.
+      for (double character : {-100., 100.})
+      {
+        c.pedal[8] = character;
+        const auto changed = pedal_test::Render(rate, c, false);
+        double difference = 0.;
+        for (int i = 0; i < changed.size(); ++i)
+        {
+          assert(std::isfinite(changed[i]) && std::abs(changed[i]) < 8.);
+          if (i >= 1024)
+            difference += std::abs(changed[i] - voices[style][i]);
+        }
+        assert(difference > .1);
+      }
       SlotPedalDrive dry;
       dry.Reset(rate);
       c.pedal[7] = 0.;
@@ -208,6 +224,27 @@ void TestPedalDrive()
     for (double x : dc)
       assert(x == 0.);
   }
+  // Positive Vintage Fuzz Bias intentionally gates quiet decays; the centered
+  // voice retains them. This is independent of the module's outer Mix.
+  std::array<double, 2> quietEnergy{};
+  for (int pinched = 0; pinched < 2; ++pinched)
+  {
+    SlotPedalDrive drive;
+    drive.Reset(48000.);
+    UtilityControls c;
+    c.pedal[0] = static_cast<int>(effect_modes::PedalStyle::VintageFuzz);
+    c.pedal[1] = 18.;
+    c.pedal[6] = 0.;
+    c.pedal[8] = pinched ? 100. : 0.;
+    std::array<double, 4096> quiet{};
+    for (int i = 0; i < quiet.size(); ++i)
+      quiet[i] = .001 * std::sin(.07 * i);
+    drive.Process(quiet.data(), static_cast<int>(quiet.size()), c);
+    for (double value : quiet)
+      quietEnergy[pinched] += value * value;
+  }
+  assert(quietEnergy[0] > .001 && quietEnergy[1] < quietEnergy[0] * .001);
+
   // A delayed dry drive in B must reconstruct the input with the clean low A
   // lane, including when bypassed. This checks real stage and grid compensation.
   for (double rate : {44100., 48000., 96000.})
@@ -240,6 +277,7 @@ void TestPedalDrive()
         }
       }
     }
-  std::cout << "Pedal Drive: seven voices, alias reduction, low retention, blocks, allocation, dry/bypass and split "
+  std::cout << "Pedal Drive: ten voices and centered character, alias reduction, low retention, blocks, allocation, "
+               "dry/bypass and split "
                "alignment passed\n";
 }

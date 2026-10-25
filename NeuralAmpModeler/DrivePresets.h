@@ -33,6 +33,9 @@ inline std::vector<nlohmann::json> Make(const nlohmann::json& empty)
       rig["Pre 1 Pedal Drive"] = 6.;
     if (style == static_cast<int>(effect_modes::PedalStyle::CascadedPreamp))
       rig["Pre 1 Pedal Drive"] = 3.;
+    if (style == static_cast<int>(effect_modes::PedalStyle::BluesBreaker)
+        || style == static_cast<int>(effect_modes::PedalStyle::TransparentOD))
+      rig["Pre 1 Pedal Drive"] = 6.;
     result.push_back(std::move(rig));
   }
   for (int voice = 0; voice < 3; ++voice)

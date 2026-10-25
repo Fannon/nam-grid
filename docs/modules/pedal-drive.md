@@ -7,6 +7,9 @@ in its header; the [module guide](distortion.md#pedal-drive) lists the controls.
 The existing Distortion, Tube Boost and Boost modules retain their previous sounds.
 Pedal Drive has separate controls and saved style identities.
 
+The enable/bypass circle is in the module editor header, matching the grid node.
+All eight dial positions are available for sound controls.
+
 ## Choose a voice
 
 | Style | Character | Useful starting application |
@@ -18,14 +21,51 @@ Pedal Drive has separate controls and saved style identities.
 | **Sustain Fuzz** | Cascaded clipping, interstage filtering and scooped mids | Dense guitar leads, heavy bass fuzz and sustained chords |
 | **Cascaded Preamp** | Two mildly asymmetric stages with filtering between them | Gentle breakup and a warmer bass upper band |
 | **Treble Drive** | Bass-light colored boost with asymmetric grit | Push a crunchy amp capture for classic rock sounds |
+| **Blues OD** | Bluesbreaker-inspired, bandwidth-limited gain into soft clipping with a clean contribution | Light breakup, chord definition and stacking into another drive |
+| **Transparent OD** | Restrained voicing with bass shaping before clipping and treble filtering afterward | Timmy-inspired boost and overdrive that preserves more of the surrounding rig's character |
+| **Vintage Fuzz** | Two inverting stages with coupling and bias-dependent decay | Fuzz Face-inspired leads, rounder fuzz or pinched, gated textures |
 
 These are original voices informed by pedal families, rather than measured or calibrated
-replicas. Style selection changes a combination of filters and gain stages. High cut is
+replicas. Product and company names identify design references and belong to their
+respective owners. NAM Grid is independent and is not affiliated with or endorsed by
+those manufacturers. Style selection changes a combination of filters and gain stages. High cut is
 always an output low-pass frequency in Hz; it does not become a reversed pedal tone knob.
 
 Match loudness with Output when comparing styles. Drive is gain into the stages, so its
 audible effect depends on the instrument's level and the chosen voice. Start lower with a
 hot active bass or an already loud signal.
+
+## Character: start in the center
+
+The top-right dial is a **Character** control whose label changes with Style. It runs
+from **-100% to +100%**, starts at **0%**, and double-clicking returns it to the center.
+The seven original voices retain their original sound at the center.
+
+| Style | Dial label | Negative | Center | Positive |
+| --- | --- | --- | --- | --- |
+| Screamer | **Focus** | More bass enters clipping | Original mid-focused voice | Tighter bass, stronger mid emphasis |
+| Rodent | **Bite** | Rounder gain emphasis and slower attack | Original bite and slew | More upper-mid drive and faster slew |
+| Bass Edge | **Attack** | Softer upper-mid emphasis | Original attack | Stronger upper-mid attack |
+| Parallel OD | **Blend** | More internal clean sound | Original Drive-linked blend | More internal clipped sound |
+| Sustain Fuzz | **Mids** | Deeper scoop | Original scoop | Fuller mids |
+| Cascaded Preamp | **Asymmetry** | More symmetric stages | Original stage biases | More asymmetric stages |
+| Treble Drive | **Focus** | Fuller input to the drive | Original treble voicing | Greater bass reduction |
+| Blues OD | **Clipping** | More open soft clipping | Base soft clipping | Additional harder output clipping |
+| Transparent OD | **Clipping** | More compressed symmetric clipping | Open symmetric clipping | Asymmetric clipping |
+| Vintage Fuzz | **Bias** | Rounder, more symmetric fuzz | Base vintage fuzz | Pinched waveform and gated quiet decays |
+
+Focus on Screamer explores the direction of bass/fat modifications. Unlike **Low keep**,
+it changes how much bass participates in distortion. **Body** remains a broad shelf before
+the voice; Focus adjusts the voice's own bass reduction.
+
+Character affects the driven path; preserved clean lows bypass it. The same Character
+value remains stored when you change styles, so return to center when comparing their
+base sounds. Your DAW and the modulation matrix always call this parameter **Pedal
+Character**, even when the visible dial says Focus, Bias or another style-specific name.
+
+Vintage Fuzz models the character of coupled gain stages and adjustable bias; it does
+not simulate analog pickup impedance or recreate a particular transistor pair. Lowering
+its input can clean up the sound, but hardware guitar-volume interaction is not guaranteed.
 
 ## Preserve lows within one slot
 
@@ -121,6 +161,20 @@ Add your amp/cabinet processing where needed. For guitar, try the drive before a
 capture followed by a cabinet IR if the capture does not already include one. The examples
 are starting points; their output trims are not automatic loudness matching.
 
+## Choosing a voice or a NAM capture
+
+Use Pedal Drive when you want to adjust the voicing, clipping character and clean-low
+balance within one slot. Use a pedal NAM capture when you want the response learned
+from a particular unit and settings. A capture may represent interactions beyond these
+simplified voices; it does not expose the original pedal's knobs as modeled controls.
+
+An algorithmic voice is not automatically cheaper than a neural capture. Pedal Drive
+runs at four times the host rate, while a NAM capture runs at its trained rate with
+sample-rate conversion when needed. A2 Lite can be economical; compare the actual
+capture and rig using the [FX benchmark tools](../fx-performance.md). CPU measurements
+do not establish which sounds closer to hardware; compare at matched input and output
+levels and include quiet notes and decays.
+
 ## Processing and latency
 
 Pedal Drive runs its nonlinear path at four times the host sample rate, with FIR filtering
@@ -147,6 +201,12 @@ published designs and descriptions as references:
   coupled gain and internal clean/clipped blending.
 - [Aion Halo documentation](https://aionfx.com/app/files/docs/halo_documentation.pdf):
   cascaded clipping and midrange shaping.
+- [Aion Cerulean schematic and notes](https://aionfx.com/app/files/docs/cerulean_documentation.pdf):
+  Bluesbreaker-family gain structure and soft/hard clipping options.
+- [MXR Timmy manual](https://www.jimdunlop.com/content/manuals/CSP027.pdf):
+  pre-drive bass shaping, post-drive treble filtering and clipping/headroom choices.
+- [Aion Solaris schematic and notes](https://aionfx.com/app/files/docs/solaris_documentation.pdf):
+  Fuzz Face-family coupled stages, input/body controls and adjustable bias.
 - [Darkglass B3K](https://www.darkglass.com/pages/microtubes-b3k-manual) and
   [X Ultra](https://www.darkglass.com/pages/microtubes-x-ultra-manual) manuals:
   clean-signal blending and separate low/high processing.

@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: full-width navigation on every page, a linked Module guide section, and a cleaner home page without the duplicate quick-start strip.
+
 ## [0.2.0] - 2026-10-25
 
 ### Added

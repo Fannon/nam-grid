@@ -6,6 +6,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Pedal Drive: seven guitar and bass drive styles, with antialiasing and a local Low keep dial for clean bass fundamentals.
+- Guitar drive, clean boost and split-band bass example rigs, included on fresh installs and available from Library & settings.
 - Documentation: a Getting started guide (install, DAW setup, first rig) and a Troubleshooting & FAQ page on the [manual site](https://fannon.github.io/nam-grid/).
 
 ### Changed

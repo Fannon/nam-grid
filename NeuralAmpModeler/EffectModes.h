@@ -7,6 +7,28 @@
 // selectors are saved state, not automatable parameters; no spare choices exist.
 namespace effect_modes
 {
+enum class PedalStyle
+{
+  Screamer = 0,
+  Rodent = 1,
+  BassEdge = 2,
+  ParallelOD = 3,
+  SustainFuzz = 4,
+  CascadedPreamp = 5,
+  TrebleDrive = 6,
+  Count
+};
+inline constexpr int pedalCount = static_cast<int>(PedalStyle::Count);
+inline constexpr std::array<const char*, pedalCount> pedalNames{
+  "Screamer", "Rodent", "Bass Edge", "Parallel OD", "Sustain Fuzz", "Cascaded Preamp", "Treble Drive"};
+inline constexpr std::array<const char*, pedalCount> pedalHelp{
+  "Screamer: mid-focused soft drive with reduced bass into clipping. Useful before a driven amp.",
+  "Rodent: filtered high gain, slew rounding and hard clipping for crunch and heavy sustain.",
+  "Bass Edge: asymmetric saturation with upper-mid attack. Low keep can retain clean bass.",
+  "Parallel OD: Drive increases clipping while reducing an internal clean path. Mix remains independent.",
+  "Sustain Fuzz: two clipping stages with interstage filtering and scooped mids for dense sustain.",
+  "Cascaded Preamp: two gently asymmetric stages with interstage filtering for responsive breakup.",
+  "Treble Drive: bass-light, colored boost with asymmetric grit. Try it before a crunchy amp."};
 inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hysteresis"};
 inline constexpr std::array<const char*, 8> deskNames{"Dark", "Rock", "Lush", "Vibe", "Holo", "Punch", "Steel", "Tube"};
 

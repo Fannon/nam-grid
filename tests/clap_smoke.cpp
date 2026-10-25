@@ -14,6 +14,7 @@
 #include "RoadmapClapTests.h"
 #include "ModulationClapTests.h"
 #include "EffectModeClapTests.h"
+#include "PedalDriveClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
 #include <cstdlib>
@@ -71,6 +72,13 @@ int main(int argc, char** argv)
     const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
     assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
     assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));
+    // Fresh installs include all drive examples, without capture dependencies.
+    for (const auto& example : drive_presets::Make(empty))
+    {
+      const auto file = settingsBackup.home / "Presets" / "Drive Examples"
+                        / (example["PresetName"].get<std::string>() + ".ngrid");
+      assert(rig_preset::Read(file) == example);
+    }
     // Bundled rigs ship without stored scenes: a stale scene would change modules on recall.
     for (const auto& rig : {empty, clean})
       for (const auto& scene : rig["PerformanceScenes"])
@@ -919,6 +927,7 @@ int main(int argc, char** argv)
   TestRoadmapClap(plugin, cleared, save, load);
   TestModulationMatrixClap(plugin, cleared, save, load, loadRaw);
   TestEffectModeClap(plugin, cleared, save, load);
+  TestPedalDriveClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
@@ -1016,6 +1025,7 @@ int main(int argc, char** argv)
     const std::pair<SlotEffect, int> modes[]{
       {SlotEffect::CosmicEcho, uCosmicStyle}, {SlotEffect::MultiHeadDelay, uTapeHeads},
       {SlotEffect::ConsoleColour, uColourDesk}, {SlotEffect::Distortion, uDistStyle},
+      {SlotEffect::PedalDrive, uPedalStyle},
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}};

@@ -21,6 +21,7 @@ inline const char* ChoiceDescription(int p, int mode)
   {
     case uCosmicStyle: descriptions = cosmic; break;
     case uDistStyle: descriptions = distortion; break;
+    case uPedalStyle: descriptions = effect_modes::pedalHelp; break;
     case uJunoMode: descriptions = juno; break;
     default: break;
   }
@@ -97,6 +98,14 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
+    case uPedalStyle: return effect_modes::pedalHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
+    case uPedalDrive: return "Gain into the pedal stages. Each style has its own filtering and gain structure; match loudness with Output.";
+    case uPedalTone: return "Wet high-cut frequency after the voiced drive stages. Does not filter the clean lows restored by Low keep.";
+    case uPedalBody: return "Broad bass shelf before the drive stages. Positive is fuller; negative tightens the drive. Preserved clean lows are unchanged.";
+    case uPedalSplit: return "Local low-preservation frequency. Low keep at zero disables its effect; this does not change the grid's A/B split.";
+    case uPedalLowKeep: return "Remove this share of the low band before distortion and restore it clean afterward. 100% preserves clean lows; the split is gentle.";
+    case uPedalOutput: return "Final level after dry/wet blending, including preserved lows. Match bypass loudness before judging the drive.";
+    case uPedalMix: return "Blend the complete pedal sound, including Low keep, with latency-aligned dry input. Output follows the blend.";
     case uBlackHold: return "Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold no longer chatters. A NAM Grid addition; 0 ms is the native gate.";
     case uBlackMode: return "Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.";
     case uBlackThreshold: return "Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.";
@@ -263,6 +272,7 @@ inline const char* Sound(SlotEffect e)
 {
   switch (e)
   {
+    case SlotEffect::PedalDrive: return "Seven voiced guitar and bass drives; Low keep restores clean lows within this slot.";
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
     case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input drives the colour, Output matches loudness.";

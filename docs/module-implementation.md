@@ -46,6 +46,13 @@ history.
 - **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
   style crossfades. **Tube Boost** is an original biased soft saturator with Boost's
   Tilt/Low cut voicing. Neither oversamples, so bright, high-drive settings can alias.
+- **Pedal Drive** ([SlotPedalDrive.h](../NeuralAmpModeler/SlotPedalDrive.h),
+  [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
+  informed by documented pedal designs. It uses 4x FIR oversampling with 64 host
+  samples of latency, aligned dry/bypass and local clean-low returns, independent
+  stereo histories and 20 ms style crossfades. Only participating styles run during
+  transitions; an inactive style starts with cleared filter history. See
+  [voices, signal flow and design references](modules/pedal-drive.md).
 - **EQs and Filter** use the MIT AudioDSPTools coefficients and a scalar implementation of the
   [RBJ/W3C equations](https://www.w3.org/TR/audio-eq-cookbook/). Dynamics were written
   independently, using AudioDSPTools and LEAF as MIT algorithm references.
@@ -63,7 +70,8 @@ history.
   controls are not presented as calibrated units. See [Airwindows outboard](airwindows-outboard.md)
   and [dynamics](airwindows-dynamics.md).
 
-Timing scales with the host rate; nothing is forced to 44.1 kHz or oversampled. Built-in
+Timing scales with the host rate; nothing is forced to 44.1 kHz. Pedal Drive oversamples
+its driven path; the other built-in effects run at the host rate. Built-in
 effects keep independent left/right histories. A mono NAM stage downmixes once and broadcasts
 its result, so stereo effects belong after the last mono capture.
 
@@ -156,7 +164,9 @@ silence after bypass and then suspend: a muted delay stops writing feedback and 
 8.1-second buffer in about nine seconds, reverbs drain for 30 seconds, modulation for 70 ms.
 No callback clears a whole delay ring at once.
 
-Built-in effects report zero host compensation latency and have no block buffering.
+Built-in effects have no block buffering. Pedal Drive reports 64 host samples for its
+oversampling filters and aligns its dry, clean-low and bypass paths; other built-in
+effects report zero host compensation latency.
 Delay, reverb and vibrato (8 ms center delay) delay the effected signal on purpose; that
 effect time is not compensated. NAM sample-rate conversion reports its own latency, and
 parallel lanes are aligned to the longer one. Host tail reporting follows serial and parallel

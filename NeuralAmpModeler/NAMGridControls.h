@@ -40,7 +40,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
-  if (effect == SlotEffect::Distortion || effect == SlotEffect::ConsoleColour)
+  if (effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive || effect == SlotEffect::ConsoleColour)
     return {boostColor, boostColor, "Distortion"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
@@ -870,6 +870,8 @@ public:
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
     const auto hint = std::string(enabled ? "" : "Bypassed | ")
       + (effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
+          : effect == SlotEffect::PedalDrive ? effect_presentation::Help(effect, uPedalStyle,
+              GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPedalStyle))->Int())
                                          : effect_presentation::Sound(effect));
     // The description stops before any option shown on its row (quality, tempo sync, modes).
     float hintRight = 620.f;
@@ -2174,6 +2176,15 @@ public:
     AddChildControl(new HintLabel(IRECT(kLeft, 8, 480, 48), "Library & settings", Text(23.f),
       "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type."));
     AddChildControl(new Button(IRECT(896, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close"));
+    AddChildControl(new Button(IRECT(392, 14, 552, 42), [this](IControl*) {
+      WDL_String folder;
+      GetUI()->PromptForDirectory(folder, [plugin = PLUG(), ui = GetUI()](const WDL_String&, const WDL_String& chosen) {
+        if (!chosen.GetLength()) return;
+        const auto error = plugin->InstallDrivePresets(std::filesystem::u8path(chosen.Get()));
+        if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot add drive presets", error.c_str());
+      });
+    }, "Add drive presets..."))->SetTooltip(
+      "Choose a folder for guitar, bass and boost example rigs. Adds a Drive Examples subfolder and indexes it; existing files are preserved.");
     AddChildControl(new Button(IRECT(732, 14, 884, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library"));

@@ -10,6 +10,17 @@ NAM Grid itself is MIT licensed; see LICENSE in the source repository at
 https://github.com/Fannon/nam-grid.
 
 
+Pedal Drive design references
+-----------------------------
+
+Pedal Drive is original MIT-licensed NAM Grid code; no pedal-model code was copied.
+Its voices are informed by Aion FX's published Stratus, Helios, Refractor and Halo
+schematics, Darkglass B3K/X Ultra manuals, and Keeley Katana, BOSS BD-2 and Analog
+Man Beano Boost descriptions. They are original interpretations, not calibrated
+replicas. Links and implementation details are in docs/modules/pedal-drive.md and
+NeuralAmpModeler/dsp/PedalDrive.h in the source repository.
+
+
 RiffSmith Clean NAM capture
 ---------------------------
 

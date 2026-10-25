@@ -5,6 +5,7 @@ Drives, boosts and saturation.
 | Module | In short |
 | --- | --- |
 | [Distortion](#distortion) | Style changes harmonics; High cut softens edges, Mix restores dry attack. |
+| [Pedal Drive](#pedal-drive) | Seven voiced guitar/bass drives; Low keep restores clean lows within the slot. |
 | [Boost](#boost) | Clean boost into the next module; Tilt balances body and bite. |
 | [Tube Boost](#tube-boost) | Softer clipping with asymmetric harmonics; Output matches loudness. |
 | [Airwindows Tape](#airwindows-tape) | Drive adds tape saturation; Bump adds low-end body. |
@@ -35,6 +36,41 @@ In the header:
 
 - Drive into a following NAM capture for a pedal-into-amp sound, with Output lowered to keep the capture's input sensible.
 - Fuzz and Rectify respond strongly to Bias; small moves change the character more than Drive.
+
+## Pedal Drive
+
+![Pedal Drive editor](../screenshots/modules/pedal-drive.png)
+
+Voiced overdrive, distortion, fuzz and colored boost, with **Style** in the header:
+Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp and Treble Drive.
+Each voice has its own filtering and gain structure. These are original interpretations
+inspired by pedal families, rather than calibrated replicas.
+
+**Drive** (0 to 36 dB; starts at 9 dB) Gain into the drive stages.
+
+**High cut** (200 to 12000 Hz; starts at 5500 Hz) Darkens the driven path after its
+style-specific filtering. Restored clean lows are unaffected.
+
+**Body** (-6 to +6 dB; starts at 0 dB) Broad bass shelf before the drive.
+Positive adds body; negative tightens clipping. Restored clean lows are unaffected.
+
+**Split** (50 to 500 Hz; starts at 180 Hz) Local low-band frequency for Low keep.
+It has no audible effect when Low keep is zero and does not change grid routing.
+
+**Output** (-24 to +12 dB; starts at -6 dB) Final gain after Mix, including clean lows.
+
+**Low keep** (0 to 100%; starts at 0%) Diverts this share of the low band around the
+drive and restores it clean. The split is gentle, so the bands overlap.
+
+**Mix** (0 to 100%; starts at 100%) Blends the complete pedal sound with aligned dry
+input. Parallel OD also has its own internal clean path controlled by Drive.
+
+**Display:** The Body/drive/High cut path and the clean low return.
+
+Use Screamer or Treble Drive before a crunchy amp capture, Rodent for heavier rhythm,
+and Sustain Fuzz for dense leads or bass fuzz. Try Bass Edge with Low keep raised for
+one-slot bass drive. [Pedal Drive](pedal-drive.md) explains all voices, example rigs,
+latency and how the local split interacts with the grid.
 
 ## Boost
 

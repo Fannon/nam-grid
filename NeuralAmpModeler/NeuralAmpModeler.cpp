@@ -1,5 +1,6 @@
 #include "NoisePrintState.h"
 #include "DefaultContent.h"
+#include "DrivePresets.h"
 #include "EmbeddedFont.h"
 #include <fstream>
 #include <algorithm> // std::clamp, std::min
@@ -569,6 +570,8 @@ void NeuralAmpModeler::_InstallDefaultContent(const std::filesystem::path& namFo
   }
   catch (const std::exception&) {}
   if (presetFolder.empty()) return;
+  try { drive_presets::Install(presetFolder / "Drive Examples", mEmptyRig); }
+  catch (const std::exception&) {}
   try
   {
     const auto empty = presetFolder / "Empty.ngrid";
@@ -597,6 +600,18 @@ void NeuralAmpModeler::_InstallDefaultContent(const std::filesystem::path& namFo
     rig_preset::Write(preset, rig);
   }
   catch (const std::exception&) {}
+}
+
+std::string NeuralAmpModeler::InstallDrivePresets(const std::filesystem::path& folder)
+{
+  try
+  {
+    drive_presets::Install(folder / "Drive Examples", mEmptyRig);
+    AddLibraryFolder(nam_library::FileKind::RigPreset, nam_library::PathText(folder).c_str());
+    RescanCaptureFolder();
+    return {};
+  }
+  catch (const std::exception& error) { return error.what(); }
 }
 
 void NeuralAmpModeler::_ReloadLibraryFolders()

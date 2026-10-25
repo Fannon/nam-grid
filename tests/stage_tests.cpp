@@ -63,6 +63,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "StereoGuitarEffectsTests.h"
 #include "DSPReviewTests.h"
 #include "DistortionTests.h"
+#include "PedalDriveTests.h"
 #include "NoisePrintTests.h"
 #include "LoFiTapeTests.h"
 #include "EQResponseTests.h"
@@ -201,6 +202,7 @@ try
   TestVisualizationInteractions();
   TestMeasuredVisualizations();
   TestDistortionModeHarmonics();
+  TestPedalDrive();
   TestReverbDelayCandidates();
   TestCosmicEcho();
   TestCosmicBypassDrain();

@@ -124,6 +124,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   family(uBlackThreshold, t.black);
   u(uBlackMode, t.blackMode);
   u(uBlackHold, t.blackHold);
+  family(uPedalStyle, t.pedal);
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().
 template <class T>

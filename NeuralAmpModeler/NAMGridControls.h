@@ -160,7 +160,7 @@ inline IVStyle Style()
 // One hue per modulation source, shared by the matrix, knob rings and grid cards.
 inline IColor SourceColor(int source)
 {
-  switch (source)
+  switch (grid_performance::SourceKind(source))
   {
     case grid_performance::SourceLFO: return modulationColor;
     case grid_performance::SourceEnvelope: return ampColor;

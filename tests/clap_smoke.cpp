@@ -2442,6 +2442,23 @@ int main(int argc, char** argv)
   win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Clear scene 2", true); pumpFor(30);
   assert(save().config()["PerformanceScenes"][1].empty());
   click(kModulationX, grid_layout::headerY); // Modulation
+  {
+    const auto before = save().config();
+    click(131, 84); // LFO 2
+    dragAt(185, 355);
+    assert(save().config()["LFO 2 Rate"] != before["LFO 2 Rate"]);
+    assert(save().config()["LFO Rate"] == before["LFO Rate"]);
+    click(274, 84); // Env 2
+    dragAt(185, 355);
+    assert(save().config()["Envelope 2 Sensitivity"] != before["Envelope 2 Sensitivity"]);
+    assert(save().config()["Envelope Sensitivity"] == before["Envelope Sensitivity"]);
+    click(416, 84); // Seq 2
+    dragAt(410, 230);
+    assert(save().config()["Sequencer 2 Step 8"] != before["Sequencer 2 Step 8"]);
+    assert(save().config()["Sequencer Step 8"] == before["Sequencer Step 8"]);
+    if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "modulation-seq2.bmp");
+    click(60, 84); // LFO 1
+  }
   dragAt(862, 141); // Matrix row 1 depth
   assert(save().config()["Mod 1 Depth"] > 0.);
   click(936, 28); // Close overlay

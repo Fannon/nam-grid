@@ -300,12 +300,13 @@ inline std::pair<int, int> DestinationOf(int id)
 inline bool LiveValue(int source, const Values& v, const Modulation::Monitor& m, double& value)
 {
   value = 0.;
-  switch (source)
+  const auto& monitor = m.Instance(SourceInstance(source));
+  switch (SourceKind(source))
   {
     case SourceNone: return true;
-    case SourceLFO: value = m.lfo; return m.running;
-    case SourceEnvelope: value = m.envelope; return m.running;
-    case SourceSequencer: value = v[Step1 + std::clamp(m.step, 0, 7)] * .02 - 1.; return m.running;
+    case SourceLFO: value = monitor.lfo; return monitor.running;
+    case SourceEnvelope: value = monitor.envelope; return monitor.running;
+    case SourceSequencer: value = v[SourceParam(Seq1Step1, SourceInstance(source)) + std::clamp(monitor.step, 0, 7)] * .02 - 1.; return monitor.running;
     default: value = std::clamp(v[macros[std::clamp(source - SourceMacro1, 0, 3)]] * .01, 0., 1.); return true;
   }
 }

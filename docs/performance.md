@@ -27,12 +27,14 @@ Right-click a module knob, lane level, crossover, or A/B knob and choose **Modul
 
 ### Sources
 
-- **LFO:** sine, triangle, rising/falling saw, square, or random. Run freely or sync to your DAW tempo.
-- **Envelope:** follows your playing. Choose where it listens, set **Threshold** to ignore background noise, and shape the response with **Sensitivity**, **Curve**, **Attack**, and **Release**.
-- **Sequencer:** draw eight bipolar steps. Drag above the center to add and below to subtract; use free rate or tempo sync.
+- **LFO 1 / LFO 2:** sine, triangle, rising/falling saw, square, or random. Run freely or sync to your DAW tempo.
+- **Env 1 / Env 2:** follows your playing. Choose where it listens, set **Threshold** to ignore background noise, and shape the response with **Sensitivity**, **Curve**, **Attack**, and **Release**.
+- **Seq 1 / Seq 2:** draw eight bipolar steps. Drag above the center to add and below to subtract; use free rate or tempo sync.
 - **Macros 1–4:** four manual or host-automatable controls for your most important assignments.
 
-The LFO and sequencer move above and below a knob's setting. The envelope and macros move in one direction.
+Each source has its own controls. The two envelope followers can listen at different grid positions. Audio-onset retrigger for LFO 1 and Seq 1 follows Env 1; LFO 2 and Seq 2 follow Env 2. Four macros remain available.
+
+The LFOs and sequencers move above and below a knob's setting. The envelope and macros move in one direction.
 
 The four macros also appear below **IN** on the main page. A macro with no matrix assignment is dimmed; using it as a source or **Via** makes it active. Hide this bank with **Settings > Main macros** if you prefer.
 

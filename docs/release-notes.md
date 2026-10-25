@@ -22,13 +22,13 @@ A maintenance update for 0.2.0, with compatibility fixes, more reliable Pedal Dr
 
 - `nam-grid-windows-x64.zip`: CLAP and VST3 for 64-bit Windows.
 - `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs (macOS 11 or newer). The Mac build isn't signed yet, so macOS will ask you to confirm it once; see [allow the plugin](https://fannon.github.io/nam-grid/getting-started#macos-allow-the-plugin).
-- `nam-grid-linux-x64.zip`: CLAP and VST3 for 64-bit Linux (Ubuntu 22.04 or newer works well). Linux is still an early preview.
+- `nam-grid-linux-x64.zip`: CLAP and VST3 for 64-bit Linux (glibc 2.35 or newer, such as Ubuntu 22.04+).
 
 Existing 0.1.x projects, presets and automation still load unchanged. Pedal Drive and the numbered modulation sources keep their 0.2.0 settings.
 
 ## Good to know
 
-- Windows and Mac are well tested; Linux works but has seen less time in real DAWs, so start with a moderate buffer size and see how it feels.
+- The Linux build has not been tested in a real DAW environment. If you use it, let me know how well it works.
 - There's no Audio Unit, AAX or standalone app in this release.
 - Each download includes license notes (`ThirdPartyNotices.txt` and `notices/`) — just keep them alongside the plugins if you pass them on.
 - Something not right? Tell us your OS, DAW, plugin format, sample rate and buffer size at <https://github.com/Fannon/nam-grid/issues>, or use the [KVR Audio discussion thread](https://www.kvraudio.com/forum/viewtopic.php?t=634501).

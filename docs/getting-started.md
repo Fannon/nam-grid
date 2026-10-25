@@ -14,8 +14,8 @@ Download the archive for your system from [GitHub Releases](https://github.com/F
 
 Each archive contains `nam-grid.clap`, the `nam-grid.vst3` bundle, `ThirdPartyNotices.txt` and a `notices/` folder. Keep the notices with the plugins if you pass them on.
 
-::: info Linux is an early preview
-The Linux build passes the automated tests but has seen little use in real DAWs yet. Start with a moderate buffer size, and please [report](troubleshooting.md#report-a-problem) what you find.
+::: info Linux DAW testing
+The Linux build passes the automated tests but has not been tested in a real DAW environment. If you use it, [let me know how well it works](troubleshooting.md#report-a-problem).
 :::
 
 ## Install the plugin

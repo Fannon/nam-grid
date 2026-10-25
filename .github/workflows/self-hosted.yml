@@ -1,0 +1,71 @@
+name: Build self-hosted
+
+# Manual-only. Do not add pull_request triggers while this repository is public:
+# fork PRs can otherwise execute code on the self-hosted machine.
+#
+# Validation only. The runner may use a newer glibc than the release base, so
+# these binaries must not be published. Release archives stay in build-test.yml
+# on ubuntu-22.04 (glibc 2.35).
+
+on:
+  workflow_dispatch:
+    inputs:
+      source-ref:
+        description: Commit, branch or tag to build
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-selfhosted-${{ inputs.source-ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: [self-hosted, wsl2]
+    timeout-minutes: 45
+    env:
+      SCCACHE_GHA_ENABLED: 'true'
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+      - name: Fetch pinned submodules
+        # Keep the same Eigen mirror workaround as build-test.yml.
+        run: >-
+          git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/libeigen/eigen"
+          submodule update --init --recursive --depth=1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check self-hosted Linux prerequisites
+        run: |
+          missing=
+          for command in g++-12 cmake ninja pkg-config xvfb-run; do
+            command -v "$command" >/dev/null || missing="$missing $command"
+          done
+          for module in freetype2 fontconfig gtk+-3.0 x11 gl; do
+            pkg-config --exists "$module" || missing="$missing pkg-config:$module"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing self-hosted build prerequisites:$missing"
+            echo "Install them once with: sudo scripts/setup-selfhosted-linux.sh"
+            exit 1
+          fi
+      - run: python scripts/setup-deps.py
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release
+        env:
+          CC: gcc-12
+          CXX: g++-12
+      - run: cmake --build build-ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+      - name: Python tool tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+      - name: Compiler cache statistics
+        run: sccache --show-stats
+      - run: xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build-ci -C Release --output-on-failure

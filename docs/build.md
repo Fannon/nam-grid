@@ -109,6 +109,15 @@ merge gate rather than a post-merge check:
   Windows), so unchanged dependencies are not recompiled. A 45-minute job timeout
   stops hung editor tests; pull request artifacts are kept for 3 days, others for 14.
 
+A manual **Build self-hosted** workflow (`self-hosted.yml`) runs the Linux
+build and tests on a self-hosted runner. Provision it once with
+`sudo scripts/setup-selfhosted-linux.sh`; the workflow checks for the compiler,
+CMake, Ninja, X11/GTK and Xvfb dependencies before starting. This lane is
+validation-only: the runner may use a newer glibc than the release base, so its
+binaries are not published. Release Linux archives remain built on
+`ubuntu-22.04` by `build-test.yml`. The workflow is manual-only; do not attach a
+self-hosted runner to public pull-request workflows.
+
 The weekly **Build Native** run and the release workflow reuse that job. Release archives are
 `nam-grid-windows-x64.zip`, `nam-grid-macos-arm64.zip` and `nam-grid-linux-x64.zip`; each
 contains CLAP, VST3, `ThirdPartyNotices.txt` and `notices/`. `scripts/package-release.py`

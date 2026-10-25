@@ -25,17 +25,17 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     for (int i = 0; i <= 2; ++i)
       g.DrawLine(border.WithOpacity(.4f), plot.L, plot.T + plot.H() * i / 2.f, plot.R, plot.T + plot.H() * i / 2.f);
   };
-  const auto timeLabel = [&](double seconds) {
+  const auto timeLabel = [&](double seconds, const char* scale = "Modulation over time") {
     WDL_String text; text.SetFormatted(32, seconds < .1 ? "%.1f ms" : "%.1f s", seconds < .1 ? seconds * 1000. : seconds);
-    PlotFooter(g,plot,"Modulation over time",text.Get());
+    PlotFooter(g,plot,scale,text.Get());
   };
   WDL_String text;
   grid();
   if (juno)
   {
     const int mode = static_cast<int>(value(uJunoMode));
-    text.SetFormatted(64, "Mode %s | delay 1.7-5.4 ms", mode == 0 ? "I" : mode == 1 ? "I+II" : "II"); caption(text.Get());
-    text.SetFormatted(80,"L / R delays | Bright %.0f%% | Wet %.0f%%",value(uJunoBrightness),value(uJunoMix)); PlotDetail(g,plot,text.Get());
+    caption("Stereo delay sweep | 1.7-5.4 ms");
+    PlotDetail(g,plot,"Left/right delay times for each active chorus voice. Cyan: left; amber: right. Faint traces show the second voice.");
     for (int voice = 0; voice < 2; ++voice)
       if ((voice == 0 && mode != 2) || (voice == 1 && mode != 0))
         for (bool right : {true, false})
@@ -53,8 +53,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     const double spread = value(uRotarySpread) * .01, ramp = std::max(.01, value(uRotaryAccel));
     // Horn Doppler: delay 4 +/- 1.8 ms swept at the rotor speed. Its pitch swing
     // grows with speed, which is much of the slow / fast character.
-    text.SetFormatted(64, "Horn %.1f Hz | Doppler +/-%.0f ct", speed, effect_preview::SweepCents(.0018, speed)); caption(text.Get());
-    text.SetFormatted(80,"Ramp %.1fs | Drive %.0fdB (horn >800 Hz)",ramp,value(uRotaryDrive)); PlotDetail(g,plot,text.Get());
+    text.SetFormatted(64, "Doppler +/-%.0f ct", effect_preview::SweepCents(.0018, speed)); caption(text.Get());
+    PlotDetail(g,plot,"Left: speed ramp after switching slow/fast. Right: settled stereo gain modulation; faint traces are the drum, bright traces the horn above 800 Hz.");
     // Left: the one-pole speed change after toggling Speed. Right: settled gain.
     const IRECT rampPlot(plot.L, plot.T, plot.L + plot.W() * .36f, plot.B), am(rampPlot.R + 12.f, plot.T, plot.R, plot.B);
     const double from = fast ? slow : quick, top = std::max(slow, quick) * 1.15;
@@ -73,20 +73,18 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
             0., 1.1, (right ? ampColor : color).WithOpacity(.4f), 1.f);
     }
     text.SetFormatted(64, "Ramp %.1f s | gain 2 s", 5. * ramp);
-    WDL_String wet; wet.SetFormatted(32, "Wet %.0f%%", value(uRotaryMix));
-    PlotFooter(g,plot,text.Get(),wet.Get());
+    PlotFooter(g,plot,text.Get());
   }
   else if (ring)
   {
     const double frequency = value(uRingFrequency);
-    text.SetFormatted(64, "Carrier %.0f Hz", frequency); caption(text.Get());
+    caption("Ring modulation | 220 Hz input");
     // wet = LowPass(x * (1 - Depth + Depth sin)): each partial f keeps (1 - Depth)
     // and gains f +/- carrier at Depth / 2. Those sidebands are inharmonic.
     const double depth = value(uRingFrequency + 1) * .01, mix = value(uRingFrequency + 3) * .01;
     const double tone = std::min(.45 * sampleRate, value(uRingFrequency + 2));
     const double upper = std::max(1200., 880. + frequency) * 1.05;
-    text.SetFormatted(80, "Depth %.0f%% | 220 Hz harmonics | Wet %.0f%%", depth * 100., mix * 100.);
-    PlotDetail(g,plot,text.Get());
+    PlotDetail(g,plot,"A 220 Hz reference and its harmonics. Gray: retained partials; colour: carrier sidebands. High cut shapes all components.");
     const auto bar = [&](double hz, double level, IColor ink, float width) {
       if (hz <= 0. || hz > upper || level < .005) return;
       const float x = plot.L + plot.W() * static_cast<float>(hz / upper);
@@ -108,7 +106,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   else if (vibe)
   {
     const bool vibrato = value(uVibeMode) >= .5;
-    text.SetFormatted(64, "%s | %.2f Hz", vibrato ? "Vibrato" : "Chorus", rate); caption(text.Get());
+    caption(vibrato ? "Pitch modulation" : "Moving notch response");
     // Chorus mode sums dry with four allpasses: moving notches. Vibrato mode is
     // the allpasses alone: flat magnitude, the sweep is heard as pitch.
     PlotDetail(g,plot,vibrato ? "Flat magnitude: the lamp sweep moves pitch" : "Notches at lamp low / centre / high");
@@ -126,7 +124,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   else if (effect == SlotEffect::Phaser || effect == SlotEffect::Flanger)
   {
     const bool flange = effect == SlotEffect::Flanger;
-    text.SetFormatted(64, flange ? "Comb sweep | %.2f Hz" : "6-stage sweep | %.2f Hz", rate); caption(text.Get());
+    caption(flange ? "Comb sweep" : "6-stage sweep");
     UtilityControls controls;
     for (int i=0;i<5;++i) controls.modulation[i]=value(uModRate+i);
     if (flange) PlotDetail(g,plot,character > .5 ? "Negative feedback also darkens (12k > 3k)" : "Frozen sweep phases | small-signal response");
@@ -147,7 +145,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   else if (effect == SlotEffect::Tremolo)
   {
     const bool envelope = value(uTempoSync) < .5 && character > 0.;
-    text.SetFormatted(64, envelope ? "%.2f Hz + envelope" : "Gain | %.2f Hz", rate); caption(text.Get());
+    caption(envelope ? "Gain + envelope modulation" : "Gain modulation");
     const auto gain = [&](double t, double speed) {
       const double shape = 1. + 5. * character;
       return 1. - .5 * depth * (1. + std::tanh(shape * std::sin(2. * grid_fx::pi * t * 2. * speed)) / std::tanh(shape));
@@ -155,18 +153,18 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     PlotDetail(g,plot,envelope ? "0 - 100% gain | faint: loud-note rate" : "0 - 100% gain | includes dry/wet mix");
     if (envelope) curve([&](double t) { return 1.-value(uModMix)*.01+value(uModMix)*.01*gain(t, rate*(1.+character*3.)); },0.,1.1,color.WithOpacity(.25f));
     curve([&](double t) { return 1. - value(uModMix) * .01 + value(uModMix) * .01 * gain(t, rate); }, 0., 1.1, color);
-    timeLabel(2.);
+    timeLabel(2., "Gain 0 - 100%");
   }
   else
   {
     const bool flange = effect == SlotEffect::Flanger, vibrato = effect == SlotEffect::Vibrato;
     const double center = flange ? 3. : vibrato ? 8. : 18.;
     const double excursion = flange ? 2.5 : 6.;
-    text.SetFormatted(64, "Delay | %.2f Hz", rate); caption(text.Get());
     // Rate x Depth sets the detune: pitch ratio = 1 - d(delay)/dt.
     const double cents = effect_preview::SweepCents(excursion * .001 * depth, rate, 1. + .25 * character);
+    text.SetFormatted(80, "Delay modulation | pitch +/-%.1f ct", cents); caption(text.Get());
     if (vibrato) text.SetFormatted(80, "0 - 16 ms | pitch +/-%.1f ct", cents);
-    else text.SetFormatted(80, "0 - 26 ms | +/-%.1f ct | Wet %.0f%%", cents, value(uModMix));
+    else text.SetFormatted(80, "0 - 26 ms | pitch +/-%.1f ct", cents);
     PlotDetail(g,plot,text.Get());
     for (bool right : {true, false})
     {
@@ -180,7 +178,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
       }, 0., flange ? 6. : vibrato ? 16. : 26.,
       right ? ampColor : color);
     }
-    timeLabel(2.);
+    timeLabel(2., vibrato ? "Delay 0 - 16 ms" : "Delay 0 - 26 ms");
   }
   return true;
 }

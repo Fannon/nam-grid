@@ -232,7 +232,7 @@ In the header:
 
 - **Style** (Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator, Lyra; starts at Virgo) Six echo and reverb characters; see [the styles](cosmic-echo.md#styles). Switching fades out the old tail.
 
-**Display:** The measured wet response to one impulse, on a dB scale. Separate spikes are distinct echoes; Warp spreads the delay lines into a wash and Density then thickens it. At Warp 0, Density changes little.
+**Display:** The measured wet response to one impulse above a network sketch of the style's 4 or 16 delay lines. Separate spikes are distinct echoes; Warp spreads the delay lines into a wash and Density then thickens it. The lower sketch shows base line times and modulation halos on its own time scale. At Warp 0, Density changes little and line markers can overlap.
 
 **Tips:**
 

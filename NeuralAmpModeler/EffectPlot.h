@@ -3,12 +3,34 @@
 
 namespace grid_ui
 {
-// Every FX preview reserves the same title, explanation, chart and footer rows.
+// Every FX preview reserves the same title, chart and footer rows.
 // Muted = reference/dry, module colour = processed, amber = second channel/GR.
+class PlotHelp : public IControl
+{
+public:
+  explicit PlotHelp(const IRECT& bounds) : IControl(bounds) { SetIgnoreMouse(false); }
+  void Draw(IGraphics&) override {}
+  void Begin() { mDetail.clear(); }
+  void Detail(const char* text) { mDetail = text; }
+  void End(IGraphics& g)
+  {
+    if (mDetail != GetTooltip())
+    {
+      SetTooltip(mDetail.c_str());
+      g.UpdateTooltips();
+    }
+  }
+private:
+  std::string mDetail;
+};
 inline void PlotTitle(IGraphics& g, const IRECT& p, IColor ink, const char* title)
 { g.DrawText(Text(14.f, ink), title, IRECT(p.L, grid_layout::plotTitleTop, p.R, grid_layout::plotTitleBottom)); }
-inline void PlotDetail(IGraphics& g, const IRECT& p, const char* detail)
-{ g.DrawText(Text(13.f, muted), detail, IRECT(p.L, grid_layout::plotDetailTop, p.R, grid_layout::plotDetailBottom)); }
+inline void PlotDetail(IGraphics& g, const IRECT&, const char* detail)
+{
+  const auto slot = static_cast<PLUG_CLASS_NAME*>(g.GetDelegate())->GetSelectedSlot();
+  if (auto* help = g.GetControlWithTag(kCtrlTagPlotHelpBase + static_cast<int>(slot)))
+    static_cast<PlotHelp*>(help)->Detail(detail);
+}
 inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const char* right = "")
 {
   const float split = *right ? p.R - 92.f : p.R;

@@ -24,11 +24,10 @@ inline constexpr int visualizationInset = 4, visualizationTop = editorTop + visu
 inline constexpr int visualizationLeft = 564;
 inline constexpr int visualizationRight = width - visualizationInset;
 inline constexpr int visualizationBottom = height - visualizationInset;
-// Inside the visualization, from the top down: title, description, chart, module legend and
-// the shared level meters. The text rows sit close together so the chart keeps its height.
+// Inside the visualization: title, chart, axis legend and shared level meters.
+// Explanations are hover help, leaving their former row available to the chart.
 inline constexpr int plotTitleTop = 488, plotTitleBottom = 507;
-inline constexpr int plotDetailTop = 508, plotDetailBottom = 526;
-inline constexpr int plotTop = 530;
+inline constexpr int plotTop = 510;
 inline constexpr int plotMetersTop = visualizationBottom - 18, plotMetersBottom = visualizationBottom - 2;
 inline constexpr int plotFooterTop = plotMetersTop - 20, plotFooterBottom = plotMetersTop - 2;
 inline constexpr int plotBottom = plotFooterTop - 4;

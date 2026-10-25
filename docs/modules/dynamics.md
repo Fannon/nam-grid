@@ -150,7 +150,7 @@ A channel strip after Airwindows CStrip2: low and high cuts into a compressor an
 | **Saturate** | 0–100% | 15% | Adds output saturation. Use Output to match loudness. |
 | **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 
-**Display:** The cuts over the output spectrum and gain-reduction history on a 0–16 dB scale. Speed and Saturate appear in the title.
+**Display:** The cuts over the output spectrum and gain-reduction history on a 0–16 dB scale. The title shows the live gain reduction; hover over the graph for its explanation.
 
 ## Peak Limiter
 

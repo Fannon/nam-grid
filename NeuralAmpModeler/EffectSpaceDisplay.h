@@ -5,41 +5,70 @@
 namespace grid_ui
 {
 // Cosmic Echo's measured wet response to one impulse (ImpulseProbe), on a dB scale
-// over a fixed time window. Separate spikes are distinct echoes; Warp spreads them,
-// Density and Feedback blur them into a smooth wash. Until the measurement for the
-// current settings arrives, the previous one is shown dimmed.
+// over a fixed time window, above the base delay-line sketch. Separate spikes are
+// distinct echoes; Warp spreads them, Density and Feedback blur them into a smooth
+// wash. Until the current measurement arrives, the previous one is shown dimmed.
 template<class Value>
-void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const ImpulseProbe::Result& measured, bool current)
+void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const ImpulseProbe::Result& measured, bool current, double rate)
 {
   const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,effect_modes::cosmicCount-1);
+  const IRECT response(plot.L,plot.T,plot.R,plot.T+std::round(plot.H()*.56f));
+  const IRECT lines(plot.L,response.B+31.f,plot.R,plot.B);
   WDL_String text;
-  text.SetFormatted(64,"%s | %.0f ms",effect_modes::cosmicNames[style],value(uCosmicTime));
-  PlotTitle(g,plot,delayColor,text.Get());
-  text.SetFormatted(80,"Warp %.0f%% | Density %.0f%% | FB %.0f%%",value(uCosmicWarp),value(uCosmicDensity),value(uCosmicFeedback));
-  PlotDetail(g,plot,text.Get());
-  PlotGrid(g,plot);
-  g.DrawLine(border,plot.L,plot.B,plot.R,plot.B);
+  PlotTitle(g,plot,delayColor,"Measured echo response / delay lines");
+  PlotDetail(g,plot,"Top: measured wet impulse; Warp spreads echoes and Density fills the tail. Below: base delay-line times, density connections and motion halos. Each view has its own time span; colours identify network groups, not output channels.");
+  PlotGrid(g,response);
+  g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
   {
     float loudest=0.f;
     for(const float peak : measured.peak) loudest=std::max(loudest,peak);
     const auto y=[&](float peak) {
       const double db=20.*std::log10(std::max(1.e-9,static_cast<double>(peak/std::max(loudest,1.e-9f))));
-      return plot.B-plot.H()*static_cast<float>(std::clamp((db+48.)/48.,0.,1.));
+      return response.B-response.H()*static_cast<float>(std::clamp((db+48.)/48.,0.,1.));
     };
-    const float width=plot.W()/ImpulseProbe::bins, opacity=current ? 1.f : .35f;
+    const float width=response.W()/ImpulseProbe::bins, opacity=current ? 1.f : .35f;
     for(int i=0;i<ImpulseProbe::bins;++i)
     {
-      const float x=plot.L+width*i, top=y(measured.peak[i]);
-      g.FillRect(delayColor.WithOpacity(.25f*opacity),IRECT(x,top,x+width,plot.B));
+      const float x=response.L+width*i, top=y(measured.peak[i]);
+      g.FillRect(delayColor.WithOpacity(.25f*opacity),IRECT(x,top,x+width,response.B));
       if(i) g.DrawLine(delayColor.WithOpacity(opacity),x-width*.5f,y(measured.peak[i-1]),x+width*.5f,top,nullptr,1.5f);
     }
   }
   if(!current)
-    g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(plot.L,plot.T,plot.R,plot.T+20));
+    g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(response.L,response.T,response.R,response.T+20));
   if(measured.seconds<1.) text.SetFormatted(32,"%.0f ms",measured.seconds*1000.);
   else text.SetFormatted(32,"%.1f s",measured.seconds);
-  PlotFooter(g,plot,"Measured impulse | 0 to -48 dB",measured.valid ? text.Get() : "");
+  g.DrawText(Text(11.f,muted),"Measured impulse | 0 to -48 dB",IRECT(plot.L,response.B+1.f,plot.R-75.f,response.B+14.f));
+  if(measured.valid)
+    g.DrawText(Text(11.f,muted,EAlign::Far),text.Get(),IRECT(plot.R-75.f,response.B+1.f,plot.R,response.B+14.f));
+
+  // Restore the original network sketch underneath the measured response. Its
+  // shorter time axis shows base line lengths, not every repeat in the wet tail.
+  const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
+  const double horizon=effect_preview::TimeHorizon(plan.seconds[0]*1.03), density=value(uCosmicDensity)*.01;
+  const double motion=(500./48000.)*std::pow(value(uCosmicMotion)*.01,2.);
+  text.SetFormatted(64,"%d delay lines | base times + motion",plan.count);
+  g.DrawText(Text(12.f,muted),text.Get(),IRECT(plot.L,response.B+16.f,plot.R,lines.T));
+  g.DrawLine(border,lines.L,lines.B,lines.R,lines.B);
+  for(int i=0;i<plan.count;++i)
+  {
+    const float x=lines.L+lines.W()*static_cast<float>(plan.seconds[i]/horizon);
+    const float height=lines.H()*static_cast<float>(.3+.5*density);
+    const int group=style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
+    const auto ink=group ? ampColor : delayColor;
+    const float spread=std::clamp(static_cast<float>(lines.W()*motion/horizon),0.f,12.f);
+    if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
+    g.DrawLine(ink,x,lines.B,x,lines.B-height,nullptr,2.f);
+    if(i && density>.01)
+    {
+      const float previous=lines.L+lines.W()*static_cast<float>(plan.seconds[i-1]/horizon);
+      g.DrawLine(delayColor.WithOpacity(static_cast<float>(density*.3)),previous,lines.B-height,x,lines.B-height*.55f);
+    }
+  }
+  // Colours identify network groups; they are not direct left/right output taps.
+  text.SetFormatted(32,"%.0f ms",horizon*1000.);
+  PlotFooter(g,plot,"Network sketch | colours = line groups",text.Get());
 }
 
 template<class Value>
@@ -54,20 +83,19 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const double decay=spring ? value(uSpringDecay) : shimmer ? value(uShimmerDecay) : native ? 1. : value(uReverbDecay);
   const double sustain=plate ? value(uAirPlateSustain)*.01 : hall ? value(uAirHallSustain)*.01 : space ? 1.-value(uSpaceReplace)*.01 : 1.;
   const double pre=spring || shimmer || hall || space ? 0. : value(plate ? uAirPlatePredelay : uReverbPredelay)*.001;
-  const double mix=value(plate ? uAirPlateMix : hall ? uAirHallMix : space ? uSpaceMix : spring ? uSpringMix : shimmer ? uShimmerMix : uReverbMix)*.01;
   const double brightness=native ? plate ? .5 : value(hall ? uAirHallTone : uSpaceBrightness)*.01
                                   : std::clamp(value(shimmer ? uShimmerTone : uReverbTone)/12000.,.05,1.);
   const double motion=space ? value(uSpaceDetune)*.01 : spring ? value(uSpringDrip)*.01 : native ? 0. : value(shimmer ? uShimmerMod : uReverbMotion)*.01;
   const double early=hall ? value(uAirHallEarly)*.01 : space ? 0. : effect==SlotEffect::RoomReverb ? .8 : plate ? .2 : spring ? .5 : .4;
   WDL_String text;
-  if(space) text.SetFormatted(64,"Size %.0f%% | Replace %.0f%%",value(uSpaceSize),value(uSpaceReplace));
-  else if(native) text.SetFormatted(64,"Sustain %.0f%% | Res %.0f%%",sustain*100.,value(plate ? uAirPlateResolution : uAirHallResolution));
+  if(native) text.Set("Relative decay envelope");
   else if(frozen) text.Set("Shimmer | frozen tail");
-  else if(spring || shimmer) text.SetFormatted(64,"%s | %.1f s",spring ? "Spring" : "Shimmer",decay);
-  else text.SetFormatted(64,"Size %.0f%% | %.1f s",size*100.,decay);
+  else if(shimmer) text.Set("Decay / pitch layers");
+  else if(spring) text.Set("Reflections / decay");
+  else text.Set("Decay by frequency");
   PlotTitle(g,plot,color,text.Get());
-  if(shimmer) text.SetFormatted(80,"Pitch %+.0fst | Amount %.0f%%%s",value(uShimmerPitch),frozen ? 0. : value(uShimmerAmount),frozen ? " (frozen)" : "");
-  else if(spring) text.SetFormatted(80,"Drip %.0f%% | Dwell %+.0fdB",value(uSpringDrip),value(uSpringDwell));
+  if(shimmer) text.Set("The decay envelope and successive pitch layers share a logarithmic time axis. Freezing holds the tail without adding new pitch layers.");
+  else if(spring) text.Set("Reflections feed the spring's decay; Drip and Dwell change their shape.");
   else if(native) text.Set("Relative tank | dots: HF | amber: early");
   if(native || spring || shimmer) PlotDetail(g,plot,text.Get());
   const IRECT field=plot;
@@ -94,8 +122,8 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     PlotDetail(g,plot,text.Get());
   }
   float previousLow=0.f,previousHigh=0.f,previousX=0.f; bool first=true;
-  // The sketch describes the wet tank's shape. Mix belongs in the readout;
-  // scaling the drawing by a typical 5-30% wet setting hides its decay.
+  // The sketch describes the wet tank's shape at full scale; typical low wet
+  // settings would otherwise hide its decay.
   const double lateHeight=.8;
   for(int i=0;i<64;++i)
   {
@@ -153,10 +181,10 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
       g.DrawText(Text(11.f,muted),text.Get(),IRECT(right+3.f,y-6.f,field.R,y+6.f));
     }
   }
-  if(native || spring)
-    text.SetFormatted(64,"Wet %.0f%% | Out %+.0f dB",mix*100.,value(plate ? uAirPlateOutput : hall ? uAirHallOutput : space ? uSpaceOutput : uSpringOutput));
-  else if(shimmer) text.SetFormatted(64,"Wet %.0f%% | Log time",mix*100.);
-  else text.SetFormatted(64,"Wet %.0f%% | HP %.0f Hz",mix*100.,value(uReverbHighPass));
+  if(native) text.Set("Relative tank | amber: early reflections");
+  else if(spring) text.Set("Reflections + decay | log time");
+  else if(shimmer) text.Set("Decay + pitch layers | log time");
+  else text.SetFormatted(80,"Low %.1f s | high %.1f s",lowDecay,highDecay);
   WDL_String end;
   if(!native) end.SetFormatted(32,"%.1f s (log)",horizon);
   else end.Set("Relative");

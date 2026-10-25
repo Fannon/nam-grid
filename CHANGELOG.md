@@ -6,11 +6,14 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Cosmic Echo shows its delay-line network sketch below the measured response, with an explicit 4- or 16-line count, timing markers, density connections and modulation halos.
+- Hover over a truncated module description to read its full text.
 - A single-command `bash build.sh` build for Git Bash on Windows, WSL2, macOS and Linux, with automatic first-run dependency setup, incremental builds under `build/<platform>/release/`, and `--test` to run the standard test suites.
 - Windows build guidance includes WinGet installation commands and portable MSVC/Ninja support; the build help documents manual cross-platform GitHub Actions builds and macOS signing limitations.
 
 ### Changed
 
+- Module graphs use more vertical space, with explanations available on hover and captions focused on live measurements and useful derived information instead of repeating knob values. Editable knob values show a text cursor on hover.
 - Compressor and limiter gain-reduction displays use a 16 dB scale instead of 24 dB, with 2 and 4 dB guides in Outboard Channel and Butter Comp histories so gentle compression is easier to see. Gate attenuation displays retain their wider ranges.
 
 ## [0.2.1] - 2026-10-25

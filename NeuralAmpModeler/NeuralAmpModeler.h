@@ -78,7 +78,8 @@ enum ECtrlTags
   kCtrlTagRoutingButton,
   kCtrlTagMainMacros,
   kCtrlTagGridSlotBase = 100,
-  kNumCtrlTags
+  kCtrlTagPlotHelpBase = 200,
+  kNumCtrlTags = kCtrlTagPlotHelpBase + 16
 };
 
 // Delegate -> slot control messages.

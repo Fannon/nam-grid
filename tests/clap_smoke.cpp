@@ -6,6 +6,9 @@
 #include <cstdlib>
 #include "WinEditorCapture.h"
 #include "WinEditMenuDriver.h"
+#ifdef _WIN32
+#include <commctrl.h>
+#endif
 #include "../NeuralAmpModeler/EffectParameters.h"
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
@@ -1070,6 +1073,58 @@ int main(int argc, char** argv)
     pumpFor(50);
   };
   {
+    // Read the native tooltip, not an internal label property: the description's
+    // hover region must work alongside header options and update on state loads.
+    HWND tooltip = nullptr;
+    std::pair<HWND, HWND*> match{editor, &tooltip};
+    EnumThreadWindows(GetCurrentThreadId(), [](HWND candidate, LPARAM data) -> BOOL {
+      const auto& target = *reinterpret_cast<std::pair<HWND, HWND*>*>(data);
+      wchar_t kind[64]{}; GetClassNameW(candidate, kind, 64);
+      if (lstrcmpW(kind, TOOLTIPS_CLASSW)) return TRUE;
+      TOOLINFOW info{}; info.cbSize = TTTOOLINFOW_V2_SIZE;
+      info.hwnd = target.first; info.uId = reinterpret_cast<UINT_PTR>(target.first);
+      if (!SendMessageW(candidate, TTM_GETTOOLINFOW, 0, reinterpret_cast<LPARAM>(&info))) return TRUE;
+      *target.second = candidate;
+      return FALSE;
+    }, reinterpret_cast<LPARAM>(&match));
+    assert(tooltip);
+    const auto descriptionTooltip = [&](int x = 100, int y = grid_layout::descriptionTop + 8) {
+      InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
+      SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
+      SendMessage(editor, WM_MOUSEHOVER, 0, 0);
+      std::array<wchar_t, 2048> text{};
+      TOOLINFOW info{}; info.cbSize = TTTOOLINFOW_V2_SIZE;
+      info.hwnd = editor; info.uId = reinterpret_cast<UINT_PTR>(editor); info.lpszText = text.data();
+      SendMessageW(tooltip, TTM_GETTEXTW, text.size(), reinterpret_cast<LPARAM>(&info));
+      return std::wstring(text.data());
+    };
+    auto previous = save().config();
+    auto description = cleared;
+    description["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalBlack);
+    load(description); selectTile(170, 120);
+    const auto beforeHover = save().config();
+    const std::string full = effect_presentation::Sound(SlotEffect::DigitalBlack);
+    assert(descriptionTooltip() == std::wstring(full.begin(), full.end()));
+    assert(save().config() == beforeHover);
+    description["Pre 1 Enabled"] = 0.; load(description); selectTile(170, 120);
+    assert(descriptionTooltip() == std::wstring(L"Bypassed | ") + std::wstring(full.begin(), full.end()));
+    description["Pre 1 Enabled"] = 1.;
+    description["SlotEffects"][0] = static_cast<int>(SlotEffect::SmoothComp);
+    load(description); selectTile(170, 120);
+    assert(descriptionTooltip().empty()); // A fitting description must clear the previous module's hint.
+    if (argc == 4) // Plot help is produced by rendering; the snapshot host shows the editor.
+    {
+      description["SlotEffects"][0] = static_cast<int>(SlotEffect::Limiter);
+      load(description); selectTile(170, 120);
+      const auto help = descriptionTooltip(800, grid_layout::plotTop + 30);
+      if (help.find(L"limiting curve") == std::wstring::npos) std::wcerr << L"Unexpected plot help: " << help << L'\n';
+      assert(help.find(L"limiting curve") != std::wstring::npos);
+    }
+    SendMessage(editor, WM_MOUSELEAVE, 0, 0);
+    load(previous);
+    std::cout << "Native tooltips: clipped descriptions, bypass prefix, fitting text and state preservation passed\n";
+  }
+  {
     auto previous = save().config();
     const std::pair<SlotEffect, int> modes[]{
       {SlotEffect::CosmicEcho, uCosmicStyle}, {SlotEffect::MultiHeadDelay, uTapeHeads},
@@ -1632,13 +1687,17 @@ int main(int argc, char** argv)
     const auto dragTile = [&](int from, int to, WPARAM keys = 0, bool alt = false) {
       BYTE previous[256]{}, state[256]{};
       assert(GetKeyboardState(previous)); std::copy(std::begin(previous), std::end(previous), state);
-      if (alt) { state[VK_MENU] = 0x80; assert(SetKeyboardState(state)); }
+      // Use the requested gesture even if the user is typing while this host runs.
+      state[VK_MENU] = alt ? 0x80 : 0;
+      state[VK_SHIFT] = (keys & MK_SHIFT) ? 0x80 : 0;
+      state[VK_CONTROL] = (keys & MK_CONTROL) ? 0x80 : 0;
+      assert(SetKeyboardState(state));
       const auto [x0, y0] = header(from); const auto [x1, y1] = header(to);
       SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON | keys, MAKELPARAM(x0, y0));
       SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON | keys, MAKELPARAM((x0 + x1) / 2, (y0 + y1) / 2));
       SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON | keys, MAKELPARAM(x1, y1));
       SendMessage(editor, WM_LBUTTONUP, keys, MAKELPARAM(x1, y1));
-      if (alt) assert(SetKeyboardState(previous));
+      assert(SetKeyboardState(previous));
       pumpFor(150);
     };
     const auto effects = [&] {
@@ -1651,6 +1710,11 @@ int main(int argc, char** argv)
     const int ir = static_cast<int>(SlotEffect::CabinetIR), none = static_cast<int>(SlotEffect::NAM);
     assert((effects() == std::array<int, 4>{tone, cut, ir, none}));
     dragTile(0, 1); // Occupied target: swap.
+    if (effects() != std::array<int, 4>{cut, tone, ir, none})
+    {
+      const auto actual = effects();
+      std::cerr << "Drag swap produced " << actual[0] << ',' << actual[1] << ',' << actual[2] << ',' << actual[3] << '\n';
+    }
     assert((effects() == std::array<int, 4>{cut, tone, ir, none}));
     dragTile(1, 3); // Empty target: move.
     assert((effects() == std::array<int, 4>{cut, none, ir, tone}));
@@ -1688,6 +1752,21 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 1 EQ Bass"] == 3.);
   resetDial(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   assert(save().config()["Pre 1 EQ Bass"] == 0.);
+  {
+    auto previous = save().config();
+    auto cosmic = previous;
+    cosmic["SlotEffects"][0] = static_cast<int>(SlotEffect::CosmicEcho);
+    load(cosmic); selectTile(170, 120);
+    InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
+    click(grid_layout::KnobX(0), grid_layout::KnobValueY(0));
+    keyAtEditor('2'); keyAtEditor('5'); keyAtEditor('0'); keyAtEditor(VK_RETURN);
+    // Time uses a power curve, so the host's normalized round trip need not be bit-exact.
+    const double enteredTime = save().config()["Pre 1 Cosmic Time"].get<double>();
+    if (std::abs(enteredTime - 250.) >= 1.e-6) std::cerr << "Typed Cosmic Time became " << enteredTime << " ms\n";
+    assert(std::abs(enteredTime - 250.) < 1.e-6);
+    load(previous); selectTile(170, 120);
+    std::cout << "Cosmic Echo: direct numeric entry of 250 ms passed\n";
+  }
   for (const auto& control : std::array<std::tuple<int, int, int, const char*, double>, 3>{{
          {37, 130, 100, "Input", 0.}, {967, 298, 268, "A/B Blend", 50.}, {967, 442, 412, "Output", 0.}}})
   {

@@ -196,6 +196,17 @@ public:
   , mDestination(grid_modulation::DestinationOf(parameter))
   {
   }
+  // A text cursor makes the existing editable value below the knob discoverable.
+  void OnMouseOver(float x, float y, const IMouseMod& mod) override
+  {
+    IVKnobControl::OnMouseOver(x, y, mod);
+    GetUI()->SetMouseCursor(GetValueBounds().Contains(x, y) ? ECursor::IBEAM : ECursor::ARROW);
+  }
+  void OnMouseOut() override
+  {
+    IVKnobControl::OnMouseOut();
+    GetUI()->SetMouseCursor();
+  }
   // Right-click: assign a source to this knob (VST3 hosts add their own entries).
   void CreateContextMenu(IPopupMenu& menu) override
   {
@@ -1142,14 +1153,12 @@ public:
     const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, grid_layout::moduleBrowseX - 26, grid_layout::moduleHeaderBottom);
     if (mModelButton->GetRECT() != nameBounds) mModelButton->SetTargetAndDrawRECTs(nameBounds);
   }
-  void DrawEditor(IGraphics& g)
+  void LayoutDescription(IGraphics& g, bool draw)
   {
     using namespace grid_ui;
-    LayoutHeader(g, true);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
-    const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
     const auto hint = std::string(enabled ? "" : "Bypassed | ")
@@ -1166,8 +1175,31 @@ public:
     shorten(mQualityButton);
     for (int i = 0; i < kUtilityControls; ++i)
       if (effect_presentation::HeaderControl(i)) shorten(mUtilityKnobs[i]);
-    if (!empty) FittedText(g, Text(14.f, muted), hint, IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop, hintRight, grid_layout::descriptionBottom));
-    if (HasVisualization() && PLUG()->GetShowVisualizations())
+    const IRECT hintBounds(grid_layout::parameterLeft, grid_layout::descriptionTop, hintRight, grid_layout::descriptionBottom);
+    const bool moved = mDescriptionHint->GetRECT() != hintBounds;
+    if (moved) mDescriptionHint->SetTargetAndDrawRECTs(hintBounds);
+    const auto style = Text(14.f, muted);
+    IRECT measured; g.MeasureText(style, hint.c_str(), measured);
+    const std::string tooltip = !empty && measured.W() > hintBounds.W() ? hint : "";
+    if (moved || tooltip != mDescriptionHint->GetTooltip())
+    {
+      mDescriptionHint->SetTooltip(tooltip.c_str());
+      g.UpdateTooltips(); // Refresh native tracking rectangles on macOS as well.
+    }
+    if (draw && !empty) FittedText(g, style, hint, hintBounds);
+  }
+  void DrawEditor(IGraphics& g)
+  {
+    using namespace grid_ui;
+    LayoutHeader(g, true);
+    LayoutDescription(g, true);
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    const bool empty = PLUG()->GetSlotPath(mSlot).empty() && effect == SlotEffect::NAM;
+    const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
+    const bool visualization = HasVisualization() && PLUG()->GetShowVisualizations();
+    if (mPlotHelp->IsHidden() == visualization) mPlotHelp->Hide(!visualization);
+    mPlotHelp->Begin();
+    if (visualization)
     {
       DrawVisualization(g);
       // The selected module's own input and output sit in the visualization footer.
@@ -1175,6 +1207,7 @@ public:
         DrawModuleLevels(g, IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotMetersTop, grid_layout::visualizationRight - 12, grid_layout::plotMetersBottom),
                          mLevels, mModuleLevels, tone.first);
     }
+    mPlotHelp->End(g);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
 
@@ -1292,6 +1325,13 @@ public:
   {
     mEditor = new grid_ui::Editor(IRECT(0, grid_layout::editorTop, grid_layout::visualizationRight, grid_layout::visualizationBottom), [this](IGraphics& g) { DrawEditor(g); });
     GetUI()->AttachControl(mEditor);
+    // The description is drawn by the editor; this empty label supplies its hover region.
+    mDescriptionHint = new grid_ui::HintLabel(IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop,
+      grid_layout::parameterRight, grid_layout::descriptionBottom), "", grid_ui::Text(14.f, grid_ui::muted), "");
+    mEditor->AddChildControl(mDescriptionHint);
+    mPlotHelp = new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
+      grid_layout::visualizationRight - 12, grid_layout::plotFooterBottom));
+    mEditor->AddChildControl(mPlotHelp, kCtrlTagPlotHelpBase + static_cast<int>(mSlot));
     // Controls live in a shared bottom editor; each slot keeps its original automation bindings.
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
     mModelButton = new grid_ui::ModuleButton(IRECT(92, grid_layout::moduleHeaderTop, 372, grid_layout::moduleHeaderBottom), [this](IControl*) { ShowMenu(); }, "Choose module...");
@@ -1516,6 +1556,7 @@ private:
   void DrawPedalDrive(IGraphics& g, const IRECT& plot, IColor color)
   {
     using namespace grid_ui;
+    PlotDetail(g, plot, "Left: loud and quiet test tones through the pedal; right: tone shaping. Gray is input, colour is processed.");
     const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
     const int style = std::clamp(static_cast<int>(value(uPedalStyle)), 0, effect_modes::pedalCount - 1);
     const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
@@ -1535,11 +1576,7 @@ private:
     const double body = value(uPedalBody), highCut = value(uPedalTone), split = value(uPedalSplit);
     const double keep = value(uPedalLowKeep) * .01, mix = value(uPedalMix) * .01;
     const double output = std::pow(10., value(uPedalOutput) * .05);
-    PlotTitle(g, plot, color, effect_modes::pedalNames[style]);
-    WDL_String detail;
-    detail.SetFormatted(96, "Drive %+.1f dB | %s %+.0f%% | Output %+.1f dB", driveDb,
-                        effect_modes::pedalCharacterNames[style], characterValue, value(uPedalOutput));
-    PlotDetail(g, plot, detail.Get());
+    PlotTitle(g, plot, color, "Pedal response | loud / quiet input");
     const IRECT shape(plot.L, plot.T, plot.MW() - 8.f, plot.B), tone(plot.MW() + 8.f, plot.T, plot.R, plot.B);
 
     // Up to two periods of a 220 Hz test tone through the selected voice, at a loud and a quiet
@@ -1621,9 +1658,7 @@ private:
     PlotCurve(g, tone, [&](double x) {
       return 20. * std::log10(std::max(1.e-9, magnitude(20. * std::pow(upper / 20., x))));
     }, -18., 18., color);
-    WDL_String footer;
-    footer.SetFormatted(96, "Body / high cut | Low keep %.0f%%", value(uPedalLowKeep));
-    PlotFooter(g, plot, footer.Get(), "20 Hz - 20k");
+    PlotFooter(g, plot, "Body / high cut / low keep", "20 Hz - 20k");
     mPedalPreview = g.EndLayer();
     mPedalPreviewKey = key;
     g.DrawLayer(mPedalPreview);
@@ -1705,11 +1740,10 @@ private:
       WDL_String caption;
       if (effect == SlotEffect::ConsoleColour)
       {
-        const int desk = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uColourDesk))->Int();
-        caption.SetFormatted(80, "%s | Input / output", effect_modes::deskNames[std::clamp(desk,0,7)]);
+        caption.Set("Measured input / output");
       }
       else if(effect==SlotEffect::DigitalBlack)
-        caption.SetFormatted(80,"Thr %.0f | Atten %.1f dB",GetDelegate()->GetParam(SlotUtilityParam(mSlot,uBlackThreshold))->Value(),mReductionNow);
+        caption.SetFormatted(80,"Attenuation %.1f dB",mReductionNow);
       else caption.SetFormatted(80,"Detector GR %.1f dB | IN / OUT",mReductionNow);
       PlotTitle(g,plot,color,caption.Get());
       // Program-dependent compressors have no static curve to draw: their gain reduction
@@ -1725,8 +1759,8 @@ private:
       }
       if (effect == SlotEffect::DigitalBlack)
       {
-        g.FillRect(surface,IRECT(plot.L,538,plot.R,541));
-        g.FillRect(ampColor,IRECT(plot.L,538,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),541));
+        g.FillRect(surface,IRECT(plot.L,plot.T+8.f,plot.R,plot.T+11.f));
+        g.FillRect(ampColor,IRECT(plot.L,plot.T+8.f,plot.L+plot.W()*std::clamp(mReductionNow/24.f,0.f,1.f),plot.T+11.f));
       }
       // The measured IN > OUT cloud shows how the desk / trims or the gate bend the levels.
       const float floorDB = effect==SlotEffect::DigitalBlack ? -90.f : -60.f;
@@ -1759,7 +1793,8 @@ private:
       auto& probe=PLUG()->GetImpulseProbe();
       probe.Ask(request);
       const auto measured=probe.Latest();
-      DrawCosmicSetup(g,plot,value,measured,measured.key==request.key);
+      const double rate=PLUG()->GetSampleRate()>0. ? PLUG()->GetSampleRate() : 48000.;
+      DrawCosmicSetup(g,plot,value,measured,measured.key==request.key,rate);
       if(measured.key!=request.key) mEditor->SetDirty(false); // Redraw until the measurement arrives.
     }
     else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
@@ -1773,11 +1808,11 @@ private:
       const bool off = smart && threshold <= -100.;
       WDL_String caption;
       if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
-      else caption.SetFormatted(64, "Thr %.0f | GR %.1f dB", threshold, mReductionNow);
+      else caption.SetFormatted(64, "GR %.1f dB", mReductionNow);
       PlotTitle(g,plot,color,caption.Get());
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
       const IRECT history(smart ? plot.L : plot.MW()+8,plot.T,plot.R,plot.B);
-      const IRECT reductionBar(plot.L,538,plot.R,541);
+      const IRECT reductionBar(plot.L,plot.T+8.f,plot.R,plot.T+11.f);
       const float reductionRange = gate || smart ? 24.f : compressionReductionRange;
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
@@ -1809,12 +1844,9 @@ private:
           g.FillCircle(text,px,py,3.f);
         }
         WDL_String info;
-        const double release=compressor ? GetDelegate()->GetParam(SlotDynamicsParam(mSlot,4))->Value()
-                            : gate ? GetDelegate()->GetParam(SlotDynamicsParam(mSlot,1))->Value()
-                            : GetDelegate()->GetParam(SlotUtilityParam(mSlot,uLimiterRelease))->Value();
-        if(compressor) info.Set("Dot: live input | history before makeup");
-        else if(gate) info.SetFormatted(80,"Dot: live | closes 3 dB below | %.0f ms",release);
-        else info.SetFormatted(80,"Dot: live input | release %.0f ms",release);
+        if(compressor) info.Set("Dot: live input on the compression curve. Gray: input; colour: output before makeup. Amber bar: gain reduction.");
+        else if(gate) info.Set("Dot: live input. The gate closes 3 dB below the opening threshold. Gray: input; colour: output. Amber bar: attenuation.");
+        else info.Set("Dot: live input on the limiting curve. Gray: input; colour: output. Dashed line: ceiling. Amber bar: gain reduction.");
         PlotDetail(g,plot,info.Get());
         if (gate) info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
         else info.SetFormatted(80,"IN %.0f..0 / OUT %.0f..+18 | GR 0..16 dB",floor,floor);
@@ -1846,8 +1878,8 @@ private:
       constexpr double hold = 40.;
       const IRECT sketch(plot.L, plot.T, plot.MW() - 8.f, plot.B), history(plot.MW() + 8.f, plot.T, plot.R, plot.B);
       WDL_String text;
-      text.SetFormatted(64, "Trigger %.0f dB | gain = OUT / IN", threshold); PlotTitle(g,plot,color,text.Get());
-      text.SetFormatted(80, "Rise %.0f | hold 40 | release %.0f ms", rise, release); PlotDetail(g,plot,text.Get());
+      PlotTitle(g,plot,color,"Envelope | gain = OUT / IN");
+      PlotDetail(g,plot,"Left: rise, fixed hold and release envelope. Right: live input and output; dashed line: trigger threshold.");
       // One shared time axis: Rise and Release change the shape, not only labels.
       const double total = rise + hold + 3. * release;
       const float riseEnd = sketch.L + sketch.W() * static_cast<float>(rise / total);
@@ -1943,7 +1975,7 @@ private:
         std::sort(mEQCurve.begin(), mEQCurve.end());
       }
       WDL_String caption;
-      if (filter) caption.SetFormatted(64, "%s %.0f Hz", key[16] == 1 ? "HP" : key[16] == 2 ? "BP" : "LP", key[12]);
+      if (filter) caption.Set("Filter response");
       else caption.Set("EQ response");
       PlotTitle(g,plot,color,caption.Get());
       WDL_String detail;
@@ -2043,11 +2075,7 @@ private:
   void DrawUtility(IGraphics& g, const IRECT& plot, IColor color)
   {
     using namespace grid_ui;
-    const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
-    WDL_String caption;
-    caption.SetFormatted(96, "Width %+.0f%% | Balance %+.0f%% | Polarity %s / %s", value(uUtilityStereo),
-                         value(uUtilityBalance), value(uUtilityInvertL) >= .5 ? "-" : "+", value(uUtilityInvertR) >= .5 ? "-" : "+");
-    PlotTitle(g, plot, color, caption.Get());
+    PlotTitle(g, plot, color, "Stereo field | correlation");
     PlotDetail(g, plot, "Goniometer: up = mono, across = side | correlation");
     const IRECT scope(plot.L, plot.T, plot.L + plot.H(), plot.B), meters(scope.R + 18.f, plot.T, plot.R, plot.B);
     g.DrawRect(border.WithOpacity(.5f), scope);
@@ -2102,19 +2130,17 @@ private:
     };
     level(meters.T + 52.f, "L", sumL);
     level(meters.T + 72.f, "R", sumR);
-    WDL_String footer;
-    footer.SetFormatted(64, "Fine delay %.2f ms", value(uUtilityDelay));
-    PlotFooter(g, plot, "Scope auto-scaled | RMS -60 to 0 dB", footer.Get());
+    PlotFooter(g, plot, "Scope auto-scaled", "RMS -60..0 dB");
   }
   // Outboard Channel is a cut EQ, a compressor and a saturator in series. The cuts and the
-  // gain reduction get views; Saturate's static curve changes too little to read, so the title names it.
+  // gain reduction get views; the title reports measured reduction rather than repeating knobs.
   void DrawOutboardChannel(IGraphics& g, const IRECT& plot, IColor color)
   {
     using namespace grid_ui;
     const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
     const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
     WDL_String caption;
-    caption.SetFormatted(96, "GR %.1f dB | Speed %.0f%% | Saturate %.0f%%", mReductionNow, value(uStripSpeed), value(uStripSaturate));
+    caption.SetFormatted(96, "GR %.1f dB", mReductionNow);
     PlotTitle(g, plot, color, caption.Get());
     PlotDetail(g, plot, "Cuts + output spectrum | GR");
     const IRECT eq(plot.L, plot.T, plot.L + std::round(plot.W() * .62f), plot.B), reduction(eq.R + 10.f, plot.T, plot.R, plot.B);
@@ -2148,7 +2174,7 @@ private:
     for (int i = 0; i < 7; ++i) controls[i] = value(uConsoleTreble + i);
     UpdateMeasuredResponse(SlotEffect::ConsoleEQ, controls, rate);
     WDL_String caption;
-    caption.SetFormatted(96, "Bass %+.1f | Mid %+.1f | Treble %+.1f", value(uConsoleBass), value(uConsoleMid), value(uConsoleTreble));
+    caption.Set("Measured EQ response");
     PlotTitle(g, plot, color, caption.Get());
     PlotDetail(g, plot, "Quiet-signal response | fill: output signal");
     PlotFrequencyAxis(g, plot, std::min(20000., .49 * rate), "-12 / +12 dB");
@@ -2379,7 +2405,11 @@ private:
                               + (mode.empty() ? std::string{} : " (" + mode + ")")).c_str());
     SetTooltip(path.empty() ? "Click to browse modules. Right-click for Clear / Copy / Move / Swap."
                             : path.c_str());
-    if (mEditor && selected) mEditor->SetDirty(false);
+    if (mEditor && selected)
+    {
+      LayoutDescription(*GetUI(), false);
+      mEditor->SetDirty(false);
+    }
     SetDirty(false);
   }
   void Load(const std::string& path)
@@ -2510,6 +2540,8 @@ private:
   IRECT mCardBounds;
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
+  grid_ui::HintLabel* mDescriptionHint = nullptr;
+  grid_ui::PlotHelp* mPlotHelp = nullptr;
   grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};

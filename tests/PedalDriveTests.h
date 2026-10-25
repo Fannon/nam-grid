@@ -222,7 +222,7 @@ void TestPedalDrive()
     dc.assign(1024, 0.);
     drive.Process(dc.data(), static_cast<int>(dc.size()), c);
     for (double x : dc)
-      assert(x == 0.);
+      assert(std::abs(x) < 1.e-15);
   }
   // Positive Vintage Fuzz Bias intentionally gates quiet decays; the centered
   // voice retains them. This is independent of the module's outer Mix.

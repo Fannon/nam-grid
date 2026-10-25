@@ -172,8 +172,8 @@ inline IColor SourceColor(int source)
 inline std::string SourceName(const PLUG_CLASS_NAME& plugin, int source)
 {
   using namespace grid_performance;
-  return source >= SourceMacro1 && source <= SourceMacro4 ? plugin.GetMacroName(source - SourceMacro1)
-                                                         : sourceNames[source];
+  return SourceLabel(source, source >= SourceMacro1 && source <= SourceMacro4
+                               ? plugin.GetMacroName(source - SourceMacro1) : std::string{});
 }
 inline void ShowNotice(IGraphics* ui, const char* title, const char* message)
 {
@@ -199,8 +199,13 @@ public:
   {
     using namespace grid_performance;
     if (mDestination.first < 0) return;
-    for (int source = SourceLFO; source < SourceCount; ++source)
-      menu.AddItem((std::string("Modulate with ") + SourceName(*PLUG(), source)).c_str());
+    mMenuSources.clear();
+    for (int source : sourceMenuOrder)
+      if (source != SourceNone)
+      {
+        mMenuSources.push_back(source);
+        menu.AddItem((std::string("Modulate with ") + SourceName(*PLUG(), source)).c_str());
+      }
     if (Ring().rows)
     {
       menu.AddSeparator();
@@ -210,9 +215,9 @@ public:
   void OnContextSelection(int item) override
   {
     using namespace grid_performance;
-    if (item >= 0 && item < SourceCount - 1)
+    if (item >= 0 && item < static_cast<int>(mMenuSources.size()))
     {
-      if (PLUG()->AddModulation(item + 1, mDestination.first, mDestination.second) < 0)
+      if (PLUG()->AddModulation(mMenuSources[item], mDestination.first, mDestination.second) < 0)
         ShowNotice(GetUI(), "Modulation", "All eight modulation rows are in use. Clear a row on the Modulation page.");
     }
     else if (item == SourceCount)
@@ -324,6 +329,7 @@ private:
                                             mDestination.second);
   }
   int mSlot;
+  std::vector<int> mMenuSources;
   std::pair<int, int> mDestination;
   int mDepthRow = -1;
   grid_modulation::Ring mLastRing;

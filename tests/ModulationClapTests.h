@@ -73,6 +73,12 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
                                          {"Sequencer 2 Step 8", 13.}, {row(0, RowSource), SourceSeq2}};
     load(configured);
     assert(save().config() == configured);
+    // The released 0.2.0 also wrote schema 5, with bank 2 present. Preserve its
+    // edited values and scenes as well as defaulting the earlier preview files.
+    auto released = configured;
+    released["schema"] = 5;
+    load(released);
+    assert(save().config() == configured);
     for (int schema = kInitialEffectStateSchema; schema < kEffectStateSchema; ++schema)
     {
       auto old = cleared;

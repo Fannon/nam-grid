@@ -129,7 +129,7 @@ To release, set the version in `config.h` (`PLUG_VERSION_STR`, `PLUG_VERSION_HEX
 matching tag such as `v0.1.0`. Alternatively, open **Actions → Release Native → Run
 workflow** with an existing tag. The workflow resolves the tag to a commit, rejects
 it unless every version string in that commit matches, builds and tests the commit on
-both platforms, and creates a draft release with the archives and
+all three platforms, and creates a draft release with the archives and
 [release notes](release-notes.md). Review and publish the draft from GitHub Releases.
 Publishing a release also triggers the builds and attaches the archives; re-running
 the workflow replaces its archives without changing the release notes or publication

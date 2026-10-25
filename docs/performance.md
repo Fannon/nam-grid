@@ -38,7 +38,7 @@ The LFOs and sequencers move above and below a knob's setting. The envelope and 
 
 The four macros also appear below **IN** on the main page. A macro with no matrix assignment is dimmed; using it as a source or **Via** makes it active. Hide this bank with **Settings > Main macros** if you prefer.
 
-Double-click a macro's label on either page to rename it. Names are shared by both pages and the source menus, and saved with the rig preset and DAW project. Clear the name to restore **Macro 1–4**. Your DAW keeps the stable **Macro 1–4** parameter names for automation.
+Double-click a macro's label on either page to rename it. Names are shared by both pages and saved with the rig preset and DAW project. Source menus are alphabetical and retain the macro number, for example **Macro 1: Test**. The compact **Via** cells use **L1/L2**, **E1/E2**, **S1/S2** and **M1–M4**. Clear the name to restore **Macro 1–4**. Your DAW keeps the stable **Macro 1–4** parameter names for automation.
 
 **Retrigger** can restart the LFO or sequencer on an audio onset or incoming MIDI note. **One shot** plays one LFO cycle per trigger and then holds—useful for a fresh sweep on every note. MIDI notes trigger modulation; they do not change the guitar audio.
 

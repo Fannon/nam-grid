@@ -1408,12 +1408,15 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_KEYUP, key, 0);
     assert(SetKeyboardState(previous)); pumpFor(20);
   };
-  const auto enterBrowserSearch = [&](const std::string& query) {
-    click(200, 75);
+  const auto typeBrowserSearch = [&](const std::string& query) {
     if (IsWindowVisible(editor)) assert(GetFocus() == editor);
     for (const char ch : query) keyAtEditor(ch == ' ' ? VK_SPACE : ch);
     pumpFor(150); // Results must update before Enter commits the search editor.
     InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
+  };
+  const auto enterBrowserSearch = [&](const std::string& query) {
+    click(200, 75);
+    typeBrowserSearch(query);
   };
   const auto chooseBrowserItem = [&](const std::string& query) {
     enterBrowserSearch(query); keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
@@ -1444,6 +1447,11 @@ int main(int argc, char** argv)
   }
   // Tiles and the browser icon share context. Merely opening/searching/navigating
   // must not edit a rig; accepting the selected item targets the originating slot.
+  // Add module starts in search: type immediately without clicking the field.
+  load(cleared);
+  click(170, 120);
+  typeBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
+  assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
   auto browserCurrent = browserState;
   browserCurrent["SlotPaths"][0] = libraryTwin.string();
   browserCurrent["SlotPaths"][0] = libraryTwin.string();
@@ -1455,7 +1463,7 @@ int main(int argc, char** argv)
   keyAtEditor(VK_RETURN); // The exact duplicate path remains selected.
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
   click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
-  enterBrowserSearch("DRIVE");
+  typeBrowserSearch("DRIVE"); // The module browser icon focuses search too.
   assert(save().config()["SlotPaths"][0] == beforeBrowse["SlotPaths"][0]);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-nam-search.bmp");
   keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
@@ -2458,6 +2466,35 @@ int main(int argc, char** argv)
     assert(save().config()["Sequencer Step 8"] == before["Sequencer Step 8"]);
     if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "modulation-seq2.bmp");
     click(60, 84); // LFO 1
+  }
+  {
+    using namespace grid_performance;
+    const auto before = save().config();
+    auto named = before;
+    named["MacroNames"][0] = "Test";
+    load(named);
+    std::vector<std::string> labels;
+    for (int source : sourceMenuOrder)
+      labels.push_back(SourceLabel(source, source >= SourceMacro1 && source <= SourceMacro4
+                                             ? named["MacroNames"][source - SourceMacro1].get<std::string>() : ""));
+    std::vector<const char*> choices;
+    for (const auto& label : labels) choices.push_back(label.c_str());
+    const auto position = [&](int source) {
+      return static_cast<int>(std::find(sourceMenuOrder.begin(), sourceMenuOrder.end(), source) - sourceMenuOrder.begin());
+    };
+    win_edit_menu::SelectChoice(editor, 550, 141, choices, position(SourceLFO2), position(named["Mod 1 Source"].get<int>()));
+    pumpFor(30);
+    assert(save().config()["Mod 1 Source"] == SourceLFO2);
+    win_edit_menu::SelectChoice(editor, 936, 141, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
+    pumpFor(30);
+    assert(save().config()["Mod 1 Via"] == SourceEnv2); // Compact second-bank label must draw safely.
+    win_edit_menu::SelectChoice(editor, 550, 141, choices, position(SourceMacro1), position(SourceLFO2));
+    pumpFor(30);
+    assert(save().config()["Mod 1 Source"] == SourceMacro1);
+    const bool sync = save().config()["LFO Sync"].get<double>() >= .5;
+    click(291, 350);
+    assert((save().config()["LFO Sync"].get<double>() >= .5) != sync);
+    load(before);
   }
   dragAt(862, 141); // Matrix row 1 depth
   assert(save().config()["Mod 1 Depth"] > 0.);

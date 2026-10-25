@@ -4,7 +4,7 @@
 
 // Voiced, oversampled drive, with independent stereo instances in NAMStage.
 // Low keep subtracts a complementary low band before the entire drive/EQ path
-// and restores it afterward. Both restored lows and outer dry match FIR delay.
+// and restores it afterward. Restored lows and outer dry pass through unshifted.
 class SlotPedalDrive
 {
 public:

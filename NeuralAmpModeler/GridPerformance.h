@@ -3,6 +3,7 @@
 #include "TempoSync.h"
 #include <atomic>
 #include <cstdint>
+#include <string>
 
 namespace grid_performance
 {
@@ -100,6 +101,18 @@ inline constexpr std::array<const char*, SourceCount> sourceNames{
   "None", "LFO 1", "Env 1", "Seq 1", "Macro 1", "Macro 2", "Macro 3", "Macro 4", "LFO 2", "Env 2", "Seq 2"};
 inline constexpr std::array<const char*, SourceCount> sourceKeys{
   "none", "lfo1", "env1", "seq1", "macro1", "macro2", "macro3", "macro4", "lfo2", "env2", "seq2"};
+// Presentation order is independent of the permanent source IDs above.
+inline constexpr std::array<int, SourceCount> sourceMenuOrder{
+  SourceEnv1, SourceEnv2, SourceLFO1, SourceLFO2, SourceMacro1, SourceMacro2,
+  SourceMacro3, SourceMacro4, SourceNone, SourceSeq1, SourceSeq2};
+inline constexpr std::array<const char*, SourceCount> sourceShortNames{
+  "—", "L1", "E1", "S1", "M1", "M2", "M3", "M4", "L2", "E2", "S2"};
+inline std::string SourceLabel(int source, const std::string& macroName = {})
+{
+  const std::string label = sourceNames[std::clamp(source, 0, SourceCount - 1)];
+  return source >= SourceMacro1 && source <= SourceMacro4 && !macroName.empty() && macroName != label
+           ? label + ": " + macroName : label;
+}
 inline constexpr std::array<int, 6> sourceTabs{SourceLFO1, SourceLFO2, SourceEnv1, SourceEnv2, SourceSeq1, SourceSeq2};
 constexpr int SourceInstance(int source) { return source >= SourceLFO2 ? 1 : 0; }
 constexpr int SourceKind(int source) { return source >= SourceLFO2 ? source - SourceLFO2 + SourceLFO1 : source; }

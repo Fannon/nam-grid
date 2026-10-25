@@ -30,7 +30,7 @@ Use **Open file...** for a capture, IR, or preset outside your library. This doe
 
 ## Search
 
-Search matches filenames, paths, preset names, and available NAM metadata. All ordinary words must match; common Latin accents are ignored, so `grun` finds `Grün`.
+Search is focused whenever the browser opens, including **+ Add module**, so you can start typing immediately. Search matches filenames, paths, preset names, and available NAM metadata. All ordinary words must match; common Latin accents are ignored, so `grun` finds `Grün`.
 
 | Example | Finds |
 | --- | --- |

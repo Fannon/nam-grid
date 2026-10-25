@@ -6,9 +6,16 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Modulation uses compact knobs and aligned selectors and switches, matching the module pane. Source menus are alphabetical and renamed macros keep their number, for example `Macro 1: Test`.
 - Grid cells and the module header show the selected mode, such as the Pedal Drive style, Cosmic Echo topology or filter mode, so a rig can be read without opening each module.
 - Pedal Drive adds no latency. Its antialiasing filters are now minimum phase, with the same bandwidth and alias rejection, so the pedal no longer reports 64 samples and stacking pedals does not accumulate delay.
 - Pedal Drive uses about 20% less CPU on Apple Silicon, with unchanged sound. The oversampling filters now pair their independent phase sums; every other platform keeps the portable loop.
+
+### Fixed
+
+- Focus browser search when opening Add module, a module's browser or the preset browser, so typing can begin immediately.
+- Cancelling an in-progress library scan preserves the saved index and does not restart the cancelled scan.
+- Correct compact Via labels for the second LFO, envelope follower and sequencer.
 
 ## [0.2.1] - 2026-10-25
 

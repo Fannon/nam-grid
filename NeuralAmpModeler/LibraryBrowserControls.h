@@ -29,8 +29,10 @@ public:
     mText.mTextEntryBGColor = grid_ui::surface;
     mText.mTextEntryFGColor = grid_ui::text;
   }
-  void BeginEdit()
+  void Focus()
   {
+    mFocused = true;
+    SetDirty(false);
     GetUI()->ReleaseMouseCapture();
 #ifdef _WIN32
     // Bitwig on Windows can keep its own window in the foreground over a plugin window; SetFocus
@@ -41,8 +43,24 @@ public:
     if (GetForegroundWindow() != root) SetForegroundWindow(root);
     SetFocus(view);
 #endif
+  }
+  void Blur() { mFocused = false; SetDirty(false); }
+  void BeginEdit()
+  {
+    Focus();
+    mFocused = false;
     // The editor stops short of the clear button, so it stays clickable while typing.
     GetUI()->CreateTextEntry(*this, mText, mRECT.GetHPadded(-12).GetVPadded(-3).GetReducedFromRight(24), GetStr());
+  }
+  bool StartTyping(const IKeyPress& key)
+  {
+    if (!mFocused || (key.C && key.VK != 'V')
+        || (!key.C && static_cast<unsigned char>(key.utf8[0]) < 32)) return false;
+    // Defer the modal text editor until typing begins: it consumes outside clicks,
+    // so opening it immediately would swallow the first tab/result/button click.
+    BeginEdit();
+    GetUI()->GetTextEntryControl()->OnKeyDown(mRECT.MW(), mRECT.MH(), key);
+    return true;
   }
   void OnMouseDown(float x, float, const IMouseMod&) override
   {
@@ -56,7 +74,7 @@ public:
     g.FillRoundRect(grid_ui::surface, mRECT, 4.f);
     auto* entry = GetUI()->GetTextEntryControl();
     const bool editing = entry && entry->EditInProgress() && GetUI()->GetControlInTextEntry() == this;
-    g.DrawRoundRect(editing ? grid_ui::accent : grid_ui::border, mRECT, 4.f);
+    g.DrawRoundRect(editing || mFocused ? grid_ui::accent : grid_ui::border, mRECT, 4.f);
     if (!mLive.empty())
     {
       const auto x = ClearButton().MW(), y = ClearButton().MH();
@@ -66,6 +84,8 @@ public:
     if (editing) return;
     grid_ui::FittedText(g, grid_ui::Text(14.f, GetStr()[0] ? grid_ui::text : grid_ui::muted),
                        GetStr()[0] ? GetStr() : "Search...", mRECT.GetHPadded(-12).GetReducedFromRight(24));
+    if (mFocused && !GetStr()[0])
+      g.DrawLine(grid_ui::text, mRECT.L + 12, mRECT.MH() - 7, mRECT.L + 12, mRECT.MH() + 7);
   }
   bool IsDirty() override
   {
@@ -90,6 +110,7 @@ public:
 private:
   IRECT ClearButton() const { return IRECT(mRECT.R - 34, mRECT.T, mRECT.R - 4, mRECT.B); }
   std::string mLive;
+  bool mFocused = false;
   std::function<void(const std::string&)> mChanged;
 };
 
@@ -232,10 +253,11 @@ public:
     }
     mFolderKind = nam_library::FileKind::SlotPreset; // Opening may add a temporary current folder.
     Hide(false); Rebuild(); RevealSelection();
+    mSearch->Focus();
   }
   void Hide(bool hide) override
   {
-    if (hide) { FinishSearch(); PLUG()->EndSlotPreview(false); mPreview = false; }
+    if (hide) { FinishSearch(); if (mSearch) mSearch->Blur(); PLUG()->EndSlotPreview(false); mPreview = false; }
     IContainerBase::Hide(hide);
     // This composite page and the live text editor share a single redraw region.
     if (GetUI()) GetUI()->SetStrictDrawing(!hide);
@@ -371,6 +393,7 @@ public:
       }
       RevealSelection(); SetDirty(false);
     }
+    else mSearch->StartTyping(key);
     return true; // Modal page: never pass keys to controls beneath it.
   }
 

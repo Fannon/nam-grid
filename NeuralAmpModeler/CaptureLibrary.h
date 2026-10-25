@@ -159,7 +159,8 @@ class Worker
 {
 public:
   // With an index file, scans reuse and refresh it; without one, every scan reads every file.
-  explicit Worker(std::filesystem::path indexFile = {});
+  using Scanner = std::function<decltype(ScanLibrary)>;
+  explicit Worker(std::filesystem::path indexFile = {}, Scanner scanner = ScanLibrary);
   ~Worker();
   // Single-list requests index NAM captures and IRs together.
   void Request(const std::string& root);
@@ -182,6 +183,7 @@ private:
   std::filesystem::path mIndexFile;
   IndexCache mIndex; // Worker thread only.
   bool mIndexLoaded = false;
+  Scanner mScanner;
   std::thread mThread;
 };
 } // namespace nam_library

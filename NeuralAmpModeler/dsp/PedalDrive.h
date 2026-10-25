@@ -24,8 +24,8 @@ inline double Flush(double x)
 // skips zero-stuffed samples; mirrored rings make each dot product contiguous.
 // The filters are minimum phase, so the pedal itself adds no latency to the grid.
 // Their magnitude response, and therefore alias rejection, is unchanged; only phase
-// differs. The tiny remaining group delay (~6 samples) is matched by the slot's dry
-// and Low keep alignment. Fixed storage; design and clearing happen in preparation.
+// differs. Dry and Low keep pass through unshifted; the wet path retains the
+// filters' frequency-dependent group delay. Design and clearing happen in preparation.
 class Oversampler4x
 {
 public:

@@ -56,25 +56,31 @@ private:
 };
 
 // An enum parameter as its current choice; a click lists every choice. Laid out
-// like a tall Toggle: label on top, value box below, so it lines up with knobs.
+// with the module pane's label size and dial centre. Switches share the same box.
 class ParamMenu : public IControl
 {
 public:
-  ParamMenu(const IRECT& r, int parameter, const char* label) : IControl(r, parameter), mLabel(label) {}
+  ParamMenu(const IRECT& r, int parameter, const char* label, bool toggle = false)
+  : IControl(r, parameter), mLabel(label), mToggle(toggle) {}
   void Draw(IGraphics& g) override
   {
     g.DrawText(Text(15.f, muted, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(14));
     const auto box = Box();
     WDL_String value; GetParam()->GetDisplay(value);
-    g.FillRoundRect(surface, box, 3.f);
-    g.DrawRoundRect(mMouseIsOver ? muted : border, box, 3.f);
-    FittedText(g, Text(13.f, text, EAlign::Center), value.Get(), box.GetHPadded(-14.f));
-    g.DrawLine(muted, box.R - 14, box.MH() - 2, box.R - 10, box.MH() + 2);
-    g.DrawLine(muted, box.R - 10, box.MH() + 2, box.R - 6, box.MH() - 2);
+    const bool on = mToggle && GetParam()->Bool();
+    g.FillRoundRect(on ? accent.WithOpacity(.15f) : surface, box, 3.f);
+    g.DrawRoundRect(on ? accent : mMouseIsOver ? muted : border, box, 3.f);
+    FittedText(g, Text(13.f, text, EAlign::Center), mToggle ? on ? "ON" : "OFF" : value.Get(), box.GetHPadded(-14.f));
+    if (!mToggle)
+    {
+      g.DrawLine(muted, box.R - 14, box.MH() - 2, box.R - 10, box.MH() + 2);
+      g.DrawLine(muted, box.R - 10, box.MH() + 2, box.R - 6, box.MH() - 2);
+    }
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
     if (!mod.L) return;
+    if (mToggle) { PLUG()->SetParameterFromUI(GetParamIdx(), GetParam()->Bool() ? 0. : 1.); return; }
     mMenu.Clear();
     const auto* param = GetParam();
     for (int value = static_cast<int>(param->GetMin()); value <= static_cast<int>(param->GetMax()); ++value)
@@ -91,8 +97,9 @@ public:
   }
 
 private:
-  IRECT Box() const { return IRECT(mRECT.L + 8.f, mRECT.T + 40.f, mRECT.R - 8.f, mRECT.T + 74.f); }
+  IRECT Box() const { return IRECT(mRECT.L + 8.f, mRECT.T + 24.f, mRECT.R - 8.f, mRECT.T + 56.f); }
   std::string mLabel;
+  bool mToggle;
   IPopupMenu mMenu;
 };
 
@@ -100,8 +107,7 @@ private:
 
 inline const char* ShortSource(int source)
 {
-  static constexpr const char* names[]{"—", "LFO", "Env", "Seq", "M1", "M2", "M3", "M4"};
-  return names[std::clamp(source, 0, grid_performance::SourceCount - 1)];
+  return grid_performance::sourceShortNames[std::clamp(source, 0, grid_performance::SourceCount - 1)];
 }
 // A row's Source or Via: a colored dot and the source name.
 class SourceCell : public IControl
@@ -131,7 +137,7 @@ public:
   {
     if (!mod.L) return;
     mMenu.Clear();
-    for (int source = 0; source < grid_performance::SourceCount; ++source)
+    for (int source : grid_performance::sourceMenuOrder)
       mMenu.AddItem(new IPopupMenu::Item(SourceName(*PLUG(), source).c_str(),
                                          GetParam()->Int() == source ? IPopupMenu::Item::kChecked : 0, source));
     GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
@@ -738,8 +744,8 @@ public:
       AddSource(instance ? SourceSeq2 : SourceSeq1, new StepEditor(display, instance));
     }
     const auto cell = [](int column, int row) {
-      const float x = pageLeft + 107.f * column, y = row ? 418.f : 310.f;
-      return IRECT(x, y, x + 107.f, y + 100.f);
+      const float x = pageLeft + 107.f * column, y = 310.f + grid_layout::knobRowPitch * row;
+      return IRECT(x, y, x + 107.f, y + grid_layout::knobBottom - grid_layout::knobTop);
     };
     const auto tip = [](IControl* control, const char* text) {
       if (text) control->SetTooltip(text);
@@ -750,7 +756,7 @@ public:
       const auto dial = [&](int source, int column, int row, int parameter, const char* help = nullptr) {
         parameter = SourceParam(parameter, instance);
         source = instance ? SourceLFO2 + source - SourceLFO1 : source;
-        return tip(AddSource(source, new Knob(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
+        return tip(AddSource(source, new Knob(cell(column, row), PerformanceParam(parameter), parameters[parameter].label, true)), help);
       };
       const auto menu = [&](int source, int column, int row, int parameter, const char* help) {
         parameter = SourceParam(parameter, instance);
@@ -760,7 +766,7 @@ public:
       const auto toggle = [&](int source, int column, int row, int parameter, const char* help) {
         parameter = SourceParam(parameter, instance);
         source = instance ? SourceLFO2 + source - SourceLFO1 : source;
-        return tip(AddSource(source, new Toggle(cell(column, row).GetHPadded(-4.f), PerformanceParam(parameter), parameters[parameter].label)), help);
+        return tip(AddSource(source, new ParamMenu(cell(column, row), PerformanceParam(parameter), parameters[parameter].label, true)), help);
       };
       menu(SourceLFO, 0, 0, LFOShape, "Random holds a new value for each cycle.");
       mRate[instance * 2] = dial(SourceLFO, 1, 0, LFORate);
@@ -783,9 +789,9 @@ public:
     }
     for (int i = 0; i < 4; ++i)
     {
-      auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 612), i);
+      auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 590), i, true);
       Add(knob);
-      Add(new MacroLabel(knob->NameBounds(), i));
+      Add(new MacroLabel(knob->NameBounds(), i, true));
     }
     for (int row = 0; row < rows; ++row)
     {

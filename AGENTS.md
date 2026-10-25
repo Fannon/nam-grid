@@ -5,3 +5,4 @@
 - Fold useful, lasting conclusions into the appropriate guide. Preserve DSP source attribution and licenses beside the implementation and in third-party notices.
 - Keep guides focused on current behavior; avoid copied schema counts, local paths and historical test results. Update links when moving or removing docs.
 - Maintain `CHANGELOG.md` (newest first). Every release updates it; every PR with user-facing changes adds an entry under `[Unreleased]`.
+- Prepare releases on `release/v<version>` branches (for example, `release/v0.2.1`) and submit release changes through a PR to `main`.

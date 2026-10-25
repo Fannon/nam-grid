@@ -73,6 +73,9 @@ your first rig. If something does not work, see
 Feedback, bug reports and ideas are welcome as
 [GitHub issues](https://github.com/Fannon/nam-grid/issues); see
 [what to include in a bug report](https://fannon.github.io/nam-grid/troubleshooting#report-a-problem).
+There is also a
+[NAM Grid discussion thread on KVR Audio](https://www.kvraudio.com/forum/viewtopic.php?t=634501)
+for general chat and user reports.
 
 Pull requests are welcome too. NAM Grid is a side project, so please be aware that
 replies, reviews and releases happen in spare time and may take a while. Open an

@@ -3,6 +3,48 @@
 
 namespace pedal_test
 {
+// Deliberately direct, zero-stuffed FIR reference. This checks phase, ring wraps
+// and roundoff independently of the production polyphase/vectorized loop layout.
+class ReferenceOversampler
+{
+public:
+  ReferenceOversampler()
+  {
+    double sum = 0.;
+    for (int i = 0; i < 257; ++i)
+    {
+      const double x = i - 128.;
+      const double sinc = x == 0. ? .225 : std::sin(.225 * grid_pedal::pi * x) / (grid_pedal::pi * x);
+      kernel[i] =
+        sinc * (.42 - .5 * std::cos(2. * grid_pedal::pi * i / 256.) + .08 * std::cos(4. * grid_pedal::pi * i / 256.));
+      sum += kernel[i];
+    }
+    for (double& x : kernel)
+      x /= sum;
+  }
+  double Tick(double input)
+  {
+    double result = 0.;
+    for (int phase = 0; phase < 4; ++phase)
+    {
+      std::move_backward(up.begin(), up.end() - 1, up.end());
+      up[0] = phase == 0 ? 4. * input : 0.;
+      double value = 0.;
+      for (int tap = 0; tap < 257; ++tap)
+        value += kernel[tap] * up[tap];
+      std::move_backward(down.begin(), down.end() - 1, down.end());
+      down[0] = grid_pedal::Flush(std::tanh(8. * value));
+      if (phase == 0)
+        for (int tap = 0; tap < 257; ++tap)
+          result += kernel[tap] * down[tap];
+    }
+    return grid_pedal::Flush(result);
+  }
+
+private:
+  std::array<double, 257> kernel{}, up{}, down{};
+};
+
 inline double Harmonic(const std::vector<double>& x, int start, int count, int bin)
 {
   double re = 0., im = 0.;
@@ -18,7 +60,7 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
 {
   SlotPedalDrive drive;
   drive.Reset(rate);
-  constexpr int count = 4096;
+  const int count = automate ? 16384 : 4096;
   std::vector<double> audio(count);
   for (int i = 0; i < count; ++i)
     audio[i] = .3 * std::sin(.071 * i) + .1 * std::cos(.027 * i);
@@ -27,7 +69,7 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
     if (automate)
     {
       const int section = position / 512;
-      controls.pedal = {double(section % effect_modes::pedalCount),
+      controls.pedal = {double(section < 8 ? section % effect_modes::pedalCount : 2),
                         section % 2 ? 36. : 0.,
                         section % 2 ? 200. : 12000.,
                         section % 2 ? -6. : 6.,
@@ -64,6 +106,19 @@ void TestPedalDrive()
   for (double x : impulse)
     sum += x;
   assert(std::abs(sum - 1.) < 1.e-5);
+
+  // Compare the optimized FIRs with a direct high-rate reference, including
+  // nonlinear clipping. The allowed difference is double-precision roundoff.
+  pedal_test::ReferenceOversampler reference;
+  oversampler.Reset();
+  unsigned seed = 1337;
+  for (int i = 0; i < 2048; ++i)
+  {
+    seed = 1664525u * seed + 1013904223u;
+    const double input = .7 * (double(seed) / 4294967296. - .5) + .2 * std::sin(.093 * i);
+    const double actual = oversampler.Tick(input, [](double x) { return std::tanh(8. * x); });
+    assert(std::abs(actual - reference.Tick(input)) < 1.e-12);
+  }
 
   // Measure a fifth-harmonic alias independently using a coherent high sine.
   constexpr int n = 8192, fundamental = 1093, alias = n - 5 * fundamental;

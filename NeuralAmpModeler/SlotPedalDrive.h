@@ -43,7 +43,10 @@ public:
       if (mCounter == 0)
       {
         if (c[1] != mCached[1])
+        {
           mDrive = std::pow(10., c[1] * .05);
+          mRootDrive = std::sqrt(mDrive);
+        }
         if (c[2] != mCached[2])
           mTonePole = std::exp(-2. * grid_pedal::pi * std::min(c[2], .4 * mRate) / (4. * mRate));
         if (c[3] != mCached[3])
@@ -55,14 +58,18 @@ public:
         mCached = c;
       }
       mCounter = (mCounter + 1) % 16;
-      double others = 0.;
-      for (int j = 0; j < effect_modes::pedalCount; ++j)
-        if (j != style)
-        {
-          mWeights[j] = std::max(0., mWeights[j] - 1. / (.02 * mRate));
-          others += mWeights[j];
-        }
-      mWeights[style] = 1. - others;
+      const bool settled = mWeights[style] == 1.;
+      if (!settled)
+      {
+        double others = 0.;
+        for (int j = 0; j < effect_modes::pedalCount; ++j)
+          if (j != style)
+          {
+            mWeights[j] = std::max(0., mWeights[j] - 1. / (.02 * mRate));
+            others += mWeights[j];
+          }
+        mWeights[style] = 1. - others;
+      }
       const double input = samples[i];
       mLowState = grid_pedal::Flush(input + mSplitPole * (mLowState - input));
       const double kept = mLowState * c[5] * .01;
@@ -74,9 +81,12 @@ public:
         mBodyState = grid_pedal::Flush(x + mCoefficients.poles[grid_pedal::Coefficients::Body] * (mBodyState - x));
         x += mBody * mBodyState;
         double wet = 0.;
-        for (int j = 0; j < effect_modes::pedalCount; ++j)
-          if (mWeights[j] > 0.)
-            wet += mWeights[j] * mVoices[j].Tick(x, j, mDrive, c[1] / 36., mCoefficients);
+        if (settled)
+          wet = mVoices[style].Tick(x, style, mDrive, mRootDrive, c[1] / 36., mCoefficients);
+        else
+          for (int j = 0; j < effect_modes::pedalCount; ++j)
+            if (mWeights[j] > 0.)
+              wet += mWeights[j] * mVoices[j].Tick(x, j, mDrive, mRootDrive, c[1] / 36., mCoefficients);
         mDC = grid_pedal::Flush(wet - mPrevious + mCoefficients.dc * mDC);
         mPrevious = wet;
         mToneState = grid_pedal::Flush(mDC + mTonePole * (mToneState - mDC));
@@ -95,7 +105,7 @@ private:
   std::array<double, latency> mDry{}, mLow{};
   std::array<double, 8> mCached{};
   double mRate = 48000., mLowState = 0., mBodyState = 0., mPrevious = 0., mDC = 0., mToneState = 0.;
-  double mDrive = 1., mTonePole = 0., mSplitPole = 0., mBody = 0., mOutput = 1.;
+  double mDrive = 1., mRootDrive = 1., mTonePole = 0., mSplitPole = 0., mBody = 0., mOutput = 1.;
   int mCounter = 0, mDelayIndex = 0;
   bool mFirst = true;
 };

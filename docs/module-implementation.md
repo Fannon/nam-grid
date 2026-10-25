@@ -50,7 +50,9 @@ history.
   [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
   informed by documented pedal designs. It uses 4x FIR oversampling with 64 host
   samples of latency, aligned dry/bypass and local clean-low returns, independent
-  stereo histories and 20 ms style crossfades. Only participating styles run during
+  stereo histories and 20 ms style crossfades. The FIR loops share input loads
+  across interpolation phases and use independent decimation accumulators for
+  portable vectorization. Settled styles use a single-voice path; only participating styles run during
   transitions; an inactive style starts with cleared filter history. See
   [voices, signal flow and design references](modules/pedal-drive.md).
 - **EQs and Filter** use the MIT AudioDSPTools coefficients and a scalar implementation of the

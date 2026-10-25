@@ -46,26 +46,24 @@ Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp and Treb
 Each voice has its own filtering and gain structure. These are original interpretations
 inspired by pedal families, rather than calibrated replicas.
 
-**Drive** (0 to 36 dB; starts at 9 dB) Gain into the drive stages.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Drive** | 0–36 dB | 9 dB | Gain into the drive stages. |
+| **High cut** | 200–12000 Hz | 5500 Hz | Darkens the driven path after its style-specific filters; restored clean lows are unaffected. |
+| **Body** | -6 to +6 dB | 0 dB | Broad bass shelf before drive: positive adds body; negative tightens clipping. Restored clean lows are unaffected. |
+| **Split** | 50–500 Hz | 180 Hz | Local low-band frequency for Low keep. Inactive at Low keep 0%; independent of grid routing. |
+| **Output** | -24 to +12 dB | -6 dB | Final gain after Mix, including clean lows. |
+| **Low keep** | 0–100% | 0% | Diverts this share of the low band around the drive and restores it clean. The gentle split has overlapping bands. |
+| **Mix** | 0–100% | 100% | Blends the complete pedal result with aligned dry input. Parallel OD also has an internal clean path linked to Drive. |
 
-**High cut** (200 to 12000 Hz; starts at 5500 Hz) Darkens the driven path after its
-style-specific filtering. Restored clean lows are unaffected.
+In the header:
 
-**Body** (-6 to +6 dB; starts at 0 dB) Broad bass shelf before the drive.
-Positive adds body; negative tightens clipping. Restored clean lows are unaffected.
-
-**Split** (50 to 500 Hz; starts at 180 Hz) Local low-band frequency for Low keep.
-It has no audible effect when Low keep is zero and does not change grid routing.
-
-**Output** (-24 to +12 dB; starts at -6 dB) Final gain after Mix, including clean lows.
-
-**Low keep** (0 to 100%; starts at 0%) Diverts this share of the low band around the
-drive and restores it clean. The split is gentle, so the bands overlap.
-
-**Mix** (0 to 100%; starts at 100%) Blends the complete pedal sound with aligned dry
-input. Parallel OD also has its own internal clean path controlled by Drive.
+- **Style** (starts at Screamer) Selects the voice and its filtering and gain structure.
 
 **Display:** The Body/drive/High cut path and the clean low return.
+
+**Latency:** 64 samples for antialiasing (about 1.33 ms at 48 kHz), reported to
+your DAW. Dry Mix, bypass and parallel lanes are aligned.
 
 Use Screamer or Treble Drive before a crunchy amp capture, Rodent for heavier rhythm,
 and Sustain Fuzz for dense leads or bass fuzz. Try Bass Edge with Low keep raised for

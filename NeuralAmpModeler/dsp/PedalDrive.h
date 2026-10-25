@@ -44,19 +44,30 @@ public:
   {
     mInputIndex = (mInputIndex - 1) & 127;
     mInput[mInputIndex] = mInput[mInputIndex + 128] = input;
+    // Accumulate the four interpolation phases together: each input load feeds
+    // four independent sums, allowing SIMD without changing their tap order.
+    std::array<double, factor> up{};
+    for (int sample = 0; sample < (taps - 1) / factor; ++sample)
+      for (int phase = 0; phase < factor; ++phase)
+        up[phase] += mKernel[factor * sample + phase] * mInput[mInputIndex + sample];
+    up[0] += mKernel[taps - 1] * mInput[mInputIndex + (taps - 1) / factor];
     double result = 0.;
     for (int phase = 0; phase < factor; ++phase)
     {
-      double up = 0.;
-      for (int tap = phase, sample = 0; tap < taps; tap += factor, ++sample)
-        up += mKernel[tap] * mInput[mInputIndex + sample];
-      const double high = Flush(nonlinear(up * factor));
+      const double high = Flush(nonlinear(up[phase] * factor));
       mHighIndex = (mHighIndex - 1) & 511;
       mHigh[mHighIndex] = mHigh[mHighIndex + 512] = high;
       // Output is sampled at phase zero, matching the stated integer latency.
       if (phase == 0)
-        for (int tap = 0; tap < taps; ++tap)
-          result += mKernel[tap] * mHigh[mHighIndex + tap];
+      {
+        // Independent sums remove the serial 257-add dependency. The kernel
+        // and phase are unchanged; only roundoff from the final reduction differs.
+        std::array<double, factor> down{};
+        for (int tap = 0; tap < taps - 1; tap += factor)
+          for (int j = 0; j < factor; ++j)
+            down[j] += mKernel[tap + j] * mHigh[mHighIndex + tap + j];
+        result = ((down[0] + down[1]) + (down[2] + down[3])) + mKernel[taps - 1] * mHigh[mHighIndex + taps - 1];
+      }
     }
     return Flush(result);
   }
@@ -102,13 +113,14 @@ inline double Biased(double x, double bias)
   return (std::tanh(x + bias) - offset) / (1. - offset * offset);
 }
 
-// Each voice keeps its own filters during style crossfades. gain is linear;
-// amount is Drive / 36 dB, used only by Parallel OD's internal dual-gang blend.
+// Each voice keeps its own filters during style crossfades. gain is linear,
+// rootGain is its cached square root. amount is Drive / 36 dB, used only by
+// Parallel OD's internal dual-gang blend.
 struct Voice
 {
   std::array<double, Coefficients::Count> low{};
   double slew = 0.;
-  double Tick(double x, int style, double gain, double amount, const Coefficients& c)
+  double Tick(double x, int style, double gain, double rootGain, double amount, const Coefficients& c)
   {
     using P = Coefficients;
     const auto lp = [&](double input, int pole) {
@@ -140,15 +152,15 @@ struct Voice
       case 4: // Cascaded clipping, coupling loss and a broad passive-style scoop.
       {
         const double tight = x - lp(x, P::Sub);
-        const double first = lp(std::tanh(3. * std::sqrt(gain) * tight), P::PreampTop);
-        const double second = lp(std::tanh(2.8 * std::sqrt(gain) * first), P::FuzzTop);
+        const double first = lp(std::tanh(3. * rootGain * tight), P::PreampTop);
+        const double second = lp(std::tanh(2.8 * rootGain * first), P::FuzzTop);
         return .9 * (second - .65 * (lp(second, P::UpperMid) - lp(second, P::LowerMid)));
       }
       case 5: // Mild, asymmetric preamp stages with interstage coupling/filtering.
       {
-        const double first = lp(Biased(1.1 * std::sqrt(gain) * x, .1), P::PreampTop);
+        const double first = lp(Biased(1.1 * rootGain * x, .1), P::PreampTop);
         const double coupled = first - lp(first, P::Sub);
-        return .9 * Biased(1.2 * std::sqrt(gain) * coupled, -.08);
+        return .9 * Biased(1.2 * rootGain * coupled, -.08);
       }
       case 6: // Colored treble booster into a following amp or capture.
         return lp(Biased(1.7 * gain * (x - lp(x, P::Mid)), .2), P::PreampTop);

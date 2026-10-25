@@ -10,12 +10,14 @@ on:
   workflow_dispatch:
   # Hosted minutes are billed (Linux x1, Windows x2, macOS x10 on private repositories). Pull
   # requests are the merge gate, so main is not rebuilt after merging, and
-  # documentation-only changes do not build at all.
+  # documentation-only changes build the VitePress site in Docs instead.
   pull_request:
     paths-ignore:
       - 'docs/**'
       - '**.md'
       - 'LICENSE'
+      - '.github/workflows/deploy-docs.yml'
+      - '.github/workflows/docs-check.yml'
 permissions:
   contents: read
 # A new push to a pull request supersedes its running build.

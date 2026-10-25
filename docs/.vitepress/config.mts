@@ -72,11 +72,8 @@ export default defineConfig({
     ],
     sidebar: [
       {
-        text: 'Get started',
-        items: [
-          { text: 'Overview', link: '/' },
-          { text: 'Getting started', link: '/getting-started' },
-        ],
+        text: 'Getting started',
+        link: '/getting-started',
       },
       {
         text: 'Use NAM Grid',
@@ -90,9 +87,9 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Modules',
+        text: 'Module guide',
+        link: '/modules/',
         items: [
-          { text: 'Module guide', link: '/modules/' },
           { text: 'Captures & cabinets', link: '/modules/captures' },
           { text: 'Distortion', link: '/modules/distortion' },
           { text: 'Dynamics', link: '/modules/dynamics' },

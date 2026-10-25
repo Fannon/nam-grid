@@ -62,7 +62,7 @@ Gate (Smart) profiles under the state header with an integer `schema`. Newer
 schemas, unknown modules or algorithms, fractional or out-of-range IDs, missing
 fields and malformed data are rejected before the current rig changes.
 Per-user preferences, including the library folders, are never part of a state: they live in
-`settings.json` (see [ui.md](ui.md#settings-and-default-folders)), and loading a state re-reads
+`settings.json` (see [library folders](browser.md#library-folders)), and loading a state re-reads
 them. Every test or tool that loads the plugin uses `IsolatedUserHome` so it never touches a
 developer's real settings or library.
 
@@ -157,7 +157,7 @@ out of audio processing, and distinguish measured signals from parameter sketche
 ## Cabinet convolution
 
 Cabinet IR slots use one adaptive direct/FFT processor; its rules are documented in
-`NeuralAmpModeler/AdaptiveIR.h` and summarised for players in [cabinet IR processing](adaptive-ir.md).
+`NeuralAmpModeler/AdaptiveIR.h` and summarised for players in [cabinet IR processing](modules/ir-processing.md).
 It selects the backend during preparation and preserves the full resampled IR
 without adding buffering latency or exposing a quality mode.
 

@@ -45,13 +45,26 @@ Use `name:` for filenames and `gear:` for capture type. Relevance sorting puts e
 
 ## Presets
 
-Preset choices do not change your sound until you choose **Load**, press Enter, or double-click. **Save as...** creates a rig file; **Delete...** permanently removes the selected preset after confirmation. See [Rig presets](presets.md).
+The preset browser works the same way, except that selecting a rig does not audition it: your sound changes only when you choose **Load**, press Enter, or double-click. **Delete...** permanently removes the selected preset after confirmation. Saving is covered in [Rig presets](presets.md).
 
-## Manage folders
+## Library folders
 
-NAM, IR, and preset sources are separate lists. Add or remove them in **Library & settings**; **Manage folders** in the browser opens the same page. **Rescan** refreshes external changes.
+NAM captures, cabinet IRs and rig presets each have their own list of folders. Add or remove them in **Library & settings**; **Manage folders** in the browser opens the same page.
 
-Folders are scanned only for their own file type: `.nam`, `.wav`, or `.ngrid`. Folder choices are saved per user, not inside rigs or DAW projects. Missing or invalid files are reported without silently substituting another sound.
+- Each folder is scanned only for its own file type: `.nam`, `.wav` or `.ngrid`, including subfolders. Add a mixed folder to more than one list if needed.
+- **Open** shows a folder in Explorer or Finder. **Remove** stops scanning it without deleting anything.
+- Use **Rescan all** (or **Rescan** in the browser) after adding, moving or renaming files. **Startup rescan** does this whenever NAM Grid starts.
+- Missing or invalid files are reported; NAM Grid never silently substitutes another sound.
+
+Until you choose your own folders, NAM Grid uses these in your Documents folder:
+
+| Folder | Contains |
+| --- | --- |
+| `NAM Grid/NAM Captures` | The bundled **RiffSmith Clean** capture |
+| `NAM Grid/IRs` | A place for your cabinet `.wav` files |
+| `NAM Grid/Presets` | The **Empty** and **Clean Default** rigs |
+
+Your folder choices belong to you, not to a rig or DAW project, so loading a preset never replaces them. If you remove every folder from a list, NAM Grid remembers that and does not recreate the defaults.
 
 ## Excluding files with `.ignore`
 

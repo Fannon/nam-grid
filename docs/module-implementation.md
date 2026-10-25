@@ -7,7 +7,7 @@ latency and tails. For controls, ranges and starting settings see the
 
 ## Controls and state
 
-Every module uses the same eight-position editor (see the [module guide](modules/README.md#the-module-editor)).
+Every module uses the same eight-position editor (see [Shape a module](ui.md#shape-a-module)).
 Each control is a host parameter per slot, described in
 [EffectParameters.h](../NeuralAmpModeler/EffectParameters.h); its editor position and
 per-module label are in [EffectPresentation.h](../NeuralAmpModeler/EffectPresentation.h),
@@ -35,7 +35,7 @@ history.
   0.15–30 s; Size 25–200%; Damping 800–12000 Hz; Pre-delay 0–200 ms; Low cut filters only
   the wet input. See [reverb core adaptations](../NeuralAmpModeler/dsp/reverb/README.md).
 - **Cosmic Echo** uses David Braun's MIT Faust reconstruction of the Valhalla Supermassive
-  algorithms; see [Cosmic Echo](cosmic-echo.md).
+  algorithms; see [Cosmic Echo](#cosmic-echo) below and the [player guide](modules/cosmic-echo.md).
 - **Shimmer** is an eight-line reverb with granular pitched feedback (±24 semitones); Freeze
   holds the tail and stops new input. Polyphonic pitch shifting and a harmonizer are not
   implemented.
@@ -67,6 +67,60 @@ Timing scales with the host rate; nothing is forced to 44.1 kHz or oversampled. 
 effects keep independent left/right histories. A mono NAM stage downmixes once and broadcasts
 its result, so stereo effects belong after the last mono capture.
 
+## Noise Gate (Smart)
+
+The spectral gate learns a per-band noise print during Learn and applies stereo-linked band
+gains, so the image does not wobble. A confidence guard relaxes suppression on strong notes and
+returns to the learned profile for quiet playing. Learning transitions to dry over 5 ms and
+opens the final gate; digital silence and captures shorter than about 300 ms do not replace an
+existing valid print, and during a new capture the last completed print remains the recallable
+snapshot. Very large or invalid samples are bounded so they cannot poison the filter histories.
+
+The optional final broadband gate works independently of the spectral profile, also without
+learning. It detects the original input's maximum L/R peak (so either channel, including
+anti-phase input, can open it), applies one linked gain after the spectral mix, and closes
+linearly to exact zero over Release after a 20 ms hold, with a fixed 0.5 ms opening ramp, 5 ms
+peak-detector decay and 3 dB hysteresis. An enabled gate starts closed after reset or recall to
+avoid an initial noise burst; turning it Off reopens it over 0.5 ms. The GR readout estimates
+band gain plus gate attenuation, capped at 120 dB.
+
+With Gate Off, untrained, settled Mix 0 and Reduction 0 pass the exact finite input. Completed
+snapshots survive project recall, rig-preset save/load and Copy/Move/Swap; Learn is saved off,
+suppressed on rig-preset load and excluded from scenes. Reset preserves the completed print but
+clears envelopes and histories. Profiles from older builds that this version cannot read are
+rejected without affecting the current sound.
+
+## LoFi Tape Machine
+
+An original transport and degradation effect, not a measured cassette/deck emulation or a
+magnetic-hysteresis model; no Dusk/CHOWTape DSP is copied. The transport is a 10 ms wet delay
+modulated by up to 5 ms of wow and 0.35 ms of flutter. Both channels share the transport and
+dropout envelope; their audio histories and hiss are independent. With Noise off, a centered
+mono input stays mono with no crossfeed. Slower Speed changes bandwidth and modulation rate
+rather than performing a lasting playback-speed pitch shift.
+
+The transport display derives pitch from changes in each read-head delay, so automation and the
+irregular wow component are represented. History is captured at 100 Hz into fixed storage on the
+audio thread and delivered through the meter queue; no UI timer invents movement when audio is
+stopped. The two components are shown separately, before Mix.
+
+## Cosmic Echo
+
+| Style | Topology |
+| --- | --- |
+| Gemini | Sixteen scattering delays |
+| Sagittarius | Eight serial stereo allpasses |
+| Virgo | Sparse delays with both cuts inside the feedback loop |
+| Centaurus | Four serial four-channel allpasses |
+| Great Annihilator | A delay stage and three matrix allpasses in global feedback |
+| Lyra | Four scattering delays, filters at the output |
+
+Warp, Density, Feedback and modulation keep the source model's per-topology interactions. Time
+uses a quadratic dial; Time/Warp automation moves allpass-interpolated reads and can bend the
+sounding tail. Style changes fade and clear the old tail. The display is rendered by a private
+copy of the DSP whenever a setting changes: a measured impulse response, not an RT60 estimate.
+See the [Faust reference](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive).
+
 ## Capture effects
 
 Freeze's Capture is the source window. It repeats every Capture minus the effective
@@ -77,7 +131,7 @@ is transient and never saved in presets.
 
 ## Cabinet IR
 
-A mono WAV loads through NAM's IR loader and the [adaptive convolver](adaptive-ir.md), which
+A mono WAV loads through NAM's IR loader and the [adaptive convolver](modules/ir-processing.md), which
 switches between direct and FFT convolution with zero added latency. Output 0 dB gives unity
 gain for a unit impulse at the IR's native rate; the -18 dB default is the upstream NAM
 cabinet headroom convention. IRs are not normalized. WAV parsing, resampling, history

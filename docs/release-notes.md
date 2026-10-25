@@ -13,10 +13,10 @@ A small polish update to [0.1.0](https://github.com/Fannon/nam-grid/releases/tag
 ## Downloads
 
 - `nam-grid-windows-x64.zip`: CLAP and VST3 for 64-bit Windows.
-- `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs (macOS 11 or newer). The Mac build isn't signed yet, so macOS will ask you to confirm it once — see the README.
+- `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs (macOS 11 or newer). The Mac build isn't signed yet, so macOS will ask you to confirm it once; see [allow the plugin](https://fannon.github.io/nam-grid/getting-started#macos-allow-the-plugin).
 - `nam-grid-linux-x64.zip`: CLAP and VST3 for 64-bit Linux (Ubuntu 22.04 or newer works well). Linux is still an early preview.
 
-New to NAM Grid? Everything is included to make sound right away: one clean amp-and-cab capture (RiffSmith Clean) and two starter rigs, Empty and Clean Default. The [README](https://github.com/Fannon/nam-grid#readme) gets you installed, and the [module guide](https://github.com/Fannon/nam-grid/blob/main/docs/modules/README.md) covers every module.
+New to NAM Grid? Everything is included to make sound right away: one clean amp-and-cab capture (RiffSmith Clean) and two starter rigs, Empty and Clean Default. [Getting started](https://fannon.github.io/nam-grid/getting-started) gets you installed, and the [module guide](https://fannon.github.io/nam-grid/modules/) covers every module.
 
 ## Good to know
 

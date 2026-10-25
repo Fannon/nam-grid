@@ -1,6 +1,6 @@
 # Dynamics
 
-Gates, compressors and limiting. Screenshots show each parameter pane at its starting settings.
+Gates, compressors and limiting.
 
 | Module | In short |
 | --- | --- |
@@ -10,7 +10,7 @@ Gates, compressors and limiting. Screenshots show each parameter pane at its sta
 | [Smooth Compressor](#smooth-compressor) | Gentle leveling; Attack preserves pick, Makeup restores level. |
 | [Punch Compressor](#punch-compressor) | Firmer compression; slow Attack and parallel Mix retain punch. |
 | [Butter Comp](#butter-comp) | Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack. |
-| [Outboard Channel](#outboard-channel) | Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level. |
+| [Outboard Channel](#outboard-channel) | Channel strip: cuts, compression and saturation in one module. |
 | [Peak Limiter](#peak-limiter) | Fast peak control; Ceiling and Release set grip and recovery. |
 
 ## Noise Gate
@@ -19,11 +19,11 @@ Gates, compressors and limiting. Screenshots show each parameter pane at its sta
 
 A gate with Natural (gentle 2:1 expansion, 1.5 ms opening, 40 ms hold) and Tight (deep closure, 0.3 ms opening, 15 ms hold) modes.
 
-**Threshold** (-90 dB to -10 dB; starts at -55 dB) Input level that opens the gate; set it above the noise and below your quietest notes.
-
-**Release** (20 ms to 500 ms; starts at 150 ms) Gate closing time; longer values preserve note tails.
-
-**Reduction** (0 dB to 80 dB; starts at 60 dB) Attenuation when the gate is closed; less keeps natural room tone.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Threshold** | -90 to -10 dB | -55 dB | Input level that opens the gate; set it above the noise and below your quietest notes. |
+| **Release** | 20–500 ms | 150 ms | Gate closing time; longer values preserve note tails. |
+| **Reduction** | 0–80 dB | 60 dB | Attenuation when the gate is closed; less keeps natural room tone. |
 
 In the header:
 
@@ -39,21 +39,17 @@ In the header:
 
 ![Noise Gate (Smart) editor](../screenshots/modules/noise-gate-smart.png)
 
-Learns your rig's noise profile and reduces it frequency by frequency, with an optional final gate. See [Noise Gate (Smart)](../noise-gate-smart.md) for learning and measurements.
+Learns your rig's noise profile and reduces it frequency by frequency, with an optional final gate. See [Noise Gate (Smart)](noise-gate-smart.md) for setup and tips.
 
-**Learn** (off / on; starts at off) Learn while playing only the unwanted noise, then turn Learn off before playing guitar.
-
-**Sensitivity** (-6 dB to 12 dB; starts at 1.5 dB) Raise the learned noise threshold; too much can reduce quiet sustain.
-
-**Reduction** (0 dB to 48 dB; starts at 24 dB) Maximum reduction in noisy bands. Less can retain more natural room tone and note tails.
-
-**Attack** (0.2 ms to 20 ms; starts at 2 ms) Speed at which the denoiser lets new signal through; short settings preserve pick attacks.
-
-**Release** (20 ms to 500 ms; starts at 120 ms) Recovery toward noise reduction after notes; longer settings preserve sustain.
-
-**Gate threshold** (-100 dB to 0 dB; starts at -100 dB) Optional final gate after denoising. Minimum is Off; raise carefully to avoid cutting sustain.
-
-**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Learn** | Off / On | Off | Learn while playing only the unwanted noise, then turn Learn off before playing guitar. |
+| **Sensitivity** | -6 to +12 dB | 1.5 dB | Raise the learned noise threshold; too much can reduce quiet sustain. |
+| **Reduction** | 0–48 dB | 24 dB | Maximum reduction in noisy bands. Less can retain more natural room tone and note tails. |
+| **Attack** | 0.2–20 ms | 2 ms | Speed at which the denoiser lets new signal through; short settings preserve pick attacks. |
+| **Release** | 20–500 ms | 120 ms | Recovery toward noise reduction after notes; longer settings preserve sustain. |
+| **Gate threshold** | -100 to 0 dB | -100 dB | Optional final gate after denoising. Minimum is Off; raise carefully to avoid cutting sustain. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** Gain reduction, input and output over time, and the gate threshold.
 
@@ -65,19 +61,18 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 ![Digital Black Gate editor](../screenshots/modules/digital-black-gate.png)
 
-Airwindows DigitalBlack's darkening gate, or CStrip's firmer re-arming gate in Hysteresis mode. Changes fade smoothly.
+A gate after Airwindows DigitalBlack that darkens notes as they close, or the firmer gate from Airwindows CStrip in Hysteresis mode.
 
-**Threshold** (-74 dB to -10 dB; starts at -55 dB) Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.
-
-**Hold** (0 ms to 200 ms; starts at 0 ms) Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold no longer chatters. A NAM Grid addition; 0 ms is the native gate.
-
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final gain after dry/wet blending. Match bypass loudness before judging the effect.
-
-**Mix** (0% to 100%; starts at 100%) Blend the gate and its darkened closing texture with the original signal. Zero restores the dry sound before Output.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Threshold** | -74 to -10 dB | -55 dB | Level that opens the gate. |
+| **Hold** | 0–200 ms | 0 ms | Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold does not make it chatter. 0 ms is the original Airwindows gate. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume before judging the effect. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and the gate with its darkened closing texture. |
 
 In the header:
 
-- **Mode** (Zero crossing, Hysteresis; starts at Zero crossing) Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.
+- **Mode** (Zero crossing, Hysteresis; starts at Zero crossing) Zero crossing darkens notes as they close; Hysteresis is a firmer gate that re-arms cleanly. Switching fades smoothly.
 
 **Display:** Input against output with the threshold, and the attenuation history.
 
@@ -91,15 +86,13 @@ In the header:
 
 Gentle 2.5:1 compression with a soft 9 dB knee for leveling and sustain.
 
-**Threshold** (-48 dB to 0 dB; starts at -24 dB) Level above which compression reduces dynamics.
-
-**Release** (40 ms to 600 ms; starts at 150 ms) Gain recovery time after a loud note.
-
-**Makeup** (0 dB to 18 dB; starts at 3 dB) Level compensation after compression; compare with bypass at similar loudness.
-
-**Attack** (0.5 ms to 50 ms; starts at 10 ms) How quickly compression catches a note. Slower attack lets more pick transient through.
-
-**Mix** (0% to 100%; starts at 100%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Threshold** | -48 to 0 dB | -24 dB | Level above which compression starts. |
+| **Release** | 40–600 ms | 150 ms | How quickly compression lets go after a loud note. |
+| **Makeup** | 0–18 dB | 3 dB | Level compensation after compression; compare with bypass at similar loudness. |
+| **Attack** | 0.5–50 ms | 10 ms | How quickly compression catches a note. Slower attack lets more pick transient through. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
@@ -113,15 +106,13 @@ Gentle 2.5:1 compression with a soft 9 dB knee for leveling and sustain.
 
 Firmer 4:1 compression with a 3 dB knee and a slower default attack, so the pick transient passes. Mix gives parallel compression.
 
-**Threshold** (-48 dB to 0 dB; starts at -18 dB) Level above which compression reduces dynamics.
-
-**Release** (40 ms to 600 ms; starts at 100 ms) Gain recovery time after a loud note.
-
-**Makeup** (0 dB to 18 dB; starts at 2 dB) Level compensation after compression; compare with bypass at similar loudness.
-
-**Attack** (0.5 ms to 50 ms; starts at 25 ms) How quickly compression catches a note. Slower attack lets more pick transient through.
-
-**Mix** (0% to 100%; starts at 80%) Balance the dry sound and effect. Output, when present, is applied after this blend.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Threshold** | -48 to 0 dB | -18 dB | Level above which compression starts. |
+| **Release** | 40–600 ms | 100 ms | How quickly compression lets go after a loud note. |
+| **Makeup** | 0–18 dB | 2 dB | Level compensation after compression; compare with bypass at similar loudness. |
+| **Attack** | 0.5–50 ms | 25 ms | How quickly compression catches a note. Slower attack lets more pick transient through. |
+| **Mix** | 0–100% | 80% | Balance between dry sound and effect. |
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
@@ -135,11 +126,11 @@ Firmer 4:1 compression with a 3 dB knee and a slower default attack, so the pick
 
 Airwindows ButterComp2 glue compression with automatic level recovery. Try it across a full rig for subtle cohesion.
 
-**Compress** (0% to 100%; starts at 35%) ButterComp2 intensity and automatic gain recovery, with output-dependent release and independent left/right detectors.
-
-**Output** (-18 dB to 6 dB; starts at -1 dB) Final gain after dry/wet blending, in dB. Match bypass loudness before judging compression.
-
-**Mix** (0% to 100%; starts at 100%) Parallel dry/wet blend. Output follows this blend. The gain-reduction meter excludes automatic gain recovery and Output.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Compress** | 0–100% | 35% | Compression amount, with automatic level recovery. |
+| **Output** | -18 to +6 dB | -1 dB | Final level. Match bypass volume before judging compression. |
+| **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 
 **Display:** Gain reduction, input and output over time.
 
@@ -147,21 +138,17 @@ Airwindows ButterComp2 glue compression with automatic level recovery. Try it ac
 
 ![Outboard Channel editor](../screenshots/modules/outboard-channel.png)
 
-Airwindows CStrip2: Capacitor cuts into compression and Spiral saturation. The cuts are native percentages, not calibrated Hz. See [Airwindows outboard](../airwindows-outboard.md).
+A channel strip after Airwindows CStrip2: low and high cuts into a compressor and output saturation. The cuts and compressor use relative amounts rather than Hz or milliseconds.
 
-**Low cut** (0% to 100%; starts at 0%) Native Capacitor high-pass amount, with sample-rate pole compensation. Zero is off. Percentage is not a cutoff in Hz.
-
-**High cut** (0% to 100%; starts at 100%) Native Capacitor low-pass openness, with sample-rate pole compensation. 100 is open; lower values darken. Percentage is not a cutoff in Hz.
-
-**Compress** (0% to 100%; starts at 20%) CStrip2 drive into its polarity-sensitive compressor. This percentage controls intensity, not threshold or ratio.
-
-**Comp speed** (0% to 100%; starts at 25%) CStrip2 native recovery speed. Higher values recover faster; this is not attack or release in milliseconds.
-
-**Output** (-18 dB to 6 dB; starts at 0 dB) Final gain after dry/wet blending, in dB. Match bypass loudness before judging compression.
-
-**Saturate** (0% to 100%; starts at 15%) Native unity-to-Spiral output section: increases drive and blends saturation. Output independently matches final loudness.
-
-**Mix** (0% to 100%; starts at 100%) Parallel dry/wet blend. Output follows this blend. The gain-reduction meter excludes automatic gain recovery and Output.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Low cut** | 0–100% | 0% | Removes low end; 0% is off. A relative amount, not a frequency. |
+| **High cut** | 0–100% | 100% | Removes highs; 100% is open, lower is darker. A relative amount, not a frequency. |
+| **Compress** | 0–100% | 20% | Compression amount; a relative intensity rather than a threshold or ratio. |
+| **Comp speed** | 0–100% | 25% | Recovery speed; higher recovers faster. A relative amount, not a time. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume before judging compression. |
+| **Saturate** | 0–100% | 15% | Adds output saturation. Use Output to match loudness. |
+| **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 
 **Display:** The cuts over the output spectrum, the saturation curve and gain reduction.
 
@@ -171,11 +158,11 @@ Airwindows CStrip2: Capacitor cuts into compression and Spiral saturation. The c
 
 A fast peak limiter for catching transients at the end of the rig. Clip rounds peaks before limiting, so fast notes need less gain reduction.
 
-**Ceiling** (-24 dB to 0 dB; starts at -1 dB) Peak target. This zero-lookahead limiter cannot guarantee an intersample true-peak ceiling.
-
-**Release** (10 ms to 500 ms; starts at 75 ms) How quickly gain recovers after a loud peak; short settings can sound more aggressive.
-
-**Clip** (0% to 100%; starts at 0%) Soft-clips peaks from 3 dB below the ceiling before limiting, so the gain moves less on fast transients. Adds harmonics; 0% is off.
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Ceiling** | -24 to 0 dB | -1 dB | Peak target. With no lookahead, it is not a guaranteed true-peak ceiling. |
+| **Release** | 10–500 ms | 75 ms | How quickly gain recovers after a loud peak; short settings can sound more aggressive. |
+| **Clip** | 0–100% | 0% | Soft-clips peaks from 3 dB below the ceiling before limiting, so the gain moves less on fast transients. Adds harmonics; 0% is off. |
 
 **Display:** The limiter curve with a dot at the live input, and the history.
 

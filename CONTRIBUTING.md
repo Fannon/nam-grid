@@ -38,8 +38,7 @@ Follow the surrounding C++ style and repository `.clang-format`; limit formattin
 to touched code. Run `git diff --check` before submitting. A PR should explain the
 user-visible change, relevant tradeoffs, tests run and remaining validation limits.
 
-Keep maintained guides discoverable through the [documentation index](docs/README.md).
-Use lowercase kebab-case guide filenames. Put reviews, audits and one-off reports
-in gitignored `tmp/`, or in the relevant PR description/comments. Fold lasting
-conclusions into maintained guides and update references when moving a document.
-See [AGENTS.md](AGENTS.md).
+Documentation lives in `docs/` and is published as the
+[manual site](https://fannon.github.io/nam-grid/) (`npm --prefix docs run docs:dev` previews
+it). Follow the documentation rules in [AGENTS.md](AGENTS.md) and list new guides in the
+[documentation index](docs/README.md).

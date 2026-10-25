@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" width="880" height="360" role="img" aria-labelledby="title desc">
+  <title id="title">NAM Grid signal flow</title>
+  <desc id="desc">IN feeds Pre 1 to Pre 4. The signal then splits into lane A (A1 to A4) and lane B (B1 to B4), which the A/B blend combines. The blend feeds Post 1 to Post 4, then OUT.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#84918b"/>
+    </marker>
+    <style>
+      .wire { fill: none; stroke: #84918b; stroke-width: 1.6; }
+      .slot { fill: #151a1d; stroke-width: 1.6; }
+      .label { fill: #edf2ef; font: 500 15px Roboto, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .node { fill: #121618; stroke: #71c7b2; stroke-width: 1.6; }
+      .node-label { fill: #8ad8c3; font: 700 12px Roboto, 'Segoe UI', Helvetica, Arial, sans-serif; letter-spacing: 0.04em; }
+      .pre { stroke: #b2bdb8; }
+      .a { stroke: #e9a25f; }
+      .b { stroke: #6fa8dc; }
+      .post { stroke: #71c7b2; }
+    </style>
+  </defs>
+  <rect width="880" height="360" rx="10" fill="#090b0c"/>
+
+  <!-- IN -> Pre row -->
+  <circle class="node" cx="48" cy="50" r="22"/>
+  <text class="node-label" x="48" y="54" text-anchor="middle">IN</text>
+  <path class="wire" d="M70,50 H98" marker-end="url(#arrow)"/>
+  <g>
+    <rect class="slot pre" x="100" y="24" width="150" height="52" rx="7"/>
+    <rect class="slot pre" x="270" y="24" width="150" height="52" rx="7"/>
+    <rect class="slot pre" x="440" y="24" width="150" height="52" rx="7"/>
+    <rect class="slot pre" x="610" y="24" width="150" height="52" rx="7"/>
+    <text class="label" x="116" y="55">Pre 1</text>
+    <text class="label" x="286" y="55">Pre 2</text>
+    <text class="label" x="456" y="55">Pre 3</text>
+    <text class="label" x="626" y="55">Pre 4</text>
+    <path class="wire" d="M250,50 H268 M420,50 H438 M590,50 H608"/>
+  </g>
+
+  <!-- Split into the lanes -->
+  <path class="wire" d="M760,50 H784 V92 H72 V136 H98" marker-end="url(#arrow)"/>
+  <path class="wire" d="M72,136 V222 H98" marker-end="url(#arrow)"/>
+
+  <!-- Lane A -->
+  <rect class="slot a" x="100" y="110" width="150" height="52" rx="7"/>
+  <rect class="slot a" x="270" y="110" width="150" height="52" rx="7"/>
+  <rect class="slot a" x="440" y="110" width="150" height="52" rx="7"/>
+  <rect class="slot a" x="610" y="110" width="150" height="52" rx="7"/>
+  <text class="label" x="116" y="141">A1</text>
+  <text class="label" x="286" y="141">A2</text>
+  <text class="label" x="456" y="141">A3</text>
+  <text class="label" x="626" y="141">A4</text>
+  <path class="wire" d="M250,136 H268 M420,136 H438 M590,136 H608"/>
+
+  <!-- Lane B -->
+  <rect class="slot b" x="100" y="196" width="150" height="52" rx="7"/>
+  <rect class="slot b" x="270" y="196" width="150" height="52" rx="7"/>
+  <rect class="slot b" x="440" y="196" width="150" height="52" rx="7"/>
+  <rect class="slot b" x="610" y="196" width="150" height="52" rx="7"/>
+  <text class="label" x="116" y="227">B1</text>
+  <text class="label" x="286" y="227">B2</text>
+  <text class="label" x="456" y="227">B3</text>
+  <text class="label" x="626" y="227">B4</text>
+  <path class="wire" d="M250,222 H268 M420,222 H438 M590,222 H608"/>
+
+  <!-- A/B blend -->
+  <path class="wire" d="M760,136 H822 V155" marker-end="url(#arrow)"/>
+  <path class="wire" d="M760,222 H822 V203" marker-end="url(#arrow)"/>
+  <circle class="node" cx="822" cy="179" r="22"/>
+  <text class="node-label" x="822" y="183" text-anchor="middle">A/B</text>
+
+  <!-- Post row -> OUT -->
+  <path class="wire" d="M844,179 H864 V266 H72 V308 H98" marker-end="url(#arrow)"/>
+  <rect class="slot post" x="100" y="282" width="150" height="52" rx="7"/>
+  <rect class="slot post" x="270" y="282" width="150" height="52" rx="7"/>
+  <rect class="slot post" x="440" y="282" width="150" height="52" rx="7"/>
+  <rect class="slot post" x="610" y="282" width="150" height="52" rx="7"/>
+  <text class="label" x="116" y="313">Post 1</text>
+  <text class="label" x="286" y="313">Post 2</text>
+  <text class="label" x="456" y="313">Post 3</text>
+  <text class="label" x="626" y="313">Post 4</text>
+  <path class="wire" d="M250,308 H268 M420,308 H438 M590,308 H608"/>
+  <path class="wire" d="M760,308 H798" marker-end="url(#arrow)"/>
+  <circle class="node" cx="822" cy="308" r="22"/>
+  <text class="node-label" x="822" y="312" text-anchor="middle">OUT</text>
+</svg>

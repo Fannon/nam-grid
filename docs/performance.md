@@ -1,16 +1,8 @@
-# Performance controls
+# Modulation & scenes
 
-Shape sounds with your playing, assign a few useful controls to macros, and switch between three snapshots without rebuilding the rig.
+Let controls move with your playing, put the most useful ones on four macros, and switch between three snapshots of a rig while you play. For lane levels, timing and the frequency split, see [Routing](grid.md#routing).
 
-## Routing
-
-Click **Routing** below the A/B knob to open the lane controls. Select a module, close the page, or press Escape to return.
-
-- **Lane A / Lane B:** adjust level, mute, or solo each lane. Solo respects the current blend; if both lanes are soloed, both play. Mute wins over solo.
-- **Lane timing:** shift one lane by up to 20 ms to explore timing and phase between captures. Positive values delay A; negative values delay B.
-- **Frequency split:** send lows to A and the remaining highs to B at **Crossover**. At centered Blend with empty lanes, the original sound is reconstructed. This is a gentle split, not a steep multiband crossover.
-
-Use the split for rigs such as a clean low end in A and a driven high band in B. Check the combined tone in mono as well as stereo.
+![The Modulation page with an LFO, three matrix rows and the macros](screenshots/control.png)
 
 ## Modulation
 
@@ -31,7 +23,7 @@ Right-click a module knob, lane level, crossover, or A/B knob and choose **Modul
 - **Sequencer:** draw eight bipolar steps. Drag above the center to add and below to subtract; use free rate or tempo sync.
 - **Macros 1–4:** four manual or host-automatable controls for your most important assignments.
 
-The LFO and sequencer move above and below a knob's setting. The envelope and macros move in one direction. For a delay that gets out of the way while you play, assign Envelope to delay **Mix** with negative depth and adjust Release for the return.
+The LFO and sequencer move above and below a knob's setting. The envelope and macros move in one direction.
 
 **Retrigger** can restart the LFO or sequencer on an audio onset or incoming MIDI note. **One shot** plays one LFO cycle per trigger and then holds—useful for a fresh sweep on every note. MIDI notes trigger modulation; they do not change the guitar audio.
 
@@ -42,6 +34,14 @@ Each of the eight rows has a **source**, **destination**, **depth**, and optiona
 Depth is a share of the destination's range. Multiple rows can affect one knob without pushing it beyond its limits. Rows for controls the current module does not have remain saved but inactive. Click **×** to clear a row.
 
 All assignments and source settings are saved with the rig. Depths, macros, and most source controls can also be automated by your DAW.
+
+### Ideas to try
+
+- **Ducked delay:** Envelope to delay **Mix** with negative depth. The repeats get out of the way while you play; Release sets how quickly they return.
+- **Auto-wah:** Envelope to Filter **Cutoff** with positive depth, with some Resonance.
+- **Lane morph:** a slow, tempo-synced LFO to **A/B**, moving between two amps.
+- **Lead boost on one knob:** Macro 1 to a drive's **Drive** and a delay's **Mix** in two rows. Automate the macro or map it to a controller in your DAW.
+- **Rhythmic sweeps:** the Sequencer, synced to tempo, to a filter or phaser control.
 
 ## Performance scenes
 

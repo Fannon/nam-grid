@@ -20,4 +20,4 @@ microphone.
 Loading or replacing an IR happens away from the audio thread and fades over, so it never
 interrupts playback. IR levels vary between libraries: start from the slot's -18 dB Output and
 match the level with the strip below the editor. See
-[Captures & cabinets](modules/captures.md) for the controls.
+[Captures & cabinets](captures.md) for the controls.

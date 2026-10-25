@@ -176,6 +176,15 @@ int main(int argc, char** argv)
     assert(loadRaw(base));
   }
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
+  {
+    auto legacyEQ = base;
+    legacyEQ["schema"] = 4;
+    for (int slot = 0; slot < 16; ++slot)
+      for (int p = uParamLowQ; p <= uParamLowMode; ++p)
+        legacyEQ.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
+    assert(loadRaw(legacyEQ));
+    assert(save().config() == base);
+  }
   assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
   // Every slot exposes the same host controls; no upstream single-amp parameters remain.
   for (const char* name : {"Threshold", "Bass", "ToneStack", "IRToggle", "OutputMode", "CalibrateInput",
@@ -221,6 +230,27 @@ int main(int argc, char** argv)
   auto recalled = save();
   assert(loadBytes(recalled));
   assert(save().config() == base);
+  // Macro names are rig metadata, with defaults for older presets and atomic rejection
+  // of malformed names. They never change the stable automation parameter names or values.
+  {
+    auto named = base;
+    named["MacroNames"] = json::array({"Drive", "Space", "Motion", "Level"});
+    load(named);
+    assert(save().config() == named);
+    auto legacy = base;
+    legacy.erase("MacroNames");
+    load(legacy);
+    assert(save().config() == base);
+    for (const auto& badNames : {json("Drive"), json::array({"Drive"}), json::array({"Drive", 2, "Motion", "Level"}),
+                                json::array({std::string(129, 'x'), "Space", "Motion", "Level"}),
+                                json::array({"Drive\n", "Space", "Motion", "Level"})})
+    {
+      auto malformed = base;
+      malformed["MacroNames"] = badNames;
+      assert(!loadRaw(malformed));
+      assert(save().config() == base);
+    }
+  }
   // Only the current header and schema load. Prototype/upstream formats, unknown
   // schemas and newer versions are rejected without mutating the current rig.
   for (const char* header : {"###NAMGrid" "-v1###", "###NAMDual-v1###", "###NeuralAmpModeler###"})
@@ -1003,6 +1033,25 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     pumpFor(250);
   };
+  // The bypass follows variable-width badges. Seek the first control after them,
+  // stopping as soon as the actual Enabled parameter changes; the module menu is
+  // further right. This also exercises layout before any paint in hidden hosts.
+  const auto toggleHeader = [&] {
+    double before = 0., after = 0.;
+    assert(params->get_value(plugin, SlotActiveParam(0), &before));
+    for (int x = 72; x < 280; x += 6)
+    {
+      SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, grid_layout::enabledY));
+      SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, grid_layout::enabledY));
+      pumpFor(1);
+      assert(params->get_value(plugin, SlotActiveParam(0), &after));
+      if (after != before) { pumpFor(30); return; }
+    }
+    assert(false && "Module header bypass did not respond");
+  };
+  const auto optionX = [](int p) {
+    return p == uEQMode || p == uTempoSync ? grid_layout::tempoLeft + 55 : grid_layout::modeLeft + 82;
+  };
   // The tile ID row selects without opening the browser; the name button below opens it.
   const auto selectTile = [&](int x, int y) {
     click(x, grid_layout::cardTop + grid_layout::rowPitch * ((y - grid_layout::cardTop) / grid_layout::rowPitch) + 14);
@@ -1015,7 +1064,7 @@ int main(int argc, char** argv)
   const auto selectChoice = [&](int control, int choice, int current, bool dismiss = false, SlotEffect effect = SlotEffect::NAM) {
     const bool header = effect_presentation::HeaderControl(control);
     const int position = effect_presentation::Position(effect, control);
-    const int x = header ? 558 : grid_layout::KnobX(position);
+    const int x = header ? optionX(control) : grid_layout::KnobX(position);
     const int y = header ? grid_layout::optionsY : grid_layout::ToggleY(position);
     win_edit_menu::SelectChoice(editor, x, y, EffectChoices(control), choice, current, dismiss);
     pumpFor(50);
@@ -1065,7 +1114,7 @@ int main(int argc, char** argv)
       else
       {
         const int position = effect_presentation::Position(effect, control);
-        const int x = effect_presentation::HeaderControl(control) ? 558 : grid_layout::KnobX(position);
+        const int x = effect_presentation::HeaderControl(control) ? optionX(control) : grid_layout::KnobX(position);
         const int y = effect_presentation::HeaderControl(control) ? grid_layout::optionsY : grid_layout::ToggleY(position);
         click(x, y); assert(save().config()[parameter] == 1.);
         click(x, y); assert(save().config() == before);
@@ -1332,8 +1381,7 @@ int main(int argc, char** argv)
     // Empty slots have neither a card toggle nor a lone editor Enabled control.
     {
       const auto empty = save().config();
-      click(263, grid_layout::cardTop + 12);
-      click(grid_layout::enabledX, grid_layout::enabledY);
+      click(grid_layout::cardLeft + 176, grid_layout::cardTop + 12);
       assert(save().config() == empty);
     }
     std::cout << "Single-click module selection and right-click Clear slot passed\n";
@@ -1357,6 +1405,7 @@ int main(int argc, char** argv)
     BYTE previous[256]{}, neutral[256]{};
     assert(GetKeyboardState(previous)); assert(SetKeyboardState(neutral));
     SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+    SendMessage(editor, WM_KEYUP, key, 0);
     assert(SetKeyboardState(previous)); pumpFor(20);
   };
   const auto enterBrowserSearch = [&](const std::string& query) {
@@ -1364,10 +1413,35 @@ int main(int argc, char** argv)
     if (IsWindowVisible(editor)) assert(GetFocus() == editor);
     for (const char ch : query) keyAtEditor(ch == ' ' ? VK_SPACE : ch);
     pumpFor(150); // Results must update before Enter commits the search editor.
+    InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
   };
   const auto chooseBrowserItem = [&](const std::string& query) {
     enterBrowserSearch(query); keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
   };
+  // Macro names use an unbound text editor: letters must not edit the numeric value.
+  {
+    const auto before = save().config();
+    SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(41, 184));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(41, 184)); pumpFor(30);
+    BYTE previousKeys[256]{}, entryKeys[256]{};
+    assert(GetKeyboardState(previousKeys));
+    for (const char c : std::string("Drive"))
+    {
+      entryKeys[VK_SHIFT] = c == 'D' ? 0x80 : 0;
+      assert(SetKeyboardState(entryKeys));
+      const int key = std::toupper(static_cast<unsigned char>(c));
+      SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+      SendMessage(editor, WM_KEYUP, key, 0);
+    }
+    entryKeys[VK_SHIFT] = 0; assert(SetKeyboardState(entryKeys));
+    SendMessage(editor, WM_KEYDOWN, VK_RETURN, 0); SendMessage(editor, WM_KEYUP, VK_RETURN, 0);
+    assert(SetKeyboardState(previousKeys)); pumpFor(30);
+    const auto named = save().config();
+    assert(named["MacroNames"][0] == "Drive" && named["Macro 1"] == before["Macro 1"]);
+    assert(loadRaw(named));
+    assert(save().config() == named);
+    assert(loadRaw(before));
+  }
   // Tiles and the browser icon share context. Merely opening/searching/navigating
   // must not edit a rig; accepting the selected item targets the originating slot.
   auto browserCurrent = browserState;
@@ -1380,19 +1454,19 @@ int main(int argc, char** argv)
   assert(save().config() == beforeBrowse);
   keyAtEditor(VK_RETURN); // The exact duplicate path remains selected.
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryTwin);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("DRIVE");
   assert(save().config()["SlotPaths"][0] == beforeBrowse["SlotPaths"][0]);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-nam-search.bmp");
   keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == librarySecond);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   click(560, 28); // Cell context allows IR, but offers no complete rig presets.
   click(680, 28); // A hidden preset tab must not accept input.
   chooseBrowserItem("CABINET");
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::CabinetIR));
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryIR);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-ir-current.bmp");
   keyAtEditor(VK_ESCAPE);
   // An external file's folder is browsable without adding it to the user's library.
@@ -1408,7 +1482,7 @@ int main(int argc, char** argv)
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-fx-current.bmp");
   keyAtEditor(VK_RETURN);
   assert(save().config()["Pre 1 EQ Bass"] == 6.); // Reselecting the FX retains edits.
-  click(356, grid_layout::moduleButtonY); chooseBrowserItem("CONSOLE EQ");
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("CONSOLE EQ");
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "module-header-readable.bmp");
   const auto liveValue = [&](const char* name) {
@@ -1451,7 +1525,7 @@ int main(int argc, char** argv)
     load(original); selectTile(170, 120);
     const auto committed = save().config();
     const auto before = liveValue(parameter);
-    click(356, grid_layout::moduleButtonY);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
     host.dirty = host.flushRequested = false;
     dragAt(grid_layout::KnobX(knob), grid_layout::KnobGestureY(knob));
     const auto audition = liveValue(parameter);
@@ -1460,7 +1534,7 @@ int main(int argc, char** argv)
     assert(!host.dirty && !host.flushRequested);
     keyAtEditor(VK_ESCAPE);
     assert(std::abs(liveValue(parameter) - before) < .01 && save().config() == committed);
-    click(356, grid_layout::moduleButtonY);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
     dragAt(grid_layout::KnobX(knob), grid_layout::KnobGestureY(knob));
     const auto accepted = liveValue(parameter);
     keyAtEditor(VK_RETURN);
@@ -1468,7 +1542,7 @@ int main(int argc, char** argv)
     assert(std::abs(save().config()[parameter].get<double>() - accepted) < .11);
     if (nam)
     {
-      click(356, grid_layout::moduleButtonY);
+      click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
       enterBrowserSearch("DRIVE"); keyAtEditor(VK_RETURN);
       dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
       const auto gain = liveValue(parameter);
@@ -1482,7 +1556,7 @@ int main(int argc, char** argv)
   previewMode["SlotEffects"][0] = static_cast<int>(SlotEffect::CosmicEcho);
   previewMode["Pre 1 Cosmic Style"] = 0.;
   load(previewMode); selectTile(170, 120);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   host.dirty = host.flushRequested = false;
   selectChoice(uCosmicStyle, 1, 0); // A mode edit remains part of the audition.
   assert(rawValue("Pre 1 Cosmic Style") == 1.);
@@ -1492,31 +1566,31 @@ int main(int argc, char** argv)
   assert(rawValue("Pre 1 Cosmic Style") == 0.);
   assert(save().config() == previewMode);
   assert(!host.dirty && !host.flushRequested);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   selectChoice(uCosmicStyle, 1, 0);
   keyAtEditor(VK_RETURN); // Accepting commits the mode edit and tells the host once.
   assert(host.dirty);
   assert(rawValue("Pre 1 Cosmic Style") == 1. && save().config()["Pre 1 Cosmic Style"] == 1.);
   load(moduleBrowser); selectTile(170, 120);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
   const auto editedBass = liveValue("Pre 1 EQ Bass");
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
-  click(957, 75); // The search field's cross clears it before returning to the original FX.
+  click(grid_layout::width - 43, 75); // The Modules search cross follows the window width.
   enterBrowserSearch("GUITAR EQ"); keyAtEditor(VK_RETURN);
   assert(std::abs(liveValue("Pre 1 EQ Bass") - editedBass) < .01);
   keyAtEditor(VK_ESCAPE);
   assert(save().config()["Pre 1 EQ Bass"] == 6.);
   // A quick-menu choice while the browser auditions is final: it closes the browser, so
   // Escape (or Cancel) can no longer restore the original afterwards.
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   win_edit_menu::SelectNamedItem(editor, 200, grid_layout::moduleButtonY, L"Clear slot"); pumpFor(50);
   keyAtEditor(VK_ESCAPE);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::NAM) && save().config()["SlotPaths"][0] == "");
   load(moduleBrowser); selectTile(170, 120);
   // Cancel top right, where every full page closes, restores the original like Escape.
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   assert(save().config()["SlotEffects"][0] != static_cast<int>(SlotEffect::ConsoleEQ)); // Auditioned, not saved.
   click(936, 28);
@@ -1524,7 +1598,7 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // The browser closed: the editor takes gestures again.
   assert(save().config()["Pre 1 EQ Bass"] != 6.);
   load(moduleBrowser); selectTile(170, 120);
-  click(356, grid_layout::moduleButtonY);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(400, 144));
   SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(400, 144)); pumpFor(100);
@@ -1856,9 +1930,9 @@ int main(int argc, char** argv)
       }
       click(910, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
-      click(936, 28); click(966, 328);
+      click(936, 28); click(grid_layout::width - 36, 328);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click(966, 328); click(kModulationX, grid_layout::headerY);
+      click(grid_layout::width - 36, 328); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
       click(936, 28); click(kTunerX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
@@ -1884,7 +1958,7 @@ int main(int argc, char** argv)
   utilities["Pre 1 EQ High Cut"] = 10000.;
   load(utilities);
   selectTile(170, 120);
-  for (int position : {0, 1, 2, 4, 5}) // Frequency, Gain, Q, then Low cut and High cut side by side.
+  for (int position : {0, 1, 2, 4, 6}) // Frequency, Gain, Q, then Low cut and High cut side by side.
     dragAt(grid_layout::KnobX(position), grid_layout::KnobGestureY(position));
   auto editedUtility = save().config();
   assert(editedUtility["Pre 1 Parametric Frequency"] != utilities["Pre 1 Parametric Frequency"]);
@@ -1919,6 +1993,12 @@ int main(int argc, char** argv)
     for (int p = 0; p < kUtilityControls; ++p)
       if (UsesUtility(effect, p))
       {
+        // Shelf gain is conditional: expose it before testing its gesture.
+        if (effect == SlotEffect::ParametricEQ && p == uParamShelfGain)
+        {
+          click(optionX(uParamLowMode), grid_layout::optionsY);
+          assert(save().config()["Pre 1 Parametric Low Mode"] == 1.);
+        }
         const auto& descriptor = kEffectParameters[p];
         const std::string name = std::string("Pre 1 ") + descriptor.name;
         const auto before = save().config();
@@ -1935,11 +2015,11 @@ int main(int argc, char** argv)
           const int current = static_cast<int>(before[name].get<double>());
           const int next = current >= descriptor.maximum ? static_cast<int>(descriptor.minimum) : current + 1;
           if (effect_presentation::ChoiceDropdown(p)) selectChoice(p, next, current, false, effect);
-          else click(effect_presentation::HeaderControl(p) ? 558 : x,
+          else click(effect_presentation::HeaderControl(p) ? optionX(p) : x,
                      effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
         }
         else if (EffectChoices(p).empty() && descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
-          click(effect_presentation::HeaderControl(p) ? 558 : x,
+          click(effect_presentation::HeaderControl(p) ? optionX(p) : x,
                 effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
         else
         {
@@ -1959,7 +2039,7 @@ int main(int argc, char** argv)
           assert(algorithmAutomation.empty());
         }
       }
-    click(grid_layout::enabledX, grid_layout::enabledY);
+    toggleHeader();
     assert(save().config()["Pre 1 Enabled"] == 0.);
     if (argc == 4)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
@@ -1968,18 +2048,18 @@ int main(int argc, char** argv)
     auto category = browserState;
     category["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalDelay);
     load(category); selectTile(170, 120);
-    click(356, grid_layout::moduleButtonY); chooseBrowserItem("TAPE ECHO"); pumpFor(30);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("TAPE ECHO"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::TapeDelay));
-    click(356, grid_layout::moduleButtonY); chooseBrowserItem("DUAL DELAY"); pumpFor(30);
+    click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("DUAL DELAY"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::DualDelay));
   }
   // The larger top-right grid toggle changes bypass without replacing the module.
   {
     const auto before = save().config();
-    click(263, grid_layout::cardTop + 12);
+    click(grid_layout::cardLeft + 176, grid_layout::cardTop + 12);
     assert(save().config()["Pre 1 Enabled"] == 1. - before["Pre 1 Enabled"].get<double>());
     assert(save().config()["SlotEffects"] == before["SlotEffects"]);
-    click(263, grid_layout::cardTop + 12);
+    click(grid_layout::cardLeft + 176, grid_layout::cardTop + 12);
     assert(save().config()["Pre 1 Enabled"] == before["Pre 1 Enabled"]);
   }
   // Capture actual transport history in the compact editor, with no synthetic UI animation.
@@ -2014,14 +2094,14 @@ int main(int argc, char** argv)
     const char* name = effect == static_cast<int>(SlotEffect::DigitalDelay) || effect == static_cast<int>(SlotEffect::DualDelay)
                          ? "Pre 1 Delay Ping-Pong" : "Pre 1 Reverb Stereo Wet";
     const double before = save().config()[name].get<double>();
-    click(558, grid_layout::optionsY);
+    click(optionX(uGateMode), grid_layout::optionsY);
     assert(save().config()[name].get<double>() == 1. - before);
   }
   {
     auto reverse = browserState; reverse["SlotEffects"][0] = static_cast<int>(SlotEffect::ReverseDelay);
     load(reverse); selectTile(170, 120);
     const auto before = save().config();
-    click(558, grid_layout::optionsY); // No ineffective Ping-pong control here.
+    click(optionX(uGateMode), grid_layout::optionsY); // No ineffective Ping-pong control here.
     assert(save().config() == before);
     auto vibe = browserState; vibe["SlotEffects"][0] = static_cast<int>(SlotEffect::UniVibe);
     vibe["Pre 1 Vibe Vibrato Mode"] = 1.; vibe["Pre 1 Mod Mix"] = 50.;
@@ -2049,9 +2129,9 @@ int main(int argc, char** argv)
       assert(save().config()["Pre 1 Pedal Body"] == pedal["Pre 1 Pedal Body"]);
       resetDial(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
       assert(save().config()["Pre 1 Pedal Character"] == 0.);
-      click(grid_layout::enabledX, grid_layout::enabledY);
+      toggleHeader();
       assert(save().config()["Pre 1 Enabled"] == 0.);
-      click(263, 80);
+      click(grid_layout::cardLeft + 176, 80);
       assert(save().config()["Pre 1 Enabled"] == 1.);
       assert(save().config()["Pre 1 Pedal Character"] == 0.);
       if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / ("pedal-character-" + std::to_string(style) + ".bmp"));
@@ -2096,9 +2176,9 @@ int main(int argc, char** argv)
   };
   automate("Pre 1 Full Quality", 0.); // Preparation happens on the idle/control thread.
   assert(save().config()["Pre 1 Full Quality"] == 0.);
-  click(530, grid_layout::optionsY);
+  click(grid_layout::qualityLeft + 58, grid_layout::optionsY);
   assert(save().config()["Pre 1 Full Quality"] == 1.);
-  click(530, grid_layout::optionsY);
+  click(grid_layout::qualityLeft + 58, grid_layout::optionsY);
   assert(save().config()["Pre 1 Full Quality"] == 0.);
   for (int i = 0; i < 30; ++i)
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
@@ -2122,9 +2202,9 @@ int main(int argc, char** argv)
   assert(namControls["Pre 1 NAM Output"] != qualityState["Pre 1 NAM Output"]);
   assert(namControls["Pre 1 EQ Low Cut"] != qualityState["Pre 1 EQ Low Cut"]);
   assert(namControls["Pre 1 EQ High Cut"] != qualityState["Pre 1 EQ High Cut"]);
-  click(grid_layout::enabledX, grid_layout::enabledY);
+  toggleHeader();
   assert(save().config()["Pre 1 Enabled"] == 0.);
-  click(grid_layout::enabledX, grid_layout::enabledY);
+  toggleHeader();
   assert(save().config()["Pre 1 Enabled"] == 1.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "nam-eight-controls.bmp");
@@ -2154,12 +2234,12 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Selected IN1 gate threshold.
   assert(save().config()["Pre 1 Gate Threshold"] != effectUI["Pre 1 Gate Threshold"]);
   assert(save().config()["Pre 1 NAM Input"] == effectUI["Pre 1 NAM Input"]);
-  click(558, grid_layout::optionsY); // Gate Mode sits in the header with the other mode selectors.
+  click(optionX(uGateMode), grid_layout::optionsY); // Gate Mode sits in the header with the other mode selectors.
   assert(save().config()["Pre 1 Gate Mode"] == 1.);
   auto gateModes = save();
   assert(loadBytes(gateModes));
   assert(save().config()["Pre 1 Gate Mode"] == 1.);
-  click(558, grid_layout::optionsY);
+  click(optionX(uGateMode), grid_layout::optionsY);
   assert(save().config()["Pre 1 Gate Mode"] == 0.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "gate.bmp");
@@ -2168,17 +2248,17 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Pre 2 NAM Output"] == effectUI["Pre 2 NAM Output"]);
   // Card dot bypass and editor-header circle must share the same automated parameter.
-  click(471, 80);
+  click(grid_layout::cardLeft + grid_layout::columnPitch + 176, grid_layout::cardTop + 16);
   assert(save().config()["Pre 2 Enabled"] == 0.);
-  click(471, 80);
+  click(grid_layout::cardLeft + grid_layout::columnPitch + 176, grid_layout::cardTop + 16);
   assert(save().config()["Pre 2 Enabled"] == 1.);
   // FX navigation stays in the current menu category and wraps in both directions.
   auto navigation = browserState;
   navigation["SlotEffects"][0] = static_cast<int>(SlotEffect::JunoChorus);
   load(navigation); selectTile(170, 120);
-  click(422, grid_layout::moduleButtonY);
+  click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::Flanger));
-  click(392, grid_layout::moduleButtonY);
+  click(grid_layout::modulePreviousX, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::JunoChorus));
   // NAM/IR arrows use physical siblings, including outside configured roots.
   const auto neighbor = libraryFirst.parent_path() / "neighbor.nam";
@@ -2191,23 +2271,23 @@ int main(int argc, char** argv)
   navigation["SlotPaths"][0] = libraryFirst.string();
   navigation["SlotEffects"][1] = static_cast<int>(SlotEffect::CabinetIR); navigation["SlotPaths"][1] = libraryIR.string();
   load(navigation); selectTile(170, 120);
-  click(422, grid_layout::moduleButtonY);
+  click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
   assert(save().config()["SlotEffects"][0] == 0);
-  click(422, grid_layout::moduleButtonY); // Wrap without entering another folder or IR category.
+  click(grid_layout::moduleNextX, grid_layout::moduleButtonY); // Wrap without entering another folder or IR category.
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
-  click(392, grid_layout::moduleButtonY);
+  click(grid_layout::modulePreviousX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == neighbor);
-  click(356, grid_layout::moduleButtonY); chooseBrowserItem("AMP"); pumpFor(30);
+  click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("AMP"); pumpFor(30);
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryFirst);
-  selectTile(390, 120); click(422,grid_layout::moduleButtonY);
+  selectTile(390, 120); click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == neighborIR);
   assert(save().config()["SlotEffects"][1] == static_cast<int>(SlotEffect::CabinetIR));
-  click(392,grid_layout::moduleButtonY);
+  click(grid_layout::modulePreviousX, grid_layout::moduleButtonY);
   assert(std::filesystem::path(save().config()["SlotPaths"][1].get<std::string>()) == libraryIR);
   if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/"ir.bmp");
   // Empty file slots cannot cycle into another category.
-  selectTile(170, 224); click(422,grid_layout::moduleButtonY);
+  selectTile(170, 224); click(grid_layout::moduleNextX, grid_layout::moduleButtonY);
   assert(save().config()["SlotEffects"][4] == 0 && save().config()["SlotPaths"][4] == "");
   // The settings page is opaque and intercepts clicks; grid/editor controls cannot receive them.
   selectTile(170, 120);
@@ -2215,9 +2295,9 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
   const auto beforeSettings = save().config();
   click(910, 36);
-  click(620, 88); // Global visualizations off.
+  click(510, 88); // Global visualizations off.
   assert(save().config() == beforeSettings); // Editor preference is outside the rig.
-  click(620, 88); // Restore preference for subsequent tests/previews.
+  click(510, 88); // Restore preference for subsequent tests/previews.
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // NAM Input underneath; the settings reference dial starts below this point.
@@ -2327,7 +2407,7 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
-  click(966, 328); // Routing, below the A / B knob
+  click(grid_layout::width - 36, 328); // Routing, below the A / B knob
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Lane A level
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);

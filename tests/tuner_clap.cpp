@@ -2,6 +2,7 @@
 #include "ClapTestHost.h"
 #include <thread>
 #include "WinEditorCapture.h"
+#include "../NeuralAmpModeler/GridLayout.h"
 
 int main(int argc, char** argv)
 {
@@ -73,9 +74,9 @@ int main(int argc, char** argv)
 #ifdef _WIN32
   auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
   assert(gui->create(plugin,CLAP_WINDOW_API_WIN32,false));
-  auto parent = CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE,L"STATIC",L"nam-grid tuner test",WS_POPUP,0,0,1000,720,nullptr,nullptr,GetModuleHandle(nullptr),nullptr);
+  auto parent = CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE,L"STATIC",L"nam-grid tuner test",WS_POPUP,0,0,grid_layout::width,grid_layout::height,nullptr,nullptr,GetModuleHandle(nullptr),nullptr);
   assert(parent); clap_window window{};window.api=CLAP_WINDOW_API_WIN32;window.win32=parent; assert(gui->set_parent(plugin,&window));
-  SetWindowPos(parent,HWND_TOP,0,0,1000,720,SWP_NOACTIVATE|SWP_SHOWWINDOW);
+  SetWindowPos(parent,HWND_TOP,0,0,grid_layout::width,grid_layout::height,SWP_NOACTIVATE|SWP_SHOWWINDOW);
   auto editor=GetWindow(parent,GW_CHILD);assert(editor);pumpFor(100);
   for(int block=0;block<170;++block)
   {

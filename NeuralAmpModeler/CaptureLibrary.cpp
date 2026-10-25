@@ -395,6 +395,7 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
     result.irFolders = NormalizeFolders(config.value("IrFolders", std::vector<std::string>{}));
     result.rescanOnStartup = config.value("RescanOnStartup", true);
     result.showVisualizations = config.value("ShowVisualizations", true);
+    result.showMainMacros = config.value("ShowMainMacros", true);
     result.presetCrossfade = config.value("PresetCrossfade", false);
     result.presetFolders = NormalizeFolders(config.value("PresetFolders", std::vector<std::string>{}));
     result.namChosen = config.contains("NamFolders");
@@ -416,6 +417,7 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
       nlohmann::json{{"NamFolders", settings.namFolders}, {"IrFolders", settings.irFolders},
                      {"RescanOnStartup", settings.rescanOnStartup},
                      {"ShowVisualizations", settings.showVisualizations},
+                     {"ShowMainMacros", settings.showMainMacros},
                      {"PresetCrossfade", settings.presetCrossfade},
                      {"PresetFolders", settings.presetFolders}}.dump(2));
     return true;

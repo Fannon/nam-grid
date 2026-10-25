@@ -53,11 +53,17 @@ public:
                             : effect == SlotEffect::CutEQ ? std::clamp(eq.presence, -6., 6.) : 0.));
     const auto filterHz = std::max(.001, std::min(utility.cutoff, .4 * mRate));
     const auto filterQ = std::clamp(utility.resonance, .5, 4.);
+    const bool parametric = effect == SlotEffect::ParametricEQ;
+    const double lowQ = parametric ? std::clamp(utility.paramLowQ, .1, 4.) : .7071067811865476;
+    const double highQ = parametric ? std::clamp(utility.paramHighQ, .1, 4.) : .7071067811865476;
+    mLowShelfOn = parametric && utility.paramLowMode == 1;
+    mLowShelf.SetParams(Params(mRate, std::min(std::max(1., std::clamp(eq.highPass, 0., 300.)), .4 * mRate),
+                             lowQ, std::clamp(utility.paramShelfGain, -12., 12.)));
     mHP.SetParams(effect == SlotEffect::SynthFilter ? Params(mRate, filterHz, filterQ, 0.)
-                   : Params(mRate, std::max(1., std::clamp(eq.highPass, 0., 300.)), .7071067811865476, 0.));
+                   : Params(mRate, std::max(1., std::clamp(eq.highPass, 0., 300.)), lowQ, 0.));
     mLP.SetParams(effect == SlotEffect::SynthFilter
                    ? Params(mRate, filterHz, filterQ, 0.)
-                   : Params(mRate, std::min(.49 * mRate, std::clamp(eq.lowPass, 2000., 20000.)), .7071067811865476, 0.));
+                   : Params(mRate, std::min(.49 * mRate, std::clamp(eq.lowPass, 2000., 20000.)), highQ, 0.));
     const auto center = frequency(std::clamp(utility.frequency, 20., 20000.));
     const auto q = std::clamp(utility.q, .1, 20.);
     mBell.SetParams(Params(mRate, center, q, std::clamp(utility.gain, -12., 12.)));
@@ -73,7 +79,7 @@ public:
     if (mEffect == SlotEffect::ToneEQ)
       return std::abs(mBass.At(hz, mRate) * mMid.At(hz, mRate) * mTreble.At(hz, mRate));
     auto result = mTreble.At(hz, mRate);
-    if (mHPOn) result *= mHP.At(hz, mRate);
+    if (mHPOn) result *= mLowShelfOn ? mLowShelf.At(hz, mRate) : mHP.At(hz, mRate);
     if (mLPOn) result *= mLP.At(hz, mRate);
     if (mEffect == SlotEffect::ParametricEQ)
       result *= mNotchOn ? mNotch.At(hz, mRate) : mBell.At(hz, mRate);
@@ -82,9 +88,9 @@ public:
 private:
   double mRate;
   SlotEffect mEffect;
-  bool mHPOn, mLPOn, mNotchOn;
+  bool mHPOn, mLPOn, mNotchOn, mLowShelfOn = false;
   int mFilterMode = 0;
-  Biquad<recursive_linear_filter::LowShelf> mBass;
+  Biquad<recursive_linear_filter::LowShelf> mBass, mLowShelf;
   Biquad<recursive_linear_filter::Peaking> mMid, mBell;
   Biquad<recursive_linear_filter::HighShelf> mTreble;
   Biquad<CutCoefficients<true>> mHP;

@@ -24,7 +24,7 @@ There are no fixed rules, but this order is a good start:
 
 NAM captures are mono: they combine both channels into one. Place stereo effects after the last capture to keep them wide.
 
-Set a healthy level as you go. Use **IN** for the level into the rig, each module's Output for its own gain, and **OUT** for the final level. Match the volume with the module bypassed before judging a tone; the [level strip](ui.md#displays-and-meters) helps.
+Set a healthy level as you go. Use **IN** for the level into the rig, each module's Output for its own gain, and **OUT** for the final level. Match the volume with the module bypassed before judging a tone; the [level meters](ui.md#displays-and-meters) help.
 
 ## Parallel lanes and blend
 

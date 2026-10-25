@@ -7,6 +7,8 @@ in its header; the [module guide](distortion.md#pedal-drive) lists the controls.
 The existing Distortion, Tube Boost and Boost modules retain their previous sounds.
 Pedal Drive has separate controls and saved style identities.
 
+![Pedal Drive controls and interactive waveform and tone previews](../screenshots/modules/pedal-drive.png)
+
 The enable/bypass circle is in the module editor header, matching the grid node.
 All eight dial positions are available for sound controls.
 
@@ -144,7 +146,7 @@ in mono and leave Lane timing at zero unless you deliberately want a timing offs
 ## Example rigs
 
 Fresh installations include **Drive Examples** in the preset library. Existing users can
-choose **Library & settings > Add drive presets...**, select a folder and rescan if needed.
+choose **Settings > Add drive presets...**, select a folder and rescan if needed.
 The action adds the folder to the preset library and keeps existing files, including
 edited examples. Loading an example replaces the current rig.
 
@@ -185,8 +187,12 @@ The delay stays constant across styles and while bypassed.
 
 Style changes crossfade over 20 ms. Left and right channels have independent histories.
 Control changes are smoothed, and processing does not allocate memory in the audio callback.
-The signal-flow display shows routing; it does not claim to be the transfer function of
-the complete stateful drive.
+The display responds as you turn the controls. On the left, the selected style shapes a
+220 Hz test tone at loud and quiet input levels, showing how Drive and Character change
+its clipping and cleanup. This illustrates the drive stage; it is not a scope of your input.
+On the right, a small-signal curve shows Body, High cut and the clean Low keep band,
+including Mix and Output. The complete sound also depends on the style's nonlinear,
+stateful processing. The footer meters show the module's actual input, output and gain.
 
 ## Design references
 

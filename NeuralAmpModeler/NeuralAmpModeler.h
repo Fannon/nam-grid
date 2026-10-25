@@ -76,6 +76,7 @@ enum ECtrlTags
   kCtrlTagLibraryBrowser,
   kCtrlTagRouting,
   kCtrlTagRoutingButton,
+  kCtrlTagMainMacros,
   kCtrlTagGridSlotBase = 100,
   kNumCtrlTags
 };
@@ -181,6 +182,11 @@ public:
   void RescanCaptureFolder();
   bool GetRescanOnStartup() const { return mRescanOnStartup; }
   bool GetShowVisualizations() const { return mShowVisualizations; }
+  bool GetShowMainMacros() const { return mShowMainMacros; }
+  void SetShowMainMacros(bool enabled);
+  std::string GetMacroName(int macro) const;
+  void SetMacroName(int macro, std::string name);
+  bool IsMacroAssigned(int macro) const;
   void SetShowVisualizations(bool enabled);
   // Rig preset switches crossfade both rigs, or dip (old out, then new in) to spare CPU.
   bool GetPresetCrossfade() const { return mPresetCrossfade; }
@@ -318,6 +324,7 @@ private:
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.
   std::atomic<uint32_t> mFreezeMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};
+  std::array<std::string, 4> mMacroNames{"Macro 1", "Macro 2", "Macro 3", "Macro 4"};
   double mTunerGain = 1., mMasterGain = 1., mMasterCoefficient = 0.;
   double mGlobalInputGain = 1.;
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
@@ -354,6 +361,7 @@ private:
   bool mLibraryIndexed = false;
   bool mRescanOnStartup = true;
   bool mShowVisualizations = true;
+  bool mShowMainMacros = true;
   bool mPresetCrossfade = false;
   bool mLibraryDefaultSaveFailed = false;
   double mSampleRatePrepared = 48000.0;

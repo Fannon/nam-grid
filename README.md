@@ -42,8 +42,8 @@ changes and tested the results, supported by an extensive automated test suite.
   including [Cosmic Echo](https://fannon.github.io/nam-grid/modules/cosmic-echo) and the
   [LoFi Tape Machine](https://fannon.github.io/nam-grid/modules/lofi-tape).
 - **[Visualizations that explain each effect](https://fannon.github.io/nam-grid/ui#displays-and-meters):** curves,
-  live spectra and measured responses show what every control does, and a level strip
-  under every module compares its input and output.
+  live spectra and measured responses show what every control does, and level meters
+  in each display footer compare the module's input and output.
 - **Built for low latency:** zero added latency for most effects and all cabinet IRs.
   Pedal Drive adds 64 samples for antialiasing. Cabinet IRs switch
   between direct and FFT convolution automatically, and the DSP is tuned for small

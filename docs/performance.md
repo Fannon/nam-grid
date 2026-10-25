@@ -34,6 +34,10 @@ Right-click a module knob, lane level, crossover, or A/B knob and choose **Modul
 
 The LFO and sequencer move above and below a knob's setting. The envelope and macros move in one direction.
 
+The four macros also appear below **IN** on the main page. A macro with no matrix assignment is dimmed; using it as a source or **Via** makes it active. Hide this bank with **Settings > Main macros** if you prefer.
+
+Double-click a macro's label on either page to rename it. Names are shared by both pages and the source menus, and saved with the rig preset and DAW project. Clear the name to restore **Macro 1–4**. Your DAW keeps the stable **Macro 1–4** parameter names for automation.
+
 **Retrigger** can restart the LFO or sequencer on an audio onset or incoming MIDI note. **One shot** plays one LFO cycle per trigger and then holds—useful for a fresh sweep on every note. MIDI notes trigger modulation; they do not change the guitar audio.
 
 ### Matrix

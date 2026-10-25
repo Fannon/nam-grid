@@ -1,18 +1,19 @@
 #pragma once
+#include "GridLayout.h"
 
 namespace grid_ui
 {
 // Every FX preview reserves the same title, explanation, chart and footer rows.
 // Muted = reference/dry, module colour = processed, amber = second channel/GR.
 inline void PlotTitle(IGraphics& g, const IRECT& p, IColor ink, const char* title)
-{ g.DrawText(Text(14.f, ink), title, IRECT(p.L, 490, p.R, 513)); }
+{ g.DrawText(Text(14.f, ink), title, IRECT(p.L, grid_layout::plotTitleTop, p.R, grid_layout::plotTitleBottom)); }
 inline void PlotDetail(IGraphics& g, const IRECT& p, const char* detail)
-{ g.DrawText(Text(13.f, muted), detail, IRECT(p.L, 515, p.R, 537)); }
+{ g.DrawText(Text(13.f, muted), detail, IRECT(p.L, grid_layout::plotDetailTop, p.R, grid_layout::plotDetailBottom)); }
 inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const char* right = "")
 {
   const float split = *right ? p.R - 92.f : p.R;
-  g.DrawText(Text(13.f, muted), left, IRECT(p.L, 671, split, 692));
-  g.DrawText(Text(13.f, muted, EAlign::Far), right, IRECT(split, 671, p.R, 692));
+  g.DrawText(Text(13.f, muted), left, IRECT(p.L, grid_layout::plotFooterTop, split, grid_layout::plotFooterBottom));
+  g.DrawText(Text(13.f, muted, EAlign::Far), right, IRECT(split, grid_layout::plotFooterTop, p.R, grid_layout::plotFooterBottom));
 }
 template<class Function>
 void PlotCurve(IGraphics& g, const IRECT& p, Function f, double low, double high, IColor ink, float width = 1.5f)

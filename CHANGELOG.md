@@ -8,12 +8,23 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - Pedal Drive: ten guitar and bass drive styles, with antialiasing and a local Low keep dial for clean bass fundamentals.
 - A centered Pedal Drive character dial with a label and function for every style, including Blues OD, Transparent OD and Vintage Fuzz.
-- Guitar drive, clean boost and split-band bass example rigs, included on fresh installs and available from Library & settings.
+- Guitar drive, clean boost and split-band bass example rigs, included on fresh installs and available from Settings.
 - Documentation: a Getting started guide (install, DAW setup, first rig) and a Troubleshooting & FAQ page on the [manual site](https://fannon.github.io/nam-grid/).
 
 ### Changed
 
+- Pedal Drive's display shows the selected style shaping a test tone at the current Drive and Character, at a loud and a quiet input, plus a live Body / High cut / Low keep curve, instead of a static signal-flow sketch.
 - Module Enabled is now a circle in the parameter header, matching the grid node and freeing all eight dial positions.
+- Clearer editor header with icons for Settings, Tuner and Modulation, compact New/Save buttons, a wider preset selector, matching outer margins, and consistent page headers. Library & settings is now Settings.
+- A subtle background and divider separate the grid from module parameters, the tuner and routing controls without adding margins.
+- Wider, black visualization panels keep the parameter area to two background shades and match the top and right spacing.
+- The Routing page drops the list of modules in each lane; the crossover display fills that space instead.
+- Settings colours each library folder kind like the module badges, in the list and on the Add folder buttons: captures orange, IRs blue, rig presets the plugin accent.
+- Module category badges and bypass now follow the slot ID at its measured width, with browse and previous/next aligned on the right. The description row keeps a short guide to the module, with its options on the right.
+- Module input and output levels with their gain moved from below the dials into the visualization footer, sharing the chart's margins.
+- Pedal previews reuse unchanged curves between meter updates, and module peak ticks continue to decay when playback stops.
+- Four macro knobs appear below IN, with a Settings option to hide them. Unassigned macros are dimmed; double-click a macro label to rename it in the rig preset. Wider module displays give the IN/OUT footer meters more room.
+- Parametric EQ adds independent Low Q and High Q, plus a low-shelf option with its own gain. Its curve reflects the resonant cuts and shelf; existing presets keep their original cut response.
 - Documentation: clearer site navigation, module controls in tables, and player-focused deep dives for Noise Gate (Smart), LoFi Tape Machine and Cosmic Echo.
 
 ## [0.1.1] - 2026-10-24

@@ -7,6 +7,8 @@ iPlug2 port (X11). See [build.md](build.md) for packaging, manual releases
 and [GitHub Actions](https://github.com/Fannon/nam-grid/actions/workflows/build-test.yml)
 for results for individual commits.
 
+The Linux build has not been tested in a real DAW environment. If you use it, let me know how well it works.
+
 Record the commit, platform, host, plugin format and results for each check before
 tagging. An unchecked item is a requirement to verify, not a claim that it failed.
 

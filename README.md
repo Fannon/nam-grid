@@ -58,10 +58,12 @@ changes and tested the results, supported by an extensive automated test suite.
 
 Download the archive for your platform from
 [GitHub Releases](https://github.com/Fannon/nam-grid/releases/latest): Windows x64,
-macOS Apple Silicon (macOS 11 or newer) or Linux x64 (early preview). Each contains
+macOS Apple Silicon (macOS 11 or newer) or Linux x64. Each contains
 both CLAP and VST3. Copy the plugin into your DAW's plugin folder, rescan, and insert
 **NAM Grid** on an audio track. NAM Grid comes with a clean amp-and-cab capture and
 two starter rigs, so you can play right away.
+
+The Linux build has not been tested in a real DAW environment. If you use it, let me know how well it works.
 
 [Getting started](https://fannon.github.io/nam-grid/getting-started) has the plugin folders for each system, the
 one-time step that macOS needs for the unsigned build, DAW setup and a walk-through of

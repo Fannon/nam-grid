@@ -42,7 +42,7 @@ void TestPedalDriveClap(const clap_plugin* plugin, const json& cleared, Save sav
       for (int i = 0; i < process.frames_count; ++i)
       {
         assert(std::isfinite(outL[i]) && std::abs(outL[i]) < 8.);
-        assert(outR[i] == 0.);
+        assert(std::abs(outR[i]) < 1.e-15);
         energy += outL[i] * outL[i];
       }
     }

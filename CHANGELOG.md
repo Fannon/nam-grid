@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Compressor and limiter graphs mark gain reduction beyond 16 dB with a red edge or tip; their numeric readouts continue to show the full reduction.
 - Cosmic Echo shows its delay-line network sketch below the measured response, with timing markers, density connections and modulation halos. Hover for the 4- or 16-line count and explanation.
 - Hover over a truncated module description to read its full text.
 - A single-command `bash build.sh` build for Git Bash on Windows, WSL2, macOS and Linux, with automatic first-run dependency setup, incremental builds under `build/<platform>/release/`, and `--test` to run the standard test suites.
@@ -13,6 +14,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Cosmic Echo's response graph and delay-line sketch have separate, shorter hover explanations, including the current line count.
 - Module graphs use more vertical space, with explanations available on hover and captions focused on live measurements and useful derived information instead of repeating knob values. Editable knob values show a text cursor on hover.
 - Compressor and limiter gain-reduction displays use a 16 dB scale instead of 24 dB, with 2 and 4 dB guides in Outboard Channel and Butter Comp histories so gentle compression is easier to see. Gate attenuation displays retain their wider ranges.
 

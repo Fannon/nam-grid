@@ -28,6 +28,7 @@ const IColor delayColor(255, 104, 206, 232), reverbColor(255, 199, 143, 237), ne
 const IColor creativeColor(255, 235, 137, 219);
 // Give everyday 2-4 dB compression more space while retaining room for heavy reduction.
 inline constexpr float compressionReductionRange = 16.f;
+const IColor reductionOverflowColor(255, 255, 112, 96);
 struct NodeTone
 {
   IColor first, second;
@@ -1753,7 +1754,7 @@ private:
         const IRECT reduction(plot.L, plot.T, plot.MW() - 8.f, plot.B), history(plot.MW() + 8.f, plot.T, plot.R, plot.B);
         DrawReductionHistory(g, reduction);
         levels(-60.f, history);
-        PlotDetail(g,plot,"Left: gain reduction | right: gray IN, colour OUT");
+        PlotDetail(g,plot,"Left: gain reduction; red lower edge marks reduction beyond 16 dB. Right: gray input, colour output.");
         PlotFooter(g,plot,"GR 0 - 16 dB | IN / OUT 0 / -60 dB","Older > now");
         return;
       }
@@ -1817,6 +1818,9 @@ private:
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
         reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/reductionRange,0.f,1.f),reductionBar.B));
+      if (!gate && !smart && mReductionNow > reductionRange)
+        g.FillTriangle(reductionOverflowColor, reductionBar.R, reductionBar.MH(),
+          reductionBar.R-5.f, reductionBar.T-3.f, reductionBar.R-5.f, reductionBar.B+3.f);
       const float floor=gate || smart ? -100.f : -60.f;
       if(!smart)
       {
@@ -1844,9 +1848,9 @@ private:
           g.FillCircle(text,px,py,3.f);
         }
         WDL_String info;
-        if(compressor) info.Set("Dot: live input on the compression curve. Gray: input; colour: output before makeup. Amber bar: gain reduction.");
+        if(compressor) info.Set("Dot: live input on the compression curve. Gray: input; colour: output before makeup. Amber bar: gain reduction; red tip: beyond 16 dB.");
         else if(gate) info.Set("Dot: live input. The gate closes 3 dB below the opening threshold. Gray: input; colour: output. Amber bar: attenuation.");
-        else info.Set("Dot: live input on the limiting curve. Gray: input; colour: output. Dashed line: ceiling. Amber bar: gain reduction.");
+        else info.Set("Dot: live input on the limiting curve. Gray: input; colour: output. Dashed line: ceiling. Amber bar: gain reduction; red tip: beyond 16 dB.");
         PlotDetail(g,plot,info.Get());
         if (gate) info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
         else info.SetFormatted(80,"IN %.0f..0 / OUT %.0f..+18 | GR 0..16 dB",floor,floor);
@@ -2142,7 +2146,7 @@ private:
     WDL_String caption;
     caption.SetFormatted(96, "GR %.1f dB", mReductionNow);
     PlotTitle(g, plot, color, caption.Get());
-    PlotDetail(g, plot, "Cuts + output spectrum | GR");
+    PlotDetail(g, plot, "Left: cut response and output spectrum. Right: detector gain reduction; red lower edge marks reduction beyond 16 dB.");
     const IRECT eq(plot.L, plot.T, plot.L + std::round(plot.W() * .62f), plot.B), reduction(eq.R + 10.f, plot.T, plot.R, plot.B);
 
     // Cuts: the module's own DSP measured with compression and saturation off.
@@ -2245,6 +2249,8 @@ private:
       const float x = area.L + step * static_cast<float>(i);
       g.FillRect(ampColor.WithOpacity(.3f), IRECT(std::max(area.L, x - .5f * step), area.T, std::min(area.R, x + .5f * step), y));
       if (i) g.DrawLine(ampColor, x - step, previous, x, y, nullptr, 1.5f);
+      if (reduction > range)
+        g.FillRect(reductionOverflowColor, IRECT(std::max(area.L,x-.5f*step),area.B-3.f,std::min(area.R,x+.5f*step),area.B));
       previous = y;
     }
   }

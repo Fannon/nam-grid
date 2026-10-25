@@ -282,6 +282,7 @@ build targets.
 | `tuner` | Tuner detection, mute and automation through CLAP |
 | `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |
 | `vst3-parameter-contract` | Windows only: the built VST3 controller's IDs, class ID, automation flags and normalization |
+| `editor-host` | Windows only: CLAP and VST3 native editor bounds at the active monitor scale, decimal/negative value entry, Escape cancellation, tooltips and editor reopening |
 
 The Python unit tests cover the on-demand report and audit scripts. See the
 [compatibility contract](development.md#parameter-and-project-compatibility) before
@@ -305,6 +306,32 @@ off and do not need that DLL.
 For CPU, deadline and waveform-equivalence reports covering every built-in FX mode,
 NAM and IR loading, see [fx-performance.md](fx-performance.md). Those tools are
 opt-in and run separately from CTest.
+
+## Windows editor and display scaling
+
+`bash build.sh --test` includes `editor-host`, a small native host for both formats.
+It checks the active monitor's actual DPI, opens each editor twice, enters `-3.5`
+into the global Input value, cancels a second edit with Escape, reads the native
+tooltip, and checks that the value survives reopening. It isolates user settings.
+
+For a display-scale check, set Windows **Settings > System > Display > Scale** to
+125%, 150%, or 200%, then run the following with the corresponding `--scale`
+value (`1.25`, `1.5`, or `2`). The command fails if the requested scale is not
+active on the primary display; a host scale argument alone does not simulate a
+different monitor DPI. Example for Ninja (add `Release/` before the executable
+when using Visual Studio):
+
+```sh
+build/windows/release/NeuralAmpModeler/nam-editor-host-tests.exe build/windows/release/out/nam-grid.clap build/windows/release/out/nam-grid.vst3/Contents/x86_64-win/nam-grid.vst3 --scale 1.25 --screenshots tmp/editor-scaling/125
+```
+
+Repeat for each scale and inspect the captured frames for clipped labels or
+misaligned value fields. These protocol-host checks complement real DAW testing:
+in a CLAP host and a VST3 host, check typed negative and decimal values, Enter and
+Escape, the full description tooltip, both Cosmic Echo graph tooltips, opening
+and closing the editor, and moving it between monitors with different DPI. Reopen
+the saved project and confirm its values and sound are retained. Restore your
+usual Windows scale after the checks.
 
 ## Editor screenshots
 
@@ -330,5 +357,7 @@ retains the DSP/state setup, then renders every catalog module at musical defaul
 with audio and at minimum/maximum control values. Supply the optional screenshot
 directory to review `fx-<effect ID>-default/min/max.bmp` artifacts. It exits before
 the unrelated browser/menu matrix. See [ui.md](ui.md) for display semantics.
+Dynamics modules also get a `-heavy.bmp` frame for reviewing the 16 dB overrange
+markers with live audio.
 For a targeted iteration, `NAM_GRID_FX_VISUALS_ONLY=11,14` limits the sweep to the
 listed module IDs (Digital Delay and Room here); unset it for all modules.

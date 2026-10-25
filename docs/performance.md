@@ -4,6 +4,15 @@ Let controls move with your playing, put the most useful ones on four macros, an
 
 ![The Modulation page with an LFO, three matrix rows and the macros](screenshots/control.png)
 
+A drive in **Pre** acts before this split. A drive in **B** receives its upper branch;
+a drive in **Post** receives both branches after they are mixed. A nonlinear Post
+module can therefore distort the lows you kept clean in A.
+
+Pedal Drive also offers a local **Low keep** return. It works within one slot, independently
+of the grid's split. Start with Low keep at zero when using Pedal Drive in the high lane
+of a split rig; otherwise the upper branch is split again. See the
+[routing examples](modules/pedal-drive.md#using-the-grid-split).
+
 ## Modulation
 
 Click **Modulation** in the header. Sources are on the left; assignments and macros are on the right.

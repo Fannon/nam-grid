@@ -65,7 +65,8 @@ enum class SlotEffect
   ConsoleEQ = 53,
   ButterComp = 54,
   DigitalBlack = 55,
-  Last = DigitalBlack,
+  PedalDrive = 56,
+  Last = PedalDrive,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -125,6 +126,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::JunoChorus: return "Juno Chorus";
     case SlotEffect::FrequencyShifter: return "Frequency Shifter";
     case SlotEffect::Distortion: return "Distortion";
+    case SlotEffect::PedalDrive: return "Pedal Drive";
     case SlotEffect::LoFiTape: return "LoFi Tape Machine";
     case SlotEffect::NoisePrint: return "Noise Gate (Smart)";
   }

@@ -40,7 +40,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
-  if (effect == SlotEffect::Distortion || effect == SlotEffect::ConsoleColour)
+  if (effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive || effect == SlotEffect::ConsoleColour)
     return {boostColor, boostColor, "Distortion"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
@@ -288,7 +288,9 @@ public:
   void DrawIndicatorTrack(IGraphics& g, float angle, float cx, float cy, float radius) override
   {
     g.DrawArc(border, cx, cy, radius, -135.f, 135.f, &mBlend, 2.f);
-    g.DrawArc(muted, cx, cy, radius, -135.f, angle, &mBlend, 2.f);
+    const bool centered = parameter_layout::UtilityControl(GetParamIdx()) == uPedalCharacter;
+    g.DrawArc(muted, cx, cy, radius, centered ? std::min(0.f, angle) : -135.f,
+              centered ? std::max(0.f, angle) : angle, &mBlend, 2.f);
     // Modulation ring: the reach of every row on this knob, plus a dot at the live value.
     const auto ring = Ring();
     if (!ring.rows) return;
@@ -465,6 +467,27 @@ public:
 private:
   std::string mLabel;
   bool mSelector = false;
+};
+
+// The same parameter and circle language as the grid card, outside the dial grid.
+class EnableButton : public IVToggleControl
+{
+public:
+  EnableButton(const IRECT& bounds, int parameter)
+  : IVToggleControl(bounds, parameter, "Enabled", Style(), "OFF", "ON")
+  {
+    SetTooltip("Enable or bypass this module. Matches the grid-node circle; automatable by your DAW.");
+  }
+  bool IsHit(float x, float y) const override { return mRECT.Contains(x, y); }
+  void Draw(IGraphics& g) override
+  {
+    const int slot = SlotControlOwner(GetParamIdx());
+    const auto color = Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
+    const bool enabled = GetValue() >= .5;
+    if (mMouseIsOver) g.FillCircle(color.WithOpacity(.12f), mRECT.MW(), mRECT.MH(), 11.f);
+    g.DrawCircle(enabled ? color.WithOpacity(.7f) : border, mRECT.MW(), mRECT.MH(), 7.f, nullptr, 1.2f);
+    if (enabled) g.FillCircle(color, mRECT.MW(), mRECT.MH(), 4.5f);
+  }
 };
 
 inline void DisableTunerFromUI(IGraphics* ui)
@@ -865,11 +888,13 @@ public:
     const bool empty = path.empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
     g.DrawText(Text(22.f, tone.first), slotName.c_str(), IRECT(24, 484, 84, 508));
-    if (!empty) CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), IRECT(444, 484, 620, 508), 13.f, true);
+    if (!empty) CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot), IRECT(482, 484, 620, 508), 13.f, true);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
     const auto hint = std::string(enabled ? "" : "Bypassed | ")
       + (effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
+          : effect == SlotEffect::PedalDrive ? effect_presentation::Help(effect, uPedalStyle,
+              GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPedalStyle))->Int())
                                          : effect_presentation::Sound(effect));
     // The description stops before any option shown on its row (quality, tempo sync, modes).
     float hintRight = 620.f;
@@ -1010,7 +1035,7 @@ public:
     }, "Quality: A2");
     mQualityButton->SetTooltip("Click to switch between full A2 and lower-CPU A2 Lite for this capture.");
     mEditor->AddChildControl(mQualityButton);
-    mEnabled = new grid_ui::Toggle(grid_ui::ControlBounds(7), SlotActiveParam(mSlot), "Enabled");
+    mEnabled = new grid_ui::EnableButton(IRECT(grid_layout::enabledX - 14, 484, grid_layout::enabledX + 14, 508), SlotActiveParam(mSlot));
     mEditor->AddChildControl(mEnabled);
     // Below the editor rect, so attached on its own and shown with the editor.
     mLevelStrip = new grid_ui::LevelStrip(IRECT(24, grid_layout::editorBottom + 3, 976, grid_layout::height - 3), mLevels,
@@ -1908,12 +1933,13 @@ private:
         const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato);
         mUtilityKnobs[i]->Hide(!visible);
         if (!visible) continue;
-        mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, GetDelegate()->GetParam(SlotUtilityParam(mSlot, i))->Int()));
+        const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle : i))->Int();
+        mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, mode));
         if (!effect_presentation::HeaderControl(i))
           mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::Position(effect, i)));
         if (auto* knob = dynamic_cast<grid_ui::Knob*>(mUtilityKnobs[i]))
-          if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i)) != 0)
-            knob->SetLabelStr(effect_presentation::Label(effect, i));
+          if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i, mode)) != 0)
+            knob->SetLabelStr(effect_presentation::Label(effect, i, mode));
       }
       if (effect == SlotEffect::ParametricEQ)
       {
@@ -2100,7 +2126,7 @@ private:
   bool mIRResponseValid = false;
   size_t mReductionWrite = 0;
   float mReductionNow = 0.f;
-  grid_ui::Toggle* mEnabled = nullptr;
+  grid_ui::EnableButton* mEnabled = nullptr;
   std::array<IControl*, 2> mNAMKnobs{};
   std::array<IControl*, 6> mFXKnobs{};
   std::array<IControl*, 7> mEQKnobs{};
@@ -2174,6 +2200,15 @@ public:
     AddChildControl(new HintLabel(IRECT(kLeft, 8, 480, 48), "Library & settings", Text(23.f),
       "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type."));
     AddChildControl(new Button(IRECT(896, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close"));
+    AddChildControl(new Button(IRECT(392, 14, 552, 42), [this](IControl*) {
+      WDL_String folder;
+      GetUI()->PromptForDirectory(folder, [plugin = PLUG(), ui = GetUI()](const WDL_String&, const WDL_String& chosen) {
+        if (!chosen.GetLength()) return;
+        const auto error = plugin->InstallDrivePresets(std::filesystem::u8path(chosen.Get()));
+        if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot add drive presets", error.c_str());
+      });
+    }, "Add drive presets..."))->SetTooltip(
+      "Choose a folder for guitar, bass and boost example rigs. Adds a Drive Examples subfolder and indexes it; existing files are preserved.");
     AddChildControl(new Button(IRECT(732, 14, 884, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library"));

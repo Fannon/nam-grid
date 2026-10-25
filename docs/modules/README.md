@@ -1,11 +1,11 @@
 # Module guide
 
-Any slot can hold a NAM capture, a cabinet IR or one of 54 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
+Any slot can hold a NAM capture, a cabinet IR or one of 55 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
 
 | Category | Modules |
 | --- | --- |
 | [Captures & cabinets](captures.md) | [NAM capture](captures.md#nam), [Cabinet IR](captures.md#cabinet-ir) |
-| [Distortion](distortion.md) | [Distortion](distortion.md#distortion), [Boost](distortion.md#boost), [Tube Boost](distortion.md#tube-boost), [Airwindows Tape](distortion.md#airwindows-tape), [Console Colour](distortion.md#console-colour), [Bitcrusher](distortion.md#bitcrusher) |
+| [Distortion](distortion.md) | [Distortion](distortion.md#distortion), [Pedal Drive](distortion.md#pedal-drive), [Boost](distortion.md#boost), [Tube Boost](distortion.md#tube-boost), [Airwindows Tape](distortion.md#airwindows-tape), [Console Colour](distortion.md#console-colour), [Bitcrusher](distortion.md#bitcrusher) |
 | [Dynamics](dynamics.md) | [Noise Gate](dynamics.md#noise-gate), [Noise Gate (Smart)](dynamics.md#noise-gate-smart), [Digital Black Gate](dynamics.md#digital-black-gate), [Smooth Compressor](dynamics.md#smooth-compressor), [Punch Compressor](dynamics.md#punch-compressor), [Butter Comp](dynamics.md#butter-comp), [Outboard Channel](dynamics.md#outboard-channel), [Peak Limiter](dynamics.md#peak-limiter) |
 | [EQ / Filter](eq-filter.md) | [Guitar EQ](eq-filter.md#guitar-eq), [Cut EQ](eq-filter.md#cut-eq), [Parametric EQ](eq-filter.md#parametric-eq), [Console EQ](eq-filter.md#console-eq), [Filter](eq-filter.md#filter), [Wah](eq-filter.md#wah) |
 | [Modulation](modulation.md) | [Chorus](modulation.md#chorus), [Juno Chorus](modulation.md#juno-chorus), [Flanger](modulation.md#flanger), [Phaser](modulation.md#phaser), [Auto Tremolo](modulation.md#auto-tremolo), [Vibrato](modulation.md#vibrato), [Rotary](modulation.md#rotary), [Uni-Vibe](modulation.md#uni-vibe), [Ring Modulator](modulation.md#ring-modulator) |
@@ -15,15 +15,15 @@ Any slot can hold a NAM capture, a cabinet IR or one of 54 built-in effects. Eac
 | [Creative](creative.md) | [Freeze / Hold](creative.md#freeze-hold), [Stutter](creative.md#stutter), [LoFi Tape Machine](creative.md#lofi-tape-machine) |
 | [Utility / Volume](utility-volume.md) | [Utility](utility-volume.md#utility), [Auto Swell](utility-volume.md#auto-swell) |
 
-Four modules have their own pages with more background and recipes: [Noise Gate (Smart)](noise-gate-smart.md), [LoFi Tape Machine](lofi-tape.md), [Cosmic Echo](cosmic-echo.md) and [Cabinet IR processing](ir-processing.md).
+Five modules have their own pages with more background and recipes: [Pedal Drive](pedal-drive.md), [Noise Gate (Smart)](noise-gate-smart.md), [LoFi Tape Machine](lofi-tape.md), [Cosmic Echo](cosmic-echo.md) and [Cabinet IR processing](ir-processing.md).
 
 ## The module editor
 
 ![Tape Echo selected in the NAM Grid module editor](../screenshots/delay.png)
 
-Select a module in the grid to edit it below. Every module uses the same layout: name and navigation at the top, header options such as **Style** or **Tempo sync**, up to eight knobs, a display and a level strip. See [Shape a module](../ui.md#shape-a-module) for how to use it.
+Select a module in the grid to edit it below. Every module uses the same layout: name, navigation and an enable/bypass circle at the top, header options such as **Style** or **Tempo sync**, up to eight knobs, a display and a level strip. See [Shape a module](../ui.md#shape-a-module) for how to use it.
 
-Every knob and **Enabled** can be automated by your DAW. Header options are saved with the rig but cannot be automated.
+Every knob and **Enabled** can be automated by your DAW. Other header options are saved with the rig but cannot be automated.
 
 ## Starting settings
 

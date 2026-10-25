@@ -108,6 +108,7 @@ export default defineConfig({
       {
         text: 'Module deep dives',
         items: [
+          { text: 'Pedal Drive', link: '/modules/pedal-drive' },
           { text: 'Noise Gate (Smart)', link: '/modules/noise-gate-smart' },
           { text: 'LoFi Tape Machine', link: '/modules/lofi-tape' },
           { text: 'Cosmic Echo', link: '/modules/cosmic-echo' },

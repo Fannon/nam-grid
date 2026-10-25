@@ -20,6 +20,7 @@
 #include "SlotHQEffects.h"
 #include "EQSignalSpectrum.h"
 #include "SlotDistortion.h"
+#include "SlotPedalDrive.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 
@@ -91,6 +92,7 @@ public:
     SlotBoost boost;
     SlotTubeBoost tube;
     SlotDistortion distortion;
+    SlotPedalDrive pedal;
     SlotEnvelopeFilter filter;
     SlotAutoSwell swell;
     SlotDelay echo;
@@ -138,6 +140,8 @@ public:
         tube.Reset(rate);
       if (effect == SlotEffect::Distortion)
         distortion.Reset(rate);
+      if (effect == SlotEffect::PedalDrive)
+        pedal.Reset(rate);
       if (effect == SlotEffect::SynthFilter)
         filter.Reset(rate);
       if (effect == SlotEffect::AutoSwell)
@@ -183,7 +187,7 @@ public:
       }
       if (model)
         model->Reset(rate, block);
-      latency = model ? model->GetLatency() : 0;
+      latency = model ? model->GetLatency() : effect == SlotEffect::PedalDrive ? SlotPedalDrive::latency : 0;
       input.assign(block, 0.);
       wet.assign(block, 0.);
       dry.assign(block, 0.);
@@ -202,7 +206,7 @@ public:
                                            : effect == SlotEffect::Doubler ? .1
                                            : effect == SlotEffect::Stutter ? 33.
                                            : effect == SlotEffect::Utility ? .025
-                                           : effect == SlotEffect::Distortion ? 1.
+                                           : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
                                            : IsModulation(effect) ? .07
                                            : effect == SlotEffect::JunoChorus ? .07
@@ -546,6 +550,8 @@ private:
         p->tube.Process(out, in, frames, utility, eq);
       else if (p->effect == SlotEffect::Distortion)
         p->distortion.Process(out, frames, utility);
+      else if (p->effect == SlotEffect::PedalDrive)
+        p->pedal.Process(out, frames, utility);
       else if (p->effect == SlotEffect::SynthFilter)
         p->filter.Process(out, frames, utility);
       else if (p->effect == SlotEffect::AutoSwell)

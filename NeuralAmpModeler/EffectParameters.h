@@ -213,6 +213,15 @@ enum UtilityParam
   uBlackMode = 197,
   uLimiterClip = 198,
   uBlackHold = 199,
+  uPedalStyle = 200,
+  uPedalDrive = 201,
+  uPedalTone = 202,
+  uPedalBody = 203,
+  uPedalSplit = 204,
+  uPedalLowKeep = 205,
+  uPedalOutput = 206,
+  uPedalMix = 207,
+  uPedalCharacter = 208,
   kUtilityControls,
 };
 inline constexpr std::span<const char* const> EffectChoices(int control)
@@ -222,6 +231,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uTempoDivision: return grid_tempo::names;
     case uJunoMode: return effect_modes::junoNames;
     case uDistStyle: return effect_modes::distortionNames;
+    case uPedalStyle: return effect_modes::pedalNames;
     case uGateMode: return effect_modes::gateNames;
     case uFilterMode: return effect_modes::filterNames;
     case uTapeHeads: return effect_modes::tapeHeadNames;
@@ -241,6 +251,10 @@ struct AlgorithmIdentity
 };
 namespace algorithm_identities
 {
+inline constexpr AlgorithmIdentity pedal[]{
+  {0, "screamer"}, {1, "rodent"}, {2, "bass-edge"}, {3, "parallel-od"},
+  {4, "sustain-fuzz"}, {5, "cascaded-preamp"}, {6, "treble-drive"},
+  {7, "blues-breaker"}, {8, "transparent-od"}, {9, "vintage-fuzz"}};
 inline constexpr AlgorithmIdentity distortion[]{
   {0, "soft"}, {1, "hard"}, {2, "fuzz"}, {3, "foldback"}, {4, "diode"}, {5, "rectify"}};
 inline constexpr AlgorithmIdentity juno[]{{0, "i"}, {1, "i-ii"}, {2, "ii"}};
@@ -263,6 +277,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
   switch (control)
   {
     case uDistStyle: return distortion;
+    case uPedalStyle: return pedal;
     case uJunoMode: return juno;
     case uGateMode: return gate;
     case uFilterMode: return filter;
@@ -285,7 +300,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 2; // 2 adds Digital Black Hold.
+inline constexpr int kEffectStateSchema = 4; // 2 adds Black Hold; 3 Pedal Drive; 4 Pedal Character.
 
 struct EffectParameter
 {
@@ -501,13 +516,22 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Black Output", "Output", 0, -18, 6, .1, "dB", 4},
    {"Black Mode", "Mode", 0, 0, 1, 1, "", 0},
    {"Limiter Clip", "Clip", 0, 0, 100, .1, "%", 2},
-   {"Black Hold", "Hold", 0, 0, 200, .1, "ms", 1, false, 2., 2}}};
+   {"Black Hold", "Hold", 0, 0, 200, .1, "ms", 1, false, 2., 2},
+   {"Pedal Style", "Style", 0, 0, effect_modes::pedalCount - 1, 1, "", 0, false, 1., 3},
+   {"Pedal Drive", "Drive", 9, 0, 36, .1, "dB", 0, false, 1., 3},
+   {"Pedal High Cut", "High cut", 5500, 200, 12000, 1, "Hz", 1, true, 1., 3},
+   {"Pedal Body", "Body", 0, -6, 6, .1, "dB", 2, false, 1., 3},
+   {"Pedal Split", "Split", 180, 50, 500, 1, "Hz", 5, true, 1., 3},
+   {"Pedal Low Keep", "Low keep", 0, 0, 100, .1, "%", 6, false, 1., 3},
+   {"Pedal Output", "Output", -6, -24, 12, .1, "dB", 4, false, 1., 3},
+   {"Pedal Mix", "Mix", 100, 0, 100, .1, "%", 7, false, 1., 3},
+   {"Pedal Character", "Character", 0, -100, 100, .1, "%", 3, false, 1., 4}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
     const auto& p = kEffectParameters[i];
     if (!p.name || !p.label || p.minimum > p.initial || p.initial > p.maximum || p.step <= 0. || p.power <= 0.
-        || p.position < 0 || p.position >= 7 || p.introducedIn < kInitialEffectStateSchema
+        || p.position < 0 || p.position >= 8 || p.introducedIn < kInitialEffectStateSchema
         || p.introducedIn > kEffectStateSchema)
       return false;
     const auto choices = EffectChoices(i);
@@ -579,6 +603,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::PedalDrive) return p >= uPedalStyle && p <= uPedalCharacter;
   if (e == SlotEffect::DigitalBlack) return (p >= uBlackThreshold && p <= uBlackMode) || p == uBlackHold;
   if (e == SlotEffect::OutboardChannel) return p >= uStripLowCut && p <= uStripMix;
   if (e == SlotEffect::ConsoleColour) return p >= uColourInput && p <= uColourDesk;
@@ -693,4 +718,5 @@ struct UtilityControls
   std::array<double, 3> butter{35., -1., 100.};
   std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
+  std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
 };

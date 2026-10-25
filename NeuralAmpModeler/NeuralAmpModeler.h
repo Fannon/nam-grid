@@ -212,6 +212,7 @@ public:
   void LoadSlapbackPreset(size_t slot);
   std::string SaveRigPreset(const std::filesystem::path& path);
   std::string LoadRigPreset(const std::filesystem::path& path);
+  std::string InstallDrivePresets(const std::filesystem::path& folder);
   void PromptRigPreset(bool save);
   // Saves over the loaded preset file, or prompts Save as when there is none.
   void QuickSaveRigPreset();

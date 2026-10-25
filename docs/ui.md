@@ -24,13 +24,13 @@ Drag cards to move, swap or copy modules, or right-click a card for **Clear**, *
 
 Every module editor uses the same layout:
 
-- **Top row:** module name, browser, previous/next, and category.
+- **Top row:** module name, browser, previous/next, an enable/bypass circle, and category. The circle controls the same automatable Enabled parameter as the grid node.
 - **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, or **Heads**. Click a two-choice option to toggle it; longer lists open a menu.
-- **Knobs:** up to four per row, filled from the left. **Output** comes before **Mix**, and **Enabled** sits at the bottom right.
+- **Knobs:** up to four per row, filled from the left. **Output** comes before **Mix**. All eight positions are available for sound controls.
 - **Display:** a visual guide to the module's response or your playing.
 - **Level strip:** input and output levels, overall gain, and peak-to-average (crest) change.
 
-Drag a knob or click its value to type a number; double-click restores its starting value, and right-click assigns [modulation](performance.md). Every knob and **Enabled** can be automated by your DAW; header options are saved with the rig but cannot be automated.
+Drag a knob or click its value to type a number; double-click restores its starting value, and right-click assigns [modulation](performance.md). Every knob and **Enabled** can be automated by your DAW; other header options are saved with the rig but cannot be automated.
 
 Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 

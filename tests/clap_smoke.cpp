@@ -14,6 +14,7 @@
 #include "RoadmapClapTests.h"
 #include "ModulationClapTests.h"
 #include "EffectModeClapTests.h"
+#include "PedalDriveClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
 #include <cstdlib>
@@ -71,6 +72,13 @@ int main(int argc, char** argv)
     const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
     assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
     assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));
+    // Fresh installs include all drive examples, without capture dependencies.
+    for (const auto& example : drive_presets::Make(empty))
+    {
+      const auto file = settingsBackup.home / "Presets" / "Drive Examples"
+                        / (example["PresetName"].get<std::string>() + ".ngrid");
+      assert(rig_preset::Read(file) == example);
+    }
     // Bundled rigs ship without stored scenes: a stale scene would change modules on recall.
     for (const auto& rig : {empty, clean})
       for (const auto& scene : rig["PerformanceScenes"])
@@ -919,6 +927,7 @@ int main(int argc, char** argv)
   TestRoadmapClap(plugin, cleared, save, load);
   TestModulationMatrixClap(plugin, cleared, save, load, loadRaw);
   TestEffectModeClap(plugin, cleared, save, load);
+  TestPedalDriveClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
@@ -1016,6 +1025,7 @@ int main(int argc, char** argv)
     const std::pair<SlotEffect, int> modes[]{
       {SlotEffect::CosmicEcho, uCosmicStyle}, {SlotEffect::MultiHeadDelay, uTapeHeads},
       {SlotEffect::ConsoleColour, uColourDesk}, {SlotEffect::Distortion, uDistStyle},
+      {SlotEffect::PedalDrive, uPedalStyle},
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}};
@@ -1323,7 +1333,7 @@ int main(int argc, char** argv)
     {
       const auto empty = save().config();
       click(263, grid_layout::cardTop + 12);
-      click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
+      click(grid_layout::enabledX, grid_layout::enabledY);
       assert(save().config() == empty);
     }
     std::cout << "Single-click module selection and right-click Clear slot passed\n";
@@ -1949,7 +1959,7 @@ int main(int argc, char** argv)
           assert(algorithmAutomation.empty());
         }
       }
-    click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
+    click(grid_layout::enabledX, grid_layout::enabledY);
     assert(save().config()["Pre 1 Enabled"] == 0.);
     if (argc == 4)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("effect-") + std::to_string(id) + ".bmp"));
@@ -2024,6 +2034,30 @@ int main(int argc, char** argv)
   }
   const auto packedPath = fixtures / "packed-a2.nam";
   std::ofstream(packedPath) << fixture::packed().dump();
+  // All voices expose Character in the eighth available dial grid, with a
+  // centered reset. Header and grid circles share the original Enabled binding.
+  {
+    auto previous = save().config();
+    for (int style = 0; style < effect_modes::pedalCount; ++style)
+    {
+      auto pedal = cleared;
+      pedal["SlotEffects"][0] = static_cast<int>(SlotEffect::PedalDrive);
+      pedal["Pre 1 Pedal Style"] = style;
+      load(pedal); selectTile(170, 120);
+      dragAt(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
+      assert(save().config()["Pre 1 Pedal Character"].get<double>() > 0.);
+      assert(save().config()["Pre 1 Pedal Body"] == pedal["Pre 1 Pedal Body"]);
+      resetDial(grid_layout::KnobX(3), grid_layout::KnobGestureY(3));
+      assert(save().config()["Pre 1 Pedal Character"] == 0.);
+      click(grid_layout::enabledX, grid_layout::enabledY);
+      assert(save().config()["Pre 1 Enabled"] == 0.);
+      click(263, 80);
+      assert(save().config()["Pre 1 Enabled"] == 1.);
+      assert(save().config()["Pre 1 Pedal Character"] == 0.);
+      if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / ("pedal-character-" + std::to_string(style) + ".bmp"));
+    }
+    load(previous);
+  }
   auto qualityState = browserState;
   qualityState["SlotPaths"][0] = packedPath.string();
   qualityState["Pre 1 Full Quality"] = 1.;
@@ -2088,9 +2122,9 @@ int main(int argc, char** argv)
   assert(namControls["Pre 1 NAM Output"] != qualityState["Pre 1 NAM Output"]);
   assert(namControls["Pre 1 EQ Low Cut"] != qualityState["Pre 1 EQ Low Cut"]);
   assert(namControls["Pre 1 EQ High Cut"] != qualityState["Pre 1 EQ High Cut"]);
-  click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
+  click(grid_layout::enabledX, grid_layout::enabledY);
   assert(save().config()["Pre 1 Enabled"] == 0.);
-  click(grid_layout::KnobX(7), grid_layout::ToggleY(7));
+  click(grid_layout::enabledX, grid_layout::enabledY);
   assert(save().config()["Pre 1 Enabled"] == 1.);
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "nam-eight-controls.bmp");
@@ -2133,7 +2167,7 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2)); // Selected IN2 compressor makeup.
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Pre 2 NAM Output"] == effectUI["Pre 2 NAM Output"]);
-  // Card dot bypass and bottom editor toggle must share the same automated parameter.
+  // Card dot bypass and editor-header circle must share the same automated parameter.
   click(471, 80);
   assert(save().config()["Pre 2 Enabled"] == 0.);
   click(471, 80);

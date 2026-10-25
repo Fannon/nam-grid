@@ -39,11 +39,11 @@ void TestEffectPresentation()
             assert(std::strlen(effect_presentation::Label(effect, p)) > 0);
             if (effect_presentation::HeaderControl(p)) continue;
             const int position = effect_presentation::Position(effect, p);
-            if (position < 0 || position >= 7 || occupied[position])
+            if (position < 0 || position >= 8 || occupied[position])
               std::cerr << "Control overlap: effect=" << static_cast<int>(effect) << " parameter="
                         << kEffectParameters[p].name << " position=" << position
                         << " sync=" << sync << " alternate=" << alternate << '\n';
-            assert(position >= 0 && position < 7 && !occupied[position]);
+            assert(position >= 0 && position < 8 && !occupied[position]);
             occupied[position] = true;
             const std::string_view name = kEffectParameters[p].name;
             const auto endsWith = [&](std::string_view suffix) {
@@ -56,12 +56,12 @@ void TestEffectPresentation()
           // Both rows fill from the left without gaps (a mode may hide one control), and a
           // module with up to four controls uses only the top row.
           if (alternate) continue;
-          for (int position = 1; position < 7; ++position)
+          for (int position = 1; position < 8; ++position)
             if (position != 4 && occupied[position] && !occupied[position - 1])
               std::cerr << "Gap: effect=" << static_cast<int>(effect) << " position=" << position - 1 << '\n';
-          for (int position = 1; position < 7; ++position)
+          for (int position = 1; position < 8; ++position)
             assert(position == 4 || !occupied[position] || occupied[position - 1]);
-          if (std::count(occupied.begin(), occupied.end(), true) <= 4) assert(!occupied[4] && !occupied[5] && !occupied[6]);
+          if (std::count(occupied.begin(), occupied.end(), true) <= 4) assert(!occupied[4] && !occupied[5] && !occupied[6] && !occupied[7]);
         }
   // Mode selectors and saved options live in the header, never in the knob grid.
   for (int p = 0; p < kUtilityControls; ++p)
@@ -80,6 +80,14 @@ void TestEffectPresentation()
   assert(!effect_presentation::Visible(SlotEffect::ParametricEQ, uGain, false, true));
   assert(std::strcmp(effect_presentation::Label(SlotEffect::DigitalDelay, uDelayCharacter), "Ducking") == 0);
   assert(std::strcmp(effect_presentation::Label(SlotEffect::TapeDelay, uDelayCharacter), "Saturation") == 0);
+  for (int style = 0; style < effect_modes::pedalCount; ++style)
+  {
+    assert(std::strcmp(effect_presentation::Label(SlotEffect::PedalDrive, uPedalCharacter, style),
+                       effect_modes::pedalCharacterNames[style]) == 0);
+    assert(std::strlen(effect_presentation::Help(SlotEffect::PedalDrive, uPedalCharacter, style)) > 25);
+  }
+  assert(effect_presentation::Position(SlotEffect::PedalDrive, uPedalCharacter) == 3);
+  assert(effect_presentation::Position(SlotEffect::PedalDrive, uPedalMix) == 7);
   UtilityControls c; c.delay = {400., 50., 5000., 0., 100.}; c.dual = {.75, 50.};
   const auto repeats = effect_preview::Delay(SlotEffect::DualDelay, c, 48000.);
   assert(repeats.count >= 4);

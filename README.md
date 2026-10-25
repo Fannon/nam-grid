@@ -37,14 +37,15 @@ changes and tested the results, supported by an extensive automated test suite.
   (Pre, two parallel lanes A and B, Post). Any slot takes any module, so you can run
   several NAM captures, cabinet IRs or the same effect more than once, and blend the
   two lanes with **A/B**.
-- **[54 built-in effects](https://fannon.github.io/nam-grid/modules/):** gates, compressors and outboard-style
-  dynamics, EQs and filters, drives, modulation, pitch effects, delays and reverbs,
+- **[55 built-in effects](https://fannon.github.io/nam-grid/modules/):** gates, compressors and outboard-style
+  dynamics, EQs and filters, [guitar and bass drives](https://fannon.github.io/nam-grid/modules/pedal-drive), modulation, pitch effects, delays and reverbs,
   including [Cosmic Echo](https://fannon.github.io/nam-grid/modules/cosmic-echo) and the
   [LoFi Tape Machine](https://fannon.github.io/nam-grid/modules/lofi-tape).
 - **[Visualizations that explain each effect](https://fannon.github.io/nam-grid/ui#displays-and-meters):** curves,
   live spectra and measured responses show what every control does, and a level strip
   under every module compares its input and output.
-- **Built for low latency:** no added latency for effects or IRs; cabinet IRs switch
+- **Built for low latency:** zero added latency for most effects and all cabinet IRs.
+  Pedal Drive adds 64 samples for antialiasing. Cabinet IRs switch
   between direct and FFT convolution automatically, and the DSP is tuned for small
   buffers with no allocation on the audio thread.
 - **[Browse while you listen](https://fannon.github.io/nam-grid/browser):** audition modules, captures and IRs in

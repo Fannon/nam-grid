@@ -17,8 +17,11 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   const IRECT lines(plot.L,response.B+17.f,plot.R,plot.B);
   WDL_String text;
   PlotTitle(g,plot,delayColor,"Measured echo response / delay lines");
-  text.SetFormatted(512,"Top: measured wet impulse; Warp spreads echoes and Density fills the tail. Below: %d delay lines at their base times, with density connections and motion halos. Each view has its own time span; colours identify network groups, not output channels.",plan.count);
-  PlotDetail(g,plot,text.Get());
+  PlotDetail(g,plot,"Measured response above; delay-line network below. Hover each view for details.");
+  PlotRegionDetail(g,IRECT(plot.L,plot.T,plot.R,response.B+14.f),
+    "Measured wet impulse, relative to its strongest peak (0 to -48 dB). Warp spreads echoes; Density fills the tail.");
+  text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
+  PlotRegionDetail(g,IRECT(plot.L,response.B+14.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)

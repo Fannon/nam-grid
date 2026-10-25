@@ -1119,6 +1119,17 @@ int main(int argc, char** argv)
       const auto help = descriptionTooltip(800, grid_layout::plotTop + 30);
       if (help.find(L"limiting curve") == std::wstring::npos) std::wcerr << L"Unexpected plot help: " << help << L'\n';
       assert(help.find(L"limiting curve") != std::wstring::npos);
+      description["SlotEffects"][0] = static_cast<int>(SlotEffect::CosmicEcho);
+      for (int style : {0, 2})
+      {
+        description["Pre 1 Cosmic Style"] = style;
+        load(description); selectTile(170, 120);
+        const auto upper = descriptionTooltip(800, grid_layout::plotTop + 20);
+        const auto lower = descriptionTooltip(800, grid_layout::plotBottom - 10);
+        assert(upper.find(L"Measured wet impulse") != std::wstring::npos);
+        assert(lower.find(style == 0 ? L"16 delay lines" : L"4 delay lines") != std::wstring::npos);
+        assert(lower.find(L"Measured wet impulse") == std::wstring::npos);
+      }
     }
     SendMessage(editor, WM_MOUSELEAVE, 0, 0);
     load(previous);
@@ -1201,24 +1212,40 @@ int main(int argc, char** argv)
         for(size_t i=0;i<names.size();++i) preview[std::string("Pre 1 ")+names[i]]=defaults[i];
         for(int p=0;p<kUtilityControls;++p) preview[std::string("Pre 1 ")+kEffectParameters[p].name]=defaults[17+p];
         load(preview); selectTile(170,120);
-        const auto before=save().config();
-        assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
-        process.frames_count=512;
-        for(int block=0;block<240;++block)
-        {
-          for(int i=0;i<512;++i)
+        const auto audition = [&](const char* suffix) {
+          const auto before=save().config();
+          assert(plugin->activate(plugin,48000.,1,512)); assert(plugin->start_processing(plugin));
+          process.frames_count=512;
+          for(int block=0;block<240;++block)
           {
-            const double t=(block*512+i)/48000.;
-            input[0][i]=.4*std::sin(2.*3.141592653589793*220.*t)*(.55+.45*std::cos(2.*3.141592653589793*t));
-            input[1][i]=.3*std::sin(2.*3.141592653589793*330.*t);
+            for(int i=0;i<512;++i)
+            {
+              const double t=(block*512+i)/48000.;
+              input[0][i]=.4*std::sin(2.*3.141592653589793*220.*t)*(.55+.45*std::cos(2.*3.141592653589793*t));
+              input[1][i]=.3*std::sin(2.*3.141592653589793*330.*t);
+            }
+            assert(plugin->process(plugin,&process)!=CLAP_PROCESS_ERROR);
+            if(block%8==0) pumpFor(2);
           }
-          assert(plugin->process(plugin,&process)!=CLAP_PROCESS_ERROR);
-          if(block%8==0) pumpFor(2);
+          pumpFor(100);
+          if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/("fx-"+std::to_string(static_cast<int>(effect))+"-"+suffix+".bmp"));
+          plugin->stop_processing(plugin); plugin->deactivate(plugin);
+          assert(save().config()==before); // Viewing/processing must not edit the rig.
+        };
+        audition("default");
+        if(effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp || effect==SlotEffect::Limiter
+            || effect==SlotEffect::OutboardChannel || effect==SlotEffect::ButterComp)
+        {
+          auto heavy=preview;
+          heavy["Pre 1 Comp Threshold"]=-60.;
+          heavy["Pre 1 Comp Makeup"]=0.;
+          heavy["Pre 1 Strip Compress"]=100.;
+          heavy["Pre 1 Butter Compress"]=100.;
+          heavy["Pre 1 Limiter Ceiling"]=-24.;
+          load(heavy); selectTile(170,120);
+          audition("heavy"); // Dedicated heavy-compression frame for overrange markers.
+          load(preview); selectTile(170,120);
         }
-        pumpFor(100);
-        if(argc==4) CaptureEditor(editor,std::filesystem::path(argv[3])/("fx-"+std::to_string(static_cast<int>(effect))+"-default.bmp"));
-        plugin->stop_processing(plugin); plugin->deactivate(plugin);
-        assert(save().config()==before); // Viewing/processing must not edit the rig.
         for(bool high : {false,true})
         {
           // CLAP exposes continuous doubles in normalized host units and

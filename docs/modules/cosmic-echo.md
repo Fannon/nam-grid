@@ -44,3 +44,5 @@ the lines, and the faint halos show modulation depth. At Warp 0, several lines c
 share the same position. Colours distinguish network groups; these are not direct
 left/right output taps. Each graph has its own labelled time span: the upper graph
 includes repeats and diffusion, while the lower sketch focuses on the line lengths.
+Hover each graph for its own explanation: the upper graph describes the measured
+response, and the lower sketch gives the current line count and network legend.

@@ -5,22 +5,62 @@ namespace grid_ui
 {
 // Every FX preview reserves the same title, chart and footer rows.
 // Muted = reference/dry, module colour = processed, amber = second channel/GR.
-class PlotHelp : public IControl
+class PlotHelp : public IContainerBase
 {
 public:
-  explicit PlotHelp(const IRECT& bounds) : IControl(bounds) { SetIgnoreMouse(false); }
-  void Draw(IGraphics&) override {}
-  void Begin() { mDetail.clear(); }
-  void Detail(const char* text) { mDetail = text; }
-  void End(IGraphics& g)
+  explicit PlotHelp(const IRECT& bounds) : IContainerBase(bounds) { SetIgnoreMouse(false); }
+  void OnAttached() override
   {
-    if (mDetail != GetTooltip())
+    for (auto& region : mRegions)
     {
-      SetTooltip(mDetail.c_str());
-      g.UpdateTooltips();
+      region.control = new RegionControl();
+      AddChildControl(region.control);
+      region.control->Hide(true);
     }
   }
+  void Draw(IGraphics&) override {}
+  void Begin() { mDetail.clear(); mRegionCount = 0; }
+  void Detail(const char* text) { mDetail = text; }
+  void RegionDetail(const IRECT& bounds, const char* text)
+  {
+    if (mRegionCount >= mRegions.size()) return;
+    auto& region = mRegions[mRegionCount++];
+    region.bounds = bounds;
+    region.text = text;
+  }
+  void End(IGraphics& g)
+  {
+    bool changed = mDetail != GetTooltip();
+    if (changed) SetTooltip(mDetail.c_str());
+    for (size_t i = 0; i < mRegions.size(); ++i)
+    {
+      auto& region = mRegions[i];
+      const bool hidden = IsHidden() || i >= mRegionCount;
+      if (region.control->IsHidden() != hidden) { region.control->Hide(hidden); changed = true; }
+      if (hidden) continue;
+      if (region.control->GetRECT() != region.bounds)
+      {
+        region.control->SetTargetAndDrawRECTs(region.bounds);
+        changed = true;
+      }
+      if (region.text != region.control->GetTooltip())
+      {
+        region.control->SetTooltip(region.text.c_str());
+        changed = true;
+      }
+    }
+    if (changed) g.UpdateTooltips();
+  }
 private:
+  class RegionControl : public IControl
+  {
+  public:
+    RegionControl() : IControl(IRECT()) { SetIgnoreMouse(false); }
+    void Draw(IGraphics&) override {}
+  };
+  struct Region { RegionControl* control = nullptr; IRECT bounds; std::string text; };
+  std::array<Region, 2> mRegions{};
+  size_t mRegionCount = 0;
   std::string mDetail;
 };
 inline void PlotTitle(IGraphics& g, const IRECT& p, IColor ink, const char* title)
@@ -30,6 +70,12 @@ inline void PlotDetail(IGraphics& g, const IRECT&, const char* detail)
   const auto slot = static_cast<PLUG_CLASS_NAME*>(g.GetDelegate())->GetSelectedSlot();
   if (auto* help = g.GetControlWithTag(kCtrlTagPlotHelpBase + static_cast<int>(slot)))
     static_cast<PlotHelp*>(help)->Detail(detail);
+}
+inline void PlotRegionDetail(IGraphics& g, const IRECT& bounds, const char* detail)
+{
+  const auto slot = static_cast<PLUG_CLASS_NAME*>(g.GetDelegate())->GetSelectedSlot();
+  if (auto* help = g.GetControlWithTag(kCtrlTagPlotHelpBase + static_cast<int>(slot)))
+    static_cast<PlotHelp*>(help)->RegionDetail(bounds, detail);
 }
 inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const char* right = "")
 {

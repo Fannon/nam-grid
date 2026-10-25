@@ -53,7 +53,9 @@ measurements and useful derived information; axis ranges stay visible.
 Compressor and limiter gain-reduction displays use a 0–16 dB scale, giving typical
 2–4 dB compression more room while allowing heavier reduction. Outboard Channel
 and Butter Comp histories mark 2, 4, 8 and 12 dB. The numeric GR readout continues
-above 16 dB even when the graph or bar reaches its edge. Gate attenuation displays
+above 16 dB even when the graph or bar reaches its edge. A red lower edge on a
+history, or a red tip on a bar, marks reduction beyond 16 dB; it indicates heavy
+compression, not digital clipping. Gate attenuation displays
 keep their wider scales.
 
 Use the **level meters** in the display footer to compare tones at similar volume. They read the same scale as the slot meters, -60 to +6 dBFS:

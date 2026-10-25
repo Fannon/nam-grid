@@ -51,6 +51,18 @@ build/windows/release/NeuralAmpModeler/Release/nam-readme-gallery.exe build/wind
 With Ninja, the executable is directly under `NeuralAmpModeler/`, without the
 `Release/` subdirectory.
 
+To refresh a single module, append `--module` and its filename slug (the module's
+name in lowercase, with spaces replaced by hyphens). For example, with Ninja:
+
+```sh
+build/windows/release/NeuralAmpModeler/nam-readme-gallery.exe build/windows/release/out/nam-grid.clap . tmp/gallery/screenshots --module cosmic-echo
+```
+
+This writes only `modules/cosmic-echo.bmp`, skipping the other modules and full
+editor views. An unknown module name fails before opening the editor. Use a fresh
+output directory when reviewing a filtered run so older images cannot be mistaken
+for newly generated captures. `--help` prints the command syntax.
+
 It creates the demo library and renders every view as BMP, then each built-in module in
 the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. The NAM
 and Cabinet IR pane images are lossless full-width, 244-pixel-high crops from the bottom of `nam.png` and

@@ -1,7 +1,7 @@
 // On-demand README gallery: renders an example rig in the real CLAP editor and
 // captures each view, then every built-in module's editor panel for the module
 // guides (modules/<name>.bmp). Windows only; see docs/screenshots/README.md.
-//   nam-readme-gallery <nam-grid.clap> <repository root> <output directory>
+//   nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]
 #include "ClapTestHost.h"
 #include "WinEditorCapture.h"
 #include "WinFileDialogDriver.h"
@@ -49,9 +49,30 @@ static void WriteExampleCabinet(const std::filesystem::path& path)
   for (double v : x) { const int32_t s = static_cast<int32_t>(v / peak * .9 * 8388607.); out.write(reinterpret_cast<const char*>(&s), 3); }
 }
 
+static std::string ModuleSlug(const char* name)
+{
+  std::string slug;
+  for (const unsigned char c : std::string(name))
+    if (std::isalnum(c)) slug += static_cast<char>(std::tolower(c));
+    else if (!slug.empty() && slug.back() != '-') slug += '-';
+  while (!slug.empty() && slug.back() == '-') slug.pop_back();
+  return slug;
+}
+
 static int Run(int argc, char** argv)
 {
-  assert(argc == 4);
+  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n";
+  if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
+  if (argc != 4 && !(argc == 6 && std::string(argv[4]) == "--module"))
+    throw std::runtime_error(usage);
+  const std::string filter = argc == 6 ? ModuleSlug(argv[5]) : "";
+  if (argc == 6)
+  {
+    bool found = false;
+    for (const auto& group : nam_library::kModuleGroups)
+      for (const auto effect : group.effects) found |= ModuleSlug(SlotEffectName(effect)) == filter;
+    if (!found || filter.empty()) throw std::runtime_error("Unknown module: " + std::string(argv[5]));
+  }
   const std::filesystem::path repository = argv[2];
   IsolatedUserHome settingsBackup("nam-grid-gallery"); // Never touches the user's preferences.
   const auto demo = settingsBackup.home / "Demo Library";
@@ -205,24 +226,29 @@ static int Run(int argc, char** argv)
 
   play(2500); // Library scan and model preparation
 
-  select(2); play(4000); shot("nam");
-  select(3); play(1000); shot("ir");
-  select(5); play(3000); shot("delay");
-  select(12); play(3000); shot("eq");
-  click(grid_layout::modeLeft + 82, grid_layout::optionsY); play(1000); shot("eq-shelf");
-  click(grid_layout::modeLeft + 82, grid_layout::optionsY);
-  { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
-  click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
-  click(919, 28); play(800); shot("settings"); click(936, 28);
-  click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY); play(2000); shot("control"); click(936, 28);
-  constexpr int tunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
-  sustained = true; play(500); click(tunerX, grid_layout::headerY); play(3000); shot("tuner"); click(tunerX, grid_layout::headerY);
-  sustained = false;
+  if (filter.empty())
+  {
+    select(2); play(4000); shot("nam");
+    select(3); play(1000); shot("ir");
+    select(5); play(3000); shot("delay");
+    select(12); play(3000); shot("eq");
+    click(grid_layout::modeLeft + 82, grid_layout::optionsY); play(1000); shot("eq-shelf");
+    click(grid_layout::modeLeft + 82, grid_layout::optionsY);
+    { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
+    click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
+    click(919, 28); play(800); shot("settings"); click(936, 28);
+    click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY); play(2000); shot("control"); click(936, 28);
+    constexpr int tunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
+    sustained = true; play(500); click(tunerX, grid_layout::headerY); play(3000); shot("tuner"); click(tunerX, grid_layout::headerY);
+    sustained = false;
+  }
   // Every built-in module with its defaults in the empty A4 slot, cropped to the editor panel.
   std::filesystem::create_directories(out / "modules");
   for (const auto& group : nam_library::kModuleGroups)
     for (const auto effect : group.effects)
     {
+      const auto slug = ModuleSlug(SlotEffectName(effect));
+      if (!filter.empty() && slug != filter) continue;
       auto rig = config;
       const auto defaults = SlotDefaultValues(effect);
       rig["SlotEffects"][7] = static_cast<int>(effect);
@@ -231,14 +257,10 @@ static int Run(int argc, char** argv)
       Stream moduleBytes; moduleBytes.string("###nam-grid###"); moduleBytes.string(rig.dump());
       clap_istream moduleInput{&moduleBytes, Stream::read}; assert(state->load(plugin, &moduleInput));
       select(7); play(1800);
-      std::string slug;
-      for (const char* c = SlotEffectName(effect); *c; ++c)
-        if (std::isalnum(static_cast<unsigned char>(*c))) slug += static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
-        else if (!slug.empty() && slug.back() != '-') slug += '-';
-      while (!slug.empty() && slug.back() == '-') slug.pop_back();
       shot("modules/" + slug, 476);
     }
   // The README main image: the bundled Clean Default rig with A1's capture selected.
+  if (filter.empty())
   {
     auto clean = rig_preset::Read(defaults / "Clean Default.ngrid");
     for (auto& path : clean["SlotPaths"])

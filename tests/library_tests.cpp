@@ -399,6 +399,13 @@ int main(int argc, char** argv)
     assert(WriteIndex(indexFile, index.next));
     index.previous = ReadIndex(indexFile);
     assert(index.previous.size() == 1);
+    // Cancelling a startup scan must not replace the saved index with an empty one.
+    {
+      Worker cancelWorker(indexFile);
+      cancelWorker.Cancel();
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      assert(ReadIndex(indexFile).size() == 1);
+    }
     const auto& stored = index.previous.begin()->second.capture;
     assert(stored.name == "Amp One" && stored.hash == first.hash && stored.gear == first.gear && stored.kind == FileKind::NAM);
     // Same size and restored time: the stale name and hash prove the file was not read again.

@@ -73,7 +73,7 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
                                          {"Sequencer 2 Step 8", 13.}, {row(0, RowSource), SourceSeq2}};
     load(configured);
     assert(save().config() == configured);
-    for (int schema = kInitialEffectStateSchema; schema < 5; ++schema)
+    for (int schema = kInitialEffectStateSchema; schema < kEffectStateSchema; ++schema)
     {
       auto old = cleared;
       old["schema"] = schema;

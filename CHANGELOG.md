@@ -9,6 +9,11 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - Documentation: full-width navigation on every page, a linked Module guide section, and a cleaner home page without the duplicate quick-start strip.
 - Documentation: link the KVR Audio discussion thread from the README and troubleshooting page.
 
+### Fixed
+
+- Load projects and presets saved by 0.2.0 preview builds. State schema 6 now separates the Parametric EQ schema from the second modulation bank, so those files receive the new bank's defaults instead of failing validation.
+- Keep the saved library index when Startup rescan is off instead of replacing it with an empty index.
+
 ## [0.2.0] - 2026-10-25
 
 ### Added

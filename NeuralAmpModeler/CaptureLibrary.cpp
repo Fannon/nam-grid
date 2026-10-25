@@ -909,9 +909,20 @@ void Worker::Request(const std::vector<std::string>& namRoots, const std::vector
 {
   {
     std::lock_guard<std::mutex> lock(mMutex);
+    mCancelRequested = false;
     mNamRoots = namRoots;
     mIrRoots = irRoots;
     mPresetRoots = presetRoots;
+    mResult.reset();
+    ++mRevision;
+  }
+  mChanged.notify_one();
+}
+void Worker::Cancel()
+{
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    mCancelRequested = true;
     mResult.reset();
     ++mRevision;
   }
@@ -931,6 +942,12 @@ void Worker::Run()
     mChanged.wait(lock, [&] { return mStop.load() || mRevision.load() != done; });
     if (mStop.load())
       return;
+    if (mCancelRequested)
+    {
+      mCancelRequested = false;
+      done = mRevision.load();
+      continue;
+    }
     const auto revision = mRevision.load();
     const auto namRoots = mNamRoots, irRoots = mIrRoots, presetRoots = mPresetRoots;
     lock.unlock();
@@ -960,7 +977,9 @@ void Worker::Run()
     }
     mIndex.next.clear();
     lock.lock();
-    if (!cancelled())
+    if (cancelled())
+      mCancelRequested = false;
+    else
       mResult = std::move(result);
     done = revision;
   }

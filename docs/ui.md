@@ -42,6 +42,12 @@ Previous/next stays within the current effect category or capture/IR folder. Add
 
 Displays help answer practical questions: Is the compressor working? How dark are the repeats? Where is the EQ cutting? Some show live audio; others sketch the current settings. Their labels identify which is which.
 
+Compressor and limiter gain-reduction displays use a 0–16 dB scale, giving typical
+2–4 dB compression more room while allowing heavier reduction. Outboard Channel
+and Butter Comp histories mark 2, 4, 8 and 12 dB. The numeric GR readout continues
+above 16 dB even when the graph or bar reaches its edge. Gate attenuation displays
+keep their wider scales.
+
 Use the **level meters** in the display footer to compare tones at similar volume. They read the same scale as the slot meters, -60 to +6 dBFS:
 
 - **Gain near 0 dB** means the module adds little overall level—useful for a fair bypass comparison.

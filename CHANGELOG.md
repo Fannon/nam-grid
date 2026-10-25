@@ -6,6 +6,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Two independent LFOs, envelope followers and eight-step sequencers, with numbered source selectors and the same four macros. Existing projects, presets and automation keep their original parameter identities.
+
 - Pedal Drive: ten guitar and bass drive styles, with antialiasing and a local Low keep dial for clean bass fundamentals.
 - A centered Pedal Drive character dial with a label and function for every style, including Blues OD, Transparent OD and Vintage Fuzz.
 - Guitar drive, clean boost and split-band bass example rigs, included on fresh installs and available from Settings.

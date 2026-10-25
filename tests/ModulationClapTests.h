@@ -61,6 +61,114 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
   };
   const auto row = [](int index, int field) { return std::string(parameters[RowParam(index, field)].name); };
 
+  // Old rigs acquire bank 2 defaults even after editing it. Current states require
+  // every new field, and both bank settings and routing survive scene/state recall.
+  {
+    auto configured = cleared;
+    for (int p = LFO2Shape; p < Count; ++p) configured[parameters[p].name] = parameters[p].maximum;
+    configured[row(0, RowSource)] = SourceLFO2;
+    configured[row(0, RowVia)] = SourceEnv2;
+    configured[row(1, RowSource)] = SourceSeq2;
+    configured["PerformanceScenes"][0] = {{"LFO 2 Rate", 3.}, {"Envelope 2 Listen At", 16.},
+                                         {"Sequencer 2 Step 8", 13.}, {row(0, RowSource), SourceSeq2}};
+    load(configured);
+    assert(save().config() == configured);
+    for (int schema = kInitialEffectStateSchema; schema < 5; ++schema)
+    {
+      auto old = cleared;
+      old["schema"] = schema;
+      old["LFO Rate"] = 1.7; old["Envelope Attack"] = 21.; old["Sequencer Step 3"] = 63.;
+      old["Macro 4"] = 72.; old[row(0, RowSource)] = SourceMacro4;
+      old["PerformanceScenes"][0] = {{"LFO Rate", 2.3}, {row(0, RowSource), SourceMacro2}};
+      for (int p = 0; p < Count; ++p)
+        if (parameters[p].introducedIn > schema) old.erase(parameters[p].name);
+      for (int p = 0; p < kUtilityControls; ++p)
+        if (kEffectParameters[p].introducedIn > schema)
+          for (int slot = 0; slot < 16; ++slot) old.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
+      load(old);
+      const auto upgraded = save().config();
+      for (int p = LFO2Shape; p < Count; ++p) assert(upgraded[parameters[p].name] == parameters[p].initial);
+      assert(upgraded["LFO Rate"] == 1.7 && upgraded["Envelope Attack"] == 21. && upgraded["Sequencer Step 3"] == 63.);
+      assert(upgraded["Macro 4"] == 72. && upgraded[row(0, RowSource)] == SourceMacro4);
+      assert(upgraded["PerformanceScenes"] == old["PerformanceScenes"]);
+    }
+    load(configured);
+    for (int p = LFO2Shape; p < Count; ++p)
+    {
+      auto bad = configured; bad.erase(parameters[p].name);
+      assert(!loadRaw(bad) && save().config() == configured);
+    }
+    const std::pair<const char*, double> invalidValues[]{{"LFO 2 Shape", .5}, {"Envelope 2 Listen At", 17.},
+                                                            {"Sequencer 2 Retrigger", 3.}};
+    for (const auto& [name, value] : invalidValues)
+    {
+      auto bad = configured; bad[name] = value;
+      assert(!loadRaw(bad) && save().config() == configured);
+      bad = configured; bad["PerformanceScenes"][0][name] = value;
+      assert(!loadRaw(bad) && save().config() == configured);
+    }
+    const int invalidSources[]{SourceCount, -1};
+    for (int source : invalidSources)
+    {
+      auto bad = configured; bad[row(0, RowSource)] = source;
+      assert(!loadRaw(bad) && save().config() == configured);
+      bad = configured; bad[row(0, RowVia)] = source;
+      assert(!loadRaw(bad) && save().config() == configured);
+    }
+  }
+
+  // Bank 2 follows the same timeline across uneven host blocks. Giving it bank
+  // 1's settings and destination reproduces bank 1's output for every source type.
+  const std::pair<int, int> sourcePairs[]{{SourceLFO1, SourceLFO2}, {SourceEnv1, SourceEnv2},
+                                          {SourceSeq1, SourceSeq2}};
+  for (const auto [first, second] : sourcePairs)
+  {
+    auto config = cleared;
+    config["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
+    config["LFO Rate"] = config["LFO 2 Rate"] = 2.;
+    config["LFO Shape"] = config["LFO 2 Shape"] = 3.;
+    config["LFO Retrigger"] = config["LFO 2 Retrigger"] = RetriggerMidi;
+    config["LFO One Shot"] = config["LFO 2 One Shot"] = 1.;
+    config["Sequencer Retrigger"] = config["Sequencer 2 Retrigger"] = RetriggerMidi;
+    config[row(0, RowSource)] = first; config[row(0, RowSlot)] = 0.;
+    config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel;
+    config[row(0, RowDepth)] = -25.;
+    load(config);
+    const auto expected = render({0, 256, 1900});
+    config[row(0, RowSource)] = second;
+    load(config);
+    const auto actual = render({0, 256, 1900});
+    assert(difference(expected, actual) < 1.e-12);
+    assert(difference(actual, render({0, 256, 1900}, {37, 500})) < 1.e-12);
+    if (second != SourceEnv2)
+    {
+      config[row(0, RowSource)] = SourceNone;
+      load(config);
+      assert(difference(actual, render()) > 1.e-3);
+    }
+  }
+
+  // Both taps run simultaneously: Env 1 hears the quiet first slot; Env 2 hears
+  // the restored signal after the next slot. Swapping their routes changes audio.
+  {
+    auto config = cleared;
+    for (int slot : {0, 12}) config["SlotEffects"][slot] = static_cast<int>(SlotEffect::Utility);
+    config["SlotEffects"][1] = static_cast<int>(SlotEffect::Boost);
+    config["Pre 1 Utility Output"] = -12.; config["Pre 2 Boost Gain"] = 18.;
+    config["Envelope Sensitivity"] = 12.; config["Envelope 2 Sensitivity"] = 12.;
+    config["Envelope Listen At"] = 1.; config["Envelope 2 Listen At"] = 2.;
+    config[row(0, RowSource)] = SourceEnv1; config[row(0, RowSlot)] = 12.;
+    config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel;
+    config[row(0, RowDepth)] = -50.; config[row(0, RowVia)] = SourceEnv2;
+    load(config);
+    const auto quiet = render();
+    config[row(0, RowSource)] = SourceEnv2; config[row(0, RowVia)] = SourceNone;
+    load(config);
+    const auto loud = render();
+    assert(rms(loud) < .4 * rms(quiet));
+    assert(difference(loud, render({}, {37, 500})) < 1.e-12);
+  }
+
   // A row's depth follows host automation like any other automatable parameter.
   {
     auto config = cleared;
@@ -167,7 +275,8 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
       clap_param_info info{};
       assert(params->get_info(plugin, i, &info));
       const std::string name = info.name;
-      const bool selector = name == "LFO Shape" || name == "Envelope Listen At" || name == "LFO Retrigger" || name == "Sequencer Retrigger";
+      const bool selector = name == "LFO Shape" || name == "Envelope Listen At" || name == "LFO Retrigger" || name == "Sequencer Retrigger"
+                            || name == "LFO 2 Shape" || name == "Envelope 2 Listen At" || name == "LFO 2 Retrigger" || name == "Sequencer 2 Retrigger";
       const bool control = name == "Macro 3" || name == "Macro 4" || name == "Envelope Threshold"
                            || name == "Envelope Curve" || name == "LFO One Shot";
       if (name.rfind("Mod ", 0) != 0 && !selector && !control) continue;

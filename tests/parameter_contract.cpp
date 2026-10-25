@@ -12,9 +12,15 @@ namespace future_layout
 {
 using parameter_layout::Segment;
 inline constexpr int g = parameter_layout::globalControls, s = parameter_layout::slotControls;
-inline constexpr Segment current[]{{g, s}};
-inline constexpr Segment grown[]{{g, s + 3}};
-inline constexpr Segment extended[]{{g, s + 3}, {2, 0}, {0, 4}};
+inline constexpr auto current = std::to_array(parameter_layout::segments);
+inline constexpr auto grown = [] { auto table = current; table.back().slotControls += 3; return table; }();
+inline constexpr auto extended = [] {
+  std::array<Segment, grown.size() + 2> table{};
+  std::copy(grown.begin(), grown.end(), table.begin());
+  table[grown.size()] = {2, 0};
+  table[grown.size() + 1] = {0, 4};
+  return table;
+}();
 constexpr bool Preserves(std::span<const Segment> before, std::span<const Segment> after, int globals, int controls)
 {
   for (int i = 0; i < globals; ++i)
@@ -174,6 +180,17 @@ int main(int argc, char** argv)
       std::cerr << "Parameter contract changed: " << expected << "\nActual: " << actual << '\n';
     assert(actual == expected);
   }
+  // New globals live after all pre-existing slot IDs; ownership and metadata must
+  // follow the segment map rather than assuming globals are one contiguous bank.
+  for (int p = grid_performance::LFO2Shape; p < grid_performance::Count; ++p)
+  {
+    const int id = PerformanceParam(p);
+    assert(id >= parameter_layout::SlotID(15, parameter_layout::slotControls - 1) + 1);
+    assert(PerformanceIndex(id) == p && SlotControlOwner(id) == -1);
+    const auto actual = metadata(id);
+    assert(actual["name"] == grid_performance::parameters[p].name);
+    assert(bool(actual["flags"].get<int>() & CLAP_PARAM_IS_AUTOMATABLE) == !grid_performance::StateOnly(p));
+  }
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p))
     {
@@ -204,6 +221,9 @@ int main(int argc, char** argv)
   // original baseline preset gains defaults without losing any existing values.
   auto historical = base;
   historical["schema"] = snapshot["state_schema"];
+  for (int p = 0; p < grid_performance::Count; ++p)
+    if (grid_performance::parameters[p].introducedIn > snapshot["state_schema"].get<int>())
+      historical.erase(grid_performance::parameters[p].name);
   for (int p = static_cast<int>(snapshot["slot"].size()) - parameter_layout::standardControls;
        p < kUtilityControls; ++p)
     for (int slot = 0; slot < 16; ++slot)

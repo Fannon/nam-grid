@@ -55,6 +55,8 @@ until it is allocated, and a compile-time check rejects edits to released segmen
 - **New global:** append `{n, 0}` and access it through `parameter_layout::GlobalID()`.
   Never use contiguous arithmetic across globals; `PerformanceParam()` shows the pattern.
 
+The modulation editor numbers sources (`lfo1`, `env1`, `seq1`, `lfo2`, `env2`, `seq2`). Source IDs and host parameters append; the original bank keeps its released host names and saved keys (for example, `LFO Rate`) as bank 1. Bank 2 uses numbered names such as `LFO 2 Rate`. Never rename the original keys or insert source IDs ahead of the four macros.
+
 ### Saved state
 
 Projects and presets store named values, module IDs, file paths/hashes and Noise

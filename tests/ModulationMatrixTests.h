@@ -41,7 +41,57 @@ void TestModulationMatrix()
   assert(ValidDestination(gridSlot, GridSplit) && !ValidDestination(gridSlot, GridDestinations) && !ValidDestination(17, 0));
   for (int i = 0; i < Count; ++i)
     assert(StateOnly(i) == ((i >= ModRow && i < RowParam(rows, 0) && (i - ModRow) % RowFields != RowDepth)
-                            || i == LFOShape || i == EnvInput || i == LFORetrigger || i == StepRetrigger));
+                            || i == LFO1Shape || i == Env1Input || i == LFO1Retrigger || i == Seq1Retrigger
+                            || i == LFO2Shape || i == Env2Input || i == LFO2Retrigger || i == Seq2Retrigger));
+
+  // Released source integers and macro identities must not move when banks append.
+  static_assert(SourceLFO1 == 1 && SourceEnv1 == 2 && SourceSeq1 == 3);
+  static_assert(SourceMacro1 == 4 && SourceMacro2 == 5 && SourceMacro3 == 6 && SourceMacro4 == 7);
+  static_assert(SourceLFO2 == 8 && SourceEnv2 == 9 && SourceSeq2 == 10);
+  static_assert(SourceParam(LFO1Shape, 1) == LFO2Shape && SourceParam(Seq1Step8, 1) == Seq2Step8);
+  assert(std::set<std::string>(sourceKeys.begin(), sourceKeys.end()).size() == SourceCount);
+
+  // Different clocks, shapes, follower signals and step patterns remain independent.
+  {
+    auto v = Defaults();
+    v[LFO1Rate] = 1.; v[LFO2Rate] = 2.; v[LFO1Shape] = 2.; v[LFO2Shape] = 3.;
+    v[Seq1Sync] = v[Seq2Sync] = 0.; v[Seq1Rate] = 10.; v[Seq2Rate] = 20.;
+    v[Seq1Step2] = 25.; v[Seq2Step3] = 90.;
+    v[Env1Sensitivity] = v[Env2Sensitivity] = 0.;
+    std::array<double, 16> loud{}, quiet{}; loud.fill(.5);
+    Modulation sources; sources.Reset(48000.);
+    for (int i = 0; i < 330; ++i)
+      sources.Advance(loud.data(), nullptr, 16, v, 120., nullptr, 0, quiet.data());
+    const auto monitor = sources.Read();
+    assert(std::abs(monitor.phase - .11) < 1.e-6 && std::abs(monitor.second.phase - .22) < 1.e-6);
+    assert(std::abs(sources.Value(SourceLFO1, v) + .78) < 1.e-9);
+    assert(std::abs(sources.Value(SourceLFO2, v) - .56) < 1.e-9);
+    assert(sources.Value(SourceEnv1, v) > .49 && sources.Value(SourceEnv2, v) == 0.);
+    assert(monitor.step == 1 && monitor.second.step == 2);
+    assert(sources.Value(SourceSeq1, v) == -.5 && std::abs(sources.Value(SourceSeq2, v) - .8) < 1.e-12);
+    for (int source : sourceTabs)
+    {
+      double live = 0.;
+      assert(LiveValue(source, v, monitor, live));
+      assert(std::abs(live - sources.Value(source, v)) < 1.e-6);
+    }
+    assert(Bipolar(SourceLFO2) && Bipolar(SourceSeq2) && !Bipolar(SourceEnv2));
+    assert(Scale(SourceLFO2, 0.) == .5);
+    v[RowParam(0, RowSource)] = SourceLFO2; v[RowParam(0, RowVia)] = SourceEnv1;
+    v[RowParam(0, RowSlot)] = gridSlot; v[RowParam(0, RowDestination)] = GridBlend; v[RowParam(0, RowDepth)] = 50.;
+    Matrix::Targets targets;
+    assert(Matrix::Collect(v, sources, targets) == 1);
+    assert(std::abs(targets[0].offset - .14) < 1.e-4);
+    const auto ring = DestinationRing(v, monitor, gridSlot, GridBlend);
+    assert(ring.low == -.5 && ring.high == .5 && ring.showLive && std::abs(ring.live - targets[0].offset) < 1.e-6);
+    // MIDI restarts bank 2 only, while bank 1 keeps its original phase.
+    v[LFO2Retrigger] = v[Seq2Retrigger] = RetriggerMidi;
+    const int note = 0;
+    sources.Advance(loud.data(), nullptr, 16, v, 120., &note, 1, quiet.data());
+    assert(sources.Read().phase > .1f && sources.Read().second.phase < .001f && sources.Read().second.step == 0);
+    sources.Idle();
+    assert(!sources.Read().running && !sources.Read().second.running);
+  }
 
   // Collection: inactive and invalid rows are skipped; shared destinations add; Via scales.
   {

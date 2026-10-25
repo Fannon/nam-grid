@@ -106,25 +106,27 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   for (int i = 0; i < grid_performance::Count; ++i)
   {
     const auto& p = grid_performance::parameters[i]; auto* param = GetParam(PerformanceParam(i));
-    if (i == grid_performance::LFODivision || i == grid_performance::StepDivision)
+    if (i == grid_performance::LFO1Division || i == grid_performance::Seq1Division
+        || i == grid_performance::LFO2Division || i == grid_performance::Seq2Division)
     {
       param->InitEnum(p.name, static_cast<int>(p.initial), static_cast<int>(grid_tempo::names.size()));
       for (int d = 0; d < grid_tempo::names.size(); ++d) param->SetDisplayText(d, grid_tempo::names[d]);
     }
-    else if (i == grid_performance::LFOShape)
+    else if (i == grid_performance::LFO1Shape || i == grid_performance::LFO2Shape)
     {
       param->InitEnum(p.name, 0, static_cast<int>(grid_performance::lfoShapeNames.size()), "", IParam::kFlagCannotAutomate);
       for (int shape = 0; shape < grid_performance::lfoShapeNames.size(); ++shape)
         param->SetDisplayText(shape, grid_performance::lfoShapeNames[shape]);
     }
-    else if (i == grid_performance::EnvInput)
+    else if (i == grid_performance::Env1Input || i == grid_performance::Env2Input)
     {
       param->InitEnum(p.name, 0, grid_performance::gridSlot + 1, "", IParam::kFlagCannotAutomate);
       param->SetDisplayText(0, "Grid input");
       for (int slot = 0; slot < grid_performance::gridSlot; ++slot)
         param->SetDisplayText(slot + 1, ("After " + GridSlotName(slot)).c_str());
     }
-    else if (i == grid_performance::LFORetrigger || i == grid_performance::StepRetrigger)
+    else if (i == grid_performance::LFO1Retrigger || i == grid_performance::Seq1Retrigger
+             || i == grid_performance::LFO2Retrigger || i == grid_performance::Seq2Retrigger)
     {
       param->InitEnum(p.name, 0, grid_performance::RetriggerModes, "", IParam::kFlagCannotAutomate);
       for (int mode = 0; mode < grid_performance::RetriggerModes; ++mode)
@@ -152,7 +154,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.) param->InitBool(p.name, p.initial >= .5);
     else if (p.exponential) param->InitDouble(p.name, p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
     else param->InitDouble(p.name, p.initial, p.minimum, p.maximum, p.step, p.unit);
-    if (i == grid_performance::EnvThreshold) param->SetDisplayText(grid_performance::kThresholdOff, "Off");
+    if (i == grid_performance::Env1Threshold || i == grid_performance::Env2Threshold) param->SetDisplayText(grid_performance::kThresholdOff, "Off");
   }
   {
     // Every slot shares its controls' curves; slot 0's parameters stand for all of them.
@@ -391,9 +393,13 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     // modulation responsive without allocating or writing host parameters.
     // Copy every slot once per callback; quanta restore only the slots modulation edits.
     mAnimatedControls = controls;
-    // The follower listens at the grid input or after one slot of this grid.
-    const int tap = std::clamp(static_cast<int>(performance[grid_performance::EnvInput]), 0, 16) - 1;
-    grid.SetTap(tap);
+    // Each follower listens at the grid input or after its own chosen slot.
+    std::array<int, grid_performance::sourceInstances> taps;
+    for (int instance = 0; instance < grid_performance::sourceInstances; ++instance)
+    {
+      taps[instance] = std::clamp(static_cast<int>(performance[grid_performance::SourceParam(grid_performance::Env1Input, instance)]), 0, 16) - 1;
+      grid.SetTap(taps[instance], instance);
+    }
     // Every MIDI note-on of this block, in frame order.
     for (int i = 0; i < mNoteCount; ++i) mNoteFrames[i] = std::clamp(mNoteFrames[i], 0, nFrames - 1);
     std::sort(mNoteFrames.begin(), mNoteFrames.begin() + mNoteCount);
@@ -415,17 +421,16 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       int noteCount = 0;
       for (; nextNote < mNoteCount && mNoteFrames[nextNote] < offset + count; ++nextNote)
         notes[noteCount++] = mNoteFrames[nextNote] - offset;
-      if (tap < 0)
-        mModulation.Advance(mInputPointers[0] + offset, mInputPointers[1] + offset, count, performance, tempo, notes.data(), noteCount);
-      else
-        mModulation.Advance(grid.TapLeft(), grid.TapRight(), count, performance, tempo, notes.data(), noteCount);
+      const auto left = [&](int instance) { return taps[instance] < 0 ? mInputPointers[0] + offset : grid.TapLeft(instance); };
+      const auto right = [&](int instance) { return taps[instance] < 0 ? mInputPointers[1] + offset : grid.TapRight(instance); };
+      mModulation.Advance(left(0), right(0), count, performance, tempo, notes.data(), noteCount, left(1), right(1));
       offset += count;
     }
   }
   else
   {
     mModulation.Idle();
-    grid.SetTap(-1);
+    for (int instance = 0; instance < grid_performance::sourceInstances; ++instance) grid.SetTap(-1, instance);
     if (incoming)
       grid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
   }

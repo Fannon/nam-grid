@@ -317,7 +317,7 @@ public:
     {
       const auto v = PLUG()->PerformanceValues();
       const int source = static_cast<int>(v[RowParam(mRow, RowSource)]);
-      if (RowActive(v, mRow) && (source == SourceLFO || source == SourceEnvelope || source == SourceSequencer))
+      if (RowActive(v, mRow) && DynamicSource(source))
         SetDirty(false);
     }
     return IControl::IsDirty();
@@ -371,19 +371,19 @@ private:
 class LFODisplay : public LiveSourceControl
 {
 public:
-  LFODisplay(const IRECT& r) : LiveSourceControl(r) { mIgnoreMouse = true; }
+  LFODisplay(const IRECT& r, int instance = 0) : LiveSourceControl(r), mInstance(instance) { mIgnoreMouse = true; }
   void Draw(IGraphics& g) override
   {
     using namespace grid_performance;
     PanelBackground(g, mRECT);
     const auto v = PLUG()->PerformanceValues();
-    const int shape = static_cast<int>(v[LFOShape]);
+    const int shape = static_cast<int>(v[SourceParam(LFOShape, mInstance)]);
     WDL_String caption;
-    if (v[LFOSync] >= .5) caption.SetFormatted(64, "%s  ·  %s", lfoShapeNames[shape], grid_tempo::names[static_cast<int>(v[LFODivision])]);
-    else caption.SetFormatted(64, "%s  ·  %.2f Hz", lfoShapeNames[shape], v[LFORate]);
-    g.DrawText(Text(14.f, SourceColor(SourceLFO)), caption.Get(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
-    std::string mode = v[LFOOneShot] >= .5 ? "one shot" : "one cycle";
-    if (v[LFORetrigger] > 0.) mode += std::string("  ·  ") + retriggerNames[static_cast<int>(v[LFORetrigger])];
+    if (v[SourceParam(LFOSync, mInstance)] >= .5) caption.SetFormatted(64, "%s  ·  %s", lfoShapeNames[shape], grid_tempo::names[static_cast<int>(v[SourceParam(LFODivision, mInstance)])]);
+    else caption.SetFormatted(64, "%s  ·  %.2f Hz", lfoShapeNames[shape], v[SourceParam(LFORate, mInstance)]);
+    g.DrawText(Text(14.f, SourceColor(mInstance ? SourceLFO2 : SourceLFO)), caption.Get(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
+    std::string mode = v[SourceParam(LFOOneShot, mInstance)] >= .5 ? "one shot" : "one cycle";
+    if (v[SourceParam(LFORetrigger, mInstance)] > 0.) mode += std::string("  ·  ") + retriggerNames[static_cast<int>(v[SourceParam(LFORetrigger, mInstance)])];
     g.DrawText(Text(12.f, muted, EAlign::Far), mode.c_str(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     const auto plot = IRECT(mRECT.L + 14, mRECT.T + 38, mRECT.R - 14, mRECT.B - 14);
     g.DrawLine(border, plot.L, plot.MH(), plot.R, plot.MH());
@@ -391,7 +391,7 @@ public:
     // Random has no fixed curve: a held step per cycle, sketched with a fixed pattern.
     static constexpr double random[]{.55, -.35, .85, -.8, .15, -.5, .7, -.1};
     const auto wave = [&](double phase) { return shape == 5 ? random[std::min(7, static_cast<int>(phase * 8.))] : LFOWave(shape, phase); };
-    const auto color = SourceColor(SourceLFO);
+    const auto color = SourceColor(mInstance ? SourceLFO2 : SourceLFO);
     float px = plot.L, py = y(wave(0.));
     for (int i = 1; i <= 240; ++i)
     {
@@ -400,7 +400,7 @@ public:
       g.DrawLine(color, px, py, x, ny, nullptr, 2.f);
       px = x; py = ny;
     }
-    const auto monitor = PLUG()->ModulationMonitor();
+    const auto monitor = PLUG()->ModulationMonitor().Instance(mInstance);
     if (monitor.running && shape != 5)
     {
       const float x = plot.L + plot.W() * monitor.phase;
@@ -410,16 +410,18 @@ public:
     else if (monitor.running)
       g.FillCircle(text, plot.R - 6.f, y(monitor.lfo), 4.f);
   }
+private:
+  int mInstance;
 };
 class EnvelopeDisplay : public LiveSourceControl
 {
 public:
-  EnvelopeDisplay(const IRECT& r) : LiveSourceControl(r) { mIgnoreMouse = true; }
+  EnvelopeDisplay(const IRECT& r, int instance = 0) : LiveSourceControl(r), mInstance(instance) { mIgnoreMouse = true; }
   bool IsDirty() override
   {
     if (!IsHidden())
     {
-      const auto monitor = PLUG()->ModulationMonitor();
+      const auto monitor = PLUG()->ModulationMonitor().Instance(mInstance);
       mLevel[mWrite] = monitor.running ? monitor.input : 0.f;
       mOutput[mWrite] = monitor.running ? monitor.envelope : 0.f;
       mWrite = (mWrite + 1) % mOutput.size();
@@ -431,9 +433,9 @@ public:
     using namespace grid_performance;
     PanelBackground(g, mRECT);
     const auto v = PLUG()->PerformanceValues();
-    WDL_String listen; PLUG()->GetParam(PerformanceParam(EnvInput))->GetDisplay(listen);
-    WDL_String caption; caption.SetFormatted(96, "Envelope  ·  %s  ·  %.1f / %.0f ms", listen.Get(), v[EnvAttack], v[EnvRelease]);
-    const auto color = SourceColor(SourceEnvelope);
+    WDL_String listen; PLUG()->GetParam(PerformanceParam(SourceParam(Env1Input, mInstance)))->GetDisplay(listen);
+    WDL_String caption; caption.SetFormatted(96, "Envelope  ·  %s  ·  %.1f / %.0f ms", listen.Get(), v[SourceParam(EnvAttack, mInstance)], v[SourceParam(EnvRelease, mInstance)]);
+    const auto color = SourceColor(mInstance ? SourceEnv2 : SourceEnvelope);
     g.DrawText(Text(14.f, color), caption.Get(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     g.DrawText(Text(12.f, muted, EAlign::Far), "grey: level  ·  colour: output", IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     const auto plot = IRECT(mRECT.L + 14, mRECT.T + 38, mRECT.R - 14, mRECT.B - 14);
@@ -452,18 +454,19 @@ public:
       g.FillRect(color.WithOpacity(.55f), IRECT(x, plot.B - plot.H() * mOutput[at], x + w + .5f, plot.B));
       if (i) g.DrawLine(muted.WithOpacity(.8f), x - w, levelY(mLevel[(at + count - 1) % count]), x, levelY(mLevel[at]));
     }
-    if (v[EnvThreshold] > kThresholdOff)
+    if (v[SourceParam(EnvThreshold, mInstance)] > kThresholdOff)
     {
-      const float y = levelY(std::pow(10., v[EnvThreshold] * .05));
+      const float y = levelY(std::pow(10., v[SourceParam(EnvThreshold, mInstance)] * .05));
       for (float x = plot.L; x < plot.R; x += 8.f) g.DrawLine(text.WithOpacity(.7f), x, y, std::min(x + 4.f, plot.R), y);
-      WDL_String label; label.SetFormatted(32, "threshold %.0f dB", v[EnvThreshold]);
+      WDL_String label; label.SetFormatted(32, "threshold %.0f dB", v[SourceParam(EnvThreshold, mInstance)]);
       g.DrawText(Text(11.f, text, EAlign::Far), label.Get(), IRECT(plot.L, y - 14.f, plot.R, y - 2.f));
     }
-    if (!PLUG()->ModulationMonitor().running)
+    if (!PLUG()->ModulationMonitor().Instance(mInstance).running)
       g.DrawText(Text(13.f, muted, EAlign::Center), "Shown while a row uses a running source", plot);
   }
 
 private:
+  int mInstance;
   std::array<float, 180> mLevel{}, mOutput{};
   size_t mWrite = 0;
 };
@@ -471,11 +474,11 @@ private:
 class StepEditor : public IControl
 {
 public:
-  StepEditor(const IRECT& r)
-  : IControl(r, {PerformanceParam(grid_performance::Step1), PerformanceParam(grid_performance::Step2),
-                 PerformanceParam(grid_performance::Step3), PerformanceParam(grid_performance::Step4),
-                 PerformanceParam(grid_performance::Step5), PerformanceParam(grid_performance::Step6),
-                 PerformanceParam(grid_performance::Step7), PerformanceParam(grid_performance::Step8)})
+  StepEditor(const IRECT& r, int instance = 0)
+  : IControl(r, {PerformanceParam(grid_performance::SourceParam(grid_performance::Step1, instance)), PerformanceParam(grid_performance::SourceParam(grid_performance::Step2, instance)),
+                 PerformanceParam(grid_performance::SourceParam(grid_performance::Step3, instance)), PerformanceParam(grid_performance::SourceParam(grid_performance::Step4, instance)),
+                 PerformanceParam(grid_performance::SourceParam(grid_performance::Step5, instance)), PerformanceParam(grid_performance::SourceParam(grid_performance::Step6, instance)),
+                 PerformanceParam(grid_performance::SourceParam(grid_performance::Step7, instance)), PerformanceParam(grid_performance::SourceParam(grid_performance::Step8, instance))}), mInstance(instance)
   {
     SetTooltip("Draw the eight steps: above the centre line adds, below subtracts. Each step holds for one sequencer step.");
   }
@@ -485,13 +488,13 @@ public:
     PanelBackground(g, mRECT);
     const auto v = PLUG()->PerformanceValues();
     WDL_String caption;
-    if (v[StepSync] >= .5) caption.SetFormatted(64, "Eight steps  ·  %s each", grid_tempo::names[static_cast<int>(v[StepDivision])]);
-    else caption.SetFormatted(64, "Eight steps  ·  %.2f Hz", v[StepRate]);
-    const auto color = SourceColor(SourceSequencer);
+    if (v[SourceParam(StepSync, mInstance)] >= .5) caption.SetFormatted(64, "Eight steps  ·  %s each", grid_tempo::names[static_cast<int>(v[SourceParam(StepDivision, mInstance)])]);
+    else caption.SetFormatted(64, "Eight steps  ·  %.2f Hz", v[SourceParam(StepRate, mInstance)]);
+    const auto color = SourceColor(mInstance ? SourceSeq2 : SourceSequencer);
     g.DrawText(Text(14.f, color), caption.Get(), IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     const auto plot = Plot();
     g.DrawLine(border, plot.L, plot.MH(), plot.R, plot.MH());
-    const auto monitor = PLUG()->ModulationMonitor();
+    const auto monitor = PLUG()->ModulationMonitor().Instance(mInstance);
     for (int i = 0; i < 8; ++i)
     {
       const auto cell = plot.SubRectHorizontal(8, i).GetHPadded(-4.f);
@@ -505,11 +508,12 @@ public:
   void OnMouseDrag(float x, float y, float, float, const IMouseMod&) override { Set(x, y); }
   bool IsDirty() override
   {
-    if (!IsHidden() && PLUG()->ModulationMonitor().running) SetDirty(false);
+    if (!IsHidden() && PLUG()->ModulationMonitor().Instance(mInstance).running) SetDirty(false);
     return IControl::IsDirty();
   }
 
 private:
+  int mInstance;
   IRECT Plot() const { return IRECT(mRECT.L + 14, mRECT.T + 38, mRECT.R - 14, mRECT.B - 14); }
   void Set(float x, float y)
   {
@@ -722,13 +726,17 @@ public:
     using namespace grid_ui; using namespace grid_performance;
     AddChildControl(new Button(IRECT(pageRight - 80, 14, pageRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close))
       ->SetTooltip("Close Modulation (Escape).");
-    mSources = new Tabs(IRECT(pageLeft, pageTop, 452, pageTop + 26), {"LFO", "Envelope", "Sequencer"},
-                        [this](int) { Show(); }, {SourceColor(SourceLFO), SourceColor(SourceEnvelope), SourceColor(SourceSequencer)});
+    mSources = new Tabs(IRECT(pageLeft, pageTop, 452, pageTop + 26), {"LFO 1", "LFO 2", "Env 1", "Env 2", "Seq 1", "Seq 2"},
+                        [this](int) { Show(); }, {SourceColor(SourceLFO1), SourceColor(SourceLFO2), SourceColor(SourceEnv1), SourceColor(SourceEnv2),
+                                               SourceColor(SourceSeq1), SourceColor(SourceSeq2)});
     Add(mSources);
     const IRECT display(pageLeft, 106, 452, 300);
-    AddSource(SourceLFO, new LFODisplay(display));
-    AddSource(SourceEnvelope, new EnvelopeDisplay(display));
-    AddSource(SourceSequencer, new StepEditor(display));
+    for (int instance = 0; instance < sourceInstances; ++instance)
+    {
+      AddSource(instance ? SourceLFO2 : SourceLFO1, new LFODisplay(display, instance));
+      AddSource(instance ? SourceEnv2 : SourceEnv1, new EnvelopeDisplay(display, instance));
+      AddSource(instance ? SourceSeq2 : SourceSeq1, new StepEditor(display, instance));
+    }
     const auto cell = [](int column, int row) {
       const float x = pageLeft + 107.f * column, y = row ? 418.f : 310.f;
       return IRECT(x, y, x + 107.f, y + 100.f);
@@ -737,33 +745,42 @@ public:
       if (text) control->SetTooltip(text);
       return control;
     };
-    const auto dial = [&](int source, int column, int row, int parameter, const char* help = nullptr) {
-      return tip(AddSource(source, new Knob(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
-    };
-    const auto menu = [&](int source, int column, int row, int parameter, const char* help) {
-      return tip(AddSource(source, new ParamMenu(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
-    };
-    const auto toggle = [&](int source, int column, int row, int parameter, const char* help) {
-      return tip(AddSource(source, new Toggle(cell(column, row).GetHPadded(-4.f), PerformanceParam(parameter), parameters[parameter].label)), help);
-    };
-    menu(SourceLFO, 0, 0, LFOShape, "Random holds a new value for each cycle.");
-    mRate[0] = dial(SourceLFO, 1, 0, LFORate);
-    mDivision[0] = menu(SourceLFO, 1, 0, LFODivision, "Cycle length in host tempo.");
-    toggle(SourceLFO, 2, 0, LFOSync, "Follow the host tempo.");
-    menu(SourceLFO, 3, 0, LFORetrigger, "Restart the cycle on each played note (Audio onset, heard where the Envelope listens) "
-                                        "or on each MIDI note-on sent to the plugin.");
-    toggle(SourceLFO, 0, 1, LFOOneShot,
-           "Run one cycle per retrigger, then hold its end: Saw down becomes a decay envelope for each note.");
-    menu(SourceEnvelope, 0, 0, EnvInput, "Where the follower listens: the grid input, or after any slot (e.g. after the amp).");
-    dial(SourceEnvelope, 1, 0, EnvSensitivity, "Gain above the threshold: raise it until normal playing nearly fills the output.");
-    dial(SourceEnvelope, 2, 0, EnvThreshold, "Level the follower ignores, e.g. pick noise or quiet playing. Off at the minimum.");
-    dial(SourceEnvelope, 3, 0, EnvCurve, "Bends the response: positive reacts sooner, negative only to louder playing.");
-    dial(SourceEnvelope, 0, 1, EnvAttack);
-    dial(SourceEnvelope, 1, 1, EnvRelease, "How fast the output falls after you stop playing: the ducking recovery time.");
-    mRate[1] = dial(SourceSequencer, 0, 0, StepRate);
-    mDivision[1] = menu(SourceSequencer, 0, 0, StepDivision, "Step length in host tempo.");
-    toggle(SourceSequencer, 1, 0, StepSync, "Follow the host tempo.");
-    menu(SourceSequencer, 2, 0, StepRetrigger, "Restart at step 1 on each played note or MIDI note-on.");
+    for (int instance = 0; instance < sourceInstances; ++instance)
+    {
+      const auto dial = [&](int source, int column, int row, int parameter, const char* help = nullptr) {
+        parameter = SourceParam(parameter, instance);
+        source = instance ? SourceLFO2 + source - SourceLFO1 : source;
+        return tip(AddSource(source, new Knob(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
+      };
+      const auto menu = [&](int source, int column, int row, int parameter, const char* help) {
+        parameter = SourceParam(parameter, instance);
+        source = instance ? SourceLFO2 + source - SourceLFO1 : source;
+        return tip(AddSource(source, new ParamMenu(cell(column, row), PerformanceParam(parameter), parameters[parameter].label)), help);
+      };
+      const auto toggle = [&](int source, int column, int row, int parameter, const char* help) {
+        parameter = SourceParam(parameter, instance);
+        source = instance ? SourceLFO2 + source - SourceLFO1 : source;
+        return tip(AddSource(source, new Toggle(cell(column, row).GetHPadded(-4.f), PerformanceParam(parameter), parameters[parameter].label)), help);
+      };
+      menu(SourceLFO, 0, 0, LFOShape, "Random holds a new value for each cycle.");
+      mRate[instance * 2] = dial(SourceLFO, 1, 0, LFORate);
+      mDivision[instance * 2] = menu(SourceLFO, 1, 0, LFODivision, "Cycle length in host tempo.");
+      toggle(SourceLFO, 2, 0, LFOSync, "Follow the host tempo.");
+      menu(SourceLFO, 3, 0, LFORetrigger, "Restart the cycle on each played note (Audio onset, heard where the matching Env listens) "
+                                          "or on each MIDI note-on sent to the plugin.");
+      toggle(SourceLFO, 0, 1, LFOOneShot,
+             "Run one cycle per retrigger, then hold its end: Saw down becomes a decay envelope for each note.");
+      menu(SourceEnvelope, 0, 0, EnvInput, "Where the follower listens: the grid input, or after any slot (e.g. after the amp).");
+      dial(SourceEnvelope, 1, 0, EnvSensitivity, "Gain above the threshold: raise it until normal playing nearly fills the output.");
+      dial(SourceEnvelope, 2, 0, EnvThreshold, "Level the follower ignores, e.g. pick noise or quiet playing. Off at the minimum.");
+      dial(SourceEnvelope, 3, 0, EnvCurve, "Bends the response: positive reacts sooner, negative only to louder playing.");
+      dial(SourceEnvelope, 0, 1, EnvAttack);
+      dial(SourceEnvelope, 1, 1, EnvRelease, "How fast the output falls after you stop playing: the ducking recovery time.");
+      mRate[instance * 2 + 1] = dial(SourceSequencer, 0, 0, StepRate);
+      mDivision[instance * 2 + 1] = menu(SourceSequencer, 0, 0, StepDivision, "Step length in host tempo.");
+      toggle(SourceSequencer, 1, 0, StepSync, "Follow the host tempo.");
+      menu(SourceSequencer, 2, 0, StepRetrigger, "Restart at step 1 on each played note or MIDI note-on.");
+    }
     for (int i = 0; i < 4; ++i)
     {
       auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 612), i);
@@ -810,13 +827,17 @@ public:
   {
     if (!IsHidden())
     {
-      const bool lfoSync = PLUG()->GetParam(PerformanceParam(grid_performance::LFOSync))->Bool();
-      const bool stepSync = PLUG()->GetParam(PerformanceParam(grid_performance::StepSync))->Bool();
-      if (lfoSync != mSync[0] || stepSync != mSync[1])
-      {
-        mSync = {lfoSync, stepSync};
-        Show();
-      }
+      bool changed = false;
+      for (int instance = 0; instance < grid_performance::sourceInstances; ++instance)
+        for (int clock = 0; clock < 2; ++clock)
+        {
+          const int index = instance * 2 + clock;
+          const int parameter = grid_performance::SourceParam(clock ? grid_performance::Seq1Sync : grid_performance::LFO1Sync, instance);
+          const bool sync = PLUG()->GetParam(PerformanceParam(parameter))->Bool();
+          changed = changed || sync != mSync[index];
+          mSync[index] = sync;
+        }
+      if (changed) Show();
     }
     return IContainerBase::IsDirty();
   }
@@ -839,12 +860,12 @@ private:
   // Child visibility for the selected source and its sync mode.
   void Show()
   {
-    const int source = mSources ? mSources->Selected() + grid_performance::SourceLFO : grid_performance::SourceLFO;
+    const int source = mSources ? grid_performance::sourceTabs[mSources->Selected()] : grid_performance::SourceLFO;
     for (auto* c : mControls)
     {
       bool hidden = IsHidden();
       if (const auto it = mSourceOf.find(c); it != mSourceOf.end()) hidden = hidden || it->second != source;
-      for (int i = 0; i < 2; ++i)
+      for (int i = 0; i < mRate.size(); ++i)
       {
         if (c == mRate[i]) hidden = hidden || mSync[i];
         if (c == mDivision[i]) hidden = hidden || !mSync[i];
@@ -856,6 +877,6 @@ private:
   grid_ui::Tabs* mSources = nullptr;
   std::vector<IControl*> mControls;
   std::map<IControl*, int> mSourceOf;
-  std::array<IControl*, 2> mRate{}, mDivision{};
-  std::array<bool, 2> mSync{};
+  std::array<IControl*, grid_performance::sourceInstances * 2> mRate{}, mDivision{};
+  std::array<bool, grid_performance::sourceInstances * 2> mSync{};
 };

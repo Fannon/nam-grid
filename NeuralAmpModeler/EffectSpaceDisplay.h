@@ -12,11 +12,13 @@ template<class Value>
 void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const ImpulseProbe::Result& measured, bool current, double rate)
 {
   const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,effect_modes::cosmicCount-1);
+  const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
   const IRECT response(plot.L,plot.T,plot.R,plot.T+std::round(plot.H()*.56f));
-  const IRECT lines(plot.L,response.B+31.f,plot.R,plot.B);
+  const IRECT lines(plot.L,response.B+17.f,plot.R,plot.B);
   WDL_String text;
   PlotTitle(g,plot,delayColor,"Measured echo response / delay lines");
-  PlotDetail(g,plot,"Top: measured wet impulse; Warp spreads echoes and Density fills the tail. Below: base delay-line times, density connections and motion halos. Each view has its own time span; colours identify network groups, not output channels.");
+  text.SetFormatted(512,"Top: measured wet impulse; Warp spreads echoes and Density fills the tail. Below: %d delay lines at their base times, with density connections and motion halos. Each view has its own time span; colours identify network groups, not output channels.",plan.count);
+  PlotDetail(g,plot,text.Get());
   PlotGrid(g,response);
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
@@ -45,11 +47,8 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
 
   // Restore the original network sketch underneath the measured response. Its
   // shorter time axis shows base line lengths, not every repeat in the wet tail.
-  const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
   const double horizon=effect_preview::TimeHorizon(plan.seconds[0]*1.03), density=value(uCosmicDensity)*.01;
   const double motion=(500./48000.)*std::pow(value(uCosmicMotion)*.01,2.);
-  text.SetFormatted(64,"%d delay lines | base times + motion",plan.count);
-  g.DrawText(Text(12.f,muted),text.Get(),IRECT(plot.L,response.B+16.f,plot.R,lines.T));
   g.DrawLine(border,lines.L,lines.B,lines.R,lines.B);
   for(int i=0;i<plan.count;++i)
   {

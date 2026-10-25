@@ -6,7 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
-- Cosmic Echo shows its delay-line network sketch below the measured response, with an explicit 4- or 16-line count, timing markers, density connections and modulation halos.
+- Cosmic Echo shows its delay-line network sketch below the measured response, with timing markers, density connections and modulation halos. Hover for the 4- or 16-line count and explanation.
 - Hover over a truncated module description to read its full text.
 - A single-command `bash build.sh` build for Git Bash on Windows, WSL2, macOS and Linux, with automatic first-run dependency setup, incremental builds under `build/<platform>/release/`, and `--test` to run the standard test suites.
 - Windows build guidance includes WinGet installation commands and portable MSVC/Ninja support; the build help documents manual cross-platform GitHub Actions builds and macOS signing limitations.

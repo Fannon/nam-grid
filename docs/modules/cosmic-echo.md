@@ -39,7 +39,7 @@ Some things are fixed: the modulation runs at 0.3 Hz, the effect is always fully
 The display shows the measured response of the current settings to a single click, on a dB scale. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.
 
 Below it, the network sketch shows the base timing of the style's **4 or 16 delay
-lines**, with the count written above. Warp changes their spacing, Density connects
+lines**, with the count available on hover. Warp changes their spacing, Density connects
 the lines, and the faint halos show modulation depth. At Warp 0, several lines can
 share the same position. Colours distinguish network groups; these are not direct
 left/right output taps. Each graph has its own labelled time span: the upper graph

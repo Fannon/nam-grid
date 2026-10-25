@@ -21,7 +21,7 @@ Visualizations use the same black as the grid, with matching space above, below 
 
 ## Build and arrange a rig
 
-Each grid card is one slot. Click **+ Add module** or a module's name to choose a module in the [library browser](browser.md), which lets you audition before you commit. Click the card's header to select it for editing, and use its switch to bypass it.
+Each grid card is one slot. Click **+ Add module** or a module's name to choose a module in the [library browser](browser.md), which lets you audition before you commit. Click the card's header to select it for editing, and use its switch to bypass it. A card with a mode selector shows the chosen style in muted text under the module name, and the module header repeats it next to the name, so a rig can be read at a glance.
 
 Drag cards to move, swap or copy modules, or right-click a card for **Clear**, **Copy**, **Move** and **Swap**; the [mouse and keyboard](#mouse-and-keyboard) table lists the drag modifiers. Controls and bypass travel with the module, while host automation stays with the slot. Moving modules never copies or deletes files on disk.
 
@@ -29,7 +29,7 @@ Drag cards to move, swap or copy modules, or right-click a card for **Clear**, *
 
 Every module editor uses the same layout:
 
-- **Top row:** slot ID, category badges and the enable/bypass circle, then the module name. Browser and previous/next align on the right. The circle controls the same automatable Enabled parameter as the grid node.
+- **Top row:** slot ID, category badges and the enable/bypass circle, then the module name with its selected mode. Browser and previous/next align on the right. The circle controls the same automatable Enabled parameter as the grid node.
 - **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, **Quality** or **Heads**, on the right of the description row. Click a two-choice option to toggle it; longer lists open a menu.
 - **Knobs:** up to four per row, filled from the left. **Output** comes before **Mix**. All eight positions are available for sound controls.
 - **Display:** a visual guide to the module's response or your playing, with that module's input, output and gain in its footer.

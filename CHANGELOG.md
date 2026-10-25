@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Grid cells and the module header show the selected mode, such as the Pedal Drive style, Cosmic Echo topology or filter mode, so a rig can be read without opening each module.
 - Pedal Drive adds no latency. Its antialiasing filters are now minimum phase, with the same bandwidth and alias rejection, so the pedal no longer reports 64 samples and stacking pedals does not accumulate delay.
 - Pedal Drive uses about 20% less CPU on Apple Silicon, with unchanged sound. The oversampling filters now pair their independent phase sums; every other platform keeps the portable loop.
 

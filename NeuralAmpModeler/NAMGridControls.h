@@ -451,16 +451,68 @@ public:
 private:
   Icon mIcon;
 };
+// The module's primary mode/type selector (Pedal Drive style, Cosmic Echo topology,
+// filter mode and so on), or empty when the module has none. Binary switches such as
+// Notch or Vibrato stay in the parameter row and are not repeated here.
+inline std::string SlotModeName(const PLUG_CLASS_NAME& plug, int slot)
+{
+  if (!plug.GetSlotPath(slot).empty()) return {}; // Captures and IRs show their file name.
+  const auto effect = plug.GetSlotEffect(slot);
+  const auto flag = [&](int p) { return plug.GetParam(SlotUtilityParam(slot, p))->Bool(); };
+  for (int p = 0; p < kUtilityControls; ++p)
+  {
+    const auto choices = EffectChoices(p);
+    if (choices.empty() || p == uTempoDivision || !IsAlgorithmMode(p)) continue;
+    if (!effect_presentation::Visible(effect, p, flag(uTempoSync), flag(uEQMode), flag(uVibeMode), flag(uParamLowMode)))
+      continue;
+    const int value = plug.GetParam(SlotUtilityParam(slot, p))->Int();
+    if (value < 0 || value >= static_cast<int>(choices.size())) continue;
+    return choices[value];
+  }
+  return {};
+}
+
 class ModuleButton : public Button
 {
 public:
   using Button::Button;
+  void SetModeStr(const char* mode)
+  {
+    if (mMode == mode) return;
+    mMode = mode ? mode : "";
+    SetDirty(false);
+  }
   void Draw(IGraphics& g) override
   {
-    FittedText(g, Text(17.f), GetLabelStr(), IRECT(mRECT.L, mRECT.T, mRECT.R - 16, mRECT.B));
+    const auto area = IRECT(mRECT.L, mRECT.T, mRECT.R - 16, mRECT.B);
+    // Name first, then the mode as a smaller muted suffix, and only when the whole
+    // pairing fits: a long name can never push the mode outside the header.
+    if (!mMode.empty())
+    {
+      const auto style = Text(17.f);
+      IRECT name;
+      g.MeasureText(style, GetLabelStr(), name);
+      const auto suffix = std::string("  \u00b7  ") + mMode;
+      IRECT mode;
+      g.MeasureText(Text(12.f, muted), suffix.c_str(), mode);
+      if (name.W() + mode.W() <= area.W())
+      {
+        FittedText(g, style, GetLabelStr(), IRECT(area.L, area.T, area.L + name.W() + 1.f, area.B));
+        FittedText(g, Text(12.f, muted), suffix,
+                   IRECT(area.L + name.W(), area.T, area.L + name.W() + mode.W() + 1.f, area.B));
+        const float arrowY = mRECT.MH();
+        g.DrawLine(muted, mRECT.R - 11, arrowY - 2, mRECT.R - 7, arrowY + 2);
+        g.DrawLine(muted, mRECT.R - 7, arrowY + 2, mRECT.R - 3, arrowY - 2);
+        return;
+      }
+    }
+    FittedText(g, Text(17.f), GetLabelStr(), area);
     g.DrawLine(muted, mRECT.R - 11, mRECT.MH() - 2, mRECT.R - 7, mRECT.MH() + 2);
     g.DrawLine(muted, mRECT.R - 7, mRECT.MH() + 2, mRECT.R - 3, mRECT.MH() - 2);
   }
+
+private:
+  std::string mMode;
 };
 class BrowserButton : public Button
 {
@@ -1028,9 +1080,19 @@ public:
     const auto button = NameButton();
     g.FillRoundRect(mNameHover ? IColor(255, 44, 48, 55) : background.WithOpacity(.35f), button, 3.f);
     g.DrawRoundRect(mNameHover ? muted : border.WithOpacity(.8f), button, 3.f);
-    // Captures and IRs often have long names: they get two lines before an ellipsis.
-    TwoLineText(g, Text(13.f, empty ? muted : enabled ? text : IColor(255, 113, 119, 130)), label,
-                IRECT(button.L + 8, button.T + 4, button.R - 26, button.B - 4));
+    const auto nameArea = IRECT(button.L + 8, button.T + 4, button.R - 26, button.B - 4);
+    const auto mode = empty ? std::string{} : SlotModeName(*PLUG(), static_cast<int>(mSlot));
+    if (!mode.empty())
+    {
+      // Mode selectors get their own muted line, so the module name keeps body size
+      // and the pair always fits the cell instead of competing for one line.
+      FittedText(g, Text(13.f, enabled ? text : IColor(255, 113, 119, 130)), label,
+                 IRECT(nameArea.L, nameArea.T, nameArea.R, nameArea.T + 18.f));
+      FittedText(g, Text(11.5f, muted), mode, IRECT(nameArea.L, nameArea.T + 17.f, nameArea.R, nameArea.B));
+    }
+    else
+      // Captures and IRs often have long names: they get two lines before an ellipsis.
+      TwoLineText(g, Text(13.f, empty ? muted : enabled ? text : IColor(255, 113, 119, 130)), label, nameArea);
     const float iconX = button.R - 15, iconY = button.MH(); // Same library icon as the editor's browser button.
     g.DrawRoundRect(muted, IRECT(iconX - 7, iconY - 5, iconX + 7, iconY + 5), 1.5f);
     g.DrawLine(muted, iconX - 3, iconY - 5, iconX - 3, iconY + 5);
@@ -2300,8 +2362,11 @@ private:
     const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectName(effect))
                                           : nam_library::PathText(std::filesystem::u8path(path).stem());
     mModelButton->SetLabelStr(moduleLabel.c_str());
+    mModelButton->SetModeStr(grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot)).c_str());
     mModelButton->SetDirty(false);
-    mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel).c_str());
+    const auto mode = grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot));
+    mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel
+                              + (mode.empty() ? std::string{} : " (" + mode + ")")).c_str());
     SetTooltip(path.empty() ? "Click to browse modules. Right-click for Clear / Copy / Move / Swap."
                             : path.c_str());
     if (mEditor && selected) mEditor->SetDirty(false);
@@ -2435,7 +2500,7 @@ private:
   IRECT mCardBounds;
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
-  IVButtonControl* mModelButton = nullptr;
+  grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;

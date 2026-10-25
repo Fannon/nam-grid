@@ -9,7 +9,7 @@ Find effects, NAM captures, cabinet IRs, and rig presets in one place. You can l
 - Click **+ Add module** or a module name to choose something for that slot.
 - Click the browser icon in a module editor to jump to its current category or folder.
 - Click the preset name in the header to browse complete rigs.
-- Open **Library & settings > Browse library** to search all sound content.
+- Open **Settings > Browse library** to search all sound content.
 
 The slot browser offers **Modules**, **NAM captures**, and **IR files**. The preset browser handles complete `.ngrid` rigs; it does not change individual slots.
 
@@ -49,7 +49,7 @@ The preset browser works the same way, except that selecting a rig does not audi
 
 ## Library folders
 
-NAM captures, cabinet IRs and rig presets each have their own list of folders. Add or remove them in **Library & settings**; **Manage folders** in the browser opens the same page.
+NAM captures, cabinet IRs and rig presets each have their own list of folders. Add or remove them in **Settings**; **Manage folders** in the browser opens the same page.
 
 - Each folder is scanned only for its own file type: `.nam`, `.wav` or `.ngrid`, including subfolders. Add a mixed folder to more than one list if needed.
 - **Open** shows a folder in Explorer or Finder. **Remove** stops scanning it without deleting anything.

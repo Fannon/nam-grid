@@ -8,12 +8,15 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - Pedal Drive: ten guitar and bass drive styles, with antialiasing and a local Low keep dial for clean bass fundamentals.
 - A centered Pedal Drive character dial with a label and function for every style, including Blues OD, Transparent OD and Vintage Fuzz.
-- Guitar drive, clean boost and split-band bass example rigs, included on fresh installs and available from Library & settings.
+- Guitar drive, clean boost and split-band bass example rigs, included on fresh installs and available from Settings.
 - Documentation: a Getting started guide (install, DAW setup, first rig) and a Troubleshooting & FAQ page on the [manual site](https://fannon.github.io/nam-grid/).
 
 ### Changed
 
 - Module Enabled is now a circle in the parameter header, matching the grid node and freeing all eight dial positions.
+- Clearer editor header with icons for Settings, Tuner and Modulation, compact New/Save buttons, a wider preset selector, matching outer margins, and consistent page headers. Library & settings is now Settings.
+- A subtle background and divider separate the grid from module parameters, the tuner and routing controls without adding margins.
+- Wider, black visualization panels keep the parameter area to two background shades and match the top and right spacing.
 - Documentation: clearer site navigation, module controls in tables, and player-focused deep dives for Noise Gate (Smart), LoFi Tape Machine and Cosmic Echo.
 
 ## [0.1.1] - 2026-10-24

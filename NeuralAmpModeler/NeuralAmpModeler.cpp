@@ -216,23 +216,24 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       if (!ConfirmNewRig()) return;
       const auto error = NewRig();
       if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "New rig", EMsgBoxType::kMB_OK);
-    }, "New"), kCtrlTagPresetNew)->SetTooltip("Start a new empty rig. Library folders and tuner settings stay.");
+    }, "New", grid_ui::Icon::New, true), kCtrlTagPresetNew)->SetTooltip("New rig: start an empty rig. Library folders and tuner settings stay.");
     ui->AttachControl(new NAMRigSaveControl(header(saveLeft, saveLeft + fileButtonWidth)), kCtrlTagPresetSave);
     ui->AttachControl(new grid_ui::Button(header(modulationLeft, modulationRight), [](IControl* caller) {
       caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagPerformance)->Hide(false);
-    }, "Modulation"))->SetTooltip("Modulation sources, macros and the modulation matrix.");
+    }, "Modulation", grid_ui::Icon::Modulation))->SetTooltip("Modulation sources, macros and the modulation matrix.");
     ui->AttachControl(new grid_ui::Button(
       header(settingsLeft, settingsRight),
       [](IControl* caller) {
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
-      "Library & settings"));
-    ui->AttachControl(new grid_ui::Toggle(header(tunerLeft, tunerRight), kTunerActive, "Tuner", true), kCtrlTagTunerButton)
+      "Settings", grid_ui::Icon::Settings))->SetTooltip("Settings: library folders, scanning, visualizations and preset switching.");
+    ui->AttachControl(new grid_ui::Toggle(header(tunerLeft, tunerRight), kTunerActive, "Tuner", true, grid_ui::Icon::Tuner), kCtrlTagTunerButton)
       ->SetTooltip("Show the tuner in place of the module editor; click again or select a slot to leave it. "
                    "Automatable; mutes the output while on unless Mute output is off.");
+    ui->AttachControl(new grid_ui::EditorBackground(IRECT(0, editorTop, width, height)));
     ui->AttachControl(new grid_ui::Wiring(b));
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     {

@@ -22,13 +22,13 @@ Quick answers to common problems and questions. If yours is not here, [report it
 - Raise your DAW's buffer size. Small buffers keep latency low but leave less time for processing.
 - Every loaded capture uses CPU, even when A/B favours the other lane. Bypass or clear the ones you do not need.
 - Compatible A2 captures offer **Quality: A2 Lite** in the module header, which uses less CPU.
-- **Library & settings > Preset switch > Crossfade** briefly runs two rigs at once. Use **Short fade** when CPU is tight.
+- **Settings > Preset switch > Crossfade** briefly runs two rigs at once. Use **Short fade** when CPU is tight.
 
 ## A capture or IR is missing
 
 Rigs refer to captures and IRs by their location on disk; they do not contain copies. When a file has moved, its slot keeps the reference and passes your sound through unprocessed. NAM Grid never silently substitutes a different file.
 
-- If the file is still inside one of your library folders, **Rescan all** in **Library & settings**. NAM Grid recognizes a moved or renamed file by its content and relinks it automatically.
+- If the file is still inside one of your library folders, **Rescan all** in **Settings**. NAM Grid recognizes a moved or renamed file by its content and relinks it automatically.
 - Otherwise add its new folder to the library and rescan, or open the module browser on that slot and select the file again.
 
 When you share a rig, include its captures and IRs.
@@ -65,7 +65,7 @@ Built-in effects and cabinet IRs add none. NAM captures can report a small laten
 
 ### Where are my settings stored?
 
-**Library & settings > Settings folder** opens it. It holds your library folders and display preferences, not your rigs.
+**Settings > Settings folder** opens it. It holds your library folders and display preferences, not your rigs.
 
 | Platform | Settings folder |
 | --- | --- |

@@ -63,4 +63,4 @@ Displays fall into three groups:
 - **Response curves:** EQ, filter, drive and compressor shapes.
 - **Timing guides:** repeats, reverb decay and modulation shapes drawn from the current settings, not a live LFO position.
 
-The level strip below every module compares its input and output; see [displays and meters](../ui.md#displays-and-meters). Turn all displays off in **Library & settings > Visualizations** without changing the sound.
+The level strip below every module compares its input and output; see [displays and meters](../ui.md#displays-and-meters). Turn all displays off in **Settings > Visualizations** without changing the sound.

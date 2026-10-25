@@ -4,18 +4,21 @@ namespace grid_layout
 {
 inline constexpr int width = 1000, height = 720;
 // Header: one 28 px row. Scenes and the rig preset on the left, the preset file actions in the
-// middle, and the views (Modulation, Tuner, Library & settings) on the right.
+// middle, and the views (Modulation, Tuner, Settings) on the right.
 inline constexpr int headerTop = 14, headerBottom = 42, headerY = (headerTop + headerBottom) / 2;
 inline constexpr int sceneLeft = 165, sceneWidth = 28, scenePitch = 32;
-inline constexpr int presetLeft = 269, presetRight = 510;
-inline constexpr int previousLeft = 516, nextLeft = 548, arrowWidth = 28;
-inline constexpr int newLeft = 588, saveLeft = 642, fileButtonWidth = 48;
-inline constexpr int modulationLeft = 702, modulationRight = 792;
-inline constexpr int tunerLeft = 798, tunerRight = 862;
-inline constexpr int settingsLeft = 868, settingsRight = 976;
+inline constexpr int presetLeft = 269, presetRight = 528;
+inline constexpr int previousLeft = 534, nextLeft = 566, arrowWidth = 28;
+inline constexpr int newLeft = 606, saveLeft = 640, fileButtonWidth = 28;
+inline constexpr int modulationLeft = 680, modulationRight = 790;
+inline constexpr int tunerLeft = 796, tunerRight = 872;
+inline constexpr int settingsLeft = 878, settingsRight = width - headerTop;
 inline constexpr int SceneX(int scene) { return sceneLeft + scenePitch * scene + sceneWidth / 2; }
 inline constexpr int cardTop = 64, rowPitch = 104, cardHeight = 80;
 inline constexpr int editorTop = 480, editorBottom = height - 24;
+// The visualization sits equally close to the editor's top and the window's right edge.
+inline constexpr int visualizationInset = 4, visualizationTop = editorTop + visualizationInset;
+inline constexpr int visualizationRight = width - visualizationInset;
 inline constexpr int knobTop = 536, knobBottom = 614, knobRowPitch = 82;
 // Header option strip (Tempo sync, modes, Quality) between the module row and the knob labels.
 inline constexpr int enabledX = 458, enabledY = 496;

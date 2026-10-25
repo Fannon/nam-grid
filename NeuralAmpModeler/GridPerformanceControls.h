@@ -529,7 +529,7 @@ public:
   void Draw(IGraphics& g) override
   {
     using namespace grid_performance;
-    PanelBackground(g, mRECT);
+    VisualizationBackground(g, mRECT);
     const bool on = PLUG()->GetParam(PerformanceParam(Crossover))->Bool();
     const double frequency = PLUG()->GetParam(PerformanceParam(CrossoverFrequency))->Value();
     const auto plot = IRECT(mRECT.L + 14, mRECT.T + 34, mRECT.R - 14, mRECT.B - 26);
@@ -675,19 +675,19 @@ public:
     AddChildControl(new Toggle(IRECT(444, 510, 620, 534), PerformanceParam(Crossover), "Frequency split"))
       ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
     AddChildControl(new Button(IRECT(540, 484, 620, 508), [](IControl* caller) {
-      static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close"))
+      static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close", Icon::Close))
       ->SetTooltip("Back to the selected module (Escape).");
-    AddChildControl(new CrossoverView(IRECT(644, 484, pageRight, 600)));
+    AddChildControl(new CrossoverView(IRECT(644, grid_layout::visualizationTop, grid_layout::visualizationRight, 600)));
   }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
-    g.FillRect(background, mRECT);
+    DrawEditorBackground(g, mRECT);
     g.DrawText(Text(22.f, accent), "Routing", IRECT(pageLeft, 484, 300, 508));
     FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(pageLeft, 510, 434, 533));
     // The lanes' current modules, under the crossover view.
-    const auto panel = IRECT(644, 608, pageRight, grid_layout::editorBottom);
-    PanelBackground(g, panel);
+    const auto panel = IRECT(644, 608, grid_layout::visualizationRight, grid_layout::editorBottom);
+    VisualizationBackground(g, panel);
     for (int lane = 0; lane < 2; ++lane)
     {
       std::string chain;
@@ -709,7 +709,7 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui; using namespace grid_performance;
-    AddChildControl(new Button(IRECT(896, 14, pageRight, 42), [this](IControl*) { Hide(true); }, "Close"))
+    AddChildControl(new Button(IRECT(896, 14, pageRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close))
       ->SetTooltip("Close Modulation (Escape).");
     mSources = new Tabs(IRECT(pageLeft, pageTop, 452, pageTop + 26), {"LFO", "Envelope", "Sequencer"},
                         [this](int) { Show(); }, {SourceColor(SourceLFO), SourceColor(SourceEnvelope), SourceColor(SourceSequencer)});
@@ -772,7 +772,7 @@ public:
   {
     using namespace grid_ui; using namespace grid_performance;
     g.FillRect(background, mRECT);
-    g.DrawText(Text(23.f), "Modulation", IRECT(pageLeft, 8, 300, 48));
+    IconLabel(g, Icon::Modulation, "Modulation", IRECT(pageLeft, 8, 300, 48), Text(23.f));
     g.DrawLine(border, pageLeft, 56, pageRight, 56);
     g.DrawText(Text(17.f, accent), "Matrix", IRECT(484, pageTop, pageRight, pageTop + 24));
     g.DrawText(Text(13.f, muted, EAlign::Far), "Rows on one knob add, within its range", IRECT(484, pageTop, pageRight, pageTop + 24));

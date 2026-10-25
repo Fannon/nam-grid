@@ -66,7 +66,7 @@ Clean Default shows a typical layout: a noise gate and compressor in Pre, the am
 
 ## Build your own rig
 
-1. **Add your captures and IRs.** NAM captures are `.nam` files; cabinet impulse responses are `.wav` files. [TONE3000](https://www.tone3000.com/) hosts a large collection of free ones. Open **Library & settings** and add your folders with **+ NAM folder** and **+ IR folder**.
+1. **Add your captures and IRs.** NAM captures are `.nam` files; cabinet impulse responses are `.wav` files. [TONE3000](https://www.tone3000.com/) hosts a large collection of free ones. Open **Settings** and add your folders with **+ NAM folder** and **+ IR folder**.
 2. **Load an amp.** Click **New** for an empty grid, then click an empty **Pre** slot, choose **NAM captures**, and select a capture to hear it. Double-click it or press **Apply** to keep it.
 3. **Add a cabinet if needed.** A *full rig* capture already includes a cabinet. An *amp head* or *direct* capture does not: load a **Cabinet IR** in the next slot.
 4. **Add effects.** Try a gate, boost or drive before the amp, and EQ, modulation, delay and reverb after it. See [typical placement](grid.md#typical-placement).

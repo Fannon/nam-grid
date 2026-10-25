@@ -102,7 +102,7 @@ public:
     using namespace grid_ui;
     // The title names the target, so the tabs share its row.
     mTitle = new HintLabel(IRECT(24, 8, 240, 48), "Library browser", Text(24.f),
-      "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
+      "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.", Icon::Browse);
     AddChildControl(mTitle);
     mDetailsTitle = new HintLabel(IRECT(744, kPanelTop, 876, kListTop), "DETAILS", Text(13.f, muted),
       "The selected file's metadata and full path.");
@@ -128,7 +128,7 @@ public:
     mModules = modules;
     // "..." marks the actions that open a file dialog. Save as is a rig action, top right;
     // Open file is the alternative to searching, so it sits beside the search field.
-    mSave = new Button(IRECT(776, 14, 888, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...");
+    mSave = new Button(IRECT(776, 14, 888, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...", Icon::Save);
     mSave->SetTooltip("Save the current rig as a new preset file.");
     AddChildControl(mSave);
     mFile = new Button(IRECT(864, 58, 976, 92), [this](IControl*) { ChooseFile(); }, "Open file...");
@@ -155,13 +155,13 @@ public:
     mDelete = new Button(IRECT(), [this](IControl*) { DeleteSelectedPreset(); }, "Delete...");
     mDelete->SetTooltip("Delete the selected preset file from disk after confirmation. The current rig stays loaded.");
     AddChildControl(mDelete);
-    // Source folders belong to the folder column. They are managed only in Library & settings,
+    // Source folders belong to the folder column. They are managed only in Settings,
     // one list per file type; "Manage folders" opens that page rather than a dialog.
     mFoldersButton = new Button(IRECT(), [this](IControl*) {
       Hide(true);
       GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
     }, "Manage folders");
-    mFoldersButton->SetTooltip("Add or remove NAM, IR and preset folders in Library & settings.");
+    mFoldersButton->SetTooltip("Add or remove NAM, IR and preset folders in Settings.");
     AddChildControl(mFoldersButton);
     mRescan = new Button(IRECT(), [this](IControl*) {
       PLUG()->RescanCaptureFolder();
@@ -173,7 +173,7 @@ public:
     mCancel = new Button(IRECT(), [this](IControl*) { Hide(true); }, "Cancel");
     AddChildControl(mCancel);
     // The same action top right, where every full page has its Close.
-    mTopCancel = new Button(IRECT(896, 14, 976, 42), [this](IControl*) { Hide(true); }, "Cancel");
+    mTopCancel = new Button(IRECT(896, 14, 976, 42), [this](IControl*) { Hide(true); }, "Cancel", Icon::Close);
     AddChildControl(mTopCancel);
     mApply = new Button(IRECT(), [this](IControl*) { LoadSelected(); }, "Apply");
     AddChildControl(mApply);

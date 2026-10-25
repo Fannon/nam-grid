@@ -19,6 +19,7 @@ namespace grid_ui
 const IColor background = COLOR_BLACK;
 const IColor surface(255, 23, 26, 30), border(255, 78, 85, 95), muted(255, 183, 190, 200);
 const IColor accent(255, 113, 199, 178), text(255, 232, 235, 239);
+const IColor editorBackground(255, 14, 16, 19);
 // Stable semantic palette. Future effects already have reserved colors.
 const IColor ampColor(255, 238, 164, 90), cabColor(255, 109, 174, 255), pedalColor(255, 135, 216, 107);
 const IColor compColor(255, 205, 210, 216), gateColor(255, 205, 210, 216), eqColor(255, 229, 140, 182);
@@ -321,11 +322,85 @@ private:
   int mDepthRow = -1;
   grid_modulation::Ring mLastRing;
 };
+// Small vector icons share the browser glyph's 16 px footprint and stroke weight.
+enum class Icon { None, Browse, Settings, Tuner, Modulation, New, Save, Folder, Close };
+inline void DrawIcon(IGraphics& g, Icon icon, float x, float y, IColor ink)
+{
+  const auto line = [&](float l, float t, float r, float b) { g.DrawLine(ink, x + l, y + t, x + r, y + b, nullptr, 1.3f); };
+  switch (icon)
+  {
+    case Icon::Browse:
+      g.DrawRoundRect(ink, IRECT(x - 8, y - 6, x + 8, y + 6), 1.5f);
+      line(-3, -6, -3, 6); line(0, -2, 5, -2); line(0, 2, 5, 2);
+      break;
+    case Icon::Settings:
+      for (int i = 0; i < 8; ++i)
+      {
+        const float angle = i * 3.14159265f / 4.f;
+        line(5.5f * std::cos(angle), 5.5f * std::sin(angle), 8.f * std::cos(angle), 8.f * std::sin(angle));
+      }
+      g.DrawCircle(ink, x, y, 5.5f, nullptr, 1.3f);
+      g.DrawCircle(ink, x, y, 2.f, nullptr, 1.3f);
+      break;
+    case Icon::Tuner:
+      line(-5, -7, -5, 0); line(-5, 0, 0, 4); line(0, 4, 5, 0); line(5, 0, 5, -7); line(0, 4, 0, 8);
+      break;
+    case Icon::Modulation:
+      for (int i = 0; i < 20; ++i)
+        line(-8.f + .8f * i, -5.f * std::sin(i * 3.14159265f / 10.f),
+             -8.f + .8f * (i + 1), -5.f * std::sin((i + 1) * 3.14159265f / 10.f));
+      break;
+    case Icon::New:
+      line(-6, -8, 2, -8); line(2, -8, 6, -4); line(6, -4, 6, 8); line(6, 8, -6, 8); line(-6, 8, -6, -8);
+      line(2, -8, 2, -4); line(2, -4, 6, -4); line(-3, 2, 3, 2); line(0, -1, 0, 5);
+      break;
+    case Icon::Save:
+      line(-7, -7, 4, -7); line(4, -7, 7, -4); line(7, -4, 7, 7); line(7, 7, -7, 7); line(-7, 7, -7, -7);
+      g.DrawRect(ink, IRECT(x - 3, y - 7, x + 3, y - 2), nullptr, 1.3f);
+      g.DrawRect(ink, IRECT(x - 4, y + 2, x + 4, y + 7), nullptr, 1.3f);
+      break;
+    case Icon::Folder:
+      line(-8, -5, -2, -5); line(-2, -5, 0, -3); line(0, -3, 8, -3);
+      line(8, -3, 8, 6); line(8, 6, -8, 6); line(-8, 6, -8, -5);
+      break;
+    case Icon::Close:
+      line(-4, -4, 4, 4); line(-4, 4, 4, -4);
+      break;
+    default: break;
+  }
+}
+inline void IconLabel(IGraphics& g, Icon icon, const char* label, const IRECT& bounds, const IText& style, bool iconOnly = false)
+{
+  if (icon == Icon::None) { FittedText(g, style, label, bounds); return; }
+  if (iconOnly) { DrawIcon(g, icon, bounds.MW(), bounds.MH(), style.mFGColor); return; }
+  IRECT measured;
+  g.MeasureText(style, label, measured);
+  const float width = std::min(bounds.W(), measured.W() + 24.f);
+  const float left = style.mAlign == EAlign::Center ? bounds.MW() - width * .5f : bounds.L;
+  DrawIcon(g, icon, left + 8.f, bounds.MH(), style.mFGColor);
+  FittedText(g, style.WithAlign(EAlign::Near), label, IRECT(left + 24.f, bounds.T, left + width, bounds.B));
+}
+inline void DrawEditorBackground(IGraphics& g, const IRECT& bounds)
+{
+  g.FillRect(editorBackground, bounds);
+  g.DrawLine(border.WithOpacity(.7f), bounds.L, bounds.T, bounds.R, bounds.T);
+}
+inline void VisualizationBackground(IGraphics& g, const IRECT& bounds)
+{
+  g.FillRoundRect(background, bounds, 3.f);
+}
+class EditorBackground : public IControl
+{
+public:
+  explicit EditorBackground(const IRECT& bounds) : IControl(bounds) { SetIgnoreMouse(true); }
+  void Draw(IGraphics& g) override { DrawEditorBackground(g, mRECT); }
+};
 class Button : public IVButtonControl
 {
 public:
-  Button(const IRECT& r, IActionFunction action, const char* label)
+  Button(const IRECT& r, IActionFunction action, const char* label, Icon icon = Icon::None, bool iconOnly = false)
   : IVButtonControl(r, action, label, Style().WithLabelText(Text(14.f, text, EAlign::Center)))
+  , mIcon(icon), mIconOnly(iconOnly)
   {
   }
   // iPlug2 releases a pressed button only at the end of a click animation; these actions run
@@ -344,18 +419,29 @@ protected:
   {
     g.FillRoundRect(GetValue() > .5 ? IColor(255, 49, 53, 59) : surface, mRECT, 3.f);
     g.DrawRoundRect(mMouseIsOver && !IsDisabled() ? muted : border, mRECT, 3.f);
-    FittedText(g, Text(14.f, IsDisabled() ? muted : text, EAlign::Center), GetLabelStr(), labelBounds);
+    IconLabel(g, mIcon, GetLabelStr(), labelBounds, Text(14.f, IsDisabled() ? muted : text, EAlign::Center), mIconOnly);
   }
+private:
+  Icon mIcon;
+  bool mIconOnly;
 };
 class HintLabel : public ITextControl
 {
 public:
-  HintLabel(const IRECT& r, const char* label, const IText& style, const char* hint)
+  HintLabel(const IRECT& r, const char* label, const IText& style, const char* hint, Icon icon = Icon::None)
   : ITextControl(r, label, style)
+  , mIcon(icon)
   {
     SetIgnoreMouse(false);
     SetTooltip(hint);
   }
+  void Draw(IGraphics& g) override
+  {
+    if (mIcon == Icon::None) ITextControl::Draw(g);
+    else IconLabel(g, mIcon, GetStr(), mRECT, mText);
+  }
+private:
+  Icon mIcon;
 };
 class ModuleButton : public Button
 {
@@ -375,11 +461,7 @@ public:
   void Draw(IGraphics& g) override
   {
     Button::Draw(g);
-    const float x = mRECT.MW(), y = mRECT.MH();
-    g.DrawRoundRect(muted, IRECT(x - 8, y - 6, x + 8, y + 6), 1.5f);
-    g.DrawLine(muted, x - 3, y - 6, x - 3, y + 6);
-    g.DrawLine(muted, x, y - 2, x + 5, y - 2);
-    g.DrawLine(muted, x, y + 2, x + 5, y + 2);
+    DrawIcon(g, Icon::Browse, mRECT.MW(), mRECT.MH(), muted);
   }
 };
 inline float CategoryBadges(IGraphics& g, SlotEffect effect, nam_library::Gear gear, const IRECT& r,
@@ -433,10 +515,11 @@ class Toggle : public IVToggleControl
 {
 public:
   // A selector shows only its label and lights up while on, like a selected tab.
-  Toggle(const IRECT& r, int param, const char* label = "", bool selector = false)
+  Toggle(const IRECT& r, int param, const char* label = "", bool selector = false, Icon icon = Icon::None)
   : IVToggleControl(r, param, label, Style(), "OFF", "ON")
   , mLabel(label)
   , mSelector(selector)
+  , mIcon(icon)
   {
   }
   void Draw(IGraphics& g) override
@@ -454,7 +537,7 @@ public:
     {
       g.FillRoundRect(on ? accent.WithOpacity(.18f) : surface, button, 3.f);
       g.DrawRoundRect(on ? accent : mMouseIsOver ? muted : border, button, 3.f);
-      g.DrawText(Text(14.f, on ? accent : text, EAlign::Center), mLabel.c_str(), button);
+      IconLabel(g, mIcon, mLabel.c_str(), button.GetHPadded(-6.f), Text(14.f, on ? accent : text, EAlign::Center));
       return;
     }
     g.FillRoundRect(on ? IColor(255, 49, 53, 59) : surface, button, 3.f);
@@ -467,6 +550,7 @@ public:
 private:
   std::string mLabel;
   bool mSelector = false;
+  Icon mIcon;
 };
 
 // The same parameter and circle language as the grid card, outside the dial grid.
@@ -1018,7 +1102,7 @@ public:
 
   void OnAttached() override
   {
-    mEditor = new grid_ui::Editor(IRECT(24, grid_layout::editorTop, 976, grid_layout::editorBottom), [this](IGraphics& g) { DrawEditor(g); });
+    mEditor = new grid_ui::Editor(IRECT(24, grid_layout::editorTop, grid_layout::visualizationRight, grid_layout::editorBottom), [this](IGraphics& g) { DrawEditor(g); });
     GetUI()->AttachControl(mEditor);
     // Controls live in a shared bottom editor; each slot keeps its original automation bindings.
     // Inactive editors are hidden, so switching selection never changes parameter ownership.
@@ -1208,20 +1292,20 @@ private:
   void DrawTapeTransport(IGraphics& g)
   {
     using namespace grid_ui;
-    const IRECT bounds(644, 484, 976, 696);
-    g.FillRoundRect(IColor(255, 17, 20, 24), bounds, 3.f);
+    const IRECT bounds(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::editorBottom);
+    VisualizationBackground(g, bounds);
     const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const double mix = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLoFiMix))->Value() * .01;
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    const IRECT plot(656,542,964,658);
+    const IRECT plot(656,542,bounds.R - 12,658);
     PlotTitle(g,plot,Tone(SlotEffect::LoFiTape,{}).first,status);
     PlotDetail(g,plot,"Measured head motion | +/-60 cents");
     PlotFooter(g,plot,"Speed also changes bandwidth","2.56 s");
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
       g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(656, center - 38, 790, center - 21));
-      constexpr float start = 656.f, end = 964.f, height = 14.f;
+      const float start = plot.L, end = plot.R, height = 14.f;
       g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
       float previous = center;
       double peak = 0.;
@@ -1235,7 +1319,7 @@ private:
         previous = y;
       }
       WDL_String amount; amount.SetFormatted(32, "%.1f ct", peak);
-      g.DrawText(Text(13.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, 964, center - 21));
+      g.DrawText(Text(13.f, color.WithOpacity(opacity), EAlign::Far), amount.Get(), IRECT(850, center - 38, plot.R, center - 21));
     };
     trace("WOW", history.wow, Tone(SlotEffect::LoFiTape,{}).first, 577.f);
     trace("FLUTTER", history.flutter, ampColor, 643.f);
@@ -1255,8 +1339,9 @@ private:
       DrawTapeTransport(g);
       return;
     }
-    const IRECT box(644, 484, 976, 696), plot(656, 542, 964, 658);
-    g.FillRoundRect(IColor(255, 17, 20, 24), box, 3.f);
+    const IRECT box(644, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::editorBottom);
+    const IRECT plot(656, 542, box.R - 12, 658);
+    VisualizationBackground(g, box);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
     const auto levels = [&](float floorDB, const IRECT& area) {
@@ -2197,9 +2282,9 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui;
-    AddChildControl(new HintLabel(IRECT(kLeft, 8, 480, 48), "Library & settings", Text(23.f),
-      "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type."));
-    AddChildControl(new Button(IRECT(896, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close"));
+    AddChildControl(new HintLabel(IRECT(kLeft, 8, 360, 48), "Settings", Text(23.f),
+      "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type.", Icon::Settings));
+    AddChildControl(new Button(IRECT(896, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close));
     AddChildControl(new Button(IRECT(392, 14, 552, 42), [this](IControl*) {
       WDL_String folder;
       GetUI()->PromptForDirectory(folder, [plugin = PLUG(), ui = GetUI()](const WDL_String&, const WDL_String& chosen) {
@@ -2211,11 +2296,11 @@ public:
       "Choose a folder for guitar, bass and boost example rigs. Adds a Drive Examples subfolder and indexes it; existing files are preserved.");
     AddChildControl(new Button(IRECT(732, 14, 884, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
-    }, "Browse library"));
+    }, "Browse library", Icon::Browse));
     // settings.json lives in the platform's per-user config folder (see UserPaths.h).
     AddChildControl(new Button(IRECT(568, 14, 720, 42), [this](IControl*) {
       Reveal(nam_library::PathText(user_paths::ConfigFolder()));
-    }, "Settings folder"))->SetTooltip(("Open the folder that holds settings.json: "
+    }, "Settings folder", Icon::Folder))->SetTooltip(("Open the folder that holds settings.json: "
                                         + nam_library::PathText(user_paths::ConfigFolder())).c_str());
     for (int i = 0; i < 3; ++i)
     {
@@ -2377,7 +2462,7 @@ public:
     using namespace grid_ui;
     AddChildControl(new Button(IRECT(896, 488, 976, 512), [this](IControl*) {
       DisableTunerFromUI(GetUI());
-    }, "Close"));
+    }, "Close", Icon::Close));
     // Right column of the left section: Mute output on top, Reference below at module knob size.
     AddChildControl(new Toggle(IRECT(kColumnL, 520, kLeftR, 546), kTunerMute, "Mute output"))
       ->SetTooltip("Silence the output while tuning. Turning the tuner off always restores sound.");
@@ -2400,8 +2485,8 @@ public:
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
-    g.FillRect(background, mRECT);
-    g.DrawText(Text(17.f, accent), "Tuner", IRECT(24, 484, 124, 512));
+    DrawEditorBackground(g, mRECT);
+    IconLabel(g, Icon::Tuner, "Tuner", IRECT(24, 484, 124, 512), Text(17.f, accent));
     g.DrawText(Text(13.f, muted), "Clean input · before the grid", IRECT(124, 484, 370, 512));
     const double reference = GetDelegate()->GetParam(kTunerReference)->Value();
     const double frequency = PLUG()->TunerFrequency();
@@ -2434,8 +2519,8 @@ public:
       g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 3, bar.T + 3, x + 3, bar.B - 3), 1.5f);
     }
 
-    const IRECT panel(kHistoryL, 520, 976, 696), plot(kHistoryL + 38, 538, 964, 674);
-    g.FillRoundRect(IColor(255, 17, 21, 24), panel, 4.f);
+    const IRECT panel(kHistoryL, 520, grid_layout::visualizationRight, 696), plot(kHistoryL + 38, 538, panel.R - 12, 674);
+    VisualizationBackground(g, panel);
     g.DrawText(Text(13.f, accent), "Pitch history", IRECT(kHistoryL, 484, kHistoryL + 150, 512));
     g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(kHistoryL + 150, 488, 882, 512));
     // Zoomed to ±25 cents, so the last few cents of tuning are visible; larger offsets pin to the edge.

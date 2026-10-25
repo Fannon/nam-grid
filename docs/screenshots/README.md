@@ -33,7 +33,7 @@ The generated gallery uses a demo library containing:
 | `eq.png` | Post 1 Parametric EQ over the live output spectrum |
 | `browser-modules.png` | Module browser opened from A1 Juno Chorus |
 | `browser-presets.png` | Rig preset browser |
-| `settings.png` | Library & settings |
+| `settings.png` | Settings |
 | `control.png` | Modulation page: LFO source, three matrix rows and macros |
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
 | `modules/*.png` | Focused parameter panes for every built-in module, NAM, and Cabinet IR, for the [module guide](../modules/README.md) |

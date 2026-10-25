@@ -166,6 +166,8 @@ public:
   void Request(const std::vector<std::string>& roots);
   void Request(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
                const std::vector<std::string>& presetRoots);
+  // Abandon a pending or running scan without scanning empty roots or rewriting the index.
+  void Cancel();
   std::shared_ptr<const Snapshot> TakeResult();
 
 private:
@@ -176,6 +178,7 @@ private:
   std::shared_ptr<const Snapshot> mResult;
   std::atomic<unsigned> mRevision{0};
   std::atomic<bool> mStop{false};
+  bool mCancelRequested = false; // Guarded by mMutex.
   std::filesystem::path mIndexFile;
   IndexCache mIndex; // Worker thread only.
   bool mIndexLoaded = false;

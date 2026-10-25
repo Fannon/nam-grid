@@ -547,7 +547,7 @@ void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector
     RescanCaptureFolder();
   else if (needsIndex)
   {
-    mLibraryWorker.Request(std::vector<std::string>{}); // Cancel an older request without indexing the roots.
+    mLibraryWorker.Cancel(); // Keep the saved index when startup scanning is off.
     mLibrary = std::make_shared<nam_library::Snapshot>();
     mLibraryScanning = mLibraryIndexed = false;
   }

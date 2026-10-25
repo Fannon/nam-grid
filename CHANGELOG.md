@@ -9,6 +9,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - A single-command `bash build.sh` build for Git Bash on Windows, WSL2, macOS and Linux, with automatic first-run dependency setup, incremental builds under `build/<platform>/release/`, and `--test` to run the standard test suites.
 - Windows build guidance includes WinGet installation commands and portable MSVC/Ninja support; the build help documents manual cross-platform GitHub Actions builds and macOS signing limitations.
 
+### Changed
+
+- Compressor and limiter gain-reduction displays use a 16 dB scale instead of 24 dB, with 2 and 4 dB guides in Outboard Channel and Butter Comp histories so gentle compression is easier to see. Gate attenuation displays retain their wider ranges.
+
 ## [0.2.1] - 2026-10-25
 
 ### Changed

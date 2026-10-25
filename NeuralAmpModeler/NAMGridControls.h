@@ -26,6 +26,8 @@ const IColor compColor(255, 205, 210, 216), gateColor(255, 205, 210, 216), eqCol
 const IColor boostColor(255, 238, 126, 95), modulationColor(255, 168, 153, 245);
 const IColor delayColor(255, 104, 206, 232), reverbColor(255, 199, 143, 237), neutralColor(255, 170, 179, 192);
 const IColor creativeColor(255, 235, 137, 219);
+// Give everyday 2-4 dB compression more space while retaining room for heavy reduction.
+inline constexpr float compressionReductionRange = 16.f;
 struct NodeTone
 {
   IColor first, second;
@@ -1718,7 +1720,7 @@ private:
         DrawReductionHistory(g, reduction);
         levels(-60.f, history);
         PlotDetail(g,plot,"Left: gain reduction | right: gray IN, colour OUT");
-        PlotFooter(g,plot,"GR 0 - 24 dB | IN / OUT 0 / -60 dB","Older > now");
+        PlotFooter(g,plot,"GR 0 - 16 dB | IN / OUT 0 / -60 dB","Older > now");
         return;
       }
       if (effect == SlotEffect::DigitalBlack)
@@ -1776,9 +1778,10 @@ private:
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
       const IRECT history(smart ? plot.L : plot.MW()+8,plot.T,plot.R,plot.B);
       const IRECT reductionBar(plot.L,538,plot.R,541);
+      const float reductionRange = gate || smart ? 24.f : compressionReductionRange;
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
-        reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/24.f,0.f,1.f),reductionBar.B));
+        reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/reductionRange,0.f,1.f),reductionBar.B));
       const float floor=gate || smart ? -100.f : -60.f;
       if(!smart)
       {
@@ -1813,7 +1816,8 @@ private:
         else if(gate) info.SetFormatted(80,"Dot: live | closes 3 dB below | %.0f ms",release);
         else info.SetFormatted(80,"Dot: live input | release %.0f ms",release);
         PlotDetail(g,plot,info.Get());
-        info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
+        if (gate) info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
+        else info.SetFormatted(80,"IN %.0f..0 / OUT %.0f..+18 | GR 0..16 dB",floor,floor);
         PlotFooter(g,plot,info.Get(),gate ? "Live 0..-100" : "Live 0..-60");
       }
       else
@@ -2131,7 +2135,7 @@ private:
     }, -24., 6., color);
 
     DrawReductionHistory(g, reduction);
-    PlotFooter(g, plot, "Cuts -24 / +6 dB", "GR 0 - 24 dB");
+    PlotFooter(g, plot, "Cuts -24 / +6 dB", "GR 0 - 16 dB");
   }
   // Console EQ: the measured small-signal response over the live output spectrum. Its band
   // density is level-dependent, so louder notes add harmonics this curve does not show.
@@ -2195,9 +2199,9 @@ private:
   void DrawReductionHistory(IGraphics& g, const IRECT& area)
   {
     using namespace grid_ui;
-    constexpr float range = 24.f;
+    constexpr float range = grid_ui::compressionReductionRange;
     g.DrawRect(border.WithOpacity(.5f), area);
-    for (float db : {6.f, 12.f, 18.f})
+    for (float db : {2.f, 4.f, 8.f, 12.f})
     {
       const float y = area.T + area.H() * db / range;
       g.DrawLine(border.WithOpacity(.4f), area.L, y, area.R, y);

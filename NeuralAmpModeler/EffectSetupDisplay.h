@@ -187,7 +187,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     }
     // Stutter replays one slice for four windows before grabbing a new one.
     const int windows = freeze ? 3 : 4;
-    PlotDetail(g,plot,freeze ? "Dry stays full; traces show seam blend" : "Gate + dry blend | new slice every 4");
+    PlotDetail(g,plot,freeze ? "Dry stays full; Fade in/out shape the held layer; traces show seam blend" : value(uStutterHold) >= .5 ? "Held slice | Gate + dry blend" : "Gate + dry blend | new slice every 4");
     PlotGrid(g,plot);
     curve([&](double x) {
       const double phase = std::fmod(x * windows, 1.);
@@ -203,7 +203,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       const float left = plot.L + plot.W() * i / windows, right = left + plot.W() / windows;
       g.FillRect(color.WithOpacity(.08f), IRECT(right - plot.W() / windows * static_cast<float>(overlap), plot.T, right, plot.B));
     }
-    if (!freeze)
+    if (!freeze && value(uStutterHold) < .5)
       for (float x : {plot.L + 1.f, plot.R - 1.f})
       {
         g.DrawLine(ampColor, x, plot.T, x, plot.B, nullptr, 2.f);

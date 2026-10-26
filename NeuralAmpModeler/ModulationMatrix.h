@@ -135,6 +135,44 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uBlackMode, t.blackMode);
   u(uBlackHold, t.blackHold);
   family(uPedalStyle, t.pedal);
+  u(uToneMidFrequency, e.midFrequency);
+  u(uEQOutput, t.extra.eqOutput);
+  u(uBoostMidGain, t.extra.boostMidGain);
+  u(uTubeHighCut, t.extra.tubeHighCut);
+  u(uGateAttack, d.gateAttack);
+  u(uGateHold, d.gateHold);
+  u(uGateHysteresis, d.gateHysteresis);
+  u(uSmoothRatio, d.smoothRatio);
+  u(uPunchRatio, d.punchRatio);
+  u(uCompDetectorCut, d.detectorCut);
+  u(uStripInput, t.extra.stripInput);
+  u(uLimiterInput, t.extra.limiterInput);
+  u(uChorusDelay, t.extra.chorusDelay);
+  u(uJunoWidth, t.extra.junoWidth);
+  u(uFlangerDelay, t.extra.flangerDelay);
+  u(uModSpread, t.extra.modSpread);
+  u(uPhaserStages, t.extra.phaserStages);
+  u(uVibratoRise, t.extra.vibratoRise);
+  u(uRotaryBalance, t.extra.rotaryBalance);
+  u(uVibeSpread, t.extra.vibeSpread);
+  u(uRingShape, t.extra.ringShape);
+  u(uOctTrackingFilter, t.extra.octTrackingFilter);
+  u(uDoubleHumanize, t.extra.doubleHumanize);
+  u(uDoubleHighCut, t.extra.doubleHighCut);
+  u(uDuckRelease, t.extra.duckRelease);
+  u(uReverseFeedback, t.extra.reverseFeedback);
+  u(uReverbDuck, t.extra.reverbDuck);
+  u(uSpringPredelay, t.extra.springPredelay);
+  u(uFreezeAttack, t.extra.freezeAttack);
+  u(uFreezeRelease, t.extra.freezeRelease);
+  u(uStutterHold, t.extra.stutterHold);
+  u(uLoFiDrive, t.extra.lofiDrive);
+  u(uUtilityMode, t.extra.utilityMode);
+  u(uUtilitySkew, t.extra.utilitySkew);
+  u(uSwellCurve, t.extra.swellCurve);
+  u(uSwellHold, t.extra.swellHold);
+  u(uSwellMix, t.extra.swellMix);
+
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().
 template <class T>

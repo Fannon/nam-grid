@@ -52,7 +52,8 @@ public:
     mControls.Reset(rate);
     mTone.Reset(rate);
     mStereo.Reset(rate);
-    mInputLow = {};
+    mInputLow = {}; mPredelayControl.Reset(rate);
+    for (auto& line : mPredelay) line.Reset(static_cast<int>(rate * .201));
     mDamp = {};
     mCounter = 0;
     for (int tank = 0; tank < 3; ++tank)
@@ -68,6 +69,7 @@ public:
   void Process(double* left, double* right, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.spring, uSpringDecay);
+    mPredelayControl.Target({controls.extra.springPredelay}, uSpringPredelay);
     mTone.Target({controls.reverb[2]}, uReverbTone);
     mStereo.Target({controls.stereoReverb ? 1. : 0.}, uReverbStereo);
     constexpr std::array<double, 3> length{.0473, .0617, .0791};
@@ -86,11 +88,14 @@ public:
       mCounter %= 32;
       const double dry[2]{left[i], right ? right[i] : left[i]};
       double send[2]{};
+      const double predelay = mPredelayControl.Tick()[0];
       const double drive = mDrive(c[1] * .05, [](double x) { return std::pow(10., x); });
       for (int ch = 0; ch < 2; ++ch)
       {
         mInputLow[ch] = grid_fx::Flush(dry[ch] + hp * (mInputLow[ch] - dry[ch]));
-        send[ch] = std::tanh(drive * (dry[ch] - mInputLow[ch]));
+        const double excited = std::tanh(drive * (dry[ch] - mInputLow[ch]));
+        send[ch] = predelay > 0. ? mPredelay[ch].Read(predelay * .001 * mRate) : excited;
+        mPredelay[ch].Push(excited);
       }
       double wetLeft = 0., wetRight = 0.;
       for (int tank = 0; tank < 3; ++tank)
@@ -122,6 +127,8 @@ public:
 private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mTone, mStereo;
+  grid_fx::SmoothControls<1> mPredelayControl;
+  std::array<grid_fx::DelayLine, 2> mPredelay;
   std::array<grid_fx::DelayLine, 3> mTank;
   std::array<std::array<grid_fx::DelayLine, 16>, 3> mDispersion;
   std::array<std::array<double, 16>, 3> mStretch{};

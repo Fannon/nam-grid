@@ -92,9 +92,74 @@ void TestModulationMatrix()
     }
   }
 
+  // Only destinations that depend on a changing source bound the independent
+  // input prefix. Via dependencies count; macros, zero depth and invalid rows do not.
+  {
+    auto v = Defaults();
+    assert(Matrix::IndependentInputPrefix(v) == 4);
+    v[RowParam(0, RowSource)] = SourceMacro1; v[RowParam(0, RowDepth)] = 50.;
+    v[RowParam(0, RowSlot)] = 0; v[RowParam(0, RowDestination)] = parameter_layout::kSlotIn;
+    assert(Matrix::IndependentInputPrefix(v) == 4);
+    v[RowParam(0, RowVia)] = SourceEnv2;
+    assert(Matrix::IndependentInputPrefix(v) == 0);
+    for (int slot = 0; slot <= gridSlot; ++slot)
+    {
+      v[RowParam(0, RowSlot)] = slot;
+      v[RowParam(0, RowDestination)] = slot == gridSlot ? int(GridBlend) : int(parameter_layout::kSlotIn);
+      assert(Matrix::IndependentInputPrefix(v) == std::min(4, slot));
+    }
+    v[RowParam(0, RowSlot)] = 0; v[RowParam(0, RowDepth)] = 0.;
+    assert(Matrix::IndependentInputPrefix(v) == 4);
+    v[RowParam(0, RowDepth)] = 50.; v[RowParam(0, RowDestination)] = parameter_layout::kSlotEnabled;
+    assert(Matrix::IndependentInputPrefix(v) == 4);
+    v[RowParam(1, RowSource)] = SourceSeq2; v[RowParam(1, RowDepth)] = 10.;
+    v[RowParam(1, RowSlot)] = 2; v[RowParam(1, RowDestination)] = parameter_layout::kSlotTrim;
+    assert(Matrix::IndependentInputPrefix(v) == 2);
+  }
+
+  // Control timing scales within host-rate families without losing buffer alignment.
+  // A countdown also preserves the schedule across arbitrary callback boundaries.
+  {
+    const std::array<double, 7> rates{1000., 44100., 48000., 88200., 96000., 176400., 192000.};
+    const std::array<int, 7> periods{1, 16, 16, 32, 32, 64, 64};
+    const auto v = Defaults();
+    std::array<double, 64> silence{};
+    for (size_t i = 0; i < rates.size(); ++i)
+    {
+      Modulation sources; sources.Reset(rates[i]);
+      const int q = periods[i];
+      assert(sources.Quantum() == q);
+      sources.Advance(silence.data(), nullptr, q - 1, v, 120.);
+      assert(sources.Quantum() == 1 && sources.Read().phase == 0.);
+      sources.Advance(silence.data(), nullptr, 1, v, 120.);
+      assert(sources.Quantum() == q && sources.Read().phase > 0.);
+      sources.Reset(rates[i]);
+      assert(sources.Quantum() == q && !sources.Read().running && sources.Value(SourceLFO1, v) == 0.);
+    }
+    // Exact 2x/4x host-rate multiples publish the same physical LFO/envelope
+    // state at each control tick, rather than publishing more often.
+    auto shaped = Defaults(); shaped[LFO1Rate] = 7.3; shaped[LFO2Rate] = 3.7;
+    shaped[Env1Attack] = shaped[Env2Attack] = 5.;
+    Modulation base, high; base.Reset(48000.);
+    std::array<double, 64> input{}; input.fill(.2);
+    for (const auto [baseRate, rate] : {std::pair{44100., 88200.}, std::pair{44100., 176400.},
+                                       std::pair{48000., 96000.}, std::pair{48000., 192000.}})
+    {
+      base.Reset(baseRate); high.Reset(rate);
+      for (int tick = 0; tick < 331; ++tick)
+      {
+        base.Advance(input.data(), nullptr, base.Quantum(), shaped, 120.);
+        high.Advance(input.data(), nullptr, high.Quantum(), shaped, 120.);
+        for (int source : sourceTabs)
+          assert(std::abs(base.Value(source, shaped) - high.Value(source, shaped)) < 1.e-10);
+      }
+    }
+  }
+
   // Macro-only whole callbacks preserve unused source histories for a later
   // dynamic assignment, including MIDI/onset retriggers and odd block lengths.
   {
+    for (double rate : {44100., 48000., 96000., 192000.})
     for (int retrigger : {RetriggerMidi, RetriggerOnset})
     {
       auto v = Defaults();
@@ -102,7 +167,7 @@ void TestModulationMatrix()
       v[LFO1Rate] = 10.; v[LFO2Rate] = 7.; v[LFO1Shape] = v[LFO2Shape] = 5.;
       std::array<double, 257> signal{}, second{};
       for (int i = 0; i < 257; ++i) { signal[i] = i > 53 ? .3 : 0.; second[i] = i > 91 ? .7 : 0.; }
-      Modulation whole, chunks; whole.Reset(48000.); chunks.Reset(48000.);
+      Modulation whole, chunks; whole.Reset(rate); chunks.Reset(rate);
       const int notes[] = {0, 15, 16, 127, 256};
       for (int block = 0; block < 20; ++block)
       {

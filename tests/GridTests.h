@@ -134,6 +134,71 @@ void TestFixedGrid()
       }
     }
   }
+  // Batch only an independent input prefix and compare with the original
+  // quantum schedule. Cover every cut point, stereo, odd callback boundaries,
+  // moving downstream controls and taps on either side of the cut. No audio
+  // allocation or destruction is permitted in either path.
+  for (int prefix = 0; prefix <= 4; ++prefix)
+  {
+    FixedNAMGrid reference, batched;
+    for (int slot : {0, 1, 3, 4, 8, 12})
+    {
+      reference.stages[slot].Publish(prepare(linear, 48000.));
+      batched.stages[slot].Publish(prepare(linear, 48000.));
+    }
+    reference.ResetStopped(48000., 512); batched.ResetStopped(48000., 512);
+    controls = {};
+    std::array<double, 512> l{}, r{}, expectedL{}, expectedR{};
+    int position = 0;
+    for (int block = 0; block < 16; ++block)
+    {
+      const int n = std::array<int, 5>{1, 3, 37, 64, 128}[block % 5];
+      const int first = 16 - position % 16;
+      const int tap0 = std::array<int, 8>{-1, 0, 1, 3, 4, 8, 12, 15}[block % 8];
+      const int tap1 = std::array<int, 8>{15, 12, 8, 4, 3, 1, 0, -1}[block % 8];
+      reference.SetTap(tap0); batched.SetTap(tap0);
+      reference.SetTap(tap1, 1); batched.SetTap(tap1, 1);
+      for (int i = 0; i < n; ++i)
+      {
+        expectedL[i] = l[i] = .1 * std::sin((position + i) * .03);
+        expectedR[i] = r[i] = .07 * std::cos((position + i) * .07);
+      }
+      controls[0].inputDB = block > 5 ? 3. : 0.; // Same first-quantum gain ramp.
+      allocations = deletions = 0; tracking = true;
+      Eigen::internal::set_is_malloc_allowed(false);
+      if (prefix) batched.ProcessInputPrefix(l.data(), n, controls, prefix, first, r.data());
+      for (int offset = 0; offset < n;)
+      {
+        const int count = std::min(16 - (position + offset) % 16, n - offset);
+        // The first non-prefix destination moves every quantum.
+        controls[prefix].trimDB = (position + offset) % 5 - 2.;
+        const double blend = .3 + .1 * std::sin((position + offset) * .001);
+        reference.Process(expectedL.data() + offset, count, controls, blend, expectedR.data() + offset);
+        batched.Process(l.data() + offset, count, controls, blend, r.data() + offset, {}, prefix);
+        for (int instance = 0; instance < 2; ++instance)
+        {
+          const int tap = instance ? tap1 : tap0;
+          if (tap < 0) continue;
+          const auto* actualL = batched.TapLeft(instance) + (tap < prefix ? offset : 0);
+          const auto* actualR = batched.TapRight(instance) + (tap < prefix ? offset : 0);
+          for (int i = 0; i < count; ++i)
+          {
+            assert(std::abs(actualL[i] - reference.TapLeft(instance)[i]) < 1.e-12);
+            assert(std::abs(actualR[i] - reference.TapRight(instance)[i]) < 1.e-12);
+          }
+        }
+        offset += count;
+      }
+      Eigen::internal::set_is_malloc_allowed(true); tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      for (int i = 0; i < n; ++i)
+      {
+        assert(std::abs(l[i] - expectedL[i]) < 1.e-12);
+        assert(std::abs(r[i] - expectedR[i]) < 1.e-12);
+      }
+      position += n;
+    }
+  }
   std::cout << "16-slot order/gain/bypass, parallel blend, A2 references and aligned impulses passed\n";
 }
 

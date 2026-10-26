@@ -253,23 +253,45 @@ to be compared with and without control-rate subdivision. Keep separate output
 folders; comparison requires the same cases, routing and settings.
 
 With no nonzero-depth source assignments, source DSP is skipped and the grid
-processes whole host buffers. Macro-only assignments retain the first control quantum for gain transitions,
-then batch the rest of the host buffer; source clocks and follower histories
-continue to advance. Any active LFO, envelope or sequencer dependency, including Via, retains
-16-sample control quanta. Both source banks currently advance together whenever
-modulation is active. An unused source within an active matrix is therefore not
-free. The control quantum adds no buffered audio latency, but repeated module
-entry and small inference batches can noticeably increase callback cost.
+processes whole host buffers. Macro-only assignments retain the first control
+quantum for gain transitions, then batch the rest of the host buffer; source
+clocks and follower histories continue to advance.
 
-Run the waveform audit with `--macros-only` to exercise macro routing without
-dynamic sources. The normal audit includes LFO, envelope, sequencer and macro
-assignments. Check both paths when changing control scheduling. Macro-only
-processing now batches after the first quantum, so block-dependent control
-transitions may differ from the previous 16-sample schedule; measure the affected
-controls rather than assuming every module is block-size independent. Airwindows Tape
-samples its smoothed drive/head-bump controls in short internal spans; batching
-macro-only calls can slightly alter those transitions. Keep its numerical error
-budget separate from inference rounding and convolution rounding.
+Dynamic LFO, envelope or sequencer dependencies, including Via, use a control
+interval near 0.33-0.36 ms at standard host rates: 16 frames at 44.1/48 kHz,
+32 at 88.2/96 kHz and 64 at 176.4/192 kHz. It selects the nearest power of two
+to `sampleRate / 3000`, with a minimum of one frame, preserving alignment with
+common host buffers instead of introducing short 15- or 29-frame calls.
+The clock continues across host callback boundaries. It sets control reaction
+resolution without buffering or delaying the audio output. Existing module
+smoothing times and internal coefficient-update counters remain independent.
+Most built-in controls smooth per sample with a 20 ms time constant; NAM EQ
+uses 5 ms smoothing, while routing and slot gain controls have their own ramps.
+There is no universal extra smoother in the modulation matrix.
+
+Input stages before the first dynamically modulated input destination can run
+ahead in larger batches. They retain their first short quantum for gain ramps;
+the remaining grid runs in control quanta. Prefix follower taps retain their
+whole-buffer histories, and later taps are read after each quantum, preserving
+feedback into the affected stages. A dynamic assignment to the first input slot
+disables this optimization. Parallel lanes and output stages still follow the
+quantum schedule, even if some are individually unaffected. Both source banks
+currently advance together whenever modulation is active; an unused source
+within an active matrix is therefore not free.
+
+Run the waveform audit with `--macros-only` for macro routing, or `--routing-only`
+to put changing destinations after the independent input stages. Use
+`--envelope-listen 1 13`, for example, to exercise the two followers after input
+slot 1 and output slot 1. The normal audit targets the first input slot and checks
+the conservative fallback. Check all paths when changing control scheduling.
+
+Batching can slightly alter block-dependent control transitions. Airwindows
+Tape samples its smoothed drive/head-bump controls in short internal spans;
+keep its transition error budget separate from inference and convolution
+rounding. At higher sample rates, the time-based matrix interval also
+changes control timing relative to the previous fixed 16-frame schedule. Fast
+modulation and gain transitions may sound slightly different; destination
+smoothing times, parameter identities and saved-state formats are unchanged.
 
 Only the selected effect in each slot runs its DSP. Empty slots skip sample DSP;
 bypassed slots fade and drain their tails before suspending it. Bypass still has
@@ -307,7 +329,7 @@ module loops cheap without changing output:
   processors through moving drive/bias/styles and tiny/odd blocks; the plugin
   waveform audit covers the full automation and modulation paths.
 - Prepare per-callback copies once; modulation restores only the slots it edits
-  for each 16-sample quantum.
+  for each control quantum.
 - Where a loop has independent accumulators, such as the phases of a polyphase
   filter or a band bank, let each accumulator keep its own tap order and vectorize
   across accumulators. Pairing two of them in one register is bit-identical;

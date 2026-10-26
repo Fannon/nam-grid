@@ -69,9 +69,9 @@ public:
   }
 
   void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
-               double* right = nullptr, const grid_performance::Routing& routing = {})
+               double* right = nullptr, const grid_performance::Routing& routing = {}, int inputPrefix = 0)
   {
-    ProcessRow(samples, frames, controls, 0, right);
+    ProcessRow(samples, frames, controls, inputPrefix, right, 4);
     std::copy_n(samples, frames, mLane[0].data());
     std::copy_n(samples, frames, mLane[1].data());
     if (right)
@@ -144,6 +144,18 @@ public:
     ProcessRow(samples, frames, controls, 12, right);
   }
 
+  // Run only the independent input prefix, before Process skips those stages.
+  // Keep its first short quantum for existing gain ramps; batch the remainder.
+  // Prefix taps cover the full callback, unlike the suffix's per-quantum taps.
+  void ProcessInputPrefix(double* samples, int frames, const std::array<Controls, kSlots>& controls,
+                          int slots, int firstQuantum, double* right = nullptr)
+  {
+    const int first = std::min(firstQuantum, frames);
+    ProcessRow(samples, first, controls, 0, right, slots);
+    if (first < frames)
+      ProcessRow(samples + first, frames - first, controls, 0, right ? right + first : nullptr, slots, first);
+  }
+
   // Copy each follower's chosen slot output during Process (-1: grid input).
   void SetTap(int slot, int instance = 0) { mTapSlot[instance] = slot; }
   const double* TapLeft(int instance = 0) const { return mTap[instance][0].data(); }
@@ -195,17 +207,19 @@ private:
       return output;
     }
   };
-  void ProcessRow(double* samples, int frames, const std::array<Controls, kSlots>& controls, int first, double* right)
+  void ProcessRow(double* samples, int frames, const std::array<Controls, kSlots>& controls, int first, double* right,
+                  int end = -1, int tapOffset = 0)
   {
-    for (int i = first; i < first + 4; ++i)
+    if (end < 0) end = (first / 4 + 1) * 4;
+    for (int i = first; i < end; ++i)
     {
       const auto& c = controls[i];
       stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, right);
       for (int instance = 0; instance < grid_performance::sourceInstances; ++instance)
         if (i == mTapSlot[instance])
         {
-          std::copy_n(samples, frames, mTap[instance][0].data());
-          if (right) std::copy_n(right, frames, mTap[instance][1].data());
+          std::copy_n(samples, frames, mTap[instance][0].data() + tapOffset);
+          if (right) std::copy_n(right, frames, mTap[instance][1].data() + tapOffset);
           mTapStereo[instance] = right != nullptr;
         }
     }

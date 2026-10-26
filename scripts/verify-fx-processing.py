@@ -11,6 +11,7 @@ from array import array
 import hashlib
 import importlib.util
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -56,12 +57,21 @@ def events(case, blocks, macros_only=False):
             for index, (name, value) in enumerate(sequence)]
 
 
-def render(host, plugin, case, rate, buffer, seconds, warmup, folder, macros_only=False):
+def routing_profile(macros_only=False, routing_only=False, envelope_listen=(0, 0)):
+    routing = {key: value for key, value in ROUTING.items() if key.startswith(("Mod 4 ", "Mod 5 "))} if macros_only else dict(ROUTING)
+    if routing_only:
+        for row, destination in enumerate((0, 1, 2, 3, 0), 1):
+            routing.update({f"Mod {row} Slot": 16, f"Mod {row} Destination": destination})
+    routing.update({"Envelope Listen At": envelope_listen[0], "Envelope 2 Listen At": envelope_listen[1]})
+    return routing
+
+
+def render(host, plugin, case, rate, buffer, seconds, warmup, folder, macros_only=False, routing_only=False, envelope_listen=(0, 0)):
     path = folder / "render.f64"
     blocks = int(-(-(seconds + warmup) * rate // buffer))
     settings = {"rates": [rate], "buffers": [buffer], "seconds": seconds, "warmup_seconds": warmup, "repeats": 1,
                 "paced": False, "render_path": str(path), "parameter_events": events(case, blocks, macros_only)}
-    routing = {key: value for key, value in ROUTING.items() if key.startswith(("Mod 4 ", "Mod 5 "))} if macros_only else ROUTING
+    routing = routing_profile(macros_only, routing_only, envelope_listen)
     (folder / "case.json").write_text(json.dumps({**case, "globals": routing}), encoding="utf-8")
     (folder / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
     run = subprocess.run([str(host), "--run", str(plugin), str(folder / "case.json"), str(folder / "settings.json")],
@@ -91,7 +101,11 @@ def main():
     parser.add_argument("--filter", action="append", default=[])
     parser.add_argument("--module", action="append", default=[])
     parser.add_argument("--tolerance", type=float, default=0., help="maximum absolute sample difference")
-    parser.add_argument("--macros-only", action="store_true", help="audit macro-only routing without dynamic sources")
+    profile = parser.add_mutually_exclusive_group()
+    profile.add_argument("--macros-only", action="store_true", help="audit macro-only routing without dynamic sources")
+    profile.add_argument("--routing-only", action="store_true", help="route dynamic sources after the independent input stages")
+    parser.add_argument("--envelope-listen", type=int, nargs=2, default=(0, 0), choices=range(17),
+                        metavar=("BANK1", "BANK2"), help="follower listening points: 0=input, 1..16=after slot")
     args = parser.parse_args()
     host = (args.host or benchmark.find_executable(benchmark.DEFAULT_BUILD_DIR, "nam-fx-performance")).resolve()
     before, after = (benchmark.plugin_binary(p.resolve()) for p in (args.before, args.after))
@@ -113,14 +127,17 @@ def main():
                     row = {"case": case["id"], "module": case["module"], "mode": case["mode"], "rate": rate,
                            "buffer": buffer}
                     try:
-                        a, count = render(host, before, case, rate, buffer, args.seconds, args.warmup, folder, args.macros_only)
-                        b, _ = render(host, after, case, rate, buffer, args.seconds, args.warmup, folder, args.macros_only)
+                        a, count = render(host, before, case, rate, buffer, args.seconds, args.warmup, folder, args.macros_only, args.routing_only, args.envelope_listen)
+                        b, _ = render(host, after, case, rate, buffer, args.seconds, args.warmup, folder, args.macros_only, args.routing_only, args.envelope_listen)
                         if len(a) != len(b):
                             raise RuntimeError("render lengths differ")
                         difference = [abs(x - y) for x, y in zip(a, b)]
                         maximum = max(difference)
                         mismatches = sum(d > args.tolerance for d in difference)
-                        row.update(samples=len(a), events=count, max_error=maximum, mismatched_samples=mismatches,
+                        row.update(samples=len(a), events=count, max_error=maximum,
+                                   rms_error=math.sqrt(math.fsum(d * d for d in difference) / len(a)),
+                                   reference_rms=math.sqrt(math.fsum(x * x for x in a) / len(a)),
+                                   mismatched_samples=mismatches,
                                    first_mismatch=next((i for i, d in enumerate(difference) if d > args.tolerance), None),
                                    exact=maximum == 0., passed=mismatches == 0)
                     except Exception as error:  # Keep auditing other cases; a failure is never a pass.
@@ -136,7 +153,7 @@ def main():
         digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
         report = {"before_sha256": digest(before), "after_sha256": digest(after), "tolerance": args.tolerance,
                   "rates": args.rates, "buffers": args.buffers, "seconds": args.seconds, "warmup": args.warmup,
-                  "macros_only": args.macros_only, "complete": len(rows) == expected, "pass": len(rows) == expected and not failures,
+                  "macros_only": args.macros_only, "routing_only": args.routing_only, "envelope_listen": args.envelope_listen, "complete": len(rows) == expected, "pass": len(rows) == expected and not failures,
                   "exact": sum(r.get("exact", False) for r in rows), "rows": rows}
         (folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"{len(rows)}/{expected} renders compared, {report['exact']} bit-identical, {failures} failed")

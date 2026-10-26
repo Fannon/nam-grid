@@ -256,6 +256,23 @@ public:
     }
     return count;
   }
+  // Input stages before every dynamic destination have no dependency on the
+  // changing sources. They can run ahead of the remaining control quanta, even
+  // when an envelope listens later in the rig. Macros are constant per callback.
+  static int IndependentInputPrefix(const Values& v)
+  {
+    int prefix = 4;
+    for (int row = 0; row < rows; ++row)
+    {
+      if (!RowActive(v, row)) continue;
+      const int slot = static_cast<int>(v[RowParam(row, RowSlot)]);
+      const int control = static_cast<int>(v[RowParam(row, RowDestination)]);
+      if (ValidDestination(slot, control)
+          && (DynamicSource(static_cast<int>(v[RowParam(row, RowSource)]))
+              || DynamicSource(static_cast<int>(v[RowParam(row, RowVia)])))) prefix = std::min(prefix, slot);
+    }
+    return prefix;
+  }
   // Return modulated slot fields to their host values before this quantum's offsets.
   template <class Controls>
   static void Restore(Controls& animated, const Controls& base, const Targets& targets, int count)

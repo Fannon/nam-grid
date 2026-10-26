@@ -1,5 +1,7 @@
 # NAM Grid documentation
 
+> **Beta release:** NAM Grid is a beta (0.x) release. Preset and automation stability are goals, but we reserve the option to improve sound quality or performance in ways that may change the sonic results of existing projects and presets.
+
 The player guides are published at **[fannon.github.io/nam-grid](https://fannon.github.io/nam-grid/)**. This page lists every guide in the repository.
 
 ## Get started

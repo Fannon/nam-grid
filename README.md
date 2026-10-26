@@ -7,6 +7,8 @@ An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 cabinet impulse responses and built-in effects, then blend two parallel chains
 for anything from a simple amp sound to layered ambient textures.
 
+> **Beta release:** NAM Grid is a beta (0.x) release. Preset and automation stability are goals, but we reserve the option to improve sound quality or performance in ways that may change the sonic results of existing projects and presets.
+
 **[Download NAM Grid](https://github.com/Fannon/nam-grid/releases/latest)** ·
 **[Read the manual](https://fannon.github.io/nam-grid/)** · [Getting started](https://fannon.github.io/nam-grid/getting-started) ·
 [See it in action](https://fannon.github.io/nam-grid/#see-it-in-action)

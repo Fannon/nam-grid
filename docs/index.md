@@ -61,6 +61,10 @@ const shots = [
 ]
 </script>
 
+::: warning Beta release
+NAM Grid is a beta (0.x) release. Preset and automation stability are goals, but we reserve the option to improve sound quality or performance in ways that may change the sonic results of existing projects and presets.
+:::
+
 ## Pick your platform
 
 Each release has one archive per platform, with both **CLAP and VST3** inside.

@@ -1,6 +1,7 @@
 #pragma once
 #include "SlotOperations.h"
 #include "SpectralAnalysis.h"
+#include <cstring>
 
 void TestDistortionAndMonoMeters()
 {
@@ -29,6 +30,33 @@ void TestDistortionAndMonoMeters()
         assert(std::abs(settled - SlotDistortion::Transfer(x, style, 63., .4)) < 1.e-12);
       }
     }
+  // Compare the complete processors against the uncached analytic path while
+  // curve coefficients and active styles move, including tiny/odd callbacks.
+  // This protects the cache invalidation rules independently of spectral ratios.
+  for (double rate : {44100., 48000., 88200., 96000., 176400., 192000.})
+  {
+    SlotDistortion cached, reference; cached.Reset(rate); reference.Reset(rate);
+    std::vector<double> actual(8192), expected(actual.size());
+    for (int i = 0; i < actual.size(); ++i)
+      actual[i] = expected[i] = .7 * std::sin(i * .071) + .1 * std::cos(i * .037);
+    UtilityControls c;
+    for (int position = 0, block = 0; position < actual.size();)
+    {
+      const int segment = position / 256;
+      c.distortion = {double(segment % effect_modes::distortionCount), double((segment % 4) * 12),
+                      segment % 2 ? 200. : 12000., double((segment % 3 - 1) * 100),
+                      double((segment % 3) * 50), segment % 2 ? -6. : 6.};
+      const int n = std::min({static_cast<int>(actual.size()) - position, 256 - position % 256,
+                             std::array<int, 4>{1, 3, 37, 128}[block++ % 4]});
+      allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
+      cached.Process(actual.data() + position, n, c);
+      reference.Process<false>(expected.data() + position, n, c);
+      Eigen::internal::set_is_malloc_allowed(true); tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      position += n;
+    }
+    assert(std::memcmp(actual.data(), expected.data(), actual.size() * sizeof(double)) == 0);
+  }
   assert(SlotDistortion::Transfer(.2, 1, 10., 0.) == 1.);
   assert(SlotDistortion::Transfer(.2, 1, 1., 0.) == .2);
   for (double rate : {44100., 48000., 88200., 96000., 176400., 192000.})

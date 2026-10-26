@@ -78,6 +78,24 @@ def asset_cases(nam_paths, ir_paths, modules={"NAM": 0, "Cabinet IR": 6}):
     return cases
 
 
+def stacked_cases(cases, copies):
+    """Repeat a processor in grid order; keep one empty-grid control case."""
+    if any(n < 1 or n > 16 for n in copies):
+        raise ValueError("copies must be 1..16")
+    expanded = []
+    for case in cases:
+        if case["id"] == "empty":
+            expanded.append(case)
+            continue
+        for count in dict.fromkeys(copies):
+            if count == 1:
+                expanded.append(case)
+            elif not any(case["controls"].get(name, 0) >= .5 for name in ("Freeze Hold", "Shimmer Freeze", "Noise Learn")):
+                expanded.append({**case, "copies": count, "id": f"{case['id']}-x{count}",
+                                 "mode": f"{case['mode']}; {count} active slots (grid order)"})
+    return expanded
+
+
 def parse_worker_output(output, scenario, settings, failure=None):
     """Keep completed rows after a crash; mark every unfinished tuple as failed."""
     parsed = {}
@@ -140,8 +158,8 @@ def write_comparison(folder, baseline, metadata, rows):
     for key, before_rows in grouped[0].items():
         after_rows = grouped[1][key]
         old, case = before_rows[0]["case"], after_rows[0]["case"]
-        if (old["effect"], old["controls"], old.get("asset_sha256")) != (
-                case["effect"], case["controls"], case.get("asset_sha256")):
+        if (old["effect"], old["controls"], old.get("asset_sha256"), old.get("copies", 1)) != (
+                case["effect"], case["controls"], case.get("asset_sha256"), case.get("copies", 1)):
             raise ValueError(f"Comparison requires matching module controls/assets: {key[0]}")
         result = {"module": case["module"], "mode": case["mode"], "case_id": key[0], "rate": key[1], "buffer": key[2]}
         valid = all("timing" in r and not r.get("error") and not r.get("process_errors", 0)
@@ -281,7 +299,8 @@ def write_reports(folder, metadata, rows):
                          f"{row.get('error', 'Non-finite output or CLAP process error')}")
     lines += ["", "## Limits", "",
               "This does not open ASIO/CoreAudio, measure driver xruns/DPC latency, listen for clicks, "
-              "exercise UI/automation or concurrent asset loading, or model a complete rig. "
+              "exercise UI/automation or concurrent asset loading, or reproduce an arbitrary user rig. "
+              "Stacked cases repeat one processor in grid order; they are not a whole DAW project. "
               "A single module's cost is not a complete DAW project budget. Even paced mode uses an ordinary "
               "OS thread, so wake-up lateness is host/scheduler evidence rather than a measured device xrun. "
               "Steady-state algorithm modes are covered; knob extremes and every combination of tempo divisions "
@@ -297,6 +316,7 @@ def main(argv=None):
     parser.add_argument("--plugin", type=Path, help="CLAP binary (Mac: executable inside the .clap bundle)")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--rates", type=int, nargs="+", default=[44100, 48000, 96000])
+    parser.add_argument("--copies", type=int, nargs="+", default=[1], help="active copies of each processor, in grid order (1..16; default 1)")
     parser.add_argument("--buffers", type=int, nargs="+", default=[32, 64, 128])
     parser.add_argument("--seconds", type=positive, default=3., help="measured audio duration per tuple/repeat (75%% signal, 25%% silence)")
     parser.add_argument("--warmup", type=positive, default=.5, help="warm-up audio seconds, also checked for overruns")
@@ -330,7 +350,7 @@ def main(argv=None):
     ir_paths = [fixtures / name for name in ("ir-2048.wav", "ir-16384.wav")]
     modules = json.loads(subprocess.check_output([str(host), "--modules"], text=True, encoding="utf-8"))
     cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir], modules)
-    cases = select_cases(cases, args.module, args.filter)
+    cases = stacked_cases(select_cases(cases, args.module, args.filter), args.copies)
     if args.list:
         for case in cases:
             print(f"{case['id']:20} {case['module']}: {case['mode']}")

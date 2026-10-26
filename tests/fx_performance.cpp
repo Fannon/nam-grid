@@ -5,6 +5,7 @@
 #include "../NeuralAmpModeler/EffectPresentation.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include "../NeuralAmpModeler/SlotDefaults.h"
+#include "../NeuralAmpModeler/ParameterLayout.h"
 #include <algorithm>
 #include <iomanip>
 #include <limits>
@@ -285,6 +286,25 @@ static json Configure(json config, const json& scenario)
     config["SlotPaths"][0] = scenario["asset"];
   if (effect == SlotEffect::NoisePrint && !scenario.value("untrained", false))
     config["NoisePrintProfiles"][0] = {{"version", 1}, {"power", std::vector<double>(noise_print::bands, 1.e-6)}};
+  Check(!scenario.contains("copies") || scenario.at("copies").is_number_integer(), "Active-slot copies must be an integer");
+  const int copies = scenario.value("copies", 1);
+  Check(copies >= 1 && copies <= 16, "Active-slot copies must be 1..16");
+  if (copies > 1)
+  {
+    Check(config.value("Pre 1 Freeze Hold", 0.) < .5 && config.value("Pre 1 Shimmer Freeze", 0.) < .5
+            && config.value("Pre 1 Noise Learn", 0.) < .5, "Stacked latch/learn cases are unsupported");
+    json first = json::object();
+    for (auto it = config.begin(); it != config.end(); ++it)
+      if (it.key().starts_with("Pre 1 ")) first[it.key().substr(6)] = it.value();
+    for (int slot = 1; slot < copies; ++slot)
+    {
+      config["SlotEffects"][slot] = config["SlotEffects"][0];
+      config["SlotPaths"][slot] = config["SlotPaths"][0];
+      const auto prefix = GridSlotName(slot) + " ";
+      for (auto it = first.begin(); it != first.end(); ++it) config[prefix + it.key()] = it.value();
+      if (config.contains("NoisePrintProfiles")) config["NoisePrintProfiles"][slot] = config["NoisePrintProfiles"][0];
+    }
+  }
   return config;
 }
 
@@ -333,6 +353,13 @@ static json Measure(const Library& library, const json& scenario, const json& se
   const double loadMs = std::chrono::duration<double, std::milli>(Clock::now() - loadStart).count();
   const auto recalled = instance.Save();
   Check(recalled.at("SlotEffects")[0] == scenario.at("effect"), "Module selection not recalled");
+  for (int slot = 0; slot < scenario.value("copies", 1); ++slot)
+  {
+    Check(recalled.at("SlotEffects")[slot] == scenario.at("effect"), "Stacked module selection not recalled");
+    if (scenario.contains("asset"))
+      Check(recalled.at("SlotHashes")[slot].is_string() && !recalled.at("SlotHashes")[slot].get<std::string>().empty(),
+            "Stacked asset failed to load");
+  }
   for (auto it = scenario.at("controls").begin(); it != scenario.at("controls").end(); ++it)
     if (it.key() != "Freeze Hold" && it.key() != "Shimmer Freeze" && it.key() != "Noise Learn")
       Check(recalled.at("Pre 1 " + it.key()) == it.value(), "Mode not recalled: " + it.key());
@@ -562,6 +589,25 @@ try
   }
   if (argc == 2 && std::string(argv[1]) == "--self-test")
   {
+    auto stacked = Case("stack", "Pedal Drive", SlotEffect::PedalDrive, {{"Pedal Drive", 18.}});
+    stacked["copies"] = 16;
+    const auto configured = Configure(json::object(), stacked);
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      Check(configured["SlotEffects"][slot] == static_cast<int>(SlotEffect::PedalDrive), "Stacked effect regression");
+      Check(configured[GridSlotName(slot) + " Pedal Drive"] == 18., "Stacked controls regression");
+    }
+    for (const auto& invalid : json::array({0, 17, 1.5}))
+    {
+      stacked["copies"] = invalid;
+      bool rejected = false;
+      try { Configure(json::object(), stacked); } catch (const std::runtime_error&) { rejected = true; }
+      Check(rejected, "Invalid active-slot count accepted");
+    }
+    stacked["copies"] = 16;
+    stacked["effect"] = static_cast<int>(SlotEffect::NAM); stacked["asset"] = "fixture.nam";
+    const auto assets = Configure(json::object(), stacked);
+    Check(assets["SlotPaths"][15] == "fixture.nam", "Stacked asset path regression");
     const auto stats = Statistics({1., 2., 3., 4., 10.}, 5.);
     Check(stats["deadline_misses"] == 1 && stats["p95_us"] == 10. && stats["mean_us"] == 4., "Statistics regression");
     const auto cases = Catalog();

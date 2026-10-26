@@ -124,6 +124,31 @@ Total callback CPU includes shared overhead; JSON also compares estimated module
 CPU after subtracting each run's own empty-grid measurement. Repeat the before
 and after runs to distinguish improvements from changes in machine load.
 
+## Stacked processing and buffer headroom
+
+Use `--copies` to measure repeated active processors rather than extrapolating
+from one module. The empty-grid control runs once per rate/buffer/repeat:
+
+```sh
+python scripts/fx-performance.py --module "Distortion" --copies 1 4 8 16 --rates 48000 --buffers 64 128 --output tmp/audio-buffer-performance/reports/stacked
+```
+
+Each copy has independent DSP state and the same initial controls and asset.
+Copies fill slots in grid order (Pre, A, B, Post), retaining the grid's normal
+parallel routing. They are not an all-serial chain or an arbitrary user rig.
+Every requested asset must load in every copied slot. Stacked latch/learn cases
+are excluded because their triggers require separate live-history handling;
+single-copy latch/learn measurements remain available. The default is one copy,
+so existing benchmarks and waveform audits retain their normal case selection.
+Comparisons require the same copy counts, controls and asset hashes.
+
+At 48 kHz, 64 samples allow about 1.33 ms per callback and 128 allow 2.67 ms.
+Those are the whole audio thread's budgets, not an allowance for each module.
+Inspect signal, warm-up, p99/max and deadline counts as well as average CPU.
+A clean single-module screen does not establish that a populated rig or DAW
+project meets its deadline. Keep the zero-lookahead design and measure useful
+CPU savings before lowering oversampling or model quality.
+
 ## Coverage
 
 The host reads `kModuleGroups`, `SlotDefaultValues`, shared effect choices and
@@ -234,16 +259,22 @@ module loops cheap without changing output:
 - Avoid `size_t`/`double` conversions in delay reads (they are multi-instruction
   on MSVC x64), redundant `std::clamp` of doubles, and integer `%` on ring
   indices; compare-and-wrap gives the same index.
+- For ADAA, cache an antiderivative only for the exact same curve and previous
+  input sample. Drive/bias automation, style activation and the small-interval
+  fallback must invalidate stale values. Bias offsets depend on bias and style;
+  they can be reused separately. The stage tests compare cached and uncached
+  processors through moving drive/bias/styles and tiny/odd blocks; the plugin
+  waveform audit covers the full automation and modulation paths.
 - Prepare per-callback copies once; modulation restores only the slots it edits
   for each 16-sample quantum.
 - Where a loop has independent accumulators, such as the phases of a polyphase
   filter or a band bank, let each accumulator keep its own tap order and vectorize
   across accumulators. Pairing two of them in one register is bit-identical;
   reordering taps within one, or letting the compiler contract multiply-add pairs,
-  is not. Pedal Drive's oversampling filters do this on arm64 and keep the portable
-  loop elsewhere; `-DNAM_PEDAL_DRIVE_SCALAR` forces the portable path for comparison.
-  Here that changed only instruction scheduling, and the four dot products lost
-  about a fifth of the module's CPU.
+  is not. The shared Distortion/Pedal Drive oversampler packs phases with SSE2
+  on x64 and NEON for its 4x path on arm64; other paths retain scalar loops.
+  SSE2 requires no AVX/FMA dispatch or extra latency. `-DNAM_PEDAL_DRIVE_SCALAR`
+  forces the portable path for comparisons.
 
 Confirm such changes are bit-identical with `verify-fx-processing.py`. A change
 that alters rounding, such as recurrence oscillators or a different FFT

@@ -28,8 +28,8 @@ or embedded in the rig.
 
 ## Wet controls and blending
 
-Input feeds convolution. Pre-delay and the 12 dB/octave cuts shape its wet output;
-Invert wet changes polarity. Output sets the wet level, and Mix linearly blends
+Input feeds convolution. Pre-delay and the 12 dB/octave cuts shape its wet output.
+Output sets the wet level, and Mix linearly blends
 that result with the unchanged dry input. At 0% Mix the dry signal is exact,
 regardless of the wet controls. At 100% only the processed response is heard.
 Input and Output are linear gain controls; Input affects new excitation while
@@ -38,7 +38,7 @@ Output can change an existing tail. Pre-delay automation can bend the wet pitch.
 For cabinets, keep 100% Mix and start at the original -18 dB Output. For a reverb
 insert, choose Long IR, lower Mix and add some Pre-delay to separate the tail from
 the attack. On a reverb send, keep 100% Mix. Cut low end to avoid rumble, or lower
-High cut to darken a bright tail. Invert wet is useful when exploring parallel
-cancellation and resonant sound shaping.
+High cut to darken a bright tail. Blend unusual responses with dry audio and
+adjust Pre-delay to explore parallel cancellation and resonant sound shaping.
 
 See [Captures & cabinets](captures.md#cabinet-ir) for ranges and starting settings.

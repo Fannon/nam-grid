@@ -36,7 +36,6 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uIRPredelay, t.irPredelay);
   u(uIRLowCut, t.irLowCut);
   u(uIRHighCut, t.irHighCut);
-  u(uIRInvert, t.irInvert);
   u(uIRLength, t.irLength);
   visit(kSlotEnabled, c.enabled);
   visit(kSlotIn, c.inputDB);

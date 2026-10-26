@@ -42,7 +42,6 @@ Load a mono impulse response (`.wav`). Use **Length: Cabinet** for the original 
 | **High cut** | 200–20000 Hz | 20000 Hz | Wet low-pass, 12 dB/octave; 20000 bypasses. |
 | **Pre-delay** | 0–500 ms | 0 ms | Delays the wet response, leaving dry timing unchanged. |
 | **Output** | -36 to +18 dB | -18 dB | Wet level after convolution and cuts. Preserves the original cabinet gain. |
-| **Invert wet** | Off / On | Off | Reverses wet polarity for parallel blending and cancellation effects. |
 | **Mix** | 0–100% | 100% | Linear dry/wet blend; 0% passes the original signal unchanged. |
 
 **Display:** Cabinet shows the loaded response's frequency curve; Long IR shows its peak envelope over time. Both show the retained IR before wet controls, relative to its peak. Hover for its duration.
@@ -52,4 +51,4 @@ Load a mono impulse response (`.wav`). Use **Length: Cabinet** for the original 
 - Start at -18 dB Output and match the level with the strip below the editor.
 - For a reverb insert, select Long IR, start at 10–25% Mix, add 15–40 ms Pre-delay and use the cuts to keep the tail clear. On a send, use 100% Mix.
 - Input and Output change level, with no saturation. Input changes how strongly new audio excites the IR; Output also adjusts an already ringing tail.
-- Blend unusual resonances or textures with the dry signal. Invert wet changes cancellations at intermediate Mix settings; Pre-delay changes their spacing.
+- Blend unusual resonances or textures with the dry signal. Pre-delay changes the spacing of cancellations at intermediate Mix settings.

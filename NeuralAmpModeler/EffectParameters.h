@@ -231,8 +231,7 @@ enum UtilityParam
   uIRPredelay = 215,
   uIRLowCut = 216,
   uIRHighCut = 217,
-  uIRInvert = 218,
-  uIRLength = 219,
+  uIRLength = 218,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -550,11 +549,10 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Parametric Shelf Gain", "Shelf gain", 0, -12, 12, .1, "dB", 3, false, 1., 5},
    {"Parametric Low Mode", "Low", 0, 0, 1, 1, "", 0, false, 1., 5},
    {"IR Input", "Input", 0, -36, 18, .1, "dB", 0, false, 1., 7},
-   {"IR Mix", "Mix", 100, 0, 100, .1, "%", 6, false, 1., 7},
+   {"IR Mix", "Mix", 100, 0, 100, .1, "%", 5, false, 1., 7},
    {"IR Pre-delay", "Pre-delay", 0, 0, 500, .1, "ms", 3, false, 2., 7},
    {"IR Low Cut", "Low cut", 0, 0, 2000, 1, "Hz", 1, false, 2., 7},
    {"IR High Cut", "High cut", 20000, 200, 20000, 1, "Hz", 2, true, 1., 7},
-   {"IR Invert", "Invert wet", 0, 0, 1, 1, "", 5, false, 1., 7},
    {"IR Length", "Length", 0, 0, 1, 1, "", 0, false, 1., 7}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
@@ -753,6 +751,5 @@ struct UtilityControls
   int blackMode = 0;
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
-  bool irInvert = false;
   int irLength = 0;
 };

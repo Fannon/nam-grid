@@ -102,11 +102,10 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
   switch (p)
   {
     case uIRInput: return "Gain into convolution. Changes only the wet signal; at Mix zero the original signal passes unchanged.";
-    case uIRMix: return "Linear dry/wet blend. Input, Output, cuts, Pre-delay and Invert wet affect only the wet signal. Use 100% on a send.";
+    case uIRMix: return "Linear dry/wet blend. Input, Output, cuts and Pre-delay affect only the wet signal. Use 100% on a send.";
     case uIRPredelay: return "Delay before the wet response, leaving dry timing unchanged. Separates reverb from the attack; automation bends the wet pitch.";
     case uIRLowCut: return "12 dB/octave high-pass on the wet response. Removes cabinet rumble or reverb low end; 0 Hz bypasses.";
     case uIRHighCut: return "12 dB/octave low-pass on the wet response. Tames cabinet fizz or darkens reverb and textures; 20000 Hz bypasses.";
-    case uIRInvert: return "Reverse the wet signal's polarity. Changes cancellation and colour when blended with dry audio or parallel lanes.";
     case uIRLength: return "Cabinet preserves the original 8192-sample limit. Long IR keeps up to 30 seconds for reverb and sound design. Switching reloads the file.";
     case uPedalCharacter: return effect_modes::pedalCharacterHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
     case uPedalStyle: return effect_modes::pedalHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];

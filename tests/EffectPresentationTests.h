@@ -77,7 +77,7 @@ void TestEffectPresentation()
       occupied[position] = true;
     }
     assert(effect_presentation::Position(effect, uIRInput) == 0);
-    assert(effect_presentation::Position(effect, uIRMix) == 6);
+    assert(effect_presentation::Position(effect, uIRMix) == 5);
   }
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p)) assert(effect_presentation::HeaderControl(p));

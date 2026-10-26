@@ -164,7 +164,7 @@ It selects the backend during preparation without adding buffering latency.
 The default Cabinet length retains the released 8192-sample cap and gain.
 The opt-in Long IR identity retains up to 30 seconds and uses a small-partition
 head plus a large-partition tail. Length changes prepare and publish a replacement
-on the control thread. Wet trims, pre-delay, cuts and polarity precede the linear
+on the control thread. Wet trims, pre-delay and cuts precede the linear
 dry/wet blend; their defaults preserve the released cabinet sound.
 
 ## DSP sources and adaptations

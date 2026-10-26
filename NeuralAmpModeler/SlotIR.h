@@ -18,7 +18,7 @@ public:
     mWrite = 0;
     mHP.Reset(); mLP.Reset();
     mLow = 0.; mHigh = 20000.; mTime = 0.;
-    mHPMix = mLPMix = 0.; mPolarity = 1.;
+    mHPMix = mLPMix = 0.;
     mCounter = 0; mFirst = true;
     Update();
   }
@@ -27,10 +27,9 @@ public:
     const double low = std::clamp(c.irLowCut, 0., 2000.);
     const double high = std::clamp(c.irHighCut, 200., 20000.);
     const double time = std::clamp(c.irPredelay, 0., 500.) * .001 * mRate;
-    const double polarity = c.irInvert ? -1. : 1.;
     if (mFirst)
     {
-      mLow = low; mHigh = high; mTime = time; mPolarity = polarity;
+      mLow = low; mHigh = high; mTime = time;
       mHPMix = low > 0. ? 1. : 0.; mLPMix = high < 20000. ? 1. : 0.;
       Update(); mFirst = false;
     }
@@ -39,7 +38,6 @@ public:
       const bool changed = mLow != low || mHigh != high;
       mLow = Smooth(mLow, low); mHigh = Smooth(mHigh, high);
       mTime = Smooth(mTime, time);
-      mPolarity += std::clamp(polarity - mPolarity, -2. / (.005 * mRate), 2. / (.005 * mRate));
       if (mCounter == 0 && changed) Update();
       mCounter = (mCounter + 1) % 16;
       mHPMix = Smooth(mHPMix, low > 0. ? 1. : 0.);
@@ -54,7 +52,7 @@ public:
       const double hp = mHP.Tick(x);
       x += mHPMix * (hp - x);
       const double lp = mLP.Tick(x);
-      samples[i] = (x + mLPMix * (lp - x)) * mPolarity;
+      samples[i] = x + mLPMix * (lp - x);
     }
   }
 private:
@@ -71,7 +69,7 @@ private:
   std::vector<double> mDelay;
   size_t mWrite = 0;
   double mRate = 48000., mSmoothing = 0., mLow = 0., mHigh = 20000., mTime = 0.;
-  double mHPMix = 0., mLPMix = 0., mPolarity = 1.;
+  double mHPMix = 0., mLPMix = 0.;
   int mCounter = 0;
   bool mFirst = true;
 };

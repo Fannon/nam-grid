@@ -847,6 +847,40 @@ int main(int argc, char** argv)
   load(eqIR);
   assert(save().config() == eqIR);
   const auto eqIRBytes = save();
+  {
+    auto shaped = eqIR;
+    for (int slot : {0, 15})
+    {
+      const auto prefix = GridSlotName(slot) + " ";
+      shaped["SlotEffects"][slot] = static_cast<int>(SlotEffect::CabinetIR);
+      shaped["SlotPaths"][slot] = irFile.string();
+      shaped[prefix + "IR Input"] = 6.; shaped[prefix + "IR Mix"] = 25.;
+      shaped[prefix + "IR Pre-delay"] = 37.5; shaped[prefix + "IR Low Cut"] = 200.;
+      shaped[prefix + "IR High Cut"] = 5000.; shaped[prefix + "IR Invert"] = 1.;
+      shaped[prefix + "IR Length"] = 1.;
+    }
+    load(shaped);
+    assert(save().config() == shaped);
+    assert(loadBytes(save()));
+    assert(save().config() == shaped);
+    auto legacy = eqIR;
+    legacy["schema"] = 6;
+    for (int slot = 0; slot < 16; ++slot)
+      for (int p = uIRInput; p <= uIRLength; ++p)
+      {
+        const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
+        legacy.erase(key);
+        for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+      }
+    load(legacy);
+    assert(save().config() == eqIR);
+    for (const json& bad : {json(-1), json(2), json(.5)})
+    {
+      auto invalid = eqIR; invalid["Pre 1 IR Length"] = bad;
+      assert(!loadRaw(invalid));
+      assert(save().config() == eqIR);
+    }
+  }
   load(base);
   assert(loadBytes(eqIRBytes));
   assert(save().config() == eqIR);
@@ -2066,6 +2100,34 @@ int main(int argc, char** argv)
   selectTile(610, 120); // Select IN3 IR loader; its Output sits below the first column.
   dragAt(grid_layout::KnobX(4), grid_layout::KnobGestureY(4));
   assert(save().config()["Pre 3 IR Output"] != -18.);
+  {
+    auto original = save().config();
+    if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "ir-controls-cabinet.bmp");
+    for (int p : {uIRInput, uIRMix, uIRPredelay, uIRLowCut, uIRHighCut})
+    {
+      const auto key = std::string("Pre 3 ") + kEffectParameters[p].name;
+      const double before = save().config()[key];
+      const int position = effect_presentation::Position(SlotEffect::CabinetIR, p);
+      dragAt(grid_layout::KnobX(position), grid_layout::KnobGestureY(position),
+             before == kEffectParameters[p].maximum ? -25 : 25);
+      assert(save().config()[key] != before);
+    }
+    // Wet polarity is local; the length selector reloads the same resource on idle.
+    click(grid_layout::KnobX(5), grid_layout::ToggleY(5));
+    assert(save().config()["Pre 3 IR Invert"] == 1.);
+    host.dirty = false;
+    click(optionX(uIRLength), grid_layout::optionsY);
+    assert(save().config()["Pre 3 IR Length"] == 1. && host.dirty);
+    pumpFor(200);
+    if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "ir-controls-long.bmp");
+    const auto recalledIR = save();
+    assert(loadBytes(recalledIR));
+    assert(save().config()["Pre 3 IR Length"] == 1.);
+    selectTile(610, 120);
+    click(optionX(uIRLength), grid_layout::optionsY);
+    assert(save().config()["Pre 3 IR Length"] == 0.);
+    load(original);
+  }
   auto utilities = browserState;
   utilities["SlotEffects"][0] = static_cast<int>(SlotEffect::ParametricEQ);
   utilities["SlotEffects"][1] = static_cast<int>(SlotEffect::Boost);

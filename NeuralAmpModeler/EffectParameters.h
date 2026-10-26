@@ -226,13 +226,22 @@ enum UtilityParam
   uParamHighQ = 210,
   uParamShelfGain = 211,
   uParamLowMode = 212,
+  uIRInput = 213,
+  uIRMix = 214,
+  uIRPredelay = 215,
+  uIRLowCut = 216,
+  uIRHighCut = 217,
+  uIRInvert = 218,
+  uIRLength = 219,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
+inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
   {
+    case uIRLength: return kIRLengths;
     case uParamLowMode: return kParamLowModes;
     case uTempoDivision: return grid_tempo::names;
     case uJunoMode: return effect_modes::junoNames;
@@ -276,6 +285,7 @@ inline constexpr AlgorithmIdentity desk[]{
 inline constexpr AlgorithmIdentity black[]{{0, "zero-crossing"}, {1, "hysteresis"}};
 inline constexpr AlgorithmIdentity eq[]{{0, "bell"}, {1, "notch"}};
 inline constexpr AlgorithmIdentity eqLow[]{{0, "cut"}, {1, "shelf"}};
+inline constexpr AlgorithmIdentity irLength[]{{0, "cabinet-8192"}, {1, "long-ir-30s"}};
 inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
@@ -283,6 +293,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
   using namespace algorithm_identities;
   switch (control)
   {
+    case uIRLength: return irLength;
     case uDistStyle: return distortion;
     case uPedalStyle: return pedal;
     case uJunoMode: return juno;
@@ -308,7 +319,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 6; // 2 Black Hold; 3 Pedal Drive; 4 Pedal Character; 5 Parametric EQ; 6 second modulation bank.
+inline constexpr int kEffectStateSchema = 7; // 7 IR controls and opt-in long convolution; earlier schemas keep cabinet behavior.
 
 struct EffectParameter
 {
@@ -537,7 +548,14 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Parametric Low Q", "Low Q", .7071067811865476, .1, 4, .01, "", 5, false, 1., 5},
    {"Parametric High Q", "High Q", .7071067811865476, .1, 4, .01, "", 7, false, 1., 5},
    {"Parametric Shelf Gain", "Shelf gain", 0, -12, 12, .1, "dB", 3, false, 1., 5},
-   {"Parametric Low Mode", "Low", 0, 0, 1, 1, "", 0, false, 1., 5}}};
+   {"Parametric Low Mode", "Low", 0, 0, 1, 1, "", 0, false, 1., 5},
+   {"IR Input", "Input", 0, -36, 18, .1, "dB", 0, false, 1., 7},
+   {"IR Mix", "Mix", 100, 0, 100, .1, "%", 6, false, 1., 7},
+   {"IR Pre-delay", "Pre-delay", 0, 0, 500, .1, "ms", 3, false, 2., 7},
+   {"IR Low Cut", "Low cut", 0, 0, 2000, 1, "Hz", 1, false, 2., 7},
+   {"IR High Cut", "High cut", 20000, 200, 20000, 1, "Hz", 2, true, 1., 7},
+   {"IR Invert", "Invert wet", 0, 0, 1, 1, "", 5, false, 1., 7},
+   {"IR Length", "Length", 0, 0, 1, 1, "", 0, false, 1., 7}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -615,6 +633,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (e == SlotEffect::CabinetIR) return p >= uIRInput && p <= uIRLength;
   if (e == SlotEffect::PedalDrive) return p >= uPedalStyle && p <= uPedalCharacter;
   if (e == SlotEffect::DigitalBlack) return (p >= uBlackThreshold && p <= uBlackMode) || p == uBlackHold;
   if (e == SlotEffect::OutboardChannel) return p >= uStripLowCut && p <= uStripMix;
@@ -733,4 +752,7 @@ struct UtilityControls
   std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
+  double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
+  bool irInvert = false;
+  int irLength = 0;
 };

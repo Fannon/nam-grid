@@ -185,7 +185,7 @@ int main(int argc, char** argv)
   for (int p = grid_performance::LFO2Shape; p < grid_performance::Count; ++p)
   {
     const int id = PerformanceParam(p);
-    assert(id >= parameter_layout::SlotID(15, parameter_layout::slotControls - 1) + 1);
+    assert(id >= parameter_layout::SlotID(15, parameter_layout::standardControls + uParamLowMode) + 1);
     assert(PerformanceIndex(id) == p && SlotControlOwner(id) == -1);
     const auto actual = metadata(id);
     assert(actual["name"] == grid_performance::parameters[p].name);

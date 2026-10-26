@@ -65,6 +65,7 @@ inline std::array<bool, 8> FixedPlaces(SlotEffect e)
       || e == SlotEffect::ToneEQ || e == SlotEffect::CutEQ)
     fixed[0] = fixed[1] = fixed[2] = true;
   if (e == SlotEffect::ParametricEQ) fixed[4] = fixed[6] = true;
+  if (e == SlotEffect::CabinetIR) fixed[kOutputPosition] = true;
   if (e == SlotEffect::Boost || e == SlotEffect::TubeBoost) fixed[2] = true;
   return fixed;
 }
@@ -100,6 +101,13 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
+    case uIRInput: return "Gain into convolution. Changes only the wet signal; at Mix zero the original signal passes unchanged.";
+    case uIRMix: return "Linear dry/wet blend. Input, Output, cuts, Pre-delay and Invert wet affect only the wet signal. Use 100% on a send.";
+    case uIRPredelay: return "Delay before the wet response, leaving dry timing unchanged. Separates reverb from the attack; automation bends the wet pitch.";
+    case uIRLowCut: return "12 dB/octave high-pass on the wet response. Removes cabinet rumble or reverb low end; 0 Hz bypasses.";
+    case uIRHighCut: return "12 dB/octave low-pass on the wet response. Tames cabinet fizz or darkens reverb and textures; 20000 Hz bypasses.";
+    case uIRInvert: return "Reverse the wet signal's polarity. Changes cancellation and colour when blended with dry audio or parallel lanes.";
+    case uIRLength: return "Cabinet preserves the original 8192-sample limit. Long IR keeps up to 30 seconds for reverb and sound design. Switching reloads the file.";
     case uPedalCharacter: return effect_modes::pedalCharacterHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
     case uPedalStyle: return effect_modes::pedalHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
     case uPedalDrive: return "Gain into the pedal stages. Each style has its own filtering and gain structure; match loudness with Output.";
@@ -286,7 +294,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; louder notes add harmonics beyond the curve.";
     case SlotEffect::ButterComp: return "Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack.";
     case SlotEffect::NAM: return "Input drives the capture; EQ and Output shape its result.";
-    case SlotEffect::CabinetIR: return "Cabinet convolution; the curve is the loaded IR's frequency response.";
+    case SlotEffect::CabinetIR: return "Convolution for cabinets, reverbs and textures. Long IR keeps tails up to 30 seconds; Mix blends with dry.";
     case SlotEffect::NoiseGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";
     case SlotEffect::NoisePrint: return "Learn the noise alone; Sensitivity and Reduction protect sustain.";
     case SlotEffect::SmoothComp: return "Gentle leveling; Attack preserves pick, Makeup restores level.";

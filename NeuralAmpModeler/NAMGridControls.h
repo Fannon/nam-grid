@@ -1373,6 +1373,7 @@ public:
     {
       mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? effect_presentation::kOutputPosition : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
       mEditor->AddChildControl(mEQKnobs[i]);
+      if (i == 6) mEQKnobs[i]->SetTooltip("Wet level after convolution, Pre-delay and cuts. Leaves the dry signal unchanged; match IR loudness before adjusting Mix.");
     }
     for (int i = 0; i < kUtilityControls; ++i)
     {
@@ -2049,20 +2050,25 @@ private:
     }
     else
     {
-      // A cabinet IR is a fixed filter: its frequency response is the useful view.
-      // Computed once per file on the UI thread; audio is never touched.
       UpdateIRResponse();
-      PlotTitle(g,plot,color,"IR | frequency response");
+      const bool longIR = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
+      PlotTitle(g,plot,color,longIR ? "IR | tail envelope" : "IR | frequency response");
       WDL_String detail;
-      detail.SetFormatted(80,"Relative to its peak | Level %+.1f dB",GetDelegate()->GetParam(SlotEQParam(mSlot, 6))->Value());
+      detail.SetFormatted(100,"%.3f s | Relative to peak, before wet controls",mIRSeconds);
       PlotDetail(g,plot,detail.Get());
-      PlotFrequencyAxis(g,plot,mIRUpper,"0 / -36 dB");
+      if (longIR)
+      {
+        PlotGrid(g,plot);
+        WDL_String axis; axis.SetFormatted(60,"0 - %.3f s | Peak envelope",mIRSeconds);
+        PlotFooter(g,plot,axis.Get(),"0 / -60 dB");
+      }
+      else PlotFrequencyAxis(g,plot,mIRUpper,"0 / -36 dB");
       if (mIRResponseValid)
         PlotCurve(g,plot,[&](double x) {
           const double position=x*(mIRResponse.size()-1);
           const size_t i=std::min(mIRResponse.size()-2,static_cast<size_t>(position));
           return mIRResponse[i]+(position-i)*(mIRResponse[i+1]-mIRResponse[i]);
-        },-36.,0.,color);
+        },longIR ? -60. : -36.,0.,color);
       else
         g.DrawText(Text(13.f,muted,EAlign::Center),"IR file unavailable",plot);
     }
@@ -2297,12 +2303,31 @@ private:
   void UpdateIRResponse()
   {
     const auto path = PLUG()->GetSlotPath(mSlot);
-    if (path == mIRResponsePath) return;
+    const bool longIR = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
+    const double hostRate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+    if (path == mIRResponsePath && longIR == mIRLong && hostRate == mIRHostRate) return;
+    mIRLong = longIR; mIRHostRate = hostRate; mIRSeconds = 0.;
     mIRResponsePath = path; mIRResponseValid = false;
     std::vector<float> taps; double rate = 0.;
     if (path.empty() || dsp::wav::Load(path.c_str(), taps, rate) != dsp::wav::LoadReturnCode::SUCCESS || taps.empty() || !(rate > 0.))
       return;
-    taps.resize(std::min<size_t>(taps.size(), 32768)); // Cabinet IRs are far shorter; cap pathological files.
+    taps.resize(std::min(taps.size(), std::max<size_t>(1, static_cast<size_t>(rate * (longIR ? AdaptiveIR::maximumSeconds : 8192. / hostRate)))));
+    mIRSeconds = taps.size() / rate;
+    if (longIR)
+    {
+      float peak = 0.f;
+      mIRResponse.fill(0.f);
+      for (size_t n = 0; n < taps.size(); ++n)
+      {
+        const auto bin = std::min(mIRResponse.size() - 1, n * mIRResponse.size() / taps.size());
+        mIRResponse[bin] = std::max(mIRResponse[bin], std::abs(taps[n]));
+        peak = std::max(peak, std::abs(taps[n]));
+      }
+      for (auto& value : mIRResponse)
+        value = static_cast<float>(20. * std::log10(std::max(1.e-6f, value / std::max(1.e-12f, peak))));
+      mIRResponseValid = true;
+      return;
+    }
     mIRUpper = std::min(20000., .49 * rate);
     float peak = -1.e9f;
     for (size_t i = 0; i < mIRResponse.size(); ++i)
@@ -2567,6 +2592,8 @@ private:
   std::string mIRResponsePath; // Cabinet IR whose response is cached below.
   std::array<float, 120> mIRResponse{};
   double mIRUpper = 20000.;
+  double mIRSeconds = 0., mIRHostRate = 0.;
+  bool mIRLong = false;
   bool mIRResponseValid = false;
   size_t mReductionWrite = 0;
   float mReductionNow = 0.f;

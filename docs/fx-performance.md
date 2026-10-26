@@ -244,6 +244,47 @@ the direct reference with impulses, silence/tails, variable blocks, reset and IR
 replacement. Prepare plans/buffers off audio and verify processing allocations
 and locks separately. Do not claim speedups from library descriptions alone.
 
+### Modulation and shared architecture
+
+Use `--modulation none|depth-zero|macros|lfo|envelope|sequencer|all` to apply the
+same matrix profile to every selected case, including the empty-grid baseline.
+The profiles route to A/B blend, allowing NAM inference and other module costs
+to be compared with and without control-rate subdivision. Keep separate output
+folders; comparison requires the same cases, routing and settings.
+
+With no nonzero-depth source assignments, source DSP is skipped and the grid
+processes whole host buffers. Macro-only assignments retain the first control quantum for gain transitions,
+then batch the rest of the host buffer; source clocks and follower histories
+continue to advance. Any active LFO, envelope or sequencer dependency, including Via, retains
+16-sample control quanta. Both source banks currently advance together whenever
+modulation is active. An unused source within an active matrix is therefore not
+free. The control quantum adds no buffered audio latency, but repeated module
+entry and small inference batches can noticeably increase callback cost.
+
+Run the waveform audit with `--macros-only` to exercise macro routing without
+dynamic sources. The normal audit includes LFO, envelope, sequencer and macro
+assignments. Check both paths when changing control scheduling. Macro-only
+processing now batches after the first quantum, so block-dependent control
+transitions may differ from the previous 16-sample schedule; measure the affected
+controls rather than assuming every module is block-size independent. Airwindows Tape
+samples its smoothed drive/head-bump controls in short internal spans; batching
+macro-only calls can slightly alter those transitions. Keep its numerical error
+budget separate from inference rounding and convolution rounding.
+
+Only the selected effect in each slot runs its DSP. Empty slots skip sample DSP;
+bypassed slots fade and drain their tails before suspending it. Bypass still has
+routing/mixing overhead. Mix at zero generally keeps the effect running, as do
+muted or inaudible parallel lanes, preserving histories, tails and follower taps.
+Meters, DC filtering, control snapshots and routing contribute shared overhead.
+These cases need separate measurements; neither Mix zero nor lane mute should
+be treated as a CPU suspension command.
+
+Prioritize settled-rig callback mean and upper-tail costs. Modulation assignment,
+module insertion and mode changes may briefly interrupt sound-design playback;
+prepare resources outside the steady audio path. No optimization may add
+lookahead or fixed effect latency. During beta, a small measured sonic change
+can be an acceptable performance tradeoff when documented and tested.
+
 ### Per-sample idioms
 
 Small-buffer cost is dominated by per-sample work, so these patterns keep

@@ -404,9 +404,13 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     for (int i = 0; i < mNoteCount; ++i) mNoteFrames[i] = std::clamp(mNoteFrames[i], 0, nFrames - 1);
     std::sort(mNoteFrames.begin(), mNoteFrames.begin() + mNoteCount);
     int nextNote = 0;
+    const bool dynamic = mModulation.DynamicAssignments(performance);
     for (int offset = 0; offset < nFrames;)
     {
-      const int count = std::min(mModulation.Quantum(), nFrames - offset);
+      // Keep the first control quantum for block-dependent gain transitions.
+      // Once those targets settle, static macro rows can batch the remainder.
+      // A dynamic primary or Via source retains the original control schedule.
+      const int count = dynamic || offset == 0 ? std::min(mModulation.Quantum(), nFrames - offset) : nFrames - offset;
       // Destinations are fixed for the block; only their amounts change per quantum.
       grid_modulation::Matrix::Targets targets;
       const int modulated = grid_modulation::Matrix::Collect(performance, mModulation, targets);

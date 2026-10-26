@@ -96,6 +96,24 @@ def stacked_cases(cases, copies):
     return expanded
 
 
+MODULATION_PROFILES = {"none": (), "depth-zero": (1,), "macros": (4,), "lfo": (1,),
+                       "envelope": (2,), "sequencer": (3,), "all": (1, 2, 3, 8, 9, 10)}
+
+
+def modulation_cases(cases, profile):
+    """Exercise shared architecture by routing sources to the A/B blend."""
+    if profile == "none":
+        return cases
+    sources = MODULATION_PROFILES[profile]
+    globals = {"Macro 1": 50.} if profile == "macros" else {}
+    for row, source in enumerate(sources, 1):
+        globals.update({f"Mod {row} Source": source, f"Mod {row} Slot": 16,
+                        f"Mod {row} Destination": 0, f"Mod {row} Depth": 0. if profile == "depth-zero" else 50.})
+    return [{**case, "globals": {**case.get("globals", {}), **globals},
+             "id": f"{case['id']}-mod-{profile}" if case["id"] != "empty" else "empty",
+             "mode": f"{case['mode']}; modulation {profile}"} for case in cases]
+
+
 def parse_worker_output(output, scenario, settings, failure=None):
     """Keep completed rows after a crash; mark every unfinished tuple as failed."""
     parsed = {}
@@ -158,9 +176,9 @@ def write_comparison(folder, baseline, metadata, rows):
     for key, before_rows in grouped[0].items():
         after_rows = grouped[1][key]
         old, case = before_rows[0]["case"], after_rows[0]["case"]
-        if (old["effect"], old["controls"], old.get("asset_sha256"), old.get("copies", 1)) != (
-                case["effect"], case["controls"], case.get("asset_sha256"), case.get("copies", 1)):
-            raise ValueError(f"Comparison requires matching module controls/assets: {key[0]}")
+        if (old["effect"], old["controls"], old.get("asset_sha256"), old.get("copies", 1), old.get("globals", {})) != (
+                case["effect"], case["controls"], case.get("asset_sha256"), case.get("copies", 1), case.get("globals", {})):
+            raise ValueError(f"Comparison requires matching module controls/assets/routing: {key[0]}")
         result = {"module": case["module"], "mode": case["mode"], "case_id": key[0], "rate": key[1], "buffer": key[2]}
         valid = all("timing" in r and not r.get("error") and not r.get("process_errors", 0)
                     and not r.get("nonfinite_samples", 0) for r in before_rows + after_rows)
@@ -325,6 +343,7 @@ def main(argv=None):
     parser.add_argument("--ir", type=Path, action="append", default=[], help="add a real WAV IR (repeatable)")
     parser.add_argument("--filter", action="append", default=[], help="case-insensitive module/mode/id substring (OR; baseline always included)")
     parser.add_argument("--module", action="append", default=[], help="exact module name; repeatable; includes all modes and the empty-grid baseline")
+    parser.add_argument("--modulation", choices=MODULATION_PROFILES, default="none", help="matrix profile applied to every case, including the empty grid")
     parser.add_argument("--compare", type=Path, help="previous report.json with matching cases/settings; writes comparison.md/.csv/.json")
     parser.add_argument("--list", action="store_true", help="list selected cases without loading the plugin")
     parser.add_argument("--paced", action="store_true", help="pace callbacks in wall time and record scheduling lateness; can take hours")
@@ -351,6 +370,7 @@ def main(argv=None):
     modules = json.loads(subprocess.check_output([str(host), "--modules"], text=True, encoding="utf-8"))
     cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir], modules)
     cases = stacked_cases(select_cases(cases, args.module, args.filter), args.copies)
+    cases = modulation_cases(cases, args.modulation)
     if args.list:
         for case in cases:
             print(f"{case['id']:20} {case['module']}: {case['mode']}")
@@ -373,9 +393,9 @@ def main(argv=None):
                 "settings": settings, "cases": cases, "sample_format": "stereo float64", "planned_measurements": len(cases) * count}
     if baseline is not None:
         check_comparison_settings(baseline, metadata)
-        identities = lambda selected: {c["id"]: (c["effect"], c["controls"], c.get("asset_sha256")) for c in selected}
+        identities = lambda selected: {c["id"]: (c["effect"], c["controls"], c.get("asset_sha256"), c.get("globals", {}), c.get("copies", 1)) for c in selected}
         if identities(baseline["metadata"]["cases"]) != identities(cases):
-            raise ValueError("Comparison requires matching selected cases, module controls and asset hashes")
+            raise ValueError("Comparison requires matching selected cases, module controls, routing, copies and asset hashes")
     rows = []
     timeout = args.timeout or max(120., count * (args.seconds + args.warmup) * 3. + 60.)
     start = time.monotonic()

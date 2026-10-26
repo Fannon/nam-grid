@@ -27,6 +27,14 @@ class EventTests(unittest.TestCase):
         self.assertFalse(any(name.endswith(("Source", "Slot", "Destination")) for name in names))
         self.assertEqual(audit.ROUTING["Mod 4 Slot"], 16)
 
+    def test_macro_audit_does_not_enable_dynamic_rows(self):
+        events = audit.events({"controls": {}, "knobs": []}, 1000, macros_only=True)
+        names = {event["name"] for event in events}
+        self.assertIn("Macro 1", names)
+        self.assertIn("Mod 4 Depth", names)
+        self.assertIn("Mod 5 Depth", names)
+        self.assertFalse(names & {"LFO Rate", "Mod 1 Depth", "Mod 2 Depth", "Mod 3 Depth"})
+
     def test_latched_capture_cases_render_without_audit_events(self):
         for control in audit.LATCHED:
             self.assertEqual(audit.events({"controls": {control: 1}, "knobs": []}, 1000), [])

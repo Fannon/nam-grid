@@ -452,6 +452,13 @@ public:
   void Reset(double rate) { for (auto& bank : mBanks) bank.Reset(rate); }
   int Quantum() const { return mBanks[0].Quantum(); }
   bool Active(const Values& v) const { return mBanks[0].Active(v); }
+  bool DynamicAssignments(const Values& v) const
+  {
+    for (int row = 0; row < rows; ++row)
+      if (RowActive(v, row) && (DynamicSource(static_cast<int>(v[RowParam(row, RowSource)]))
+                               || DynamicSource(static_cast<int>(v[RowParam(row, RowVia)])))) return true;
+    return false;
+  }
   static double ShapeEnvelope(double level, const Values& v, int instance = 0)
   { return SourceBank::ShapeEnvelope(level, v, instance); }
   // Optional second listening point defaults to the first for standalone DSP callers.

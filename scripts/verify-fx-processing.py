@@ -39,27 +39,30 @@ MODULATION = [("LFO Rate", 3., None), ("Mod 1 Depth", 40., -30.), ("Mod 2 Depth"
 LATCHED = ("Freeze Hold", "Shimmer Freeze", "Noise Learn")
 
 
-def events(case, blocks):
+def events(case, blocks, macros_only=False):
     """Two passes: move every control away from its default, then to a second value."""
     if any(case["controls"].get(name, 0) >= .5 for name in LATCHED):
         return []  # The host reserves its single event slot for the capture/learn trigger.
     knobs = [("Pre 1 " + k["name"], k["minimum"] + .3 * (k["maximum"] - k["minimum"]),
               k["minimum"] + .7 * (k["maximum"] - k["minimum"])) for k in case.get("knobs", [])]
     controls = SHARED + knobs
-    sequence = [(name, first) for name, first, _ in controls] + [(name, first) for name, first, _ in MODULATION]
-    sequence += [(name, second) for name, _, second in controls + MODULATION if second is not None]
+    modulation = [(name, first, second) for name, first, second in MODULATION
+                  if name.startswith(("Macro ", "Mod 4 ", "Mod 5 "))] if macros_only else MODULATION
+    sequence = [(name, first) for name, first, _ in controls] + [(name, first) for name, first, _ in modulation]
+    sequence += [(name, second) for name, _, second in controls + modulation if second is not None]
     # Leave settling time between changes, and silence at the end for tails.
     spacing = max(1, (blocks * 3 // 4) // (len(sequence) + 1))
     return [{"block": spacing * (index + 1), "name": name, "value": value if isinstance(value, str) else round(value, 6)}
             for index, (name, value) in enumerate(sequence)]
 
 
-def render(host, plugin, case, rate, buffer, seconds, warmup, folder):
+def render(host, plugin, case, rate, buffer, seconds, warmup, folder, macros_only=False):
     path = folder / "render.f64"
     blocks = int(-(-(seconds + warmup) * rate // buffer))
     settings = {"rates": [rate], "buffers": [buffer], "seconds": seconds, "warmup_seconds": warmup, "repeats": 1,
-                "paced": False, "render_path": str(path), "parameter_events": events(case, blocks)}
-    (folder / "case.json").write_text(json.dumps({**case, "globals": ROUTING}), encoding="utf-8")
+                "paced": False, "render_path": str(path), "parameter_events": events(case, blocks, macros_only)}
+    routing = {key: value for key, value in ROUTING.items() if key.startswith(("Mod 4 ", "Mod 5 "))} if macros_only else ROUTING
+    (folder / "case.json").write_text(json.dumps({**case, "globals": routing}), encoding="utf-8")
     (folder / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
     run = subprocess.run([str(host), "--run", str(plugin), str(folder / "case.json"), str(folder / "settings.json")],
                          capture_output=True, text=True, timeout=300)
@@ -88,6 +91,7 @@ def main():
     parser.add_argument("--filter", action="append", default=[])
     parser.add_argument("--module", action="append", default=[])
     parser.add_argument("--tolerance", type=float, default=0., help="maximum absolute sample difference")
+    parser.add_argument("--macros-only", action="store_true", help="audit macro-only routing without dynamic sources")
     args = parser.parse_args()
     host = (args.host or benchmark.find_executable(benchmark.DEFAULT_BUILD_DIR, "nam-fx-performance")).resolve()
     before, after = (benchmark.plugin_binary(p.resolve()) for p in (args.before, args.after))
@@ -109,8 +113,8 @@ def main():
                     row = {"case": case["id"], "module": case["module"], "mode": case["mode"], "rate": rate,
                            "buffer": buffer}
                     try:
-                        a, count = render(host, before, case, rate, buffer, args.seconds, args.warmup, folder)
-                        b, _ = render(host, after, case, rate, buffer, args.seconds, args.warmup, folder)
+                        a, count = render(host, before, case, rate, buffer, args.seconds, args.warmup, folder, args.macros_only)
+                        b, _ = render(host, after, case, rate, buffer, args.seconds, args.warmup, folder, args.macros_only)
                         if len(a) != len(b):
                             raise RuntimeError("render lengths differ")
                         difference = [abs(x - y) for x, y in zip(a, b)]
@@ -132,7 +136,7 @@ def main():
         digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
         report = {"before_sha256": digest(before), "after_sha256": digest(after), "tolerance": args.tolerance,
                   "rates": args.rates, "buffers": args.buffers, "seconds": args.seconds, "warmup": args.warmup,
-                  "complete": len(rows) == expected, "pass": len(rows) == expected and not failures,
+                  "macros_only": args.macros_only, "complete": len(rows) == expected, "pass": len(rows) == expected and not failures,
                   "exact": sum(r.get("exact", False) for r in rows), "rows": rows}
         (folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"{len(rows)}/{expected} renders compared, {report['exact']} bit-identical, {failures} failed")

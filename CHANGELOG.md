@@ -19,6 +19,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Macro-only modulation retains the first short control step and batches the rest of the audio buffer instead of subdividing every module into 16-sample calls, reducing callback overhead without adding latency. Dynamic sources, including Via, retain their 16-sample updates; block-dependent transitions can differ slightly for macro-only rigs, particularly when adjusting Airwindows Tape controls.
 - Reduce Distortion and Pedal Drive CPU on x64 with SIMD oversampling filters, and reuse exact antiderivative/bias evaluations in Distortion. Antialiasing quality and zero added latency are preserved.
 - Distortion reduces aliasing with minimum-phase oversampling and antiderivative antialiasing. It runs at 4x at 44.1/48 kHz, 2x at 88.2/96 kHz and 1x from 176.4 kHz, with zero added reported latency. Existing Distortion rigs can sound cleaner, with changes to attack and partial Mix blends.
 - Cosmic Echo's response graph and delay-line sketch have separate, shorter hover explanations, including the current line count.

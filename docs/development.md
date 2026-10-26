@@ -89,6 +89,12 @@ parameter at a time, scanning every control and refreshing every slot card per
 parameter, which took seconds at NAM Grid's size. Bulk updates should use the same
 single pass instead of looping `SendParameterValueFromDelegate`.
 
+For settled rigs, prioritize predictable callback cost. Modulation assignment,
+module insertion and mode changes may briefly interrupt sound-design playback;
+keep resource preparation and allocation outside steady audio processing. See
+[performance measurement](fx-performance.md#modulation-and-shared-architecture) for
+modulation scheduling and inactive-module behavior.
+
 ### Adding a mode or module
 
 1. Append an explicit permanent ID; never reorder, renumber or reuse old IDs.
@@ -101,7 +107,7 @@ single pass instead of looping `SendParameterValueFromDelegate`.
 3. Keep existing descriptor `name` values; they are host names and storage keys.
    Use `label` for editor wording. Never change an existing automatable control's
    range, scaling or meaning to accommodate a new mode.
-4. During 0.x, deliberate DSP quality improvements may update existing algorithms
+4. During 0.x, deliberate DSP quality or performance improvements may update existing algorithms
    without a new mode identity. Document audible changes in the changelog and
    verify quality, real-time behavior and state/parameter compatibility. Plugin
    identity, parameter contracts, mode identities and saved-state loading remain

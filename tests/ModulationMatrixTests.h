@@ -69,6 +69,58 @@ void TestModulationMatrix()
     assert(std::string(sourceShortNames[SourceSeq2]) == "S2");
   }
 
+  // Only dynamic sources that actually contribute through a nonzero-depth row
+  // need audio-rate control quanta. A dynamic Via is a dependency too.
+  {
+    Modulation sources;
+    auto v = Defaults();
+    assert(!sources.Active(v) && !sources.DynamicAssignments(v));
+    v[RowParam(0, RowSource)] = SourceMacro1; v[RowParam(0, RowDepth)] = 50.;
+    assert(sources.Active(v) && !sources.DynamicAssignments(v));
+    v[RowParam(0, RowVia)] = SourceMacro2;
+    assert(!sources.DynamicAssignments(v));
+    for (int source : sourceTabs)
+    {
+      v[RowParam(0, RowVia)] = source;
+      assert(sources.DynamicAssignments(v));
+      v[RowParam(0, RowDepth)] = 0.;
+      assert(!sources.DynamicAssignments(v));
+      v[RowParam(0, RowDepth)] = 50.;
+      v[RowParam(0, RowSource)] = source; v[RowParam(0, RowVia)] = SourceNone;
+      assert(sources.DynamicAssignments(v));
+      v[RowParam(0, RowSource)] = SourceMacro1;
+    }
+  }
+
+  // Macro-only whole callbacks preserve unused source histories for a later
+  // dynamic assignment, including MIDI/onset retriggers and odd block lengths.
+  {
+    for (int retrigger : {RetriggerMidi, RetriggerOnset})
+    {
+      auto v = Defaults();
+      v[LFO1Retrigger] = v[LFO2Retrigger] = v[Seq1Retrigger] = v[Seq2Retrigger] = retrigger;
+      v[LFO1Rate] = 10.; v[LFO2Rate] = 7.; v[LFO1Shape] = v[LFO2Shape] = 5.;
+      std::array<double, 257> signal{}, second{};
+      for (int i = 0; i < 257; ++i) { signal[i] = i > 53 ? .3 : 0.; second[i] = i > 91 ? .7 : 0.; }
+      Modulation whole, chunks; whole.Reset(48000.); chunks.Reset(48000.);
+      const int notes[] = {0, 15, 16, 127, 256};
+      for (int block = 0; block < 20; ++block)
+      {
+        whole.Advance(signal.data(), nullptr, 257, v, 120., notes, 5, second.data());
+        for (int offset = 0; offset < 257;)
+        {
+          const int count = std::min(chunks.Quantum(), 257 - offset);
+          std::vector<int> local;
+          for (int note : notes) if (note >= offset && note < offset + count) local.push_back(note - offset);
+          chunks.Advance(signal.data() + offset, nullptr, count, v, 120., local.data(), static_cast<int>(local.size()), second.data() + offset);
+          offset += count;
+        }
+        assert(whole.Quantum() == chunks.Quantum());
+        for (int source : sourceTabs) assert(whole.Value(source, v) == chunks.Value(source, v));
+      }
+    }
+  }
+
   // Different clocks, shapes, follower signals and step patterns remain independent.
   {
     auto v = Defaults();

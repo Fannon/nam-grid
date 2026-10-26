@@ -60,11 +60,11 @@ void TestRoadmapClap(const clap_plugin* plugin, json cleared, Save save, Load lo
     params->flush(plugin, &events, &sent);
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
   };
-  for (auto effect : {SlotEffect::Freeze, SlotEffect::ShimmerReverb})
+  for (auto effect : {SlotEffect::Freeze, SlotEffect::ShimmerReverb, SlotEffect::Stutter})
     for (int slot : {0, 15})
     {
       const std::string label = slot == 0 ? "Pre 1" : "Post 4";
-      const auto hold = label + (effect == SlotEffect::Freeze ? " Freeze Hold" : " Shimmer Freeze");
+      const auto hold = label + (effect == SlotEffect::Freeze ? " Freeze Hold" : effect == SlotEffect::Stutter ? " Stutter Hold" : " Shimmer Freeze");
       const auto unusedHold = label + (effect == SlotEffect::Freeze ? " Shimmer Freeze" : " Freeze Hold");
       auto config = cleared; config["SlotEffects"][slot] = static_cast<int>(effect);
       config[hold] = 1.; // Held states must also report infinity immediately after activation.

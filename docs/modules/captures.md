@@ -22,7 +22,7 @@ Load a `.nam` capture of an amp, pedal, or full rig. Bass, Mid, and Treble are N
 | **Output** | -40 to +40 dB | 0 dB | Level after the capture and its EQ. |
 | **Low cut** | 0–300 Hz | 0 Hz | Removes low end after the capture; 0 is off. |
 | **High cut** | 2000–20000 Hz | 20000 Hz | Removes highs after the capture; 20000 is open. |
-| **Mid freq** | 100�4000 Hz | 800 Hz | Moves the post-capture or Guitar EQ mid bell; 800 Hz retains the original response. |
+| **Mid freq** | 100–4000 Hz | 800 Hz | Moves the post-capture or Guitar EQ mid bell; 800 Hz retains the original response. |
 
 **Display:** Left: the capture's measured input against output. Right: the post-capture EQ over the live output spectrum.
 

@@ -22,6 +22,13 @@ Depth, Feedback, Character and Mix; Room, Dense Plate, Cloud and Hall share the 
 controls. Copy/Move/Swap transfers these values; the destination gets its own processor
 history.
 
+New controls use neutral or original-algorithm defaults when loading older states.
+The conventional compressors expose their original ratios and knees, plus a detector-only
+low cut that leaves audible bass intact. Juno Width scales only the wet side signal;
+Uni-Vibe Spread offsets the right sweep. LoFi Tape Drive uses the attributed Airwindows
+Tape Spiral function inside the shared 4x oversampler, ahead of the transport. Zero Drive
+bypasses saturation exactly; the full tape core, head bump and softening remain in Airwindows Tape.
+
 ## DSP character and sources
 
 - **Delays** ([SlotTimeEffects.h](../NeuralAmpModeler/SlotTimeEffects.h)) are original MIT

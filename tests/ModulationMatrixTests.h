@@ -258,7 +258,7 @@ void TestModulationMatrix()
     assert(!has(delay, standardControls + uTempoSync) && !has(delay, standardControls + uDelayPingPong));
     assert(!has(Destinations(SlotEffect::DigitalDelay, false, true, false, false), standardControls + uDelayTime));
     const auto nam = Destinations(SlotEffect::NAM, true, false, false, false);
-    assert(nam.size() == 7 && nam.front().control == parameter_layout::kSlotIn && has(nam, parameter_layout::kSlotTrim));
+    assert(nam.size() == 8 && nam.front().control == parameter_layout::kSlotIn && has(nam, parameter_layout::kSlotTrim));
     assert(Destinations(SlotEffect::NAM, false, false, false, false).empty());
     const auto cuts = Destinations(SlotEffect::ParametricEQ, true, false, false, false);
     const auto shelf = Destinations(SlotEffect::ParametricEQ, true, false, false, false, true);

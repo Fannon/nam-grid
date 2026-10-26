@@ -6,6 +6,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Focused module controls: gate attack/hold/hysteresis; compressor ratio, knee and detector low cut; NAM/Guitar EQ mid frequency; EQ output, boost mids and Tube Boost high cut.
+- Juno wet width, Uni-Vibe spread, stereo modulation phase, selectable phaser stages and ring carriers, rotary horn/drum balance, octaver tracking adjustment and doubler humanization/tone.
+- Delay duck recovery, reverse feedback/edge fades, room early level, reverb ducking, spring pre-delay, Freeze fades, Stutter Hold, Utility channel modes/alignment and Auto Swell curve/hold/mix.
+- LoFi Tape Machine Drive reuses the Airwindows Spiral shaper with 4x oversampling; zero Drive retains the existing sound. Existing rigs load all new controls at their legacy defaults.
 - IR convolution adds wet Input, Mix, Pre-delay and Low/High cut controls, plus a Long IR option for reverb and sound-design responses up to 30 seconds. Existing rigs keep their original cabinet length and sound. Long IR displays the tail envelope.
 - Compressor and limiter graphs mark gain reduction beyond 16 dB with a red edge or tip; their numeric readouts continue to show the full reduction.
 - Cosmic Echo shows its delay-line network sketch below the measured response, with timing markers, density connections and modulation halos. Hover for the 4- or 16-line count and explanation.

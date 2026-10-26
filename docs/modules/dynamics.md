@@ -24,9 +24,9 @@ A gate with Natural (gentle 2:1 expansion, 1.5 ms opening, 40 ms hold) and Tight
 | **Threshold** | -90 to -10 dB | -55 dB | Input level that opens the gate; set it above the noise and below your quietest notes. |
 | **Release** | 20–500 ms | 150 ms | Gate closing time; longer values preserve note tails. |
 | **Reduction** | 0–80 dB | 60 dB | Attenuation when the gate is closed; less keeps natural room tone. |
-| **Attack** | 0�20 ms | 0 ms | Gate opening time; zero follows the original Natural or Tight mode timing. |
-| **Hold** | 0�300 ms | 0 ms | Time before closure; zero follows the original Natural or Tight mode hold. |
-| **Hysteresis** | 0�12 dB | 3 dB | Closing threshold below the opening threshold; higher values reduce chatter. |
+| **Attack** | 0–20 ms | 0 ms | Gate opening time; zero follows the original Natural or Tight mode timing. |
+| **Hold** | 0–300 ms | 0 ms | Time before closure; zero follows the original Natural or Tight mode hold. |
+| **Hysteresis** | 0–12 dB | 3 dB | Closing threshold below the opening threshold; higher values reduce chatter. |
 
 In the header:
 
@@ -87,7 +87,7 @@ In the header:
 
 ![Smooth Compressor editor](../screenshots/modules/smooth-compressor.png)
 
-Gentle 2.5:1 compression with a soft 9 dB knee for leveling and sustain.
+Starts with gentle 2.5:1 compression and a soft 9 dB knee for leveling and sustain.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -95,10 +95,10 @@ Gentle 2.5:1 compression with a soft 9 dB knee for leveling and sustain.
 | **Release** | 40–600 ms | 150 ms | How quickly compression lets go after a loud note. |
 | **Makeup** | 0–18 dB | 3 dB | Level compensation after compression; compare with bypass at similar loudness. |
 | **Attack** | 0.5–50 ms | 10 ms | How quickly compression catches a note. Slower attack lets more pick transient through. |
+| **Ratio** | 1–20:1 | 2.5:1 | Compression ratio above the knee; 2.5:1 retains the original Smooth response. |
+| **Detector cut** | 0–500 Hz | 0 Hz | Removes bass only from the compressor detector, preserving audible lows; zero is off. |
+| **Knee** | 0–18 dB | 9 dB | Width of the transition into compression; 9 dB retains the original Smooth knee. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
-| **Ratio** | 1�20 :1 | 2.5 :1 | Compression ratio above the knee; 2.5:1 retains the original Smooth response. |
-| **Detector cut** | 0�500 Hz | 0 Hz | Removes bass only from the compressor detector, preserving audible lows; zero is off. |
-| **Knee** | 0�18 dB | 9 dB | Width of the transition into compression; 9 dB retains the original Smooth knee. |
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
@@ -110,7 +110,7 @@ Gentle 2.5:1 compression with a soft 9 dB knee for leveling and sustain.
 
 ![Punch Compressor editor](../screenshots/modules/punch-compressor.png)
 
-Firmer 4:1 compression with a 3 dB knee and a slower default attack, so the pick transient passes. Mix gives parallel compression.
+Starts with firmer 4:1 compression and a 3 dB knee and a slower default attack, so the pick transient passes. Mix gives parallel compression.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -118,10 +118,10 @@ Firmer 4:1 compression with a 3 dB knee and a slower default attack, so the pick
 | **Release** | 40–600 ms | 100 ms | How quickly compression lets go after a loud note. |
 | **Makeup** | 0–18 dB | 2 dB | Level compensation after compression; compare with bypass at similar loudness. |
 | **Attack** | 0.5–50 ms | 25 ms | How quickly compression catches a note. Slower attack lets more pick transient through. |
+| **Ratio** | 1–20:1 | 4:1 | Compression ratio above the knee; 4:1 retains the original Punch response. |
+| **Detector cut** | 0–500 Hz | 0 Hz | Removes bass only from the compressor detector, preserving audible lows; zero is off. |
+| **Knee** | 0–18 dB | 3 dB | Width of the transition into compression; 3 dB retains the original Punch knee. |
 | **Mix** | 0–100% | 80% | Balance between dry sound and effect. |
-| **Ratio** | 1�20 :1 | 4 :1 | Compression ratio above the knee; 4:1 retains the original Punch response. |
-| **Detector cut** | 0�500 Hz | 0 Hz | Removes bass only from the compressor detector, preserving audible lows; zero is off. |
-| **Knee** | 0�18 dB | 3 dB | Width of the transition into compression; 3 dB retains the original Punch knee. |
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
@@ -151,14 +151,14 @@ A channel strip after Airwindows CStrip2: low and high cuts into a compressor an
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
+| **Input** | -18–18 dB | 0 dB | Level into the complete strip, independent of final Output and the parallel dry path. |
 | **Low cut** | 0–100% | 0% | Removes low end; 0% is off. A relative amount, not a frequency. |
 | **High cut** | 0–100% | 100% | Removes highs; 100% is open, lower is darker. A relative amount, not a frequency. |
 | **Compress** | 0–100% | 20% | Compression amount; a relative intensity rather than a threshold or ratio. |
 | **Comp speed** | 0–100% | 25% | Recovery speed; higher recovers faster. A relative amount, not a time. |
-| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume before judging compression. |
 | **Saturate** | 0–100% | 15% | Adds output saturation. Use Output to match loudness. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume before judging compression. |
 | **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
-| **Input** | -18�18 dB | 0 dB | Level into the complete strip, independent of final Output and the parallel dry path. |
 
 **Display:** The cuts over the output spectrum and gain-reduction history on a 0–16 dB scale. The title shows the live gain reduction; hover over the graph for its explanation.
 
@@ -170,10 +170,10 @@ A fast peak limiter for catching transients at the end of the rig. Clip rounds p
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
+| **Input** | 0–24 dB | 0 dB | Gain before clipping and limiting; pushes the signal into the selected ceiling. |
 | **Ceiling** | -24 to 0 dB | -1 dB | Peak target. With no lookahead, it is not a guaranteed true-peak ceiling. |
 | **Release** | 10–500 ms | 75 ms | How quickly gain recovers after a loud peak; short settings can sound more aggressive. |
 | **Clip** | 0–100% | 0% | Soft-clips peaks from 3 dB below the ceiling before limiting, so the gain moves less on fast transients. Adds harmonics; 0% is off. |
-| **Input** | 0�24 dB | 0 dB | Gain before clipping and limiting; pushes the signal into the selected ceiling. |
 
 **Display:** The limiter curve with a dot at the live input, and the history.
 

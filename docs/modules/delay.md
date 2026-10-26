@@ -24,9 +24,9 @@ Clean repeats with a high cut. Ducking lowers the repeats while you play and bri
 | **Feedback** | 0–82% | 30% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
 | **High cut** | 800–12000 Hz | 10000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
 | **Ducking** | 0–100% | 0% | Ducks repeats while you play; echoes recover in the gaps. |
+| **Duck release** | 10–1000 ms | 150 ms | Time for ducked echoes to recover in gaps; 150 ms retains the original recovery. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 20% | Balance between dry sound and effect. |
-| **Duck release** | 10�1000 ms | 150 ms | Time for ducked echoes to recover in gaps; 150 ms retains the original recovery. |
 
 In the header:
 
@@ -113,11 +113,11 @@ Records a window and plays it backwards one window later.
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
 | **Time** | 5–4000 ms | 500 ms | Length of each reversed capture window; not a conventional first-echo delay. |
+| **Feedback** | 0–75% | 0% | Returns reversed playback into the next capture, creating repeating reversed phrases. |
 | **High cut** | 800–12000 Hz | 6000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
+| **Edge fade** | 0.1–200 ms | 5 ms | Overlap at reversed window boundaries; longer fades soften attacks. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
-| **Feedback** | 0�75 % | 0 % | Returns reversed playback into the next capture, creating repeating reversed phrases. |
-| **Edge fade** | 0.1�200 ms | 5 ms | Overlap at reversed window boundaries; longer fades soften attacks. |
 
 In the header:
 

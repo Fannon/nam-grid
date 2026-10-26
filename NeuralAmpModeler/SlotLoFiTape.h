@@ -114,7 +114,7 @@ public:
         // when hosts change channel layouts. Draining must not regenerate hiss.
         const double noise = Random(mNoiseSeed[ch]);
         mNoiseLow[ch] = grid_fx::Flush(noise + mNoiseCoefficient * (mNoiseLow[ch] - noise));
-        const double saturated = driveDB == 0. ? dry : mSaturator[ch].Tick(dry, [&](double x) { return AirwindowsTape::Spiral(x * drive) / drive; });
+        const double saturated = driveDB == 0. ? dry : mSaturator[ch].Tick(dry, [&](double x) { return AirwindowsTape::Spiral(x * drive); });
         const double input = saturationMix == 0. ? dry : dry + saturationMix * (saturated - dry);
         mDC[ch] = grid_fx::Flush(input + mDCCoefficient * (mDC[ch] - input));
         mLine[ch].Push(input - mDC[ch]);

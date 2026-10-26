@@ -666,6 +666,7 @@ static_assert([] {
         || p.position < 0 || p.position >= 8 || p.introducedIn < kInitialEffectStateSchema
         || p.introducedIn > kEffectStateSchema)
       return false;
+    if (i >= uToneMidFrequency && std::string_view(p.name).size() + 7 >= 32) return false;
     const auto choices = EffectChoices(i);
     if (!choices.empty() && (p.minimum != 0. || p.maximum != choices.size() - 1 || p.step != 1.)) return false;
     if (IsAlgorithmMode(i))

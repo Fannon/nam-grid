@@ -219,7 +219,7 @@ public:
     if (controls.sync)
       values[0] = 1. / grid_tempo::Seconds(controls.tempo, controls.division);
     mControls.Target(values, uModRate, controls.sync);
-    mSpread.Target({right ? (effect == SlotEffect::Chorus ? controls.chorusSpread : controls.extra.modSpread) : 0.}, uChorusSpread);
+    mSpread.Target({right && effect != SlotEffect::Vibrato ? (effect == SlotEffect::Chorus ? controls.chorusSpread : controls.extra.modSpread) : 0.}, uChorusSpread);
     mExtension.Target({controls.extra.chorusDelay, controls.extra.flangerDelay, controls.extra.modOutput, controls.extra.vibratoRise},
       std::array<int, 4>{uChorusDelay, uFlangerDelay, uModOutput, uVibratoRise});
     const int stages = std::clamp(static_cast<int>(controls.extra.phaserStages), 0, 3);
@@ -257,8 +257,10 @@ public:
         }
         mCounter %= 16;
         wet = x + c[2] * .01 * mFeedback;
+        // Stop inactive stages on the sample their fade ends, independent of host block size.
+        const int stageLimit = std::max(std::array<int, 4>{4, 6, 8, 12}[stages], mStageWeights[3] > 0. ? 12 : mStageWeights[2] > 0. ? 8 : mStageWeights[1] > 0. ? 6 : 4);
         std::array<double, 4> taps{};
-        for (int stage = 0; stage < 12; ++stage)
+        for (int stage = 0; stage < stageLimit; ++stage)
         {
           auto& state = mAllpass[stage];
           const double y = mCoefficient * wet + state;

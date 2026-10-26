@@ -22,8 +22,8 @@ Three broad bands for everyday tone shaping: a 150 Hz shelf, a broad 800 Hz bell
 | **Bass** | -12 to +12 dB | 0 dB | 150 Hz shelf. |
 | **Mid** | -12 to +12 dB | 0 dB | Broad 800 Hz bell. |
 | **Treble** | -12 to +12 dB | 0 dB | 3 kHz shelf. |
-| **Mid freq** | 100�4000 Hz | 800 Hz | Moves the post-capture or Guitar EQ mid bell; 800 Hz retains the original response. |
-| **Output** | -24�12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
+| **Mid freq** | 100–4000 Hz | 800 Hz | Moves the post-capture or Guitar EQ mid bell; 800 Hz retains the original response. |
+| **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 
 **Display:** The combined EQ curve over the live output spectrum.
 
@@ -38,7 +38,7 @@ Low cut and high cut for rumble and fizz, plus a 3.5 kHz presence shelf.
 | **Low cut** | 0–300 Hz | 80 Hz | Removes rumble and boom below this frequency; 0 is off. |
 | **High cut** | 2000–20000 Hz | 10000 Hz | Removes fizz above this frequency; 20000 is open. |
 | **Presence** | -6 to +6 dB | 0 dB | 3.5 kHz shelf for bite or smoothness. |
-| **Output** | -24�12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
+| **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 
 **Display:** The combined EQ curve over the live output spectrum.
 
@@ -86,6 +86,7 @@ Airwindows-style console EQ with broad, overlapping bands and extra harmonic col
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
+| **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 | **Treble** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
 | **Mid** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
 | **Bass** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
@@ -93,7 +94,6 @@ Airwindows-style console EQ with broad, overlapping bands and extra harmonic col
 | **Bass freq** | 300–16000 Hz | 300 Hz | Moves the band. An approximate frequency; the broad bands overlap. |
 | **Low cut** | 0–100% | 0% | Removes low end; 0% is off. A relative amount, not a frequency. |
 | **High cut** | 0–100% | 100% | Removes highs; 100% is open, lower is darker. A relative amount, not a frequency. |
-| **Output** | -24�12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 
 **Display:** The quiet-signal response over the live output spectrum. Louder notes add harmonics the curve cannot show.
 
@@ -130,9 +130,9 @@ An automatable wah sweep: a resonant band-pass with body. Map Position to an exp
 | **Position** | 0–100% | 50% | Heel-to-toe sweep. Automate it or map it to an expression controller in the host. |
 | **Resonance** | 1–6 Q | 3 Q | Higher Q makes a narrower, more pronounced wah peak. |
 | **Register** | 0–100% | 50% | Raises both heel and toe endpoints; it changes the register, not the sweep width. |
+| **Sweep width** | 0–150% | 100% | Sweep excursion around its midpoint; Register still moves the whole sweep. |
 | **Output** | -12 to +12 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
-| **Sweep width** | 0�150 % | 100 % | Sweep excursion around its midpoint; Register still moves the whole sweep. |
 
 **Display:** The wah peak over the live output spectrum.
 

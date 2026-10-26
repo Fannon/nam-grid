@@ -47,6 +47,22 @@ void TestModuleControls()
       for (size_t i = 0; i < l.size(); ++i)
         assert(mix == 0. ? l[i] == dryL[i] && r[i] == dryR[i] : l[i] == r[i]);
     }
+    // Hidden controls from related modules must not leak into another voice.
+    {
+      UtilityControls aControls, bControls;
+      bControls.extra.boostMidGain = 12.; bControls.extra.boostMidFrequency = 2000.;
+      SlotTubeBoost a, b; a.Reset(rate); b.Reset(rate);
+      std::array<double, 512> input{}, actual{}, expected{};
+      for (size_t i = 0; i < input.size(); ++i) input[i] = actual[i] = expected[i] = .2 * std::sin(i * .071);
+      a.Process(actual.data(), input.data(), 512, aControls, {});
+      b.Process(expected.data(), input.data(), 512, bControls, {});
+      assert(actual == expected);
+      SlotModulation va, vb; va.Reset(rate); vb.Reset(rate);
+      actual = expected = input; bControls.extra.modSpread = 100.;
+      va.Process(actual.data(), 512, SlotEffect::Vibrato, aControls, true);
+      vb.Process(expected.data(), 512, SlotEffect::Vibrato, bControls, true);
+      assert(actual == expected);
+    }
     // Mono input remains centered at zero spread and becomes stereo with Spread.
     for (double spread : {0., 100.})
     {

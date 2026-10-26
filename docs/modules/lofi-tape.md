@@ -1,6 +1,6 @@
 # LoFi Tape Machine
 
-Worn tape for lo-fi guitar sounds: tone that darkens with tape speed, wow, flutter, hiss, wear and dropouts. Find it under **Creative > LoFi Tape Machine**. It adds no saturation; put [Airwindows Tape](distortion.md#airwindows-tape) before or after it when you want that too.
+Worn tape for lo-fi guitar sounds: tone that darkens with tape speed, wow, flutter, hiss, wear and dropouts. Find it under **Creative > LoFi Tape Machine**. Drive adds oversampled Spiral saturation before the transport; the separate [Airwindows Tape](distortion.md#airwindows-tape) module provides the full tape processor and head bump. Use Output to match loudness as Drive rises.
 
 ![LoFi Tape Machine editor](../screenshots/modules/lofi-tape-machine.png)
 

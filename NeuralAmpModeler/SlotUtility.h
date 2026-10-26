@@ -222,6 +222,7 @@ public:
     mPostCut.Target({c.extra.tubeHighCut}, uTubeHighCut);
     auto tone = c;
     tone.boost = 0.;
+    tone.extra.boostMidGain = 0.;
     mTone.Process(samples, frames, tone, eq);
     const double drive = std::pow(10., std::clamp(c.tube[0], 0., 24.) * .05);
     const double bias = .35 * std::clamp(c.tube[1] * .01, 0., 1.);

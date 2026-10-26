@@ -29,3 +29,7 @@ The display shows the actual pitch movement of the tape, not the pitch of your g
 - Hiss and dropouts do not appear, because they do not move the pitch. The display dims when Mix is fully dry and clears when the module is bypassed.
 
 LoFi Tape Machine is an original character effect, not a model of a specific tape deck, and it adds no latency.
+
+## Saturation
+
+Drive adds 4x oversampled saturation before the transport, using the Spiral shaper from Airwindows Tape. It leaves head bump and the full Tape processor's softening to the separate Airwindows Tape module. Drive at zero bypasses saturation and retains the original transport sound. Wear continues to control bandwidth and dropouts independently; Mix leaves the dry path unchanged.

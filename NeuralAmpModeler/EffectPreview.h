@@ -117,7 +117,7 @@ inline std::complex<double> PoleResponse(double hz, double cutoff, double rate)
   return (1.-a)/(1.-a*std::polar(1.,-2.*3.14159265358979323846*hz/rate));
 }
 inline double WahCenter(const UtilityControls& c, double rate)
-{ return std::min(.35*rate,250.*std::exp2(c.wah[2]*.01)*std::pow(6.8,c.wah[0]*.01)); }
+{ return std::min(.35*rate,250.*std::exp2(c.wah[2]*.01)*std::pow(6.8,c.extra.wahSweep == 100. ? c.wah[0]*.01 : .5+(c.wah[0]*.01-.5)*c.extra.wahSweep*.01)); }
 inline double WahMagnitude(double hz, const UtilityControls& c, double rate)
 {
   // Bilinear state-variable bandpass, including broadband body, mix and trim.

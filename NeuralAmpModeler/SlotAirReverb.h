@@ -17,7 +17,7 @@ class SlotAirReverb
 public:
   void Reset(double rate, SlotEffect effect)
   {
-    mRate = std::max(1., rate); mEffect = effect; mControls.Reset(mRate);
+    mRate = std::max(1., rate); mEffect = effect; mControls.Reset(mRate); mDuck.Reset(mRate); mDucker.Reset(mRate);
     mPlate.reset(); mHall.reset(); mSpace.reset();
     if (effect == SlotEffect::AirPlate)
     {
@@ -32,6 +32,7 @@ public:
   }
   void Process(double* left, double* right, int frames, const UtilityControls& controls, bool draining = false)
   {
+    mDuck.Target({controls.extra.reverbDuck}, uReverbDuck);
     const auto& values = mEffect == SlotEffect::AirPlate ? controls.airPlate
                          : mEffect == SlotEffect::AirHall ? controls.airHall : controls.space;
     mControls.Target(values, mEffect == SlotEffect::AirPlate ? uAirPlateInput
@@ -68,6 +69,8 @@ public:
       if (mHall) mHall->Tick(wetL, wetR);
       if (mSpace) mSpace->Tick(wetL, wetR);
       const double mix = v[mPlate ? 4 : 5] * .01;
+      const double duck = mDucker.Tick(dryL, dryR, mPlate ? mDuck.Tick()[0] : 0.);
+      wetL *= duck; wetR *= duck;
       if (!right) wetL = .5 * (wetL + wetR);
       left[i] = (dryL + mix * (wetL - dryL)) * mOutput;
       if (right) right[i] = (dryR + mix * (wetR - dryR)) * mOutput;
@@ -79,6 +82,8 @@ private:
   std::unique_ptr<airwindows_reverb::Galactic3::Core> mSpace;
   std::array<grid_fx::DelayLine, 2> mPredelay;
   grid_fx::SmoothControls<7> mControls;
+  grid_fx::SmoothControls<1> mDuck;
+  grid_fx::WetDucker mDucker;
   std::array<double, 2> mInputLow{};
   SlotEffect mEffect = SlotEffect::AirPlate;
   double mRate = 48000., mOutput = 1., mLowCoefficient = 0.;

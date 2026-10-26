@@ -21,6 +21,8 @@ Add one or two octaves below single notes. High cut rounds the generated tone. P
 | **2 oct down** | 0â€“100% | 0% | Level of this generated sub-octave. Best tracking comes from clean, single-note playing. |
 | **High cut** | 80â€“5000 Hz | 1000 Hz | High-cut frequency for the generated sub-octaves; the dry guitar keeps its original tone. |
 | **Output** | -24 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Tracking filter** | 80–1200 Hz | 450 Hz | Low-pass frequency in the tracking detector only; does not filter the dry or generated tone. |
+| **Tracking stability** | 0.1–15 % | 3 % | Detector hysteresis relative to the note envelope; higher rejects more spurious crossings. |
 
 **Display:** A 110 Hz note and the two sub-octave square waves.
 
@@ -37,6 +39,8 @@ Opposite pitch detuning and short delays on the left and right suggest a second 
 | **Spread** | 0â€“100% | 100% | Spread of detuned voices; zero centers the wet pair, 100 keeps them on opposite sides. |
 | **Output** | -24 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0â€“100% | 25% | Balance between dry sound and effect. |
+| **Humanize** | 0–100 % | 0 % | Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets. |
+| **High cut** | 1000–20000 Hz | 20000 Hz | Softens only the doubled voices; maximum bypasses this added filter. |
 
 **Display:** Pitch up and down against the stereo spread.
 

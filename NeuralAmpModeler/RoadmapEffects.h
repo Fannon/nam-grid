@@ -17,7 +17,7 @@ inline double Low(double x, double& state, double coefficient)
 class Limiter
 {
 public:
-  void Reset(double rate) { mRate = rate; mGain = 1.; mReduction = 0.; mControls.Reset(rate); mClip.Reset(rate); }
+  void Reset(double rate) { mRate = rate; mGain = 1.; mReduction = 0.; mControls.Reset(rate); mClip.Reset(rate); mInput.Reset(rate); }
   // Clip then limit: a soft knee from 3 dB below the ceiling, flattening towards 3 dB above it,
   // shaves the fastest peaks so the limiter's gain moves less; the limiter still holds the ceiling.
   static double SoftClip(double x, double ceiling)
@@ -30,11 +30,14 @@ public:
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.limiter, uLimiterCeiling);
+    mInput.Target({c.extra.limiterInput}, uLimiterInput);
     mClip.Target({c.limiterClip}, uLimiterClip);
     double minimumGain = 1.;
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
+      const double input = Gain(mInputGain, mInput.Tick()[0]);
+      l[i] *= input; if (r) r[i] *= input;
       const double clip = mClip.Tick()[0] * .01;
       const double ceiling = Gain(mCeiling, v[0]);
       if (clip > 0.) // Exactly the plain limiter at 0%.
@@ -55,7 +58,8 @@ public:
   double Reduction() const { return mReduction; }
 private:
   grid_fx::SmoothControls<2> mControls;
-  grid_fx::SmoothControls<1> mClip;
+  grid_fx::SmoothControls<1> mClip, mInput;
+  grid_fx::Memo mInputGain;
   grid_fx::Memo mCeiling, mRelease;
   double mRate = 48000., mGain = 1., mReduction = 0.;
 };
@@ -65,17 +69,19 @@ class Rotary
 public:
   void Reset(double rate)
   {
-    mRate = rate; mPhase = mDrumPhase = 0.; mSpeed = .8; mLow = {};
+    mRate = rate; mPhase = mDrumPhase = 0.; mSpeed = .8; mLow = {}; mBalance.Reset(rate);
     for (auto& line : mLine) line.Reset(static_cast<int>(rate * .012));
     mControls.Reset(rate);
   }
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.rotary, uRotarySlow);
+    mBalance.Target({c.extra.rotaryBalance}, uRotaryBalance);
     const double crossover = Pole(800., mRate);
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
+      const double balance = mBalance.Tick()[0] * .01;
       const double speed = c.rotary[2] >= .5 ? v[1] : v[0];
       mSpeed = speed + mInertia(-1. / (v[3] * mRate), [](double x) { return std::exp(x); }) * (mSpeed - speed);
       mPhase = std::fmod(mPhase + mSpeed / mRate, 1.);
@@ -89,8 +95,8 @@ public:
         const double high = std::tanh((dry[ch] - low) * drive) / std::max(1., drive * .5);
         const double horn = mLine[ch].Read(mRate * (.004 + .0018 * std::sin(angle)));
         mLine[ch].Push(high);
-        wet[ch] = low * (.78 + .22 * std::sin(2. * grid_fx::pi * mDrumPhase + ch * v[5] * .01))
-                  + horn * (.72 + .28 * std::cos(angle));
+        wet[ch] = (1. - std::max(0., balance)) * low * (.78 + .22 * std::sin(2. * grid_fx::pi * mDrumPhase + ch * v[5] * .01))
+                  + (1. + std::min(0., balance)) * horn * (.72 + .28 * std::cos(angle));
       }
       l[i] = dry[0] + mix * (wet[0] - dry[0]);
       if (r) r[i] = dry[1] + mix * (wet[1] - dry[1]);
@@ -98,6 +104,7 @@ public:
   }
 private:
   grid_fx::SmoothControls<7> mControls;
+  grid_fx::SmoothControls<1> mBalance;
   std::array<grid_fx::DelayLine, 2> mLine;
   std::array<double, 2> mLow{};
   grid_fx::Memo mInertia, mDrive;
@@ -107,9 +114,10 @@ private:
 class Vibe
 {
 public:
-  void Reset(double rate) { mRate = rate; mPhase = mMode = 0.; mState = {}; mFirst = true; mControls.Reset(rate); }
-  void Process(double* x, int n, const UtilityControls& c)
+  void Reset(double rate) { mRate = rate; mPhase = mMode = 0.; mState = {}; mFirst = true; mControls.Reset(rate); mExtension.Reset(rate); }
+  void Process(double* x, int n, const UtilityControls& c, bool right = false)
   {
+    mExtension.Target({right ? c.extra.vibeSpread : 0., c.extra.modOutput}, std::array<int, 2>{uVibeSpread, uModOutput});
     auto values = c.modulation;
     if (c.sync) values[0] = 1. / grid_tempo::Seconds(c.tempo, c.division);
     mControls.Target(values, uModRate, c.sync);
@@ -121,8 +129,10 @@ public:
       mPhase = std::fmod(mPhase + v[0] / mRate, 1.);
       // Unequal optical stages and a skewed lamp response produce the deep,
       // asymmetric pulse, distinct from the evenly swept general-purpose phaser.
-      const double sine = std::sin(2. * grid_fx::pi * mPhase);
-      const double lamp = (sine + .28 * std::sin(4. * grid_fx::pi * mPhase + .6)) * v[1] * .01;
+      const auto& extra = mExtension.Tick();
+      const double phase = mPhase + .005 * extra[0];
+      const double sine = std::sin(2. * grid_fx::pi * phase);
+      const double lamp = (sine + .28 * std::sin(4. * grid_fx::pi * phase + .6)) * v[1] * .01;
       double wet = x[i];
       for (int j = 0; j < 4; ++j)
       {
@@ -134,10 +144,13 @@ public:
       mMode += std::clamp((c.vibeMode >= .5 ? 1. : 0.) - mMode, -1. / (.005 * mRate), 1. / (.005 * mRate));
       const double voiced = .5 * (x[i] + wet) + .5 * mMode * (wet - x[i]);
       x[i] += v[4] * .01 * (voiced - x[i]);
+      x[i] *= Gain(mOutput, extra[1]);
     }
   }
 private:
   grid_fx::SmoothControls<5> mControls;
+  grid_fx::SmoothControls<2> mExtension;
+  grid_fx::Memo mOutput;
   std::array<double, 4> mState{};
   double mRate = 48000., mPhase = 0., mMode = 0.;
   bool mFirst = true;
@@ -151,7 +164,7 @@ public:
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.octaver, uOctDry);
-    const double detector = Pole(450., mRate);
+    const double detector = Pole(std::clamp(c.extra.octTrackingFilter, 80., 1200.), mRate);
     const double attack = std::exp(-1. / (.002 * mRate)), release = std::exp(-1. / (.04 * mRate));
     for (int i = 0; i < n; ++i)
     {
@@ -160,7 +173,7 @@ public:
       const double detect = Low(mono, mDetect, detector);
       const double peak = std::abs(mono);
       mEnv = grid_fx::Flush(peak + (peak > mEnv ? attack : release) * (mEnv - peak));
-      const double hysteresis = std::max(1.e-6, mEnv * .03);
+      const double hysteresis = std::max(1.e-6, mEnv * (c.extra.octSensitivity == 3. ? .03 : std::clamp(c.extra.octSensitivity, .1, 15.) * .01));
       if (!mPositive && detect > hysteresis)
       {
         mPositive = true; mOne = -mOne;
@@ -188,16 +201,20 @@ class Doubler
 public:
   void Reset(double rate)
   {
-    mRate = rate; mPhase = {0., .5}; mControls.Reset(rate);
+    mRate = rate; mPhase = {0., .5}; mControls.Reset(rate); mExtension.Reset(rate); mHumanPhase = 0.; mWetLow = {};
     for (auto& line : mLine) line.Reset(static_cast<int>(rate * .09));
   }
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.doubler, uDoubleDetune);
+    mExtension.Target({c.extra.doubleHumanize, c.extra.doubleHighCut}, std::array<int, 2>{uDoubleHumanize, uDoubleHighCut});
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
       const double dry[]{l[i], r ? r[i] : l[i]}; double wet[2]{};
+      const auto& extra = mExtension.Tick();
+      mHumanPhase += 1. / mRate;
+      if (mHumanPhase >= 1000.) mHumanPhase -= 1000.;
       for (int ch = 0; ch < 2; ++ch)
       {
         const double ratio = mRatio[ch]((ch ? -v[0] : v[0]) / 1200., [](double x) { return std::exp2(x); });
@@ -205,10 +222,12 @@ public:
         const double p = mPhase[ch], q = std::fmod(p + .5, 1.);
         const double a = .5 - .5 * std::cos(2. * grid_fx::pi * p);
         const auto read = [&](double phase) {
-          return mLine[ch].Read(mRate * (v[1] * .001 + .04 * (ch ? phase : 1. - phase)));
+          return mLine[ch].Read(mRate * (v[1] * .001 + .04 * (ch ? phase : 1. - phase) + extra[0] * .00003 * (1. + std::sin(2. * grid_fx::pi * mHumanPhase * (ch ? .173 : .137)))));
         };
         wet[ch] = a * read(p) + (1. - a) * read(q);
         mLine[ch].Push(dry[ch]);
+        mWetLow[ch] = Low(wet[ch], mWetLow[ch], Pole(mTone, extra[1], mRate));
+        if (extra[1] < 20000.) wet[ch] = mWetLow[ch];
       }
       const double mid = .5 * (wet[0] + wet[1]), side = .5 * (wet[0] - wet[1]) * v[2] * .01;
       const double mix = v[3] * .01, gain = Gain(mGain, v[4]);
@@ -218,6 +237,10 @@ public:
   }
 private:
   std::array<grid_fx::DelayLine, 2> mLine;
+  grid_fx::SmoothControls<2> mExtension;
+  grid_fx::Memo mTone;
+  double mHumanPhase = 0.;
+  std::array<double, 2> mWetLow{};
   std::array<double, 2> mPhase{};
   grid_fx::SmoothControls<5> mControls;
   std::array<grid_fx::Memo, 2> mRatio;
@@ -236,11 +259,13 @@ public:
     mLow = {}; mWetGain = 0.; mTransition = 0; mLastWet = mTransitionFrom = {};
     for (auto& b : mHistory) b.assign(static_cast<size_t>(rate * maxSeconds) + 4, 0.);
     for (auto& b : mCaptured) b.assign(static_cast<size_t>(rate * maxSeconds) + 4, 0.);
-    mFreeze.Reset(rate); mStutter.Reset(rate); mDelay.Reset(rate); mOutput.Reset(rate);
+    mFreeze.Reset(rate); mStutter.Reset(rate); mDelay.Reset(rate); mOutput.Reset(rate); mCaptureExtras.Reset(rate);
   }
-  void Process(double* l, double* r, int n, SlotEffect effect, const UtilityControls& c)
+  void Process(double* l, double* r, int n, SlotEffect effect, const UtilityControls& c, bool draining = false)
   {
     mFreeze.Target(c.freeze, uFreezeHold);
+    mCaptureExtras.Target({c.extra.reverseFeedback, c.extra.reverseEnvelope, c.extra.freezeAttack, c.extra.freezeRelease},
+      std::array<int, 4>{uReverseFeedback, uReverseEnvelope, uFreezeAttack, uFreezeRelease});
     auto stutter = c.stutter; auto delay = c.delay;
     if (c.sync)
     {
@@ -251,6 +276,7 @@ public:
     mOutput.Target({c.delayOutput}, uDelayOutput);
     for (int i = 0; i < n; ++i)
     {
+      const auto& extra = mCaptureExtras.Tick();
       const auto& f = mFreeze.Tick(); const auto& s = mStutter.Tick(); const auto& d = mDelay.Tick();
       const bool freeze = effect == SlotEffect::Freeze, reverse = effect == SlotEffect::ReverseDelay;
       const bool hold = freeze && c.freeze[0] >= .5;
@@ -260,11 +286,11 @@ public:
       // A restored Hold waits for a fresh window rather than latching silence.
       if (!hold || !mHeld)
       {
-        for (int ch = 0; ch < 2; ++ch) mHistory[ch][mWrite] = dry[ch];
+        for (int ch = 0; ch < 2; ++ch) mHistory[ch][mWrite] = dry[ch] + (reverse && !draining ? extra[0] * .01 * mLastWet[ch] : 0.);
         if (++mWrite == mHistory[0].size()) mWrite = 0; // Avoid per-sample integer division.
         mAvailable = std::min(mHistory[0].size(), mAvailable + 1);
       }
-      const bool refreshDue = !freeze && (mLength == 0 || ++mRefresh >= length * (reverse ? 1 : 4));
+      const bool refreshDue = !freeze && (mLength == 0 || (!(effect == SlotEffect::Stutter && c.extra.stutterHold >= .5) && ++mRefresh >= length * (reverse ? 1 : 4)));
       if (mAvailable >= length && ((hold && !mHeld) || refreshDue))
       {
         // Swap complete banks rather than copying a potentially multi-second
@@ -277,9 +303,9 @@ public:
       }
       if (!hold) mHeld = false;
       const double targetGain = freeze && !mHeld ? 0. : 1.;
-      mWetGain += std::clamp(targetGain - mWetGain, -1. / (.005 * mRate), 1. / (.005 * mRate));
+      mWetGain += std::clamp(targetGain - mWetGain, -1. / ((freeze ? extra[3] * .001 : .005) * mRate), 1. / ((freeze ? extra[2] * .001 : .005) * mRate));
       const size_t fade = std::min(std::max(size_t{1}, mLength / 4),
-                                  static_cast<size_t>(mRate * .001 * (freeze ? f[2] : reverse ? 5. : s[2])));
+                                  static_cast<size_t>(mRate * .001 * (freeze ? f[2] : reverse ? extra[1] : s[2])));
       const auto read = [&](int ch, size_t p) {
         // Same indices as modulo: callers pass p < mLength, and mStart, p < size.
         if (const size_t period = std::max(size_t{1}, mLength); p >= period) p %= period;
@@ -332,7 +358,7 @@ private:
   std::array<std::vector<double>, 2> mHistory;
   std::array<std::vector<double>, 2> mCaptured;
   grid_fx::SmoothControls<5> mFreeze, mDelay;
-  grid_fx::SmoothControls<4> mStutter;
+  grid_fx::SmoothControls<4> mStutter, mCaptureExtras;
   grid_fx::SmoothControls<1> mOutput;
   grid_fx::Memo mTone, mGain;
   std::array<double, 2> mLow{};
@@ -390,9 +416,12 @@ private:
 class Texture
 {
 public:
-  void Reset(double rate) { mRate = rate; mPhase = mHeld = mLow = 0.; mCrush.Reset(rate); mRing.Reset(rate); }
-  void Process(double* x, int n, SlotEffect effect, const UtilityControls& c)
+  void Reset(double rate) { mRate = rate; mPhase = mHeld = mLow = 0.; mRingSpread.Reset(rate); mCarrierWeights = {1., 0., 0.}; mFirstCarrier = true; mCrush.Reset(rate); mRing.Reset(rate); }
+  void Process(double* x, int n, SlotEffect effect, const UtilityControls& c, bool right = false)
   {
+    mRingSpread.Target({right ? c.extra.ringSpread : 0.}, uRingSpread);
+    const int shape = std::clamp(static_cast<int>(c.extra.ringShape), 0, 2);
+    if (mFirstCarrier) { mCarrierWeights = {}; mCarrierWeights[shape] = 1.; mFirstCarrier = false; }
     mCrush.Target(c.crusher, uCrushBits); mRing.Target(c.ring, uRingFrequency);
     for (int i = 0; i < n; ++i)
     {
@@ -412,7 +441,16 @@ public:
       else
       {
         mPhase = std::fmod(mPhase + ring[0] / mRate, 1.);
-        wet = Low(x[i] * (1. - ring[1] * .01 + ring[1] * .01 * std::sin(2. * grid_fx::pi * mPhase)),
+        const double angle = 2. * grid_fx::pi * (mPhase + .005 * mRingSpread.Tick()[0]);
+        const double sine = std::sin(angle);
+        const std::array<double, 3> carrier{sine, 2. / grid_fx::pi * std::asin(sine), std::tanh(4. * sine) / std::tanh(4.)};
+        double wave = 0.;
+        for (int j = 0; j < 3; ++j)
+        {
+          mCarrierWeights[j] += std::clamp((shape == j ? 1. : 0.) - mCarrierWeights[j], -1. / (.005 * mRate), 1. / (.005 * mRate));
+          wave += mCarrierWeights[j] * carrier[j];
+        }
+        wet = Low(x[i] * (1. - ring[1] * .01 + ring[1] * .01 * wave),
                   mLow, Pole(mTone, ring[2], mRate)); mix = ring[3] * .01;
       }
       x[i] = (x[i] + mix * (wet - x[i])) * (crusher ? Gain(mGain, crush[4]) : 1.);
@@ -421,6 +459,9 @@ public:
 private:
   grid_fx::SmoothControls<5> mCrush;
   grid_fx::SmoothControls<4> mRing;
+  grid_fx::SmoothControls<1> mRingSpread;
+  std::array<double, 3> mCarrierWeights{1., 0., 0.};
+  bool mFirstCarrier = true;
   grid_fx::Memo mTone, mGain;
   double mRate = 48000., mPhase = 0., mHeld = 0., mLow = 0.;
 };

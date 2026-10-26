@@ -121,6 +121,8 @@ public:
     grid_hq::JunoChorus juno;
     grid_hq::FrequencyShifter frequencyShifter;
     StereoUtility utilityStereo;
+    grid_fx::SmoothControls<1> eqOutput;
+    grid_fx::Memo eqOutputGain;
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
     std::unique_ptr<AdaptiveIR> ir;
@@ -131,7 +133,7 @@ public:
     int64_t drainFrames = 0, drainLimit = 0;
     void Reset(double rate, int block)
     {
-      utilityStereo.Reset(rate);
+      utilityStereo.Reset(rate); eqOutput.Reset(rate);
       dynamics.Reset(rate);
       if (effect == SlotEffect::NoisePrint && !rightChannel)
         noise.Reset(rate);
@@ -206,8 +208,9 @@ public:
                                            : effect == SlotEffect::ShimmerReverb ? 30.
                                            : effect == SlotEffect::FrequencyShifter ? 9.
                                            : effect == SlotEffect::Doubler ? .1
+                                           : effect == SlotEffect::Freeze ? 7.
                                            : effect == SlotEffect::Stutter ? 33.
-                                           : effect == SlotEffect::Utility ? .025
+                                           : effect == SlotEffect::Utility ? .045
                                            : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
                                            : IsModulation(effect) ? .07
@@ -447,7 +450,7 @@ public:
             }
             else if (IsAirReverb(p->effect)) p->airReverb.Process(out, r, frames, utility, draining);
             else if (IsReverb(p->effect)) p->reverb.Process(out, r, frames, utility);
-            else p->capture.Process(out, r, frames, p->effect, utility);
+            else p->capture.Process(out, r, frames, p->effect, utility, draining);
           }
           else if (p->effect == SlotEffect::SpringReverb)
           {
@@ -474,6 +477,16 @@ public:
           }
           if (p->effect == SlotEffect::Utility)
             p->utilityStereo.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);
+          if (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ || p->effect == SlotEffect::ConsoleEQ)
+          {
+            p->eqOutput.Target({utility.extra.eqOutput}, uEQOutput);
+            for (int i = 0; i < frames; ++i)
+            {
+              const double gain = p->eqOutputGain(p->eqOutput.Tick()[0] * .05, [](double x) { return std::pow(10., x); });
+              out[i] *= gain;
+              if (rightSamples) p->right->wet[i] *= gain;
+            }
+          }
         }
         if (p->model && rightSamples)
           std::copy_n(out, frames, p->right->wet.data());
@@ -564,9 +577,9 @@ private:
       else if (p->effect == SlotEffect::AutoSwell)
         p->swell.Process(out, frames, utility);
       else if (p->effect == SlotEffect::UniVibe)
-        p->vibe.Process(out, frames, utility);
+        p->vibe.Process(out, frames, utility, p->rightChannel);
       else if (p->effect == SlotEffect::Bitcrusher || p->effect == SlotEffect::RingMod)
-        p->texture.Process(out, frames, p->effect, utility);
+        p->texture.Process(out, frames, p->effect, utility, p->rightChannel);
       else if (IsDelay(p->effect))
         p->echo.Process(out, frames, p->effect, utility, nullptr, nullptr, draining);
       else if (IsModulation(p->effect))

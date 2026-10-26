@@ -85,6 +85,8 @@ A clean level boost with opposing shelves around 800 Hz (Tilt) and a low cut. It
 | **Gain** | 0â€“18 dB | 3 dB | Clean level boost before the next module. Drive a following NAM or distortion harder. |
 | **Tilt** | -6 to +6 dB | 0 dB | Tilt around 800 Hz: positive is brighter/thinner, negative is darker/fuller. |
 | **Low cut** | 0â€“300 Hz | 0 Hz | Removes low end before the boost; 0 is off. |
+| **Mid gain** | -12–12 dB | 0 dB | Broad mid boost or cut before the next module; zero leaves the original boost unchanged. |
+| **Mid freq** | 100–4000 Hz | 800 Hz | Center frequency of the boost mid bell, for focused solos or shaping amp drive. |
 
 **Display:** The gain stage's transfer line and the Tilt/Low cut response.
 
@@ -106,6 +108,7 @@ Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut f
 | **Asymmetry** | 0â€“100% | 25% | Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC. |
 | **Output** | -18 to +18 dB | -3 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0â€“100% | 100% | Balance between dry sound and effect. |
+| **High cut** | 1000–20000 Hz | 20000 Hz | Filters the saturated path after clipping; maximum bypasses this added filter. |
 
 **Display:** The saturation curve with the input span you reach, and the small-signal EQ.
 

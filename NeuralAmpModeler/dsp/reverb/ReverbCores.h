@@ -33,7 +33,7 @@ public:
       mLoopTime[ch] = mLoopSeconds * std::exp2((ch % 2 ? -1. : 1.) * (.0625 + .125 * (ch / 2)));
       mLoop[ch].Reset(rate, mLoopTime[ch] * 2. + .004);
     }
-    mBass = {}; mTreble = {}; mPhase = 0.;
+    mBass = {}; mTreble = {}; mPhase = 0.; mEarlyLevel = 1.;
   }
   void Configure(double size, double decay, double tone, double motion)
   {
@@ -46,6 +46,7 @@ public:
       mHighRatio[ch] = std::pow(mGain[ch], 1. / kHighDecayRatio - 1.);
     }
   }
+  void SetEarlyLevel(double level) { mEarlyLevel = level; }
   Stereo Tick(Stereo in)
   {
     Field x{};
@@ -66,7 +67,8 @@ public:
       feedback[ch] = y;
       mLoop[(ch + 3) % 8].Push(.35 * x[ch] + y * mGain[ch]);
     }
-    const auto early = Diffuse(x, 4);
+    auto early = Diffuse(x, 4);
+    if (mEarlyLevel != 1.) for (auto& sample : early) sample *= mEarlyLevel;
     for (int ch = 0; ch < 8; ++ch) x[ch] = feedback[ch] + early[ch] * (mHall ? .12 : .35);
     x = Diffuse(x, 2); x = Diffuse(x, 3);
     Stereo out{};
@@ -98,6 +100,7 @@ private:
   double mRate = 48000., mLoopSeconds = .055, mSize = 1., mMotion = 0., mPhase = 0.;
   double mLowCoefficient = 0., mHighCoefficient = 0.;
   bool mHall = false;
+  double mEarlyLevel = 1.;
 };
 
 // Griesinger/Dattorro two-branch tank, informed by the MIT Clouds implementation.

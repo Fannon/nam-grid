@@ -28,6 +28,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   {
     UtilityControls wah;
     for (int i=0;i<5;++i) wah.wah[i]=value(uWahPosition+i);
+    wah.extra.wahSweep=value(uWahSweep);
     const double center=effect_preview::WahCenter(wah,rate),upper=std::min(20000.,.45*rate);
     text.SetFormatted(80,"Wah | peak %.0f Hz",center); caption(text.Get());
     PlotDetail(g,plot,"Position / register move peak; Q narrows it");

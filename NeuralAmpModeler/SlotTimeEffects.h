@@ -74,6 +74,12 @@ public:
       mFirst = false;
     }
   }
+  void Target(const std::array<double, N>& values, const std::array<int, N>& ids)
+  {
+    for (size_t j = 0; j < N; ++j)
+      mTarget[j] = std::clamp(values[j], kEffectParameters[ids[j]].minimum, kEffectParameters[ids[j]].maximum);
+    if (mFirst) { mValue = mTarget; mFirst = false; }
+  }
   const std::array<double, N>& Tick()
   {
     for (size_t j = 0; j < N; ++j)
@@ -85,6 +91,19 @@ private:
   std::array<double, N> mValue{}, mTarget{};
   double mCoefficient = 0.;
   bool mFirst = true;
+};
+class WetDucker
+{
+public:
+  void Reset(double rate) { mRate = rate; mEnv = 0.; mAttack = std::exp(-1. / (.003 * rate)); mRelease = std::exp(-1. / (.15 * rate)); }
+  double Tick(double left, double right, double amount)
+  {
+    const double peak = std::max(std::abs(left), std::abs(right));
+    mEnv = Flush(peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak));
+    return 1. / (1. + amount * .12 * mEnv);
+  }
+private:
+  double mRate = 48000., mEnv = 0., mAttack = 0., mRelease = 0.;
 };
 } // namespace grid_fx
 
@@ -98,12 +117,13 @@ public:
     mControls.Reset(rate);
     mExtras.Reset(rate);
     mPing.Reset(rate);
-    mLP = mLP2 = mDC = mEnv = mPhase = 0.;
+    mLP = mLP2 = mDC = mEnv = mPhase = 0.; mDuckRelease.Reset(rate);
     mCounter = 0;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
                SlotDelay* right = nullptr, double* rightSamples = nullptr, bool draining = false)
   {
+    mDuckRelease.Target({controls.extra.duckRelease}, uDuckRelease);
     auto values = controls.delay;
     if (controls.sync)
       values[0] = grid_tempo::Seconds(controls.tempo, controls.division) * 1000.;
@@ -111,12 +131,13 @@ public:
     mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
     mPing.Target({right && controls.pingPong ? 1. : 0.}, uDelayPingPong);
     const double dcCoefficient = std::exp(-2. * grid_fx::pi * 70. / mRate);
-    const double envelopeAttack = std::exp(-1. / (.003 * mRate)), envelopeRelease = std::exp(-1. / (.15 * mRate));
+    const double envelopeAttack = std::exp(-1. / (.003 * mRate));
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
       const double ping = mPing.Tick()[0];
+      const double envelopeRelease = mDuckPole(-1. / (.001 * mDuckRelease.Tick()[0] * mRate), [](double x) { return std::exp(x); });
       const double character = c[3] * .01, mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
       {
@@ -172,7 +193,8 @@ private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
-  grid_fx::SmoothControls<1> mPing;
+  grid_fx::SmoothControls<1> mPing, mDuckRelease;
+  grid_fx::Memo mDuckPole;
   grid_fx::Memo mOutput;
   double mRate = 48000., mLP = 0., mLP2 = 0., mDC = 0., mEnv = 0., mPhase = 0., mDamping = 0.;
   int mCounter = 0;
@@ -186,9 +208,9 @@ public:
     mRate = rate;
     mLine.Reset(static_cast<int>(.06 * rate));
     mControls.Reset(rate);
-    mSpread.Reset(rate);
+    mSpread.Reset(rate); mExtension.Reset(rate); mRise = 0.;
     mPhase = mFeedback = mEnv = mTone = 0.;
-    mAllpass = {};
+    mAllpass = {}; mFirstStages = true; mStageWeights = {0., 1., 0., 0.};
     mCounter = 0;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls, bool right = false)
@@ -197,12 +219,20 @@ public:
     if (controls.sync)
       values[0] = 1. / grid_tempo::Seconds(controls.tempo, controls.division);
     mControls.Target(values, uModRate, controls.sync);
-    mSpread.Target({effect == SlotEffect::Chorus && right ? controls.chorusSpread : 0.}, uChorusSpread);
+    mSpread.Target({right ? (effect == SlotEffect::Chorus ? controls.chorusSpread : controls.extra.modSpread) : 0.}, uChorusSpread);
+    mExtension.Target({controls.extra.chorusDelay, controls.extra.flangerDelay, controls.extra.modOutput, controls.extra.vibratoRise},
+      std::array<int, 4>{uChorusDelay, uFlangerDelay, uModOutput, uVibratoRise});
+    const int stages = std::clamp(static_cast<int>(controls.extra.phaserStages), 0, 3);
+    if (mFirstStages) { mStageWeights = {}; mStageWeights[stages] = 1.; mFirstStages = false; }
     const double envelopeAttack = std::exp(-1. / (.005 * mRate)), envelopeRelease = std::exp(-1. / (.15 * mRate));
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
-      const double x = samples[i], depth = c[1] * .01, character = c[3] * .01, mix = c[4] * .01;
+      const auto& extension = mExtension.Tick();
+      const double x = samples[i];
+      if (mEnv < .001) mRise = 0.;
+      else mRise = extension[3] <= 0. ? 1. : std::min(1., mRise + 1. / (extension[3] * .001 * mRate));
+      const double depth = c[1] * .01 * (effect == SlotEffect::Vibrato && extension[3] > 0. ? mRise : 1.), character = c[3] * .01, mix = c[4] * .01;
       const double peak = std::abs(x);
       mEnv = grid_fx::Flush(peak + (peak > mEnv ? envelopeAttack : envelopeRelease) * (mEnv - peak));
       mPhase += c[0] * (effect == SlotEffect::Tremolo && !controls.sync ? 1. + character * std::min(3., mEnv * 6.) : 1.)
@@ -227,11 +257,23 @@ public:
         }
         mCounter %= 16;
         wet = x + c[2] * .01 * mFeedback;
-        for (auto& state : mAllpass)
+        std::array<double, 4> taps{};
+        for (int stage = 0; stage < 12; ++stage)
         {
+          auto& state = mAllpass[stage];
           const double y = mCoefficient * wet + state;
           state = grid_fx::Flush(wet - mCoefficient * y);
           wet = y;
+          if (stage == 3) taps[0] = wet;
+          if (stage == 5) taps[1] = wet;
+          if (stage == 7) taps[2] = wet;
+          if (stage == 11) taps[3] = wet;
+        }
+        wet = 0.;
+        for (int j = 0; j < 4; ++j)
+        {
+          mStageWeights[j] += std::clamp((j == stages ? 1. : 0.) - mStageWeights[j], -1. / (.005 * mRate), 1. / (.005 * mRate));
+          wet += mStageWeights[j] * taps[j];
         }
         mFeedback = std::tanh(wet);
       }
@@ -239,7 +281,7 @@ public:
       {
         const bool flange = effect == SlotEffect::Flanger;
         const bool vibrato = effect == SlotEffect::Vibrato;
-        const double centre = flange ? .003 : vibrato ? .008 : .018;
+        const double centre = flange ? extension[1] * .001 : vibrato ? .008 : extension[0] * .001;
         const double excursion = flange ? .0025 : vibrato ? .006 : .006;
         const double wobble = (1. - .25 * character) * lfo + .25 * character * std::sin(4. * grid_fx::pi * phase + .7);
         wet = mLine.Read(mRate * (centre + excursion * depth * wobble));
@@ -250,6 +292,8 @@ public:
         mLine.Push(x + (flange ? c[2] * .01 * (1. - 2. * character) * std::tanh(wet) : 0.));
       }
       samples[i] = effect == SlotEffect::Vibrato ? wet : (1. - mix) * x + mix * wet;
+      if (effect == SlotEffect::Vibrato || effect == SlotEffect::Tremolo)
+        samples[i] *= mOutput(extension[2] * .05, [](double x) { return std::pow(10., x); });
     }
   }
 
@@ -257,7 +301,12 @@ private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mSpread;
-  std::array<double, 6> mAllpass{};
+  grid_fx::SmoothControls<4> mExtension;
+  grid_fx::Memo mOutput;
+  double mRise = 0.;
+  std::array<double, 4> mStageWeights{0., 1., 0., 0.};
+  bool mFirstStages = true;
+  std::array<double, 12> mAllpass{};
   grid_fx::Memo mShape, mToneCoefficient;
   double mRate = 48000., mPhase = 0., mFeedback = 0., mEnv = 0., mTone = 0., mCoefficient = 0.;
   int mCounter = 0;

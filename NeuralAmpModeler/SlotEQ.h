@@ -7,6 +7,7 @@ struct EQControls
 {
   double bass = 0., mid = 0., treble = 0., highPass = 0., lowPass = 20000., presence = 0.;
   double irLevel = -18.;
+  double midFrequency = 800.;
 };
 
 // RBJ Audio EQ Cookbook low/high-pass equations (12 dB/octave, Butterworth Q).
@@ -74,11 +75,11 @@ public:
   }
   void Process(double* samples, int frames, bool cuts, const EQControls& c)
   {
-    const std::array<double, 3> target =
-      cuts ? std::array<double, 3>{std::clamp(c.highPass, 0., 300.), std::clamp(c.lowPass, 2000., 20000.),
-                                   std::clamp(c.presence, -6., 6.)}
-           : std::array<double, 3>{
-               std::clamp(c.bass, -12., 12.), std::clamp(c.mid, -12., 12.), std::clamp(c.treble, -12., 12.)};
+    const std::array<double, 4> target =
+      cuts ? std::array<double, 4>{std::clamp(c.highPass, 0., 300.), std::clamp(c.lowPass, 2000., 20000.),
+                                   std::clamp(c.presence, -6., 6.), 800.}
+           : std::array<double, 4>{
+               std::clamp(c.bass, -12., 12.), std::clamp(c.mid, -12., 12.), std::clamp(c.treble, -12., 12.), std::clamp(c.midFrequency, 100., 4000.)};
     if (mFirst)
     {
       mCurrent = target;
@@ -90,7 +91,7 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       bool changed = false;
-      for (int j = 0; j < 3; ++j)
+      for (int j = 0; j < 4; ++j)
       {
         const double next =
           std::abs(mCurrent[j] - target[j]) < 1.e-7 ? target[j] : target[j] + mSmoothing * (mCurrent[j] - target[j]);
@@ -137,7 +138,7 @@ private:
     else
     {
       mBass.SetParams(recursive_linear_filter::BiquadParams(mRate, frequency(150.), .707, mCurrent[0]));
-      mMid.SetParams(recursive_linear_filter::BiquadParams(mRate, frequency(800.), .7, mCurrent[1]));
+      mMid.SetParams(recursive_linear_filter::BiquadParams(mRate, frequency(mCurrent[3]), .7, mCurrent[1]));
       mTreble.SetParams(recursive_linear_filter::BiquadParams(mRate, frequency(3000.), .707, mCurrent[2]));
     }
   }
@@ -146,7 +147,7 @@ private:
   ScalarFilter<recursive_linear_filter::HighShelf> mTreble;
   ScalarFilter<CutCoefficients<true>> mHP;
   ScalarFilter<CutCoefficients<false>> mLP;
-  std::array<double, 3> mCurrent{};
+  std::array<double, 4> mCurrent{};
   double mRate = 48000., mSmoothing = 0., mHPMix = 0., mLPMix = 0.;
   int mCounter = 0;
   bool mFirst = true, mDirty = false;

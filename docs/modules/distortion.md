@@ -16,7 +16,9 @@ Drives, boosts and saturation.
 
 ![Distortion editor](../screenshots/modules/distortion.png)
 
-Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the symmetry for different harmonics and attack textures. Bright, high-drive settings can introduce aliasing.
+Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the symmetry for different harmonics and attack textures. Antiderivative antialiasing and minimum-phase oversampling reduce aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz, and 1x from 176.4 kHz upward. Extreme Foldback and bright, high-drive settings can still alias.
+
+**Latency:** zero added reported latency and no lookahead. The wet path has frequency-dependent phase and group delay, so partial Mix blends can change the attack and tone. Mix 0% keeps the dry signal unshifted. The same controls and saved presets continue to load; this 0.x sound-quality improvement changes existing Distortion rigs.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

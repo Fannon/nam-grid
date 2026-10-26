@@ -15,6 +15,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Distortion reduces aliasing with minimum-phase oversampling and antiderivative antialiasing. It runs at 4x at 44.1/48 kHz, 2x at 88.2/96 kHz and 1x from 176.4 kHz, with zero added reported latency. Existing Distortion rigs can sound cleaner, with changes to attack and partial Mix blends.
 - Cosmic Echo's response graph and delay-line sketch have separate, shorter hover explanations, including the current line count.
 - Module graphs use more vertical space, with explanations available on hover and captions focused on live measurements and useful derived information instead of repeating knob values. Editable knob values show a text cursor on hover.
 - Compressor and limiter gain-reduction displays use a 16 dB scale instead of 24 dB, with 2 and 4 dB guides in Outboard Channel and Butter Comp histories so gentle compression is easier to see. Gate attenuation displays retain their wider ranges.

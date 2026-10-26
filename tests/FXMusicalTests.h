@@ -149,18 +149,19 @@ void TestDistortionTonePreview()
 {
   // Hard clipping below its threshold is linear: compare the displayed tone,
   // DC rejection, dry/wet phase sum and output gain against actual samples.
-  constexpr double rate = 48000.;
+  for (double rate : {44100., 48000., 88200., 96000., 176400., 192000.})
   for (double frequency : {100., 1000., 6000.})
     for (double mix : {0., 35., 100.})
     {
       SlotDistortion distortion; distortion.Reset(rate);
       UtilityControls c; c.distortion = {1., 0., 1800., 0., mix, -3.};
       double inputPower = 0., outputPower = 0.;
-      for (int i = 0; i < 24000; ++i)
+      const int observed = static_cast<int>(rate * .1), warm = observed * 4;
+      for (int i = 0; i < warm + observed; ++i)
       {
         const double input = .01 * std::sin(2. * grid_fx::pi * frequency * i / rate);
         double output = input; distortion.Process(&output, 1, c);
-        if (i >= 12000) { inputPower += input * input; outputPower += output * output; }
+        if (i >= warm) { inputPower += input * input; outputPower += output * output; }
       }
       assert(std::abs(std::sqrt(outputPower / inputPower) - effect_preview::DistortionTone(frequency, c, rate)) < 2.e-5);
     }

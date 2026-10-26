@@ -101,7 +101,11 @@ single pass instead of looping `SendParameterValueFromDelegate`.
 3. Keep existing descriptor `name` values; they are host names and storage keys.
    Use `label` for editor wording. Never change an existing automatable control's
    range, scaling or meaning to accommodate a new mode.
-4. If an algorithm's behavior must materially change, add a new mode identity so
+4. During 0.x, deliberate DSP quality improvements may update existing algorithms
+   without a new mode identity. Document audible changes in the changelog and
+   verify quality, real-time behavior and state/parameter compatibility. Plugin
+   identity, parameter contracts, mode identities and saved-state loading remain
+   stable. From 1.0 onward, material sound changes require a new mode identity so
    existing rigs keep their sound.
 5. Run the compatibility tests and the new algorithm's DSP/state tests.
 

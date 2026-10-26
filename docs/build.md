@@ -101,7 +101,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
-cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
 ctest --test-dir "$build_dir" -C Release --output-on-failure
 python -m unittest discover -s tests -p "test_*.py"
 ```
@@ -256,7 +256,7 @@ commit, then upload the archives:
 ```sh
 git checkout v0.1.0 && git submodule update --init --recursive && python scripts/setup-deps.py
 cmake -S . -B build/macos/release -DCMAKE_BUILD_TYPE=Release   # add -G Ninja on Windows and Linux
-cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
 ctest --test-dir build/macos/release -C Release --output-on-failure   # xvfb-run -a ... on Linux
 python scripts/package-release.py --build-dir build/macos/release --platform macos-arm64
 gh release upload v0.1.0 build/macos/release/nam-grid-macos-arm64.zip --repo Fannon/nam-grid
@@ -277,6 +277,7 @@ build targets.
 | `capture-library` | Library scanning, metadata, search, menus and atomic preference writes |
 | `wav-decoder` | WAV decoding and malformed-file rejection |
 | `resampling` | Resampler warm-up with exact WDL allocations |
+| `aliasing` | Every module through stereo slot DSP, coherent spectral analysis, zero reported built-in latency and pedal alias rejection; [extended audit](dsp-aliasing.md) |
 | `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks and ARM planar/portable A2 bit identity |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
 | `tuner` | Tuner detection, mute and automation through CLAP |

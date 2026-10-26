@@ -52,12 +52,14 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   1.66–5.35 ms delay. **Frequency Shifter** is a Bode-style single-sideband shifter (±2000 Hz)
   in a 0.05–1000 ms feedback delay with soft-saturated, bounded feedback.
 - **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
-  style crossfades. **Tube Boost** is an original biased soft saturator with Boost's
-  Tilt/Low cut voicing. Neither oversamples, so bright, high-drive settings can alias.
+  style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
+  FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
+  lookahead or reported delay. **Tube Boost** is an original biased soft saturator with Boost's
+  Tilt/Low cut voicing at the host rate; bright, high-drive settings can alias.
 - **Pedal Drive** ([SlotPedalDrive.h](../NeuralAmpModeler/SlotPedalDrive.h),
   [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
-  informed by documented pedal designs. It uses 4x FIR oversampling with 64 host
-  samples of latency, aligned dry/bypass and local clean-low returns, independent
+  informed by documented pedal designs. It uses fixed 4x minimum-phase FIR oversampling with zero added reported
+  latency, unshifted dry/bypass and local clean-low returns, independent
   stereo histories and 20 ms style crossfades. Its centered character parameter
   changes function/label by style; derived bias normalization is cached on the
   16-sample control schedule. The FIR loops share input loads
@@ -82,8 +84,8 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   controls are not presented as calibrated units. See [Airwindows outboard](airwindows-outboard.md)
   and [dynamics](airwindows-dynamics.md).
 
-Timing scales with the host rate; nothing is forced to 44.1 kHz. Pedal Drive oversamples
-its driven path; the other built-in effects run at the host rate. Built-in
+Timing scales with the host rate; nothing is forced to 44.1 kHz. Pedal Drive and
+Distortion oversample their driven paths; the other built-in effects run at the host rate. Built-in
 effects keep independent left/right histories. A mono NAM stage downmixes once and broadcasts
 its result, so stereo effects belong after the last mono capture.
 

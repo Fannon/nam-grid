@@ -1,5 +1,6 @@
 #pragma once
 #include "EffectPresentation.h"
+#include "SlotDistortion.h"
 #include "TempoSync.h"
 #include "dsp/reverb/CosmicReverb.h"
 #include "dsp/reverb/ReverbCores.h"
@@ -32,7 +33,7 @@ inline double DistortionTone(double hz, const UtilityControls& c, double rate)
   const auto z = std::polar(1., -2. * 3.14159265358979323846 * hz / rate);
   const double low = std::exp(-2. * 3.14159265358979323846 * std::min(c.distortion[2], .4 * rate) / rate);
   const double dc = std::exp(-2. * 3.14159265358979323846 * 5. / rate);
-  const auto wet = ((1. - z) / (1. - dc * z)) * ((1. - low) / (1. - low * z));
+  const auto wet = SlotDistortion::LinearResponse(hz, rate) * ((1. - z) / (1. - dc * z)) * ((1. - low) / (1. - low * z));
   const double mix = c.distortion[4] * .01;
   return std::abs(1. - mix + mix * wet) * std::pow(10., c.distortion[5] / 20.);
 }

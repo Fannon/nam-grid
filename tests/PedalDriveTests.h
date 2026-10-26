@@ -1,5 +1,6 @@
 #pragma once
 #include "SlotPedalDrive.h"
+#include "SpectralAnalysis.h"
 
 namespace pedal_test
 {
@@ -46,14 +47,7 @@ private:
 
 inline double Harmonic(const std::vector<double>& x, int start, int count, int bin)
 {
-  double re = 0., im = 0.;
-  for (int i = 0; i < count; ++i)
-  {
-    const double phase = 2. * grid_fx::pi * bin * i / count;
-    re += x[start + i] * std::cos(phase);
-    im += x[start + i] * std::sin(phase);
-  }
-  return 2. * std::hypot(re, im) / count;
+  return spectral_test::ToneAmplitude(std::span<const double>(x).subspan(start, count), bin);
 }
 inline std::vector<double> Render(double rate, UtilityControls controls, bool tiny, bool automate = false)
 {
@@ -168,6 +162,7 @@ void TestPedalDrive()
   const double nativeAlias = pedal_test::Harmonic(native, 0, n, alias);
   const double filteredAlias = pedal_test::Harmonic(filtered, n, n, alias);
   assert(nativeAlias > .03 && filteredAlias < nativeAlias * .01);
+  assert(spectral_test::SuppressionDB(native, std::span<const double>(filtered).subspan(n, n), alias) > 40.);
 
   for (double rate : {44100., 48000., 96000., 192000.})
   {

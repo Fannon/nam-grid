@@ -1,10 +1,11 @@
 # Project guidance
 
-## Backward compatibility is required
+## Project and parameter compatibility is required
 
-- Released projects, host automation and `.ngrid` presets must keep loading and retain their meaning and sound. Read [the compatibility contract](docs/development.md#parameter-and-project-compatibility) before changing parameters, modules, DSP modes or saved state.
+- Released projects, host automation and `.ngrid` presets must keep loading and retain their parameter meaning. During 0.x, deliberate DSP quality improvements may change the sound of existing rigs; document the audible change and verify it with relevant DSP tests and measurements. Read [the compatibility contract](docs/development.md#parameter-and-project-compatibility) before changing parameters, modules, DSP modes or saved state.
 - Preserve plugin identity, parameter IDs, descriptor names/storage keys, ranges, scaling, defaults and meaning. Append new parameter, module and algorithm IDs; never reorder, renumber or reuse released IDs. Use presentation labels for UI wording changes.
-- Extend state schemas additively, supply declared defaults for older states, and never lower or reuse schema numbers. Material sound changes need a new mode identity so existing rigs retain their behavior.
+- Extend state schemas additively, supply declared defaults for older states, and never lower or reuse schema numbers. From 1.0 onward, material sound changes need a new mode identity so existing rigs retain their behavior. During 0.x, a new identity is optional for deliberate quality improvements; keep existing parameter and mode identities, ranges and meanings intact.
+- Built-in effects must keep zero added reported latency: no lookahead or fixed compensation delay. Causal minimum-phase filtering is allowed; evaluate its group delay and phase interaction with dry/wet and parallel paths. NAM model resampling may still require compensation.
 - Run the relevant DSP/state tests and parameter-contract tests (including the VST3 contract on Windows). Never re-record a compatibility fixture to make a failing change pass.
 
 ## Build and verification

@@ -856,7 +856,7 @@ int main(int argc, char** argv)
       shaped["SlotPaths"][slot] = irFile.string();
       shaped[prefix + "IR Input"] = 6.; shaped[prefix + "IR Mix"] = 25.;
       shaped[prefix + "IR Pre-delay"] = 37.5; shaped[prefix + "IR Low Cut"] = 200.;
-      shaped[prefix + "IR High Cut"] = 5000.; shaped[prefix + "IR Invert"] = 1.;
+      shaped[prefix + "IR High Cut"] = 5000.;
       shaped[prefix + "IR Length"] = 1.;
     }
     load(shaped);
@@ -2112,9 +2112,7 @@ int main(int argc, char** argv)
              before == kEffectParameters[p].maximum ? -25 : 25);
       assert(save().config()[key] != before);
     }
-    // Wet polarity is local; the length selector reloads the same resource on idle.
-    click(grid_layout::KnobX(5), grid_layout::ToggleY(5));
-    assert(save().config()["Pre 3 IR Invert"] == 1.);
+    // The length selector reloads the same resource on idle.
     host.dirty = false;
     click(optionX(uIRLength), grid_layout::optionsY);
     assert(save().config()["Pre 3 IR Length"] == 1. && host.dirty);

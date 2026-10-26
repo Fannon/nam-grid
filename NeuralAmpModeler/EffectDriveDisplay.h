@@ -34,7 +34,7 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   PlotTitle(g,plot,color,caption);
   // Tube Boost's Tilt / High pass run before its saturator: they set how hard
   // each frequency hits the curve. Distortion's High cut runs after it.
-  const grid_eq_response::Boost preEQ(rate, 0., value(uBoostTilt), lowCut);
+  const grid_eq_response::Boost preEQ(rate, 0., value(uBoostTilt), lowCut, clean ? value(uBoostMidGain) : 0.);
   const bool voiced = tube && (std::abs(value(uBoostTilt)) > .05 || lowCut > 0.);
   PlotDetail(g,plot,clean ? "Input +/-1 | gain +/-8 | EQ +/-36 dB" : tape ? "Input +/-1 | stage +/-2 | bump setup"
                     : voiced ? "Pre-clip tilt: amber 100 Hz | white 3 kHz" : tube ? "Input +/-1 | stage +/-2 | EQ +/-36 dB"
@@ -88,7 +88,7 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   {
     UtilityControls controls;
     for (int i = 0; i < 6; ++i) controls.distortion[i] = value(uDistStyle + i);
-    const grid_eq_response::Boost boostEQ(rate, clean ? value(uBoostGain) : 0., value(uBoostTilt), lowCut);
+    const grid_eq_response::Boost boostEQ(rate, clean ? value(uBoostGain) : 0., value(uBoostTilt), lowCut, clean ? value(uBoostMidGain) : 0.);
     const double tubeDC = std::exp(-2. * grid_fx::pi * 5. / rate);
     const double tubeMix = value(uTubeMix) * .01, tubeOutput = std::pow(10., value(uTubeOutput) * .05);
     const double upper = std::min(20000., .45 * rate);
@@ -99,7 +99,10 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
       {
         const auto z = std::polar(1., -2. * grid_fx::pi * hz / rate);
         const auto dc = tubeDC * (1. - z) / (1. - tubeDC * z);
-        magnitude = std::abs(1. - tubeMix + tubeMix * tubeDrive * boostEQ.At(hz) * dc) * tubeOutput;
+        const double cutoff = value(uTubeHighCut);
+        const double pole = std::exp(-2. * grid_fx::pi * std::min(cutoff, .45 * rate) / rate);
+        const auto post = cutoff < 20000. ? (1. - pole) / (1. - pole * z) : std::complex<double>(1., 0.);
+        magnitude = std::abs(1. - tubeMix + tubeMix * tubeDrive * boostEQ.At(hz) * dc * post) * tubeOutput;
       }
       else magnitude = effect_preview::DistortionTone(hz, controls, rate);
       const double db = 20. * std::log10(std::max(1.e-9, magnitude));

@@ -1,6 +1,7 @@
 #pragma once
 #include "SlotEQ.h"
 #include "EffectParameters.h"
+#include "SlotTimeEffects.h"
 
 // Reuses the same MIT AudioDSPTools peak coefficients and smoothed cut filters as SlotEQ.
 class NotchCoefficients : public recursive_linear_filter::Biquad
@@ -151,6 +152,7 @@ public:
     mRate = rate;
     mLow.Reset();
     mHigh.Reset();
+    mMid.Reset(); mMidGain = 0.;
     Update();
     mCut.Reset(rate);
     mCut.Process(nullptr, 0, true, {});
@@ -166,10 +168,13 @@ public:
     {
       mGain = gain + mSmooth * (mGain - gain);
       mTilt = tilt + mSmooth * (mTilt - tilt);
+      mMidGain = c.extra.boostMidGain + mSmooth * (mMidGain - c.extra.boostMidGain);
       if (mCount++ % 16 == 0)
         Update();
       mCount %= 16;
       samples[i] = mHigh.Tick(mLow.Tick(samples[i])) * mGain;
+      const double mid = mMid.Tick(samples[i]);
+      if (mMidGain != 0.) samples[i] = mid;
     }
   }
 
@@ -179,9 +184,12 @@ private:
     const double hz = std::min(800., .4 * mRate);
     mLow.SetParams(recursive_linear_filter::BiquadParams(mRate, hz, .707, -mTilt));
     mHigh.SetParams(recursive_linear_filter::BiquadParams(mRate, hz, .707, mTilt));
+    mMid.SetParams(recursive_linear_filter::BiquadParams(mRate, std::min(800., .4 * mRate), .7, mMidGain));
   }
   ScalarFilter<recursive_linear_filter::LowShelf> mLow;
   ScalarFilter<recursive_linear_filter::HighShelf> mHigh;
+  ScalarFilter<recursive_linear_filter::Peaking> mMid;
+  double mMidGain = 0.;
   SlotEQ mCut;
   double mSmooth = 0., mGain = 1., mTilt = 0., mRate = 48000.;
   int mCount = 0;
@@ -199,18 +207,21 @@ public:
   }
   void Reset(double rate)
   {
+    mRate = std::max(1., rate);
     mTone.Reset(rate);
     mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
     mDCCoefficient = std::exp(-2. * 3.14159265358979323846 * 5. / std::max(1., rate));
     mDrive = 1.;
     mBias = mDC = 0.;
     mMix = 1.;
-    mOutput = 1.;
+    mOutput = 1.; mPostLow = 0.; mPostCut.Reset(rate);
   }
   void Process(double* samples, const double* dry, int frames, const UtilityControls& c, const EQControls& eq)
   {
+    mPostCut.Target({c.extra.tubeHighCut}, uTubeHighCut);
     auto tone = c;
     tone.boost = 0.;
+    tone.extra.boostMidGain = 0.;
     mTone.Process(samples, frames, tone, eq);
     const double drive = std::pow(10., std::clamp(c.tube[0], 0., 24.) * .05);
     const double bias = .35 * std::clamp(c.tube[1] * .01, 0., 1.);
@@ -222,7 +233,11 @@ public:
       mBias = bias + mSmooth * (mBias - bias);
       mMix = mix + mSmooth * (mMix - mix);
       mOutput = output + mSmooth * (mOutput - output);
-      const double shaped = Transfer(samples[i],mDrive,mBias);
+      double shaped = Transfer(samples[i],mDrive,mBias);
+      const double cutoff = mPostCut.Tick()[0];
+      const double pole = mPostPole(-6.283185307179586 * std::min(cutoff, .45 * mRate) / mRate, [](double x) { return std::exp(x); });
+      mPostLow = shaped + pole * (mPostLow - shaped);
+      if (cutoff < 20000.) shaped = mPostLow;
       mDC = shaped + mDCCoefficient * (mDC - shaped);
       if (std::abs(mDC) < 1.e-30)
         mDC = 0.;
@@ -231,6 +246,9 @@ public:
   }
 
 private:
+  grid_fx::SmoothControls<1> mPostCut;
+  grid_fx::Memo mPostPole;
+  double mRate = 48000., mPostLow = 0.;
   SlotBoost mTone;
   double mSmooth = 0., mDCCoefficient = 0., mDrive = 1., mBias = 0., mDC = 0., mMix = 1., mOutput = 1.;
 };
@@ -309,7 +327,7 @@ public:
   void Reset(double rate)
   {
     mRate = rate;
-    mEnv = mGain = mHold = 0.;
+    mEnv = mGain = mHold = 0.; mExtras.Reset(rate);
     mOpen = false;
     mAttack = std::exp(-1. / (.001 * rate));
     mRelease = std::exp(-1. / (.03 * rate));
@@ -318,6 +336,7 @@ public:
   }
   void Process(double* samples, int frames, const UtilityControls& c)
   {
+    mExtras.Target({c.extra.swellCurve, c.extra.swellHold, c.extra.swellMix}, std::array<int, 3>{uSwellCurve, uSwellHold, uSwellMix});
     // Smooth the derived threshold/rates so automation has no block-sized steps.
     // Exponentials stay outside the sample loop and the envelope stays per sample.
     const std::array<double, 3> target{
@@ -329,13 +348,14 @@ public:
     {
       for (int j = 0; j < 3; ++j)
         mValue[j] = target[j] + mSmoothing * (mValue[j] - target[j]);
+      const auto& extra = mExtras.Tick();
       const double peak = std::abs(samples[i]);
       mEnv = peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak);
       if (std::abs(mEnv) < 1.e-30) mEnv = 0.;
       if (mEnv >= mValue[0])
       {
         mOpen = true;
-        mHold = .04 * mRate;
+        mHold = extra[1] * .001 * mRate;
       }
       else if (mEnv < mValue[0] * .707 && --mHold <= 0.)
       {
@@ -345,11 +365,13 @@ public:
       mGain = mOpen ? std::min(1., mGain + mValue[1]) : mGain * mValue[2];
       if (mGain < 1.e-30)
         mGain = 0.;
-      samples[i] *= mGain;
+      const double shaped = extra[0] == 1. ? mGain : std::pow(mGain, extra[0]);
+      samples[i] *= extra[2] == 100. ? shaped : 1. + extra[2] * .01 * (shaped - 1.);
     }
   }
 
 private:
+  grid_fx::SmoothControls<3> mExtras;
   double mRate = 48000., mEnv = 0., mGain = 0., mHold = 0.;
   std::array<double, 3> mValue{};
   double mAttack = 0., mRelease = 0., mSmoothing = 0.;

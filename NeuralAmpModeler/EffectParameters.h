@@ -231,16 +231,58 @@ enum UtilityParam
   uIRPredelay = 215,
   uIRLowCut = 216,
   uIRHighCut = 217,
-  uIRInvert = 218,
-  uIRLength = 219,
+  uIRLength = 218,
+  uToneMidFrequency = 219,
+  uEQOutput = 220,
+  uBoostMidGain = 221,
+  uTubeHighCut = 222,
+  uGateAttack = 223,
+  uGateHold = 224,
+  uGateHysteresis = 225,
+  uSmoothRatio = 226,
+  uPunchRatio = 227,
+  uCompDetectorCut = 228,
+  uStripInput = 229,
+  uLimiterInput = 230,
+  uChorusDelay = 231,
+  uJunoWidth = 232,
+  uFlangerDelay = 233,
+  uModSpread = 234,
+  uPhaserStages = 235,
+  uVibratoRise = 236,
+  uRotaryBalance = 237,
+  uVibeSpread = 238,
+  uRingShape = 239,
+  uOctTrackingFilter = 240,
+  uDoubleHumanize = 241,
+  uDoubleHighCut = 242,
+  uDuckRelease = 243,
+  uReverseFeedback = 244,
+  uReverbDuck = 245,
+  uSpringPredelay = 246,
+  uFreezeAttack = 247,
+  uFreezeRelease = 248,
+  uStutterHold = 249,
+  uLoFiDrive = 250,
+  uUtilityMode = 251,
+  uUtilitySkew = 252,
+  uSwellCurve = 253,
+  uSwellHold = 254,
+  uSwellMix = 255,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
+inline constexpr const char* uPhaserStagesChoices[]{"4", "6", "8", "12"};
+inline constexpr const char* uRingShapeChoices[]{"Sine", "Triangle", "Square"};
+inline constexpr const char* uUtilityModeChoices[]{"Stereo", "Swap", "Left to both", "Right to both"};
 inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
   {
+    case uPhaserStages: return uPhaserStagesChoices;
+    case uRingShape: return uRingShapeChoices;
+    case uUtilityMode: return uUtilityModeChoices;
     case uIRLength: return kIRLengths;
     case uParamLowMode: return kParamLowModes;
     case uTempoDivision: return grid_tempo::names;
@@ -285,6 +327,9 @@ inline constexpr AlgorithmIdentity desk[]{
 inline constexpr AlgorithmIdentity black[]{{0, "zero-crossing"}, {1, "hysteresis"}};
 inline constexpr AlgorithmIdentity eq[]{{0, "bell"}, {1, "notch"}};
 inline constexpr AlgorithmIdentity eqLow[]{{0, "cut"}, {1, "shelf"}};
+inline constexpr AlgorithmIdentity uPhaserStagesIdentities[]{{0, "4"}, {1, "6"}, {2, "8"}, {3, "12"}};
+inline constexpr AlgorithmIdentity uRingShapeIdentities[]{{0, "sine"}, {1, "triangle"}, {2, "square"}};
+inline constexpr AlgorithmIdentity uUtilityModeIdentities[]{{0, "stereo"}, {1, "swap"}, {2, "left-to-both"}, {3, "right-to-both"}};
 inline constexpr AlgorithmIdentity irLength[]{{0, "cabinet-8192"}, {1, "long-ir-30s"}};
 inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
 } // namespace algorithm_identities
@@ -293,6 +338,9 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
   using namespace algorithm_identities;
   switch (control)
   {
+    case uPhaserStages: return uPhaserStagesIdentities;
+    case uRingShape: return uRingShapeIdentities;
+    case uUtilityMode: return uUtilityModeIdentities;
     case uIRLength: return irLength;
     case uDistStyle: return distortion;
     case uPedalStyle: return pedal;
@@ -319,7 +367,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 7; // 7 IR controls and opt-in long convolution; earlier schemas keep cabinet behavior.
+inline constexpr int kEffectStateSchema = 8; // 8 additive musical controls; 7 IR controls and long convolution.
 
 struct EffectParameter
 {
@@ -550,12 +598,48 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Parametric Shelf Gain", "Shelf gain", 0, -12, 12, .1, "dB", 3, false, 1., 5},
    {"Parametric Low Mode", "Low", 0, 0, 1, 1, "", 0, false, 1., 5},
    {"IR Input", "Input", 0, -36, 18, .1, "dB", 0, false, 1., 7},
-   {"IR Mix", "Mix", 100, 0, 100, .1, "%", 6, false, 1., 7},
+   {"IR Mix", "Mix", 100, 0, 100, .1, "%", 5, false, 1., 7},
    {"IR Pre-delay", "Pre-delay", 0, 0, 500, .1, "ms", 3, false, 2., 7},
    {"IR Low Cut", "Low cut", 0, 0, 2000, 1, "Hz", 1, false, 2., 7},
    {"IR High Cut", "High cut", 20000, 200, 20000, 1, "Hz", 2, true, 1., 7},
-   {"IR Invert", "Invert wet", 0, 0, 1, 1, "", 5, false, 1., 7},
-   {"IR Length", "Length", 0, 0, 1, 1, "", 0, false, 1., 7}}};
+   {"IR Length", "Length", 0, 0, 1, 1, "", 0, false, 1., 7},
+   {"Tone Mid Frequency", "Mid freq", 800, 100, 4000, 1, "Hz", 0, false, 1., 8},
+   {"EQ Output", "Output", 0, -24, 12, 0.1, "dB", 0, false, 1., 8},
+   {"Boost Mid Gain", "Mid gain", 0, -12, 12, 0.1, "dB", 0, false, 1., 8},
+   {"Tube High Cut", "High cut", 20000, 1000, 20000, 1, "Hz", 0, false, 1., 8},
+   {"Gate Attack", "Attack", 0, 0, 20, 0.1, "ms", 0, false, 1., 8},
+   {"Gate Hold", "Hold", 0, 0, 300, 0.1, "ms", 0, false, 1., 8},
+   {"Gate Hysteresis", "Hysteresis", 3, 0, 12, 0.1, "dB", 0, false, 1., 8},
+   {"Smooth Ratio", "Ratio", 2.5, 1, 20, 0.1, ":1", 0, false, 1., 8},
+   {"Punch Ratio", "Ratio", 4, 1, 20, 0.1, ":1", 0, false, 1., 8},
+   {"Comp Detector Low Cut", "Detector cut", 0, 0, 500, 1, "Hz", 0, false, 1., 8},
+   {"Strip Input", "Input", 0, -18, 18, 0.1, "dB", 0, false, 1., 8},
+   {"Limiter Input", "Input", 0, 0, 24, 0.1, "dB", 0, false, 1., 8},
+   {"Chorus Base Delay", "Base delay", 18, 8, 35, 0.1, "ms", 0, false, 1., 8},
+   {"Juno Width", "Width", 100, 0, 100, 0.1, "%", 0, false, 1., 8},
+   {"Flanger Manual Delay", "Manual", 3, 3, 15, 0.01, "ms", 0, false, 1., 8},
+   {"Mod Stereo Phase", "Stereo phase", 0, 0, 100, 0.1, "%", 0, false, 1., 8},
+   {"Phaser Stages", "Stages", 1, 0, 3, 1, "", 0, false, 1., 8},
+   {"Vibrato Rise", "Rise", 0, 0, 2000, 1, "ms", 0, false, 1., 8},
+   {"Rotary Horn Drum Balance", "Horn / drum", 0, -100, 100, 0.1, "%", 0, false, 1., 8},
+   {"Vibe Stereo Spread", "Spread", 0, 0, 100, 0.1, "%", 0, false, 1., 8},
+   {"Ring Carrier Shape", "Carrier", 0, 0, 2, 1, "", 0, false, 1., 8},
+   {"Octaver Tracking Filter", "Tracking filter", 450, 80, 1200, 1, "Hz", 0, false, 1., 8},
+   {"Doubler Humanize", "Humanize", 0, 0, 100, 0.1, "%", 0, false, 1., 8},
+   {"Doubler High Cut", "High cut", 20000, 1000, 20000, 1, "Hz", 0, false, 1., 8},
+   {"Delay Duck Release", "Duck release", 150, 10, 1000, 1, "ms", 0, false, 1., 8},
+   {"Reverse Feedback", "Feedback", 0, 0, 75, 0.1, "%", 0, false, 1., 8},
+   {"Reverb Ducking", "Ducking", 0, 0, 100, 0.1, "%", 0, false, 1., 8},
+   {"Spring Pre-delay", "Pre-delay", 0, 0, 200, 0.1, "ms", 0, false, 1., 8},
+   {"Freeze Fade In", "Fade in", 5, 1, 2000, 1, "ms", 0, false, 1., 8},
+   {"Freeze Fade Out", "Fade out", 5, 1, 4000, 1, "ms", 0, false, 1., 8},
+   {"Stutter Hold", "Hold", 0, 0, 1, 1, "", 0, false, 1., 8},
+   {"LoFi Drive", "Drive", 0, 0, 24, 0.1, "dB", 0, false, 1., 8},
+   {"Utility Channel Mode", "Channels", 0, 0, 3, 1, "", 0, false, 1., 8},
+   {"Utility Channel Delay", "Channel delay", 0, -20, 20, 0.01, "ms", 0, false, 1., 8},
+   {"Swell Curve", "Rise curve", 1, 0.25, 4, 0.01, "", 0, false, 1., 8},
+   {"Swell Re-arm Hold", "Re-arm hold", 40, 0, 500, 1, "ms", 0, false, 1., 8},
+   {"Swell Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 8}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -564,6 +648,7 @@ static_assert([] {
         || p.position < 0 || p.position >= 8 || p.introducedIn < kInitialEffectStateSchema
         || p.introducedIn > kEffectStateSchema)
       return false;
+    if (i >= uToneMidFrequency && std::string_view(p.name).size() + 7 >= 32) return false;
     const auto choices = EffectChoices(i);
     if (!choices.empty() && (p.minimum != 0. || p.maximum != choices.size() - 1 || p.step != 1.)) return false;
     if (IsAlgorithmMode(i))
@@ -633,6 +718,50 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uToneMidFrequency)
+  {
+    switch (p)
+    {
+      case uToneMidFrequency: return e == SlotEffect::ToneEQ;
+      case uEQOutput: return e == SlotEffect::ToneEQ || e == SlotEffect::CutEQ || e == SlotEffect::ConsoleEQ;
+      case uBoostMidGain: return e == SlotEffect::Boost;
+      case uTubeHighCut: return e == SlotEffect::TubeBoost;
+      case uGateAttack: return e == SlotEffect::NoiseGate;
+      case uGateHold: return e == SlotEffect::NoiseGate;
+      case uGateHysteresis: return e == SlotEffect::NoiseGate;
+      case uSmoothRatio: return e == SlotEffect::SmoothComp;
+      case uPunchRatio: return e == SlotEffect::PunchComp;
+      case uCompDetectorCut: return e == SlotEffect::SmoothComp || e == SlotEffect::PunchComp;
+      case uStripInput: return e == SlotEffect::OutboardChannel;
+      case uLimiterInput: return e == SlotEffect::Limiter;
+      case uChorusDelay: return e == SlotEffect::Chorus;
+      case uJunoWidth: return e == SlotEffect::JunoChorus;
+      case uFlangerDelay: return e == SlotEffect::Flanger;
+      case uModSpread: return e == SlotEffect::Flanger || e == SlotEffect::Phaser || e == SlotEffect::Tremolo;
+      case uPhaserStages: return e == SlotEffect::Phaser;
+      case uVibratoRise: return e == SlotEffect::Vibrato;
+      case uRotaryBalance: return e == SlotEffect::Rotary;
+      case uVibeSpread: return e == SlotEffect::UniVibe;
+      case uRingShape: return e == SlotEffect::RingMod;
+      case uOctTrackingFilter: return e == SlotEffect::Octaver;
+      case uDoubleHumanize: return e == SlotEffect::Doubler;
+      case uDoubleHighCut: return e == SlotEffect::Doubler;
+      case uDuckRelease: return e == SlotEffect::DigitalDelay;
+      case uReverseFeedback: return e == SlotEffect::ReverseDelay;
+      case uReverbDuck: return e == SlotEffect::PlateReverb || e == SlotEffect::CloudReverb || e == SlotEffect::HallReverb;
+      case uSpringPredelay: return e == SlotEffect::SpringReverb;
+      case uFreezeAttack: return e == SlotEffect::Freeze;
+      case uFreezeRelease: return e == SlotEffect::Freeze;
+      case uStutterHold: return e == SlotEffect::Stutter;
+      case uLoFiDrive: return e == SlotEffect::LoFiTape;
+      case uUtilityMode: return e == SlotEffect::Utility;
+      case uUtilitySkew: return e == SlotEffect::Utility;
+      case uSwellCurve: return e == SlotEffect::AutoSwell;
+      case uSwellHold: return e == SlotEffect::AutoSwell;
+      case uSwellMix: return e == SlotEffect::AutoSwell;
+      default: return false;
+    }
+  }
   if (e == SlotEffect::CabinetIR) return p >= uIRInput && p <= uIRLength;
   if (e == SlotEffect::PedalDrive) return p >= uPedalStyle && p <= uPedalCharacter;
   if (e == SlotEffect::DigitalBlack) return (p >= uBlackThreshold && p <= uBlackMode) || p == uBlackHold;
@@ -701,6 +830,39 @@ inline bool UsesUtility(SlotEffect e, int p)
     return p >= uTapeDrive && p <= uTapeOutput;
   return false;
 }
+struct ModuleExtensions
+{
+  double eqOutput = 0;
+  double boostMidGain = 0;
+  double tubeHighCut = 20000;
+  double stripInput = 0;
+  double limiterInput = 0;
+  double chorusDelay = 18;
+  double junoWidth = 100;
+  double flangerDelay = 3;
+  double modSpread = 0;
+  double phaserStages = 1;
+  double vibratoRise = 0;
+  double rotaryBalance = 0;
+  double vibeSpread = 0;
+  double ringShape = 0;
+  double octTrackingFilter = 450;
+  double doubleHumanize = 0;
+  double doubleHighCut = 20000;
+  double duckRelease = 150;
+  double reverseFeedback = 0;
+  double reverbDuck = 0;
+  double springPredelay = 0;
+  double freezeAttack = 5;
+  double freezeRelease = 5;
+  double stutterHold = 0;
+  double lofiDrive = 0;
+  double utilityMode = 0;
+  double utilitySkew = 0;
+  double swellCurve = 1;
+  double swellHold = 40;
+  double swellMix = 100;
+};
 struct UtilityControls
 {
   double frequency = 800., gain = 0., q = .7, boost = 6., tilt = 0.;
@@ -752,7 +914,7 @@ struct UtilityControls
   std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
+  ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
-  bool irInvert = false;
   int irLength = 0;
 };

@@ -5,62 +5,60 @@ void TestIRControls()
 {
   for (double rate : {44100., 48000., 96000.})
   {
-    // Delta IR: independent stereo dry paths and wet-only trims, inversion,
+    // Delta IR: independent stereo dry paths and wet-only trims,
     // blending and exact fractional pre-delay have a closed-form reference.
     for (double mix : {0., 25., 100.})
-      for (bool invert : {false, true})
-        for (double predelay : {0., 37.5})
+      for (double predelay : {0., 37.5})
+      {
+        auto prepared = std::make_unique<NAMStage::Prepared>();
+        prepared->effect = SlotEffect::CabinetIR;
+        AdaptiveIR::IRData data{{1.f}, rate};
+        prepared->ir = std::make_unique<AdaptiveIR>(data, rate, 512);
+        NAMStage stage;
+        stage.Publish(std::move(prepared));
+        stage.ResetStopped(rate, 512);
+        UtilityControls controls;
+        controls.irInput = 6.; controls.irMix = mix;
+        controls.irPredelay = predelay * 1000. / rate;
+        EQControls eq; eq.irLevel = -3.;
+        const double gain = std::pow(10., 3. * .05) * 48000. / rate;
+        std::array<double, 512> l{}, r{};
+        int position = 0;
+        for (int block = 0; block < 20; ++block)
         {
-          auto prepared = std::make_unique<NAMStage::Prepared>();
-          prepared->effect = SlotEffect::CabinetIR;
-          AdaptiveIR::IRData data{{1.f}, rate};
-          prepared->ir = std::make_unique<AdaptiveIR>(data, rate, 512);
-          NAMStage stage;
-          stage.Publish(std::move(prepared));
-          stage.ResetStopped(rate, 512);
-          UtilityControls controls;
-          controls.irInput = 6.; controls.irMix = mix; controls.irInvert = invert;
-          controls.irPredelay = predelay * 1000. / rate;
-          EQControls eq; eq.irLevel = -3.;
-          const double gain = (invert ? -1. : 1.) * std::pow(10., 3. * .05) * 48000. / rate;
-          std::array<double, 512> l{}, r{};
-          int position = 0;
-          for (int block = 0; block < 20; ++block)
+          const int count = std::array<int, 5>{1, 3, 127, 512, 64}[block % 5];
+          l.fill(0.); r.fill(0.);
+          if (!position) { l[0] = .25; r[0] = -.5; }
+          allocations = deletions = 0; tracking = true;
+          Eigen::internal::set_is_malloc_allowed(false);
+          stage.Process(l.data(), count, true, 30., -30., {}, eq, controls, r.data());
+          Eigen::internal::set_is_malloc_allowed(true);
+          tracking = false;
+          assert(stage.Latency() == 0 && allocations == 0 && deletions == 0);
+          for (int i = 0; i < count; ++i)
           {
-            const int count = std::array<int, 5>{1, 3, 127, 512, 64}[block % 5];
-            l.fill(0.); r.fill(0.);
-            if (!position) { l[0] = .25; r[0] = -.5; }
-            allocations = deletions = 0; tracking = true;
-            Eigen::internal::set_is_malloc_allowed(false);
-            stage.Process(l.data(), count, true, 30., -30., {}, eq, controls, r.data());
-            Eigen::internal::set_is_malloc_allowed(true);
-            tracking = false;
-            assert(stage.Latency() == 0 && allocations == 0 && deletions == 0);
-            for (int i = 0; i < count; ++i)
-            {
-              const int n = position + i;
-              const double wet = predelay == 0. ? (n == 0 ? 1. : 0.) : (n == 37 || n == 38 ? .5 : 0.);
-              const double expected = (n == 0 ? 1. - mix * .01 : 0.) + wet * gain * mix * .01;
-              assert(std::abs(l[i] - .25 * expected) < 2.e-7);
-              assert(std::abs(r[i] + .5 * expected) < 2.e-7);
-            }
-            position += count;
+            const int n = position + i;
+            const double wet = predelay == 0. ? (n == 0 ? 1. : 0.) : (n == 37 || n == 38 ? .5 : 0.);
+            const double expected = (n == 0 ? 1. - mix * .01 : 0.) + wet * gain * mix * .01;
+            assert(std::abs(l[i] - .25 * expected) < 2.e-7);
+            assert(std::abs(r[i] + .5 * expected) < 2.e-7);
           }
-          // Automation remains allocation-free, and bypass restores both dry channels.
-          controls.irInput = -36.; controls.irMix = 100. - mix;
-          controls.irPredelay = 500.; controls.irLowCut = 2000.; controls.irHighCut = 200.;
-          controls.irInvert = !invert;
-          for (int b = 0; b < 4; ++b)
-          {
-            l.fill(.1); r.fill(-.2);
-            allocations = deletions = 0; tracking = true;
-            stage.Process(l.data(), 512, false, 0., 0., {}, eq, controls, r.data());
-            tracking = false;
-            assert(allocations == 0 && deletions == 0);
-            if (b > 0)
-              for (int i = 0; i < 512; ++i) assert(l[i] == .1 && r[i] == -.2);
-          }
+          position += count;
         }
+        // Automation remains allocation-free, and bypass restores both dry channels.
+        controls.irInput = -36.; controls.irMix = 100. - mix;
+        controls.irPredelay = 500.; controls.irLowCut = 2000.; controls.irHighCut = 200.;
+        for (int b = 0; b < 4; ++b)
+        {
+          l.fill(.1); r.fill(-.2);
+          allocations = deletions = 0; tracking = true;
+          stage.Process(l.data(), 512, false, 0., 0., {}, eq, controls, r.data());
+          tracking = false;
+          assert(allocations == 0 && deletions == 0);
+          if (b > 0)
+            for (int i = 0; i < 512; ++i) assert(l[i] == .1 && r[i] == -.2);
+        }
+      }
     const auto magnitude = [&](double hz, double low, double high) {
       SlotIR processor;
       processor.Reset(rate);

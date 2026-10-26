@@ -33,6 +33,7 @@ public:
     mControls.Reset(mRate);
     mPre = mPost[0] = mPost[1] = 0.;
     mPhase[0] = mPhase[1] = 0.;
+    mWidth.Reset(rate);
     mGainA = .70710678;
     mGainB = .70710678;
     mFirst = true;
@@ -40,6 +41,7 @@ public:
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
     mControls.Target(c.juno, uJunoMode);
+    mWidth.Target({c.extra.junoWidth}, uJunoWidth);
     const double gainCoefficient = std::exp(-1. / (.01 * mRate));
     for (int i = 0; i < n; ++i)
     {
@@ -82,6 +84,12 @@ public:
       mPost[1] = grid_fx::Flush(wetR + postCoefficient * (mPost[1] - wetR));
       wetL = mPost[0];
       wetR = mPost[1];
+      const double width = mWidth.Tick()[0] * .01;
+      if (width != 1.)
+      {
+        const double mid = .5 * (wetL + wetR), side = .5 * (wetL - wetR) * width;
+        wetL = mid + side; wetR = mid - side;
+      }
       const double mix = v[1] * .01, dryGain = std::sqrt(std::max(0., 1. - mix)), wetGain = std::sqrt(mix);
       l[i] = dryL * dryGain + wetL * wetGain;
       if (r)
@@ -92,6 +100,7 @@ public:
 private:
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<3> mControls;
+  grid_fx::SmoothControls<1> mWidth;
   grid_fx::Memo mPreCoefficient, mPostCoefficient;
   double mRate = 48000., mPre = 0., mPost[2]{}, mPhase[2]{}, mGainA = 1., mGainB = 0.;
   bool mFirst = true;

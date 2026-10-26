@@ -139,7 +139,7 @@ inline double ModulationMagnitude(SlotEffect effect, double hz, double phase, co
   if (flange)
   {
     const double wobble=(1.-.25*character)*std::sin(2.*pi*phase)+.25*character*std::sin(4.*pi*phase+.7);
-    const double samples=rate*(.003+.0025*depth*wobble),whole=std::floor(samples),fraction=samples-whole;
+    const double samples=rate*(c.extra.flangerDelay*.001+.0025*depth*wobble),whole=std::floor(samples),fraction=samples-whole;
     const auto delay=std::pow(z,whole)*((1.-fraction)+fraction*z);
     const auto tone=1.-character+character*PoleResponse(hz,12000.-9000.*character,rate);
     stage=delay*tone;
@@ -148,7 +148,7 @@ inline double ModulationMagnitude(SlotEffect effect, double hz, double phase, co
   {
     const double cutoff=std::min(.35*rate,650.*std::exp2(std::sin(2.*pi*phase)*depth*2.2+character));
     const double t=std::tan(pi*cutoff/rate),a=(t-1.)/(t+1.);
-    stage=std::pow((a+z)/(1.+a*z),6);
+    stage=std::pow((a+z)/(1.+a*z),std::array<int,4>{4,6,8,12}[std::clamp(static_cast<int>(c.extra.phaserStages),0,3)]);
   }
   const double feedback=c.modulation[2]*.01*(flange ? 1.-2.*character : 1.);
   const auto wet=stage/(1.-feedback*(flange ? std::complex<double>(1.,0.) : z)*stage);

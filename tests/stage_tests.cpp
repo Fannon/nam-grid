@@ -67,6 +67,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "PedalDriveTests.h"
 #include "NoisePrintTests.h"
 #include "LoFiTapeTests.h"
+#include "ModuleControlsTests.h"
 #include "EQResponseTests.h"
 #include "FXMusicalTests.h"
 #include "VisualizationTests.h"
@@ -197,6 +198,7 @@ try
   TestCaptureSeams();
   TestNoisePrint();
   TestLoFiTape();
+  TestModuleControls();
   TestEQResponse();
   TestDualDelayMusicalControls();
   TestDistortionTonePreview();

@@ -13,7 +13,7 @@ public:
   {
     mRate = std::max(1., rate); mEffect = effect; mCounter = 0;
     mControls.Reset(mRate); mExtras.Reset(mRate); mStereo.Reset(mRate);
-    mInputLow = {}; mWetLow = {};
+    mInputLow = {}; mWetLow = {}; mMusical.Reset(mRate); mDucker.Reset(mRate);
     for (auto& line : mPredelay) line.Reset(mRate, .201);
     if (effect == SlotEffect::PlateReverb) mPlate.Reset(mRate);
     else if (effect == SlotEffect::CloudReverb) mCloud.Reset(mRate);
@@ -22,12 +22,14 @@ public:
   void Process(double* left, double* right, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.reverb, uReverbDecay);
+    mMusical.Target({controls.extra.reverbDuck}, uReverbDuck);
     mExtras.Target({controls.reverbMotion, controls.reverbHighPass}, uReverbMotion);
     mStereo.Target({controls.stereoReverb ? 1. : 0.}, uReverbStereo);
     for (int i = 0; i < frames; ++i)
     {
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
       const double width = mStereo.Tick()[0];
+      const auto& musical = mMusical.Tick();
       if (mCounter == 0)
       {
         mLowCoefficient = grid_reverb::Coefficient(extra[1], mRate);
@@ -51,7 +53,8 @@ public:
       auto wet = mEffect == SlotEffect::PlateReverb ? mPlate.Tick(input)
                  : mEffect == SlotEffect::CloudReverb ? mCloud.Tick(input) : mFDN.Tick(input);
       for (int ch = 0; ch < 2; ++ch) wet[ch] = grid_reverb::LowPass(wet[ch], mWetLow[ch], mToneCoefficient);
-      const double mid = .5 * (wet[0] + wet[1]), side = .5 * (wet[0] - wet[1]) * width;
+      const double duck = mDucker.Tick(dry[0], dry[1], mEffect == SlotEffect::RoomReverb ? 0. : musical[0]);
+      const double mid = .5 * (wet[0] + wet[1]) * duck, side = .5 * (wet[0] - wet[1]) * width * duck;
       const double mix = v[4] * .01;
       left[i] = dry[0] + mix * ((right ? mid + side : mid) - dry[0]);
       if (right) right[i] = dry[1] + mix * (mid - side - dry[1]);
@@ -71,6 +74,8 @@ private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
   grid_fx::SmoothControls<1> mStereo;
+  grid_fx::SmoothControls<1> mMusical;
+  grid_fx::WetDucker mDucker;
   SlotEffect mEffect = SlotEffect::RoomReverb;
   double mRate = 48000., mLowCoefficient = 0., mToneCoefficient = 0.;
   int mCounter = 0;

@@ -22,6 +22,8 @@ Three broad bands for everyday tone shaping: a 150 Hz shelf, a broad 800 Hz bell
 | **Bass** | -12 to +12 dB | 0 dB | 150 Hz shelf. |
 | **Mid** | -12 to +12 dB | 0 dB | Broad 800 Hz bell. |
 | **Treble** | -12 to +12 dB | 0 dB | 3 kHz shelf. |
+| **Mid freq** | 100–4000 Hz | 800 Hz | Moves the Guitar EQ mid bell; 800 Hz retains the original response. |
+| **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 
 **Display:** The combined EQ curve over the live output spectrum.
 
@@ -36,6 +38,7 @@ Low cut and high cut for rumble and fizz, plus a 3.5 kHz presence shelf.
 | **Low cut** | 0–300 Hz | 80 Hz | Removes rumble and boom below this frequency; 0 is off. |
 | **High cut** | 2000–20000 Hz | 10000 Hz | Removes fizz above this frequency; 20000 is open. |
 | **Presence** | -6 to +6 dB | 0 dB | 3.5 kHz shelf for bite or smoothness. |
+| **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 
 **Display:** The combined EQ curve over the live output spectrum.
 
@@ -83,6 +86,7 @@ Airwindows-style console EQ with broad, overlapping bands and extra harmonic col
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
+| **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
 | **Treble** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
 | **Mid** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
 | **Bass** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |

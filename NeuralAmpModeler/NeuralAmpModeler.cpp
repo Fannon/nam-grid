@@ -1954,13 +1954,14 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mSlotPaths[slot].Set(config.path.c_str());
   mSlotHashes[slot] = config.hash;
   mSlotEffects[slot] = config.effect;
-  uint32_t freezeMask = 0;
+  uint32_t freezeMask = 0, stutterMask = 0;
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
   {
+    if (mSlotEffects[i] == SlotEffect::Stutter) stutterMask |= 1u << i;
     if (mSlotEffects[i] == SlotEffect::Freeze) freezeMask |= 1u << i;
     if (mSlotEffects[i] == SlotEffect::ShimmerReverb) freezeMask |= 1u << (i + FixedNAMGrid::kSlots);
   }
-  mFreezeMask.store(freezeMask);
+  mFreezeMask.store(freezeMask); mStutterMask.store(stutterMask);
   // Preserve main's finite 60 s render policy; active Freeze/Shimmer holds are
   // reported separately as infinite by the processing callback.
   std::array<double, 4> rowTails{};
@@ -1970,7 +1971,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
                       : mSlotEffects[i] == SlotEffect::CosmicEcho ? 60. : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
                       : mSlotEffects[i] == SlotEffect::FrequencyShifter ? 560.
                       : mSlotEffects[i] == SlotEffect::CabinetIR ? mPreparedIRTail[i]
-                      : mSlotEffects[i] == SlotEffect::Stutter ? 33. : 0.;
+                      : mSlotEffects[i] == SlotEffect::Stutter ? 33. : mSlotEffects[i] == SlotEffect::Freeze ? 4. : 0.;
   mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));
 
   mSlotInfo[slot] = info;
@@ -2110,10 +2111,12 @@ void NeuralAmpModeler::_UpdateTailSize()
 {
   bool holding = false;
   const auto mask = mFreezeMask.load();
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots && mask; ++slot)
+  const auto stutterMask = mStutterMask.load();
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots && (mask || stutterMask); ++slot)
     holding |=
       (((mask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uFreezeHold))->Bool())
-       || ((mask & (1u << (slot + FixedNAMGrid::kSlots))) && GetParam(SlotUtilityParam(slot, uShimmerFreeze))->Bool()))
+       || ((mask & (1u << (slot + FixedNAMGrid::kSlots))) && GetParam(SlotUtilityParam(slot, uShimmerFreeze))->Bool())
+       || ((stutterMask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uStutterHold))->Bool()))
       && GetParam(SlotActiveParam(slot))->Bool();
   const int tail = holding
                      ? kTailInfinite

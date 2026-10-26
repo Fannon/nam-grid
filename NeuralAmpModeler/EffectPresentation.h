@@ -51,6 +51,84 @@ inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, 
 inline constexpr int kOutputPosition = 4;
 inline int TablePosition(SlotEffect e, int p)
 {
+  std::span<const int> order;
+  static constexpr int ToneEQOrder[]{-1, -2, -3, uToneMidFrequency, uEQOutput};
+  static constexpr int CutEQOrder[]{-1, -2, -3, uEQOutput};
+  static constexpr int ConsoleEQOrder[]{uConsoleTreble, uConsoleMid, uConsoleBass, uConsoleTrebleFreq, uConsoleBassFreq, uConsoleLowCut, uConsoleHighCut, uEQOutput};
+  static constexpr int BoostOrder[]{uBoostGain, uBoostTilt, -1, uBoostMidGain};
+  static constexpr int TubeBoostOrder[]{uTubeDrive, uBoostTilt, -1, uTubeBias, uTubeHighCut, uTubeOutput, uTubeMix};
+  static constexpr int NoiseGateOrder[]{-1, -2, -3, uGateAttack, uGateHold, uGateHysteresis};
+  static constexpr int SmoothCompOrder[]{-1, -2, -3, uCompAttack, uSmoothRatio, uCompDetectorCut, uCompMix};
+  static constexpr int PunchCompOrder[]{-1, -2, -3, uPunchAttack, uPunchRatio, uCompDetectorCut, uCompMix};
+  static constexpr int OutboardChannelOrder[]{uStripInput, uStripLowCut, uStripHighCut, uStripCompress, uStripSpeed, uStripSaturate, uStripOutput, uStripMix};
+  static constexpr int LimiterOrder[]{uLimiterInput, uLimiterCeiling, uLimiterRelease, uLimiterClip};
+  static constexpr int WahOrder[]{uWahPosition, uWahResonance, uWahRange, uWahOutput, uWahMix};
+  static constexpr int ChorusOrder[]{uModRate, uModDepth, uModCharacter, uChorusDelay, uChorusSpread, uModMix};
+  static constexpr int JunoChorusOrder[]{uJunoBrightness, uJunoWidth, uJunoMix};
+  static constexpr int FlangerOrder[]{uModRate, uModDepth, uModFeedback, uModCharacter, uFlangerDelay, uModSpread, uModMix};
+  static constexpr int PhaserOrder[]{uModRate, uModDepth, uModFeedback, uModCharacter, uModSpread, uModMix};
+  static constexpr int TremoloOrder[]{uModRate, uModDepth, uModCharacter, uModSpread, uModMix};
+  static constexpr int VibratoOrder[]{uModRate, uModDepth, uModCharacter, uVibratoRise};
+  static constexpr int RotaryOrder[]{uRotarySlow, uRotaryFast, uRotarySpeed, uRotaryAccel, uRotaryDrive, uRotarySpread, uRotaryBalance, uRotaryMix};
+  static constexpr int UniVibeOrder[]{uModRate, uModDepth, uModCharacter, uVibeSpread, uModMix};
+  static constexpr int RingModOrder[]{uRingFrequency, uRingDepth, uRingTone, uRingMix};
+  static constexpr int OctaverOrder[]{uOctDry, uOctSub, uOctSub2, uOctTone, uOctTrackingFilter, uOctOutput};
+  static constexpr int DoublerOrder[]{uDoubleDetune, uDoubleDelay, uDoubleSpread, uDoubleHumanize, uDoubleHighCut, uDoubleOutput, uDoubleMix};
+  static constexpr int DigitalDelayOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uDelayCharacter, uDuckRelease, uDelayOutput, uDelayMix};
+  static constexpr int ReverseDelayOrder[]{uDelayTime, uReverseFeedback, uDelayTone, uDelayOutput, uDelayMix};
+  static constexpr int RoomReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbMix};
+  static constexpr int PlateReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbDuck, uReverbMix};
+  static constexpr int CloudReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbDuck, uReverbMix};
+  static constexpr int HallReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbDuck, uReverbMix};
+  static constexpr int AirPlateOrder[]{uAirPlateInput, uAirPlateSustain, uAirPlateResolution, uAirPlatePredelay, uAirPlateLowCut, uAirPlateOutput, uAirPlateMix};
+  static constexpr int SpringReverbOrder[]{uSpringDecay, uSpringDwell, uSpringDrip, uReverbTone, uSpringPredelay, uSpringOutput, uSpringMix};
+  static constexpr int FreezeOrder[]{uFreezeHold, uFreezeWindow, uFreezeFade, uFreezeTone, uFreezeAttack, uFreezeRelease, uFreezeMix};
+  static constexpr int StutterOrder[]{uStutterTime, uStutterHold, uStutterDuty, uStutterFade, uStutterMix};
+  static constexpr int LoFiTapeOrder[]{uLoFiSpeed, uLoFiDrive, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiOutput, uLoFiMix};
+  static constexpr int UtilityOrder[]{uUtilityBalance, uUtilityStereo, uUtilityInvertL, uUtilityInvertR, uUtilityDelay, uUtilitySkew, uUtilityLevel};
+  static constexpr int AutoSwellOrder[]{uSwellRise, uSwellThreshold, uSwellRelease, uSwellCurve, uSwellHold, uSwellMix};
+  switch (e)
+  {
+    case SlotEffect::ToneEQ: order = ToneEQOrder; break;
+    case SlotEffect::CutEQ: order = CutEQOrder; break;
+    case SlotEffect::ConsoleEQ: order = ConsoleEQOrder; break;
+    case SlotEffect::Boost: order = BoostOrder; break;
+    case SlotEffect::TubeBoost: order = TubeBoostOrder; break;
+    case SlotEffect::NoiseGate: order = NoiseGateOrder; break;
+    case SlotEffect::SmoothComp: order = SmoothCompOrder; break;
+    case SlotEffect::PunchComp: order = PunchCompOrder; break;
+    case SlotEffect::OutboardChannel: order = OutboardChannelOrder; break;
+    case SlotEffect::Limiter: order = LimiterOrder; break;
+    case SlotEffect::Wah: order = WahOrder; break;
+    case SlotEffect::Chorus: order = ChorusOrder; break;
+    case SlotEffect::JunoChorus: order = JunoChorusOrder; break;
+    case SlotEffect::Flanger: order = FlangerOrder; break;
+    case SlotEffect::Phaser: order = PhaserOrder; break;
+    case SlotEffect::Tremolo: order = TremoloOrder; break;
+    case SlotEffect::Vibrato: order = VibratoOrder; break;
+    case SlotEffect::Rotary: order = RotaryOrder; break;
+    case SlotEffect::UniVibe: order = UniVibeOrder; break;
+    case SlotEffect::RingMod: order = RingModOrder; break;
+    case SlotEffect::Octaver: order = OctaverOrder; break;
+    case SlotEffect::Doubler: order = DoublerOrder; break;
+    case SlotEffect::DigitalDelay: order = DigitalDelayOrder; break;
+    case SlotEffect::ReverseDelay: order = ReverseDelayOrder; break;
+    case SlotEffect::RoomReverb: order = RoomReverbOrder; break;
+    case SlotEffect::PlateReverb: order = PlateReverbOrder; break;
+    case SlotEffect::CloudReverb: order = CloudReverbOrder; break;
+    case SlotEffect::HallReverb: order = HallReverbOrder; break;
+    case SlotEffect::AirPlate: order = AirPlateOrder; break;
+    case SlotEffect::SpringReverb: order = SpringReverbOrder; break;
+    case SlotEffect::Freeze: order = FreezeOrder; break;
+    case SlotEffect::Stutter: order = StutterOrder; break;
+    case SlotEffect::LoFiTape: order = LoFiTapeOrder; break;
+    case SlotEffect::Utility: order = UtilityOrder; break;
+    case SlotEffect::AutoSwell: order = AutoSwellOrder; break;
+    default: break;
+  }
+  for (size_t i = 0; i < order.size(); ++i)
+    if (order[i] == p || ((order[i] == uModRate || order[i] == uDelayTime || order[i] == uStutterTime) && p == uTempoDivision)) return static_cast<int>(i);
+
   // Shared family controls whose place differs for one module.
   if (e == SlotEffect::SpringReverb && p == uReverbTone) return 3;
   if (e == SlotEffect::ReverseDelay && p == uDelayTone) return 1;
@@ -101,12 +179,49 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
 {
   switch (p)
   {
+    case uToneMidFrequency: return "Moves the Guitar EQ mid bell; 800 Hz retains the original response.";
+    case uEQOutput: return "Final EQ level for matching bypass loudness after boosts and cuts.";
+    case uBoostMidGain: return "Broad 800 Hz mid boost or cut before the next module; zero leaves the original boost unchanged.";
+    case uTubeHighCut: return "Filters the saturated path after clipping; maximum bypasses this added filter.";
+    case uGateAttack: return "Gate opening time; zero follows the original Natural or Tight mode timing.";
+    case uGateHold: return "Time before closure; zero follows the original Natural or Tight mode hold.";
+    case uGateHysteresis: return "Closing threshold below the opening threshold; higher values reduce chatter.";
+    case uSmoothRatio: return "Compression ratio above the knee; 2.5:1 retains the original Smooth response.";
+    case uPunchRatio: return "Compression ratio above the knee; 4:1 retains the original Punch response.";
+    case uCompDetectorCut: return "Removes bass only from the compressor detector, preserving audible lows; zero is off.";
+    case uStripInput: return "Level into the complete strip, independent of final Output and the parallel dry path.";
+    case uLimiterInput: return "Gain before clipping and limiting; pushes the signal into the selected ceiling.";
+    case uChorusDelay: return "Base delay around which chorus moves; shorter settings give tighter thickening.";
+    case uJunoWidth: return "Width of the wet Juno voices; zero centers them while dry stereo remains intact.";
+    case uFlangerDelay: return "Base comb delay; with Depth at zero this produces a parked flanger tone.";
+    case uModSpread: return "Phase offset between left and right modulation; zero retains the original motion.";
+    case uPhaserStages: return "Select four, six, eight or twelve phase stages; six retains the original phaser.";
+    case uVibratoRise: return "Time for pitch modulation to develop after a new phrase; zero gives immediate vibrato.";
+    case uRotaryBalance: return "Negative favors the low drum, positive the bright horn; center retains the original balance.";
+    case uVibeSpread: return "Offsets the right photocell sweep for stereo movement; zero retains the original sweep.";
+    case uRingShape: return "Select a sine, triangle or softened square carrier for different metallic sidebands.";
+    case uOctTrackingFilter: return "Low-pass frequency in the tracking detector only; does not filter the dry or generated tone.";
+    case uDoubleHumanize: return "Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets.";
+    case uDoubleHighCut: return "Softens only the doubled voices; maximum bypasses this added filter.";
+    case uDuckRelease: return "Time for ducked echoes to recover in gaps; 150 ms retains the original recovery.";
+    case uReverseFeedback: return "Returns reversed playback into the next capture, creating repeating reversed phrases.";
+    case uReverbDuck: return "Ducks only the wet reverb while playing and restores it between phrases; zero is off.";
+    case uSpringPredelay: return "Time before the spring is excited; zero retains the immediate spring response.";
+    case uFreezeAttack: return "Fade-in time for the held layer, independent of the loop-seam Crossfade.";
+    case uFreezeRelease: return "Fade-out time when Hold is released; the dry guitar continues unchanged.";
+    case uStutterHold: return "Keeps the current slice repeating instead of refreshing it every four windows.";
+    case uLoFiDrive: return "Oversampled Spiral saturation before the tape transport; zero bypasses saturation exactly.";
+    case uUtilityMode: return "Keep stereo, swap channels, or send the left or right input to both channels.";
+    case uUtilitySkew: return "Positive delays the right channel, negative the left, in addition to Fine delay.";
+    case uSwellCurve: return "Shape of the fade-in; one retains the original linear swell, higher values enter more slowly.";
+    case uSwellHold: return "Time below the closing threshold before a new swell can re-arm; 40 ms retains the original hold.";
+    case uSwellMix: return "Blend the swollen signal with dry guitar to retain some pick attack.";
+
     case uIRInput: return "Gain into convolution. Changes only the wet signal; at Mix zero the original signal passes unchanged.";
-    case uIRMix: return "Linear dry/wet blend. Input, Output, cuts, Pre-delay and Invert wet affect only the wet signal. Use 100% on a send.";
+    case uIRMix: return "Linear dry/wet blend. Input, Output, cuts and Pre-delay affect only the wet signal. Use 100% on a send.";
     case uIRPredelay: return "Delay before the wet response, leaving dry timing unchanged. Separates reverb from the attack; automation bends the wet pitch.";
     case uIRLowCut: return "12 dB/octave high-pass on the wet response. Removes cabinet rumble or reverb low end; 0 Hz bypasses.";
     case uIRHighCut: return "12 dB/octave low-pass on the wet response. Tames cabinet fizz or darkens reverb and textures; 20000 Hz bypasses.";
-    case uIRInvert: return "Reverse the wet signal's polarity. Changes cancellation and colour when blended with dry audio or parallel lanes.";
     case uIRLength: return "Cabinet preserves the original 8192-sample limit. Long IR keeps up to 30 seconds for reverb and sound design. Switching reloads the file.";
     case uPedalCharacter: return effect_modes::pedalCharacterHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
     case uPedalStyle: return effect_modes::pedalHelp[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
@@ -201,7 +316,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uModRate: return "Speed of the modulation cycle. Tempo sync substitutes a rhythmic division.";
     case uModDepth: return e == SlotEffect::Tremolo ? "How far the volume dips on each pulse." : "Width of the pitch, delay or filter sweep.";
     case uModFeedback: return "Return the swept signal into itself for a more resonant, pronounced effect.";
-    case uModCharacter: return e == SlotEffect::Phaser ? "Raises the center of the six-stage phase sweep."
+    case uModCharacter: return e == SlotEffect::Phaser ? "Raises the center of the selected phase sweep."
       : e == SlotEffect::Flanger ? "Moves feedback from positive through zero to negative. Turning it toward negative also darkens the wet path (12k to 3k) and changes the sweep shape."
       : e == SlotEffect::Tremolo ? "Sharpens pulses; stronger playing also speeds them up when tempo sync is off."
       : e == SlotEffect::UniVibe ? "Expands the uneven four-stage sweep for a deeper, more vocal swirl."

@@ -20,7 +20,7 @@ public:
     mRate = std::max(1., rate);
     mEffect = effect;
     mControls.Reset(mRate);
-    mShort.Reset(mRate);
+    mShort.Reset(mRate); mInputControl.Reset(mRate);
     mStrip.reset();
     mButter.reset();
     mColour.reset();
@@ -46,6 +46,7 @@ public:
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
   {
+    mInputControl.Target({c.extra.stripInput}, uStripInput);
     if (mStrip)
       mControls.Target(mEffect == SlotEffect::ConsoleEQ ? c.consoleEQ : c.strip,
                        mEffect == SlotEffect::ConsoleEQ ? uConsoleTreble : uStripLowCut);
@@ -89,7 +90,9 @@ public:
       }
       mCounter = (mCounter + 1) % 32;
       const double dryL = left[i], dryR = right ? right[i] : dryL;
+      const double inputGain = mStripInput(mInputControl.Tick()[0] * .05, [](double x) { return std::pow(10., x); });
       double wetL = dryL, wetR = dryR;
+      if (mEffect == SlotEffect::OutboardChannel) { wetL *= inputGain; wetR *= inputGain; }
       double mix = 1., output = 1.;
       if (mStrip)
       {
@@ -151,6 +154,8 @@ private:
   std::unique_ptr<airwindows_outboard::BussColors4::Core> mColour;
   grid_fx::SmoothControls<7> mControls;
   grid_fx::SmoothControls<3> mShort;
+  grid_fx::SmoothControls<1> mInputControl;
+  grid_fx::Memo mStripInput;
   grid_fx::Memo mInput, mTrim;
   std::array<double, 7> mUnused{};
   std::array<double, 3> mUnusedShort{};

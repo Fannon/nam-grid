@@ -139,6 +139,12 @@ struct DynamicsControls
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;
   double compThreshold = -18., compRelease = 120., compMakeup = 0.;
   double compAttack = 8., compMix = 100., punchAttack = 25.;
+  double gateAttack = 0;
+  double gateHold = 0;
+  double gateHysteresis = 3;
+  double smoothRatio = 2.5;
+  double punchRatio = 4;
+  double detectorCut = 0;
   int gateMode = 0; // Natural = 0, Tight = 1
 };
 
@@ -149,7 +155,7 @@ public:
   {
     mRate = std::max(1., rate);
     mSmooth = Coefficient(5.);
-    mEnvelope = mReduction = mHold = 0.;
+    mEnvelope = mReduction = mHold = mDetectorLow = 0.;
     mMinimumMonitorGain = 1.;
     mOpen = false;
     mFirst = true;
@@ -179,11 +185,15 @@ public:
     const double close = Coefficient(release);
     const double attack = std::clamp(punch ? controls.punchAttack : controls.compAttack, .5, 50.);
     const double mix = std::clamp(controls.compMix * .01, 0., 1.);
-    const double open = Coefficient(gate ? (tight ? .3 : 1.5) : attack);
+    const double open = Coefficient(gate ? (controls.gateAttack > 0. ? controls.gateAttack : tight ? .3 : 1.5) : attack);
     const double detectorAttack = Coefficient(.1), detectorRelease = Coefficient(gate ? 10. : 15.);
-    const double hold = mRate * (tight ? .015 : .04);
+    const double hold = mRate * (controls.gateHold > 0. ? controls.gateHold * .001 : tight ? .015 : .04);
+    const double detectorPole = std::exp(-6.283185307179586 * std::clamp(controls.detectorCut, 0., 500.) / mRate);
+    const double ratio = std::clamp(punch ? controls.punchRatio : controls.smoothRatio, 1., 20.);
+    const double knee = punch ? 3. : 9.;
     if (mFirst)
     {
+      mRatio = ratio; mHysteresis = controls.gateHysteresis;
       mThreshold = threshold;
       mAmount = amount;
       mReduction = gate ? amount : 0.;
@@ -194,7 +204,10 @@ public:
     {
       mThreshold = Smooth(mThreshold, threshold, mSmooth);
       mAmount = Smooth(mAmount, amount, mSmooth);
-      const double magnitude = std::abs(samples[i]);
+      mRatio = Smooth(mRatio, ratio, mSmooth);
+      mHysteresis = Smooth(mHysteresis, std::clamp(controls.gateHysteresis, 0., 12.), mSmooth);
+      mDetectorLow = Smooth(mDetectorLow, samples[i], detectorPole);
+      const double magnitude = std::abs(!gate && controls.detectorCut > 0. ? samples[i] - mDetectorLow : samples[i]);
       mEnvelope = Smooth(mEnvelope, magnitude, magnitude > mEnvelope ? detectorAttack : detectorRelease);
       const double level = 20. * std::log10(std::max(1.e-12, mEnvelope));
       double target;
@@ -205,7 +218,7 @@ public:
           mOpen = true;
           mHold = hold;
         }
-        else if (level < mThreshold - 3.)
+        else if (level < mThreshold - mHysteresis)
         {
           mHold = std::max(0., mHold - 1.);
           if (mHold == 0.)
@@ -215,7 +228,7 @@ public:
         target = mOpen ? 0. : tight ? mAmount : std::min(mAmount, std::max(0., mThreshold - level));
       }
       else
-        target = CompressionDB(level, mThreshold, punch ? 4. : 2.5, punch ? 3. : 9.);
+        target = CompressionDB(level, mThreshold, mRatio, knee);
       // Gates open quickly / close gently; compressors attack reduction / release it.
       const double coefficient = gate ? (target < mReduction ? open : close) : (target > mReduction ? open : close);
       mReduction = Smooth(mReduction, target, coefficient);
@@ -238,6 +251,7 @@ private:
   }
   double mRate = 48000., mSmooth = 0., mEnvelope = 0., mReduction = 0., mHold = 0.;
   double mThreshold = 0., mAmount = 0., mMix = 1.;
+  double mDetectorLow = 0., mRatio = 2.5, mHysteresis = 3.;
   double mMinimumMonitorGain = 1.;
   bool mOpen = false, mFirst = true;
 };

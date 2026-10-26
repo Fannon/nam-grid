@@ -7,7 +7,7 @@ Chorus, flanger, phaser, tremolo, rotary and ring modulation.
 | [Chorus](#chorus) | Dry plus moving delay; Depth adds detune, Spread separates voices. |
 | [Juno Chorus](#juno-chorus) | Mode chooses one or both moving voices; Brightness softens their wet tone. |
 | [Flanger](#flanger) | Swept comb notches; Feedback sharpens them. |
-| [Phaser](#phaser) | Six swept phase stages; Feedback deepens the resonant swirl. |
+| [Phaser](#phaser) | Selectable phase stages; Feedback deepens the resonant swirl. |
 | [Auto Tremolo](#auto-tremolo) | Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion. |
 | [Vibrato](#vibrato) | Fully wet pitch motion; Rate and Depth set speed and excursion. |
 | [Rotary](#rotary) | Fast switches the rotation speed; Ramp time sets the transition. |
@@ -25,6 +25,7 @@ A wide, moving chorus. Texture adds warmth and less regular motion; Spread separ
 | **Rate** | 0.05–10 Hz | 0.8 Hz | Speed of the modulation cycle. |
 | **Depth** | 0–100% | 35% | Width of the pitch, delay or filter sweep. |
 | **Texture** | 0–100% | 0% | Warmer tone and more uneven pitch movement; zero keeps a smooth sine sweep. |
+| **Base delay** | 8–35 ms | 18 ms | Base delay around which chorus moves; shorter settings give tighter thickening. |
 | **Spread** | 0–100% | 75% | Phase offset between left and right chorus voices; zero is centered, 100 is opposite motion. |
 | **Mix** | 0–100% | 40% | Balance between dry sound and effect. |
 
@@ -43,6 +44,7 @@ Classic Juno-style chorus with I, I+II and II modes, from a subtle single voice 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
 | **Brightness** | 0–100% | 80% | Treble retained in the wet voices; lower values soften the chorus. |
+| **Width** | 0–100% | 100% | Width of the wet Juno voices; zero centers them while dry stereo remains intact. |
 | **Mix** | 0–100% | 50% | Balance between dry sound and effect. |
 
 In the header:
@@ -63,6 +65,8 @@ A sweeping jet-like flanger. Feedback adds intensity; Feedback sign changes its 
 | **Depth** | 0–100% | 65% | Width of the pitch, delay or filter sweep. |
 | **Feedback** | 0–75% | 45% | Return the swept signal into itself for a more resonant, pronounced effect. |
 | **Feedback sign** | 0–100% | 30% | Moves feedback from positive through zero to negative. Turning it toward negative also darkens the wet path (12k to 3k) and changes the sweep shape. |
+| **Manual** | 3–15 ms | 3 ms | Base comb delay; with Depth at zero this produces a parked flanger tone. |
+| **Stereo phase** | 0–100% | 0% | Phase offset between left and right modulation; zero retains the original motion. |
 | **Mix** | 0–100% | 50% | Balance between dry sound and effect. |
 
 In the header:
@@ -82,8 +86,11 @@ A smooth, swirling phase effect. Sweep center moves the sweep into a different p
 | **Rate** | 0.05–10 Hz | 0.35 Hz | Speed of the modulation cycle. |
 | **Depth** | 0–100% | 65% | Width of the pitch, delay or filter sweep. |
 | **Feedback** | 0–75% | 15% | Return the swept signal into itself for a more resonant, pronounced effect. |
-| **Sweep center** | 0–100% | 20% | Raises the center of the six-stage phase sweep. |
+| **Sweep center** | 0–100% | 20% | Raises the center of the selected phase sweep. |
+| **Stereo phase** | 0–100% | 0% | Phase offset between left and right modulation; zero retains the original motion. |
 | **Mix** | 0–100% | 50% | Balance between dry sound and effect. |
+
+**Stages** in the header selects 4, 6, 8 or 12 stages (starts at 6).
 
 In the header:
 
@@ -102,6 +109,7 @@ Rounded volume pulses. Pulse / feel sharpens them and, without tempo sync, speed
 | **Rate** | 0.05–10 Hz | 4 Hz | Speed of the modulation cycle. |
 | **Depth** | 0–100% | 60% | How far the volume dips on each pulse. |
 | **Pulse / feel** | 0–100% | 0% | Sharpens pulses; stronger playing also speeds them up when tempo sync is off. |
+| **Stereo phase** | 0–100% | 0% | Phase offset between left and right modulation; zero retains the original motion. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 In the header:
@@ -121,6 +129,7 @@ Fully wet pitch modulation; Texture adds drift and darkening.
 | **Rate** | 0.05–10 Hz | 4.5 Hz | Speed of the modulation cycle. |
 | **Depth** | 0–100% | 15% | Width of the pitch, delay or filter sweep. |
 | **Texture** | 0–100% | 0% | Warmer tone and more uneven pitch movement; zero keeps a smooth sine sweep. |
+| **Rise** | 0–2000 ms | 0 ms | Time for pitch modulation to develop after a new phrase; zero gives immediate vibrato. |
 
 In the header:
 
@@ -142,6 +151,7 @@ A rotating-speaker simulation with separate slow and fast rates, a ramp between 
 | **Ramp time** | 0.1–5 s | 1 s | Time constant for speed changes; larger values accelerate and slow down more gradually. |
 | **Drive** | 0–18 dB | 1.5 dB | Soft saturation before the rotating-speaker modulation. |
 | **Spread** | 0–100% | 80% | Stereo separation of horn/drum motion; zero centers the wet signal. |
+| **Horn / drum** | -100–100% | 0% | Negative favors the low drum, positive the bright horn; center retains the original balance. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** The speed ramp and the horn and rotor motion.
@@ -161,6 +171,7 @@ A pulsing, uneven photocell-vibe sweep. Vibrato mode removes the dry sound for p
 | **Rate** | 0.05–10 Hz | 1.2 Hz | Speed of the modulation cycle. |
 | **Depth** | 0–100% | 65% | Width of the pitch, delay or filter sweep. |
 | **Sweep color** | 0–100% | 35% | Expands the uneven four-stage sweep for a deeper, more vocal swirl. |
+| **Spread** | 0–100% | 0% | Offsets the right photocell sweep for stereo movement; zero retains the original sweep. |
 | **Mix** | 0–100% | 50% | Balance between dry sound and effect. |
 
 In the header:
@@ -182,5 +193,7 @@ Multiplies the guitar with a sine carrier for metallic, inharmonic sidebands.
 | **Depth** | 0–100% | 100% | Move from the original amplitude toward full bipolar ring modulation. |
 | **High cut** | 200–20000 Hz | 6000 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
+
+**Carrier** in the header selects Sine, Triangle or softened Square (starts at Sine).
 
 **Display:** The partials of a 110 Hz note and the sidebands the carrier creates.

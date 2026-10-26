@@ -44,7 +44,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
             const double triangle = grid_hq::Tri(phase - std::floor(phase));
             return 1.66 + 3.69 * (right ? 1. - triangle : triangle);
           }, 1., 6., (right ? ampColor : color).WithOpacity(voice ? .65f : 1.f));
-    timeLabel(2.);
+    timeLabel(2., value(uJunoWidth) == 0. ? "Wet centered | physical head sweeps" : "Physical head sweeps | Width mixes wet stereo");
   }
   else if (rotary)
   {
@@ -83,7 +83,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     // and gains f +/- carrier at Depth / 2. Those sidebands are inharmonic.
     const double depth = value(uRingFrequency + 1) * .01, mix = value(uRingFrequency + 3) * .01;
     const double tone = std::min(.45 * sampleRate, value(uRingFrequency + 2));
-    const double upper = std::max(1200., 880. + frequency) * 1.05;
+    const int carrierShape = static_cast<int>(value(uRingShape));
+    const double upper = std::max(1200., 880. + frequency * (carrierShape ? 5. : 1.)) * 1.05;
     PlotDetail(g,plot,"A 220 Hz reference and its harmonics. Gray: retained partials; colour: carrier sidebands. High cut shapes all components.");
     const auto bar = [&](double hz, double level, IColor ink, float width) {
       if (hz <= 0. || hz > upper || level < .005) return;
@@ -94,10 +95,12 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     {
       const double hz = 220. * partial;
       bar(hz, std::abs(1. - mix + mix * (1. - depth) * effect_preview::PoleResponse(hz, tone, sampleRate)) * .8, muted, 3.f);
-      for (int sign : {-1, 1})
+      for (int harmonic = 1; harmonic <= (carrierShape ? 5 : 1); harmonic += 2)
+        for (int sign : {-1, 1})
       {
-        const double side = std::abs(hz + sign * frequency);
-        bar(side, mix * depth * .5 * std::abs(effect_preview::PoleResponse(side, tone, sampleRate)) * .8, sign > 0 ? color : ampColor, 2.f);
+        const double weight = carrierShape == 1 ? 8. / (grid_fx::pi * grid_fx::pi * harmonic * harmonic) : carrierShape == 2 ? 4. / (grid_fx::pi * harmonic) : 1.;
+        const double side = std::abs(hz + sign * frequency * harmonic);
+        bar(side, weight * mix * depth * .5 * std::abs(effect_preview::PoleResponse(side, tone, sampleRate)) * .8, sign > 0 ? color : ampColor, 2.f);
       }
     }
     text.SetFormatted(32, "0 - %.1fk Hz", upper / 1000.);
@@ -124,9 +127,11 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   else if (effect == SlotEffect::Phaser || effect == SlotEffect::Flanger)
   {
     const bool flange = effect == SlotEffect::Flanger;
-    caption(flange ? "Comb sweep" : "6-stage sweep");
+    text.SetFormatted(64, "%d-stage sweep", std::array<int,4>{4,6,8,12}[std::clamp(static_cast<int>(value(uPhaserStages)),0,3)]);
+    caption(flange ? "Comb sweep" : text.Get());
     UtilityControls controls;
     for (int i=0;i<5;++i) controls.modulation[i]=value(uModRate+i);
+    controls.extra.flangerDelay=value(uFlangerDelay); controls.extra.phaserStages=value(uPhaserStages);
     if (flange) PlotDetail(g,plot,character > .5 ? "Negative feedback also darkens (12k > 3k)" : "Frozen sweep phases | small-signal response");
     else
     {
@@ -158,13 +163,13 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   else
   {
     const bool flange = effect == SlotEffect::Flanger, vibrato = effect == SlotEffect::Vibrato;
-    const double center = flange ? 3. : vibrato ? 8. : 18.;
+    const double center = flange ? value(uFlangerDelay) : vibrato ? 8. : value(uChorusDelay);
     const double excursion = flange ? 2.5 : 6.;
     // Rate x Depth sets the detune: pitch ratio = 1 - d(delay)/dt.
     const double cents = effect_preview::SweepCents(excursion * .001 * depth, rate, 1. + .25 * character);
     text.SetFormatted(80, "Delay modulation | pitch +/-%.1f ct", cents); caption(text.Get());
     if (vibrato) text.SetFormatted(80, "0 - 16 ms | pitch +/-%.1f ct", cents);
-    else text.SetFormatted(80, "0 - 26 ms | pitch +/-%.1f ct", cents);
+    else text.SetFormatted(80, "Base %.1f ms | pitch +/-%.1f ct", center, cents);
     PlotDetail(g,plot,text.Get());
     for (bool right : {true, false})
     {
@@ -175,7 +180,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
         const double wobble = (1. - .25 * character) * std::sin(2. * grid_fx::pi * phase)
                                 + .25 * character * std::sin(4. * grid_fx::pi * phase + .7);
         return center + excursion * depth * wobble;
-      }, 0., flange ? 6. : vibrato ? 16. : 26.,
+      }, 0., flange ? 18. : vibrato ? 16. : 42.,
       right ? ampColor : color);
     }
     timeLabel(2., vibrato ? "Delay 0 - 16 ms" : "Delay 0 - 26 ms");

@@ -244,6 +244,25 @@ int main(int argc, char** argv)
         assert(load(config));
         assert(save() == config);
       }
+  // Schema 7 rigs receive only schema 8 defaults; existing IR and older
+  // controls remain exactly as saved. New controls also survive scene recall.
+  auto schema7 = base;
+  schema7["schema"] = 7;
+  auto extendedControls = base;
+  for (int p = uToneMidFrequency; p < kUtilityControls; ++p)
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
+      schema7.erase(key);
+      for (auto& scene : schema7["PerformanceScenes"]) scene.erase(key);
+      extendedControls[key] = kEffectParameters[p].maximum;
+      extendedControls["PerformanceScenes"][0][key] = kEffectParameters[p].maximum;
+    }
+  assert(load(schema7)); assert(save() == base);
+  assert(load(extendedControls)); assert(save() == extendedControls);
+  auto incomplete = extendedControls;
+  incomplete.erase("Post 4 LoFi Drive");
+  assert(!load(incomplete)); assert(save() == extendedControls);
   assert(load(base));
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p))

@@ -55,6 +55,7 @@ A smooth, dense plate that sits easily behind picked notes and chords.
 | **Pre-delay** | 0–200 ms | 20 ms | Gap before the reverb starts; separates the pick attack from the tail. |
 | **Modulation** | 0–100% | 15% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 120 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
+| **Ducking** | 0–100% | 0% | Ducks only the wet reverb while playing and restores it between phrases; zero is off. |
 | **Mix** | 0–100% | 18% | Balance between dry sound and effect. |
 
 In the header:
@@ -81,6 +82,7 @@ A long, slowly moving stereo wash for pads and ambient playing.
 | **Pre-delay** | 0–200 ms | 30 ms | Gap before the reverb starts; separates the pick attack from the tail. |
 | **Modulation** | 0–100% | 40% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 150 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
+| **Ducking** | 0–100% | 0% | Ducks only the wet reverb while playing and restores it between phrases; zero is off. |
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
 
 In the header:
@@ -107,6 +109,7 @@ A wide, spacious hall with a long tail and separate bass and treble damping.
 | **Pre-delay** | 0–200 ms | 25 ms | Gap before the reverb starts; separates the pick attack from the tail. |
 | **Modulation** | 0–100% | 20% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 120 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
+| **Ducking** | 0–100% | 0% | Ducks only the wet reverb while playing and restores it between phrases; zero is off. |
 | **Mix** | 0–100% | 22% | Balance between dry sound and effect. |
 
 In the header:
@@ -131,6 +134,7 @@ Splashy, spring-like repeats with extra edge when you push Dwell.
 | **Dwell** | 0–12 dB | 3 dB | Drive the spring send harder for more excitation and soft saturation. |
 | **Drip** | 0–100% | 60% | Amount of spring dispersion: adds the splashy, metallic drip to attacks. |
 | **Damping** | 800–12000 Hz | 5000 Hz | Treble damping in the reverb. Lower settings make the tail darker than the dry signal. |
+| **Pre-delay** | 0–200 ms | 0 ms | Time before the spring is excited; zero retains the immediate spring response. |
 | **Output** | -12 to +12 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 18% | Balance between dry sound and effect. |
 
@@ -170,8 +174,8 @@ Airwindows kPlate140 plate ambience, with its original Sustain and Resolution ch
 | **Sustain** | 0–100% | 50% | Tail length and blur. A relative amount, not a decay time. |
 | **Resolution** | 25–100% | 100% | Lower settings make the space larger and darker. It changes in steps, which can be audible when automated. |
 | **Pre-delay** | 0–200 ms | 15 ms | Gap before the plate send, in milliseconds. Separates the attack without changing the tank size. |
-| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Low cut** | 0–500 Hz | 100 Hz | Remove bass from the plate send. Zero is off; higher values keep driven guitar from making the tank boomy. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 18% | Balance between dry sound and effect. |
 
 **Display:** How full the reverb is over time.

@@ -1835,7 +1835,7 @@ private:
         const auto response=[&](double input) {
           if(gate) return input-(input>=threshold ? 0. : tight ? range : std::min(range,threshold-input));
           if(!compressor) return std::min(input,threshold);
-          const double reduction=SlotDynamics::CompressionDB(input,threshold,effect==SlotEffect::PunchComp ? 4. : 2.5,effect==SlotEffect::PunchComp ? 3. : 9.);
+          const double reduction=SlotDynamics::CompressionDB(input,threshold,GetDelegate()->GetParam(SlotUtilityParam(mSlot,effect==SlotEffect::PunchComp ? uPunchRatio : uSmoothRatio))->Value(),effect==SlotEffect::PunchComp ? 3. : 9.);
           return input+20.*std::log10(1.-mix+mix*std::pow(10.,(makeup-reduction)*.05));
         };
         PlotCurve(g,transfer,[&](double x) { return response(floor*(1.-x)); },floor,18.,color);
@@ -1850,7 +1850,7 @@ private:
         }
         WDL_String info;
         if(compressor) info.Set("Dot: live input on the compression curve. Gray: input; colour: output before makeup. Amber bar: gain reduction; red tip: beyond 16 dB.");
-        else if(gate) info.Set("Dot: live input. The gate closes 3 dB below the opening threshold. Gray: input; colour: output. Amber bar: attenuation.");
+        else if(gate) info.Set("Dot: live input. Hysteresis sets the closing threshold below the opening threshold. Gray: input; colour: output. Amber bar: attenuation.");
         else info.Set("Dot: live input on the limiting curve. Gray: input; colour: output. Dashed line: ceiling. Amber bar: gain reduction; red tip: beyond 16 dB.");
         PlotDetail(g,plot,info.Get());
         if (gate) info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
@@ -1867,7 +1867,7 @@ private:
       {
         // Opens at the threshold, closes only 3 dB below it (after the hold).
         const auto bandY = [&](double db) { return history.T+history.H()*std::clamp(static_cast<float>(db)/floor,0.f,1.f); };
-        g.FillRect(ampColor.WithOpacity(.12f),IRECT(history.L,bandY(threshold),history.R,bandY(threshold-3.)));
+        g.FillRect(ampColor.WithOpacity(.12f),IRECT(history.L,bandY(threshold),history.R,bandY(threshold-GetDelegate()->GetParam(SlotUtilityParam(mSlot,uGateHysteresis))->Value())));
       }
       if (!off)
       {
@@ -1880,11 +1880,11 @@ private:
     {
       const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
       const double rise = value(uSwellRise), release = value(uSwellRelease), threshold = value(uSwellThreshold);
-      constexpr double hold = 40.;
+      const double hold = value(uSwellHold);
       const IRECT sketch(plot.L, plot.T, plot.MW() - 8.f, plot.B), history(plot.MW() + 8.f, plot.T, plot.R, plot.B);
       WDL_String text;
       PlotTitle(g,plot,color,"Envelope | gain = OUT / IN");
-      PlotDetail(g,plot,"Left: rise, fixed hold and release envelope. Right: live input and output; dashed line: trigger threshold.");
+      PlotDetail(g,plot,"Left: shaped rise, re-arm hold and release envelope. Right: live input and output; dashed line: trigger threshold.");
       // One shared time axis: Rise and Release change the shape, not only labels.
       const double total = rise + hold + 3. * release;
       const float riseEnd = sketch.L + sketch.W() * static_cast<float>(rise / total);
@@ -1893,7 +1893,8 @@ private:
       g.FillRect(color.WithOpacity(.14f), IRECT(riseEnd, sketch.T, holdEnd, sketch.B));
       PlotCurve(g, sketch, [&](double x) {
         const double t = x * total;
-        return t < rise ? t / rise : t < rise + hold ? 1. : std::exp(-(t - rise - hold) / release);
+        const double gain = t < rise ? t / rise : t < rise + hold ? 1. : std::exp(-(t - rise - hold) / release);
+        return 1. - value(uSwellMix) * .01 + value(uSwellMix) * .01 * std::pow(gain, value(uSwellCurve));
       }, 0., 1., color);
       // Live: OUT / IN is the swell gain. Legato notes inside the release keep
       // the current gain instead of swelling again.
@@ -1950,11 +1951,11 @@ private:
       const auto resonance = [&](int channel) {
         return mMeter.filterQ[channel] > 0.f ? double(mMeter.filterQ[channel]) : value(uFilterResonance);
       };
-      const std::array<double, 21> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
+      const std::array<double, 23> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
                                      eqValue(3), eqValue(4), eqValue(5), value(uFrequency), value(uGain), value(uQ), value(uEQMode),
                                      filter ? cutoff(0) : 0., filter ? resonance(0) : 0.,
                                      filter ? cutoff(1) : 0., filter ? resonance(1) : 0., filter ? value(uFilterMode) : 0.,
-      value(uParamLowQ), value(uParamHighQ), value(uParamShelfGain), value(uParamLowMode)};
+      value(uParamLowQ), value(uParamHighQ), value(uParamShelfGain), value(uParamLowMode), value(uToneMidFrequency), value(uEQOutput)};
       if (key != mEQKey)
       {
         mEQKey = key;
@@ -1965,6 +1966,7 @@ private:
         utility.filterMode = static_cast<int>(key[16]);
         utility.paramLowQ = key[17]; utility.paramHighQ = key[18];
         utility.paramShelfGain = key[19]; utility.paramLowMode = static_cast<int>(key[20]);
+        eq.midFrequency = key[21]; utility.extra.eqOutput = key[22];
         const grid_eq_response::Response response(rate, effect, eq, utility);
         utility.cutoff = key[14]; utility.resonance = key[15];
         const grid_eq_response::Response rightResponse(rate, effect, eq, utility);
@@ -2189,7 +2191,7 @@ private:
     PlotDetail(g, plot, "Quiet-signal response | fill: output signal");
     PlotFrequencyAxis(g, plot, std::min(20000., .49 * rate), "-12 / +12 dB");
     DrawSignalSpectrum(g, plot);
-    PlotCurve(g, plot, [&](double x) { return MeasuredResponse(x); }, -12., 12., color);
+    PlotCurve(g, plot, [&](double x) { return MeasuredResponse(x) + value(uEQOutput); }, -36., 36., color);
   }
   double MeasuredResponse(double x) const
   {
@@ -2388,7 +2390,7 @@ private:
       for (int i = 0; i < kUtilityControls; ++i)
       {
         const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf);
-        mUtilityKnobs[i]->Hide(!visible);
+        mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle : i))->Int();
         mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, mode));
@@ -2585,7 +2587,7 @@ private:
   std::array<float, 96> mResponse{};
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
   std::array<double, 9> mResponseKey{-1.};
-  std::array<double, 21> mEQKey{};
+  std::array<double, 23> mEQKey{};
   std::array<std::array<float, 3>, 162> mEQCurve{};
   std::array<float, grid_eq_signal::bands> mSpectrum{};
   double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.

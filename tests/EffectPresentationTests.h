@@ -84,7 +84,7 @@ void TestEffectPresentation()
   assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourInput) == 0);
   assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourOutput) == 1); // Input, Output, Mix: one row.
   assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourMix) == 2);
-  assert(effect_presentation::Position(SlotEffect::JunoChorus, uJunoMix) == 1);
+  assert(effect_presentation::Position(SlotEffect::JunoChorus, uJunoMix) == 2);
   assert(effect_presentation::Position(SlotEffect::Bitcrusher, uCrushOutput) == 4); // The bottom row packs left.
   assert(effect_presentation::Position(SlotEffect::Bitcrusher, uCrushMix) == 5);
   assert(effect_presentation::Position(SlotEffect::Chorus, uModCharacter) == 2);

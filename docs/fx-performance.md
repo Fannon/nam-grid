@@ -124,6 +124,31 @@ Total callback CPU includes shared overhead; JSON also compares estimated module
 CPU after subtracting each run's own empty-grid measurement. Repeat the before
 and after runs to distinguish improvements from changes in machine load.
 
+## Stacked processing and buffer headroom
+
+Use `--copies` to measure repeated active processors rather than extrapolating
+from one module. The empty-grid control runs once per rate/buffer/repeat:
+
+```sh
+python scripts/fx-performance.py --module "Distortion" --copies 1 4 8 16 --rates 48000 --buffers 64 128 --output tmp/audio-buffer-performance/reports/stacked
+```
+
+Each copy has independent DSP state and the same initial controls and asset.
+Copies fill slots in grid order (Pre, A, B, Post), retaining the grid's normal
+parallel routing. They are not an all-serial chain or an arbitrary user rig.
+Every requested asset must load in every copied slot. Stacked latch/learn cases
+are excluded because their triggers require separate live-history handling;
+single-copy latch/learn measurements remain available. The default is one copy,
+so existing benchmarks and waveform audits retain their normal case selection.
+Comparisons require the same copy counts, controls and asset hashes.
+
+At 48 kHz, 64 samples allow about 1.33 ms per callback and 128 allow 2.67 ms.
+Those are the whole audio thread's budgets, not an allowance for each module.
+Inspect signal, warm-up, p99/max and deadline counts as well as average CPU.
+A clean single-module screen does not establish that a populated rig or DAW
+project meets its deadline. Keep the zero-lookahead design and measure useful
+CPU savings before lowering oversampling or model quality.
+
 ## Coverage
 
 The host reads `kModuleGroups`, `SlotDefaultValues`, shared effect choices and
@@ -219,6 +244,69 @@ the direct reference with impulses, silence/tails, variable blocks, reset and IR
 replacement. Prepare plans/buffers off audio and verify processing allocations
 and locks separately. Do not claim speedups from library descriptions alone.
 
+### Modulation and shared architecture
+
+Use `--modulation none|depth-zero|macros|lfo|envelope|sequencer|all` to apply the
+same matrix profile to every selected case, including the empty-grid baseline.
+The profiles route to A/B blend, allowing NAM inference and other module costs
+to be compared with and without control-rate subdivision. Keep separate output
+folders; comparison requires the same cases, routing and settings.
+
+With no nonzero-depth source assignments, source DSP is skipped and the grid
+processes whole host buffers. Macro-only assignments retain the first control
+quantum for gain transitions, then batch the rest of the host buffer; source
+clocks and follower histories continue to advance.
+
+Dynamic LFO, envelope or sequencer dependencies, including Via, use a control
+interval near 0.33-0.36 ms at standard host rates: 16 frames at 44.1/48 kHz,
+32 at 88.2/96 kHz and 64 at 176.4/192 kHz. It selects the nearest power of two
+to `sampleRate / 3000`, with a minimum of one frame, preserving alignment with
+common host buffers instead of introducing short 15- or 29-frame calls.
+The clock continues across host callback boundaries. It sets control reaction
+resolution without buffering or delaying the audio output. Existing module
+smoothing times and internal coefficient-update counters remain independent.
+Most built-in controls smooth per sample with a 20 ms time constant; NAM EQ
+uses 5 ms smoothing, while routing and slot gain controls have their own ramps.
+There is no universal extra smoother in the modulation matrix.
+
+Input stages before the first dynamically modulated input destination can run
+ahead in larger batches. They retain their first short quantum for gain ramps;
+the remaining grid runs in control quanta. Prefix follower taps retain their
+whole-buffer histories, and later taps are read after each quantum, preserving
+feedback into the affected stages. A dynamic assignment to the first input slot
+disables this optimization. Parallel lanes and output stages still follow the
+quantum schedule, even if some are individually unaffected. Both source banks
+currently advance together whenever modulation is active; an unused source
+within an active matrix is therefore not free.
+
+Run the waveform audit with `--macros-only` for macro routing, or `--routing-only`
+to put changing destinations after the independent input stages. Use
+`--envelope-listen 1 13`, for example, to exercise the two followers after input
+slot 1 and output slot 1. The normal audit targets the first input slot and checks
+the conservative fallback. Check all paths when changing control scheduling.
+
+Batching can slightly alter block-dependent control transitions. Airwindows
+Tape samples its smoothed drive/head-bump controls in short internal spans;
+keep its transition error budget separate from inference and convolution
+rounding. At higher sample rates, the time-based matrix interval also
+changes control timing relative to the previous fixed 16-frame schedule. Fast
+modulation and gain transitions may sound slightly different; destination
+smoothing times, parameter identities and saved-state formats are unchanged.
+
+Only the selected effect in each slot runs its DSP. Empty slots skip sample DSP;
+bypassed slots fade and drain their tails before suspending it. Bypass still has
+routing/mixing overhead. Mix at zero generally keeps the effect running, as do
+muted or inaudible parallel lanes, preserving histories, tails and follower taps.
+Meters, DC filtering, control snapshots and routing contribute shared overhead.
+These cases need separate measurements; neither Mix zero nor lane mute should
+be treated as a CPU suspension command.
+
+Prioritize settled-rig callback mean and upper-tail costs. Modulation assignment,
+module insertion and mode changes may briefly interrupt sound-design playback;
+prepare resources outside the steady audio path. No optimization may add
+lookahead or fixed effect latency. During beta, a small measured sonic change
+can be an acceptable performance tradeoff when documented and tested.
+
 ### Per-sample idioms
 
 Small-buffer cost is dominated by per-sample work, so these patterns keep
@@ -234,16 +322,22 @@ module loops cheap without changing output:
 - Avoid `size_t`/`double` conversions in delay reads (they are multi-instruction
   on MSVC x64), redundant `std::clamp` of doubles, and integer `%` on ring
   indices; compare-and-wrap gives the same index.
+- For ADAA, cache an antiderivative only for the exact same curve and previous
+  input sample. Drive/bias automation, style activation and the small-interval
+  fallback must invalidate stale values. Bias offsets depend on bias and style;
+  they can be reused separately. The stage tests compare cached and uncached
+  processors through moving drive/bias/styles and tiny/odd blocks; the plugin
+  waveform audit covers the full automation and modulation paths.
 - Prepare per-callback copies once; modulation restores only the slots it edits
-  for each 16-sample quantum.
+  for each control quantum.
 - Where a loop has independent accumulators, such as the phases of a polyphase
   filter or a band bank, let each accumulator keep its own tap order and vectorize
   across accumulators. Pairing two of them in one register is bit-identical;
   reordering taps within one, or letting the compiler contract multiply-add pairs,
-  is not. Pedal Drive's oversampling filters do this on arm64 and keep the portable
-  loop elsewhere; `-DNAM_PEDAL_DRIVE_SCALAR` forces the portable path for comparison.
-  Here that changed only instruction scheduling, and the four dot products lost
-  about a fifth of the module's CPU.
+  is not. The shared Distortion/Pedal Drive oversampler packs phases with SSE2
+  on x64 and NEON for its 4x path on arm64; other paths retain scalar loops.
+  SSE2 requires no AVX/FMA dispatch or extra latency. `-DNAM_PEDAL_DRIVE_SCALAR`
+  forces the portable path for comparisons.
 
 Confirm such changes are bit-identical with `verify-fx-processing.py`. A change
 that alters rounding, such as recurrence oscillators or a different FFT

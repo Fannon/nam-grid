@@ -25,7 +25,7 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     [](const clap_input_events* e) -> uint32_t { return static_cast<uint32_t>(static_cast<std::vector<clap_event_note>*>(e->ctx)->size()); },
     [](const clap_input_events* e, uint32_t i) -> const clap_event_header* {
       return &(*static_cast<std::vector<clap_event_note>*>(e->ctx))[i].header; }};
-  // Uneven host blocks by default: the 16-sample control clock must not depend on them.
+  // Uneven host blocks by default: the control clock (16 samples at 48 kHz) must not depend on them.
   const auto render = [&](std::vector<int> noteFrames = {}, std::vector<int> sizes = {512, 127, 1, 256}) {
     std::vector<double> result;
     assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));

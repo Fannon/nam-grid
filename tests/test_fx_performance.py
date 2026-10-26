@@ -21,6 +21,19 @@ def measurement(case_id="fx-1", cpu=10., misses=0):
 
 
 class ReportTests(unittest.TestCase):
+    def test_modulation_profiles_preserve_baseline_and_distinguish_routing(self):
+        cases = [{"id": "empty", "mode": "default"}, {"id": "nam", "mode": "large"}]
+        macros = benchmark.modulation_cases(cases, "macros")
+        self.assertEqual(macros[0]["id"], "empty")
+        self.assertEqual(macros[1]["globals"]["Mod 1 Source"], 4)
+        self.assertEqual(macros[1]["globals"]["Mod 1 Slot"], 16)
+        self.assertEqual(macros[1]["globals"]["Macro 1"], 50.)
+        zero = benchmark.modulation_cases(cases, "depth-zero")
+        self.assertEqual(zero[1]["globals"]["Mod 1 Depth"], 0.)
+        all_sources = benchmark.modulation_cases(cases, "all")[1]["globals"]
+        self.assertEqual([all_sources[f"Mod {i} Source"] for i in range(1, 7)], [1, 2, 3, 8, 9, 10])
+        self.assertEqual(benchmark.modulation_cases(cases, "none"), cases)
+
     def test_crash_keeps_completed_and_marks_missing_tuples(self):
         settings = {"rates": [48000], "buffers": [32, 64], "repeats": 2}
         text = 'plugin diagnostic\n{"rate":48000,"buffer":32,"repeat":0,"timing":{}}\n{"partial":'
@@ -96,6 +109,18 @@ class ReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             benchmark.select_cases(cases, ["unknown"], [])
 
+    def test_stacked_cases_preserve_controls_assets_and_keep_one_baseline(self):
+        cases = [{"id": "empty", "module": "Empty grid", "mode": "default", "controls": {}},
+                 {"id": "model", "module": "NAM", "mode": "model", "controls": {"Full Quality": 1}, "asset": "model.nam"},
+                 {"id": "hold", "module": "Freeze", "mode": "held", "controls": {"Freeze Hold": 1}}]
+        result = benchmark.stacked_cases(cases, [1, 4, 4, 16])
+        self.assertEqual([r["id"] for r in result], ["empty", "model", "model-x4", "model-x16", "hold"])
+        self.assertEqual(result[2]["asset"], "model.nam")
+        self.assertEqual(result[2]["controls"], {"Full Quality": 1})
+        self.assertNotIn("copies", cases[1])
+        with self.assertRaises(ValueError):
+            benchmark.stacked_cases(cases, [17])
+
     def test_comparison_uses_matched_repeat_medians_and_validates_settings(self):
         settings = {"rates": [48000], "buffers": [64], "seconds": 3., "warmup_seconds": .5, "repeats": 3, "paced": False}
         metadata = {"settings": settings, "plugin_sha256": "test", "sample_format": "stereo float64"}
@@ -113,6 +138,14 @@ class ReportTests(unittest.TestCase):
             mismatched = dict(metadata, settings=dict(settings, seconds=1.))
             with self.assertRaises(ValueError):
                 benchmark.write_comparison(Path(folder), baseline, mismatched, after)
+            after[0]["case"]["copies"] = 4
+            with self.assertRaises(ValueError):
+                benchmark.write_comparison(Path(folder), baseline, metadata, after)
+            del after[0]["case"]["copies"]
+            after[0]["case"]["globals"] = {"Mod 1 Source": 4}
+            with self.assertRaises(ValueError):
+                benchmark.write_comparison(Path(folder), baseline, metadata, after)
+            del after[0]["case"]["globals"]
             after[0]["error"] = "load failed"
             result = benchmark.write_comparison(Path(folder), baseline, metadata, after)
             self.assertIn("error", result["rows"][0])

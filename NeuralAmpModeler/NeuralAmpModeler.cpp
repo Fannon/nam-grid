@@ -404,9 +404,24 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     for (int i = 0; i < mNoteCount; ++i) mNoteFrames[i] = std::clamp(mNoteFrames[i], 0, nFrames - 1);
     std::sort(mNoteFrames.begin(), mNoteFrames.begin() + mNoteCount);
     int nextNote = 0;
+    const bool dynamic = mModulation.DynamicAssignments(performance);
+    const int inputPrefix = dynamic ? grid_modulation::Matrix::IndependentInputPrefix(performance) : 0;
+    if (inputPrefix > 0)
+    {
+      grid_modulation::Matrix::Targets targets;
+      const int modulated = grid_modulation::Matrix::Collect(performance, mModulation, targets);
+      grid_modulation::Matrix::Restore(mAnimatedControls, controls, targets, modulated);
+      double initialBlend = blend;
+      auto initialRouting = routing;
+      mModulationMatrix.Apply(mAnimatedControls, initialBlend, initialRouting, targets, modulated);
+      grid.ProcessInputPrefix(mOutputPointers[0], nFrames, mAnimatedControls, inputPrefix, mModulation.Quantum(), mOutputPointers[1]);
+    }
     for (int offset = 0; offset < nFrames;)
     {
-      const int count = std::min(mModulation.Quantum(), nFrames - offset);
+      // Keep the first control quantum for block-dependent gain transitions.
+      // Once those targets settle, static macro rows can batch the remainder.
+      // A dynamic primary or Via source retains the original control schedule.
+      const int count = dynamic || offset == 0 ? std::min(mModulation.Quantum(), nFrames - offset) : nFrames - offset;
       // Destinations are fixed for the block; only their amounts change per quantum.
       grid_modulation::Matrix::Targets targets;
       const int modulated = grid_modulation::Matrix::Collect(performance, mModulation, targets);
@@ -415,14 +430,21 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       auto animatedRouting = routing;
       mModulationMatrix.Apply(mAnimatedControls, animatedBlend, animatedRouting, targets, modulated);
       grid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset,
-                   animatedRouting);
+                   animatedRouting, inputPrefix);
       // This quantum's notes, as frames within it.
       std::array<int, kMaxNotesPerBlock> notes;
       int noteCount = 0;
       for (; nextNote < mNoteCount && mNoteFrames[nextNote] < offset + count; ++nextNote)
         notes[noteCount++] = mNoteFrames[nextNote] - offset;
-      const auto left = [&](int instance) { return taps[instance] < 0 ? mInputPointers[0] + offset : grid.TapLeft(instance); };
-      const auto right = [&](int instance) { return taps[instance] < 0 ? mInputPointers[1] + offset : grid.TapRight(instance); };
+      const auto left = [&](int instance) {
+        return taps[instance] < 0 ? mInputPointers[0] + offset
+                                 : grid.TapLeft(instance) + (taps[instance] < inputPrefix ? offset : 0);
+      };
+      const auto right = [&](int instance) -> const double* {
+        if (taps[instance] < 0) return mInputPointers[1] + offset;
+        const auto* tap = grid.TapRight(instance);
+        return tap ? tap + (taps[instance] < inputPrefix ? offset : 0) : nullptr;
+      };
       mModulation.Advance(left(0), right(0), count, performance, tempo, notes.data(), noteCount, left(1), right(1));
       offset += count;
     }

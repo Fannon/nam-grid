@@ -1,6 +1,8 @@
 #pragma once
 #include "SlotTimeEffects.h"
 #include "dsp/MinimumPhaseOversampling.h"
+#include <bit>
+#include <cstdint>
 
 // Original waveshapers. Style changes crossfade their outputs instead of moving
 // through intermediate styles. Independent channel instances preserve stereo.
@@ -36,6 +38,8 @@ public:
     if (mFactor == 4) mOversample4.Reset();
     if (mFactor == 8) mOversample8.Reset();
     mPreviousInput = 0.;
+    mIntegralMask = mBiasMask = 0;
+    mIntegralDriveKey = mBiasKey = 0;
     mSmooth = std::exp(-1. / (.02 * mRate));
     mDC = std::exp(-2. * grid_fx::pi * 5. / mRate);
     mControls.Reset(mRate);
@@ -44,6 +48,9 @@ public:
     mCounter = 0; mFirst = true;
     mCached = {-1., -1., -100.};
   }
+  // The uncached instantiation is an offline numerical regression oracle;
+  // production callers always use the cached default with no runtime switch.
+  template <bool CacheIntegrals = true>
   void Process(double* samples, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.distortion, uDistStyle);
@@ -65,10 +72,45 @@ public:
         mWeights[j] = grid_fx::Flush((j == style ? 1. : 0.) + mSmooth * (mWeights[j] - (j == style ? 1. : 0.)));
       const auto shape = [&](double input) {
         double wet = 0.;
+        if constexpr (!CacheIntegrals)
+        {
+          for (int j = 0; j < effect_modes::distortionCount; ++j)
+            if (mWeights[j] != 0.)
+              wet += mWeights[j] * (mADAA ? Antialiased(input, mPreviousInput, j, mDrive, bias)
+                                        : Transfer(input, j, mDrive, bias));
+          mPreviousInput = input;
+          return wet;
+        }
+        const auto driveKey = std::bit_cast<uint64_t>(mDrive), biasKey = std::bit_cast<uint64_t>(bias);
+        const bool sameCurve = driveKey == mIntegralDriveKey && biasKey == mBiasKey;
+        if (biasKey != mBiasKey) mBiasMask = 0;
+        const double x = input * mDrive + bias, before = mPreviousInput * mDrive + bias;
+        const double delta = x - before;
+        const bool smallInterval = std::abs(delta) <= 1.e-5 * std::max({1., std::abs(x), std::abs(before)});
+        unsigned nextMask = 0;
         for (int j = 0; j < effect_modes::distortionCount; ++j)
           if (mWeights[j] != 0.)
-            wet += mWeights[j] * (mADAA ? Antialiased(input, mPreviousInput, j, mDrive, bias)
-                                      : Transfer(input, j, mDrive, bias));
+          {
+            if (!mADAA) { wet += mWeights[j] * Transfer(input, j, mDrive, bias); continue; }
+            const unsigned bit = 1u << j;
+            // Reuse F(previous) only when it was evaluated for this exact
+            // curve in the preceding high-rate sample. Automation, style
+            // crossfades and the small-interval fallback invalidate that reuse.
+            double averaged;
+            if (smallInterval) averaged = Shape(.5 * (x + before), j);
+            else
+            {
+              const double current = Integral(x, j);
+              const double previous = sameCurve && (mIntegralMask & bit) ? mIntegrals[j] : Integral(before, j);
+              averaged = (current - previous) / delta;
+              mIntegrals[j] = current;
+              nextMask |= bit;
+            }
+            if (!(mBiasMask & bit)) { mBiasOffsets[j] = Shape(bias, j); mBiasMask |= bit; }
+            wet += mWeights[j] * (averaged - mBiasOffsets[j]);
+          }
+        mIntegralMask = nextMask;
+        mIntegralDriveKey = driveKey; mBiasKey = biasKey;
         mPreviousInput = input;
         return wet;
       };
@@ -145,6 +187,9 @@ private:
   int mFactor = 4;
   bool mADAA = true;
   double mPreviousInput = 0.;
+  std::array<double, effect_modes::distortionCount> mIntegrals{}, mBiasOffsets{};
+  unsigned mIntegralMask = 0, mBiasMask = 0;
+  uint64_t mIntegralDriveKey = 0, mBiasKey = 0;
   grid_fx::SmoothControls<6> mControls;
   std::array<double, effect_modes::distortionCount> mWeights{};
   std::array<double, 3> mCached{};

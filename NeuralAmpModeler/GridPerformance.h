@@ -285,7 +285,7 @@ inline double LFOWave(int shape, double phase)
   }
 }
 
-// Shared sources. Values are held for each 16-sample control quantum.
+// Shared sources. About 0.33-0.36 ms per tick at standard host rates.
 class SourceBank
 {
 public:
@@ -299,12 +299,17 @@ public:
   };
   void Reset(double rate)
   {
-    mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = mHeldInput = 0.; mStep = mHeldStep = 0; mFrames = 0;
+    mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = mHeldInput = 0.; mStep = mHeldStep = 0;
+    // Power-of-two periods preserve common host-buffer alignment. Rounding
+    // 44.1 kHz to 15 frames adds short inference calls at 64/128-frame buffers.
+    mQuantumFrames = 1;
+    while (1.5 * mQuantumFrames < rate / 3000.) mQuantumFrames *= 2;
+    mUntilHold = mQuantumFrames;
     mRandom = mHeldRandom = 0.; mSeed = 0x2545F491u ^ (mInstance ? 0x9E3779B9u : 0u);
     mFast = mSlow = 0.; mArmed = true; mHoldoff = 0; mFinished = true;
     mMonitorRunning.store(false, std::memory_order_relaxed);
   }
-  int Quantum() const { return 16 - static_cast<int>(mFrames % 16); }
+  int Quantum() const { return mUntilHold; }
   bool Active(const Values& v) const
   {
     for (int row = 0; row < rows; ++row)
@@ -376,8 +381,9 @@ public:
       }
       mStepPhase += steps / mRate;
       if (mStepPhase >= 1.) { mStepPhase -= 1.; mStep = (mStep + 1) % 8; }
-      if (++mFrames % 16 == 0)
+      if (--mUntilHold == 0)
       {
+        mUntilHold = mQuantumFrames;
         mHeldPhase = mPhase; mHeldInput = mEnvelope; mHeldEnvelope = ShapeEnvelope(mEnvelope, v, mInstance);
         mHeldStep = mStep; mHeldRandom = mRandom;
       }
@@ -432,13 +438,13 @@ private:
   double mFast = 0., mSlow = 0.;
   bool mArmed = true, mFinished = true;
   int mHoldoff = 0;
-  uint64_t mFrames = 0;
+  int mQuantumFrames = 16, mUntilHold = 16;
   std::atomic<float> mMonitorPhase{0.f}, mMonitorLFO{0.f}, mMonitorEnvelope{0.f}, mMonitorInput{0.f};
   std::atomic<int> mMonitorStep{0};
   std::atomic<bool> mMonitorRunning{false};
 };
 
-// Independent source banks share the same 16-sample clock, MIDI timeline and matrix.
+// Independent source banks share the same time-based control clock, MIDI timeline and matrix.
 // No allocation or host-parameter writes occur while advancing either bank.
 class Modulation
 {
@@ -452,6 +458,13 @@ public:
   void Reset(double rate) { for (auto& bank : mBanks) bank.Reset(rate); }
   int Quantum() const { return mBanks[0].Quantum(); }
   bool Active(const Values& v) const { return mBanks[0].Active(v); }
+  bool DynamicAssignments(const Values& v) const
+  {
+    for (int row = 0; row < rows; ++row)
+      if (RowActive(v, row) && (DynamicSource(static_cast<int>(v[RowParam(row, RowSource)]))
+                               || DynamicSource(static_cast<int>(v[RowParam(row, RowVia)])))) return true;
+    return false;
+  }
   static double ShapeEnvelope(double level, const Values& v, int instance = 0)
   { return SourceBank::ShapeEnvelope(level, v, instance); }
   // Optional second listening point defaults to the first for standalone DSP callers.

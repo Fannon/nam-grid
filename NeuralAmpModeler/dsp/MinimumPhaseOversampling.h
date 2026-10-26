@@ -4,6 +4,9 @@
 #include <cmath>
 #include <complex>
 #include <vector>
+#if (defined(_M_X64) || defined(__x86_64__)) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+  #include <emmintrin.h>
+#endif
 #if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
   #include <arm_neon.h>
 #endif
@@ -190,6 +193,21 @@ private:
       return;
     }
 #endif
+#if (defined(_M_X64) || defined(__x86_64__)) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    // Pack independent phases, preserving the scalar tap order within each
+    // lane. SSE2 is baseline on x64; no AVX/FMA or CPU dispatch is required.
+    __m128d sums[factor / 2];
+    for (auto& sum : sums) sum = _mm_setzero_pd();
+    for (int sample = 0; sample < (taps - 1) / factor; ++sample)
+    {
+      const auto input = _mm_set1_pd(mInput[mInputIndex + sample]);
+      for (int pair = 0; pair < factor / 2; ++pair)
+        sums[pair] = _mm_add_pd(sums[pair], _mm_mul_pd(
+          _mm_loadu_pd(mKernel.data() + factor * sample + 2 * pair), input));
+    }
+    for (int pair = 0; pair < factor / 2; ++pair) _mm_storeu_pd(up + 2 * pair, sums[pair]);
+    return;
+#endif
     for (int sample = 0; sample < (taps - 1) / factor; ++sample)
       for (int phase = 0; phase < factor; ++phase)
         up[phase] += mKernel[factor * sample + phase] * mInput[mInputIndex + sample];
@@ -216,6 +234,17 @@ private:
       vst1q_f64(down + 2, high);
       return;
     }
+#endif
+#if (defined(_M_X64) || defined(__x86_64__)) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    __m128d sums[factor / 2];
+    for (auto& sum : sums) sum = _mm_setzero_pd();
+    for (int tap = 0; tap < taps - 1; tap += factor)
+      for (int pair = 0; pair < factor / 2; ++pair)
+        sums[pair] = _mm_add_pd(sums[pair], _mm_mul_pd(
+          _mm_loadu_pd(mKernel.data() + tap + 2 * pair),
+          _mm_loadu_pd(mHigh.data() + mHighIndex + tap + 2 * pair)));
+    for (int pair = 0; pair < factor / 2; ++pair) _mm_storeu_pd(down + 2 * pair, sums[pair]);
+    return;
 #endif
     for (int tap = 0; tap < taps - 1; tap += factor)
       for (int j = 0; j < factor; ++j)

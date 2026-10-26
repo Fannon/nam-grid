@@ -1,4 +1,5 @@
 #include "AdaptiveIR.h"
+#include "../AudioDSPTools/dsp/Resample.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -117,6 +118,99 @@ int main()
     }
   }
   AdaptiveIR::IRData silence{{}, 48000.};
+  // Long mode preserves late coefficients and places the large FFT tail at
+  // exactly frame 2048, including partial host blocks and sample-rate conversion.
+  for (double rate : {44100., 48000., 96000., 192000.})
+    for (int maxBlock : {1, 127, 512, 4096})
+    {
+      AdaptiveIR::IRData data{{}, 48000.};
+      data.mRawAudio.assign(17001, 0.f);
+      for (size_t n : {0, 63, 2047, 2048, 4095, 8191, 8192, 16384, 17000})
+        data.mRawAudio[n] = n == 17000 ? 4.e-6f : .1f;
+      AdaptiveIR candidate(data, rate, maxBlock, AdaptiveIR::Mode::Long);
+      std::vector<float> weights;
+      if (rate == 48000.) weights = data.mRawAudio;
+      else
+      {
+        std::vector<float> padded(data.mRawAudio.size() + 2, 0.f);
+        std::copy(data.mRawAudio.begin(), data.mRawAudio.end(), padded.begin() + 1);
+        dsp::ResampleCubic<float>(padded, 48000., rate, 0., weights);
+      }
+      assert(candidate.Length() == weights.size());
+      assert(candidate.GetMode() == AdaptiveIR::Mode::Long && candidate.GetBackend() == AdaptiveIR::Backend::TwoStageFFT);
+      const float gain = std::pow(10., -18 * .05) * 48000 / rate;
+      std::vector<double> input(maxBlock);
+      double* pointer = input.data();
+      const std::array<int, 7> blocks{1, 3, 127, 511, 2047, 2048, 4096};
+      for (size_t position = 0, block = 0; position < weights.size() + 4096; ++block)
+      {
+        const int count = static_cast<int>(std::min({static_cast<size_t>(maxBlock),
+          weights.size() + 4096 - position, static_cast<size_t>(blocks[block % blocks.size()])}));
+        std::fill(input.begin(), input.end(), 0.);
+        if (position == 0) input[0] = 1.;
+        allocations = deletions = 0; tracking = true;
+        const auto* result = candidate.Process(&pointer, 1, count)[0];
+        tracking = false;
+        assert(allocations == 0 && deletions == 0);
+        for (int i = 0; i < count; ++i)
+        {
+          const double expected = position + i < weights.size() ? weights[position + i] * gain : 0.;
+          assert(std::abs(result[i] - expected) < 2.e-8);
+        }
+        position += count;
+      }
+    }
+  {
+    AdaptiveIR::IRData data{{}, 48000.};
+    data.mRawAudio.assign(1440001, 0.f);
+    data.mRawAudio[1439999] = .2f;
+    data.mRawAudio.back() = 1.f;
+    AdaptiveIR bounded(data, 48000., 512, AdaptiveIR::Mode::Long);
+    assert(bounded.Length() == 1440000);
+    std::array<double, 512> input{};
+    double* pointer = input.data();
+    const float gain = std::pow(10., -18 * .05);
+    for (int position = 0; position < 1440512; position += 512)
+    {
+      input.fill(0.);
+      if (!position) input[0] = 1.;
+      auto* output = bounded.Process(&pointer, 1, 512)[0];
+      for (int i = 0; i < 512; ++i)
+        assert(std::abs(output[i] - (position + i == 1439999 ? .2f * gain : 0.f)) < 2.e-8);
+    }
+  }
+  // Independent sparse FIR oracle with sustained excitation across many tail
+  // partitions, not just a single impulse in the first block.
+  for (int maxBlock : {1, 127, 512, 4096})
+  {
+    AdaptiveIR::IRData data{{}, 48000.};
+    data.mRawAudio.assign(17001, 0.f);
+    const std::array<int, 9> taps{0, 127, 2047, 2048, 4095, 8191, 8192, 16384, 17000};
+    for (int n : taps) data.mRawAudio[n] = n % 2 ? -.15f : .2f;
+    AdaptiveIR candidate(data, 48000., maxBlock, AdaptiveIR::Mode::Long);
+    std::vector<float> excitation(10241);
+    for (size_t i = 0; i < excitation.size(); ++i) excitation[i] = static_cast<float>(.2 * std::sin(i * .079));
+    std::vector<double> input(maxBlock);
+    double* pointer = input.data();
+    const int duration = static_cast<int>(excitation.size() + data.mRawAudio.size() + 512);
+    const float gain = std::pow(10., -18 * .05);
+    for (int position = 0, block = 0; position < duration; ++block)
+    {
+      const int count = std::min({maxBlock, duration - position, std::array<int, 5>{3, 127, 512, 2047, 4096}[block % 5]});
+      for (int i = 0; i < count; ++i)
+        input[i] = position + i < excitation.size() ? excitation[position + i] : 0.;
+      auto* result = candidate.Process(&pointer, 1, count)[0];
+      for (int i = 0; i < count; ++i)
+      {
+        double expected = 0.;
+        for (int n : taps)
+          if (position + i >= n && position + i - n < excitation.size())
+            expected += static_cast<double>(data.mRawAudio[n] * gain) * excitation[position + i - n];
+        assert(std::abs(result[i] - expected) < 1.e-7);
+      }
+      position += count;
+    }
+  }
   silence.mRawAudio.assign(8192, 0.f);
   AdaptiveIR zero(silence, 48000., 128);
   std::array<double, 128> zeros{};

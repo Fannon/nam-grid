@@ -31,6 +31,12 @@ void VisitSlotControls(C& c, Visit&& visit)
   auto& d = c.dynamics;
   auto& e = c.eq;
   auto& t = c.utility;
+  u(uIRInput, t.irInput);
+  u(uIRMix, t.irMix);
+  u(uIRPredelay, t.irPredelay);
+  u(uIRLowCut, t.irLowCut);
+  u(uIRHighCut, t.irHighCut);
+  u(uIRLength, t.irLength);
   visit(kSlotEnabled, c.enabled);
   visit(kSlotIn, c.inputDB);
   visit(kSlotTrim, c.trimDB);

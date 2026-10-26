@@ -23,6 +23,7 @@
 #include "SlotPedalDrive.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
+#include "SlotIR.h"
 
 struct NAMModelInfo
 {
@@ -123,6 +124,7 @@ public:
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
     std::unique_ptr<AdaptiveIR> ir;
+    SlotIR irWet;
     std::vector<double> input, wet, dry, delay, dynamicsMonitor;
     size_t delayIndex = 0;
     int latency = 0;
@@ -211,23 +213,20 @@ public:
                                            : IsModulation(effect) ? .07
                                            : effect == SlotEffect::JunoChorus ? .07
                                                                   : 0.));
-      // AudioDSPTools caps the resampled FIR at 8192 taps. Flush that complete
-      // history in samples (not seconds) before suspending a bypassed cabinet.
-      if (ir) drainLimit = 8192;
-      drainFrames = drainLimit; // Fresh histories already contain silence.
       if (ir)
       {
-        ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block);
-        double* silence = input.data();
-        ir->Process(&silence, 1, block);
+        ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block, ir->GetMode());
+        irWet.Reset(rate);
+        drainLimit = static_cast<int64_t>(ir->Length()) + static_cast<int64_t>(rate * 1.5);
       }
+      drainFrames = drainLimit; // Fresh histories already contain silence.
       if (!rightChannel)
       {
         right = std::make_unique<Prepared>();
         right->rightChannel = true;
         right->effect = effect;
         if (ir)
-          right->ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block);
+          right->ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block, ir->GetMode());
         right->Reset(rate, block);
         // Mono NAM has one inference; the second history is for stereo dry bypass.
         right->latency = latency;
@@ -342,13 +341,18 @@ public:
     if (p && p->effect != SlotEffect::NAM)
       inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
     if (p && p->effect == SlotEffect::CabinetIR)
+    {
+      inputDB = utility.irInput;
       trimDB = eq.irLevel + 18.; // Undo the reused convolver's fixed -18 dB; knob is actual IR gain.
+    }
+    const double irMixTarget = std::clamp(utility.irMix * .01, 0., 1.);
     const double inTarget = std::pow(10., inputDB * .05), outTarget = std::pow(10., trimDB * .05);
     if (mFirst)
     {
       mIn = inTarget;
       mOut = outTarget;
       mMix = enabled && info.loaded ? 1. : 0.;
+      mIRMix = irMixTarget;
       mFirst = false;
     }
     if (p && info.loaded)
@@ -487,12 +491,14 @@ public:
       {
         mOut += outDelta;
         mMix = Approach(mMix, enabled ? 1. : 0., mStep);
+        mIRMix = Approach(mIRMix, irMixTarget, mStep);
+        const double mix = p->ir ? mMix * mIRMix : mMix;
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
         if (rightSamples)
         {
-          rightSamples[i] = (p->right->dry[i] * (1. - mMix) + p->right->wet[i] * mOut * mMix) * mSwitchGain;
+          rightSamples[i] = (p->right->dry[i] * (1. - mix) + p->right->wet[i] * mOut * mix) * mSwitchGain;
         }
-        samples[i] = (p->dry[i] * (1. - mMix) + p->wet[i] * mOut * mMix) * mSwitchGain;
+        samples[i] = (p->dry[i] * (1. - mix) + p->wet[i] * mOut * mix) * mSwitchGain;
         if (spectrum)
           mCapture->Push(samples[i], rightSamples ? rightSamples[i] : samples[i]);
         if (mMonitoring)
@@ -536,6 +542,7 @@ private:
     {
       auto* convolved = p->ir->Process(&in, 1, frames);
       std::copy_n(convolved[0], frames, out);
+      p->irWet.Process(out, frames, utility);
     }
     else
     {
@@ -580,7 +587,7 @@ private:
   noise_print::Snapshot mNoiseSnapshot;
   RealtimeExchange<Prepared> mExchange;
   std::atomic<bool> mWaitForReset{false};
-  double mMix = 0., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;
+  double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;
   bool mFirst = true;
   bool mMonitoring = false;
   SlotMeterData mMeter;

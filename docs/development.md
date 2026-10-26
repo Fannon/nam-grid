@@ -156,12 +156,16 @@ Meters use bounded SPSC packets. Rendering, logarithmic display scaling and
 holds run on the UI thread; meter state is transient. Keep visualization work
 out of audio processing, and distinguish measured signals from parameter sketches.
 
-## Cabinet convolution
+## IR convolution
 
-Cabinet IR slots use one adaptive direct/FFT processor; its rules are documented in
+IR slots use one adaptive direct/FFT processor; its rules are documented in
 `NeuralAmpModeler/AdaptiveIR.h` and summarised for players in [cabinet IR processing](modules/ir-processing.md).
-It selects the backend during preparation and preserves the full resampled IR
-without adding buffering latency or exposing a quality mode.
+It selects the backend during preparation without adding buffering latency.
+The default Cabinet length retains the released 8192-sample cap and gain.
+The opt-in Long IR identity retains up to 30 seconds and uses a small-partition
+head plus a large-partition tail. Length changes prepare and publish a replacement
+on the control thread. Wet trims, pre-delay and cuts precede the linear
+dry/wet blend; their defaults preserve the released cabinet sound.
 
 ## DSP sources and adaptations
 

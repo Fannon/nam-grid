@@ -55,6 +55,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "RigTransitionTests.h"
 #include "DynamicsTests.h"
 #include "SlotFeaturesTests.h"
+#include "IRControlsTests.h"
 #include "TimeEffectsTests.h"
 #include "TunerTempoUtilityTests.h"
 #include "RoadmapEffectsTests.h"
@@ -184,6 +185,7 @@ try
   TestRigTransition();
   TestDynamics();
   TestSlotFeatures();
+  TestIRControls();
   TestTimeEffects();
   TestTunerTempoUtility();
   TestRoadmapEffects();

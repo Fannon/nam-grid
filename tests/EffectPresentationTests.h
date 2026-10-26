@@ -64,6 +64,21 @@ void TestEffectPresentation()
           if (std::count(occupied.begin(), occupied.end(), true) <= 4) assert(!occupied[4] && !occupied[5] && !occupied[6] && !occupied[7]);
         }
   // Mode selectors and saved options live in the header, never in the knob grid.
+  {
+    const auto effect = SlotEffect::CabinetIR;
+    auto occupied = effect_presentation::FixedPlaces(effect);
+    for (int p = uIRInput; p <= uIRLength; ++p)
+    {
+      assert(effect_presentation::Visible(effect, p));
+      assert(std::strlen(effect_presentation::Help(effect, p)) > 12);
+      if (effect_presentation::HeaderControl(p)) continue;
+      const int position = effect_presentation::Position(effect, p);
+      assert(!occupied[position]);
+      occupied[position] = true;
+    }
+    assert(effect_presentation::Position(effect, uIRInput) == 0);
+    assert(effect_presentation::Position(effect, uIRMix) == 5);
+  }
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p)) assert(effect_presentation::HeaderControl(p));
   assert(effect_presentation::Position(SlotEffect::ConsoleColour, uColourInput) == 0);

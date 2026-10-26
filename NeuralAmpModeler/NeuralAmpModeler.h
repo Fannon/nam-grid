@@ -337,6 +337,8 @@ private:
   uint64_t mNextNoiseEpoch = 0;
   std::array<nam_library::Gear, FixedNAMGrid::kSlots> mSlotGear{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
+  std::array<double, FixedNAMGrid::kSlots> mPreparedIRLength{};
+  std::array<double, FixedNAMGrid::kSlots> mPreparedIRTail{};
   mutable std::recursive_mutex mControlMutex; // never taken in ProcessBlock
   // Every control-state section locks through this. On Linux, iPlug2 draws and runs OnIdle on
   // threads of its own and holds its graphics mutex while calling the plugin, so take both

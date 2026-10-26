@@ -266,7 +266,10 @@ void TestModulationMatrix()
     assert(cuts[3].control == parameter_layout::kSlotEQHighPass && cuts[3].position == 4);
     assert(cuts[5].control == parameter_layout::kSlotEQLowPass && cuts[5].position == 6);
     assert(std::string(shelf[4].label) == "Low shelf" && shelf[4].position == 4);
-    assert(Destinations(SlotEffect::CabinetIR, true, false, false, false).front().control == parameter_layout::kSlotIRLevel);
+    const auto ir = Destinations(SlotEffect::CabinetIR, true, false, false, false);
+    assert(ir.front().control == parameter_layout::standardControls + uIRInput);
+    assert(ir.size() == 6);
+    assert(ir[4].control == parameter_layout::kSlotIRLevel && ir.back().control == parameter_layout::standardControls + uIRMix);
     for (int e = 0; e <= static_cast<int>(SlotEffect::Last); ++e)
       if (IsValidSlotEffect(static_cast<SlotEffect>(e)))
         for (const auto& d : Destinations(static_cast<SlotEffect>(e), true, false, false, false))

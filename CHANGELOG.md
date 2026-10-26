@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- IR convolution adds wet Input, Mix, Pre-delay and Low/High cut controls, plus a Long IR option for reverb and sound-design responses up to 30 seconds. Existing rigs keep their original cabinet length and sound. Long IR displays the tail envelope.
 - Compressor and limiter graphs mark gain reduction beyond 16 dB with a red edge or tip; their numeric readouts continue to show the full reduction.
 - Cosmic Echo shows its delay-line network sketch below the measured response, with timing markers, density connections and modulation halos. Hover for the 4- or 16-line count and explanation.
 - Hover over a truncated module description to read its full text.

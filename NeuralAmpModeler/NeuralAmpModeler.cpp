@@ -1177,6 +1177,18 @@ void NeuralAmpModeler::OnIdle()
   const auto guard = _LockControls();
   _UpdateTunerControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    if (mSlotEffects[slot] == SlotEffect::CabinetIR
+        && GetParam(SlotUtilityParam(slot, uIRLength))->Value() != mPreparedIRLength[slot])
+    {
+      if (!_StageSlot(slot, SlotEffect::CabinetIR, mSlotPaths[slot].Get(), mSlotHashes[slot]).empty())
+      {
+        const int index = SlotUtilityParam(slot, uIRLength);
+        SetParameterValue(index, mPreparedIRLength[slot]);
+        SendParameterValueFromDelegate(index, mPreparedIRLength[slot], true);
+        SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
+      }
+    }
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     if (CanToggleSlotQuality(slot) && GetParam(SlotFullParam(slot))->Value() != mPreparedQuality[slot])
     {
       if (!_StageSlot(slot, SlotEffect::NAM, mSlotPaths[slot].Get(), mSlotHashes[slot]).empty())
@@ -1910,6 +1922,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mNoiseProfiles[slot] = config.effect == SlotEffect::NoisePrint ? config.noiseProfile : noise_print::Profile{};
   mNoiseEpochs[slot] = ++mNextNoiseEpoch;
   prepared.dsp->noiseEpoch = mNoiseEpochs[slot];
+  mPreparedIRTail[slot] = prepared.dsp->ir ? prepared.dsp->ir->Length() / mSampleRatePrepared + .5 : 0.;
 #ifdef CLAP_API
   mGrids[mEditGrid].stages[slot].Publish(std::move(prepared.dsp), latencyChanged);
 #else
@@ -1956,6 +1969,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
                       : IsDelay(mSlotEffects[i]) ? 560. : IsAirReverb(mSlotEffects[i]) ? 60. : IsReverb(mSlotEffects[i]) ? 45.
                       : mSlotEffects[i] == SlotEffect::CosmicEcho ? 60. : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
                       : mSlotEffects[i] == SlotEffect::FrequencyShifter ? 560.
+                      : mSlotEffects[i] == SlotEffect::CabinetIR ? mPreparedIRTail[i]
                       : mSlotEffects[i] == SlotEffect::Stutter ? 33. : 0.;
   mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));
 
@@ -1973,6 +1987,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
     } // Missing files retain a neutral color, never guess cabinet inclusion.
   }
   mPreparedQuality[slot] = config.values[16];
+  mPreparedIRLength[slot] = config.values[17 + uIRLength];
   _UpdateLatency(latencyChanged);
   SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
 }

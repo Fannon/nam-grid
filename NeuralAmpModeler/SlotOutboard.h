@@ -25,7 +25,7 @@ public:
     mEffect = effect;
     mColourFactor = factor == 1 || factor == 2 ? factor : ColourFactorForRate(rate);
     if (effect == SlotEffect::ConsoleColour && mColourFactor == 2)
-      {
+    {
       for (auto& filter : mColour2) filter.Reset();
       for (auto& filter : mDryReference) filter.Reset();
     }

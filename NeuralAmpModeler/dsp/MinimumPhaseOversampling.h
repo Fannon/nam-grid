@@ -22,12 +22,13 @@ inline double Flush(double x) { return std::abs(x) < 1.e-30 ? 0. : x; }
 // The filters are minimum phase, so callers need no fixed lookahead or reported delay.
 // Minimum-phase conversion preserves the windowed-sinc magnitude response. Callers may pass dry audio through unshifted; the wet path retains the
 // filters' frequency-dependent group delay. Design and clearing happen in preparation.
-template <int Factor>
+template <int Factor, int BaseTaps = 64>
 class FIR
 {
 public:
   static_assert(Factor == 2 || Factor == 4 || Factor == 8);
-  static constexpr int factor = Factor, taps = 64 * Factor + 1, latency = 0;
+  static_assert(BaseTaps >= 16 && BaseTaps <= 64 && BaseTaps % 2 == 0);
+  static constexpr int factor = Factor, taps = BaseTaps * Factor + 1, latency = 0;
   static constexpr int highRing = 128 * Factor;
   void Reset()
   {
@@ -79,6 +80,37 @@ public:
           result = ((down[0] + down[1]) + (down[2] + down[3]));
         else
           for (double value : down) result += value;
+        result += mKernel[taps - 1] * mHigh[mHighIndex + taps - 1];
+      }
+    }
+    return Flush(result);
+  }
+
+  // Split interface for joint stereo cores: interpolate both channels, process
+  // corresponding high-rate samples together, then decimate independently.
+  std::array<double, factor> Upsample(double input)
+  {
+    mInputIndex = (mInputIndex - 1) & 127;
+    mInput[mInputIndex] = mInput[mInputIndex + 128] = input;
+    std::array<double, factor> up{};
+    Interpolate(up.data());
+    up[0] += mKernel[taps - 1] * mInput[mInputIndex + (taps - 1) / factor];
+    for (double& value : up) value *= factor;
+    return up;
+  }
+  double Downsample(const std::array<double, factor>& samples)
+  {
+    double result = 0.;
+    for (int phase = 0; phase < factor; ++phase)
+    {
+      mHighIndex = (mHighIndex - 1) & (highRing - 1);
+      mHigh[mHighIndex] = mHigh[mHighIndex + highRing] = Flush(samples[phase]);
+      if (phase == 0)
+      {
+        std::array<double, factor> down{};
+        Decimate(down.data());
+        if constexpr (factor == 4) result = ((down[0] + down[1]) + (down[2] + down[3]));
+        else for (double value : down) result += value;
         result += mKernel[taps - 1] * mHigh[mHighIndex + taps - 1];
       }
     }

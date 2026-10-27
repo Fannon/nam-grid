@@ -1,5 +1,6 @@
 #pragma once
 #include "SlotTimeEffects.h"
+#include "dsp/MinimumPhaseOversampling.h"
 #include "dsp/airwindows/outboard/CStrip2.h"
 #include "dsp/airwindows/outboard/ButterComp2.h"
 #include "dsp/airwindows/outboard/BussColors4.h"
@@ -15,10 +16,20 @@ inline bool IsOutboardCompressor(SlotEffect effect)
 class SlotOutboard
 {
 public:
-  void Reset(double rate, SlotEffect effect)
+  static int ColourFactorForRate(double rate) { return rate < 88200. ? 2 : 1; }
+  // The explicit factor is an offline comparison hook for the aliasing tests,
+  // not a saved control; production always uses ColourFactorForRate.
+  void Reset(double rate, SlotEffect effect, int factor = 0)
   {
     mRate = std::max(1., rate);
     mEffect = effect;
+    mColourFactor = factor == 1 || factor == 2 ? factor : ColourFactorForRate(rate);
+    if (effect == SlotEffect::ConsoleColour && mColourFactor == 2)
+    {
+      for (auto& filter : mColour2) filter.Reset();
+      for (auto& filter : mDryReference) filter.Reset();
+    }
+    mMixBypass.Reset(mRate);
     mControls.Reset(mRate);
     mShort.Reset(mRate); mInputControl.Reset(mRate);
     mStrip.reset();
@@ -37,7 +48,7 @@ public:
     if (effect == SlotEffect::ConsoleColour)
     {
       mColour = std::make_unique<airwindows_outboard::BussColors4::Core>();
-      mColour->Reset(mRate);
+      mColour->Reset(mRate * mColourFactor);
     }
     mCounter = 0;
     mDesk = -1;
@@ -52,6 +63,7 @@ public:
                        mEffect == SlotEffect::ConsoleEQ ? uConsoleTreble : uStripLowCut);
     else
       mShort.Target(mButter ? c.butter : c.colour, mButter ? uButterCompress : uColourInput);
+    mMixBypass.Target(c.colour[2] > 0.);
     const int desk = std::clamp(c.colourDesk, 0, 7);
     if (mDesk < 0)
       mDesk = desk;
@@ -68,7 +80,7 @@ public:
         mVoice = desk == mDesk ? std::min(1., mVoice + step) : std::max(0., mVoice - step);
         if (mVoice == 0. && mDesk != desk)
         {
-          mColour->Reset(mRate);
+          mColour->Reset(mRate * mColourFactor);
           mDesk = desk;
           mCounter = 0;
         }
@@ -94,6 +106,7 @@ public:
       double wetL = dryL, wetR = dryR;
       if (mEffect == SlotEffect::OutboardChannel) { wetL *= inputGain; wetR *= inputGain; }
       double mix = 1., output = 1.;
+      bool blended = false;
       if (mStrip)
       {
         const bool flat = mEffect == SlotEffect::ConsoleEQ && std::abs(v[0]) + std::abs(v[1]) + std::abs(v[2]) < 1.e-8
@@ -121,22 +134,37 @@ public:
       if (mColour)
       {
         const double input = mInput(s[0] / 20., [](double x) { return std::pow(10., x); });
-        wetL *= input;
-        wetR *= input;
-        mColour->Tick(wetL, wetR);
         // Fixed 48 kHz plucked-tone RMS calibration; this preserves each desk's
         // spectral shape and is deliberately not program-dependent auto gain.
         constexpr std::array<double, 8> deskMatchDB{.8841, .6937, -1.3250, 1.0910, .5984, .7611, 2.7876, 1.1550};
         const double trim = mTrim((s[1] + deskMatchDB[mDesk]) / 20., [](double x) { return std::pow(10., x); });
-        wetL *= trim;
-        wetR *= trim;
         mix = s[2] * .01 * mVoice;
+        wetL *= input;
+        wetR *= input;
+        if (mColourFactor == 2) ProcessColour(wetL, wetR);
+        else mColour->Tick(wetL, wetR);
+        wetL *= trim; wetR *= trim;
+        if (mColourFactor == 2)
+        {
+          mDryReference[0].Push(dryL); mDryReference[1].Push(dryR);
+          mMixBypass.Tick();
+          double blendL = dryL + mix * (wetL - dryL), blendR = dryR + mix * (wetR - dryR);
+          if (mix != 1. && !mMixBypass.IsDry())
+          {
+            const double alignedL = mDryReference[0].Filtered(), alignedR = mDryReference[1].Filtered();
+            blendL = alignedL + mix * (wetL - alignedL);
+            blendR = alignedR + mix * (wetR - alignedR);
+          }
+          wetL = mMixBypass.Apply(dryL, blendL);
+          wetR = mMixBypass.Apply(dryR, blendR);
+          blended = true;
+        }
       }
       // Output on compressor wrappers follows Mix. Console Colour's trims
       // affect only its wet path, guaranteeing exact dry at Mix zero.
-      left[i] = (mix == 0. ? dryL : dryL + mix * (wetL - dryL)) * output;
+      left[i] = (blended ? wetL : (mix == 0. ? dryL : dryL + mix * (wetL - dryL))) * output;
       if (right)
-        right[i] = (mix == 0. ? dryR : dryR + mix * (wetR - dryR)) * output;
+        right[i] = (blended ? wetR : (mix == 0. ? dryR : dryR + mix * (wetR - dryR))) * output;
     }
   }
   // Native detector attenuation, before automatic gain recovery, saturation
@@ -144,6 +172,17 @@ public:
   double Reduction() const { return mReduction; }
 
 private:
+  void ProcessColour(double& l, double& r)
+  {
+    constexpr int Factor = 2;
+    auto upL = mColour2[0].Upsample(l), upR = mColour2[1].Upsample(r);
+    for (int phase = 0; phase < Factor; ++phase) mColour->Tick(upL[phase], upR[phase]);
+    l = mColour2[0].Downsample(upL); r = mColour2[1].Downsample(upR);
+  }
+  std::array<grid_oversampling::FIR<2, 32>, 2> mColour2;
+  std::array<grid_oversampling::LinearReference<2>, 2> mDryReference;
+  grid_oversampling::MixBypass mMixBypass;
+  int mColourFactor = 2;
   void Monitor(double l, double r, double mix)
   {
     const double gain = 1. + mix * (std::min({1., l, r}) - 1.);

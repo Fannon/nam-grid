@@ -689,7 +689,9 @@ SDK-free double-precision adaptation with deterministic local PRNG state,
 Capacitor pole rate compensation, detector-gain taps, smoothed wrapper controls
 and conventional dB trims. CStrip2's EQ and dynamics are exposed separately;
 the strip retains its unity-to-Spiral range and omits Density. BussColors4 desk
-gains receive fixed default-level calibration. The ButterComp2 residue generator
+gains receive fixed default-level calibration. The Console Colour wrapper adds
+local minimum-phase oversampling below 88.2 kHz; the generated core is unchanged.
+The ButterComp2 residue generator
 is replaced to remove shared function-static state and signed integer overflow.
 See docs/airwindows-outboard.md and scripts/vendor-airwindows-outboard.py.
 Additional dynamics adaptations normalize DigitalBlack/CStrip gate counters and

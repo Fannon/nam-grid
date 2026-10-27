@@ -5,6 +5,10 @@ module. The normal CTest `aliasing` check uses insertion settings at 48 kHz. The
 extended audit covers insertion and driven settings at 44.1, 48, 88.2 and 96 kHz, three
 coherent input tones near 1.5, 6.5 and 10 kHz, and each registered algorithm
 selector. Secondary selectors vary independently, not as a Cartesian product.
+Driven profiles also exercise boosted Console EQ bands, the limiter's Input/Clip
+path and LoFi Tape's Drive. Neutral Console EQ and zero-Drive LoFi settings alone
+cannot establish the aliasing behavior of those nonlinear paths. New controls
+that introduce or drive nonlinear processing need an explicit stress case.
 
 Build it with `bash build.sh --test`, or build the `nam-aliasing-tests` target in
 an already configured build directory. For an extended audit from the repository
@@ -21,7 +25,11 @@ additional `NeuralAmpModeler/Release/` subdirectory. Use the corresponding
 `build/macos/release` or `build/linux/release` path without
 `.exe` on those platforms. `--module 41` restricts an audit to one persistent
 module ID. `--capture path/to/model.nam` replaces the bundled clean NAM capture;
-NAM measurements describe that capture, not all trained models. Cabinet IR uses
+NAM measurements describe that capture, not all trained models. Repeat
+`--control "Limiter Input" 12 --control "Limiter Clip" 0`, for example, with
+`--module 29` to isolate a particular control path. Overrides apply after the
+insertion/driven profile and appear in CSV variant names. Only controls used by
+the selected module are accepted; selectors use the registered variants above. Cabinet IR uses
 a short, nontrivial synthetic impulse response so an unloaded slot cannot pass
 as a linear processor. The program processes DSP directly and does not load the
 plugin or access settings or the user's library.
@@ -139,3 +147,55 @@ six common rates through 192 kHz, alongside the generalized pedal checks.
 
 References: [DAFx: Antialiasing Piecewise Polynomial Waveshapers](https://dafx.de/paper-archive/2023/DAFx23_paper_61.pdf)
 and [JUCE oversampling documentation](https://docs.juce.com/master/classjuce_1_1dsp_1_1Oversampling.html).
+
+## Additional drive treatments
+
+Tube Boost uses local 4x/2x/1x minimum-phase oversampling at the same host-rate
+bands as Distortion, with its pre-EQ and post/DC filtering at host rate. Tape and
+Console Colour use a lower-cost 2x treatment below 88.2 kHz and native cores at
+higher host rates. Their 32-base-tap FIR designs do not change the established
+64-base-tap Distortion/Pedal filters. Stereo core resampling keeps corresponding
+high-rate channel samples together. Tape uses the original left-channel math
+without evaluating a discarded duplicate right channel, and batches its core in
+bounded control spans; neither adds an audio buffer delay.
+
+Rodent keeps the existing 4x resampler. Its input saturation uses first-order
+ADAA and its slew limiter tracks a line between target samples, integrating the
+following clip across any catch-up boundary. This addresses earlier nonlinear
+stages rather than merely filtering after the final clip. Other pedal voices
+retain their DSP. Test interval averages against numerical integration, including
+near-zero intervals and curve-cache initialization.
+
+Tube Boost, Tape and Console Colour align the partial Mix dry reference with the
+wet resampling filters. A host-rate FIR reproduces the identity path through the
+actual interpolator and decimator, including its causal phase-zero output. Its
+coefficients are prepared off audio; the history advances continuously, including
+at Mix endpoints. At fully wet/dry endpoints the reference skips its dot product,
+so this does not require a second full oversampler. The wet core and its histories
+are independent of Mix. Tube Boost's intentional tone, high-cut and DC filters
+remain on the wet path; only the resampler phase is shared with dry.
+
+Mix zero returns the exact unfiltered dry sample (before the module Output gain).
+Crossing zero fades between this bypass and the aligned blend over 20 ms. A fresh
+reset at zero is immediately dry. As with bypassing another phase-shifting effect,
+the brief fade can colour the transition; it avoids an abrupt phase switch and
+does not add a compensation delay or reported latency. Settled partial Mix avoids
+the deep cancellation of combining the filtered wet with unshifted dry. Native
+Tape/Console Colour at 88.2 kHz and above retain their existing Mix smoothing.
+
+The 32-base-tap pair is flat to about 18 kHz and attenuates about 2.3 dB at
+20 kHz for a 48 kHz host; the tube response preview includes the shared resampler
+response and the exact-dry endpoint. Regression tests compare the collapsed
+reference to the full identity oversampler, measure partial Mix gain, and automate
+Mix across both endpoints with 1/37/128-sample callbacks at four sample rates.
+
+Run `. --drive-study --report tmp/module-aliasing-followup/reports/drive-study.csv`
+for the alternatives each shipped treatment supports: Tube Boost at 1x/2x/4x, Tape
+and Console Colour at native or 2x, and the Rodent at its fixed 4x with the local
+treatment on or off. `. --voicing-study --report ...` compares quiet
+fundamental gains against native/legacy processing from 20 Hz through 18 kHz.
+These factor and treatment switches are offline test hooks, not plugin parameters;
+production always selects the rate-based factor with the treatment enabled. The normal aliasing
+CTest also checks quality improvement against native/legacy references. All wet
+filters and interval averages can change phase, transients and partial Mix; zero
+reported latency is not a claim of zero group delay or identical existing sound.

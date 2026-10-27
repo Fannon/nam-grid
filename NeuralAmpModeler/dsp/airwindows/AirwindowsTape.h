@@ -6,7 +6,8 @@
 // Source: airwindows/airwindows b79c7a3f9053f408f38f740bef56ca3291a09ad4,
 // plugins/WinVST/Tape/Tape.h and TapeProc.cpp, double processing path.
 // Adaptation: SDK-free class, deterministic local seeds, explicit sample rate;
-// processing math, stereo state and upstream denormal handling retained.
+// Processing math and upstream denormal handling retained. A mono entry uses
+// the identical left-channel math; Set caches rate/drive coefficients.
 class AirwindowsTape
 {
 public:
@@ -18,9 +19,17 @@ public:
     if (input < -1.2533141373155) input = -1.2533141373155;
     return sin(input * fabs(input)) / ((fabs(input) == 0.0) ? 1 : fabs(input));
   }
-  AirwindowsTape() { ConfigureFilters(); }
-  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); }
-  void Set(double driveDB, double bump) { A = static_cast<float>(driveDB / 24. + .5); B = static_cast<float>(bump * .01); }
+  AirwindowsTape() { ConfigureFilters(); Set(0., 50.); }
+  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); Set(0., 50.); }
+  void Set(double driveDB, double bump)
+  {
+    A = static_cast<float>(driveDB / 24. + .5); B = static_cast<float>(bump * .01);
+    mInputGain = pow(10.0, ((A - 0.5) * 24.0) / 20.0);
+    mBumpGain = B * 0.1;
+    double scale = 1.0; scale /= 44100.0; scale *= mRate;
+    mHeadFrequency = 0.12 / scale;
+    mRollAmount = (1.0 - 0.618033988749894848204586) / scale;
+  }
   void Process(double** inputs, double** outputs, int sampleFrames)
 {
     double* in1  =  inputs[0];
@@ -32,11 +41,11 @@ public:
 	overallscale /= 44100.0;
 	overallscale *= getSampleRate();
 	
-	double inputgain = pow(10.0,((A-0.5)*24.0)/20.0);
-	double bumpgain = B*0.1;
-	double HeadBumpFreq = 0.12/overallscale;
+	double inputgain = mInputGain;
+	double bumpgain = mBumpGain;
+	double HeadBumpFreq = mHeadFrequency;
 	double softness = 0.618033988749894848204586;
-	double RollAmount = (1.0 - softness) / overallscale;
+	double RollAmount = mRollAmount;
     while (--sampleFrames >= 0)
     {
 		double inputSampleL = *in1;
@@ -277,6 +286,163 @@ public:
 		*out2++;
     }
 }
+  // Same left-channel algorithm, without calculating a discarded right channel.
+  void ProcessMono(double* data, int sampleFrames)
+{
+    double* in1  =  data;
+    double* out1 = data;
+
+	double overallscale = 1.0;
+	overallscale /= 44100.0;
+	overallscale *= getSampleRate();
+
+	double inputgain = mInputGain;
+	double bumpgain = mBumpGain;
+	double HeadBumpFreq = mHeadFrequency;
+	double softness = 0.618033988749894848204586;
+	double RollAmount = mRollAmount;
+    while (--sampleFrames >= 0)
+    {
+		double inputSampleL = *in1;
+		if (fabs(inputSampleL)<1.18e-23) inputSampleL = fpdL * 1.18e-17;
+
+		if (inputgain < 1.0) {
+			inputSampleL *= inputgain;
+		} //gain cut before anything, even dry
+
+		double drySampleL = inputSampleL;
+
+		double HighsSampleL = 0.0;
+		double NonHighsSampleL = 0.0;
+		double tempSample;
+
+		if (flip)
+		{
+			iirMidRollerAL = (iirMidRollerAL * (1.0 - RollAmount)) + (inputSampleL * RollAmount);
+			HighsSampleL = inputSampleL - iirMidRollerAL;
+			NonHighsSampleL = iirMidRollerAL;
+
+			iirHeadBumpAL += (inputSampleL * 0.05);
+			iirHeadBumpAL -= (iirHeadBumpAL * iirHeadBumpAL * iirHeadBumpAL * HeadBumpFreq);
+			iirHeadBumpAL = sin(iirHeadBumpAL);
+
+			tempSample = (iirHeadBumpAL * biquadAL[2]) + biquadAL[7];
+			biquadAL[7] = (iirHeadBumpAL * biquadAL[3]) - (tempSample * biquadAL[5]) + biquadAL[8];
+			biquadAL[8] = (iirHeadBumpAL * biquadAL[4]) - (tempSample * biquadAL[6]);
+			iirHeadBumpAL = tempSample; //interleaved biquad
+			if (iirHeadBumpAL > 1.0) iirHeadBumpAL = 1.0;
+			if (iirHeadBumpAL < -1.0) iirHeadBumpAL = -1.0;
+			iirHeadBumpAL = asin(iirHeadBumpAL);
+
+			inputSampleL = sin(inputSampleL);
+			tempSample = (inputSampleL * biquadCL[2]) + biquadCL[7];
+			biquadCL[7] = (inputSampleL * biquadCL[3]) - (tempSample * biquadCL[5]) + biquadCL[8];
+			biquadCL[8] = (inputSampleL * biquadCL[4]) - (tempSample * biquadCL[6]);
+			inputSampleL = tempSample; //interleaved biquad
+			if (inputSampleL > 1.0) inputSampleL = 1.0;
+			if (inputSampleL < -1.0) inputSampleL = -1.0;
+			inputSampleL = asin(inputSampleL);
+
+		} else {
+			iirMidRollerBL = (iirMidRollerBL * (1.0 - RollAmount)) + (inputSampleL * RollAmount);
+			HighsSampleL = inputSampleL - iirMidRollerBL;
+			NonHighsSampleL = iirMidRollerBL;
+
+			iirHeadBumpBL += (inputSampleL * 0.05);
+			iirHeadBumpBL -= (iirHeadBumpBL * iirHeadBumpBL * iirHeadBumpBL * HeadBumpFreq);
+			iirHeadBumpBL = sin(iirHeadBumpBL);
+
+			tempSample = (iirHeadBumpBL * biquadBL[2]) + biquadBL[7];
+			biquadBL[7] = (iirHeadBumpBL * biquadBL[3]) - (tempSample * biquadBL[5]) + biquadBL[8];
+			biquadBL[8] = (iirHeadBumpBL * biquadBL[4]) - (tempSample * biquadBL[6]);
+			iirHeadBumpBL = tempSample; //interleaved biquad
+			if (iirHeadBumpBL > 1.0) iirHeadBumpBL = 1.0;
+			if (iirHeadBumpBL < -1.0) iirHeadBumpBL = -1.0;
+			iirHeadBumpBL = asin(iirHeadBumpBL);
+
+			inputSampleL = sin(inputSampleL);
+			tempSample = (inputSampleL * biquadDL[2]) + biquadDL[7];
+			biquadDL[7] = (inputSampleL * biquadDL[3]) - (tempSample * biquadDL[5]) + biquadDL[8];
+			biquadDL[8] = (inputSampleL * biquadDL[4]) - (tempSample * biquadDL[6]);
+			inputSampleL = tempSample; //interleaved biquad
+			if (inputSampleL > 1.0) inputSampleL = 1.0;
+			if (inputSampleL < -1.0) inputSampleL = -1.0;
+			inputSampleL = asin(inputSampleL);
+
+		}
+		flip = !flip;
+
+		double groundSampleL = drySampleL - inputSampleL; //set up UnBox
+
+		if (inputgain > 1.0) {
+			inputSampleL *= inputgain;
+		} //gain boost inside UnBox: do not boost fringe audio
+
+		double applySoften = fabs(HighsSampleL)*1.57079633;
+		if (applySoften > 1.57079633) applySoften = 1.57079633;
+		applySoften = 1-cos(applySoften);
+		if (HighsSampleL > 0) inputSampleL -= applySoften;
+		if (HighsSampleL < 0) inputSampleL += applySoften;
+		//apply Soften depending on polarity
+		if (applySoften > 1.57079633) applySoften = 1.57079633;
+		applySoften = 1-cos(applySoften);
+		//apply Soften depending on polarity
+
+		inputSampleL = Spiral(inputSampleL);
+
+		double suppress = (1.0-fabs(inputSampleL)) * 0.00013;
+		if (iirHeadBumpAL > suppress) iirHeadBumpAL -= suppress;
+		if (iirHeadBumpAL < -suppress) iirHeadBumpAL += suppress;
+		if (iirHeadBumpBL > suppress) iirHeadBumpBL -= suppress;
+		if (iirHeadBumpBL < -suppress) iirHeadBumpBL += suppress;
+		//restrain resonant quality of head bump algorithm
+
+		inputSampleL += groundSampleL; //apply UnBox processing
+
+		inputSampleL += ((iirHeadBumpAL + iirHeadBumpBL) * bumpgain);//and head bump
+
+		if (lastSampleL >= 0.99)
+		{
+			if (inputSampleL < 0.99) lastSampleL = ((0.99*softness) + (inputSampleL * (1.0-softness)));
+			else lastSampleL = 0.99;
+		}
+
+		if (lastSampleL <= -0.99)
+		{
+			if (inputSampleL > -0.99) lastSampleL = ((-0.99*softness) + (inputSampleL * (1.0-softness)));
+			else lastSampleL = -0.99;
+		}
+
+		if (inputSampleL > 0.99)
+		{
+			if (lastSampleL < 0.99) inputSampleL = ((0.99*softness) + (lastSampleL * (1.0-softness)));
+			else inputSampleL = 0.99;
+		}
+
+		if (inputSampleL < -0.99)
+		{
+			if (lastSampleL > -0.99) inputSampleL = ((-0.99*softness) + (lastSampleL * (1.0-softness)));
+			else inputSampleL = -0.99;
+		}
+		lastSampleL = inputSampleL; //end ADClip L
+
+		if (inputSampleL > 0.99) inputSampleL = 0.99;
+		if (inputSampleL < -0.99) inputSampleL = -0.99;
+		//final iron bar
+
+		//begin 64 bit stereo floating point dither
+		//int expon; frexp((double)inputSampleL, &expon);
+		fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
+		//inputSampleL += ((double(fpdL)-uint32_t(0x7fffffff)) * 1.1e-44l * pow(2,expon+62));
+		//end 64 bit stereo floating point dither
+
+		*out1 = inputSampleL;
+
+		++in1;
+		++out1;
+    }
+}
+
 private:
   // These upstream coefficients depend only on rate. Keep the histories at
   // indices 7/8 intact during processing; configure only while resetting.
@@ -304,6 +470,7 @@ private:
   }
   double getSampleRate() const { return mRate; }
   double mRate = 48000.;
+  double mInputGain = 1., mBumpGain = .05, mHeadFrequency = .11025, mRollAmount = 0.;
 	double iirMidRollerAL = 0.;
 	double iirMidRollerBL = 0.;
 	double iirHeadBumpAL = 0.;

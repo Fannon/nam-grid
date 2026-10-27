@@ -65,6 +65,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DSPReviewTests.h"
 #include "DistortionTests.h"
 #include "PedalDriveTests.h"
+#include "DriveAntialiasTests.h"
 #include "NoisePrintTests.h"
 #include "LoFiTapeTests.h"
 #include "ModuleControlsTests.h"
@@ -207,6 +208,9 @@ try
   TestMeasuredVisualizations();
   TestDistortionModeHarmonics();
   TestPedalDrive();
+  TestDriveAntialiasing();
+  TestOversampledWetDryBlend();
+  TestOversampledMixAutomation();
   TestReverbDelayCandidates();
   TestCosmicEcho();
   TestCosmicBypassDrain();

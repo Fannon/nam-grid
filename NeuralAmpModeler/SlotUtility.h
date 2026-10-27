@@ -1,4 +1,5 @@
 #pragma once
+#include "dsp/OversampledMix.h"
 #include "SlotEQ.h"
 #include "EffectParameters.h"
 #include "SlotTimeEffects.h"
@@ -205,9 +206,24 @@ public:
     const double offset=std::tanh(bias);
     return (std::tanh(input*drive+bias)-offset)/(1.-offset*offset);
   }
-  void Reset(double rate)
+  static std::complex<double> AntialiasResponse(double hz, double rate)
+  {
+    const int factor = FactorForRate(rate);
+    const auto filter = factor == 4 ? grid_oversampling::FIR<4, 32>::Response(hz, factor * rate)
+                      : factor == 2 ? grid_oversampling::FIR<2, 32>::Response(hz, factor * rate)
+                                    : std::complex<double>(1.);
+    return filter * filter;
+  }
+  static int FactorForRate(double rate) { return rate < 88200. ? 4 : rate < 176400. ? 2 : 1; }
+  // The explicit factor is an offline comparison hook for the aliasing tests,
+  // not a saved control; production always uses FactorForRate.
+  void Reset(double rate, int factor = 0)
   {
     mRate = std::max(1., rate);
+    mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
+    if (mFactor == 2) { mOversample2.Reset(); mDry2.Reset(); }
+    if (mFactor == 4) { mOversample4.Reset(); mDry4.Reset(); }
+    mMixBypass.Reset(mRate);
     mTone.Reset(rate);
     mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
     mDCCoefficient = std::exp(-2. * 3.14159265358979323846 * 5. / std::max(1., rate));
@@ -227,13 +243,17 @@ public:
     const double bias = .35 * std::clamp(c.tube[1] * .01, 0., 1.);
     const double mix = std::clamp(c.tube[2] * .01, 0., 1.);
     const double output = std::pow(10., std::clamp(c.tube[3], -18., 18.) * .05);
+    mMixBypass.Target(mix > 0.);
     for (int i = 0; i < frames; ++i)
     {
       mDrive = drive + mSmooth * (mDrive - drive);
       mBias = bias + mSmooth * (mBias - bias);
       mMix = mix + mSmooth * (mMix - mix);
       mOutput = output + mSmooth * (mOutput - output);
-      double shaped = Transfer(samples[i],mDrive,mBias);
+      const double offset = mBiasOffset(mBias, [](double v) { return std::tanh(v); });
+      const auto shape = [&](double x) { return (std::tanh(x * mDrive + mBias) - offset) / (1. - offset * offset); };
+      double shaped = mFactor == 2 ? mOversample2.Tick(samples[i], shape)
+                    : mFactor == 4 ? mOversample4.Tick(samples[i], shape) : shape(samples[i]);
       const double cutoff = mPostCut.Tick()[0];
       const double pole = mPostPole(-6.283185307179586 * std::min(cutoff, .45 * mRate) / mRate, [](double x) { return std::exp(x); });
       mPostLow = shaped + pole * (mPostLow - shaped);
@@ -241,11 +261,30 @@ public:
       mDC = shaped + mDCCoefficient * (mDC - shaped);
       if (std::abs(mDC) < 1.e-30)
         mDC = 0.;
-      samples[i] = (dry[i] + mMix * (shaped - mDC - dry[i])) * mOutput;
+      double blended = dry[i] + mMix * (shaped - mDC - dry[i]);
+      if (mFactor > 1)
+      {
+        if (mFactor == 2) mDry2.Push(dry[i]); else mDry4.Push(dry[i]);
+        mMixBypass.Tick();
+        if (mMix != 1. && !mMixBypass.IsDry())
+        {
+          const double alignedDry = mFactor == 2 ? mDry2.Filtered() : mDry4.Filtered();
+          blended = alignedDry + mMix * (shaped - mDC - alignedDry);
+        }
+        blended = mMixBypass.Apply(dry[i], blended);
+      }
+      samples[i] = blended * mOutput;
     }
   }
 
 private:
+  grid_oversampling::FIR<2, 32> mOversample2;
+  grid_oversampling::FIR<4, 32> mOversample4;
+  grid_oversampling::LinearReference<2> mDry2;
+  grid_oversampling::LinearReference<4> mDry4;
+  grid_oversampling::MixBypass mMixBypass;
+  grid_fx::Memo mBiasOffset;
+  int mFactor = 4;
   grid_fx::SmoothControls<1> mPostCut;
   grid_fx::Memo mPostPole;
   double mRate = 48000., mPostLow = 0.;

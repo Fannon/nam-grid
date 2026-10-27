@@ -55,7 +55,8 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
   FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
   lookahead or reported delay. **Tube Boost** is an original biased soft saturator with Boost's
-  Tilt/Low cut voicing at the host rate; bright, high-drive settings can alias.
+  Tilt/Low cut voicing and a locally oversampled saturator (4x/2x/1x at the same host-rate bands). It uses the shared minimum-phase FIR with 32 base taps; the host-rate tone and DC filters remain outside it. A collapsed identity FIR
+  aligns the partial-Mix dry reference; a 20 ms fade handles the exact-dry bypass at Mix zero.
 - **Pedal Drive** ([SlotPedalDrive.h](../NeuralAmpModeler/SlotPedalDrive.h),
   [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
   informed by documented pedal designs. It uses fixed 4x minimum-phase FIR oversampling with zero added reported
@@ -65,7 +66,9 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   16-sample control schedule. The FIR loops share input loads
   across interpolation phases and use independent decimation accumulators for
   portable vectorization. Settled styles use a single-voice path; only participating styles run during
-  transitions; an inactive style starts with cleared filter history. See
+  transitions; an inactive style starts with cleared filter history. Rodent adds
+  first-order antiderivative antialiasing before a continuously integrated slew
+  limiter/hard clip; its filter rate remains 4x. See
   [voices, signal flow and design references](modules/pedal-drive.md).
 - **EQs and Filter** use the MIT AudioDSPTools coefficients and a scalar implementation of the
   [RBJ/W3C equations](https://www.w3.org/TR/audio-eq-cookbook/). Dynamics were written
@@ -85,7 +88,8 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   and [dynamics](airwindows-dynamics.md).
 
 Timing scales with the host rate; nothing is forced to 44.1 kHz. Pedal Drive and
-Distortion oversample their driven paths; the other built-in effects run at the host rate. Built-in
+Distortion and Tube Boost oversample their driven paths; Tape and Console Colour
+run their cores at 2x below 88.2 kHz. Other built-in effects run at the host rate. Built-in
 effects keep independent left/right histories. A mono NAM stage downmixes once and broadcasts
 its result, so stereo effects belong after the last mono capture.
 

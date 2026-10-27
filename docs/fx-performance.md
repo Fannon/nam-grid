@@ -2,6 +2,10 @@
 
 This tool measures every catalog FX through the actual stereo CLAP plugin,
 plus NAM models and WAV cabinet IRs. It opens no editor or audio device.
+The plugin suspends editor meter and spectrum collection while its editor is
+closed, so these timings represent that state. Opening the editor adds signal
+collection and UI rendering; measure that separately in a native host. Tuner
+detection and effect histories continue independently of editor visibility.
 It is disabled by default, excluded from the default build, and never registered
 with CTest or invoked by CI. Run it explicitly when investigating performance.
 
@@ -74,6 +78,9 @@ python scripts/fx-performance.py --filter "Cosmic Echo" --rates 48000 --buffers 
 
 # Add your actual captures and IRs; arguments are repeatable.
 python scripts/fx-performance.py --nam /path/amp.nam --ir /path/cab.wav
+
+# Exercise retained long tails instead of the default cabinet truncation.
+python scripts/fx-performance.py --module "Cabinet IR" --ir /path/room.wav --ir-length long --rates 48000 96000 --buffers 32 128
 
 # Longer signal/tail runs. Return nonzero on observed callback deadline misses too.
 python scripts/fx-performance.py --seconds 30 --warmup 2 --fail-on-overrun

@@ -76,6 +76,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "CosmicEchoTests.h"
 #include "MultiHeadStereoTests.h"
 #include "OutboardTests.h"
+#include "MeteringTests.h"
 
 int main(int argc, char** argv)
 try
@@ -83,6 +84,7 @@ try
   assert(argc >= 2 && argc <= 6);
   nam::activations::Activation::enable_fast_tanh();
   TestA2Planar();
+  TestMeteringTransparency();
   nam::activations::ActivationPReLU prelu(std::vector<float>{.01f, .05f});
   Eigen::MatrixXf activationInput(2, 3);
   activationInput.setConstant(-1.f);

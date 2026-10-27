@@ -331,6 +331,8 @@ public:
       const double delaySamples = std::max(1., v[2] * .001 * mRate);
       const double side = v[3] * .01, feedback = draining ? 0. : v[1] * .01;
       const double dryL = l[i], dryR = r ? r[i] : dryL;
+      const double lowPole = mLowPole(-2. * grid_fx::pi * std::min(.45 * mRate, v[4]) / mRate,
+                                     [](double x) { return std::exp(x); });
       double wet[2]{};
       for (int ch = 0; ch < 2; ++ch)
       {
@@ -349,7 +351,7 @@ public:
         const double weight = .5 * (side + 1.);
         double shifted = lower + (upper - lower) * weight;
         mLow[ch] = grid_fx::Flush(
-          shifted + std::exp(-2. * grid_fx::pi * std::min(.45 * mRate, v[4]) / mRate) * (mLow[ch] - shifted));
+          shifted + lowPole * (mLow[ch] - shifted));
         shifted = mLow[ch];
         mLine[ch].Push(dry + feedback * SoftLimit(shifted));
         wet[ch] = shifted;
@@ -370,6 +372,7 @@ private:
   std::array<std::array<double, 64>, 2> mHistory{};
   std::array<double, 63> mHilbert{};
   grid_fx::SmoothControls<7> mControls;
+  grid_fx::Memo mLowPole;
   double mRate = 48000., mCosine = 1., mSine = 0., mCosOffset = 1., mSinOffset = 0.;
   double mLow[2]{};
   int mIndex[2]{};

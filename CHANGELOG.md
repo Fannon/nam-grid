@@ -6,11 +6,13 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Fixed
 
+- Incremental builds work with macOS's default Bash 3.2.
 - Windows numeric entry brings the plugin into keyboard focus, including floating host windows. Text editing consumes key presses and releases, including rejected characters, boundary navigation, Enter and Escape, so they cannot trigger DAW shortcuts.
 - Browser search retains typing focus after committing a query, clearing it or switching tabs.
 
 ### Added
 
+- The FX performance report can exercise Long IR tails with `--ir-length long`, alongside the default cabinet-length measurements.
 - Cosmic Echo adds Photon Plate for quick, dense plate ambience, Pulsar Echo for four-stage stereo echo patterns, and Binary Bloom for coupled short/long ambient spaces. Aurora Hall remains the insertion/reset default.
 
 - Cosmic Echo adds Aurora Hall: clustered echoes at low Density, a diffused guitar hall at higher Density, and long washes with increased Feedback. Newly inserted or reset Cosmic Echo modules start with Aurora Hall guitar-hall settings. Existing styles retain their sound and saved identities; saved rigs keep their settings.
@@ -28,6 +30,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Reduce CPU with the editor closed by suspending meter and spectrum collection while keeping audio processing, tuner detection and effect histories running. Frequency Shifter, Digital Black Gate and Outboard compressors reuse exact control calculations; compressor reduction meters convert to dB once per block. The editor reuses its spectrum window and skips spectrum analysis for Utility's stereo scope. These changes preserve audio, parameter identities and reported latency.
 - Tube Boost reduces aliasing with local minimum-phase oversampling (4x at 44.1/48 kHz, 2x at 88.2/96 kHz). Airwindows Tape and Console Colour use 2x below 88.2 kHz and native processing above it. These causal wet-path filters add no reported latency but can change attack and high-frequency phase; the oversampled wet paths are flat to about 18 kHz and roll off slightly above (about -2.3 dB at 20 kHz at 48 kHz). Tube Boost, Tape and Console Colour align the partial-Mix dry reference with the resampler phase to avoid deep cancellation. Crossing Mix zero uses a 20 ms bypass fade instead of a hard phase switch; settled Mix 0% passes the exact dry sample. Tube Boost retains its host-rate high cut and DC blocker. Tape's head bump moves up when the core runs at 2x: with Bump at 50% expect about +0.5 to +0.8 dB from 20-160 Hz at typical levels and larger sub-bass changes at low levels.
 - Pedal Drive's Rodent voice antialiases its input saturation and continuously integrates its slew/clip stage, reducing high-frequency foldover without raising its existing 4x rate. Other pedal voices retain their processing. Tape's mono path avoids computing a discarded duplicate channel, offsetting part of the added antialiasing cost.
 - Dynamic modulation batches independent input stages before the first affected input destination, reducing unnecessary small-block NAM inference. The remaining stages retain control-rate updates, including envelope feedback.

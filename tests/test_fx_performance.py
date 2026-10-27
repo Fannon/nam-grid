@@ -89,6 +89,20 @@ class ReportTests(unittest.TestCase):
             cases = benchmark.asset_cases([model], [ir], {"NAM": 40, "Cabinet IR": 41})
             self.assertEqual([c["effect"] for c in cases], [40, 41])
 
+    def test_long_ir_cases_retain_mode_and_cabinet_identity(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ir = Path(folder) / "tail.wav"
+            ir.write_bytes(b"test asset")
+            cabinet = benchmark.asset_cases([], [ir], {"Cabinet IR": 41})[0]
+            long_ir = benchmark.asset_cases([], [ir], {"Cabinet IR": 41}, "long")[0]
+            self.assertEqual(cabinet["id"], "ir-0")
+            self.assertEqual(cabinet["controls"], {})
+            self.assertEqual(long_ir["id"], "ir-0-long")
+            self.assertEqual(long_ir["effect"], 41)
+            self.assertEqual(long_ir["controls"], {"IR Length": 1})
+            self.assertEqual(long_ir["asset_sha256"], cabinet["asset_sha256"])
+            self.assertIn("Long IR", long_ir["mode"])
+
     def test_partial_report_does_not_claim_completion(self):
         metadata = {"generated_utc": "test", "plugin_sha256": "abc", "settings": {"paced": False},
                     "planned_measurements": 100}

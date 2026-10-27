@@ -165,6 +165,10 @@ histories reset explicitly, and processing adds no buffering latency.
 Meters use bounded SPSC packets. Rendering, logarithmic display scaling and
 holds run on the UI thread; meter state is transient. Keep visualization work
 out of audio processing, and distinguish measured signals from parameter sketches.
+An atomic editor visibility flag enables telemetry at audio block boundaries.
+Closed editors skip input/output analysis, slot meters and spectrum capture;
+DSP histories, tails, noise learning and tuner detection continue. Stage tests
+check exact audio with telemetry disabled and clean meter restart.
 
 ## IR convolution
 

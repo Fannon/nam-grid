@@ -118,7 +118,8 @@ if [[ ! -f "$build_dir/CMakeCache.txt" ]]; then
     generator=(-G Ninja)
   fi
 fi
-cmake -S . -B "$build_dir" "${generator[@]}" -DCMAKE_BUILD_TYPE=Release '-DNAM_FORMATS=CLAP;VST3'
+# Apple's Bash 3.2 treats an empty array as unset under nounset.
+cmake -S . -B "$build_dir" ${generator[@]+"${generator[@]}"} -DCMAKE_BUILD_TYPE=Release '-DNAM_FORMATS=CLAP;VST3'
 targets=(nam-grid-clap nam-grid-vst3)
 if [[ $tests == 1 ]]; then
   targets+=(nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract

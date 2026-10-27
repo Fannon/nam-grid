@@ -12,11 +12,11 @@ The first six styles are directly inspired by the algorithms of [Valhalla Superm
 | --- | --- |
 | **Gemini** | Quick, dense and smooth ambience |
 | **Sagittarius** | Slow, swelling build-up |
-| **Virgo** | Sparse echoes that get darker with every repeat (the starting style) |
+| **Virgo** | Sparse echoes that get darker with every repeat |
 | **Centaurus** | Swelling, enveloping ambience |
 | **Great Annihilator** | Delays and diffusion in one large feedback loop |
 | **Lyra** | Clearer, sparse echoes |
-| **Aurora Hall** | Clustered echoes at low Density, a guitar hall at high Density, and long washes with more Feedback |
+| **Aurora Hall** (starting style) | Clustered echoes at low Density, a guitar hall at high Density, and long washes with more Feedback |
 
 Changing the style fades out the old tail before the new style comes in.
 

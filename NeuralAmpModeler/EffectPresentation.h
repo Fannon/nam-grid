@@ -11,7 +11,7 @@ inline const char* ChoiceDescription(int p, int mode)
 {
   static constexpr const char* cosmic[]{
     "Dense, smooth ambience", "Slow, swelling echoes", "Dark, sparse repeats",
-    "Swelling reverb bloom", "Long, evolving tails", "Clear, sparse repeats"};
+    "Swelling reverb bloom", "Long, evolving tails", "Clear, sparse repeats", "Echoes to a diffused guitar hall"};
   static constexpr const char* distortion[]{
     "Smooth, rounded drive", "Sharper, brighter drive", "Dense, compressed sustain",
     "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz"};
@@ -253,10 +253,10 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uConsoleTrebleFreq: case uConsoleBassFreq: return "Native EQ frequency coefficient scale. This is not a measured shelf corner; the broad bands can overlap.";
     case uCosmicStyle: return effect_modes::cosmicHelp[std::clamp(mode, 0, effect_modes::cosmicCount-1)];
     case uCosmicTime: return "Delay-line time scale, from 20 ms to eight seconds. The dial gives more space to long intervals. Warp spreads shorter lines below this value; Sagittarius can build up over several intervals.";
-    case uCosmicWarp: return "Spread the delay-line lengths: zero aligns them for echoes, higher values create uneven spacing and more reverb-like texture.";
+    case uCosmicWarp: return "Spread the delay-line lengths: zero clusters them for echoes, higher values create uneven spacing and more reverb-like texture. Aurora Hall retains some spacing at zero.";
     case uCosmicFeedback: return "Longer repeats and sustain. In Sagittarius and Centaurus, Feedback also changes how quickly the sound builds up. This is not a decay time in seconds.";
-    case uCosmicDensity: return "Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp.";
-    case uCosmicTone: return "Wet treble cutoff. Virgo filters each feedback pass, darkening successive echoes. The other styles filter their output.";
+    case uCosmicDensity: return "Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp. Aurora Hall also adds diffusion inside each loop.";
+    case uCosmicTone: return "Wet treble cutoff. Virgo and Aurora Hall filter each feedback pass, darkening successive echoes. The other styles filter their output.";
     case uCosmicMotion: return "Depth of the shared 0.3 Hz stereo modulation. More adds pitch movement and chorus. Stereo width is full and the wet low cut is fixed at 80 Hz.";
     case uCosmicMix: return "Blend the ambient echo/reverb with the original stereo signal. Zero preserves the exact dry sound.";
     case uTapeHeads: return effect_modes::tapeHeadHelp[std::clamp(mode, 0, static_cast<int>(effect_modes::tapeHeadHelp.size())-1)];

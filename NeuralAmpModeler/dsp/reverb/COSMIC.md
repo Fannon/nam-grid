@@ -73,3 +73,15 @@ schema-20 audition preset recall. Musical quality still needs direct listening.
 
 Source:
 https://github.com/grame-cncm/faustlibraries/blob/fadc1f7da4a903de25554e538c7a454a2f130299/reverbs.lib
+
+## Aurora Hall (original NAM Grid design)
+
+Aurora Hall appends style ID 6 and key `orion` (retained from its initial working name). The six reconstructed styles above retain their IDs, control laws and DSP. No new host parameters or saved fields are introduced; the existing state-only Style list grows additively. Insertion and editor reset now select Aurora Hall with its guitar-hall recipe; released descriptor defaults and loaded state are unchanged.
+
+Eight main delay loops use clustered, unequal lengths. Warp increases their spread. Each loop contains a short, irregularly sized allpass diffuser. Density maps to both the angle of an orthogonal three-stage butterfly rotation and the allpass coefficient (0–0.65). At zero Density, loops remain separate and each allpass reduces to a plain short delay. At full Density, scattering and diffusion build a fuller tail. The allpass is not crossfaded with dry sound, avoiding comb cancellation at intermediate settings.
+
+The loop highpass is normalized to have a maximum magnitude of one. High cut and low cut act on each of the eight loop states, before scattering on the next sample. Loop gain follows the existing square-root Feedback law and remains below one at the 98% maximum. Stereo injection and output projections each have unit norm. Delay modulation is capped at 1% of each line's base length; the existing Thiran interpolator and 0.3 Hz oscillator are reused. The entire network runs at host rate, with all Aurora Hall timing offsets expressed in seconds. The sixteen-line storage bank is reused without new delay allocations. Logical Clear also clears the diffuser histories.
+
+Design references are orthogonal feedback delay networks and allpass diffusion, as discussed by [Rocchesso and Smith](https://air.unimi.it/handle/2434/1041969) and [Dattorro](https://ccrma.stanford.edu/~dattorro/EffectDesignPart1.pdf). Airwindows [Echojam](https://www.airwindows.com/echojam/) is a conceptual reference for clustered reflections and [kGuitarHall2](https://www.airwindows.com/kguitarhall2/) for guitar-oriented hall texture. Aurora Hall does not port their source, delay tables, nonlinearities or sample-rate conversion, and does not claim to reproduce their sound.
+
+Regression coverage extends the common mode tests (automation, partition independence, exact dry, allocations, timing and transitions), plus sparse/dense impulse behavior at both zero and nonzero Warp, energy through intermediate Density settings, short/long feedback tails and onset consistency across host rates. Musical hall quality still requires listening; these are not acoustic-room or perceptual-equivalence tests.

@@ -113,19 +113,21 @@ enum class CosmicStyle
   Centaurus = 3,
   GreatAnnihilator = 4,
   Lyra = 5,
+  AuroraHall = 6,
   Count
 };
 inline constexpr int cosmicCount = static_cast<int>(CosmicStyle::Count);
 inline constexpr std::array<const char*, cosmicCount> cosmicNames{
-  "Gemini", "Sagittarius", "Virgo", "Centaurus", "Great Annihilator", "Lyra"};
+  "Gemini", "Sagittarius", "Virgo", "Centaurus", "Great Annihilator", "Lyra", "Aurora Hall"};
 inline constexpr std::array<const char*, cosmicCount> cosmicTopology{
   "16-line diffusion", "8-stage stereo bloom", "Filtered feedback echoes",
-  "4-stage matrix bloom", "Global feedback tank", "4-line sparse echoes"};
+  "4-stage matrix bloom", "Global feedback tank", "4-line sparse echoes", "8-loop diffused hall"};
 inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Gemini: dense, smooth ambience from sixteen scattering delays. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
   "Sagittarius: eight stereo allpasses create slow buildup; Feedback changes attack and decay. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
   "Virgo: four delays with filtering inside feedback create dark, sparse echoes. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
   "Centaurus: four serial four-channel allpasses build swelling ambience; Feedback changes the onset. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
   "Great Annihilator: a delay stage and three matrix allpasses inside global feedback create long, evolving tails. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
-  "Lyra: four scattering delays with summed output create clear, sparse echoes; High cut shapes the output. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail."};
+  "Lyra: four scattering delays with summed output create clear, sparse echoes; High cut shapes the output. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
+  "Aurora Hall: clustered echoes become a diffused guitar hall as Density rises. High cut damps each repeat; raise Feedback for long washes. Try Time 100-250 ms for a hall. Style changes fade and clear the old tail."};
 } // namespace effect_modes

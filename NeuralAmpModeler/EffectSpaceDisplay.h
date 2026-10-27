@@ -20,7 +20,9 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   PlotDetail(g,plot,"Measured response above; delay-line network below. Hover each view for details.");
   PlotRegionDetail(g,IRECT(plot.L,plot.T,plot.R,response.B+14.f),
     "Measured wet impulse, relative to its strongest peak (0 to -48 dB). Warp spreads echoes; Density fills the tail.");
-  text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
+  const bool orion=style==static_cast<int>(effect_modes::CosmicStyle::AuroraHall);
+  if (orion) text.Set("Eight main delays and eight short diffusers at their base times. Blue marks main loops; orange marks diffusers. Density adds scattering and diffusion; halos show Modulation.");
+  else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+14.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
   g.DrawLine(border,response.L,response.B,response.R,response.B);
@@ -57,9 +59,10 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   {
     const float x=lines.L+lines.W()*static_cast<float>(plan.seconds[i]/horizon);
     const float height=lines.H()*static_cast<float>(.3+.5*density);
-    const int group=style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
+    const int group=orion ? i/8 : style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
     const auto ink=group ? ampColor : delayColor;
-    const float spread=std::clamp(static_cast<float>(lines.W()*motion/horizon),0.f,12.f);
+    const double lineMotion=orion ? std::min(motion,.01*std::max(0.,plan.seconds[i]-1./rate)) : motion;
+    const float spread=std::clamp(static_cast<float>(lines.W()*lineMotion/horizon),0.f,12.f);
     if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
     g.DrawLine(ink,x,lines.B,x,lines.B-height,nullptr,2.f);
     if(i && density>.01)

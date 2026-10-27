@@ -28,6 +28,32 @@ inline double BaseSamples(double milliseconds, double warp, int style, int line,
     const double ratio = line < 8 ? 1.-(.15+.85*std::clamp(warp,0.,1.))*spacing[line] : diffuser[line-8];
     return milliseconds*.001*rate*ratio + 33.*rate/48000.;
   }
+  if (style == static_cast<int>(Style::PhotonPlate))
+  {
+    constexpr double input[]{.021,.031,.047,.061,.071,.089,.107,.127};
+    constexpr double left[]{.17,.79,.27,1.}, right[]{.23,.89,.31,.93};
+    const double w=std::clamp(warp,0.,1.);
+    const double ratio=line<8 ? input[line]*(1.-.3*w*(line/2)/3.)
+      : line<12 ? left[line-8] : left[line-12]+w*(right[line-12]-left[line-12]);
+    return milliseconds*.001*rate*ratio + 33.*rate/48000.;
+  }
+  if (style >= static_cast<int>(Style::Pulsar))
+  {
+    const double w=std::clamp(warp,0.,1.);
+    double ratio=1.;
+    if (style == static_cast<int>(Style::Pulsar))
+    {
+      constexpr double ap[]{.007,.009,.011,.013,.015,.017,.019,.021};
+      ratio=line<8 ? .25*(1.-.6*w*(line/2)/3.) : ap[line-8];
+    }
+    else
+    {
+      constexpr double spread[]{0.,.101,.213,.327,.443,.557,.669,.781};
+      constexpr double early[]{.245,.213,.187,.163,.139,.117,.097,.079};
+      ratio=line<8 ? 1.-(.2+.8*w)*spread[line] : early[line-8];
+    }
+    return milliseconds*.001*rate*ratio + 33.*rate/48000.;
+  }
   return milliseconds*.001*rate*std::pow(Ratio(warp), Exponent(style, line)) + 33. + (style == static_cast<int>(Style::GreatAnnihilator) && line%4 == 0 ? 32. : 0.);
 }
 
@@ -43,6 +69,18 @@ public:
     // eight seconds of storage on every reset; physical pages fill as needed.
     mData.reset(new double[mCapacity]); Clear();
     mMaximum = static_cast<double>(mCapacity-3);
+  }
+  // Passive output-only observation. It does not update the moving Thiran
+  // state, so adding plate taps cannot change the recirculating signal.
+  double ReadTap(double delay) const
+  {
+    delay=std::clamp(delay,1.,mMaximum);
+    const auto whole=static_cast<size_t>(delay); const double fraction=delay-whole;
+    const auto tap=[&](size_t offset) {
+      if(offset>mFilled) return 0.;
+      return mData[mIndex>=offset ? mIndex-offset : mCapacity-(offset-mIndex)];
+    };
+    return tap(whole)+fraction*(tap(whole+1)-tap(whole));
   }
   void Clear() { mIndex = mFilled = 0; mPrevious = 0.; }
   double Tick(double input, double delay)
@@ -102,6 +140,8 @@ public:
     const double angle = grid_fx::pi*values[3]*.0025;
     mCos = std::cos(angle); mSin = std::sin(angle);
     mDensity = std::clamp(values[3]*.01, 0., 1.);
+    if (style == static_cast<int>(Style::PhotonPlate))
+      mPlateDiffusion=draining ? std::array<double,3>{} : std::array<double,3>{.35+.4*mDensity,-(.3+.4*mDensity),.2+.3*mDensity};
     mLowPass = std::exp(-2.*grid_fx::pi*std::min(.45*mRate, values[4])/mRate);
     mMotion = (500./48000.)*mRate*std::pow(values[5]*.01, 2.);
     for (int i = 0; i < LineCount(style); ++i)
@@ -112,6 +152,8 @@ public:
                          : style == static_cast<int>(Style::Sagittarius) ? grid_fx::pi*(i/2)/4.+grid_fx::pi*(i%2)
                          : IsFourLine(style) ? grid_fx::pi*i/2. : grid_fx::pi*quadrant[i]/2.;
       mModCos[i] = std::cos(phase); mModSin[i] = std::sin(phase);
+      if (style == static_cast<int>(Style::Nebula))
+        mLineGain[i]=std::pow(mGain,2.*(mBase[i]+1.)/(values[0]*.001*mRate));
     }
   }
   Stereo Tick(Stereo input)
@@ -220,6 +262,68 @@ public:
         out[i%2]+=sign*mFeedback[i];
       }
     }
+    else if (mStyle == static_cast<int>(Style::Pulsar))
+    {
+      // Only the end of the ladder regenerates. Four output taps preserve
+      // a readable pulse pattern; each additional tap is not another loop.
+      Stereo x{mDryPrevious[0]+mGlobalGain*mFeedback[1],mDryPrevious[1]+mGlobalGain*mFeedback[0]};
+      for (int stage=0; stage<4; ++stage)
+      {
+        for (int ch=0; ch<2; ++ch)
+        {
+          const int i=2*stage+ch;
+          x[ch]=Diffuse(stage,ch,8+i,mLines[i].Tick(x[ch],Delay(i)),.6*mDensity);
+          x[ch]=Damp(x[ch],i);
+        }
+        x={mCos*x[0]-mSin*x[1],mSin*x[0]+mCos*x[1]};
+        out[0]+=.25*x[0]; out[1]+=.25*x[1];
+      }
+      mFeedback[0]=x[0]; mFeedback[1]=x[1];
+    }
+    else if (mStyle == static_cast<int>(Style::Nebula))
+    {
+      std::array<double,8> late{},early{};
+      for (int i=0; i<8; ++i) { late[i]=mFeedback[i]; early[i]=mFeedback[8+i]; }
+      RotateEight(late); RotateEight(early);
+      for (int i=0; i<8; ++i)
+      {
+        // A second orthogonal layer couples the two time scales. At Density
+        // zero the long bank is unexcited and the short echoes remain clear.
+        const double longInput=mCos*late[i]-mSin*early[i];
+        const double shortInput=mSin*late[i]+mCos*early[i];
+        const double sign=(i&2) ? -.5 : .5;
+        mFeedback[i]=Damp(mLines[i].Tick(mLineGain[i]*longInput,Delay(i)),i);
+        mFeedback[8+i]=Damp(mLines[8+i].Tick(mLineGain[8+i]*shortInput+sign*mDryPrevious[i%2],Delay(8+i)),8+i);
+        out[i%2]+=sign*(mCos*mFeedback[8+i]+mSin*mFeedback[i]);
+      }
+    }
+    else if (mStyle == static_cast<int>(Style::PhotonPlate))
+    {
+      Stereo excitation=mDryPrevious;
+      // Low-cut the excitation once, retaining low-frequency body in the tank.
+      for(int ch=0;ch<2;++ch)
+      {
+        const double high=excitation[ch]-mFilterInput[ch]+mHighPass*mFilterHigh[ch];
+        mFilterInput[ch]=excitation[ch]; mFilterHigh[ch]=grid_fx::Flush(high);
+        excitation[ch]=high*(.5*(1.+mHighPass));
+      }
+      for(int stage=0;stage<4;++stage)
+        for(int ch=0;ch<2;++ch) excitation[ch]=Diffuse(stage,ch,2*stage+ch,excitation[ch],mPlateDiffusion[0]);
+      const Stereo tail{mFeedback[0],mFeedback[1]}; // Both old tails before either update.
+      for(int ch=0;ch<2;++ch)
+      {
+        const int first=8+4*ch;
+        double x=.75*excitation[ch]+.25*excitation[1-ch]+mGlobalGain*mGlobalGain*tail[1-ch];
+        x=Diffuse(4,ch,first,x,mPlateDiffusion[1]);
+        x=mLines[first+1].Tick(x,Delay(first+1));
+        x=mFilterLow[2+ch]=grid_fx::Flush((1.-mLowPass)*x+mLowPass*mFilterLow[2+ch]);
+        x=Diffuse(5,ch,first+2,x,mPlateDiffusion[2]);
+        mFeedback[ch]=mLines[first+3].Tick(x,Delay(first+3));
+      }
+      const auto tap=[&](int line,double fraction) {return mLines[line].ReadTap(mBase[line]*fraction);};
+      out[0]=.35*tap(9,.17)+.25*tap(9,.61)-.25*tap(10,.43)+.2*tap(11,.73)-.25*tap(13,.29)-.2*tap(14,.59)+.2*tap(15,.37);
+      out[1]=.35*tap(13,.13)+.25*tap(13,.67)-.25*tap(14,.31)+.2*tap(15,.83)-.25*tap(9,.41)-.2*tap(10,.23)+.2*tap(11,.53);
+    }
     else // Virgo: cuts inside feedback, output after the matrix.
     {
       Quad x{};
@@ -230,10 +334,28 @@ public:
       out={x[0],x[1]};
     }
     mDryPrevious = input;
-    if (mStyle != static_cast<int>(Style::Virgo) && mStyle != static_cast<int>(Style::AuroraHall)) for (int ch = 0; ch < 2; ++ch) out[ch] = Cuts(out[ch], ch);
+    if (mStyle != static_cast<int>(Style::Virgo) && mStyle < static_cast<int>(Style::AuroraHall)) for (int ch = 0; ch < 2; ++ch) out[ch] = Cuts(out[ch], ch);
     return out;
   }
 private:
+  void RotateEight(std::array<double,8>& field) const
+  {
+    for (int bit=1; bit<8; bit*=2)
+      for (int i=0; i<8; ++i) if ((i&bit)==0)
+      {
+        const double a=field[i], b=field[i+bit];
+        field[i]=mCos*a-mSin*b; field[i+bit]=mSin*a+mCos*b;
+      }
+  }
+  double Diffuse(int stage, int ch, int line, double input, double coefficient)
+  {
+    const double delayed=mLines[line].Tick(coefficient*mAPOutput[stage][ch]+mAPInput[stage][ch],Delay(line));
+    const double output=delayed-coefficient*input;
+    mAPInput[stage][ch]=input; mAPOutput[stage][ch]=output;
+    return output;
+  }
+  double Damp(double input, int channel)
+  { return Cuts(input,channel)*(.5*(1.+mHighPass)); }
   Quad Scatter(const Quad& x) const
   {
     const double cc=mCos*mCos, ss=mSin*mSin, cs=mCos*mSin;
@@ -256,7 +378,7 @@ private:
   }
   double Delay(int line) const
   {
-    const double motion=mStyle == static_cast<int>(Style::AuroraHall) ? std::min(mMotion,.01*mBase[line]) : mMotion;
+    const double motion=mStyle >= static_cast<int>(Style::AuroraHall) ? std::min(mMotion,.01*mBase[line]) : mMotion;
     return std::clamp(mBase[line]+motion*(mLfoValue[0]*mModCos[line]+mLfoValue[1]*mModSin[line]), 2., 8.04*mRate+33.);
   }
   double Cuts(double input, int channel)
@@ -266,11 +388,12 @@ private:
     return mFilterLow[channel] = grid_fx::Flush((1.-mLowPass)*high+mLowPass*mFilterLow[channel]);
   }
   std::array<Line, 16> mLines;
-  std::array<double, 16> mFeedback{}, mBase{}, mModCos{}, mModSin{};
+  std::array<double, 16> mFeedback{}, mBase{}, mModCos{}, mModSin{}, mLineGain{};
   std::array<Quad, 8> mAPOutput{}, mAPInput{};
   std::array<std::array<double, 32>, 2> mFinishDelay{};
+  std::array<double,3> mPlateDiffusion{};
   Stereo mDryPrevious{}, mLfoPrevious{}, mLfoValue{};
-  std::array<double, 8> mFilterInput{}, mFilterHigh{}, mFilterLow{};
+  std::array<double, 16> mFilterInput{}, mFilterHigh{}, mFilterLow{};
   double mRate=48000., mGlobalGain=0., mGain=0., mInjection=1., mAllpass=0., mFeedthrough=0., mCos=1., mSin=0.;
   double mLowPass=0., mHighPass=0., mMotion=0., mLfoA=0., mLfoB=0., mDensity=0.;
   uint32_t mPhase=0, mPhaseStep=0;

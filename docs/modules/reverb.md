@@ -220,7 +220,7 @@ Airwindows Galactic3's huge, slowly evolving stereo space. Replace sets how quic
 
 ![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
-Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction of the Valhalla Supermassive algorithms, plus Aurora Hall, an original NAM Grid echo-to-hall network. See [Cosmic Echo](cosmic-echo.md) for the styles.
+Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction of the Valhalla Supermassive algorithms, plus four original NAM Grid networks: Aurora Hall, Pulsar Echo, Binary Bloom and Photon Plate. See [Cosmic Echo](cosmic-echo.md) for the styles.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -228,13 +228,13 @@ Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction o
 | **Warp** | 0–100% | 65% | Spread the delay-line lengths: zero aligns them for echoes, higher values create uneven spacing and more reverb-like texture. |
 | **Feedback** | 0–98% | 65% | Longer repeats and sustain. In Sagittarius and Centaurus it also changes how the sound builds up. |
 | **Density** | 0–100% | 85% | Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp. |
-| **High cut** | 200–16000 Hz | 7500 Hz | Treble cut on the effect. In Virgo and Aurora Hall each repeat gets darker. |
+| **High cut** | 200–16000 Hz | 7500 Hz | Treble cut on the effect. Virgo and the original NAM Grid styles damp the feedback path. |
 | **Modulation** | 0–100% | 30% | Depth of the slow stereo modulation. More adds pitch movement and chorus. |
 | **Mix** | 0–100% | 20% | Balance between dry sound and effect. |
 
 In the header:
 
-- **Style** (Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator, Lyra, Aurora Hall; starts at Aurora Hall) Seven echo and reverb characters; see [the styles](cosmic-echo.md#styles). Switching fades out the old tail.
+- **Style** (Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator, Lyra, Aurora Hall, Pulsar Echo, Binary Bloom, Photon Plate; starts at Aurora Hall) Ten selectable echo and reverb characters; see [the styles](cosmic-echo.md#styles). Switching fades out the old tail.
 
 **Display:** The measured wet response to one impulse above a network sketch of the style's 4 or 16 delay lines. Separate spikes are distinct echoes; Warp spreads the delay lines into a wash and Density then thickens it. The lower sketch shows base line times and modulation halos on its own time scale. At Warp 0, Density changes little in the first six styles and line markers can overlap. Aurora Hall keeps some spacing and adds short diffusers inside its eight main loops.
 
@@ -242,3 +242,5 @@ In the header:
 
 - Start with low Warp for rhythmic echoes, then raise Warp and Density for an ambient wash.
 - For an Aurora Hall guitar hall, try Time 225 ms, Warp 65%, Feedback 65%, Density 85%, High cut 7500 Hz, Modulation 30% and Mix 20%. Raise Time and Feedback for longer washes.
+
+For the complementary Cosmic Echo styles, see [the audition guide](cosmic-echo.md#audition-styles).

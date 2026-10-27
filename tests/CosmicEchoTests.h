@@ -70,13 +70,29 @@ void TestCosmicEcho()
       for (int i=0; i<8; i+=2) earliest=std::min(earliest,plan.seconds[i]+plan.seconds[8+i]);
       expected=static_cast<int>(std::round(earliest*rate));
     }
-    const int onsetTolerance=style==static_cast<int>(effect_modes::CosmicStyle::AuroraHall) ? 3 : 1; // Two fractional reads in series.
+    if (style==static_cast<int>(effect_modes::CosmicStyle::Pulsar))
+      expected=static_cast<int>(std::round((plan.seconds[0]+plan.seconds[8])*rate));
+    if (style==static_cast<int>(effect_modes::CosmicStyle::Nebula))
+    {
+      double earliest=1.e9;
+      for (int i=8; i<16; i+=2) earliest=std::min(earliest,plan.seconds[i]);
+      expected=static_cast<int>(std::round(earliest*rate));
+    }
+    if (style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate))
+      expected=static_cast<int>(std::round((plan.seconds[9]*rate-1.)*.17));
+    const int onsetTolerance=style>=static_cast<int>(effect_modes::CosmicStyle::AuroraHall) ? 3 : 1; // Serial fractional reads.
     if (std::abs(first-expected)>onsetTolerance) std::cerr<<"Cosmic style="<<style<<" arrival="<<first<<" expected="<<expected<<'\n';
     assert(first>=0 && std::abs(first-expected)<=onsetTolerance);
-    for (double x:right) assert(x==0.);
+    if(style!=static_cast<int>(effect_modes::CosmicStyle::PhotonPlate))
+      for (double x:right) assert(x==0.);
     assert(plan.count==grid_cosmic::LineCount(style));
     const auto spread=effect_preview::Cosmic(40.,100.,style,rate);
-    assert(spread.seconds[0]==plan.seconds[0] && spread.seconds[spread.count-1]<spread.seconds[0]*.2);
+    if(style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate))
+    {
+      assert(spread.seconds[0]==plan.seconds[0]);
+      assert(spread.seconds[13]!=plan.seconds[13]); // Warp changes tank asymmetry.
+    }
+    else assert(spread.seconds[0]==plan.seconds[0] && spread.seconds[spread.count-1]<spread.seconds[0]*.2);
 
     // Listenability/stability checks over filled tanks, including the extreme
     // feedback setting and minimum line lengths with maximum modulation.
@@ -171,13 +187,13 @@ void TestCosmicEcho()
     if (firstSeconds==0.) firstSeconds=seconds;
     else assert(std::abs(seconds-firstSeconds)<.0001);
   }
-  // With stationary controls and Motion off, Aurora Hall must not fold a steady
+  // With stationary controls and Motion off, the original modes must not fold a steady
   // treble sine into other frequencies (particularly after NAM/drive stages).
+  for (int style=static_cast<int>(effect_modes::CosmicStyle::AuroraHall); style<effect_modes::cosmicCount; ++style)
   for (double hostRate : {44100.,48000.,96000.,192000.})
   {
     grid_cosmic::Core core; core.Reset(hostRate);
-    core.Configure({20.,65.,35.,100.,16000.,0.,100.},
-                   static_cast<int>(effect_modes::CosmicStyle::AuroraHall),false);
+    core.Configure({20.,65.,35.,100.,16000.,0.,100.},style,false);
     constexpr int count=32768;
     const int bin=static_cast<int>(10000.*count/hostRate)|1;
     const double omega=2.*grid_fx::pi*bin/count;
@@ -201,6 +217,48 @@ void TestCosmicEcho()
       assert(tonePower>1.e-10 && residual<2.e-7);
     }
   }
+  // Pulsar must retain four taps and cross-channel repeats.
+  const auto modeImpulse=[](effect_modes::CosmicStyle style,double density,double feedback) {
+    grid_cosmic::Core core; core.Reset(48000.);
+    core.Configure({200.,0.,feedback,density,12000.,0.,100.},static_cast<int>(style),false);
+    std::vector<grid_cosmic::Core::Stereo> out(48000);
+    for(int i=0;i<out.size();++i) out[i]=core.Tick({i==0 ? 1.:0.,0.});
+    return out;
+  };
+  const auto pulses=modeImpulse(effect_modes::CosmicStyle::Pulsar,0.,60.);
+  const auto pulsePlan=effect_preview::Cosmic(200.,0.,static_cast<int>(effect_modes::CosmicStyle::Pulsar),48000.);
+  double elapsed=0.;
+  for (int stage=0; stage<4; ++stage)
+  {
+    elapsed+=pulsePlan.seconds[2*stage]+pulsePlan.seconds[8+2*stage];
+    const int center=static_cast<int>(elapsed*48000.);
+    double energy=0.;
+    for(int i=center-16;i<center+16;++i) energy+=pulses[i][0]*pulses[i][0];
+    assert(energy>1.e-4);
+  }
+  double rightEnergy=0.;
+  for(int i=0;i<pulses.size();++i)
+  {
+    if(i<static_cast<int>(elapsed*48000.)-16) assert(pulses[i][1]==0.);
+    rightEnergy+=pulses[i][1]*pulses[i][1];
+  }
+  assert(rightEnergy>1.e-4);
+  // The plate must start quickly and build early energy at its short-plate recipe.
+  {
+    grid_cosmic::Core core; core.Reset(48000.);
+    core.Configure({100.,70.,60.,90.,9000.,0.,100.},static_cast<int>(effect_modes::CosmicStyle::PhotonPlate),false);
+    double total=0.,early=0.; int first=-1;
+    for(int i=0;i<96000;++i)
+    {
+      const auto out=core.Tick({i==0 ? 1.:0.,i==0 ? 1.:0.});
+      const double e=out[0]*out[0]+out[1]*out[1]; total+=e;
+      if(i<960) early+=e;
+      if(first<0 && e>1.e-14) first=i;
+    }
+    assert(total>1.e-6);
+    assert(first>=0 && first<960);
+    assert(early/total>.01);
+  }
   std::cout<<"Cosmic Echo: distinct styles, 44.1-192 kHz automation/partitioning, impulse timing, bounded tails, exact dry and allocation-free style changes passed\n";
 }
 
@@ -209,12 +267,12 @@ void TestCosmicBypassDrain()
   // Sagittarius can hold an impulse for eight eight-second stages. Scale the
   // sample rate down for a fast deterministic test of the real-time policy.
   constexpr double rate=1000.;
-  const auto render=[&](bool bypass, effect_modes::CosmicStyle style) {
+  const auto render=[&](bool bypass, effect_modes::CosmicStyle style, double density=0.) {
     SlotConfig config; config.effect=SlotEffect::CosmicEcho;
     auto prepared=PrepareSlot(config,rate,100);
     NAMStage stage; stage.Publish(std::move(prepared.dsp)); stage.ResetStopped(rate,100);
     UtilityControls c; c.cosmicStyle=static_cast<int>(style);
-    c.cosmic={8000.,0.,0.,0.,200.,0.,100.};
+    c.cosmic={8000.,0.,0.,density,200.,0.,100.};
     std::array<double,100> l{},r{};
     double energy=0.; allocations=deletions=0;
     for(int block=0;block<800;++block)
@@ -228,9 +286,12 @@ void TestCosmicBypassDrain()
     assert(allocations==0 && deletions==0);
     return energy;
   };
-  for (auto style : {effect_modes::CosmicStyle::Sagittarius,effect_modes::CosmicStyle::AuroraHall})
+  for (auto style : {effect_modes::CosmicStyle::Sagittarius,effect_modes::CosmicStyle::AuroraHall,
+                     effect_modes::CosmicStyle::Pulsar,effect_modes::CosmicStyle::Nebula,
+                     effect_modes::CosmicStyle::PhotonPlate})
   {
     assert(render(false,style)>1.e-6); // The tank really contains a pending impulse.
     assert(render(true,style)<1.e-24); // No stale impulse after 70 seconds bypassed.
+    if(style==effect_modes::CosmicStyle::PhotonPlate) assert(render(true,style,100.)<1.e-24);
   }
 }

@@ -11,6 +11,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Cosmic Echo adds Photon Plate for quick, dense plate ambience, Pulsar Echo for four-stage stereo echo patterns, and Binary Bloom for coupled short/long ambient spaces. Aurora Hall remains the insertion/reset default.
+
 - Cosmic Echo adds Aurora Hall: clustered echoes at low Density, a diffused guitar hall at higher Density, and long washes with increased Feedback. Newly inserted or reset Cosmic Echo modules start with Aurora Hall guitar-hall settings. Existing styles retain their sound and saved identities; saved rigs keep their settings.
 
 - Focused module controls: gate attack/hold/hysteresis; compressor ratio and detector low cut; Guitar EQ mid frequency; EQ output, boost mid gain and Tube Boost high cut.

@@ -612,7 +612,7 @@ try
     Check(stats["deadline_misses"] == 1 && stats["p95_us"] == 10. && stats["mean_us"] == 4., "Statistics regression");
     const auto cases = Catalog();
     for (const auto& [effect, count] : std::array<std::pair<SlotEffect, int>, 5>{{{SlotEffect::Distortion, 6},
-                                                                                  {SlotEffect::CosmicEcho, 6},
+                                                                                  {SlotEffect::CosmicEcho, effect_modes::cosmicCount},
                                                                                   {SlotEffect::Freeze, 2},
                                                                                   {SlotEffect::JunoChorus, 3},
                                                                                   {SlotEffect::NoisePrint, 3}}})

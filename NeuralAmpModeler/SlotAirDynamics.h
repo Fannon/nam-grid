@@ -67,7 +67,7 @@ public:
       const double gain = inPower > 1.e-20 ? std::sqrt((blendedL * blendedL + blendedR * blendedR) / inPower)
                                            : 1. + mix * (opening - 1.);
       mMinimum = std::min(mMinimum, std::clamp(gain, 0., 1.));
-      const double output = std::pow(10., v[2] / 20.);
+      const double output = mOutput(v[2] / 20., [](double x) { return std::pow(10., x); });
       left[i] = blendedL * output;
       if (right)
         right[i] = blendedR * output;
@@ -79,6 +79,7 @@ private:
   airwindows_outboard::DigitalBlack::Core mBlack;
   airwindows_outboard::CStripGate::Core mHysteresis;
   grid_fx::SmoothControls<3> mControls;
+  grid_fx::Memo mOutput;
   SlotEffect mEffect = SlotEffect::DigitalBlack;
   double mRate = 48000., mVoice = 1., mMinimum = 1.;
   int mCounter = 0, mMode = -1;

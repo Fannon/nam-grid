@@ -382,5 +382,7 @@ private:
   int mCaptureSlot = -2, mCaptureGrid = -1;
   static_assert(sizeof(iplug::ISenderData<1, grid_eq_signal::Window>) != sizeof(iplug::ISenderData<1, SlotMeterData>));
   std::atomic<int> mSpectrumSlot{0}; // Selected slot while visualizations are shown, else -1.
+  std::atomic<bool> mEditorOpen{false};
+  bool mMetering = true; // Audio-owned; first callback disables telemetry if the editor is closed.
   int mMeterFrames = 0;
 };

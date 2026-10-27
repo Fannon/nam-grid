@@ -297,6 +297,12 @@ public:
     if (capture && capture != mCapture) capture->Clear();
     mCapture = capture;
   }
+  // Audio thread only. Editor telemetry must not change processor histories.
+  void EnableMetering(bool enabled)
+  {
+    mMeteringEnabled = enabled;
+    if (!enabled) mMeter = {};
+  }
   SlotMeterData TakeMeter()
   {
     auto result = mMonitoring ? mMeter : SlotMeterData{};
@@ -327,7 +333,7 @@ public:
       mExchange.Adopt();
     auto* p = mExchange.Active();
     const auto info = p ? p->Info() : NAMModelInfo{};
-    mMonitoring = enabled && info.loaded;
+    mMonitoring = mMeteringEnabled && enabled && info.loaded;
     if (!mMonitoring) mMeter = {};
     float inputPeak = 0.f;
     if (mMonitoring)
@@ -602,7 +608,7 @@ private:
   std::atomic<bool> mWaitForReset{false};
   double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;
   bool mFirst = true;
-  bool mMonitoring = false;
+  bool mMonitoring = false, mMeteringEnabled = true;
   SlotMeterData mMeter;
   SignalCapture* mCapture = nullptr; // Shared, owned by the plugin; set only on the selected slot.
 };

@@ -23,11 +23,16 @@ inline std::array<float, bands> Analyze(const std::array<float, windowSize>& sam
 {
   std::array<std::complex<float>, windowSize> bins{};
   constexpr float pi = 3.14159265358979323846f;
+  // All editors use the same window; build it once on the UI thread instead
+  // of evaluating 4096 cosines for each arriving meter packet.
+  static const auto hann = [] {
+    std::array<float, windowSize> weights{};
+    for (size_t i = 0; i < windowSize; ++i)
+      weights[i] = .5f - .5f * std::cos(2.f * pi * static_cast<float>(i) / static_cast<float>(windowSize - 1));
+    return weights;
+  }();
   for (size_t i = 0; i < windowSize; ++i)
-  {
-    const float hann = .5f - .5f * std::cos(2.f * pi * static_cast<float>(i) / static_cast<float>(windowSize - 1));
-    bins[i] = {samples[i] * hann, 0.f};
-  }
+    bins[i] = {samples[i] * hann[i], 0.f};
   for (size_t i = 1, j = 0; i < windowSize; ++i)
   {
     size_t bit = windowSize >> 1;

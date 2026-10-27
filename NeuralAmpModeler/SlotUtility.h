@@ -155,6 +155,7 @@ public:
     mHigh.Reset();
     mMid.Reset(); mMidGain = 0.;
     Update();
+    mCoefficientsDirty = false;
     mCut.Reset(rate);
     mCut.Process(nullptr, 0, true, {});
   }
@@ -168,10 +169,15 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       mGain = gain + mSmooth * (mGain - gain);
+      const double previousTilt = mTilt, previousMidGain = mMidGain;
       mTilt = tilt + mSmooth * (mTilt - tilt);
       mMidGain = c.extra.boostMidGain + mSmooth * (mMidGain - c.extra.boostMidGain);
-      if (mCount++ % 16 == 0)
+      mCoefficientsDirty |= mTilt != previousTilt || mMidGain != previousMidGain;
+      if (mCount++ % 16 == 0 && mCoefficientsDirty)
+      {
         Update();
+        mCoefficientsDirty = false;
+      }
       mCount %= 16;
       samples[i] = mHigh.Tick(mLow.Tick(samples[i])) * mGain;
       const double mid = mMid.Tick(samples[i]);
@@ -194,6 +200,7 @@ private:
   SlotEQ mCut;
   double mSmooth = 0., mGain = 1., mTilt = 0., mRate = 48000.;
   int mCount = 0;
+  bool mCoefficientsDirty = false;
 };
 
 // Original tube-inspired waveshaper: biased soft saturation with a DC blocker.

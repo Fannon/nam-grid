@@ -46,7 +46,8 @@ FFTConvolver::FFTConvolver() :
   _overlap(),
   _current(0),
   _inputBuffer(),
-  _inputBufferFill(0)
+  _inputBufferFill(0),
+  _preparedSegments(0)
 {
 }
 
@@ -79,6 +80,7 @@ void FFTConvolver::reset()
   _current = 0;
   _inputBuffer.clear();
   _inputBufferFill = 0;
+  _preparedSegments = 0;
 }
 
 
@@ -145,6 +147,24 @@ bool FFTConvolver::init(size_t blockSize, const Sample* ir, size_t irLen)
 }
 
 
+void FFTConvolver::prepareForBlock(size_t collectedSamples)
+{
+  if (_segCount == 0) return;
+  assert(_inputBufferFill == 0 && collectedSamples <= _blockSize);
+  if (_preparedSegments == 0)
+  {
+    _preMultiplied.setZero();
+    _preparedSegments = 1;
+  }
+  const size_t end = 1 + (_segCount - 1) * collectedSamples / _blockSize;
+  for (size_t i = _preparedSegments; i < end; ++i)
+  {
+    const size_t indexAudio = (_current + i) % _segCount;
+    ComplexMultiplyAccumulate(_preMultiplied, *_segmentsIR[i], *_segments[indexAudio]);
+  }
+  _preparedSegments = end;
+}
+
 void FFTConvolver::process(const Sample* input, Sample* output, size_t len)
 {
   if (_segCount == 0)
@@ -168,13 +188,8 @@ void FFTConvolver::process(const Sample* input, Sample* output, size_t len)
     // Complex multiplication
     if (inputBufferWasEmpty)
     {
-      _preMultiplied.setZero();
-      for (size_t i=1; i<_segCount; ++i)
-      {
-        const size_t indexIr = i;
-        const size_t indexAudio = (_current + i) % _segCount;
-        ComplexMultiplyAccumulate(_preMultiplied, *_segmentsIR[indexIr], *_segments[indexAudio]);
-      }
+      prepareForBlock(_blockSize);
+      _preparedSegments = 0;
     }
     _conv.copyFrom(_preMultiplied);
     ComplexMultiplyAccumulate(_conv, *_segments[_current], *_segmentsIR[0]);

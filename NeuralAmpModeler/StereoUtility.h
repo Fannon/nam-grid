@@ -31,28 +31,30 @@ public:
     }
     // Slew 8 linear units in 5 ms (covering the largest gain/polarity change).
     // Smaller changes finish sooner; delay slews separately at .25 sample/sample.
+    const int mode = std::clamp(static_cast<int>(c.extra.utilityMode), 0, 3);
+    const double skew = std::clamp(c.extra.utilitySkew, -20., 20.) * .001 * mRate;
+    const double delay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
     for (int i = 0; i < frames; ++i)
     {
       for (int j = 0; j < 3; ++j)
         mValue[j] += std::clamp(target[j] - mValue[j], -mStep * 8., mStep * 8.);
       const double l = left[i], r = right ? right[i] : l;
-      const int mode = std::clamp(static_cast<int>(c.extra.utilityMode), 0, 3);
       for (int j = 0; j < 4; ++j) mMode[j] += std::clamp((mode == j ? 1. : 0.) - mMode[j], -mStep, mStep);
-      mSkew += std::clamp(std::clamp(c.extra.utilitySkew, -20., 20.) * .001 * mRate - mSkew, -.25, .25);
-      mDelay += std::clamp(std::clamp(c.fineDelay, 0., 20.) * .001 * mRate - mDelay, -.25, .25);
+      mSkew += std::clamp(skew - mSkew, -.25, .25);
+      mDelay += std::clamp(delay - mDelay, -.25, .25);
       mHistory[0][mIndex] = l; mHistory[1][mIndex] = r;
       const auto read = [&](int ch, double delay) {
         const size_t whole = static_cast<size_t>(delay);
         const double fraction = delay - whole;
-        const size_t a = (mIndex + mHistory[ch].size() - whole) % mHistory[ch].size();
-        const size_t b = (a + mHistory[ch].size() - 1) % mHistory[ch].size();
+        const size_t a = mIndex >= whole ? mIndex - whole : mHistory[ch].size() - (whole - mIndex);
+        const size_t b = a == 0 ? mHistory[ch].size() - 1 : a - 1;
         return mHistory[ch][a] + fraction * (mHistory[ch][b] - mHistory[ch][a]);
       };
       const double originalL = read(0, mDelay + std::max(0., -mSkew));
       const double originalR = read(1, mDelay + std::max(0., mSkew));
       const double dl = (mMode[0] + mMode[2]) * originalL + (mMode[1] + mMode[3]) * originalR;
       const double dr = (mMode[0] + mMode[3]) * originalR + (mMode[1] + mMode[2]) * originalL;
-      mIndex = (mIndex + 1) % mHistory[0].size();
+      if (++mIndex == mHistory[0].size()) mIndex = 0;
       const double mid = .5 * (dl + dr), side = .5 * (dl - dr) * mValue[2];
       left[i] = (mid + side) * mValue[0];
       if (right)

@@ -1410,6 +1410,9 @@ public:
         // The stereo scope reads the newest samples of both channels.
         std::copy(window.samples.end() - window.right.size(), window.samples.end(), mScopeLeft.begin());
         mScopeRight = window.right;
+        mSpectrumTime = Now();
+        if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
+        return; // The stereo scope does not display a frequency spectrum.
       }
       const auto analyzed = grid_eq_signal::Analyze(window.samples,
         PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);

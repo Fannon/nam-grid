@@ -325,6 +325,14 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   std::fenv_t fe_state;
   std::feholdexcept(&fe_state);
   disable_denormals();
+  const bool metering = mEditorOpen.load(std::memory_order_relaxed);
+  if (metering != mMetering)
+  {
+    for (auto& candidate : mGrids)
+      for (auto& stage : candidate.stages) stage.EnableMetering(metering);
+    mMetering = metering;
+    mMeterFrames = 0;
+  }
   // A rig switch first holds the audible rig's controls while the next rig is prepared.
   const auto transition = mRigTransition.Begin();
   const bool holding = transition == RigTransition::kHolding;
@@ -345,7 +353,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   }
   // Preserve host stereo until a mono NAM slot explicitly collapses it.
   _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal, mHeldInputGain);
-  mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
+  if (metering)
+    mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
   mTuner.Enable(IsTunerActive());
   mTuner.Push(mInputPointers[0], mInputPointers[1], nFrames, sampleRate);
   for (size_t channel = 0; channel < numChannelsInternal; ++channel)
@@ -377,7 +386,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   const double blend = mHeldBlend;
   auto& grid = mGrids[mAudibleGrid];
   // The one spectrum/scope capture follows the selected slot of the audible grid.
-  if (const int slot = mSpectrumSlot.load(std::memory_order_relaxed); slot != mCaptureSlot || mAudibleGrid != mCaptureGrid)
+  if (const int slot = metering ? mSpectrumSlot.load(std::memory_order_relaxed) : -1;
+      slot != mCaptureSlot || mAudibleGrid != mCaptureGrid)
   {
     for (auto& candidate : mGrids)
       for (auto& stage : candidate.stages) stage.AttachCapture(nullptr);
@@ -473,7 +483,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       mRigTransition.Finish(); // The outgoing grid is not touched again.
   }
   mNoteCount = 0; // Notes act within their own block only.
-  mMeterFrames += nFrames;
+  if (metering) mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));
   if (mMeterFrames >= meterInterval)
   {
@@ -496,8 +506,9 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   std::feupdateenv(&fe_state);
   // Mono host outputs downmix; stereo host outputs retain independent channels.
   _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, mHeldOutputGain);
-  mOutputSender.ProcessBlock(
-    outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
+  if (metering)
+    mOutputSender.ProcessBlock(
+      outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
 }
 
 void NeuralAmpModeler::OnReset()
@@ -1708,6 +1719,7 @@ void NeuralAmpModeler::OnUIOpen()
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
   _UpdateControlsFromModel();
+  mEditorOpen.store(true, std::memory_order_relaxed);
 }
 
 // iPlug2's default full sync sends each parameter separately: a scan of every control plus
@@ -1738,6 +1750,7 @@ void NeuralAmpModeler::OnParamReset(iplug::EParamSource)
 
 void NeuralAmpModeler::OnUIClose()
 {
+  mEditorOpen.store(false, std::memory_order_relaxed);
   EndSlotPreview(false);
   iplug::Plugin::OnUIClose();
 }

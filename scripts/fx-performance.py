@@ -56,7 +56,7 @@ def plugin_binary(path):
     raise ValueError(f"CLAP binary not found: {path}")
 
 
-def asset_cases(nam_paths, ir_paths, modules={"NAM": 0, "Cabinet IR": 6}):
+def asset_cases(nam_paths, ir_paths, modules={"NAM": 0, "Cabinet IR": 6}, ir_length="cabinet"):
     """File-module cases; `modules` maps names to IDs as printed by the host's --modules."""
     cases = []
     for index, asset in enumerate(nam_paths):
@@ -73,8 +73,10 @@ def asset_cases(nam_paths, ir_paths, modules={"NAM": 0, "Cabinet IR": 6}):
                           "architecture": architecture, "asset_sha256": sha256(asset),
                           "quality": quality_name, "mode": f"{asset.name} ({architecture}; {quality_name})"})
     for index, asset in enumerate(ir_paths):
-        cases.append({"id": f"ir-{index}", "module": "Cabinet IR", "effect": modules["Cabinet IR"],
-                      "controls": {}, "asset": str(asset), "asset_sha256": sha256(asset), "mode": asset.name})
+        long_ir = ir_length == "long"
+        cases.append({"id": f"ir-{index}" + ("-long" if long_ir else ""), "module": "Cabinet IR", "effect": modules["Cabinet IR"],
+                      "controls": {"IR Length": 1} if long_ir else {}, "asset": str(asset), "asset_sha256": sha256(asset),
+                      "mode": asset.name + (" (Long IR)" if long_ir else "")})
     return cases
 
 
@@ -341,6 +343,8 @@ def main(argv=None):
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--nam", type=Path, action="append", default=[], help="add a real NAM capture (repeatable)")
     parser.add_argument("--ir", type=Path, action="append", default=[], help="add a real WAV IR (repeatable)")
+    parser.add_argument("--ir-length", choices=("cabinet", "long"), default="cabinet",
+                        help="processing length for all WAV IR cases (default: cabinet; long retains up to 30 seconds)")
     parser.add_argument("--filter", action="append", default=[], help="case-insensitive module/mode/id substring (OR; baseline always included)")
     parser.add_argument("--module", action="append", default=[], help="exact module name; repeatable; includes all modes and the empty-grid baseline")
     parser.add_argument("--modulation", choices=MODULATION_PROFILES, default="none", help="matrix profile applied to every case, including the empty grid")
@@ -368,7 +372,7 @@ def main(argv=None):
     nam_paths += [ROOT / "NeuralAmpModelerCore" / "example_models" / name for name in ("lstm.nam", "wavenet.nam")]
     ir_paths = [fixtures / name for name in ("ir-2048.wav", "ir-16384.wav")]
     modules = json.loads(subprocess.check_output([str(host), "--modules"], text=True, encoding="utf-8"))
-    cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir], modules)
+    cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir], modules, args.ir_length)
     cases = stacked_cases(select_cases(cases, args.module, args.filter), args.copies)
     cases = modulation_cases(cases, args.modulation)
     if args.list:

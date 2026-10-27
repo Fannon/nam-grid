@@ -45,8 +45,8 @@ public:
       mDelay[mWrite] = samples[i];
       const size_t whole = static_cast<size_t>(mTime);
       const double fraction = mTime - whole;
-      const size_t recent = (mWrite + mDelay.size() - whole) % mDelay.size();
-      const size_t older = (recent + mDelay.size() - 1) % mDelay.size();
+      const size_t recent = mWrite >= whole ? mWrite - whole : mDelay.size() - (whole - mWrite);
+      const size_t older = recent == 0 ? mDelay.size() - 1 : recent - 1;
       double x = mDelay[recent] + fraction * (mDelay[older] - mDelay[recent]);
       if (++mWrite == mDelay.size()) mWrite = 0;
       const double hp = mHP.Tick(x);

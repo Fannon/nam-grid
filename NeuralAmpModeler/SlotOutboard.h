@@ -53,7 +53,7 @@ public:
     mCounter = 0;
     mDesk = -1;
     mVoice = 1.;
-    mReduction = 0.;
+    mMinimumGain = 1.;
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
   {
@@ -67,7 +67,7 @@ public:
     const int desk = std::clamp(c.colourDesk, 0, 7);
     if (mDesk < 0)
       mDesk = desk;
-    mReduction = 0.;
+    mMinimumGain = 1.;
     for (int i = 0; i < frames; ++i)
     {
       const auto& v = mStrip ? mControls.Tick() : mUnused;
@@ -120,7 +120,7 @@ public:
         if (mEffect == SlotEffect::OutboardChannel)
         {
           mix = v[6] * .01;
-          output = std::pow(10., v[5] / 20.);
+          output = mOutput(v[5] / 20., [](double x) { return std::pow(10., x); });
           Monitor(mStrip->Gain(0), mStrip->Gain(1), mix);
         }
       }
@@ -128,7 +128,7 @@ public:
       {
         mButter->Tick(wetL, wetR);
         mix = s[2] * .01;
-        output = std::pow(10., s[1] / 20.);
+        output = mOutput(s[1] / 20., [](double x) { return std::pow(10., x); });
         Monitor(mButter->Gain(0), mButter->Gain(1), mix);
       }
       if (mColour)
@@ -169,7 +169,7 @@ public:
   }
   // Native detector attenuation, before automatic gain recovery, saturation
   // and user output. Never infer GR by dividing two nonlinear audio samples.
-  double Reduction() const { return mReduction; }
+  double Reduction() const { return -20. * std::log10(std::max(1.e-12, mMinimumGain)); }
 
 private:
   void ProcessColour(double& l, double& r)
@@ -186,7 +186,8 @@ private:
   void Monitor(double l, double r, double mix)
   {
     const double gain = 1. + mix * (std::min({1., l, r}) - 1.);
-    mReduction = std::max(mReduction, -20. * std::log10(std::max(1.e-12, gain)));
+    // log is monotonic: keep the minimum gain and convert once per block.
+    mMinimumGain = std::min(mMinimumGain, gain);
   }
   std::unique_ptr<airwindows_outboard::CStrip2::Core> mStrip;
   std::unique_ptr<airwindows_outboard::ButterComp2::Core> mButter;
@@ -195,10 +196,10 @@ private:
   grid_fx::SmoothControls<3> mShort;
   grid_fx::SmoothControls<1> mInputControl;
   grid_fx::Memo mStripInput;
-  grid_fx::Memo mInput, mTrim;
+  grid_fx::Memo mInput, mTrim, mOutput;
   std::array<double, 7> mUnused{};
   std::array<double, 3> mUnusedShort{};
   SlotEffect mEffect = SlotEffect::OutboardChannel;
-  double mRate = 48000., mReduction = 0., mVoice = 1.;
+  double mRate = 48000., mMinimumGain = 1., mVoice = 1.;
   int mCounter = 0, mDesk = -1;
 };

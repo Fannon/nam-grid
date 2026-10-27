@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include "SlotOutboard.h"
+#include "SlotTimeEffects.h"
 #include "dsp/Antiderivative.h"
 
 void TestDriveAntialiasing()
@@ -46,16 +49,20 @@ void TestDriveAntialiasing()
     for (bool clip : {false, true})
     {
       grid_adaa::Average aa;
-      if (clip) aa.Clip(a, .8); else aa.Tanh(a);
+      const auto shape = [clip](double v) { return clip ? std::clamp(v, -.8, .8) : std::tanh(v); };
+      const auto integral = [clip](double v) {
+        const double magnitude = std::abs(v);
+        return clip ? (magnitude <= .8 ? .5 * v * v : .8 * (magnitude - .4)) : grid_adaa::LogCosh(v);
+      };
+      aa.Tick(a, shape, integral);
       double reference = 0.;
       constexpr int count = 32768;
       for (int i = 0; i < count; ++i)
       {
         const double x = a + (b - a) * (i + .5) / count;
-        reference += clip ? std::clamp(x, -.8, .8) : std::tanh(x);
+        reference += shape(x);
       }
-      const double actual = clip ? aa.Clip(b, .8) : aa.Tanh(b);
-      assert(std::abs(actual - reference / count) < 2.e-8);
+      assert(std::abs(aa.Tick(b, shape, integral) - reference / count) < 2.e-8);
     }
   // An arbitrary integration constant must cancel on the very first interval.
   {
@@ -85,4 +92,87 @@ void TestDriveAntialiasing()
     previous = input;
   }
   std::cout << "Drive antialiasing: split FIR, mono Tape, analytic intervals and continuous slew references passed\n";
+}
+
+// Partial Mix must blend after the oversampling filters. Mixing an unshifted dry
+// reference with the wet path's minimum-phase group delay combs around 6.5 kHz
+// at 48 kHz (measured at -20 dB for Console Colour and -32 dB for Tape).
+namespace
+{
+constexpr double blendPi = 3.14159265358979323846;
+template <class Process>
+double SineGain(double rate, double frequency, double amplitude, Process&& process)
+{
+  constexpr int block = 64;
+  const int total = static_cast<int>(rate * 2.), settle = static_cast<int>(rate);
+  std::array<double, block> buffer{};
+  double inPhase = 0., quadrature = 0.;
+  int count = 0;
+  for (int start = 0; start < total; start += block)
+  {
+    for (int i = 0; i < block; ++i)
+      buffer[i] = amplitude * std::sin(2. * blendPi * frequency * (start + i) / rate);
+    process(buffer.data(), block);
+    for (int i = 0; i < block; ++i)
+    {
+      if (start + i < settle) continue;
+      const double phase = 2. * blendPi * frequency * (start + i) / rate;
+      inPhase += buffer[i] * std::sin(phase);
+      quadrature += buffer[i] * std::cos(phase);
+      ++count;
+    }
+  }
+  return 2. * std::hypot(inPhase, quadrature) / count / amplitude;
+}
+} // namespace
+
+void TestOversampledWetDryBlend()
+{
+  // The filters are transparent in this band, so a 50% blend must track the fully
+  // wet response; a dry/wet comb shows up as a 20 dB or deeper dip at 6.5 kHz.
+  for (double rate : {44100., 48000.})
+  {
+    const auto tapeGain = [&](double mix, double frequency) {
+      SlotTape tape; tape.Reset(rate);
+      UtilityControls c; c.tape = {0., 50., mix, 0.};
+      return SineGain(rate, frequency, .05, [&](double* samples, int frames) { tape.Process(samples, frames, c); });
+    };
+    const auto colourGain = [&](double mix, double frequency) {
+      SlotOutboard colour; colour.Reset(rate, SlotEffect::ConsoleColour);
+      UtilityControls c; c.colour = {0., 0., mix}; c.colourDesk = 4;
+      std::array<double, 64> right{};
+      return SineGain(rate, frequency, .05, [&](double* samples, int frames) {
+        std::copy_n(samples, frames, right.begin());
+        colour.Process(samples, right.data(), frames, c);
+      });
+    };
+    for (double frequency : {1000., 4000., 6500., 10000.})
+      for (bool tape : {true, false})
+      {
+        const auto gain = [&](double mix) { return tape ? tapeGain(mix, frequency) : colourGain(mix, frequency); };
+        const double wet = 20. * std::log10(gain(100.));
+        const double half = 20. * std::log10(gain(50.));
+        assert(std::abs(half - wet) < 1.5);
+      }
+    // Mix 0% is exactly dry, including after a fresh Reset.
+    std::array<double, 256> input{}, output{}, right{};
+    for (size_t i = 0; i < input.size(); ++i) input[i] = .3 * std::sin(i * .071) + .1 * std::cos(i * .0131);
+    {
+      SlotTape tape; tape.Reset(rate);
+      // Output stays at 0 dB so the dry sample is not scaled; drive and Bump are
+      // hot to prove the wet path cannot leak into Mix 0.
+      UtilityControls c; c.tape = {12., 80., 0., 0.};
+      output = input;
+      tape.Process(output.data(), static_cast<int>(output.size()), c);
+      assert(output == input);
+    }
+    {
+      SlotOutboard colour; colour.Reset(rate, SlotEffect::ConsoleColour);
+      UtilityControls c; c.colour = {18., -6., 0.}; c.colourDesk = 6;
+      output = input; right = input;
+      colour.Process(output.data(), right.data(), static_cast<int>(output.size()), c);
+      assert(output == input && right == input);
+    }
+  }
+  std::cout << "Oversampled wet/dry: partial Mix stays aligned, Mix 0 is exact dry\n";
 }

@@ -102,7 +102,7 @@ A clean level boost with opposing shelves around 800 Hz (Tilt) and a low cut. It
 
 ![Tube Boost editor](../screenshots/modules/tube-boost.png)
 
-Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut for shaping the drive. Minimum-phase oversampling reduces aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz and native processing from 176.4 kHz. Strong settings can still alias. The wet filters add no reported latency but change high-frequency phase; partial Mix blends and existing beta rigs can sound slightly different.
+Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut for shaping the drive. Minimum-phase oversampling reduces aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz and native processing from 176.4 kHz. Strong settings can still alias. The wet filters add no reported latency but change high-frequency phase, are flat to about 18 kHz and roll off slightly above (about -2.3 dB at 20 kHz at 48 kHz). Because the high cut and DC blocker stay at the host rate, a partial Mix can comb above roughly 3 kHz; Mix 0% is exact dry.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -124,7 +124,7 @@ Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut f
 
 ![Airwindows Tape editor](../screenshots/modules/airwindows-tape.png)
 
-A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter (that lives in Tape Echo and LoFi Tape Machine). The core runs at 2x below 88.2 kHz and natively at higher host rates. Minimum-phase filters reduce aliasing without reported latency; wet-path phase, transient response and partial Mix can change. The wrapper preserves unshifted dry audio.
+A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter (that lives in Tape Echo and LoFi Tape Machine). The core runs at 2x below 88.2 kHz and natively at higher host rates. Minimum-phase filters reduce aliasing without reported latency; wet-path phase and transient response can change. A partial Mix is blended inside the oversampled stage, so it stays time-aligned instead of combing against the dry signal; Mix 0% bypasses the core exactly. Running the core at 2x moves the upstream head bump up: with Bump at 50% expect about +0.5 to +0.8 dB from 20-160 Hz at typical levels, and larger changes in the sub-bass at low levels.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -143,7 +143,7 @@ A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter
 
 ![Console Colour editor](../screenshots/modules/console-colour.png)
 
-Eight Airwindows console voices, from subtle density to stronger colour. Each desk has its own level match, and changes fade smoothly. Local 2x minimum-phase oversampling below 88.2 kHz reduces aliasing; higher host rates process natively. It adds no reported latency, but wet-path phase and transients can differ from older beta versions. Mix 0% remains exact dry.
+Eight Airwindows console voices, from subtle density to stronger colour. Each desk has its own level match, and changes fade smoothly. Local 2x minimum-phase oversampling below 88.2 kHz reduces aliasing; higher host rates process natively. It adds no reported latency, but wet-path phase and transients can differ from older beta versions. A partial Mix is blended after the filters, so it stays time-aligned, and Mix 0% remains exact dry. At 88.2 kHz and above the core runs natively, so no filter-induced group delay remains.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

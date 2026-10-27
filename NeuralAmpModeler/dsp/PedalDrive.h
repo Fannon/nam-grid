@@ -104,6 +104,8 @@ struct Character
 struct Voice
 {
   std::array<double, Coefficients::Count> low{};
+  // slew is the legacy Rodent state, used only by the offline comparison path
+  // (antialiasRodent == false); the shipped path keeps its state in rodentSlew.
   double slew = 0., envelope = 0.;
   grid_adaa::Average rodentInput;
   grid_adaa::SlewClip rodentSlew;

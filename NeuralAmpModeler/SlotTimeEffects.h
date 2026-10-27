@@ -317,13 +317,14 @@ class SlotTape
 {
 public:
   static int FactorForRate(double rate) { return rate < 88200. ? 2 : 1; }
+  // The explicit factor is an offline comparison hook for the aliasing tests,
+  // not a saved control; production always uses FactorForRate.
   void Reset(double rate, int factor = 0)
   {
-    mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
+    mFactor = factor == 1 || factor == 2 ? factor : FactorForRate(rate);
     mTape.Reset(rate * mFactor);
     mControls.Reset(rate); mCounter = 0;
     if (mFactor == 2) mOversample2.Reset();
-    if (mFactor == 4) mOversample4.Reset();
   }
   void Process(double* samples, int frames, const UtilityControls& controls)
   {
@@ -339,34 +340,58 @@ public:
         dry[i] = samples[offset + i]; mix[i] = c[2] * .01;
         gain[i] = mOutput(c[3] * .05, [](double x) { return std::pow(10., x); });
       }
-      if (mFactor == 2) ProcessHigh(mOversample2, samples + offset, count);
-      else if (mFactor == 4) ProcessHigh(mOversample4, samples + offset, count);
+      if (mFactor == 2) ProcessHigh(samples + offset, count, mix);
       else mTape.ProcessMono(samples + offset, count);
-      for (int i = 0; i < count; ++i) samples[offset + i] = (dry[i] + mix[i] * (samples[offset + i] - dry[i])) * gain[i];
+      for (int i = 0; i < count; ++i)
+      {
+        const double wet = samples[offset + i];
+        // The oversampled path already returns the delay-aligned blend between the
+        // endpoints. Fully wet keeps the historical expression bit for bit, and Mix
+        // 0 returns the exact dry sample.
+        samples[offset + i] = (mFactor == 1 || mix[i] >= 1. ? dry[i] + mix[i] * (wet - dry[i])
+                                                          : (mix[i] > 0. ? wet : dry[i])) * gain[i];
+      }
       offset += count; mCounter = (mCounter + count) % 32;
     }
   }
 private:
-  template <int Factor>
-  void ProcessHigh(grid_oversampling::FIR<Factor, 32>& filter, double* samples, int count)
+  // Blending at the high rate keeps the dry reference time-aligned with the
+  // filtered wet path. A base-rate mix would combine the minimum-phase filters'
+  // frequency-dependent group delay with an unshifted dry signal and comb.
+  // Fully wet and fully dry spans skip the copy and stay bit-identical to a
+  // straight wet/dry mix.
+  void ProcessHigh(double* samples, int count, const std::array<double, 32>& mix)
   {
+    constexpr int Factor = 2;
     std::array<double, 32 * Factor> high{};
     for (int i = 0; i < count; ++i)
     {
-      const auto up = filter.Upsample(samples[i]);
+      const auto up = mOversample2.Upsample(samples[i]);
       std::copy(up.begin(), up.end(), high.begin() + i * Factor);
     }
-    mTape.ProcessMono(high.data(), count * Factor);
+    const bool blend = std::any_of(mix.begin(), mix.begin() + count, [](double m) { return m > 0. && m < 1.; });
+    if (!blend) mTape.ProcessMono(high.data(), count * Factor);
+    else
+    {
+      const auto dryHigh = high;
+      mTape.ProcessMono(high.data(), count * Factor);
+      for (int i = 0; i < count; ++i)
+        if (mix[i] > 0. && mix[i] < 1.)
+          for (int phase = 0; phase < Factor; ++phase)
+          {
+            const int index = i * Factor + phase;
+            high[index] = (1. - mix[i]) * dryHigh[index] + mix[i] * high[index];
+          }
+    }
     for (int i = 0; i < count; ++i)
     {
       std::array<double, Factor> down{};
       std::copy_n(high.data() + i * Factor, Factor, down.data());
-      samples[i] = filter.Downsample(down);
+      samples[i] = mOversample2.Downsample(down);
     }
   }
   AirwindowsTape mTape{};
   grid_oversampling::FIR<2, 32> mOversample2;
-  grid_oversampling::FIR<4, 32> mOversample4;
   grid_fx::SmoothControls<4> mControls;
   grid_fx::Memo mOutput;
   int mFactor = 2, mCounter = 0;

@@ -1,5 +1,4 @@
 #pragma once
-#include "dsp/Antiderivative.h"
 #include "dsp/MinimumPhaseOversampling.h"
 #include "SlotEQ.h"
 #include "EffectParameters.h"
@@ -216,11 +215,12 @@ public:
     return filter * filter;
   }
   static int FactorForRate(double rate) { return rate < 88200. ? 4 : rate < 176400. ? 2 : 1; }
-  void Reset(double rate, int factor = 0, bool adaa = false)
+  // The explicit factor is an offline comparison hook for the aliasing tests,
+  // not a saved control; production always uses FactorForRate.
+  void Reset(double rate, int factor = 0)
   {
     mRate = std::max(1., rate);
     mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
-    mADAA = adaa; mShaper.Reset(); mZero.Reset();
     if (mFactor == 2) mOversample2.Reset();
     if (mFactor == 4) mOversample4.Reset();
     mTone.Reset(rate);
@@ -249,11 +249,7 @@ public:
       mMix = mix + mSmooth * (mMix - mix);
       mOutput = output + mSmooth * (mOutput - output);
       const double offset = mBiasOffset(mBias, [](double v) { return std::tanh(v); });
-      const auto shape = [&](double x) {
-        const double wet = mADAA ? mShaper.Tanh(x * mDrive + mBias) : std::tanh(x * mDrive + mBias);
-        const double zero = mADAA ? mZero.Tanh(mBias) : offset;
-        return (wet - zero) / (1. - offset * offset);
-      };
+      const auto shape = [&](double x) { return (std::tanh(x * mDrive + mBias) - offset) / (1. - offset * offset); };
       double shaped = mFactor == 2 ? mOversample2.Tick(samples[i], shape)
                     : mFactor == 4 ? mOversample4.Tick(samples[i], shape) : shape(samples[i]);
       const double cutoff = mPostCut.Tick()[0];
@@ -268,12 +264,10 @@ public:
   }
 
 private:
-  grid_adaa::Average mShaper, mZero;
   grid_oversampling::FIR<2, 32> mOversample2;
   grid_oversampling::FIR<4, 32> mOversample4;
   grid_fx::Memo mBiasOffset;
   int mFactor = 4;
-  bool mADAA = false;
   grid_fx::SmoothControls<1> mPostCut;
   grid_fx::Memo mPostPole;
   double mRate = 48000., mPostLow = 0.;

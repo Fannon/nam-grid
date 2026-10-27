@@ -123,7 +123,7 @@ Rendered Render(E effect, const Controls& c, double rate, int bin, double amplit
   if (candidateFactor > 0)
   {
     const auto configure = [&](NAMStage::Prepared* state) {
-      if (effect == E::TubeBoost) state->tube.Reset(rate, candidateFactor, adaa);
+      if (effect == E::TubeBoost) state->tube.Reset(rate, candidateFactor);
       if (effect == E::Tape) state->tape.Reset(rate, candidateFactor);
       if (effect == E::PedalDrive) state->pedal.Reset(rate, adaa);
       if (effect == E::ConsoleColour) state->outboard.Reset(rate, effect, candidateFactor);
@@ -323,7 +323,7 @@ void StudyVoicing(const std::filesystem::path& report, const std::filesystem::pa
     if (effect == E::PedalDrive) { variants.resize(1); variants[0].controls.utility.pedal[0] = 1.; }
     for (const auto& v : variants)
       for (double rate : {48000., 96000.})
-        for (double f : {100., 250., 1000., 5000., 10000., 18000.})
+        for (double f : {20., 40., 80., 100., 250., 1000., 5000., 10000., 18000.})
         {
           const int bin = static_cast<int>(std::round(f * count / rate)) | 1;
           const auto a = Render(effect, v.controls, rate, bin, .01, capture, false, 1, 1, false);
@@ -353,25 +353,28 @@ void StudyDrives(const std::filesystem::path& report, const std::filesystem::pat
     for (const auto& variant : variants)
       for (double rate : {48000., 96000.})
         for (double frequency : {1500., 6500., 10000.})
-          for (int profile = 0; profile < 2; ++profile)
-            for (int factor : {1, 2, 4})
-              for (bool adaa : {false, true})
+          // Compare only the alternatives the shipped code offers: Tube Boost picks
+          // 1x/2x/4x by host rate, Tape and Console Colour run native or 2x, and the
+          // Rodent keeps its 4x with the local treatment on or off.
+          for (const auto& [factor, adaa] : effect == E::PedalDrive
+                                              ? std::vector<std::pair<int, bool>>{{4, false}, {4, true}}
+                                            : effect == E::TubeBoost
+                                              ? std::vector<std::pair<int, bool>>{{1, false}, {2, false}, {4, false}}
+                                              : std::vector<std::pair<int, bool>>{{1, false}, {2, false}})
+            for (int profile = 0; profile < 2; ++profile)
+            {
+              auto c = variant.controls; if (profile) Stress(c, effect);
+              const int bin = static_cast<int>(std::round(frequency * count / rate)) | 1;
+              const auto audio = Render(effect, c, rate, bin, profile ? .8 : .2, capture, false, 1, factor, adaa);
+              for (int channel = 0; channel < 2; ++channel)
               {
-                if (effect != E::TubeBoost && effect != E::PedalDrive && !adaa) continue;
-                if (effect == E::PedalDrive && factor != 1) continue;
-                auto c = variant.controls; if (profile) Stress(c, effect);
-                const int bin = static_cast<int>(std::round(frequency * count / rate)) | 1;
-                const auto audio = Render(effect, c, rate, bin, profile ? .8 : .2, capture, false, 1, factor, adaa);
-                for (int channel = 0; channel < 2; ++channel)
-                {
-                  const auto m = spectral_test::Measure(audio.audio[channel], bin);
-                  csv << std::quoted(SlotEffectName(effect)) << ',' << std::quoted(variant.name) << ',' << profile << ','
-                      << rate << ',' << bin * rate / count << ',' << (effect == E::PedalDrive ? 4 : factor) << ','
-                      << ((effect == E::TubeBoost || effect == E::PedalDrive) && adaa) << ',' << channel << ','
-                      << spectral_test::DB(m.residualRMS) << ',' << spectral_test::DB(m.foldedRMS) << ','
-                      << m.fundamental << ',' << 100. * audio.seconds << '\n';
-                }
+                const auto m = spectral_test::Measure(audio.audio[channel], bin);
+                csv << std::quoted(SlotEffectName(effect)) << ',' << std::quoted(variant.name) << ',' << profile << ','
+                    << rate << ',' << bin * rate / count << ',' << factor << ',' << adaa << ',' << channel << ','
+                    << spectral_test::DB(m.residualRMS) << ',' << spectral_test::DB(m.foldedRMS) << ','
+                    << m.fundamental << ',' << 100. * audio.seconds << '\n';
               }
+            }
     std::cout << "Candidate study: " << SlotEffectName(effect) << " complete\n" << std::flush;
   }
   csv.flush(); Require(csv.good(), "Candidate study write failed");
@@ -503,7 +506,7 @@ try
   if (csv.is_open()) { csv.flush(); Require(csv.good(), "Failed to write spectral report"); }
   Require(modules == (only < 0 ? static_cast<int>(E::Last) + 1 : 1), "Incomplete module coverage");
   // Verify the spectral renders are independent of callback partitioning.
-  for (auto effect : {E::Distortion, E::PedalDrive})
+  for (auto effect : {E::Distortion, E::PedalDrive, E::TubeBoost, E::Tape, E::ConsoleColour})
   {
     const auto c = Defaults(effect);
     const auto a = Render(effect, c, 48000., 1093, .2, capture);

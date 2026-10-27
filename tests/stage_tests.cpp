@@ -209,6 +209,7 @@ try
   TestDistortionModeHarmonics();
   TestPedalDrive();
   TestDriveAntialiasing();
+  TestOversampledWetDryBlend();
   TestReverbDelayCandidates();
   TestCosmicEcho();
   TestCosmicBypassDrain();

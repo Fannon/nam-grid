@@ -35,11 +35,6 @@ public:
   }
   double Tanh(double x)
   { return Tick(x, [](double v) { return std::tanh(v); }, LogCosh); }
-  double Clip(double x, double ceiling)
-  {
-    return Tick(x, [=](double v) { return std::clamp(v, -ceiling, ceiling); },
-                [=](double v) { const double a = std::abs(v); return a <= ceiling ? .5 * v * v : ceiling * (a - .5 * ceiling); });
-  }
 private:
   double mPrevious = 0., mIntegral = 0.;
   bool mValid = false;

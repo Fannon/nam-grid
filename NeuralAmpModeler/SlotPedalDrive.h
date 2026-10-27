@@ -11,6 +11,8 @@ public:
   // The minimum-phase filters need no lookahead, so the pedal adds no latency and
   // needs no dry/Low keep delay lines to stay aligned with the rest of the grid.
   static constexpr int latency = grid_pedal::Oversampler4x::latency;
+  // Explicit ADAA on/off is an offline comparison hook for the aliasing tests,
+  // not a saved control; production always resets with the treatment enabled.
   void Reset(double rate, bool antialiasRodent = true)
   {
     mRate = std::max(1., rate);

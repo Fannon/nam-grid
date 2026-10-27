@@ -166,11 +166,24 @@ stages rather than merely filtering after the final clip. Other pedal voices
 retain their DSP. Test interval averages against numerical integration, including
 near-zero intervals and curve-cache initialization.
 
+A partial Mix is a dry/wet blend across a path that has passed through
+minimum-phase filters, so its phase differs from the unshifted dry signal. Tape
+and Console Colour therefore combine the dry reference and the trimmed wet inside
+the oversampled stage, before decimation; the blend stays time-aligned and Mix 0%
+still returns the exact dry sample. Tube Boost keeps its high cut and DC blocker
+at the host rate, so its partial Mix does carry the filters' phase shift and can
+comb above roughly 3 kHz. Because Tape and Console Colour run natively from
+88.2 kHz, they have no filter-related dry/wet group delay at those host rates.
+The 32-base-tap pair is flat to about 18 kHz and attenuates about 2.3 dB at
+20 kHz for a 48 kHz host; the tube response preview draws that response.
+
 Run `. --drive-study --report tmp/module-aliasing-followup/reports/drive-study.csv`
-for 1x/2x/4x alternatives and local antialiasing. The Rodent rows retain 4x and
-compare local treatment only. `. --voicing-study --report ...` compares quiet
-fundamental gains against native/legacy processing from 100 Hz through 18 kHz.
-These controls are offline test hooks, not plugin parameters. The normal aliasing
+for the alternatives each shipped treatment supports: Tube Boost at 1x/2x/4x, Tape
+and Console Colour at native or 2x, and the Rodent at its fixed 4x with the local
+treatment on or off. `. --voicing-study --report ...` compares quiet
+fundamental gains against native/legacy processing from 20 Hz through 18 kHz.
+These factor and treatment switches are offline test hooks, not plugin parameters;
+production always selects the rate-based factor with the treatment enabled. The normal aliasing
 CTest also checks quality improvement against native/legacy references. All wet
 filters and interval averages can change phase, transients and partial Mix; zero
 reported latency is not a claim of zero group delay or identical existing sound.

@@ -1,0 +1,79 @@
+diff --git a/IGraphics/IGraphics.cpp b/IGraphics/IGraphics.cpp
+index 6984157..a5a16fa 100644
+--- a/IGraphics/IGraphics.cpp
++++ b/IGraphics/IGraphics.cpp
+@@ -1250,6 +1250,15 @@ bool IGraphics::OnKeyDown(float x, float y, const IKeyPress& key)
+   Trace("IGraphics::OnKeyDown", __LINE__, "x:%0.2f, y:%0.2f, key:%s",
+         x, y, key.utf8);
+ 
++  // Editing owns the keyboard even when a key makes no text/selection change.
++  // Hosts interpret false as permission to run their own shortcuts.
++  if (mTextEntryControl && mTextEntryControl->EditInProgress())
++  {
++    mHandledKeysDown[key.VK] = true;
++    mTextEntryControl->OnKeyDown(x, y, key);
++    return true;
++  }
++
+   bool handled = false;
+   
+   IControl* pControl = GetMouseControl(x, y, false);
+@@ -1260,6 +1269,7 @@ bool IGraphics::OnKeyDown(float x, float y, const IKeyPress& key)
+   if(!handled)
+     handled = mKeyHandlerFunc ? mKeyHandlerFunc(key, false) : false;
+   
++  if (handled) mHandledKeysDown[key.VK] = true;
+   return handled;
+ }
+ 
+@@ -1268,6 +1278,10 @@ bool IGraphics::OnKeyUp(float x, float y, const IKeyPress& key)
+   Trace("IGraphics::OnKeyUp", __LINE__, "x:%0.2f, y:%0.2f, key:%s",
+         x, y, key.utf8);
+   
++  // Include releases of keys that closed a text editor or another modal page.
++  const bool consumedDown = mHandledKeysDown.erase(key.VK) != 0;
++  if (mTextEntryControl && mTextEntryControl->EditInProgress()) return true;
++
+   bool handled = false;
+   
+   IControl* pControl = GetMouseControl(x, y, false);
+@@ -1278,7 +1292,7 @@ bool IGraphics::OnKeyUp(float x, float y, const IKeyPress& key)
+   if(!handled)
+     handled = mKeyHandlerFunc ? mKeyHandlerFunc(key, true) : false;
+   
+-  return handled;
++  return handled || consumedDown;
+ }
+ 
+ void IGraphics::OnDrop(const char* str, float x, float y)
+@@ -1940,6 +1954,18 @@ void IGraphics::StyleAllVectorControls(const IVStyle& style)
+ 
+ void IGraphics::CreateTextEntry(IControl& control, const IText& text, const IRECT& bounds, const char* str, int valIdx)
+ {
++  ReleaseMouseCapture();
++#ifdef OS_WIN
++  // A host may keep its main window foreground while displaying the plugin.
++  // SetFocus alone then cannot deliver typing to this drawn text editor.
++  const auto view = static_cast<HWND>(GetWindow());
++  if (view)
++  {
++    const auto root = GetAncestor(view, GA_ROOT);
++    if (GetForegroundWindow() != root) SetForegroundWindow(root);
++    SetFocus(view);
++  }
++#endif
+   mInTextEntry = &control;
+   mTextEntryValIdx = valIdx;
+     
+diff --git a/IGraphics/IGraphics.h b/IGraphics/IGraphics.h
+index a016f9d..f372310 100644
+--- a/IGraphics/IGraphics.h
++++ b/IGraphics/IGraphics.h
+@@ -1851,6 +1851,7 @@ private:
+   std::unordered_map<int, IGestureFunc> mGestureRegionFuncs; // Map of gesture region index to gesture function
+   std::unordered_map<ITouchID, IControl*> mCapturedMap; // associative array of touch ids to control pointers, the same control can be touched multiple times
+   IControl* mMouseOver = nullptr;
++  std::unordered_map<int, bool> mHandledKeysDown;
+   IControl* mInTextEntry = nullptr;
+   IControl* mInPopupMenu = nullptr;
+   void* mPlatformContext = nullptr;

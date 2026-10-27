@@ -1566,6 +1566,9 @@ int main(int argc, char** argv)
   // Add module starts in search: type immediately without clicking the field.
   load(cleared);
   click(170, 120);
+  typeBrowserSearch("ZZNOSUCHMODULE"); keyAtEditor(VK_RETURN);
+  // Clearing a committed query must leave search ready for immediate typing.
+  click(grid_layout::width - 43, 75);
   typeBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN);
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
   auto browserCurrent = browserState;
@@ -1587,7 +1590,7 @@ int main(int argc, char** argv)
   click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   click(560, 28); // Cell context allows IR, but offers no complete rig presets.
   click(680, 28); // A hidden preset tab must not accept input.
-  chooseBrowserItem("CABINET");
+  typeBrowserSearch("CABINET"); keyAtEditor(VK_RETURN); keyAtEditor(VK_RETURN); // Type immediately after switching tabs.
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::CabinetIR));
   assert(std::filesystem::path(save().config()["SlotPaths"][0].get<std::string>()) == libraryIR);
   click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
@@ -1809,6 +1812,8 @@ int main(int argc, char** argv)
   // Numeric text is below each dial; entry and reset must retain its binding.
   InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
   click(grid_layout::KnobX(0), grid_layout::KnobValueY(0));
+  SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(grid_layout::KnobX(0), grid_layout::KnobValueY(0)));
+  SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(grid_layout::KnobX(0), grid_layout::KnobValueY(0)));
   keyAtEditor('3'); keyAtEditor(VK_RETURN);
   assert(save().config()["Pre 1 EQ Bass"] == 3.);
   resetDial(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));

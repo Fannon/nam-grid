@@ -127,6 +127,13 @@ do not reset those submodules after setup without applying the patches again.
 Setup checks whether each patch is already applied, and refuses patches that cannot
 be applied cleanly.
 
+The `iplug2-text-entry-keyboard.patch` patch gives drawn text entry keyboard ownership:
+Windows entry raises/focuses the plugin window, releases mouse capture, and consumes
+both key presses and releases while editing, including keys that do not change text.
+The native editor host checks foreground ownership and counts keys forwarded to its
+host window. These checks cover CLAP and VST3; real DAWs can also intercept keys
+before delivering them to a plugin and require separate acceptance testing.
+
 Setup also backports the planar NEON A2 kernels from
 [NAM Core PR #313](https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313)
 to the pinned Core API. Supported ARM targets select these kernels automatically;
@@ -312,7 +319,9 @@ opt-in and run separately from CTest.
 
 `bash build.sh --test` includes `editor-host`, a small native host for both formats.
 It checks the active monitor's actual DPI, opens each editor twice, enters `-3.5`
-into the global Input value, cancels a second edit with Escape, reads the native
+into the global Input value after double-click selection, cancels a second edit with
+Escape, checks focus with a separate host window foreground, verifies browser typing
+on open, counts forwarded host keys, tests VST3 key callbacks, reads the native
 tooltip, and checks that the value survives reopening. It isolates user settings.
 
 For a display-scale check, set Windows **Settings > System > Display > Scale** to

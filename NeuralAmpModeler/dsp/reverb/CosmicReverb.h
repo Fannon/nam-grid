@@ -6,7 +6,8 @@
 // C++ adaptation of David Braun's MIT re.valhallaSupermassive reconstruction,
 // faustlibraries fadc1f7da4a903de25554e538c7a454a2f130299, reverbs.lib.
 // Design references: Sean Costello / Valhalla DSP. This is not Valhalla's DSP.
-// Modes: Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator and Lyra.
+// Original modes: Gemini, Sagittarius, Virgo, Centaurus, Great Annihilator, Lyra.
+// Aurora Hall is an original NAM Grid eight-loop diffused FDN; see COSMIC.md.
 // See COSMIC.md and LICENSE.txt for attribution and adaptation differences.
 namespace grid_cosmic
 {
@@ -17,7 +18,18 @@ inline bool IsFourLine(int style) { return style == static_cast<int>(Style::Virg
 inline int LineCount(int style) { return IsFourLine(style) ? 4 : 16; }
 inline int Exponent(int style, int line) { return IsFourLine(style) ? 4*line : line; }
 inline double BaseSamples(double milliseconds, double warp, int style, int line, double rate)
-{ return milliseconds*.001*rate*std::pow(Ratio(warp), Exponent(style, line)) + 33. + (style == static_cast<int>(Style::GreatAnnihilator) && line%4 == 0 ? 32. : 0.); }
+{
+  if (style == static_cast<int>(Style::AuroraHall))
+  {
+    // A little unequal spacing remains at Warp 0, allowing Density to work
+    // without first spreading identical delays. Seconds scale with host rate.
+    constexpr double spacing[]{0., .101, .213, .327, .443, .557, .669, .781};
+    constexpr double diffuser[]{.019, .029, .037, .043, .053, .061, .071, .083};
+    const double ratio = line < 8 ? 1.-(.15+.85*std::clamp(warp,0.,1.))*spacing[line] : diffuser[line-8];
+    return milliseconds*.001*rate*ratio + 33.*rate/48000.;
+  }
+  return milliseconds*.001*rate*std::pow(Ratio(warp), Exponent(style, line)) + 33. + (style == static_cast<int>(Style::GreatAnnihilator) && line%4 == 0 ? 32. : 0.);
+}
 
 // Moving first-order Thiran read, preserving loop magnitude. The filled count
 // allows O(1) logical clearing with no audio-thread allocation or large memset.
@@ -89,6 +101,7 @@ public:
     mAllpass = .91*feedback; mFeedthrough = std::pow(mAllpass, style == static_cast<int>(Style::Centaurus) ? 4. : 8.);
     const double angle = grid_fx::pi*values[3]*.0025;
     mCos = std::cos(angle); mSin = std::sin(angle);
+    mDensity = std::clamp(values[3]*.01, 0., 1.);
     mLowPass = std::exp(-2.*grid_fx::pi*std::min(.45*mRate, values[4])/mRate);
     mMotion = (500./48000.)*mRate*std::pow(values[5]*.01, 2.);
     for (int i = 0; i < LineCount(style); ++i)
@@ -177,6 +190,36 @@ public:
         mFeedback[ch]=mLines[ch].Tick(mGain*scattered[ch]+mInjection*mDryPrevious[ch%2],Delay(ch));
       out={(mFeedback[0]+mFeedback[2])/std::sqrt(2.),(mFeedback[1]+mFeedback[3])/std::sqrt(2.)};
     }
+    else if (mStyle == static_cast<int>(Style::AuroraHall))
+    {
+      // Products of Givens rotations are orthogonal at every Density. At zero
+      // each loop repeats independently; at full density all eight exchange
+      // energy. No linear blend of feedback matrices or nonlinear saturation.
+      std::array<double,8> scattered{};
+      for (int i=0; i<8; ++i) scattered[i]=mFeedback[i];
+      for (int bit=1; bit<8; bit*=2)
+        for (int i=0; i<8; ++i) if ((i&bit)==0)
+        {
+          const double a=scattered[i], b=scattered[i+bit];
+          scattered[i]=mCos*a-mSin*b; scattered[i+bit]=mSin*a+mCos*b;
+        }
+      const double diffusion=.65*mDensity;
+      for (int i=0; i<8; ++i)
+      {
+        // Unit-norm stereo injection/output projections. Each loop has a
+        // short allpass. At Density 0 it is a plain delay; increasing the
+        // coefficient adds reflections without a lossy dry/diffused blend.
+        const double sign=(i&2) ? -.5 : .5;
+        const double value=mLines[i].Tick(mGain*scattered[i]+sign*mDryPrevious[i%2],Delay(i));
+        const double delayed=mLines[8+i].Tick(diffusion*mAPOutput[i][0]+mAPInput[i][0],Delay(8+i));
+        const double diffused=delayed-diffusion*value;
+        mAPInput[i][0]=value; mAPOutput[i][0]=diffused;
+        // Normalize the DC blocker's Nyquist gain to unity, so damping never
+        // adds loop energy. Cuts uses one independent state per main loop.
+        mFeedback[i]=Cuts(diffused,i)*(.5*(1.+mHighPass));
+        out[i%2]+=sign*mFeedback[i];
+      }
+    }
     else // Virgo: cuts inside feedback, output after the matrix.
     {
       Quad x{};
@@ -187,7 +230,7 @@ public:
       out={x[0],x[1]};
     }
     mDryPrevious = input;
-    if (mStyle != static_cast<int>(Style::Virgo)) for (int ch = 0; ch < 2; ++ch) out[ch] = Cuts(out[ch], ch);
+    if (mStyle != static_cast<int>(Style::Virgo) && mStyle != static_cast<int>(Style::AuroraHall)) for (int ch = 0; ch < 2; ++ch) out[ch] = Cuts(out[ch], ch);
     return out;
   }
 private:
@@ -212,7 +255,10 @@ private:
     return output;
   }
   double Delay(int line) const
-  { return std::clamp(mBase[line]+mMotion*(mLfoValue[0]*mModCos[line]+mLfoValue[1]*mModSin[line]), 2., 8.04*mRate+33.); }
+  {
+    const double motion=mStyle == static_cast<int>(Style::AuroraHall) ? std::min(mMotion,.01*mBase[line]) : mMotion;
+    return std::clamp(mBase[line]+motion*(mLfoValue[0]*mModCos[line]+mLfoValue[1]*mModSin[line]), 2., 8.04*mRate+33.);
+  }
   double Cuts(double input, int channel)
   {
     const double high = input-mFilterInput[channel]+mHighPass*mFilterHigh[channel];
@@ -224,9 +270,9 @@ private:
   std::array<Quad, 8> mAPOutput{}, mAPInput{};
   std::array<std::array<double, 32>, 2> mFinishDelay{};
   Stereo mDryPrevious{}, mLfoPrevious{}, mLfoValue{};
-  std::array<double, 4> mFilterInput{}, mFilterHigh{}, mFilterLow{};
+  std::array<double, 8> mFilterInput{}, mFilterHigh{}, mFilterLow{};
   double mRate=48000., mGlobalGain=0., mGain=0., mInjection=1., mAllpass=0., mFeedthrough=0., mCos=1., mSin=0.;
-  double mLowPass=0., mHighPass=0., mMotion=0., mLfoA=0., mLfoB=0.;
+  double mLowPass=0., mHighPass=0., mMotion=0., mLfoA=0., mLfoB=0., mDensity=0.;
   uint32_t mPhase=0, mPhaseStep=0;
   int mStyle=0, mFinishIndex=0;
 };

@@ -67,10 +67,10 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       set(uShimmerMix, 25.); set(uShimmerDecay, 5.); set(uShimmerTone, 6000.);
       set(uShimmerAmount, 25.); set(uShimmerMod, 30.); break;
     case SlotEffect::CosmicEcho:
-      set(uCosmicStyle, static_cast<int>(effect_modes::CosmicStyle::Virgo));
-      set(uCosmicTime, 280.); set(uCosmicWarp, 51.6); set(uCosmicFeedback, 30.9);
-      set(uCosmicDensity, 49.2); set(uCosmicTone, 7461.); set(uCosmicMotion, 29.5);
-      set(uCosmicMix, 18.); break;
+      set(uCosmicStyle, static_cast<int>(effect_modes::CosmicStyle::AuroraHall));
+      set(uCosmicTime, 225.); set(uCosmicWarp, 65.); set(uCosmicFeedback, 65.);
+      set(uCosmicDensity, 85.); set(uCosmicTone, 7500.); set(uCosmicMotion, 30.);
+      set(uCosmicMix, 20.); break;
     case SlotEffect::Chorus:
       mod(.8, 35., 0., 0., 40.); break;
     case SlotEffect::JunoChorus:

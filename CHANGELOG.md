@@ -6,6 +6,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Cosmic Echo adds Aurora Hall: clustered echoes at low Density, a diffused guitar hall at higher Density, and long washes with increased Feedback. Newly inserted or reset Cosmic Echo modules start with Aurora Hall guitar-hall settings. Existing styles retain their sound and saved identities; saved rigs keep their settings.
+
 - Focused module controls: gate attack/hold/hysteresis; compressor ratio and detector low cut; Guitar EQ mid frequency; EQ output, boost mid gain and Tube Boost high cut.
 - Juno wet width, Uni-Vibe spread, stereo modulation phase, selectable phaser stages and ring carriers, rotary horn/drum balance, octaver tracking filter and doubler humanization/tone.
 - Delay duck recovery, reverse feedback, reverb ducking, spring pre-delay, Freeze fades, Stutter Hold, Utility channel modes/alignment and Auto Swell curve/hold/mix.

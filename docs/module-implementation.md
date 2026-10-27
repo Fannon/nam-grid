@@ -136,12 +136,15 @@ stopped. The two components are shown separately, before Mix.
 | Centaurus | Four serial four-channel allpasses |
 | Great Annihilator | A delay stage and three matrix allpasses in global feedback |
 | Lyra | Four scattering delays, filters at the output |
+| Aurora Hall | Eight filtered feedback loops, each with a short allpass diffuser |
 
-Warp, Density, Feedback and modulation keep the source model's per-topology interactions. Time
+In the first six styles, Warp, Density, Feedback and modulation keep the source model's per-topology interactions. Time
 uses a quadratic dial; Time/Warp automation moves allpass-interpolated reads and can bend the
 sounding tail. Style changes fade and clear the old tail. The display is rendered by a private
 copy of the DSP whenever a setting changes: a measured impulse response, not an RT60 estimate.
 See the [Faust reference](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive).
+
+Aurora Hall is an original NAM Grid design: Density controls an orthogonal eight-way scattering network and the allpass coefficients inside the loops. Warp spreads clustered main delays; short diffusers retain irregular spacing. Loop filters damp successive repeats. All delays scale with sample rate and process every host sample. No Airwindows source or undersampling is used. The existing sixteen-line bank supplies eight main delays and eight diffusers. See [Aurora Hall settings](modules/cosmic-echo.md#aurora-hall-echoes-and-washes).
 
 ## Capture effects
 

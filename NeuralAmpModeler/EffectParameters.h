@@ -321,7 +321,7 @@ inline constexpr AlgorithmIdentity heads[]{{0, "single"},      {1, "dual"},     
                                            {3, "all"},         {4, "early-pair"},    {5, "late-pair"},
                                            {6, "stereo-dual"}, {7, "stereo-cascade"}};
 inline constexpr AlgorithmIdentity cosmic[]{
-  {0, "gemini"}, {1, "sagittarius"}, {2, "virgo"}, {3, "centaurus"}, {4, "great-annihilator"}, {5, "lyra"}};
+  {0, "gemini"}, {1, "sagittarius"}, {2, "virgo"}, {3, "centaurus"}, {4, "great-annihilator"}, {5, "lyra"}, {6, "orion"}};
 inline constexpr AlgorithmIdentity desk[]{
   {0, "dark"}, {1, "rock"}, {2, "lush"}, {3, "vibe"}, {4, "holo"}, {5, "punch"}, {6, "steel"}, {7, "tube"}};
 inline constexpr AlgorithmIdentity black[]{{0, "zero-crossing"}, {1, "hysteresis"}};

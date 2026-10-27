@@ -5,6 +5,10 @@ module. The normal CTest `aliasing` check uses insertion settings at 48 kHz. The
 extended audit covers insertion and driven settings at 44.1, 48, 88.2 and 96 kHz, three
 coherent input tones near 1.5, 6.5 and 10 kHz, and each registered algorithm
 selector. Secondary selectors vary independently, not as a Cartesian product.
+Driven profiles also exercise boosted Console EQ bands, the limiter's Input/Clip
+path and LoFi Tape's Drive. Neutral Console EQ and zero-Drive LoFi settings alone
+cannot establish the aliasing behavior of those nonlinear paths. New controls
+that introduce or drive nonlinear processing need an explicit stress case.
 
 Build it with `bash build.sh --test`, or build the `nam-aliasing-tests` target in
 an already configured build directory. For an extended audit from the repository
@@ -21,7 +25,11 @@ additional `NeuralAmpModeler/Release/` subdirectory. Use the corresponding
 `build/macos/release` or `build/linux/release` path without
 `.exe` on those platforms. `--module 41` restricts an audit to one persistent
 module ID. `--capture path/to/model.nam` replaces the bundled clean NAM capture;
-NAM measurements describe that capture, not all trained models. Cabinet IR uses
+NAM measurements describe that capture, not all trained models. Repeat
+`--control "Limiter Input" 12 --control "Limiter Clip" 0`, for example, with
+`--module 29` to isolate a particular control path. Overrides apply after the
+insertion/driven profile and appear in CSV variant names. Only controls used by
+the selected module are accepted; selectors use the registered variants above. Cabinet IR uses
 a short, nontrivial synthetic impulse response so an unloaded slot cannot pass
 as a linear processor. The program processes DSP directly and does not load the
 plugin or access settings or the user's library.

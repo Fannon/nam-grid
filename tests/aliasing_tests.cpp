@@ -73,7 +73,12 @@ void Stress(Controls& c, E effect)
   if (effect == E::Tape) u.tape[0] = 12.;
   if (effect == E::ConsoleColour) u.colour[0] = 18.;
   if (effect == E::OutboardChannel) u.strip[4] = 100.;
-  if (effect == E::Limiter) u.limiterClip = 100.;
+  // Exercise nonlinear paths that neutral settings would bypass. In particular,
+  // Console EQ is an exact dry return when flat, and the limiter's input can
+  // drive substantial peak limiting even when its optional Clip control is off.
+  if (effect == E::ConsoleEQ) { u.consoleEQ[0] = 6.; u.consoleEQ[1] = 3.; u.consoleEQ[2] = 6.; }
+  if (effect == E::Limiter) { u.extra.limiterInput = 12.; u.limiterClip = 100.; }
+  if (effect == E::LoFiTape) u.extra.lofiDrive = 18.;
   if (effect == E::Rotary) u.rotary[4] = 18.;
   if (effect == E::SpringReverb) u.spring[1] = 12.;
   if (effect == E::AnalogDelay || effect == E::TapeDelay || effect == E::MultiHeadDelay)
@@ -275,9 +280,11 @@ void StudyDistortion(const std::filesystem::path& report)
 int main(int argc, char** argv)
 try
 {
-  if (argc < 2) throw std::runtime_error("Usage: nam-aliasing-tests <source-root> [--full] [--report file.csv] [--module id] [--capture file.nam] [--reference-factor 2|4]");
+  if (argc < 2) throw std::runtime_error("Usage: nam-aliasing-tests <source-root> [--full] [--report file.csv] [--module id] [--capture file.nam] [--reference-factor 2|4] [--control name value]");
   bool study = false; bool full = false; int only = -1, referenceFactor = 1;
   std::filesystem::path report;
+  std::vector<std::pair<int, double>> overrides;
+  std::string overrideDescription;
   std::filesystem::path capture = std::filesystem::path(argv[1]) / "NeuralAmpModeler/resources/defaults/riffsmith-clean.nam";
   for (int i = 2; i < argc; ++i)
   {
@@ -288,10 +295,29 @@ try
     else if (option == "--module" && i + 1 < argc) only = std::stoi(argv[++i]);
     else if (option == "--reference-factor" && i + 1 < argc) referenceFactor = std::stoi(argv[++i]);
     else if (option == "--capture" && i + 1 < argc) capture = argv[++i];
+    else if (option == "--control" && i + 2 < argc)
+    {
+      const std::string name = argv[++i];
+      const double value = std::stod(argv[++i]);
+      int control = -1;
+      for (int p = 0; p < kUtilityControls; ++p) if (name == kEffectParameters[p].name) control = p;
+      Require(control >= 0, "Unknown effect control: " + name);
+      const auto& d = kEffectParameters[control];
+      Require(std::isfinite(value) && value >= d.minimum && value <= d.maximum, "Control value out of range: " + name);
+      Require(EffectChoices(control).empty() && !IsAlgorithmMode(control), "Use registered selector variants instead: " + name);
+      overrides.emplace_back(control, value);
+      overrideDescription += "; " + name + "=" + std::to_string(value);
+    }
     else throw std::runtime_error("Invalid spectral test argument: " + option);
   }
   Require(only == -1 || IsValidSlotEffect(static_cast<E>(only)), "Invalid module ID");
   Require(referenceFactor == 1 || referenceFactor == 2 || referenceFactor == 4, "Reference factor must be 1, 2 or 4");
+  if (!overrides.empty())
+  {
+    Require(only >= 0, "--control requires --module so measurements target the intended processor");
+    for (const auto& [control, value] : overrides)
+      Require(UsesUtility(static_cast<E>(only), control), "Control is not used by the selected module: " + std::string(kEffectParameters[control].name));
+  }
   nam::activations::Activation::enable_fast_tanh();
   TestAnalyzer();
   if (study) { StudyDistortion(report); return 0; }
@@ -311,6 +337,7 @@ try
     const auto type = Classify(effect);
     auto variants = Variants(effect);
     if (!full) variants.resize(1);
+    for (auto& variant : variants) variant.name += overrideDescription;
     double worst = -300.;
     for (const auto& variant : variants)
       for (int profile = 0; profile < (full ? 2 : 1); ++profile)
@@ -319,6 +346,7 @@ try
           {
             auto controls = variant.controls;
             if (profile) Stress(controls, effect);
+            for (const auto& [control, value] : overrides) grid_modulation::WriteControl(controls, 17 + control, value);
             const double amplitude = profile ? .8 : .2;
             // Odd bins are coprime with the power-of-two FFT length.
             const int bin = static_cast<int>(std::round(frequency * count / rate)) | 1;

@@ -4,44 +4,43 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-### Fixed
+## [0.3.0] - 2026-10-27
 
-- Incremental builds work with macOS's default Bash 3.2.
-- Windows numeric entry brings the plugin into keyboard focus, including floating host windows. Text editing consumes key presses and releases, including rejected characters, boundary navigation, Enter and Escape, so they cannot trigger DAW shortcuts.
-- Browser search retains typing focus after committing a query, clearing it or switching tabs.
+### New sounds and controls
 
-### Added
+- Cosmic Echo adds four modes: Aurora Hall moves from clustered echoes to a diffuse guitar hall and long washes; Photon Plate provides quick, dense plate ambience; Pulsar Echo creates four-stage stereo echo patterns; Binary Bloom couples short and long ambient spaces. New or reset modules start with Aurora Hall; saved rigs retain their modes and settings.
+- IR convolution supports reverb and sound-design responses up to 30 seconds with the new Long IR option, plus wet Input, Mix, Pre-delay and Low/High cut controls. Long IR shows the tail envelope. Existing rigs retain their cabinet length and sound.
+- More control over dynamics and tone: gate attack, hold and hysteresis; compressor ratio and detector low cut; Guitar EQ mid frequency; EQ output; Boost mid gain; Tube Boost high cut; and Auto Swell curve, hold and mix.
+- More ways to shape modulation: Juno wet width, Uni-Vibe spread, stereo modulation phase, selectable phaser stages and ring carriers, rotary horn/drum balance, octaver tracking filter, and doubler humanization and tone.
+- More control over space and timing: delay duck recovery, reverse feedback, reverb ducking, spring pre-delay, Freeze fades, Stutter Hold, and Utility channel modes and alignment. New controls load at their legacy defaults in existing rigs.
+- LoFi Tape Machine adds a Drive control using the Airwindows Spiral shaper with 4x oversampling. Drive at zero retains its previous sound.
 
-- The FX performance report can exercise Long IR tails with `--ir-length long`, alongside the default cabinet-length measurements.
-- Cosmic Echo adds Photon Plate for quick, dense plate ambience, Pulsar Echo for four-stage stereo echo patterns, and Binary Bloom for coupled short/long ambient spaces. Aurora Hall remains the insertion/reset default.
+### Sound quality
 
-- Cosmic Echo adds Aurora Hall: clustered echoes at low Density, a diffused guitar hall at higher Density, and long washes with increased Feedback. Newly inserted or reset Cosmic Echo modules start with Aurora Hall guitar-hall settings. Existing styles retain their sound and saved identities; saved rigs keep their settings.
+- Distortion, Tube Boost, Airwindows Tape and Console Colour reduce aliasing with minimum-phase oversampling; Distortion also adds antiderivative antialiasing. Distortion and Tube Boost run at 4x at 44.1/48 kHz and 2x at 88.2/96 kHz; Tape and Console Colour use 2x below 88.2 kHz. All retain zero added reported latency.
+- These improvements can change existing rigs: attacks, high-frequency phase and partial-Mix blends may differ. The oversampled wet paths stay flat to about 18 kHz, rolling off by about 2.3 dB at 20 kHz at 48 kHz. Tape's head bump moves up at 2x: Bump at 50% adds roughly 0.5–0.8 dB at 20–160 Hz at typical levels, with larger sub-bass changes at low input levels.
+- Tube Boost, Tape and Console Colour align the partial-Mix dry path with the oversampling filters to avoid deep cancellation. Crossing Mix zero uses a 20 ms fade; settled Mix 0% passes the exact dry sample. Tube Boost retains its high cut and DC blocker.
+- Pedal Drive's Rodent voice reduces high-frequency foldover with antialiased input saturation and an integrated slew/clip stage at its existing 4x rate. Other pedal voices retain their processing.
 
-- Focused module controls: gate attack/hold/hysteresis; compressor ratio and detector low cut; Guitar EQ mid frequency; EQ output, boost mid gain and Tube Boost high cut.
-- Juno wet width, Uni-Vibe spread, stereo modulation phase, selectable phaser stages and ring carriers, rotary horn/drum balance, octaver tracking filter and doubler humanization/tone.
-- Delay duck recovery, reverse feedback, reverb ducking, spring pre-delay, Freeze fades, Stutter Hold, Utility channel modes/alignment and Auto Swell curve/hold/mix.
-- LoFi Tape Machine Drive reuses the Airwindows Spiral shaper with 4x oversampling; zero Drive retains the existing sound. Existing rigs load all new controls at their legacy defaults.
-- IR convolution adds wet Input, Mix, Pre-delay and Low/High cut controls, plus a Long IR option for reverb and sound-design responses up to 30 seconds. Existing rigs keep their original cabinet length and sound. Long IR displays the tail envelope.
-- Compressor and limiter graphs mark gain reduction beyond 16 dB with a red edge or tip; their numeric readouts continue to show the full reduction.
-- Cosmic Echo shows its delay-line network sketch below the measured response, with timing markers, density connections and modulation halos. Hover for the 4- or 16-line count and explanation.
-- Hover over a truncated module description to read its full text.
-- A single-command `bash build.sh` build for Git Bash on Windows, WSL2, macOS and Linux, with automatic first-run dependency setup, incremental builds under `build/<platform>/release/`, and `--test` to run the standard test suites.
-- Windows build guidance includes WinGet installation commands and portable MSVC/Ninja support; the build help documents manual cross-platform GitHub Actions builds and macOS signing limitations.
+### Performance and stability
 
-### Changed
+- Long IR spreads late-tail processing across audio callbacks, reducing periodic CPU spikes while preserving the response, its onset and zero added latency. At small buffer sizes this can trade slightly higher average CPU use for more predictable processing.
+- Lower CPU use with the editor closed by suspending meter and spectrum collection. Audio, effect histories, tuner detection and noise learning continue normally. The open editor also reuses its spectrum window and avoids unnecessary spectrum analysis for Utility's stereo scope.
+- Lower processing overhead across EQ, Boost, Utility, gates, compressors and Frequency Shifter by reusing settled control calculations and simplifying filter and delay-buffer loops. Distortion and Pedal Drive gain vectorized oversampling on x64; Tape avoids duplicate mono processing. These optimizations preserve their processing quality and latency.
+- Modulated rigs avoid unnecessary small-block NAM processing before the first affected input stage. Macro-only rigs batch more of each buffer while retaining their first short control update. Dynamic modulation stays near 0.33–0.36 ms across sample rates: 16 samples at 44.1/48 kHz, 32 at 88.2/96 kHz. Smoothing times are preserved, though fast modulation and control transitions can differ slightly, especially when adjusting Tape in macro-only rigs.
 
-- Long IR spreads late-tail convolution work across audio callbacks, reducing periodic CPU spikes while preserving the response, its onset and zero added latency. Larger control-smoothing banks skip arithmetic once their floating-point values settle; EQ uses fixed biquad loops, Boost reuses unchanged coefficients, and Utility/lane timing and IR pre-delay use bounded ring indexing. Processing quality and parameter/state identities are unchanged.
-- Reduce CPU with the editor closed by suspending meter and spectrum collection while keeping audio processing, tuner detection and effect histories running. Frequency Shifter, Digital Black Gate and Outboard compressors reuse exact control calculations; compressor reduction meters convert to dB once per block. The editor reuses its spectrum window and skips spectrum analysis for Utility's stereo scope. These changes preserve audio, parameter identities and reported latency.
-- Tube Boost reduces aliasing with local minimum-phase oversampling (4x at 44.1/48 kHz, 2x at 88.2/96 kHz). Airwindows Tape and Console Colour use 2x below 88.2 kHz and native processing above it. These causal wet-path filters add no reported latency but can change attack and high-frequency phase; the oversampled wet paths are flat to about 18 kHz and roll off slightly above (about -2.3 dB at 20 kHz at 48 kHz). Tube Boost, Tape and Console Colour align the partial-Mix dry reference with the resampler phase to avoid deep cancellation. Crossing Mix zero uses a 20 ms bypass fade instead of a hard phase switch; settled Mix 0% passes the exact dry sample. Tube Boost retains its host-rate high cut and DC blocker. Tape's head bump moves up when the core runs at 2x: with Bump at 50% expect about +0.5 to +0.8 dB from 20-160 Hz at typical levels and larger sub-bass changes at low levels.
-- Pedal Drive's Rodent voice antialiases its input saturation and continuously integrates its slew/clip stage, reducing high-frequency foldover without raising its existing 4x rate. Other pedal voices retain their processing. Tape's mono path avoids computing a discarded duplicate channel, offsetting part of the added antialiasing cost.
-- Dynamic modulation batches independent input stages before the first affected input destination, reducing unnecessary small-block NAM inference. The remaining stages retain control-rate updates, including envelope feedback.
-- Modulation control intervals now scale with host sample rate to stay near 0.33-0.36 ms (16 samples at 44.1/48 kHz, 32 at 88.2/96 kHz). Higher rates can have slightly different fast modulation and gain transitions compared with the previous fixed 16-sample interval; existing destination smoothing times are preserved.
-- Macro-only modulation retains the first short control step and batches the rest of the audio buffer instead of subdividing every module into 16-sample calls, reducing callback overhead without adding latency. Dynamic sources, including Via, retain their 16-sample updates; block-dependent transitions can differ slightly for macro-only rigs, particularly when adjusting Airwindows Tape controls.
-- Reduce Distortion and Pedal Drive CPU on x64 with SIMD oversampling filters, and reuse exact antiderivative/bias evaluations in Distortion. Antialiasing quality and zero added latency are preserved.
-- Distortion reduces aliasing with minimum-phase oversampling and antiderivative antialiasing. It runs at 4x at 44.1/48 kHz, 2x at 88.2/96 kHz and 1x from 176.4 kHz, with zero added reported latency. Existing Distortion rigs can sound cleaner, with changes to attack and partial Mix blends.
-- Cosmic Echo's response graph and delay-line sketch have separate, shorter hover explanations, including the current line count.
-- Module graphs use more vertical space, with explanations available on hover and captions focused on live measurements and useful derived information instead of repeating knob values. Editable knob values show a text cursor on hover.
-- Compressor and limiter gain-reduction displays use a 16 dB scale instead of 24 dB, with 2 and 4 dB guides in Outboard Channel and Butter Comp histories so gentle compression is easier to see. Gate attenuation displays retain their wider ranges.
+### Editing and displays
+
+- Larger module graphs, clearer live captions and hover explanations make settings easier to read. Truncated module descriptions reveal their full text on hover, and editable knob values show a text cursor.
+- Cosmic Echo shows its measured response and a delay-network sketch with timing, density and motion indicators. Each view has its own explanation, including the current delay-line count.
+- Compressor and limiter displays use a more readable 16 dB range, with overflow indicators and full numeric readings. Outboard Channel and Butter Comp add 2 and 4 dB guides for gentle compression; gate attenuation retains its wider range.
+- Windows numeric entry reliably focuses the plugin, including floating host windows. Text editing consumes key presses and releases so they do not trigger DAW shortcuts.
+- Browser search retains typing focus after committing or clearing a query and switching tabs.
+
+### For contributors
+
+- `bash build.sh` provides first-run dependency setup, incremental builds and `--test` across Windows Git Bash, WSL2, macOS and Linux. Incremental builds also work with macOS's default Bash 3.2.
+- Build guidance covers Windows WinGet and portable MSVC/Ninja setup, manual cross-platform GitHub Actions builds and macOS signing limits. Performance reports can include Long IR tails with `--ir-length long`.
 
 ## [0.2.1] - 2026-10-25
 

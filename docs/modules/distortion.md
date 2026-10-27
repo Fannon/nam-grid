@@ -46,6 +46,9 @@ In the header:
 Voiced overdrive, distortion, fuzz and colored boost, with **Style** in the header:
 Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp, Treble Drive,
 Blues OD, Transparent OD and Vintage Fuzz.
+Rodent antialiases its input saturation and integrates the slew/clip stage over
+sample intervals; it keeps the pedal's existing 4x rate. This reduces high-frequency
+foldover and can slightly change attack and partial Mix. Other voices retain their DSP.
 Each voice has its own filtering and gain structure. These are original interpretations
 inspired by pedal families, rather than calibrated replicas.
 
@@ -99,7 +102,7 @@ A clean level boost with opposing shelves around 800 Hz (Tilt) and a low cut. It
 
 ![Tube Boost editor](../screenshots/modules/tube-boost.png)
 
-Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut for shaping the drive. Strong settings can introduce aliasing.
+Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut for shaping the drive. Minimum-phase oversampling reduces aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz and native processing from 176.4 kHz. Strong settings can still alias. The wet filters add no reported latency but change high-frequency phase; partial Mix blends and existing beta rigs can sound slightly different.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -121,7 +124,7 @@ Tube-inspired soft saturation with adjustable asymmetry, plus Tilt and Low cut f
 
 ![Airwindows Tape editor](../screenshots/modules/airwindows-tape.png)
 
-A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter (that lives in Tape Echo and LoFi Tape Machine).
+A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter (that lives in Tape Echo and LoFi Tape Machine). The core runs at 2x below 88.2 kHz and natively at higher host rates. Minimum-phase filters reduce aliasing without reported latency; wet-path phase, transient response and partial Mix can change. The wrapper preserves unshifted dry audio.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -140,7 +143,7 @@ A port of Airwindows Tape: tape saturation and head bump, with no wow or flutter
 
 ![Console Colour editor](../screenshots/modules/console-colour.png)
 
-Eight Airwindows console voices, from subtle density to stronger colour. Each desk has its own level match, and changes fade smoothly.
+Eight Airwindows console voices, from subtle density to stronger colour. Each desk has its own level match, and changes fade smoothly. Local 2x minimum-phase oversampling below 88.2 kHz reduces aliasing; higher host rates process natively. It adds no reported latency, but wet-path phase and transients can differ from older beta versions. Mix 0% remains exact dry.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

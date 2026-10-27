@@ -1,4 +1,5 @@
 #pragma once
+#include "Antiderivative.h"
 #include "MinimumPhaseOversampling.h"
 #include <algorithm>
 #include <array>
@@ -104,8 +105,10 @@ struct Voice
 {
   std::array<double, Coefficients::Count> low{};
   double slew = 0., envelope = 0.;
+  grid_adaa::Average rodentInput;
+  grid_adaa::SlewClip rodentSlew;
   double Tick(double x, int style, double gain, double rootGain, double amount, const Character& character,
-              const Coefficients& c)
+              const Coefficients& c, bool antialiasRodent = true)
   {
     using P = Coefficients;
     const auto lp = [&](double input, int pole) {
@@ -119,7 +122,9 @@ struct Voice
       {
         const double high = x - lp(x, P::Bass);
         const double voiced = high + character.rodentBite * (high - lp(high, P::UpperMid));
-        const double driven = 3. * std::tanh(voiced * gain * 1.6 / 3.);
+        const double input = voiced * gain * 1.6 / 3.;
+        const double driven = 3. * (antialiasRodent ? rodentInput.Tanh(input) : std::tanh(input));
+        if (antialiasRodent) return lp(rodentSlew.Tick(driven, c.slew * character.slewMultiplier, .8), P::RodentTop);
         slew = Flush(
           slew + std::clamp(driven - slew, -c.slew * character.slewMultiplier, c.slew * character.slewMultiplier));
         return lp(std::clamp(slew, -.8, .8), P::RodentTop);

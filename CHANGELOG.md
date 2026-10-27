@@ -19,6 +19,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- Tube Boost reduces aliasing with local minimum-phase oversampling (4x at 44.1/48 kHz, 2x at 88.2/96 kHz). Airwindows Tape and Console Colour use 2x below 88.2 kHz and native processing above it. These causal wet-path filters add no reported latency but can change attack, high-frequency phase and partial Mix blends.
+- Pedal Drive's Rodent voice antialiases its input saturation and continuously integrates its slew/clip stage, reducing high-frequency foldover without raising its existing 4x rate. Other pedal voices retain their processing. Tape's mono path avoids computing a discarded duplicate channel, offsetting part of the added antialiasing cost.
 - Dynamic modulation batches independent input stages before the first affected input destination, reducing unnecessary small-block NAM inference. The remaining stages retain control-rate updates, including envelope feedback.
 - Modulation control intervals now scale with host sample rate to stay near 0.33-0.36 ms (16 samples at 44.1/48 kHz, 32 at 88.2/96 kHz). Higher rates can have slightly different fast modulation and gain transitions compared with the previous fixed 16-sample interval; existing destination smoothing times are preserved.
 - Macro-only modulation retains the first short control step and batches the rest of the audio buffer instead of subdividing every module into 16-sample calls, reducing callback overhead without adding latency. Dynamic sources, including Via, retain their 16-sample updates; block-dependent transitions can differ slightly for macro-only rigs, particularly when adjusting Airwindows Tape controls.

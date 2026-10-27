@@ -147,3 +147,30 @@ six common rates through 192 kHz, alongside the generalized pedal checks.
 
 References: [DAFx: Antialiasing Piecewise Polynomial Waveshapers](https://dafx.de/paper-archive/2023/DAFx23_paper_61.pdf)
 and [JUCE oversampling documentation](https://docs.juce.com/master/classjuce_1_1dsp_1_1Oversampling.html).
+
+## Additional drive treatments
+
+Tube Boost uses local 4x/2x/1x minimum-phase oversampling at the same host-rate
+bands as Distortion, with its pre-EQ and post/DC filtering at host rate. Tape and
+Console Colour use a lower-cost 2x treatment below 88.2 kHz and native cores at
+higher host rates. Their 32-base-tap FIR designs do not change the established
+64-base-tap Distortion/Pedal filters. Stereo core resampling keeps corresponding
+high-rate channel samples together. Tape uses the original left-channel math
+without evaluating a discarded duplicate right channel, and batches its core in
+bounded control spans; neither adds an audio buffer delay.
+
+Rodent keeps the existing 4x resampler. Its input saturation uses first-order
+ADAA and its slew limiter tracks a line between target samples, integrating the
+following clip across any catch-up boundary. This addresses earlier nonlinear
+stages rather than merely filtering after the final clip. Other pedal voices
+retain their DSP. Test interval averages against numerical integration, including
+near-zero intervals and curve-cache initialization.
+
+Run `. --drive-study --report tmp/module-aliasing-followup/reports/drive-study.csv`
+for 1x/2x/4x alternatives and local antialiasing. The Rodent rows retain 4x and
+compare local treatment only. `. --voicing-study --report ...` compares quiet
+fundamental gains against native/legacy processing from 100 Hz through 18 kHz.
+These controls are offline test hooks, not plugin parameters. The normal aliasing
+CTest also checks quality improvement against native/legacy references. All wet
+filters and interval averages can change phase, transients and partial Mix; zero
+reported latency is not a claim of zero group delay or identical existing sound.

@@ -1,4 +1,6 @@
 #pragma once
+#include "dsp/Antiderivative.h"
+#include "dsp/MinimumPhaseOversampling.h"
 #include "SlotEQ.h"
 #include "EffectParameters.h"
 #include "SlotTimeEffects.h"
@@ -205,9 +207,22 @@ public:
     const double offset=std::tanh(bias);
     return (std::tanh(input*drive+bias)-offset)/(1.-offset*offset);
   }
-  void Reset(double rate)
+  static std::complex<double> AntialiasResponse(double hz, double rate)
+  {
+    const int factor = FactorForRate(rate);
+    const auto filter = factor == 4 ? grid_oversampling::FIR<4, 32>::Response(hz, factor * rate)
+                      : factor == 2 ? grid_oversampling::FIR<2, 32>::Response(hz, factor * rate)
+                                    : std::complex<double>(1.);
+    return filter * filter;
+  }
+  static int FactorForRate(double rate) { return rate < 88200. ? 4 : rate < 176400. ? 2 : 1; }
+  void Reset(double rate, int factor = 0, bool adaa = false)
   {
     mRate = std::max(1., rate);
+    mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
+    mADAA = adaa; mShaper.Reset(); mZero.Reset();
+    if (mFactor == 2) mOversample2.Reset();
+    if (mFactor == 4) mOversample4.Reset();
     mTone.Reset(rate);
     mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
     mDCCoefficient = std::exp(-2. * 3.14159265358979323846 * 5. / std::max(1., rate));
@@ -233,7 +248,14 @@ public:
       mBias = bias + mSmooth * (mBias - bias);
       mMix = mix + mSmooth * (mMix - mix);
       mOutput = output + mSmooth * (mOutput - output);
-      double shaped = Transfer(samples[i],mDrive,mBias);
+      const double offset = mBiasOffset(mBias, [](double v) { return std::tanh(v); });
+      const auto shape = [&](double x) {
+        const double wet = mADAA ? mShaper.Tanh(x * mDrive + mBias) : std::tanh(x * mDrive + mBias);
+        const double zero = mADAA ? mZero.Tanh(mBias) : offset;
+        return (wet - zero) / (1. - offset * offset);
+      };
+      double shaped = mFactor == 2 ? mOversample2.Tick(samples[i], shape)
+                    : mFactor == 4 ? mOversample4.Tick(samples[i], shape) : shape(samples[i]);
       const double cutoff = mPostCut.Tick()[0];
       const double pole = mPostPole(-6.283185307179586 * std::min(cutoff, .45 * mRate) / mRate, [](double x) { return std::exp(x); });
       mPostLow = shaped + pole * (mPostLow - shaped);
@@ -246,6 +268,12 @@ public:
   }
 
 private:
+  grid_adaa::Average mShaper, mZero;
+  grid_oversampling::FIR<2, 32> mOversample2;
+  grid_oversampling::FIR<4, 32> mOversample4;
+  grid_fx::Memo mBiasOffset;
+  int mFactor = 4;
+  bool mADAA = false;
   grid_fx::SmoothControls<1> mPostCut;
   grid_fx::Memo mPostPole;
   double mRate = 48000., mPostLow = 0.;

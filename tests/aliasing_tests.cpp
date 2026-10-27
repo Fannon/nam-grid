@@ -103,7 +103,7 @@ std::vector<Variant> Variants(E effect)
 }
 struct Rendered { std::array<std::vector<double>, 2> previous, audio; int latency; double seconds; };
 Rendered Render(E effect, const Controls& c, double rate, int bin, double amplitude,
-                const std::filesystem::path& capture, bool tiny = false, int resolution = 1)
+                const std::filesystem::path& capture, bool tiny = false, int resolution = 1, int candidateFactor = 0, bool adaa = true)
 {
   const int analysisCount = count * resolution;
   auto p = std::make_unique<NAMStage::Prepared>();
@@ -116,9 +116,21 @@ Rendered Render(E effect, const Controls& c, double rate, int bin, double amplit
     p->ir = std::make_unique<AdaptiveIR>(data, rate, block, static_cast<AdaptiveIR::Mode>(c.utility.irLength));
   }
   // Publish resets the actual stereo slot processors, including resampling.
+  auto* prepared = p.get();
   NAMStage stage;
   stage.Publish(std::move(p));
   stage.ResetStopped(rate, block);
+  if (candidateFactor > 0)
+  {
+    const auto configure = [&](NAMStage::Prepared* state) {
+      if (effect == E::TubeBoost) state->tube.Reset(rate, candidateFactor, adaa);
+      if (effect == E::Tape) state->tape.Reset(rate, candidateFactor);
+      if (effect == E::PedalDrive) state->pedal.Reset(rate, adaa);
+      if (effect == E::ConsoleColour) state->outboard.Reset(rate, effect, candidateFactor);
+    };
+    configure(prepared);
+    if (prepared->right) configure(prepared->right.get());
+  }
   Rendered result{{std::vector<double>(analysisCount), std::vector<double>(analysisCount)},
                   {std::vector<double>(analysisCount), std::vector<double>(analysisCount)}, stage.Latency(), 0.};
   // Half a second of warm-up plus a full preceding analysis window. Slow tails
@@ -276,12 +288,101 @@ void StudyDistortion(const std::filesystem::path& report)
   std::cout << "Distortion oversampling/ADAA study complete\n";
 }
 
+void TestFollowupQuality(const std::filesystem::path& capture)
+{
+  for (auto effect : {E::TubeBoost, E::Tape, E::ConsoleColour, E::PedalDrive})
+    for (double rate : {44100., 48000., 88200., 96000.})
+      for (double frequency : {6500., 10000.})
+      {
+        auto c = Defaults(effect); Stress(c, effect);
+        if (effect == E::PedalDrive) c.utility.pedal[0] = 1.;
+        const int bin = static_cast<int>(std::round(frequency * count / rate)) | 1;
+        const auto native = Render(effect, c, rate, bin, .8, capture, false, 1, 1, false);
+        const auto selected = Render(effect, c, rate, bin, .8, capture);
+        Require(selected.latency == 0, "Drive treatment added reported latency");
+        for (int channel = 0; channel < 2; ++channel)
+        {
+          const auto before = spectral_test::Measure(native.audio[channel], bin);
+          const auto after = spectral_test::Measure(selected.audio[channel], bin);
+          const double reduction = spectral_test::DB(before.residualRMS) - spectral_test::DB(after.residualRMS);
+          const double minimum = effect == E::TubeBoost ? (rate < 88200. ? 18. : 8.)
+                               : effect == E::PedalDrive ? 5. : rate < 88200. ? 8. : -.1;
+          Require(reduction > minimum, "Drive quality regressed: " + std::string(SlotEffectName(effect))
+                  + " " + std::to_string(rate) + ": " + std::to_string(reduction) + " dB");
+        }
+      }
+}
+
+void StudyVoicing(const std::filesystem::path& report, const std::filesystem::path& capture)
+{
+  std::ofstream csv(report); Require(csv.good(), "Cannot open voicing study");
+  csv << "module,variant,rate,frequency,channel,gain_change_db\n";
+  for (auto effect : {E::TubeBoost, E::Tape, E::ConsoleColour, E::PedalDrive})
+  {
+    auto variants = Variants(effect);
+    if (effect == E::PedalDrive) { variants.resize(1); variants[0].controls.utility.pedal[0] = 1.; }
+    for (const auto& v : variants)
+      for (double rate : {48000., 96000.})
+        for (double f : {100., 250., 1000., 5000., 10000., 18000.})
+        {
+          const int bin = static_cast<int>(std::round(f * count / rate)) | 1;
+          const auto a = Render(effect, v.controls, rate, bin, .01, capture, false, 1, 1, false);
+          const auto b = Render(effect, v.controls, rate, bin, .01, capture);
+          for (int channel = 0; channel < 2; ++channel)
+          {
+            const auto x = spectral_test::Measure(a.audio[channel], bin), y = spectral_test::Measure(b.audio[channel], bin);
+            csv << std::quoted(SlotEffectName(effect)) << ',' << std::quoted(v.name) << ',' << rate << ',' << bin * rate / count
+                << ',' << channel << ',' << spectral_test::DB(y.fundamental / std::max(1.e-15, x.fundamental)) << '\n';
+          }
+        }
+  }
+}
+
+void StudyDrives(const std::filesystem::path& report, const std::filesystem::path& capture)
+{
+  std::ofstream csv(report); Require(csv.good(), "Cannot open candidate study");
+  csv << "module,variant,profile,rate,frequency,factor,adaa,channel,residual_dbfs,folded_dbfs,fundamental,cpu_percent\n";
+  csv << std::setprecision(12);
+  for (auto effect : {E::TubeBoost, E::Tape, E::ConsoleColour, E::PedalDrive})
+  {
+    auto variants = Variants(effect);
+    if (effect == E::PedalDrive)
+    {
+      variants.resize(1); variants[0].controls.utility.pedal[0] = 1.; variants[0].name = "Rodent";
+    }
+    for (const auto& variant : variants)
+      for (double rate : {48000., 96000.})
+        for (double frequency : {1500., 6500., 10000.})
+          for (int profile = 0; profile < 2; ++profile)
+            for (int factor : {1, 2, 4})
+              for (bool adaa : {false, true})
+              {
+                if (effect != E::TubeBoost && effect != E::PedalDrive && !adaa) continue;
+                if (effect == E::PedalDrive && factor != 1) continue;
+                auto c = variant.controls; if (profile) Stress(c, effect);
+                const int bin = static_cast<int>(std::round(frequency * count / rate)) | 1;
+                const auto audio = Render(effect, c, rate, bin, profile ? .8 : .2, capture, false, 1, factor, adaa);
+                for (int channel = 0; channel < 2; ++channel)
+                {
+                  const auto m = spectral_test::Measure(audio.audio[channel], bin);
+                  csv << std::quoted(SlotEffectName(effect)) << ',' << std::quoted(variant.name) << ',' << profile << ','
+                      << rate << ',' << bin * rate / count << ',' << (effect == E::PedalDrive ? 4 : factor) << ','
+                      << ((effect == E::TubeBoost || effect == E::PedalDrive) && adaa) << ',' << channel << ','
+                      << spectral_test::DB(m.residualRMS) << ',' << spectral_test::DB(m.foldedRMS) << ','
+                      << m.fundamental << ',' << 100. * audio.seconds << '\n';
+                }
+              }
+    std::cout << "Candidate study: " << SlotEffectName(effect) << " complete\n" << std::flush;
+  }
+  csv.flush(); Require(csv.good(), "Candidate study write failed");
+}
+
 } // namespace
 int main(int argc, char** argv)
 try
 {
   if (argc < 2) throw std::runtime_error("Usage: nam-aliasing-tests <source-root> [--full] [--report file.csv] [--module id] [--capture file.nam] [--reference-factor 2|4] [--control name value]");
-  bool study = false; bool full = false; int only = -1, referenceFactor = 1;
+  bool study = false, driveStudy = false, voicing = false; bool full = false; int only = -1, referenceFactor = 1;
   std::filesystem::path report;
   std::vector<std::pair<int, double>> overrides;
   std::string overrideDescription;
@@ -289,7 +390,9 @@ try
   for (int i = 2; i < argc; ++i)
   {
     const std::string option = argv[i];
-    if (option == "--distortion-study") study = true;
+    if (option == "--voicing-study") voicing = true;
+    else if (option == "--drive-study") driveStudy = true;
+    else if (option == "--distortion-study") study = true;
     else if (option == "--full") full = true;
     else if (option == "--report" && i + 1 < argc) report = argv[++i];
     else if (option == "--module" && i + 1 < argc) only = std::stoi(argv[++i]);
@@ -320,8 +423,11 @@ try
   }
   nam::activations::Activation::enable_fast_tanh();
   TestAnalyzer();
+  if (voicing) { StudyVoicing(report, capture); return 0; }
+  if (driveStudy) { StudyDrives(report, capture); return 0; }
   if (study) { StudyDistortion(report); return 0; }
   TestDistortionQuality();
+  TestFollowupQuality(capture);
   std::ofstream csv;
   if (!report.empty())
   {

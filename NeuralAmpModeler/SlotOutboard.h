@@ -1,5 +1,6 @@
 #pragma once
 #include "SlotTimeEffects.h"
+#include "dsp/MinimumPhaseOversampling.h"
 #include "dsp/airwindows/outboard/CStrip2.h"
 #include "dsp/airwindows/outboard/ButterComp2.h"
 #include "dsp/airwindows/outboard/BussColors4.h"
@@ -15,10 +16,17 @@ inline bool IsOutboardCompressor(SlotEffect effect)
 class SlotOutboard
 {
 public:
-  void Reset(double rate, SlotEffect effect)
+  static int ColourFactorForRate(double rate) { return rate < 88200. ? 2 : 1; }
+  void Reset(double rate, SlotEffect effect, int factor = 0)
   {
     mRate = std::max(1., rate);
     mEffect = effect;
+    mColourFactor = factor == 1 || factor == 2 || factor == 4 ? factor : ColourFactorForRate(rate);
+    if (effect == SlotEffect::ConsoleColour)
+    {
+      if (mColourFactor == 2) for (auto& filter : mColour2) filter.Reset();
+      if (mColourFactor == 4) for (auto& filter : mColour4) filter.Reset();
+    }
     mControls.Reset(mRate);
     mShort.Reset(mRate); mInputControl.Reset(mRate);
     mStrip.reset();
@@ -37,7 +45,7 @@ public:
     if (effect == SlotEffect::ConsoleColour)
     {
       mColour = std::make_unique<airwindows_outboard::BussColors4::Core>();
-      mColour->Reset(mRate);
+      mColour->Reset(mRate * mColourFactor);
     }
     mCounter = 0;
     mDesk = -1;
@@ -45,6 +53,13 @@ public:
     mReduction = 0.;
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
+  {
+    if (mColour && mColourFactor == 2) ProcessWithColour<2>(left, right, frames, c);
+    else if (mColour && mColourFactor == 4) ProcessWithColour<4>(left, right, frames, c);
+    else ProcessWithColour<1>(left, right, frames, c);
+  }
+  template <int ColourFactor>
+  void ProcessWithColour(double* left, double* right, int frames, const UtilityControls& c)
   {
     mInputControl.Target({c.extra.stripInput}, uStripInput);
     if (mStrip)
@@ -68,7 +83,7 @@ public:
         mVoice = desk == mDesk ? std::min(1., mVoice + step) : std::max(0., mVoice - step);
         if (mVoice == 0. && mDesk != desk)
         {
-          mColour->Reset(mRate);
+          mColour->Reset(mRate * mColourFactor);
           mDesk = desk;
           mCounter = 0;
         }
@@ -123,7 +138,9 @@ public:
         const double input = mInput(s[0] / 20., [](double x) { return std::pow(10., x); });
         wetL *= input;
         wetR *= input;
-        mColour->Tick(wetL, wetR);
+        if constexpr (ColourFactor == 2) ProcessColour(mColour2, wetL, wetR);
+        else if constexpr (ColourFactor == 4) ProcessColour(mColour4, wetL, wetR);
+        else mColour->Tick(wetL, wetR);
         // Fixed 48 kHz plucked-tone RMS calibration; this preserves each desk's
         // spectral shape and is deliberately not program-dependent auto gain.
         constexpr std::array<double, 8> deskMatchDB{.8841, .6937, -1.3250, 1.0910, .5984, .7611, 2.7876, 1.1550};
@@ -144,6 +161,16 @@ public:
   double Reduction() const { return mReduction; }
 
 private:
+  template <int Factor, int Taps>
+  void ProcessColour(std::array<grid_oversampling::FIR<Factor, Taps>, 2>& filters, double& l, double& r)
+  {
+    auto upL = filters[0].Upsample(l), upR = filters[1].Upsample(r);
+    for (int phase = 0; phase < Factor; ++phase) mColour->Tick(upL[phase], upR[phase]);
+    l = filters[0].Downsample(upL); r = filters[1].Downsample(upR);
+  }
+  std::array<grid_oversampling::FIR<2, 32>, 2> mColour2;
+  std::array<grid_oversampling::FIR<4, 32>, 2> mColour4;
+  int mColourFactor = 2;
   void Monitor(double l, double r, double mix)
   {
     const double gain = 1. + mix * (std::min({1., l, r}) - 1.);

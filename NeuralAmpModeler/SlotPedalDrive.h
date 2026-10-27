@@ -11,9 +11,10 @@ public:
   // The minimum-phase filters need no lookahead, so the pedal adds no latency and
   // needs no dry/Low keep delay lines to stay aligned with the rest of the grid.
   static constexpr int latency = grid_pedal::Oversampler4x::latency;
-  void Reset(double rate)
+  void Reset(double rate, bool antialiasRodent = true)
   {
     mRate = std::max(1., rate);
+    mAntialiasRodent = antialiasRodent;
     mControls.Reset(mRate);
     mOversampler.Reset();
     mCoefficients.Reset(4. * mRate);
@@ -81,11 +82,11 @@ public:
         x += mBody * mBodyState;
         double wet = 0.;
         if (settled)
-          wet = mVoices[style].Tick(x, style, mDrive, mRootDrive, c[1] / 36., mCharacter, mCoefficients);
+          wet = mVoices[style].Tick(x, style, mDrive, mRootDrive, c[1] / 36., mCharacter, mCoefficients, mAntialiasRodent);
         else
           for (int j = 0; j < effect_modes::pedalCount; ++j)
             if (mWeights[j] > 0.)
-              wet += mWeights[j] * mVoices[j].Tick(x, j, mDrive, mRootDrive, c[1] / 36., mCharacter, mCoefficients);
+              wet += mWeights[j] * mVoices[j].Tick(x, j, mDrive, mRootDrive, c[1] / 36., mCharacter, mCoefficients, mAntialiasRodent);
         mDC = grid_pedal::Flush(wet - mPrevious + mCoefficients.dc * mDC);
         mPrevious = wet;
         mToneState = grid_pedal::Flush(mDC + mTonePole * (mToneState - mDC));
@@ -106,5 +107,5 @@ private:
   double mRate = 48000., mLowState = 0., mBodyState = 0., mPrevious = 0., mDC = 0., mToneState = 0.;
   double mDrive = 1., mRootDrive = 1., mTonePole = 0., mSplitPole = 0., mBody = 0., mOutput = 1.;
   int mCounter = 0;
-  bool mFirst = true;
+  bool mFirst = true, mAntialiasRodent = true;
 };

@@ -54,6 +54,11 @@ Its native trims stay at centre while the wrapper Input and Output controls each
 ±18 real dB. Both affect only the wet path, so Mix 0 is bit-transparent at any
 trim. The eight upstream voices and built-in per-voice gains are retained, with
 additional fixed compensation for default-level comparison (see calibration below).
+Below 88.2 kHz, the wrapper runs the unchanged core at 2x through minimum-phase
+interpolation/decimation; at higher host rates it runs natively. This reduces aliasing
+without reported latency, while changing wet phase and potentially transient voicing.
+The original desk-match trims are retained. The resampler processes corresponding
+stereo phases together, so shared core counters advance once per high-rate frame.
 Desk changes fade to dry over 10 ms, reset the small FIR/sag history, and fade
 back over 10 ms. They allocate no memory. This prevents old-desk convolution
 history leaking into the new desk.

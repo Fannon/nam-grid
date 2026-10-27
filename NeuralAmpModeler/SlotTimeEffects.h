@@ -5,6 +5,7 @@
 #include <vector>
 #include "EffectParameters.h"
 #include "ExactMemo.h"
+#include "dsp/MinimumPhaseOversampling.h"
 #include "TempoSync.h"
 
 // Original MIT implementations for nam-grid. No third-party plugin SDK or DSP
@@ -315,34 +316,58 @@ private:
 class SlotTape
 {
 public:
-  void Reset(double rate)
+  static int FactorForRate(double rate) { return rate < 88200. ? 2 : 1; }
+  void Reset(double rate, int factor = 0)
   {
-    mTape.Reset(rate);
-    mControls.Reset(rate);
+    mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
+    mTape.Reset(rate * mFactor);
+    mControls.Reset(rate); mCounter = 0;
+    if (mFactor == 2) mOversample2.Reset();
+    if (mFactor == 4) mOversample4.Reset();
   }
   void Process(double* samples, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.tape, uTapeDrive);
-    for (int start = 0; start < frames; start += 32)
+    for (int offset = 0; offset < frames;)
     {
-      const int count = std::min(32, frames - start);
-      double dry[32], right[32];
-      std::copy_n(samples + start, count, dry);
-      const auto c = mControls.Tick();
-      mTape.Set(c[0], c[1]);
-      double* inputs[]{dry, dry};
-      double* outputs[]{samples + start, right};
-      mTape.Process(inputs, outputs, count);
+      const int count = std::min(32 - mCounter, frames - offset);
+      std::array<double, 32> dry{}, mix{}, gain{};
       for (int i = 0; i < count; ++i)
       {
-        const auto& smooth = i == 0 ? c : mControls.Tick();
-        const double mix = smooth[2] * .01, output = std::pow(10., smooth[3] * .05);
-        samples[start + i] = (dry[i] * (1. - mix) + samples[start + i] * mix) * output;
+        const auto& c = mControls.Tick();
+        if (mCounter == 0 && i == 0) mTape.Set(c[0], c[1]);
+        dry[i] = samples[offset + i]; mix[i] = c[2] * .01;
+        gain[i] = mOutput(c[3] * .05, [](double x) { return std::pow(10., x); });
       }
+      if (mFactor == 2) ProcessHigh(mOversample2, samples + offset, count);
+      else if (mFactor == 4) ProcessHigh(mOversample4, samples + offset, count);
+      else mTape.ProcessMono(samples + offset, count);
+      for (int i = 0; i < count; ++i) samples[offset + i] = (dry[i] + mix[i] * (samples[offset + i] - dry[i])) * gain[i];
+      offset += count; mCounter = (mCounter + count) % 32;
     }
   }
-
 private:
+  template <int Factor>
+  void ProcessHigh(grid_oversampling::FIR<Factor, 32>& filter, double* samples, int count)
+  {
+    std::array<double, 32 * Factor> high{};
+    for (int i = 0; i < count; ++i)
+    {
+      const auto up = filter.Upsample(samples[i]);
+      std::copy(up.begin(), up.end(), high.begin() + i * Factor);
+    }
+    mTape.ProcessMono(high.data(), count * Factor);
+    for (int i = 0; i < count; ++i)
+    {
+      std::array<double, Factor> down{};
+      std::copy_n(high.data() + i * Factor, Factor, down.data());
+      samples[i] = filter.Downsample(down);
+    }
+  }
   AirwindowsTape mTape{};
+  grid_oversampling::FIR<2, 32> mOversample2;
+  grid_oversampling::FIR<4, 32> mOversample4;
   grid_fx::SmoothControls<4> mControls;
+  grid_fx::Memo mOutput;
+  int mFactor = 2, mCounter = 0;
 };

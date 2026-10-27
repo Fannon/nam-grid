@@ -42,10 +42,12 @@ public:
   double Tick(double x)
   {
     double y = this->mInputCoefficients[0] * x;
-    for (size_t i = 1; i < this->mInputCoefficients.size(); ++i)
-      y += this->mInputCoefficients[i] * mX[i - 1];
-    for (size_t i = 1; i < this->mOutputCoefficients.size(); ++i)
-      y += this->mOutputCoefficients[i] * mY[i - 1];
+    // Biquad fixes both coefficient arrays at three entries. Preserve the
+    // accumulation order without dynamic vector-size loops on every sample.
+    y += this->mInputCoefficients[1] * mX[0];
+    y += this->mInputCoefficients[2] * mX[1];
+    y += this->mOutputCoefficients[1] * mY[0];
+    y += this->mOutputCoefficients[2] * mY[1];
     mX[1] = mX[0];
     mX[0] = x;
     mY[1] = mY[0];

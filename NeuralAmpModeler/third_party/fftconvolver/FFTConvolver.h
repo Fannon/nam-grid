@@ -74,6 +74,14 @@ public:
   void process(const Sample* input, Sample* output, size_t len);
 
   /**
+  * Precompute older-partition products while the caller collects the next full
+  * block. collectedSamples must increase from 0 to blockSize between complete
+  * block-sized process calls. The newest input FFT is not needed for this work.
+  * Optional: ordinary zero-latency process calls still prepare their own sum.
+  */
+  void prepareForBlock(size_t collectedSamples);
+
+  /**
   * @brief Resets the convolver and discards the set impulse response
   */
   void reset();
@@ -93,6 +101,7 @@ private:
   size_t _current;
   SampleBuffer _inputBuffer;
   size_t _inputBufferFill;
+  size_t _preparedSegments;
 
   // Prevent uncontrolled usage
   FFTConvolver(const FFTConvolver&);

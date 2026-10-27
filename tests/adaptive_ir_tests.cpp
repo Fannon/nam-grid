@@ -1,4 +1,5 @@
 #include "AdaptiveIR.h"
+#include "third_party/fftconvolver/FFTConvolver.h"
 #include "../AudioDSPTools/dsp/Resample.h"
 #include <algorithm>
 #include <array>
@@ -37,6 +38,40 @@ void operator delete[](void* ptr, size_t) noexcept
 
 int main()
 {
+  // The long tail can accumulate older partitions while collecting its next
+  // input block. Compare with ordinary full-block convolution, including resets
+  // after incomplete preparation. Independently allocated FFT plans can differ
+  // by float rounding even when both use ordinary, unscheduled processing.
+  {
+    constexpr size_t block = 2048;
+    std::vector<float> weights(17003), input(block), expected(block), actual(block);
+    std::mt19937 random(9123);
+    for (auto& value : weights) value = .01f * (static_cast<float>(random()) / static_cast<float>(random.max()) - .5f);
+    fftconvolver::FFTConvolver reference, scheduled;
+    for (int reset = 0; reset < 2; ++reset)
+    {
+      assert(reference.init(block, weights.data(), weights.size()));
+      assert(scheduled.init(block, weights.data(), weights.size()));
+      for (int iteration = 0; iteration < 24; ++iteration)
+      {
+        for (auto& value : input) value = static_cast<float>(random()) / static_cast<float>(random.max()) - .5f;
+        allocations = deletions = 0; tracking = true;
+        scheduled.prepareForBlock(0);
+        for (size_t position = 0, part = 0; position < block; ++part)
+        {
+          position += std::min(block - position, std::array<size_t, 7>{1, 3, 31, 37, 127, 511, 2048}[part % 7]);
+          scheduled.prepareForBlock(position);
+        }
+        reference.process(input.data(), expected.data(), block);
+        scheduled.process(input.data(), actual.data(), block);
+        tracking = false;
+        assert(allocations == 0 && deletions == 0);
+        for (size_t i = 0; i < block; ++i)
+          assert(std::isfinite(actual[i]) && std::abs(expected[i] - actual[i]) < 1.e-6f);
+      }
+      scheduled.prepareForBlock(block / 2);
+    }
+  }
   double maximumError = 0.;
   size_t samples = 0;
   for (double rate : {44100., 48000., 96000., 192000.})

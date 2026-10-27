@@ -62,13 +62,17 @@ public:
   {
     mCoefficient = std::exp(-1. / (.02 * rate));
     mFirst = true;
+    mMoving = true;
   }
   void Target(const std::array<double, N>& values, int offset, bool synced = false)
   {
     for (size_t j = 0; j < N; ++j)
-      mTarget[j] = synced && j == 0 ? values[j]
-                                    : std::clamp(values[j], kEffectParameters[offset + j].minimum,
-                                                 kEffectParameters[offset + j].maximum);
+    {
+      const double target = synced && j == 0 ? values[j]
+        : std::clamp(values[j], kEffectParameters[offset + j].minimum, kEffectParameters[offset + j].maximum);
+      if constexpr (N > 3) mMoving |= target != mTarget[j];
+      mTarget[j] = target;
+    }
     if (mFirst)
     {
       mValue = mTarget;
@@ -78,13 +82,26 @@ public:
   void Target(const std::array<double, N>& values, const std::array<int, N>& ids)
   {
     for (size_t j = 0; j < N; ++j)
-      mTarget[j] = std::clamp(values[j], kEffectParameters[ids[j]].minimum, kEffectParameters[ids[j]].maximum);
+    {
+      const double target = std::clamp(values[j], kEffectParameters[ids[j]].minimum, kEffectParameters[ids[j]].maximum);
+      if constexpr (N > 3) mMoving |= target != mTarget[j];
+      mTarget[j] = target;
+    }
     if (mFirst) { mValue = mTarget; mFirst = false; }
   }
   const std::array<double, N>& Tick()
   {
+    // Small banks use the short vectorizable recurrence directly. Larger
+    // banks amortize the fixed-point check across their additional controls.
+    if constexpr (N > 3) if (!mMoving) return mValue;
+    bool moving = false;
     for (size_t j = 0; j < N; ++j)
-      mValue[j] = mTarget[j] + mCoefficient * (mValue[j] - mTarget[j]);
+    {
+      const double next = mTarget[j] + mCoefficient * (mValue[j] - mTarget[j]);
+      if constexpr (N > 3) moving |= next != mValue[j];
+      mValue[j] = next;
+    }
+    if constexpr (N > 3) mMoving = moving;
     return mValue;
   }
 
@@ -92,6 +109,7 @@ private:
   std::array<double, N> mValue{}, mTarget{};
   double mCoefficient = 0.;
   bool mFirst = true;
+  bool mMoving = true;
 };
 class WetDucker
 {

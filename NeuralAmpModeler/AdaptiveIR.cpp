@@ -121,11 +121,21 @@ double** AdaptiveIR::Process(double** input, size_t channels, size_t frames)
       state.input[i] = static_cast<float>(input[0][i]);
     state.fft.process(state.input.data(), state.output.data(), frames);
     if (state.backend == Backend::TwoStageFFT)
-      for (size_t i = 0; i < frames; ++i)
+      for (size_t offset = 0; offset < frames;)
       {
-        state.output[i] += state.tailOutput[state.tailPosition];
-        state.tailInput[state.tailPosition] = state.input[i];
-        if (++state.tailPosition == Impl::tailBlock)
+        const size_t count = std::min(frames - offset, Impl::tailBlock - state.tailPosition);
+        // Older input spectra are already known. Spread their products over
+        // collection of this block; only its new FFT/product/IFFT must finish
+        // at the boundary. The tail still starts at its original frame 2048.
+        state.tail.prepareForBlock(state.tailPosition + count);
+        for (size_t i = 0; i < count; ++i)
+        {
+          state.output[offset + i] += state.tailOutput[state.tailPosition + i];
+          state.tailInput[state.tailPosition + i] = state.input[offset + i];
+        }
+        state.tailPosition += count;
+        offset += count;
+        if (state.tailPosition == Impl::tailBlock)
         {
           state.tail.process(state.tailInput.data(), state.tailOutput.data(), Impl::tailBlock);
           state.tailPosition = 0;

@@ -22,10 +22,9 @@ FFT convolution; Long IR uses larger partitions for the late tail to keep the
 cost manageable. Processing adds no buffering latency. The response's own onset
 and the Pre-delay control can still delay the wet sound.
 
-Long responses also need more memory and can produce periodic CPU peaks when
-the late partitions run. Small audio buffers, especially at high sample rates,
-can miss their deadline even when the average CPU meter looks low. Use a shorter
-response or a larger host buffer if a Long IR causes dropouts.
+Long responses also need more memory and CPU. Late-tail work is spread across
+audio callbacks to reduce peaks. Use a shorter response or a larger host buffer
+if a Long IR leaves too little processing headroom in your rig.
 
 Loading, length changes and reset preparation happen outside the audio callback.
 Replacing an IR fades through the transition. The WAV file itself is never edited

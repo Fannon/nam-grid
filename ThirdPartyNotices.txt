@@ -728,7 +728,8 @@ FFTConvolver (HiFi-LoFi)
 Source: https://github.com/HiFi-LoFi/FFTConvolver
 Revision: f2cdeb04c42141d2caec19ca4f137398b2a76b85
 The uniform convolver, AudioFFT and utilities are included. NAM Grid modifies
-tail trimming to preserve every nonzero IR coefficient.
+tail trimming to preserve every nonzero IR coefficient and adds incremental
+preparation of older-partition products for scheduled long-tail processing.
 
 MIT License
 

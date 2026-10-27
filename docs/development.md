@@ -169,6 +169,9 @@ An atomic editor visibility flag enables telemetry at audio block boundaries.
 Closed editors skip input/output analysis, slot meters and spectrum capture;
 DSP histories, tails, noise learning and tuner detection continue. Stage tests
 check exact audio with telemetry disabled and clean meter restart.
+Larger shared control-smoothing banks stop repeating the recurrence only once their
+floating-point values no longer change. They retain those rounded fixed points;
+a target change resumes the original recurrence without snapping to the target.
 
 ## IR convolution
 
@@ -180,6 +183,10 @@ The opt-in Long IR identity retains up to 30 seconds and uses a small-partition
 head plus a large-partition tail. Length changes prepare and publish a replacement
 on the control thread. Wet trims, pre-delay and cuts precede the linear
 dry/wet blend; their defaults preserve the released cabinet sound.
+The tail accumulates known older-partition products incrementally while collecting
+its next input block. Its newest input FFT and inverse transform still finish at the block
+boundary. Product order and the tail's natural 2048-sample offset are unchanged;
+processing requires no worker, allocation, lookahead or added buffering latency.
 
 ## DSP sources and adaptations
 

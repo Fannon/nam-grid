@@ -1,34 +1,36 @@
-# NAM Grid 0.2.1
+# NAM Grid 0.3.0
 
-A maintenance update for 0.2.0, with compatibility fixes, more reliable Pedal Drive insertion and clearer browsing and modulation controls. Replace the plugin files; rigs, projects and automation keep working.
+New ambient sounds, longer IRs and more control over your rig, with cleaner drive effects and smoother processing under load. Existing projects, presets and automation keep loading; some drive effects have deliberate sound-quality changes described below.
 
-## Fixed
+## New sounds and controls
 
-- **Projects from 0.2.0 preview builds load again.** Those previews used state schema 5 before the second modulation bank existed. 0.2.1 gives the bank its own schema and fills in its defaults when opening those files.
-- **The library index survives restarts.** With **Startup rescan** off, NAM Grid no longer replaces the saved index with an empty one.
-- **Cancelling an active library scan keeps the index.** A cancelled scan no longer starts again or publishes stale results.
-- **Browser search is ready for typing.** Opening Add module, a module's browser or the preset browser focuses search immediately.
-- **Second-bank Via labels display correctly** for LFO 2, Env 2 and Seq 2.
+- **Four new Cosmic Echo modes:** Aurora Hall for guitar halls and long washes, Photon Plate for dense plate ambience, Pulsar Echo for rhythmic stereo patterns, and Binary Bloom for coupled ambient spaces. Aurora Hall is the new-module default; saved rigs keep their settings.
+- **Long IRs up to 30 seconds** for convolution reverb and sound design, with wet Input, Mix, Pre-delay, Low/High cut and a tail-envelope display. Existing cabinet IR settings remain intact.
+- **Expanded module controls:** more precise gate and compressor behavior, EQ and boost tone shaping, modulation width and character, delay/reverb ducking, Freeze fades, Stutter Hold, Auto Swell shaping, and Utility channel alignment. New controls retain the previous behavior when opening older rigs.
+- **LoFi Tape Machine Drive** adds oversampled Spiral saturation. Leave Drive at zero for the previous sound.
 
-## Changed
+## Cleaner sound and steadier processing
 
-- **Pedal Drive adds no reported latency.** Selecting it no longer changes the plugin's latency, avoiding host rebuilds that could undo the selection. Stacked pedals no longer add 64 samples each. Its minimum-phase antialiasing filters preserve bandwidth and alias rejection; partial Mix and Low keep settings can sound slightly different because of the phase change.
-- **Pedal Drive uses about 20% less CPU on Apple Silicon** through vectorized oversampling filters.
-- **Grid cards and the module header show the selected mode**, including Pedal Drive style and Cosmic Echo topology.
-- **Modulation uses compact knobs and aligned controls.** Source menus are alphabetical, and a renamed macro keeps its number, such as **Macro 1: Test**.
-- **Documentation:** full-width navigation on every page, a linked Module guide section, a cleaner home page, and a link to the KVR Audio discussion thread.
+- **Less aliasing** in Distortion, Tube Boost, Airwindows Tape, Console Colour and Pedal Drive's Rodent voice, with zero added reported latency. Existing rigs can sound different: attacks, high-frequency phase and partial-Mix blends may change, and Tape's low-end head bump shifts when oversampled. Mix 0% remains exact dry after its short transition fade.
+- **Fewer Long IR CPU spikes:** late-tail work is spread across callbacks without changing the response or adding latency. Small buffers can use slightly more average CPU in exchange for steadier processing.
+- **Lower overhead throughout the rig:** settled controls, EQ, Boost, Utility, gates, compressors and Frequency Shifter do less repeated work. Closing the editor suspends meter and spectrum collection while audio and tuner processing continue.
+- **More efficient modulated rigs:** fewer tiny NAM processing calls and less callback overhead for macro-only control. Fast modulation or control transitions can differ slightly; parameter meanings and smoothing times remain intact.
+
+## Easier editing
+
+- Larger, clearer module graphs and hover explanations, a Cosmic Echo delay-network view, and more readable compressor/limiter gain-reduction displays.
+- More reliable keyboard focus for Windows value entry and browser searches; editing values no longer triggers DAW shortcuts.
+
+See the [full changelog](https://github.com/Fannon/nam-grid/blob/v0.3.0/CHANGELOG.md#030---2026-10-27) for controls, oversampling rates and sound-change details.
 
 ## Downloads
 
-- `nam-grid-windows-x64.zip`: CLAP and VST3 for 64-bit Windows.
-- `nam-grid-macos-arm64.zip`: CLAP and VST3 for Apple Silicon Macs (macOS 11 or newer). The Mac build isn't signed yet, so macOS will ask you to confirm it once; see [allow the plugin](https://fannon.github.io/nam-grid/getting-started#macos-allow-the-plugin).
-- `nam-grid-linux-x64.zip`: CLAP and VST3 for 64-bit Linux (glibc 2.35 or newer, such as Ubuntu 22.04+).
+Each archive includes **CLAP and VST3** plus third-party license notices:
 
-Existing 0.1.x projects, presets and automation still load unchanged. Pedal Drive and the numbered modulation sources keep their 0.2.0 settings.
+- **Windows x64:** `nam-grid-windows-x64.zip`.
+- **Apple Silicon / macOS 11+:** `nam-grid-macos-arm64.zip`. Bundles are ad-hoc signed, without Developer ID signing or notarization; see the [macOS installation steps](https://fannon.github.io/nam-grid/getting-started#macos-allow-the-plugin).
+- **Linux x64 / glibc 2.35+:** `nam-grid-linux-x64.zip` (Ubuntu 22.04 or newer). Linux has not yet been tested in a real DAW; feedback is welcome.
 
-## Good to know
+Replace the existing plugin bundles and rescan your DAW. There is no Audio Unit, AAX or standalone app in this release. Please keep `ThirdPartyNotices.txt` and `notices/` with the plugins when redistributing them.
 
-- The Linux build has not been tested in a real DAW environment. If you use it, let me know how well it works.
-- There's no Audio Unit, AAX or standalone app in this release.
-- Each download includes license notes (`ThirdPartyNotices.txt` and `notices/`) — just keep them alongside the plugins if you pass them on.
-- Something not right? Tell us your OS, DAW, plugin format, sample rate and buffer size at <https://github.com/Fannon/nam-grid/issues>, or use the [KVR Audio discussion thread](https://www.kvraudio.com/forum/viewtopic.php?t=634501).
+Report issues with your OS, DAW, plugin format, sample rate and buffer size on [GitHub](https://github.com/Fannon/nam-grid/issues) or the [KVR Audio discussion](https://www.kvraudio.com/forum/viewtopic.php?t=634501).

@@ -20,8 +20,11 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   PlotDetail(g,plot,"Measured response above; delay-line network below. Hover each view for details.");
   PlotRegionDetail(g,IRECT(plot.L,plot.T,plot.R,response.B+14.f),
     "Measured wet impulse, relative to its strongest peak (0 to -48 dB). Warp spreads echoes; Density fills the tail.");
-  const bool orion=style==static_cast<int>(effect_modes::CosmicStyle::AuroraHall);
-  if (orion) text.Set("Eight main delays and eight short diffusers at their base times. Blue marks main loops; orange marks diffusers. Density adds scattering and diffusion; halos show Modulation.");
+  const bool modern=style>=static_cast<int>(effect_modes::CosmicStyle::AuroraHall);
+  if (style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate)) text.Set("Eight input-diffuser lines (blue) feed two cross-coupled tank halves (orange). Each half contains two allpasses and two main delays. Seven output taps per channel observe the tank; markers show full line lengths.");
+  else if (style==static_cast<int>(effect_modes::CosmicStyle::Pulsar)) text.Set("Four stereo echo stages (blue) and their short diffusers (orange). The full pattern passes through all stages; feedback crosses stereo channels at the end. Markers show individual line lengths.");
+  else if (style==static_cast<int>(effect_modes::CosmicStyle::Nebula)) text.Set("Eight long-tank lines (blue) and eight short-tank lines (orange). Density scatters energy and couples the tanks. Markers show line lengths, not a measured decay time.");
+  else if (modern) text.Set("Eight main delays and eight short diffusers at their base times. Blue marks main loops; orange marks diffusers. Density adds scattering and diffusion; halos show Modulation.");
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+14.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
@@ -52,16 +55,17 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
 
   // Restore the original network sketch underneath the measured response. Its
   // shorter time axis shows base line lengths, not every repeat in the wet tail.
-  const double horizon=effect_preview::TimeHorizon(plan.seconds[0]*1.03), density=value(uCosmicDensity)*.01;
+  const double longest=*std::max_element(plan.seconds.begin(),plan.seconds.begin()+plan.count);
+  const double horizon=effect_preview::TimeHorizon(longest*1.03), density=value(uCosmicDensity)*.01;
   const double motion=(500./48000.)*std::pow(value(uCosmicMotion)*.01,2.);
   g.DrawLine(border,lines.L,lines.B,lines.R,lines.B);
   for(int i=0;i<plan.count;++i)
   {
     const float x=lines.L+lines.W()*static_cast<float>(plan.seconds[i]/horizon);
     const float height=lines.H()*static_cast<float>(.3+.5*density);
-    const int group=orion ? i/8 : style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
+    const int group=modern ? i/8 : style==static_cast<int>(effect_modes::CosmicStyle::Centaurus) || style==static_cast<int>(effect_modes::CosmicStyle::GreatAnnihilator) ? (i/4)%2 : i%2;
     const auto ink=group ? ampColor : delayColor;
-    const double lineMotion=orion ? std::min(motion,.01*std::max(0.,plan.seconds[i]-1./rate)) : motion;
+    const double lineMotion=modern ? std::min(motion,.01*std::max(0.,plan.seconds[i]-1./rate)) : motion;
     const float spread=std::clamp(static_cast<float>(lines.W()*lineMotion/horizon),0.f,12.f);
     if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
     g.DrawLine(ink,x,lines.B,x,lines.B-height,nullptr,2.f);

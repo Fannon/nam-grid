@@ -141,6 +141,9 @@ stopped. The two components are shown separately, before Mix.
 | Great Annihilator | A delay stage and three matrix allpasses in global feedback |
 | Lyra | Four scattering delays, filters at the output |
 | Aurora Hall | Eight filtered feedback loops, each with a short allpass diffuser |
+| Pulsar Echo | Four serial stereo delay/diffuser stages, four output taps, end-only cross feedback |
+| Binary Bloom | Two coupled eight-line FDNs with different time scales and per-line decay normalization |
+| Photon Plate | Stereo input diffusion, cross-coupled allpass/delay tank, seven passive output taps per channel |
 
 In the first six styles, Warp, Density, Feedback and modulation keep the source model's per-topology interactions. Time
 uses a quadratic dial; Time/Warp automation moves allpass-interpolated reads and can bend the

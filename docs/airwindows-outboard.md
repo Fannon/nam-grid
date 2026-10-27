@@ -51,7 +51,7 @@ Saturate 0, cuts off/open and Output 0 dB, nonzero input is unchanged.
 **Console Colour trims use actual dB.** BussColors4's upstream numeric trims
 use `/14`, not `/20`; carrying those numbers across as dB would be misleading.
 Its native trims stay at centre while the wrapper Input and Output controls each cover
-±18 real dB. Both affect only the wet path, so Mix 0 is bit-transparent at any
+±18 real dB. Both affect only the wet path, so settled Mix 0 is bit-transparent at any
 trim. The eight upstream voices and built-in per-voice gains are retained, with
 additional fixed compensation for default-level comparison (see calibration below).
 Below 88.2 kHz, the wrapper runs the unchanged core at 2x through minimum-phase
@@ -59,7 +59,11 @@ interpolation/decimation; at higher host rates it runs natively. This reduces al
 without reported latency, while changing wet phase and potentially transient voicing.
 The original desk-match trims are retained. The resampler processes corresponding
 stereo phases together, so shared core counters advance once per high-rate frame.
-Desk changes fade to dry over 10 ms, reset the small FIR/sag history, and fade
+A collapsed host-rate identity filter aligns the partial-Mix dry reference with the
+resampler phase. Crossing Mix zero fades between that reference and unfiltered dry
+over 20 ms, avoiding a hard phase switch. This transition can briefly colour the
+signal; the settled partial blend avoids resampler-induced cancellation.
+Desk changes fade to the aligned dry reference over 10 ms, reset the core's small FIR/sag history, and fade
 back over 10 ms. They allocate no memory. This prevents old-desk convolution
 history leaking into the new desk.
 

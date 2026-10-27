@@ -24,6 +24,20 @@ void TestDriveAntialiasing()
   split.operator()<2, 32>(); split.operator()<4, 32>();
   split.operator()<2, 64>(); split.operator()<4, 64>(); split.operator()<8, 64>();
 
+  // Collapsing the identity path must preserve its actual polyphase response,
+  // including its causal phase-zero output, for arbitrary signal histories.
+  const auto reference = []<int Factor, int Taps>() {
+    grid_oversampling::FIR<Factor, Taps> full; full.Reset();
+    grid_oversampling::LinearReference<Factor, Taps> dry; dry.Reset();
+    for (int i = 0; i < 4096; ++i)
+    {
+      const double x = i < 256 ? (i == 0 ? 1. : 0.) : .4 * std::sin(i * .17) + .1 * std::cos(i * .013);
+      assert(std::abs(full.Tick(x, [](double v) { return v; }) - dry.Tick(x)) < 2.e-14);
+    }
+  };
+  reference.operator()<2, 32>(); reference.operator()<4, 32>();
+  reference.operator()<2, 64>(); reference.operator()<4, 64>(); reference.operator()<8, 64>();
+
   // Mono Tape computes the same L output as the original stereo algorithm,
   // including silence/denormals, while the discarded R input is independent.
   for (double rate : {44100., 48000., 88200., 96000., 192000.})
@@ -94,7 +108,7 @@ void TestDriveAntialiasing()
   std::cout << "Drive antialiasing: split FIR, mono Tape, analytic intervals and continuous slew references passed\n";
 }
 
-// Partial Mix must blend after the oversampling filters. Mixing an unshifted dry
+// Partial Mix must use a dry reference with the oversampling filters' phase. Mixing an unshifted dry
 // reference with the wet path's minimum-phase group delay combs around 6.5 kHz
 // at 48 kHz (measured at -20 dB for Console Colour and -32 dB for Tape).
 namespace
@@ -146,10 +160,20 @@ void TestOversampledWetDryBlend()
         colour.Process(samples, right.data(), frames, c);
       });
     };
-    for (double frequency : {1000., 4000., 6500., 10000.})
-      for (bool tape : {true, false})
+    const auto tubeGain = [&](double mix, double frequency) {
+      SlotTubeBoost tube; tube.Reset(rate);
+      UtilityControls c; c.tube = {0., 0., mix, 0.}; c.extra.tubeHighCut = 20000.;
+      EQControls eq;
+      std::array<double, 64> dry{};
+      return SineGain(rate, frequency, .001, [&](double* samples, int frames) {
+        std::copy_n(samples, frames, dry.begin());
+        tube.Process(samples, dry.data(), frames, c, eq);
+      });
+    };
+    for (double frequency : {1000., 4000., 5000., 6500., 10000.})
+      for (int effect : {0, 1, 2})
       {
-        const auto gain = [&](double mix) { return tape ? tapeGain(mix, frequency) : colourGain(mix, frequency); };
+        const auto gain = [&](double mix) { return effect == 0 ? tubeGain(mix, frequency) : effect == 1 ? tapeGain(mix, frequency) : colourGain(mix, frequency); };
         const double wet = 20. * std::log10(gain(100.));
         const double half = 20. * std::log10(gain(50.));
         assert(std::abs(half - wet) < 1.5);
@@ -175,4 +199,55 @@ void TestOversampledWetDryBlend()
     }
   }
   std::cout << "Oversampled wet/dry: partial Mix stays aligned, Mix 0 is exact dry\n";
+}
+
+// Probe the automation endpoints separately from settled sine magnitudes. A
+// phase switch can preserve RMS perfectly while producing a full-scale click.
+void TestOversampledMixAutomation()
+{
+  constexpr int segment = 4096, segments = 6, total = segment * segments;
+  constexpr std::array<double, segments> mixes{0., 1., 50., 100., 99., 0.};
+  for (double rate : {44100., 48000., 88200., 96000.})
+    for (int effect : {0, 1, 2})
+    {
+      std::vector<double> input(total);
+      for (int i = 0; i < total; ++i) input[i] = .1 * std::sin(2. * blendPi * 6500. * i / rate + .4);
+      const auto render = [&](int block) {
+        SlotTubeBoost tube; tube.Reset(rate);
+        SlotTape tape; tape.Reset(rate);
+        SlotOutboard colour; colour.Reset(rate, SlotEffect::ConsoleColour);
+        UtilityControls c; c.tube = {0., 0., 0., 0.}; c.extra.tubeHighCut = 20000.;
+        c.tape = {0., 0., 0., 0.}; c.colour = {0., 0., 0.}; c.colourDesk = 4;
+        EQControls eq;
+        auto output = input;
+        for (int part = 0; part < segments; ++part)
+        {
+          c.tube[2] = c.tape[2] = c.colour[2] = mixes[part];
+          for (int start = part * segment; start < (part + 1) * segment;)
+          {
+            const int n = std::min(block, (part + 1) * segment - start);
+            if (effect == 0) tube.Process(output.data() + start, input.data() + start, n, c, eq);
+            if (effect == 1) tape.Process(output.data() + start, n, c);
+            if (effect == 2) colour.Process(output.data() + start, nullptr, n, c);
+            start += n;
+          }
+        }
+        // Exact dry both immediately after Reset and after an automated return.
+        for (int i = 0; i < segment; ++i) assert(output[i] == input[i]);
+        // Native Tape/Colour retain their existing exponential Mix smoothing;
+        // only the oversampled paths have the finite-time phase bypass.
+        if (effect == 0 || rate < 88200.)
+          for (int i = total - 128; i < total; ++i) assert(output[i] == input[i]);
+        // A 1% target change must not instantly switch the entire dry phase.
+        assert(std::abs(output[segment] - input[segment]) < .0005);
+        return output;
+      };
+      const auto reference = render(1);
+      for (int block : {37, 128})
+      {
+        const auto output = render(block);
+        for (int i = 0; i < total; ++i) assert(std::abs(output[i] - reference[i]) < 2.e-13);
+      }
+    }
+  std::cout << "Oversampled Mix automation: continuous endpoints, exact dry and callback independence passed\n";
 }

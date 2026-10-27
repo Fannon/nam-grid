@@ -102,7 +102,8 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
         const double cutoff = value(uTubeHighCut);
         const double pole = std::exp(-2. * grid_fx::pi * std::min(cutoff, .45 * rate) / rate);
         const auto post = cutoff < 20000. ? (1. - pole) / (1. - pole * z) : std::complex<double>(1., 0.);
-        magnitude = std::abs(1. - tubeMix + tubeMix * tubeDrive * boostEQ.At(hz) * SlotTubeBoost::AntialiasResponse(hz, rate) * dc * post) * tubeOutput;
+        magnitude = (tubeMix == 0. ? 1. : std::abs(SlotTubeBoost::AntialiasResponse(hz, rate)
+                    * (1. - tubeMix + tubeMix * tubeDrive * boostEQ.At(hz) * dc * post))) * tubeOutput;
       }
       else magnitude = effect_preview::DistortionTone(hz, controls, rate);
       const double db = 20. * std::log10(std::max(1.e-9, magnitude));

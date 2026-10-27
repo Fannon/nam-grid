@@ -25,7 +25,11 @@ public:
     mEffect = effect;
     mColourFactor = factor == 1 || factor == 2 ? factor : ColourFactorForRate(rate);
     if (effect == SlotEffect::ConsoleColour && mColourFactor == 2)
+      {
       for (auto& filter : mColour2) filter.Reset();
+      for (auto& filter : mDryReference) filter.Reset();
+    }
+    mMixBypass.Reset(mRate);
     mControls.Reset(mRate);
     mShort.Reset(mRate); mInputControl.Reset(mRate);
     mStrip.reset();
@@ -59,6 +63,7 @@ public:
                        mEffect == SlotEffect::ConsoleEQ ? uConsoleTreble : uStripLowCut);
     else
       mShort.Target(mButter ? c.butter : c.colour, mButter ? uButterCompress : uColourInput);
+    mMixBypass.Target(c.colour[2] > 0.);
     const int desk = std::clamp(c.colourDesk, 0, 7);
     if (mDesk < 0)
       mDesk = desk;
@@ -134,21 +139,25 @@ public:
         constexpr std::array<double, 8> deskMatchDB{.8841, .6937, -1.3250, 1.0910, .5984, .7611, 2.7876, 1.1550};
         const double trim = mTrim((s[1] + deskMatchDB[mDesk]) / 20., [](double x) { return std::pow(10., x); });
         mix = s[2] * .01 * mVoice;
-        if (mColourFactor == 2 && mix > 0. && mix < 1.)
+        wetL *= input;
+        wetR *= input;
+        if (mColourFactor == 2) ProcessColour(wetL, wetR);
+        else mColour->Tick(wetL, wetR);
+        wetL *= trim; wetR *= trim;
+        if (mColourFactor == 2)
         {
-          // Blend after the interpolation filter so the wet path's minimum-phase
-          // group delay cannot comb against an unshifted dry reference.
-          ProcessColourBlend(wetL, wetR, dryL, dryR, input, trim, mix);
+          mDryReference[0].Push(dryL); mDryReference[1].Push(dryR);
+          mMixBypass.Tick();
+          double blendL = dryL + mix * (wetL - dryL), blendR = dryR + mix * (wetR - dryR);
+          if (mix != 1. && !mMixBypass.IsDry())
+          {
+            const double alignedL = mDryReference[0].Filtered(), alignedR = mDryReference[1].Filtered();
+            blendL = alignedL + mix * (wetL - alignedL);
+            blendR = alignedR + mix * (wetR - alignedR);
+          }
+          wetL = mMixBypass.Apply(dryL, blendL);
+          wetR = mMixBypass.Apply(dryR, blendR);
           blended = true;
-        }
-        else
-        {
-          wetL *= input;
-          wetR *= input;
-          if (mColourFactor == 2) ProcessColour(wetL, wetR);
-          else mColour->Tick(wetL, wetR);
-          wetL *= trim;
-          wetR *= trim;
         }
       }
       // Output on compressor wrappers follows Mix. Console Colour's trims
@@ -170,23 +179,9 @@ private:
     for (int phase = 0; phase < Factor; ++phase) mColour->Tick(upL[phase], upR[phase]);
     l = mColour2[0].Downsample(upL); r = mColour2[1].Downsample(upR);
   }
-  // Partial Mix blends the dry reference with the trimmed wet at the high rate,
-  // so both paths share the filters' phase and cannot comb against each other.
-  void ProcessColourBlend(double& l, double& r, double dryL, double dryR, double input, double trim, double mix)
-  {
-    constexpr int Factor = 2;
-    auto upL = mColour2[0].Upsample(dryL), upR = mColour2[1].Upsample(dryR);
-    std::array<double, Factor> blendL{}, blendR{};
-    for (int phase = 0; phase < Factor; ++phase)
-    {
-      double wetL = upL[phase] * input, wetR = upR[phase] * input;
-      mColour->Tick(wetL, wetR);
-      blendL[phase] = (1. - mix) * upL[phase] + mix * trim * wetL;
-      blendR[phase] = (1. - mix) * upR[phase] + mix * trim * wetR;
-    }
-    l = mColour2[0].Downsample(blendL); r = mColour2[1].Downsample(blendR);
-  }
   std::array<grid_oversampling::FIR<2, 32>, 2> mColour2;
+  std::array<grid_oversampling::LinearReference<2>, 2> mDryReference;
+  grid_oversampling::MixBypass mMixBypass;
   int mColourFactor = 2;
   void Monitor(double l, double r, double mix)
   {

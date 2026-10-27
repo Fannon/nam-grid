@@ -5,7 +5,7 @@
 #include <vector>
 #include "EffectParameters.h"
 #include "ExactMemo.h"
-#include "dsp/MinimumPhaseOversampling.h"
+#include "dsp/OversampledMix.h"
 #include "TempoSync.h"
 
 // Original MIT implementations for nam-grid. No third-party plugin SDK or DSP
@@ -324,11 +324,13 @@ public:
     mFactor = factor == 1 || factor == 2 ? factor : FactorForRate(rate);
     mTape.Reset(rate * mFactor);
     mControls.Reset(rate); mCounter = 0;
-    if (mFactor == 2) mOversample2.Reset();
+    if (mFactor == 2) { mOversample2.Reset(); mDryReference.Reset(); }
+    mMixBypass.Reset(rate);
   }
   void Process(double* samples, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.tape, uTapeDrive);
+    mMixBypass.Target(controls.tape[2] > 0.);
     for (int offset = 0; offset < frames;)
     {
       const int count = std::min(32 - mCounter, frames - offset);
@@ -340,27 +342,30 @@ public:
         dry[i] = samples[offset + i]; mix[i] = c[2] * .01;
         gain[i] = mOutput(c[3] * .05, [](double x) { return std::pow(10., x); });
       }
-      if (mFactor == 2) ProcessHigh(samples + offset, count, mix);
+      if (mFactor == 2) ProcessHigh(samples + offset, count);
       else mTape.ProcessMono(samples + offset, count);
       for (int i = 0; i < count; ++i)
       {
         const double wet = samples[offset + i];
-        // The oversampled path already returns the delay-aligned blend between the
-        // endpoints. Fully wet keeps the historical expression bit for bit, and Mix
-        // 0 returns the exact dry sample.
-        samples[offset + i] = (mFactor == 1 || mix[i] >= 1. ? dry[i] + mix[i] * (wet - dry[i])
-                                                          : (mix[i] > 0. ? wet : dry[i])) * gain[i];
+        double blended = dry[i] + mix[i] * (wet - dry[i]);
+        if (mFactor == 2)
+        {
+          mDryReference.Push(dry[i]);
+          mMixBypass.Tick();
+          if (mix[i] != 1. && !mMixBypass.IsDry())
+          {
+            const double alignedDry = mDryReference.Filtered();
+            blended = alignedDry + mix[i] * (wet - alignedDry);
+          }
+          blended = mMixBypass.Apply(dry[i], blended);
+        }
+        samples[offset + i] = blended * gain[i];
       }
       offset += count; mCounter = (mCounter + count) % 32;
     }
   }
 private:
-  // Blending at the high rate keeps the dry reference time-aligned with the
-  // filtered wet path. A base-rate mix would combine the minimum-phase filters'
-  // frequency-dependent group delay with an unshifted dry signal and comb.
-  // Fully wet and fully dry spans skip the copy and stay bit-identical to a
-  // straight wet/dry mix.
-  void ProcessHigh(double* samples, int count, const std::array<double, 32>& mix)
+  void ProcessHigh(double* samples, int count)
   {
     constexpr int Factor = 2;
     std::array<double, 32 * Factor> high{};
@@ -369,20 +374,7 @@ private:
       const auto up = mOversample2.Upsample(samples[i]);
       std::copy(up.begin(), up.end(), high.begin() + i * Factor);
     }
-    const bool blend = std::any_of(mix.begin(), mix.begin() + count, [](double m) { return m > 0. && m < 1.; });
-    if (!blend) mTape.ProcessMono(high.data(), count * Factor);
-    else
-    {
-      const auto dryHigh = high;
-      mTape.ProcessMono(high.data(), count * Factor);
-      for (int i = 0; i < count; ++i)
-        if (mix[i] > 0. && mix[i] < 1.)
-          for (int phase = 0; phase < Factor; ++phase)
-          {
-            const int index = i * Factor + phase;
-            high[index] = (1. - mix[i]) * dryHigh[index] + mix[i] * high[index];
-          }
-    }
+    mTape.ProcessMono(high.data(), count * Factor);
     for (int i = 0; i < count; ++i)
     {
       std::array<double, Factor> down{};
@@ -392,6 +384,8 @@ private:
   }
   AirwindowsTape mTape{};
   grid_oversampling::FIR<2, 32> mOversample2;
+  grid_oversampling::LinearReference<2> mDryReference;
+  grid_oversampling::MixBypass mMixBypass;
   grid_fx::SmoothControls<4> mControls;
   grid_fx::Memo mOutput;
   int mFactor = 2, mCounter = 0;

@@ -166,16 +166,28 @@ stages rather than merely filtering after the final clip. Other pedal voices
 retain their DSP. Test interval averages against numerical integration, including
 near-zero intervals and curve-cache initialization.
 
-A partial Mix is a dry/wet blend across a path that has passed through
-minimum-phase filters, so its phase differs from the unshifted dry signal. Tape
-and Console Colour therefore combine the dry reference and the trimmed wet inside
-the oversampled stage, before decimation; the blend stays time-aligned and Mix 0%
-still returns the exact dry sample. Tube Boost keeps its high cut and DC blocker
-at the host rate, so its partial Mix does carry the filters' phase shift and can
-comb above roughly 3 kHz. Because Tape and Console Colour run natively from
-88.2 kHz, they have no filter-related dry/wet group delay at those host rates.
+Tube Boost, Tape and Console Colour align the partial Mix dry reference with the
+wet resampling filters. A host-rate FIR reproduces the identity path through the
+actual interpolator and decimator, including its causal phase-zero output. Its
+coefficients are prepared off audio; the history advances continuously, including
+at Mix endpoints. At fully wet/dry endpoints the reference skips its dot product,
+so this does not require a second full oversampler. The wet core and its histories
+are independent of Mix. Tube Boost's intentional tone, high-cut and DC filters
+remain on the wet path; only the resampler phase is shared with dry.
+
+Mix zero returns the exact unfiltered dry sample (before the module Output gain).
+Crossing zero fades between this bypass and the aligned blend over 20 ms. A fresh
+reset at zero is immediately dry. As with bypassing another phase-shifting effect,
+the brief fade can colour the transition; it avoids an abrupt phase switch and
+does not add a compensation delay or reported latency. Settled partial Mix avoids
+the deep cancellation of combining the filtered wet with unshifted dry. Native
+Tape/Console Colour at 88.2 kHz and above retain their existing Mix smoothing.
+
 The 32-base-tap pair is flat to about 18 kHz and attenuates about 2.3 dB at
-20 kHz for a 48 kHz host; the tube response preview draws that response.
+20 kHz for a 48 kHz host; the tube response preview includes the shared resampler
+response and the exact-dry endpoint. Regression tests compare the collapsed
+reference to the full identity oversampler, measure partial Mix gain, and automate
+Mix across both endpoints with 1/37/128-sample callbacks at four sample rates.
 
 Run `. --drive-study --report tmp/module-aliasing-followup/reports/drive-study.csv`
 for the alternatives each shipped treatment supports: Tube Boost at 1x/2x/4x, Tape

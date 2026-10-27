@@ -1,5 +1,5 @@
 #pragma once
-#include "dsp/MinimumPhaseOversampling.h"
+#include "dsp/OversampledMix.h"
 #include "SlotEQ.h"
 #include "EffectParameters.h"
 #include "SlotTimeEffects.h"
@@ -221,8 +221,9 @@ public:
   {
     mRate = std::max(1., rate);
     mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
-    if (mFactor == 2) mOversample2.Reset();
-    if (mFactor == 4) mOversample4.Reset();
+    if (mFactor == 2) { mOversample2.Reset(); mDry2.Reset(); }
+    if (mFactor == 4) { mOversample4.Reset(); mDry4.Reset(); }
+    mMixBypass.Reset(mRate);
     mTone.Reset(rate);
     mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
     mDCCoefficient = std::exp(-2. * 3.14159265358979323846 * 5. / std::max(1., rate));
@@ -242,6 +243,7 @@ public:
     const double bias = .35 * std::clamp(c.tube[1] * .01, 0., 1.);
     const double mix = std::clamp(c.tube[2] * .01, 0., 1.);
     const double output = std::pow(10., std::clamp(c.tube[3], -18., 18.) * .05);
+    mMixBypass.Target(mix > 0.);
     for (int i = 0; i < frames; ++i)
     {
       mDrive = drive + mSmooth * (mDrive - drive);
@@ -259,13 +261,28 @@ public:
       mDC = shaped + mDCCoefficient * (mDC - shaped);
       if (std::abs(mDC) < 1.e-30)
         mDC = 0.;
-      samples[i] = (dry[i] + mMix * (shaped - mDC - dry[i])) * mOutput;
+      double blended = dry[i] + mMix * (shaped - mDC - dry[i]);
+      if (mFactor > 1)
+      {
+        if (mFactor == 2) mDry2.Push(dry[i]); else mDry4.Push(dry[i]);
+        mMixBypass.Tick();
+        if (mMix != 1. && !mMixBypass.IsDry())
+        {
+          const double alignedDry = mFactor == 2 ? mDry2.Filtered() : mDry4.Filtered();
+          blended = alignedDry + mMix * (shaped - mDC - alignedDry);
+        }
+        blended = mMixBypass.Apply(dry[i], blended);
+      }
+      samples[i] = blended * mOutput;
     }
   }
 
 private:
   grid_oversampling::FIR<2, 32> mOversample2;
   grid_oversampling::FIR<4, 32> mOversample4;
+  grid_oversampling::LinearReference<2> mDry2;
+  grid_oversampling::LinearReference<4> mDry4;
+  grid_oversampling::MixBypass mMixBypass;
   grid_fx::Memo mBiasOffset;
   int mFactor = 4;
   grid_fx::SmoothControls<1> mPostCut;

@@ -210,6 +210,7 @@ try
   TestPedalDrive();
   TestDriveAntialiasing();
   TestOversampledWetDryBlend();
+  TestOversampledMixAutomation();
   TestReverbDelayCandidates();
   TestCosmicEcho();
   TestCosmicBypassDrain();

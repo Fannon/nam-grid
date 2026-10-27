@@ -4,6 +4,7 @@
 #include "IsolatedUserHome.h"
 #include "WinEditorCapture.h"
 #include "pluginterfaces/base/ipluginbase.h"
+#include "pluginterfaces/base/keycodes.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/gui/iplugview.h"
@@ -80,6 +81,13 @@ static HWND TooltipFor(HWND editor)
   return tooltip;
 }
 
+static LRESULT CALLBACK CountHostKeys(HWND window, UINT message, WPARAM w, LPARAM l,
+                                      UINT_PTR, DWORD_PTR data)
+{
+  if (message == WM_KEYDOWN || message == WM_KEYUP) ++*reinterpret_cast<int*>(data);
+  return DefSubclassProc(window, message, w, l);
+}
+
 static void CheckEditor(HWND parent, double scale, const std::function<double()>& inputDB,
                         const std::filesystem::path& screenshot)
 {
@@ -92,6 +100,8 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
   const auto clickValue = [&] {
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, xy(37, 128));
     SendMessage(editor, WM_LBUTTONUP, 0, xy(37, 128));
+    SendMessage(editor, WM_LBUTTONDBLCLK, MK_LBUTTON, xy(37, 128));
+    SendMessage(editor, WM_LBUTTONUP, 0, xy(37, 128));
     PumpFor(40);
   };
   const auto key = [&](int vk, BYTE modifiers = 0) {
@@ -101,21 +111,63 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
     neutral[VK_CONTROL] = modifiers & 2 ? 0x80 : 0;
     neutral[VK_MENU] = modifiers & 4 ? 0x80 : 0;
     assert(SetKeyboardState(neutral));
-    SendMessage(editor, WM_KEYDOWN, vk, static_cast<LPARAM>(MapVirtualKey(vk, MAPVK_VK_TO_VSC)) << 16);
-    SendMessage(editor, WM_KEYUP, vk, 0);
+    const auto target = GetFocus(); assert(target == editor);
+    SendMessage(target, WM_KEYDOWN, vk, static_cast<LPARAM>(MapVirtualKey(vk, MAPVK_VK_TO_VSC)) << 16);
+    SendMessage(target, WM_KEYUP, vk, 0);
     assert(SetKeyboardState(previous));
     PumpFor(20);
   };
+  // Simulate a floating plugin whose host still owns the foreground window.
+  // Sending keys directly to the editor used to hide this failure.
+  auto hostWindow = CreateWindowExW(0, L"STATIC", L"Host keyboard focus", WS_OVERLAPPEDWINDOW,
+    0, 0, 200, 100, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+  assert(hostWindow);
+  // A real input event grants Windows foreground permission to this test process.
+  // Background test runners cannot acquire it with SetForegroundWindow alone.
+  SetWindowPos(hostWindow, HWND_TOPMOST, 0, 0, 200, 100, SWP_SHOWWINDOW);
+  POINT cursor{}; assert(GetCursorPos(&cursor));
+  assert(SetCursorPos(80, 12));
+  INPUT clicks[2]{};
+  clicks[0].type = clicks[1].type = INPUT_MOUSE;
+  clicks[0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+  clicks[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
+  assert(SendInput(2, clicks, sizeof(INPUT)) == 2);
+  PumpFor(80);
+  assert(SetCursorPos(cursor.x, cursor.y));
+  SetWindowPos(hostWindow, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  SetForegroundWindow(hostWindow); SetFocus(hostWindow);
+  assert(GetForegroundWindow() == hostWindow);
+  int forwarded = 0;
+  assert(SetWindowSubclass(parent, CountHostKeys, 1, reinterpret_cast<DWORD_PTR>(&forwarded)));
   clickValue();
+  assert(GetForegroundWindow() == parent && GetFocus() == editor);
   for (const wchar_t c : std::wstring(L"-3.5"))
   {
     const auto mapped = VkKeyScanW(c); assert(mapped != -1);
     key(LOBYTE(mapped), HIBYTE(mapped));
   }
+  // Invalid numeric characters and boundary navigation must still be consumed.
+  key('Q'); key(VK_END); key(VK_END);
   key(VK_RETURN);
+  assert(forwarded == 0);
   assert(std::abs(inputDB() + 3.5) < .01);
   clickValue(); key('9'); key(VK_ESCAPE);
   assert(std::abs(inputDB() + 3.5) < .01); // Escape cancels the edit.
+  assert(forwarded == 0);
+
+  // Preset browser takes focus on open; type without clicking the search field.
+  SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, xy(470, 28));
+  SendMessage(editor, WM_LBUTTONUP, 0, xy(470, 28));
+  PumpFor(100);
+  assert(GetFocus() == editor && GetForegroundWindow() == parent);
+  for (int vk : {'Z', 'Z', 'Q', 'Q'}) key(vk);
+  key(VK_HOME); key(VK_HOME); key(VK_BACK); key(VK_TAB);
+  key(VK_SPACE); key(VK_RETURN); // Commit the query.
+  assert(forwarded == 0);
+  key(VK_ESCAPE); // Close the browser.
+  assert(forwarded == 0);
+  RemoveWindowSubclass(parent, CountHostKeys, 1);
+  DestroyWindow(hostWindow);
 
   InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
   SendMessage(editor, WM_MOUSEMOVE, 0, xy(37, 100));
@@ -131,7 +183,7 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
 
 static HWND Parent()
 {
-  auto parent = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"STATIC", L"NAM Grid editor check",
+  auto parent = CreateWindowExW(WS_EX_TOOLWINDOW, L"STATIC", L"NAM Grid editor check",
     WS_POPUP, 0, 0, 2200, 1500, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
   assert(parent);
   ShowWindow(parent, SW_SHOWNOACTIVATE);
@@ -226,6 +278,21 @@ static void CheckVST3(const char* file, double scale, const std::filesystem::pat
     scaling->release();
     if (pass) assert(std::abs(inputDB() + 3.5) < .01);
     CheckEditor(parent, scale, inputDB, out.empty() ? out : out / ("vst3-" + std::to_string(pass) + ".bmp"));
+    // Hosts may deliver keys via IPlugView instead of Win32 messages.
+    auto editor = GetWindow(parent, GW_CHILD);
+    const auto xy = [&](double x, double y) { return MAKELPARAM(std::lround(x * scale), std::lround(y * scale)); };
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, xy(37, 128));
+    SendMessage(editor, WM_LBUTTONUP, 0, xy(37, 128));
+    const auto protocolKey = [&](char16 character, int16 code) {
+      assert(view->onKeyDown(character, code, 0) == kResultTrue);
+      assert(view->onKeyUp(character, code, 0) == kResultTrue);
+    };
+    for (char16 c : std::u16string(u"-3.5")) protocolKey(c, 0);
+    protocolKey(u'q', 0); // Rejected numeric key still belongs to the edit.
+    protocolKey(0, VirtualKeyCodes::KEY_END);
+    protocolKey(0, VirtualKeyCodes::KEY_END); // No cursor movement.
+    protocolKey(0, VirtualKeyCodes::KEY_RETURN);
+    assert(std::abs(inputDB() + 3.5) < .01);
     assert(view->removed() == kResultOk); view->setFrame(nullptr); view->release(); DestroyWindow(parent);
     assert(frame.refs == 1);
   }

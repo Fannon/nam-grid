@@ -4,6 +4,11 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows numeric entry brings the plugin into keyboard focus, including floating host windows. Text editing consumes key presses and releases, including rejected characters, boundary navigation, Enter and Escape, so they cannot trigger DAW shortcuts.
+- Browser search retains typing focus after committing a query, clearing it or switching tabs.
+
 ### Added
 
 - Focused module controls: gate attack/hold/hysteresis; compressor ratio and detector low cut; Guitar EQ mid frequency; EQ output, boost mid gain and Tube Boost high cut.

@@ -48,7 +48,6 @@ public:
   void BeginEdit()
   {
     Focus();
-    mFocused = false;
     // The editor stops short of the clear button, so it stays clickable while typing.
     GetUI()->CreateTextEntry(*this, mText, mRECT.GetHPadded(-12).GetVPadded(-3).GetReducedFromRight(24), GetStr());
   }
@@ -67,7 +66,7 @@ public:
     if (mLive.empty() || x < ClearButton().L) { BeginEdit(); return; }
     auto* entry = GetUI()->GetTextEntryControl();
     if (entry && entry->EditInProgress() && GetUI()->GetControlInTextEntry() == this) entry->CommitEdit();
-    SetQuery(""); mChanged("");
+    SetQuery(""); mChanged(""); Focus();
   }
   void Draw(IGraphics& g) override
   {
@@ -495,6 +494,7 @@ private:
     mSearch->SetQuery(View().query);
     if (!IsHidden()) { Layout(); GetUI()->SetAllControlsDirty(); }
     Rebuild();
+    if (!IsHidden()) mSearch->Focus();
   }
   void Rebuild()
   {

@@ -317,7 +317,7 @@ inline constexpr AlgorithmIdentity pedal[]{
   {7, "blues-breaker"}, {8, "transparent-od"}, {9, "vintage-fuzz"}};
 inline constexpr AlgorithmIdentity distortion[]{
   {0, "soft"}, {1, "hard"}, {2, "fuzz"}, {3, "foldback"}, {4, "diode"}, {5, "rectify"}};
-inline constexpr AlgorithmIdentity juno[]{{0, "i"}, {1, "i-ii"}, {2, "ii"}};
+inline constexpr AlgorithmIdentity juno[]{{0, "i"}, {1, "i-ii"}, {2, "ii"}, {3, "i-ii-vintage"}};
 inline constexpr AlgorithmIdentity gate[]{{0, "natural"}, {1, "tight"}};
 inline constexpr AlgorithmIdentity filter[]{{0, "low-pass"}, {1, "high-pass"}, {2, "band-pass"}};
 inline constexpr AlgorithmIdentity heads[]{{0, "single"},      {1, "dual"},          {2, "syncopated"},
@@ -492,7 +492,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Dual Delay Ratio", "Time ratio", 1.5, .25, 2, .01, "x", 3},
    {"Dual Delay Balance", "Tap balance", 50, 0, 100, .1, "%", 5},
    {"Parametric Notch Mode", "Notch mode", 0, 0, 1, 1, "", 5},
-   {"Juno Mode", "Mode", 1, 0, 2, 1, "", 0},
+   {"Juno Mode", "Mode", 1, 0, 3, 1, "", 0},
    {"Juno Mix", "Mix", 50, 0, 100, .1, "%", 6},
    {"Juno Brightness", "Brightness", 100, 0, 100, .1, "%", 0},
    {"Shimmer Mix", "Mix", 35, 0, 100, .1, "%", 6},

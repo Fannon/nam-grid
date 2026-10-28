@@ -15,7 +15,7 @@ inline const char* ChoiceDescription(int p, int mode)
   static constexpr const char* distortion[]{
     "Smooth, rounded drive", "Sharper, brighter drive", "Dense, compressed sustain",
     "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz"};
-  static constexpr const char* juno[]{"Slower voice", "Both voices", "Faster voice"};
+  static constexpr const char* juno[]{"Slower voice", "Both voices", "Faster voice", "Fast, shallow, centered vintage chorus"};
   std::span<const char* const> descriptions;
   switch (p)
   {
@@ -365,7 +365,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uRingFrequency: return "Carrier frequency; adds sum/difference sidebands and metallic, often inharmonic tones.";
     case uRingDepth: return "Move from the original amplitude toward full bipolar ring modulation.";
     case uEQMode: return "Notch rejects a narrow band without a Gain control; bell boosts or cuts using Gain.";
-    case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both.";
+    case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both. I+II vintage is fast, shallow and centered.";
     case uJunoBrightness: return "Treble retained in the wet voices; lower values soften the chorus.";
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
     case uShimmerAmount: return "Pitched feedback into the reverb; more creates a stronger, longer shimmer.";
@@ -446,7 +446,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::SpringReverb: return "Dwell excites the spring; Drip adds splash, Damping tames treble.";
     case SlotEffect::ShimmerReverb: return "Pitch and Amount build rising/falling tails; Freeze sustains them.";
     case SlotEffect::Chorus: return "Dry plus moving delay; Depth adds detune, Spread separates voices.";
-    case SlotEffect::JunoChorus: return "Mode chooses one or both moving voices; Brightness softens their wet tone.";
+    case SlotEffect::JunoChorus: return "Mode chooses classic stereo voices or fast, centered vintage motion; Brightness softens the wet tone.";
     case SlotEffect::Flanger: return "Swept comb notches; Feedback sharpens them.";
     case SlotEffect::Phaser: return "Six swept phase stages; Feedback deepens the resonant swirl.";
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";

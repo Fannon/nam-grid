@@ -23,6 +23,11 @@ inline double SoftLimit(double x)
 inline double Tri(double phase)
 { return phase < .5 ? phase * 2. : 2. - phase * 2.; }
 
+// Vintage I+II: Juno-60 recordings measured at 9.75 Hz and 3.3-3.7 ms:
+// https://github.com/pendragon-andyh/Juno60/blob/master/Chorus/README.md
+// Sine-like fast LFO, with the second BBD no longer inverted:
+// https://www.florian-anwander.de/roland_string_choruses/
+// The pinned Junologue reference above instead blends I and II; retained as mode 1.
 class JunoChorus
 {
 public:
@@ -33,6 +38,7 @@ public:
     mControls.Reset(mRate);
     mPre = mPost[0] = mPost[1] = 0.;
     mPhase[0] = mPhase[1] = 0.;
+    mVintagePhase = mVintageGain = 0.;
     mWidth.Reset(rate);
     mGainA = .70710678;
     mGainB = .70710678;
@@ -51,10 +57,12 @@ public:
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
-      const int mode = std::clamp(static_cast<int>(std::lround(v[0])), 0, 2);
-      constexpr double modeGains[3][2]{{1., 0.}, {.70710678, .70710678}, {0., 1.}};
+      const int mode = std::clamp(static_cast<int>(std::lround(v[0])), 0, 3);
+      constexpr double modeGains[4][2]{{1., 0.}, {.70710678, .70710678}, {0., 1.}, {0., 0.}};
+      const double vintageTarget = mode == 3 ? 1. : 0.;
       if (mFirst)
       {
+        mVintageGain = vintageTarget;
         mGainA = modeGains[mode][0];
         mGainB = modeGains[mode][1];
         mDryGain = dryTarget;
@@ -63,6 +71,8 @@ public:
       }
       mGainA = modeGains[mode][0] + gainCoefficient * (mGainA - modeGains[mode][0]);
       mGainB = modeGains[mode][1] + gainCoefficient * (mGainB - modeGains[mode][1]);
+      mVintageGain = vintageTarget + gainCoefficient * (mVintageGain - vintageTarget);
+      if (std::abs(mVintageGain - vintageTarget) < 1.e-12) mVintageGain = vintageTarget;
       const double brightness = v[2] * .01;
       const double preCutoff = std::min(.45 * mRate, 2000. + brightness * brightness * 18000.);
       const double postCutoff = std::min(.45 * mRate, 6000. + brightness * brightness * 14000.);
@@ -87,6 +97,17 @@ public:
       const double tap2R = mLine.Read(mRate * (minimum + range * (1. - Tri(mPhase[1]))));
       double wetL = tap1L * mGainA + tap2L * mGainB;
       double wetR = tap1R * mGainA + tap2R * mGainB;
+      // Crossfade a separate tap; changing mode never jumps a running delay.
+      // Skip the extra oscillator/read entirely for rigs using the original modes.
+      if (mVintageGain != 0.)
+      {
+        mVintagePhase += 9.75 / mRate;
+        if (mVintagePhase >= 1.) mVintagePhase -= 1.;
+        const double delay = .0035 + .0002 * std::sin(2. * grid_fx::pi * mVintagePhase);
+        const double vintage = mLine.Read(mRate * delay) * mVintageGain;
+        wetL += vintage;
+        wetR += vintage;
+      }
       mPost[0] = grid_fx::Flush(wetL + postCoefficient * (mPost[0] - wetL));
       mPost[1] = grid_fx::Flush(wetR + postCoefficient * (mPost[1] - wetR));
       wetL = mPost[0];
@@ -117,6 +138,7 @@ private:
   grid_fx::Memo mPreCoefficient, mPostCoefficient;
   double mRate = 48000., mPre = 0., mPost[2]{}, mPhase[2]{}, mGainA = 1., mGainB = 0.;
   double mDryGain = .70710678, mWetGain = .70710678, mMixSmoothing = 0.;
+  double mVintagePhase = 0., mVintageGain = 0.;
   bool mFirst = true;
 };
 

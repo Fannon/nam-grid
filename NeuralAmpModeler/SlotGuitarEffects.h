@@ -48,6 +48,7 @@ class SlotSpring
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mRate = rate;
     mControls.Reset(rate);
     mTone.Reset(rate);
@@ -77,6 +78,7 @@ public:
     const double hp = std::exp(-2. * grid_fx::pi * 130. / mRate);
     for (int i = 0; i < frames; ++i)
     {
+      mMixLaw.Tick(controls.constantDry);
       const auto& c = mControls.Tick();
       const double tone = mTone.Tick()[0], width = right ? mStereo.Tick()[0] : 0.;
       if (mCounter++ % 32 == 0)
@@ -118,13 +120,14 @@ public:
       }
       const double mid = .5 * (wetLeft + wetRight), side = .5 * (wetLeft - wetRight) * width;
       const double mix = c[3] * .01, output = mOutput(c[4] * .05, [](double x) { return std::pow(10., x); });
-      left[i] = ((1. - mix) * dry[0] + mix * (mid + side)) * output;
+      left[i] = mMixLaw.Apply(((1. - mix) * dry[0] + mix * (mid + side)) * output, dry[0], mix, output);
       if (right)
-        right[i] = ((1. - mix) * dry[1] + mix * (mid - side)) * output;
+        right[i] = mMixLaw.Apply(((1. - mix) * dry[1] + mix * (mid - side)) * output, dry[1], mix, output);
     }
   }
 
 private:
+  grid_fx::MixLaw mMixLaw;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mTone, mStereo;
   grid_fx::SmoothControls<1> mPredelayControl;

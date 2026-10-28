@@ -2,6 +2,8 @@
 
 Rooms, plates, halls, springs, shimmer and ambient echoes.
 
+Routing's **Keep dry level** toggle applies to every delay and reverb in the rig. Off (the default), Mix crossfades from dry to wet. On, the dry signal stays at unity and Mix sets the wet level: 100% gives full dry plus full wet. Whole-signal Output trims still affect both, so high Mix settings can raise the total level. Mix 0% stays dry in both laws.
+
 | Module | In short |
 | --- | --- |
 | [Room](#room) | Short reflections for intimacy; Size changes spacing, Decay the tail. |
@@ -29,7 +31,7 @@ A close, supportive room that adds depth without pushing the guitar far back.
 | **Pre-delay** | 0–200 ms | 8 ms | Gap before the reverb starts; separates the pick attack from the tail. |
 | **Modulation** | 0–100% | 10% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 120 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
-| **Mix** | 0–100% | 12% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 12% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 In the header:
 
@@ -56,7 +58,7 @@ A smooth, dense plate that sits easily behind picked notes and chords.
 | **Modulation** | 0–100% | 15% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 120 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
 | **Ducking** | 0–100% | 0% | Ducks only the wet reverb while playing and restores it between phrases; zero is off. |
-| **Mix** | 0–100% | 18% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 18% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 In the header:
 
@@ -83,7 +85,7 @@ A long, slowly moving stereo wash for pads and ambient playing.
 | **Modulation** | 0–100% | 40% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 150 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
 | **Ducking** | 0–100% | 0% | Ducks only the wet reverb while playing and restores it between phrases; zero is off. |
-| **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 30% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 In the header:
 
@@ -110,7 +112,7 @@ A wide, spacious hall with a long tail and separate bass and treble damping.
 | **Modulation** | 0–100% | 20% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Low cut** | 0–500 Hz | 120 Hz | Remove bass from the reverb send to keep the tail from getting boomy. |
 | **Ducking** | 0–100% | 0% | Ducks only the wet reverb while playing and restores it between phrases; zero is off. |
-| **Mix** | 0–100% | 22% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 22% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 In the header:
 
@@ -136,7 +138,7 @@ Splashy, spring-like repeats with extra edge when you push Dwell.
 | **Damping** | 800–12000 Hz | 5000 Hz | Treble damping in the reverb. Lower settings make the tail darker than the dry signal. |
 | **Pre-delay** | 0–200 ms | 0 ms | Time before the spring is excited; zero retains the immediate spring response. |
 | **Output** | -12 to +12 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
-| **Mix** | 0–100% | 18% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 18% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 In the header:
 
@@ -158,7 +160,7 @@ A reverb whose tail climbs or falls in pitch with each pass. Freeze holds the ta
 | **Amount** | 0–100% | 25% | Pitched feedback into the reverb; more creates a stronger, longer shimmer. |
 | **Modulation** | 0–100% | 30% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Freeze** | Off / On | Off | Sustain the tank and stop feeding new notes; release to return to the normal decay. |
-| **Mix** | 0–100% | 25% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 **Display:** The decay with the pitch steps each pass adds.
 
@@ -176,7 +178,7 @@ Airwindows kPlate140 plate ambience, with its original Sustain and Resolution ch
 | **Pre-delay** | 0–200 ms | 15 ms | Gap before the plate send, in milliseconds. Separates the attack without changing the tank size. |
 | **Low cut** | 0–500 Hz | 100 Hz | Remove bass from the plate send. Zero is off; higher values keep driven guitar from making the tank boomy. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
-| **Mix** | 0–100% | 18% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 18% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 **Display:** How full the reverb is over time.
 
@@ -194,7 +196,7 @@ Airwindows kGuitarHall2 ambience, with selectable early-reflection positions for
 | **Early level** | 0–100% | 50% | Level of the hall's early reflections; adds a closer, more defined room around the long tail. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Position** | 0–100% | 50% | Chooses a different early-reflection pattern. It changes in steps, so moving it can be audible. |
-| **Mix** | 0–100% | 20% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 20% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 **Display:** How full the reverb is over time, with the early reflections.
 
@@ -212,7 +214,7 @@ Airwindows Galactic3's huge, slowly evolving stereo space. Replace sets how quic
 | **Size** | 5–100% | 60% | Size of the space, together with Resolution. Changing it while the tail sounds can cause pitch and noise artifacts. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Resolution** | 25–100% | 100% | Lower settings make the space larger and darker. It changes in steps, which can be audible when automated. |
-| **Mix** | 0–100% | 25% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 **Display:** How full the reverb is over time.
 
@@ -230,7 +232,7 @@ Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction o
 | **Density** | 0–100% | 85% | Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp. |
 | **High cut** | 200–16000 Hz | 7500 Hz | Treble cut on the effect. Virgo and the original NAM Grid styles damp the feedback path. |
 | **Modulation** | 0–100% | 30% | Depth of the slow stereo modulation. More adds pitch movement and chorus. |
-| **Mix** | 0–100% | 20% | Balance between dry sound and effect. |
+| **Mix** | 0–100% | 20% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
 
 In the header:
 

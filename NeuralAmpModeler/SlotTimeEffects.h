@@ -112,6 +112,27 @@ private:
   bool mFirst = true;
   bool mMoving = true;
 };
+class MixLaw
+{
+public:
+  void Reset(double rate) { mStep = 1. / std::max(1., .02 * rate); mValue = 0.; mFirst = true; }
+  void Tick(bool constantDry)
+  {
+    const double target = constantDry ? 1. : 0.;
+    if (mFirst) { mValue = target; mFirst = false; }
+    else if (mValue < target) mValue = std::min(target, mValue + mStep);
+    else if (mValue > target) mValue = std::max(target, mValue - mStep);
+  }
+  double Apply(double linear, double dry, double mix, double output = 1.) const
+  {
+    // Preserve the released expression and its rounding exactly in Linear mode.
+    return mValue == 0. || mix == 0. ? linear : linear + (mValue * mix * dry) * output;
+  }
+private:
+  double mValue = 0., mStep = 1.;
+  bool mFirst = true;
+};
+
 class WetDucker
 {
 public:
@@ -144,6 +165,7 @@ class SlotDelay
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mRate = rate;
     mLine.Reset(static_cast<int>(rate * 8.1));
     mControls.Reset(rate);
@@ -166,6 +188,7 @@ public:
     const double envelopeAttack = std::exp(-1. / (.003 * mRate));
     for (int i = 0; i < frames; ++i)
     {
+      mMixLaw.Tick(controls.constantDry);
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
       const double ping = mPing.Tick()[0], live = mDrain.Tick(draining);
@@ -216,12 +239,13 @@ public:
         const double peak = (1. - ping) * std::abs(x[ch]) + ping * std::max(std::abs(x[0]), std::abs(x[1]));
         tank.mEnv = grid_fx::Flush(peak + (peak > tank.mEnv ? envelopeAttack : envelopeRelease) * (tank.mEnv - peak));
         const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * tank.mEnv) : 1.;
-        (ch == 0 ? samples : rightSamples)[i] = ((1. - mix) * x[ch] + mix * wet[ch] * duck) * output;
+        (ch == 0 ? samples : rightSamples)[i] = mMixLaw.Apply(((1. - mix) * x[ch] + mix * wet[ch] * duck) * output, x[ch], mix, output);
       }
     }
   }
 
 private:
+  grid_fx::MixLaw mMixLaw;
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;

@@ -9,6 +9,7 @@ class SlotCosmicEcho
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mCore.Reset(rate); mControls.Reset(rate); mCounter=0; mStyle=-1;
     mTransition=1.; mStep=1./std::max(1., .02*rate); mDrain.Reset(rate); mLive=1.;
     mFeed=1.; mFeedStep=1./std::max(1., .005*rate);
@@ -20,6 +21,7 @@ public:
     if (mStyle < 0) mStyle=requested;
     for (int i=0; i<frames; ++i)
     {
+      mMixLaw.Tick(controls.constantDry);
       const auto& v=mControls.Tick();
       if (requested != mStyle)
       {
@@ -37,11 +39,12 @@ public:
       if (mFeed < 1.) mFeed=std::min(1., mFeed+mFeedStep);
       const auto wet=mCore.Tick(mFeed < 1. ? grid_cosmic::Core::Stereo{dry[0]*mFeed, dry[1]*mFeed} : dry);
       const double mix=v[6]*.01;
-      left[i]=dry[0]+mix*(mTransition*(right ? wet[0] : .5*(wet[0]+wet[1]))-dry[0]);
-      if (right) right[i]=dry[1]+mix*(mTransition*wet[1]-dry[1]);
+      left[i]= mMixLaw.Apply(dry[0]+mix*(mTransition*(right ? wet[0] : .5*(wet[0]+wet[1]))-dry[0]), dry[0], mix, 1.);
+      if (right) right[i]= mMixLaw.Apply(dry[1]+mix*(mTransition*wet[1]-dry[1]), dry[1], mix, 1.);
     }
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   grid_cosmic::Core mCore;
   grid_fx::SmoothControls<7> mControls;
   grid_fx::DrainRamp mDrain;

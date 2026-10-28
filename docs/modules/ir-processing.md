@@ -4,9 +4,10 @@ A **Cabinet IR** slot convolves your audio with a mono or stereo WAV impulse res
 Use it for a cabinet and microphone, a recorded space, a resonant object or an
 experimental texture. Mono files apply the same response independently to both
 inputs, preserving their original sound. Stereo files apply the left response to
-the left input and the right response to the right input. A mono slot input uses
-the average of the two responses. Four-channel true stereo files are not supported.
-Both lengths accept 16/24/32-bit PCM and 32-bit float WAV files.
+the left input and the right response to the right input. After a mono capture,
+a stereo IR spreads the signal into left and right, which suits stereo room and
+reverb responses. Mono IRs sound exactly as before. Four-channel true stereo files
+are not supported. Both lengths accept 16/24/32-bit PCM and 32-bit float WAV files.
 
 ## Length
 
@@ -24,7 +25,8 @@ FFT convolution; Long IR uses larger partitions for the late tail to keep the
 cost manageable. Processing adds no buffering latency. The response's own onset
 and the Pre-delay control can still delay the wet sound.
 
-Stereo responses use two distinct convolution histories and cost more CPU and memory than mono processing. Long responses also need more memory and CPU. Late-tail work is spread across
+Stereo responses use slightly more CPU and more memory than mono responses.
+Long responses also need more memory and CPU. Late-tail work is spread across
 audio callbacks to reduce peaks. Use a shorter response or a larger host buffer
 if a Long IR leaves too little processing headroom in your rig.
 

@@ -6,7 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
-- Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. Mono slot input uses the average of both responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.
+- Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. After a mono capture, a stereo IR spreads the signal into left and right for stereo room and reverb responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.
 
 ### Fixed
 

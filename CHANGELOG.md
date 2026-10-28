@@ -15,6 +15,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
   - Utility level, balance and polarity changes always take 5 ms. Juno Chorus Mix rising from 0% no longer jumps in. Changing the Cosmic Echo style no longer clicks on the new style's first repeats.
   - Settled sound is unchanged; only these transitions differ.
 - Projects and rig presets accept up to 8 MiB instead of 1 MiB, leaving room for future controls in rigs with all three performance scenes stored. Full rigs currently need about 0.9 MiB as a preset.
+- Restore the saved library index when Startup rescan is off. Missing, invalid, empty or factory-only indexes automatically trigger a background rescan; opening an empty or factory-only browser retries recovery. Scans with unavailable folders or read failures preserve the last good saved index.
 
 ## [0.3.0] - 2026-10-27
 

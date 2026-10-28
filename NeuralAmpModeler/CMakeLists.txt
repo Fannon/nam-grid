@@ -283,6 +283,8 @@ foreach(format IN LISTS NAM_FORMATS)
 endforeach()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
+  add_test(NAME library-startup COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}" --library-startup-only)
+  set_tests_properties(library-startup PROPERTIES TIMEOUT 60)
   # Full-rig recall, every catalog FX control, dialogs and menus prepare many models;
   # Windows shell/file-dialog initialization and software OpenGL rendering on CI hosts
   # are also slow.

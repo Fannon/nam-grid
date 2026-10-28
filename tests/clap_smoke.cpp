@@ -26,6 +26,7 @@
 #include "../NeuralAmpModeler/GridLayout.h"
 #include "../NeuralAmpModeler/EffectPresentation.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
+#include "LibraryStartupClapTests.h"
 // Header box centres (GridLayout.h), so tests follow the header layout.
 constexpr int kPreviousX = grid_layout::previousLeft + grid_layout::arrowWidth / 2;
 constexpr int kNextX = grid_layout::nextLeft + grid_layout::arrowWidth / 2;
@@ -37,6 +38,17 @@ int main(int argc, char** argv)
 {
   std::cout << std::unitbuf;
   assert(argc == 3 || argc == 4);
+#ifdef _WIN32
+  if (argc == 4 && std::strcmp(argv[3], "--library-startup-only") == 0)
+  {
+    // Canonical scan paths can differ from the host's temporary-path spelling.
+    // Exercise that distinction on every Windows startup test, including local runs.
+    auto temporary = std::filesystem::temp_directory_path().native();
+    CharUpperBuffW(temporary.data(), static_cast<DWORD>(temporary.size()));
+    const bool set = SetEnvironmentVariableW(L"TMP", temporary.c_str());
+    assert(set);
+  }
+#endif
   IsolatedUserHome settingsBackup("nam-grid-smoke"); // Never the user's settings or library.
 #ifdef _WIN32
   const bool fxVisuals = std::getenv("NAM_GRID_FX_VISUALS") != nullptr;
@@ -100,6 +112,17 @@ int main(int argc, char** argv)
       }));
     first->destroy(first);
     std::cout << "First start: settings folder, default library folders, bundled capture, presets and first index passed\n";
+    if (argc == 4 && std::strcmp(argv[3], "--library-startup-only") == 0)
+    {
+      TestLibraryStartup(factory, host, settingsBackup);
+      entry->deinit();
+#ifdef _WIN32
+      FreeLibrary(library);
+#else
+      dlclose(library);
+#endif
+      return 0;
+    }
     // The rest of the test starts from its own preferences and no default folders.
     nam_library::Settings preferences;
     preferences.showVisualizations = true;

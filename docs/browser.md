@@ -53,7 +53,7 @@ NAM captures, cabinet IRs and rig presets each have their own list of folders. A
 
 - Each folder is scanned only for its own file type: `.nam`, `.wav` or `.ngrid`, including subfolders. Add a mixed folder to more than one list if needed.
 - **Open** shows a folder in Explorer or Finder. **Remove** stops scanning it without deleting anything.
-- Use **Rescan all** (or **Rescan** in the browser) after adding, moving or renaming files. **Startup rescan** does this whenever NAM Grid starts.
+- Use **Rescan all** (or **Rescan** in the browser) after adding, moving or renaming files. **Startup rescan** does this whenever NAM Grid starts. With it off, NAM Grid restores the saved index. A missing, invalid, empty or factory-only index still triggers a background rescan of all configured folders. Opening an empty or factory-only browser retries the scan, so files added later can be found. Missing folders and read failures leave the last good saved index intact.
 - Missing or invalid files are reported; NAM Grid never silently substitutes another sound.
 
 Until you choose your own folders, NAM Grid uses these in your Documents folder:

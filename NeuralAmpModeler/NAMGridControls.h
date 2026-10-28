@@ -2719,7 +2719,7 @@ public:
       OptionRect(1), [this](IControl*) { PLUG()->SetRescanOnStartup(!PLUG()->GetRescanOnStartup()); },
       "Startup rescan: ON");
     mStartupScan->SetTooltip(
-      "Automatically index library folders when opening an instance or project. When off, choose Rescan all manually.");
+      "Refresh library folders when opening an instance or project. When off, restore the saved index; missing, empty or factory-only libraries still rescan automatically.");
     AddChildControl(mStartupScan);
     mVisualizations = new Button(OptionRect(2), [this](IControl*) {
       PLUG()->SetShowVisualizations(!PLUG()->GetShowVisualizations());

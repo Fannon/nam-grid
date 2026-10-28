@@ -58,13 +58,13 @@ Deliberate integration differences:
   Filled-sample counts prevent stale buffer reads without large clears on audio.
 - Bypass drain sets feedback to zero and runs long enough to flush eight maximum-length lines (about 65 seconds at the current range). A regression verifies that an old impulse cannot return after re-enabling. Host-reported render tails retain the
   plugin's finite 60-second policy; extreme feedback settings can outlast that
-  policy while playing. This needs a release policy if the module is retained.
+  policy while playing.
 
 The display shares the nominal delay-length law with the DSP, shows Density as
 scattering spread and modulation as a halo, in a larger dedicated canvas. It does not show a synthetic input/output history.
 It is not a measured impulse response or a fabricated LFO animation.
 
-Test coverage includes all six styles at 44.1/48/96/192 kHz, full-range
+Test coverage includes every style at 44.1/48/96/192 kHz, full-range
 automation with unequal partitions, exact dry stereo, style-change allocation
 guards, default impulse differences and timing, sustained maximum-feedback tests
 at both minimum and maximum Time, and old-tail clearing after style changes. Native host

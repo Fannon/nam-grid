@@ -45,6 +45,15 @@ Click **Routing** below the A/B knob for the lane controls. Select a module, clo
 
 Use the split for rigs such as a clean low end in A and a driven high band in B. Check the combined tone in mono as well as stereo.
 
+A drive in **Pre** acts before this split. A drive in **B** receives its upper branch;
+a drive in **Post** receives both branches after they are mixed. A nonlinear Post
+module can therefore distort the lows you kept clean in A.
+
+Pedal Drive also offers a local **Low keep** return. It works within one slot, independently
+of the grid's split. Start with Low keep at zero when using Pedal Drive in the high lane
+of a split rig; otherwise the upper branch is split again. See the
+[routing examples](modules/pedal-drive.md#using-the-grid-split).
+
 Lane levels, the crossover and A/B can all be [modulated](performance.md#modulation).
 
 ## Missing captures and IRs

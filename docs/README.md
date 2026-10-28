@@ -31,7 +31,7 @@ The player guides are published at **[fannon.github.io/nam-grid](https://fannon.
 These pages are for developers; you do not need them to use the plugin.
 
 - [Build and test](build.md), [development and compatibility](development.md), [module implementation](module-implementation.md) and the [release checklist](release-checklist.md).
-- [On-demand FX benchmarks](fx-performance.md) and the [IR convolution experiment](ir-convolution-comparison.md); the engine rules are in `AdaptiveIR.h`.
+- [On-demand FX benchmarks](fx-performance.md), the [DSP aliasing checks](dsp-aliasing.md) and the [IR convolution experiment](ir-convolution-comparison.md); the engine rules are in `AdaptiveIR.h`.
 - [Airwindows outboard](airwindows-outboard.md) and [Digital Black Gate](airwindows-dynamics.md) implementation notes.
 - [Screenshots](screenshots/README.md): how the gallery and module images are generated.
 - [Third-party notices](../ThirdPartyNotices.txt) and [contribution guidelines](../CONTRIBUTING.md).

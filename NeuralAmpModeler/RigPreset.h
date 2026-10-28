@@ -11,13 +11,15 @@
 
 namespace rig_preset
 {
-inline constexpr size_t kMaximumBytes = 1024 * 1024;
+// Bounds both preset files and host project state. A full rig with three stored scenes
+// needs about 0.9 MiB as an indented preset, and appended controls add to that.
+inline constexpr size_t kMaximumBytes = 8 * 1024 * 1024;
 inline nlohmann::json Read(const std::filesystem::path& path)
 {
   std::ifstream input(path, std::ios::binary | std::ios::ate);
   if (!input) throw std::runtime_error("Cannot open the preset file.");
   const auto size = input.tellg();
-  if (size <= 0 || size > kMaximumBytes) throw std::runtime_error("Preset is empty or exceeds 1 MiB.");
+  if (size <= 0 || size > kMaximumBytes) throw std::runtime_error("Preset is empty or exceeds 8 MiB.");
   std::string text(static_cast<size_t>(size), '\0');
   input.seekg(0);
   if (!input.read(text.data(), text.size())) throw std::runtime_error("Cannot read the preset file.");
@@ -68,7 +70,7 @@ inline void Write(const std::filesystem::path& path, const nlohmann::json& rig)
 {
   if (!rig.is_object()) throw std::runtime_error("Invalid rig state.");
   const auto text = nlohmann::json{{"format", "nam-grid-preset"}, {"version", 1}, {"rig", rig}}.dump(2);
-  if (text.size() > kMaximumBytes) throw std::runtime_error("Preset exceeds 1 MiB.");
+  if (text.size() > kMaximumBytes) throw std::runtime_error("Preset exceeds 8 MiB.");
   WriteAtomically(path, text);
 }
 } // namespace rig_preset

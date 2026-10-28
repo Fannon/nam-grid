@@ -162,6 +162,14 @@ the attribution is in the shipped notices. Slot EQ smooths controls over 5 ms
 and updates coefficients on a continuous 16-sample schedule. Cut bypasses ramp,
 histories reset explicitly, and processing adds no buffering latency.
 
+Bypass, re-enable and replacement fade the slot over 5 ms. The processor's input
+also fades in after it was suspended, drained or replaced, and every module drains
+briefly on silence before suspending, so stale histories and hard input steps are
+never replayed. Delay feedback ramps to zero over 5 ms when draining starts
+(`grid_fx::DrainRamp`). `TestClicks` (stage tests) checks every module's bypass,
+replacement, control jumps and mode changes against twice the bypass fade's
+high-band spike; its exemptions name their reasons.
+
 Meters use bounded SPSC packets. Rendering, logarithmic display scaling and
 holds run on the UI thread; meter state is transient. Keep visualization work
 out of audio processing, and distinguish measured signals from parameter sketches.

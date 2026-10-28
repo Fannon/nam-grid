@@ -128,11 +128,12 @@ public:
     mLfoPrevious = {}; mLfoValue = {}; mPhase = 0;
     mFinishDelay = {}; mFinishIndex = 0;
   }
-  void Configure(const std::array<double, 7>& values, int style, bool draining)
+  // `live` scales feedback and plate diffusion while a bypassed slot starts draining.
+  void Configure(const std::array<double, 7>& values, int style, bool draining, double live = 1.)
   {
     mStyle = std::clamp(style, 0, effect_modes::cosmicCount-1);
     style = mStyle;
-    const double feedback = draining ? 0. : values[2]*.01;
+    const double feedback = draining ? 0. : live == 1. ? values[2]*.01 : values[2]*.01*live;
     mGain = std::min(.9995, std::sqrt(feedback));
     mInjection = std::sqrt(std::min(1., .2/std::max(.000001, mGain)));
     mGlobalGain = feedback;
@@ -141,7 +142,8 @@ public:
     mCos = std::cos(angle); mSin = std::sin(angle);
     mDensity = std::clamp(values[3]*.01, 0., 1.);
     if (style == static_cast<int>(Style::PhotonPlate))
-      mPlateDiffusion=draining ? std::array<double,3>{} : std::array<double,3>{.35+.4*mDensity,-(.3+.4*mDensity),.2+.3*mDensity};
+      mPlateDiffusion=draining ? std::array<double,3>{}
+                     : std::array<double,3>{live*(.35+.4*mDensity),-live*(.3+.4*mDensity),live*(.2+.3*mDensity)};
     mLowPass = std::exp(-2.*grid_fx::pi*std::min(.45*mRate, values[4])/mRate);
     mMotion = (500./48000.)*mRate*std::pow(values[5]*.01, 2.);
     for (int i = 0; i < LineCount(style); ++i)

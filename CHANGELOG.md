@@ -4,6 +4,17 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Fixed
+
+- Frequency Shifter now shifts a single sideband as documented. Its quadrature path was silent, so Sideband at ±100% produced both sidebands like a ring modulator. A new zero-latency allpass network keeps the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz. This changes existing rigs: at ±100% Sideband the shifted sound is clearer, about 3 dB louder, and high Feedback sustains longer; Sideband 0 keeps its ring-modulator sound.
+- Bypassed compressors, gates, Peak Limiter, Auto Swell and Filter let their detectors settle, so re-enabling them no longer resumes a stale gain reduction or skips a swell.
+- Fewer clicks when switching modules, scenes and automation:
+  - Re-enabling or replacing a module no longer clicks. This affected Chorus, Flanger, Vibrato, Rotary, Stereo Doubler, Juno Chorus, Frequency Shifter, LoFi Tape Machine, Dual Delay, Tube Boost and Airwindows Tape. The module's input now fades in, and every module briefly drains its history before it is suspended.
+  - Re-enabling a delay shortly after bypassing it no longer clicks: feedback fades out over 5 ms instead of being cut.
+  - Jumps of Output and Drive in Distortion, Pedal Drive, Tube Boost and Airwindows Tape, and of Output in LoFi Tape Machine, Multi-head Tape, Diffused Delay and the Airwindows reverbs, are smooth instead of zippering.
+  - Utility level, balance and polarity changes always take 5 ms. Juno Chorus Mix rising from 0% no longer jumps in. Changing the Cosmic Echo style no longer clicks on the new style's first repeats.
+  - Settled sound is unchanged; only these transitions differ.
+- Projects and rig presets accept up to 8 MiB instead of 1 MiB, leaving room for future controls in rigs with all three performance scenes stored. Full rigs currently need about 0.9 MiB as a preset.
 - Restore the saved library index when Startup rescan is off. Missing, invalid, empty or factory-only indexes automatically trigger a background rescan; opening an empty or factory-only browser retries recovery. Scans with unavailable folders or read failures preserve the last good saved index.
 
 ## [0.3.0] - 2026-10-27

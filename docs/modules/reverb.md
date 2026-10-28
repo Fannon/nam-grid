@@ -243,4 +243,4 @@ In the header:
 - Start with low Warp for rhythmic echoes, then raise Warp and Density for an ambient wash.
 - For an Aurora Hall guitar hall, try Time 225 ms, Warp 65%, Feedback 65%, Density 85%, High cut 7500 Hz, Modulation 30% and Mix 20%. Raise Time and Feedback for longer washes.
 
-For the complementary Cosmic Echo styles, see [the audition guide](cosmic-echo.md#audition-styles).
+For the complementary Cosmic Echo styles, see [the audition guide](cosmic-echo.md#complementary-styles).

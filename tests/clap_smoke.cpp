@@ -2640,6 +2640,39 @@ int main(int argc, char** argv)
   learnSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(learnSceneBytes));
   assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  {
+    // Worst-case rig size: every continuous value needs 17 significant digits and all
+    // three scenes store every scene control. Appended controls grow this by about
+    // 3.5 KiB each; keep a full rig well inside the state and preset limits.
+    auto large = sceneState;
+    for (uint32_t i = 0; i < params->count(plugin); ++i)
+    {
+      clap_param_info info{};
+      assert(params->get_info(plugin, i, &info));
+      if (info.flags & CLAP_PARAM_IS_STEPPED) continue;
+      const double value = large[info.name].get<double>();
+      const double offset = 1.2345678901234567e-7 * std::max(1., std::abs(value));
+      large[info.name] = value + (info.default_value < .5 ? offset : -offset);
+    }
+    for (auto& scene : large["PerformanceScenes"])
+    {
+      scene = json::object();
+      for (const auto& [name, value] : sceneState["PerformanceScenes"][0].items()) scene[name] = large[name];
+    }
+    Stream largeBytes;
+    largeBytes.string("###nam-grid###");
+    largeBytes.string(large.dump());
+    assert(loadBytes(largeBytes));
+    auto saved = save();
+    assert(saved.bytes.size() > 512 * 1024 && saved.bytes.size() < rig_preset::kMaximumBytes / 4);
+    const auto presetFile = settingsBackup.home / "worst-case-size.ngrid";
+    rig_preset::Write(presetFile, saved.config());
+    assert(std::filesystem::file_size(presetFile) < rig_preset::kMaximumBytes / 4);
+    assert(rig_preset::Read(presetFile)["PerformanceScenes"] == saved.config()["PerformanceScenes"]);
+    std::filesystem::remove(presetFile);
+    assert(loadBytes(storedScene));
+    assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  }
   win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Store in scene 2", true); pumpFor(30);
   win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Clear scene 2", true); pumpFor(30);
   assert(save().config()["PerformanceScenes"][1].empty());

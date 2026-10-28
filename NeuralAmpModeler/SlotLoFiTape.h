@@ -64,9 +64,9 @@ public:
                                                      * (1. - .7 * wear), 900., 18000.));
         mLowCoefficient = std::exp(-2. * grid_fx::pi * cutoff / mRate);
         mNoiseGain = .03 * std::pow(v[3] * .01, 2.);
-        mOutput = std::pow(10., v[6] / 20.);
       }
       mCounter = (mCounter + 1) % 16;
+      mOutput = mOutputGain(v[6] / 20., [](double x) { return std::pow(10., x); });
       if (--mDriftFrames <= 0)
       {
         mDriftTarget = Random(mTransportSeed);
@@ -146,6 +146,7 @@ private:
   double mDropPhase = 1., mDropStep = 0., mDropDepth = 0.;
   double mWowIncrement = 0., mFlutterIncrement = 0.;
   double mLowCoefficient = 0., mNoiseGain = 0., mOutput = 1.;
+  grid_fx::Memo mOutputGain;
   LoFiTapeHistory mHistory;
   double mHistoryClock = 0., mPreviousWow = 0., mPreviousFlutter = 0.;
   int mDriftFrames = 0, mDropWait = 0, mCounter = 0;

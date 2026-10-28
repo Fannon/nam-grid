@@ -45,7 +45,7 @@ public:
     mControls.Reset(mRate);
     mWeights = {};
     mPrevious = mHighPass = mLowPass = 0.;
-    mCounter = 0; mFirst = true;
+    mFirst = true;
     mCached = {-1., -1., -100.};
   }
   // The uncached instantiation is an offline numerical regression oracle;
@@ -59,14 +59,11 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
-      if (mCounter == 0)
-      {
-        if (c[1] != mCached[0]) mDrive = std::pow(10., c[1] / 20.);
-        if (c[2] != mCached[1]) mTone = std::exp(-2. * grid_fx::pi * std::min(c[2], mRate * .4) / mRate);
-        if (c[5] != mCached[2]) mOutput = std::pow(10., c[5] / 20.);
-        mCached = {c[1], c[2], c[5]};
-      }
-      mCounter = (mCounter + 1) % 16;
+      // Every smoothed sample, cached on value: 16-sample steps made audible zipper noise.
+      if (c[1] != mCached[0]) mDrive = std::pow(10., c[1] / 20.);
+      if (c[2] != mCached[1]) mTone = std::exp(-2. * grid_fx::pi * std::min(c[2], mRate * .4) / mRate);
+      if (c[5] != mCached[2]) mOutput = std::pow(10., c[5] / 20.);
+      mCached = {c[1], c[2], c[5]};
       const double dry = samples[i], bias = c[3] * .004;
       for (int j = 0; j < effect_modes::distortionCount; ++j)
         mWeights[j] = grid_fx::Flush((j == style ? 1. : 0.) + mSmooth * (mWeights[j] - (j == style ? 1. : 0.)));
@@ -196,6 +193,5 @@ private:
   double mRate = 48000., mSmooth = 0., mDC = 0.;
   double mPrevious = 0., mHighPass = 0., mLowPass = 0.;
   double mDrive = 1., mTone = 0., mOutput = 1.;
-  int mCounter = 0;
   bool mFirst = true;
 };

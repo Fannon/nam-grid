@@ -129,6 +129,7 @@ export default defineConfig({
           { text: 'Module implementation', link: '/module-implementation' },
           { text: 'Release checklist', link: '/release-checklist' },
           { text: 'FX benchmarks', link: '/fx-performance' },
+          { text: 'DSP aliasing checks', link: '/dsp-aliasing' },
           { text: 'IR convolution experiment', link: '/ir-convolution-comparison' },
           { text: 'Airwindows outboard', link: '/airwindows-outboard' },
           { text: 'Digital Black Gate', link: '/airwindows-dynamics' },

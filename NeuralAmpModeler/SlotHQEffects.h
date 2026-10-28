@@ -36,6 +36,7 @@ public:
     mWidth.Reset(rate);
     mGainA = .70710678;
     mGainB = .70710678;
+    mMixSmoothing = std::exp(-1. / (.02 * mRate));
     mFirst = true;
   }
   void Process(double* l, double* r, int n, const UtilityControls& c)
@@ -43,6 +44,10 @@ public:
     mControls.Target(c.juno, uJunoMode);
     mWidth.Target({c.extra.junoWidth}, uJunoWidth);
     const double gainCoefficient = std::exp(-1. / (.01 * mRate));
+    // Smooth the equal-power gains themselves: sqrt of a smoothed mix rising from 0%
+    // has an infinite initial slope, so the wet voice jumped in.
+    const double mixTarget = std::clamp(c.juno[1], kEffectParameters[uJunoMix].minimum, kEffectParameters[uJunoMix].maximum) * .01;
+    const double dryTarget = std::sqrt(std::max(0., 1. - mixTarget)), wetTarget = std::sqrt(mixTarget);
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
@@ -52,6 +57,8 @@ public:
       {
         mGainA = modeGains[mode][0];
         mGainB = modeGains[mode][1];
+        mDryGain = dryTarget;
+        mWetGain = wetTarget;
         mFirst = false;
       }
       mGainA = modeGains[mode][0] + gainCoefficient * (mGainA - modeGains[mode][0]);
@@ -90,10 +97,16 @@ public:
         const double mid = .5 * (wetL + wetR), side = .5 * (wetL - wetR) * width;
         wetL = mid + side; wetR = mid - side;
       }
-      const double mix = v[1] * .01, dryGain = std::sqrt(std::max(0., 1. - mix)), wetGain = std::sqrt(mix);
-      l[i] = dryL * dryGain + wetL * wetGain;
+      // Snap the last rounding step so Mix 0% stays exactly dry after automation.
+      const auto approach = [&](double gain, double target) {
+        const double next = target + mMixSmoothing * (gain - target);
+        return std::abs(next - target) < 1.e-12 ? target : next;
+      };
+      mDryGain = approach(mDryGain, dryTarget);
+      mWetGain = approach(mWetGain, wetTarget);
+      l[i] = dryL * mDryGain + wetL * mWetGain;
       if (r)
-        r[i] = dryR * dryGain + wetR * wetGain;
+        r[i] = dryR * mDryGain + wetR * mWetGain;
     }
   }
 
@@ -103,6 +116,7 @@ private:
   grid_fx::SmoothControls<1> mWidth;
   grid_fx::Memo mPreCoefficient, mPostCoefficient;
   double mRate = 48000., mPre = 0., mPost[2]{}, mPhase[2]{}, mGainA = 1., mGainB = 0.;
+  double mDryGain = .70710678, mWetGain = .70710678, mMixSmoothing = 0.;
   bool mFirst = true;
 };
 
@@ -165,6 +179,7 @@ public:
     }
     mFreeze = 0.;
     mCounter = 0;
+    mDrain.Reset(mRate);
   }
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
@@ -192,13 +207,13 @@ public:
         }
       }
       mCounter %= 32;
-      const double dryL = l[i], dryR = r ? r[i] : dryL;
+      const double dryL = l[i], dryR = r ? r[i] : dryL, live = mDrain.Tick(draining);
       mInputLow[0] = grid_fx::Flush(dryL + coefficient * (mInputLow[0] - dryL));
       mInputLow[1] = grid_fx::Flush(dryR + coefficient * (mInputLow[1] - dryR));
       const double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze)
-                            + mFeedback[0] * (draining ? 0. : 1.);
+                            + mFeedback[0] * live;
       const double inputR = (.25 * (dryL - mInputLow[0]) + .75 * (dryR - mInputLow[1])) * (1. - mFreeze)
-                            + mFeedback[1] * (draining ? 0. : 1.);
+                            + mFeedback[1] * live;
       const double wetL = mTank[0].Process(inputL);
       const double wetR = mTank[1].Process(inputR);
       const double pitch = v[3] * mTank[0].live;
@@ -278,8 +293,49 @@ private:
   Tank mTank[2];
   PitchShifter mShifter;
   grid_fx::SmoothControls<7> mControls;
+  grid_fx::DrainRamp mDrain;
   double mRate = 48000., mInputLow[2]{}, mFeedback[2]{}, mFreeze = 0.;
   int mCounter = 0;
+};
+
+// Analytic-signal pair from two chains of second-order allpass sections, using
+// Olli Niemitalo's published polyphase IIR Hilbert transformer coefficients
+// (https://yehar.com/blog/?p=368). The quadrature output lags the in-phase output
+// by 90 degrees within about 0.7 degrees from 30 Hz to 20 kHz at 44.1/48 kHz
+// (60 Hz at 96 kHz), with unity magnitude and no lookahead.
+class HilbertPair
+{
+public:
+  void Reset() { mInPhase = {}; mQuadrature = {}; mDelayed = 0.; }
+  // Returns {in-phase, quadrature}.
+  std::array<double, 2> Process(double x)
+  {
+    const double quadrature = mDelayed;
+    mDelayed = Chain(mQuadrature, quadratureCoefficients, x);
+    return {Chain(mInPhase, inPhaseCoefficients, x), quadrature};
+  }
+
+private:
+  struct Section { double x1 = 0., x2 = 0., y1 = 0., y2 = 0.; };
+  using Sections = std::array<Section, 4>;
+  static constexpr std::array<double, 4> inPhaseCoefficients{.4021921162426, .8561710882420, .9722909545651,
+                                                             .9952884791278};
+  static constexpr std::array<double, 4> quadratureCoefficients{.6923878, .9360654322959, .9882295226860,
+                                                                .9987488452737};
+  static double Chain(Sections& sections, const std::array<double, 4>& a, double x)
+  {
+    for (size_t j = 0; j < sections.size(); ++j)
+    {
+      auto& s = sections[j];
+      const double y = grid_fx::Flush(a[j] * a[j] * (x + s.y2) - s.x2);
+      s.x2 = s.x1; s.x1 = x;
+      s.y2 = s.y1; s.y1 = y;
+      x = y;
+    }
+    return x;
+  }
+  Sections mInPhase{}, mQuadrature{};
+  double mDelayed = 0.;
 };
 
 class FrequencyShifter
@@ -292,8 +348,7 @@ public:
     for (int ch = 0; ch < 2; ++ch)
     {
       mLine[ch].Reset(static_cast<int>(mRate * 1.05) + 8);
-      mHistory[ch].fill(0.);
-      mIndex[ch] = 0;
+      mHilbert[ch].Reset();
       mLow[ch] = 0.;
     }
     mCosine = 1.;
@@ -301,15 +356,7 @@ public:
     mCosOffset = 1.;
     mSinOffset = 0.;
     mCounter = 0;
-    for (double& value : mHilbert)
-      value = 0.;
-    for (int k = 1; k < 32; k += 2)
-    {
-      const double window = .54 - .46 * std::cos(2. * grid_fx::pi * (31 + k) / 62.);
-      const double value = 2. * window / (grid_fx::pi * k);
-      mHilbert[31 + k] = value;
-      mHilbert[31 - k] = -value;
-    }
+    mDrain.Reset(mRate);
   }
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
@@ -329,7 +376,7 @@ public:
       const double rightCosine = mCosine * mCosOffset - mSine * mSinOffset;
       const double rightSine = mSine * mCosOffset + mCosine * mSinOffset;
       const double delaySamples = std::max(1., v[2] * .001 * mRate);
-      const double side = v[3] * .01, feedback = draining ? 0. : v[1] * .01;
+      const double side = v[3] * .01, feedback = v[1] * .01 * mDrain.Tick(draining);
       const double dryL = l[i], dryR = r ? r[i] : dryL;
       const double lowPole = mLowPole(-2. * grid_fx::pi * std::min(.45 * mRate, v[4]) / mRate,
                                      [](double x) { return std::exp(x); });
@@ -337,14 +384,7 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         const double dry = ch ? dryR : dryL;
-        const double delayed = mLine[ch].Read(delaySamples);
-        auto& history = mHistory[ch];
-        const int index = mIndex[ch];
-        history[index] = delayed;
-        double quadrature = 0.;
-        for (int j = 1; j < 63; j += 2)
-          quadrature += mHilbert[j] * history[(index - j) & 63];
-        const double inPhase = history[(index - 31) & 63];
+        const auto [inPhase, quadrature] = mHilbert[ch].Process(mLine[ch].Read(delaySamples));
         const double cosine = ch ? rightCosine : mCosine, sine = ch ? rightSine : mSine;
         const double upper = inPhase * cosine - quadrature * sine;
         const double lower = inPhase * cosine + quadrature * sine;
@@ -355,7 +395,6 @@ public:
         shifted = mLow[ch];
         mLine[ch].Push(dry + feedback * SoftLimit(shifted));
         wet[ch] = shifted;
-        mIndex[ch] = (index + 1) & 63;
       }
       const double mix = v[6] * .01;
       l[i] = dryL + mix * (wet[0] - dryL);
@@ -369,13 +408,12 @@ public:
 
 private:
   std::array<grid_fx::DelayLine, 2> mLine;
-  std::array<std::array<double, 64>, 2> mHistory{};
-  std::array<double, 63> mHilbert{};
+  std::array<HilbertPair, 2> mHilbert;
   grid_fx::SmoothControls<7> mControls;
   grid_fx::Memo mLowPole;
+  grid_fx::DrainRamp mDrain;
   double mRate = 48000., mCosine = 1., mSine = 0., mCosOffset = 1., mSinOffset = 0.;
   double mLow[2]{};
-  int mIndex[2]{};
   int mCounter = 0;
 };
 } // namespace grid_hq

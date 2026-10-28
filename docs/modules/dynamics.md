@@ -7,6 +7,7 @@ Gates, compressors and limiting.
 | [Noise Gate](#noise-gate) | Threshold opens the gate; Release and Reduction shape the gaps. |
 | [Noise Gate (Smart)](#noise-gate-smart) | Learn the noise alone; Sensitivity and Reduction protect sustain. |
 | [Digital Black Gate](#digital-black-gate) | Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour. |
+| [Pedal Comp](#pedal-comp) | Guitar sustain pedal: Sustain evens out notes, Blend keeps the pick, Pickup suits your guitar. |
 | [Smooth Compressor](#smooth-compressor) | Gentle leveling; Attack preserves pick, Makeup restores level. |
 | [Punch Compressor](#punch-compressor) | Firmer compression; slow Attack and parallel Mix retain punch. |
 | [Butter Comp](#butter-comp) | Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack. |
@@ -82,6 +83,35 @@ In the header:
 **Tips:**
 
 - If noise near Threshold makes the gate chatter, raise Hold to 30 to 80 ms or set Threshold a few dB higher.
+
+## Pedal Comp
+
+A guitar compressor in the spirit of sustain pedals, for electric and acoustic guitar. One
+**Sustain** knob sets how much it evens out your playing; the level follows automatically, so
+a typical note stays about as loud as bypass while quiet notes and decaying tails come up.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Sustain** | 0–100% | 50% | Amount of compression. 0% only catches hard peaks, 50% evens out normal playing by about 6 dB, 100% is a heavy squash. |
+| **Attack** | Fast / Slow | Slow | **Fast** clamps the pick for the classic snappy, squashed pedal sound. **Slow** lets about 20 ms of pick through first, which sounds more natural. |
+| **Tone** | -6 to +6 dB | 0 dB | Treble shelf at 2.5 kHz on the pedal's output. Raise it to restore sparkle; lower it to soften pick or piezo quack. |
+| **Level** | -12 to +12 dB | 0 dB | Final level. |
+| **Blend** | 0–100% | 100% | Mixes dry guitar back in for a natural attack with compressed sustain underneath. |
+
+In the header:
+
+- **Pickup** (Single coil, Humbucker, Acoustic; starts at Single coil) tells the detector what to expect. It never changes the tone. Single coil is about 5 dB more sensitive than Humbucker. **Acoustic** is for piezo, transducer and other acoustic pickups: it follows the body of each note rather than every pick spike and ignores body boom and piezo quack, so strumming does not pump.
+
+**Display:** The settled compression curve for steady notes, with a dot at the live input, the gain reduction bar and the input/output history.
+
+**Presets:** Studio smooth, Country squash, Funk rhythm, Parallel sustain, Lead sustain, Acoustic strum and Acoustic fingerstyle. Presets keep your Pickup choice, except the acoustic ones, which select Acoustic.
+
+**Tips:**
+
+- Start with Sustain at 50% and listen to note tails. If the pick sounds choked, switch Attack to Slow or lower Blend.
+- If Sustain barely does anything, your interface level is low: choose Single coil or raise Sustain. If it squashes even at low Sustain, choose Humbucker.
+- Release follows your playing: after a short pick it recovers quickly, after a long held note it eases back over about a second.
+- Like any sustainer, it raises the noise between notes along with the tails. If that bothers you, add a gate after it; a gate before it would cut the tails it is sustaining.
 
 ## Smooth Compressor
 

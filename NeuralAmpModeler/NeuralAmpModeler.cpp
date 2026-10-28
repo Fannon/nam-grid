@@ -1,6 +1,7 @@
 #include "NoisePrintState.h"
 #include "DefaultContent.h"
 #include "DrivePresets.h"
+#include "ModulePresets.h"
 #include "EmbeddedFont.h"
 #include <fstream>
 #include <algorithm> // std::clamp, std::min
@@ -97,6 +98,11 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         param->InitDouble((name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit);
       if (i == uNoiseGateThreshold)
         param->SetDisplayText(p.minimum, "Off");
+      if (i == uPedalCompAttack)
+      {
+        param->SetDisplayText(0, "Fast");
+        param->SetDisplayText(1, "Slow");
+      }
     }
     GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
   }
@@ -972,6 +978,29 @@ void NeuralAmpModeler::LoadSlapbackPreset(size_t slot)
   config.values[17 + uDelayTone] = 8000.; config.values[17 + uDelayCharacter] = 0.;
   config.values[17 + uDelayMix] = 25.;
   _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), true);
+  _NotifyHostStateChanged();
+}
+
+SlotValues NeuralAmpModeler::GetSlotValues(size_t slot) const
+{
+  SlotValues values{};
+  if (slot >= FixedNAMGrid::kSlots) return values;
+  const auto indices = SlotParamIndices(slot);
+  for (size_t i = 0; i < indices.size(); ++i) values[i] = GetParam(indices[i])->Value();
+  return values;
+}
+
+void NeuralAmpModeler::ApplyModulePreset(size_t slot, int preset)
+{
+  if (slot >= FixedNAMGrid::kSlots) return;
+  const auto effect = GetSlotEffect(slot);
+  const auto presets = module_presets::For(effect);
+  if (preset < 0 || preset >= static_cast<int>(presets.size())) return;
+  const auto current = GetSlotValues(slot);
+  const auto values = module_presets::Apply(effect, presets[preset], current);
+  const auto indices = SlotParamIndices(slot);
+  for (size_t i = 0; i < indices.size(); ++i)
+    if (values[i] != current[i]) SetParameterFromUI(indices[i], values[i]);
   _NotifyHostStateChanged();
 }
 

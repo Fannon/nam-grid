@@ -33,6 +33,7 @@ Old delay and reverb tails end with the transition. Large rigs can take a moment
 
 ## Presets, projects, and scenes
 
+- A **module preset** (the **Presets** menu in some module editors) changes one module's controls. See [Shape a module](ui.md#shape-a-module).
 - A **rig preset** can replace modules and captures as well as controls.
 - A **DAW project** recalls the current rig and host automation as part of the project.
 - A **performance scene** changes controls within the current modules; it cannot load a different capture or module.

@@ -218,6 +218,12 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSwellCurve: return "Shape of the fade-in; one retains the original linear swell, higher values enter more slowly.";
     case uSwellHold: return "Time below the closing threshold before a new swell can re-arm; 40 ms retains the original hold.";
     case uSwellMix: return "Blend the swollen signal with dry guitar to retain some pick attack.";
+    case uPedalCompSustain: return "How much the pedal evens out your playing. Level follows automatically, so typical notes stay about as loud as bypass while quiet notes and decaying tails come up.";
+    case uPedalCompAttack: return "Fast clamps the pick for the classic squashed, snappy pedal sound. Slow lets about 20 ms of pick attack through before compressing, which sounds more natural.";
+    case uPedalCompTone: return "Treble shelf at 2.5 kHz after Blend. Raise it to restore sparkle that compression takes away; lower it to soften pick and piezo quack.";
+    case uPedalCompBlend: return "Mixes dry guitar back in. Lower settings keep the natural pick attack and dynamics, with compressed sustain underneath.";
+    case uPedalCompLevel: return "Final level. Sustain already keeps typical notes near bypass loudness; use Level to match taste or drive the next module.";
+    case uPedalCompPickup: return "What the detector expects, not a tone control. Single coil and Humbucker set sensitivity; Acoustic suits piezo and transducer pickups, following the note body rather than each pick spike and ignoring body boom.";
 
     case uIRInput: return "Gain into convolution. Changes only the wet signal; at Mix zero the original signal passes unchanged.";
     case uIRMix: return "Linear dry/wet blend. Input, Output, cuts and Pre-delay affect only the wet signal. Use 100% on a send.";
@@ -405,6 +411,7 @@ inline const char* Sound(SlotEffect e)
   switch (e)
   {
     case SlotEffect::PedalDrive: return "Ten voiced guitar and bass drives; Low keep restores clean lows within this slot.";
+    case SlotEffect::PedalComp: return "Guitar sustain pedal: Sustain evens out notes, Blend keeps the pick, Pickup suits your guitar.";
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
     case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input drives the colour, Output matches loudness.";

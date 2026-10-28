@@ -173,6 +173,8 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uSwellHold, t.extra.swellHold);
   u(uSwellMix, t.extra.swellMix);
   u(uDelayTimeChange, t.extra.delayTimeChange);
+  family(uPedalCompSustain, t.pedalComp);
+  u(uPedalCompPickup, t.pedalCompPickup);
 
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().

@@ -217,6 +217,11 @@ public:
   std::string EditSlot(size_t source, size_t destination, SlotEditMode mode);
   void ClearSlot(size_t slot);
   void LoadSlapbackPreset(size_t slot);
+  // Current values of one slot's controls, in SlotValues order.
+  SlotValues GetSlotValues(size_t slot) const;
+  // Sets the slot's module controls to one of its factory module presets (ModulePresets.h)
+  // as ordinary host parameter changes; the module keeps running.
+  void ApplyModulePreset(size_t slot, int preset);
   std::string SaveRigPreset(const std::filesystem::path& path);
   std::string LoadRigPreset(const std::filesystem::path& path);
   std::string InstallDrivePresets(const std::filesystem::path& folder);

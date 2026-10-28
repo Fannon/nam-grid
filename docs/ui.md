@@ -41,6 +41,13 @@ the knob, type the new value, and press **Enter** to apply it or **Escape** to c
 
 If a module's description ends in `...`, hover over it to read the full description.
 
+Some modules have a **Presets** menu in the top row, between the module name and the
+browser button. Choosing a factory preset sets that module's controls, through ordinary
+parameter changes, so the module keeps running and the rest of the rig is unchanged. The
+button shows the preset's name until you move a control. Presets are starting points, not
+saved files: the rig or project stores the resulting control values. Module presets
+currently exist for Pedal Comp, Smooth Compressor, Punch Compressor and Digital Delay.
+
 Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 
 ### Displays and meters

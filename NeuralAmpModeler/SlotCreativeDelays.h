@@ -8,6 +8,7 @@ class SlotMultiHeadDelay
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mRate = rate; mControls.Reset(rate); mExtras.Reset(rate); mHeads = {};
     for (auto& line : mLine) line.Reset(static_cast<int>(rate * 8.1));
     mLow = {}; mDC = {}; mPhase = 0.; mCounter = 0; mFirst = true; mCrossFeedback = 0.; mDrain.Reset(rate);
@@ -21,6 +22,7 @@ public:
     if (mFirst) { mHeads = target.gains; mCrossFeedback = target.crossFeedback ? 1. : 0.; mFirst = false; }
     for (int i = 0; i < frames; ++i)
     {
+      mMixLaw.Tick(c.constantDry);
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
       const double live = mDrain.Tick(draining);
       if (mCounter == 0)
@@ -59,13 +61,14 @@ public:
       }
       const double mix = v[4] * .01;
       const double monoWet = right ? wet[0] : .5 * (wet[0]+wet[1]);
-      left[i] = (dry[0] + mix * (monoWet - dry[0])) * mOutput;
-      if (right) right[i] = (dry[1] + mix * (wet[1] - dry[1])) * mOutput;
+      left[i] = mMixLaw.Apply((dry[0] + mix * (monoWet - dry[0])) * mOutput, dry[0], mix, mOutput);
+      if (right) right[i] = mMixLaw.Apply((dry[1] + mix * (wet[1] - dry[1])) * mOutput, dry[1], mix, mOutput);
       mPhase += 2. * grid_fx::pi * .67 / mRate;
       if (mPhase >= 2. * grid_fx::pi) mPhase -= 2. * grid_fx::pi;
     }
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   std::array<grid_fx::DelayLine, 2> mLine;
   std::array<std::array<double, 4>, 2> mLow{};
   grid_reverb::Stereo mDC{};
@@ -86,6 +89,7 @@ class SlotDiffusedDelay
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mRate = rate; mControls.Reset(rate); mExtras.Reset(rate); mDiffusion.Reset(rate);
     for (auto& line : mLine) line.Reset(rate, 8.11);
     for (int i = 0; i < 12; ++i)
@@ -102,6 +106,7 @@ public:
     mDiffusion.Target({c.delayDiffusion}, uDelayDiffusion);
     for (int i = 0; i < frames; ++i)
     {
+      mMixLaw.Tick(c.constantDry);
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
       const double diffusion = mDiffusion.Tick()[0] * .01, live = mDrain.Tick(draining);
       if (mCounter == 0) mCoefficient = grid_reverb::Coefficient(v[2], mRate);
@@ -120,7 +125,7 @@ public:
       {
         const double wet = repeat[ch] + diffusion * (blurred[ch] - repeat[ch]);
         mLine[ch].Push(dry[ch] + v[1] * .01 * live * wet);
-        const double output = (dry[ch] + v[4] * .01 * (wet - dry[ch])) * mOutput;
+        const double output = mMixLaw.Apply((dry[ch] + v[4] * .01 * (wet - dry[ch])) * mOutput, dry[ch], v[4] * .01, mOutput);
         if (ch == 0) left[i] = output; else if (right) right[i] = output;
       }
       mPhase += 2. * grid_fx::pi * .31 / mRate;
@@ -128,6 +133,7 @@ public:
     }
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   std::array<grid_reverb::MovingDelay, 2> mLine;
   std::array<grid_reverb::StereoAllpass, 12> mDiffusers;
   grid_fx::SmoothControls<5> mControls;

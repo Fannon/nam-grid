@@ -204,6 +204,20 @@ int main(int argc, char** argv)
   }
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
   {
+    assert(base["Mix Law"] == 0.);
+    auto constantDry = base;
+    constantDry["Mix Law"] = 1.;
+    assert(loadRaw(constantDry));
+    assert(save().config()["Mix Law"] == 1.);
+    auto legacy = base;
+    legacy["schema"] = 8;
+    legacy.erase("Mix Law");
+    assert(loadRaw(legacy));
+    assert(save().config()["Mix Law"] == 0.);
+    assert(loadRaw(base));
+  }
+
+  {
     auto legacyEQ = base;
     legacyEQ["schema"] = 4;
     for (int slot = 0; slot < 16; ++slot)

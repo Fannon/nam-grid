@@ -4,9 +4,11 @@ Freeze, stutter and lo-fi tape.
 
 | Module | In short |
 | --- | --- |
-| [Freeze / Hold](#freeze-hold) | Hold adds a captured layer; Crossfade smooths and shortens its loop. |
+| [Freeze / Hold](#freeze--hold) | Hold adds a captured layer; Crossfade smooths and shortens its loop. |
 | [Stutter](#stutter) | Window sets repeats; Gate length and Edge fade carve each pulse. |
 | [LoFi Tape Machine](#lofi-tape-machine) | Speed sets tone; Wow/Flutter move pitch, Wear adds dropouts. |
+
+<div id="freeze--hold"></div>
 
 ## Freeze / Hold
 

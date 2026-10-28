@@ -381,6 +381,11 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       std::copy_n(mInputPointers[std::min(channel, numChannelsInternal - 1)], nFrames, mOutgoingBuffers[channel].data());
   auto& controls = mAudioControls.Values();
   const double tempo = GetTempo();
+  if (!holding)
+  {
+    for (int i = 0; i < grid_performance::Count; ++i) mHeldPerformance[i] = GetParam(PerformanceParam(i))->Value();
+    mHeldBlend = GetParam(kParallelBlend)->Value() * .01;
+  }
   // A held rig keeps the controls it last used; new values wait in the cache.
   for (size_t slot = 0; !holding && slot < controls.size(); ++slot)
   {
@@ -391,11 +396,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     });
     // Host tempo can change without a parameter notification.
     controls[slot].utility.tempo = tempo;
-  }
-  if (!holding)
-  {
-    for (int i = 0; i < grid_performance::Count; ++i) mHeldPerformance[i] = GetParam(PerformanceParam(i))->Value();
-    mHeldBlend = GetParam(kParallelBlend)->Value() * .01;
+    controls[slot].utility.constantDry = mHeldPerformance[grid_performance::MixLaw] >= .5;
   }
   const auto& performance = mHeldPerformance;
   const auto routing = grid_performance::Route(performance);

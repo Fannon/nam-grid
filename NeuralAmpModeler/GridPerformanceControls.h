@@ -706,6 +706,9 @@ public:
     toggle(6, LaneBSolo, "Hear only lane B, keeping its blend level. Soloing both lanes passes both.");
     knob(7, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
                         "timing; it cannot correct every phase difference and never advances audio.");
+    // Reserve the left third of this row for another rig-wide routing toggle.
+    AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 352, grid_layout::descriptionTop, grid_layout::parameterRight - 184, grid_layout::descriptionTop + 24), PerformanceParam(MixLaw), "Keep dry level"))
+      ->SetTooltip("Keep delay and reverb dry levels at unity; Mix sets the wet level.");
     AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 176, grid_layout::descriptionTop, grid_layout::parameterRight, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
       ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
     AddChildControl(new Button(IRECT(grid_layout::parameterRight - 80, grid_layout::moduleHeaderTop, grid_layout::parameterRight, grid_layout::moduleHeaderBottom), [](IControl* caller) {
@@ -718,7 +721,6 @@ public:
     using namespace grid_ui;
     DrawEditorBackground(g, mRECT);
     g.DrawText(Text(22.f, accent), "Routing", IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, 300, grid_layout::moduleHeaderBottom));
-    FittedText(g, Text(14.f, muted), "Parallel lanes A and B. Blend them with A / B beside the grid.", IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop, grid_layout::parameterRight - 186, grid_layout::descriptionBottom));
   }
 };
 

@@ -17,6 +17,7 @@ class SlotAirReverb
 public:
   void Reset(double rate, SlotEffect effect)
   {
+    mMixLaw.Reset(rate);
     mRate = std::max(1., rate); mEffect = effect; mControls.Reset(mRate);
     mPlate.reset(); mHall.reset(); mSpace.reset();
     if (effect == SlotEffect::AirPlate)
@@ -38,6 +39,7 @@ public:
                              : mEffect == SlotEffect::AirHall ? uAirHallSustain : uSpaceReplace);
     for (int i = 0; i < frames; ++i)
     {
+      mMixLaw.Tick(controls.constantDry);
       const auto& v = mControls.Tick();
       mOutput = mOutputGain(v[6] / 20., [](double x) { return std::pow(10., x); });
       // Feedback fades over 5 ms when draining starts; follow it every sample while it moves.
@@ -72,11 +74,12 @@ public:
       if (mSpace) mSpace->Tick(wetL, wetR);
       const double mix = v[mPlate ? 4 : 5] * .01;
       if (!right) wetL = .5 * (wetL + wetR);
-      left[i] = (dryL + mix * (wetL - dryL)) * mOutput;
-      if (right) right[i] = (dryR + mix * (wetR - dryR)) * mOutput;
+      left[i] = mMixLaw.Apply((dryL + mix * (wetL - dryL)) * mOutput, dryL, mix, mOutput);
+      if (right) right[i] = mMixLaw.Apply((dryR + mix * (wetR - dryR)) * mOutput, dryR, mix, mOutput);
     }
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   std::unique_ptr<airwindows_reverb::kPlate140::Core> mPlate;
   std::unique_ptr<airwindows_reverb::kGuitarHall2::Core> mHall;
   std::unique_ptr<airwindows_reverb::Galactic3::Core> mSpace;

@@ -292,9 +292,10 @@ build targets.
 | `vst3-parameter-contract` | Windows only: the built VST3 controller's IDs, class ID, automation flags and normalization |
 | `editor-host` | Windows only: CLAP and VST3 native editor bounds at the active monitor scale, decimal/negative value entry, Escape cancellation, tooltips and editor reopening |
 
-The Python unit tests cover the on-demand report and audit scripts. See the
-[compatibility contract](development.md#parameter-and-project-compatibility) before
-changing controls, modules or saved state.
+The Python unit tests cover the on-demand report and audit scripts and check that
+every in-repo Markdown heading link resolves on both GitHub and the VitePress site.
+See the [compatibility contract](development.md#parameter-and-project-compatibility)
+before changing controls, modules or saved state.
 
 For DSP/state regression checks without opening the native editor, set
 `NAM_GRID_HEADLESS_SMOKE=1` when running `nam-clap-smoke`. This includes Smart Gate

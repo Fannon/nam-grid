@@ -301,9 +301,11 @@ modulation and gain transitions may sound slightly different; destination
 smoothing times, parameter identities and saved-state formats are unchanged.
 
 Only the selected effect in each slot runs its DSP. Empty slots skip sample DSP;
-bypassed slots fade and drain their tails before suspending it. Bypass still has
-routing/mixing overhead. Mix at zero generally keeps the effect running, as do
-muted or inaudible parallel lanes, preserving histories, tails and follower taps.
+bypassed slots fade and drain their tails before suspending it. With Trails on, a
+bypassed delay or reverb runs at full cost while its tail rings, then drains.
+Bypass still has routing/mixing overhead. Mix at zero generally keeps the effect
+running, as do muted or inaudible parallel lanes, preserving histories, tails and
+follower taps.
 Meters, DC filtering, control snapshots and routing contribute shared overhead.
 These cases need separate measurements; neither Mix zero nor lane mute should
 be treated as a CPU suspension command.

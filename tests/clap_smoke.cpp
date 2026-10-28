@@ -216,6 +216,19 @@ int main(int argc, char** argv)
     assert(save().config()["Mix Law"] == 0.);
     assert(loadRaw(base));
   }
+  {
+    assert(base["Trails"] == 0.);
+    auto trails = base;
+    trails["Trails"] = 1.;
+    assert(loadRaw(trails));
+    assert(save().config()["Trails"] == 1.);
+    auto legacy = base;
+    legacy["schema"] = 9;
+    legacy.erase("Trails");
+    assert(loadRaw(legacy));
+    assert(save().config()["Trails"] == 0.);
+    assert(loadRaw(base));
+  }
 
   {
     auto legacyEQ = base;

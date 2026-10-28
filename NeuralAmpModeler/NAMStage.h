@@ -132,6 +132,8 @@ public:
     size_t delayIndex = 0;
     int latency = 0;
     int64_t drainFrames = 0, drainLimit = 0;
+    // Trails: frames a bypassed tail has rung, and how long its output has stayed silent.
+    int64_t trailFrames = 0, trailLimit = 0, trailHold = 0, quietFrames = 0;
     void Reset(double rate, int block)
     {
       utilityStereo.Reset(rate); eqOutput.Reset(rate);
@@ -245,6 +247,11 @@ public:
         right->latency = latency;
         right->delay.assign(std::max(1, latency), 0.);
       }
+      // A trail rings for up to 30 s, or a reverb's full drain, within the host's 60 s tail.
+      // Delays can be silent between repeats for a whole ring; reverb tails decay steadily.
+      trailLimit = std::min(static_cast<int64_t>(rate * 60.), std::max(drainLimit, static_cast<int64_t>(rate * 30.)));
+      trailHold = IsReverb(effect) || effect == SlotEffect::ShimmerReverb ? static_cast<int64_t>(rate * 2.) : drainLimit;
+      trailFrames = quietFrames = 0;
     }
     NAMModelInfo Info() const
     {
@@ -298,6 +305,7 @@ public:
     mSwitchGain = 1.;
     mMix = 0.;
     mFeed = 1.;
+    mTrail = 0.;
     mFirst = true;
     mMeter = {};
     if (mCapture) mCapture->Clear();
@@ -341,7 +349,10 @@ public:
   {
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
     if (switching && mSwitchGain <= 0. && mExchange.Adopt())
+    {
       mFeed = 0.; // The new processor's histories start silent: fade its input in.
+      mTrail = 0.; // A replaced module's tail leaves with its switch fade.
+    }
     auto* p = mExchange.Active();
     const auto info = p ? p->Info() : NAMModelInfo{};
     mMonitoring = mMeteringEnabled && enabled && info.loaded;
@@ -394,26 +405,31 @@ public:
         p->delay[p->delayIndex] = samples[i];
         if (++p->delayIndex == p->delay.size()) p->delayIndex = 0;
       }
+      // Trails: a bypassed delay or reverb stops taking input but keeps its feedback,
+      // and its tail plays over the dry signal until it decays. It then drains as below.
+      const bool trailing = !enabled && mTrail > 0.;
       // Drain temporal histories with silence after bypass, then suspend them.
       // Delay feedback stops once fully muted: one 8.1 s ring plus filter settling
       // clears its history without nine minutes of inaudible repeat processing.
       // This prevents an old echo from resurfacing when a slot is re-enabled.
-      const bool draining = !enabled && mMix <= 0. && p->drainFrames < p->drainLimit;
-      if (enabled || mMix > 0. || draining)
+      const bool draining = !enabled && mMix <= 0. && !trailing && p->drainFrames < p->drainLimit;
+      double trailTarget = 0., trailStep = mStep;
+      if (enabled || mMix > 0. || trailing || draining)
       {
         // Fade the processor's input in after it was suspended, drained or replaced, and
-        // out as draining starts. Delay lines and filters then never store a hard step
-        // that they would replay after the slot's own 5 ms crossfade has finished.
-        if (draining && mFeed <= 0.)
+        // out as draining or a trail starts. Delay lines and filters then never store a
+        // hard step that they would replay after the slot's own 5 ms crossfade has finished.
+        const bool feedOff = draining || trailing;
+        if (feedOff && mFeed <= 0.)
         {
           std::fill_n(p->input.data(), frames, 0.);
           if (rightSamples)
             std::fill_n(p->right->input.data(), frames, 0.);
         }
-        else if (draining || mFeed < 1.)
+        else if (feedOff || mFeed < 1.)
           for (int i = 0; i < frames; ++i)
           {
-            mFeed = Approach(mFeed, draining ? 0. : 1., mStep);
+            mFeed = Approach(mFeed, feedOff ? 0. : 1., mStep);
             p->input[i] *= mFeed;
             if (rightSamples) p->right->input[i] *= mFeed;
           }
@@ -533,6 +549,26 @@ public:
           mMeter.filterCutoff[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedCutoff()) : mMeter.filterCutoff[0];
           mMeter.filterQ[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedResonance()) : mMeter.filterQ[0];
         }
+        if (utility.trails && IsTrailEffect(p->effect))
+        {
+          if (enabled)
+          {
+            p->trailFrames = p->quietFrames = 0;
+            trailTarget = 1.; // Inaudible while the slot plays; ready when it is bypassed.
+          }
+          else if (trailing)
+          {
+            // With no input, the module's output is its tail alone.
+            double peak = 0.;
+            for (int i = 0; i < frames; ++i)
+              peak = std::max({peak, std::abs(p->wet[i]), rightSamples ? std::abs(p->right->wet[i]) : 0.});
+            p->trailFrames += frames;
+            p->quietFrames = peak < 1.e-5 ? p->quietFrames + frames : 0; // -100 dBFS
+            trailTarget = p->quietFrames < p->trailHold && p->trailFrames < p->trailLimit ? 1. : 0.;
+            // A tail still ringing at the limit, such as runaway feedback, fades over 1 s.
+            if (p->trailFrames >= p->trailLimit) trailStep = mStep * .005;
+          }
+        }
       }
       else
         mFeed = 0.; // Suspended: resume with a fade-in.
@@ -544,12 +580,15 @@ public:
         mMix = Approach(mMix, enabled ? 1. : 0., mStep);
         mIRMix = Approach(mIRMix, irMixTarget, mStep);
         const double mix = p->ir ? mMix * mIRMix : mMix;
+        // A trail keeps the module output while dry fades in; with mTrail at 0 this is mix.
+        mTrail = Approach(mTrail, trailTarget, trailStep);
+        const double wetMix = mix + mTrail * (1. - mix);
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
         if (rightSamples)
         {
-          rightSamples[i] = (p->right->dry[i] * (1. - mix) + p->right->wet[i] * mOut * mix) * mSwitchGain;
+          rightSamples[i] = (p->right->dry[i] * (1. - mix) + p->right->wet[i] * mOut * wetMix) * mSwitchGain;
         }
-        samples[i] = (p->dry[i] * (1. - mix) + p->wet[i] * mOut * mix) * mSwitchGain;
+        samples[i] = (p->dry[i] * (1. - mix) + p->wet[i] * mOut * wetMix) * mSwitchGain;
         if (spectrum)
           mCapture->Push(samples[i], rightSamples ? rightSamples[i] : samples[i]);
         if (mMonitoring)
@@ -638,7 +677,7 @@ private:
   noise_print::Snapshot mNoiseSnapshot;
   RealtimeExchange<Prepared> mExchange;
   std::atomic<bool> mWaitForReset{false};
-  double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mFeed = 1., mStep = 1. / 240.;
+  double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mFeed = 1., mTrail = 0., mStep = 1. / 240.;
   bool mFirst = true;
   bool mMonitoring = false, mMeteringEnabled = true;
   SlotMeterData mMeter;

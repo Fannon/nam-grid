@@ -234,6 +234,22 @@ void TestClicks()
             if (target != start) check(EventName(control, target), exemption, [&] { rig.Set(control, target); });
           check(EventName(control, start) + " (start)", exemption, [&] { rig.Set(control, start); });
         }
+        if (effect == SlotEffect::DigitalDelay)
+        {
+          // Crossfade switches taps instead of gliding, so Time and tempo jumps get no exemption.
+          const auto set = [&](int p, double value) {
+            check(EventName(parameter_layout::standardControls + p, value) + " (crossfade)", nullptr,
+                  [&] { rig.Set(parameter_layout::standardControls + p, value); });
+          };
+          set(uDelayTimeChange, 1.);
+          const double time = rig.Get(parameter_layout::standardControls + uDelayTime);
+          for (const double target : Targets(parameter_layout::standardControls + uDelayTime)) set(uDelayTime, target);
+          set(uDelayTime, time);
+          set(uTempoSync, 1.);
+          for (const double division : Targets(parameter_layout::standardControls + uTempoDivision)) set(uTempoDivision, division);
+          set(uTempoSync, 0.);
+          set(uDelayTimeChange, 0.);
+        }
       }
   }
   std::cout << "Clicks: " << events << " bypass/replace/control/mode events at 48/96 kHz, " << findings

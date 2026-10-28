@@ -22,7 +22,7 @@ Clean repeats with a high cut. Ducking lowers the repeats while you play and bri
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 400 ms | Time to the first repeat. Changing it while repeats sound bends their pitch, like tape. |
+| **Time** | 5–4000 ms | 400 ms | Time to the first repeat. **Time change** chooses whether jumps bend pitch or crossfade. |
 | **Feedback** | 0–82% | 30% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
 | **High cut** | 800–12000 Hz | 10000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
 | **Ducking** | 0–100% | 0% | Ducks repeats while you play; echoes recover in the gaps. |
@@ -32,6 +32,7 @@ Clean repeats with a high cut. Ducking lowers the repeats while you play and bri
 
 In the header:
 
+- **Time change** (Glide / Crossfade; starts on Glide) is saved per slot, without host automation. Glide keeps the tape-style pitch bend when Time moves. Crossfade blends the old and new taps over 30 ms when the target changes by more than 1 ms in one control update, including tempo-sync and Division jumps. Changes of 1 ms or less per update still glide, preserving gentle modulation; faster or deeper modulation can crossfade. Both stereo channels and feedback use the same blend. If another jump arrives during a fade, it waits until that fade ends, then fades to the latest target. New inserts and older saved rigs both start on Glide.
 - **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values. See [tempo sync](README.md#tempo-sync).
 - **Ping-pong** (off / on; starts off) Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.
 

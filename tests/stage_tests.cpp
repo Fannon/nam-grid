@@ -80,6 +80,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "SmoothControlsTests.h"
 #include "ClickTests.h"
 #include "MixLawTests.h"
+#include "DelayTimeChangeTests.h"
 
 int main(int argc, char** argv)
 try
@@ -87,6 +88,7 @@ try
   assert(argc >= 2 && argc <= 6);
   nam::activations::Activation::enable_fast_tanh();
   if (std::string(argv[1]) == "--mix-law-only") { TestMixLaw(); return 0; }
+  if (std::string(argv[1]) == "--delay-time-change-only") { TestDelayTimeChange(); return 0; }
   TestA2Planar();
   TestMeteringTransparency();
   TestSettledSmoothing();
@@ -225,6 +227,7 @@ try
   TestOutboard();
   TestAirDynamics();
   TestMixLaw();
+  TestDelayTimeChange();
   TestClicks();
   if (argc > 2)
   {

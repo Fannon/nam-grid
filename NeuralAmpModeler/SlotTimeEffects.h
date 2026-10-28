@@ -105,6 +105,13 @@ public:
     if constexpr (N > 3) mMoving = moving;
     return mValue;
   }
+  double Value(size_t j) const { return mValue[j]; }
+  // Moves one smoothed value without gliding, e.g. to a tap that is crossfaded in.
+  void Snap(size_t j, double value)
+  {
+    mValue[j] = value;
+    mMoving = true;
+  }
 
 private:
   std::array<double, N> mValue{}, mTarget{};
@@ -173,6 +180,9 @@ public:
     mPing.Reset(rate);
     mLP = mLP2 = mDC = mEnv = mPhase = 0.; mDuckRelease.Reset(rate); mDrain.Reset(rate);
     mCounter = 0;
+    mFade = 1.;
+    mFadeStep = 1. / std::max(1., kFadeSeconds * rate);
+    mJump = mHasTime = false;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
                SlotDelay* right = nullptr, double* rightSamples = nullptr, bool draining = false)
@@ -182,6 +192,21 @@ public:
     if (controls.sync)
       values[0] = grid_tempo::Seconds(controls.tempo, controls.division) * 1000.;
     mControls.Target(values, uDelayTime, controls.sync);
+    // Crossfade (Digital Delay): a Time step above kJumpMs in one control update, e.g. a host
+    // jump, a division change or a knob drag, reads the new tap at once and fades to it instead
+    // of gliding (Doppler). Smaller steps, such as modulation quanta and gradual tempo changes,
+    // still glide. A step during a fade holds the new tap and fades again once this one ends.
+    const auto& range = kEffectParameters[uDelayTime];
+    const double time = controls.sync ? values[0] : std::clamp(values[0], range.minimum, range.maximum);
+    const bool crossfade = effect == SlotEffect::DigitalDelay && controls.extra.delayTimeChange >= .5;
+    if (crossfade && !mJump && mHasTime && std::abs(time - mTime) > kJumpMs)
+    {
+      mJump = true;
+      mHold = mControls.Value(0);
+    }
+    mJump = mJump && crossfade;
+    mTime = time;
+    mHasTime = true;
     mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
     mPing.Target({right && controls.pingPong ? 1. : 0.}, uDelayPingPong);
     const double dcCoefficient = std::exp(-2. * grid_fx::pi * 70. / mRate);
@@ -189,7 +214,22 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       mMixLaw.Tick(controls.constantDry);
+      if (mJump && mFade >= 1.) [[unlikely]]
+      {
+        // Before Tick: the outgoing tap keeps the position it had, without a step.
+        mFrom = mControls.Value(0);
+        mControls.Snap(0, mTime);
+        mFade = 0.;
+        mJump = false;
+      }
       const auto& c = mControls.Tick();
+      double fade = 1.;
+      if (mFade < 1.) [[unlikely]]
+      {
+        if (mJump) mControls.Snap(0, mHold);
+        mFade = std::min(1., mFade + mFadeStep);
+        fade = mFade * mFade * (3. - 2. * mFade); // Equal-gain smoothstep, flat at both ends.
+      }
       const auto& extra = mExtras.Tick();
       const double ping = mPing.Tick()[0], live = mDrain.Tick(draining);
       const double envelopeRelease = mDuckPole(-1. / (.001 * mDuckRelease.Tick()[0] * mRate), [](double x) { return std::exp(x); });
@@ -217,7 +257,13 @@ public:
       for (int ch = 0; ch < count; ++ch)
       {
         auto& tank = *channels[ch];
-        const double read = tank.mLine.Read(c[0] * .001 * mRate + flutter);
+        double read = tank.mLine.Read(c[0] * .001 * mRate + flutter);
+        // The feedback path takes the same blend, so repeats switch without a chirp too.
+        if (fade < 1.) [[unlikely]]
+        {
+          const double old = tank.mLine.Read(mFrom * .001 * mRate + flutter);
+          read = old + fade * (read - old);
+        }
         tank.mLP = grid_fx::Flush(read + mDamping * (tank.mLP - read));
         tank.mLP2 = grid_fx::Flush(tank.mLP + mDamping * (tank.mLP2 - tank.mLP));
         wet[ch] = effect == SlotEffect::AnalogDelay ? tank.mLP2 : tank.mLP;
@@ -245,6 +291,7 @@ public:
   }
 
 private:
+  static constexpr double kJumpMs = 1., kFadeSeconds = .03;
   grid_fx::MixLaw mMixLaw;
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
@@ -254,6 +301,9 @@ private:
   grid_fx::Memo mDuckPole;
   grid_fx::Memo mOutput;
   double mRate = 48000., mLP = 0., mLP2 = 0., mDC = 0., mEnv = 0., mPhase = 0., mDamping = 0.;
+  // Time-change crossfade: progress (1 when idle), outgoing tap and pending jump, in ms.
+  double mFade = 1., mFadeStep = 1., mFrom = 0., mTime = 0., mHold = 0.;
+  bool mJump = false, mHasTime = false;
   int mCounter = 0;
 };
 

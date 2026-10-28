@@ -172,6 +172,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uSwellCurve, t.extra.swellCurve);
   u(uSwellHold, t.extra.swellHold);
   u(uSwellMix, t.extra.swellMix);
+  u(uDelayTimeChange, t.extra.delayTimeChange);
 
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().

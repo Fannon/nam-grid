@@ -269,6 +269,7 @@ enum UtilityParam
   uSwellCurve = 253,
   uSwellHold = 254,
   uSwellMix = 255,
+  uDelayTimeChange = 256,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -276,6 +277,7 @@ inline constexpr const char* uPhaserStagesChoices[]{"4", "6", "8", "12"};
 inline constexpr const char* uRingShapeChoices[]{"Sine", "Triangle", "Square"};
 inline constexpr const char* uUtilityModeChoices[]{"Stereo", "Swap", "Left to both", "Right to both"};
 inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
+inline constexpr const char* kDelayTimeChanges[]{"Glide", "Crossfade"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
@@ -284,6 +286,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uRingShape: return uRingShapeChoices;
     case uUtilityMode: return uUtilityModeChoices;
     case uIRLength: return kIRLengths;
+    case uDelayTimeChange: return kDelayTimeChanges;
     case uParamLowMode: return kParamLowModes;
     case uTempoDivision: return grid_tempo::names;
     case uJunoMode: return effect_modes::junoNames;
@@ -332,6 +335,7 @@ inline constexpr AlgorithmIdentity uRingShapeIdentities[]{{0, "sine"}, {1, "tria
 inline constexpr AlgorithmIdentity uUtilityModeIdentities[]{{0, "stereo"}, {1, "swap"}, {2, "left-to-both"}, {3, "right-to-both"}};
 inline constexpr AlgorithmIdentity irLength[]{{0, "cabinet-8192"}, {1, "long-ir-30s"}};
 inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
+inline constexpr AlgorithmIdentity timeChange[]{{0, "glide"}, {1, "crossfade"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {
@@ -354,6 +358,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uEQMode: return eq;
     case uParamLowMode: return eqLow;
     case uVibeMode: return vibe;
+    case uDelayTimeChange: return timeChange;
     default: return {};
   }
 }
@@ -367,7 +372,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 9; // 9 rig-wide mix law; 8 additive musical controls.
+inline constexpr int kEffectStateSchema = 12; // 12 Digital Delay time change; reserved after Juno 10 and Trails 11.
 
 struct EffectParameter
 {
@@ -639,7 +644,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Utility Channel Delay", "Channel delay", 0, -20, 20, 0.01, "ms", 0, false, 1., 8},
    {"Swell Curve", "Rise curve", 1, 0.25, 4, 0.01, "", 0, false, 1., 8},
    {"Swell Re-arm Hold", "Re-arm hold", 40, 0, 500, 1, "ms", 0, false, 1., 8},
-   {"Swell Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 8}}};
+   {"Swell Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 8},
+   {"Delay Time Change", "Time change", 0, 0, 1, 1, "", 0, false, 1., 12}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -759,6 +765,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uSwellCurve: return e == SlotEffect::AutoSwell;
       case uSwellHold: return e == SlotEffect::AutoSwell;
       case uSwellMix: return e == SlotEffect::AutoSwell;
+      case uDelayTimeChange: return e == SlotEffect::DigitalDelay;
       default: return false;
     }
   }
@@ -862,6 +869,7 @@ struct ModuleExtensions
   double swellCurve = 1;
   double swellHold = 40;
   double swellMix = 100;
+  double delayTimeChange = 0; // 0 Glide (released behavior), 1 Crossfade.
 };
 struct UtilityControls
 {

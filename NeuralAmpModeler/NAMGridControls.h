@@ -1382,6 +1382,9 @@ public:
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::tempoLeft, grid_layout::optionsTop, grid_layout::tempoLeft + 110, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uEQMode)
         mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::tempoLeft, grid_layout::optionsTop, grid_layout::tempoLeft + 110, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Band");
+      else if (i == uDelayTimeChange) // Digital Delay's right-hand option is Ping-pong.
+        mUtilityKnobs[i] = new grid_ui::Choice(IRECT(grid_layout::tempoLeft - 160, grid_layout::optionsTop, grid_layout::tempoLeft - 10, grid_layout::optionsBottom),
+                                             SlotUtilityParam(mSlot, i), i, p.label);
       else if (!EffectChoices(i).empty())
         mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::parameterRight, grid_layout::optionsBottom)
                                                                                  : grid_ui::ControlBounds(p.position),

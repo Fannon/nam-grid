@@ -28,7 +28,7 @@ public:
     { mHall = std::make_unique<airwindows_reverb::kGuitarHall2::Core>(); mHall->Reset(mRate); }
     if (effect == SlotEffect::GalacticSpace)
     { mSpace = std::make_unique<airwindows_reverb::Galactic3::Core>(); mSpace->Reset(mRate); }
-    mInputLow = {}; mCounter = 0; mOutput = 1.;
+    mInputLow = {}; mCounter = 0; mOutput = 1.; mDrain.Reset(mRate); mLive = 1.;
   }
   void Process(double* left, double* right, int frames, const UtilityControls& controls, bool draining = false)
   {
@@ -39,16 +39,19 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       const auto& v = mControls.Tick();
-      if (mCounter == 0)
+      mOutput = mOutputGain(v[6] / 20., [](double x) { return std::pow(10., x); });
+      // Feedback fades over 5 ms when draining starts; follow it every sample while it moves.
+      const double live = mDrain.Tick(draining);
+      if (mCounter == 0 || live != mLive)
       {
-        mOutput = std::pow(10., v[6] / 20.);
+        mLive = live;
         if (mPlate)
         {
-          mPlate->Set({std::pow(10., v[0] / 20.), draining ? 0. : v[1] * .01, v[2] * .01, 0., 1.});
+          mPlate->Set({std::pow(10., v[0] / 20.), v[1] * .01 * live, v[2] * .01, 0., 1.});
           mLowCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., v[5]) / mRate);
         }
-        if (mHall) mHall->Set({draining ? 0. : v[0] * .01, v[1] * .005, v[2] * .01, v[3] * .01, v[4] * .01, 1.});
-        if (mSpace) mSpace->Set({draining ? 1. : v[0] * .01, v[1] * .01, v[2] * .01, v[4] * .01, v[3] * .01, 1.});
+        if (mHall) mHall->Set({v[0] * .01 * live, v[1] * .005, v[2] * .01, v[3] * .01, v[4] * .01, 1.});
+        if (mSpace) mSpace->Set({live == 1. ? v[0] * .01 : 1. - live * (1. - v[0] * .01), v[1] * .01, v[2] * .01, v[4] * .01, v[3] * .01, 1.});
       }
       mCounter = (mCounter + 1) % 32;
       const double dryL = left[i], dryR = right ? right[i] : dryL;
@@ -82,5 +85,8 @@ private:
   std::array<double, 2> mInputLow{};
   SlotEffect mEffect = SlotEffect::AirPlate;
   double mRate = 48000., mOutput = 1., mLowCoefficient = 0.;
+  grid_fx::Memo mOutputGain;
+  grid_fx::DrainRamp mDrain;
+  double mLive = 1.;
   int mCounter = 0;
 };

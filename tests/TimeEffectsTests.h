@@ -323,6 +323,35 @@ void TestTimeEffects()
     }
     assert(std::abs(x[511] - .2) < 1.e-10);
   }
+  // Detectors settle while bypassed: re-enabling neither resumes a stale gain
+  // reduction nor skips a swell, even when the slowest release was selected.
+  for (const auto effect : {SlotEffect::SmoothComp, SlotEffect::AutoSwell})
+  {
+    constexpr double rate = 48000.;
+    auto stage = prepareEffect(effect, rate);
+    DynamicsControls dynamics;
+    dynamics.compThreshold = -40.;
+    dynamics.compRelease = 600.;
+    UtilityControls c;
+    c.release = 800.;
+    std::array<double, 512> x{};
+    const auto render = [&](bool enabled, double input) {
+      x.fill(input);
+      allocations = deletions = 0;
+      tracking = true;
+      stage->Process(x.data(), 512, enabled, 0., 0., dynamics, {}, c);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+    };
+    for (int block = 0; block < 200; ++block) render(true, .5);
+    if (effect == SlotEffect::SmoothComp) assert(x[511] < .1); // Deep reduction at a sustained level.
+    else assert(std::abs(x[511] - .5) < 1.e-6);                  // Fully swelled.
+    for (int block = 0; block < 300; ++block) render(false, 0.);
+    // A new quiet phrase below the compressor threshold; the swell starts again.
+    render(true, .003);
+    if (effect == SlotEffect::SmoothComp) assert(x[511] > .0029);
+    else assert(x[511] < .0015);
+  }
   std::cout << "15 new effects: variable blocks, automation, bypass/reset, no allocation; 44.1/48/88.2/96/192 kHz; "
                "echo timing and distinct reverb tails\n";
 }

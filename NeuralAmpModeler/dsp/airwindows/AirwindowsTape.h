@@ -7,7 +7,9 @@
 // plugins/WinVST/Tape/Tape.h and TapeProc.cpp, double processing path.
 // Adaptation: SDK-free class, deterministic local seeds, explicit sample rate;
 // Processing math and upstream denormal handling retained. A mono entry uses
-// the identical left-channel math; Set caches rate/drive coefficients.
+// the identical left-channel math; Set caches rate/drive coefficients. Both entries ramp
+// the input and head-bump gains linearly across each call from the previous Set (a
+// deliberate deviation), so automation does not step them at the caller's control rate.
 class AirwindowsTape
 {
 public:
@@ -19,8 +21,8 @@ public:
     if (input < -1.2533141373155) input = -1.2533141373155;
     return sin(input * fabs(input)) / ((fabs(input) == 0.0) ? 1 : fabs(input));
   }
-  AirwindowsTape() { ConfigureFilters(); Set(0., 50.); }
-  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); Set(0., 50.); }
+  AirwindowsTape() { ConfigureFilters(); Set(0., 50.); mSnapApplied = true; }
+  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); Set(0., 50.); mSnapApplied = true; }
   void Set(double driveDB, double bump)
   {
     A = static_cast<float>(driveDB / 24. + .5); B = static_cast<float>(bump * .01);
@@ -29,6 +31,10 @@ public:
     double scale = 1.0; scale /= 44100.0; scale *= mRate;
     mHeadFrequency = 0.12 / scale;
     mRollAmount = (1.0 - 0.618033988749894848204586) / scale;
+    if (mSnapApplied) // The first settings after a reset apply without a ramp.
+    {
+      mAppliedInputGain = mInputGain; mAppliedBumpGain = mBumpGain; mSnapApplied = false;
+    }
   }
   void Process(double** inputs, double** outputs, int sampleFrames)
 {
@@ -41,13 +47,27 @@ public:
 	overallscale /= 44100.0;
 	overallscale *= getSampleRate();
 	
-	double inputgain = mInputGain;
-	double bumpgain = mBumpGain;
+	const double inputgainStep = sampleFrames > 0 ? (mInputGain - mAppliedInputGain) / sampleFrames : 0.;
+	const double bumpgainStep = sampleFrames > 0 ? (mBumpGain - mAppliedBumpGain) / sampleFrames : 0.;
+	const bool ramping = inputgainStep != 0. || bumpgainStep != 0.;
+	double inputgain = mAppliedInputGain;
+	double bumpgain = mAppliedBumpGain;
+	mAppliedInputGain = mInputGain;
+	mAppliedBumpGain = mBumpGain;
+	if (!ramping) { inputgain = mInputGain; bumpgain = mBumpGain; }
 	double HeadBumpFreq = mHeadFrequency;
 	double softness = 0.618033988749894848204586;
 	double RollAmount = mRollAmount;
+	int remaining = sampleFrames;
     while (--sampleFrames >= 0)
     {
+		if (ramping)
+		{
+			// The last sample lands exactly on the new values.
+			--remaining;
+			inputgain = remaining ? inputgain + inputgainStep : mInputGain;
+			bumpgain = remaining ? bumpgain + bumpgainStep : mBumpGain;
+		}
 		double inputSampleL = *in1;
 		double inputSampleR = *in2;
 		if (fabs(inputSampleL)<1.18e-23) inputSampleL = fpdL * 1.18e-17;
@@ -296,13 +316,27 @@ public:
 	overallscale /= 44100.0;
 	overallscale *= getSampleRate();
 
-	double inputgain = mInputGain;
-	double bumpgain = mBumpGain;
+	const double inputgainStep = sampleFrames > 0 ? (mInputGain - mAppliedInputGain) / sampleFrames : 0.;
+	const double bumpgainStep = sampleFrames > 0 ? (mBumpGain - mAppliedBumpGain) / sampleFrames : 0.;
+	const bool ramping = inputgainStep != 0. || bumpgainStep != 0.;
+	double inputgain = mAppliedInputGain;
+	double bumpgain = mAppliedBumpGain;
+	mAppliedInputGain = mInputGain;
+	mAppliedBumpGain = mBumpGain;
+	if (!ramping) { inputgain = mInputGain; bumpgain = mBumpGain; }
 	double HeadBumpFreq = mHeadFrequency;
 	double softness = 0.618033988749894848204586;
 	double RollAmount = mRollAmount;
+	int remaining = sampleFrames;
     while (--sampleFrames >= 0)
     {
+		if (ramping)
+		{
+			// The last sample lands exactly on the new values.
+			--remaining;
+			inputgain = remaining ? inputgain + inputgainStep : mInputGain;
+			bumpgain = remaining ? bumpgain + bumpgainStep : mBumpGain;
+		}
 		double inputSampleL = *in1;
 		if (fabs(inputSampleL)<1.18e-23) inputSampleL = fpdL * 1.18e-17;
 
@@ -471,6 +505,8 @@ private:
   double getSampleRate() const { return mRate; }
   double mRate = 48000.;
   double mInputGain = 1., mBumpGain = .05, mHeadFrequency = .11025, mRollAmount = 0.;
+  double mAppliedInputGain = 1., mAppliedBumpGain = .05; // ProcessMono ramps from these.
+  bool mSnapApplied = true;
 	double iirMidRollerAL = 0.;
 	double iirMidRollerBL = 0.;
 	double iirHeadBumpAL = 0.;

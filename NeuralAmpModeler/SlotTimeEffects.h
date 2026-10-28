@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <vector>
 #include "EffectParameters.h"
 #include "ExactMemo.h"
@@ -124,6 +125,18 @@ public:
 private:
   double mRate = 48000., mEnv = 0., mAttack = 0., mRelease = 0.;
 };
+// Feedback scale that falls to zero over 5 ms once a bypassed slot starts draining and
+// returns over 5 ms. Cutting circulating repeats at once writes a step into the delay
+// line, which re-enabling within one repeat would play back as a click.
+class DrainRamp
+{
+public:
+  void Reset(double rate) { mStep = 1. / std::max(1., .005 * rate); mValue = 1.; }
+  double Tick(bool draining)
+  { return mValue = draining ? std::max(0., mValue - mStep) : std::min(1., mValue + mStep); }
+private:
+  double mStep = 1. / 240., mValue = 1.;
+};
 } // namespace grid_fx
 
 class SlotDelay
@@ -136,7 +149,7 @@ public:
     mControls.Reset(rate);
     mExtras.Reset(rate);
     mPing.Reset(rate);
-    mLP = mLP2 = mDC = mEnv = mPhase = 0.; mDuckRelease.Reset(rate);
+    mLP = mLP2 = mDC = mEnv = mPhase = 0.; mDuckRelease.Reset(rate); mDrain.Reset(rate);
     mCounter = 0;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
@@ -155,7 +168,7 @@ public:
     {
       const auto& c = mControls.Tick();
       const auto& extra = mExtras.Tick();
-      const double ping = mPing.Tick()[0];
+      const double ping = mPing.Tick()[0], live = mDrain.Tick(draining);
       const double envelopeRelease = mDuckPole(-1. / (.001 * mDuckRelease.Tick()[0] * mRate), [](double x) { return std::exp(x); });
       const double character = c[3] * .01, mix = c[4] * .01;
       if (mCounter++ % 32 == 0)
@@ -199,7 +212,7 @@ public:
         tank.mDC = grid_fx::Flush(send[ch] + dcCoefficient * (tank.mDC - send[ch]));
         const double feedback = (1. - ping) * wet[ch] + ping * wet[1 - ch];
         tank.mLine.Push((effect == SlotEffect::DigitalDelay ? send[ch] : send[ch] - tank.mDC)
-                        + (draining ? 0. : c[1] * .01) * feedback);
+                        + c[1] * .01 * live * feedback);
         const double peak = (1. - ping) * std::abs(x[ch]) + ping * std::max(std::abs(x[0]), std::abs(x[1]));
         tank.mEnv = grid_fx::Flush(peak + (peak > tank.mEnv ? envelopeAttack : envelopeRelease) * (tank.mEnv - peak));
         const double duck = effect == SlotEffect::DigitalDelay ? 1. / (1. + character * 12. * tank.mEnv) : 1.;
@@ -213,6 +226,7 @@ private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
   grid_fx::SmoothControls<1> mPing, mDuckRelease;
+  grid_fx::DrainRamp mDrain;
   grid_fx::Memo mDuckPole;
   grid_fx::Memo mOutput;
   double mRate = 48000., mLP = 0., mLP2 = 0., mDC = 0., mEnv = 0., mPhase = 0., mDamping = 0.;
@@ -341,6 +355,7 @@ public:
   {
     mFactor = factor == 1 || factor == 2 ? factor : FactorForRate(rate);
     mTape.Reset(rate * mFactor);
+    mSetDrive = mSetBump = std::numeric_limits<double>::quiet_NaN(); // The first chunk always sets.
     mControls.Reset(rate); mCounter = 0;
     if (mFactor == 2) { mOversample2.Reset(); mDryReference.Reset(); }
     mMixBypass.Reset(rate);
@@ -356,7 +371,13 @@ public:
       for (int i = 0; i < count; ++i)
       {
         const auto& c = mControls.Tick();
-        if (mCounter == 0 && i == 0) mTape.Set(c[0], c[1]);
+        // The tape ramps its gains across each call towards the chunk's last smoothed
+        // value, so partial chunks at host-block edges follow the same control curve.
+        if (i == count - 1 && (c[0] != mSetDrive || c[1] != mSetBump))
+        {
+          mTape.Set(c[0], c[1]);
+          mSetDrive = c[0]; mSetBump = c[1];
+        }
         dry[i] = samples[offset + i]; mix[i] = c[2] * .01;
         gain[i] = mOutput(c[3] * .05, [](double x) { return std::pow(10., x); });
       }
@@ -406,5 +427,6 @@ private:
   grid_oversampling::MixBypass mMixBypass;
   grid_fx::SmoothControls<4> mControls;
   grid_fx::Memo mOutput;
+  double mSetDrive = 0., mSetBump = 0.;
   int mFactor = 2, mCounter = 0;
 };

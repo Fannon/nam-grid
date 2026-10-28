@@ -50,7 +50,9 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
 - **Juno Chorus** is an original rate-scaled implementation informed by the Juno-60 BBD
   measurements of the MIT Junologue project: fixed 0.513/0.863 Hz triangle LFOs and a
   1.66–5.35 ms delay. **Frequency Shifter** is a Bode-style single-sideband shifter (±2000 Hz)
-  in a 0.05–1000 ms feedback delay with soft-saturated, bounded feedback.
+  in a 0.05–1000 ms feedback delay with soft-saturated, bounded feedback. Its quadrature
+  pair is a zero-latency polyphase IIR allpass network (Olli Niemitalo's coefficients),
+  keeping the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz.
 - **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
   style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
   FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without

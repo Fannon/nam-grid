@@ -10,7 +10,7 @@ public:
   {
     mRate = rate; mControls.Reset(rate); mExtras.Reset(rate); mHeads = {};
     for (auto& line : mLine) line.Reset(static_cast<int>(rate * 8.1));
-    mLow = {}; mDC = {}; mPhase = 0.; mCounter = 0; mFirst = true; mCrossFeedback = 0.;
+    mLow = {}; mDC = {}; mPhase = 0.; mCounter = 0; mFirst = true; mCrossFeedback = 0.; mDrain.Reset(rate);
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c, bool draining = false)
   {
@@ -22,12 +22,14 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
+      const double live = mDrain.Tick(draining);
       if (mCounter == 0)
       {
         mDamping = grid_reverb::Coefficient(v[2], mRate); mDCcoefficient = grid_reverb::Coefficient(60., mRate);
-        mOutput = std::pow(10., extra[1] / 20.); mSmooth = std::exp(-1. / (.02 * mRate));
+        mSmooth = std::exp(-1. / (.02 * mRate));
       }
       mCounter = (mCounter + 1) % 32;
+      mOutput = mOutputGain(extra[1] / 20., [](double x) { return std::pow(10., x); });
       for (int ch = 0; ch < 2; ++ch)
         for (int head = 0; head < 4; ++head)
           mHeads[ch][head] = target.gains[ch][head] + mSmooth * (mHeads[ch][head] - target.gains[ch][head]);
@@ -53,7 +55,7 @@ public:
       {
         const double send = dry[ch] - grid_reverb::LowPass(dry[ch], mDC[ch], mDCcoefficient);
         const double routed = feedback[ch] + mCrossFeedback * (feedback[1-ch]-feedback[ch]);
-        mLine[ch].Push(send + (draining ? 0. : v[1] * .01) * routed);
+        mLine[ch].Push(send + v[1] * .01 * live * routed);
       }
       const double mix = v[4] * .01;
       const double monoWet = right ? wet[0] : .5 * (wet[0]+wet[1]);
@@ -70,7 +72,9 @@ private:
   std::array<std::array<double, 4>, 2> mHeads{};
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
+  grid_fx::DrainRamp mDrain;
   double mRate = 48000., mPhase = 0., mDamping = 0., mDCcoefficient = 0., mOutput = 1., mSmooth = 0., mCrossFeedback = 0.;
+  grid_fx::Memo mOutputGain;
   int mCounter = 0; bool mFirst = true;
 };
 
@@ -88,7 +92,7 @@ public:
       mDiffusers[i].Reset(rate, .0011 + (i % 4) * .00073 + (i / 4) * .0013,
                          .0017 + (3 - i % 4) * .00091 + (i / 4) * .0017,
                          (i / 4 == 1 ? -1. : 1.) * 1.5707963267948966);
-    mLow = {}; mPhase = 0.; mCounter = 0;
+    mLow = {}; mPhase = 0.; mCounter = 0; mDrain.Reset(rate);
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c, bool draining = false)
   {
@@ -99,9 +103,10 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
-      const double diffusion = mDiffusion.Tick()[0] * .01;
-      if (mCounter == 0) { mCoefficient = grid_reverb::Coefficient(v[2], mRate); mOutput = std::pow(10., extra[1] / 20.); }
+      const double diffusion = mDiffusion.Tick()[0] * .01, live = mDrain.Tick(draining);
+      if (mCounter == 0) mCoefficient = grid_reverb::Coefficient(v[2], mRate);
       mCounter = (mCounter + 1) % 32;
+      mOutput = mOutputGain(extra[1] / 20., [](double x) { return std::pow(10., x); });
       const grid_reverb::Stereo dry{left[i], right ? right[i] : left[i]};
       grid_reverb::Stereo repeat{};
       for (int ch = 0; ch < 2; ++ch)
@@ -114,7 +119,7 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         const double wet = repeat[ch] + diffusion * (blurred[ch] - repeat[ch]);
-        mLine[ch].Push(dry[ch] + (draining ? 0. : v[1] * .01) * wet);
+        mLine[ch].Push(dry[ch] + v[1] * .01 * live * wet);
         const double output = (dry[ch] + v[4] * .01 * (wet - dry[ch])) * mOutput;
         if (ch == 0) left[i] = output; else if (right) right[i] = output;
       }
@@ -129,6 +134,8 @@ private:
   grid_fx::SmoothControls<2> mExtras;
   grid_fx::SmoothControls<1> mDiffusion;
   grid_reverb::Stereo mLow{};
+  grid_fx::DrainRamp mDrain;
   double mRate = 48000., mCoefficient = 0., mOutput = 1., mPhase = 0.;
+  grid_fx::Memo mOutputGain;
   int mCounter = 0;
 };

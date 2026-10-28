@@ -1600,7 +1600,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
   EndSlotPreview(false);
   try
   {
-    if (chunk.Size() > 1024 * 1024 || startPos < 0)
+    if (chunk.Size() > static_cast<int>(rig_preset::kMaximumBytes) || startPos < 0)
       return -1;
     WDL_String header;
     int pos = ReadStateString(chunk, header, startPos);

@@ -43,21 +43,30 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
+      // Gains follow every smoothed sample (16-sample steps made zipper noise);
+      // filter poles and the character voice keep their 16-sample schedule.
+      if (c[1] != mCached[1])
+      {
+        mDrive = std::pow(10., c[1] * .05);
+        mRootDrive = std::sqrt(mDrive);
+        mCached[1] = c[1];
+      }
+      if (c[3] != mCached[3])
+      {
+        mBody = std::pow(10., c[3] * .05) - 1.;
+        mCached[3] = c[3];
+      }
+      if (c[6] != mCached[6])
+      {
+        mOutput = std::pow(10., c[6] * .05);
+        mCached[6] = c[6];
+      }
       if (mCounter == 0)
       {
-        if (c[1] != mCached[1])
-        {
-          mDrive = std::pow(10., c[1] * .05);
-          mRootDrive = std::sqrt(mDrive);
-        }
         if (c[2] != mCached[2])
           mTonePole = std::exp(-2. * grid_pedal::pi * std::min(c[2], .4 * mRate) / (4. * mRate));
-        if (c[3] != mCached[3])
-          mBody = std::pow(10., c[3] * .05) - 1.;
         if (c[4] != mCached[4])
           mSplitPole = std::exp(-2. * grid_pedal::pi * std::min(c[4], .4 * mRate) / mRate);
-        if (c[6] != mCached[6])
-          mOutput = std::pow(10., c[6] * .05);
         if (c[8] != mCached[8])
           mCharacter.Reset(c[8] * .01);
         mCached = c;

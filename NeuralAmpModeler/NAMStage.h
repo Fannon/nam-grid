@@ -213,9 +213,17 @@ public:
                                            : effect == SlotEffect::Utility ? .045
                                            : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
+                                           // Detectors settle on silence (slowest release: 800 ms), so
+                                           // re-enabling never resumes a stale gain reduction or envelope.
+                                           : effect == SlotEffect::NoiseGate || effect == SlotEffect::SmoothComp
+                                               || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter
+                                               || effect == SlotEffect::AutoSwell || effect == SlotEffect::SynthFilter ? 3.
                                            : IsModulation(effect) ? .07
                                            : effect == SlotEffect::JunoChorus ? .07
-                                                                  : 0.));
+                                           // Every other processor (EQ, filters, oversampling, NAM)
+                                           // flushes its short history before suspending, so re-enabling
+                                           // never replays audio from the moment it was bypassed.
+                                                                  : .1));
       if (ir)
       {
         ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block, ir->GetMode());
@@ -287,6 +295,7 @@ public:
     mStep = 1. / std::max(1., rate * .005); // 5 ms linear ramps
     mSwitchGain = 1.;
     mMix = 0.;
+    mFeed = 1.;
     mFirst = true;
     mMeter = {};
     if (mCapture) mCapture->Clear();
@@ -329,8 +338,8 @@ public:
                   double* rightSamples = nullptr)
   {
     const bool switching = mExchange.HasPending() && !mWaitForReset.load();
-    if (switching && mSwitchGain <= 0.)
-      mExchange.Adopt();
+    if (switching && mSwitchGain <= 0. && mExchange.Adopt())
+      mFeed = 0.; // The new processor's histories start silent: fade its input in.
     auto* p = mExchange.Active();
     const auto info = p ? p->Info() : NAMModelInfo{};
     mMonitoring = mMeteringEnabled && enabled && info.loaded;
@@ -390,13 +399,24 @@ public:
       const bool draining = !enabled && mMix <= 0. && p->drainFrames < p->drainLimit;
       if (enabled || mMix > 0. || draining)
       {
-        if (draining)
+        // Fade the processor's input in after it was suspended, drained or replaced, and
+        // out as draining starts. Delay lines and filters then never store a hard step
+        // that they would replay after the slot's own 5 ms crossfade has finished.
+        if (draining && mFeed <= 0.)
         {
           std::fill_n(p->input.data(), frames, 0.);
           if (rightSamples)
             std::fill_n(p->right->input.data(), frames, 0.);
-          p->drainFrames += frames;
         }
+        else if (draining || mFeed < 1.)
+          for (int i = 0; i < frames; ++i)
+          {
+            mFeed = Approach(mFeed, draining ? 0. : 1., mStep);
+            p->input[i] *= mFeed;
+            if (rightSamples) p->right->input[i] *= mFeed;
+          }
+        if (draining)
+          p->drainFrames += frames;
         else
           p->drainFrames = 0;
         double* in = p->input.data();
@@ -504,6 +524,8 @@ public:
           mMeter.filterQ[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedResonance()) : mMeter.filterQ[0];
         }
       }
+      else
+        mFeed = 0.; // Suspended: resume with a fade-in.
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
       const bool spectrum = mCapture && mMonitoring && ShowsSignalSpectrum(p->effect);
       for (int i = 0; i < frames; ++i)
@@ -606,7 +628,7 @@ private:
   noise_print::Snapshot mNoiseSnapshot;
   RealtimeExchange<Prepared> mExchange;
   std::atomic<bool> mWaitForReset{false};
-  double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mStep = 1. / 240.;
+  double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mFeed = 1., mStep = 1. / 240.;
   bool mFirst = true;
   bool mMonitoring = false, mMeteringEnabled = true;
   SlotMeterData mMeter;

@@ -285,7 +285,7 @@ build targets.
 | `wav-decoder` | WAV decoding and malformed-file rejection |
 | `resampling` | Resampler warm-up with exact WDL allocations |
 | `aliasing` | Every module through stereo slot DSP, coherent spectral analysis, zero reported built-in latency and pedal alias rejection; [extended audit](dsp-aliasing.md) |
-| `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks and ARM planar/portable A2 bit identity |
+| `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks, a click/pop sweep of bypass, replacement, control jumps and mode changes for every module, and ARM planar/portable A2 bit identity |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
 | `tuner` | Tuner detection, mute and automation through CLAP |
 | `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |

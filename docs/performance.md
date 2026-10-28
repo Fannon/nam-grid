@@ -4,15 +4,6 @@ Let controls move with your playing, put the most useful ones on four macros, an
 
 ![The Modulation page with an LFO, three matrix rows and the macros](screenshots/control.png)
 
-A drive in **Pre** acts before this split. A drive in **B** receives its upper branch;
-a drive in **Post** receives both branches after they are mixed. A nonlinear Post
-module can therefore distort the lows you kept clean in A.
-
-Pedal Drive also offers a local **Low keep** return. It works within one slot, independently
-of the grid's split. Start with Low keep at zero when using Pedal Drive in the high lane
-of a split rig; otherwise the upper branch is split again. See the
-[routing examples](modules/pedal-drive.md#using-the-grid-split).
-
 ## Modulation
 
 Click **Modulation** in the header. Sources are on the left; assignments and macros are on the right.
@@ -72,9 +63,9 @@ Scenes belong to the rig and are saved with its preset. To change modules or cap
 
 ## Tails and bypass
 
-Scene changes are smooth because the modules stay loaded. Delays and reverbs also avoid abruptly cutting every tail:
+Scene changes are smooth because the modules stay loaded. Bypass fades a module out over 5 ms rather than letting its tail ring on:
 
-- Bypassed delays stop feeding back while existing repeats fade.
+- Bypassing a delay or reverb fades its feedback out and silently clears the remaining repeats. Re-enable it within a few seconds and you may hear what is left; after that, an old tail never returns.
 - Bypassing Freeze keeps its held sound for when you return; releasing Hold ends it.
 - Quickly re-enabling a bypassed cabinet or Stutter can resume its remaining sound.
 

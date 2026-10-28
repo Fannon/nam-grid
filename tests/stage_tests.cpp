@@ -78,6 +78,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "OutboardTests.h"
 #include "MeteringTests.h"
 #include "SmoothControlsTests.h"
+#include "ClickTests.h"
 
 int main(int argc, char** argv)
 try
@@ -221,6 +222,7 @@ try
   TestMultiHeadStereo();
   TestOutboard();
   TestAirDynamics();
+  TestClicks();
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

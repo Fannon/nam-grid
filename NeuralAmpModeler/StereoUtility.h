@@ -4,6 +4,7 @@
 
 // Balance preserves unity at center and attenuates the opposite side at extremes.
 // Stereo is a centered mid/side amount; polarity and gain changes ramp through zero without a jump.
+// Every gain, balance, polarity or width change takes the same 5 ms linear ramp as a slot bypass.
 class StereoUtility
 {
 public:
@@ -23,21 +24,29 @@ public:
                                        1. + std::clamp(c.stereo * .01, -1., 1.)};
     if (mFirst)
     {
-      mValue = target;
+      mValue = mTarget = target;
+      mIncrement = {};
       mDelay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
       mSkew = std::clamp(c.extra.utilitySkew, -20., 20.) * .001 * mRate;
       mMode = {}; mMode[std::clamp(static_cast<int>(c.extra.utilityMode), 0, 3)] = 1.;
       mFirst = false;
     }
-    // Slew 8 linear units in 5 ms (covering the largest gain/polarity change).
-    // Smaller changes finish sooner; delay slews separately at .25 sample/sample.
+    // Each new target starts a 5 ms linear ramp from the current value: a fixed slope
+    // let small but audible jumps, such as -60 dB, finish in under a millisecond.
+    // Delay slews separately at .25 sample/sample.
+    for (int j = 0; j < 3; ++j)
+      if (target[j] != mTarget[j])
+      {
+        mTarget[j] = target[j];
+        mIncrement[j] = std::abs(target[j] - mValue[j]) * mStep;
+      }
     const int mode = std::clamp(static_cast<int>(c.extra.utilityMode), 0, 3);
     const double skew = std::clamp(c.extra.utilitySkew, -20., 20.) * .001 * mRate;
     const double delay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
     for (int i = 0; i < frames; ++i)
     {
       for (int j = 0; j < 3; ++j)
-        mValue[j] += std::clamp(target[j] - mValue[j], -mStep * 8., mStep * 8.);
+        mValue[j] += std::clamp(mTarget[j] - mValue[j], -mIncrement[j], mIncrement[j]);
       const double l = left[i], r = right ? right[i] : l;
       for (int j = 0; j < 4; ++j) mMode[j] += std::clamp((mode == j ? 1. : 0.) - mMode[j], -mStep, mStep);
       mSkew += std::clamp(skew - mSkew, -.25, .25);
@@ -63,7 +72,7 @@ public:
   }
 
 private:
-  std::array<double, 3> mValue{1., 1., 1.};
+  std::array<double, 3> mValue{1., 1., 1.}, mTarget{1., 1., 1.}, mIncrement{};
   double mStep = 1. / 240.;
   bool mFirst = true;
   std::array<std::vector<double>, 2> mHistory;

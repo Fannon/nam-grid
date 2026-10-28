@@ -39,32 +39,32 @@ void TestHQEffects()
     const size_t start = rate / 2;
     assert(hq_test::ToneEnergy(out, start, 880., rate) > 2. * hq_test::ToneEnergy(out, start, 440., rate));
   }
-  // Frequency shifter: +100 Hz upper sideband, then -100 Hz lower sideband.
-  {
-    grid_hq::FrequencyShifter shifter;
-    shifter.Reset(rate);
-    UtilityControls c;
-    c.shift = {100., 0., 1., 100., 12000., 0., 100.};
-    std::vector<double> out(rate);
-    for (size_t i = 0; i < out.size(); ++i)
-    {
-      double value = .2 * std::sin(2. * grid_fx::pi * 440. * i / rate);
-      shifter.Process(&value, nullptr, 1, c);
-      out[i] = value;
-    }
-    const size_t start = rate / 2;
-    assert(hq_test::ToneEnergy(out, start, 540., rate) > 5. * hq_test::ToneEnergy(out, start, 440., rate));
-    shifter.Reset(rate);
-    c.shift[0] = -100.;
-    c.shift[3] = -100.;
-    for (size_t i = 0; i < out.size(); ++i)
-    {
-      double value = .2 * std::sin(2. * grid_fx::pi * 440. * i / rate);
-      shifter.Process(&value, nullptr, 1, c);
-      out[i] = value;
-    }
-    assert(hq_test::ToneEnergy(out, start, 340., rate) > 5. * hq_test::ToneEnergy(out, start, 440., rate));
-  }
+  // Frequency shifter: one sideband, with the carrier and the opposite sideband
+  // rejected across the guitar range (a ring modulator keeps both). The upper
+  // sideband moves by Shift; the lower sideband mirrors it.
+  for (const double hostRate : {44100., 48000., 96000.})
+    for (const double tone : {110., 440., 3000.})
+      for (const double shift : {100., -100., 40.})
+        for (const double sideband : {100., -100.})
+        {
+          grid_hq::FrequencyShifter shifter;
+          shifter.Reset(hostRate);
+          UtilityControls c;
+          c.shift = {shift, 0., 1., sideband, 12000., 0., 100.};
+          std::vector<double> out(static_cast<size_t>(hostRate));
+          for (size_t i = 0; i < out.size(); ++i)
+          {
+            double value = .2 * std::sin(2. * grid_fx::pi * tone * i / hostRate);
+            shifter.Process(&value, nullptr, 1, c);
+            out[i] = value;
+          }
+          const size_t start = out.size() / 2;
+          const double moved = sideband > 0. ? shift : -shift;
+          const double wanted = hq_test::ToneEnergy(out, start, tone + moved, hostRate);
+          assert(wanted > .08); // ToneEnergy is half the amplitude: unity gain gives .1.
+          assert(wanted > 30. * hq_test::ToneEnergy(out, start, tone - moved, hostRate));
+          assert(wanted > 30. * hq_test::ToneEnergy(out, start, tone, hostRate));
+        }
   // Juno chorus: 100% wet makes the two channels different; 0% mix is exact dry.
   {
     grid_hq::JunoChorus chorus;

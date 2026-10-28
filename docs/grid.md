@@ -41,6 +41,7 @@ Click **Routing** below the A/B knob for the lane controls. Select a module, clo
 
 - **Lane A / Lane B:** set each lane's level, or mute or solo it. Solo respects the current blend; if both lanes are soloed, both play. Mute wins over solo.
 - **Lane timing:** delay one lane by up to 20 ms to explore timing and phase between captures. Positive values delay A; negative values delay B.
+- **Keep dry level:** all delays and reverbs keep dry at unity while Mix sets wet level. Off by default (Linear dry/wet crossfade); saved with the rig and recalled by scenes. Changes ramp over 20 ms. Output trims still affect both dry and wet; at high Mix, allow room for the higher total level. Freeze and Stutter are unchanged.
 - **Frequency split:** send the lows to A and the highs to B, divided at **Crossover**. With both lanes empty and A/B centered, the original sound is reconstructed. This is a gentle split, not a steep multiband crossover.
 
 Use the split for rigs such as a clean low end in A and a driven high band in B. Check the combined tone in mono as well as stereo.

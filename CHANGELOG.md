@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### New sounds and controls
+
+- Routing now has **Keep dry level** for all delays and reverbs: keep your dry guitar at unity while Mix sets the wet level. It starts off in new and existing rigs, preserving their sound. Turning it on can raise the total level at high Mix; module Output trims still apply to both dry and wet.
+
 ### Fixed
 
 - Frequency Shifter now shifts a single sideband as documented. Its quadrature path was silent, so Sideband at ±100% produced both sidebands like a ring modulator. A new zero-latency allpass network keeps the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz. This changes existing rigs: at ±100% Sideband the shifted sound is clearer, about 3 dB louder, and high Feedback sustains longer; Sideband 0 keeps its ring-modulator sound.

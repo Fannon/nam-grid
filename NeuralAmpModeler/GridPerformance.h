@@ -55,6 +55,7 @@ enum Param
   Env2Input, Env2Threshold, Env2Sensitivity, Env2Attack, Env2Release, Env2Curve,
   Seq2Rate, Seq2Sync, Seq2Division, Seq2Retrigger,
   Seq2Step1, Seq2Step2, Seq2Step3, Seq2Step4, Seq2Step5, Seq2Step6, Seq2Step7, Seq2Step8,
+  MixLaw,
   Count,
   // Numbered identities for the original bank; released host names/keys stay unchanged.
   LFO1Shape = LFOShape, LFO1Rate = LFORate, LFO1Sync = LFOSync, LFO1Division = LFODivision,
@@ -243,13 +244,15 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Sequencer 2 Step 5", "5", 0, 0, 100, 1, "%", 0, false, 1., 6},
   {"Sequencer 2 Step 6", "6", 100, 0, 100, 1, "%", 0, false, 1., 6},
   {"Sequencer 2 Step 7", "7", 50, 0, 100, 1, "%", 0, false, 1., 6},
-  {"Sequencer 2 Step 8", "8", 75, 0, 100, 1, "%", 0, false, 1., 6}
+  {"Sequencer 2 Step 8", "8", 75, 0, 100, 1, "%", 0, false, 1., 6},
+  {"Mix Law", "Keep dry level", 0, 0, 1, 1, "", 0, false, 1., 9}
 }};
 // Matrix routing, the LFO shape, Listen at and the Retrigger modes are saved state, like
 // algorithm selectors: no host automation, so a longer list never reinterprets recorded
 // automation. Tempo divisions stay automatable; their list of ten values is frozen.
 inline constexpr bool StateOnly(int parameter)
 {
+  if (parameter == MixLaw) return true;
   for (int instance = 0; instance < sourceInstances; ++instance)
     if (parameter == SourceParam(LFO1Shape, instance) || parameter == SourceParam(Env1Input, instance)
         || parameter == SourceParam(LFO1Retrigger, instance) || parameter == SourceParam(Seq1Retrigger, instance)) return true;

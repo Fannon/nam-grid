@@ -11,6 +11,7 @@ public:
   static constexpr double kMaximumSize = 2.2;
   void Reset(double rate, SlotEffect effect = SlotEffect::RoomReverb)
   {
+    mMixLaw.Reset(rate);
     mRate = std::max(1., rate); mEffect = effect; mCounter = 0;
     mControls.Reset(mRate); mExtras.Reset(mRate); mStereo.Reset(mRate);
     mInputLow = {}; mWetLow = {}; mMusical.Reset(mRate); mDucker.Reset(mRate);
@@ -27,6 +28,7 @@ public:
     mStereo.Target({controls.stereoReverb ? 1. : 0.}, uReverbStereo);
     for (int i = 0; i < frames; ++i)
     {
+      mMixLaw.Tick(controls.constantDry);
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
       const double width = mStereo.Tick()[0];
       const auto& musical = mMusical.Tick();
@@ -56,8 +58,8 @@ public:
       const double duck = mDucker.Tick(dry[0], dry[1], mEffect == SlotEffect::RoomReverb ? 0. : musical[0]);
       const double mid = .5 * (wet[0] + wet[1]) * duck, side = .5 * (wet[0] - wet[1]) * width * duck;
       const double mix = v[4] * .01;
-      left[i] = dry[0] + mix * ((right ? mid + side : mid) - dry[0]);
-      if (right) right[i] = dry[1] + mix * (mid - side - dry[1]);
+      left[i] = mMixLaw.Apply(dry[0] + mix * ((right ? mid + side : mid) - dry[0]), dry[0], mix, 1.);
+      if (right) right[i] = mMixLaw.Apply(dry[1] + mix * (mid - side - dry[1]), dry[1], mix, 1.);
     }
   }
   bool ReadsFit() const
@@ -66,6 +68,7 @@ public:
       && !(mEffect == SlotEffect::PlateReverb ? mPlate.Clipped() : mEffect == SlotEffect::CloudReverb ? mCloud.Clipped() : mFDN.Clipped());
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   grid_reverb::DiffusionFDN mFDN;
   grid_reverb::PlateTank mPlate;
   grid_reverb::CloudTank mCloud;

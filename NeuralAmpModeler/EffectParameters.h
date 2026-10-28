@@ -367,7 +367,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 8; // 8 additive musical controls; 7 IR controls and long convolution.
+inline constexpr int kEffectStateSchema = 9; // 9 rig-wide mix law; 8 additive musical controls.
 
 struct EffectParameter
 {
@@ -882,6 +882,7 @@ struct UtilityControls
   std::array<double, 5> spring{1.8, 3., 60., 20., 0.};
   std::array<double, 5> wah{50., 3., 50., 100., 0.};
   int division = 5;
+  bool constantDry = false; // Rig control, outside the slot/matrix parameter map.
   double tempo = 120., level = 0., balance = 0., stereo = 0.;
   double fineDelay = 0., vibeMode = 0., eqMode = 0.;
   std::array<double, 7> rotary{.8, 6., 0., 1., 3., 80., 75.};

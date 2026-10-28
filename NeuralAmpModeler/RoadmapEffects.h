@@ -253,6 +253,7 @@ class Capture
 public:
   void Reset(double rate, double maxSeconds = 8.1)
   {
+    mMixLaw.Reset(rate);
     mRate = rate; mWrite = mStart = mPosition = mLength = mRefresh = mAvailable = 0; mHeld = false;
     mLow = {}; mWetGain = 0.; mTransition = 0; mLastWet = mTransitionFrom = {};
     for (auto& b : mHistory) b.assign(static_cast<size_t>(rate * maxSeconds) + 4, 0.);
@@ -275,6 +276,7 @@ public:
     mOutput.Target({c.delayOutput}, uDelayOutput);
     for (int i = 0; i < n; ++i)
     {
+      mMixLaw.Tick(c.constantDry);
       const auto& extra = mCaptureExtras.Tick();
       const double live = mDrain.Tick(draining);
       const auto& f = mFreeze.Tick(); const auto& s = mStutter.Tick(); const auto& d = mDelay.Tick();
@@ -350,11 +352,12 @@ public:
       const double mix = (freeze ? f[4] : reverse ? d[4] : s[3]) * .01;
       const double output = mOutput.Tick()[0];
       const double gain = reverse ? Gain(mGain, output) : 1.;
-      l[i] = (freeze ? dry[0] + mix * wet[0] * mWetGain : dry[0] + mix * (wet[0] * mWetGain - dry[0])) * gain;
-      if (r) r[i] = (freeze ? dry[1] + mix * wet[1] * mWetGain : dry[1] + mix * (wet[1] * mWetGain - dry[1])) * gain;
+      l[i] = mMixLaw.Apply((freeze ? dry[0] + mix * wet[0] * mWetGain : dry[0] + mix * (wet[0] * mWetGain - dry[0])) * gain, dry[0], reverse ? mix : 0., gain);
+      if (r) r[i] = mMixLaw.Apply((freeze ? dry[1] + mix * wet[1] * mWetGain : dry[1] + mix * (wet[1] * mWetGain - dry[1])) * gain, dry[1], reverse ? mix : 0., gain);
     }
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   std::array<std::vector<double>, 2> mHistory;
   std::array<std::vector<double>, 2> mCaptured;
   grid_fx::SmoothControls<5> mFreeze, mDelay;
@@ -376,6 +379,7 @@ class DualDelay
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mRate = rate; mLow = {}; mControls.Reset(rate); mExtras.Reset(rate); mPing.Reset(rate); mOutput.Reset(rate);
     mDrain.Reset(rate);
     for (auto& line : mLine) line.Reset(static_cast<int>(16.1 * rate));
@@ -389,6 +393,7 @@ public:
     mOutput.Target({c.delayOutput}, uDelayOutput);
     for (int i = 0; i < n; ++i)
     {
+      mMixLaw.Tick(c.constantDry);
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
       const double ping = mPing.Tick()[0], output = mOutput.Tick()[0], live = mDrain.Tick(draining);
       const double dry[]{l[i], r ? r[i] : l[i]}; double wet[2]{};
@@ -402,11 +407,12 @@ public:
         mLine[ch].Push(send[ch] + v[1] * .01 * live * ((1. - ping) * wet[ch] + ping * wet[1 - ch]));
       const double balance = extra[1] * .01, mix = v[4] * .01, gain = Gain(mGain, output);
       const double a = wet[0] * std::min(1., 2. * (1. - balance)), b = wet[1] * std::min(1., 2. * balance);
-      l[i] = (dry[0] + mix * ((r ? a : .5 * (a + b)) - dry[0])) * gain;
-      if (r) r[i] = (dry[1] + mix * (b - dry[1])) * gain;
+      l[i] = mMixLaw.Apply((dry[0] + mix * ((r ? a : .5 * (a + b)) - dry[0])) * gain, dry[0], mix, gain);
+      if (r) r[i] = mMixLaw.Apply((dry[1] + mix * (b - dry[1])) * gain, dry[1], mix, gain);
     }
   }
 private:
+  grid_fx::MixLaw mMixLaw;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;
   grid_fx::SmoothControls<1> mPing, mOutput;

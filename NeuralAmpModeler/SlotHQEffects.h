@@ -167,6 +167,7 @@ class Shimmer
 public:
   void Reset(double rate)
   {
+    mMixLaw.Reset(rate);
     mRate = std::max(1., rate);
     mControls.Reset(mRate);
     mTank[0].Reset(mRate, 1.);
@@ -188,6 +189,7 @@ public:
     const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
     for (int i = 0; i < n; ++i)
     {
+      mMixLaw.Tick(c.constantDry);
       const auto& v = mControls.Tick();
       mFreeze += std::clamp(freezeTarget - mFreeze, -1. / (.01 * mRate), 1. / (.01 * mRate));
       if (mCounter++ % 32 == 0)
@@ -223,13 +225,14 @@ public:
       mFeedback[0] = std::clamp(amount * mTank[0].live * shiftedL, -4., 4.);
       mFeedback[1] = std::clamp(amount * mTank[1].live * shiftedR, -4., 4.);
       const double mix = v[0] * .01;
-      l[i] = dryL + mix * (wetL - dryL);
+      l[i] = mMixLaw.Apply(dryL + mix * (wetL - dryL), dryL, mix, 1.);
       if (r)
-        r[i] = dryR + mix * (wetR - dryR);
+        r[i] = mMixLaw.Apply(dryR + mix * (wetR - dryR), dryR, mix, 1.);
     }
   }
 
 private:
+  grid_fx::MixLaw mMixLaw;
   struct Tank
   {
     std::array<grid_fx::DelayLine, 8> line;
@@ -303,6 +306,7 @@ private:
 // (https://yehar.com/blog/?p=368). The quadrature output lags the in-phase output
 // by 90 degrees within about 0.7 degrees from 30 Hz to 20 kHz at 44.1/48 kHz
 // (60 Hz at 96 kHz), with unity magnitude and no lookahead.
+
 class HilbertPair
 {
 public:

@@ -88,6 +88,7 @@ public:
     mControls = FromValues(mConfig.values);
   }
   double Get(int control) const { return mConfig.values[control]; }
+  void SetMixLaw(bool constantDry) { mControls.utility.constantDry = constantDry; }
   void Replace()
   {
     mStage.Publish(PrepareSlot(mConfig, mRate, mBlock).dsp);
@@ -217,6 +218,8 @@ void TestClicks()
           }
           settled = after;
         };
+        check("constant dry", nullptr, [&] { rig.SetMixLaw(true); });
+        check("linear mix law", nullptr, [&] { rig.SetMixLaw(false); });
         check("bypass", nullptr, [&] { rig.Set(parameter_layout::kSlotEnabled, 0.); });
         check("enable", nullptr, [&] { rig.Set(parameter_layout::kSlotEnabled, 1.); });
         // Quick re-enable while a delay is still draining replays its pending repeats.

@@ -1,5 +1,6 @@
 #include "CaptureLibrary.h"
 #include "RigPreset.h"
+#include "LibraryBrowser.h"
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -723,7 +724,9 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
   }
   IgnoreRules ignore(root);
   using Iterator = std::filesystem::recursive_directory_iterator;
-  Iterator it(root, std::filesystem::directory_options::skip_permission_denied, error), end;
+  // Surface denied directories as an incomplete scan rather than silently saving a
+  // reduced index. The worker preserves the last good cache whenever error is set.
+  Iterator it(root, std::filesystem::directory_options::none, error), end;
   for (; it != end && !error; it.increment(error))
   {
     if (cancelled && cancelled())
@@ -798,8 +801,34 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
 Snapshot Scan(const std::filesystem::path& root, const std::function<bool()>& cancelled)
 { return ScanSource(root, kCaptureKinds, cancelled); }
 
+// Restoring an index does no directory walks, file reads or hashing. Root-relative fields
+// are rebuilt because the same cache can be used by instances with different folder lists.
+static Snapshot CachedSource(const std::filesystem::path& root, unsigned kinds, const IndexEntries& entries)
+{
+  Snapshot result;
+  result.root = root;
+  for (const auto& [key, entry] : entries)
+  {
+    const auto& file = entry.capture;
+    if (!(kinds & Bit(file.kind)) || !Within(file.path, root)) continue;
+    auto capture = file;
+    capture.source = root;
+    capture.relative = file.path.lexically_relative(root);
+    const auto parent = capture.relative.parent_path();
+    capture.folderDepth = static_cast<size_t>(std::distance(parent.begin(), parent.end()));
+    result.captures.push_back(std::move(capture));
+  }
+  std::sort(result.captures.begin(), result.captures.end(), [](const Capture& a, const Capture& b) {
+    const auto first = PathText(a.relative), second = PathText(b.relative);
+    const auto lowFirst = Lower(first), lowSecond = Lower(second);
+    return lowFirst == lowSecond ? first < second : lowFirst < lowSecond;
+  });
+  CountContentDuplicates(result);
+  return result;
+}
+
 static Snapshot ScanRoots(const std::vector<std::string>& roots, unsigned kinds, const std::function<bool()>& cancelled,
-                          IndexCache* index = nullptr)
+                          IndexCache* index = nullptr, bool cachedOnly = false)
 {
   Snapshot result;
   std::unordered_map<std::string, size_t> seen;
@@ -809,7 +838,8 @@ static Snapshot ScanRoots(const std::vector<std::string>& roots, unsigned kinds,
   {
     if (cancelled && cancelled())
       return result;
-    auto part = ScanSource(std::filesystem::u8path(folder), kinds, cancelled, index);
+    auto part = cachedOnly ? CachedSource(std::filesystem::u8path(folder), kinds, index->previous)
+                           : ScanSource(std::filesystem::u8path(folder), kinds, cancelled, index);
     if (folders.size() == 1)
       result.root = part.root;
     result.unreadable += part.unreadable;
@@ -906,7 +936,8 @@ void Worker::Request(const std::string& root)
 void Worker::Request(const std::vector<std::string>& roots)
 { Request(roots, roots, {}); }
 void Worker::Request(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
-                     const std::vector<std::string>& presetRoots)
+                     const std::vector<std::string>& presetRoots, bool rescan,
+                     const std::vector<std::string>& factoryFiles)
 {
   {
     std::lock_guard<std::mutex> lock(mMutex);
@@ -914,6 +945,8 @@ void Worker::Request(const std::vector<std::string>& namRoots, const std::vector
     mNamRoots = namRoots;
     mIrRoots = irRoots;
     mPresetRoots = presetRoots;
+    mRescan = rescan;
+    mFactoryFiles = factoryFiles;
     mResult.reset();
     ++mRevision;
   }
@@ -951,6 +984,8 @@ void Worker::Run()
     }
     const auto revision = mRevision.load();
     const auto namRoots = mNamRoots, irRoots = mIrRoots, presetRoots = mPresetRoots;
+    const bool rescan = mRescan;
+    const auto factoryFiles = mFactoryFiles;
     lock.unlock();
     auto cancelled = [&] { return mStop.load() || mRevision.load() != revision; };
     auto result = std::make_shared<Snapshot>();
@@ -961,9 +996,23 @@ void Worker::Run()
       mIndexLoaded = true;
     }
     mIndex.next.clear();
+    bool scanned = true;
     try
     {
-      *result = mScanner(namRoots, irRoots, presetRoots, cancelled, indexed ? &mIndex : nullptr);
+      if (indexed && !rescan)
+      {
+        *result = ScanRoots(namRoots, namRoots == irRoots ? kCaptureKinds : Bit(FileKind::NAM), cancelled, &mIndex, true);
+        if (namRoots != irRoots)
+          Append(*result, ScanRoots(irRoots, Bit(FileKind::IR), cancelled, &mIndex, true));
+        Append(*result, ScanRoots(presetRoots, Bit(FileKind::RigPreset), cancelled, &mIndex, true));
+        std::unordered_set<std::string> factory;
+        for (const auto& file : factoryFiles) factory.insert(IndexKey(std::filesystem::u8path(file)));
+        scanned = !std::any_of(result->captures.begin(), result->captures.end(), [&](const auto& file) {
+          return !factory.contains(IndexKey(file.path));
+        });
+      }
+      if (scanned)
+        *result = mScanner(namRoots, irRoots, presetRoots, cancelled, indexed ? &mIndex : nullptr);
     }
     catch (const std::exception&)
     {
@@ -972,9 +1021,9 @@ void Worker::Run()
     // Serialize publication with Request/Cancel: an obsolete scan must neither
     // overwrite the index nor consume a cancellation intended for the next revision.
     lock.lock();
-    // A scan that ran to the end replaces the index, so it lists exactly the files it found.
-    // Missing folders simply contribute nothing; their files are read again when they return.
-    if (indexed && !cancelled())
+    // Only a complete, successful scan replaces the index. An offline drive or a read
+    // failure must not erase the last good cache; still publish the scan's error to the UI.
+    if (indexed && scanned && !cancelled() && result->error.empty() && result->unreadable == 0)
     {
       mIndex.previous = std::move(mIndex.next);
       WriteIndex(mIndexFile, mIndex.previous);

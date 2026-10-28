@@ -180,7 +180,7 @@ public:
   void OpenLibraryBrowser(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot = 0);
   size_t GetSelectedSlot() const { return mSelectedSlot; }
   void SelectSlot(size_t slot);
-  void RescanCaptureFolder();
+  void RescanCaptureFolder(bool rescan = true);
   bool GetRescanOnStartup() const { return mRescanOnStartup; }
   bool GetShowVisualizations() const { return mShowVisualizations; }
   bool GetShowMainMacros() const { return mShowMainMacros; }
@@ -352,6 +352,7 @@ private:
   [[nodiscard]] std::lock_guard<std::recursive_mutex> _LockControls() const { return std::lock_guard(mControlMutex); }
 #endif
   nam_library::Worker mLibraryWorker{user_paths::IndexFile()};
+  std::vector<std::string> mFactoryLibraryFiles;
   std::shared_ptr<const nam_library::Snapshot> mLibrary = std::make_shared<nam_library::Snapshot>();
   std::vector<std::string> mNamFolders, mIrFolders, mPresetFolders;
   std::vector<std::string>* _LibraryFolders(nam_library::FileKind kind);

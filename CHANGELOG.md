@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Restore the saved library index when Startup rescan is off. Missing, invalid, empty or factory-only indexes automatically trigger a background rescan; opening an empty or factory-only browser retries recovery. Scans with unavailable folders or read failures preserve the last good saved index.
+
 ## [0.3.0] - 2026-10-27
 
 ### New sounds and controls

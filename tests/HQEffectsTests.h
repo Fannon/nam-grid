@@ -94,6 +94,43 @@ void TestHQEffects()
     for (size_t i = 0; i < l.size(); ++i)
       assert(std::abs(l[i] - dryL[i]) < 1.e-12 && std::abs(r[i] - dryR[i]) < 1.e-12);
   }
+  // Infer the vintage delay directly from a tiny linear ramp. After the filters
+  // settle, ramp displacement measures delay without exposing DSP internals.
+  for (const double hostRate : {44100., 48000., 96000.})
+  {
+    grid_hq::JunoChorus chorus;
+    chorus.Reset(hostRate);
+    UtilityControls c;
+    c.juno = {3., 100., 100.};
+    const double coefficient = std::exp(-2. * grid_fx::pi * std::min(.45 * hostRate, 20000.) / hostRate);
+    const double filterLag = 2. * coefficient / (1. - coefficient);
+    constexpr double step = 1.e-10;
+    double minimum = 1., maximum = 0.;
+    int crossings = 0, previousCrossing = 0;
+    double periodSum = 0., previousDelay = .0035;
+    for (int i = 0; i < static_cast<int>(2. * hostRate); ++i)
+    {
+      double l = step * i, r = l;
+      chorus.Process(&l, &r, 1, c);
+      if (i < static_cast<int>(.1 * hostRate)) continue;
+      assert(l == r);
+      // DelayLine reads relative to the position after Push (one sample ahead).
+      const double delay = (i - l / step - filterLag + 1.) / hostRate;
+      minimum = std::min(minimum, delay);
+      maximum = std::max(maximum, delay);
+      if (previousDelay < .0035 && delay >= .0035)
+      {
+        if (previousCrossing) { periodSum += i - previousCrossing; ++crossings; }
+        previousCrossing = i;
+      }
+      previousDelay = delay;
+    }
+    assert(std::abs(minimum - .0033) < .000002);
+    assert(std::abs(maximum - .0037) < .000002);
+    assert(crossings >= 16);
+    const double measuredRate = hostRate * crossings / periodSum;
+    assert(std::abs(measuredRate - 9.75) < .01);
+  }
   // Shimmer: feedback changes the tail, freeze holds it, reset returns silence.
   {
     grid_hq::Shimmer shimmer;

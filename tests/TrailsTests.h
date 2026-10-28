@@ -66,7 +66,8 @@ void TestTrails()
     listed += IsTrailEffect(static_cast<E>(e));
   assert(listed == static_cast<int>(effects.size()));
   const double rate = 48000.;
-  const int frames = static_cast<int>(rate * 3.), bypassAt = 1500 * kBlock / 4; // 1 s, on a block boundary
+  // One second fills the default effects; another covers many post-fade blocks.
+  const int frames = static_cast<int>(rate * 2.), bypassAt = 1500 * kBlock / 4; // 1 s, on a block boundary
   // The input fade and the slot crossfade take 5 ms; after that the input changes.
   const int switchAt = bypassAt + 4 * kBlock;
   for (const auto effect : effects)

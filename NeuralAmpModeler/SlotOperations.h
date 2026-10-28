@@ -43,12 +43,17 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
   else if (!config.path.empty() && config.effect == SlotEffect::CabinetIR)
   {
     dsp::ImpulseResponse::IRData data;
-    const auto status = dsp::wav::Load(config.path.c_str(), data.mRawAudio, data.mRawAudioSampleRate);
+    std::vector<float> right;
+    const auto status = dsp::wav::LoadIR(config.path.c_str(), data.mRawAudio, right, data.mRawAudioSampleRate);
     if (status != dsp::wav::LoadReturnCode::SUCCESS)
       throw std::runtime_error(dsp::wav::GetMsgForLoadReturnCode(status));
     if (data.mRawAudio.empty() || !std::isfinite(data.mRawAudioSampleRate) || data.mRawAudioSampleRate <= 0.
         || !std::all_of(data.mRawAudio.begin(), data.mRawAudio.end(), [](float x) { return std::isfinite(x); }))
       throw std::runtime_error("Invalid or empty impulse response");
+    if (!std::all_of(right.begin(), right.end(), [](float x) { return std::isfinite(x); }))
+      throw std::runtime_error("Invalid impulse response");
+    if (!right.empty())
+      p->rightIRData = std::make_unique<AdaptiveIR::IRData>(AdaptiveIR::IRData{std::move(right), data.mRawAudioSampleRate});
     p->ir = std::make_unique<AdaptiveIR>(data, rate, block, static_cast<AdaptiveIR::Mode>(config.values[17 + uIRLength]));
   }
   else if (!config.path.empty())

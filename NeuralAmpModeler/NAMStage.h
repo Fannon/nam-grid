@@ -126,6 +126,7 @@ public:
     std::unique_ptr<Prepared> right;
     bool rightChannel = false;
     std::unique_ptr<AdaptiveIR> ir;
+    std::unique_ptr<AdaptiveIR::IRData> rightIRData; // Stereo source survives host resets.
     SlotIR irWet;
     std::vector<double> input, wet, dry, delay, dynamicsMonitor;
     size_t delayIndex = 0;
@@ -237,8 +238,9 @@ public:
         right->rightChannel = true;
         right->effect = effect;
         if (ir)
-          right->ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block, ir->GetMode());
+          right->ir = std::make_unique<AdaptiveIR>(rightIRData ? *rightIRData : ir->GetData(), rate, block, ir->GetMode());
         right->Reset(rate, block);
+        drainLimit = std::max(drainLimit, right->drainLimit);
         // Mono NAM has one inference; the second history is for stereo dry bypass.
         right->latency = latency;
         right->delay.assign(std::max(1, latency), 0.);
@@ -500,6 +502,14 @@ public:
             ProcessBuiltin(p, frames, dynamics, eq, utility, draining);
             if (rightSamples)
               ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility, draining);
+            else if (p->rightIRData)
+            {
+              // The same mono excitation through both IRs equals their averaged response.
+              std::copy_n(p->input.data(), frames, p->right->input.data());
+              ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility, draining);
+              for (int i = 0; i < frames; ++i)
+                out[i] = .5 * (out[i] + p->right->wet[i]);
+            }
           }
           if (p->effect == SlotEffect::Utility)
             p->utilityStereo.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);

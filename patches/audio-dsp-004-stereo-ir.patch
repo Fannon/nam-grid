@@ -1,0 +1,126 @@
+--- a/dsp/wav.cpp
++++ b/dsp/wav.cpp
+@@ -150,6 +150,7 @@
+     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW): message << "Unsupported file format \"A-law\""; break;
+     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW): message << "Unsupported file format \"mu-law\""; break;
+     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_OTHER): message << "Unsupported file format."; break;
++    case (LoadReturnCode::ERROR_UNSUPPORTED_CHANNELS): message << "IR WAV files must have one or two channels; true stereo is not supported."; break;
+     case (LoadReturnCode::ERROR_NOT_MONO): message << "File is not mono."; break;
+     case (LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE): message << "Unsupported bits per sample"; break;
+     case (dsp::wav::LoadReturnCode::ERROR_OTHER): message << "???"; break;
+@@ -179,7 +180,7 @@
+   return dsp::wav::LoadReturnCode::SUCCESS;
+ }
+ 
+-dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd, double& sampleRate)
++dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd, double& sampleRate, bool stereo)
+ {
+   if (wfd.fmtChunk.valid)
+   {
+@@ -224,10 +225,10 @@
+   wfd.fmtChunk.numChannels = ReadShort(wavFile);
+   // HACK
+   // Note for future: for multi-channel files, samples are laid out with channel in the inner loop.
+-  if (wfd.fmtChunk.numChannels != 1)
++  if (wfd.fmtChunk.numChannels != 1 && (!stereo || wfd.fmtChunk.numChannels != 2))
+   {
+     std::cerr << "Require mono (using for IR loading)" << std::endl;
+-    return dsp::wav::LoadReturnCode::ERROR_NOT_MONO;
++    return stereo ? dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_CHANNELS : dsp::wav::LoadReturnCode::ERROR_NOT_MONO;
+   }
+ 
+   wfd.fmtChunk.sampleRate = ReadInt(wavFile);
+@@ -344,8 +345,8 @@
+ 
+   const int audioFormat = GetAudioFormat(wfd);
+   const int frameSize = wfd.fmtChunk.bitsPerSample / 8;
+-  if (!wavFile.good() || wfd.fmtChunk.bitsPerSample % 8 || wfd.fmtChunk.blockAlign != frameSize
+-      || !ValidatePayload(wavFile, wfd.dataChunk.size, frameSize))
++  if (!wavFile.good() || wfd.fmtChunk.bitsPerSample % 8 || wfd.fmtChunk.blockAlign != frameSize * wfd.fmtChunk.numChannels
++      || !ValidatePayload(wavFile, wfd.dataChunk.size, frameSize * wfd.fmtChunk.numChannels))
+     return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+   if (audioFormat == AUDIO_FORMAT_IEEE)
+   {
+@@ -382,7 +383,7 @@
+   return dsp::wav::LoadReturnCode::SUCCESS;
+ }
+ 
+-dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>& audio, double& sampleRate)
++static dsp::wav::LoadReturnCode LoadWav(const char* fileName, std::vector<float>& audio, double& sampleRate, int& channels, bool stereo)
+ {
+   // FYI: https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
+   // Open the WAV file for reading
+@@ -427,7 +428,7 @@
+     }
+     else if (strncmp(chunkId, "fmt ", 4) == 0)
+     {
+-      returnCode = ReadFmtChunk(wavFile, wfd, decodedRate);
++      returnCode = ReadFmtChunk(wavFile, wfd, decodedRate, stereo);
+     }
+     else if (strncmp(chunkId, "fact", 4) == 0)
+     {
+@@ -454,8 +455,42 @@
+     return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+   }
+   audio.swap(decoded);
++  channels = wfd.fmtChunk.numChannels;
+   sampleRate = decodedRate;
+   return dsp::wav::LoadReturnCode::SUCCESS;
++}
++
++dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>& audio, double& sampleRate)
++{
++  int channels = 0;
++  return LoadWav(fileName, audio, sampleRate, channels, false);
++}
++
++dsp::wav::LoadReturnCode dsp::wav::LoadIR(const char* fileName, std::vector<float>& left, std::vector<float>& right, double& sampleRate)
++{
++  std::vector<float> interleaved;
++  double rate = 0.;
++  int channels = 0;
++  const auto result = LoadWav(fileName, interleaved, rate, channels, true);
++  if (result != LoadReturnCode::SUCCESS)
++    return result;
++  std::vector<float> decodedLeft, decodedRight;
++  if (channels == 1)
++    decodedLeft.swap(interleaved);
++  else
++  {
++    decodedLeft.resize(interleaved.size() / 2);
++    decodedRight.resize(decodedLeft.size());
++    for (size_t i = 0; i < decodedLeft.size(); ++i)
++    {
++      decodedLeft[i] = interleaved[2 * i];
++      decodedRight[i] = interleaved[2 * i + 1];
++    }
++  }
++  left.swap(decodedLeft);
++  right.swap(decodedRight);
++  sampleRate = rate;
++  return LoadReturnCode::SUCCESS;
+ }
+ 
+ void dsp::wav::_LoadSamples16(std::ifstream& wavFile, const int chunkSize, std::vector<float>& samples)
+--- a/dsp/wav.h
++++ b/dsp/wav.h
+@@ -28,7 +28,8 @@
+   ERROR_UNSUPPORTED_FORMAT_OTHER,
+   ERROR_UNSUPPORTED_BITS_PER_SAMPLE,
+   ERROR_NOT_MONO,
+-  ERROR_OTHER
++  ERROR_OTHER,
++  ERROR_UNSUPPORTED_CHANNELS
+ };
+ 
+ // Get a string describing the error
+@@ -39,6 +40,9 @@
+ //
+ // Returns: as per return cases above
+ LoadReturnCode Load(const char* fileName, std::vector<float>& audio, double& sampleRate);
++
++// Load mono or stereo IRs. Mono returns an empty right channel. Outputs change only on success.
++LoadReturnCode LoadIR(const char* fileName, std::vector<float>& left, std::vector<float>& right, double& sampleRate);
+ 
+ // Load samples, 16-bit
+ void _LoadSamples16(std::ifstream& wavFile, const int chunkSize, std::vector<float>& samples);

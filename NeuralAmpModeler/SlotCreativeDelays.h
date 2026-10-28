@@ -84,7 +84,6 @@ private:
 // Diffused delay inspired by Greyhole: a repeat feeds a rotating allpass chain.
 // At Diffusion=0 the chain is bypassed in the feedback/output path; at 100% the
 // same repeat blooms into a stereo cluster. Feedback remains contractive.
-
 class SlotDiffusedDelay
 {
 public:

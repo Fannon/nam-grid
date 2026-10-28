@@ -33,7 +33,7 @@ Load a `.nam` capture of an amp, pedal, or full rig. Bass, Mid, and Treble are N
 
 ![Cabinet IR parameter pane](../screenshots/modules/cabinet-ir.png)
 
-Load a mono impulse response (`.wav`). Use **Length: Cabinet** for the original 8192-sample response, or **Length: Long IR** for reverb and experimental responses up to 30 seconds. IR levels vary, so match the wet volume with Input and Output. See [IR processing](ir-processing.md) for details.
+Load a mono or stereo impulse response (`.wav`). Use **Length: Cabinet** for the original 8192-sample response, or **Length: Long IR** for reverb and experimental responses up to 30 seconds. IR levels vary, so match the wet volume with Input and Output. See [IR processing](ir-processing.md) for details.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

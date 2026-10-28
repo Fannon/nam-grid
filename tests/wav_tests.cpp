@@ -72,6 +72,48 @@ int main(int argc, char** argv)
         assert(dsp::wav::Load(truncated.string().c_str(), audio, rate) != dsp::wav::LoadReturnCode::SUCCESS);
       }
     }
+  // Stereo decoding shares mono conversion and hardening, with frame alignment.
+  for (bool extensible : {false, true})
+    for (int variant = 0; variant < 4; ++variant)
+    {
+      const int bits = variant == 0 ? 16 : variant == 1 ? 24 : 32;
+      const bool floating = variant == 3;
+      const uint32_t half = floating ? 0x3f000000 : uint32_t{1} << (bits - 2);
+      const uint32_t negative = floating ? 0xbf000000 : 3 * half;
+      for (int channels : {0, 1, 2, 3, 4})
+      {
+        wav_fixture::Write(file, bits, floating, {half, negative, negative, half}, -1, -1, extensible, channels);
+        std::vector<float> left{.25f}, right{.75f}; double rate = 123.;
+        const auto result = dsp::wav::LoadIR(file.string().c_str(), left, right, rate);
+        if (channels == 1 || channels == 2)
+        {
+          assert(result == dsp::wav::LoadReturnCode::SUCCESS && rate == 48000.);
+          if (channels == 2)
+          {
+            assert((left == std::vector<float>{.5f, -.5f}));
+            assert((right == std::vector<float>{-.5f, .5f}));
+            assert(dsp::wav::Load(file.string().c_str(), left, rate) == dsp::wav::LoadReturnCode::ERROR_NOT_MONO);
+          }
+          else assert(right.empty());
+        }
+        else
+        {
+          assert(result == dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_CHANNELS);
+          assert(left == std::vector<float>{.25f} && right == std::vector<float>{.75f} && rate == 123.);
+        }
+      }
+      for (int payload : {1, 2, 3, 5, 7})
+      {
+        wav_fixture::Write(file, bits, floating, {half, negative}, 8 * bits / 8, payload, extensible, 2);
+        std::vector<float> left{.25f}, right{.75f}; double rate = 123.;
+        assert(dsp::wav::LoadIR(file.string().c_str(), left, right, rate) == dsp::wav::LoadReturnCode::ERROR_INVALID_FILE);
+        assert(left == std::vector<float>{.25f} && right == std::vector<float>{.75f} && rate == 123.);
+      }
+      // Valid sample alignment but incomplete stereo frame.
+      wav_fixture::Write(file, bits, floating, {half, negative, half}, -1, -1, extensible, 2);
+      std::vector<float> left, right; double rate = 0.;
+      assert(dsp::wav::LoadIR(file.string().c_str(), left, right, rate) == dsp::wav::LoadReturnCode::ERROR_INVALID_FILE);
+    }
   // Low-level entry points are callable independently of Load(): do not leave
   // the original overflow reachable through their public declarations.
   for (int decoder = 0; decoder < 4; ++decoder)

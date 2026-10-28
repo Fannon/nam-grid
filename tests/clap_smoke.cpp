@@ -1,3 +1,4 @@
+#include "WavFixtures.h"
 #include "IsolatedUserHome.h"
 #include "A2Fixture.h"
 #include "ClapTestHost.h"
@@ -869,6 +870,19 @@ int main(int argc, char** argv)
   eqIR["Post 1 EQ Presence"] = -2.;
   load(eqIR);
   assert(save().config() == eqIR);
+  {
+    const auto stereoFile = fixtures / "stereo.wav";
+    wav_fixture::Write(stereoFile, 16, false, {16384, 8192, 0, 4096}, -1, -1, false, 2);
+    auto stereo = eqIR;
+    stereo["SlotPaths"][0] = stereoFile.string();
+    load(stereo);
+    assert(save().config() == stereo);
+    const auto recalled = save();
+    load(cleared);
+    assert(loadBytes(recalled));
+    assert(save().config() == stereo);
+    load(eqIR);
+  }
   const auto eqIRBytes = save();
   {
     auto shaped = eqIR;

@@ -2313,8 +2313,8 @@ private:
     if (path == mIRResponsePath && longIR == mIRLong && hostRate == mIRHostRate) return;
     mIRLong = longIR; mIRHostRate = hostRate; mIRSeconds = 0.;
     mIRResponsePath = path; mIRResponseValid = false;
-    std::vector<float> taps; double rate = 0.;
-    if (path.empty() || dsp::wav::Load(path.c_str(), taps, rate) != dsp::wav::LoadReturnCode::SUCCESS || taps.empty() || !(rate > 0.))
+    std::vector<float> taps, right; double rate = 0.;
+    if (path.empty() || dsp::wav::LoadIR(path.c_str(), taps, right, rate) != dsp::wav::LoadReturnCode::SUCCESS || taps.empty() || !(rate > 0.))
       return;
     taps.resize(std::min(taps.size(), std::max<size_t>(1, static_cast<size_t>(rate * (longIR ? AdaptiveIR::maximumSeconds : 8192. / hostRate)))));
     mIRSeconds = taps.size() / rate;
@@ -2325,8 +2325,8 @@ private:
       for (size_t n = 0; n < taps.size(); ++n)
       {
         const auto bin = std::min(mIRResponse.size() - 1, n * mIRResponse.size() / taps.size());
-        mIRResponse[bin] = std::max(mIRResponse[bin], std::abs(taps[n]));
-        peak = std::max(peak, std::abs(taps[n]));
+        mIRResponse[bin] = std::max(mIRResponse[bin], std::max(std::abs(taps[n]), right.empty() ? 0.f : std::abs(right[n])));
+        peak = std::max(peak, mIRResponse[bin]);
       }
       for (auto& value : mIRResponse)
         value = static_cast<float>(20. * std::log10(std::max(1.e-6f, value / std::max(1.e-12f, peak))));
@@ -2339,14 +2339,15 @@ private:
     {
       const double hz = 20. * std::pow(mIRUpper / 20., static_cast<double>(i) / (mIRResponse.size() - 1));
       const auto step = std::polar(1., -2. * MATH_PI * hz / rate);
-      std::complex<double> phase(1., 0.), sum(0., 0.);
+      std::complex<double> phase(1., 0.), sum(0., 0.), rightSum(0., 0.);
       for (size_t n = 0; n < taps.size(); ++n)
       {
         sum += static_cast<double>(taps[n]) * phase;
+        if (!right.empty()) rightSum += static_cast<double>(right[n]) * phase;
         phase *= step;
         if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
       }
-      mIRResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::abs(sum))));
+      mIRResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::max(std::abs(sum), std::abs(rightSum)))));
       peak = std::max(peak, mIRResponse[i]);
     }
     for (auto& value : mIRResponse) value -= peak;

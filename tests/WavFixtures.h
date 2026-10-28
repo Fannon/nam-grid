@@ -9,7 +9,7 @@ namespace wav_fixture
 // Explicit LE bytes keep malformed-size and endpoint fixtures independent of
 // the decoder. declaredBytes may intentionally disagree with the payload.
 inline void Write(const std::filesystem::path& path, int bits, bool floating, const std::vector<uint32_t>& values,
-                  int declaredBytes = -1, int payloadBytes = -1, bool extensible = false)
+                  int declaredBytes = -1, int payloadBytes = -1, bool extensible = false, int channels = 1)
 {
   const int width = bits / 8;
   if (payloadBytes < 0)
@@ -27,10 +27,10 @@ inline void Write(const std::filesystem::path& path, int bits, bool floating, co
   file.write("WAVEfmt ", 8);
   number(fmtSize, 4);
   number(extensible ? 65534 : floating ? 3 : 1, 2);
-  number(1, 2);
+  number(channels, 2);
   number(48000, 4);
-  number(48000 * width, 4);
-  number(width, 2);
+  number(48000 * width * channels, 4);
+  number(width * channels, 2);
   number(bits, 2);
   if (extensible)
   {

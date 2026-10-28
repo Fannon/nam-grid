@@ -109,6 +109,57 @@ void TestTrails()
       for (int i = 0; i < frames; ++i) assert(on.output[ch][i] == off.output[ch][i]);
   }
 
+  // Reach the hard limit with a live tank without rendering a minute per case. Advance
+  // only the elapsed trail counter; DSP histories, fades and output take the real path.
+  for (const auto effect : {E::DigitalDelay, E::HallReverb, E::GalacticSpace, E::CosmicEcho})
+    for (const int block : {37, 511})
+    {
+      SlotConfig config; config.effect = effect;
+      auto prepared = PrepareSlot(config, rate, block);
+      auto* tank = prepared.dsp.get();
+      NAMStage stage; stage.Publish(std::move(prepared.dsp)); stage.ResetStopped(rate, block);
+      FixedNAMGrid::Controls controls;
+      const auto values = SlotDefaultValues(effect);
+      grid_modulation::VisitSlotControls(controls, [&](int control, auto& field) {
+        field = grid_modulation::FieldValue<std::remove_reference_t<decltype(field)>>(values[control]);
+      });
+      auto utility = controls.utility;
+      utility.trails = true;
+      std::vector<double> left(block), right(block);
+      for (int pos = 0; pos < static_cast<int>(rate); pos += block)
+      {
+        for (int i = 0; i < block; ++i)
+        {
+          left[i] = Phrase(pos + i, 0, rate);
+          right[i] = Phrase(pos + i, 1, rate);
+        }
+        stage.Process(left.data(), block, true, 0., 0., {}, {}, utility, right.data());
+      }
+      const double hostSeconds = effect == E::HallReverb ? 47. : 60.;
+      assert(tank->trailLimit <= static_cast<int64_t>(rate * hostSeconds));
+      const int deadline = static_cast<int>(rate) + block;
+      tank->trailFrames = tank->trailLimit - deadline;
+      double ringing = 0.;
+      for (int pos = 0; pos < deadline + block; pos += block)
+      {
+        std::fill(left.begin(), left.end(), 0.);
+        std::fill(right.begin(), right.end(), 0.);
+        stage.Process(left.data(), block, false, 0., 0., {}, {}, utility, right.data());
+        for (int i = 0; i < block; ++i)
+        {
+          if (pos + i < deadline) ringing = std::max({ringing, std::abs(left[i]), std::abs(right[i])});
+          if (pos + i >= deadline) assert(left[i] == 0. && right[i] == 0.);
+          else if (pos >= block && pos + i > rate * .005)
+          {
+            const double fade = std::clamp((deadline - pos - i - 1) / rate, 0., 1.);
+            assert(std::abs(left[i] - tank->wet[i] * fade) < 1.e-12);
+            assert(std::abs(right[i] - tank->right->wet[i] * fade) < 1.e-12);
+          }
+        }
+      }
+      assert(ringing > 1.e-5);
+    }
+
   // A decayed tail stops: the delay drains with its feedback muted and suspends, and
   // re-enabling later replays no old repeat. Default Digital Delay: 350 ms, 35% feedback.
   {

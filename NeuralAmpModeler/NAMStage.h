@@ -133,7 +133,7 @@ public:
     int latency = 0;
     int64_t drainFrames = 0, drainLimit = 0;
     // Trails: frames a bypassed tail has rung, and how long its output has stayed silent.
-    int64_t trailFrames = 0, trailLimit = 0, trailHold = 0, quietFrames = 0;
+    int64_t trailFrames = 0, trailLimit = 0, trailFade = 0, trailHold = 0, quietFrames = 0;
     void Reset(double rate, int block)
     {
       utilityStereo.Reset(rate); eqOutput.Reset(rate);
@@ -247,9 +247,11 @@ public:
         right->latency = latency;
         right->delay.assign(std::max(1, latency), 0.);
       }
-      // A trail rings for up to 30 s, or a reverb's full drain, within the host's 60 s tail.
+      // Include the final fade within the host's per-effect tail estimate, not after it.
       // Delays can be silent between repeats for a whole ring; reverb tails decay steadily.
-      trailLimit = std::min(static_cast<int64_t>(rate * 60.), std::max(drainLimit, static_cast<int64_t>(rate * 30.)));
+      trailLimit = static_cast<int64_t>(rate * (IsAirReverb(effect) || effect == SlotEffect::CosmicEcho ? 60.
+                                              : IsReverb(effect) ? 45. : 30.));
+      trailFade = std::max<int64_t>(1, static_cast<int64_t>(rate));
       trailHold = IsReverb(effect) || effect == SlotEffect::ShimmerReverb ? static_cast<int64_t>(rate * 2.) : drainLimit;
       trailFrames = quietFrames = 0;
     }
@@ -565,13 +567,14 @@ public:
             p->trailFrames += frames;
             p->quietFrames = peak < 1.e-5 ? p->quietFrames + frames : 0; // -100 dBFS
             trailTarget = p->quietFrames < p->trailHold && p->trailFrames < p->trailLimit ? 1. : 0.;
-            // A tail still ringing at the limit, such as runaway feedback, fades over 1 s.
-            if (p->trailFrames >= p->trailLimit) trailStep = mStep * .005;
+            // A tail still ringing fades during its final second, including partial blocks.
+            if (p->trailFrames >= p->trailLimit - p->trailFade) trailStep = 1. / p->trailFade;
           }
         }
       }
       else
         mFeed = 0.; // Suspended: resume with a fade-in.
+      const bool limitFading = trailing && p->trailFrames >= p->trailLimit - p->trailFade;
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
       const bool spectrum = mCapture && mMonitoring && ShowsSignalSpectrum(p->effect);
       for (int i = 0; i < frames; ++i)
@@ -582,6 +585,11 @@ public:
         const double mix = p->ir ? mMix * mIRMix : mMix;
         // A trail keeps the module output while dry fades in; with mTrail at 0 this is mix.
         mTrail = Approach(mTrail, trailTarget, trailStep);
+        if (limitFading)
+        {
+          const auto remaining = std::max<int64_t>(0, p->trailLimit - p->trailFrames + frames - i - 1);
+          mTrail = std::min(mTrail, static_cast<double>(remaining) / p->trailFade);
+        }
         const double wetMix = mix + mTrail * (1. - mix);
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
         if (rightSamples)

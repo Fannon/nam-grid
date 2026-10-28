@@ -222,11 +222,15 @@ int main(int argc, char** argv)
     trails["Trails"] = 1.;
     assert(loadRaw(trails));
     assert(save().config()["Trails"] == 1.);
-    auto legacy = base;
-    legacy["schema"] = 9;
-    legacy.erase("Trails");
-    assert(loadRaw(legacy));
-    assert(save().config()["Trails"] == 0.);
+    for (const int schema : {9, 10})
+    {
+      assert(loadRaw(trails));
+      auto legacy = base;
+      legacy["schema"] = schema;
+      legacy.erase("Trails");
+      assert(loadRaw(legacy));
+      assert(save().config()["Trails"] == 0.);
+    }
     assert(loadRaw(base));
   }
 
@@ -1049,6 +1053,29 @@ int main(int argc, char** argv)
     input[1].fill(0.);
     assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
     assert(tail->get(plugin) == static_cast<uint32_t>(rate * 60.));
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+  }
+  // One module must report enough time for Trails, including the final fade. In
+  // particular, an ordinary reverb reports 47 s rather than the rig-wide 60 s cap.
+  for (const auto& [effect, limit] : std::array{
+         std::pair{SlotEffect::DigitalDelay, 30.}, std::pair{SlotEffect::HallReverb, 45.},
+         std::pair{SlotEffect::GalacticSpace, 60.}, std::pair{SlotEffect::CosmicEcho, 60.}})
+  {
+    auto oneTrail = cleared;
+    oneTrail["Trails"] = 1.;
+    oneTrail["SlotEffects"][0] = static_cast<int>(effect);
+    load(oneTrail);
+    constexpr double rate = 48000.;
+    assert(plugin->activate(plugin, rate, 1, 512));
+    assert(plugin->start_processing(plugin));
+    process.frames_count = 64;
+    input[0].fill(0.);
+    input[1].fill(0.);
+    assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+    const auto* tail = static_cast<const clap_plugin_tail*>(plugin->get_extension(plugin, CLAP_EXT_TAIL));
+    assert(tail && tail->get(plugin) >= static_cast<uint32_t>(rate * limit));
+    assert(tail->get(plugin) <= static_cast<uint32_t>(rate * 60.));
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
   }

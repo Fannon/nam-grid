@@ -367,7 +367,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 10; // 10 rig-wide trails; 9 rig-wide mix law.
+inline constexpr int kEffectStateSchema = 11; // 11 rig-wide trails; 10 Juno voices; 9 rig-wide mix law.
 
 struct EffectParameter
 {

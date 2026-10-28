@@ -246,7 +246,7 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Sequencer 2 Step 7", "7", 50, 0, 100, 1, "%", 0, false, 1., 6},
   {"Sequencer 2 Step 8", "8", 75, 0, 100, 1, "%", 0, false, 1., 6},
   {"Mix Law", "Keep dry level", 0, 0, 1, 1, "", 0, false, 1., 9},
-  {"Trails", "Trails", 0, 0, 1, 1, "", 0, false, 1., 10}
+  {"Trails", "Trails", 0, 0, 1, 1, "", 0, false, 1., 11}
 }};
 // Matrix routing, the LFO shape, Listen at and the Retrigger modes are saved state, like
 // algorithm selectors: no host automation, so a longer list never reinterprets recorded

@@ -38,6 +38,17 @@ int main(int argc, char** argv)
 {
   std::cout << std::unitbuf;
   assert(argc == 3 || argc == 4);
+#ifdef _WIN32
+  if (argc == 4 && std::strcmp(argv[3], "--library-startup-only") == 0)
+  {
+    // Canonical scan paths can differ from the host's temporary-path spelling.
+    // Exercise that distinction on every Windows startup test, including local runs.
+    auto temporary = std::filesystem::temp_directory_path().native();
+    CharUpperBuffW(temporary.data(), static_cast<DWORD>(temporary.size()));
+    const bool set = SetEnvironmentVariableW(L"TMP", temporary.c_str());
+    assert(set);
+  }
+#endif
   IsolatedUserHome settingsBackup("nam-grid-smoke"); // Never the user's settings or library.
 #ifdef _WIN32
   const bool fxVisuals = std::getenv("NAM_GRID_FX_VISUALS") != nullptr;

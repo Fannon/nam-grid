@@ -21,8 +21,10 @@ inline void TestLibraryStartup(const clap_plugin_factory* factory, Host& host,
   std::ofstream(userNam) << "{}";
   std::ofstream(userIR) << "audio is validated on load";
   rig_preset::Write(userPreset, json{{"PresetName", "User"}});
+  const char* scenarios[] = {"missing", "empty", "corrupt", "incompatible", "factory-only"};
   for (int scenario = 0; scenario < 5; ++scenario)
   {
+    std::cout << "Library startup recovery: " << scenarios[scenario] << '\n';
     if (scenario == 0) std::filesystem::remove(indexFile);
     if (scenario == 1) assert(WriteIndex(indexFile, {}));
     if (scenario == 2) std::ofstream(indexFile) << "{ broken";
@@ -33,7 +35,10 @@ inline void TestLibraryStartup(const clap_plugin_factory* factory, Host& host,
     const auto recovered = [&] {
       const auto index = ReadIndex(indexFile);
       for (const auto& file : {userNam, userIR, userPreset})
-        if (std::none_of(index.begin(), index.end(), [&](const auto& entry) { return entry.second.capture.path == file; }))
+        if (std::none_of(index.begin(), index.end(), [&](const auto& entry) {
+          std::error_code error;
+          return std::filesystem::equivalent(entry.second.capture.path, file, error);
+        }))
           return false;
       return true;
     };

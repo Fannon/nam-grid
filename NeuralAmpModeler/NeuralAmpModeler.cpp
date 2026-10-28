@@ -185,6 +185,14 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   for (const auto& example : drive_presets::Make(nlohmann::json::object()))
     mFactoryLibraryFiles.push_back(nam_library::PathText(content / "Presets" / "Drive Examples"
       / (example.at("PresetName").get<std::string>() + ".ngrid")));
+  // Scans canonicalize source folders. Match that spelling for short Windows paths and
+  // directory aliases too, or a factory-only cache can be mistaken for user content.
+  for (auto& file : mFactoryLibraryFiles)
+  {
+    std::error_code error;
+    const auto canonical = std::filesystem::weakly_canonical(std::filesystem::u8path(file), error);
+    if (!error) file = nam_library::PathText(canonical);
+  }
   // Start the background scan only after the bundled files exist.
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
 

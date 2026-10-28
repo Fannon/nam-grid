@@ -81,6 +81,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "ClickTests.h"
 #include "MixLawTests.h"
 #include "DelayTimeChangeTests.h"
+#include "TrailsTests.h"
 
 int main(int argc, char** argv)
 try
@@ -89,6 +90,8 @@ try
   nam::activations::Activation::enable_fast_tanh();
   if (std::string(argv[1]) == "--mix-law-only") { TestMixLaw(); return 0; }
   if (std::string(argv[1]) == "--delay-time-change-only") { TestDelayTimeChange(); return 0; }
+  if (std::string(argv[1]) == "--trails-only") { TestTrails(); return 0; }
+  if (std::string(argv[1]) == "--clicks-only") { TestClicks(); return 0; }
   TestA2Planar();
   TestMeteringTransparency();
   TestSettledSmoothing();
@@ -228,6 +231,7 @@ try
   TestAirDynamics();
   TestMixLaw();
   TestDelayTimeChange();
+  TestTrails();
   TestClicks();
   if (argc > 2)
   {

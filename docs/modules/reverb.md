@@ -2,6 +2,8 @@
 
 Rooms, plates, halls, springs, shimmer and ambient echoes.
 
+Routing's **Trails** toggle lets every bypassed delay and reverb ring out: new playing stops reaching it, and its tail continues over the dry signal. It is off by default; see [Routing](../grid.md#routing).
+
 Routing's **Keep dry level** toggle applies to every delay and reverb in the rig. Off (the default), Mix crossfades from dry to wet. On, the dry signal stays at unity and Mix sets the wet level: 100% gives full dry plus full wet. Whole-signal Output trims still affect both, so high Mix settings can raise the total level. Mix 0% stays dry in both laws.
 
 | Module | In short |

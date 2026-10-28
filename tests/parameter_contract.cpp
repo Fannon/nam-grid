@@ -46,6 +46,13 @@ static_assert(parameter_layout::SlotOf(extended, parameter_layout::GlobalID(exte
 static_assert(parameter_layout::Total(current) == kNumParams);
 } // namespace future_layout
 
+// Serial state extensions: Juno's appended mode, Trails global, then Time Change slots.
+static_assert(PerformanceParam(grid_performance::Trails) == 4476);
+static_assert(SlotUtilityParam(0, uDelayTimeChange) == 4477);
+static_assert(SlotUtilityParam(15, uDelayTimeChange) == 4492);
+static_assert(grid_performance::parameters[grid_performance::Trails].introducedIn == 11);
+static_assert(kEffectParameters[uDelayTimeChange].introducedIn == 12);
+
 int main(int argc, char** argv)
 {
   IsolatedUserHome userHome("nam-grid-parameter-contract"); // Never the user's settings or library.
@@ -217,6 +224,39 @@ int main(int argc, char** argv)
   // All selectors, all current choices and all slots must survive state recall.
   // Scenes retain raw algorithm identities too; no normalized values are saved.
   const auto base = save();
+  // Released schemas and both actual predecessor layouts lack Time Change. Loading
+  // one after Crossfade must restore Glide while retaining Juno-10 and Trails-11 data.
+  for (int schema = kInitialEffectStateSchema; schema <= 11; ++schema)
+  {
+    auto expected = base;
+    if (schema >= 10)
+      for (const int slot : {0, 15})
+      {
+        expected["SlotEffects"][slot] = static_cast<int>(SlotEffect::JunoChorus);
+        expected["SlotPaths"][slot] = expected["SlotHashes"][slot] = "";
+        const auto key = GridSlotName(slot) + " Juno Mode";
+        expected[key] = expected["PerformanceScenes"][0][key] = 3.;
+      }
+    if (schema >= 11) expected["Trails"] = expected["PerformanceScenes"][0]["Trails"] = 1.;
+    auto legacy = expected;
+    legacy["schema"] = schema;
+    const auto omit = [&](const std::string& key) {
+      legacy.erase(key);
+      for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+    };
+    for (int p = 0; p < grid_performance::Count; ++p)
+      if (grid_performance::parameters[p].introducedIn > schema) omit(grid_performance::parameters[p].name);
+    for (int p = 0; p < kUtilityControls; ++p)
+      if (kEffectParameters[p].introducedIn > schema)
+        for (int slot = 0; slot < 16; ++slot) omit(GridSlotName(slot) + " " + kEffectParameters[p].name);
+    auto crossfade = base;
+    for (int slot = 0; slot < 16; ++slot)
+      crossfade[GridSlotName(slot) + " " + kEffectParameters[uDelayTimeChange].name] = 1.;
+    assert(load(crossfade));
+    assert(load(legacy));
+    assert(save() == expected);
+  }
+  assert(load(base));
   // Future controls must explicitly declare their introduction version so this
   // original baseline preset gains defaults without losing any existing values.
   auto historical = base;

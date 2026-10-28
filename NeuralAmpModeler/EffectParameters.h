@@ -372,7 +372,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 12; // 12 Digital Delay time change; reserved after Juno 10 and Trails 11.
+inline constexpr int kEffectStateSchema = 12; // 12 Digital Delay time change; 11 rig-wide trails; 10 Juno voices.
 
 struct EffectParameter
 {
@@ -693,6 +693,10 @@ inline bool IsReverb(SlotEffect e)
     default: return false;
   }
 }
+// Delays and reverbs whose tail rings out after bypass when the rig's Trails is on.
+// Freeze and Stutter hold captured audio instead and keep their own bypass.
+inline bool IsTrailEffect(SlotEffect e)
+{ return IsDelay(e) || IsReverb(e) || e == SlotEffect::ShimmerReverb || e == SlotEffect::CosmicEcho; }
 inline bool IsModulation(SlotEffect e)
 {
   switch (e)
@@ -891,6 +895,7 @@ struct UtilityControls
   std::array<double, 5> wah{50., 3., 50., 100., 0.};
   int division = 5;
   bool constantDry = false; // Rig control, outside the slot/matrix parameter map.
+  bool trails = false;      // Rig control: bypassed delays and reverbs ring out.
   double tempo = 120., level = 0., balance = 0., stereo = 0.;
   double fineDelay = 0., vibeMode = 0., eqMode = 0.;
   std::array<double, 7> rotary{.8, 6., 0., 1., 3., 80., 75.};

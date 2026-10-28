@@ -166,7 +166,12 @@ Bypass, re-enable and replacement fade the slot over 5 ms. The processor's input
 also fades in after it was suspended, drained or replaced, and every module drains
 briefly on silence before suspending, so stale histories and hard input steps are
 never replayed. Delay feedback ramps to zero over 5 ms when draining starts
-(`grid_fx::DrainRamp`). `TestClicks` (stage tests) checks every module's bypass,
+(`grid_fx::DrainRamp`). With the rig's Trails on, a bypassed `IsTrailEffect` module
+fades its input out at once but keeps feedback running, and the stage mixes its
+output (the tail alone) over the dry signal with a separate 5 ms gain. The tail
+ends after -100 dB of silence for the module's hold, or at its limit; the module
+then drains as usual. `TestTrails` checks that played input never reaches the tail.
+`TestClicks` (stage tests) checks every module's bypass,
 replacement, control jumps and mode changes against twice the bypass fade's
 high-band spike; its exemptions name their reasons.
 

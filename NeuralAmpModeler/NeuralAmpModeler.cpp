@@ -397,6 +397,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     // Host tempo can change without a parameter notification.
     controls[slot].utility.tempo = tempo;
     controls[slot].utility.constantDry = mHeldPerformance[grid_performance::MixLaw] >= .5;
+    controls[slot].utility.trails = mHeldPerformance[grid_performance::Trails] >= .5;
   }
   const auto& performance = mHeldPerformance;
   const auto routing = grid_performance::Route(performance);

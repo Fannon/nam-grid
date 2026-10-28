@@ -40,6 +40,7 @@ int main(int argc, char** argv)
   const auto root = std::filesystem::current_path() / "library-fixtures";
   std::filesystem::create_directories(root);
   TestRigPresetFiles(root);
+  TestLibraryWorkerRecovery(root);
   TestEffectPresentation();
   for (const auto& group : kModuleGroups)
     for (size_t i = 0; i < group.effects.size(); ++i)

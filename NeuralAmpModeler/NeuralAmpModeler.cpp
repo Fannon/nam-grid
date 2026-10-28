@@ -177,6 +177,14 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mPresetFolders = librarySettings.presetFolders;
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
   _InstallDefaultContent(prepared.newNamFolder, prepared.newPresetFolder);
+  const auto content = user_paths::ContentFolder();
+  mFactoryLibraryFiles = {nam_library::PathText(content / "NAM Captures" / default_content::kCleanCaptureName),
+                          nam_library::PathText(content / "Presets" / "Empty.ngrid"),
+                          nam_library::PathText(content / "Presets" / default_content::kCleanPresetName)};
+  // Only names are needed here; avoid copying the complete parameter bank for every recipe.
+  for (const auto& example : drive_presets::Make(nlohmann::json::object()))
+    mFactoryLibraryFiles.push_back(nam_library::PathText(content / "Presets" / "Drive Examples"
+      / (example.at("PresetName").get<std::string>() + ".ngrid")));
   // Start the background scan only after the bundled files exist.
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
 
@@ -576,14 +584,8 @@ void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector
   auto normalized = nam_library::NormalizeFolders(folders);
   const bool needsIndex = normalized != *current || (!mLibraryIndexed && !mLibraryScanning);
   *current = std::move(normalized);
-  if (needsIndex && (fromUI || mRescanOnStartup))
-    RescanCaptureFolder();
-  else if (needsIndex)
-  {
-    mLibraryWorker.Cancel(); // Keep the saved index when startup scanning is off.
-    mLibrary = std::make_shared<nam_library::Snapshot>();
-    mLibraryScanning = mLibraryIndexed = false;
-  }
+  if (needsIndex)
+    RescanCaptureFolder(fromUI || mRescanOnStartup);
   if (fromUI)
   {
     auto settings = nam_library::ReadSettings(CaptureSettingsFile());
@@ -710,6 +712,14 @@ void NeuralAmpModeler::SelectSlot(size_t slot)
 void NeuralAmpModeler::OpenLibraryBrowser(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot)
 {
   if (!nam_library::Allows(context, kind) || (context == nam_library::BrowserContext::Cell && slot >= FixedNAMGrid::kSlots)) return;
+  std::error_code indexError;
+  const bool hasUserFiles = std::any_of(mLibrary->captures.begin(), mLibrary->captures.end(), [&](const auto& file) {
+    return std::none_of(mFactoryLibraryFiles.begin(), mFactoryLibraryFiles.end(), [&](const auto& factory) {
+      return nam_library::SamePath(file.path, std::filesystem::u8path(factory));
+    });
+  });
+  if (!mLibraryScanning && (!mLibraryIndexed || !hasUserFiles || !std::filesystem::exists(user_paths::IndexFile(), indexError)))
+    RescanCaptureFolder();
   if (auto* ui = GetUI())
   {
     ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
@@ -1129,13 +1139,16 @@ void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
   _UpdateLibraryControls();
 }
 
-void NeuralAmpModeler::RescanCaptureFolder()
+void NeuralAmpModeler::RescanCaptureFolder(bool rescan)
 {
   const auto guard = _LockControls();
   mLibrary = std::make_shared<nam_library::Snapshot>();
   mLibraryIndexed = false;
   mLibraryScanning = !mNamFolders.empty() || !mIrFolders.empty() || !mPresetFolders.empty();
-  mLibraryWorker.Request(mNamFolders, mIrFolders, mPresetFolders);
+  if (mLibraryScanning)
+    mLibraryWorker.Request(mNamFolders, mIrFolders, mPresetFolders, rescan, mFactoryLibraryFiles);
+  else
+    mLibraryWorker.Cancel(); // An instance without sources must not clear another instance's cache.
   _UpdateLibraryControls();
 }
 

@@ -165,8 +165,11 @@ public:
   // Single-list requests index NAM captures and IRs together.
   void Request(const std::string& root);
   void Request(const std::vector<std::string>& roots);
+  // With rescan=false, restore the selected roots from the index on the worker. A missing,
+  // invalid, empty or factory-only index always falls back to a scan of all selected roots.
   void Request(const std::vector<std::string>& namRoots, const std::vector<std::string>& irRoots,
-               const std::vector<std::string>& presetRoots);
+               const std::vector<std::string>& presetRoots, bool rescan = true,
+               const std::vector<std::string>& factoryFiles = {});
   // Abandon a pending or running scan without scanning empty roots or rewriting the index.
   void Cancel();
   std::shared_ptr<const Snapshot> TakeResult();
@@ -176,6 +179,8 @@ private:
   std::mutex mMutex;
   std::condition_variable mChanged;
   std::vector<std::string> mNamRoots, mIrRoots, mPresetRoots;
+  std::vector<std::string> mFactoryFiles;
+  bool mRescan = true;
   std::shared_ptr<const Snapshot> mResult;
   std::atomic<unsigned> mRevision{0};
   std::atomic<bool> mStop{false};

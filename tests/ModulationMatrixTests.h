@@ -32,6 +32,44 @@ void TestModulationMatrix()
     }
     assert(FieldValue<bool>(.49) == false && FieldValue<bool>(.5) == true && FieldValue<int>(2.9) == 2);
   }
+  // The direct field table agrees with the map for every control, read and
+  // write, so a shifted offset or wrong type reaches a neighbour and fails.
+  {
+    using Controls = FixedNAMGrid::Controls;
+    using Fields = ControlFields<Controls>;
+    const auto snapshot = [](const Controls& c) {
+      std::array<double, slotControls> values{};
+      VisitSlotControls(c, [&](int i, const auto& field) { values[i] = static_cast<double>(field); });
+      return values;
+    };
+    const Controls defaults{};
+    const auto initial = snapshot(defaults);
+    std::array<int, 4> types{};
+    for (int control = 0; control < slotControls; ++control)
+    {
+      const auto type = controlFields<Controls>.TypeOf(control);
+      ++types[type];
+      assert((type == Fields::None) == (control == parameter_layout::kSlotFullQuality));
+      // A value no field holds by default, in the field's own type.
+      const double value = type == Fields::Bool ? (initial[control] == 0. ? 1. : 0.) : initial[control] + 3.75;
+      // Write through the table and through the map: the whole snapshot matches.
+      Controls table{}, visited{};
+      WriteControl(table, control, value);
+      VisitSlotControls(visited, [&](int i, auto& field) {
+        if (i == control) field = FieldValue<std::remove_reference_t<decltype(field)>>(value);
+      });
+      const auto expected = snapshot(visited);
+      assert(snapshot(table) == expected && (type == Fields::None || expected != initial));
+      // Read through the table: only this control sees the change.
+      for (int other = 0; other < slotControls; ++other)
+        assert(ReadControl(visited, other) == expected[other]);
+    }
+    assert(types[Fields::None] == 1 && types[Fields::Double] > 0 && types[Fields::Int] > 0 && types[Fields::Bool] > 0);
+    // Out-of-range controls read as zero and write nothing.
+    Controls outside{};
+    for (int control : {-1, slotControls, slotControls + 1}) WriteControl(outside, control, 7.);
+    assert(snapshot(outside) == initial && ReadControl(outside, -1) == 0. && ReadControl(outside, slotControls) == 0.);
+  }
   // Only continuous controls are destinations.
   assert(Modulatable(parameter_layout::kSlotIn) && Modulatable(standardControls + uDelayMix));
   assert(!Modulatable(parameter_layout::kSlotEnabled) && !Modulatable(parameter_layout::kSlotFullQuality));

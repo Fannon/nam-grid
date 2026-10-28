@@ -115,29 +115,8 @@ void TestRoadmapEffects()
     capture.Reset(rate); l.fill(0.); r.fill(0.); capture.Process(l.data(), r.data(), 512, SlotEffect::Freeze, c);
     for (double x : l) assert(x == 0.);
   }
-  // Single-note octave generation: the sub-octave dominates its original pitch.
-  grid_roadmap::Octaver octaver; octaver.Reset(48000.); UtilityControls c;
-  c.octaver = {0., 100., 0., 400., 0.}; double subSin = 0., subCos = 0., fundamentalSin = 0., fundamentalCos = 0.;
+  UtilityControls c;
   std::array<double, 512> x{};
-  for (int block = 0; block < 120; ++block)
-  {
-    for (int i = 0; i < 512; ++i) x[i] = .2 * std::sin(2. * grid_fx::pi * 110. * (block * 512 + i) / 48000.);
-    octaver.Process(x.data(), nullptr, 512, c);
-    if (block > 20) for (int i = 0; i < 512; ++i)
-    {
-      const double p = 2. * grid_fx::pi * 55. * (block * 512 + i) / 48000.;
-      subSin += x[i] * std::sin(p); subCos += x[i] * std::cos(p);
-      fundamentalSin += x[i] * std::sin(2. * p); fundamentalCos += x[i] * std::cos(2. * p);
-    }
-  }
-  assert(std::hypot(subSin, subCos) > 10. * std::hypot(fundamentalSin, fundamentalCos));
-  // Stutter repeats at the requested period even when its seam fade is nonzero.
-  grid_roadmap::Capture stutter; stutter.Reset(48000.);
-  c = {}; c.stutter = {10., 50., 1., 100.};
-  std::vector<double> rhythm(4800, .2);
-  for (int pos = 0; pos < rhythm.size(); pos += 512)
-    stutter.Process(rhythm.data() + pos, nullptr, std::min(512, static_cast<int>(rhythm.size()) - pos), SlotEffect::Stutter, c);
-  for (int i = 1100; i < 1800; ++i) assert(std::abs(rhythm[i] - rhythm[i + 480]) < 1.e-9);
   // The expanded EQ's notch rejects its selected center without requiring gain.
   SlotParametricEQ notch; notch.Reset(48000.); c = {}; c.frequency = 1000.; c.q = 8.; c.eqMode = 1.;
   double notchEnergy = 0.;

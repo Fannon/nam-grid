@@ -28,17 +28,27 @@ inline double Rms(const std::vector<double>& x, size_t start)
 void TestHQEffects()
 {
   constexpr double rate = 48000.;
-  // Granular pitch shifter: a 440 Hz tone moved up an octave should put its
-  // dominant energy near 880 Hz after the grain window settles.
-  {
-    grid_hq::PitchShifter shifter;
-    shifter.Reset(rate);
-    std::vector<double> out(rate);
-    for (size_t i = 0; i < out.size(); ++i)
-      out[i] = shifter.ProcessSample(.2 * std::sin(2. * grid_fx::pi * 440. * i / rate), 0, 12.);
-    const size_t start = rate / 2;
-    assert(hq_test::ToneEnergy(out, start, 880., rate) > 2. * hq_test::ToneEnergy(out, start, 440., rate));
-  }
+  // Granular pitch shifter: a 440 Hz tone moves to exactly the requested
+  // interval at unity level, rejecting the input and the other tested intervals.
+  // Squaring or rectifying also makes 880 Hz, but neither reaches the requested downward intervals
+  // nor keeps the level; a wrong ratio or sign misses the wanted bin.
+  constexpr std::array<double, 4> intervals{12., -12., 7., -5.};
+  for (const double hostRate : {44100., 48000., 96000.})
+    for (const double semitones : intervals)
+    {
+      grid_hq::PitchShifter shifter;
+      shifter.Reset(hostRate);
+      std::vector<double> out(static_cast<size_t>(hostRate));
+      for (size_t i = 0; i < out.size(); ++i)
+        out[i] = shifter.ProcessSample(.2 * std::sin(2. * grid_fx::pi * 440. * i / hostRate), 0, semitones);
+      const size_t start = out.size() / 2;
+      const double wanted = hq_test::ToneEnergy(out, start, 440. * std::exp2(semitones / 12.), hostRate);
+      assert(wanted > .09 && wanted < .11); // ToneEnergy is half the amplitude: unity gain gives .1.
+      assert(wanted > 30. * hq_test::ToneEnergy(out, start, 440., hostRate));
+      for (const double other : intervals)
+        if (other != semitones)
+          assert(wanted > 30. * hq_test::ToneEnergy(out, start, 440. * std::exp2(other / 12.), hostRate));
+    }
   // Frequency shifter: one sideband, with the carrier and the opposite sideband
   // rejected across the guitar range (a ring modulator keeps both). The upper
   // sideband moves by Shift; the lower sideband mirrors it.
@@ -65,23 +75,43 @@ void TestHQEffects()
           assert(wanted > 30. * hq_test::ToneEnergy(out, start, tone - moved, hostRate));
           assert(wanted > 30. * hq_test::ToneEnergy(out, start, tone, hostRate));
         }
-  // Juno chorus: 100% wet makes the two channels different; 0% mix is exact dry.
+  // Juno chorus at 100% wet, fed the same tone on both channels: the swept
+  // delays spread the tone's pitch (a no-op or a static delay keeps it fully
+  // coherent), the channels decorrelate (a mono chorus keeps Side at zero) and
+  // the wet level stays near the input. 0% mix is exact dry.
+  for (const double hostRate : {44100., 48000., 96000.})
+    for (const double mode : {0., 1., 2.})
+    {
+      grid_hq::JunoChorus chorus;
+      chorus.Reset(hostRate);
+      UtilityControls c;
+      c.juno = {mode, 100., 100.};
+      std::vector<double> l(static_cast<size_t>(2. * hostRate)), r(l.size());
+      for (size_t i = 0; i < l.size(); ++i)
+        l[i] = r[i] = .2 * std::sin(2. * grid_fx::pi * 440. * i / hostRate);
+      chorus.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      const size_t start = l.size() / 4;
+      std::vector<double> mid(l.size()), side(l.size());
+      for (size_t i = 0; i < l.size(); ++i)
+      {
+        mid[i] = .5 * (l[i] + r[i]);
+        side[i] = .5 * (l[i] - r[i]);
+      }
+      const double inputRms = .2 / std::sqrt(2.);
+      for (const auto* channel : {&l, &r})
+      {
+        const double rms = hq_test::Rms(*channel, start);
+        // A steady sine gives 2 * ToneEnergy == sqrt(2) * RMS; the chorus measures .15-.27.
+        assert(2. * hq_test::ToneEnergy(*channel, start, 440., hostRate) < .5 * std::sqrt(2.) * rms);
+        assert(rms > .7 * inputRms && rms < 1.4 * inputRms);
+      }
+      assert(hq_test::Rms(side, start) > .5 * hq_test::Rms(mid, start));
+    }
   {
     grid_hq::JunoChorus chorus;
-    chorus.Reset(rate);
     UtilityControls c;
     c.juno = {1., 100., 100.};
     std::vector<double> l(4096), r(4096);
-    for (size_t i = 0; i < l.size(); ++i)
-    {
-      l[i] = .2 * std::sin(2. * grid_fx::pi * 440. * i / rate);
-      r[i] = .2 * std::sin(2. * grid_fx::pi * 330. * i / rate);
-    }
-    chorus.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
-    double difference = 0.;
-    for (size_t i = 1000; i < l.size(); ++i)
-      difference += std::abs(l[i] - r[i]);
-    assert(difference > .1);
     chorus.Reset(rate);
     c.juno[1] = 0.;
     for (size_t i = 0; i < l.size(); ++i)

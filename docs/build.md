@@ -294,9 +294,8 @@ build targets.
 
 The Python unit tests cover the on-demand report and audit scripts and check that
 every in-repo Markdown heading link resolves on both GitHub and the VitePress site.
-See the
-[compatibility contract](development.md#parameter-and-project-compatibility) before
-changing controls, modules or saved state.
+See the [compatibility contract](development.md#parameter-and-project-compatibility)
+before changing controls, modules or saved state.
 
 For DSP/state regression checks without opening the native editor, set
 `NAM_GRID_HEADLESS_SMOKE=1` when running `nam-clap-smoke`. This includes Smart Gate

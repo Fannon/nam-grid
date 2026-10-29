@@ -26,7 +26,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ### Fixed
 
 - Switches and choice boxes among a module's knobs, such as Rotary's Fast or Noise Gate (Smart)'s Learn, are centred on the knob dials instead of sitting below them.
-
+- Shimmer's pitch smoothing now takes 10 ms per channel rather than advancing twice per stereo sample. Pitch and Freeze transitions in existing Shimmer rigs can sound slightly slower; settled pitch and the mono pitch-shifter path are unchanged.
 - Frequency Shifter now shifts a single sideband as documented. Its quadrature path was silent, so Sideband at ±100% produced both sidebands like a ring modulator. A new zero-latency allpass network keeps the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz. This changes existing rigs: at ±100% Sideband the shifted sound is clearer, about 3 dB louder, and high Feedback sustains longer; Sideband 0 keeps its ring-modulator sound.
 - Bypassed compressors, gates, Peak Limiter, Auto Swell and Filter let their detectors settle, so re-enabling them no longer resumes a stale gain reduction or skips a swell.
 - Fewer clicks when switching modules, scenes and automation:

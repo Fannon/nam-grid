@@ -28,6 +28,50 @@ inline double Rms(const std::vector<double>& x, size_t start)
 void TestHQEffects()
 {
   constexpr double rate = 48000.;
+  // A prefilled linear ramp exposes the read position. The expected phase uses
+  // the closed-form 10 ms ratio response, independent of the smoother recurrence.
+  // Stereo calls must follow the same response as one mono call per sample.
+  for (double hostRate : {44100., 48000., 96000.})
+  {
+    grid_hq::PitchShifter stereo, mono;
+    stereo.Reset(hostRate, .05, 0.);
+    mono.Reset(hostRate, .05, 0.);
+    constexpr double slope = 1.e-7;
+    const int warm = static_cast<int>(hostRate * .1), window = static_cast<int>(hostRate * .05);
+    for (int i = 0; i < warm; ++i)
+    {
+      stereo.ProcessSample(slope * i, 0, 0.);
+      stereo.ProcessSample(slope * i, 1, 0.);
+      mono.ProcessSample(slope * i, 0, 0.);
+    }
+    double phase = 0.;
+    for (int i = 0; i < static_cast<int>(hostRate * .02); ++i)
+    {
+      const double ratio = 2. - std::exp(-(i + 1.) / (.01 * hostRate));
+      phase += (1. - ratio) / window;
+      if (phase < 0.) phase += 1.;
+      const double second = phase < .5 ? phase + .5 : phase - .5;
+      const double weight = .5 - .5 * std::cos(2. * grid_fx::pi * phase);
+      const double expected = slope * (warm + i + 1. - weight * std::max(1., phase * window)
+                                      - (1. - weight) * std::max(1., second * window));
+      const double input = slope * (warm + i);
+      const double l = stereo.ProcessSample(input, 0, 12.);
+      const double r = stereo.ProcessSample(input, 1, 12.);
+      assert(l == r && l == mono.ProcessSample(input, 0, 12.));
+      assert(std::abs(l - expected) < 1.e-10);
+    }
+    // Different targets cannot pull the other channel's ratio toward their own.
+    grid_hq::PitchShifter independent;
+    independent.Reset(hostRate, .05, 0.);
+    stereo.Reset(hostRate, .05, 0.);
+    for (int i = 0; i < warm; ++i)
+    {
+      const double x = .1 * std::sin(.037 * i);
+      const double l = stereo.ProcessSample(x, 0, -5.);
+      stereo.ProcessSample(x, 1, 12.);
+      assert(l == independent.ProcessSample(x, 0, -5.));
+    }
+  }
   // Granular pitch shifter: a 440 Hz tone moves to exactly the requested
   // interval at unity level, rejecting the input and the other tested intervals.
   // Squaring or rectifying also makes 880 Hz, but neither reaches the requested downward intervals

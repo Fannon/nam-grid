@@ -153,18 +153,20 @@ public:
       line.Reset(mWindow + 8);
     mPhase[0] = 0.;
     mPhase[1] = rightOffset - std::floor(rightOffset);
-    mRatio = 1.;
+    mRatio = {1., 1.};
     mSmoothing = std::exp(-1. / (.01 * mRate));
   }
   double ProcessSample(double input, int channel, double semitones)
   {
     const int ch = channel != 0 ? 1 : 0;
     const double target = mTarget[ch](semitones / 12., [](double x) { return std::exp2(x); });
-    mRatio = target + mSmoothing * (mRatio - target);
+    // Each channel advances once per sample, including stereo Shimmer's two calls.
+    double& ratio = mRatio[ch];
+    ratio = target + mSmoothing * (ratio - target);
     mLine[ch].Push(input);
-    if (std::abs(mRatio - 1.) < 1.e-5)
+    if (std::abs(ratio - 1.) < 1.e-5)
       return input;
-    mPhase[ch] += (1. - mRatio) / mWindow;
+    mPhase[ch] += (1. - ratio) / mWindow;
     if (mPhase[ch] < 0.)
       mPhase[ch] += 1.;
     if (mPhase[ch] >= 1.)
@@ -180,7 +182,8 @@ public:
 private:
   std::array<grid_fx::DelayLine, 2> mLine;
   std::array<grid_fx::Memo, 2> mTarget;
-  double mRate = 48000., mRatio = 1., mSmoothing = 0., mPhase[2]{};
+  double mRate = 48000., mSmoothing = 0., mPhase[2]{};
+  std::array<double, 2> mRatio{1., 1.};
   int mWindow = 2048;
 };
 

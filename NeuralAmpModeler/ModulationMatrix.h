@@ -182,19 +182,71 @@ T FieldValue(double value)
   if constexpr (std::is_same_v<T, bool>) return value >= .5;
   else return static_cast<T>(value);
 }
+// Where each control's field sits in the snapshot, taken once from the map so
+// the matrix reaches a field directly instead of scanning every control per
+// quantum. Nested members and array elements have no single member pointer,
+// so the table keeps byte offsets measured on a real snapshot. It is built
+// during static initialisation, never on the audio thread.
+template <class C>
+class ControlFields
+{
+public:
+  enum Type : unsigned char { None, Double, Int, Bool };
+  ControlFields()
+  {
+    const C c{};
+    const auto* base = reinterpret_cast<const unsigned char*>(&c);
+    VisitSlotControls(c, [&](int i, const auto& field) {
+      using T = std::remove_cv_t<std::remove_reference_t<decltype(field)>>;
+      static_assert(std::is_same_v<T, double> || std::is_same_v<T, int> || std::is_same_v<T, bool>, "Add a field type here");
+      mOffset[i] = static_cast<size_t>(reinterpret_cast<const unsigned char*>(&field) - base);
+      mType[i] = std::is_same_v<T, double> ? Double : std::is_same_v<T, int> ? Int : Bool;
+    });
+  }
+  Type TypeOf(int control) const { return Mapped(control) ? mType[control] : None; }
+  double Read(const C& c, int control) const
+  {
+    if (!Mapped(control)) return 0.;
+    const auto* field = reinterpret_cast<const unsigned char*>(&c) + mOffset[control];
+    switch (mType[control])
+    {
+      case Double: return *reinterpret_cast<const double*>(field);
+      case Int: return static_cast<double>(*reinterpret_cast<const int*>(field));
+      case Bool: return static_cast<double>(*reinterpret_cast<const bool*>(field));
+      default: return 0.;
+    }
+  }
+  void Write(C& c, int control, double value) const
+  {
+    if (!Mapped(control)) return;
+    auto* field = reinterpret_cast<unsigned char*>(&c) + mOffset[control];
+    switch (mType[control])
+    {
+      case Double: *reinterpret_cast<double*>(field) = FieldValue<double>(value); break;
+      case Int: *reinterpret_cast<int*>(field) = FieldValue<int>(value); break;
+      case Bool: *reinterpret_cast<bool*>(field) = FieldValue<bool>(value); break;
+      default: break;
+    }
+  }
+
+private:
+  bool Mapped(int control) const { return control >= 0 && control < parameter_layout::slotControls && mType[control] != None; }
+  std::array<size_t, parameter_layout::slotControls> mOffset{};
+  std::array<Type, parameter_layout::slotControls> mType{};
+};
+template <class C>
+inline const ControlFields<C> controlFields;
+
+// Unmapped controls read as zero and ignore writes.
 template <class C>
 double ReadControl(const C& c, int control)
 {
-  double value = 0.;
-  VisitSlotControls(c, [&](int i, const auto& field) { if (i == control) value = static_cast<double>(field); });
-  return value;
+  return controlFields<C>.Read(c, control);
 }
 template <class C>
 void WriteControl(C& c, int control, double value)
 {
-  VisitSlotControls(c, [&](int i, auto& field) {
-    if (i == control) field = FieldValue<std::remove_reference_t<decltype(field)>>(value);
-  });
+  controlFields<C>.Write(c, control, value);
 }
 
 // Continuous controls only: switches, modes and Full Quality are not modulated.

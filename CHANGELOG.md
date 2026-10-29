@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Performance
+
+- Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
+
 ### Added
 
 - Digital Delay adds **Time change: Glide / Crossfade**. Crossfade switches delay times with a 30 ms blend instead of a pitch chirp, including tempo-sync jumps. Gentle time modulation still glides. New and existing rigs start on Glide and retain their sound.

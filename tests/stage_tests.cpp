@@ -83,6 +83,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "MixLawTests.h"
 #include "DelayTimeChangeTests.h"
 #include "ChorusVoicesTests.h"
+#include "SpringTankTests.h"
 #include "TrailsTests.h"
 #include "DSPBehaviorTests.h"
 
@@ -239,6 +240,7 @@ try
   TestMixLaw();
   TestDelayTimeChange();
   TestChorusVoices();
+  TestSpringTank();
   TestTrails();
   TestClicks();
   if (argc > 2)

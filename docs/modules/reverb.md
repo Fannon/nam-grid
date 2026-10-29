@@ -145,6 +145,7 @@ Splashy, spring-like repeats with extra edge when you push Dwell.
 In the header:
 
 - **Stereo wet** (off / on; starts on) Stereo wet spread; off folds the reverb to center while preserving dry stereo.
+- **Tank** (Classic / Dispersive; starts at Classic) **Classic** is the original diffuse spring. **Dispersive** models a real spring's chirp: in each echo the lows arrive first and the highs follow, up to the tank's cutoff around 4.4 kHz, which gives the drip on picked notes. Drip sets the chirp's strength, from none at 0% to a full sweep of about 20 ms. Decay, Dwell, Damping, Pre-delay and the wet level keep their meaning. It uses about four times Classic's CPU.
 
 **Display:** The spring decay; Drip and Dwell shape the reflections.
 

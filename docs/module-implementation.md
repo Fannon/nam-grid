@@ -98,7 +98,13 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
 - **Spring Reverb** has three dispersive tanks with driven excitation, after
   [Gamper, Parker and Välimäki](https://research.aalto.fi/en/publications/automated-calibration-of-a-parametric-spring-reverb-model/)
   and the [DAFx overview](https://dafx.de/paper-archive/details/omUNRAXkKDeEOxMkIyPwQg);
-  no source implementation or calibration was copied.
+  no source implementation or calibration was copied. Its **Dispersive** tank follows the
+  parametric structure of Välimäki, Parker and Abel, "Parametric spring reverberation effect"
+  (JAES 58(7/8), 2010): per spring, a cascade of 100 first-order allpasses stretched to a
+  ~4.4 kHz cutoff inside a feedback loop, a low-pass at the cutoff and a shorter
+  plain-allpass loop for the high-frequency splash. The stage count, coefficient range,
+  echo times, loop gains and levels are NAM Grid's own, measured against the chirp,
+  decay and level tests; no published code or parameters were copied.
 - **Wah** follows [Simper's trapezoidal SVF equations](https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf)
   for its band-pass and body voicing, without third-party code.
 - **Airwindows** modules (Tape, kPlate140, kGuitarHall2, Galactic3, CStrip2, BussColors4,

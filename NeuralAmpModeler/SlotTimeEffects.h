@@ -25,6 +25,8 @@ public:
     mIndex = 0;
     mMaxDelay = static_cast<double>(mData.size() - 2);
   }
+  // Silence the line without reallocating (realtime-safe).
+  void Clear() { std::fill(mData.begin(), mData.end(), 0.); mIndex = 0; }
   // Same result as std::clamp (NaN included). MSVC keeps value ternaries in
   // registers; reference-returning std::clamp costs measurably in reverb loops.
   double Read(double delay) const { return ReadInRange(delay < 1. ? 1. : mMaxDelay < delay ? mMaxDelay : delay); }

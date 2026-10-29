@@ -237,34 +237,37 @@ int main(int argc, char** argv)
     assert(save().config() == base);
     assert(loadRaw(base));
   }
+  // Appended two-way modes (Chorus Voices, Spring Tank): new and older rigs keep mode 0,
+  // mode 1 round-trips, and invalid or missing values are rejected.
+  for (const int control : {uChorusVoices, uSpringTank})
   {
-    // Chorus Voices: new and older rigs keep one voice; three voices round-trip.
-    auto three = base;
+    auto chosen = base;
     auto legacy = base;
-    legacy["schema"] = kEffectParameters[uChorusVoices].introducedIn - 1;
+    legacy["schema"] = kEffectParameters[control].introducedIn - 1;
     for (int slot = 0; slot < 16; ++slot)
     {
-      const auto key = GridSlotName(slot) + " " + kEffectParameters[uChorusVoices].name;
+      const auto key = GridSlotName(slot) + " " + kEffectParameters[control].name;
       assert(base[key] == 0.);
-      three[key] = 1.;
-      three["PerformanceScenes"][0][key] = 1.;
+      chosen[key] = 1.;
+      chosen["PerformanceScenes"][0][key] = 1.;
       legacy.erase(key);
       for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
       clap_param_info info{};
-      assert(params->get_info(plugin, SlotUtilityParam(slot, uChorusVoices), &info));
+      assert(params->get_info(plugin, SlotUtilityParam(slot, control), &info));
       assert(!(info.flags & CLAP_PARAM_IS_AUTOMATABLE));
     }
-    assert(loadRaw(three));
-    assert(save().config() == three);
+    const auto first = std::string("Pre 1 ") + kEffectParameters[control].name;
+    assert(loadRaw(chosen));
+    assert(save().config() == chosen);
     for (const double invalid : {-1., .5, 2.})
     {
-      auto bad = three;
-      bad["Pre 1 Chorus Voices"] = invalid;
+      auto bad = chosen;
+      bad[first] = invalid;
       assert(!loadRaw(bad));
-      assert(save().config() == three);
+      assert(save().config() == chosen);
     }
-    auto missing = three;
-    missing.erase("Pre 1 Chorus Voices");
+    auto missing = chosen;
+    missing.erase(first);
     assert(!loadRaw(missing));
     assert(loadRaw(legacy));
     assert(save().config() == base);
@@ -1338,7 +1341,8 @@ int main(int argc, char** argv)
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}, {SlotEffect::PedalComp, uPedalCompPickup},
-      {SlotEffect::PedalComp, uPedalCompAttack}, {SlotEffect::Chorus, uChorusVoices}};
+      {SlotEffect::PedalComp, uPedalCompAttack}, {SlotEffect::Chorus, uChorusVoices},
+      {SlotEffect::SpringReverb, uSpringTank}};
     for (const auto& [effect, control] : modes)
     {
       auto original = cleared;

@@ -57,6 +57,9 @@ static_assert(kEffectParameters[uDelayTimeChange].introducedIn == 12);
 static_assert(SlotUtilityParam(0, uChorusVoices) == 4589);
 static_assert(SlotUtilityParam(15, uChorusVoices) == 4604);
 static_assert(kEffectParameters[uChorusVoices].introducedIn == 14);
+static_assert(SlotUtilityParam(0, uSpringTank) == 4605);
+static_assert(SlotUtilityParam(15, uSpringTank) == 4620);
+static_assert(kEffectParameters[uSpringTank].introducedIn == 15);
 
 int main(int argc, char** argv)
 {

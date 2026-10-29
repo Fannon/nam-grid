@@ -176,6 +176,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   family(uPedalCompSustain, t.pedalComp);
   u(uPedalCompPickup, t.pedalCompPickup);
   u(uChorusVoices, t.extra.chorusVoices);
+  u(uSpringTank, t.extra.springTank);
 
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().

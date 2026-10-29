@@ -263,6 +263,22 @@ void TestClicks()
           }
           check("3 voices to 1 voice", nullptr, [&] { rig.Set(parameter_layout::standardControls + uChorusVoices, 0.); });
         }
+        if (effect == SlotEffect::SpringReverb)
+        {
+          // Every Spring control again in the Dispersive tank, under the same exemptions.
+          rig.Set(parameter_layout::standardControls + uSpringTank, 1.);
+          settled = rig.Render(.6);
+          for (const int control : EventControls(effect))
+          {
+            if (control == parameter_layout::standardControls + uSpringTank) continue;
+            const double start = rig.Get(control);
+            const char* exemption = Exemption(effect, control);
+            for (const double target : Targets(control))
+              if (target != start) check(EventName(control, target) + " (dispersive)", exemption, [&] { rig.Set(control, target); });
+            check(EventName(control, start) + " (dispersive, start)", exemption, [&] { rig.Set(control, start); });
+          }
+          check("dispersive to classic", nullptr, [&] { rig.Set(parameter_layout::standardControls + uSpringTank, 0.); });
+        }
         if (effect == SlotEffect::JunoChorus)
           for (int from = 0; from < 4; ++from)
             for (int to = 0; to < 4; ++to)

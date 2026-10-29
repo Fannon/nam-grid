@@ -234,6 +234,16 @@ void TestClicks()
             if (target != start) check(EventName(control, target), exemption, [&] { rig.Set(control, target); });
           check(EventName(control, start) + " (start)", exemption, [&] { rig.Set(control, start); });
         }
+        if (effect == SlotEffect::JunoChorus)
+          for (int from = 0; from < 4; ++from)
+            for (int to = 0; to < 4; ++to)
+              if (from != to)
+              {
+                rig.Set(parameter_layout::standardControls + uJunoMode, from);
+                settled = rig.Render(.6);
+                check("Juno mode " + std::to_string(from) + " to " + std::to_string(to), nullptr,
+                      [&] { rig.Set(parameter_layout::standardControls + uJunoMode, to); });
+              }
       }
   }
   std::cout << "Clicks: " << events << " bypass/replace/control/mode events at 48/96 kHz, " << findings

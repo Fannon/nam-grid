@@ -72,7 +72,7 @@ inline constexpr std::array<const char*, distortionCount> distortionHelp{
   "Foldback folds peaks back on themselves; Drive changes the harmonic pattern.",
   "Diode clips negative peaks sooner than positive peaks, adding even harmonics.",
   "Rectify turns both half-cycles upward for an octave-like buzz; DC is removed."};
-inline constexpr std::array<const char*, 3> junoNames{"I", "I+II", "II"};
+inline constexpr std::array<const char*, 4> junoNames{"I", "I+II", "II", "I+II vintage"};
 inline constexpr std::array<const char*, 2> gateNames{"Natural", "Tight"};
 inline constexpr std::array<const char*, 3> filterNames{"Low-pass", "High-pass", "Band-pass"};
 inline constexpr std::array<const char*, 8> tapeHeadNames{

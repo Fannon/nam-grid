@@ -166,11 +166,11 @@ Starts with firmer 4:1 compression and a 3 dB knee and a slower default attack, 
 
 ![Butter Comp editor](../screenshots/modules/butter-comp.png)
 
-Airwindows ButterComp2 glue compression with automatic level recovery. Try it across a full rig for subtle cohesion.
+Airwindows ButterComp2 glue compression with automatic level recovery, set up for guitar levels. Its slow, polarity-sensitive recovery suits gentle cohesion after an amp or across a full rig.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Compress** | 0–100% | 35% | Compression amount, with automatic level recovery. |
+| **Compress** | 0–100% | 35% | Compression amount, with automatic level recovery. The default lowers typical guitar notes by about 1 dB, 70% by 2–3.5 dB and 100% by 5–8 dB. |
 | **Output** | -18 to +6 dB | -1 dB | Final level. Match bypass volume before judging compression. |
 | **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 

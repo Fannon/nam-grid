@@ -126,7 +126,18 @@ public:
       }
       if (mButter)
       {
+        // ButterComp2 works relative to full scale, like a mix bus; guitar sits far lower.
+        // Drive the core by a fixed amount and undo it afterwards: the algorithm is unchanged,
+        // only its operating level. Makeup, measured on a guitar DI and after a clean capture,
+        // keeps typical notes near bypass loudness across the Compress range.
+        const double makeup = mButterMakeup(s[0] * .01, [](double x) {
+          return std::pow(10., (butterMakeupDB * std::pow(std::clamp(x, 0., 1.), 3.5) - butterDriveDB) / 20.);
+        });
+        wetL *= butterDrive;
+        wetR *= butterDrive;
         mButter->Tick(wetL, wetR);
+        wetL *= makeup;
+        wetR *= makeup;
         mix = s[2] * .01;
         output = mOutput(s[1] / 20., [](double x) { return std::pow(10., x); });
         Monitor(mButter->Gain(0), mButter->Gain(1), mix);
@@ -196,7 +207,9 @@ private:
   grid_fx::SmoothControls<3> mShort;
   grid_fx::SmoothControls<1> mInputControl;
   grid_fx::Memo mStripInput;
-  grid_fx::Memo mInput, mTrim, mOutput;
+  grid_fx::Memo mInput, mTrim, mOutput, mButterMakeup;
+  static constexpr double butterDriveDB = 7., butterMakeupDB = 4.8;
+  static inline const double butterDrive = std::pow(10., butterDriveDB / 20.);
   std::array<double, 7> mUnused{};
   std::array<double, 3> mUnusedShort{};
   SlotEffect mEffect = SlotEffect::OutboardChannel;

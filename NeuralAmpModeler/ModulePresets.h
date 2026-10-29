@@ -86,9 +86,8 @@ inline const Preset punchComp[]{
     {U(uPunchRatio), 6.}, {U(uCompMix), 50.}}},
 };
 inline const Preset butterComp[]{
-  // ButterComp2 is gentle at guitar levels: 100% lowers typical notes after an amp by about 2.5 dB.
-  {"Subtle glue", {{U(uButterCompress), 70.}, {U(uButterOutput), 0.}}},
-  {"Dense and even", {{U(uButterCompress), 100.}, {U(uButterOutput), 0.}}},
+  {"Subtle glue", {{U(uButterCompress), 50.}, {U(uButterOutput), 0.}}},
+  {"Dense and even", {{U(uButterCompress), 85.}, {U(uButterOutput), 0.}}},
   {"Thick parallel", {{U(uButterCompress), 100.}, {U(uButterOutput), 0.}, {U(uButterMix), 50.}}},
 };
 inline const Preset limiter[]{

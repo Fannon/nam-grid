@@ -18,6 +18,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - Routing now has **Trails**: bypassed delays and reverbs ring out instead of cutting their repeats and tail, so a scene that switches them off keeps its ambience. New playing stops reaching the bypassed module after the usual 5 ms fade. It starts off in new and existing rigs, preserving their sound. Tails last up to 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo, including the final fade. A ringing module uses CPU, then drains silently as before.
 - Routing now has **Keep dry level** for all delays and reverbs: keep your dry guitar at unity while Mix sets the wet level. It starts off in new and existing rigs, preserving their sound. Turning it on can raise the total level at high Mix; module Output trims still apply to both dry and wet.
 
+### Changed
+
+- Butter Comp now works at guitar levels. It previously barely reacted below about 70%, because its Airwindows core is designed for full-scale mix-bus signals. The default now gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness. Existing rigs with Butter Comp compress more at the same setting.
+
 ### Fixed
 
 - Switches and choice boxes among a module's knobs, such as Rotary's Fast or Noise Gate (Smart)'s Learn, are centred on the knob dials instead of sitting below them.

@@ -76,6 +76,20 @@ math is retained. Output maps to −18…+6 real dB after Mix, rather than the n
 0…2 linear output multiplier; the internal output remains unity so the native
 output-dependent recovery follows the compressed signal.
 
+**Butter Comp runs ButterComp2 at a guitar operating level.** The core's gain cell works
+relative to full scale (it compares `input + 1` with `−input + 1`), as a mix bus would be.
+Guitar in NAM Grid sits around −20 dBFS, where even 100% barely compressed: about 1.4 dB on
+typical notes of a guitar DI. The wrapper drives the core by a fixed +7 dB and removes it
+afterwards, so the algorithm and its character are unchanged and only its operating level
+moves. On a guitar DI and after a clean capture, typical notes are lowered by about 1 dB at
+the default 35%, 2–3.5 dB at 70% and 5–8 dB at 100%. +12 dB was rejected: the slow recovery then
+held quiet notes down after loud ones and widened the dynamic range. Makeup of
+`4.8 dB × Compress^3.5` keeps typical notes within about 1.5 dB of bypass; the native
+automatic compensation remains underneath. The drive raises the core's own distortion, which
+stays inaudible for guitar: at 100% on a 5 kHz tone, harmonics are at −81 dB and other
+products at −65 dB. The L/R detectors stay separate, because the gain follows each sample's
+polarity, and linking would add distortion. Existing rigs compress more at the same setting.
+
 ## Defaults and feedback
 
 | Module | Insertion settings | Display |

@@ -52,6 +52,12 @@ until it is allocated, and a compile-time check rejects edits to released segmen
   append a `{0, n}` segment (or grow it, once it is the last segment). Its 16 IDs
   come after every existing ID. Matrix destinations store the slot-control index,
   so new controls are modulatable without new matrix parameters.
+- **Parallel branches:** two branches can each take the next free ID, schema or segment.
+  `tests/test_parameter_ids.py` rejects duplicate or gapped `UtilityParam`/`SlotEffect` IDs in
+  any tree, including a merge result that still compiles. When `origin/main` is available it
+  also requires main's IDs, descriptor names, algorithm identities and segments unchanged,
+  with new controls on a newer schema. After rebasing onto a main that moved, renumber the
+  branch's additions instead of main's.
 - **New global:** append `{n, 0}` and access it through `parameter_layout::GlobalID()`.
   Never use contiguous arithmetic across globals; `PerformanceParam()` shows the pattern.
 

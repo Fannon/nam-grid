@@ -10,8 +10,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
+- Digital Delay adds **Time change: Glide / Crossfade**. Crossfade switches delay times with a 30 ms blend instead of a pitch chirp, including tempo-sync jumps. Gentle time modulation still glides. New and existing rigs start on Glide and retain their sound.
 - Juno Chorus adds **I+II vintage**: fast, shallow 9.75 Hz motion with centered wet sound, based on Juno-60 measurements. Existing I, I+II and II modes retain their sound.
-
 - Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. After a mono capture, a stereo IR spreads the signal into left and right for stereo room and reverb responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.
 - Routing now has **Trails**: bypassed delays and reverbs ring out instead of cutting their repeats and tail, so a scene that switches them off keeps its ambience. New playing stops reaching the bypassed module after the usual 5 ms fade. It starts off in new and existing rigs, preserving their sound. Tails last up to 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo, including the final fade. A ringing module uses CPU, then drains silently as before.
 - Routing now has **Keep dry level** for all delays and reverbs: keep your dry guitar at unity while Mix sets the wet level. It starts off in new and existing rigs, preserving their sound. Turning it on can raise the total level at high Mix; module Output trims still apply to both dry and wet.

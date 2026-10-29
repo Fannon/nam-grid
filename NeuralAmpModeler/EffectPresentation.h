@@ -28,7 +28,8 @@ inline const char* ChoiceDescription(int p, int mode)
   return mode >= 0 && mode < static_cast<int>(descriptions.size()) ? descriptions[mode] : "";
 }
 // Saved options sit in the editor header: Tempo sync on the left, one mode or option
-// on the right. The knob grid holds only the automatable musical controls.
+// on the right (Digital Delay's Time change sits left of Tempo sync). The knob grid
+// holds only the automatable musical controls.
 inline bool HeaderControl(int p)
 { return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || IsAlgorithmMode(p); }
 inline bool PingPong(SlotEffect e)
@@ -204,6 +205,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDoubleHumanize: return "Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets.";
     case uDoubleHighCut: return "Softens only the doubled voices; maximum bypasses this added filter.";
     case uDuckRelease: return "Time for ducked echoes to recover in gaps; 150 ms retains the original recovery.";
+    case uDelayTimeChange: return "Glide bends pitch as Time moves, like tape. Crossfade fades to the new time over 30 ms without a pitch sweep; changes of 1 ms or less per update, such as gentle modulation, still glide.";
     case uReverseFeedback: return "Returns reversed playback into the next capture, creating repeating reversed phrases.";
     case uReverbDuck: return "Ducks only the wet reverb while playing and restores it between phrases; zero is off.";
     case uSpringPredelay: return "Time before the spring is excited; zero retains the immediate spring response.";

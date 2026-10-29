@@ -204,6 +204,39 @@ int main(int argc, char** argv)
   }
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
   {
+    auto crossfade = base;
+    auto legacy = base;
+    legacy["schema"] = kEffectParameters[uDelayTimeChange].introducedIn - 1;
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      const auto key = GridSlotName(slot) + " " + kEffectParameters[uDelayTimeChange].name;
+      assert(base[key] == 0.); // New inserts and existing rigs retain Glide.
+      crossfade[key] = 1.;
+      crossfade["PerformanceScenes"][0][key] = 1.;
+      legacy.erase(key);
+      for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+      clap_param_info info{};
+      assert(params->get_info(plugin, SlotUtilityParam(slot, uDelayTimeChange), &info));
+      assert(!(info.flags & CLAP_PARAM_IS_AUTOMATABLE));
+    }
+    assert(loadRaw(crossfade));
+    assert(save().config() == crossfade);
+    for (const double invalid : {-1., .5, 2.})
+    {
+      auto bad = crossfade;
+      bad["Pre 1 Delay Time Change"] = invalid;
+      assert(!loadRaw(bad));
+      assert(save().config() == crossfade);
+    }
+    auto missing = crossfade;
+    missing.erase("Pre 1 Delay Time Change");
+    assert(!loadRaw(missing));
+    assert(save().config() == crossfade);
+    assert(loadRaw(legacy));
+    assert(save().config() == base);
+    assert(loadRaw(base));
+  }
+  {
     assert(base["Mix Law"] == 0.);
     auto constantDry = base;
     constantDry["Mix Law"] = 1.;
@@ -1178,6 +1211,7 @@ int main(int argc, char** argv)
     assert(false && "Module header bypass did not respond");
   };
   const auto optionX = [](int p) {
+    if (p == uDelayTimeChange) return grid_layout::tempoLeft - 85;
     return p == uEQMode || p == uTempoSync ? grid_layout::tempoLeft + 55 : grid_layout::modeLeft + 82;
   };
   // The tile ID row selects without opening the browser; the name button below opens it.

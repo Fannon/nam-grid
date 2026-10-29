@@ -15,6 +15,13 @@ void TestPedalCompClap(const clap_plugin* plugin, const json& cleared, Save save
     assert(params->get_info(plugin, static_cast<uint32_t>(SlotParam(15, control)), &info));
     assert(std::string(info.name) == std::string("Post 4 ") + module_presets::ControlName(control));
   }
+  // Hosts show the Attack switch as Fast / Slow, not the generic toggle's off / on.
+  for (const auto& [value, label] : {std::pair{0., "Fast"}, std::pair{1., "Slow"}})
+  {
+    char text[64]{};
+    assert(params->value_to_text(plugin, static_cast<uint32_t>(SlotUtilityParam(0, uPedalCompAttack)), value, text, sizeof(text)));
+    assert(std::string(text) == label);
+  }
   auto rig = cleared;
   rig["SlotEffects"][0] = static_cast<int>(SlotEffect::PedalComp);
   rig["Pre 1 Pedal Comp Sustain"] = 80.;

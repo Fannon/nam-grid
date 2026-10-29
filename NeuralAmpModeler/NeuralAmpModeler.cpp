@@ -93,7 +93,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
           param->SetDisplayText(choice, choices[choice]);
       }
       else if (p.minimum == 0. && p.maximum == 1. && p.step == 1.)
-        param->InitBool((name + " " + p.name).c_str(), p.initial >= .5, "", flags);
+      {
+        // InitBool registers its display texts first; later SetDisplayText calls cannot override them.
+        const bool attack = i == uPedalCompAttack;
+        param->InitBool((name + " " + p.name).c_str(), p.initial >= .5, "", flags, "", attack ? "Fast" : "off",
+                        attack ? "Slow" : "on");
+      }
       else if (p.power != 1.)
         param->InitDouble(
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapePowCurve(p.power));
@@ -104,11 +109,6 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         param->InitDouble((name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit);
       if (i == uNoiseGateThreshold)
         param->SetDisplayText(p.minimum, "Off");
-      if (i == uPedalCompAttack)
-      {
-        param->SetDisplayText(0, "Fast");
-        param->SetDisplayText(1, "Slow");
-      }
     }
     GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
   }

@@ -23,6 +23,9 @@ the permissive source notices.
   Julian Parker's JPverb/Greyhole. They use bounded, rate-scaled storage and
   nam-grid-specific delay-time, gain and damping calibration. They are not
   faithful reproductions of the full Faust filters/prime-delay tables.
+  CloudTank applies the decay loss inside every early/late allpass and long
+  delay for the time stored there, and reads whole-sample delays, so neither
+  allpass recirculation nor interpolation loss changes the requested decay.
   Source: grame-cncm/faustlibraries `fadc1f7da4a903de25554e538c7a454a2f130299`,
   `reverbs.lib` JPverb/Greyhole section (explicit MIT declarations).
 

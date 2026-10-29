@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include "EffectParameters.h"
+#include "GridLayout.h"
 
 // Shared controls may have effect-specific wording and layout. Unique controls
 // take their labels directly from the host/state parameter descriptors.
@@ -32,6 +33,19 @@ inline const char* ChoiceDescription(int p, int mode)
 // holds only the automatable musical controls.
 inline bool HeaderControl(int p)
 { return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || IsAlgorithmMode(p); }
+// Header options share one row. Keep their horizontal bounds available to
+// both the editor and headless layout checks, including effect-specific moves.
+struct HeaderArea { float left, right; };
+inline HeaderArea HeaderBounds(SlotEffect e, int p)
+{
+  using namespace grid_layout;
+  if (p == uDelayTimeChange) return {tempoLeft - 160.f, tempoLeft - 10.f};
+  // Spring's Tank selector owns the right side; keep Stereo wet accessible
+  // on the free left side instead of placing both controls on top of each other.
+  if (p == uTempoSync || p == uEQMode || (e == SlotEffect::SpringReverb && p == uReverbStereo))
+    return {tempoLeft, tempoLeft + 110.f};
+  return {modeLeft, parameterRight};
+}
 inline bool PingPong(SlotEffect e)
 { return e == SlotEffect::DigitalDelay || e == SlotEffect::AnalogDelay || e == SlotEffect::TapeDelay || e == SlotEffect::DualDelay; }
 inline bool Tempo(SlotEffect e)

@@ -32,6 +32,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Fixed
 
+- Spring Reverb's Stereo wet toggle no longer sits underneath the Tank selector. Both controls remain accessible when changing modules or restoring a rig.
+
 - Switches and choice boxes among a module's knobs, such as Rotary's Fast or Noise Gate (Smart)'s Learn, are centred on the knob dials instead of sitting below them.
 - Shimmer's pitch smoothing now takes 10 ms per channel rather than advancing twice per stereo sample. Pitch and Freeze transitions in existing Shimmer rigs can sound slightly slower; settled pitch and the mono pitch-shifter path are unchanged.
 - Cloud's Decay now matches its tail length. Short settings no longer ring much longer than set (0.5 s at Size 200% rang for about 1.3 s), and long settings are no longer cut short: below Damping the tail lasts the set time, and the mids of long tails ring 20–30% longer than before, as the editor's decay display shows. Existing Cloud rigs change: short settings sound shorter and long tails sustain longer and slightly brighter. Ranges and zero reported latency are unchanged.

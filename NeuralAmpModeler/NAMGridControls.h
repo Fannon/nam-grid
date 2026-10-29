@@ -677,6 +677,12 @@ inline IRECT KnobAlignedBox(const IRECT& bounds)
   const float centre = bounds.T + grid_layout::knobCenter;
   return IRECT(bounds.L + 12, centre - grid_layout::knobBoxHalfHeight, bounds.R - 12, centre + grid_layout::knobBoxHalfHeight);
 }
+inline IRECT HeaderControlBounds(SlotEffect effect, int control)
+{
+  const auto area = effect_presentation::HeaderBounds(effect, control);
+  return IRECT(area.left, grid_layout::optionsTop, area.right, grid_layout::optionsBottom);
+}
+
 class Toggle : public IVToggleControl
 {
 public:
@@ -1404,18 +1410,18 @@ public:
     {
       const auto& p = kEffectParameters[i];
       if (i == uTempoSync)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::tempoLeft, grid_layout::optionsTop, grid_layout::tempoLeft + 110, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Tempo sync");
+        mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::HeaderControlBounds(PLUG()->GetSlotEffect(mSlot), i), SlotUtilityParam(mSlot, i), "Tempo sync");
       else if (i == uEQMode)
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::tempoLeft, grid_layout::optionsTop, grid_layout::tempoLeft + 110, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), "Band");
+        mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::HeaderControlBounds(PLUG()->GetSlotEffect(mSlot), i), SlotUtilityParam(mSlot, i), "Band");
       else if (i == uDelayTimeChange) // Digital Delay's right-hand option is Ping-pong.
-        mUtilityKnobs[i] = new grid_ui::Choice(IRECT(grid_layout::tempoLeft - 160, grid_layout::optionsTop, grid_layout::tempoLeft - 10, grid_layout::optionsBottom),
+        mUtilityKnobs[i] = new grid_ui::Choice(grid_ui::HeaderControlBounds(PLUG()->GetSlotEffect(mSlot), i),
                                              SlotUtilityParam(mSlot, i), i, p.label);
       else if (!EffectChoices(i).empty())
-        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::parameterRight, grid_layout::optionsBottom)
+        mUtilityKnobs[i] = new grid_ui::Choice(effect_presentation::HeaderControl(i) ? grid_ui::HeaderControlBounds(PLUG()->GetSlotEffect(mSlot), i)
                                                                                  : grid_ui::ControlBounds(p.position),
                                              SlotUtilityParam(mSlot, i), i, p.label);
       else if (effect_presentation::HeaderControl(i))
-        mUtilityKnobs[i] = new grid_ui::Toggle(IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::parameterRight, grid_layout::optionsBottom), SlotUtilityParam(mSlot, i), p.label);
+        mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::HeaderControlBounds(PLUG()->GetSlotEffect(mSlot), i), SlotUtilityParam(mSlot, i), p.label);
       else if (EffectChoices(i).empty() && p.minimum == 0. && p.maximum == 1. && p.step == 1.)
         mUtilityKnobs[i] = new grid_ui::Toggle(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label);
       else
@@ -2485,7 +2491,13 @@ private:
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle : i))->Int();
         mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, mode));
-        if (!effect_presentation::HeaderControl(i))
+        if (effect_presentation::HeaderControl(i))
+        {
+          const auto bounds = grid_ui::HeaderControlBounds(effect, i);
+          if (mUtilityKnobs[i]->GetRECT() != bounds || mUtilityKnobs[i]->GetTargetRECT() != bounds)
+            mUtilityKnobs[i]->SetTargetAndDrawRECTs(bounds);
+        }
+        else
           mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::Position(effect, i)));
         if (auto* knob = dynamic_cast<grid_ui::Knob*>(mUtilityKnobs[i]))
           if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i, mode)) != 0)

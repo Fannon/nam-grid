@@ -37,7 +37,22 @@ void TestEffectPresentation()
             if (!effect_presentation::Visible(effect, p, sync, alternate, alternate, alternate)) continue;
             assert(std::strlen(effect_presentation::Help(effect, p)) > 12);
             assert(std::strlen(effect_presentation::Label(effect, p)) > 0);
-            if (effect_presentation::HeaderControl(p)) continue;
+            if (effect_presentation::HeaderControl(p))
+            {
+              const auto bounds = effect_presentation::HeaderBounds(effect, p);
+              assert(bounds.left < bounds.right);
+              for (int q = 0; q < p; ++q)
+                if (effect_presentation::HeaderControl(q)
+                    && effect_presentation::Visible(effect, q, sync, alternate, alternate, alternate))
+                {
+                  const auto other = effect_presentation::HeaderBounds(effect, q);
+                  if (bounds.left < other.right && other.left < bounds.right)
+                    std::cerr << "Header overlap: effect=" << static_cast<int>(effect)
+                              << " controls=" << kEffectParameters[p].name << " / " << kEffectParameters[q].name << '\n';
+                  assert(bounds.left >= other.right || other.left >= bounds.right);
+                }
+              continue;
+            }
             const int position = effect_presentation::Position(effect, p);
             if (position < 0 || position >= 8 || occupied[position])
               std::cerr << "Control overlap: effect=" << static_cast<int>(effect) << " parameter="

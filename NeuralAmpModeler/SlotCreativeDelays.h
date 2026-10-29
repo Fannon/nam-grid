@@ -1,5 +1,6 @@
 #pragma once
 #include "dsp/reverb/ReverbPrimitives.h"
+#include <cstring>
 
 // Multi-head tape echo: four physical read positions, shared tape motion, and
 // feedback from the last head only. Adding heads cannot increase loop gain.
@@ -12,9 +13,17 @@ public:
     mRate = rate; mControls.Reset(rate); mExtras.Reset(rate); mHeads = {};
     for (auto& line : mLine) line.Reset(static_cast<int>(rate * 8.1));
     mLow = {}; mDC = {}; mPhase = 0.; mCounter = 0; mFirst = true; mCrossFeedback = 0.; mDrain.Reset(rate);
+    mShared = mShareChannels;
   }
+  // Tests compare the shared-channel path with the full two-channel path.
+  void ShareChannels(bool share) { mShareChannels = share; mShared = mShared && share; }
   void Process(double* left, double* right, int frames, const UtilityControls& c, bool draining = false)
   {
+    // Mono input, or bit-identical left/right input (a mono guitar in the stereo grid),
+    // keeps both tape channels identical: their reads, filters, saturation and feedback
+    // match, so one channel's heads serve both and only the head gains differ. Once the
+    // inputs differ, the channels stay separate until Reset.
+    mShared = mShared && (!right || std::memcmp(left, right, sizeof(double) * frames) == 0);
     auto values = c.delay;
     if (c.sync) values[0] = grid_tempo::Seconds(c.tempo, c.division) * 1000.;
     mControls.Target(values, uDelayTime, c.sync); mExtras.Target({c.delayMotion, c.delayOutput}, uDelayMotion);
@@ -40,7 +49,7 @@ public:
       const grid_reverb::Stereo dry{left[i], right ? right[i] : left[i]};
       grid_reverb::Stereo wet{}, feedback{};
       const double modulation = extra[0] * .01 * .001 * (std::sin(mPhase) + .15 * std::sin(7. * mPhase));
-      for (int ch = 0; ch < 2; ++ch)
+      for (int ch = 0; ch < (mShared ? 1 : 2); ++ch)
       {
         for (int head = 0; head < 4; ++head)
         {
@@ -50,9 +59,11 @@ public:
           const double drive = 1. + v[3] * .03;
           const double saturated = std::tanh(filtered * drive) / drive;
           wet[ch] += saturated * mHeads[ch][head];
+          if (mShared) wet[1] += saturated * mHeads[1][head];
           if (head == 3) feedback[ch] = saturated;
         }
       }
+      if (mShared) feedback[1] = feedback[0];
       for (int ch = 0; ch < 2; ++ch)
       {
         const double send = dry[ch] - grid_reverb::LowPass(dry[ch], mDC[ch], mDCcoefficient);
@@ -66,6 +77,8 @@ public:
       mPhase += 2. * grid_fx::pi * .67 / mRate;
       if (mPhase >= 2. * grid_fx::pi) mPhase -= 2. * grid_fx::pi;
     }
+    // Both lines were written above; keep the right filters ready for differing input.
+    if (mShared) mLow[1] = mLow[0];
   }
 private:
   grid_fx::MixLaw mMixLaw;
@@ -78,7 +91,7 @@ private:
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mPhase = 0., mDamping = 0., mDCcoefficient = 0., mOutput = 1., mSmooth = 0., mCrossFeedback = 0.;
   grid_fx::Memo mOutputGain;
-  int mCounter = 0; bool mFirst = true;
+  int mCounter = 0; bool mFirst = true, mShared = true, mShareChannels = true;
 };
 
 // Diffused delay inspired by Greyhole: a repeat feeds a rotating allpass chain.

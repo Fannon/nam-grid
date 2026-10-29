@@ -59,5 +59,30 @@ void TestMultiHeadStereo()
   const auto a=render(false),b=render(true);
   for(int ch=0;ch<2;++ch) for(int i=0;i<48000;++i)
   { assert(std::isfinite(a[ch][i]) && std::abs(a[ch][i])<2.); assert(std::abs(a[ch][i]-b[ch][i])<1.e-12); }
-  std::cout<<"Multi-head: eight patterns, stereo arrivals/preview, cross-feedback, mono fold and allocation-free mode changes passed\n";
+
+  // Identical left/right input and mono slots process the heads once. Output must be
+  // bit-identical to the full two-channel path, including when the input later
+  // becomes mono or differs (the right channel's tape and filters must be current).
+  for (int pattern=0; pattern<effect_modes::tapeHeadNames.size(); ++pattern)
+  {
+    SlotMultiHeadDelay shared, full; shared.Reset(48000.); full.ShareChannels(false); full.Reset(48000.);
+    UtilityControls c; c.delay={60.,70.,6000.,80.,60.}; c.delayMotion=60.; c.tapeHeads=pattern;
+    for (int pos=0, block=0; pos<3*4800;)
+    {
+      const int n=std::array<int,4>{64,1,37,128}[block++%4];
+      const int stage=pos/4800; // 0: identical stereo, 1: mono, 2: differing stereo
+      std::array<std::vector<double>,2> x{std::vector<double>(n),std::vector<double>(n)}, y=x;
+      for (int i=0;i<n;++i)
+      {
+        x[0][i]=.2*std::sin((pos+i)*.031)+.05*std::sin((pos+i)*.47);
+        x[1][i]=stage==2 ? .1*std::cos((pos+i)*.043) : x[0][i];
+      }
+      y=x;
+      shared.Process(x[0].data(),stage==1 ? nullptr : x[1].data(),n,c);
+      full.Process(y[0].data(),stage==1 ? nullptr : y[1].data(),n,c);
+      for (int ch=0; ch<(stage==1 ? 1 : 2); ++ch) assert(std::memcmp(x[ch].data(),y[ch].data(),sizeof(double)*n)==0);
+      pos+=n;
+    }
+  }
+  std::cout<<"Multi-head: eight patterns, stereo arrivals/preview, cross-feedback, mono fold, shared identical channels and allocation-free mode changes passed\n";
 }

@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Performance
 
+- Multi-head Tape processes its tape heads once while both channels carry the same signal, such as a mono guitar through captures, using about 30% less CPU there. Sound is unchanged.
 - Uni-Vibe updates its optical filter coefficients every 16 samples, reducing CPU use without added latency. Moving sweeps in existing rigs can sound slightly different; the static response, controls and saved state retain their meaning.
 - Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
 

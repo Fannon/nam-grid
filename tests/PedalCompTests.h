@@ -393,7 +393,7 @@ void TestModulePresets()
   // stops matching.
   for (auto effect : {SlotEffect::PedalComp, SlotEffect::SmoothComp, SlotEffect::PunchComp, SlotEffect::DigitalDelay})
   {
-    assert(For(effect).size() >= 3);
+    assert(!For(effect).empty());
     auto applied = Apply(effect, For(effect)[0], SlotDefaultValues(effect));
     for (int i = 0; i < static_cast<int>(applied.size()); ++i)
       if (ModuleControl(effect, i) && i >= parameter_layout::standardControls

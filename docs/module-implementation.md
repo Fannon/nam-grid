@@ -246,12 +246,22 @@ These renders are generated developer artifacts: they are not checked in or
 copied into release archives.
 
 Pass `factory` instead of `cosmic` to export every factory module recipe at its
-actual Mix and Output settings. It writes a full `.ngrid` and an eight-second
-synthetic-pluck WAV pair per recipe (quiet and 12 dB hotter input), plus `factory-measurements.csv` with input gain, peak,
-last-half-second tail RMS and single-render CPU timing at 48 kHz/128 frames.
+actual Mix and Output settings. It writes a full `.ngrid`, a wet impulse response
+and an eight-second synthetic-pluck WAV pair per recipe (quiet and 12 dB hotter
+input), plus `factory-measurements.csv` with input gain, peak, last-half-second
+tail RMS and single-render CPU timing at 48 kHz/128 frames.
+
+To audition on a real instrument, set `NAM_AUDITION_GUITAR` to raw little-endian
+float32 mono audio at 48 kHz, for example a guitar DI. Optionally set
+`NAM_AUDITION_CAPTURE` to a `.nam` amp capture, which goes in Pre 4. The exporter
+then writes `reference-guitar.wav` through the bare chain and one
+`<label>-guitar.wav` per recipe. Drives, EQs, compressors and other pre-amp
+modules render in Pre 1, before the capture. Delays, reverbs, chorus-type
+modulation and mix tools render in Post 1, after it. Compare each render with the
+reference for level, tone, echo timing and modulation rate.
+
 The filenames use module/catalog positions for this export only; they are not
 saved preset identities. The exporter isolates `NAM_GRID_HOME`, opens no audio
-device, and does not install the rendered rigs. These measurements screen for
-silence, non-finite output, excessive gain and runaway feedback. They do not
-establish subjective quality or loudness matching on real instruments. Freeze
-recipes leave Hold off, so their exported WAVs do not demonstrate a held layer.
+device, and does not install the rendered rigs. The synthetic measurements screen for
+silence, non-finite output, excessive gain and runaway feedback; the guitar renders
+show behavior on one instrument and input level. Neither replaces listening.

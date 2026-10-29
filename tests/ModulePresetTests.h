@@ -39,11 +39,13 @@ void TestModulePresetCoverage()
     const bool supported = effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR;
     assert(Supported(effect) == supported);
     assert(!supported || !ToJson(effect, SlotDefaultValues(effect))["values"].empty());
-    // Deliberate selection policy: gates need input calibration, Utility needs
-    // routing/phase context. All other built-ins get musical starting points.
-    const bool factory = supported && effect != SlotEffect::NoiseGate && effect != SlotEffect::NoisePrint
-                         && effect != SlotEffect::DigitalBlack && effect != SlotEffect::Utility;
-    assert(For(effect).empty() == !factory);
+    // Deliberate selection policy: gates need input calibration and Utility needs
+    // routing/phase context. Others have factory recipes only for established uses
+    // that differ from the insertion default (docs/presets.md); keep the menus short.
+    const bool calibrated = effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
+                            || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
+    assert(!calibrated || For(effect).empty());
+    assert(For(effect).size() <= (effect == SlotEffect::PedalDrive ? 5u : 4u));
     for (const auto& preset : For(effect))
     {
       std::vector<int> seen;

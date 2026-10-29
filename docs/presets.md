@@ -76,45 +76,53 @@ profile. DSP improvements follow the separate [compatibility contract](developme
 
 ### Choosing useful starting points
 
-Factory presets demonstrate distinct uses instead of filling the menu with
-small variations. They use the module's own ranges and defaults; similarly named
-controls in other plugins do not imply identical processing or knob values.
-Most modules offer a restrained option and a more pronounced one. Pedal Drive
-and Cosmic Echo also demonstrate each of their styles.
+Factory presets are a short list of established starting points, not a bank of
+variations. Each one is a familiar use that the module's insertion default does
+not already cover: slapback, dotted-eighth repeats, a parked wah, a Leslie at
+chorale or fast speed. Where the insertion default already is the usual starting
+point, a module has fewer presets or none. Recipes use the module's own ranges;
+similarly named controls in other plugins do not imply identical processing or
+knob values. Threshold, drive and output trims assume ordinary interface gain
+staging, with normal playing peaking around -9 dBFS.
 
-| Modules | Factory starting points emphasize |
+| Modules | Factory starting points |
 | --- | --- |
-| Pedal Comp, Smooth Compressor, Punch Compressor, Butter Comp, Peak Limiter | Picking, leveling, sustain, parallel compression and peak control. Threshold and output still depend on input level. |
-| Guitar EQ, Cut EQ, Parametric EQ, Console EQ | Broad musical contours, guitar/bass cleanup and a low shelf. Exact problem-frequency notches need tuning to the recording. |
-| Boost, Tube Boost, Distortion, Pedal Drive | Flat, tight or warm pushes; breakup, rhythm and fuzz; preserved clean lows for bass. Output is a starting trim, not automatic loudness matching. |
-| Airwindows Tape, LoFi Tape Machine, Outboard Channel, Console Colour | Light rounding/glue and stronger parallel colour; clean versus worn tape motion. LoFi recipes start with Noise off. |
-| Digital Delay, Analog Echo, Tape Echo | Slap, lead repeats, dotted notes, dark/wavering repeats and ducking where available. |
-| Multi-head Tape, Dual Delay, Reverse Delay, Diffused Delay | Head patterns and stereo rhythm, quarter/dotted-eighth pairs, reversed phrases and echo clouds. |
-| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Small ambience, lead space, long beds, surf splash and rising/falling pitch tails. |
-| Airwindows Plate, Airwindows Guitar Hall, Galactic Space, Cosmic Echo | Compact versus broad spaces, early reflections, slowly evolving washes and contrasting echo/reverb networks. |
-| Chorus, Juno Chorus, Flanger, Phaser | Subtle width, deep motion, centered vintage chorus, parked comb and different phase stages. |
-| Auto Tremolo, Vibrato, Rotary, Uni-Vibe | Gentle pulses, synchronized chops, slow/fast cabinets, delayed pitch motion and chorus/vibrato contrast. |
-| Wah, Filter, Auto Swell | Parked vowel tones, touch-sensitive filtering and soft attack/slow chord bloom. Swell threshold may need adjustment for your input. |
-| Mono Octaver, Stereo Doubler, Ring Modulator, Frequency Shifter, Bitcrusher | Low-octave support, tight/loose doubles, metallic tones, moving sidebands and light/heavy digital grain. Mono Octaver expects single notes. |
-| Freeze / Hold, Stutter | Soft held layers and musical slices. Factory recipes leave Hold off; trigger it while playing. |
-| Noise Gate, Noise Gate (Smart), Digital Black Gate | User presets only. Set threshold to your noise floor and quiet notes; learn Smart Gate's profile from your own input. |
-| Utility | User presets only. Balance, polarity, channel choice and alignment depend on the rig. |
+| Pedal Comp | Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
+| Smooth / Punch Compressor, Butter Comp, Peak Limiter | Clean guitar leveling, Even bass notes; Tight picking, Parallel punch; Thick parallel; Louder, controlled |
+| Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup; Low-mid mud cut, Harshness cut |
+| Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
+| Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |
+| Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive with clean lows |
+| Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead; Warm lead repeats, Dark modulated wash; Tape slapback, Worn tape repeats |
+| Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads; Reverse half notes; Quarter and dotted eighth; Echo into cloud |
+| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room; Short bright plate, Singing lead plate; Big dark hall; Long ducked cloud; Small amp spring, Surf drip; Octave halo |
+| Galactic Space, Cosmic Echo | Slow dark space; Clustered echoes, Slow swell, Stereo echo groups, Chord bloom |
+| Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus; Wide two voices; Slow jet sweep, Light comb motion; Slow vintage phase, Deep stereo phase |
+| Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop; Seasick warble; Vibrato mode swirl; Slow chorale, Fast tremolo |
+| Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass; Wide loose double; Sixteenth-note chops; Broken small sampler |
+| LoFi Tape Machine | Subtle drift, Worn cassette, Damaged tape (the [guide's starting points](modules/lofi-tape.md#starting-points); the last two include tape hiss) |
+
+User presets only:
+
+- **Noise Gate, Noise Gate (Smart), Digital Black Gate:** set the threshold to your noise floor and quiet notes; learn the Smart Gate's profile from your own input.
+- **Utility:** balance, polarity, channel choice and alignment depend on the rig.
+- **Outboard Channel, Console Colour, Console EQ, Airwindows Tape, Airwindows Plate, Airwindows Guitar Hall, Ring Modulator, Frequency Shifter, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
 
 Synced recipes select both Tempo sync and Division. Unsynced recipes restore
 free time/rate; switching recipes cannot accidentally inherit sync, feedback,
 mode, hold or output edits from the previous sound. Mix assumes ordinary insert
 use. Set Mix for your routing, especially with **Keep dry level** or on a send.
+Mono Octaver expects single notes, and Uni-Vibe's vibrato mode is quieter than
+its chorus mode, as on the original.
 
 ### References behind the recipes
 
-These references inform the design choices; the recipes are original NAM Grid
+These references inform the settings; the recipes are original NAM Grid
 settings, not imported factory banks or claims of matching the referenced gear.
 
-- [Klanghelm DC8C manual](https://klanghelm.com/docs/DC8C3-manual.pdf): contrasting leveling/punch/transient uses and factory presets that leave calibration and global settings alone.
-- [Klanghelm MJUC guide](https://klanghelm.com/docs/MJUC-manual.pdf) and [SDRR 2 manual](https://klanghelm.com/docs/SDRR2-manual.pdf): gentle versus forward dynamics, saturation character, parallel blending and level comparison.
-- [Cableguys ShaperBox 3 manual](https://downloads.cableguys.com/Cableguys-ShaperBox-3-Manual.pdf): purpose-based quick presets and distinct rhythmic treatments; module recipes stay scoped to the module.
-- Open-source [ChowTape manual](https://chowdsp.com/manuals/ChowTapeManual.pdf): tape speed, wear, wow/flutter and separate factory/user presets. These are independent dimensions, rather than one universal vintage setting.
-- Open-source Airwindows [kPlate140](https://www.airwindows.com/kplate140/), [kGuitarHall2](https://www.airwindows.com/kguitarhall2/) and [Galactic3](https://www.airwindows.com/galactic3/): use the actual algorithms' controls; Resolution changes apparent size as well as tone.
-- [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/): low Warp for distinct echoes, more Warp/Density for smooth spaces, and different attack/decay behaviors by mode. Cosmic Echo uses its documented Faust-derived and original NAM Grid networks.
-- [Strymon El Capistan](https://www.strymon.net/support/elcapistan/elcapistan-brochure/): tape-head rhythm, bandwidth and mechanical motion as separate choices.
-- [BOSS CE-2W manual](https://static.roland.com/assets/media/pdf/CE-2W_e01_W.pdf): restrained/deeper chorus and vibrato as distinct uses of modulation.
+- Delays: slapback at about 80–150 ms with one loud repeat ([MusicRadar](https://www.musicradar.com/tuition/guitars/how-to-create-3-classic-delay-sounds-641398), [PedalPlayers](https://pedalplayers.com/how-to-create-slapback-delay/)); dotted-eighth repeats with two to four audible repeats ([Fader & Knob](https://faderandknob.com/blog/the-edge-delay-settings)); long lead delays around 480 ms with three to five repeats, low in the mix ([Kit Rae's Gilmour delay library](https://www.kitrae.net/music/David_Gilmour_Delay%20Time%20Library.html)).
+- Drive: a Screamer used as a boost with Drive low and Level high to tighten a driven amp ([Fader & Knob](https://faderandknob.com/blog/tube-screamer-before-high-gain-amp)); octave-down blends and synth-bass settings from the classic dual-octave pedal ([TalkBass](https://www.talkbass.com/threads/share-your-favorite-oc-2-boss-octave-settings.772094/)).
+- Dynamics: fast-attack, long-release pedal compression for country picking ([Guitar World](https://www.guitarworld.com/features/mxr-dyna-comp-compressor-pedal)); [Klanghelm DC8C](https://klanghelm.com/docs/DC8C3-manual.pdf) and [MJUC](https://klanghelm.com/docs/MJUC-manual.pdf) manuals for contrasting leveling, punch and parallel uses.
+- Modulation: Leslie chorale near 0.8 Hz and horn tremolo near 6.7 Hz ([HammondWiki](https://www.dairiki.org/HammondWiki/LeslieRotationSpeed)); slow, feedback-free four-stage phasing ([Sweetwater on the Phase 90](https://www.sweetwater.com/insync/eddie-van-halens-signature-stompboxes/)); shallow always-on chorus and deeper 80s chorus ([BOSS CE-2W manual](https://static.roland.com/assets/media/pdf/CE-2W_e01_W.pdf)); Uni-Vibe chorus and vibrato modes ([Strymon](https://www.strymon.net/what-was-the-original-uni-vibe-effect/)).
+- Reverb: rooms around 0.5–1 s and plates around 1.5–2.5 s with 20–40 ms pre-delay for guitar ([Chaos Audio](https://chaosaudio.com/blogs/whats-new/the-ultimate-guide-to-reverb-pedals-types-settings-and-techniques)); [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/) for Cosmic Echo's echo/wash contrast, using the documented [Cosmic Echo](modules/cosmic-echo.md) starting points.
+- Open-source [ChowTape](https://chowdsp.com/manuals/ChowTapeManual.pdf) and Airwindows [Galactic3](https://www.airwindows.com/galactic3/): tape speed, wear and wow/flutter as separate dimensions; Replace and Size for long washes.

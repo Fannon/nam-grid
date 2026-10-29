@@ -69,12 +69,14 @@ int main(int argc,char** argv)
     Stream bytes; bytes.string("###nam-grid###"); bytes.string(config.dump());
     clap_istream streamIn{&bytes,Stream::read}; assert(state->load(plugin,&streamIn));
   };
-  constexpr int rate=48000, count=rate*8, block=128;
+  constexpr int rate=48000, block=128;
   clap_input_events empty{nullptr,[](const clap_input_events*)->uint32_t{return 0;},
     [](const clap_input_events*,uint32_t)->const clap_event_header*{return nullptr;}};
   clap_output_events sent{nullptr,[](const clap_output_events*,const clap_event_header*){return true;}};
-  const auto render=[&](const json& config,bool impulse,double inputScale=1.) {
+  // Optional real-guitar input: raw little-endian float32 mono at 48 kHz, followed by a 4 s tail.
+  const auto render=[&](const json& config,bool impulse,double inputScale=1.,const std::vector<float>* source=nullptr) {
     load(config); assert(plugin->activate(plugin,rate,1,block)); assert(plugin->start_processing(plugin));
+    const int count=source ? static_cast<int>(source->size())+rate*4 : rate*8;
     Audio audio{std::vector<double>(count),std::vector<double>(count)};
     std::array<double,block> inL{},inR{},outL{},outR{};
     double* inputs[]{inL.data(),inR.data()},*outputs[]{outL.data(),outR.data()};
@@ -88,7 +90,8 @@ int main(int argc,char** argv)
       for(uint32_t i=0;i<process.frames_count;++i)
       {
         const int sample=pos+i; double x=impulse && sample==0 ? 1. : 0.;
-        if(!impulse)
+        if(source) x=sample<static_cast<int>(source->size()) ? (*source)[sample] : 0.;
+        else if(!impulse)
           for(int note=0;note<9;++note)
           {
             const double age=double(sample)/rate-(note/3)*1.4-(note%3)*.16;
@@ -112,8 +115,36 @@ int main(int argc,char** argv)
   };
   if (factoryOnly)
   {
+    // Optional real-guitar audition: NAM_AUDITION_GUITAR names raw little-endian float32
+    // mono audio at 48 kHz; NAM_AUDITION_CAPTURE adds a .nam amp in Pre 4. Recipes that
+    // usually follow an amp render in Post 1, the others in Pre 1 before it.
+    std::vector<float> guitar;
+    if (const char* path=std::getenv("NAM_AUDITION_GUITAR"))
+    {
+      std::ifstream in(path,std::ios::binary); assert(in);
+      in.seekg(0,std::ios::end); guitar.resize(static_cast<size_t>(in.tellg())/sizeof(float)); in.seekg(0);
+      in.read(reinterpret_cast<char*>(guitar.data()),static_cast<std::streamsize>(guitar.size()*sizeof(float)));
+      assert(in && !guitar.empty());
+    }
+    const char* capture=std::getenv("NAM_AUDITION_CAPTURE");
+    const auto followsAmp=[](SlotEffect e) {
+      switch (e)
+      {
+        case SlotEffect::Chorus: case SlotEffect::JunoChorus: case SlotEffect::Flanger: case SlotEffect::Tremolo:
+        case SlotEffect::Vibrato: case SlotEffect::Rotary: case SlotEffect::Doubler: case SlotEffect::Stutter:
+        case SlotEffect::Freeze: case SlotEffect::LoFiTape: case SlotEffect::Limiter: case SlotEffect::ButterComp:
+        case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ:
+        case SlotEffect::Tape: case SlotEffect::Bitcrusher: case SlotEffect::RingMod: case SlotEffect::FrequencyShifter:
+          return true;
+        default: return IsTrailEffect(e);
+      }
+    };
+    auto chain=base;
+    if (capture) { chain["SlotEffects"][3]=static_cast<int>(SlotEffect::NAM); chain["SlotPaths"][3]=capture; }
+    if (!guitar.empty())
+      WriteWave(destination/"reference-guitar.wav",render(chain,false,1.,&guitar).first,rate);
     std::ofstream csv(destination/"factory-measurements.csv");
-    csv << "module,preset,input_gain_db,cpu_percent_128_frames_48khz,mixed_peak,tail_rms_dbfs\n";
+    csv << "label,module,preset,placement,input_gain_db,cpu_percent_128_frames_48khz,mixed_peak,tail_rms_dbfs\n";
     // Full recipes at their intended mix/output; no hidden normalization. A
     // deterministic pluck is a level/stability screen, not a listening verdict.
     for (int id=0; id<=static_cast<int>(SlotEffect::Last); ++id)
@@ -122,14 +153,21 @@ int main(int argc,char** argv)
       int index=0;
       for (const auto& preset : module_presets::For(effect))
       {
-        auto config=base;
-        config["SlotEffects"][0]=id;
         const auto values=module_presets::Apply(effect,preset,SlotDefaultValues(effect));
-        for (int c=0; c<static_cast<int>(values.size()); ++c)
-          config["Pre 1 "+std::string(module_presets::ControlName(c))]=values[c];
+        const auto place=[&](json config,int slot) {
+          config["SlotEffects"][slot]=id;
+          for (int c=0; c<static_cast<int>(values.size()); ++c)
+            config[GridSlotName(slot)+" "+module_presets::ControlName(c)]=values[c];
+          return config;
+        };
+        const auto config=place(base,0);
         const auto label=std::to_string(id)+"-"+std::to_string(index++);
         auto rig=config; rig["PresetName"]=std::string(SlotEffectName(effect))+" - "+preset.name;
         rig_preset::Write(destination/(label+".ngrid"),rig);
+        WriteWave(destination/(label+"-impulse.wav"),render(config,true).first,rate);
+        const bool post=followsAmp(effect);
+        if (!guitar.empty())
+          WriteWave(destination/(label+"-guitar.wav"),render(place(chain,post ? 12 : 0),false,1.,&guitar).first,rate);
         for (double inputScale : {1.,4.})
         {
           auto [audio,cpu]=render(config,false,inputScale);
@@ -143,8 +181,8 @@ int main(int argc,char** argv)
               if (i>=channel.size()-rate/2) tail+=channel[i]*channel[i];
             }
           assert(peak>0. && peak<8.); // Catch silence, runaway feedback and huge gain errors.
-          csv<<std::quoted(SlotEffectName(effect))<<','<<std::quoted(preset.name)<<','<<20.*std::log10(inputScale)<<','
-             <<cpu/8.*100.<<','<<peak<<','<<10.*std::log10(std::max(1.e-30,tail/rate))<<'\n';
+          csv<<label<<','<<std::quoted(SlotEffectName(effect))<<','<<std::quoted(preset.name)<<','<<(post ? "post" : "pre")<<','
+             <<20.*std::log10(inputScale)<<','<<cpu/8.*100.<<','<<peak<<','<<10.*std::log10(std::max(1.e-30,tail/rate))<<'\n';
         }
       }
     }
@@ -189,8 +227,8 @@ int main(int argc,char** argv)
         config[std::string("Pre 1 ")+kEffectParameters[p].name]=100.;
       auto [wet,unused]=render(config,true); WriteWave(destination/(label+"-wet-impulse.wav"),wet,rate);
       double energy=0.; for(const auto& channel:wet) for(double value:channel) energy+=value*value;
-      csv<<std::quoted(name)<<','<<cpu/8.*100.<<','<<energy<<','<<EstimatedRT60(wet,rate)<<','<<peak<<'\n';
-      std::cout<<name<<": peak="<<peak<<" wet energy="<<energy<<" estimated RT60="<<EstimatedRT60(wet,rate)<<" CPU="<<cpu/8.*100.<<"%\n";
+      csv<<std::quoted(name)<<','<<cpu/(mixed[0].size()/double(rate))*100.<<','<<energy<<','<<EstimatedRT60(wet,rate)<<','<<peak<<'\n';
+      std::cout<<name<<": peak="<<peak<<" wet energy="<<energy<<" estimated RT60="<<EstimatedRT60(wet,rate)<<" CPU="<<cpu/(mixed[0].size()/double(rate))*100.<<"%\n";
     }
   }
   load(base); plugin->destroy(plugin); entry->deinit();

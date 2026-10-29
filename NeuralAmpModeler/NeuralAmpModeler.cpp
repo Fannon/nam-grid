@@ -393,6 +393,9 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       std::copy_n(mInputPointers[std::min(channel, numChannelsInternal - 1)], nFrames, mOutgoingBuffers[channel].data());
   auto& controls = mAudioControls.Values();
   const double tempo = GetTempo();
+  // Song-position sources need the host's beat timeline; iPlug2 leaves -1 without one.
+  const bool playing = GetTransportIsRunning() && GetPPQPos() != -1.;
+  const double blockBeats = GetPPQPos(), beatsPerFrame = tempo / (60. * GetSampleRate());
   if (!holding)
   {
     for (int i = 0; i < grid_performance::Count; ++i) mHeldPerformance[i] = GetParam(PerformanceParam(i))->Value();
@@ -485,7 +488,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
         const auto* tap = grid.TapRight(instance);
         return tap ? tap + (taps[instance] < inputPrefix ? offset : 0) : nullptr;
       };
-      mModulation.Advance(left(0), right(0), count, performance, tempo, notes.data(), noteCount, left(1), right(1));
+      mModulation.Advance(left(0), right(0), count, performance, tempo, notes.data(), noteCount, left(1), right(1),
+                          {playing, blockBeats + offset * beatsPerFrame});
       offset += count;
     }
   }

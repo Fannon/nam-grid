@@ -776,7 +776,8 @@ public:
       mDivision[instance * 2] = menu(SourceLFO, 1, 0, LFODivision, "Cycle length in host tempo.");
       toggle(SourceLFO, 2, 0, LFOSync, "Follow the host tempo.");
       menu(SourceLFO, 3, 0, LFORetrigger, "Restart the cycle on each played note (Audio onset, heard where the matching Env listens) "
-                                          "or on each MIDI note-on sent to the plugin.");
+                                          "or on each MIDI note-on sent to the plugin. Song position follows the host's playback "
+                                          "position, so cycles line up with the bars on every playback; stopped, it runs free.");
       toggle(SourceLFO, 0, 1, LFOOneShot,
              "Run one cycle per retrigger, then hold its end: Saw down becomes a decay envelope for each note.");
       menu(SourceEnvelope, 0, 0, EnvInput, "Where the follower listens: the grid input, or after any slot (e.g. after the amp).");
@@ -788,7 +789,8 @@ public:
       mRate[instance * 2 + 1] = dial(SourceSequencer, 0, 0, StepRate);
       mDivision[instance * 2 + 1] = menu(SourceSequencer, 0, 0, StepDivision, "Step length in host tempo.");
       toggle(SourceSequencer, 1, 0, StepSync, "Follow the host tempo.");
-      menu(SourceSequencer, 2, 0, StepRetrigger, "Restart at step 1 on each played note or MIDI note-on.");
+      menu(SourceSequencer, 2, 0, StepRetrigger, "Restart at step 1 on each played note or MIDI note-on. Song position "
+                                                 "follows the host's playback position, so step 1 lands on the bars.");
     }
     for (int i = 0; i < 4; ++i)
     {

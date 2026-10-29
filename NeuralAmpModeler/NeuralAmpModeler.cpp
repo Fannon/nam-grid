@@ -57,22 +57,28 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto name = GridSlotName(slot);
-    GetParam(SlotInputParam(slot))->InitGain((name + " NAM Input").c_str(), 0., -40., 40., .1);
-    GetParam(SlotTrimParam(slot))->InitGain((name + " NAM Output").c_str(), 0., -40., 40., .1);
-    GetParam(SlotActiveParam(slot))->InitBool((name + " Enabled").c_str(), true);
-    GetParam(SlotDynamicsParam(slot, 0))->InitDouble((name + " Gate Threshold").c_str(), -55., -90., -10., .1, "dB");
-    GetParam(SlotDynamicsParam(slot, 1))->InitDouble((name + " Gate Release").c_str(), 120., 20., 500., 1., "ms");
-    GetParam(SlotDynamicsParam(slot, 2))->InitDouble((name + " Gate Reduction").c_str(), 60., 0., 80., .1, "dB");
-    GetParam(SlotDynamicsParam(slot, 3))->InitDouble((name + " Comp Threshold").c_str(), -18., -48., 0., .1, "dB");
-    GetParam(SlotDynamicsParam(slot, 4))->InitDouble((name + " Comp Release").c_str(), 120., 40., 600., 1., "ms");
-    GetParam(SlotDynamicsParam(slot, 5))->InitDouble((name + " Comp Makeup").c_str(), 0., 0., 18., .1, "dB");
-    GetParam(SlotEQParam(slot, 0))->InitDouble((name + " EQ Bass").c_str(), 0., -12., 12., .1, "dB");
-    GetParam(SlotEQParam(slot, 1))->InitDouble((name + " EQ Mid").c_str(), 0., -12., 12., .1, "dB");
-    GetParam(SlotEQParam(slot, 2))->InitDouble((name + " EQ Treble").c_str(), 0., -12., 12., .1, "dB");
-    GetParam(SlotEQParam(slot, 3))->InitDouble((name + " EQ Low Cut").c_str(), 0., 0., 300., 1., "Hz");
-    GetParam(SlotEQParam(slot, 4))->InitDouble((name + " EQ High Cut").c_str(), 20000., 2000., 20000., 10., "Hz");
-    GetParam(SlotEQParam(slot, 5))->InitDouble((name + " EQ Presence").c_str(), 0., -6., 6., .1, "dB");
-    GetParam(SlotEQParam(slot, 6))->InitDouble((name + " IR Output").c_str(), -18., -36., 18., .1, "dB");
+    using namespace parameter_layout;
+    const auto control = [&](int index) { return name + " " + slotControlNames[index]; };
+    const auto initDouble = [&](int index, double initial, double step, const char* unit) {
+      GetParam(SlotParam(slot, index))
+        ->InitDouble(control(index).c_str(), initial, slotControlRanges[index].minimum, slotControlRanges[index].maximum, step, unit);
+    };
+    GetParam(SlotInputParam(slot))->InitGain(control(kSlotIn).c_str(), 0., slotControlRanges[kSlotIn].minimum, slotControlRanges[kSlotIn].maximum, .1);
+    GetParam(SlotTrimParam(slot))->InitGain(control(kSlotTrim).c_str(), 0., slotControlRanges[kSlotTrim].minimum, slotControlRanges[kSlotTrim].maximum, .1);
+    GetParam(SlotActiveParam(slot))->InitBool(control(kSlotEnabled).c_str(), true);
+    initDouble(kSlotGateThreshold, -55., .1, "dB");
+    initDouble(kSlotGateRelease, 120., 1., "ms");
+    initDouble(kSlotGateReduction, 60., .1, "dB");
+    initDouble(kSlotCompThreshold, -18., .1, "dB");
+    initDouble(kSlotCompRelease, 120., 1., "ms");
+    initDouble(kSlotCompMakeup, 0., .1, "dB");
+    initDouble(kSlotEQBass, 0., .1, "dB");
+    initDouble(kSlotEQMid, 0., .1, "dB");
+    initDouble(kSlotEQTreble, 0., .1, "dB");
+    initDouble(kSlotEQHighPass, 0., 1., "Hz");
+    initDouble(kSlotEQLowPass, 20000., 10., "Hz");
+    initDouble(kSlotEQPresence, 0., .1, "dB");
+    initDouble(kSlotIRLevel, -18., .1, "dB");
     for (int i = 0; i < kUtilityControls; ++i)
     {
       const auto& p = kEffectParameters[i];
@@ -993,15 +999,51 @@ SlotValues NeuralAmpModeler::GetSlotValues(size_t slot) const
 void NeuralAmpModeler::ApplyModulePreset(size_t slot, int preset)
 {
   if (slot >= FixedNAMGrid::kSlots) return;
-  const auto effect = GetSlotEffect(slot);
-  const auto presets = module_presets::For(effect);
-  if (preset < 0 || preset >= static_cast<int>(presets.size())) return;
+  const auto presets = module_presets::For(GetSlotEffect(slot));
+  if (preset >= 0 && preset < static_cast<int>(presets.size()))
+    _ApplyModuleValues(slot, module_presets::Values(presets[preset]));
+}
+
+void NeuralAmpModeler::ApplyUserModulePreset(size_t slot, const module_presets::UserPreset& preset)
+{
+  if (slot < FixedNAMGrid::kSlots) _ApplyModuleValues(slot, preset.values);
+}
+
+void NeuralAmpModeler::_ApplyModuleValues(size_t slot, std::span<const module_presets::Value> values)
+{
   const auto current = GetSlotValues(slot);
-  const auto values = module_presets::Apply(effect, presets[preset], current);
+  const auto applied = module_presets::Apply(GetSlotEffect(slot), values, current);
   const auto indices = SlotParamIndices(slot);
   for (size_t i = 0; i < indices.size(); ++i)
-    if (values[i] != current[i]) SetParameterFromUI(indices[i], values[i]);
+    if (applied[i] != current[i]) SetParameterFromUI(indices[i], applied[i]);
   _NotifyHostStateChanged();
+}
+
+std::filesystem::path NeuralAmpModeler::GetModulePresetFolder(SlotEffect effect) const
+{
+  const auto folders = GetLibraryFolders(nam_library::FileKind::RigPreset);
+  return folders.empty() ? std::filesystem::path{} : module_presets::UserFolder(std::filesystem::u8path(folders.front()), effect);
+}
+
+std::vector<module_presets::UserPreset> NeuralAmpModeler::GetUserModulePresets(SlotEffect effect, int* unreadable) const
+{
+  std::vector<std::filesystem::path> folders;
+  for (const auto& folder : GetLibraryFolders(nam_library::FileKind::RigPreset)) folders.push_back(std::filesystem::u8path(folder));
+  return module_presets::LoadUser(folders, effect, unreadable);
+}
+
+std::string NeuralAmpModeler::SaveUserModulePreset(size_t slot, const std::filesystem::path& file)
+{
+  if (slot >= FixedNAMGrid::kSlots) return "Invalid grid slot";
+  try
+  {
+    module_presets::SaveUser(file, GetSlotEffect(slot), GetSlotValues(slot));
+    return {};
+  }
+  catch (const std::exception& error)
+  {
+    return error.what();
+  }
 }
 
 bool NeuralAmpModeler::IsPerformanceSceneParam(int index) const

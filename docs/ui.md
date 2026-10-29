@@ -41,13 +41,26 @@ the knob, type the new value, and press **Enter** to apply it or **Escape** to c
 
 If a module's description ends in `...`, hover over it to read the full description.
 
-Some modules have a **Presets** menu in the top row, between the module name and the
-browser button. Choosing a factory preset sets that module's controls, through ordinary
-parameter changes, so the module keeps running and the rest of the rig is unchanged. The
-button shows the preset's name until you move a control. Presets are starting points, not
-saved files: the rig or project stores the resulting control values. Module presets
-currently exist for Pedal Comp, Smooth Compressor, Punch Compressor, Butter Comp, Peak
-Limiter and Digital Delay.
+Every built-in module has a **Presets** menu in the top row, between the module name and
+the browser button. Choosing a preset sets that module's controls through ordinary parameter
+changes, so the module keeps running and the rest of the rig is unchanged. The button shows
+the preset's name until you move a control. The rig or project stores the resulting control
+values, not a link to the preset.
+
+- **Factory presets** come first: Pedal Comp, Smooth Compressor, Punch Compressor, Butter
+  Comp, Peak Limiter and Digital Delay have them. They cannot be changed.
+- **Your presets** follow after a divider. **Save current as...** saves this module's
+  current controls as a new preset, also when you started from a factory preset.
+- **Show presets folder** opens the folder in Explorer or Finder; rename or delete presets
+  there.
+
+Your presets are `.json` files in `Module Presets/<module>` inside your first preset folder
+(by default `Documents/NAM Grid/Presets`). Presets in the same place in your other preset
+folders also appear, so you can share a preset by copying its file. A preset stores only
+that module's controls, under their permanent names, so it works in any slot. Presets from
+older versions load, with newer controls at their defaults; files from a newer NAM Grid, or
+that cannot be read, are skipped and counted at the end of the menu. They are not listed in
+the library browser.
 
 Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 

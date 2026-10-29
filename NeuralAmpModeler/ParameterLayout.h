@@ -37,6 +37,18 @@ enum SlotControl
   kSlotFullQuality,
   standardControls
 };
+// Permanent host/state names (after the slot name) and ranges of the shared slot controls,
+// in SlotControl order. The plugin creates its parameters from this table.
+inline constexpr const char* slotControlNames[standardControls]{"NAM Input", "NAM Output", "Enabled",
+  "Gate Threshold", "Gate Release", "Gate Reduction", "Comp Threshold", "Comp Release", "Comp Makeup", "EQ Bass",
+  "EQ Mid", "EQ Treble", "EQ Low Cut", "EQ High Cut", "EQ Presence", "IR Output", "Full Quality"};
+struct ControlRange
+{
+  double minimum, maximum;
+};
+inline constexpr ControlRange slotControlRanges[standardControls]{{-40., 40.}, {-40., 40.}, {0., 1.},
+  {-90., -10.}, {20., 500.}, {0., 80.}, {-48., 0.}, {40., 600.}, {0., 18.}, {-12., 12.}, {-12., 12.},
+  {-12., 12.}, {0., 300.}, {2000., 20000.}, {-6., 6.}, {-36., 18.}, {0., 1.}};
 // Global controls in GlobalID index order: the five fixed globals, then
 // grid_performance parameters. New globals append after the last index.
 inline constexpr int fixedGlobals = 5;

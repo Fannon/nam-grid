@@ -1,11 +1,20 @@
 #pragma once
 #include "../NeuralAmpModeler/SlotPedalComp.h"
+#include "../NeuralAmpModeler/ModulePresets.h"
 
 template <class Save, class Load>
 void TestPedalCompClap(const clap_plugin* plugin, const json& cleared, Save save, Load load)
 {
   const auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
   assert(latency);
+  // User module presets store the shared slot controls under the plugin's own names.
+  const auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));
+  for (int control = 0; control < parameter_layout::standardControls; ++control)
+  {
+    clap_param_info info{};
+    assert(params->get_info(plugin, static_cast<uint32_t>(SlotParam(15, control)), &info));
+    assert(std::string(info.name) == std::string("Post 4 ") + module_presets::ControlName(control));
+  }
   auto rig = cleared;
   rig["SlotEffects"][0] = static_cast<int>(SlotEffect::PedalComp);
   rig["Pre 1 Pedal Comp Sustain"] = 80.;

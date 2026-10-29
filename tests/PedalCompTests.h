@@ -263,6 +263,88 @@ void TestPedalComp()
   }
 }
 
+void TestUserModulePresets()
+{
+  using namespace module_presets;
+  using json = nlohmann::json;
+  // Every built-in module's controls survive the file format, in any slot.
+  for (int e = 1; e <= static_cast<int>(SlotEffect::Last); ++e)
+  {
+    const auto effect = static_cast<SlotEffect>(e);
+    if (effect == SlotEffect::CabinetIR) continue;
+    auto values = SlotDefaultValues(effect);
+    for (int i = 0; i < static_cast<int>(values.size()); ++i)
+      if (ModuleControl(effect, i))
+      {
+        const auto range = RangeOf(i);
+        const int p = i - parameter_layout::standardControls;
+        const double middle = .5 * (range.minimum + range.maximum);
+        values[i] = p >= 0 && kEffectParameters[p].step == 1. ? std::floor(middle) : middle;
+      }
+    std::vector<Value> parsed;
+    assert(Parse(json::parse(ToJson(effect, values).dump()), effect, parsed).empty());
+    auto other = SlotDefaultValues(effect);
+    other[parameter_layout::kSlotEnabled] = 0.;
+    const auto applied = Apply(effect, parsed, other);
+    for (int i = 0; i < static_cast<int>(values.size()); ++i)
+      assert(applied[i] == (ModuleControl(effect, i) ? values[i] : other[i]));
+    assert(Matches(effect, parsed, applied));
+  }
+  // Invalid files are rejected with a reason; older files gain later controls' defaults.
+  const auto base = ToJson(SlotEffect::PedalComp, SlotDefaultValues(SlotEffect::PedalComp));
+  const auto rejected = [&](const auto& change) {
+    auto document = base;
+    change(document);
+    std::vector<Value> values;
+    return !Parse(document, SlotEffect::PedalComp, values).empty();
+  };
+  assert(rejected([](json& d) { d["format"] = "nam-grid-preset"; }));
+  assert(rejected([](json& d) { d["version"] = 2; }));
+  assert(rejected([](json& d) { d["schema"] = kEffectStateSchema + 1; }));
+  assert(rejected([](json& d) { d["schema"] = 1.5; }));
+  assert(rejected([](json& d) { d["module"] = static_cast<int>(SlotEffect::SmoothComp); }));
+  assert(rejected([](json& d) { d["values"]["Smooth Ratio"] = 2.; }));
+  assert(rejected([](json& d) { d["values"]["Pedal Comp Sustain"] = 101.; }));
+  assert(rejected([](json& d) { d["values"]["Pedal Comp Sustain"] = "50"; }));
+  assert(rejected([](json& d) { d["values"]["Pedal Comp Pickup"] = 1.5; }));
+  assert(rejected([](json& d) { d.erase("values"); }));
+  auto older = base;
+  older["schema"] = kInitialEffectStateSchema;
+  older["values"] = json{{"Pedal Comp Sustain", 70.}};
+  std::vector<Value> partial;
+  assert(Parse(older, SlotEffect::PedalComp, partial).empty() && partial.size() == 1);
+  auto current = SlotDefaultValues(SlotEffect::PedalComp);
+  current[U(uPedalCompPickup)] = 2.;
+  current[U(uPedalCompBlend)] = 10.;
+  const auto applied = Apply(SlotEffect::PedalComp, partial, current);
+  assert(applied[U(uPedalCompSustain)] == 70. && applied[U(uPedalCompBlend)] == kEffectParameters[uPedalCompBlend].initial);
+  assert(applied[U(uPedalCompPickup)] == 2.); // A file without the pickup keeps the player's setup.
+  // Files: one folder per module under "Module Presets", listed by name across preset
+  // folders. Other modules' files are skipped; unreadable ones are counted.
+  const auto root = std::filesystem::temp_directory_path() / ("nam-grid-module-presets-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::remove_all(root);
+  const auto first = root / "Presets", second = root / "More presets";
+  auto squash = SlotDefaultValues(SlotEffect::PedalComp);
+  squash[U(uPedalCompSustain)] = 80.;
+  squash[U(uPedalCompPickup)] = 0.;
+  SaveUser(UserFolder(first, SlotEffect::PedalComp) / "b squash.json", SlotEffect::PedalComp, squash);
+  SaveUser(UserFolder(second, SlotEffect::PedalComp) / "A light.json", SlotEffect::PedalComp, SlotDefaultValues(SlotEffect::PedalComp));
+  SaveUser(UserFolder(first, SlotEffect::SmoothComp) / "Smooth.json", SlotEffect::SmoothComp, SlotDefaultValues(SlotEffect::SmoothComp));
+  std::ofstream(UserFolder(first, SlotEffect::PedalComp) / "broken.json") << "{ not json";
+  auto newer = ToJson(SlotEffect::PedalComp, squash);
+  newer["schema"] = kEffectStateSchema + 1;
+  std::ofstream(UserFolder(first, SlotEffect::PedalComp) / "future.json") << newer.dump();
+  std::ofstream(UserFolder(first, SlotEffect::PedalComp) / "notes.txt") << "ignored";
+  assert(UserFolder(first, SlotEffect::Freeze).filename() == "Freeze - Hold"); // No slash in a folder name.
+  int unreadable = -1;
+  const auto listed = LoadUser({first, second, root / "missing"}, SlotEffect::PedalComp, &unreadable);
+  assert(listed.size() == 2 && listed[0].name == "A light" && listed[1].name == "b squash" && unreadable == 2);
+  const auto restored = Apply(SlotEffect::PedalComp, listed[1].values, SlotDefaultValues(SlotEffect::PedalComp));
+  assert(restored[U(uPedalCompSustain)] == 80. && restored[U(uPedalCompPickup)] == 0.);
+  assert(LoadUser({first}, SlotEffect::SmoothComp).size() == 1 && LoadUser({first}, SlotEffect::Chorus).empty());
+  std::filesystem::remove_all(root);
+}
+
 void TestModulePresets()
 {
   using namespace module_presets;
@@ -319,4 +401,5 @@ void TestModulePresets()
       }
     assert(Matching(effect, applied) == -1);
   }
+  TestUserModulePresets();
 }

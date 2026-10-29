@@ -4,6 +4,7 @@
 #include "../NeuralAmpModeler/ParameterLayout.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include <set>
+#include "ModuleControlMetadata.h"
 
 // Simulate future growth with hypothetical segment tables: appending controls to
 // the last segment, then a global segment, then more slot controls, must never
@@ -114,6 +115,17 @@ int main(int argc, char** argv)
                 {"stepped", bool(info.flags & CLAP_PARAM_IS_STEPPED)},
                 {"mapping", text}};
   };
+  if (argc == 3 && std::string(argv[2]) == "--module-controls")
+  {
+    std::cout << ModuleControlMetadata(plugin, params).dump() << '\n';
+    plugin->destroy(plugin); entry->deinit();
+#ifdef _WIN32
+    FreeLibrary(library);
+#else
+    dlclose(library);
+#endif
+    return 0;
+  }
   TestClapHostContract(plugin, host);
   const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
   const std::filesystem::path fixture = argv[2];

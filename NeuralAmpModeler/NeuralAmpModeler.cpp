@@ -975,18 +975,6 @@ void NeuralAmpModeler::ClearSlot(size_t slot)
   }
 }
 
-void NeuralAmpModeler::LoadSlapbackPreset(size_t slot)
-{
-  const auto guard = _LockControls();
-  if (slot >= FixedNAMGrid::kSlots) return;
-  SlotConfig config{SlotEffect::DigitalDelay};
-  config.values[17 + uDelayTime] = 90.; config.values[17 + uDelayFeedback] = 0.;
-  config.values[17 + uDelayTone] = 8000.; config.values[17 + uDelayCharacter] = 0.;
-  config.values[17 + uDelayMix] = 25.;
-  _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), true);
-  _NotifyHostStateChanged();
-}
-
 SlotValues NeuralAmpModeler::GetSlotValues(size_t slot) const
 {
   SlotValues values{};

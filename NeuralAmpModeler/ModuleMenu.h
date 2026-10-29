@@ -33,7 +33,6 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
         new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
                              -20 - static_cast<int>(type)));
     }
-    if (std::string(title) == "Delay") group->AddItem(new IPopupMenu::Item("Slapback preset", 0, -16));
     menu.AddItem(title, group, next++);
   };
   for (const auto& group : kModuleGroups) addGroup(group.name, group.effects);

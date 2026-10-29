@@ -7,7 +7,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ### Performance
 
 - Multi-head Tape processes its tape heads once while both channels carry the same signal, such as a mono guitar through captures, using about 30% less CPU there. Sound is unchanged.
-- Uni-Vibe updates its optical filter coefficients every 16 samples, reducing CPU use without added latency. Moving sweeps in existing rigs can sound slightly different; the static response, controls and saved state retain their meaning.
+- Uni-Vibe calculates its optical filter coefficients every 16 samples and glides between them, using about 25% less CPU without added latency. Sweeps follow the previous per-sample response within about 0.02%; the static response, controls and saved state are unchanged.
 - Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
 
 ### Added
@@ -22,6 +22,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- The module picker's **Delay > Slapback preset** item is gone. Insert Digital Delay and choose **Slapback** from its **Presets** menu for the same settings.
 - Butter Comp now works at guitar levels. It previously barely reacted below about 70%, because its Airwindows core is designed for full-scale mix-bus signals. The default now gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness. Existing rigs with Butter Comp compress more at the same setting.
 
 ### Fixed

@@ -1519,8 +1519,6 @@ public:
       PLUG()->RescanCaptureFolder();
     else if (item->GetTag() == -15)
       PLUG()->ToggleSlotQuality(mSlot);
-    else if (item->GetTag() == -16)
-      PLUG()->LoadSlapbackPreset(mSlot);
     else if (item->GetTag() == -17 || item->GetTag() == -18)
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Cell,
         item->GetTag() == -17 ? nam_library::FileKind::NAM : nam_library::FileKind::IR, mSlot);

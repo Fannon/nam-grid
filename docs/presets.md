@@ -93,11 +93,11 @@ staging, with normal playing peaking around -9 dBFS.
 | Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive with clean lows |
-| Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong; Warm lead repeats, Dark modulated wash; Tape slapback, Worn tape repeats |
-| Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads; Reverse half notes; Quarter and dotted eighth; Echo into cloud |
-| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room; Short bright plate, Singing lead plate; Big dark hall; Long ducked cloud; Small amp spring, Surf drip; Dark octave-down pad |
+| Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong; Warm lead repeats, Dark modulated wash, Dark slapback; Tape slapback, Worn tape repeats, Rock lead echo |
+| Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads, Stereo cascade, All-head wash; Reverse half notes, Reversed solo; Quarter and dotted eighth, Wide ping-pong; Echo into cloud, Soft echo clusters |
+| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room, Small amp room; Short bright plate, Singing lead plate; Big dark hall, Ducked lead hall; Long ducked cloud; Small amp spring, Surf drip; Dark octave-down pad |
 | Airwindows Plate, Airwindows Guitar Hall, Airwindows Tape | Compact guitar plate, Long dark plate; Close guitar hall, Distant dark hall; Light tape rounding, Thick parallel tape |
-| Galactic Space, Cosmic Echo | Slow dark space; Clustered echoes, Slow swell, Stereo echo groups, Chord bloom |
+| Galactic Space, Cosmic Echo | Slow dark space, Wide bright wash; Clustered echoes, Slow swell, Stereo echo groups, Chord bloom |
 | Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus; Wide two voices; Slow jet sweep, Light comb motion; Slow vintage phase, Deep stereo phase |
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop; Seasick warble; Vibrato mode swirl; Slow chorale, Fast tremolo |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass; Wide loose double; Sixteenth-note chops; Broken small sampler |

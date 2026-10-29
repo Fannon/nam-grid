@@ -137,26 +137,38 @@ inline const Preset digitalDelay[]{
 inline const Preset analogDelay[]{
   {"Warm lead repeats", {{U(uDelayTime), 420.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 3200.}, {U(uDelayCharacter), 40.}, {U(uDelayMix), 30.}}},
   {"Dark modulated wash", {{U(uDelayTime), 600.}, {U(uDelayFeedback), 55.}, {U(uDelayTone), 2400.}, {U(uDelayCharacter), 50.}, {U(uDelayMotion), 40.}, {U(uDelayMix), 30.}}},
+  // Single dark, saturated repeat, as with analog slapback pedals.
+  {"Dark slapback", {{U(uDelayTime), 120.}, {U(uDelayFeedback), 5.}, {U(uDelayTone), 2800.}, {U(uDelayCharacter), 45.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 40.}}},
 };
 inline const Preset tapeDelay[]{
   {"Tape slapback", {{U(uDelayTime), 120.}, {U(uDelayFeedback), 5.}, {U(uDelayTone), 5500.}, {U(uDelayCharacter), 25.}, {U(uDelayMotion), 8.}, {U(uDelayMix), 35.}}},
   {"Worn tape repeats", {{U(uDelayTime), 430.}, {U(uDelayFeedback), 38.}, {U(uDelayTone), 3000.}, {U(uDelayCharacter), 55.}, {U(uDelayMotion), 35.}, {U(uDelayMix), 30.}}},
+  // About one quiet 300 ms repeat: the classic rock lead echo of an EP-3.
+  {"Rock lead echo", {{U(uDelayTime), 300.}, {U(uDelayFeedback), 8.}, {U(uDelayTone), 4500.}, {U(uDelayCharacter), 30.}, {U(uDelayMotion), 12.}, {U(uDelayMix), 25.}}},
 };
 inline const Preset multiHead[]{
   {"Rolling three heads", {{U(uTapeHeads), 2.}, {U(uDelayTime), 600.}, {U(uDelayFeedback), 28.}, {U(uDelayMix), 28.}}},
+  {"Stereo cascade", {{U(uTapeHeads), 7.}, {U(uTempoSync), 1.}, {U(uTempoDivision), 7.}, {U(uDelayFeedback), 35.}, {U(uDelayMix), 28.}}},
+  {"All-head wash", {{U(uTapeHeads), 3.}, {U(uDelayTime), 850.}, {U(uDelayFeedback), 55.}, {U(uDelayTone), 3000.}, {U(uDelayCharacter), 40.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 30.}}},
 };
 inline const Preset reverseDelay[]{
   {"Reverse half notes", {{U(uTempoSync), 1.}, {U(uTempoDivision), 7.}, {U(uReverseFeedback), 25.}, {U(uDelayTone), 4500.}, {U(uDelayMix), 35.}}},
+  // Mostly reversed playing, like a backwards-tape solo.
+  {"Reversed solo", {{U(uDelayTime), 750.}, {U(uReverseFeedback), 30.}, {U(uDelayTone), 5000.}, {U(uDelayMix), 70.}}},
 };
 inline const Preset dualDelay[]{
   {"Quarter and dotted eighth", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDualRatio), .75}, {U(uDelayFeedback), 28.}, {U(uDelayMix), 30.}}},
+  {"Wide ping-pong", {{U(uDelayTime), 350.}, {U(uDualRatio), 1.5}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.}, {U(uDelayMix), 28.}}},
 };
 inline const Preset diffusedDelay[]{
   {"Echo into cloud", {{U(uDelayTime), 650.}, {U(uDelayFeedback), 60.}, {U(uDelayDiffusion), 85.}, {U(uDelayTone), 4500.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 32.}}},
+  {"Soft echo clusters", {{U(uDelayTime), 320.}, {U(uDelayFeedback), 30.}, {U(uDelayDiffusion), 40.}, {U(uDelayMix), 22.}}},
 };
 
 inline const Preset room[]{
   {"Live room", {{U(uReverbDecay), 1.2}, {U(uReverbSize), 100.}, {U(uReverbPredelay), 12.}, {U(uReverbMix), 18.}}},
+  // Short, tight ambience for dry captures and DI-like close sounds.
+  {"Small amp room", {{U(uReverbDecay), .45}, {U(uReverbSize), 55.}, {U(uReverbPredelay), 3.}, {U(uReverbMix), 10.}}},
 };
 inline const Preset plate[]{
   {"Short bright plate", {{U(uReverbDecay), 1.1}, {U(uReverbTone), 8000.}, {U(uReverbPredelay), 10.}, {U(uReverbMix), 14.}}},
@@ -164,6 +176,8 @@ inline const Preset plate[]{
 };
 inline const Preset hall[]{
   {"Big dark hall", {{U(uReverbDecay), 6.}, {U(uReverbSize), 160.}, {U(uReverbTone), 3500.}, {U(uReverbPredelay), 40.}, {U(uReverbHighPass), 180.}, {U(uReverbMix), 28.}}},
+  // A hall that steps back while notes play and blooms in the gaps.
+  {"Ducked lead hall", {{U(uReverbDecay), 3.5}, {U(uReverbPredelay), 40.}, {U(uReverbDuck), 40.}, {U(uReverbMix), 25.}}},
 };
 inline const Preset cloud[]{
   {"Long ducked cloud", {{U(uReverbDecay), 12.}, {U(uReverbSize), 180.}, {U(uReverbPredelay), 50.}, {U(uReverbHighPass), 220.}, {U(uReverbDuck), 55.}, {U(uReverbMix), 35.}}},
@@ -197,6 +211,7 @@ inline const Preset tape[]{
 };
 inline const Preset space[]{
   {"Slow dark space", {{U(uSpaceReplace), 20.}, {U(uSpaceBrightness), 30.}, {U(uSpaceDetune), 20.}, {U(uSpaceSize), 75.}, {U(uSpaceMix), 28.}}},
+  {"Wide bright wash", {{U(uSpaceReplace), 8.}, {U(uSpaceBrightness), 45.}, {U(uSpaceDetune), 50.}, {U(uSpaceSize), 95.}, {U(uSpaceMix), 35.}}},
 };
 // Cosmic Echo recipes follow the documented style starting points.
 inline const Preset cosmic[]{

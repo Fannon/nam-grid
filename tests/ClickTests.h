@@ -86,9 +86,11 @@ public:
   {
     mConfig.values[control] = value;
     mControls = FromValues(mConfig.values);
+    mControls.utility.trails = mTrails;
   }
   double Get(int control) const { return mConfig.values[control]; }
   void SetMixLaw(bool constantDry) { mControls.utility.constantDry = constantDry; }
+  void SetTrails(bool trails) { mControls.utility.trails = mTrails = trails; }
   void Replace()
   {
     mStage.Publish(PrepareSlot(mConfig, mRate, mBlock).dsp);
@@ -103,6 +105,7 @@ private:
   Controls mControls;
   std::array<Detector, 2> mDetector;
   int64_t mPosition = 0;
+  bool mTrails = false;
 };
 
 // The values an event visits: discrete controls step through every choice,
@@ -244,6 +247,24 @@ void TestClicks()
                 check("Juno mode " + std::to_string(from) + " to " + std::to_string(to), nullptr,
                       [&] { rig.Set(parameter_layout::standardControls + uJunoMode, to); });
               }
+        if (IsTrailEffect(effect))
+        {
+          // After the control sweep, so the events above keep their history. A ringing tail
+          // continues under new playing, fades out when Trails is turned off, and leaves
+          // with the replacement fade; draining tails never return.
+          using parameter_layout::kSlotEnabled;
+          check("trails on", nullptr, [&] { rig.SetTrails(true); });
+          check("bypass with trails", nullptr, [&] { rig.Set(kSlotEnabled, 0.); });
+          check("enable while trailing", nullptr, [&] { rig.Set(kSlotEnabled, 1.); });
+          check("bypass with trails again", nullptr, [&] { rig.Set(kSlotEnabled, 0.); });
+          check("trails off while trailing", nullptr, [&] { rig.SetTrails(false); });
+          check("trails on while draining", nullptr, [&] { rig.SetTrails(true); });
+          check("enable after trails", nullptr, [&] { rig.Set(kSlotEnabled, 1.); });
+          check("bypass before replace", nullptr, [&] { rig.Set(kSlotEnabled, 0.); });
+          check("replace while trailing", nullptr, [&] { rig.Replace(); });
+          check("enable replaced", nullptr, [&] { rig.Set(kSlotEnabled, 1.); });
+          check("trails off", nullptr, [&] { rig.SetTrails(false); });
+        }
       }
   }
   std::cout << "Clicks: " << events << " bypass/replace/control/mode events at 48/96 kHz, " << findings

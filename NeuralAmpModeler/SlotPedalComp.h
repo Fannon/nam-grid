@@ -142,10 +142,14 @@ public:
       const double memory = memoryShare * target;
       mMemory = Approach(mMemory, memory, memory > mMemory ? mMemoryCharge : mMemoryRelease);
       const double reduction = std::max(mFast, mMemory);
-      mMaxReduction = std::max(mMaxReduction, reduction);
+      const double blend = v[3] * .01;
+      if (reduction > mMaxReduction)
+      {
+        mMaxReduction = reduction;
+        mBlendAtMax = blend;
+      }
       mMakeup = Approach(mMakeup, mCurve.makeup, mMakeupSmoothing);
       const double gain = mGain((mMakeup - reduction) * .05, [](double x) { return std::pow(10., x); });
-      const double blend = v[3] * .01;
       const double outL = blend == 0. ? dryL : dryL + blend * (dryL * gain - dryL);
       const double outR = blend == 0. ? dryR : dryR + blend * (dryR * gain - dryR);
       const double level = mLevel(v[4] * .05, [](double x) { return std::pow(10., x); });
@@ -153,8 +157,10 @@ public:
       if (right) right[i] = outR * level;
     }
   }
-  // Largest compressor gain reduction of the last block, before makeup, Blend and Level.
-  double Reduction() const { return mMaxReduction; }
+  // Largest gain reduction of the last block as heard after Blend, before makeup and Level,
+  // like the Smooth and Punch compressors' Mix.
+  double Reduction() const
+  { return -20. * std::log10(std::max(1.e-6, 1. + mBlendAtMax * (std::pow(10., -mMaxReduction * .05) - 1.))); }
 
 private:
   struct Channel
@@ -187,7 +193,7 @@ private:
   double mVoiceSmoothing = 0., mMakeupSmoothing = 0., mLowCut = 0., mHighCut = 0.;
   double mPivot = 0., mFocusLow = 1., mFocusHigh = 1.;
   double mPeak = 0., mPower = 0., mFast = 0., mMemory = 0., mMakeup = 0.;
-  double mMaxReduction = 0.;
+  double mMaxReduction = 0., mBlendAtMax = 1.;
   int mPickup = -1, mCounter = 0;
   bool mFirst = true;
 };

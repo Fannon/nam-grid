@@ -660,7 +660,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pedal Comp Focus", "Body / Pick", 0, -100, 100, 0.1, "%", 2, false, 1., 13},
    {"Pedal Comp Blend", "Blend", 70, 0, 100, 0.1, "%", 6, false, 1., 13},
    {"Pedal Comp Level", "Level", 0, -12, 12, 0.1, "dB", 4, false, 1., 13},
-   {"Pedal Comp Pickup", "Pickup", 0, 0, 2, 1, "", 0, false, 1., 13}}};
+   {"Pedal Comp Pickup", "Pickup", 1, 0, 2, 1, "", 0, false, 1., 13}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -947,7 +947,7 @@ struct UtilityControls
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
   // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Focus (Body -100 to Pick +100), Blend and Level, in ID order.
   std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
-  int pedalCompPickup = 0;
+  int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
   int irLength = 0;

@@ -671,6 +671,12 @@ inline IRECT ControlBounds(int position)
   const float top = grid_layout::knobTop + (position / 4) * grid_layout::knobRowPitch;
   return IRECT(left + 4.f, top, left + grid_layout::parameterWidth - 4.f, top + grid_layout::knobBottom - grid_layout::knobTop);
 }
+// The box of a switch or choice in the dial grid, centred on the dial height of the knobs.
+inline IRECT KnobAlignedBox(const IRECT& bounds)
+{
+  const float centre = bounds.T + grid_layout::knobCenter;
+  return IRECT(bounds.L + 12, centre - grid_layout::knobBoxHalfHeight, bounds.R - 12, centre + grid_layout::knobBoxHalfHeight);
+}
 class Toggle : public IVToggleControl
 {
 public:
@@ -691,7 +697,7 @@ public:
       const auto labelColor = slot < 0 ? muted : Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
       g.DrawText(Text(15.f, labelColor, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(14));
     }
-    const auto button = tall ? IRECT(mRECT.L + 12, mRECT.B - 38, mRECT.R - 12, mRECT.B - 4) : mRECT;
+    const auto button = tall ? KnobAlignedBox(mRECT) : mRECT;
     const bool on = GetValue() >= .5;
     if (mSelector)
     {
@@ -804,7 +810,7 @@ public:
   }
 private:
   IRECT Box() const
-  { return mRECT.H() > 60.f ? IRECT(mRECT.L + 12, mRECT.B - 38, mRECT.R - 12, mRECT.B - 4) : mRECT; }
+  { return mRECT.H() > 60.f ? KnobAlignedBox(mRECT) : mRECT; }
   int mControl;
   std::string mLabel;
   IPopupMenu mMenu;

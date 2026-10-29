@@ -101,7 +101,7 @@ Its Sustain range and timing were calibrated against recordings of a Ross-type c
 
 In the header:
 
-- **Pickup** (Single coil, Humbucker, Acoustic; starts at Single coil) tells the detector what to expect. It never changes the tone. Single coil is about 5 dB more sensitive than Humbucker. **Acoustic** is for piezo, transducer and other acoustic pickups: it follows the body of each note rather than every pick spike and ignores body boom and piezo quack, so strumming does not pump.
+- **Pickup** (Single coil, Humbucker, Acoustic; starts at Humbucker) tells the detector what to expect. It never changes the tone. Single coil is about 5 dB more sensitive than Humbucker. **Acoustic** is for piezo, transducer and other acoustic pickups: it follows the body of each note rather than every pick spike and ignores body boom and piezo quack, so strumming does not pump.
 
 **Display:** The settled compression curve for steady notes, with a dot at the live input, the gain reduction bar and the input/output history.
 

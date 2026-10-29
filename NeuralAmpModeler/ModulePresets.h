@@ -41,7 +41,7 @@ inline const Preset pedalComp[]{
   {"Heavy squash, natural attack",
    {{U(uPedalCompSustain), 70.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompBlend), 40.}}},
   {"Gentle leveling",
-   {{U(uPedalCompSustain), 25.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompBlend), 100.}}},
+   {{U(uPedalCompSustain), 10.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompBlend), 100.}}},
   {"Long lead notes",
    {{U(uPedalCompSustain), 75.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), -20.}, {U(uPedalCompBlend), 60.}}},
   {"Acoustic strumming",
@@ -52,10 +52,11 @@ inline const Preset pedalComp[]{
     {U(uPedalCompBlend), 70.}}},
 };
 // Thresholds assume typical notes near -18 dBFS on these peak detectors (a DAW peak meter
-// around -9 dBFS); each preset lowers a typical note by roughly 1-5 dB.
+// around -9 dBFS). Measured on a guitar DI and after a clean capture, typical notes come down
+// by about 0.5-6 dB (Firm control: about 8 dB), with makeup near bypass loudness.
 inline const Preset smoothComp[]{
   {"Clean guitar leveling",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 150.}, {kSlotCompMakeup, 3.}, {U(uCompAttack), 8.},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 150.}, {kSlotCompMakeup, 4.5}, {U(uCompAttack), 8.},
     {U(uSmoothRatio), 3.5}}},
   {"Barely there",
    {{kSlotCompThreshold, -16.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 1.}, {U(uCompAttack), 30.},
@@ -67,27 +68,28 @@ inline const Preset smoothComp[]{
    {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 120.}, {kSlotCompMakeup, 3.}, {U(uCompAttack), 25.},
     {U(uSmoothRatio), 3.}, {U(uCompDetectorCut), 120.}}},
   {"Even bass notes",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 3.}, {U(uCompAttack), 15.},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 4.5}, {U(uCompAttack), 15.},
     {U(uSmoothRatio), 4.}}},
 };
 inline const Preset punchComp[]{
   {"Tight picking",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 3.}, {U(uPunchAttack), 2.},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 4.}, {U(uPunchAttack), 2.},
     {U(uPunchRatio), 3.6}, {U(uCompMix), 100.}}},
   {"Upfront, keeps dynamics",
-   {{kSlotCompThreshold, -16.}, {kSlotCompRelease, 350.}, {kSlotCompMakeup, 4.}, {U(uPunchAttack), 10.},
+   {{kSlotCompThreshold, -20.}, {kSlotCompRelease, 350.}, {kSlotCompMakeup, 3.5}, {U(uPunchAttack), 10.},
     {U(uCompMix), 80.}}},
   {"Firm control after an amp",
-   {{kSlotCompThreshold, -14.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 3.}, {U(uPunchAttack), .5},
-    {U(uPunchRatio), 10.}, {U(uCompMix), 100.}}},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 6.}, {U(uPunchAttack), .5},
+    {U(uPunchRatio), 8.}, {U(uCompMix), 100.}}},
   {"Parallel punch",
    {{kSlotCompThreshold, -28.}, {kSlotCompRelease, 100.}, {kSlotCompMakeup, 6.}, {U(uPunchAttack), 20.},
     {U(uPunchRatio), 6.}, {U(uCompMix), 50.}}},
 };
 inline const Preset butterComp[]{
-  {"Subtle glue", {{U(uButterCompress), 20.}, {U(uButterOutput), 0.}}},
-  {"Dense and even", {{U(uButterCompress), 55.}, {U(uButterOutput), -2.}}},
-  {"Thick parallel", {{U(uButterCompress), 60.}, {U(uButterOutput), -2.}, {U(uButterMix), 50.}}},
+  // ButterComp2 is gentle at guitar levels: 100% lowers typical notes after an amp by about 2.5 dB.
+  {"Subtle glue", {{U(uButterCompress), 70.}, {U(uButterOutput), 0.}}},
+  {"Dense and even", {{U(uButterCompress), 100.}, {U(uButterOutput), 0.}}},
+  {"Thick parallel", {{U(uButterCompress), 100.}, {U(uButterOutput), 0.}, {U(uButterMix), 50.}}},
 };
 inline const Preset limiter[]{
   {"Transparent safety", {{U(uLimiterCeiling), -.5}, {U(uLimiterRelease), 150.}}},

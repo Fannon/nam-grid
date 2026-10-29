@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Performance
+
+- Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
+
 ### Added
 
 - Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. After a mono capture, a stereo IR spreads the signal into left and right for stereo room and reverb responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.

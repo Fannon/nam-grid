@@ -386,6 +386,72 @@ void TestModulationMatrix()
     for (int i = 0; i < 10; ++i) run(shot, quiet);
     assert(shot.Value(SourceLFO, v) == -1.);
   }
+  // Song position: while the host plays, the LFO and sequencer follow its beat position.
+  {
+    const double rate = 48000.;
+    double tempo = 120.;
+    auto v = Defaults();
+    v[LFOSync] = v[StepSync] = 1.;
+    v[LFODivision] = 7.; // 1/2 note: two beats per cycle
+    v[StepDivision] = 3.; // 1/8 note: half a beat per step
+    v[LFORetrigger] = v[StepRetrigger] = RetriggerSong;
+    const std::vector<double> quiet(16, 0.);
+    // The held values come from the last frame of each 16-frame quantum.
+    const auto advance = [&](Modulation& m, double& beats, bool playing = true) {
+      m.Advance(quiet.data(), nullptr, 16, v, tempo, nullptr, 0, nullptr, nullptr, {playing, beats});
+      const double last = beats + 15. * tempo / (60. * rate);
+      beats += 16. * tempo / (60. * rate);
+      return last;
+    };
+    const auto expectAt = [&](const Modulation& m, double beats) {
+      const double lfo = beats / 2., steps = beats * 2.;
+      assert(std::abs(m.Read().phase - (lfo - std::floor(lfo))) < 1.e-6);
+      assert(m.Read().step == static_cast<int>(std::floor(steps) - 8. * std::floor(std::floor(steps) / 8.)));
+    };
+    Modulation song; song.Reset(rate);
+    double beats = 3.25; // Mid-bar start: phase 0.625, step 6
+    expectAt(song, advance(song, beats));
+    tempo = 90.; // Tempo changes keep following the beat position.
+    for (int i = 0; i < 100; ++i) expectAt(song, advance(song, beats));
+    beats = 0.; // Loop back to the song start.
+    expectAt(song, advance(song, beats));
+    beats = -1.75; // Count-in before beat 0: phase 0.125, step 4
+    expectAt(song, advance(song, beats));
+    // Stopped, the source runs free from where it was instead of jumping.
+    tempo = 120.;
+    const double before = song.Read().phase;
+    advance(song, beats, false);
+    assert(std::abs(song.Read().phase - (before + 16. / (rate * grid_tempo::Seconds(tempo, 7)))) < 1.e-6); // float monitor
+    // Every playback from the same position gives the same values, whatever ran before,
+    // including Random, which repeats per song cycle.
+    v[LFOShape] = 5.;
+    Modulation fresh, used; fresh.Reset(rate); used.Reset(rate);
+    double unused = 0.;
+    for (int i = 0; i < 997; ++i) advance(used, unused, false); // free-running history
+    double a = 1., b = 1.;
+    for (int i = 0; i < 3000; ++i)
+    {
+      advance(fresh, a); advance(used, b);
+      assert(fresh.Value(SourceLFO, v) == used.Value(SourceLFO, v));
+      assert(fresh.Value(SourceSequencer, v) == used.Value(SourceSequencer, v));
+    }
+    // An unsynced rate locks too: 1 Hz at 120 BPM is half a cycle per beat.
+    v[LFOShape] = 2.; v[LFOSync] = 0.; v[LFORate] = 1.;
+    Modulation hz; hz.Reset(rate);
+    beats = 5.5;
+    const double at = advance(hz, beats);
+    assert(std::abs(hz.Read().phase - (at * .5 - std::floor(at * .5))) < 1.e-6);
+    // Free running ignores the transport.
+    v[LFORetrigger] = v[StepRetrigger] = RetriggerFree;
+    Modulation plain, transported; plain.Reset(rate); transported.Reset(rate);
+    beats = 17.3;
+    for (int i = 0; i < 50; ++i)
+    {
+      advance(transported, beats);
+      plain.Advance(quiet.data(), nullptr, 16, v, tempo);
+      assert(plain.Read().phase == transported.Read().phase && plain.Read().step == transported.Read().step);
+    }
+  }
   // The follower can listen after any slot: the tap copies that slot's output. Lane A's
   // level applies after its slots, so a tap in lane A hears the signal before it.
   {

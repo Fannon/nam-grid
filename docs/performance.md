@@ -33,6 +33,8 @@ Double-click a macro's label on either page to rename it. Names are shared by bo
 
 **Retrigger** can restart the LFO or sequencer on an audio onset or incoming MIDI note. **One shot** plays one LFO cycle per trigger and then holds—useful for a fresh sweep on every note. MIDI notes trigger modulation; they do not change the guitar audio.
 
+**Song position** locks the LFO or sequencer to your DAW's playback position. Cycles count from the song's first beat, so a synced 1/2 sweep or step 1 lands in the same place on every playback, after tempo changes and when a loop jumps back. Random repeats the same values at the same song position. When playback stops, the source keeps running from where it was; it locks again when playback starts. One shot has no effect in this mode. It needs a host that reports its beat position, as DAWs do.
+
 ### Matrix
 
 Each of the eight rows has a **source**, **destination**, **depth**, and optional **Via** control. Via scales the assignment from another source—for example, let a macro control how much LFO reaches chorus Depth.

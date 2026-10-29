@@ -2,6 +2,8 @@
 #include "EffectParameters.h"
 #include "TempoSync.h"
 #include <atomic>
+#include <cmath>
+#include <limits>
 #include <cstdint>
 #include <string>
 
@@ -137,9 +139,16 @@ enum Retrigger
   RetriggerFree = 0,
   RetriggerOnset,
   RetriggerMidi,
+  RetriggerSong, // Follows the host's beat position while it plays.
   RetriggerModes
 };
-inline constexpr std::array<const char*, RetriggerModes> retriggerNames{"Free running", "Audio onset", "MIDI note"};
+inline constexpr std::array<const char*, RetriggerModes> retriggerNames{"Free running", "Audio onset", "MIDI note", "Song position"};
+// Host playback position at the start of an Advance span, in quarter-note beats.
+struct Transport
+{
+  bool playing = false;
+  double beats = 0.;
+};
 // The follower's threshold control turns off at its minimum.
 inline constexpr double kThresholdOff = -90.;
 inline constexpr std::array<EffectParameter, Count> parameters{{
@@ -310,7 +319,7 @@ public:
     while (1.5 * mQuantumFrames < rate / 3000.) mQuantumFrames *= 2;
     mUntilHold = mQuantumFrames;
     mRandom = mHeldRandom = 0.; mSeed = 0x2545F491u ^ (mInstance ? 0x9E3779B9u : 0u);
-    mFast = mSlow = 0.; mArmed = true; mHoldoff = 0; mFinished = true;
+    mFast = mSlow = 0.; mArmed = true; mHoldoff = 0; mFinished = true; mSongCycle = std::numeric_limits<double>::quiet_NaN();
     mMonitorRunning.store(false, std::memory_order_relaxed);
   }
   int Quantum() const { return mUntilHold; }
@@ -331,7 +340,7 @@ public:
   // `l`/`r` is the follower's listening point. `notes` are this span's MIDI note-on
   // frames in order; each retriggers on its frame.
   void Advance(const double* l, const double* r, int n, const Values& v, double tempo, const int* notes = nullptr,
-               int noteCount = 0)
+               int noteCount = 0, Transport transport = {})
   {
     const double lfo = v[SourceParam(LFOSync, mInstance)] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[SourceParam(LFODivision, mInstance)])) : v[SourceParam(LFORate, mInstance)];
     const double steps = v[SourceParam(StepSync, mInstance)] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[SourceParam(StepDivision, mInstance)])) : v[SourceParam(StepRate, mInstance)];
@@ -344,6 +353,14 @@ public:
     const double fastAttack = std::exp(-1. / (.0005 * mRate)), fastRelease = std::exp(-1. / (.03 * mRate));
     const double slow = std::exp(-1. / (.04 * mRate));
     const double floor = v[SourceParam(EnvThreshold, mInstance)] <= kThresholdOff ? .00316 : std::pow(10., v[SourceParam(EnvThreshold, mInstance)] * .05);
+    // Song position: while the host plays, the phase follows its beat position, so cycles
+    // line up with beat 0 (and the bars) on every playback, through tempo changes and loops.
+    // Stopped, the source runs free from where it was.
+    const bool lfoSong = lfoRetrigger == RetriggerSong && transport.playing;
+    const bool stepSong = stepRetrigger == RetriggerSong && transport.playing;
+    const double beatsPerSample = tempo / (60. * mRate);
+    const double lfoPerBeat = lfo * 60. / tempo, stepsPerBeat = steps * 60. / tempo;
+    if (!lfoSong) mSongCycle = std::numeric_limits<double>::quiet_NaN(); // Re-derive Random on the next playback.
     int nextNote = 0;
     for (int i = 0; i < n; ++i)
     {
@@ -371,7 +388,15 @@ public:
       {
         mStep = 0; mStepPhase = 0.;
       }
-      if (oneShot)
+      const double beats = transport.beats + i * beatsPerSample;
+      if (lfoSong)
+      {
+        // One Shot has no trigger to wait for here. Random repeats per song cycle.
+        const double position = beats * lfoPerBeat, cycle = std::floor(position);
+        if (cycle != mSongCycle) { mSongCycle = cycle; mRandom = SongRandom(cycle); }
+        mPhase = position - cycle;
+      }
+      else if (oneShot)
       {
         // One cycle per trigger, then hold the cycle's end.
         if (mFinished) mPhase = 1.;
@@ -383,8 +408,17 @@ public:
         if (phase >= 1.) NextRandom();
         mPhase = std::fmod(phase, 1.);
       }
-      mStepPhase += steps / mRate;
-      if (mStepPhase >= 1.) { mStepPhase -= 1.; mStep = (mStep + 1) % 8; }
+      if (stepSong)
+      {
+        const double position = beats * stepsPerBeat, index = std::floor(position);
+        mStepPhase = position - index;
+        mStep = static_cast<int>(index - 8. * std::floor(index / 8.));
+      }
+      else
+      {
+        mStepPhase += steps / mRate;
+        if (mStepPhase >= 1.) { mStepPhase -= 1.; mStep = (mStep + 1) % 8; }
+      }
       if (--mUntilHold == 0)
       {
         mUntilHold = mQuantumFrames;
@@ -426,6 +460,16 @@ public:
     }
   }
 private:
+  // The same held value for a song cycle on every playback (splitmix64 of the cycle index).
+  double SongRandom(double cycle) const
+  {
+    uint64_t x = static_cast<uint64_t>(static_cast<int64_t>(cycle)) + (mInstance ? 0x632BE59BD9B4E019ull : 0ull);
+    x += 0x9E3779B97F4A7C15ull;
+    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ull;
+    x = (x ^ (x >> 27)) * 0x94D049BB133111EBull;
+    x ^= x >> 31;
+    return static_cast<double>(x >> 11) * (2. / 9007199254740991.) - 1.;
+  }
   void NextRandom()
   {
     // xorshift32: a new held value per Random cycle, without allocation or locks.
@@ -437,7 +481,7 @@ private:
   int mStep = 0;
   double mHeldPhase = 0., mHeldEnvelope = 0., mHeldInput = 0.;
   int mHeldStep = 0;
-  double mRandom = 0., mHeldRandom = 0.;
+  double mRandom = 0., mHeldRandom = 0., mSongCycle = std::numeric_limits<double>::quiet_NaN();
   uint32_t mSeed = 0x2545F491u;
   double mFast = 0., mSlow = 0.;
   bool mArmed = true, mFinished = true;
@@ -473,10 +517,11 @@ public:
   { return SourceBank::ShapeEnvelope(level, v, instance); }
   // Optional second listening point defaults to the first for standalone DSP callers.
   void Advance(const double* l, const double* r, int n, const Values& v, double tempo,
-               const int* notes = nullptr, int noteCount = 0, const double* secondL = nullptr, const double* secondR = nullptr)
+               const int* notes = nullptr, int noteCount = 0, const double* secondL = nullptr, const double* secondR = nullptr,
+               Transport transport = {})
   {
-    mBanks[0].Advance(l, r, n, v, tempo, notes, noteCount);
-    mBanks[1].Advance(secondL ? secondL : l, secondL ? secondR : r, n, v, tempo, notes, noteCount);
+    mBanks[0].Advance(l, r, n, v, tempo, notes, noteCount, transport);
+    mBanks[1].Advance(secondL ? secondL : l, secondL ? secondR : r, n, v, tempo, notes, noteCount, transport);
   }
   void Idle() { for (auto& bank : mBanks) bank.Idle(); }
   Monitor Read() const { return {mBanks[0].Read(), mBanks[1].Read()}; }

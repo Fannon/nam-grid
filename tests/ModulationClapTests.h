@@ -26,7 +26,9 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     [](const clap_input_events* e, uint32_t i) -> const clap_event_header* {
       return &(*static_cast<std::vector<clap_event_note>*>(e->ctx))[i].header; }};
   // Uneven host blocks by default: the control clock (16 samples at 48 kHz) must not depend on them.
-  const auto render = [&](std::vector<int> noteFrames = {}, std::vector<int> sizes = {512, 127, 1, 256}) {
+  // With startBeat >= 0 the host plays at 120 BPM from that beat position.
+  clap_event_transport transport{};
+  const auto render = [&](std::vector<int> noteFrames = {}, std::vector<int> sizes = {512, 127, 1, 256}, double startBeat = -1.) {
     std::vector<double> result;
     assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
     constexpr int total = 12 * (512 + 127 + 1 + 256);
@@ -41,6 +43,13 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
           blockNotes.push_back(note);
         }
       process.in_events = blockNotes.empty() ? &empty : &notes;
+      if (startBeat >= 0.)
+      {
+        transport.flags = CLAP_TRANSPORT_IS_PLAYING | CLAP_TRANSPORT_HAS_TEMPO | CLAP_TRANSPORT_HAS_BEATS_TIMELINE;
+        transport.tempo = 120.;
+        transport.song_pos_beats = std::llround((startBeat + position * 2. / 48000.) * CLAP_BEATTIME_FACTOR);
+        process.transport = &transport;
+      }
       for (uint32_t i = 0; i < process.frames_count; ++i)
       { l[i] = .2 * std::sin((position + i) * .031); r[i] = .15 * std::sin((position + i) * .017); }
       assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
@@ -49,6 +58,7 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     }
     plugin->stop_processing(plugin); plugin->deactivate(plugin);
     process.in_events = &empty;
+    process.transport = nullptr;
     return result;
   };
   const auto difference = [](const std::vector<double>& a, const std::vector<double>& b) {
@@ -105,7 +115,7 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
       assert(!loadRaw(bad) && save().config() == configured);
     }
     const std::pair<const char*, double> invalidValues[]{{"LFO 2 Shape", .5}, {"Envelope 2 Listen At", 17.},
-                                                            {"Sequencer 2 Retrigger", 3.}};
+                                                            {"Sequencer 2 Retrigger", 4.}};
     for (const auto& [name, value] : invalidValues)
     {
       auto bad = configured; bad[name] = value;
@@ -267,6 +277,21 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
     const auto both = render({0, 256}, {512});
     assert(difference(both, render({0}, {512})) > 1.e-3);
     assert(difference(both, render({0, 256}, {256})) < 1.e-12 && difference(both, render({0, 256}, {37, 500})) < 1.e-12);
+  }
+  // Song position: the plugin passes the host's beat position, so a playback sounds the
+  // same from any position a whole number of cycles apart, whatever the host block size.
+  {
+    auto config = cleared;
+    config["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
+    config["LFO Shape"] = 2.; config["LFO Sync"] = 1.; config["LFO Division"] = 7.; // 1/2 note: two beats
+    config["LFO Retrigger"] = RetriggerSong;
+    config[row(0, RowSource)] = SourceLFO; config[row(0, RowSlot)] = 0.;
+    config[row(0, RowDestination)] = parameter_layout::standardControls + uUtilityLevel; config[row(0, RowDepth)] = -40.;
+    load(config);
+    const auto zero = render({}, {512, 127, 1, 256}, 0.);
+    assert(difference(zero, render({}, {512, 127, 1, 256}, 4.)) < 1.e-9);
+    assert(difference(zero, render({}, {64}, 0.)) < 1.e-9);
+    assert(difference(zero, render({}, {512, 127, 1, 256}, 1.)) > 1.e-3);
   }
   // Selectors are integer state, never host automation; Depth remains automatable.
   {

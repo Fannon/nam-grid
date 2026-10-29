@@ -289,11 +289,16 @@ build targets.
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
 | `tuner` | Tuner detection, mute and automation through CLAP |
 | `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |
+| `docs-controls` | Module control tables against compiled ranges, units and insertion defaults, including the plugin's display rounding |
 | `vst3-parameter-contract` | Windows only: the built VST3 controller's IDs, class ID, automation flags and normalization |
 | `editor-host` | Windows only: CLAP and VST3 native editor bounds at the active monitor scale, decimal/negative value entry, Escape cancellation, tooltips and editor reopening |
 
 The Python unit tests cover the on-demand report and audit scripts and check that
 every in-repo Markdown heading link resolves on both GitHub and the VitePress site.
+They also exercise the module-table parser with deliberately wrong ranges,
+defaults, units and missing rows. `docs-controls` obtains fresh metadata from
+`nam-parameter-contract`; it never reads or rewrites the compatibility fixture.
+Module-guide changes run the build workflow too, so table-only edits receive this check.
 See the [compatibility contract](development.md#parameter-and-project-compatibility)
 before changing controls, modules or saved state.
 

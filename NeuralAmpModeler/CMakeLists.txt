@@ -1,5 +1,6 @@
 include(${IPLUG2_DIR}/iPlug2.cmake)
 find_package(Threads REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(NAM_IR_SOURCES AdaptiveIR.cpp
   third_party/fftconvolver/FFTConvolver.cpp third_party/fftconvolver/AudioFFT.cpp
   third_party/fftconvolver/Utilities.cpp)
@@ -294,6 +295,9 @@ if(TARGET nam-grid-clap)
   add_test(NAME parameter-contract COMMAND nam-parameter-contract "$<TARGET_FILE:nam-grid-clap>"
     "${CMAKE_SOURCE_DIR}/tests/fixtures/parameter-contract-v1.json")
   set_tests_properties(parameter-contract PROPERTIES TIMEOUT 180 RUN_SERIAL TRUE)
+  add_test(NAME docs-controls COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/check-module-docs.py"
+    --host "$<TARGET_FILE:nam-parameter-contract>" --plugin "$<TARGET_FILE:nam-grid-clap>")
+  set_tests_properties(docs-controls PROPERTIES TIMEOUT 60)
   if(TARGET nam-vst3-parameter-contract)
     add_test(NAME vst3-parameter-contract COMMAND nam-vst3-parameter-contract "$<TARGET_FILE:nam-grid-vst3>"
       "${CMAKE_SOURCE_DIR}/tests/fixtures/parameter-contract-v1.json")

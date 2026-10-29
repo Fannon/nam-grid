@@ -27,42 +27,72 @@ using parameter_layout::kSlotCompThreshold;
 using parameter_layout::kSlotCompRelease;
 using parameter_layout::kSlotCompMakeup;
 
-// Pickup stays as the player set it unless a preset is for a particular instrument.
+// Settings follow published pedal-manual starting points and professional plugin factory
+// presets, translated to these controls; Pedal Comp's Sustain range is calibrated against a
+// Ross-type pedal. Names describe the result. Pickup stays as the player set it unless a
+// preset is for a particular instrument.
 inline const Preset pedalComp[]{
-  {"Studio smooth", {{U(uPedalCompSustain), 35.}, {U(uPedalCompAttack), 1.}}},
-  {"Country squash", {{U(uPedalCompSustain), 70.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompTone), 2.}}},
-  {"Funk rhythm",
-   {{U(uPedalCompSustain), 50.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompTone), 1.5}, {U(uPedalCompBlend), 85.}}},
-  {"Parallel sustain",
-   {{U(uPedalCompSustain), 85.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompTone), 1.}, {U(uPedalCompBlend), 55.}}},
-  {"Lead sustain", {{U(uPedalCompSustain), 75.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompLevel), 2.}}},
-  {"Acoustic strum",
-   {{U(uPedalCompPickup), 2.}, {U(uPedalCompSustain), 45.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompTone), -1.5},
-    {U(uPedalCompBlend), 75.}}},
-  {"Acoustic fingerstyle",
-   {{U(uPedalCompPickup), 2.}, {U(uPedalCompSustain), 30.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompBlend), 60.}}},
+  {"Light always-on",
+   {{U(uPedalCompSustain), 30.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompFocus), 20.}, {U(uPedalCompBlend), 50.}}},
+  {"Snappy clean picking",
+   {{U(uPedalCompSustain), 60.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompFocus), -30.}, {U(uPedalCompBlend), 100.}}},
+  {"Even sustain, some dry",
+   {{U(uPedalCompSustain), 60.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompBlend), 70.}}},
+  {"Heavy squash, natural attack",
+   {{U(uPedalCompSustain), 70.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompBlend), 40.}}},
+  {"Gentle leveling",
+   {{U(uPedalCompSustain), 25.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompBlend), 100.}}},
+  {"Long lead notes",
+   {{U(uPedalCompSustain), 75.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), -20.}, {U(uPedalCompBlend), 60.}}},
+  {"Acoustic strumming",
+   {{U(uPedalCompPickup), 2.}, {U(uPedalCompSustain), 35.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), 30.},
+    {U(uPedalCompBlend), 85.}}},
+  {"Acoustic fingerpicking",
+   {{U(uPedalCompPickup), 2.}, {U(uPedalCompSustain), 25.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), 15.},
+    {U(uPedalCompBlend), 70.}}},
 };
+// Thresholds assume typical notes near -18 dBFS on these peak detectors (a DAW peak meter
+// around -9 dBFS); each preset lowers a typical note by roughly 1-5 dB.
 inline const Preset smoothComp[]{
-  {"Clean sustain",
-   {{kSlotCompThreshold, -30.}, {kSlotCompRelease, 250.}, {kSlotCompMakeup, 6.}, {U(uCompAttack), 8.},
-    {U(uSmoothRatio), 3.}}},
-  {"Acoustic leveler",
-   {{kSlotCompThreshold, -26.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 4.}, {U(uCompAttack), 15.},
-    {U(uCompDetectorCut), 150.}}},
-  {"Bass leveler",
-   {{kSlotCompThreshold, -24.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 4.}, {U(uCompAttack), 15.},
+  {"Clean guitar leveling",
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 150.}, {kSlotCompMakeup, 3.}, {U(uCompAttack), 8.},
+    {U(uSmoothRatio), 3.5}}},
+  {"Barely there",
+   {{kSlotCompThreshold, -16.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 1.}, {U(uCompAttack), 30.},
+    {U(uSmoothRatio), 1.5}}},
+  {"Long gentle sustain",
+   {{kSlotCompThreshold, -30.}, {kSlotCompRelease, 150.}, {kSlotCompMakeup, 4.}, {U(uCompAttack), 30.},
+    {U(uSmoothRatio), 1.6}}},
+  {"Acoustic strumming leveler",
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 120.}, {kSlotCompMakeup, 3.}, {U(uCompAttack), 25.},
+    {U(uSmoothRatio), 3.}, {U(uCompDetectorCut), 120.}}},
+  {"Even bass notes",
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 3.}, {U(uCompAttack), 15.},
     {U(uSmoothRatio), 4.}}},
 };
 inline const Preset punchComp[]{
+  {"Tight picking",
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 3.}, {U(uPunchAttack), 2.},
+    {U(uPunchRatio), 3.6}, {U(uCompMix), 100.}}},
+  {"Upfront, keeps dynamics",
+   {{kSlotCompThreshold, -16.}, {kSlotCompRelease, 350.}, {kSlotCompMakeup, 4.}, {U(uPunchAttack), 10.},
+    {U(uCompMix), 80.}}},
+  {"Firm control after an amp",
+   {{kSlotCompThreshold, -14.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 3.}, {U(uPunchAttack), .5},
+    {U(uPunchRatio), 10.}, {U(uCompMix), 100.}}},
   {"Parallel punch",
-   {{kSlotCompThreshold, -30.}, {kSlotCompRelease, 100.}, {kSlotCompMakeup, 6.}, {U(uPunchAttack), 25.},
+   {{kSlotCompThreshold, -28.}, {kSlotCompRelease, 100.}, {kSlotCompMakeup, 6.}, {U(uPunchAttack), 20.},
     {U(uPunchRatio), 6.}, {U(uCompMix), 50.}}},
-  {"Funk snap",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 80.}, {kSlotCompMakeup, 4.}, {U(uPunchAttack), 12.},
-    {U(uCompMix), 100.}}},
-  {"Lead sustain",
-   {{kSlotCompThreshold, -32.}, {kSlotCompRelease, 300.}, {kSlotCompMakeup, 8.}, {U(uPunchAttack), 20.},
-    {U(uPunchRatio), 8.}, {U(uCompMix), 70.}}},
+};
+inline const Preset butterComp[]{
+  {"Subtle glue", {{U(uButterCompress), 20.}, {U(uButterOutput), 0.}}},
+  {"Dense and even", {{U(uButterCompress), 55.}, {U(uButterOutput), -2.}}},
+  {"Thick parallel", {{U(uButterCompress), 60.}, {U(uButterOutput), -2.}, {U(uButterMix), 50.}}},
+};
+inline const Preset limiter[]{
+  {"Transparent safety", {{U(uLimiterCeiling), -.5}, {U(uLimiterRelease), 150.}}},
+  {"Louder, controlled",
+   {{U(uLimiterInput), 6.}, {U(uLimiterCeiling), -1.}, {U(uLimiterRelease), 100.}, {U(uLimiterClip), 30.}}},
 };
 inline const Preset digitalDelay[]{
   {"Slapback",
@@ -83,6 +113,8 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::PedalComp: return pedalComp;
     case SlotEffect::SmoothComp: return smoothComp;
     case SlotEffect::PunchComp: return punchComp;
+    case SlotEffect::ButterComp: return butterComp;
+    case SlotEffect::Limiter: return limiter;
     case SlotEffect::DigitalDelay: return digitalDelay;
     default: return {};
   }

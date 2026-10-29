@@ -1,11 +1,11 @@
 #pragma once
 #include "SlotDynamics.h"
-#include "SlotEQ.h"
 #include "SlotTimeEffects.h"
 
 // Pedal Comp: an original NAM Grid guitar compressor. It takes the musical ideas shared by
 // sustain pedals (one Sustain knob with automatic level, a fast or slow attack, a release
-// that follows the playing, a treble Tone and a dry Blend) without modelling any circuit.
+// that follows the playing and a dry Blend) without modelling any circuit. Body / Pick tilts
+// what the detector hears, which no EQ before or after the module can do.
 // Feed-forward with a linked stereo detector: zero latency, no lookahead, no waveshaping.
 namespace grid_pedal_comp
 {
@@ -20,21 +20,27 @@ inline constexpr Voice voices[]{
   {0., 10., 70., 0., 0.},     // Humbucker: the reference level.
   {5., 12., 150., 1., 5000.}, // Acoustic: averaged level, body boom and piezo quack ignored.
 };
-// Typical detected playing peak for the reference pickup, in dBFS. Automatic makeup
-// returns a note at this level to its dry loudness, so bypass comparisons stay fair.
-inline constexpr double nominal = -18.;
+// Typical detected note level for the reference pickup, in dBFS: about what a DAW peak
+// meter shows as -9 dBFS on normal playing. Automatic makeup keeps such notes at bypass
+// loudness. It reads the curve 2.5 dB higher because, on recorded playing, the releases
+// hold some reduction between peaks; measured on a DI performance, typical notes then
+// stay within about 0.5 dB of bypass at every Sustain and Attack setting.
+inline constexpr double nominal = -18., makeupLift = 2.5;
 inline constexpr double maximumMakeup = 24.;
 struct Curve
 {
   double threshold, ratio, knee, makeup;
 };
-// Sustain lowers the threshold and raises the ratio together: 0% only touches hard
-// peaks (1.5:1), 50% levels normal playing by about 6 dB, 100% squashes (10:1).
+// Sustain lowers the threshold and raises the ratio together. The range follows a
+// Ross-type pedal's Sustain knob, measured from its recorded guitar DI and output: on
+// played notes 0% barely touches the loudest peaks, 50% lowers notes 6 dB above a
+// typical one by about 4 dB more than quiet ones, and 100% by about 7 dB.
 inline Curve CurveFor(double sustainPercent, double knee)
 {
   const double s = std::clamp(sustainPercent * .01, 0., 1.);
-  Curve curve{nominal + 6. - 30. * s, 1.5 + 8.5 * s * s, knee, 0.};
-  curve.makeup = std::min(maximumMakeup, SlotDynamics::CompressionDB(nominal, curve.threshold, curve.ratio, knee));
+  Curve curve{nominal + 1.7 - 15.7 * std::pow(s, .4), 1.6 + 6.4 * s, knee, 0.};
+  curve.makeup =
+    std::min(maximumMakeup, SlotDynamics::CompressionDB(nominal + makeupLift, curve.threshold, curve.ratio, knee));
   return curve;
 }
 // Settled steady-tone response (detected peak in, dB out) before Blend, Tone and Level.
@@ -51,11 +57,14 @@ class SlotPedalComp
 {
 public:
   static constexpr double fastAttackMS = 1.5, slowAttackMS = 20.;
-  static constexpr double fastReleaseMS = 70., slowReleaseMS = 120.;
+  static constexpr double fastReleaseMS = 150., slowReleaseMS = 250.;
   // Program-dependent release: a second state charges slowly toward part of the
   // reduction and lets go slowly. Short peaks recover quickly; held notes ease back.
-  static constexpr double memoryShare = .6, memoryChargeMS = 300., memoryReleaseMS = 1000.;
+  static constexpr double memoryShare = .4, memoryChargeMS = 300., memoryReleaseMS = 800.;
   static constexpr double peakReleaseMS = 20., rmsWindowMS = 15.;
+  // Body / Pick: a first-order tilt in the detector around the pivot, up to this many dB
+  // in each direction. Body hears note fundamentals, Pick hears the bright attack.
+  static constexpr double focusPivotHz = 500., focusRangeDB = 6.;
 
   void Reset(double rate)
   {
@@ -73,12 +82,11 @@ public:
     mVoiceSmoothing = coefficient(20.);
     mMakeupSmoothing = coefficient(5.);
     for (auto& channel : mChannels) channel = {};
-    for (auto& filter : mTone) filter.Reset();
+    mPivot = std::exp(-2. * grid_fx::pi * focusPivotHz / mRate);
     mPeak = mPower = mFast = mMemory = 0.;
+    mFocusLow = mFocusHigh = 1.;
     mPickup = -1;
     mCounter = 0;
-    mToneDB = 0.;
-    mToneActive = false; // Recompute the shelf for this rate.
     mFirst = true;
     mMaxReduction = 0.;
   }
@@ -109,7 +117,9 @@ public:
       if (mCounter == 0)
       {
         mCurve = CurveFor(v[0], mVoice.knee);
-        UpdateTone(v[2]);
+        // Positive leans the detector toward Pick, negative toward Body.
+        mFocusHigh = std::pow(10., v[2] * .01 * focusRangeDB / 20.);
+        mFocusLow = 1. / mFocusHigh;
       }
       mCounter = (mCounter + 1) % 16;
       if (mFirst)
@@ -136,13 +146,8 @@ public:
       mMakeup = Approach(mMakeup, mCurve.makeup, mMakeupSmoothing);
       const double gain = mGain((mMakeup - reduction) * .05, [](double x) { return std::pow(10., x); });
       const double blend = v[3] * .01;
-      double outL = blend == 0. ? dryL : dryL + blend * (dryL * gain - dryL);
-      double outR = blend == 0. ? dryR : dryR + blend * (dryR * gain - dryR);
-      if (mToneActive)
-      {
-        outL = mTone[0].Tick(outL);
-        if (right) outR = mTone[1].Tick(outR);
-      }
+      const double outL = blend == 0. ? dryL : dryL + blend * (dryL * gain - dryL);
+      const double outR = blend == 0. ? dryR : dryR + blend * (dryR * gain - dryR);
       const double level = mLevel(v[4] * .05, [](double x) { return std::pow(10., x); });
       left[i] = outL * level;
       if (right) right[i] = outR * level;
@@ -154,10 +159,11 @@ public:
 private:
   struct Channel
   {
-    double x1 = 0., y1 = 0., x2 = 0., y2 = 0., low = 0.;
+    double x1 = 0., y1 = 0., x2 = 0., y2 = 0., low = 0., body = 0.;
   };
   // Two one-pole high-passes (12 dB/octave) keep low strings and body boom from pumping
-  // the reduction; Acoustic adds a one-pole low-pass above the piezo quack.
+  // the reduction; Acoustic adds a one-pole low-pass above the piezo quack. The Body / Pick
+  // tilt splits the result at the pivot and weights the two complementary bands.
   double Detect(Channel& s, double x) const
   {
     s.y1 = grid_fx::Flush(mLowCut * (s.y1 + x - s.x1));
@@ -165,22 +171,8 @@ private:
     s.y2 = grid_fx::Flush(mLowCut * (s.y2 + s.y1 - s.x2));
     s.x2 = s.y1;
     s.low = grid_fx::Flush(s.y2 + mHighCut * (s.low - s.y2));
-    return s.low;
-  }
-  void UpdateTone(double toneDB)
-  {
-    // A high shelf at 2.5 kHz after Blend: no phase difference between dry and compressed.
-    if (std::abs(toneDB) < 1.e-3)
-    {
-      if (mToneActive) for (auto& filter : mTone) filter.Reset();
-      mToneActive = false;
-      return;
-    }
-    if (!mToneActive || toneDB != mToneDB)
-      for (auto& filter : mTone)
-        filter.SetParams(recursive_linear_filter::BiquadParams(mRate, 2500., .707, toneDB));
-    mToneDB = toneDB;
-    mToneActive = true;
+    s.body = grid_fx::Flush(s.low + mPivot * (s.body - s.low));
+    return mFocusLow * s.body + mFocusHigh * (s.low - s.body);
   }
   static double Approach(double value, double target, double coefficient)
   { return grid_fx::Flush(target + coefficient * (value - target)); }
@@ -188,14 +180,14 @@ private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::Memo mGain, mLevel;
   std::array<Channel, 2> mChannels{};
-  std::array<ScalarFilter<recursive_linear_filter::HighShelf>, 2> mTone;
   grid_pedal_comp::Voice mVoice = grid_pedal_comp::voices[0];
   grid_pedal_comp::Curve mCurve{};
   std::array<double, 2> mAttack{}, mRelease{};
   double mRate = 48000., mMemoryCharge = 0., mMemoryRelease = 0., mPeakRelease = 0., mRMS = 0.;
   double mVoiceSmoothing = 0., mMakeupSmoothing = 0., mLowCut = 0., mHighCut = 0.;
-  double mPeak = 0., mPower = 0., mFast = 0., mMemory = 0., mMakeup = 0., mToneDB = 0.;
+  double mPivot = 0., mFocusLow = 1., mFocusHigh = 1.;
+  double mPeak = 0., mPower = 0., mFast = 0., mMemory = 0., mMakeup = 0.;
   double mMaxReduction = 0.;
   int mPickup = -1, mCounter = 0;
-  bool mFirst = true, mToneActive = false;
+  bool mFirst = true;
 };

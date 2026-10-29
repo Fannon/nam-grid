@@ -1362,16 +1362,17 @@ int main(int argc, char** argv)
       comp["Pre 2 Boost Gain"] = 5.;
       load(comp); selectTile(170, 120);
       const int presetX = grid_layout::moduleBrowseX - 26 - 52;
-      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Country squash");
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Snappy clean picking");
       pumpFor(50);
       auto chosen = save().config();
-      assert(chosen["Pre 1 Pedal Comp Sustain"] == 70. && chosen["Pre 1 Pedal Comp Attack"] == 0.);
-      assert(chosen["Pre 1 Pedal Comp Tone"] == 2. && chosen["Pre 1 Pedal Comp Level"] == 0.);
+      assert(chosen["Pre 1 Pedal Comp Sustain"] == 60. && chosen["Pre 1 Pedal Comp Attack"] == 0.);
+      assert(chosen["Pre 1 Pedal Comp Focus"] == -30. && chosen["Pre 1 Pedal Comp Level"] == 0.);
+      assert(chosen["Pre 1 Pedal Comp Blend"] == 100.);
       assert(chosen["Pre 1 Pedal Comp Pickup"] == 1. && chosen["Pre 1 Enabled"] == 0. && chosen["Pre 2 Boost Gain"] == 5.);
-      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Acoustic strum");
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Acoustic strumming");
       pumpFor(50);
       chosen = save().config();
-      assert(chosen["Pre 1 Pedal Comp Pickup"] == 2. && chosen["Pre 1 Pedal Comp Blend"] == 75.);
+      assert(chosen["Pre 1 Pedal Comp Pickup"] == 2. && chosen["Pre 1 Pedal Comp Blend"] == 85.);
       if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "module-preset.bmp");
     }
     std::cout << "Native mode menus: every choice, checked selection, cancellation, unchanged selection, recall and two-choice toggles passed\n";

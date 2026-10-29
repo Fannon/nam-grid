@@ -8,11 +8,11 @@ struct Result
 {
   std::vector<double> left, right, reduction; // reduction: one value per block
 };
-inline UtilityControls Controls(double sustain, bool slow, int pickup, double tone = 0., double blend = 100.,
+inline UtilityControls Controls(double sustain, bool slow, int pickup, double focus = 0., double blend = 100.,
                                 double level = 0.)
 {
   UtilityControls c;
-  c.pedalComp = {sustain, slow ? 1. : 0., tone, blend, level};
+  c.pedalComp = {sustain, slow ? 1. : 0., focus, blend, level};
   c.pedalCompPickup = pickup;
   return c;
 }
@@ -84,22 +84,24 @@ void TestPedalComp()
         // The display's curve omits the detector filters: within 1 dB at 440 Hz.
         assert(std::abs(measured - grid_pedal_comp::OutputDB(input, sustain, pickup)) < 1.1);
       }
-  // Sustain at noon keeps a typical playing level at bypass loudness while compressing about
-  // 6 dB; quiet tails come up and loud peaks go down.
+  // Sustain at noon: a steady tone at the reference level is compressed by about 8 dB and,
+  // with makeup read 2.5 dB higher for played notes, ends up about 2 dB above bypass. Quiet
+  // tails come up and loud peaks go down.
   {
     const auto noon = Controls(50., true, humbucker);
-    assert(std::abs(Settled(rate, 440., grid_pedal_comp::nominal, noon) - grid_pedal_comp::nominal) < .5);
+    const double reference = Settled(rate, 440., grid_pedal_comp::nominal, noon) - grid_pedal_comp::nominal;
+    assert(reference > 1. && reference < 3.);
     const auto run = Run(rate, noon, Sine(rate, 440., grid_pedal_comp::nominal, 2.5));
-    assert(run.reduction.back() > 5. && run.reduction.back() < 8.);
+    assert(run.reduction.back() > 6.5 && run.reduction.back() < 9.5);
     const double quietGain = Settled(rate, 440., -40., noon) + 40.;
     const double loudGain = Settled(rate, 440., -6., noon) + 6.;
-    assert(quietGain > 5. && loudGain < -5.);
+    assert(quietGain > 8. && loudGain < -5.);
     // More Sustain evens out more: the spread between quiet and loud notes shrinks.
     const auto spread = [&](double sustain) {
       const auto c = Controls(sustain, true, humbucker);
       return Settled(rate, 440., -6., c) - Settled(rate, 440., -36., c);
     };
-    assert(spread(0.) > 25. && spread(50.) < spread(0.) - 8. && spread(100.) < spread(50.) - 5.);
+    assert(spread(0.) > 24. && spread(50.) < spread(0.) - 8. && spread(100.) < spread(50.) - 4.);
   }
   // Single coil is about 5 dB more sensitive than Humbucker.
   {
@@ -140,11 +142,11 @@ void TestPedalComp()
       const auto quiet = Sine(rate, 440., -60., 1.);
       input.insert(input.end(), quiet.begin(), quiet.end());
       const auto run = Run(rate, Controls(70., false, humbucker), input);
-      const size_t blocks = static_cast<size_t>((burstSeconds + .3) * rate / 48.);
+      const size_t blocks = static_cast<size_t>((burstSeconds + .6) * rate / 48.);
       return run.reduction[blocks];
     };
     const double shortPeak = after(.04), heldNote = after(2.);
-    assert(shortPeak < 3. && heldNote > shortPeak + 6.);
+    assert(shortPeak < 1.5 && heldNote > shortPeak + 2.5);
   }
   // Release times scale with the host rate.
   {
@@ -161,29 +163,43 @@ void TestPedalComp()
     const double reference = halfLife(44100.);
     for (double r : {48000., 96000., 192000.}) assert(std::abs(halfLife(r) / reference - 1.) < .05);
   }
-  // Blend 0% with Tone and Level at zero is exactly dry.
+  // Blend 0% with Level at zero is exactly dry, whatever Body / Pick says.
   {
     const auto input = Sine(rate, 440., -6., .5);
-    const auto run = Run(rate, Controls(100., false, singleCoil, 0., 0.), input);
+    const auto run = Run(rate, Controls(100., false, singleCoil, 100., 0.), input);
     assert(run.left == input);
   }
-  // Tone is a treble shelf on the whole output: +6 dB at 10 kHz, none at 100 Hz.
+  // Body / Pick changes what is compressed, never the tone: Pick compresses a bright tone more
+  // than a low one, Body the reverse, and the middle treats them about equally.
   {
-    const auto toneGain = [&](double hz) {
-      const auto c = Controls(0., true, humbucker, 6.);
-      return Settled(rate, hz, -40., c) + 40.;
+    const auto reduction = [&](double focus, double hz) {
+      return Run(rate, Controls(60., true, humbucker, focus), Sine(rate, hz, -12., 2.5)).reduction.back();
     };
-    assert(std::abs(toneGain(10000.) - 6.) < .7 && std::abs(toneGain(100.)) < .3);
+    assert(reduction(100., 3000.) > reduction(100., 200.) + 3.);
+    assert(reduction(-100., 200.) > reduction(-100., 3000.) + 3.);
+    assert(std::abs(reduction(0., 3000.) - reduction(0., 200.)) < 1.5);
+    // Below the threshold both extremes give identical output with one gain for every
+    // frequency: no EQ on the audio.
+    double gain = 0.;
+    for (double hz : {100., 3000., 10000.})
+    {
+      const auto input = Sine(rate, hz, -50., .3);
+      const auto body = Run(rate, Controls(0., true, humbucker, -100.), input).left;
+      assert(Run(rate, Controls(0., true, humbucker, 100.), input).left == body);
+      const double measured = Tail(body, rate) + 50.;
+      if (gain == 0.) gain = measured;
+      assert(std::abs(measured - gain) < .01);
+    }
   }
-  // A host rate change recomputes the Tone shelf: a reused processor equals a fresh one.
+  // A host rate change recomputes every rate-dependent coefficient: a reused processor equals a fresh one.
   {
-    const auto c = Controls(0., true, humbucker, 6.);
+    const auto c = Controls(60., true, humbucker, 100.);
     SlotPedalComp reused;
     reused.Reset(48000.);
-    auto warm = Sine(48000., 2000., -40., .2);
+    auto warm = Sine(48000., 2000., -12., .2);
     reused.Process(warm.data(), nullptr, static_cast<int>(warm.size()), c);
     reused.Reset(96000.);
-    auto input = Sine(96000., 2000., -40., .5);
+    auto input = Sine(96000., 2000., -12., .5);
     auto fresh = input;
     reused.Process(input.data(), nullptr, static_cast<int>(input.size()), c);
     SlotPedalComp reference;
@@ -200,8 +216,8 @@ void TestPedalComp()
     for (size_t i = 0; i < loud.size(); ++i)
       assert(std::abs(run.right[i] - .1 * run.left[i]) <= 1.e-12 * std::max(1., std::abs(run.left[i])));
     // A mono slot equals a stereo slot with identical channels.
-    const auto mono = Run(rate, Controls(80., false, humbucker, 2.), loud);
-    const auto twin = Run(rate, Controls(80., false, humbucker, 2.), loud, loud);
+    const auto mono = Run(rate, Controls(80., false, humbucker, 40.), loud);
+    const auto twin = Run(rate, Controls(80., false, humbucker, 40.), loud, loud);
     assert(mono.left == twin.left && twin.left == twin.right);
   }
   // Block-size independent, including single frames and odd sizes.
@@ -209,7 +225,7 @@ void TestPedalComp()
     std::vector<double> input(24000);
     for (size_t i = 0; i < input.size(); ++i)
       input[i] = (i < 12000 ? .5 : .02) * std::sin(.031 * i) + .05 * std::sin(.0021 * i);
-    const auto c = Controls(65., false, acoustic, 3., 70., -2.);
+    const auto c = Controls(65., false, acoustic, -50., 70., -2.);
     const auto reference = Run(rate, c, input, {}, 512).left;
     for (int block : {1, 3, 64, 127}) assert(Run(rate, c, input, {}, block).left == reference);
   }
@@ -219,7 +235,7 @@ void TestPedalComp()
     {
       std::vector<double> input(4800);
       for (size_t i = 0; i < input.size(); ++i) input[i] = (i % 2 ? 1000. : -1000.) * (i < 2400 ? 1. : 1.e-20);
-      const auto run = Run(rate, Controls(100., slow, pickup, 6., 50., 12.), input);
+      const auto run = Run(rate, Controls(100., slow, pickup, 100., 50., 12.), input);
       for (double x : run.left) assert(std::isfinite(x));
     }
   // Changing the pickup or the attack while playing is click-free: the gain moves smoothly.

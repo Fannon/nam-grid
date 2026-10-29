@@ -272,7 +272,7 @@ enum UtilityParam
   uDelayTimeChange = 256,
   uPedalCompSustain = 257,
   uPedalCompAttack = 258,
-  uPedalCompTone = 259,
+  uPedalCompFocus = 259,
   uPedalCompBlend = 260,
   uPedalCompLevel = 261,
   uPedalCompPickup = 262,
@@ -655,10 +655,10 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Swell Re-arm Hold", "Re-arm hold", 40, 0, 500, 1, "ms", 0, false, 1., 8},
    {"Swell Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 8},
    {"Delay Time Change", "Time change", 0, 0, 1, 1, "", 0, false, 1., 12},
-   {"Pedal Comp Sustain", "Sustain", 50, 0, 100, 0.1, "%", 0, false, 1., 13},
+   {"Pedal Comp Sustain", "Sustain", 40, 0, 100, 0.1, "%", 0, false, 1., 13},
    {"Pedal Comp Attack", "Attack", 1, 0, 1, 1, "", 1, false, 1., 13},
-   {"Pedal Comp Tone", "Tone", 0, -6, 6, 0.1, "dB", 2, false, 1., 13},
-   {"Pedal Comp Blend", "Blend", 100, 0, 100, 0.1, "%", 6, false, 1., 13},
+   {"Pedal Comp Focus", "Body / Pick", 0, -100, 100, 0.1, "%", 2, false, 1., 13},
+   {"Pedal Comp Blend", "Blend", 70, 0, 100, 0.1, "%", 6, false, 1., 13},
    {"Pedal Comp Level", "Level", 0, -12, 12, 0.1, "dB", 4, false, 1., 13},
    {"Pedal Comp Pickup", "Pickup", 0, 0, 2, 1, "", 0, false, 1., 13}}};
 static_assert([] {
@@ -785,7 +785,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uSwellHold: return e == SlotEffect::AutoSwell;
       case uSwellMix: return e == SlotEffect::AutoSwell;
       case uDelayTimeChange: return e == SlotEffect::DigitalDelay;
-      case uPedalCompSustain: case uPedalCompAttack: case uPedalCompTone:
+      case uPedalCompSustain: case uPedalCompAttack: case uPedalCompFocus:
       case uPedalCompBlend: case uPedalCompLevel: case uPedalCompPickup: return e == SlotEffect::PedalComp;
       default: return false;
     }
@@ -945,8 +945,8 @@ struct UtilityControls
   std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
-  // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Tone, Blend and Level, in ID order.
-  std::array<double, 5> pedalComp{50., 1., 0., 100., 0.};
+  // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Focus (Body -100 to Pick +100), Blend and Level, in ID order.
+  std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
   int pedalCompPickup = 0;
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;

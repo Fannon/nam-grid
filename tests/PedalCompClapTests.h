@@ -10,7 +10,7 @@ void TestPedalCompClap(const clap_plugin* plugin, const json& cleared, Save save
   rig["SlotEffects"][0] = static_cast<int>(SlotEffect::PedalComp);
   rig["Pre 1 Pedal Comp Sustain"] = 80.;
   rig["Pre 1 Pedal Comp Attack"] = 0.;
-  rig["Pre 1 Pedal Comp Tone"] = 1.5;
+  rig["Pre 1 Pedal Comp Focus"] = -40.;
   rig["Pre 1 Pedal Comp Blend"] = 70.;
   rig["Pre 1 Pedal Comp Level"] = -2.;
   rig["Pre 1 Pedal Comp Pickup"] = 2.;

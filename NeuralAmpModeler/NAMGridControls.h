@@ -315,7 +315,8 @@ public:
   void DrawIndicatorTrack(IGraphics& g, float angle, float cx, float cy, float radius) override
   {
     g.DrawArc(border, cx, cy, radius, -135.f, 135.f, &mBlend, 2.f);
-    const bool centered = parameter_layout::UtilityControl(GetParamIdx()) == uPedalCharacter;
+    const int control = parameter_layout::UtilityControl(GetParamIdx());
+    const bool centered = control == uPedalCharacter || control == uPedalCompFocus;
     g.DrawArc(muted, cx, cy, radius, centered ? std::min(0.f, angle) : -135.f,
               centered ? std::max(0.f, angle) : angle, &mBlend, 2.f);
     // Modulation ring: the reach of every row on this knob, plus a dot at the live value.
@@ -1801,7 +1802,7 @@ private:
         const float py = transfer.B - transfer.H() * static_cast<float>(std::clamp((response(inputDB) - floor) / (18. - floor), 0., 1.));
         g.FillCircle(text, px, py, 3.f);
       }
-      PlotDetail(g, plot, "Dot: live input on the settled curve; Tone is not shown. Gray: input; colour: output. Amber bar: gain reduction; red tip: beyond 16 dB.");
+      PlotDetail(g, plot, "Dot: live input on the settled curve for a mid-range tone; Body / Pick shifts it for low and bright notes. Gray: input; colour: output. Amber bar: gain reduction; red tip: beyond 16 dB.");
       PlotFooter(g, plot, "IN -60..0 / OUT -60..+18 | GR 0..16 dB", "Live 0..-60");
       levels(floor, history);
     }

@@ -220,7 +220,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSwellMix: return "Blend the swollen signal with dry guitar to retain some pick attack.";
     case uPedalCompSustain: return "How much the pedal evens out your playing. Level follows automatically, so typical notes stay about as loud as bypass while quiet notes and decaying tails come up.";
     case uPedalCompAttack: return "Fast clamps the pick for the classic squashed, snappy pedal sound. Slow lets about 20 ms of pick attack through before compressing, which sounds more natural.";
-    case uPedalCompTone: return "Treble shelf at 2.5 kHz after Blend. Raise it to restore sparkle that compression takes away; lower it to soften pick and piezo quack.";
+    case uPedalCompFocus: return "What the compressor reacts to; the tone itself stays unchanged. Toward Pick it smooths bright pick attacks and lets low notes bloom; toward Body it keeps the pick snap and evens out loud low strings. The middle is neutral.";
     case uPedalCompBlend: return "Mixes dry guitar back in. Lower settings keep the natural pick attack and dynamics, with compressed sustain underneath.";
     case uPedalCompLevel: return "Final level. Sustain already keeps typical notes near bypass loudness; use Level to match taste or drive the next module.";
     case uPedalCompPickup: return "What the detector expects, not a tone control. Single coil and Humbucker set sensitivity; Acoustic suits piezo and transducer pickups, following the note body rather than each pick spike and ignoring body boom.";

@@ -46,7 +46,8 @@ browser button. Choosing a factory preset sets that module's controls, through o
 parameter changes, so the module keeps running and the rest of the rig is unchanged. The
 button shows the preset's name until you move a control. Presets are starting points, not
 saved files: the rig or project stores the resulting control values. Module presets
-currently exist for Pedal Comp, Smooth Compressor, Punch Compressor and Digital Delay.
+currently exist for Pedal Comp, Smooth Compressor, Punch Compressor, Butter Comp, Peak
+Limiter and Digital Delay.
 
 Previous/next stays within the current effect category or capture/IR folder. Adding a module gives you useful electric-guitar [starting settings](modules/README.md#starting-settings), with acoustic and bass suggestions.
 

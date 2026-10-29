@@ -2569,7 +2569,7 @@ private:
     }
   }
   // Every built-in module can hold user presets; captures and IRs are files themselves.
-  static bool HasModulePresets(SlotEffect effect) { return effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR; }
+  static bool HasModulePresets(SlotEffect effect) { return module_presets::Supported(effect); }
   // Re-reads the user presets when the module changes, or always when forced (menu, save).
   void LoadUserPresets(bool force)
   {

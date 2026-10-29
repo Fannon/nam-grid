@@ -244,3 +244,14 @@ cmake --build build/windows/release --config Release --target nam-grid-clap nam-
 Output goes to the directory passed to the exporter; `tmp/` is gitignored.
 These renders are generated developer artifacts: they are not checked in or
 copied into release archives.
+
+Pass `factory` instead of `cosmic` to export every factory module recipe at its
+actual Mix and Output settings. It writes a full `.ngrid` and an eight-second
+synthetic-pluck WAV pair per recipe (quiet and 12 dB hotter input), plus `factory-measurements.csv` with input gain, peak,
+last-half-second tail RMS and single-render CPU timing at 48 kHz/128 frames.
+The filenames use module/catalog positions for this export only; they are not
+saved preset identities. The exporter isolates `NAM_GRID_HOME`, opens no audio
+device, and does not install the rendered rigs. These measurements screen for
+silence, non-finite output, excessive gain and runaway feedback. They do not
+establish subjective quality or loudness matching on real instruments. Freeze
+recipes leave Hold off, so their exported WAVs do not demonstrate a held layer.

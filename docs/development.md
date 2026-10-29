@@ -36,6 +36,13 @@ presets are not loaded and must be rebuilt. From 0.1.0 onward, these remain stab
 - **Saved state:** the `###nam-grid###` header and every named field of schema 1. Later
   schemas only add fields; older states load new controls with their declared defaults.
 
+Factory module presets are editable recipes, not persistent identities. Selecting
+one applies ordinary parameter values; projects, rig presets and user module
+presets save those values independently of the catalog. Never add a factory
+name/index lookup to state restore. Names and ordering in
+`ModuleFactoryPresets.h` may change; parameter/module/mode identities may not.
+Keep recipe edits separate from changes to insertion defaults or DSP behavior.
+
 ### Host parameter layout
 
 Host IDs are allocated in append-only segments in

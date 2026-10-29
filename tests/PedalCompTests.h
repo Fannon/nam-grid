@@ -364,7 +364,10 @@ void TestModulePresets()
         assert(ModuleControl(effect, value.control));
         const int p = value.control - parameter_layout::standardControls;
         if (p >= 0)
+        {
           assert(value.value >= kEffectParameters[p].minimum && value.value <= kEffectParameters[p].maximum);
+          if (!EffectChoices(p).empty()) assert(value.value == std::floor(value.value));
+        }
       }
       const auto applied = Apply(effect, preset, current);
       assert(applied[parameter_layout::kSlotEnabled] == 0. && applied[parameter_layout::kSlotIn] == 7.);

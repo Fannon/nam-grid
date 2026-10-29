@@ -66,6 +66,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DistortionTests.h"
 #include "PedalDriveTests.h"
 #include "PedalCompTests.h"
+#include "ModulePresetTests.h"
 #include "DriveAntialiasTests.h"
 #include "NoisePrintTests.h"
 #include "LoFiTapeTests.h"
@@ -227,6 +228,8 @@ try
   TestDistortionModeHarmonics();
   TestPedalDrive();
   TestPedalComp();
+  TestModulePresetCoverage();
+  TestModulePresetSharedControls();
   TestModulePresets();
   TestDriveAntialiasing();
   TestOversampledWetDryBlend();

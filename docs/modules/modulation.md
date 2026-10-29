@@ -39,7 +39,7 @@ In the header:
 
 ![Juno Chorus editor](../screenshots/modules/juno-chorus.png)
 
-Classic Juno-style chorus with I, I+II and II modes, from a subtle single voice to the familiar combined shimmer.
+Classic Juno-style chorus from a subtle single voice to the combined shimmer, plus a fast, shallow I+II vintage mode based on Juno-60 measurements.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -49,9 +49,18 @@ Classic Juno-style chorus with I, I+II and II modes, from a subtle single voice 
 
 In the header:
 
-- **Mode** (I, I+II, II; starts at I) I is the slower voice, II the faster voice, I+II combines both.
+- **Mode** starts at I. Existing rigs retain their mode and sound.
 
-**Display:** The left and right delay times over two seconds.
+| Mode | Motion | Wet channels |
+| --- | --- | --- |
+| I | 0.513 Hz triangle, 1.66-5.35 ms | Opposite sweeps |
+| I+II | I and II voices combined | Stereo |
+| II | 0.863 Hz triangle, 1.66-5.35 ms | Opposite sweeps |
+| I+II vintage | 9.75 Hz sine-like, 3.3-3.7 ms | Same sweep, centered |
+
+Vintage uses the measured Juno-60 rate and delay range ([measurements](https://github.com/pendragon-andyh/Juno60/blob/master/Chorus/README.md)), with a sine-like LFO and non-inverted wet channels ([circuit analysis](https://www.florian-anwander.de/roland_string_choruses/)). Width has no audible effect on its centered wet signal; dry stereo remains intact.
+
+**Display:** The left and right delay times over two seconds; vintage shows its centered sweep over half a second.
 
 ## Flanger
 

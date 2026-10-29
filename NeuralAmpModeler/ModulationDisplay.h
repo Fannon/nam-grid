@@ -34,6 +34,15 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   if (juno)
   {
     const int mode = static_cast<int>(value(uJunoMode));
+    if (mode == 3)
+    {
+      caption("Vintage sweep | 3.3-3.7 ms");
+      PlotDetail(g,plot,"9.75 Hz sine-like sweep; both wet channels move together.");
+      curve([](double t) { return 3.5 + .2 * std::sin(2. * grid_fx::pi * 9.75 * t * .5); },
+            3.2, 3.8, color);
+      timeLabel(.5, "Centered wet sweep | dry stereo retained");
+      return true;
+    }
     caption("Stereo delay sweep | 1.7-5.4 ms");
     PlotDetail(g,plot,"Left/right delay times for each active chorus voice. Cyan: left; amber: right. Faint traces show the second voice.");
     for (int voice = 0; voice < 2; ++voice)

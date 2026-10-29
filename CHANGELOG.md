@@ -4,7 +4,13 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Performance
+
+- Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
+
 ### Added
+
+- Juno Chorus adds **I+II vintage**: fast, shallow 9.75 Hz motion with centered wet sound, based on Juno-60 measurements. Existing I, I+II and II modes retain their sound.
 
 - Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. After a mono capture, a stereo IR spreads the signal into left and right for stereo room and reverb responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.
 - Routing now has **Trails**: bypassed delays and reverbs ring out instead of cutting their repeats and tail, so a scene that switches them off keeps its ambience. New playing stops reaching the bypassed module after the usual 5 ms fade. It starts off in new and existing rigs, preserving their sound. Tails last up to 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo, including the final fade. A ringing module uses CPU, then drains silently as before.

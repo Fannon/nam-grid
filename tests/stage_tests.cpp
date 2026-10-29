@@ -81,6 +81,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "ClickTests.h"
 #include "MixLawTests.h"
 #include "TrailsTests.h"
+#include "DSPBehaviorTests.h"
 
 int main(int argc, char** argv)
 try
@@ -203,6 +204,7 @@ try
   TestRoadmapEffects();
   TestModulationMatrix();
   TestHQEffects();
+  TestDSPBehavior();
   TestStereoGuitarEffects();
   TestDSPReviewFixes();
   TestDistortionAndMonoMeters();

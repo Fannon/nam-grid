@@ -614,7 +614,7 @@ try
     for (const auto& [effect, count] : std::array<std::pair<SlotEffect, int>, 5>{{{SlotEffect::Distortion, 6},
                                                                                   {SlotEffect::CosmicEcho, effect_modes::cosmicCount},
                                                                                   {SlotEffect::Freeze, 2},
-                                                                                  {SlotEffect::JunoChorus, 3},
+                                                                                  {SlotEffect::JunoChorus, 4},
                                                                                   {SlotEffect::NoisePrint, 3}}})
       Check(std::count_if(
               cases.begin(), cases.end(), [&](const json& c) { return c["effect"] == static_cast<int>(effect); })

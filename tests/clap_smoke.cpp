@@ -238,6 +238,39 @@ int main(int argc, char** argv)
     assert(loadRaw(base));
   }
   {
+    // Chorus Voices: new and older rigs keep one voice; three voices round-trip.
+    auto three = base;
+    auto legacy = base;
+    legacy["schema"] = kEffectParameters[uChorusVoices].introducedIn - 1;
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      const auto key = GridSlotName(slot) + " " + kEffectParameters[uChorusVoices].name;
+      assert(base[key] == 0.);
+      three[key] = 1.;
+      three["PerformanceScenes"][0][key] = 1.;
+      legacy.erase(key);
+      for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+      clap_param_info info{};
+      assert(params->get_info(plugin, SlotUtilityParam(slot, uChorusVoices), &info));
+      assert(!(info.flags & CLAP_PARAM_IS_AUTOMATABLE));
+    }
+    assert(loadRaw(three));
+    assert(save().config() == three);
+    for (const double invalid : {-1., .5, 2.})
+    {
+      auto bad = three;
+      bad["Pre 1 Chorus Voices"] = invalid;
+      assert(!loadRaw(bad));
+      assert(save().config() == three);
+    }
+    auto missing = three;
+    missing.erase("Pre 1 Chorus Voices");
+    assert(!loadRaw(missing));
+    assert(loadRaw(legacy));
+    assert(save().config() == base);
+    assert(loadRaw(base));
+  }
+  {
     assert(base["Mix Law"] == 0.);
     auto constantDry = base;
     constantDry["Mix Law"] = 1.;
@@ -1305,7 +1338,7 @@ int main(int argc, char** argv)
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}, {SlotEffect::PedalComp, uPedalCompPickup},
-      {SlotEffect::PedalComp, uPedalCompAttack}};
+      {SlotEffect::PedalComp, uPedalCompAttack}, {SlotEffect::Chorus, uChorusVoices}};
     for (const auto& [effect, control] : modes)
     {
       auto original = cleared;

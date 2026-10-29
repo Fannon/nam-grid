@@ -32,6 +32,7 @@ A wide, moving chorus. Texture adds warmth and less regular motion; Spread separ
 In the header:
 
 - **Tempo sync** locks Rate to your DAW tempo; **Division** then sets it in note values. See [tempo sync](README.md#tempo-sync).
+- **Voices** (1 voice / 3 voices; starts at 1 voice) **3 voices** adds two more moving delays a third of a cycle apart, at slightly different depths and delays, for a lusher, denser chorus at the same overall level. Spread and Texture apply to every voice.
 
 **Display:** The left and right delay times over two seconds.
 

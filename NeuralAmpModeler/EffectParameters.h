@@ -276,6 +276,7 @@ enum UtilityParam
   uPedalCompBlend = 260,
   uPedalCompLevel = 261,
   uPedalCompPickup = 262,
+  uChorusVoices = 263,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -305,6 +306,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uColourDesk: return effect_modes::deskNames;
     case uBlackMode: return effect_modes::blackNames;
     case uPedalCompPickup: return effect_modes::pickupNames;
+    case uChorusVoices: return effect_modes::chorusVoiceNames;
     default: return {};
   }
 }
@@ -344,6 +346,7 @@ inline constexpr AlgorithmIdentity irLength[]{{0, "cabinet-8192"}, {1, "long-ir-
 inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
 inline constexpr AlgorithmIdentity timeChange[]{{0, "glide"}, {1, "crossfade"}};
 inline constexpr AlgorithmIdentity pickup[]{{0, "single-coil"}, {1, "humbucker"}, {2, "acoustic"}};
+inline constexpr AlgorithmIdentity chorusVoices[]{{0, "one"}, {1, "three"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {
@@ -368,6 +371,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uVibeMode: return vibe;
     case uDelayTimeChange: return timeChange;
     case uPedalCompPickup: return pickup;
+    case uChorusVoices: return chorusVoices;
     default: return {};
   }
 }
@@ -381,7 +385,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 13; // 13 Pedal Comp; 12 Digital Delay time change; 11 rig-wide trails; 10 Juno voices.
+inline constexpr int kEffectStateSchema = 14; // 14 Chorus voices; 13 Pedal Comp; 12 Digital Delay time change; 11 rig-wide trails.
 
 struct EffectParameter
 {
@@ -660,7 +664,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pedal Comp Focus", "Body / Pick", 0, -100, 100, 0.1, "%", 2, false, 1., 13},
    {"Pedal Comp Blend", "Blend", 70, 0, 100, 0.1, "%", 6, false, 1., 13},
    {"Pedal Comp Level", "Level", 0, -12, 12, 0.1, "dB", 4, false, 1., 13},
-   {"Pedal Comp Pickup", "Pickup", 1, 0, 2, 1, "", 0, false, 1., 13}}};
+   {"Pedal Comp Pickup", "Pickup", 1, 0, 2, 1, "", 0, false, 1., 13},
+   {"Chorus Voices", "Voices", 0, 0, 1, 1, "", 0, false, 1., 14}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -787,6 +792,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uDelayTimeChange: return e == SlotEffect::DigitalDelay;
       case uPedalCompSustain: case uPedalCompAttack: case uPedalCompFocus:
       case uPedalCompBlend: case uPedalCompLevel: case uPedalCompPickup: return e == SlotEffect::PedalComp;
+      case uChorusVoices: return e == SlotEffect::Chorus;
       default: return false;
     }
   }
@@ -891,6 +897,7 @@ struct ModuleExtensions
   double swellHold = 40;
   double swellMix = 100;
   double delayTimeChange = 0; // 0 Glide (released behavior), 1 Crossfade.
+  double chorusVoices = 0; // 0 one voice per channel (released behavior), 1 three voices.
 };
 struct UtilityControls
 {

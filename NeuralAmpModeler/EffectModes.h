@@ -53,6 +53,7 @@ inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hystere
 // Pedal Comp detector voicings. They set sensitivity and what the detector hears,
 // never the audible tone.
 inline constexpr std::array<const char*, 3> pickupNames{"Single coil", "Humbucker", "Acoustic"};
+inline constexpr std::array<const char*, 2> chorusVoiceNames{"1 voice", "3 voices"};
 inline constexpr std::array<const char*, 8> deskNames{"Dark", "Rock", "Lush", "Vibe", "Holo", "Punch", "Steel", "Tube"};
 
 enum class DistortionStyle

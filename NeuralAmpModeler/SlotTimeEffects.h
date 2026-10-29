@@ -318,7 +318,7 @@ public:
     mSpread.Reset(rate); mExtension.Reset(rate); mRise = 0.;
     mPhase = mFeedback = mEnv = mTone = 0.;
     mAllpass = {}; mFirstStages = true; mStageWeights = {0., 1., 0., 0.};
-    mCounter = 0;
+    mCounter = 0; mFirstVoices = true; mVoices = 0.;
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls, bool right = false)
   {
@@ -331,6 +331,8 @@ public:
       std::array<int, 3>{uChorusDelay, uFlangerDelay, uVibratoRise});
     const int stages = std::clamp(static_cast<int>(controls.extra.phaserStages), 0, 3);
     if (mFirstStages) { mStageWeights = {}; mStageWeights[stages] = 1.; mFirstStages = false; }
+    const double voices = effect == SlotEffect::Chorus && controls.extra.chorusVoices >= .5 ? 1. : 0.;
+    if (mFirstVoices) { mVoices = voices; mFirstVoices = false; }
     const double envelopeAttack = std::exp(-1. / (.005 * mRate)), envelopeRelease = std::exp(-1. / (.15 * mRate));
     for (int i = 0; i < frames; ++i)
     {
@@ -394,6 +396,21 @@ public:
         const double excursion = flange ? .0025 : vibrato ? .006 : .006;
         const double wobble = (1. - .25 * character) * lfo + .25 * character * std::sin(4. * grid_fx::pi * phase + .7);
         wet = mLine.Read(mRate * (centre + excursion * depth * wobble));
+        // Chorus 3 voices: two more taps a third of a cycle apart, at their own depth and
+        // delay. Their delays differ by milliseconds, so the voices add by power: 1/sqrt(3)
+        // keeps the wet level of one voice. Switching modes fades over 5 ms.
+        mVoices += std::clamp(voices - mVoices, -1. / (.005 * mRate), 1. / (.005 * mRate));
+        if (mVoices > 0.)
+        {
+          double sum = wet;
+          for (const auto& voice : kChorusVoices)
+          {
+            const double p = phase + voice.phase;
+            const double motion = (1. - .25 * character) * std::sin(2. * grid_fx::pi * p) + .25 * character * std::sin(4. * grid_fx::pi * p + .7);
+            sum += mLine.Read(mRate * (centre + voice.delay + excursion * depth * voice.depth * motion));
+          }
+          wet += mVoices * (sum * .5773502691896258 - wet);
+        }
         const double tone = mToneCoefficient(-2. * grid_fx::pi * (12000. - 9000. * character) / mRate,
                                              [](double x) { return std::exp(x); });
         mTone = grid_fx::Flush(wet + tone * (mTone - wet));
@@ -405,6 +422,11 @@ public:
   }
 
 private:
+  struct ChorusVoice
+  {
+    double phase, depth, delay; // cycle offset, share of Depth, added base delay in seconds
+  };
+  static constexpr ChorusVoice kChorusVoices[]{{1. / 3., .85, .0023}, {2. / 3., .7, .0011}};
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mSpread;
@@ -414,8 +436,9 @@ private:
   bool mFirstStages = true;
   std::array<double, 12> mAllpass{};
   grid_fx::Memo mShape, mToneCoefficient;
-  double mRate = 48000., mPhase = 0., mFeedback = 0., mEnv = 0., mTone = 0., mCoefficient = 0.;
+  double mRate = 48000., mPhase = 0., mFeedback = 0., mEnv = 0., mTone = 0., mCoefficient = 0., mVoices = 0.;
   int mCounter = 0;
+  bool mFirstVoices = true;
 };
 
 #include "dsp/airwindows/AirwindowsTape.h"

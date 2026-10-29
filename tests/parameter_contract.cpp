@@ -53,6 +53,10 @@ static_assert(SlotUtilityParam(0, uDelayTimeChange) == 4477);
 static_assert(SlotUtilityParam(15, uDelayTimeChange) == 4492);
 static_assert(grid_performance::parameters[grid_performance::Trails].introducedIn == 11);
 static_assert(kEffectParameters[uDelayTimeChange].introducedIn == 12);
+// Pedal Comp's six controls (4493-4588), then Chorus Voices.
+static_assert(SlotUtilityParam(0, uChorusVoices) == 4589);
+static_assert(SlotUtilityParam(15, uChorusVoices) == 4604);
+static_assert(kEffectParameters[uChorusVoices].introducedIn == 14);
 
 int main(int argc, char** argv)
 {

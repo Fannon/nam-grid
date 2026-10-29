@@ -247,6 +247,22 @@ void TestClicks()
           set(uTempoSync, 0.);
           set(uDelayTimeChange, 0.);
         }
+        if (effect == SlotEffect::Chorus)
+        {
+          // Every Chorus control again with three voices, under the same exemptions.
+          rig.Set(parameter_layout::standardControls + uChorusVoices, 1.);
+          settled = rig.Render(.6);
+          for (const int control : EventControls(effect))
+          {
+            if (control == parameter_layout::standardControls + uChorusVoices) continue;
+            const double start = rig.Get(control);
+            const char* exemption = Exemption(effect, control);
+            for (const double target : Targets(control))
+              if (target != start) check(EventName(control, target) + " (3 voices)", exemption, [&] { rig.Set(control, target); });
+            check(EventName(control, start) + " (3 voices, start)", exemption, [&] { rig.Set(control, start); });
+          }
+          check("3 voices to 1 voice", nullptr, [&] { rig.Set(parameter_layout::standardControls + uChorusVoices, 0.); });
+        }
         if (effect == SlotEffect::JunoChorus)
           for (int from = 0; from < 4; ++from)
             for (int to = 0; to < 4; ++to)

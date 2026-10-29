@@ -116,7 +116,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const double earlySpan=native ? .04*size : .055*size*(effect==SlotEffect::HallReverb ? 2. : 1.);
   const double lateStart=std::min(horizon*.45,onset+earlySpan*.7);
   const double tailScale=native ? .2+.8*sustain : 1.;
-  // Algorithmic reverbs: exact decay per band from each core. Room/Hall shelve
+  // Algorithmic reverbs: nominal decay guides per band. Room/Hall shelve
   // lows (<200 Hz) and highs (>Damping) to fixed ratios; Plate/Cloud damp once
   // per loop pass, so a fixed 5 kHz reference shows Damping x Size x Decay.
   const bool banded=!native && !spring && !shimmer;

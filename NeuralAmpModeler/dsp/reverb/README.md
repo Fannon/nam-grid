@@ -13,7 +13,10 @@ the permissive source notices.
 - PlateTank follows the Griesinger/Dattorro topology in Emilie Gillet's Clouds:
   four input allpasses and two cross-coupled, modulated tank branches. It replaces
   the fixed 32 kHz / 12-bit storage and native regeneration knob with floating
-  storage, host-rate scaling and a nominal decay-time control.
+  storage, host-rate scaling and a nominal decay-time control. Decay loss is
+  distributed by delay length through the input/tank allpasses, long delays and
+  output taps, so allpass recirculation cannot outlast the requested envelope.
+  This deliberately differs from Clouds' loop-only regeneration control.
   Source: pichenettes/eurorack `f4cfa7697095a28d292bff758beb51deb49b5a86`,
   `clouds/dsp/fx/reverb.h` (MIT).
 - CloudTank and the diffused delay use rotating stereo allpasses informed by

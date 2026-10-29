@@ -1,5 +1,6 @@
 #pragma once
 #include "ModulePresets.h"
+#include "RoadmapEffects.h"
 
 void TestModulePresetSharedControls()
 {
@@ -67,4 +68,29 @@ void TestModulePresetCoverage()
     }
   }
   assert(!Supported(static_cast<SlotEffect>(-1)) && !Supported(static_cast<SlotEffect>(999)));
+}
+
+void TestFactoryVibeVibrato()
+{
+  using namespace module_presets;
+  for (const auto& preset : For(SlotEffect::UniVibe))
+  {
+    const auto values = Apply(SlotEffect::UniVibe, preset, SlotDefaultValues(SlotEffect::UniVibe));
+    if (values[U(uVibeMode)] < .5) continue;
+    UtilityControls c;
+    c.vibeMode = values[U(uVibeMode)];
+    for (size_t i = 0; i < c.modulation.size(); ++i) c.modulation[i] = values[U(uModRate) + i];
+    auto wet = c; wet.modulation[4] = 100.;
+    grid_roadmap::Vibe actual, reference;
+    actual.Reset(48000.); reference.Reset(48000.);
+    // Vibrato must contain only the phase-shifted signal. A hidden 50% Mix
+    // would instead reproduce chorus, even though the mode says Vibrato.
+    std::array<double, 512> a{}, b{};
+    for (int block = 0; block < 60; ++block)
+    {
+      for (int i = 0; i < 512; ++i) a[i] = b[i] = .2 * std::sin((block * 512 + i) * .071);
+      actual.Process(a.data(), 512, c); reference.Process(b.data(), 512, wet);
+      for (int i = 0; i < 512; ++i) assert(std::abs(a[i] - b[i]) < 1.e-12);
+    }
+  }
 }

@@ -246,10 +246,16 @@ These renders are generated developer artifacts: they are not checked in or
 copied into release archives.
 
 Pass `factory` instead of `cosmic` to export every factory module recipe at its
-actual Mix and Output settings. It writes a full `.ngrid`, a wet impulse response
-and an eight-second synthetic-pluck WAV pair per recipe (quiet and 12 dB hotter
+actual Mix and Output settings. It writes a full `.ngrid`, an eight-second mixed
+impulse response and a synthetic-pluck WAV pair per recipe (quiet and 12 dB hotter
 input), plus `factory-measurements.csv` with input gain, peak, last-half-second
 tail RMS and single-render CPU timing at 48 kHz/128 frames.
+
+Delays and reverbs also export `<label>-wet-impulse.wav`: Mix is set to 100%,
+with one second of silence before a 0.1-amplitude impulse and 60 seconds of
+response. Use this longer isolated wet response for decay estimates; the mixed
+response remains useful for echo/dry ratios. Set `NAM_AUDITION_MODULE` to an exact
+module name, such as `Digital Delay`, to render only that module's recipes.
 
 To audition on a real instrument, set `NAM_AUDITION_GUITAR` to raw little-endian
 float32 mono audio at 48 kHz, for example a guitar DI. Optionally set

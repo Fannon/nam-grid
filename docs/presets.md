@@ -93,9 +93,10 @@ staging, with normal playing peaking around -9 dBFS.
 | Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive with clean lows |
-| Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead; Warm lead repeats, Dark modulated wash; Tape slapback, Worn tape repeats |
+| Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong; Warm lead repeats, Dark modulated wash; Tape slapback, Worn tape repeats |
 | Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads; Reverse half notes; Quarter and dotted eighth; Echo into cloud |
-| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room; Short bright plate, Singing lead plate; Big dark hall; Long ducked cloud; Small amp spring, Surf drip; Octave halo |
+| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room; Short bright plate, Singing lead plate; Big dark hall; Long ducked cloud; Small amp spring, Surf drip; Dark octave-down pad |
+| Airwindows Plate, Airwindows Guitar Hall, Airwindows Tape | Compact guitar plate, Long dark plate; Close guitar hall, Distant dark hall; Light tape rounding, Thick parallel tape |
 | Galactic Space, Cosmic Echo | Slow dark space; Clustered echoes, Slow swell, Stereo echo groups, Chord bloom |
 | Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus; Wide two voices; Slow jet sweep, Light comb motion; Slow vintage phase, Deep stereo phase |
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop; Seasick warble; Vibrato mode swirl; Slow chorale, Fast tremolo |
@@ -106,23 +107,11 @@ User presets only:
 
 - **Noise Gate, Noise Gate (Smart), Digital Black Gate:** set the threshold to your noise floor and quiet notes; learn the Smart Gate's profile from your own input.
 - **Utility:** balance, polarity, channel choice and alignment depend on the rig.
-- **Outboard Channel, Console Colour, Console EQ, Airwindows Tape, Airwindows Plate, Airwindows Guitar Hall, Ring Modulator, Frequency Shifter, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
+- **Outboard Channel, Console Colour, Console EQ, Ring Modulator, Frequency Shifter, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
 
 Synced recipes select both Tempo sync and Division. Unsynced recipes restore
 free time/rate; switching recipes cannot accidentally inherit sync, feedback,
 mode, hold or output edits from the previous sound. Mix assumes ordinary insert
 use. Set Mix for your routing, especially with **Keep dry level** or on a send.
-Mono Octaver expects single notes, and Uni-Vibe's vibrato mode is quieter than
-its chorus mode, as on the original.
-
-### References behind the recipes
-
-These references inform the settings; the recipes are original NAM Grid
-settings, not imported factory banks or claims of matching the referenced gear.
-
-- Delays: slapback at about 80–150 ms with one loud repeat ([MusicRadar](https://www.musicradar.com/tuition/guitars/how-to-create-3-classic-delay-sounds-641398), [PedalPlayers](https://pedalplayers.com/how-to-create-slapback-delay/)); dotted-eighth repeats with two to four audible repeats ([Fader & Knob](https://faderandknob.com/blog/the-edge-delay-settings)); long lead delays around 480 ms with three to five repeats, low in the mix ([Kit Rae's Gilmour delay library](https://www.kitrae.net/music/David_Gilmour_Delay%20Time%20Library.html)).
-- Drive: a Screamer used as a boost with Drive low and Level high to tighten a driven amp ([Fader & Knob](https://faderandknob.com/blog/tube-screamer-before-high-gain-amp)); octave-down blends and synth-bass settings from the classic dual-octave pedal ([TalkBass](https://www.talkbass.com/threads/share-your-favorite-oc-2-boss-octave-settings.772094/)).
-- Dynamics: fast-attack, long-release pedal compression for country picking ([Guitar World](https://www.guitarworld.com/features/mxr-dyna-comp-compressor-pedal)); [Klanghelm DC8C](https://klanghelm.com/docs/DC8C3-manual.pdf) and [MJUC](https://klanghelm.com/docs/MJUC-manual.pdf) manuals for contrasting leveling, punch and parallel uses.
-- Modulation: Leslie chorale near 0.8 Hz and horn tremolo near 6.7 Hz ([HammondWiki](https://www.dairiki.org/HammondWiki/LeslieRotationSpeed)); slow, feedback-free four-stage phasing ([Sweetwater on the Phase 90](https://www.sweetwater.com/insync/eddie-van-halens-signature-stompboxes/)); shallow always-on chorus and deeper 80s chorus ([BOSS CE-2W manual](https://static.roland.com/assets/media/pdf/CE-2W_e01_W.pdf)); Uni-Vibe chorus and vibrato modes ([Strymon](https://www.strymon.net/what-was-the-original-uni-vibe-effect/)).
-- Reverb: rooms around 0.5–1 s and plates around 1.5–2.5 s with 20–40 ms pre-delay for guitar ([Chaos Audio](https://chaosaudio.com/blogs/whats-new/the-ultimate-guide-to-reverb-pedals-types-settings-and-techniques)); [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/) for Cosmic Echo's echo/wash contrast, using the documented [Cosmic Echo](modules/cosmic-echo.md) starting points.
-- Open-source [ChowTape](https://chowdsp.com/manuals/ChowTapeManual.pdf) and Airwindows [Galactic3](https://www.airwindows.com/galactic3/): tape speed, wear and wow/flutter as separate dimensions; Replace and Size for long washes.
+Mono Octaver expects single notes. The Uni-Vibe vibrato recipe explicitly sets
+its hidden Mix to 100% so only the phase-shifted signal is heard.

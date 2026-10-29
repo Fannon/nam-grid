@@ -130,6 +130,9 @@ inline const Preset digitalDelay[]{
   {"Ducked lead",
    {{U(uDelayTime), 480.}, {U(uDelayFeedback), 40.}, {U(uDelayTone), 7000.}, {U(uDelayCharacter), 60.},
     {U(uDelayMix), 30.}}},
+  {"Quarter-note ping-pong",
+   {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.},
+    {U(uDelayTone), 6000.}, {U(uDelayCharacter), 0.}, {U(uDelayMix), 30.}}},
 };
 inline const Preset analogDelay[]{
   {"Warm lead repeats", {{U(uDelayTime), 420.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 3200.}, {U(uDelayCharacter), 40.}, {U(uDelayMix), 30.}}},
@@ -171,7 +174,26 @@ inline const Preset spring[]{
   {"Surf drip", {{U(uSpringTank), 1.}, {U(uSpringDecay), 2.5}, {U(uSpringDwell), 7.}, {U(uSpringDrip), 90.}, {U(uReverbTone), 6500.}, {U(uSpringMix), 35.}}},
 };
 inline const Preset shimmer[]{
-  {"Octave halo", {{U(uShimmerDecay), 6.}, {U(uShimmerPitch), 12.}, {U(uShimmerAmount), 25.}, {U(uShimmerMix), 30.}}},
+  {"Dark octave-down pad", {{U(uShimmerDecay), 8.}, {U(uShimmerPitch), -12.}, {U(uShimmerTone), 3500.},
+    {U(uShimmerAmount), 30.}, {U(uShimmerMix), 30.}}},
+};
+// Resolution changes in steps: 50% crosses a rate step at 44.1/48/96 kHz,
+// whereas 75% can process at the same internal rate as 100%.
+inline const Preset airPlate[]{
+  {"Compact guitar plate", {{U(uAirPlateSustain), 25.}, {U(uAirPlateResolution), 100.}, {U(uAirPlatePredelay), 10.},
+    {U(uAirPlateLowCut), 150.}, {U(uAirPlateMix), 14.}}},
+  {"Long dark plate", {{U(uAirPlateSustain), 60.}, {U(uAirPlateResolution), 50.}, {U(uAirPlatePredelay), 35.},
+    {U(uAirPlateLowCut), 180.}, {U(uAirPlateMix), 24.}}},
+};
+inline const Preset airHall[]{
+  {"Close guitar hall", {{U(uAirHallSustain), 30.}, {U(uAirHallResolution), 100.}, {U(uAirHallTone), 65.},
+    {U(uAirHallEarly), 80.}, {U(uAirHallPosition), 35.}, {U(uAirHallMix), 15.}}},
+  {"Distant dark hall", {{U(uAirHallSustain), 60.}, {U(uAirHallResolution), 50.}, {U(uAirHallTone), 30.},
+    {U(uAirHallEarly), 20.}, {U(uAirHallPosition), 75.}, {U(uAirHallMix), 25.}}},
+};
+inline const Preset tape[]{
+  {"Light tape rounding", {{U(uTapeDrive), 3.}, {U(uTapeBump), 15.}, {U(uTapeMix), 100.}, {U(uTapeOutput), -3.}}},
+  {"Thick parallel tape", {{U(uTapeDrive), 8.}, {U(uTapeBump), 45.}, {U(uTapeMix), 50.}, {U(uTapeOutput), -5.}}},
 };
 inline const Preset space[]{
   {"Slow dark space", {{U(uSpaceReplace), 20.}, {U(uSpaceBrightness), 30.}, {U(uSpaceDetune), 20.}, {U(uSpaceSize), 75.}, {U(uSpaceMix), 28.}}},
@@ -209,7 +231,7 @@ inline const Preset vibrato[]{
   {"Seasick warble", {{U(uModRate), .8}, {U(uModDepth), 45.}}},
 };
 inline const Preset vibe[]{
-  {"Vibrato mode swirl", {{U(uVibeMode), 1.}, {U(uModRate), 4.5}, {U(uModDepth), 40.}, {U(uModCharacter), 50.}}},
+  {"Vibrato mode swirl", {{U(uVibeMode), 1.}, {U(uModRate), 4.5}, {U(uModDepth), 40.}, {U(uModCharacter), 50.}, {U(uModMix), 100.}}},
 };
 // Leslie speeds: about 0.8 Hz chorale and 6.7 Hz tremolo for the horn.
 inline const Preset rotary[]{
@@ -268,6 +290,9 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::HallReverb: return hall;
     case SlotEffect::SpringReverb: return spring;
     case SlotEffect::ShimmerReverb: return shimmer;
+    case SlotEffect::AirPlate: return airPlate;
+    case SlotEffect::AirHall: return airHall;
+    case SlotEffect::Tape: return tape;
     case SlotEffect::GalacticSpace: return space;
     case SlotEffect::CosmicEcho: return cosmic;
     case SlotEffect::Chorus: return chorus;

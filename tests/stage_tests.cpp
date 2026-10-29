@@ -228,6 +228,7 @@ try
   TestDistortionModeHarmonics();
   TestPedalDrive();
   TestPedalComp();
+  TestFactoryVibeVibrato();
   TestModulePresetCoverage();
   TestModulePresetSharedControls();
   TestModulePresets();

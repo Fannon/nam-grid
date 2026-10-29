@@ -74,9 +74,12 @@ int main(int argc,char** argv)
     [](const clap_input_events*,uint32_t)->const clap_event_header*{return nullptr;}};
   clap_output_events sent{nullptr,[](const clap_output_events*,const clap_event_header*){return true;}};
   // Optional real-guitar input: raw little-endian float32 mono at 48 kHz, followed by a 4 s tail.
-  const auto render=[&](const json& config,bool impulse,double inputScale=1.,const std::vector<float>* source=nullptr) {
+  const auto render=[&](const json& config,bool impulse,double inputScale=1.,const std::vector<float>* source=nullptr,bool wetImpulse=false) {
     load(config); assert(plugin->activate(plugin,rate,1,block)); assert(plugin->start_processing(plugin));
-    const int count=source ? static_cast<int>(source->size())+rate*4 : rate*8;
+    // Long wet responses start after one second of silence, with a gentler
+    // impulse so nonlinear reverb excitation is not driven at full scale.
+    const int settle=wetImpulse ? rate : 0;
+    const int count=source ? static_cast<int>(source->size())+rate*4 : settle+rate*(wetImpulse ? 60 : 8);
     Audio audio{std::vector<double>(count),std::vector<double>(count)};
     std::array<double,block> inL{},inR{},outL{},outR{};
     double* inputs[]{inL.data(),inR.data()},*outputs[]{outL.data(),outR.data()};
@@ -89,7 +92,7 @@ int main(int argc,char** argv)
       process.frames_count=std::min(block,count-pos);
       for(uint32_t i=0;i<process.frames_count;++i)
       {
-        const int sample=pos+i; double x=impulse && sample==0 ? 1. : 0.;
+        const int sample=pos+i; double x=impulse && sample==settle ? (wetImpulse ? .1 : 1.) : 0.;
         if(source) x=sample<static_cast<int>(source->size()) ? (*source)[sample] : 0.;
         else if(!impulse)
           for(int note=0;note<9;++note)
@@ -127,6 +130,15 @@ int main(int argc,char** argv)
       assert(in && !guitar.empty());
     }
     const char* capture=std::getenv("NAM_AUDITION_CAPTURE");
+    const char* onlyModule=std::getenv("NAM_AUDITION_MODULE");
+    if (onlyModule)
+    {
+      bool found=false;
+      for (int id=0; id<=static_cast<int>(SlotEffect::Last); ++id)
+        if (std::strcmp(onlyModule,SlotEffectName(static_cast<SlotEffect>(id)))==0
+            && !module_presets::For(static_cast<SlotEffect>(id)).empty()) found=true;
+      if (!found) { std::cerr<<"No factory presets for module: "<<onlyModule<<'\n'; return 1; }
+    }
     const auto followsAmp=[](SlotEffect e) {
       switch (e)
       {
@@ -150,6 +162,7 @@ int main(int argc,char** argv)
     for (int id=0; id<=static_cast<int>(SlotEffect::Last); ++id)
     {
       const auto effect=static_cast<SlotEffect>(id);
+      if (onlyModule && std::strcmp(onlyModule,SlotEffectName(effect))!=0) continue;
       int index=0;
       for (const auto& preset : module_presets::For(effect))
       {
@@ -164,7 +177,27 @@ int main(int argc,char** argv)
         const auto label=std::to_string(id)+"-"+std::to_string(index++);
         auto rig=config; rig["PresetName"]=std::string(SlotEffectName(effect))+" - "+preset.name;
         rig_preset::Write(destination/(label+".ngrid"),rig);
+        // Keep the mixed response for comparing echo levels to dry, and
+        // export an isolated, longer wet response for decay measurements.
         WriteWave(destination/(label+"-impulse.wav"),render(config,true).first,rate);
+        int wetMix=-1;
+        if (IsDelay(effect)) wetMix=uDelayMix;
+        else switch (effect)
+        {
+          case SlotEffect::SpringReverb: wetMix=uSpringMix; break;
+          case SlotEffect::ShimmerReverb: wetMix=uShimmerMix; break;
+          case SlotEffect::AirPlate: wetMix=uAirPlateMix; break;
+          case SlotEffect::AirHall: wetMix=uAirHallMix; break;
+          case SlotEffect::GalacticSpace: wetMix=uSpaceMix; break;
+          case SlotEffect::CosmicEcho: wetMix=uCosmicMix; break;
+          default: if (IsReverb(effect)) wetMix=uReverbMix; break;
+        }
+        if (wetMix>=0)
+        {
+          auto wet=config;
+          wet[std::string("Pre 1 ")+kEffectParameters[wetMix].name]=100.;
+          WriteWave(destination/(label+"-wet-impulse.wav"),render(wet,true,1.,nullptr,true).first,rate);
+        }
         const bool post=followsAmp(effect);
         if (!guitar.empty())
           WriteWave(destination/(label+"-guitar.wav"),render(place(chain,post ? 12 : 0),false,1.,&guitar).first,rate);

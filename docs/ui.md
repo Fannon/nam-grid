@@ -48,7 +48,7 @@ the preset's name until you move a control. The rig or project stores the result
 values, not a link to the preset.
 
 - **Factory presets** come first: a few established starting points for most modules, listed
-  in [Rig presets](presets.md#choosing-useful-starting-points). They cannot be changed.
+  in [Rig presets](presets.md#choosing-useful-starting-points). Factory entries are read-only.
 - **Your presets** follow after a divider. **Save current as...** saves this module's
   current controls as a new preset, also when you started from a factory preset.
 - **Show presets folder** opens the folder in Explorer or Finder; rename or delete presets

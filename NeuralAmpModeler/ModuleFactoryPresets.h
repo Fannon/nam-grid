@@ -100,10 +100,10 @@ inline const Preset boost[]{
   {"Warm push", {{U(uBoostGain), 6.}, {U(uBoostTilt), -2.}}},
 };
 inline const Preset tube[]{
-  {"Warm tube edge", {{U(uTubeDrive), 5.}, {U(uTubeBias), 20.}, {U(uTubeHighCut), 10000.}, {U(uTubeOutput), -3.}}},
+  {"Warm tube edge", {{U(uTubeDrive), 9.}, {U(uTubeBias), 20.}, {U(uTubeHighCut), 10000.}, {U(uTubeOutput), -7.}}},
 };
 inline const Preset distortion[]{
-  {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 15.}, {U(uDistTone), 4500.}, {U(uDistOutput), -11.}}},
+  {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 24.}, {U(uDistTone), 4500.}, {U(uDistOutput), -20.}}},
   // Rectification adds the octave-up character of octave fuzz pedals.
   {"Octave-up fuzz", {{U(uDistStyle), 5.}, {U(uDistDrive), 12.}, {U(uDistTone), 5000.}, {U(uDistOutput), -4.}}},
 };
@@ -111,7 +111,7 @@ inline const Preset distortion[]{
 inline const Preset pedalDrive[]{
   // Drive low, Level high: a mid-focused push that tightens a driven amp.
   {"Screamer boost", {{U(uPedalStyle), 0.}, {U(uPedalDrive), 1.}, {U(uPedalTone), 6000.}, {U(uPedalOutput), 5.}}},
-  {"Blues breakup", {{U(uPedalStyle), 7.}, {U(uPedalDrive), 6.}, {U(uPedalOutput), -3.}}},
+  {"Blues breakup", {{U(uPedalStyle), 7.}, {U(uPedalDrive), 14.}, {U(uPedalOutput), -7.5}}},
   {"Rodent distortion", {{U(uPedalStyle), 1.}, {U(uPedalDrive), 15.}, {U(uPedalTone), 4500.}, {U(uPedalOutput), -17.}}},
   {"Sustaining fuzz", {{U(uPedalStyle), 4.}, {U(uPedalDrive), 18.}, {U(uPedalTone), 3500.}, {U(uPedalOutput), -21.}}},
   {"Bass drive, clean lows",
@@ -206,8 +206,8 @@ inline const Preset airHall[]{
     {U(uAirHallEarly), 20.}, {U(uAirHallPosition), 75.}, {U(uAirHallMix), 25.}}},
 };
 inline const Preset tape[]{
-  {"Light tape rounding", {{U(uTapeDrive), 3.}, {U(uTapeBump), 15.}, {U(uTapeMix), 100.}, {U(uTapeOutput), -3.}}},
-  {"Thick parallel tape", {{U(uTapeDrive), 8.}, {U(uTapeBump), 45.}, {U(uTapeMix), 50.}, {U(uTapeOutput), -5.}}},
+  {"Light tape rounding", {{U(uTapeDrive), 9.}, {U(uTapeBump), 15.}, {U(uTapeMix), 100.}, {U(uTapeOutput), -9.}}},
+  {"Thick parallel tape", {{U(uTapeDrive), 12.}, {U(uTapeBump), 40.}, {U(uTapeMix), 50.}, {U(uTapeOutput), -7.5}}},
 };
 inline const Preset space[]{
   {"Slow dark space", {{U(uSpaceReplace), 20.}, {U(uSpaceBrightness), 30.}, {U(uSpaceDetune), 20.}, {U(uSpaceSize), 75.}, {U(uSpaceMix), 28.}}},
@@ -255,7 +255,7 @@ inline const Preset rotary[]{
 };
 
 inline const Preset octaver[]{
-  {"Octave-down blend", {{U(uOctDry), 100.}, {U(uOctSub), 60.}, {U(uOctSub2), 0.}, {U(uOctTone), 800.}, {U(uOctOutput), -1.5}}},
+  {"Octave-down blend", {{U(uOctDry), 100.}, {U(uOctSub), 85.}, {U(uOctSub2), 0.}, {U(uOctTone), 800.}, {U(uOctOutput), -3.}}},
   {"Synth bass", {{U(uOctDry), 0.}, {U(uOctSub), 100.}, {U(uOctSub2), 0.}, {U(uOctTone), 600.}, {U(uOctOutput), -4.}}},
 };
 inline const Preset doubler[]{

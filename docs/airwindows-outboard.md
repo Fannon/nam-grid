@@ -108,7 +108,11 @@ represented by a static waveshaper curve.
 
 Continuous controls smooth over 20 ms. Core coefficients update every 32 samples
 using a persistent sample counter; host block partitioning does not affect that
-clock. The selected stereo core is allocated only during preparation. All four
+clock. CStrip2 additionally interpolates its Mid density, High Cut coefficient and
+Saturate drive across those 32 samples. Dependent blend values and bypass branches
+follow the interpolated coefficients, including crossings through neutral. The
+first settings apply immediately; unchanged settings keep the original arithmetic.
+This is a deliberate adaptation of the upstream block-rate updates. The selected stereo core is allocated only during preparation. All four
 report zero latency. Bypass drains silence for one second before suspension;
 very slow native detector/filter state can persist. Menu membership follows the player decision: Distortion for Colour,
 EQ / Filter for Console EQ, Dynamics for the strip and Butter Comp.

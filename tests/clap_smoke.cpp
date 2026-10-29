@@ -19,6 +19,7 @@
 #include "ModulationClapTests.h"
 #include "EffectModeClapTests.h"
 #include "PedalDriveClapTests.h"
+#include "PedalCompClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
 #include <cstdlib>
@@ -1119,6 +1120,7 @@ int main(int argc, char** argv)
   TestModulationMatrixClap(plugin, cleared, save, load, loadRaw);
   TestEffectModeClap(plugin, cleared, save, load);
   TestPedalDriveClap(plugin, cleared, save, load);
+  TestPedalCompClap(plugin, cleared, save, load);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
@@ -1302,7 +1304,8 @@ int main(int argc, char** argv)
       {SlotEffect::PedalDrive, uPedalStyle},
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
-      {SlotEffect::DigitalBlack, uBlackMode}};
+      {SlotEffect::DigitalBlack, uBlackMode}, {SlotEffect::PedalComp, uPedalCompPickup},
+      {SlotEffect::PedalComp, uPedalCompAttack}};
     for (const auto& [effect, control] : modes)
     {
       auto original = cleared;
@@ -1347,6 +1350,61 @@ int main(int argc, char** argv)
       if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / ("mode-" + std::to_string(control) + ".bmp"));
     }
     load(previous);
+    {
+      // Module presets: the header menu sets this module's controls only. Bypass, the
+      // player's pickup and every other slot keep their values.
+      auto comp = cleared;
+      comp["SlotEffects"][0] = static_cast<int>(SlotEffect::PedalComp);
+      comp["Pre 1 Pedal Comp Pickup"] = 1.;
+      comp["Pre 1 Pedal Comp Sustain"] = 12.;
+      comp["Pre 1 Pedal Comp Level"] = 5.;
+      comp["Pre 1 Enabled"] = 0.;
+      comp["Pre 2 Boost Gain"] = 5.;
+      // User presets live under the first preset folder; earlier tests may have cleared them.
+      const auto previousFolders = userFolders();
+      const auto presetRoot = std::filesystem::temp_directory_path()
+                              / ("nam-grid-module-presets-" + std::to_string(GetTickCount64()));
+      std::filesystem::create_directories(presetRoot);
+      {
+        auto settings = previousFolders;
+        settings.presetFolders = pathTexts({presetRoot});
+        assert(nam_library::WriteSettings(settingsBackup.file, settings));
+      }
+      load(comp); selectTile(170, 120); // Loading a state re-reads the folder settings.
+      const int presetX = grid_layout::moduleBrowseX - 26 - 52;
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Snappy clean picking");
+      pumpFor(50);
+      auto chosen = save().config();
+      assert(chosen["Pre 1 Pedal Comp Sustain"] == 60. && chosen["Pre 1 Pedal Comp Attack"] == 0.);
+      assert(chosen["Pre 1 Pedal Comp Focus"] == -30. && chosen["Pre 1 Pedal Comp Level"] == 0.);
+      assert(chosen["Pre 1 Pedal Comp Blend"] == 100.);
+      assert(chosen["Pre 1 Pedal Comp Pickup"] == 1. && chosen["Pre 1 Enabled"] == 0. && chosen["Pre 2 Boost Gain"] == 5.);
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Acoustic strumming");
+      pumpFor(50);
+      chosen = save().config();
+      assert(chosen["Pre 1 Pedal Comp Pickup"] == 2. && chosen["Pre 1 Pedal Comp Blend"] == 85.);
+      // User presets: Save current as... writes one JSON file under the first preset folder's
+      // Module Presets; the menu lists it after the factory presets and applies it.
+      const auto userFile = module_presets::UserFolder(presetRoot, SlotEffect::PedalComp) / "Smoke squash.json";
+      win_file_dialog::Choose(userFile, [&] {
+        win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
+      });
+      pumpFor(50);
+      assert(std::filesystem::exists(userFile));
+      auto changed = chosen;
+      changed["Pre 1 Pedal Comp Sustain"] = 5.;
+      changed["Pre 1 Pedal Comp Pickup"] = 0.;
+      load(changed); selectTile(170, 120);
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Smoke squash");
+      pumpFor(50);
+      chosen = save().config();
+      assert(chosen["Pre 1 Pedal Comp Sustain"] == 35. && chosen["Pre 1 Pedal Comp Pickup"] == 2.);
+      assert(chosen["Pre 1 Pedal Comp Blend"] == 85. && chosen["Pre 1 Enabled"] == 0.);
+      assert(nam_library::WriteSettings(settingsBackup.file, previousFolders));
+      std::error_code removed;
+      std::filesystem::remove_all(presetRoot, removed);
+      if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "module-preset.bmp");
+    }
     std::cout << "Native mode menus: every choice, checked selection, cancellation, unchanged selection, recall and two-choice toggles passed\n";
     if (std::getenv("NAM_GRID_MODE_SMOKE"))
     {

@@ -21,6 +21,7 @@
 #include "EQSignalSpectrum.h"
 #include "SlotDistortion.h"
 #include "SlotPedalDrive.h"
+#include "SlotPedalComp.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 #include "SlotIR.h"
@@ -101,6 +102,7 @@ public:
     SlotAirReverb airReverb;
     SlotOutboard outboard;
     SlotAirDynamics airDynamics;
+    SlotPedalComp pedalComp;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -173,6 +175,7 @@ public:
         if (effect == SlotEffect::CosmicEcho) cosmic.Reset(rate);
         if (IsOutboard(effect)) outboard.Reset(rate, effect);
         if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
+        if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -216,6 +219,8 @@ public:
                                            : effect == SlotEffect::Utility ? .045
                                            : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
+                                           // Pedal Comp's release memory has a 1 s time constant.
+                                           : effect == SlotEffect::PedalComp ? 6.
                                            // Detectors settle on silence (slowest release: 800 ms), so
                                            // re-enabling never resumes a stale gain reduction or envelope.
                                            : effect == SlotEffect::NoiseGate || effect == SlotEffect::SmoothComp
@@ -488,6 +493,11 @@ public:
             {
               p->airDynamics.Process(out, r, frames, utility);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->airDynamics.Reduction()*mMix));
+            }
+            else if (p->effect == SlotEffect::PedalComp)
+            {
+              p->pedalComp.Process(out, r, frames, utility);
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->pedalComp.Reduction() * mMix));
             }
             else if (IsOutboard(p->effect))
             {

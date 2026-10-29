@@ -4,7 +4,7 @@ layout: home
 hero:
   name: NAM Grid
   text: Your whole guitar rig. In a 4×4 grid.
-  tagline: Pair Neural Amp Modeler captures and cabinet IRs with 55 built-in effects, then route them your way. Free and open source, for Windows, macOS and Linux, in CLAP and VST3.
+  tagline: Pair Neural Amp Modeler captures and cabinet IRs with 56 built-in effects, then route them your way. Free and open source, for Windows, macOS and Linux, in CLAP and VST3.
   actions:
     - theme: brand
       text: Download NAM Grid
@@ -25,7 +25,7 @@ features:
     details: Browse captures, cabinet IRs, effects and rigs while you play. Nothing changes until you apply your choice.
     link: /browser
     linkText: Browse your library
-  - title: 55 effects built in
+  - title: 56 effects built in
     details: Gates, compressors, EQs, guitar and bass drives, modulation, pitch, delays and reverbs. No extra plugins needed.
     link: /modules/
     linkText: Browse the effects

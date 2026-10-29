@@ -38,7 +38,8 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
   if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
-  if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect))
+  if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect)
+      || effect == SlotEffect::PedalComp)
     return {compColor, compColor, "Compressor"};
   if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ)
     return {eqColor, eqColor, "EQ"};
@@ -314,7 +315,8 @@ public:
   void DrawIndicatorTrack(IGraphics& g, float angle, float cx, float cy, float radius) override
   {
     g.DrawArc(border, cx, cy, radius, -135.f, 135.f, &mBlend, 2.f);
-    const bool centered = parameter_layout::UtilityControl(GetParamIdx()) == uPedalCharacter;
+    const int control = parameter_layout::UtilityControl(GetParamIdx());
+    const bool centered = control == uPedalCharacter || control == uPedalCompFocus;
     g.DrawArc(muted, cx, cy, radius, centered ? std::min(0.f, angle) : -135.f,
               centered ? std::max(0.f, angle) : angle, &mBlend, 2.f);
     // Modulation ring: the reach of every row on this knob, plus a dot at the live value.
@@ -669,6 +671,12 @@ inline IRECT ControlBounds(int position)
   const float top = grid_layout::knobTop + (position / 4) * grid_layout::knobRowPitch;
   return IRECT(left + 4.f, top, left + grid_layout::parameterWidth - 4.f, top + grid_layout::knobBottom - grid_layout::knobTop);
 }
+// The box of a switch or choice in the dial grid, centred on the dial height of the knobs.
+inline IRECT KnobAlignedBox(const IRECT& bounds)
+{
+  const float centre = bounds.T + grid_layout::knobCenter;
+  return IRECT(bounds.L + 12, centre - grid_layout::knobBoxHalfHeight, bounds.R - 12, centre + grid_layout::knobBoxHalfHeight);
+}
 class Toggle : public IVToggleControl
 {
 public:
@@ -689,7 +697,7 @@ public:
       const auto labelColor = slot < 0 ? muted : Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
       g.DrawText(Text(15.f, labelColor, EAlign::Center), mLabel.c_str(), mRECT.GetFromTop(14));
     }
-    const auto button = tall ? IRECT(mRECT.L + 12, mRECT.B - 38, mRECT.R - 12, mRECT.B - 4) : mRECT;
+    const auto button = tall ? KnobAlignedBox(mRECT) : mRECT;
     const bool on = GetValue() >= .5;
     if (mSelector)
     {
@@ -700,8 +708,9 @@ public:
     }
     g.FillRoundRect(on ? IColor(255, 49, 53, 59) : surface, button, 3.f);
     g.DrawRoundRect(on ? muted : border, button, 3.f);
-    const std::string caption = !tall && parameter_layout::UtilityControl(GetParamIdx()) == uEQMode
-      ? on ? "Band: Notch" : "Band: Bell"
+    const int control = parameter_layout::UtilityControl(GetParamIdx());
+    const std::string caption = !tall && control == uEQMode ? on ? "Band: Notch" : "Band: Bell"
+      : control == uPedalCompAttack ? on ? "Slow" : "Fast"
       : !tall && !mLabel.empty() ? mLabel + (on ? ": ON" : ": OFF") : on ? "ON" : "OFF";
     g.DrawText(Text(13.f, text, EAlign::Center), caption.c_str(), button);
   }
@@ -801,7 +810,7 @@ public:
   }
 private:
   IRECT Box() const
-  { return mRECT.H() > 60.f ? IRECT(mRECT.L + 12, mRECT.B - 38, mRECT.R - 12, mRECT.B - 4) : mRECT; }
+  { return mRECT.H() > 60.f ? KnobAlignedBox(mRECT) : mRECT; }
   int mControl;
   std::string mLabel;
   IPopupMenu mMenu;
@@ -1028,6 +1037,7 @@ public:
 #include "EffectSetupDisplay.h"
 #include "EffectSpaceDisplay.h"
 #include "EffectDriveDisplay.h"
+#include "ModulePresets.h"
 
 // A selectable card with an independently clipped module editor below the grid.
 class NAMGridSlotControl : public IControl
@@ -1151,7 +1161,19 @@ public:
       if (mEnabled->GetRECT() != enabledBounds) mEnabled->SetTargetAndDrawRECTs(enabledBounds);
       nameLeft = enabledBounds.R + 8.f;
     }
-    const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, grid_layout::moduleBrowseX - 26, grid_layout::moduleHeaderBottom);
+    // Built-in modules show their preset menu between the name and the browse button.
+    // Its caption names the factory or user preset the controls still match.
+    float nameRight = grid_layout::moduleBrowseX - 26;
+    if (mPresetButton && !empty && HasModulePresets(effect))
+    {
+      const IRECT presetBounds(nameRight - 104.f, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
+      if (mPresetButton->GetRECT() != presetBounds) mPresetButton->SetTargetAndDrawRECTs(presetBounds);
+      const auto caption = MatchingPresetName(effect);
+      const char* label = caption.empty() ? "Presets" : caption.c_str();
+      if (std::strcmp(mPresetButton->GetLabelStr(), label) != 0) mPresetButton->SetLabelStr(label);
+      nameRight = presetBounds.L - 6.f;
+    }
+    const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
     if (mModelButton->GetRECT() != nameBounds) mModelButton->SetTargetAndDrawRECTs(nameBounds);
   }
   void LayoutDescription(IGraphics& g, bool draw)
@@ -1343,6 +1365,9 @@ public:
     mStepButtons[0] = new grid_ui::Button(IRECT(grid_layout::modulePreviousX - 12, grid_layout::moduleHeaderTop, grid_layout::modulePreviousX + 12, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(-1); }, "<");
     mStepButtons[1] = new grid_ui::Button(IRECT(grid_layout::moduleNextX - 12, grid_layout::moduleHeaderTop, grid_layout::moduleNextX + 12, grid_layout::moduleHeaderBottom), [this](IControl*) { Step(1); }, ">");
     for (auto* button : mStepButtons) mEditor->AddChildControl(button);
+    mPresetButton = new grid_ui::Button(IRECT(grid_layout::moduleBrowseX - 130, grid_layout::moduleHeaderTop, grid_layout::moduleBrowseX - 26, grid_layout::moduleHeaderBottom), [this](IControl*) { ShowPresetMenu(); }, "Presets");
+    mPresetButton->SetTooltip("Factory and your own presets for this module. Choosing one sets this module's controls and leaves the rest of the rig unchanged. Save current as... adds your own.");
+    mEditor->AddChildControl(mPresetButton);
     mQualityButton = new grid_ui::Button(IRECT(grid_layout::qualityLeft, grid_layout::optionsTop, grid_layout::parameterRight, grid_layout::optionsBottom), [this](IControl*) {
       PLUG()->ToggleSlotQuality(mSlot); Refresh();
     }, "Quality: A2");
@@ -1513,6 +1538,27 @@ public:
     else if (item->GetTag() <= -21 && item->GetTag() >= -20 - static_cast<int>(SlotEffect::Last)
              && IsValidSlotEffect(static_cast<SlotEffect>(-item->GetTag() - 20)))
       PLUG()->SetSlotEffect(mSlot, static_cast<SlotEffect>(-item->GetTag() - 20));
+    else if (item->GetTag() <= kPresetTag && item->GetTag() > kPresetTag - 64)
+    {
+      PLUG()->ApplyModulePreset(mSlot, kPresetTag - item->GetTag());
+      Refresh(); // A preset can switch Tempo sync, which shows Division instead of Time.
+    }
+    else if (item->GetTag() <= kUserPresetTag && item->GetTag() > kUserPresetTag - static_cast<int>(mUserPresets.size())
+             && mUserPresetsEffect == PLUG()->GetSlotEffect(mSlot))
+    {
+      PLUG()->ApplyUserModulePreset(mSlot, mUserPresets[kUserPresetTag - item->GetTag()]);
+      Refresh();
+    }
+    else if (item->GetTag() == kSavePresetTag)
+      SaveUserPreset();
+    else if (item->GetTag() == kShowPresetsTag)
+    {
+      const auto folder = PLUG()->GetModulePresetFolder(PLUG()->GetSlotEffect(mSlot));
+      std::error_code error;
+      std::filesystem::create_directories(folder, error);
+      WDL_String path(nam_library::PathText(folder).c_str());
+      GetUI()->RevealPathInExplorerOrFinder(path, false);
+    }
     else if (item->GetTag() <= -1000 && item->GetTag() > -1048)
     {
       const int action = -item->GetTag() - 1000;
@@ -1743,6 +1789,44 @@ private:
     }
     else if (effect == SlotEffect::OutboardChannel)
       DrawOutboardChannel(g, plot, color);
+    else if (effect == SlotEffect::PedalComp)
+    {
+      // Settled steady-tone curve: Sustain, Pickup, Blend and Level all move it. Release
+      // depends on how long notes were compressed, which the history on the right shows.
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      const double sustain = value(uPedalCompSustain), blend = value(uPedalCompBlend) * .01;
+      const double outputDB = value(uPedalCompLevel);
+      const int pickup = static_cast<int>(value(uPedalCompPickup));
+      WDL_String caption;
+      caption.SetFormatted(64, "GR %.1f dB", mReductionNow);
+      PlotTitle(g, plot, color, caption.Get());
+      const IRECT transfer(plot.L, plot.T, plot.MW() - 8.f, plot.B), history(plot.MW() + 8.f, plot.T, plot.R, plot.B);
+      const IRECT reductionBar(plot.L, plot.T + 8.f, plot.R, plot.T + 11.f);
+      g.FillRect(surface, reductionBar);
+      g.FillRect(ampColor.WithOpacity(.8f), IRECT(reductionBar.L, reductionBar.T,
+        reductionBar.L + reductionBar.W() * std::clamp(mReductionNow / compressionReductionRange, 0.f, 1.f), reductionBar.B));
+      if (mReductionNow > compressionReductionRange)
+        g.FillTriangle(reductionOverflowColor, reductionBar.R, reductionBar.MH(),
+          reductionBar.R - 5.f, reductionBar.T - 3.f, reductionBar.R - 5.f, reductionBar.B + 3.f);
+      const float floor = -60.f;
+      PlotGrid(g, transfer);
+      PlotCurve(g, transfer, [&](double x) { return floor * (1. - x); }, floor, 18., muted.WithOpacity(.5f), 1.f);
+      const auto response = [&](double input) {
+        const double wet = std::pow(10., (grid_pedal_comp::OutputDB(input, sustain, pickup) - input) * .05);
+        return input + outputDB + 20. * std::log10(std::max(1.e-9, 1. - blend + blend * wet));
+      };
+      PlotCurve(g, transfer, [&](double x) { return response(floor * (1. - x)); }, floor, 18., color);
+      const float inputDB = 20.f * std::log10(std::max(mMeter.input, 1.e-6f));
+      if (inputDB > floor)
+      {
+        const float px = transfer.L + transfer.W() * std::clamp(1.f - inputDB / floor, 0.f, 1.f);
+        const float py = transfer.B - transfer.H() * static_cast<float>(std::clamp((response(inputDB) - floor) / (18. - floor), 0., 1.));
+        g.FillCircle(text, px, py, 3.f);
+      }
+      PlotDetail(g, plot, "Dot: live input on the settled curve for a mid-range tone; Body / Pick shifts it for low and bright notes. Gray: input; colour: output. Amber bar: gain reduction; red tip: beyond 16 dB.");
+      PlotFooter(g, plot, "IN -60..0 / OUT -60..+18 | GR 0..16 dB", "Live 0..-60");
+      levels(floor, history);
+    }
     else if (IsOutboardCompressor(effect) || effect == SlotEffect::ConsoleColour || IsAirDynamics(effect))
     {
       WDL_String caption;
@@ -2380,6 +2464,8 @@ private:
       const bool empty = nam && path.empty();
       mEnabled->Hide(empty);
       for (auto* button : mStepButtons) button->Hide(empty);
+      mPresetButton->Hide(empty || !HasModulePresets(effect));
+      LoadUserPresets(false);
       mBrowserButton->Hide(false);
       mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
@@ -2471,6 +2557,84 @@ private:
       GetUI()->ShowMessageBox(error.c_str(), "Slot operation failed", kMB_OK);
 #endif
     }
+  }
+  // Every built-in module can hold user presets; captures and IRs are files themselves.
+  static bool HasModulePresets(SlotEffect effect) { return effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR; }
+  // Re-reads the user presets when the module changes, or always when forced (menu, save).
+  void LoadUserPresets(bool force)
+  {
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    if (!force && mUserPresetsLoaded && effect == mUserPresetsEffect) return;
+    mUserPresets = HasModulePresets(effect) ? PLUG()->GetUserModulePresets(effect, &mUnreadablePresets)
+                                            : std::vector<module_presets::UserPreset>{};
+    mUserPresetsEffect = effect;
+    mUserPresetsLoaded = true;
+  }
+  // The factory or user preset the current controls equal, or empty.
+  std::string MatchingPresetName(SlotEffect effect)
+  {
+    const auto values = PLUG()->GetSlotValues(mSlot);
+    if (const int factory = module_presets::Matching(effect, values); factory >= 0) return module_presets::For(effect)[factory].name;
+    if (mUserPresetsEffect == effect)
+      for (const auto& preset : mUserPresets)
+        if (module_presets::Matches(effect, preset.values, values)) return preset.name;
+    return {};
+  }
+  // Factory presets, then a divider and the player's presets, then saving. Factory presets
+  // are read-only: Save current as... writes a new user preset.
+  void ShowPresetMenu()
+  {
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    if (!HasModulePresets(effect)) return;
+    LoadUserPresets(true);
+    const auto presets = module_presets::For(effect);
+    const auto values = PLUG()->GetSlotValues(mSlot);
+    const int factory = module_presets::Matching(effect, values);
+    mMenu.Clear();
+    for (size_t i = 0; i < presets.size(); ++i)
+      mMenu.AddItem(new IPopupMenu::Item(presets[i].name, static_cast<int>(i) == factory ? IPopupMenu::Item::kChecked : 0,
+                                         kPresetTag - static_cast<int>(i)));
+    if (!mUserPresets.empty() && mMenu.NItems()) mMenu.AddSeparator();
+    bool matched = factory >= 0;
+    for (size_t i = 0; i < mUserPresets.size() && i < kMaximumUserPresets; ++i)
+    {
+      const bool checked = !matched && module_presets::Matches(effect, mUserPresets[i].values, values);
+      matched |= checked;
+      mMenu.AddItem(new IPopupMenu::Item(mUserPresets[i].name.c_str(), checked ? IPopupMenu::Item::kChecked : 0,
+                                         kUserPresetTag - static_cast<int>(i)));
+    }
+    if (mUnreadablePresets > 0)
+    {
+      const auto note = std::to_string(mUnreadablePresets) + (mUnreadablePresets == 1 ? " preset file" : " preset files")
+                        + " could not be read";
+      mMenu.AddItem(new IPopupMenu::Item(note.c_str(), IPopupMenu::Item::kDisabled, -1));
+    }
+    if (mMenu.NItems()) mMenu.AddSeparator();
+    const bool folder = !PLUG()->GetModulePresetFolder(effect).empty();
+    mMenu.AddItem(new IPopupMenu::Item(folder ? "Save current as..." : "Save current as... (add a preset folder in Settings)",
+                                       folder ? 0 : IPopupMenu::Item::kDisabled, kSavePresetTag));
+    mMenu.AddItem(new IPopupMenu::Item("Show presets folder", folder ? 0 : IPopupMenu::Item::kDisabled, kShowPresetsTag));
+    GetUI()->CreatePopupMenu(*this, mMenu, mPresetButton->GetRECT());
+  }
+  void SaveUserPreset()
+  {
+    const auto effect = PLUG()->GetSlotEffect(mSlot);
+    const auto folder = PLUG()->GetModulePresetFolder(effect);
+    if (folder.empty()) return;
+    std::error_code error;
+    std::filesystem::create_directories(folder, error);
+    const auto suggested = MatchingPresetName(effect);
+    WDL_String file(((suggested.empty() ? std::string("My ") + SlotEffectName(effect) : suggested) + ".json").c_str());
+    WDL_String directory(nam_library::PathText(folder).c_str());
+    GetUI()->PromptForFile(file, directory, EFileAction::Save, "json", [this](const WDL_String& chosen, const WDL_String&) {
+      if (!chosen.GetLength()) return;
+      auto path = std::filesystem::u8path(chosen.Get());
+      if (!path.has_extension()) path += ".json";
+      if (const auto failure = PLUG()->SaveUserModulePreset(mSlot, path); !failure.empty())
+        grid_ui::ShowNotice(GetUI(), "Cannot save the module preset", failure.c_str());
+      LoadUserPresets(true);
+      Refresh();
+    });
   }
   void ShowEditMenu()
   {
@@ -2586,6 +2750,15 @@ private:
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
+  grid_ui::Button* mPresetButton = nullptr;
+  static constexpr int kPresetTag = -2000; // Module preset menu items: -2000 - index.
+  static constexpr int kSavePresetTag = -2900, kShowPresetsTag = -2901;
+  static constexpr int kUserPresetTag = -3000; // User preset menu items: -3000 - index.
+  static constexpr size_t kMaximumUserPresets = 2000;
+  std::vector<module_presets::UserPreset> mUserPresets;
+  SlotEffect mUserPresetsEffect = SlotEffect::NAM;
+  int mUnreadablePresets = 0;
+  bool mUserPresetsLoaded = false;
   ILayerPtr mPedalPreview;
   std::array<double, 10> mPedalPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;

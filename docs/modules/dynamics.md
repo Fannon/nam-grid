@@ -7,6 +7,7 @@ Gates, compressors and limiting.
 | [Noise Gate](#noise-gate) | Threshold opens the gate; Release and Reduction shape the gaps. |
 | [Noise Gate (Smart)](#noise-gate-smart) | Learn the noise alone; Sensitivity and Reduction protect sustain. |
 | [Digital Black Gate](#digital-black-gate) | Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour. |
+| [Pedal Comp](#pedal-comp) | Guitar sustain pedal: Sustain evens out notes, Blend keeps the pick, Pickup suits your guitar. |
 | [Smooth Compressor](#smooth-compressor) | Gentle leveling; Attack preserves pick, Makeup restores level. |
 | [Punch Compressor](#punch-compressor) | Firmer compression; slow Attack and parallel Mix retain punch. |
 | [Butter Comp](#butter-comp) | Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack. |
@@ -83,6 +84,36 @@ In the header:
 
 - If noise near Threshold makes the gate chatter, raise Hold to 30 to 80 ms or set Threshold a few dB higher.
 
+## Pedal Comp
+
+A guitar compressor in the spirit of sustain pedals, for electric and acoustic guitar. One
+**Sustain** knob sets how much it evens out your playing; the level follows automatically, so
+a typical note stays about as loud as bypass while quiet notes and decaying tails come up.
+Its Sustain range and timing were calibrated against recordings of a Ross-type compressor pedal.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Sustain** | 0–100% | 40% | Amount of compression, over the range of a classic sustain pedal's knob. 0% only catches the hardest picks; at 100% loud notes come down by about 7 dB more than quiet ones. |
+| **Attack** | Fast / Slow | Slow | **Fast** clamps the pick for the classic snappy, squashed pedal sound. **Slow** lets about 20 ms of pick through first, which sounds more natural. |
+| **Body / Pick** | -100 to +100% | 0% | What the compressor reacts to; the tone itself never changes. Toward **Pick** it smooths bright pick attacks and lets low notes bloom; toward **Body** it keeps the pick snap and evens out loud low strings. |
+| **Level** | -12 to +12 dB | 0 dB | Final level. |
+| **Blend** | 0–100% | 70% | Mixes dry guitar back in for a natural attack with compressed sustain underneath. |
+
+In the header:
+
+- **Pickup** (Single coil, Humbucker, Acoustic; starts at Humbucker) tells the detector what to expect. It never changes the tone. Single coil is about 5 dB more sensitive than Humbucker. **Acoustic** is for piezo, transducer and other acoustic pickups: it follows the body of each note rather than every pick spike and ignores body boom and piezo quack, so strumming does not pump.
+
+**Display:** The settled compression curve for steady notes, with a dot at the live input, the gain reduction bar and the input/output history.
+
+**Presets:** Light always-on, Snappy clean picking, Even sustain with some dry, Heavy squash with natural attack, Gentle leveling, Long lead notes, Acoustic strumming and Acoustic fingerpicking. Presets keep your Pickup choice, except the acoustic ones, which select Acoustic.
+
+**Tips:**
+
+- Start with the default and listen to note tails. If the pick sounds choked, switch Attack to Slow, lower Blend or turn Body / Pick toward Body.
+- Sustain is calibrated for ordinary interface gain staging, with normal playing peaking around -9 dBFS on a DAW meter. Keep your input set for your captures; if Sustain barely does anything, choose Single coil or raise Sustain, and if it squashes even at low Sustain, choose Humbucker.
+- Release follows your playing: after a short pick it recovers quickly, after a long held note it eases back over about a second.
+- Like any sustainer, it raises the noise between notes along with the tails. If that bothers you, add a gate after it; a gate before it would cut the tails it is sustaining.
+
 ## Smooth Compressor
 
 ![Smooth Compressor editor](../screenshots/modules/smooth-compressor.png)
@@ -100,6 +131,8 @@ Starts with gentle 2.5:1 compression and a soft 9 dB knee for leveling and susta
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
+
+**Presets:** Clean guitar leveling, Barely there, Long gentle sustain, Acoustic strumming leveler and Even bass notes.
 
 **Tips:**
 
@@ -123,6 +156,8 @@ Starts with firmer 4:1 compression and a 3 dB knee and a slower default attack, 
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
+**Presets:** Tight picking, Upfront with dynamics, Firm control after an amp and Parallel punch.
+
 **Tips:**
 
 - Keep Attack around 20 to 30 ms to let the pick through, and use Mix to bring back dynamics.
@@ -131,15 +166,17 @@ Starts with firmer 4:1 compression and a 3 dB knee and a slower default attack, 
 
 ![Butter Comp editor](../screenshots/modules/butter-comp.png)
 
-Airwindows ButterComp2 glue compression with automatic level recovery. Try it across a full rig for subtle cohesion.
+Airwindows ButterComp2 glue compression with automatic level recovery, set up for guitar levels. Its slow, polarity-sensitive recovery suits gentle cohesion after an amp or across a full rig.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Compress** | 0–100% | 35% | Compression amount, with automatic level recovery. |
+| **Compress** | 0–100% | 35% | Compression amount, with automatic level recovery. The default lowers typical guitar notes by about 1 dB, 70% by 2–3.5 dB and 100% by 5–8 dB. |
 | **Output** | -18 to +6 dB | -1 dB | Final level. Match bypass volume before judging compression. |
 | **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 
 **Display:** Gain reduction, input and output over time.
+
+**Presets:** Subtle glue, Dense and even, and Thick parallel.
 
 ## Outboard Channel
 
@@ -174,6 +211,8 @@ A fast peak limiter for catching transients at the end of the rig. Clip rounds p
 | **Clip** | 0–100% | 0% | Soft-clips peaks from 3 dB below the ceiling before limiting, so the gain moves less on fast transients. Adds harmonics; 0% is off. |
 
 **Display:** The limiter curve with a dot at the live input, and the history.
+
+**Presets:** Transparent safety and Louder, controlled.
 
 **Tips:**
 

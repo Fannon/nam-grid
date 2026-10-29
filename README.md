@@ -39,7 +39,7 @@ changes and tested the results, supported by an extensive automated test suite.
   (Pre, two parallel lanes A and B, Post). Any slot takes any module, so you can run
   several NAM captures, cabinet IRs or the same effect more than once, and blend the
   two lanes with **A/B**.
-- **[55 built-in effects](https://fannon.github.io/nam-grid/modules/):** gates, compressors and outboard-style
+- **[56 built-in effects](https://fannon.github.io/nam-grid/modules/):** gates, compressors and outboard-style
   dynamics, EQs and filters, [guitar and bass drives](https://fannon.github.io/nam-grid/modules/pedal-drive), modulation, pitch effects, delays and reverbs,
   including [Cosmic Echo](https://fannon.github.io/nam-grid/modules/cosmic-echo) and the
   [LoFi Tape Machine](https://fannon.github.io/nam-grid/modules/lofi-tape).

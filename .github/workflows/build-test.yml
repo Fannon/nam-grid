@@ -81,6 +81,10 @@ jobs:
           CC: gcc-12
           CXX: g++-12
       - run: cmake --build build/ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+      - name: Fetch main for the permanent ID check
+        # test_parameter_ids.py checks that a branch only appends parameter, module and
+        # schema IDs after main's. Without main it checks the tree alone.
+        run: git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main || true
       - name: Python tool tests
         run: python -m unittest discover -s tests -p "test_*.py"
       # Hosted Windows runners only expose the GDI OpenGL 1.1 renderer, which the

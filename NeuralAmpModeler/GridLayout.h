@@ -41,8 +41,11 @@ inline constexpr int enabledY = (moduleHeaderTop + moduleHeaderBottom) / 2;
 inline constexpr int moduleBrowseX = visualizationLeft - 88, modulePreviousX = visualizationLeft - 54, moduleNextX = visualizationLeft - 24;
 inline constexpr int moduleButtonY = (moduleHeaderTop + moduleHeaderBottom) / 2, optionsY = (optionsTop + optionsBottom) / 2;
 inline constexpr int qualityLeft = visualizationLeft - 128, tempoLeft = visualizationLeft - 300, modeLeft = visualizationLeft - 176;
-inline constexpr int KnobGestureY(int position) { return knobTop + (position / 4) * knobRowPitch + 43; }
-inline constexpr int ToggleY(int position) { return knobTop + (position / 4) * knobRowPitch + 55; }
+// Dial centre below a control's top. Switches and choices in the dial grid share it, so their
+// boxes line up with the knobs beside them.
+inline constexpr int knobCenter = 43, knobBoxHalfHeight = 17;
+inline constexpr int KnobGestureY(int position) { return knobTop + (position / 4) * knobRowPitch + knobCenter; }
+inline constexpr int ToggleY(int position) { return KnobGestureY(position); }
 inline constexpr int KnobValueY(int position) { return knobBottom + (position / 4) * knobRowPitch - 6; }
 inline constexpr float parameterLeft = 12.f, parameterRight = visualizationLeft - 12.f;
 inline constexpr float parameterWidth = (parameterRight - parameterLeft) / 4.f;

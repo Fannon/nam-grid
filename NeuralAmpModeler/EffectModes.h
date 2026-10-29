@@ -50,6 +50,9 @@ inline constexpr std::array<const char*, pedalCount> pedalCharacterHelp{
   "Clipping: negative compresses with symmetric clipping; center has open symmetric clipping; positive adds asymmetry.",
   "Bias: negative gives rounder, more symmetric fuzz; positive pinches the waveform and gates quiet decays. Center is the base fuzz."};
 inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hysteresis"};
+// Pedal Comp detector voicings. They set sensitivity and what the detector hears,
+// never the audible tone.
+inline constexpr std::array<const char*, 3> pickupNames{"Single coil", "Humbucker", "Acoustic"};
 inline constexpr std::array<const char*, 8> deskNames{"Dark", "Rock", "Lush", "Vibe", "Holo", "Punch", "Steel", "Tube"};
 
 enum class DistortionStyle

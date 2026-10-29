@@ -1,12 +1,12 @@
 # Module guide
 
-Any slot can hold a NAM capture, a cabinet IR or one of 55 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
+Any slot can hold a NAM capture, a cabinet IR or one of 56 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
 
 | Category | Modules |
 | --- | --- |
 | [Captures & cabinets](captures.md) | [NAM capture](captures.md#nam), [Cabinet IR](captures.md#cabinet-ir) |
 | [Distortion](distortion.md) | [Distortion](distortion.md#distortion), [Pedal Drive](distortion.md#pedal-drive), [Boost](distortion.md#boost), [Tube Boost](distortion.md#tube-boost), [Airwindows Tape](distortion.md#airwindows-tape), [Console Colour](distortion.md#console-colour), [Bitcrusher](distortion.md#bitcrusher) |
-| [Dynamics](dynamics.md) | [Noise Gate](dynamics.md#noise-gate), [Noise Gate (Smart)](dynamics.md#noise-gate-smart), [Digital Black Gate](dynamics.md#digital-black-gate), [Smooth Compressor](dynamics.md#smooth-compressor), [Punch Compressor](dynamics.md#punch-compressor), [Butter Comp](dynamics.md#butter-comp), [Outboard Channel](dynamics.md#outboard-channel), [Peak Limiter](dynamics.md#peak-limiter) |
+| [Dynamics](dynamics.md) | [Noise Gate](dynamics.md#noise-gate), [Noise Gate (Smart)](dynamics.md#noise-gate-smart), [Digital Black Gate](dynamics.md#digital-black-gate), [Pedal Comp](dynamics.md#pedal-comp), [Smooth Compressor](dynamics.md#smooth-compressor), [Punch Compressor](dynamics.md#punch-compressor), [Butter Comp](dynamics.md#butter-comp), [Outboard Channel](dynamics.md#outboard-channel), [Peak Limiter](dynamics.md#peak-limiter) |
 | [EQ / Filter](eq-filter.md) | [Guitar EQ](eq-filter.md#guitar-eq), [Cut EQ](eq-filter.md#cut-eq), [Parametric EQ](eq-filter.md#parametric-eq), [Console EQ](eq-filter.md#console-eq), [Filter](eq-filter.md#filter), [Wah](eq-filter.md#wah) |
 | [Modulation](modulation.md) | [Chorus](modulation.md#chorus), [Juno Chorus](modulation.md#juno-chorus), [Flanger](modulation.md#flanger), [Phaser](modulation.md#phaser), [Auto Tremolo](modulation.md#auto-tremolo), [Vibrato](modulation.md#vibrato), [Rotary](modulation.md#rotary), [Uni-Vibe](modulation.md#uni-vibe), [Ring Modulator](modulation.md#ring-modulator) |
 | [Pitch / Frequency](pitch-frequency.md) | [Mono Octaver](pitch-frequency.md#mono-octaver), [Stereo Doubler](pitch-frequency.md#stereo-doubler), [Frequency Shifter](pitch-frequency.md#frequency-shifter) |
@@ -33,7 +33,7 @@ New modules start with electric-guitar settings that make the effect easy to hea
 - Outputs start at unity unless a module lists an offset, such as Distortion's -6 dB. Cabinet IRs start at -18 dB, the usual cabinet headroom; IRs vary, so match them with the level meters.
 - NAM captures, Guitar EQ, Parametric EQ and Utility start neutral. Thresholds and makeup depend on your instrument and interface, so set them by ear.
 
-**Acoustic guitar:** start with neutral EQ and a low Room or Dense Plate mix, and reduce or bypass gates if they trim finger noise or sustain.
+**Acoustic guitar:** start with neutral EQ and a low Room or Dense Plate mix, and reduce or bypass gates if they trim finger noise or sustain. For compression, set Pedal Comp's **Pickup** to **Acoustic**.
 
 **Bass:** lower Cut EQ's Low cut to about 30–45 Hz or turn it off, keep delay and reverb mixes low, and give Mono Octaver less sub level.
 

@@ -270,6 +270,12 @@ enum UtilityParam
   uSwellHold = 254,
   uSwellMix = 255,
   uDelayTimeChange = 256,
+  uPedalCompSustain = 257,
+  uPedalCompAttack = 258,
+  uPedalCompFocus = 259,
+  uPedalCompBlend = 260,
+  uPedalCompLevel = 261,
+  uPedalCompPickup = 262,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -298,6 +304,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uCosmicStyle: return effect_modes::cosmicNames;
     case uColourDesk: return effect_modes::deskNames;
     case uBlackMode: return effect_modes::blackNames;
+    case uPedalCompPickup: return effect_modes::pickupNames;
     default: return {};
   }
 }
@@ -336,6 +343,7 @@ inline constexpr AlgorithmIdentity uUtilityModeIdentities[]{{0, "stereo"}, {1, "
 inline constexpr AlgorithmIdentity irLength[]{{0, "cabinet-8192"}, {1, "long-ir-30s"}};
 inline constexpr AlgorithmIdentity vibe[]{{0, "chorus"}, {1, "vibrato"}};
 inline constexpr AlgorithmIdentity timeChange[]{{0, "glide"}, {1, "crossfade"}};
+inline constexpr AlgorithmIdentity pickup[]{{0, "single-coil"}, {1, "humbucker"}, {2, "acoustic"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {
@@ -359,6 +367,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uParamLowMode: return eqLow;
     case uVibeMode: return vibe;
     case uDelayTimeChange: return timeChange;
+    case uPedalCompPickup: return pickup;
     default: return {};
   }
 }
@@ -372,7 +381,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 12; // 12 Digital Delay time change; 11 rig-wide trails; 10 Juno voices.
+inline constexpr int kEffectStateSchema = 13; // 13 Pedal Comp; 12 Digital Delay time change; 11 rig-wide trails; 10 Juno voices.
 
 struct EffectParameter
 {
@@ -645,7 +654,13 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Swell Curve", "Rise curve", 1, 0.25, 4, 0.01, "", 0, false, 1., 8},
    {"Swell Re-arm Hold", "Re-arm hold", 40, 0, 500, 1, "ms", 0, false, 1., 8},
    {"Swell Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 8},
-   {"Delay Time Change", "Time change", 0, 0, 1, 1, "", 0, false, 1., 12}}};
+   {"Delay Time Change", "Time change", 0, 0, 1, 1, "", 0, false, 1., 12},
+   {"Pedal Comp Sustain", "Sustain", 40, 0, 100, 0.1, "%", 0, false, 1., 13},
+   {"Pedal Comp Attack", "Attack", 1, 0, 1, 1, "", 1, false, 1., 13},
+   {"Pedal Comp Focus", "Body / Pick", 0, -100, 100, 0.1, "%", 2, false, 1., 13},
+   {"Pedal Comp Blend", "Blend", 70, 0, 100, 0.1, "%", 6, false, 1., 13},
+   {"Pedal Comp Level", "Level", 0, -12, 12, 0.1, "dB", 4, false, 1., 13},
+   {"Pedal Comp Pickup", "Pickup", 1, 0, 2, 1, "", 0, false, 1., 13}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -722,7 +737,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
-    case SlotEffect::DigitalBlack: return true;
+    case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
     default: return false;
   }
 }
@@ -770,6 +785,8 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uSwellHold: return e == SlotEffect::AutoSwell;
       case uSwellMix: return e == SlotEffect::AutoSwell;
       case uDelayTimeChange: return e == SlotEffect::DigitalDelay;
+      case uPedalCompSustain: case uPedalCompAttack: case uPedalCompFocus:
+      case uPedalCompBlend: case uPedalCompLevel: case uPedalCompPickup: return e == SlotEffect::PedalComp;
       default: return false;
     }
   }
@@ -928,6 +945,9 @@ struct UtilityControls
   std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
+  // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Focus (Body -100 to Pick +100), Blend and Level, in ID order.
+  std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
+  int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
   int irLength = 0;

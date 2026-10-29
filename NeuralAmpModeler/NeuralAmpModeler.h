@@ -59,6 +59,7 @@ private:
 
 #include "ParameterLayout.h"
 #include "ModulationMatrix.h"
+#include "ModulePresets.h"
 
 enum ECtrlTags
 {
@@ -217,6 +218,17 @@ public:
   std::string EditSlot(size_t source, size_t destination, SlotEditMode mode);
   void ClearSlot(size_t slot);
   void LoadSlapbackPreset(size_t slot);
+  // Current values of one slot's controls, in SlotValues order.
+  SlotValues GetSlotValues(size_t slot) const;
+  // Sets the slot's module controls to one of its factory module presets (ModulePresets.h)
+  // as ordinary host parameter changes; the module keeps running.
+  void ApplyModulePreset(size_t slot, int preset);
+  // User module presets: JSON files under each preset folder's "Module Presets". The
+  // folder for saving this module's presets is empty when no preset folder is configured.
+  std::filesystem::path GetModulePresetFolder(SlotEffect effect) const;
+  std::vector<module_presets::UserPreset> GetUserModulePresets(SlotEffect effect, int* unreadable = nullptr) const;
+  std::string SaveUserModulePreset(size_t slot, const std::filesystem::path& file);
+  void ApplyUserModulePreset(size_t slot, const module_presets::UserPreset& preset);
   std::string SaveRigPreset(const std::filesystem::path& path);
   std::string LoadRigPreset(const std::filesystem::path& path);
   std::string InstallDrivePresets(const std::filesystem::path& folder);
@@ -286,6 +298,7 @@ private:
   void _UpdateLatency(bool forceRestart = false);
   void _UpdateLibraryControls();
   void _NotifyHostStateChanged();
+  void _ApplyModuleValues(size_t slot, std::span<const module_presets::Value> values);
 
   // Member data
 

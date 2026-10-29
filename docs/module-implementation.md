@@ -72,6 +72,26 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   first-order antiderivative antialiasing before a continuously integrated slew
   limiter/hard clip; its filter rate remains 4x. See
   [voices, signal flow and design references](modules/pedal-drive.md).
+- **Pedal Comp** ([SlotPedalComp.h](../NeuralAmpModeler/SlotPedalComp.h)) is an original
+  feed-forward compressor that takes the playing behaviour of guitar sustain pedals
+  without modelling a circuit. One linked stereo detector feeds a soft-knee curve whose
+  threshold and ratio (1.6:1 to 8:1) both follow Sustain. Automatic makeup reads the curve
+  2.5 dB above the reference level, so typical played notes stay at bypass loudness. Attack
+  is 1.5 ms (Fast) or 20 ms (Slow). Release is program-dependent: a fast state (150/250 ms)
+  and a slow memory that charges over 300 ms toward 40% of the reduction and lets go over
+  800 ms, so short peaks recover quickly and held notes ease back. Pickup only changes the
+  detector: sensitivity, a 12 dB/octave low cut (70 Hz, or 150 Hz for Acoustic), and for
+  Acoustic an RMS window and a 5 kHz low-pass that ignore pick spikes and piezo quack.
+  Body / Pick is a first-order ±6 dB tilt around 500 Hz in the detector only, so it changes
+  which notes are compressed, never the frequency response. Blend 0% with Level at zero is
+  exactly dry. There is no waveshaper, so nothing aliases.
+
+  The Sustain range, Slow attack and release were calibrated against the Yuer Dyna
+  Compressor (a Ross-type pedal) in the [ToneTwist AFx dataset](https://github.com/mcomunita/tonetwist-afx-dataset)
+  (CC BY-NC 4.0; recordings used for measurement only, not distributed). On the same guitar DI,
+  Sustain 50% and 100% follow the pedal's noon and maximum gain-versus-level curves within
+  about 1 and 4 dB, and Slow's reduction builds over 12-50 ms like the pedal's slowest attack.
+  The pedal's slight treble loss (-2.5 dB at 8 kHz) is not reproduced.
 - **EQs and Filter** use the MIT AudioDSPTools coefficients and a scalar implementation of the
   [RBJ/W3C equations](https://www.w3.org/TR/audio-eq-cookbook/). Dynamics were written
   independently, using AudioDSPTools and LEAF as MIT algorithm references.

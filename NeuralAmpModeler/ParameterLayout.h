@@ -37,6 +37,18 @@ enum SlotControl
   kSlotFullQuality,
   standardControls
 };
+// Permanent host/state names (after the slot name) and ranges of the shared slot controls,
+// in SlotControl order. The plugin creates its parameters from this table.
+inline constexpr const char* slotControlNames[standardControls]{"NAM Input", "NAM Output", "Enabled",
+  "Gate Threshold", "Gate Release", "Gate Reduction", "Comp Threshold", "Comp Release", "Comp Makeup", "EQ Bass",
+  "EQ Mid", "EQ Treble", "EQ Low Cut", "EQ High Cut", "EQ Presence", "IR Output", "Full Quality"};
+struct ControlRange
+{
+  double minimum, maximum;
+};
+inline constexpr ControlRange slotControlRanges[standardControls]{{-40., 40.}, {-40., 40.}, {0., 1.},
+  {-90., -10.}, {20., 500.}, {0., 80.}, {-48., 0.}, {40., 600.}, {0., 18.}, {-12., 12.}, {-12., 12.},
+  {-12., 12.}, {0., 300.}, {2000., 20000.}, {-6., 6.}, {-36., 18.}, {0., 1.}};
 // Global controls in GlobalID index order: the five fixed globals, then
 // grid_performance parameters. New globals append after the last index.
 inline constexpr int fixedGlobals = 5;
@@ -52,8 +64,8 @@ struct Segment
 // control fails to compile until it is allocated here. To extend, append
 // {newGlobals, 0} or {0, newControls}, or grow the LAST segment's slotControls.
 // Never edit the counts of a released segment.
-// +1 slot control: Digital Black Hold (state schema 2).
-inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}};
+// +1 slot control: Digital Black Hold (state schema 2). The last {0, 6}: Pedal Comp (schema 13).
+inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}};
 inline constexpr Segment released[]{{83, 216}}; // The 0.1.0 baseline layout
 
 constexpr int GlobalID(std::span<const Segment> table, int index)

@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Performance
 
+- Uni-Vibe updates its optical filter coefficients every 16 samples, reducing CPU use without added latency. Moving sweeps in existing rigs can sound slightly different; the static response, controls and saved state retain their meaning.
 - Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
 
 ### Added

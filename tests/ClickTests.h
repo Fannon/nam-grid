@@ -154,12 +154,6 @@ inline const char* Exemption(SlotEffect effect, int control)
     case uCosmicTime: case uCosmicWarp:
       return "delay-length glide";
     case uCrushBits: return "quantization is the effect";
-    // Airwindows coefficients update every 32 samples (upstream: once per host block);
-    // a full-range jump steps them audibly. Interpolating needs changes inside the
-    // vendored DSP, so these two remain known limitations.
-    case uStripSaturate: return effect == E::OutboardChannel ? "Airwindows 32-sample coefficient updates" : nullptr;
-    case uConsoleMid: case uConsoleHighCut:
-      return effect == E::ConsoleEQ ? "Airwindows 32-sample coefficient updates" : nullptr;
   }
   return nullptr;
 }

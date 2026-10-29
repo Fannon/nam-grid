@@ -13,6 +13,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ### Added
 
 - LFOs and sequencers add **Retrigger: Song position**. While the DAW plays, they follow its beat position, so synced sweeps and steps line up with the bars on every playback, through tempo changes and loops. Stopped, they run free as before. Existing rigs keep their Retrigger setting.
+- Spring Reverb adds **Tank: Dispersive**, modeled on a real spring's chirp: in each echo the lows arrive first and the highs follow, giving the drip on picked notes. Drip sets the chirp's strength. It uses about four times the CPU of Classic. Existing rigs keep the Classic tank.
 - Chorus adds **Voices: 3 voices**, a lusher multi-voice chorus: two more moving delays a third of a cycle apart, at slightly different depths and delays, at the same overall level. Existing rigs keep 1 voice.
 - Digital Delay adds **Time change: Glide / Crossfade**. Crossfade switches delay times with a 30 ms blend instead of a pitch chirp, including tempo-sync jumps. Gentle time modulation still glides. New and existing rigs start on Glide and retain their sound.
 - Juno Chorus adds **I+II vintage**: fast, shallow 9.75 Hz motion with centered wet sound, based on Juno-60 measurements. Existing I, I+II and II modes retain their sound.

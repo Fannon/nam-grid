@@ -205,6 +205,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDoubleHumanize: return "Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets.";
     case uDoubleHighCut: return "Softens only the doubled voices; maximum bypasses this added filter.";
     case uDuckRelease: return "Time for ducked echoes to recover in gaps; 150 ms retains the original recovery.";
+    case uSpringTank: return "Classic is the original diffuse spring. Dispersive follows a physical spring's chirp: in each echo the lows arrive first and the highs later, the drip of a real tank. Drip sets how strong the chirp is.";
     case uChorusVoices: return "1 voice is the classic single moving delay. 3 voices add two more delays a third of a cycle apart, at slightly different depths and delays, for a lusher, denser chorus.";
     case uDelayTimeChange: return "Glide bends pitch as Time moves, like tape. Crossfade fades to the new time over 30 ms without a pitch sweep; changes of 1 ms or less per update, such as gentle modulation, still glide.";
     case uReverseFeedback: return "Returns reversed playback into the next capture, creating repeating reversed phrases.";

@@ -139,7 +139,7 @@ int main(int argc, char** argv)
     verify(expected["id"], expected);
   for (int slot = 0; slot < 16; ++slot)
   {
-    for (const int control : {uDelayTimeChange, uChorusVoices})
+    for (const int control : {uDelayTimeChange, uChorusVoices, uSpringTank})
     {
       const auto& info = parameters[SlotUtilityParam(slot, control)];
       assert(!(info.flags & ParameterInfo::kCanAutomate));

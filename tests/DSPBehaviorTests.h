@@ -90,37 +90,45 @@ inline void Reverbs()
         std::vector<double> left(count), right(count); left[0] = right[0] = 1.;
         reverb.Process(left.data(), right.data(), count, c);
         const double measured = DecayTime(left, rate);
-        if (effect != SlotEffect::CloudReverb)
-          assert(measured > .8 * decay && measured < 1.2 * decay);
-        else
-        {
-          // Disabled Cloud calibration: https://github.com/Fannon/nam-grid/issues/107.
-          // No passing calibration coverage: at Decay=.5 s, T20 is ~.72 s.
-          // assert(measured > .8 * decay && measured < 1.2 * decay);
-        }
+        assert(measured > .8 * decay && measured < 1.2 * decay);
         if (decay == .5) shortDecay = measured;
         else assert(measured > 1.8 * shortDecay); // All tanks must respond to Decay.
       }
     }
 }
 
-inline void PlateCalibration()
+inline double TankDecay(SlotEffect effect, double rate, double size, double decay)
+{
+  SlotReverb reverb; reverb.Reset(rate, effect);
+  UtilityControls c; c.reverb = {decay, size, 12000., 0., 100.};
+  c.reverbMotion = c.reverbHighPass = 0.;
+  const int count = static_cast<int>(rate * (2. * decay + 1.));
+  std::vector<double> left(count), right(count); left[0] = right[0] = 1.;
+  reverb.Process(left.data(), right.data(), count, c);
+  return DecayTime(left, rate);
+}
+
+inline void TankCalibration()
 {
   // Size changes spacing, not the time energy may survive inside the allpasses.
   // Measure audio at three rates and sizes, including a short tail in a large tank.
-  for (double rate : {44100., 48000., 96000.})
-    for (double size : {50., 100., 200.})
-      for (double decay : {.5, 2., 6.})
-      {
-        SlotReverb reverb; reverb.Reset(rate, SlotEffect::PlateReverb);
-        UtilityControls c; c.reverb = {decay, size, 12000., 0., 100.};
-        c.reverbMotion = c.reverbHighPass = 0.;
-        const int count = static_cast<int>(rate * (2. * decay + 1.));
-        std::vector<double> left(count), right(count); left[0] = right[0] = 1.;
-        reverb.Process(left.data(), right.data(), count, c);
-        const double measured = DecayTime(left, rate);
-        assert(measured > .8 * decay && measured < 1.2 * decay);
-      }
+  for (auto effect : {SlotEffect::PlateReverb, SlotEffect::CloudReverb})
+  {
+    for (double rate : {44100., 48000., 96000.})
+      for (double size : {50., 100., 200.})
+        for (double decay : {.5, 2., 6.})
+        {
+          const double measured = TankDecay(effect, rate, size, decay);
+          assert(measured > .8 * decay && measured < 1.2 * decay);
+        }
+    // Long tails must not lose energy on every loop pass beyond Decay and the
+    // brightest Damping (Cloud's interpolated reads gave ~.78x at 15 s).
+    for (double size : {100., 200.})
+    {
+      const double measured = TankDecay(effect, 48000., size, 15.);
+      assert(measured > .85 * 15. && measured < 1.1 * 15.);
+    }
+  }
 }
 
 inline void Octaver()
@@ -203,7 +211,7 @@ inline void TestDSPBehavior()
 {
   dsp_behavior_test::Modulation();
   dsp_behavior_test::Reverbs();
-  dsp_behavior_test::PlateCalibration();
+  dsp_behavior_test::TankCalibration();
   dsp_behavior_test::Octaver();
   dsp_behavior_test::Doubler();
   dsp_behavior_test::Stutter();

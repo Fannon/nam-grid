@@ -181,10 +181,11 @@ private:
 class CloudTank
 {
 public:
+  // Nominal loop travel time, used for the damping display guide.
   static constexpr double PassSeconds(double size) { return .14 * size; }
   void Reset(double rate)
   {
-    mRate = rate; mPhase = 0.; mFeedback = {}; mLow = {};
+    mRate = rate; mPhase = 0.; mFeedback = {}; mLow = {}; mConfigured = {-1., -1.};
     constexpr std::array<Stereo, 4> early{{{.0059,.0343},{.0301,.0100},{.0144,.0262},{.0236,.0189}}};
     for (int i = 0; i < 4; ++i) mEarly[i].Reset(rate, early[i][0], early[i][1]);
     for (int i = 0; i < 10; ++i)
@@ -194,20 +195,33 @@ public:
   void Configure(double size, double decay, double tone, double motion)
   {
     mSize = size; mCoefficient = Coefficient(tone, mRate); mMotion = motion;
-    // Approximate allpass group delay plus the long recirculating paths.
-    mGain = std::pow(.001, PassSeconds(size) / decay);
+    // A loop-only gain let the late allpasses ring past short Decay settings, while
+    // interpolated reads low-passed every pass and cut long tails short. Every delay
+    // instead loses 60 dB per Decay for the time a sample spends in it, so the whole
+    // tank decays at the set rate however energy circulates.
+    if (size == mConfigured[0] && decay == mConfigured[1]) return;
+    mConfigured = {size, decay};
+    const auto loss = [&](double samples) { return std::pow(.001, samples / (mRate * decay)); };
+    const auto prepare = [&](const StereoAllpass& stage, Stereo& samples, Stereo& gain) {
+      samples = stage.Samples(size);
+      gain = {loss(samples[0]), loss(samples[1])};
+    };
+    for (int i = 0; i < 4; ++i) prepare(mEarly[i], mEarlySamples[i], mEarlyGain[i]);
+    for (int i = 0; i < 10; ++i) prepare(mLate[i], mLateSamples[i], mLateGain[i]);
+    for (int ch = 0; ch < 2; ++ch) mLongGain[ch] = loss(mRate * LongSeconds(ch, size));
   }
   Stereo Tick(Stereo input)
   {
     Stereo wet = input;
-    for (auto& stage : mEarly) wet = stage.Tick(wet, mSize, .65);
+    for (int i = 0; i < 4; ++i) wet = mEarly[i].Tick(wet, mEarlySamples[i], mEarlyGain[i], .65);
     const Stereo early = wet;
-    for (int ch = 0; ch < 2; ++ch) wet[ch] = .3 * wet[ch] + mFeedback[ch] * mGain;
-    for (auto& stage : mLate) wet = stage.Tick(wet, mSize, .65);
+    for (int ch = 0; ch < 2; ++ch) wet[ch] = .3 * wet[ch] + mFeedback[ch];
+    for (int i = 0; i < 10; ++i) wet = mLate[i].Tick(wet, mLateSamples[i], mLateGain[i], .65);
     for (int ch = 0; ch < 2; ++ch)
     {
-      const double t = (.037 + ch * .013) * mSize + .0012 * mMotion * std::sin(mPhase + ch * 1.5707963267948966);
-      const double delayed = mLong[ch].Read(mRate * t); mLong[ch].Push(wet[ch]);
+      // Motion moves whole-sample taps; MovingDelay crossfades between them.
+      const double t = LongSeconds(ch, mSize) + .0012 * mMotion * std::sin(mPhase + ch * 1.5707963267948966);
+      const double delayed = mLongGain[ch] * mLong[ch].Read(std::round(mRate * t)); mLong[ch].Push(wet[ch]);
       mFeedback[ch] = LowPass(delayed, mLow[ch], mCoefficient);
       wet[ch] = .65 * mFeedback[ch] + .15 * early[ch];
     }
@@ -224,8 +238,11 @@ public:
 private:
   std::array<StereoAllpass, 4> mEarly;
   std::array<StereoAllpass, 10> mLate;
+  static constexpr double LongSeconds(int ch, double size) { return (.037 + ch * .013) * size; }
   std::array<MovingDelay, 2> mLong;
-  Stereo mFeedback{}, mLow{};
-  double mRate = 48000., mSize = 1., mGain = 0., mCoefficient = 0., mMotion = 0., mPhase = 0.;
+  std::array<Stereo, 4> mEarlySamples{}, mEarlyGain{};
+  std::array<Stereo, 10> mLateSamples{}, mLateGain{};
+  Stereo mFeedback{}, mLow{}, mLongGain{}, mConfigured{-1., -1.};
+  double mRate = 48000., mSize = 1., mCoefficient = 0., mMotion = 0., mPhase = 0.;
 };
 } // namespace grid_reverb

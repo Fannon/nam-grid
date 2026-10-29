@@ -85,6 +85,23 @@ public:
     }
     return input;
   }
+  // Cloud's calibrated decay: whole-sample reads, so no interpolation low-pass accumulates
+  // around the loop, and each stored sample loses the decay for its time in the delay.
+  Stereo Tick(Stereo input, const Stereo& samples, const Stereo& decayGain, double gain)
+  {
+    const double a = decayGain[0] * mDelay[0].Read(samples[0]);
+    const double b = decayGain[1] * mDelay[1].Read(samples[1]);
+    Stereo rotated{mCos * a - mSin * b, mSin * a + mCos * b};
+    for (int ch = 0; ch < 2; ++ch)
+    {
+      const double out = rotated[ch] - gain * input[ch];
+      mDelay[ch].Push(input[ch] + gain * out); input[ch] = out;
+    }
+    return input;
+  }
+  // Whole-sample delays at this size, matching Tick's (seconds * size) scaling.
+  Stereo Samples(double size) const
+  { return {std::max(1., std::round(mRate * mSeconds[0] * size)), std::max(1., std::round(mRate * mSeconds[1] * size))}; }
   bool Clipped() const { return mDelay[0].Clipped() || mDelay[1].Clipped(); }
   double TotalSeconds() const { return mSeconds[0] + mSeconds[1]; }
 private:

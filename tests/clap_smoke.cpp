@@ -1248,9 +1248,9 @@ int main(int argc, char** argv)
     }
     assert(false && "Module header bypass did not respond");
   };
-  const auto optionX = [](int p) {
-    if (p == uDelayTimeChange) return grid_layout::tempoLeft - 85;
-    return p == uEQMode || p == uTempoSync ? grid_layout::tempoLeft + 55 : grid_layout::modeLeft + 82;
+  const auto optionX = [](int p, SlotEffect effect = SlotEffect::NAM) {
+    const auto bounds = effect_presentation::HeaderBounds(effect, p);
+    return static_cast<int>((bounds.left + bounds.right) * .5f);
   };
   // The tile ID row selects without opening the browser; the name button below opens it.
   const auto selectTile = [&](int x, int y) {
@@ -1264,7 +1264,7 @@ int main(int argc, char** argv)
   const auto selectChoice = [&](int control, int choice, int current, bool dismiss = false, SlotEffect effect = SlotEffect::NAM) {
     const bool header = effect_presentation::HeaderControl(control);
     const int position = effect_presentation::Position(effect, control);
-    const int x = header ? optionX(control) : grid_layout::KnobX(position);
+    const int x = header ? optionX(control, effect) : grid_layout::KnobX(position);
     const int y = header ? grid_layout::optionsY : grid_layout::ToggleY(position);
     win_edit_menu::SelectChoice(editor, x, y, EffectChoices(control), choice, current, dismiss);
     pumpFor(50);
@@ -1379,7 +1379,7 @@ int main(int argc, char** argv)
       else
       {
         const int position = effect_presentation::Position(effect, control);
-        const int x = effect_presentation::HeaderControl(control) ? optionX(control) : grid_layout::KnobX(position);
+        const int x = effect_presentation::HeaderControl(control) ? optionX(control, effect) : grid_layout::KnobX(position);
         const int y = effect_presentation::HeaderControl(control) ? grid_layout::optionsY : grid_layout::ToggleY(position);
         click(x, y); assert(save().config()[parameter] == 1.);
         click(x, y); assert(save().config() == before);
@@ -2414,11 +2414,11 @@ int main(int argc, char** argv)
           const int current = static_cast<int>(before[name].get<double>());
           const int next = current >= descriptor.maximum ? static_cast<int>(descriptor.minimum) : current + 1;
           if (effect_presentation::ChoiceDropdown(p)) selectChoice(p, next, current, false, effect);
-          else click(effect_presentation::HeaderControl(p) ? optionX(p) : x,
+          else click(effect_presentation::HeaderControl(p) ? optionX(p, effect) : x,
                      effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
         }
         else if (EffectChoices(p).empty() && descriptor.minimum == 0. && descriptor.maximum == 1. && descriptor.step == 1.)
-          click(effect_presentation::HeaderControl(p) ? optionX(p) : x,
+          click(effect_presentation::HeaderControl(p) ? optionX(p, effect) : x,
                 effect_presentation::HeaderControl(p) ? grid_layout::optionsY : grid_layout::ToggleY(position));
         else
         {
@@ -2486,15 +2486,25 @@ int main(int argc, char** argv)
   for (int effect : {static_cast<int>(SlotEffect::DigitalDelay), static_cast<int>(SlotEffect::RoomReverb),
                      static_cast<int>(SlotEffect::SpringReverb), static_cast<int>(SlotEffect::DualDelay)})
   {
-    auto switchState = browserState;
-    switchState["SlotEffects"][0] = effect;
-    load(switchState);
-    selectTile(170, 120);
-    const char* name = effect == static_cast<int>(SlotEffect::DigitalDelay) || effect == static_cast<int>(SlotEffect::DualDelay)
-                         ? "Pre 1 Delay Ping-Pong" : "Pre 1 Reverb Stereo Wet";
-    const double before = save().config()[name].get<double>();
-    click(optionX(uGateMode), grid_layout::optionsY);
-    assert(save().config()[name].get<double>() == 1. - before);
+    const auto module = static_cast<SlotEffect>(effect);
+    for (int tank = 0; tank < (module == SlotEffect::SpringReverb ? 2 : 1); ++tank)
+    {
+      auto switchState = browserState;
+      switchState["SlotEffects"][0] = effect;
+      if (module == SlotEffect::SpringReverb) switchState["Pre 1 Spring Tank"] = tank;
+      load(switchState);
+      selectTile(170, 120);
+      const int control = effect_presentation::PingPong(module) ? uDelayPingPong : uReverbStereo;
+      const std::string name = std::string("Pre 1 ") + kEffectParameters[control].name;
+      for (int toggle = 0; toggle < 2; ++toggle)
+      {
+        const auto before = save().config();
+        click(optionX(control, module), grid_layout::optionsY);
+        auto expected = before;
+        expected[name] = 1. - before[name].get<double>();
+        assert(save().config() == expected); // Stereo wet must not switch Spring's Tank.
+      }
+    }
   }
   {
     auto reverse = browserState; reverse["SlotEffects"][0] = static_cast<int>(SlotEffect::ReverseDelay);

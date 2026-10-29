@@ -159,6 +159,7 @@ public:
     mSmooth = Coefficient(5.);
     mEnvelope = mReduction = mHold = mDetectorLow = 0.;
     mMinimumMonitorGain = 1.;
+    mMakeupDB = 0.; mMakeupGain = 1.;
     mOpen = false;
     mFirst = true;
   }
@@ -235,8 +236,24 @@ public:
       const double coefficient = gate ? (target < mReduction ? open : close) : (target > mReduction ? open : close);
       mReduction = Smooth(mReduction, target, coefficient);
       mMix = Smooth(mMix, mix, mSmooth);
-      const double gain = std::pow(10., ((gate ? 0. : mAmount) - mReduction) * .05);
-      const double reduced = gate ? gain : 1. + mMix * (std::pow(10., -mReduction*.05)-1.);
+      double gain, reduced;
+      if (gate)
+        reduced = gain = std::pow(10., (0. - mReduction) * .05);
+      else
+      {
+        constexpr double dbToNatural = 0.1151292546497022842; // ln(10) / 20
+        // Cache the smoothed makeup, not the target: its existing 5 ms dB ramp
+        // must keep following automation sample by sample. Settled makeup needs
+        // no conversion, and audio/metering share one reduction exponential.
+        if (mAmount != mMakeupDB)
+        {
+          mMakeupDB = mAmount;
+          mMakeupGain = std::exp(mMakeupDB * dbToNatural);
+        }
+        const double reductionGain = std::exp(-mReduction * dbToNatural);
+        gain = mMakeupGain * reductionGain;
+        reduced = 1. + mMix * (reductionGain - 1.);
+      }
       mMinimumMonitorGain = std::min(mMinimumMonitorGain,reduced);
       if (beforeMakeup) beforeMakeup[i]=samples[i]*reduced;
       samples[i] *= gate ? gain : 1. + mMix * (gain - 1.);
@@ -255,5 +272,6 @@ private:
   double mThreshold = 0., mAmount = 0., mMix = 1.;
   double mDetectorLow = 0., mRatio = 2.5, mHysteresis = 3.;
   double mMinimumMonitorGain = 1.;
+  double mMakeupDB = 0., mMakeupGain = 1.;
   bool mOpen = false, mFirst = true;
 };

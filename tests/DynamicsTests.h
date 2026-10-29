@@ -1,8 +1,72 @@
 #pragma once
 #include "SlotDynamics.h"
 
+// A cached makeup factor must follow the smoothed dB value, not just the
+// target knob. Verify the audio law independently using a zero-makeup wet
+// reference, including mid-ramp retargeting, parallel mix and Reset reuse.
+void TestCompressorMakeupGain()
+{
+  for (double rate : {44100., 48000., 96000., 192000.})
+    for (auto effect : {SlotEffect::SmoothComp, SlotEffect::PunchComp})
+      for (double mix : {0., 35., 100.})
+      {
+        SlotDynamics processor, wet;
+        processor.Reset(rate); wet.Reset(rate);
+        DynamicsControls controls;
+        controls.compThreshold = -30.;
+        controls.compMakeup = 6.;
+        controls.compMix = mix;
+        controls.detectorCut = 120.;
+        double smoothedDB = controls.compMakeup;
+        const double smoothing = std::exp(-1. / (.005 * rate));
+        for (int pass = 0; pass < 2; ++pass)
+        {
+          std::array<double, 512> input{}, actual{}, compressed{}, monitor{};
+          for (int block = 0; block < 400; ++block)
+          {
+            const int frames = std::array<int, 6>{1, 3, 64, 127, 256, 512}[block % 6];
+            // Closely spaced reversals must not replace the ongoing dB ramp
+            // with a block-rate step or a linear-amplitude crossfade.
+            if (block == 20 || block == 150) controls.compMakeup = 18.;
+            if (block == 21 || block == 80 || block == 260) controls.compMakeup = 0.;
+            if (block == 22 || block == 180) controls.compMakeup = 9.;
+            auto reference = controls;
+            reference.compMakeup = 0.; reference.compMix = 100.;
+            for (int i = 0; i < frames; ++i)
+              input[i] = actual[i] = compressed[i] = (block < 300 ? .6 : .001) * std::sin((block * 512 + i) * .071);
+            allocations = deletions = 0;
+            tracking = true;
+            processor.Process(actual.data(), frames, effect, controls, monitor.data());
+            wet.Process(compressed.data(), frames, effect, reference);
+            tracking = false;
+            assert(allocations == 0 && deletions == 0);
+            double minimum = 1.;
+            for (int i = 0; i < frames; ++i)
+            {
+              smoothedDB = controls.compMakeup + smoothing * (smoothedDB - controls.compMakeup);
+              if (std::abs(smoothedDB) < 1.e-30) smoothedDB = 0.;
+              const double makeup = std::pow(10., smoothedDB / 20.);
+              const double expected = input[i] + mix * .01 * (makeup * compressed[i] - input[i]);
+              const double expectedMonitor = input[i] + mix * .01 * (compressed[i] - input[i]);
+              assert(std::abs(actual[i] - expected) < 2.e-13);
+              assert(std::abs(monitor[i] - expectedMonitor) < 2.e-14);
+              if (input[i] != 0.) minimum = std::min(minimum, expectedMonitor / input[i]);
+              if (mix == 0.) assert(actual[i] == input[i] && monitor[i] == input[i]);
+            }
+            assert(std::abs(processor.PeakReduction() + 20. * std::log10(std::max(1.e-12, minimum))) < 2.e-12);
+          }
+          // Start the same instances with fresh makeup after Reset; a gain
+          // cached in the previous pass must not survive it.
+          controls.compMakeup = pass == 0 ? 0. : 6.;
+          smoothedDB = controls.compMakeup;
+          processor.Reset(rate); wet.Reset(rate);
+        }
+      }
+}
+
 void TestDynamics()
 {
+  TestCompressorMakeupGain();
   // Monitoring excludes makeup and follows the actual parallel mix, while the
   // processed output retains its configured compensation.
   for (auto effect : {SlotEffect::SmoothComp, SlotEffect::PunchComp})

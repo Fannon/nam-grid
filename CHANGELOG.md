@@ -6,6 +6,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Performance
 
+- Smooth and Punch compressors reuse the gain-reduction conversion for audio and metering, and cache settled makeup gain to reduce CPU. Gain curves, control smoothing and zero added latency stay the same; existing rigs can differ by floating-point rounding.
+
 - Multi-head Tape processes its tape heads once while both channels carry the same signal, such as a mono guitar through captures, using about 30% less CPU there. Sound is unchanged.
 - Uni-Vibe calculates its optical filter coefficients every 16 samples and glides between them, using about 25% less CPU without added latency. Sweeps follow the previous per-sample response within about 0.02%; the static response, controls and saved state are unchanged.
 - Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
@@ -29,6 +31,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - Butter Comp now works at guitar levels. It previously barely reacted below about 70%, because its Airwindows core is designed for full-scale mix-bus signals. The default now gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness. Existing rigs with Butter Comp compress more at the same setting.
 
 ### Fixed
+
+- Spring Reverb's Stereo wet toggle no longer sits underneath the Tank selector. Both controls remain accessible when changing modules or restoring a rig.
 
 - Switches and choice boxes among a module's knobs, such as Rotary's Fast or Noise Gate (Smart)'s Learn, are centred on the knob dials instead of sitting below them.
 - Shimmer's pitch smoothing now takes 10 ms per channel rather than advancing twice per stereo sample. Pitch and Freeze transitions in existing Shimmer rigs can sound slightly slower; settled pitch and the mono pitch-shifter path are unchanged.

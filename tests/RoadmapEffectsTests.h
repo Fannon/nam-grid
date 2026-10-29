@@ -1,8 +1,41 @@
 #pragma once
 #include "SlotOperations.h"
 
+void TestVibeCoefficientClock()
+{
+  for (double rate : {44100., 48000., 96000.})
+  {
+    grid_roadmap::Vibe changed, reference;
+    changed.Reset(rate); reference.Reset(rate);
+    UtilityControls c; c.modulation = {5., 0., 0., 50., 100.}; c.vibeMode = 1.;
+    // Stop halfway through the sample-clock quantum, independently of block size.
+    for (int i = 0; i < 1032; ++i)
+    {
+      double a = .1 * std::sin(.073 * i), b = a;
+      changed.Process(&a, 1, c); reference.Process(&b, 1, c);
+      assert(a == b);
+    }
+    auto moving = c; moving.modulation[1] = 100.;
+    for (int i = 0; i < 8; ++i)
+    {
+      double a = .1 * std::sin(.073 * (1032 + i)), b = a;
+      changed.Process(&a, 1, moving); reference.Process(&b, 1, c);
+      assert(a == b); // Coefficients stay fixed until sample 1040.
+    }
+    double difference = 0.;
+    for (int i = 0; i < 32; ++i)
+    {
+      double a = .1 * std::sin(.073 * (1040 + i)), b = a;
+      changed.Process(&a, 1, moving); reference.Process(&b, 1, c);
+      difference = std::max(difference, std::abs(a - b));
+    }
+    assert(difference > 1.e-8); // The next quantum still responds to Depth.
+  }
+}
+
 void TestRoadmapEffects()
 {
+  TestVibeCoefficientClock();
   for (double rate : {44100., 48000., 96000., 192000.})
   {
     for (int id = static_cast<int>(SlotEffect::Rotary); id <= static_cast<int>(SlotEffect::Distortion); ++id)

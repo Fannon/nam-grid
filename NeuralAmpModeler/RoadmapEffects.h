@@ -114,7 +114,11 @@ private:
 class Vibe
 {
 public:
-  void Reset(double rate) { mRate = rate; mPhase = mMode = 0.; mState = {}; mCounter = 0; mFirst = true; mControls.Reset(rate); mExtension.Reset(rate); }
+  void Reset(double rate)
+  {
+    mRate = rate; mPhase = mMode = 0.; mState = {}; mCounter = 0; mFirst = mFirstCoefficients = true;
+    mControls.Reset(rate); mExtension.Reset(rate);
+  }
   void Process(double* x, int n, const UtilityControls& c, bool right = false)
   {
     mExtension.Target({right ? c.extra.vibeSpread : 0.}, uVibeSpread);
@@ -131,24 +135,33 @@ public:
       // asymmetric pulse, distinct from the evenly swept general-purpose phaser.
       const auto& extra = mExtension.Tick();
       // Keep the LFO/control clocks sample-based; amortize expensive optical
-      // filter coefficients over 16 samples, independently of host blocks.
+      // filter coefficients over 16 samples, independently of host blocks. Each
+      // quantum glides linearly to the coefficients 16 samples ahead, so the
+      // sweep follows the per-sample curve without steps or added lag.
       if (mCounter == 0)
       {
-        const double phase = mPhase + .005 * extra[0];
-        const double sine = std::sin(2. * grid_fx::pi * phase);
-        const double lamp = (sine + .28 * std::sin(4. * grid_fx::pi * phase + .6)) * v[1] * .01;
-        for (int j = 0; j < 4; ++j)
-        {
-          const double f = std::min(.4 * mRate, centers[j] * std::exp2(lamp * (1.2 + v[3] * .012)));
-          const double t = std::tan(grid_fx::pi * f / mRate);
-          mCoefficient[j] = (t - 1.) / (t + 1.);
-        }
+        const auto coefficients = [&](double ahead, std::array<double, 4>& out) {
+          const double phase = mPhase + ahead * v[0] / mRate + .005 * extra[0];
+          const double sine = std::sin(2. * grid_fx::pi * phase);
+          const double lamp = (sine + .28 * std::sin(4. * grid_fx::pi * phase + .6)) * v[1] * .01;
+          for (int j = 0; j < 4; ++j)
+          {
+            const double f = std::min(.4 * mRate, centers[j] * std::exp2(lamp * (1.2 + v[3] * .012)));
+            const double t = std::tan(grid_fx::pi * f / mRate);
+            out[j] = (t - 1.) / (t + 1.);
+          }
+        };
+        if (mFirstCoefficients) { coefficients(0., mCoefficient); mFirstCoefficients = false; }
+        std::array<double, 4> target;
+        coefficients(16., target);
+        for (int j = 0; j < 4; ++j) mCoefficientStep[j] = (target[j] - mCoefficient[j]) / 16.;
       }
       mCounter = (mCounter + 1) % 16;
       double wet = x[i];
       for (int j = 0; j < 4; ++j)
       {
         const double a = mCoefficient[j];
+        mCoefficient[j] += mCoefficientStep[j];
         const double y = a * wet + mState[j];
         mState[j] = grid_fx::Flush(wet - a * y); wet = y;
       }
@@ -160,10 +173,10 @@ public:
 private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mExtension;
-  std::array<double, 4> mState{}, mCoefficient{};
+  std::array<double, 4> mState{}, mCoefficient{}, mCoefficientStep{};
   double mRate = 48000., mPhase = 0., mMode = 0.;
   int mCounter = 0;
-  bool mFirst = true;
+  bool mFirst = true, mFirstCoefficients = true;
 };
 
 class Octaver

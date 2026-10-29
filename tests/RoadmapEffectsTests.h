@@ -3,33 +3,50 @@
 
 void TestVibeCoefficientClock()
 {
+  // The 16-sample coefficient quantum must follow the exact per-sample optical sweep:
+  // an independent reference recomputes the lamp and allpass coefficients every sample.
   for (double rate : {44100., 48000., 96000.})
+    for (double speed : {1.2, 10.})
+    {
+      UtilityControls c; c.modulation = {speed, 100., 0., 50., 100.}; c.vibeMode = 1.;
+      grid_roadmap::Vibe vibe; vibe.Reset(rate);
+      constexpr double centers[]{180., 430., 1050., 2900.};
+      std::array<double, 4> state{};
+      double phase = 0., error = 0., energy = 0.;
+      for (int i = 0; i < static_cast<int>(rate); ++i)
+      {
+        const double input = .1 * std::sin(.073 * i) + .05 * std::sin(.31 * i);
+        double processed = input;
+        vibe.Process(&processed, 1, c);
+        // Controls start settled, so the reference uses them directly.
+        phase = std::fmod(phase + speed / rate, 1.);
+        const double lamp = (std::sin(2. * grid_fx::pi * phase) + .28 * std::sin(4. * grid_fx::pi * phase + .6)) * 1.;
+        double wet = input;
+        for (int j = 0; j < 4; ++j)
+        {
+          const double t = std::tan(grid_fx::pi * std::min(.4 * rate, centers[j] * std::exp2(lamp * 1.8)) / rate);
+          const double a = (t - 1.) / (t + 1.), y = a * wet + state[j];
+          state[j] = wet - a * y; wet = y;
+        }
+        const double expected = wet; // Vibrato mode at full Mix: the wet signal alone.
+        if (i > rate * .1) { error += (processed - expected) * (processed - expected); energy += expected * expected; }
+      }
+      assert(std::sqrt(error / energy) < .005); // Holding coefficients per quantum gave up to ~2.5%.
+    }
+  // Host blocks do not move the quantum.
+  for (double rate : {44100., 96000.})
   {
-    grid_roadmap::Vibe changed, reference;
-    changed.Reset(rate); reference.Reset(rate);
-    UtilityControls c; c.modulation = {5., 0., 0., 50., 100.}; c.vibeMode = 1.;
-    // Stop halfway through the sample-clock quantum, independently of block size.
-    for (int i = 0; i < 1032; ++i)
+    UtilityControls c; c.modulation = {7., 80., 0., 50., 100.};
+    grid_roadmap::Vibe whole, split; whole.Reset(rate); split.Reset(rate);
+    std::vector<double> a(4096), b(4096);
+    for (int i = 0; i < 4096; ++i) a[i] = b[i] = .1 * std::sin(.051 * i);
+    whole.Process(a.data(), 4096, c);
+    for (int at = 0, k = 0; at < 4096; ++k)
     {
-      double a = .1 * std::sin(.073 * i), b = a;
-      changed.Process(&a, 1, c); reference.Process(&b, 1, c);
-      assert(a == b);
+      const int n = std::min(4096 - at, std::array<int, 4>{1, 37, 16, 255}[k % 4]);
+      split.Process(b.data() + at, n, c); at += n;
     }
-    auto moving = c; moving.modulation[1] = 100.;
-    for (int i = 0; i < 8; ++i)
-    {
-      double a = .1 * std::sin(.073 * (1032 + i)), b = a;
-      changed.Process(&a, 1, moving); reference.Process(&b, 1, c);
-      assert(a == b); // Coefficients stay fixed until sample 1040.
-    }
-    double difference = 0.;
-    for (int i = 0; i < 32; ++i)
-    {
-      double a = .1 * std::sin(.073 * (1040 + i)), b = a;
-      changed.Process(&a, 1, moving); reference.Process(&b, 1, c);
-      difference = std::max(difference, std::abs(a - b));
-    }
-    assert(difference > 1.e-8); // The next quantum still responds to Depth.
+    assert(a == b);
   }
 }
 

@@ -219,7 +219,7 @@ public:
                                            : effect == SlotEffect::Utility ? .045
                                            : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
-                                           // Pedal Comp's release memory has a 1 s time constant.
+                                           // Pedal Comp's release memory lets go over 800 ms.
                                            : effect == SlotEffect::PedalComp ? 6.
                                            // Detectors settle on silence (slowest release: 800 ms), so
                                            // re-enabling never resumes a stale gain reduction or envelope.

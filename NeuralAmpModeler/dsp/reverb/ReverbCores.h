@@ -105,12 +105,12 @@ private:
 class PlateTank
 {
 public:
-  // One damped pass through either branch; each pass applies the loop gain and low-pass once.
+  // Nominal travel time through one branch, used for the damping display guide.
   static constexpr double PassSeconds(double size)
   { return (kLong[0] + kLong[1] + kTank[0] + kTank[1] + kTank[2] + kTank[3]) * size * .5; }
   void Reset(double rate)
   {
-    mRate = rate; mPhase = 0.; mLow = {}; mFeedback = {};
+    mRate = rate; mPhase = 0.; mLow = {}; mFeedback = {}; mLoss = -1.;
     for (int i = 0; i < 4; ++i) mInput[i].Reset(rate, kInput[i] * 2. + .002);
     for (int i = 0; i < 4; ++i) mTank[i].Reset(rate, kTank[i] * 2. + .002);
     for (int ch = 0; ch < 2; ++ch) mLong[ch].Reset(static_cast<int>(rate * (kLong[ch] * 2. + .004)));
@@ -118,23 +118,43 @@ public:
   void Configure(double size, double decay, double tone, double motion)
   {
     mSize = size; mCoefficient = Coefficient(tone, mRate); mMotion = motion;
-    mGain = std::pow(.001, PassSeconds(size) / decay);
+    // A loop-only gain leaves the long tank allpasses ringing beyond Decay.
+    // Distribute the same exponential loss over every stored delay instead:
+    // a path lasting t seconds loses 60*t/decay dB, even inside an allpass.
+    const double loss = size / decay;
+    if (loss != mLoss)
+    {
+      mLoss = loss;
+      for (int i = 0; i < 4; ++i)
+      {
+        mInputGain[i] = std::pow(.001, kInput[i] * loss);
+        mTankGain[i] = std::pow(.001, kTank[i] * loss);
+      }
+      for (int ch = 0; ch < 2; ++ch)
+      {
+        mLongGain[ch] = std::pow(.001, kLong[ch] * loss);
+        mTapGain[ch][0] = std::pow(.001, kLong[ch] * loss * .31);
+        mTapGain[ch][1] = std::pow(.001, kLong[ch] * loss * .71);
+      }
+    }
   }
   Stereo Tick(Stereo in)
   {
     double input = .5 * (in[0] + in[1]);
-    for (int i = 0; i < 4; ++i) input = mInput[i].Tick(input, mRate * kInput[i] * mSize, i < 2 ? .75 : .625);
+    for (int i = 0; i < 4; ++i)
+      input = mInput[i].Tick(input, mRate * kInput[i] * mSize, i < 2 ? .75 : .625, mInputGain[i]);
     Stereo out{};
     // Read both old tank tails before writing either side.
-    const Stereo old{mLong[0].Read(mRate * kLong[0] * mSize), mLong[1].Read(mRate * kLong[1] * mSize)};
+    const Stereo old{mLongGain[0] * mLong[0].Read(mRate * kLong[0] * mSize),
+                     mLongGain[1] * mLong[1].Read(mRate * kLong[1] * mSize)};
     for (int ch = 0; ch < 2; ++ch)
     {
-      double x = input + mGain * LowPass(old[1-ch], mLow[ch], mCoefficient);
+      double x = input + LowPass(old[1-ch], mLow[ch], mCoefficient);
       const double wobble = mMotion * .0005 * mRate * std::sin(mPhase + ch * 1.5707963267948966);
-      x = mTank[ch*2].Tick(x, mRate * kTank[ch*2] * mSize + wobble, -.7);
-      x = mTank[ch*2+1].Tick(x, mRate * kTank[ch*2+1] * mSize, .5);
-      out[ch] = .65 * mLong[ch].Read(mRate * kLong[ch] * mSize * .31)
-                - .4 * mLong[1-ch].Read(mRate * kLong[1-ch] * mSize * .71) + .15 * x;
+      x = mTank[ch*2].Tick(x, mRate * kTank[ch*2] * mSize + wobble, -.7, mTankGain[ch*2]);
+      x = mTank[ch*2+1].Tick(x, mRate * kTank[ch*2+1] * mSize, .5, mTankGain[ch*2+1]);
+      out[ch] = .65 * mTapGain[ch][0] * mLong[ch].Read(mRate * kLong[ch] * mSize * .31)
+                - .4 * mTapGain[1-ch][1] * mLong[1-ch].Read(mRate * kLong[1-ch] * mSize * .71) + .15 * x;
       mLong[ch].Push(x);
     }
     mPhase += 2. * grid_fx::pi * .3 / mRate;
@@ -150,7 +170,10 @@ private:
   std::array<Allpass, 4> mInput, mTank;
   std::array<grid_fx::DelayLine, 2> mLong;
   Stereo mLow{}, mFeedback{};
-  double mRate = 48000., mSize = 1., mGain = 0., mCoefficient = 0., mMotion = 0., mPhase = 0.;
+  std::array<double, 4> mTankGain{}, mInputGain{};
+  Stereo mLongGain{};
+  std::array<Stereo, 2> mTapGain{};
+  double mRate = 48000., mSize = 1., mCoefficient = 0., mMotion = 0., mPhase = 0., mLoss = -1.;
 };
 
 // Lush stereo allpass-loop reverb. The early/late arrangement is adapted from

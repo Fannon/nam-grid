@@ -49,6 +49,13 @@ public:
     const double out = mDelay.Read(delaySamples) - gain * input;
     mDelay.Push(input + gain * out); return out;
   }
+  // Attenuate stored energy for the time spent in the delay, including the
+  // allpass's own recirculation. Used by Dense Plate's calibrated decay.
+  double Tick(double input, double delaySamples, double gain, double decayGain)
+  {
+    const double out = decayGain * mDelay.Read(delaySamples) - gain * input;
+    mDelay.Push(input + gain * out); return out;
+  }
   bool Clipped() const { return mDelay.Clipped(); }
 private:
   MovingDelay mDelay;

@@ -339,6 +339,21 @@ test inside the same x64 developer command prompt so the compiler's
 `clang_rt.asan_dynamic-x86_64.dll` is on `PATH`. Ordinary builds leave these options
 off and do not need that DLL.
 
+The [release checklist](release-checklist.md) also asks for the plugin validators.
+Build the VST3 SDK validator from the setup cache, then run it with an isolated
+`NAM_GRID_HOME`. On macOS with only the command-line tools, the SDK cannot detect
+Xcode, so pass any version of at least 9:
+
+```sh
+cmake -S build/deps/VST3_SDK -B build/macos/vst3-validator -DCMAKE_BUILD_TYPE=Release \
+  -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_ADD_VST3_PLUGINS_SAMPLES=OFF -DXCODE_VERSION=16
+cmake --build build/macos/vst3-validator --target validator
+NAM_GRID_HOME="$PWD/tmp/<task>/home" build/macos/vst3-validator/bin/Release/validator build/macos/release/out/nam-grid.vst3
+```
+
+For CLAP, run a [clap-validator](https://github.com/free-audio/clap-validator) release
+the same way, with `validate build/<platform>/release/out/nam-grid.clap`.
+
 For CPU, deadline and waveform-equivalence reports covering every built-in FX mode,
 NAM and IR loading, see [fx-performance.md](fx-performance.md). Those tools are
 opt-in and run separately from CTest.

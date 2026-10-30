@@ -87,6 +87,8 @@ int main(int argc, char** argv)
     // The bundled capture lands in NAM Captures, and Clean Default points at that copy.
     const auto capture = settingsBackup.home / "NAM Captures" / "riffsmith-clean.nam";
     assert(std::filesystem::is_regular_file(capture));
+    assert(nam_library::ContentHash(capture) == nam_library::ContentHash(
+      std::filesystem::path(argv[2]) / "NeuralAmpModeler/resources/defaults/riffsmith-clean.nam"));
     const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
     assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
     assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));

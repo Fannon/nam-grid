@@ -92,7 +92,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup; Low-mid mud cut, Harshness cut |
 | Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |
-| Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive with clean lows |
+| Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
 | Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong; Warm lead repeats, Dark modulated wash, Dark slapback; Tape slapback, Worn tape repeats, Rock lead echo |
 | Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads, Stereo cascade, All-head wash; Reverse half notes, Reversed solo; Quarter and dotted eighth, Wide ping-pong; Echo into cloud, Soft echo clusters |
 | Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room, Small amp room; Short bright plate, Singing lead plate; Big dark hall, Ducked lead hall; Long ducked cloud; Small amp spring, Surf drip; Dark octave-down pad |

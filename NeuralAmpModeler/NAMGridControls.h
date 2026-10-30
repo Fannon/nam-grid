@@ -1054,6 +1054,7 @@ public:
   , mCardBounds(bounds)
   , mSlot(slot)
   {
+    SetTextEntryLength(128);
   }
 
   void Draw(IGraphics& g) override
@@ -2610,20 +2611,40 @@ private:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto folder = PLUG()->GetModulePresetFolder(effect);
     if (folder.empty()) return;
-    std::error_code error;
-    std::filesystem::create_directories(folder, error);
+    mSavePresetEffect = effect;
+    mSavePresetFolder = folder;
     const auto suggested = MatchingPresetName(effect);
-    WDL_String file(((suggested.empty() ? std::string("My ") + SlotEffectName(effect) : suggested) + ".json").c_str());
-    WDL_String directory(nam_library::PathText(folder).c_str());
-    GetUI()->PromptForFile(file, directory, EFileAction::Save, "json", [this](const WDL_String& chosen, const WDL_String&) {
-      if (!chosen.GetLength()) return;
-      auto path = std::filesystem::u8path(chosen.Get());
-      if (!path.has_extension()) path += ".json";
+    const auto name = suggested.empty() ? std::string("My ") + module_presets::Utf8(folder.filename()) : suggested;
+    auto text = grid_ui::Text(14.f, grid_ui::text);
+    text.mTextEntryBGColor = grid_ui::surface;
+    text.mTextEntryFGColor = grid_ui::text;
+    GetUI()->CreateTextEntry(*this, text,
+      IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop,
+            mPresetButton->GetRECT().R, grid_layout::moduleHeaderBottom), name.c_str());
+  }
+  void OnTextEntryCompletion(const char* name, int) override
+  {
+    if (!name || !*name || PLUG()->GetSlotEffect(mSlot) != mSavePresetEffect) return;
+    try
+    {
+      const auto path = module_presets::NamedUserFile(mSavePresetFolder, name);
+      if (std::filesystem::exists(path))
+      {
+        const auto message = "Replace the saved preset \"" + module_presets::Utf8(path.stem()) + "\"?";
+        if (GetUI()->ShowMessageBox(message.c_str(), "Replace module preset", kMB_YESNO) != kYES) return;
+      }
       if (const auto failure = PLUG()->SaveUserModulePreset(mSlot, path); !failure.empty())
         grid_ui::ShowNotice(GetUI(), "Cannot save the module preset", failure.c_str());
-      LoadUserPresets(true);
-      Refresh();
-    });
+      else
+      {
+        LoadUserPresets(true); // Read the module folder immediately; no library scan is needed.
+        Refresh();
+      }
+    }
+    catch (const std::exception& error)
+    {
+      grid_ui::ShowNotice(GetUI(), "Cannot save the module preset", error.what());
+    }
   }
   void ShowEditMenu()
   {
@@ -2747,6 +2768,8 @@ private:
   SlotEffect mUserPresetsEffect = SlotEffect::NAM;
   int mUnreadablePresets = 0;
   bool mUserPresetsLoaded = false;
+  SlotEffect mSavePresetEffect = SlotEffect::NAM;
+  std::filesystem::path mSavePresetFolder;
   ILayerPtr mPedalPreview;
   std::array<double, 10> mPedalPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;

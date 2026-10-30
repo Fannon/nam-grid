@@ -13,6 +13,7 @@
   #include <dlfcn.h>
 #endif
 #include "../NeuralAmpModeler/SlotDefaults.h"
+#include "../NeuralAmpModeler/ModulePresets.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
 #include "../NeuralAmpModeler/RigPreset.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
@@ -68,11 +69,16 @@ static std::string ModuleSlug(const char* name)
 
 static int Run(int argc, char** argv)
 {
-  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n";
+  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n"
+                      "macOS preset save regression: append --preset-save-smoke instead.\n";
   if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
-  if (argc != 4 && !(argc == 6 && std::string(argv[4]) == "--module"))
+  const bool presetSmoke = argc == 5 && std::string(argv[4]) == "--preset-save-smoke";
+#ifdef _WIN32
+  if (presetSmoke) throw std::runtime_error("Preset save smoke mode uses the macOS editor driver.");
+#endif
+  if (argc != 4 && !presetSmoke && !(argc == 6 && std::string(argv[4]) == "--module"))
     throw std::runtime_error(usage);
-  const std::string filter = argc == 6 ? ModuleSlug(argv[5]) : "";
+  const std::string filter = presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
   if (argc == 6)
   {
     bool found = false;
@@ -87,7 +93,8 @@ static int Run(int argc, char** argv)
   {
     // Library folders are per-user settings; the plugin reads them at startup and on every state load.
     nam_library::Settings settings;
-    settings.rescanOnStartup = settings.showVisualizations = true;
+    settings.rescanOnStartup = !presetSmoke;
+    settings.showVisualizations = true;
     settings.namFolders = {nam_library::PathText(captures)};
     settings.irFolders = {nam_library::PathText(irs)};
     settings.presetFolders = {nam_library::PathText(presets)};
@@ -279,9 +286,44 @@ static int Run(int argc, char** argv)
       rig["SlotEffects"][7] = static_cast<int>(effect);
       for (int i = 0; i < 17; ++i) rig[std::string("A 4 ") + standard[i]] = defaults[i];
       for (int i = 0; i < kUtilityControls; ++i) rig[std::string("A 4 ") + kEffectParameters[i].name] = defaults[17 + i];
+      if (presetSmoke) rig[std::string("A 4 ") + kEffectParameters[uCrushBits].name] = 11.;
       Stream moduleBytes; moduleBytes.string("###nam-grid###"); moduleBytes.string(rig.dump());
       clap_istream moduleInput{&moduleBytes, Stream::read}; assert(state->load(plugin, &moduleInput));
       select(7); play(1800);
+#ifdef __APPLE__
+      if (presetSmoke)
+      {
+        const auto savedState = [&] {
+          Stream bytes; clap_ostream output{&bytes, Stream::write};
+          assert(state->save(plugin, &output)); return bytes.config();
+        };
+        const auto before = savedState();
+        const int presetX = grid_layout::moduleBrowseX - 26 - 52;
+        const auto beginName = [&] {
+          MacEditorSelectMenuItem(editor, presetX, grid_layout::moduleButtonY, "Save current as...");
+          play(300);
+          assert(!MacEditorHasSheet(editor)); // The old native Save panel fails here.
+        };
+        const auto type = [&](const char* name) {
+          MacEditorKey(editor, 0, "a", true);
+          for (const char* p = name; *p; ++p) { const char character[]{*p, 0}; MacEditorKey(editor, 0, character); }
+        };
+        beginName(); type("Cancelled"); MacEditorKey(editor, 53, "\x1b"); play(100);
+        const auto folder = module_presets::UserFolder(presets, effect);
+        assert(!std::filesystem::exists(folder / "Cancelled.json") && savedState() == before);
+        beginName(); type("Smoke crunch"); shot("preset-name-entry", 476);
+        MacEditorKey(editor, 36, "\r"); play(200);
+        const auto file = folder / "Smoke crunch.json";
+        assert(std::filesystem::is_regular_file(file) && savedState() == before);
+        const auto users = module_presets::LoadUser({presets}, effect);
+        assert(users.size() == 1 && users[0].name == "Smoke crunch");
+        // It is in the very next menu, before any rescan or settings refresh.
+        MacEditorSelectMenuItem(editor, presetX, grid_layout::moduleButtonY, "Smoke crunch", 1);
+        play(100); assert(savedState() == before);
+        shot("preset-name-saved", 476);
+        std::cout << "Module preset name-only entry, Escape, module folder and immediate menu recall passed\n";
+      }
+#endif
       shot("modules/" + slug, 476);
     }
   // The README main image: the bundled Clean Default rig with A1's capture selected.

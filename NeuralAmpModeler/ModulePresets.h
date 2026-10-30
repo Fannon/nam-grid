@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Starting points for one module, chosen from the module editor: read-only factory presets
@@ -183,6 +184,27 @@ inline std::string Lower(std::string text)
 {
   std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return text;
+}
+// A preset name is a filename stem, never a path chosen by a native file dialog.
+inline std::filesystem::path NamedUserFile(const std::filesystem::path& folder, std::string name)
+{
+  if (folder.empty()) throw std::runtime_error("Add a preset folder in Settings before saving.");
+  const auto first = name.find_first_not_of(" \t\r\n");
+  if (first == std::string::npos) throw std::runtime_error("Enter a name for the preset.");
+  name = name.substr(first, name.find_last_not_of(" \t\r\n") - first + 1);
+  if (Lower(name).ends_with(".json")) name.resize(name.size() - 5);
+  if (name.empty() || name == "." || name == ".." || name.back() == '.' || name.back() == ' ')
+    throw std::runtime_error("Enter a name without a trailing dot or space.");
+  if (name.size() > 128) throw std::runtime_error("Use a shorter preset name.");
+  if (std::any_of(name.begin(), name.end(), [](unsigned char c) {
+        return c < 32 || std::string_view("/\\<>:\"|?*").find(c) != std::string_view::npos;
+      }))
+    throw std::runtime_error("Preset names cannot contain paths or / \\ < > : \" | ? *.");
+  const auto base = Lower(name.substr(0, name.find('.')));
+  if (base == "con" || base == "prn" || base == "aux" || base == "nul"
+      || (base.size() == 4 && (base.starts_with("com") || base.starts_with("lpt")) && base[3] >= '1' && base[3] <= '9'))
+    throw std::runtime_error("Choose another preset name; this name is reserved on Windows.");
+  return folder / std::filesystem::u8path(name + ".json");
 }
 // Every readable preset for this module under each folder's "Module Presets", sorted by
 // name. Files for other modules are skipped; unreadable ones only add to `unreadable`.

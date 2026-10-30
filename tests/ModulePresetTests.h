@@ -177,3 +177,34 @@ void TestSmartGateUserPreset()
   assert(listed[2].name == "Untrained" && listed[2].noiseProfile && !listed[2].noiseProfile->valid);
   std::filesystem::remove_all(root);
 }
+
+void TestNamedUserPreset()
+{
+  using namespace module_presets;
+  const auto root = std::filesystem::current_path() / "named-module-preset-fixture";
+  const auto folder = UserFolder(root, SlotEffect::Bitcrusher);
+  assert(NamedUserFile(folder, "  My crusher  ") == folder / "My crusher.json");
+  assert(NamedUserFile(folder, "My crusher.JSON") == folder / "My crusher.json");
+  assert(NamedUserFile(folder, "Warm.v2") == folder / "Warm.v2.json");
+  const auto freeze = UserFolder(root, SlotEffect::Freeze);
+  assert(NamedUserFile(freeze, "My " + Utf8(freeze.filename())) == freeze / "My Freeze - Hold.json");
+  assert(NamedUserFile(folder, "\xc3\x89" "cho \xe6\x9d\xb1\xe4\xba\xac") == folder / std::filesystem::u8path("\xc3\x89" "cho \xe6\x9d\xb1\xe4\xba\xac.json"));
+  for (const std::string name : {"", " ", ".", "..", ".json", "../outside", "/outside", "C:\\outside", "a/b", "a\\b",
+                                 "a:b", "a*", "a?", "a\"", "a<", "a>", "a|", "a.", "CON", "aux.json", "COM1", "lpt9.txt"})
+  {
+    bool rejected = false;
+    try { NamedUserFile(folder, name); } catch (const std::exception&) { rejected = true; }
+    assert(rejected);
+  }
+  bool rejected = false;
+  try { NamedUserFile({}, "My crusher"); } catch (const std::exception&) { rejected = true; }
+  assert(rejected);
+  const auto file = NamedUserFile(folder, "My crusher");
+  const auto values = SlotDefaultValues(SlotEffect::Bitcrusher);
+  SaveUser(file, SlotEffect::Bitcrusher, values);
+  // The same disk read the menu performs must find the new preset without a library scan.
+  const auto presets = LoadUser({root}, SlotEffect::Bitcrusher);
+  assert(presets.size() == 1 && presets[0].name == "My crusher" && presets[0].path == file);
+  assert(Matches(SlotEffect::Bitcrusher, presets[0].values, values));
+  std::filesystem::remove_all(root);
+}

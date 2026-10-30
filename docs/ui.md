@@ -49,6 +49,8 @@ match. The rig or project stores the resulting values and profile, not a link to
   in [Rig presets](presets.md#choosing-useful-starting-points). Factory entries are read-only.
 - **Your presets** follow after a divider. **Save current as...** saves this module's
   current controls and, for Smart Gate, its learned profile as a new preset, also when you started from a factory preset.
+  Type a name and press **Enter** to save it in the module's preset folder; **Escape** cancels.
+  The new preset appears in the menu immediately. Saving with an existing name asks before replacing it.
 - **Show presets folder** opens the folder in Explorer or Finder; rename or delete presets
   there.
 

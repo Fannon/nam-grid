@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### Fixed
+
+- Saving a user module preset asks only for its name, writes it into the module's configured preset folder and immediately lists it in the Presets menu. The macOS Save dialog could previously place it elsewhere.
+
 ## [0.4.0] - 2026-10-30
 
 Existing projects, presets and automation keep loading. New modes and routing options retain the previous settings in existing rigs. Some sound corrections are deliberate changes, listed below.

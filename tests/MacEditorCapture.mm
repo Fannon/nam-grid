@@ -99,6 +99,51 @@ void MacEditorMouse(MacEditor* editor, int x, int y, bool click)
   }
 }
 
+void MacEditorSelectMenuItem(MacEditor* editor, int x, int y, const char* title, int checked)
+{
+  __block bool delivered = false;
+  __block bool matched = false;
+  NSString* label = [NSString stringWithUTF8String:title];
+  id observer = [[NSNotificationCenter defaultCenter] addObserverForName:NSMenuDidBeginTrackingNotification
+    object:nil queue:nil usingBlock:^(NSNotification* notification) {
+      NSMenu* menu = notification.object;
+      NSTimer* timer = [NSTimer timerWithTimeInterval:.02 repeats:NO block:^(NSTimer*) {
+        NSMenuItem* item = [menu itemWithTitle:label];
+        matched = item != nil;
+        if (item)
+        {
+          if (checked >= 0 && (item.state == NSControlStateValueOn) != (checked != 0))
+            throw std::runtime_error("Unexpected preset menu checkmark");
+          [menu performActionForItemAtIndex:[menu indexOfItem:item]];
+        }
+        [menu cancelTracking];
+        delivered = true;
+      }];
+      [[NSRunLoop currentRunLoop] addTimer:timer forMode:NSEventTrackingRunLoopMode];
+    }];
+  MacEditorMouse(editor, x, y, true);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (!delivered && std::chrono::steady_clock::now() < deadline) PumpMacEditor();
+  [[NSNotificationCenter defaultCenter] removeObserver:observer];
+  if (!delivered || !matched) throw std::runtime_error("Native menu item not found: " + std::string(title));
+  PumpMacEditor();
+}
+
+void MacEditorKey(MacEditor* editor, unsigned short keyCode, const char* characters, bool command)
+{
+  NSString* text = [NSString stringWithUTF8String:characters];
+  const auto event = [&](NSEventType type) {
+    return [NSEvent keyEventWithType:type location:NSZeroPoint
+      modifierFlags:command ? NSEventModifierFlagCommand : 0 timestamp:[NSProcessInfo processInfo].systemUptime
+      windowNumber:editor->window.windowNumber context:nil characters:text charactersIgnoringModifiers:text
+      isARepeat:NO keyCode:keyCode];
+  };
+  [editor->view keyDown:event(NSEventTypeKeyDown)];
+  [editor->view keyUp:event(NSEventTypeKeyUp)];
+}
+
+bool MacEditorHasSheet(MacEditor* editor) { return editor->window.attachedSheet != nil; }
+
 void CaptureMacEditor(MacEditor* editor, const std::filesystem::path& file, int top)
 {
   @autoreleasepool

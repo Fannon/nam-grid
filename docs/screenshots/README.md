@@ -63,6 +63,10 @@ about three minutes. It ignores the real pointer, so you can keep working. It ne
 screen-recording permission and writes PNG directly. Retina frames are averaged down
 to the 1x size of the gallery; text renders slightly heavier than on Windows.
 
+For the macOS module-preset save regression, append `--preset-save-smoke` to the
+command instead of `--module`. It checks name entry, Escape, saving into the module
+folder and recall from the next menu without a library scan, using private settings.
+
 To refresh a single module, append `--module` and its filename slug (the module's
 name in lowercase, with spaces replaced by hyphens). For example, with Ninja:
 

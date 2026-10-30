@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fetch pinned SDK headers/sources; preserve iPlug2's tracked placeholder files."""
 from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
@@ -19,20 +20,42 @@ def git(*args):
     subprocess.run(["git", *map(str, args)], check=True)
 
 
+def matches_patched_tree(directory, patches):
+    """Whether the work tree equals the pinned commit with the whole patch stack applied.
+
+    Later patches can change lines an earlier one touched, so a single patch cannot be
+    reverse-checked on its own. Build the expected tree in a scratch index instead.
+    """
+    env = dict(os.environ, GIT_INDEX_FILE=str(CACHE / ("%s.patched-index" % directory.name)))
+    run = lambda *args, **kwargs: subprocess.run(["git", "-C", str(directory), *map(str, args)], env=env,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                       **kwargs).returncode == 0
+    try:
+        # Git's index stores LF even when Windows checks out CRLF. Unlike a
+        # work-tree apply, --cached cannot match CRLF patch context against LF blobs.
+        return (run("read-tree", "HEAD")
+                and all(run("apply", "--cached", "-", input=patch.read_bytes().replace(b"\r\n", b"\n"))
+                        for patch in patches)
+                and run("diff", "--quiet", "--ignore-submodules"))
+    finally:
+        Path(env["GIT_INDEX_FILE"]).unlink(missing_ok=True)
+
+
 def apply_dependency_patches():
+    CACHE.mkdir(parents=True, exist_ok=True)
     for dependency, pattern in (("NeuralAmpModelerCore", "nam-core-*.patch"),
                                 ("AudioDSPTools", "audio-dsp-*.patch"),
                                 ("iPlug2", "iplug2-*.patch")):
         directory = ROOT / dependency
-        for patch in sorted((ROOT / "patches").glob(pattern)):
-            # Platform ports leave the Windows and macOS sources unchanged.
-            if patch.name.startswith("iplug2-linux-") and not sys.platform.startswith("linux"):
-                continue
-            applied = subprocess.run(["git", "-C", str(directory), "apply", "--reverse", "--check", str(patch)],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
-            if not applied:
-                git("-C", directory, "apply", "--check", patch)
-                git("-C", directory, "apply", patch)
+        # Platform ports leave the Windows and macOS sources unchanged.
+        patches = [patch for patch in sorted((ROOT / "patches").glob(pattern))
+                   if not patch.name.startswith("iplug2-linux-") or sys.platform.startswith("linux")]
+        if not patches or matches_patched_tree(directory, patches):
+            continue
+        # Refuses with git's error if the submodule has other local changes or moved commits.
+        for patch in patches:
+            git("-C", directory, "apply", "--check", patch)
+            git("-C", directory, "apply", patch)
 
 
 def main():

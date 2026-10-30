@@ -4,6 +4,8 @@
 #include "ParameterLayout.h"
 #include "SlotDefaults.h"
 #include "RigPreset.h"
+#include "NoisePrintState.h"
+#include <optional>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -14,9 +16,9 @@
 
 // Starting points for one module, chosen from the module editor: read-only factory presets
 // in code, and user presets as one JSON file each in the preset folders. Unlike rig presets
-// they change only that slot's module controls, through ordinary host parameter changes, so
-// they never reload the module and never touch the rest of the rig. A project stores the
-// resulting control values, not the preset.
+// they change only that slot's module controls through ordinary host parameter changes.
+// Smart Gate user presets also restore a learned profile by preparing that slot anew.
+// A project stores the resulting values and profile, not the preset.
 namespace module_presets
 {
 inline bool Supported(SlotEffect effect)
@@ -79,6 +81,7 @@ inline int Matching(SlotEffect effect, const SlotValues& current)
 // User presets. Values are stored under the controls' permanent state names without a slot
 // prefix ("Pedal Comp Sustain", "Comp Threshold"), so a file works in any slot. Controls
 // added after the file's schema load at their defaults, like a project.
+inline constexpr int kUserVersion = 2;
 inline constexpr const char* kUserFormat = "nam-grid-module-preset";
 inline constexpr size_t kUserMaximumBytes = 64 * 1024, kUserMaximumFiles = 2000;
 inline const char* ControlName(int control)
@@ -92,28 +95,47 @@ inline parameter_layout::ControlRange RangeOf(int control)
   return p < 0 ? parameter_layout::slotControlRanges[control]
                : parameter_layout::ControlRange{kEffectParameters[p].minimum, kEffectParameters[p].maximum};
 }
-inline nlohmann::json ToJson(SlotEffect effect, const SlotValues& values)
+inline nlohmann::json ToJson(SlotEffect effect, const SlotValues& values, const noise_print::Profile& profile = {})
 {
   auto stored = nlohmann::json::object();
   for (int i = 0; i < static_cast<int>(values.size()); ++i)
-    if (ModuleControl(effect, i)) stored[ControlName(i)] = values[i];
-  return {{"format", kUserFormat}, {"version", 1}, {"schema", kEffectStateSchema},
+    if (ModuleControl(effect, i))
+      stored[ControlName(i)] = effect == SlotEffect::NoisePrint && i == U(uNoiseLearn) ? 0. : values[i];
+  auto document = nlohmann::json{{"format", kUserFormat}, {"version", kUserVersion}, {"schema", kEffectStateSchema},
           {"module", static_cast<int>(effect)}, {"moduleName", SlotEffectName(effect)}, {"values", stored}};
+  if (effect == SlotEffect::NoisePrint) document["noiseProfile"] = noise_print::Save(profile);
+  return document;
 }
 // Validates a user preset for this module. Returns an error message, or empty with values.
-inline std::string Parse(const nlohmann::json& document, SlotEffect effect, std::vector<Value>& values)
+inline std::string Parse(const nlohmann::json& document, SlotEffect effect, std::vector<Value>& values,
+                         std::optional<noise_print::Profile>* profile = nullptr)
 {
   values.clear();
+  if (profile) profile->reset();
   const auto integer = [&](const char* key) {
     return document.contains(key) && document[key].is_number_integer() ? document[key].get<int64_t>() : int64_t{-1};
   };
-  if (!document.is_object() || document.value("format", "") != kUserFormat || integer("version") != 1)
+  if (!document.is_object() || document.value("format", "") != kUserFormat || (integer("version") < 1 || integer("version") > kUserVersion))
     return "This is not a NAM Grid module preset.";
   const auto schema = integer("schema");
   if (schema > kEffectStateSchema) return "This preset was saved by a newer NAM Grid.";
   if (schema < kInitialEffectStateSchema) return "This preset has an invalid schema.";
   if (integer("module") != static_cast<int>(effect)) return "This preset is for another module.";
   if (!document.contains("values") || !document["values"].is_object()) return "This preset has no values.";
+  // Version 1 files omitted profiles and must keep their controls-only behavior.
+  // Version 2 Smart Gate files explicitly save either a profile or null (untrained).
+  if (effect == SlotEffect::NoisePrint && integer("version") >= 2 && !document.contains("noiseProfile"))
+    return "This preset has no noise profile.";
+  if (document.contains("noiseProfile"))
+  {
+    if (effect != SlotEffect::NoisePrint) return "This module cannot use a noise profile.";
+    try
+    {
+      const auto loaded = noise_print::Load(document["noiseProfile"]);
+      if (profile) *profile = loaded;
+    }
+    catch (const std::exception& error) { return error.what(); }
+  }
   for (const auto& [key, value] : document["values"].items())
   {
     int control = -1;
@@ -143,6 +165,7 @@ struct UserPreset
   std::string name;
   std::filesystem::path path;
   std::vector<Value> values;
+  std::optional<noise_print::Profile> noiseProfile; // Absent in legacy controls-only files.
 };
 inline std::string Utf8(const std::filesystem::path& path)
 {
@@ -187,7 +210,7 @@ inline std::vector<UserPreset> LoadUser(const std::vector<std::filesystem::path>
             && document["module"] != static_cast<int>(effect))
           continue;
         UserPreset preset{Utf8(it->path().stem()), it->path(), {}};
-        if (!Parse(document, effect, preset.values).empty()) throw std::runtime_error("invalid");
+        if (!Parse(document, effect, preset.values, &preset.noiseProfile).empty()) throw std::runtime_error("invalid");
         result.push_back(std::move(preset));
       }
       catch (const std::exception&)
@@ -200,9 +223,10 @@ inline std::vector<UserPreset> LoadUser(const std::vector<std::filesystem::path>
   if (unreadable) *unreadable = failed;
   return result;
 }
-inline void SaveUser(const std::filesystem::path& file, SlotEffect effect, const SlotValues& values)
+inline void SaveUser(const std::filesystem::path& file, SlotEffect effect, const SlotValues& values,
+                     const noise_print::Profile& profile = {})
 {
   std::filesystem::create_directories(file.parent_path());
-  rig_preset::WriteAtomically(file, ToJson(effect, values).dump(2));
+  rig_preset::WriteAtomically(file, ToJson(effect, values, profile).dump(2));
 }
 } // namespace module_presets

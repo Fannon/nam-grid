@@ -2587,7 +2587,8 @@ private:
     if (const int factory = module_presets::Matching(effect, values); factory >= 0) return module_presets::For(effect)[factory].name;
     if (mUserPresetsEffect == effect)
       for (const auto& preset : mUserPresets)
-        if (module_presets::Matches(effect, preset.values, values)) return preset.name;
+        if (module_presets::Matches(effect, preset.values, values)
+            && (!preset.noiseProfile || *preset.noiseProfile == PLUG()->GetNoiseProfile(mSlot))) return preset.name;
     return {};
   }
   // Factory presets, then a divider and the player's presets, then saving. Factory presets

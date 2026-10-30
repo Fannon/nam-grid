@@ -94,3 +94,71 @@ void TestFactoryVibeVibrato()
     }
   }
 }
+
+void TestSmartGateUserPreset()
+{
+  using namespace module_presets;
+  auto values = SlotDefaultValues(SlotEffect::NoisePrint);
+  // An untrained user preset must explicitly remember the absence of a profile.
+  const auto document = ToJson(SlotEffect::NoisePrint, values);
+  assert(document.contains("noiseProfile") && document["noiseProfile"].is_null());
+  noise_print::Profile learned;
+  learned.valid = true;
+  for (int i = 0; i < noise_print::bands; ++i) learned.power[i] = 1.e-6 * (i + 1);
+  values[U(uNoiseSensitivity)] = 7.7;
+  std::vector<Value> parsed;
+  std::optional<noise_print::Profile> profile;
+  auto learning = values;
+  learning[U(uNoiseLearn)] = 1.;
+  const auto trained = ToJson(SlotEffect::NoisePrint, learning, learned);
+  assert(trained["values"]["Noise Learn"] == 0.);
+  assert(Parse(nlohmann::json::parse(trained.dump()), SlotEffect::NoisePrint, parsed, &profile).empty());
+  assert(profile && *profile == learned);
+  assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == values);
+  assert(Parse(document, SlotEffect::NoisePrint, parsed, &profile).empty());
+  assert(profile && !profile->valid); // Explicitly untrained, distinct from legacy omission.
+  auto legacy = trained;
+  legacy["version"] = 1;
+  legacy.erase("noiseProfile");
+  assert(Parse(legacy, SlotEffect::NoisePrint, parsed, &profile).empty() && !profile);
+  assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == values);
+  const auto rejected = [&](const nlohmann::json& data) {
+    return !Parse(data, SlotEffect::NoisePrint, parsed, &profile).empty();
+  };
+  auto invalid = trained;
+  invalid.erase("noiseProfile");
+  assert(rejected(invalid));
+  for (const auto& bad : std::vector<nlohmann::json>{
+         42, {{"version", 2}, {"power", learned.power}},
+         {{"version", 1}, {"power", {1.e-6}}}})
+  {
+    invalid = trained;
+    invalid["noiseProfile"] = bad;
+    assert(rejected(invalid));
+  }
+  for (double bad : {-1., 0., 1.e7})
+  {
+    invalid = trained;
+    invalid["noiseProfile"]["power"] = std::vector<double>(noise_print::bands, bad);
+    assert(rejected(invalid));
+  }
+  auto other = ToJson(SlotEffect::PedalComp, SlotDefaultValues(SlotEffect::PedalComp), learned);
+  assert(!other.contains("noiseProfile"));
+  other["noiseProfile"] = trained["noiseProfile"];
+  assert(!Parse(other, SlotEffect::PedalComp, parsed).empty());
+  assert(For(SlotEffect::NoisePrint).empty()); // Profiles never enter factory recipes.
+
+  const auto root = std::filesystem::current_path() / "smart-gate-user-preset-fixture";
+  const auto file = UserFolder(root, SlotEffect::NoisePrint) / "Learned.json";
+  SaveUser(file, SlotEffect::NoisePrint, values, learned);
+  SaveUser(file.parent_path() / "Untrained.json", SlotEffect::NoisePrint, values);
+  rig_preset::WriteAtomically(file.parent_path() / "Legacy.json", legacy.dump());
+  rig_preset::WriteAtomically(file.parent_path() / "Invalid.json", invalid.dump());
+  int unreadable = 0;
+  const auto listed = LoadUser({root}, SlotEffect::NoisePrint, &unreadable);
+  assert(listed.size() == 3 && unreadable == 1);
+  assert(listed[0].name == "Learned" && listed[0].noiseProfile && *listed[0].noiseProfile == learned);
+  assert(listed[1].name == "Legacy" && !listed[1].noiseProfile);
+  assert(listed[2].name == "Untrained" && listed[2].noiseProfile && !listed[2].noiseProfile->valid);
+  std::filesystem::remove_all(root);
+}

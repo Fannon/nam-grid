@@ -1441,6 +1441,59 @@ int main(int argc, char** argv)
       chosen = save().config();
       assert(chosen["Pre 1 Pedal Comp Sustain"] == 35. && chosen["Pre 1 Pedal Comp Pickup"] == 2.);
       assert(chosen["Pre 1 Pedal Comp Blend"] == 85. && chosen["Pre 1 Enabled"] == 0.);
+      // Smart Gate user presets include the learned profile, independent of slot.
+      auto gate = learnedNoiseState;
+      gate["Pre 1 Noise Sensitivity"] = 7.7;
+      gate["Pre 1 Enabled"] = 0.;
+      gate["Pre 2 Boost Gain"] = 5.;
+      load(gate); selectTile(170, 120);
+      const auto gateFile = module_presets::UserFolder(presetRoot, SlotEffect::NoisePrint) / "Learned floor.json";
+      win_file_dialog::Choose(gateFile, [&] {
+        win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
+      });
+      pumpFor(50);
+      std::ifstream gateInput(gateFile);
+      const auto gateDocument = json::parse(gateInput);
+      assert(gateDocument["noiseProfile"] == gate["NoisePrintProfiles"][0]);
+      auto different = gate;
+      different["NoisePrintProfiles"][0]["power"] = std::vector<double>(noise_print::bands, 1.e-5);
+      different["Pre 1 Noise Sensitivity"] = 12.;
+      load(different); selectTile(170, 120);
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Learned floor");
+      pumpFor(50);
+      assert(save().config() == gate);
+      // Recalling into another slot restores only that gate's controls and profile.
+      auto otherSlot = different;
+      otherSlot["SlotEffects"][1] = static_cast<int>(SlotEffect::NoisePrint);
+      otherSlot["Pre 2 Enabled"] = 0.;
+      load(otherSlot); selectTile(170 + grid_layout::columnPitch, 120);
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Learned floor");
+      pumpFor(50);
+      const auto otherValues = module_presets::Apply(SlotEffect::NoisePrint,
+        module_presets::LoadUser({presetRoot}, SlotEffect::NoisePrint).front().values,
+        SlotDefaultValues(SlotEffect::NoisePrint));
+      for (int c = 0; c < static_cast<int>(otherValues.size()); ++c)
+        if (module_presets::ModuleControl(SlotEffect::NoisePrint, c))
+          otherSlot["Pre 2 " + std::string(module_presets::ControlName(c))] = otherValues[c];
+      otherSlot["NoisePrintProfiles"][1] = gate["NoisePrintProfiles"][0];
+      assert(save().config() == otherSlot);
+      // Version 1 presets keep the current noise profile; explicit null clears it.
+      auto legacyGate = gateDocument;
+      legacyGate["version"] = 1;
+      legacyGate.erase("noiseProfile");
+      rig_preset::WriteAtomically(gateFile.parent_path() / "Legacy floor.json", legacyGate.dump());
+      auto untrainedGate = gateDocument;
+      untrainedGate["noiseProfile"] = nullptr;
+      rig_preset::WriteAtomically(gateFile.parent_path() / "Untrained floor.json", untrainedGate.dump());
+      load(different); selectTile(170, 120);
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Legacy floor");
+      pumpFor(50);
+      different["Pre 1 Noise Sensitivity"] = 7.7;
+      assert(save().config() == different);
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Untrained floor");
+      pumpFor(50);
+      different["NoisePrintProfiles"][0] = nullptr;
+      assert(save().config() == different);
       assert(nam_library::WriteSettings(settingsBackup.file, previousFolders));
       std::error_code removed;
       std::filesystem::remove_all(presetRoot, removed);

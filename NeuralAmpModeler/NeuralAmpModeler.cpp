@@ -998,7 +998,20 @@ void NeuralAmpModeler::ApplyModulePreset(size_t slot, int preset)
 
 void NeuralAmpModeler::ApplyUserModulePreset(size_t slot, const module_presets::UserPreset& preset)
 {
-  if (slot < FixedNAMGrid::kSlots) _ApplyModuleValues(slot, preset.values);
+  const auto guard = _LockControls();
+  if (slot >= FixedNAMGrid::kSlots) return;
+  if (GetSlotEffect(slot) == SlotEffect::NoisePrint && preset.noiseProfile)
+  {
+    auto config = _GetSlotConfig(slot);
+    config.values = module_presets::Apply(config.effect, preset.values, config.values);
+    config.values[module_presets::U(uNoiseLearn)] = 0.; // Recall never starts a capture.
+    config.noiseProfile = *preset.noiseProfile;
+    // Prepare off the audio thread; publication advances the epoch so an older
+    // live capture cannot overwrite the recalled profile.
+    _CommitSlot(slot, PrepareSlot(std::move(config), mSampleRatePrepared, mMaxBlockPrepared), true);
+    _NotifyHostStateChanged();
+  }
+  else _ApplyModuleValues(slot, preset.values);
 }
 
 void NeuralAmpModeler::_ApplyModuleValues(size_t slot, std::span<const module_presets::Value> values)
@@ -1026,10 +1039,11 @@ std::vector<module_presets::UserPreset> NeuralAmpModeler::GetUserModulePresets(S
 
 std::string NeuralAmpModeler::SaveUserModulePreset(size_t slot, const std::filesystem::path& file)
 {
+  const auto guard = _LockControls();
   if (slot >= FixedNAMGrid::kSlots) return "Invalid grid slot";
   try
   {
-    module_presets::SaveUser(file, GetSlotEffect(slot), GetSlotValues(slot));
+    module_presets::SaveUser(file, GetSlotEffect(slot), GetSlotValues(slot), GetNoiseProfile(slot));
     return {};
   }
   catch (const std::exception& error)

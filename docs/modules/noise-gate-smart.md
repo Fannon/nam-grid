@@ -27,7 +27,7 @@ The **GR** readout estimates the current reduction. It is a guide, not a measure
 
 Learn again after changing pickups, guitar volume or input gain, moving to a different room or interface, or changing the sample rate.
 
-The learned profile is saved with your project and rig preset and travels with Copy, Move and Swap. Learn itself is never saved switched on, and scenes do not change the profile.
+The learned profile is saved with your project, rig preset and user module presets, and travels with Copy, Move and Swap. Learn itself is never saved switched on, and scenes do not change the profile.
 
 ## Good to know
 

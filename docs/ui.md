@@ -40,15 +40,15 @@ The pointer becomes a text cursor over an editable value. Click the number below
 the knob, type the new value, and press **Enter** to apply it or **Escape** to cancel.
 
 Every built-in module except NAM and Cabinet IR has a **Presets** menu in the top row, between the module name and
-the browser button. Choosing a preset sets that module's controls through ordinary parameter
-changes, so the module keeps running and the rest of the rig is unchanged. The button shows
-the preset's name until you move a control. The rig or project stores the resulting control
-values, not a link to the preset.
+the browser button. Choosing a preset sets that module's controls; Smart Gate user presets
+also restore the learned noise profile by preparing a replacement gate. The rest of the rig
+is unchanged. The button shows the preset's name while its controls and any saved profile
+match. The rig or project stores the resulting values and profile, not a link to the preset.
 
 - **Factory presets** come first: a few established starting points for most modules, listed
   in [Rig presets](presets.md#choosing-useful-starting-points). Factory entries are read-only.
 - **Your presets** follow after a divider. **Save current as...** saves this module's
-  current controls as a new preset, also when you started from a factory preset.
+  current controls and, for Smart Gate, its learned profile as a new preset, also when you started from a factory preset.
 - **Show presets folder** opens the folder in Explorer or Finder; rename or delete presets
   there.
 

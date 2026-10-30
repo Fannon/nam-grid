@@ -7,9 +7,10 @@ Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected, showing th
 capture's controls and measured input/output display. The gallery tool loads the rig
 from `NeuralAmpModeler/resources/defaults`, so this image is regenerated with the rest.
 
-The remaining gallery images are captured from the native Windows editor with
-[`CaptureEditor`](../../tests/WinEditorCapture.h) while generated guitar-like
-audio plays, and converted losslessly from BMP to PNG. They show the illustrative
+The remaining gallery images are captured from the real CLAP editor while generated
+guitar-like audio plays: on Windows from its OpenGL surface with
+[`CaptureEditor`](../../tests/WinEditorCapture.h), on macOS from its Metal layer with
+[`MacEditorCapture`](../../tests/MacEditorCapture.mm). Neither reads the desktop. They show the illustrative
 "Ambient pedalboard" rig: Noise Gate, Tube Boost, a NAM capture and a cabinet IR
 in Pre; Juno Chorus, Tape Echo and Room in lane A; a second NAM capture, a cabinet
 IR and Cosmic Echo in lane B; Parametric EQ, Airwindows Tape and Peak Limiter in
@@ -39,8 +40,8 @@ The generated gallery uses a demo library containing:
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
 | `modules/*.png` | Focused parameter panes for every built-in module, NAM, and Cabinet IR, for the [module guide](../modules/README.md) |
 
-To regenerate the gallery on Windows, build the opt-in `nam-readme-gallery`
-target and run it with the plugin, the repository root and an output folder:
+To regenerate the gallery, build the opt-in `nam-readme-gallery` target and run it
+with the plugin, the repository root and an output folder. On Windows:
 
 ```sh
 bash build.sh
@@ -49,7 +50,18 @@ build/windows/release/NeuralAmpModeler/Release/nam-readme-gallery.exe build/wind
 ```
 
 With Ninja, the executable is directly under `NeuralAmpModeler/`, without the
-`Release/` subdirectory.
+`Release/` subdirectory. On macOS, pass the executable inside the CLAP bundle:
+
+```sh
+bash build.sh
+cmake --build build/macos/release --target nam-readme-gallery
+build/macos/release/NeuralAmpModeler/nam-readme-gallery build/macos/release/out/nam-grid.clap/Contents/MacOS/nam-grid . tmp/gallery/screenshots
+```
+
+The macOS tool shows a borderless editor window in the bottom-left screen corner for
+about three minutes. It ignores the real pointer, so you can keep working. It needs no
+screen-recording permission and writes PNG directly. Retina frames are averaged down
+to the 1x size of the gallery; text renders slightly heavier than on Windows.
 
 To refresh a single module, append `--module` and its filename slug (the module's
 name in lowercase, with spaces replaced by hyphens). For example, with Ninja:
@@ -58,15 +70,14 @@ name in lowercase, with spaces replaced by hyphens). For example, with Ninja:
 build/windows/release/NeuralAmpModeler/nam-readme-gallery.exe build/windows/release/out/nam-grid.clap . tmp/gallery/screenshots --module cosmic-echo
 ```
 
-This writes only `modules/cosmic-echo.bmp`, skipping the other modules and full
+This writes only `modules/cosmic-echo.bmp` (`.png` on macOS), skipping the other modules and full
 editor views. An unknown module name fails before opening the editor. Use a fresh
 output directory when reviewing a filtered run so older images cannot be mistaken
 for newly generated captures. `--help` prints the command syntax.
 
-It creates the demo library and renders every view as BMP, then each built-in module in
+It creates the demo library and renders every view, then each built-in module in
 the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. The NAM
-and Cabinet IR pane images are lossless full-width, 244-pixel-high crops from the bottom of `nam.png` and
-`ir.png`. The tool uses a private temporary `NAM_GRID_HOME` for settings and demo files,
-so your own settings and libraries are never touched. Convert every BMP losslessly to PNG,
-including the newly generated main image; see [ui.md](../ui.md) for the views and
+and Cabinet IR panes are cropped from the `nam` and `ir` frames in the same way. The tool uses a private temporary `NAM_GRID_HOME` for settings and demo files,
+so your own settings and libraries are never touched. On Windows, convert every BMP
+losslessly to PNG, including the newly generated main image; see [ui.md](../ui.md) for the views and
 [build.md](../build.md#editor-screenshots) for the smoke-test screenshot modes.

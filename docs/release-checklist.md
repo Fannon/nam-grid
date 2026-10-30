@@ -47,6 +47,8 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
 
 - [ ] Finalize the release version, [notes](release-notes.md) and supported-platform
   wording, including remaining limits and external capture/IR requirements.
+- [ ] Regenerate the [screenshot gallery](screenshots/README.md) when the editor or
+  module panes changed, and review every image before committing it.
 - [ ] Create a preview tag, verify its draft release and archives, then review the
   draft before publication. See [release workflow instructions](build.md).
 - [ ] Preserve plugin identities, parameter IDs/names/ranges, module and algorithm

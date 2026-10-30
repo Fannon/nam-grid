@@ -1,6 +1,6 @@
 # NAM Grid 0.4.0
 
-A guitar sustain compressor, presets for every module, delay and reverb tails that ring out after bypass, and new chorus, spring and delay voices. Existing projects, presets and automation keep loading; a few reverbs, Butter Comp and Frequency Shifter deliberately sound different, as described below.
+A guitar sustain compressor, reusable effect presets, delay and reverb tails that ring out after bypass, and new chorus, spring and delay voices. Existing projects, presets and automation keep loading; a few reverbs, Butter Comp and Frequency Shifter deliberately sound different, as described below.
 
 ## New sounds
 
@@ -12,7 +12,7 @@ A guitar sustain compressor, presets for every module, delay and reverb tails th
 
 ## Faster rig building and performance
 
-- **Module presets:** every module editor has a **Presets** menu with established starting points, such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring and Airwindows plates, halls and tape. Save your own with **Save current as...**; choosing one changes only that module.
+- **Module presets:** effect editors have a **Presets** menu with established starting points, such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring and Airwindows plates, halls and tape. Save your own with **Save current as...**; choosing one changes only that module.
 - **Reusable Smart Gate calibration:** user module presets save the learned noise profile along with the controls. Older presets retain the current profile; recalling a preset leaves Learn off.
 - **Trails:** with this Routing option on, bypassed delays and reverbs ring out instead of cutting off, so scene changes keep their ambience.
 - **Keep dry level:** this Routing option keeps your dry guitar at unity in all delays and reverbs while Mix sets only the wet level.

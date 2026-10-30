@@ -109,11 +109,17 @@ set(NAM_DEFAULT_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/riffsmit
 set(NAM_DEFAULT_PRESET "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/Clean Default.ngrid")
 set(NAM_DEFAULT_CONTENT "${CMAKE_BINARY_DIR}/generated/DefaultContent.cpp")
 add_custom_command(OUTPUT "${NAM_DEFAULT_CONTENT}"
-  COMMAND "${CMAKE_COMMAND}" -DOUTPUT=${NAM_DEFAULT_CONTENT} -DNAMESPACE=default_content
-    "-DFILES=CleanCapture=${NAM_DEFAULT_CAPTURE}|CleanPreset=${NAM_DEFAULT_PRESET}"
-    -P "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
-  DEPENDS "${NAM_DEFAULT_CAPTURE}" "${NAM_DEFAULT_PRESET}" "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
-  COMMENT "Embedding the default NAM capture and preset" VERBATIM)
+  COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/embed-default-content.py"
+    --capture "${NAM_DEFAULT_CAPTURE}" --preset "${NAM_DEFAULT_PRESET}" --output "${NAM_DEFAULT_CONTENT}"
+  DEPENDS "${NAM_DEFAULT_CAPTURE}" "${NAM_DEFAULT_PRESET}" "${PROJECT_SOURCE_DIR}/scripts/embed-default-content.py"
+  COMMENT "Compressing and embedding the default NAM capture and preset" VERBATIM)
+# Exercise the same decoder NanoVG already supplies to every plugin format.
+add_executable(nam-default-content-tests ../tests/default_content_tests.cpp "${NAM_DEFAULT_CONTENT}"
+  ../iPlug2/Dependencies/IGraphics/NanoVG/src/nanovg.c)
+target_include_directories(nam-default-content-tests PRIVATE .
+  ../iPlug2/Dependencies/IGraphics/NanoVG/src ../NeuralAmpModelerCore/Dependencies/nlohmann)
+target_compile_features(nam-default-content-tests PRIVATE cxx_std_20)
+add_test(NAME default-content COMMAND nam-default-content-tests "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults")
 set(NAM_PLATFORM_SOURCES)
 if(UNIX AND NOT APPLE)
   set(NAM_EMBEDDED_FONT "${CMAKE_BINARY_DIR}/generated/EmbeddedFont.cpp")
@@ -269,11 +275,6 @@ foreach(format IN LISTS NAM_FORMATS)
         list(TRANSFORM definitions REPLACE "^OBJC_PREFIX=vnam-grid$" "OBJC_PREFIX=vnam_grid")
         set_property(TARGET nam-grid-${suffix} PROPERTY COMPILE_DEFINITIONS "${definitions}")
       endif()
-      # Drop unreachable code and local symbols in shipped binaries. Do this at
-      # link time, before the bundle is signed; Debug retains its symbols.
-      target_link_options(nam-grid-${suffix} PRIVATE
-        "$<$<CONFIG:Release>:-Wl,-dead_strip>"
-        "$<$<CONFIG:Release>:-Wl,-x>")
       # Seal the complete bundle, including resources and PkgInfo. The linker's
       # ad-hoc binary signature alone does not validate as a plugin bundle.
       add_custom_command(TARGET nam-grid-${suffix} POST_BUILD
@@ -287,16 +288,6 @@ foreach(format IN LISTS NAM_FORMATS)
     endif()
   endif()
 endforeach()
-if(APPLE)
-  foreach(format IN LISTS NAM_FORMATS)
-    string(TOLOWER "${format}" suffix)
-    if(TARGET nam-grid-${suffix})
-      add_test(NAME macos-table-storage-${suffix}
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/macos_table_storage.py"
-          "$<TARGET_FILE:nam-grid-${suffix}>")
-    endif()
-  endforeach()
-endif()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
   add_test(NAME library-startup COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}" --library-startup-only)

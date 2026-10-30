@@ -101,7 +101,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
-cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
 ctest --test-dir "$build_dir" -C Release --output-on-failure
 python -m unittest discover -s tests -p "test_*.py"
 ```
@@ -158,16 +158,12 @@ Output:
   The build also leaves loose `resources/` copies in `out/`; the plugins do not need them.
 - `ThirdPartyNotices.txt` and `notices/` accompany the binaries. Preserve them when sharing artifacts.
 - The plugin embeds `NeuralAmpModeler/resources/defaults` (the RiffSmith Clean capture and the
-  Clean Default preset) through `cmake/EmbedFiles.cmake`, which needs no extra tools. A fresh
+  Clean Default preset) as zlib streams through `scripts/embed-default-content.py`, using Python’s standard library.
+  The preset JSON is minified; the capture retains its exact original bytes. A fresh
   install writes them into its new default library folders. The preset names its capture by
-  filename; keep it loadable, as the smoke test checks.
-
-macOS Release links discard unreachable code and local symbols before ad-hoc signing.
-Use Debug or RelWithDebInfo for symbol-rich local debugging; keep the matching unstripped
-build when investigating a release crash. The Lanczos tables use Mach-O zero-fill storage:
-this reduces installed size without reducing their runtime memory or changing table
-initialization. ZIP/download savings are smaller because zero bytes compress well.
-LTO is not enabled by default; measure size, CPU and output identity before enabling it.
+  filename; keep it loadable, as the smoke test checks. NanoVG’s existing decoder restores
+  missing factory files during installation, with temporary memory and CPU cost there
+  and no decompression in audio processing. Existing factory files are left untouched.
 
 Automatic deployment is disabled. Point your DAW at `build/<platform>/release/out` for local
 evaluation, or copy the artifact to a separate test location, then rescan plugins.
@@ -270,7 +266,7 @@ commit, then upload the archives:
 ```sh
 git checkout v0.1.0 && git submodule update --init --recursive && python scripts/setup-deps.py
 cmake -S . -B build/macos/release -DCMAKE_BUILD_TYPE=Release   # add -G Ninja on Windows and Linux
-cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests --parallel 3
+cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
 ctest --test-dir build/macos/release -C Release --output-on-failure   # xvfb-run -a ... on Linux
 python scripts/package-release.py --build-dir build/macos/release --platform macos-arm64
 gh release upload v0.1.0 build/macos/release/nam-grid-macos-arm64.zip --repo Fannon/nam-grid
@@ -290,8 +286,8 @@ build targets.
 | `ir-convolution` | Adaptive direct/FFT cabinet convolution against the direct processor, variable blocks, resampling and allocation checks |
 | `capture-library` | Library scanning, metadata, search, menus and atomic preference writes |
 | `wav-decoder` | WAV decoding and malformed-file rejection |
+| `default-content` | Byte-exact factory capture decompression and equivalent factory preset JSON |
 | `resampling` | Resampler warm-up with exact WDL allocations |
-| `macos-table-storage-clap`, `macos-table-storage-vst3` | macOS only: Lanczos tables exist in zero-fill storage in each plugin |
 | `aliasing` | Every module through stereo slot DSP, coherent spectral analysis, zero reported built-in latency and pedal alias rejection; [extended audit](dsp-aliasing.md) |
 | `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks, a click/pop sweep of bypass, replacement, control jumps and mode changes for every module, and ARM planar/portable A2 bit identity |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |

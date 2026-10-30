@@ -27,6 +27,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Changed
 
+- NAM captures run on NAM Core 0.6.0. Newer model files load, including Sequential models (several models chained in one file) and WaveNet models with a dilated head. Models using FiLM conditioning after the 1×1 layer now render as trained. Standard WaveNet, A2, LSTM and the bundled capture render identically at 48 kHz; resampled captures at 44.1 kHz can differ below −110 dBFS. CPU use is unchanged.
 - The module picker's **Delay > Slapback preset** item is gone. Insert Digital Delay and choose **Slapback** from its **Presets** menu for the same settings.
 - Butter Comp now works at guitar levels. It previously barely reacted below about 70%, because its Airwindows core is designed for full-scale mix-bus signals. The default now gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness. Existing rigs with Butter Comp compress more at the same setting.
 

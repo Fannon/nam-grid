@@ -148,7 +148,11 @@ inline std::string Parse(const nlohmann::json& document, SlotEffect effect, std:
     const auto range = RangeOf(control);
     if (number < range.minimum || number > range.maximum) return "\"" + key + "\" is out of range.";
     const int p = control - parameter_layout::standardControls;
-    if (p >= 0 && kEffectParameters[p].step == 1. && number != std::floor(number))
+    // Match enum/bool registration in the plugin. A continuous knob's step is
+    // its display precision, not a requirement that saved values be integral.
+    const bool discrete = p >= 0 && (!EffectChoices(p).empty()
+      || (range.minimum == 0. && range.maximum == 1. && kEffectParameters[p].step == 1.));
+    if (discrete && number != std::floor(number))
       return "\"" + key + "\" must be a whole number.";
     // Older files could save Learn while it was held on. Recording is transient,
     // so recalling either format must leave Learn off without replacing a legacy profile.

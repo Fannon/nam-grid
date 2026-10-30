@@ -661,7 +661,9 @@ private:
       g.DrawMultiLineText(Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 34, 964, bottom));
       return;
     }
-    g.DrawMultiLineText(Text(16.f, accent).WithVAlign(EVAlign::Top), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, kListTop + 4, 964, kListTop + 46));
+    // Multiline drawing does not clip to its height. Bound the title to two
+    // lines so long capture filenames cannot run into the metadata below.
+    TwoLineText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()), IRECT(744, kListTop + 4, 964, kListTop + 46));
     const auto metadata = file->kind == nam_library::FileKind::NAM
       ? std::string(nam_library::GearName(file->gear))
         + (file->maker.empty() ? "" : "\n" + file->maker) + (file->model.empty() ? "" : " / " + file->model)

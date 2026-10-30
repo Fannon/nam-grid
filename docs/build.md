@@ -28,6 +28,32 @@ plugin in saved projects; they must never change after a release.
   `29389e4`, and MIT-licensed VST3 3.8.1 at `3cdf9ca`. No WebView, JUCE, or prebuilt
   graphics libraries are needed for this build.
 
+### Upstream pins and patches
+
+NAM Grid's plugin shell started from
+[NeuralAmpModelerPlugin](https://github.com/sdatkinson/NeuralAmpModelerPlugin), which
+is not a submodule; check its releases and pull requests for fixes worth porting by hand.
+The DSP libraries and framework are pinned submodules. `scripts/setup-deps.py` applies
+each `patches/<prefix>-*.patch` stack in file-name order, skips a stack that is already
+applied, and refuses submodules with other local changes. The patch files are the
+reproducible source of these changes.
+
+| Submodule | Upstream and pin | Patches | Remove when |
+| --- | --- | --- | --- |
+| `NeuralAmpModelerCore` | [sdatkinson/NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) `v0.6.0` | `nam-core-a2-planar`: planar NEON A2 kernels from [Core PR #313](https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313) | PR #313 is released |
+| `AudioDSPTools` | [sdatkinson/AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) `v0.1.2` | `audio-dsp-001` WAV decoding safety and polarity, `002` resampler warm-up, `003` GCC build, `004` stereo IR loading | `003` and `004` on updating to `v0.2.0`, which has [#26](https://github.com/sdatkinson/AudioDSPTools/pull/26) and [stereo WAV loading](https://github.com/sdatkinson/AudioDSPTools/pull/28); `001`/`002` are local |
+| `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
+| `eigen` | [libeigen/eigen](https://gitlab.com/libeigen/eigen) `ed8cda3` | None | |
+
+Core's own nested `Dependencies/eigen` and `Dependencies/AudioDSPTools` are not used;
+the build includes the top-level `eigen` and `AudioDSPTools`.
+
+To move a pin, check out the new upstream commit in the submodule, then rebase or drop
+each patch: drop patches whose change upstream now contains, and regenerate the rest
+against the new commit (for a pull-request backport, diff the PR head against its
+merge base). Run `bash build.sh --setup` and the full tests. For Core, also compare
+rendered captures and NAM CPU against the previous plugin, as for any DSP change.
+
 ## Single-command build
 
 On Windows, install the standard tools from PowerShell:
@@ -118,14 +144,8 @@ git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/l
 For MSVC without the Visual Studio generator, use an x64 developer command prompt
 and add `-G Ninja` to the configure command.
 
-The setup script applies the two MIT Core allocation fixes, the AudioDSPTools WAV
-decoder safety/polarity, resampler warm-up and GCC build fixes, and two iPlug2 CLAP adapter fixes
-from `patches/`: enum metadata, and host-contract corrections (bounded value-to-text,
-canonical stepped text, looping short state writes, a value rescan after host state
-loads, and correct main-port configuration summaries). The patch files are the reproducible source of these changes;
-do not reset those submodules after setup without applying the patches again.
-Setup checks whether each patch is already applied, and refuses patches that cannot
-be applied cleanly.
+Setup applies the patch stacks listed in [Upstream pins and patches](#upstream-pins-and-patches).
+Do not reset those submodules after setup without applying the patches again.
 
 The `iplug2-text-entry-keyboard.patch` patch gives drawn text entry keyboard ownership:
 Windows entry raises/focuses the plugin window, releases mouse capture, and consumes
@@ -134,9 +154,7 @@ The native editor host checks foreground ownership and counts keys forwarded to 
 host window. These checks cover CLAP and VST3; real DAWs can also intercept keys
 before delivering them to a plugin and require separate acceptance testing.
 
-Setup also backports the planar NEON A2 kernels from
-[NAM Core PR #313](https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313)
-to the pinned Core API. Supported ARM targets select these kernels automatically;
+Supported ARM targets select the backported planar NEON A2 kernels automatically;
 other targets retain the portable implementation. Release stage tests compare
 both implementations bit-for-bit, including odd block sizes and repeated prewarm.
 Do not enable fast-math: those transformations invalidate the arithmetic-order

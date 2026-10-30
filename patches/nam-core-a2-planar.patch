@@ -1,22 +1,22 @@
 Backport planar NEON A2 kernels from upstream Core PR #313.
 Source: https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313
 Commit: d01960c047089dd583e213389cf3b79108c2647b
-Adapt GetPrewarmSamples to the pinned 9c7b185 DSP::PrewarmSamples API.
+Applies unchanged to Core v0.6.0, the PR's base; only the NAM/ sources are included.
 
 diff --git a/NAM/wavenet/a2_fast.cpp b/NAM/wavenet/a2_fast.cpp
-index 8fd8fc1..357bdd4 100644
+index 08d52e7..337cf12 100644
 --- a/NAM/wavenet/a2_fast.cpp
 +++ b/NAM/wavenet/a2_fast.cpp
 @@ -9,6 +9,7 @@
    #endif
-
+ 
    #include "a2_fast.h"
 +  #include "a2_planar.h"
-
+ 
    #include <algorithm>
    #include <array>
-@@ -694,11 +695,15 @@ struct A2FastConfig : public ModelConfig
-
+@@ -772,11 +773,15 @@ struct A2FastConfig : public ModelConfig
+ 
    std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override
    {
 -    if (channels == 3)
@@ -35,11 +35,11 @@ index 8fd8fc1..357bdd4 100644
 +    return create_a2_fast_reference_model(channels, std::move(weights), sampleRate);
    }
  };
-
-@@ -884,6 +889,15 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
+ 
+@@ -983,6 +988,15 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
    return true;
  }
-
+ 
 +std::unique_ptr<DSP> create_a2_fast_reference_model(int channels, std::vector<float> weights, double sampleRate)
 +{
 +  if (channels == 3)
@@ -53,13 +53,13 @@ index 8fd8fc1..357bdd4 100644
  {
    (void)sampleRate;
 diff --git a/NAM/wavenet/a2_fast.h b/NAM/wavenet/a2_fast.h
-index 7bc1b0b..a4c2ecb 100644
+index 7fac534..5a6b660 100644
 --- a/NAM/wavenet/a2_fast.h
 +++ b/NAM/wavenet/a2_fast.h
 @@ -52,6 +52,19 @@ bool is_a2_shape(const nlohmann::json& config, int* channels);
  /// \pre is_a2_shape(config, ...) returned true.
  std::unique_ptr<ModelConfig> create_a2_fast_config(const nlohmann::json& config, double sampleRate);
-
+ 
 +/// \brief Build the portable A2 fast-path model, bypassing any
 +/// architecture-specific kernel.
 +///
@@ -78,7 +78,7 @@ index 7bc1b0b..a4c2ecb 100644
  } // namespace nam
 diff --git a/NAM/wavenet/a2_planar.cpp b/NAM/wavenet/a2_planar.cpp
 new file mode 100644
-index 0000000..86acbbb
+index 0000000..31aefc9
 --- /dev/null
 +++ b/NAM/wavenet/a2_planar.cpp
 @@ -0,0 +1,1461 @@
@@ -598,7 +598,7 @@ index 0000000..86acbbb
 +
 +  ~A2PlanarNano() override = default;
 +
-+  int PrewarmSamples() override { return _prewarm_samples; }
++  int GetPrewarmSamples() override { return _prewarm_samples; }
 +
 +  void prewarm() override
 +  {
@@ -1059,7 +1059,7 @@ index 0000000..86acbbb
 +
 +  ~A2PlanarFull() override = default;
 +
-+  int PrewarmSamples() override { return _prewarm_samples; }
++  int GetPrewarmSamples() override { return _prewarm_samples; }
 +
 +  void prewarm() override
 +  {

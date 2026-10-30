@@ -66,6 +66,8 @@ to the 1x size of the gallery; text renders slightly heavier than on Windows.
 For the macOS module-preset save regression, append `--preset-save-smoke` to the
 command instead of `--module`. It checks name entry, Escape, saving into the module
 folder and recall from the next menu without a library scan, using private settings.
+Use `--browser-text-smoke` for a focused capture with a long filename, metadata and
+path, to check the details panel and its footer controls.
 
 To refresh a single module, append `--module` and its filename slug (the module's
 name in lowercase, with spaces replaced by hyphens). For example, with Ninja:

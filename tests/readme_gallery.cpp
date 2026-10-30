@@ -70,15 +70,16 @@ static std::string ModuleSlug(const char* name)
 static int Run(int argc, char** argv)
 {
   const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n"
-                      "macOS preset save regression: append --preset-save-smoke instead.\n";
+                      "macOS regressions: append --preset-save-smoke or --browser-text-smoke instead.\n";
   if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
+  const bool browserTextSmoke = argc == 5 && std::string(argv[4]) == "--browser-text-smoke";
   const bool presetSmoke = argc == 5 && std::string(argv[4]) == "--preset-save-smoke";
 #ifdef _WIN32
-  if (presetSmoke) throw std::runtime_error("Preset save smoke mode uses the macOS editor driver.");
+  if (presetSmoke || browserTextSmoke) throw std::runtime_error("Native smoke modes use the macOS editor driver.");
 #endif
-  if (argc != 4 && !presetSmoke && !(argc == 6 && std::string(argv[4]) == "--module"))
+  if (argc != 4 && !presetSmoke && !browserTextSmoke && !(argc == 6 && std::string(argv[4]) == "--module"))
     throw std::runtime_error(usage);
-  const std::string filter = presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
+  const std::string filter = browserTextSmoke ? "browser-text" : presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
   if (argc == 6)
   {
     bool found = false;
@@ -100,7 +101,9 @@ static int Run(int argc, char** argv)
     settings.presetFolders = {nam_library::PathText(presets)};
     assert(nam_library::WriteSettings(settingsBackup.file, settings));
   }
-  const auto amp1 = captures / "Example WaveNet amp.nam", amp2 = captures / "Example LSTM amp.nam";
+  const auto amp1 = captures / (browserTextSmoke
+    ? "Very long capture filename with several words and amp settings - bright switch on channel one gain six presence seven bass four middle five treble six cabinet microphone and room details.nam"
+    : "Example WaveNet amp.nam"), amp2 = captures / "Example LSTM amp.nam";
   const auto cab = irs / "Example 4x12 cabinet.wav";
   const auto out = std::filesystem::absolute(argv[3]);
   std::filesystem::create_directories(out);
@@ -108,6 +111,14 @@ static int Run(int argc, char** argv)
   for (const auto& [source, target] : {std::pair{"wavenet.nam", amp1}, std::pair{"lstm.nam", amp2}})
     std::filesystem::copy_file(repository / "NeuralAmpModelerCore" / "example_models" / source, target,
                                std::filesystem::copy_options::overwrite_existing);
+  if (browserTextSmoke)
+  {
+    std::ifstream input(amp1);
+    auto model = json::parse(input);
+    model["metadata"]["gear_make"] = std::string(600, 'M');
+    model["metadata"]["gear_model"] = std::string(600, 'T');
+    std::ofstream(amp1) << model.dump();
+  }
   WriteExampleCabinet(cab);
   // The bundled default capture and Clean Default rig (resources/defaults) for the main image.
   const auto defaults = repository / "NeuralAmpModeler" / "resources" / "defaults";
@@ -255,6 +266,24 @@ static int Run(int argc, char** argv)
   };
 
   play(2500); // Library scan and model preparation
+
+#ifdef __APPLE__
+  if (browserTextSmoke)
+  {
+    select(2); click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); play(1500);
+    click(218, 448); play(2500); // Refresh the generated metadata fixture.
+    click(100, 144); // All folders, independent of the selected capture's context folder.
+    click(100, 75); MacEditorKey(editor, 0, "a", true);
+    for (const char c : std::string("Very long capture")) { const char key[]{c, 0}; MacEditorKey(editor, 0, key); }
+    MacEditorKey(editor, 36, "\r"); play(300);
+    click(400, 144); play(500);
+    shot("browser-long-details");
+    plugin->stop_processing(plugin); plugin->deactivate(plugin);
+    CloseMacEditor(editor, plugin, gui); plugin->destroy(plugin); entry->deinit(); dlclose(library);
+    std::cout << "Captured long browser title, metadata and path into " << out.string() << "\n";
+    return 0;
+  }
+#endif
 
   if (filter.empty())
   {

@@ -1161,6 +1161,7 @@ int main(int argc, char** argv)
   TestPedalDriveClap(plugin, cleared, save, load);
   TestPedalCompClap(plugin, cleared, save, load);
   TestModulePresetRecall(cleared, save, load, settingsBackup.home);
+  TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)

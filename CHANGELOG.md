@@ -8,7 +8,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - Saving a user module preset asks only for its name, writes it into the module's configured preset folder and immediately lists it in the Presets menu. The macOS Save dialog could previously place it elsewhere.
 - Fixed saved module presets being rejected when continuous controls contain fractional values, including delay and Cosmic Echo times. Existing affected files now load without changes.
-- Fixed long filenames overlapping metadata in the library browser's details panel.
+- Long filenames, metadata and paths stay inside the library browser's details panel without overlapping its controls.
 
 ## [0.4.0] - 2026-10-30
 

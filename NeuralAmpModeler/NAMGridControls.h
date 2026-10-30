@@ -1182,46 +1182,30 @@ public:
     const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
     if (mModelButton->GetRECT() != nameBounds) mModelButton->SetTargetAndDrawRECTs(nameBounds);
   }
-  void LayoutDescription(IGraphics& g, bool draw)
+  // The module description is the name's hover help, keeping the editor free of explanatory text.
+  void UpdateModuleTooltip(IGraphics& g)
   {
     using namespace grid_ui;
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
-    const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
-    const auto hint = std::string(enabled ? "" : "Bypassed | ")
-      + (effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
+    const auto hint = std::string(effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
           : effect == SlotEffect::PedalDrive ? effect_presentation::Help(effect, uPedalStyle,
               GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPedalStyle))->Int())
                                          : effect_presentation::Sound(effect));
-    // The description stops before any option shown on its row (quality, tempo sync, modes).
-    float hintRight = grid_layout::parameterRight;
-    const auto shorten = [&](const IControl* option) {
-      if (option && !option->IsHidden() && option->GetRECT().T < grid_layout::descriptionBottom)
-        hintRight = std::min(hintRight, option->GetRECT().L - 10.f);
-    };
-    shorten(mQualityButton);
-    for (int i = 0; i < kUtilityControls; ++i)
-      if (effect_presentation::HeaderControl(i)) shorten(mUtilityKnobs[i]);
-    const IRECT hintBounds(grid_layout::parameterLeft, grid_layout::descriptionTop, hintRight, grid_layout::descriptionBottom);
-    const bool moved = mDescriptionHint->GetRECT() != hintBounds;
-    if (moved) mDescriptionHint->SetTargetAndDrawRECTs(hintBounds);
-    const auto style = Text(14.f, muted);
-    IRECT measured; g.MeasureText(style, hint.c_str(), measured);
-    const std::string tooltip = !empty && measured.W() > hintBounds.W() ? hint : "";
-    if (moved || tooltip != mDescriptionHint->GetTooltip())
+    const auto tooltip = empty ? std::string("Choose a module.") : hint + " Click to choose or replace the module.";
+    if (tooltip != mModelButton->GetTooltip())
     {
-      mDescriptionHint->SetTooltip(tooltip.c_str());
+      mModelButton->SetTooltip(tooltip.c_str());
       g.UpdateTooltips(); // Refresh native tracking rectangles on macOS as well.
     }
-    if (draw && !empty) FittedText(g, style, hint, hintBounds);
   }
   void DrawEditor(IGraphics& g)
   {
     using namespace grid_ui;
     LayoutHeader(g, true);
-    LayoutDescription(g, true);
+    UpdateModuleTooltip(g);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const bool empty = PLUG()->GetSlotPath(mSlot).empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
@@ -1354,10 +1338,6 @@ public:
   {
     mEditor = new grid_ui::Editor(IRECT(0, grid_layout::editorTop, grid_layout::visualizationRight, grid_layout::visualizationBottom), [this](IGraphics& g) { DrawEditor(g); });
     GetUI()->AttachControl(mEditor);
-    // The description is drawn by the editor; this empty label supplies its hover region.
-    mDescriptionHint = new grid_ui::HintLabel(IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop,
-      grid_layout::parameterRight, grid_layout::descriptionBottom), "", grid_ui::Text(14.f, grid_ui::muted), "");
-    mEditor->AddChildControl(mDescriptionHint);
     mPlotHelp = new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
       grid_layout::visualizationRight - 12, grid_layout::plotFooterBottom));
     mEditor->AddChildControl(mPlotHelp, kCtrlTagPlotHelpBase + static_cast<int>(mSlot));
@@ -2536,14 +2516,11 @@ private:
     mModelButton->SetLabelStr(moduleLabel.c_str());
     mModelButton->SetModeStr(grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot)).c_str());
     mModelButton->SetDirty(false);
-    const auto mode = grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot));
-    mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel
-                              + (mode.empty() ? std::string{} : " (" + mode + ")")).c_str());
     SetTooltip(path.empty() ? "Click to browse modules. Right-click for Clear / Copy / Move / Swap."
                             : path.c_str());
     if (mEditor && selected)
     {
-      LayoutDescription(*GetUI(), false);
+      UpdateModuleTooltip(*GetUI());
       mEditor->SetDirty(false);
     }
     SetDirty(false);
@@ -2756,7 +2733,6 @@ private:
   IRECT mCardBounds;
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
-  grid_ui::HintLabel* mDescriptionHint = nullptr;
   grid_ui::PlotHelp* mPlotHelp = nullptr;
   grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;

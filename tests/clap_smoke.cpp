@@ -1274,8 +1274,8 @@ int main(int argc, char** argv)
     pumpFor(50);
   };
   {
-    // Read the native tooltip, not an internal label property: the description's
-    // hover region must work alongside header options and update on state loads.
+    // Read the native tooltip, not an internal label property: the module title's
+    // description must update on state loads and when the module changes.
     HWND tooltip = nullptr;
     std::pair<HWND, HWND*> match{editor, &tooltip};
     EnumThreadWindows(GetCurrentThreadId(), [](HWND candidate, LPARAM data) -> BOOL {
@@ -1289,7 +1289,7 @@ int main(int argc, char** argv)
       return FALSE;
     }, reinterpret_cast<LPARAM>(&match));
     assert(tooltip);
-    const auto descriptionTooltip = [&](int x = 100, int y = grid_layout::descriptionTop + 8) {
+    const auto descriptionTooltip = [&](int x = 200, int y = grid_layout::moduleButtonY) {
       InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
       SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
       SendMessage(editor, WM_MOUSEHOVER, 0, 0);
@@ -1304,15 +1304,18 @@ int main(int argc, char** argv)
     description["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalBlack);
     load(description); selectTile(170, 120);
     const auto beforeHover = save().config();
-    const std::string full = effect_presentation::Sound(SlotEffect::DigitalBlack);
-    assert(descriptionTooltip() == std::wstring(full.begin(), full.end()));
+    const auto titleHelp = [](SlotEffect effect) {
+      const auto text = effect_presentation::Sound(effect) + std::string(" Click to choose or replace the module.");
+      return std::wstring(text.begin(), text.end());
+    };
+    assert(descriptionTooltip() == titleHelp(SlotEffect::DigitalBlack));
     assert(save().config() == beforeHover);
     description["Pre 1 Enabled"] = 0.; load(description); selectTile(170, 120);
-    assert(descriptionTooltip() == std::wstring(L"Bypassed | ") + std::wstring(full.begin(), full.end()));
+    assert(descriptionTooltip() == titleHelp(SlotEffect::DigitalBlack)); // The enable circle shows bypass.
     description["Pre 1 Enabled"] = 1.;
     description["SlotEffects"][0] = static_cast<int>(SlotEffect::SmoothComp);
     load(description); selectTile(170, 120);
-    assert(descriptionTooltip().empty()); // A fitting description must clear the previous module's hint.
+    assert(descriptionTooltip() == titleHelp(SlotEffect::SmoothComp)); // Never the previous module's text.
     if (argc == 4) // Plot help is produced by rendering; the snapshot host shows the editor.
     {
       description["SlotEffects"][0] = static_cast<int>(SlotEffect::Limiter);

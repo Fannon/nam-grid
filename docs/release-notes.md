@@ -19,6 +19,8 @@ A guitar sustain compressor, presets for every module, delay and reverb tails th
 
 Trails and Keep dry level start off, so existing rigs keep their sound.
 
+Module descriptions now appear when you hover over the module name, leaving the editor less text and more room for each module's options.
+
 ## Sound changes in existing rigs
 
 These corrections change how some saved rigs sound. Parameters, ranges and zero reported latency stay the same.

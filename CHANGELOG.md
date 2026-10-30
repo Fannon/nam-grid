@@ -23,6 +23,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - LFOs and sequencers add **Retrigger: Song position**. While the DAW plays, they follow its beat position, so synced sweeps and steps line up with the bars on every playback, through tempo changes and loops. Stopped, they run free as before. Existing rigs keep their Retrigger setting.
 - Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. After a mono capture, a stereo IR spreads the signal into left and right for stereo room and reverb responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.
 - The module picker's **Delay > Slapback preset** item is gone. Insert Digital Delay and choose **Slapback** from its **Presets** menu for the same settings.
+- Module descriptions moved into hover help on the module name, so the editor shows less text and option selectors no longer cut descriptions short.
 
 ### Sound changes in existing rigs
 

@@ -105,7 +105,7 @@ In the header:
 
 **Display:** The settled compression curve for steady notes, with a dot at the live input, the gain reduction bar and the input/output history.
 
-**Presets:** Light always-on, Snappy clean picking, Even sustain with some dry, Heavy squash with natural attack, Gentle leveling, Long lead notes, Acoustic strumming and Acoustic fingerpicking. Presets keep your Pickup choice, except the acoustic ones, which select Acoustic.
+**Presets:** Light always-on, Snappy clean picking, Long lead notes and Acoustic strumming. Presets keep your Pickup choice, except Acoustic strumming, which selects Acoustic.
 
 **Tips:**
 
@@ -132,7 +132,7 @@ Starts with gentle 2.5:1 compression and a soft 9 dB knee for leveling and susta
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
-**Presets:** Clean guitar leveling, Barely there, Long gentle sustain, Acoustic strumming leveler and Even bass notes.
+**Presets:** Clean guitar leveling and Even bass notes.
 
 **Tips:**
 
@@ -156,7 +156,7 @@ Starts with firmer 4:1 compression and a 3 dB knee and a slower default attack, 
 
 **Display:** The compression curve with a dot at the live input, and the history before makeup.
 
-**Presets:** Tight picking, Upfront with dynamics, Firm control after an amp and Parallel punch.
+**Presets:** Tight picking and Parallel punch.
 
 **Tips:**
 
@@ -176,7 +176,7 @@ Airwindows ButterComp2 glue compression with automatic level recovery, set up fo
 
 **Display:** Gain reduction, input and output over time.
 
-**Presets:** Subtle glue, Dense and even, and Thick parallel.
+**Presets:** Thick parallel.
 
 ## Outboard Channel
 
@@ -212,7 +212,7 @@ A fast peak limiter for catching transients at the end of the rig. Clip rounds p
 
 **Display:** The limiter curve with a dot at the live input, and the history.
 
-**Presets:** Transparent safety and Louder, controlled.
+**Presets:** Louder, controlled. The insertion default is already a transparent safety limiter.
 
 **Tips:**
 

@@ -12,7 +12,7 @@ Worn tape for lo-fi guitar sounds: tone that darkens with tape speed, wow, flutt
 | Worn cassette | 3.75 | 35% | 25% | 20% | 50% | 100% |
 | Damaged tape | 1.875 | 70% | 60% | 35% | 90% | 100% |
 
-Match the level with Output when comparing, and try each setting with a sustained clean chord as well as a distorted riff. The controls and their ranges are in the [module guide](creative.md#lofi-tape-machine).
+These are also the module's factory presets. Match the level with Output when comparing, and try each setting with a sustained clean chord as well as a distorted riff. The controls and their ranges are in the [module guide](creative.md#lofi-tape-machine).
 
 ## Good to know
 

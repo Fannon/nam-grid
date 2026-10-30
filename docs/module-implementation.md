@@ -244,3 +244,30 @@ cmake --build build/windows/release --config Release --target nam-grid-clap nam-
 Output goes to the directory passed to the exporter; `tmp/` is gitignored.
 These renders are generated developer artifacts: they are not checked in or
 copied into release archives.
+
+Pass `factory` instead of `cosmic` to export every factory module recipe at its
+actual Mix and Output settings. It writes a full `.ngrid`, an eight-second mixed
+impulse response and a synthetic-pluck WAV pair per recipe (quiet and 12 dB hotter
+input), plus `factory-measurements.csv` with input gain, peak, last-half-second
+tail RMS and single-render CPU timing at 48 kHz/128 frames.
+
+Delays and reverbs also export `<label>-wet-impulse.wav`: Mix is set to 100%,
+with one second of silence before a 0.1-amplitude impulse and 60 seconds of
+response. Use this longer isolated wet response for decay estimates; the mixed
+response remains useful for echo/dry ratios. Set `NAM_AUDITION_MODULE` to an exact
+module name, such as `Digital Delay`, to render only that module's recipes.
+
+To audition on a real instrument, set `NAM_AUDITION_GUITAR` to raw little-endian
+float32 mono audio at 48 kHz, for example a guitar DI. Optionally set
+`NAM_AUDITION_CAPTURE` to a `.nam` amp capture, which goes in Pre 4. The exporter
+then writes `reference-guitar.wav` through the bare chain and one
+`<label>-guitar.wav` per recipe. Drives, EQs, compressors and other pre-amp
+modules render in Pre 1, before the capture. Delays, reverbs, chorus-type
+modulation and mix tools render in Post 1, after it. Compare each render with the
+reference for level, tone, echo timing and modulation rate.
+
+The filenames use module/catalog positions for this export only; they are not
+saved preset identities. The exporter isolates `NAM_GRID_HOME`, opens no audio
+device, and does not install the rendered rigs. The synthetic measurements screen for
+silence, non-finite output, excessive gain and runaway feedback; the guitar renders
+show behavior on one instrument and input level. Neither replaces listening.

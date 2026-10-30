@@ -364,7 +364,10 @@ void TestModulePresets()
         assert(ModuleControl(effect, value.control));
         const int p = value.control - parameter_layout::standardControls;
         if (p >= 0)
+        {
           assert(value.value >= kEffectParameters[p].minimum && value.value <= kEffectParameters[p].maximum);
+          if (!EffectChoices(p).empty()) assert(value.value == std::floor(value.value));
+        }
       }
       const auto applied = Apply(effect, preset, current);
       assert(applied[parameter_layout::kSlotEnabled] == 0. && applied[parameter_layout::kSlotIn] == 7.);
@@ -390,7 +393,7 @@ void TestModulePresets()
   // stops matching.
   for (auto effect : {SlotEffect::PedalComp, SlotEffect::SmoothComp, SlotEffect::PunchComp, SlotEffect::DigitalDelay})
   {
-    assert(For(effect).size() >= 3);
+    assert(!For(effect).empty());
     auto applied = Apply(effect, For(effect)[0], SlotDefaultValues(effect));
     for (int i = 0; i < static_cast<int>(applied.size()); ++i)
       if (ModuleControl(effect, i) && i >= parameter_layout::standardControls

@@ -299,7 +299,7 @@ void TestUserModulePresets()
     return !Parse(document, SlotEffect::PedalComp, values).empty();
   };
   assert(rejected([](json& d) { d["format"] = "nam-grid-preset"; }));
-  assert(rejected([](json& d) { d["version"] = 2; }));
+  assert(rejected([](json& d) { d["version"] = kUserVersion + 1; }));
   assert(rejected([](json& d) { d["schema"] = kEffectStateSchema + 1; }));
   assert(rejected([](json& d) { d["schema"] = 1.5; }));
   assert(rejected([](json& d) { d["module"] = static_cast<int>(SlotEffect::SmoothComp); }));

@@ -70,9 +70,12 @@ change or disappear when the catalog changes without affecting the sound.
 
 **Save current as...** also saves the current module's control values rather than
 a factory name or index. Use it to retain a factory starting point independently
-of future catalog changes. Live held audio and a Smart Gate's learned noise
-profile are not part of a module preset; complete rigs/projects retain the noise
-profile. DSP improvements follow the separate [compatibility contract](development.md#parameter-and-project-compatibility).
+of future catalog changes. Smart Gate user presets also save and restore the
+learned noise profile. Saving an untrained gate remembers that state; recalling it
+clears any current profile. Older user presets without a profile change controls
+only, leaving the current profile in place. Factory presets contain controls only.
+Recalling a module preset always leaves Learn off, including older presets saved while learning.
+Live held audio is not saved. Complete rigs/projects also retain noise profiles. DSP improvements follow the separate [compatibility contract](development.md#parameter-and-project-compatibility).
 
 ### Choosing useful starting points
 

@@ -162,6 +162,13 @@ Output:
   install writes them into its new default library folders. The preset names its capture by
   filename; keep it loadable, as the smoke test checks.
 
+macOS Release links discard unreachable code and local symbols before ad-hoc signing.
+Use Debug or RelWithDebInfo for symbol-rich local debugging; keep the matching unstripped
+build when investigating a release crash. The Lanczos tables use Mach-O zero-fill storage:
+this reduces installed size without reducing their runtime memory or changing table
+initialization. ZIP/download savings are smaller because zero bytes compress well.
+LTO is not enabled by default; measure size, CPU and output identity before enabling it.
+
 Automatic deployment is disabled. Point your DAW at `build/<platform>/release/out` for local
 evaluation, or copy the artifact to a separate test location, then rescan plugins.
 Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuration if
@@ -284,6 +291,7 @@ build targets.
 | `capture-library` | Library scanning, metadata, search, menus and atomic preference writes |
 | `wav-decoder` | WAV decoding and malformed-file rejection |
 | `resampling` | Resampler warm-up with exact WDL allocations |
+| `macos-table-storage-clap`, `macos-table-storage-vst3` | macOS only: Lanczos tables exist in zero-fill storage in each plugin |
 | `aliasing` | Every module through stereo slot DSP, coherent spectral analysis, zero reported built-in latency and pedal alias rejection; [extended audit](dsp-aliasing.md) |
 | `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks, a click/pop sweep of bypass, replacement, control jumps and mode changes for every module, and ARM planar/portable A2 bit identity |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |

@@ -1,0 +1,32 @@
+diff --git a/dsp/ResamplingContainer/Dependencies/LanczosResampler.h b/dsp/ResamplingContainer/Dependencies/LanczosResampler.h
+index eaab23c..9df924b 100644
+--- a/dsp/ResamplingContainer/Dependencies/LanczosResampler.h
++++ b/dsp/ResamplingContainer/Dependencies/LanczosResampler.h
+@@ -397,13 +397,25 @@ private:
+   long mPhaseDenominator = 1;
+ };
+ 
++// Mach-O otherwise emits these weak template statics as file-backed zero bytes.
++// Keep the same runtime table generation, alignment and memory footprint.
++// Explicit {} initialization is required: Apple Clang can otherwise treat a
++// section-attributed template static as constant and discard table writes.
++#if defined(__APPLE__)
++#define DSP_LANCZOS_TABLE_STORAGE __attribute__((section("__DATA,__bss")))
++#else
++#define DSP_LANCZOS_TABLE_STORAGE
++#endif
++
+ template <typename T, int NCHANS, size_t A>
+ T LanczosResampler<T, NCHANS, A>::sTable alignas(
+-  16)[LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth];
++  16)[LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth] DSP_LANCZOS_TABLE_STORAGE{};
+ 
+ template <typename T, int NCHANS, size_t A>
+ T LanczosResampler<T, NCHANS, A>::sDeltaTable alignas(
+-  16)[LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth];
++  16)[LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth] DSP_LANCZOS_TABLE_STORAGE{};
++
++#undef DSP_LANCZOS_TABLE_STORAGE
+ 
+ template <typename T, int NCHANS, size_t A>
+ bool LanczosResampler<T, NCHANS, A>::sTablesInitialized{false};

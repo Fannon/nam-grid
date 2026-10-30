@@ -6,6 +6,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Performance
 
+- macOS Release plugins take less disk space by storing runtime-generated resampling tables as zero-fill and removing local symbols and unreachable code before signing. Resampling calculations and runtime table memory are unchanged.
+
 - Smooth and Punch compressors reuse the gain-reduction conversion for audio and metering, and cache settled makeup gain to reduce CPU. Gain curves, control smoothing and zero added latency stay the same; existing rigs can differ by floating-point rounding.
 
 - Multi-head Tape processes its tape heads once while both channels carry the same signal, such as a mono guitar through captures, using about 30% less CPU there. Sound is unchanged.

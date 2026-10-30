@@ -269,6 +269,11 @@ foreach(format IN LISTS NAM_FORMATS)
         list(TRANSFORM definitions REPLACE "^OBJC_PREFIX=vnam-grid$" "OBJC_PREFIX=vnam_grid")
         set_property(TARGET nam-grid-${suffix} PROPERTY COMPILE_DEFINITIONS "${definitions}")
       endif()
+      # Drop unreachable code and local symbols in shipped binaries. Do this at
+      # link time, before the bundle is signed; Debug retains its symbols.
+      target_link_options(nam-grid-${suffix} PRIVATE
+        "$<$<CONFIG:Release>:-Wl,-dead_strip>"
+        "$<$<CONFIG:Release>:-Wl,-x>")
       # Seal the complete bundle, including resources and PkgInfo. The linker's
       # ad-hoc binary signature alone does not validate as a plugin bundle.
       add_custom_command(TARGET nam-grid-${suffix} POST_BUILD
@@ -282,6 +287,16 @@ foreach(format IN LISTS NAM_FORMATS)
     endif()
   endif()
 endforeach()
+if(APPLE)
+  foreach(format IN LISTS NAM_FORMATS)
+    string(TOLOWER "${format}" suffix)
+    if(TARGET nam-grid-${suffix})
+      add_test(NAME macos-table-storage-${suffix}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/macos_table_storage.py"
+          "$<TARGET_FILE:nam-grid-${suffix}>")
+    endif()
+  endforeach()
+endif()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
   add_test(NAME library-startup COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}" --library-startup-only)

@@ -59,6 +59,18 @@ class PatchStackTests(unittest.TestCase):
         git(self.repo, "apply", str(self.patches[0]))
         self.assertFalse(setup_deps.matches_patched_tree(self.repo, self.patches))
 
+    def test_crlf_overlapping_stack_is_recognized(self):
+        # Reproduce Git for Windows checkout and Python's native text writes,
+        # including CRLF patch context applied against canonical LF index blobs.
+        git(self.repo, "config", "core.autocrlf", "true")
+        (self.repo / "source.txt").write_bytes(b"one\r\ntwo\r\nthree\r\n")
+        for patch in self.patches:
+            patch.write_bytes(patch.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+        self.apply_all()
+        self.assertTrue(setup_deps.matches_patched_tree(self.repo, self.patches))
+        (self.repo / "source.txt").write_bytes(b"one\r\nlocal edit\r\nthree\r\n")
+        self.assertFalse(setup_deps.matches_patched_tree(self.repo, self.patches))
+
     def test_added_files_must_exist(self):
         (self.repo / "added.txt").write_text("new\n")
         git(self.repo, "add", "-N", "added.txt")

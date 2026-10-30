@@ -27,10 +27,15 @@ def matches_patched_tree(directory, patches):
     reverse-checked on its own. Build the expected tree in a scratch index instead.
     """
     env = dict(os.environ, GIT_INDEX_FILE=str(CACHE / ("%s.patched-index" % directory.name)))
-    run = lambda *args: subprocess.run(["git", "-C", str(directory), *map(str, args)], env=env,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    run = lambda *args, **kwargs: subprocess.run(["git", "-C", str(directory), *map(str, args)], env=env,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                       **kwargs).returncode == 0
     try:
-        return (run("read-tree", "HEAD") and all(run("apply", "--cached", patch) for patch in patches)
+        # Git's index stores LF even when Windows checks out CRLF. Unlike a
+        # work-tree apply, --cached cannot match CRLF patch context against LF blobs.
+        return (run("read-tree", "HEAD")
+                and all(run("apply", "--cached", "-", input=patch.read_bytes().replace(b"\r\n", b"\n"))
+                        for patch in patches)
                 and run("diff", "--quiet", "--ignore-submodules"))
     finally:
         Path(env["GIT_INDEX_FILE"]).unlink(missing_ok=True)

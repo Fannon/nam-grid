@@ -15,7 +15,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Added
 
-- Smart Gate user module presets now save and restore the learned noise profile, so you can reuse a calibrated gate across rigs. Older module presets keep their controls-only behavior.
+- Smart Gate user module presets now save and restore the learned noise profile, so you can reuse a calibrated gate across rigs. Preset checkmarks distinguish learned profiles. Older module presets retain the current profile, and recalling any module preset leaves Learn off.
 
 - LFOs and sequencers add **Retrigger: Song position**. While the DAW plays, they follow its beat position, so synced sweeps and steps line up with the bars on every playback, through tempo changes and loops. Stopped, they run free as before. Existing rigs keep their Retrigger setting.
 - Spring Reverb adds **Tank: Dispersive**, modeled on a real spring's chirp: in each echo the lows arrive first and the highs follow, giving the drip on picked notes. Drip sets the chirp's strength. It uses about four times the CPU of Classic. Existing rigs keep the Classic tank.

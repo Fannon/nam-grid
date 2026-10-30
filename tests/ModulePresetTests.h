@@ -115,11 +115,26 @@ void TestSmartGateUserPreset()
   assert(Parse(nlohmann::json::parse(trained.dump()), SlotEffect::NoisePrint, parsed, &profile).empty());
   assert(profile && *profile == learned);
   assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == values);
+  UserPreset preset{"Learned", {}, parsed, learned};
+  assert(MatchesUser(SlotEffect::NoisePrint, preset, values, learned));
+  auto anotherProfile = learned;
+  anotherProfile.power[0] *= 2.;
+  assert(!MatchesUser(SlotEffect::NoisePrint, preset, values, anotherProfile));
+  assert(!MatchesUser(SlotEffect::NoisePrint, preset, values, {}));
+  preset.noiseProfile = noise_print::Profile{};
+  assert(MatchesUser(SlotEffect::NoisePrint, preset, values, {}));
+  assert(!MatchesUser(SlotEffect::NoisePrint, preset, values, learned));
+  preset.noiseProfile.reset(); // Legacy files match controls regardless of the live profile.
+  assert(MatchesUser(SlotEffect::NoisePrint, preset, values, learned));
+  auto changedValues = values;
+  changedValues[U(uNoiseSensitivity)] = 12.;
+  assert(!MatchesUser(SlotEffect::NoisePrint, preset, changedValues, learned));
   assert(Parse(document, SlotEffect::NoisePrint, parsed, &profile).empty());
   assert(profile && !profile->valid); // Explicitly untrained, distinct from legacy omission.
   auto legacy = trained;
   legacy["version"] = 1;
   legacy.erase("noiseProfile");
+  legacy["values"]["Noise Learn"] = 1.; // Version 1 could save a live recording toggle.
   assert(Parse(legacy, SlotEffect::NoisePrint, parsed, &profile).empty() && !profile);
   assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == values);
   const auto rejected = [&](const nlohmann::json& data) {

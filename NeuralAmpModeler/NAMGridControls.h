@@ -2585,10 +2585,10 @@ private:
   {
     const auto values = PLUG()->GetSlotValues(mSlot);
     if (const int factory = module_presets::Matching(effect, values); factory >= 0) return module_presets::For(effect)[factory].name;
+    const auto profile = PLUG()->GetNoiseProfile(mSlot);
     if (mUserPresetsEffect == effect)
       for (const auto& preset : mUserPresets)
-        if (module_presets::Matches(effect, preset.values, values)
-            && (!preset.noiseProfile || *preset.noiseProfile == PLUG()->GetNoiseProfile(mSlot))) return preset.name;
+        if (module_presets::MatchesUser(effect, preset, values, profile)) return preset.name;
     return {};
   }
   // Factory presets, then a divider and the player's presets, then saving. Factory presets
@@ -2607,9 +2607,10 @@ private:
                                          kPresetTag - static_cast<int>(i)));
     if (!mUserPresets.empty() && mMenu.NItems()) mMenu.AddSeparator();
     bool matched = factory >= 0;
+    const auto profile = PLUG()->GetNoiseProfile(mSlot);
     for (size_t i = 0; i < mUserPresets.size() && i < kMaximumUserPresets; ++i)
     {
-      const bool checked = !matched && module_presets::Matches(effect, mUserPresets[i].values, values);
+      const bool checked = !matched && module_presets::MatchesUser(effect, mUserPresets[i], values, profile);
       matched |= checked;
       mMenu.AddItem(new IPopupMenu::Item(mUserPresets[i].name.c_str(), checked ? IPopupMenu::Item::kChecked : 0,
                                          kUserPresetTag - static_cast<int>(i)));

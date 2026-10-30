@@ -149,7 +149,9 @@ inline std::string Parse(const nlohmann::json& document, SlotEffect effect, std:
     const int p = control - parameter_layout::standardControls;
     if (p >= 0 && kEffectParameters[p].step == 1. && number != std::floor(number))
       return "\"" + key + "\" must be a whole number.";
-    values.push_back({control, number});
+    // Older files could save Learn while it was held on. Recording is transient,
+    // so recalling either format must leave Learn off without replacing a legacy profile.
+    values.push_back({control, effect == SlotEffect::NoisePrint && control == U(uNoiseLearn) ? 0. : number});
   }
   return {};
 }
@@ -167,6 +169,11 @@ struct UserPreset
   std::vector<Value> values;
   std::optional<noise_print::Profile> noiseProfile; // Absent in legacy controls-only files.
 };
+inline bool MatchesUser(SlotEffect effect, const UserPreset& preset, const SlotValues& current,
+                        const noise_print::Profile& profile)
+{
+  return Matches(effect, preset.values, current) && (!preset.noiseProfile || *preset.noiseProfile == profile);
+}
 inline std::string Utf8(const std::filesystem::path& path)
 {
   const auto text = path.u8string();

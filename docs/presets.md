@@ -74,6 +74,7 @@ of future catalog changes. Smart Gate user presets also save and restore the
 learned noise profile. Saving an untrained gate remembers that state; recalling it
 clears any current profile. Older user presets without a profile change controls
 only, leaving the current profile in place. Factory presets contain controls only.
+Recalling a module preset always leaves Learn off, including older presets saved while learning.
 Live held audio is not saved. Complete rigs/projects also retain noise profiles. DSP improvements follow the separate [compatibility contract](development.md#parameter-and-project-compatibility).
 
 ### Choosing useful starting points

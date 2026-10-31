@@ -23,6 +23,7 @@
 #include "ModulePresetClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
+#include "PerformanceSceneClapTests.h"
 #include <cstdlib>
 #include "WinFileDialogDriver.h"
 #include "LinuxEditorSmoke.h"
@@ -402,7 +403,7 @@ int main(int argc, char** argv)
     assert(save().config() == base);
   }
   for (const char* required : {"schema", "SlotPaths", "SlotEffects", "SlotHashes", "NoisePrintProfiles",
-                               "PerformanceScenes", "Pre 1 NAM Input", "Post 4 Black Mode", "Tuner"})
+                               "PerformanceScenes", "PerformanceSceneDeltas", "Pre 1 NAM Input", "Post 4 Black Mode", "Tuner"})
   {
     auto incomplete = base;
     incomplete.erase(required);
@@ -1164,6 +1165,7 @@ int main(int argc, char** argv)
   TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
+  TestPerformanceSceneState(plugin, cleared, save, load, loadRaw, settingsBackup.home);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
   {
     plugin->destroy(plugin); entry->deinit();
@@ -3011,9 +3013,10 @@ int main(int argc, char** argv)
   assert(save().config()["Lane A Level"] == sceneGain);
   win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(0), grid_layout::headerY, L"Store in scene 1", true); pumpFor(30);
   const auto sceneState = save().config();
-  assert(sceneState["PerformanceScenes"][0]["Lane A Level"] == sceneGain);
-  assert(!sceneState["PerformanceScenes"][0].contains("Pre 1 Noise Learn"));
-  assert(!sceneState["PerformanceScenes"][0].contains("Tuner"));
+  assert(sceneState["PerformanceSceneDeltas"][0].is_object() && sceneState["PerformanceSceneDeltas"][0].empty());
+  assert(sceneState["Lane A Level"] == sceneGain);
+  assert(!sceneState["PerformanceSceneDeltas"][0].contains("Pre 1 Noise Learn"));
+  assert(!sceneState["PerformanceSceneDeltas"][0].contains("Tuner"));
   automate("Lane A Level", 0.); // -60 dB in the normalized CLAP API
   assert(save().config()["Lane A Level"] == -60.);
   click(grid_layout::SceneX(0), grid_layout::headerY); // Recall scene 1
@@ -3021,23 +3024,28 @@ int main(int argc, char** argv)
   const auto storedScene = save();
   load(cleared);
   assert(loadBytes(storedScene));
-  assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  assert(save().config()["PerformanceSceneDeltas"] == sceneState["PerformanceSceneDeltas"]);
+  automate("Lane A Level", 0.);
+  automate("Output", .8);
+  click(grid_layout::SceneX(0), grid_layout::headerY);
+  assert(save().config()["Lane A Level"] == sceneGain);
+  assert(save().config()["Output"] == sceneState["Output"]);
+
   auto malformedScene = save().config();
-  malformedScene["PerformanceScenes"][0]["Not a real parameter"] = 1.;
+  malformedScene["PerformanceSceneDeltas"][0]["Not a real parameter"] = 1.;
   Stream malformedSceneBytes; malformedSceneBytes.string("###nam-grid###"); malformedSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(malformedSceneBytes));
-  assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
-  malformedScene["PerformanceScenes"][0].erase("Not a real parameter");
-  malformedScene["PerformanceScenes"][0]["Pre 1 Noise Learn"] = 1.;
+  assert(save().config()["PerformanceSceneDeltas"] == sceneState["PerformanceSceneDeltas"]);
+  malformedScene["PerformanceSceneDeltas"][0].erase("Not a real parameter");
+  malformedScene["PerformanceSceneDeltas"][0]["Pre 1 Noise Learn"] = 1.;
   Stream learnSceneBytes;
   learnSceneBytes.string("###nam-grid###");
   learnSceneBytes.string(malformedScene.dump());
   assert(!loadBytes(learnSceneBytes));
-  assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+  assert(save().config()["PerformanceSceneDeltas"] == sceneState["PerformanceSceneDeltas"]);
   {
-    // Worst-case rig size: every continuous value needs 17 significant digits and all
-    // three scenes store every scene control. Appended controls grow this by about
-    // 3.5 KiB each; keep a full rig well inside the state and preset limits.
+    // Three legacy snapshots matching a high-precision rig must compact before
+    // export. The headless case separately covers fully divergent scene values.
     auto large = sceneState;
     for (uint32_t i = 0; i < params->count(plugin); ++i)
     {
@@ -3051,25 +3059,32 @@ int main(int argc, char** argv)
     for (auto& scene : large["PerformanceScenes"])
     {
       scene = json::object();
-      for (const auto& [name, value] : sceneState["PerformanceScenes"][0].items()) scene[name] = large[name];
+      for (uint32_t i = 0; i < params->count(plugin); ++i)
+      {
+        clap_param_info info{}; assert(params->get_info(plugin, i, &info));
+        if (performance_scenes::IsParameter(info.id)) scene[info.name] = large[info.name];
+      }
     }
+    large["schema"] = 22; large.erase("PerformanceSceneDeltas");
     Stream largeBytes;
     largeBytes.string("###nam-grid###");
     largeBytes.string(large.dump());
     assert(loadBytes(largeBytes));
     auto saved = save();
-    assert(saved.bytes.size() > 512 * 1024 && saved.bytes.size() < rig_preset::kMaximumBytes / 4);
+    assert(saved.bytes.size() < largeBytes.bytes.size() / 2
+           && saved.bytes.size() < rig_preset::kMaximumBytes / 4);
     const auto presetFile = settingsBackup.home / "worst-case-size.ngrid";
     rig_preset::Write(presetFile, saved.config());
     assert(std::filesystem::file_size(presetFile) < rig_preset::kMaximumBytes / 4);
-    assert(rig_preset::Read(presetFile)["PerformanceScenes"] == saved.config()["PerformanceScenes"]);
+    assert(rig_preset::Read(presetFile)["PerformanceSceneDeltas"] == saved.config()["PerformanceSceneDeltas"]);
     std::filesystem::remove(presetFile);
     assert(loadBytes(storedScene));
-    assert(save().config()["PerformanceScenes"] == sceneState["PerformanceScenes"]);
+    assert(save().config()["PerformanceSceneDeltas"] == sceneState["PerformanceSceneDeltas"]);
   }
   win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Store in scene 2", true); pumpFor(30);
   win_edit_menu::SelectNamedItem(editor, grid_layout::SceneX(1), grid_layout::headerY, L"Clear scene 2", true); pumpFor(30);
   assert(save().config()["PerformanceScenes"][1].empty());
+  assert(save().config()["PerformanceSceneDeltas"][1].is_null());
   click(kModulationX, grid_layout::headerY); // Modulation
   {
     const auto before = save().config();

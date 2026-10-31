@@ -61,6 +61,8 @@ The header buttons **1 2 3** store three snapshots of the current rig.
 
 Scenes capture controls, bypass, routing, and modulation assignments. They keep the same modules, captures, IRs, and quality settings. Use them for changes such as rhythm to lead, more delay, or a different lane balance.
 
+Scenes are fixed snapshots: changing controls after storing a scene, saving, or reopening the project does not change what it recalls. Stored scenes use compact differences from the saved rig; older full-snapshot presets and projects still load.
+
 Scenes belong to the rig and are saved with its preset. To change modules or captures, load a different [rig preset](presets.md) instead. Scenes do not change tuner settings or held/frozen audio.
 
 ## Tails and bypass

@@ -1,3 +1,4 @@
+#include "PerformanceSceneState.h"
 #include "NoisePrintState.h"
 #include "DefaultContent.h"
 #include "DrivePresets.h"
@@ -1113,14 +1114,7 @@ std::string NeuralAmpModeler::SaveUserModulePreset(size_t slot, const std::files
 
 bool NeuralAmpModeler::IsPerformanceSceneParam(int index) const
 {
-  if (index == kTunerReference || index == kTunerMute || index == kTunerActive) return false;
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotFullParam(slot)) return false;
-  // Hold captures are live audio; a scene must not silently latch an empty buffer.
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot) if (index == SlotUtilityParam(slot, uFreezeHold)) return false;
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    if (index == SlotUtilityParam(slot, uShimmerFreeze) || index == SlotUtilityParam(slot, uNoiseLearn))
-      return false;
-  return index >= 0 && index < kNumParams;
+  return performance_scenes::IsParameter(index);
 }
 void NeuralAmpModeler::StorePerformanceScene(size_t scene)
 {
@@ -1517,7 +1511,6 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
   config["PresetName"] = mPresetName;
   config["PresetDirectory"] = mPresetDirectory;
   // Library folders are per-user settings (settings.json), never part of a project or rig.
-  config["PerformanceScenes"] = mPerformanceScenes;
   config["MacroNames"] = mMacroNames;
   config["SlotPaths"] = nlohmann::json::array();
   for (const auto& path : mSlotPaths)
@@ -1545,6 +1538,8 @@ bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
     for (size_t i = 0; i < indices.size(); ++i)
       config[GetParam(indices[i])->GetName()] = original.values[i];
   }
+  performance_scenes::Compact(config, mPerformanceScenes,
+    performance_scenes::Baseline(config, [&](int i) { return GetParam(i)->GetName(); }));
   chunk.PutStr(kStateHeader);
   return chunk.PutStr(config.dump().c_str()) > 0;
 }
@@ -1859,25 +1854,6 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     if (!config.contains("PerformanceScenes") || !config["PerformanceScenes"].is_array()
         || config["PerformanceScenes"].size() != mPerformanceScenes.size())
       return -1;
-    for (const auto& scene : config["PerformanceScenes"])
-    {
-      if (!scene.is_object() || scene.size() > kNumParams) return -1;
-      size_t recognized = 0;
-      for (int i = 0; i < kNumParams; ++i)
-      {
-        const auto it = scene.find(GetParam(i)->GetName());
-        if (it == scene.end()) continue;
-        if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
-        if (IsStateOnlyParam(i))
-        {
-          const double value = it->get<double>();
-          if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
-            return -1;
-        }
-        ++recognized;
-      }
-      if (recognized != scene.size()) return -1;
-    }
     if (!slotArray("SlotPaths") || !slotArray("SlotEffects") || !slotArray("SlotHashes") || !slotArray("NoisePrintProfiles"))
       return -1;
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -1913,6 +1889,27 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
           return -1;
       }
+    }
+    if (!performance_scenes::Expand(config,
+          performance_scenes::Baseline(config, [&](int i) { return GetParam(i)->GetName(); }))) return -1;
+    for (const auto& scene : config["PerformanceScenes"])
+    {
+      if (!scene.is_object() || scene.size() > kNumParams) return -1;
+      size_t recognized = 0;
+      for (int i = 0; i < kNumParams; ++i)
+      {
+        const auto it = scene.find(GetParam(i)->GetName());
+        if (it == scene.end()) continue;
+        if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
+        if (IsStateOnlyParam(i))
+        {
+          const double value = it->get<double>();
+          if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
+            return -1;
+        }
+        ++recognized;
+      }
+      if (recognized != scene.size()) return -1;
     }
     _UnserializeApplyConfig(config);
     return pos;

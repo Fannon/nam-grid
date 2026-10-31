@@ -79,6 +79,18 @@ Live held audio is not saved. Complete rigs/projects also retain noise profiles.
 
 ### Choosing useful starting points
 
+For everyday guitar sounds, start with **Small amp room**, **Warm rhythm plate**,
+**Small recital hall**, **Light moving halo** or **Small amp spring**. For a
+clearer lead, try **Singing lead plate** or **Clear lead plate**. **Gentle octave
+halo** introduces shimmer without a large pitched wash; **Gentle stereo orbit**
+is the restrained Galactic Space option. Cosmic Echo's **Compact Gemini room**
+and **Photon lead plate** are its most immediate starting points; **Soft ambient
+bed** adds moderate, gently moving sustain for picked chords.
+
+The longer swells and washes are deliberate ambient choices. Leave space between
+phrases and set Mix against your dry guitar. Use the module's Reset action to
+return to its insertion sound.
+
 Factory presets are a short list of established starting points, not a bank of
 variations. Each one is a familiar use that the module's insertion default does
 not already cover: slapback, dotted-eighth repeats, a parked wah, a Leslie at
@@ -98,9 +110,17 @@ staging, with normal playing peaking around -9 dBFS.
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
 | Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong; Warm lead repeats, Dark modulated wash, Dark slapback; Tape slapback, Worn tape repeats, Rock lead echo |
 | Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads, Stereo cascade, All-head wash; Reverse half notes, Reversed solo; Quarter and dotted eighth, Wide ping-pong; Echo into cloud, Soft echo clusters |
-| Room, Dense Plate, Hall, Cloud, Spring Reverb, Shimmer | Live room, Small amp room; Short bright plate, Singing lead plate; Big dark hall, Ducked lead hall; Long ducked cloud; Small amp spring, Surf drip; Dark octave-down pad |
-| Airwindows Plate, Airwindows Guitar Hall, Airwindows Tape | Compact guitar plate, Long dark plate; Close guitar hall, Distant dark hall; Light tape rounding, Thick parallel tape |
-| Galactic Space, Cosmic Echo | Slow dark space, Wide bright wash; Clustered echoes, Slow swell, Stereo echo groups, Chord bloom |
+| Room | Live room, Small amp room |
+| Dense Plate | Short bright plate, Singing lead plate, Warm rhythm plate |
+| Hall | Big dark hall, Ducked lead hall, Small recital hall |
+| Cloud | Long ducked cloud, Light moving halo |
+| Spring Reverb | Small amp spring, Surf drip, Short bright splash |
+| Shimmer | Dark octave-down pad, Gentle octave halo, Rising fifth cloud |
+| Airwindows Plate | Compact guitar plate, Long dark plate, Clear lead plate |
+| Airwindows Guitar Hall | Close guitar hall, Distant dark hall |
+| Airwindows Tape | Light tape rounding, Thick parallel tape |
+| Galactic Space | Slow dark space, Wide bright wash, Gentle stereo orbit |
+| Cosmic Echo | Echoes, swells, dense spaces and plate ambience across its styles; see the [factory preset guide](modules/cosmic-echo.md#factory-presets) |
 | Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus; Wide two voices; Slow jet sweep, Light comb motion; Slow vintage phase, Deep stereo phase |
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop; Seasick warble; Vibrato mode swirl; Slow chorale, Fast tremolo |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass; Wide loose double; Sixteenth-note chops; Broken small sampler |

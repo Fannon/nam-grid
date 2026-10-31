@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <utility>
 #include "EQSignalSpectrum.h"
 
 // Measurement only. No processing buffer, gain, filtering or audio writes.
@@ -45,6 +46,14 @@ struct Meter
   { return power[0]>1.e-20 && power[1]>1.e-20 ? std::clamp(product/std::sqrt(power[0]*power[1]),-1.,1.) : 0.; }
   static double DB(double amplitude) { return 20.*std::log10(std::max(1.e-6,amplitude)); }
 };
+// Goniometer position for peak-normalized samples: side across, mid up, both within
+// +/-1. Full-scale mono reaches the top; a 45-degree rotation by 1/sqrt(2) would not fit.
+inline std::pair<double, double> Goniometer(double l, double r)
+{
+  l = std::clamp(l, -1., 1.); r = std::clamp(r, -1., 1.);
+  return {.5 * (r - l), .5 * (l + r)};
+}
+
 // Level history in fixed 50 ms columns of audio frames, so the time axis stays
 // exact however meter packets are batched. Each column keeps the louder channel's
 // sample peak and RMS; the column being filled is shown live.

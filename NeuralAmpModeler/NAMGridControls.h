@@ -2451,9 +2451,9 @@ private:
       const float half = scope.W() * .5f * .92f;
       for (size_t i = 0; i < mScopeLeft.size(); ++i)
       {
-        const double l = mScopeLeft[i] / peak, r = mScopeRight[i] / peak;
-        const float x = scope.MW() + half * static_cast<float>((r - l) * .70710678);
-        const float y = scope.MH() - half * static_cast<float>((l + r) * .70710678);
+        const auto [side, mid] = signal_monitor::Goniometer(mScopeLeft[i] / peak, mScopeRight[i] / peak);
+        const float x = scope.MW() + half * static_cast<float>(side);
+        const float y = scope.MH() - half * static_cast<float>(mid);
         g.FillRect(color.WithOpacity(.55f), IRECT(x - .75f, y - .75f, x + .75f, y + .75f));
       }
     }

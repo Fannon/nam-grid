@@ -3,6 +3,22 @@
 #include "SignalMonitor.h"
 #include <cstring>
 
+inline void TestGoniometerBounds()
+{
+  using namespace signal_monitor;
+  // Utility's scope: every peak-normalized point stays inside the box.
+  for (int a = -10; a <= 10; ++a)
+    for (int b = -10; b <= 10; ++b)
+    {
+      const auto [side, mid] = Goniometer(a / 10., b / 10.);
+      assert(std::abs(side) <= 1. && std::abs(mid) <= 1.);
+    }
+  const auto mono = Goniometer(1., 1.), inverted = Goniometer(1., -1.), left = Goniometer(1., 0.);
+  assert(mono.first == 0. && mono.second == 1.);            // Full-scale mono reaches the top.
+  assert(inverted.first == -1. && inverted.second == 0.);   // Opposite polarity lies across.
+  assert(left.first < 0. && left.second == -left.first);    // Left only: the upper-left "L" diagonal.
+}
+
 inline void TestSignalMonitorHistory()
 {
   using namespace signal_monitor;
@@ -95,6 +111,7 @@ inline void TestSignalMonitorSpectrum()
 inline void TestSignalMonitor()
 {
   using namespace signal_monitor;
+  TestGoniometerBounds();
   TestSignalMonitorHistory();
   TestSignalMonitorSpectrum();
   Accumulator levels;

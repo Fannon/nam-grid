@@ -229,6 +229,12 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
         --grid "$<TARGET_FILE:nam-grid-clap>" --reference "${NAM_REFERENCE_CLAP}"
         ${NAM_REFERENCE_MODEL_ARGS} --rate 48000 --rate 44100 --buffer 128 --buffer 512)
       set_tests_properties(reference-parity PROPERTIES TIMEOUT 1800)
+      # Both shells accept +20 dB at input and output; verify the hot path too.
+      add_test(NAME reference-parity-hot COMMAND nam-reference-parity
+        --grid "$<TARGET_FILE:nam-grid-clap>" --reference "${NAM_REFERENCE_CLAP}"
+        ${NAM_REFERENCE_MODEL_ARGS} --input-db 20 --output-db 20
+        --rate 48000 --rate 44100 --buffer 128 --buffer 512)
+      set_tests_properties(reference-parity-hot PROPERTIES TIMEOUT 1800)
       # Gateway's Slim default is its smallest submodel; Grid calls that A2 Lite.
       set(NAM_REFERENCE_A2 "${CMAKE_SOURCE_DIR}/NeuralAmpModelerCore/example_models/A2.nam")
       if(EXISTS "${NAM_REFERENCE_A2}")

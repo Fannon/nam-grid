@@ -347,7 +347,7 @@ as the final step, preferably in CI.
 | `resampling` | Resampler warm-up with exact WDL allocations |
 | `aliasing` | Every module through stereo slot DSP, coherent spectral analysis, zero reported built-in latency and pedal alias rejection; [extended audit](dsp-aliasing.md) |
 | `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks, a click/pop sweep of bypass, replacement, control jumps and mode changes for every module, and ARM planar/portable A2 bit identity |
-| `reference-parity` | Opt-in: one NAM capture through NAM Grid and the official NeuralAmpModelerPlugin shell with neutral settings, compared sample by sample at 48 and 44.1 kHz with two block sizes; `reference-parity-lite` repeats the A2 Lite check. Needs `-DNAM_REFERENCE_CLAP=<path>` |
+| `reference-parity` | Opt-in: one NAM capture through NAM Grid and the official NeuralAmpModelerPlugin shell with neutral settings, compared sample by sample at 48 and 44.1 kHz with two block sizes; `reference-parity-hot` repeats it at +20 dB input and output, and `reference-parity-lite` repeats the A2 Lite check. Needs `-DNAM_REFERENCE_CLAP=<path>` |
 | `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
 | `tuner` | Tuner detection, mute and automation through CLAP |
 | `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |
@@ -370,10 +370,15 @@ not part of the default CI configuration. Configure with
 and run `ctest --test-dir <build> -C Release -R '^reference-parity$'`. It uses Core's
 WaveNet, LSTM and A2 example captures, sets both plugins to one NAM slot with unity
 gain, no gate or EQ, Raw output and the full-size model, and fails on a difference
-above 1e-6. `reference-parity-lite` repeats the A2 capture with Grid's Full Quality off
-against the reference's Slim at its smallest submodel. Pass repeated `--model`, `--rate`
-and `--buffer` arguments to audit other captures; `--json` records peaks, gain, latency
-and error.
+above 1e-6 (or a relative difference above 140 dB). `reference-parity-hot` repeats the
+matrix at +20 dB input and output, the common limit of both shells. At non-zero gain,
+Grid computes slot gain with `pow(10, dB/20)` while the official shell uses its slightly
+truncated `IAMP_DB` constant; the two gains differ by about 5e-14 relative at +20 dB,
+which only changes float rounding inside the model. `reference-parity-lite` repeats the
+A2 capture with Grid's Full Quality off against the reference's Slim at its smallest
+submodel. Pass repeated `--model`, `--rate` and `--buffer` arguments to audit other
+captures; `--json` records peaks, gain, latency and error. `--grid-only` renders Grid
+without the reference, for stress levels outside the official gain ranges.
 
 For DSP/state regression checks without opening the native editor, set
 `NAM_GRID_HEADLESS_SMOKE=1` when running `nam-clap-smoke`. This includes Smart Gate

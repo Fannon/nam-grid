@@ -159,7 +159,8 @@ void PutInt(std::vector<uint8_t>& bytes, int32_t value)
 // The official shell stores the model path inside its iPlug2 chunk. Saving the
 // default state gives us the exact parameter payload for this build; replace
 // the empty path and force neutral settings in the same chunk.
-std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::filesystem::path& model, bool lite)
+std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::filesystem::path& model, bool lite,
+                                          double inputDb, double outputDb)
 {
   const auto saved = reference.Save();
   const auto& bytes = saved.bytes;
@@ -189,8 +190,8 @@ std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::files
   };
   // kInputLevel, kOutputLevel, kNoiseGateActive, kEQActive, kCalibrateInput,
   // kOutputMode, kSlim. Raw passthrough with a full-size slimmable model.
-  set(0, 0.);
-  set(5, 0.);
+  set(0, inputDb);
+  set(5, outputDb);
   set(6, 0.);
   set(7, 0.);
   set(9, 0.);
@@ -199,7 +200,7 @@ std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::files
   return prepared;
 }
 
-json PrepareGridState(Instance& grid, const std::filesystem::path& model, bool lite)
+json PrepareGridState(Instance& grid, const std::filesystem::path& model, bool lite, double inputDb, double outputDb)
 {
   auto config = grid.Save().config();
   config["Tuner"] = 0.;
@@ -213,6 +214,8 @@ json PrepareGridState(Instance& grid, const std::filesystem::path& model, bool l
     config[std::string("Pre 1 ") + parameter_layout::slotControlNames[control]] = defaults[control];
   for (int p = 0; p < kUtilityControls; ++p)
     config[std::string("Pre 1 ") + kEffectParameters[p].name] = defaults[17 + p];
+  config["Pre 1 NAM Input"] = inputDb;
+  config["Pre 1 NAM Output"] = outputDb;
   if (lite)
     config["Pre 1 Full Quality"] = 0.;
   config["SlotPaths"][0] = Utf8(model);
@@ -236,7 +239,7 @@ struct Render
 // Deterministic input with a slow level envelope. Both channels differ so the
 // mono-collapse convention is exercised rather than bypassed.
 Render Run(const std::filesystem::path& pluginPath, const std::filesystem::path& model, bool reference, bool lite,
-           double rate, int buffer, double warmup, double seconds)
+           double inputDb, double outputDb, double rate, int buffer, double warmup, double seconds)
 {
   Library library(pluginPath);
   Instance instance(library);
@@ -247,14 +250,14 @@ Render Run(const std::filesystem::path& pluginPath, const std::filesystem::path&
   {
     if (reference)
     {
-      const auto prepared = PrepareReferenceState(instance, model, lite);
+      const auto prepared = PrepareReferenceState(instance, model, lite, inputDb, outputDb);
       Stream bytes;
       bytes.bytes = prepared;
       instance.Load(bytes);
     }
     else
     {
-      LoadGridState(instance, PrepareGridState(instance, model, lite));
+      LoadGridState(instance, PrepareGridState(instance, model, lite, inputDb, outputDb));
       const auto recalled = instance.Save().config();
       Check(recalled.at("SlotPaths")[0] == Utf8(model), "Grid did not recall the capture path");
       Check(recalled.at("SlotHashes")[0].is_string() && !recalled.at("SlotHashes")[0].get<std::string>().empty(),
@@ -398,15 +401,17 @@ try
     std::cout << "Usage: " << argv[0]
               << " --grid PLUGIN --reference PLUGIN --model FILE [--model FILE ...]\n"
                  "       [--rate 48000] [--buffer 128] [--warmup 0.5] [--seconds 2]\n"
-                 "       [--tolerance 1e-6] [--json REPORT]\n";
+                 "       [--tolerance 1e-6] [--tolerance-db 140] [--lite] [--grid-only]\n"
+                 "       [--input-db 0] [--output-db 0] [--json REPORT]\n";
     return argc < 2 ? 2 : 0;
   }
   std::filesystem::path gridPath, referencePath, reportPath;
   std::vector<std::filesystem::path> models;
   std::vector<double> rates{48000.};
   std::vector<int> buffers{128};
-  double warmup = .5, seconds = 2., tolerance = kGridTolerance;
-  bool lite = false;
+  double warmup = .5, seconds = 2., tolerance = kGridTolerance, toleranceDb = 140.;
+  bool lite = false, gridOnly = false;
+  double inputDb = 0., outputDb = 0.;
   for (int i = 1; i < argc; ++i)
   {
     const std::string arg = argv[i];
@@ -430,8 +435,16 @@ try
       seconds = std::stod(next());
     else if (arg == "--tolerance")
       tolerance = std::stod(next());
+    else if (arg == "--tolerance-db")
+      toleranceDb = std::stod(next());
     else if (arg == "--lite")
       lite = true;
+    else if (arg == "--grid-only")
+      gridOnly = true;
+    else if (arg == "--input-db")
+      inputDb = std::stod(next());
+    else if (arg == "--output-db")
+      outputDb = std::stod(next());
     else if (arg == "--json")
       reportPath = next();
     else
@@ -441,6 +454,9 @@ try
         "--grid, --reference and at least one --model are required");
   Check(std::filesystem::exists(gridPath), "Missing grid plugin: " + Utf8(gridPath));
   Check(std::filesystem::exists(referencePath), "Missing reference plugin: " + Utf8(referencePath));
+  Check(gridOnly || (std::abs(inputDb) <= 20. && std::abs(outputDb) <= 40.),
+        "The reference gain ranges are -20..20 dB input and -40..40 dB output; "
+        "use --grid-only for wider Grid values");
   // The first value is a default; drop it when the user provided explicit ones.
   if (rates.size() > 1)
     rates.erase(rates.begin());
@@ -455,25 +471,63 @@ try
     for (double rate : rates)
       for (int buffer : buffers)
       {
-        const auto reference = Run(referencePath, model, true, lite, rate, buffer, warmup, seconds);
-        const auto grid = Run(gridPath, model, false, lite, rate, buffer, warmup, seconds);
-        auto row = Compare(reference, grid, rate, warmup);
+        const auto grid = Run(gridPath, model, false, lite, inputDb, outputDb, rate, buffer, warmup, seconds);
+        json row;
+        if (gridOnly)
+        {
+          double peak = 0., energy = 0.;
+          for (const auto& channel : {grid.left, grid.right})
+            for (double value : channel)
+            {
+              peak = std::max(peak, std::abs(value));
+              energy += value * value;
+            }
+          row = {{"samples", grid.left.size()},
+                 {"grid_latency", grid.latency},
+                 {"grid_peak", peak},
+                 {"grid_rms", std::sqrt(energy / (2. * grid.left.size()))},
+                 {"grid_only", true},
+                 {"pass", peak > 1.e-3}};
+        }
+        else
+        {
+          const auto reference = Run(referencePath, model, true, lite, inputDb, outputDb, rate, buffer, warmup, seconds);
+          row = Compare(reference, grid, rate, warmup);
+          row["reference_latency"] = reference.latency;
+        }
         row["model"] = Utf8(model.filename());
         row["rate"] = rate;
         row["buffer"] = buffer;
         row["tolerance"] = tolerance;
+        row["tolerance_db"] = toleranceDb;
         row["quality"] = lite ? "a2-lite" : "full";
-        row["pass"] = row["max_abs_error"].get<double>() <= tolerance
-                      && std::abs(row["gain_db"].get<double>()) <= 1.e-6 && row["best_lag"].get<int>() == 0;
+        row["input_db"] = inputDb;
+        row["output_db"] = outputDb;
+        if (!gridOnly)
+        {
+          // Grid's slot gain uses std::pow while the official shell uses iPlug2's
+          // slightly truncated IAMP_DB constant. At non-zero gain that is a ~5e-14
+          // relative gain difference, which can change float rounding inside the
+          // model. Accept a relative error floor, not only an absolute one.
+          row["pass"] = (row["max_abs_error"].get<double>() <= tolerance
+                         || row["error_db"].get<double>() <= -toleranceDb)
+                        && std::abs(row["gain_db"].get<double>()) <= 1.e-6 && row["best_lag"].get<int>() == 0;
+        }
         pass = pass && row["pass"].get<bool>();
         report.push_back(row);
         std::cout << std::left << std::setw(24) << Utf8(model.filename()) << " " << std::setw(7) << rate << "/"
-                  << std::setw(4) << buffer << " max_error=" << std::scientific << std::setprecision(3)
-                  << row["max_abs_error"].get<double>() << " error=" << std::fixed << std::setprecision(1)
-                  << row["error_db"].get<double>() << " dB gain=" << std::showpos << row["gain_db"].get<double>()
-                  << std::noshowpos << " dB latency=" << reference.latency << "/" << grid.latency
-                  << " lag=" << row["best_lag"].get<int>() << " pass=" << (row["pass"].get<bool>() ? "yes" : "NO")
-                  << "\n";
+                  << std::setw(4) << buffer;
+        if (gridOnly)
+          std::cout << " grid_only peak=" << std::scientific << std::setprecision(3)
+                    << row["grid_peak"].get<double>() << " latency=" << grid.latency
+                    << " pass=" << (row["pass"].get<bool>() ? "yes" : "NO") << "\n";
+        else
+          std::cout << " max_error=" << std::scientific << std::setprecision(3)
+                    << row["max_abs_error"].get<double>() << " error=" << std::fixed << std::setprecision(1)
+                    << row["error_db"].get<double>() << " dB gain=" << std::showpos << row["gain_db"].get<double>()
+                    << std::noshowpos << " dB latency=" << row["reference_latency"].get<int>() << "/" << grid.latency
+                    << " lag=" << row["best_lag"].get<int>() << " pass=" << (row["pass"].get<bool>() ? "yes" : "NO")
+                    << "\n";
       }
   }
   if (!reportPath.empty())

@@ -82,6 +82,10 @@ static_assert(static_cast<int>(SlotEffect::PitchShift) == 64);
 static_assert(SlotUtilityParam(0, uPitchInterval) == 5181);
 static_assert(SlotUtilityParam(15, uPitchMix) == 5260);
 static_assert(kEffectParameters[uPitchInterval].introducedIn == 22 && kEffectParameters[uPitchMix].introducedIn == 22);
+// Split Slope (schema 24) appends one state-only global after every previous ID.
+static_assert(PerformanceParam(grid_performance::CrossoverSlope) == 5261);
+static_assert(grid_performance::parameters[grid_performance::CrossoverSlope].introducedIn == 24);
+static_assert(static_cast<int>(grid_performance::SplitSlopeLinkwitzRiley) == 1);
 
 int main(int argc, char** argv)
 {

@@ -3144,6 +3144,18 @@ int main(int argc, char** argv)
     assert(state["Mod 1 Source"] == grid_performance::SourceMacro1 && state["Mod 1 Slot"] == grid_performance::gridSlot);
     assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
   }
+  // The routing page's saved Split Slope choice: steep, then back to the released gentle split.
+  {
+    const int slopeX = grid_layout::parameterRight - 210, slopeY = grid_layout::moduleButtonY;
+    const std::vector<const char*> slopes{"Gentle (6 dB/oct)", "Steep (24 dB/oct)"};
+    assert(save().config()["Split Slope"] == 0.);
+    win_edit_menu::SelectChoice(editor, slopeX, slopeY, slopes, 1, 0);
+    pumpFor(30);
+    assert(save().config()["Split Slope"] == 1.);
+    win_edit_menu::SelectChoice(editor, slopeX, slopeY, slopes, 0, 1);
+    pumpFor(30);
+    assert(save().config()["Split Slope"] == 0.);
+  }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
   // Wah's Auto button creates the envelope row that makes it an auto-wah, and only exists on Wah.
   {

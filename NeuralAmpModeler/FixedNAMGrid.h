@@ -48,6 +48,9 @@ public:
       for (auto& buffer : tap) buffer.assign(maxBlock, 0.);
     mSplitLow = {}; mSplitMix = 0.; mSplitFrequency = 250.;
     mSplitCoefficientFrequency = -1.;
+    for (auto& filters : mLrFilter) filters = {};
+    mLrA1 = 1.; mLrA2 = mLrA3 = 0.; mLrCoefficientFrequency = -1.;
+    mSplitSteep = 0.;
     mGainA = mGainB = 1.; mRouteFirst = true; mRate = rate;
     mSplitSmoothing = std::exp(-1. / (.01 * rate));
     for (auto& delay : mFineDelay) delay.Reset(rate);
@@ -81,13 +84,17 @@ public:
     if (mRouteFirst)
     {
       mSplitMix = routing.crossover ? 1. : 0.; mSplitFrequency = routing.frequency;
+      mSplitSteep = routing.linkwitzRiley ? 1. : 0.;
       mGainA = std::pow(10., routing.gainA * .05) * (!routing.muteA && (!routing.soloB || routing.soloA) ? 1. : 0.);
       mGainB = std::pow(10., routing.gainB * .05) * (!routing.muteB && (!routing.soloA || routing.soloB) ? 1. : 0.);
       mRouteFirst = false;
     }
+    const bool steep = routing.linkwitzRiley;
     for (int i = 0; i < frames; ++i)
     {
       mSplitMix += std::clamp((routing.crossover ? 1. : 0.) - mSplitMix, -mStep, mStep);
+      // Switching slope crossfades the split over the same 5 ms as a bypass fade.
+      mSplitSteep += std::clamp((steep ? 1. : 0.) - mSplitSteep, -mStep, mStep);
       const double frequency = std::clamp(routing.frequency, 40., 5000.);
       mSplitFrequency = frequency + mSplitSmoothing * (mSplitFrequency - frequency);
       // Keep sample-rate smoothing/history alive, but reuse the identical
@@ -97,17 +104,41 @@ public:
         mSplitCoefficient = std::exp(-6.283185307179586 * std::min(.4 * mRate, mSplitFrequency) / mRate);
         mSplitCoefficientFrequency = mSplitFrequency;
       }
+      if (mSplitSteep > 0. && mSplitFrequency != mLrCoefficientFrequency)
+      {
+        // Two cascaded TPT Butterworth sections per output, as in Multiband Dynamics.
+        const double g = std::tan(grid_fx::pi * std::min(.4 * mRate, mSplitFrequency) / mRate);
+        mLrA1 = 1. / (1. + g * (g + kSqrt2)); mLrA2 = g * mLrA1; mLrA3 = g * mLrA2;
+        mLrCoefficientFrequency = mSplitFrequency;
+      }
       const double coefficient = mSplitCoefficient;
       const double l = samples[i];
       mSplitLow[0] = grid_fx::Flush(l + coefficient * (mSplitLow[0] - l));
-      mLane[0][i] = l + mSplitMix * (mSplitLow[0] - l);
-      mLane[1][i] = l - mSplitMix * mSplitLow[0];
+      double low = mSplitLow[0], high = l - mSplitLow[0];
+      if (mSplitSteep > 0.)
+      {
+        const double steepLow = LrSection(0, 1, LrSection(0, 0, l).low).low;
+        const double steepHigh = LrSection(0, 3, LrSection(0, 2, l).high).high;
+        low += mSplitSteep * (steepLow - low);
+        high += mSplitSteep * (steepHigh - high);
+      }
+      mLane[0][i] = l + mSplitMix * (low - l);
+      // The released path stays bit-identical: lane B is the one-pole complement itself.
+      mLane[1][i] = mSplitSteep > 0. ? l + mSplitMix * (high - l) : l - mSplitMix * low;
       if (right)
       {
         const double r = right[i];
         mSplitLow[1] = grid_fx::Flush(r + coefficient * (mSplitLow[1] - r));
-        mRightLane[0][i] = r + mSplitMix * (mSplitLow[1] - r);
-        mRightLane[1][i] = r - mSplitMix * mSplitLow[1];
+        double rightLow = mSplitLow[1], rightHigh = r - mSplitLow[1];
+        if (mSplitSteep > 0.)
+        {
+          const double steepLow = LrSection(1, 1, LrSection(1, 0, r).low).low;
+          const double steepHigh = LrSection(1, 3, LrSection(1, 2, r).high).high;
+          rightLow += mSplitSteep * (steepLow - rightLow);
+          rightHigh += mSplitSteep * (steepHigh - rightHigh);
+        }
+        mRightLane[0][i] = r + mSplitMix * (rightLow - r);
+        mRightLane[1][i] = mSplitSteep > 0. ? r + mSplitMix * (rightHigh - r) : r - mSplitMix * rightLow;
       }
       // Equal unprocessed lanes reconstruct unity throughout a crossover fade.
       mSplitGain[i] = 2. / (2. - mSplitMix);
@@ -252,6 +283,26 @@ private:
   std::array<std::vector<double>, 2> mLane;
   std::array<Delay, 2> mDelay, mRightDelay;
   std::array<std::vector<double>, 2> mRightLane;
+  // Linkwitz-Riley split: a low-pass and a high-pass pair of two cascaded Butterworth
+  // sections per channel. Their sum is a flat-magnitude second-order allpass, so empty
+  // lanes still reconstruct the signal; the released first-order pair stays the default.
+  struct LrFilter { double a = 0., b = 0.; };
+  struct LrOutputs { double low, band, high; };
+  static constexpr double kSqrt2 = 1.4142135623730951;
+  // One TPT state-variable section (Andrew Simper's equations), Butterworth Q for the pair.
+  LrOutputs LrSection(int channel, int section, double x)
+  {
+    auto& f = mLrFilter[channel][section];
+    const double v3 = x - f.b;
+    const double v1 = mLrA1 * f.a + mLrA2 * v3;
+    const double v2 = f.b + mLrA2 * f.a + mLrA3 * v3;
+    f.a = grid_fx::Flush(2. * v1 - f.a);
+    f.b = grid_fx::Flush(2. * v2 - f.b);
+    return {v2, v1, x - kSqrt2 * v1 - v2};
+  }
+  std::array<std::array<LrFilter, 4>, 2> mLrFilter{};
+  double mLrA1 = 1., mLrA2 = 0., mLrA3 = 0., mLrCoefficientFrequency = -1.;
+  double mSplitSteep = 0.;
   double mBlend = .5, mStep = 1. / 240.;
   bool mFirstBlend = true;
   std::array<StereoUtility, 2> mFineDelay;

@@ -103,6 +103,45 @@ private:
   IPopupMenu mMenu;
 };
 
+// A saved-state choice in one header row: shows "Label: value" and opens a menu of its
+// values. Used for the split's slope, which is never host automation (see StateOnly).
+class PerformanceChoice : public IControl
+{
+public:
+  PerformanceChoice(const IRECT& r, int parameter, const char* label) : IControl(r, parameter), mLabel(label) {}
+  void Draw(IGraphics& g) override
+  {
+    WDL_String value;
+    GetParam()->GetDisplay(GetValue(), true, value);
+    g.FillRoundRect(surface, mRECT, 3.f);
+    g.DrawRoundRect(mMouseIsOver ? muted : border, mRECT, 3.f);
+    FittedText(g, Text(13.f, text, EAlign::Center), mLabel + ": " + value.Get(), mRECT.GetHPadded(-8.f));
+  }
+  void OnMouseDown(float, float, const IMouseMod& mod) override
+  {
+    if (!mod.L) return;
+    mMenu.Clear();
+    const auto* param = GetParam();
+    for (int value = static_cast<int>(param->GetMin()); value <= static_cast<int>(param->GetMax()); ++value)
+    {
+      WDL_String item;
+      param->GetDisplay(value, false, item);
+      mMenu.AddItem(new IPopupMenu::Item(item.Get(), param->Int() == value ? IPopupMenu::Item::kChecked : 0, value));
+    }
+    GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
+  }
+  void OnPopupMenuSelection(IPopupMenu* menu, int) override
+  {
+    if (const auto* item = menu ? menu->GetChosenItem() : nullptr)
+      PLUG()->SetParameterFromUI(GetParamIdx(), item->GetTag());
+    SetDirty(false);
+  }
+
+private:
+  std::string mLabel;
+  IPopupMenu mMenu;
+};
+
 // Matrix row cells ------------------------------------------------------------
 
 inline const char* ShortSource(int source)
@@ -529,12 +568,14 @@ private:
     SetDirty(true, step);
   }
 };
-// Lows feed lane A and highs lane B: the complementary first-order split.
+// Lows feed lane A and highs lane B, split by a first-order pair or a fourth-order
+// Linkwitz-Riley pair. The curves are the selected slope's magnitudes, below 0 dBFS.
 class CrossoverView : public IControl
 {
 public:
   CrossoverView(const IRECT& r)
-  : IControl(r, {PerformanceParam(grid_performance::Crossover), PerformanceParam(grid_performance::CrossoverFrequency)})
+  : IControl(r, {PerformanceParam(grid_performance::Crossover), PerformanceParam(grid_performance::CrossoverFrequency),
+                 PerformanceParam(grid_performance::CrossoverSlope)})
   { mIgnoreMouse = true; }
   void Draw(IGraphics& g) override
   {
@@ -542,8 +583,11 @@ public:
     VisualizationBackground(g, mRECT);
     const bool on = PLUG()->GetParam(PerformanceParam(Crossover))->Bool();
     const double frequency = PLUG()->GetParam(PerformanceParam(CrossoverFrequency))->Value();
+    const bool steep = PLUG()->GetParam(PerformanceParam(CrossoverSlope))->Int() >= SplitSlopeLinkwitzRiley;
     const auto plot = IRECT(mRECT.L + 14, mRECT.T + 34, mRECT.R - 14, mRECT.B - 26);
     g.DrawText(Text(14.f, on ? text : muted), on ? "Split: lows to A, highs to B" : "Split off: both lanes get the full signal",
+               IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 74, mRECT.T + 28));
+    g.DrawText(Text(12.f, muted, EAlign::Far), steep ? "24 dB/oct" : "6 dB/oct",
                IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
     const auto x = [&](double hz) { return plot.L + plot.W() * static_cast<float>(std::log(hz / 20.) / std::log(1000.)); };
     const auto y = [&](double gain) { return plot.B - plot.H() * static_cast<float>(gain); };
@@ -556,7 +600,11 @@ public:
       for (int i = 0; i <= 160; ++i)
       {
         const double hz = 20. * std::pow(1000., i / 160.), ratio = hz / frequency;
-        const double low = 1. / std::sqrt(1. + ratio * ratio), high = ratio / std::sqrt(1. + ratio * ratio);
+        // First order: 3 dB/octave pairs. Linkwitz-Riley: two cascaded Butterworth sections.
+        const double low = steep ? 1. / (1. + ratio * ratio * ratio * ratio)
+                                 : 1. / std::sqrt(1. + ratio * ratio);
+        const double high = steep ? ratio * ratio * ratio * ratio / (1. + ratio * ratio * ratio * ratio)
+                                  : ratio / std::sqrt(1. + ratio * ratio);
         const double gain = on ? (lane ? high : low) : 1.;
         const float nx = x(hz), ny = y(gain * .9);
         if (i) g.DrawLine(color, px, py, nx, ny, nullptr, 2.f);
@@ -567,7 +615,7 @@ public:
     if (on)
     {
       // Lane legend in the caption row, clear of the frequency labels.
-      const IRECT caption(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28);
+      const IRECT caption(mRECT.L + 14, mRECT.T + 8, mRECT.R - 84, mRECT.T + 28);
       g.DrawText(Text(12.f, cabColor, EAlign::Far), "B", caption);
       g.DrawText(Text(12.f, ampColor, EAlign::Far), "A", caption.GetHShifted(-14.f));
     }
@@ -712,6 +760,11 @@ public:
       ->SetTooltip("Keep delay and reverb dry levels at unity; Mix sets the wet level.");
     AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 176, grid_layout::descriptionTop, grid_layout::parameterRight, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
       ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
+    AddChildControl(new PerformanceChoice(IRECT(grid_layout::parameterRight - 292, grid_layout::moduleHeaderTop,
+                                                grid_layout::parameterRight - 128, grid_layout::moduleHeaderBottom),
+                                         PerformanceParam(CrossoverSlope), "Slope"))
+      ->SetTooltip("Gentle is the released 6 dB/octave split. Steep is a 24 dB/octave Linkwitz-Riley split: the "
+                   "driven lane gets far less low end, at the cost of an allpass phase shift around the split.");
     AddChildControl(new Button(IRECT(grid_layout::parameterRight - 80, grid_layout::moduleHeaderTop, grid_layout::parameterRight, grid_layout::moduleHeaderBottom), [](IControl* caller) {
       static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close", Icon::Close))
       ->SetTooltip("Back to the selected module (Escape).");

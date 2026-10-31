@@ -145,6 +145,13 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       for (int mode = 0; mode < grid_performance::RetriggerModes; ++mode)
         param->SetDisplayText(mode, grid_performance::retriggerNames[mode]);
     }
+    else if (i == grid_performance::CrossoverSlope)
+    {
+      // The split's slope is saved state, not automation: it never reinterprets a recording.
+      param->InitEnum(p.name, static_cast<int>(p.initial), grid_performance::SplitSlopes, "", IParam::kFlagCannotAutomate);
+      for (int slope = 0; slope < grid_performance::SplitSlopes; ++slope)
+        param->SetDisplayText(slope, grid_performance::splitSlopeNames[slope]);
+    }
     else if (grid_performance::StateOnly(i))
     {
       // Matrix routing is saved state, not automation (see grid_performance::StateOnly).

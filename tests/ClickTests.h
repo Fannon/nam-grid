@@ -160,15 +160,15 @@ inline const char* Exemption(SlotEffect effect, int control)
 
 // The accepted standard: the slot's own bypass, a 5 ms linear fade of the full test
 // tone starting at its peak, the steepest point for that fade.
-inline double FadeReference(double rate)
+inline double FadeReference(double rate, double tone = kTone)
 {
   Detector detector(rate);
-  const int fade = static_cast<int>(.005 * rate), peakAt = static_cast<int>(rate / (4. * kTone));
+  const int fade = static_cast<int>(.005 * rate), peakAt = static_cast<int>(rate / (4. * tone));
   double peak = 0.;
   for (int i = 0; i < static_cast<int>(rate * .05); ++i)
   {
     const double gain = std::clamp(1. - static_cast<double>(i - peakAt) / fade, 0., 1.);
-    peak = std::max(peak, std::abs(detector.Tick(gain * kInput * std::sin(2. * grid_fx::pi * kTone * i / rate))));
+    peak = std::max(peak, std::abs(detector.Tick(gain * kInput * std::sin(2. * grid_fx::pi * tone * i / rate))));
   }
   return peak;
 }
@@ -308,6 +308,58 @@ void TestClicks()
           check("trails off", nullptr, [&] { rig.SetTrails(false); });
         }
       }
+  }
+  // The lane split's slope crossfades like a bypass fade: switching between the released
+  // first-order pair and the Linkwitz-Riley pair must not step a tone passing both lanes.
+  for (const double rate : {48000., 96000.})
+  {
+    // The tone sits at the split, where the two slopes' phases differ most (the allpass sum
+    // inverts), so a hard switch would step. Its fade reference uses that tone's own peak slope.
+    constexpr double routingTone = 250.;
+    const double limit = 2. * FadeReference(rate, routingTone);
+    FixedNAMGrid grid;
+    grid.ResetStopped(rate, block);
+    std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> controls{};
+    grid_performance::Routing routing;
+    routing.crossover = true; routing.frequency = 250.;
+    std::array<Detector, 2> detector{Detector(rate), Detector(rate)};
+    int position = 0;
+    const auto render = [&](double seconds, double from = 0.) {
+      double peak = 0.;
+      const int frames = static_cast<int>(seconds * rate), first = static_cast<int>(from * rate);
+      std::array<double, 37> left{}, right{};
+      for (int done = 0; done < frames;)
+      {
+        const int n = std::min(block, frames - done);
+        for (int i = 0; i < n; ++i)
+        {
+          const double phase = 2. * grid_fx::pi * routingTone * static_cast<double>(position + i) / rate;
+          left[i] = kInput * std::sin(phase);
+          right[i] = kInput * std::sin(phase + .3);
+        }
+        grid.Process(left.data(), n, controls, .5, right.data(), routing);
+        for (int i = 0; i < n; ++i)
+          if (done + i >= first)
+            peak = std::max({peak, std::abs(detector[0].Tick(left[i])), std::abs(detector[1].Tick(right[i]))});
+        position += n;
+        done += n;
+      }
+      return peak;
+    };
+    double settled = render(1.);
+    for (const bool steep : {true, false})
+    {
+      routing.linkwitzRiley = steep;
+      const double spike = render(.06);
+      const double after = render(.24, .14);
+      const double allowed = std::max(3. * std::max(settled, after), limit);
+      if (spike > allowed)
+        std::printf("Click: split %s at %g Hz: %.2e (limit %.2e, settled %.2e)\n",
+                    steep ? "to steep" : "to gentle", rate, spike, limit, std::max(settled, after));
+      assert(spike <= allowed);
+      settled = after;
+      ++events;
+    }
   }
   std::cout << "Clicks: " << events << " bypass/replace/control/mode events at 48/96 kHz, " << findings
             << " above the limit (" << exempt << " exempt by design)" << std::endl;

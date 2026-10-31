@@ -24,7 +24,7 @@ void TestPerformanceSceneState(const clap_plugin* plugin, json base, Save save, 
   auto compact = save();
   const auto compactConfig = compact.config();
   assert(compact.bytes.size() < legacy.dump().size() / 2);
-  assert(compact.config()["schema"] == performance_scenes::deltaSchema);
+  assert(compact.config()["schema"] == kEffectStateSchema); // Current schema, in the compact form.
   for (const auto& delta : compactConfig["PerformanceSceneDeltas"]) assert(delta.is_object() && delta.empty());
   for (const auto& scene : compactConfig["PerformanceScenes"]) assert(scene.empty());
   std::cout << "Scene snapshot size: full=" << legacy.dump().size() << " compact=" << compact.bytes.size() << " bytes\n";

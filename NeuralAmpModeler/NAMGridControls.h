@@ -1,5 +1,6 @@
 #pragma once
 #include "IControls.h"
+#include "ITextEntryControl.h"
 #include "ModuleMenu.h"
 #include "GridLayout.h"
 #include "EQResponse.h"
@@ -1314,6 +1315,51 @@ private:
   signal_monitor::SpectrumView mMonitorSpectrum;
   double mMonitorTime = -1., mSpectrumTime = -1.;
   bool mWasLive = false;
+};
+
+// A dedicated naming panel leaves room for long names and makes saving explicit.
+// The framework text editor owns focus, Unicode, selection and host-key suppression.
+class NAMModulePresetNameControl : public IControl
+{
+public:
+  explicit NAMModulePresetNameControl(const IRECT& bounds) : IControl(bounds) { Hide(true); }
+  void Open(IControl& owner, const char* name)
+  {
+    mOwner = &owner;
+    Hide(false);
+    auto style = grid_ui::Text(16.f);
+    style.mTextEntryBGColor = grid_ui::surface;
+    style.mTextEntryFGColor = grid_ui::text;
+    GetUI()->CreateTextEntry(owner, style, IRECT(248, 566, 772, 598), name);
+    GetUI()->SetAllControlsDirty();
+  }
+  bool IsDirty() override
+  {
+    if (!IsHidden())
+    {
+      auto* entry = GetUI()->GetTextEntryControl();
+      if (!entry || !entry->EditInProgress() || GetUI()->GetControlInTextEntry() != mOwner)
+      {
+        Hide(true);
+        GetUI()->SetAllControlsDirty();
+      }
+    }
+    return IControl::IsDirty();
+  }
+  void Draw(IGraphics& g) override
+  {
+    using namespace grid_ui;
+    g.FillRect(IColor(180, 0, 0, 0), mRECT);
+    g.FillRoundRect(editorBackground, IRECT(220, 492, 800, 654), 8.f);
+    g.DrawRoundRect(border, IRECT(220, 492, 800, 654), 8.f);
+    g.DrawText(Text(20.f), "Save module preset", IRECT(244, 508, 776, 538));
+    g.DrawText(Text(13.f, muted), "Name", IRECT(244, 540, 776, 562));
+    g.FillRoundRect(surface, IRECT(244, 562, 776, 602), 4.f);
+    g.DrawRoundRect(accent, IRECT(244, 562, 776, 602), 4.f);
+    g.DrawText(Text(13.f, muted), "Enter to save  /  Esc to cancel", IRECT(244, 612, 776, 638));
+  }
+private:
+  IControl* mOwner = nullptr;
 };
 
 class NAMGridSlotControl : public IControl
@@ -3004,12 +3050,7 @@ private:
     mSavePresetFolder = folder;
     const auto suggested = MatchingPresetName(effect);
     const auto name = suggested.empty() ? std::string("My ") + module_presets::Utf8(folder.filename()) : suggested;
-    auto text = grid_ui::Text(14.f, grid_ui::text);
-    text.mTextEntryBGColor = grid_ui::surface;
-    text.mTextEntryFGColor = grid_ui::text;
-    GetUI()->CreateTextEntry(*this, text,
-      IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop,
-            mPresetButton->GetRECT().R, grid_layout::moduleHeaderBottom), name.c_str());
+    GetUI()->GetControlWithTag(kCtrlTagModulePresetName)->As<NAMModulePresetNameControl>()->Open(*this, name.c_str());
   }
   void OnTextEntryCompletion(const char* name, int) override
   {

@@ -300,7 +300,10 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachControl(new NAMGridRoutingControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagRouting)->Hide(true);
     ui->AttachControl(new NAMGridPerformanceControl(b), kCtrlTagPerformance)->Hide(true);
     ui->AttachControl(new NAMLibraryBrowserControl(b), kCtrlTagLibraryBrowser)->Hide(true);
+    ui->AttachControl(new NAMModulePresetNameControl(b), kCtrlTagModulePresetName);
     ui->SetKeyHandlerFunc([this, ui](const IKeyPress& key, bool keyUp) {
+      // Text entry is dispatched first by iPlug; suppress shortcuts until its panel closes.
+      if (!ui->GetControlWithTag(kCtrlTagModulePresetName)->IsHidden()) return true;
       auto* browser = ui->GetControlWithTag(kCtrlTagLibraryBrowser);
       if (!browser->IsHidden())
         return keyUp || browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
@@ -323,6 +326,15 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       if (!keyUp && key.VK == kVK_ESCAPE && mRoutingOpen)
       {
         SetRoutingOpen(false);
+        return true;
+      }
+      // Pages own the keyboard, including Delete/Backspace, even outside their child controls.
+      if (!performance->IsHidden() || !tuner->IsHidden() || !settings->IsHidden() || mRoutingOpen || IsSignalMonitorOpen())
+        return true;
+      if (!keyUp && !key.C && !key.A && !key.S && (key.VK == kVK_DELETE || key.VK == kVK_BACK))
+      {
+        if (GetSlotEffect(mSelectedSlot) != SlotEffect::NAM || !GetSlotPath(mSelectedSlot).empty())
+          ClearSlot(mSelectedSlot);
         return true;
       }
       return false;

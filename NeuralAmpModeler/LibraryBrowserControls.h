@@ -59,8 +59,8 @@ public:
 class NAMBrowserSearchControl : public IEditableTextControl
 {
 public:
-  NAMBrowserSearchControl(const IRECT& r, std::function<void(const std::string&)> changed)
-  : IEditableTextControl(r, "", grid_ui::Text(14.f), grid_ui::surface), mChanged(std::move(changed))
+  NAMBrowserSearchControl(const IRECT& r, std::function<void(const std::string&)> changed, std::function<void()> cancelled)
+  : IEditableTextControl(r, "", grid_ui::Text(14.f), grid_ui::surface), mChanged(std::move(changed)), mCancelled(std::move(cancelled))
   {
     SetTextEntryLength(512);
     mText.mTextEntryBGColor = grid_ui::surface;
@@ -85,6 +85,7 @@ public:
   void BeginEdit()
   {
     Focus();
+    mEditing = true;
     // The editor stops short of the clear button, so it stays clickable while typing.
     GetUI()->CreateTextEntry(*this, mText, mRECT.GetHPadded(-12).GetVPadded(-3).GetReducedFromRight(24), GetStr());
   }
@@ -126,6 +127,13 @@ public:
   bool IsDirty() override
   {
     auto* entry = GetUI()->GetTextEntryControl();
+    // DismissEdit (Escape) has no completion callback. Close the browser on that
+    // transition too, so a search does not require a second Escape to cancel.
+    if (mEditing && (!entry || !entry->EditInProgress() || GetUI()->GetControlInTextEntry() != this))
+    {
+      mEditing = false;
+      mCancelled();
+    }
     std::string value = GetStr();
     if (entry && entry->EditInProgress() && GetUI()->GetControlInTextEntry() == this)
     {
@@ -142,12 +150,13 @@ public:
   void SetQuery(const std::string& value)
   { mLive = value; SetStr(value.c_str()); SetDirty(false); }
   void OnTextEntryCompletion(const char* text, int) override
-  { SetQuery(nam_library::BoundedQuery(text)); mChanged(mLive); }
+  { mEditing = false; SetQuery(nam_library::BoundedQuery(text)); mChanged(mLive); }
 private:
   IRECT ClearButton() const { return IRECT(mRECT.R - 34, mRECT.T, mRECT.R - 4, mRECT.B); }
   std::string mLive;
-  bool mFocused = false;
+  bool mFocused = false, mEditing = false;
   std::function<void(const std::string&)> mChanged;
+  std::function<void()> mCancelled;
 };
 
 class NAMLibraryBrowserControl : public IContainerBase
@@ -201,7 +210,7 @@ public:
     mSearch = new NAMBrowserSearchControl(IRECT(24, 58, grid_layout::width - 24, 92), [this](const std::string& text) {
       if (View().query != text) { View().selected.clear(); View().scroll = 0; }
       View().query = text; Rebuild();
-    });
+    }, [this] { Hide(true); });
     AddChildControl(mSearch);
     mSearch->SetTooltip("Match all words across names, paths and metadata. Use quoted phrases, -exclude, maker:vox, model:ac30, path:clean or gear:amp. Ctrl/Cmd+F focuses search; the cross clears it.");
     mSort = new Button(IRECT(584, kPanelTop + 2, 706, kListTop - 2), [this](IControl*) {

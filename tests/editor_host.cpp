@@ -166,6 +166,25 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
   assert(forwarded == 0);
   key(VK_ESCAPE); // Close the browser.
   assert(forwarded == 0);
+  // A single Escape during a live search also closes the browser. Verify the
+  // underlying numeric editor is reachable, in both CLAP and VST3.
+  SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, xy(470, 28));
+  SendMessage(editor, WM_LBUTTONUP, 0, xy(470, 28));
+  PumpFor(100);
+  key('Z'); key(VK_ESCAPE);
+  clickValue(); key('7'); key(VK_RETURN);
+  assert(std::abs(inputDB() - 7.) < .01);
+  clickValue(); key('9'); key(VK_ESCAPE);
+  assert(std::abs(inputDB() - 7.) < .01 && forwarded == 0);
+  // Keep the existing reopen checks' expected value.
+  clickValue();
+  for (const wchar_t c : std::wstring(L"-3.5"))
+  {
+    const auto mapped = VkKeyScanW(c); assert(mapped != -1);
+    key(LOBYTE(mapped), HIBYTE(mapped));
+  }
+  key(VK_RETURN);
+  assert(forwarded == 0);
   RemoveWindowSubclass(parent, CountHostKeys, 1);
   DestroyWindow(hostWindow);
 

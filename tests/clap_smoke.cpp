@@ -1431,7 +1431,9 @@ int main(int argc, char** argv)
       const auto saveNamedPreset = [&](const wchar_t* name, bool cancel = false) {
         win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
         pumpFor(30);
-        presetKey('A', 2);
+        assert(GetFocus() == editor); // Type through actual focus, as a DAW user does.
+        // Deletion in this field edits the name; it must never clear the module.
+        presetKey('A', 2); presetKey(VK_BACK); presetKey(VK_DELETE);
         for (const wchar_t c : std::wstring(name))
         {
           const auto key = VkKeyScanW(c); assert(key != -1);
@@ -1459,7 +1461,20 @@ int main(int argc, char** argv)
       assert(!std::filesystem::exists(userFile.parent_path() / "Cancelled.json") && save().config() == beforeName);
       saveNamedPreset(L"Smoke squash");
       pumpFor(50);
-      assert(std::filesystem::exists(userFile));
+      assert(std::filesystem::exists(userFile) && save().config() == beforeName);
+      // Delete/Backspace clear only the selected slot, with no modal page open.
+      for (const int key : {VK_DELETE, VK_BACK})
+      {
+        load(comp); selectTile(170, 120);
+        presetKey(key, 2); assert(save().config() == comp); // Modified keys are not shortcuts.
+        click(936, 28); presetKey(key); assert(save().config() == comp); // Settings owns the key.
+        presetKey(VK_ESCAPE); pumpFor(50);
+        presetKey(key); pumpFor(50);
+        const auto removed = save().config();
+        assert(removed["SlotEffects"][0] == static_cast<int>(SlotEffect::NAM));
+        assert(removed["SlotPaths"][0] == "" && removed["Pre 2 Boost Gain"] == 5.);
+      }
+      load(chosen); selectTile(170, 120);
       auto changed = chosen;
       changed["Pre 1 Pedal Comp Sustain"] = 5.;
       changed["Pre 1 Pedal Comp Pickup"] = 0.;

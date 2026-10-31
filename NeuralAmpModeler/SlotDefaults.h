@@ -25,6 +25,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
   };
   switch (effect)
   {
+    case SlotEffect::PitchShift:
+      set(uPitchInterval, 7.); set(uPitchTone, 10000.); set(uPitchMix, 25.); break;
     case SlotEffect::Multiband:
       set(uMultibandDepth, 40.); set(uMultibandDownward, 50.); set(uMultibandUpward, 40.); set(uMultibandOutput, 2.); break;
     case SlotEffect::TransientShaper:

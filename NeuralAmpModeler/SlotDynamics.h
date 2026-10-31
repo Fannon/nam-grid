@@ -73,7 +73,8 @@ enum class SlotEffect
   Multiband = 61,
   GraphicEQ = 62,
   SignalMonitor = 63,
-  Last = SignalMonitor,
+  PitchShift = 64,
+  Last = PitchShift,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -85,6 +86,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Multiband: return "Multiband Dynamics";
     case SlotEffect::GraphicEQ: return "Graphic EQ";
     case SlotEffect::SignalMonitor: return "Signal Monitor";
+    case SlotEffect::PitchShift: return "Pitch Shift";
     case SlotEffect::NAM: return "NAM";
     case SlotEffect::NoiseGate: return "Noise Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";

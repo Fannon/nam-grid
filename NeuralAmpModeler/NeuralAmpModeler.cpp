@@ -2157,6 +2157,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
                       : IsDelay(mSlotEffects[i]) ? 560. : IsAirReverb(mSlotEffects[i]) ? 60. : IsReverb(mSlotEffects[i]) ? 45.
                       : mSlotEffects[i] == SlotEffect::CosmicEcho ? 60. : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
                       : mSlotEffects[i] == SlotEffect::FrequencyShifter ? 560.
+                      : mSlotEffects[i] == SlotEffect::PitchShift ? .1
                       : mSlotEffects[i] == SlotEffect::CabinetIR ? mPreparedIRTail[i]
                       : mSlotEffects[i] == SlotEffect::Stutter ? 33. : mSlotEffects[i] == SlotEffect::Freeze ? 4. : 0.;
   mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));

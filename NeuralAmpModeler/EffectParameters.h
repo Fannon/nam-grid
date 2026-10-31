@@ -313,6 +313,11 @@ enum UtilityParam
   uGraphicBand7 = 297,
   uGraphicLevel = 298,
   uGraphicVoicing = 299,
+  uPitchInterval = 300,
+  uPitchFine = 301,
+  uPitchTone = 302,
+  uPitchOutput = 303,
+  uPitchMix = 304,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -428,7 +433,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 21; // 21 Signal Monitor (no new controls); 20 Graphic EQ; 19 Multiband Dynamics.
+inline constexpr int kEffectStateSchema = 22; // 22 Pitch Shift; 21 Signal Monitor (no new controls); 20 Graphic EQ.
 
 struct EffectParameter
 {
@@ -746,7 +751,12 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Graphic Band 6", "Band 6", 0, -15, 15, 0.1, "dB", 5, false, 1., 20},
    {"Graphic Band 7", "Band 7", 0, -15, 15, 0.1, "dB", 6, false, 1., 20},
    {"Graphic Level", "Level", 0, -15, 15, 0.1, "dB", 7, false, 1., 20},
-   {"Graphic Voicing", "Voicing", 0, 0, 2, 1, "", 0, false, 1., 20}}};
+   {"Graphic Voicing", "Voicing", 0, 0, 2, 1, "", 0, false, 1., 20},
+   {"Pitch Interval", "Interval", 0, -24, 24, 0.01, "st", 0, false, 1., 22},
+   {"Pitch Fine", "Fine tune", 0, -50, 50, 0.1, "cents", 1, false, 1., 22},
+   {"Pitch High Cut", "High cut", 16000, 800, 16000, 1, "Hz", 2, true, 1., 22},
+   {"Pitch Output", "Output", 0, -18, 6, 0.1, "dB", 3, false, 1., 22},
+   {"Pitch Mix", "Mix", 0, 0, 100, 0.1, "%", 4, false, 1., 22}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -824,12 +834,14 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper: case SlotEffect::Multiband: case SlotEffect::GraphicEQ:
+    case SlotEffect::PitchShift:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uPitchInterval && p <= uPitchMix) return e == SlotEffect::PitchShift;
   if (p >= uGraphicBand1 && p <= uGraphicVoicing) return e == SlotEffect::GraphicEQ;
   if (p >= uMultibandDepth && p <= uMultibandThreshold) return e == SlotEffect::Multiband;
   if (p >= uTransientShaperAttack && p <= uTransientShaperMix) return e == SlotEffect::TransientShaper;
@@ -1053,6 +1065,7 @@ struct UtilityControls
   std::array<double, 8> multiband{100, 0, 0, 100, 0, 0, 0, 0};
   std::array<double, 3> multibandShape{150, 2500, -30};
   std::array<double, 8> graphicEQ{}; // Seven band gains, then Level, in dB.
+  std::array<double, 5> pitchShift{0., 0., 16000., 0., 0.};
   int graphicVoicing = 0;             // 0 Guitar, 1 Bass, 2 Full range.
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;

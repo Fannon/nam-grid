@@ -159,7 +159,7 @@ int main(int argc,char** argv)
       switch (e)
       {
         case SlotEffect::Chorus: case SlotEffect::JunoChorus: case SlotEffect::Flanger: case SlotEffect::Tremolo: case SlotEffect::HarmonicTremolo:
-        case SlotEffect::Vibrato: case SlotEffect::Rotary: case SlotEffect::Doubler: case SlotEffect::Stutter:
+        case SlotEffect::PitchShift: case SlotEffect::Vibrato: case SlotEffect::Rotary: case SlotEffect::Doubler: case SlotEffect::Stutter:
         case SlotEffect::Freeze: case SlotEffect::LoFiTape: case SlotEffect::Limiter: case SlotEffect::ButterComp:
         case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ:
         case SlotEffect::Tape: case SlotEffect::Bitcrusher: case SlotEffect::RingMod: case SlotEffect::FrequencyShifter:
@@ -208,6 +208,7 @@ int main(int argc,char** argv)
           case SlotEffect::AirHall: wetMix=uAirHallMix; break;
           case SlotEffect::GalacticSpace: wetMix=uSpaceMix; break;
           case SlotEffect::CosmicEcho: wetMix=uCosmicMix; break;
+          case SlotEffect::PitchShift: wetMix=uPitchMix; break;
           default: if (IsReverb(effect)) wetMix=uReverbMix; break;
         }
         if (wetMix>=0)

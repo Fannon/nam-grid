@@ -32,6 +32,8 @@ Use **Open file...** for a capture, IR, or preset outside your library. This doe
 
 Click the star left of a result to mark it: empty outline, yellow, orange, red, then empty again. Modules, NAM captures and IR files have stars; rig presets do not.
 
+Turn on **Starred** above the results to list only starred items. Search and the folder column still apply. The browser opens with the filter off, so the current module or file stays selected. A star you clear while the filter is on keeps its row until the list next changes, so you can cycle it back.
+
 Stars are your own notes, kept in your settings rather than in a rig, preset or DAW project. They never change what you hear, and other people opening your rigs see their own stars. Moving or renaming a NAM or IR file loses its star, because the star follows the file's path; a module keeps its star across releases.
 
 ## Search

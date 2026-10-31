@@ -199,9 +199,12 @@ public:
   std::string GetCaptureStatus() const;
   std::shared_ptr<const nam_library::Snapshot> GetCaptureLibrary() const;
   // Browser stars are a personal, per-user mark in the settings file; they never touch
-  // parameters, rig state or audio. Unrated keys read 0; Cycle cycles 0 -> 1 -> 2 -> 3 -> 0.
+  // parameters, rig state or audio. Unrated keys read 0; Cycle cycles 0 -> 1 -> 2 -> 3 -> 0 and
+  // returns false when the settings file cannot be written (the star still holds in memory).
   int GetLibraryStar(const std::string& key) const;
-  void CycleLibraryStar(const std::string& key);
+  std::map<std::string, int> GetLibraryStars() const;
+  bool CycleLibraryStar(const std::string& key);
+  void ReloadLibraryStars();
   nam_library::Filter GetCaptureFilter() const;
   void SetCaptureFilter(nam_library::Filter filter);
   std::string GetSlotPath(size_t slot) const;

@@ -1253,17 +1253,33 @@ int NeuralAmpModeler::GetLibraryStar(const std::string& key) const
   return star == mLibraryStars.end() ? 0 : star->second;
 }
 
-void NeuralAmpModeler::CycleLibraryStar(const std::string& key)
+std::map<std::string, int> NeuralAmpModeler::GetLibraryStars() const
 {
   const auto guard = _LockControls();
-  if (key.empty()) return;
+  return mLibraryStars;
+}
+
+bool NeuralAmpModeler::CycleLibraryStar(const std::string& key)
+{
+  const auto guard = _LockControls();
+  if (key.empty()) return true;
   const int level = nam_library::NextStar(GetLibraryStar(key));
   // Read first, so stars changed by another instance and the file's other settings survive.
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
   if (level == 0) settings.stars.erase(key);
   else settings.stars[key] = level;
-  mLibraryStars = settings.stars;
-  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
+  const bool saved = nam_library::WriteSettings(CaptureSettingsFile(), settings);
+  if (saved) mLibraryStars = std::move(settings.stars);
+  else if (level == 0) mLibraryStars.erase(key);
+  else mLibraryStars[key] = level;
+  return saved;
+}
+
+void NeuralAmpModeler::ReloadLibraryStars()
+{
+  auto stars = nam_library::ReadSettings(CaptureSettingsFile()).stars;
+  const auto guard = _LockControls();
+  mLibraryStars = std::move(stars);
 }
 
 nam_library::Filter NeuralAmpModeler::GetCaptureFilter() const

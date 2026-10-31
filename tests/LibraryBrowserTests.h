@@ -53,11 +53,25 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   assert(StarKey(FileKind::NAM, nam) != StarKey(FileKind::NAM, captures / "Clean" / "Other.nam"));
 #ifdef _WIN32
   assert(StarKey(FileKind::NAM, captures / "Clean" / "Cab.NAM") == StarKey(FileKind::NAM, captures / "clean" / "cab.nam"));
+  assert(StarKey(FileKind::IR, captures / std::filesystem::u8path("Gr\xc3\xbcn.wav"))
+         == StarKey(FileKind::IR, captures / std::filesystem::u8path("GR\xc3\x9cN.WAV")));
 #endif
   // A module's star follows its append-only ID, not its display name or category.
   assert(StarKey(FileKind::Module, root / "Boost", 3) == "Module:3");
   assert(StarKey(FileKind::Module, root / "Distortion", 3) == "Module:3");
   assert(StarKey(FileKind::Module, root / "Boost", 3) != StarKey(FileKind::Module, root / "Boost", 4));
+  // The Starred filter keeps starred results in their search order and matches each by its own kind.
+  const auto allNams = Browse(library, FileKind::NAM, "", {}, -1, false);
+  assert(allNams.size() == 2 && KeepStarred(library, allNams, {}).empty());
+  const auto starredNams = KeepStarred(library, allNams, {{StarKey(FileKind::NAM, nam), 3}});
+  assert(starredNams.size() == 1 && library.captures[starredNams.front()].path == nam);
+  assert(KeepStarred(library, allNams, {{StarKey(FileKind::IR, nam), 1}}).empty());
+  assert(KeepStarred(library, Browse(library, FileKind::NAM, "vox"), {{StarKey(FileKind::NAM, nam), 1}}).size() == 1);
+  Snapshot modules;
+  Capture boost; boost.kind = FileKind::Module; boost.module = 3; boost.path = "Drive/Boost";
+  Capture fuzz; fuzz.kind = FileKind::Module; fuzz.module = 4; fuzz.path = "Drive/Fuzz";
+  modules.captures = {boost, fuzz};
+  assert((KeepStarred(modules, {0, 1}, {{"Module:4", 2}}) == std::vector<size_t>{1}));
   const auto folders = BrowserFolders(library, FileKind::NAM, {PathText(captures), PathText(root / "missing")});
   assert(folders.size() == 5 && folders.front().path.empty() && folders.back().rootIndex == 1);
   assert(std::none_of(folders.begin(), folders.end(), [&](const auto& f) { return f.path == presets; }));

@@ -155,10 +155,18 @@ std::string StarKey(FileKind kind, const std::filesystem::path& path, int module
   // Module IDs are stable; names, folders and paths are not. Files use their own kind so the
   // same WAV can be starred as an IR independently of anything else.
   if (kind == FileKind::Module) return "Module:" + std::to_string(module);
-  auto text = PathText(path.lexically_normal());
+  auto normal = path.lexically_normal();
 #ifdef _WIN32
-  text = Lower(std::move(text));
+  // Windows names ignore case beyond ASCII too (SamePath compares the same way), so accented
+  // capitals must fold as well or one file could carry two stars.
+  const auto wide = normal.make_preferred().wstring();
+  std::wstring folded(wide.size(), L'\0');
+  if (!wide.empty()
+      && LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.data(), static_cast<int>(wide.size()),
+                       folded.data(), static_cast<int>(folded.size()), nullptr, nullptr, 0) == static_cast<int>(wide.size()))
+    normal = std::filesystem::path(folded);
 #endif
+  const auto text = PathText(normal);
   const char* prefix = kind == FileKind::NAM ? "NAM:"
     : kind == FileKind::IR ? "IR:"
     : kind == FileKind::RigPreset ? "RigPreset:" : "SlotPreset:";

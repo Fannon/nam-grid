@@ -41,7 +41,8 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect)
       || effect == SlotEffect::PedalComp)
     return {compColor, compColor, "Compressor"};
-  if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ)
+  if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ
+      || effect == SlotEffect::DynamicEQ)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
@@ -1774,6 +1775,32 @@ private:
     }
     else if (effect == SlotEffect::OutboardChannel)
       DrawOutboardChannel(g, plot, color);
+    else if (effect == SlotEffect::DynamicEQ)
+    {
+      // Analog prototype of the subtractive bell: 1 + (gain - 1) * normalized band-pass.
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+      const double upper = std::min(20000., .49 * rate), center = std::min(value(uDynamicEQFrequency), .4 * rate);
+      const double k = 1. / std::clamp(value(uDynamicEQQ), .2, 12.), mix = value(uDynamicEQMix) * .01;
+      const double low = -6. * std::max(1., std::ceil(value(uDynamicEQRange) / 6.));
+      const auto bell = [&](double cut) {
+        const double gain = 1. + mix * (std::pow(10., -cut * .05) - 1.);
+        return [=](double x) {
+          const double w = 20. * std::pow(upper / 20., x) / center;
+          const std::complex<double> band(0., k * w), shape = band / std::complex<double>(1. - w * w, k * w);
+          return 20. * std::log10(std::max(1.e-9, std::abs(1. + (gain - 1.) * shape)));
+        };
+      };
+      WDL_String caption;
+      caption.SetFormatted(64, "Dynamic EQ | cut %.1f dB", mReductionNow);
+      PlotTitle(g, plot, color, caption.Get());
+      PlotDetail(g, plot, "Faint: cut at full Range | bright: live cut");
+      WDL_String scale; scale.SetFormatted(32, "Curve %.0f / 0 dB", low);
+      PlotFrequencyAxis(g, plot, upper, scale.Get());
+      DrawSignalSpectrum(g, plot);
+      PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 0., color.WithOpacity(.35f), 1.f);
+      PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 0., color);
+    }
     else if (effect == SlotEffect::PedalComp)
     {
       // Settled steady-tone curve: Sustain, Pickup, Blend and Level all move it. Release

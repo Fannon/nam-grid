@@ -278,6 +278,14 @@ enum UtilityParam
   uPedalCompPickup = 262,
   uChorusVoices = 263,
   uSpringTank = 264,
+  uDynamicEQFrequency = 265,
+  uDynamicEQQ = 266,
+  uDynamicEQThreshold = 267,
+  uDynamicEQRange = 268,
+  uDynamicEQAttack = 269,
+  uDynamicEQRelease = 270,
+  uDynamicEQOutput = 271,
+  uDynamicEQMix = 272,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -389,7 +397,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 15; // 15 Spring tank; 14 Chorus voices; 13 Pedal Comp; 12 Digital Delay time change.
+inline constexpr int kEffectStateSchema = 16; // 16 Dynamic EQ; 15 Spring tank; 14 Chorus voices; 13 Pedal Comp.
 
 struct EffectParameter
 {
@@ -670,7 +678,15 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pedal Comp Level", "Level", 0, -12, 12, 0.1, "dB", 4, false, 1., 13},
    {"Pedal Comp Pickup", "Pickup", 1, 0, 2, 1, "", 0, false, 1., 13},
    {"Chorus Voices", "Voices", 0, 0, 1, 1, "", 0, false, 1., 14},
-   {"Spring Tank", "Tank", 0, 0, 1, 1, "", 0, false, 1., 15}}};
+   {"Spring Tank", "Tank", 0, 0, 1, 1, "", 0, false, 1., 15},
+   {"Dynamic EQ Frequency", "Frequency", 800, 20, 20000, 1, "Hz", 0, true, 1., 16},
+   {"Dynamic EQ Q", "Q", 1, 0.2, 12, 0.01, "", 1, false, 1., 16},
+   {"Dynamic EQ Threshold", "Threshold", -24, -72, 0, 0.1, "dB", 2, false, 1., 16},
+   {"Dynamic EQ Range", "Range", 6, 0, 18, 0.1, "dB", 3, false, 1., 16},
+   {"Dynamic EQ Attack", "Attack", 5, 0.2, 100, 0.1, "ms", 4, true, 1., 16},
+   {"Dynamic EQ Release", "Release", 120, 10, 1000, 1, "ms", 5, true, 1., 16},
+   {"Dynamic EQ Output", "Output", 0, -24, 12, 0.1, "dB", 6, false, 1., 16},
+   {"Dynamic EQ Mix", "Mix", 100, 0, 100, 0.1, "%", 7, false, 1., 16}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -747,12 +763,14 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
+    case SlotEffect::DynamicEQ:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uDynamicEQFrequency && p <= uDynamicEQMix) return e == SlotEffect::DynamicEQ;
   if (p >= uToneMidFrequency)
   {
     switch (p)
@@ -962,6 +980,7 @@ struct UtilityControls
   // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Focus (Body -100 to Pick +100), Blend and Level, in ID order.
   std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
   int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.
+  std::array<double, 8> dynamicEQ{800, 1, -24, 6, 5, 120, 0, 100};
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
   int irLength = 0;

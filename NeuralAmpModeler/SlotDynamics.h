@@ -67,12 +67,14 @@ enum class SlotEffect
   DigitalBlack = 55,
   PedalDrive = 56,
   PedalComp = 57,
-  Last = PedalComp,
+  DynamicEQ = 58,
+  Last = DynamicEQ,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
   switch (effect)
   {
+    case SlotEffect::DynamicEQ: return "Dynamic EQ";
     case SlotEffect::NAM: return "NAM";
     case SlotEffect::NoiseGate: return "Noise Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";

@@ -85,6 +85,19 @@ inline const Preset parametricEQ[]{
   {"Low-mid mud cut", {{U(uFrequency), 300.}, {U(uGain), -3.}, {U(uQ), .8}, {parameter_layout::kSlotEQHighPass, 60.}}},
   {"Harshness cut", {{U(uFrequency), 3500.}, {U(uGain), -3.}, {U(uQ), 1.5}}},
 };
+// Dynamic EQ thresholds are absolute, so each preset names where it sits. They were set so the
+// band is cut on about a quarter to a third of played audio and rests between peaks: guitar DI
+// peaking near -6 dBFS, the bundled clean capture's output, and a bass DI peaking near -6 dBFS.
+inline const Preset dynamicEQ[]{
+  {"Palm-mute control (after amp)", {{U(uDynamicEQFrequency), 140.}, {U(uDynamicEQQ), .9}, {U(uDynamicEQThreshold), -19.},
+    {U(uDynamicEQRange), 6.}, {U(uDynamicEQAttack), 8.}, {U(uDynamicEQRelease), 140.}}},
+  {"Tight into amp", {{U(uDynamicEQFrequency), 120.}, {U(uDynamicEQQ), .8}, {U(uDynamicEQThreshold), -27.},
+    {U(uDynamicEQRange), 6.}, {U(uDynamicEQAttack), 6.}, {U(uDynamicEQRelease), 120.}}},
+  {"Harsh pick tamer (after amp)", {{U(uDynamicEQFrequency), 3000.}, {U(uDynamicEQQ), 1.2}, {U(uDynamicEQThreshold), -30.},
+    {U(uDynamicEQRange), 5.}, {U(uDynamicEQAttack), 1.}, {U(uDynamicEQRelease), 70.}}},
+  {"Bass boom control", {{U(uDynamicEQFrequency), 90.}, {U(uDynamicEQQ), 1.}, {U(uDynamicEQThreshold), -25.},
+    {U(uDynamicEQRange), 6.}, {U(uDynamicEQAttack), 10.}, {U(uDynamicEQRelease), 160.}}},
+};
 inline const Preset filter[]{
   {"Touch wah", {{U(uFilterCutoff), 500.}, {U(uFilterResonance), 2.}, {U(uFilterEnvelope), 2.}}},
 };
@@ -327,6 +340,7 @@ inline std::span<const Preset> For(SlotEffect effect)
 {
   switch (effect)
   {
+    case SlotEffect::DynamicEQ: return dynamicEQ;
     case SlotEffect::PedalComp: return pedalComp;
     case SlotEffect::SmoothComp: return smoothComp;
     case SlotEffect::PunchComp: return punchComp;

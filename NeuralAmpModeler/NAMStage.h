@@ -22,6 +22,7 @@
 #include "SlotDistortion.h"
 #include "SlotPedalDrive.h"
 #include "SlotPedalComp.h"
+#include "SlotDynamicEQ.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 #include "SlotIR.h"
@@ -50,6 +51,7 @@ inline bool ShowsSignalSpectrum(SlotEffect effect)
   return effect == SlotEffect::NAM || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ
          || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter
          || effect == SlotEffect::OutboardChannel || effect == SlotEffect::ConsoleEQ || effect == SlotEffect::Wah
+         || effect == SlotEffect::DynamicEQ
          || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
@@ -103,6 +105,7 @@ public:
     SlotOutboard outboard;
     SlotAirDynamics airDynamics;
     SlotPedalComp pedalComp;
+    SlotDynamicEQ dynamicEQ;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -176,6 +179,7 @@ public:
         if (IsOutboard(effect)) outboard.Reset(rate, effect);
         if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
         if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
+        if (effect == SlotEffect::DynamicEQ) dynamicEQ.Reset(rate);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -219,6 +223,8 @@ public:
                                            : effect == SlotEffect::Utility ? .045
                                            : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
+                                           // Dynamic EQ's slowest Release (1 s) settles a full-Range cut in about eight time constants.
+                                           : effect == SlotEffect::DynamicEQ ? 8.
                                            // Pedal Comp's release memory lets go over 800 ms.
                                            : effect == SlotEffect::PedalComp ? 6.
                                            // Detectors settle on silence (slowest release: 800 ms), so
@@ -493,6 +499,11 @@ public:
             {
               p->airDynamics.Process(out, r, frames, utility);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->airDynamics.Reduction()*mMix));
+            }
+            else if (p->effect == SlotEffect::DynamicEQ)
+            {
+              p->dynamicEQ.Process(out, r, frames, utility, draining);
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamicEQ.Reduction() * mMix));
             }
             else if (p->effect == SlotEffect::PedalComp)
             {

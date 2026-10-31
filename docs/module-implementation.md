@@ -347,3 +347,16 @@ the modulation matrix and the docs control tables.
 The workflow follows the parallel up/down multiband approach popularised by
 Ableton's "OTT" Multiband Dynamics preset and Xfer OTT; this is an original
 implementation, not a port of either.
+
+## Graphic EQ
+
+Seven bands in series, each adding (gain - 1) times a unity-peak TPT state-variable
+band-pass (Andrew Simper's equations) with Q from half the span to its neighbouring
+bands, about one octave on the Guitar voicing. The filters depend only on frequency
+and always run; a slider moves only the band's mix coefficient, ramped per sample,
+so fast slider moves do not click and flat sliders with Level 0 return the input
+exactly. Cuts are therefore somewhat narrower than boosts, as on many analogue
+graphic EQs. Voicing selects one
+of three centre sets (`GraphicEQVoicing.h`, shared with the editor's labels and
+curve); a change glides the centres in octaves with a 10 ms time constant.
+Coefficients update every 16 samples from smoothed gains. No latency.

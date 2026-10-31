@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "EffectParameters.h"
 #include "GridLayout.h"
+#include "GraphicEQVoicing.h"
 
 // Shared controls may have effect-specific wording and layout. Unique controls
 // take their labels directly from the host/state parameter descriptors.
@@ -187,6 +188,8 @@ inline int Position(SlotEffect e, int p)
 }
 inline const char* Label(SlotEffect e, int p, int mode = 0)
 {
+  if (e == SlotEffect::GraphicEQ && p >= uGraphicBand1 && p <= uGraphicBand7)
+    return graphic_eq::kLabels[graphic_eq::Voicing(mode)][p - uGraphicBand1];
   if (e == SlotEffect::PedalDrive && p == uPedalCharacter)
     return effect_modes::pedalCharacterNames[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
   if (p == uDelayCharacter)
@@ -226,6 +229,11 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDoubleHumanize: return "Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets.";
     case uDoubleHighCut: return "Softens only the doubled voices; maximum bypasses this added filter.";
     case uDuckRelease: return "Time for ducked echoes to recover in gaps; 150 ms retains the original recovery.";
+    case uGraphicBand1: case uGraphicBand2: case uGraphicBand3: case uGraphicBand4:
+    case uGraphicBand5: case uGraphicBand6: case uGraphicBand7:
+      return "Boost or cut this band by up to 15 dB. Voicing sets the band frequencies.";
+    case uGraphicLevel: return "Overall level after the bands. Boost into an amp, or match bypass loudness.";
+    case uGraphicVoicing: return "Band frequencies for the instrument. Guitar: octave bands from 100 Hz to 6.4 kHz. Bass: 40 Hz to 6 kHz, weighted to fundamentals and growl. Full range: 63 Hz to 16 kHz for acoustic or mixes. Changing it keeps the slider positions.";
     case uMultibandDepth: return "Blend of the processed bands with the dry signal. 100% is fully processed; lower values keep more of the natural dynamics.";
     case uMultibandDownward: return "How hard each band is pushed down above Threshold, up to 20:1. Zero turns downward compression off.";
     case uMultibandUpward: return "How much quiet passages in each band are raised when they fall more than 12 dB below Threshold, up to 4:1. Zero gives a regular multiband compressor.";
@@ -512,6 +520,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Phaser: return "Six swept phase stages; Feedback deepens the resonant swirl.";
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";
     case SlotEffect::HarmonicTremolo: return "Bass and treble pulse in turn, the swirling brown-panel amp tremolo.";
+    case SlotEffect::GraphicEQ: return "Seven fixed bands and Level, voiced for guitar, bass or full range.";
     case SlotEffect::Multiband: return "Three-band upward and downward compression; drag the display to set splits and Threshold.";
     case SlotEffect::Vibrato: return "Fully wet pitch motion; Rate and Depth set speed and excursion.";
     case SlotEffect::Rotary: return "Fast switches the rotation speed; Ramp time sets the transition.";

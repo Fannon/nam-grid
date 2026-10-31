@@ -304,6 +304,15 @@ enum UtilityParam
   uMultibandLowSplit = 288,
   uMultibandHighSplit = 289,
   uMultibandThreshold = 290,
+  uGraphicBand1 = 291,
+  uGraphicBand2 = 292,
+  uGraphicBand3 = 293,
+  uGraphicBand4 = 294,
+  uGraphicBand5 = 295,
+  uGraphicBand6 = 296,
+  uGraphicBand7 = 297,
+  uGraphicLevel = 298,
+  uGraphicVoicing = 299,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -312,6 +321,7 @@ inline constexpr const char* uRingShapeChoices[]{"Sine", "Triangle", "Square"};
 inline constexpr const char* uUtilityModeChoices[]{"Stereo", "Swap", "Left to both", "Right to both"};
 inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
 inline constexpr const char* kDelayTimeChanges[]{"Glide", "Crossfade"};
+inline constexpr const char* kGraphicVoicings[]{"Guitar", "Bass", "Full range"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
@@ -335,6 +345,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uPedalCompPickup: return effect_modes::pickupNames;
     case uChorusVoices: return effect_modes::chorusVoiceNames;
     case uSpringTank: return effect_modes::springTankNames;
+    case uGraphicVoicing: return kGraphicVoicings;
     default: return {};
   }
 }
@@ -376,6 +387,7 @@ inline constexpr AlgorithmIdentity timeChange[]{{0, "glide"}, {1, "crossfade"}};
 inline constexpr AlgorithmIdentity pickup[]{{0, "single-coil"}, {1, "humbucker"}, {2, "acoustic"}};
 inline constexpr AlgorithmIdentity chorusVoices[]{{0, "one"}, {1, "three"}};
 inline constexpr AlgorithmIdentity springTank[]{{0, "classic"}, {1, "dispersive"}};
+inline constexpr AlgorithmIdentity graphicVoicing[]{{0, "guitar"}, {1, "bass"}, {2, "full-range"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {
@@ -402,6 +414,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uPedalCompPickup: return pickup;
     case uChorusVoices: return chorusVoices;
     case uSpringTank: return springTank;
+    case uGraphicVoicing: return graphicVoicing;
     default: return {};
   }
 }
@@ -415,7 +428,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 19; // 19 Multiband Dynamics; 18 Harmonic Tremolo; 17 Transient Shaper; 16 Dynamic EQ.
+inline constexpr int kEffectStateSchema = 20; // 20 Graphic EQ; 19 Multiband Dynamics; 18 Harmonic Tremolo; 17 Transient Shaper.
 
 struct EffectParameter
 {
@@ -723,7 +736,17 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Multiband Output", "Output", 0, -24, 12, 0.1, "dB", 7, false, 1., 19},
    {"Multiband Low Split", "Low split", 150, 40, 1000, 1, "Hz", 0, true, 1., 19},
    {"Multiband High Split", "High split", 2500, 1000, 12000, 1, "Hz", 0, true, 1., 19},
-   {"Multiband Threshold", "Threshold", -30, -60, 0, 0.1, "dB", 0, false, 1., 19}}};
+   {"Multiband Threshold", "Threshold", -30, -60, 0, 0.1, "dB", 0, false, 1., 19},
+   // Graphic EQ: band labels follow the Voicing (effect_presentation::Label).
+   {"Graphic Band 1", "Band 1", 0, -15, 15, 0.1, "dB", 0, false, 1., 20},
+   {"Graphic Band 2", "Band 2", 0, -15, 15, 0.1, "dB", 1, false, 1., 20},
+   {"Graphic Band 3", "Band 3", 0, -15, 15, 0.1, "dB", 2, false, 1., 20},
+   {"Graphic Band 4", "Band 4", 0, -15, 15, 0.1, "dB", 3, false, 1., 20},
+   {"Graphic Band 5", "Band 5", 0, -15, 15, 0.1, "dB", 4, false, 1., 20},
+   {"Graphic Band 6", "Band 6", 0, -15, 15, 0.1, "dB", 5, false, 1., 20},
+   {"Graphic Band 7", "Band 7", 0, -15, 15, 0.1, "dB", 6, false, 1., 20},
+   {"Graphic Level", "Level", 0, -15, 15, 0.1, "dB", 7, false, 1., 20},
+   {"Graphic Voicing", "Voicing", 0, 0, 2, 1, "", 0, false, 1., 20}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -800,13 +823,14 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
-    case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper: case SlotEffect::Multiband:
+    case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper: case SlotEffect::Multiband: case SlotEffect::GraphicEQ:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uGraphicBand1 && p <= uGraphicVoicing) return e == SlotEffect::GraphicEQ;
   if (p >= uMultibandDepth && p <= uMultibandThreshold) return e == SlotEffect::Multiband;
   if (p >= uTransientShaperAttack && p <= uTransientShaperMix) return e == SlotEffect::TransientShaper;
   if (p >= uDynamicEQFrequency && p <= uDynamicEQMix) return e == SlotEffect::DynamicEQ;
@@ -1028,6 +1052,8 @@ struct UtilityControls
   // Low split, High split and Threshold, in ID order.
   std::array<double, 8> multiband{100, 0, 0, 100, 0, 0, 0, 0};
   std::array<double, 3> multibandShape{150, 2500, -30};
+  std::array<double, 8> graphicEQ{}; // Seven band gains, then Level, in dB.
+  int graphicVoicing = 0;             // 0 Guitar, 1 Bass, 2 Full range.
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
   int irLength = 0;

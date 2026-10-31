@@ -1,13 +1,13 @@
 # Module guide
 
-Any slot can hold a NAM capture, a cabinet IR or one of 60 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
+Any slot can hold a NAM capture, a cabinet IR or one of 61 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
 
 | Category | Modules |
 | --- | --- |
 | [Captures & cabinets](captures.md) | [NAM capture](captures.md#nam), [Cabinet IR](captures.md#cabinet-ir) |
 | [Distortion](distortion.md) | [Distortion](distortion.md#distortion), [Pedal Drive](distortion.md#pedal-drive), [Boost](distortion.md#boost), [Tube Boost](distortion.md#tube-boost), [Airwindows Tape](distortion.md#airwindows-tape), [Console Colour](distortion.md#console-colour), [Bitcrusher](distortion.md#bitcrusher) |
 | [Dynamics](dynamics.md) | [Noise Gate](dynamics.md#noise-gate), [Noise Gate (Smart)](dynamics.md#noise-gate-smart), [Digital Black Gate](dynamics.md#digital-black-gate), [Pedal Comp](dynamics.md#pedal-comp), [Smooth Compressor](dynamics.md#smooth-compressor), [Punch Compressor](dynamics.md#punch-compressor), [Butter Comp](dynamics.md#butter-comp), [Outboard Channel](dynamics.md#outboard-channel), [Transient Shaper](dynamics.md#transient-shaper), [Multiband Dynamics](dynamics.md#multiband-dynamics), [Peak Limiter](dynamics.md#peak-limiter) |
-| [EQ / Filter](eq-filter.md) | [Guitar EQ](eq-filter.md#guitar-eq), [Cut EQ](eq-filter.md#cut-eq), [Parametric EQ](eq-filter.md#parametric-eq), [Dynamic EQ](eq-filter.md#dynamic-eq), [Console EQ](eq-filter.md#console-eq), [Filter](eq-filter.md#filter), [Wah](eq-filter.md#wah) |
+| [EQ / Filter](eq-filter.md) | [Guitar EQ](eq-filter.md#guitar-eq), [Cut EQ](eq-filter.md#cut-eq), [Graphic EQ](eq-filter.md#graphic-eq), [Parametric EQ](eq-filter.md#parametric-eq), [Dynamic EQ](eq-filter.md#dynamic-eq), [Console EQ](eq-filter.md#console-eq), [Filter](eq-filter.md#filter), [Wah](eq-filter.md#wah) |
 | [Modulation](modulation.md) | [Chorus](modulation.md#chorus), [Juno Chorus](modulation.md#juno-chorus), [Flanger](modulation.md#flanger), [Phaser](modulation.md#phaser), [Auto Tremolo](modulation.md#auto-tremolo), [Harmonic Tremolo](modulation.md#harmonic-tremolo), [Vibrato](modulation.md#vibrato), [Rotary](modulation.md#rotary), [Uni-Vibe](modulation.md#uni-vibe), [Ring Modulator](modulation.md#ring-modulator) |
 | [Pitch / Frequency](pitch-frequency.md) | [Mono Octaver](pitch-frequency.md#mono-octaver), [Stereo Doubler](pitch-frequency.md#stereo-doubler), [Frequency Shifter](pitch-frequency.md#frequency-shifter) |
 | [Delay](delay.md) | [Digital Delay](delay.md#digital-delay), [Analog Echo](delay.md#analog-echo), [Tape Echo](delay.md#tape-echo), [Multi-head Tape](delay.md#multi-head-tape), [Reverse Delay](delay.md#reverse-delay), [Dual Delay](delay.md#dual-delay), [Diffused Delay](delay.md#diffused-delay) |

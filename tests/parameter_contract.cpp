@@ -72,6 +72,9 @@ static_assert(kEffectParameters[uHarmonicCrossover].introducedIn == 18);
 static_assert(SlotUtilityParam(0, uMultibandDepth) == 4861);
 static_assert(SlotUtilityParam(15, uMultibandThreshold) == 5036);
 static_assert(kEffectParameters[uMultibandDepth].introducedIn == 19 && kEffectParameters[uMultibandThreshold].introducedIn == 19);
+static_assert(SlotUtilityParam(0, uGraphicBand1) == 5037);
+static_assert(SlotUtilityParam(15, uGraphicVoicing) == 5180);
+static_assert(kEffectParameters[uGraphicBand1].introducedIn == 20 && kEffectParameters[uGraphicVoicing].introducedIn == 20);
 
 int main(int argc, char** argv)
 {

@@ -178,6 +178,8 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uHarmonicCrossover, t.extra.harmonicCrossover);
   family(uMultibandDepth, t.multiband);
   family(uMultibandLowSplit, t.multibandShape);
+  family(uGraphicBand1, t.graphicEQ);
+  u(uGraphicVoicing, t.graphicVoicing);
   family(uPedalCompSustain, t.pedalComp);
   u(uPedalCompPickup, t.pedalCompPickup);
   u(uChorusVoices, t.extra.chorusVoices);

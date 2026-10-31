@@ -25,6 +25,7 @@
 #include "SlotDynamicEQ.h"
 #include "SlotTransientShaper.h"
 #include "SlotMultiband.h"
+#include "SlotGraphicEQ.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 #include "SlotIR.h"
@@ -55,7 +56,7 @@ inline bool ShowsSignalSpectrum(SlotEffect effect)
   return effect == SlotEffect::NAM || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ
          || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter
          || effect == SlotEffect::OutboardChannel || effect == SlotEffect::ConsoleEQ || effect == SlotEffect::Wah
-         || effect == SlotEffect::DynamicEQ || effect == SlotEffect::Multiband
+         || effect == SlotEffect::DynamicEQ || effect == SlotEffect::Multiband || effect == SlotEffect::GraphicEQ
          || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
@@ -112,6 +113,7 @@ public:
     SlotDynamicEQ dynamicEQ;
     SlotTransientShaper transientShaper;
     SlotMultiband multiband;
+    SlotGraphicEQ graphicEQ;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -188,6 +190,7 @@ public:
         if (effect == SlotEffect::DynamicEQ) dynamicEQ.Reset(rate);
         if (effect == SlotEffect::TransientShaper) transientShaper.Reset(rate);
         if (effect == SlotEffect::Multiband) multiband.Reset(rate);
+        if (effect == SlotEffect::GraphicEQ) graphicEQ.Reset(rate);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -522,6 +525,8 @@ public:
               p->transientShaper.Process(out, r, frames, utility, draining);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->transientShaper.Reduction() * mMix));
             }
+            else if (p->effect == SlotEffect::GraphicEQ)
+              p->graphicEQ.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::Multiband)
             {
               p->multiband.Process(out, r, frames, utility);

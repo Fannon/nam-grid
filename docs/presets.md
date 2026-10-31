@@ -113,6 +113,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup; Low-mid mud cut, Harshness cut |
 | Multiband Dynamics | Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes retain calibrated Threshold and splits unless explicitly set |
 | Transient Shaper | Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
+| Graphic EQ | Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
 | Dynamic EQ | Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
 | Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |

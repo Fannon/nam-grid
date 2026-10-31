@@ -108,6 +108,19 @@ inline const Preset cutEQ[]{
   {"Tight high gain", {{parameter_layout::kSlotEQHighPass, 110.}, {parameter_layout::kSlotEQLowPass, 7000.}}},
   {"Bass cleanup", {{parameter_layout::kSlotEQHighPass, 35.}, {parameter_layout::kSlotEQLowPass, 12000.}}},
 };
+// Graphic EQ: Voicing is part of each recipe. Lead mid boost is meant to be about 2-3 dB
+// louder for solos and Tight into amp drives the next stage; the others match loudness
+// within about 0.3 dB on a guitar or bass DI.
+inline const Preset graphicEQ[]{
+  {"Lead mid boost", {{U(uGraphicVoicing), 0.}, {U(uGraphicBand1), -3.}, {U(uGraphicBand2), 0.}, {U(uGraphicBand3), 3.},
+    {U(uGraphicBand4), 6.}, {U(uGraphicBand5), 3.}, {U(uGraphicBand6), 0.}, {U(uGraphicBand7), -2.}, {U(uGraphicLevel), -1.}}},
+  {"Tight into amp", {{U(uGraphicVoicing), 0.}, {U(uGraphicBand1), -9.}, {U(uGraphicBand2), -4.}, {U(uGraphicBand3), 0.},
+    {U(uGraphicBand4), 2.}, {U(uGraphicBand5), 3.}, {U(uGraphicBand6), 1.}, {U(uGraphicBand7), -1.}, {U(uGraphicLevel), 4.}}},
+  {"Bass clarity", {{U(uGraphicVoicing), 1.}, {U(uGraphicBand1), 2.}, {U(uGraphicBand2), 1.}, {U(uGraphicBand3), -2.},
+    {U(uGraphicBand4), -3.}, {U(uGraphicBand5), 2.}, {U(uGraphicBand6), 3.}, {U(uGraphicBand7), 0.}, {U(uGraphicLevel), 1.}}},
+  {"Acoustic air", {{U(uGraphicVoicing), 2.}, {U(uGraphicBand1), -3.}, {U(uGraphicBand2), -2.}, {U(uGraphicBand3), -1.},
+    {U(uGraphicBand4), 0.}, {U(uGraphicBand5), 1.}, {U(uGraphicBand6), 2.}, {U(uGraphicBand7), 2.}, {U(uGraphicLevel), 1.5}}},
+};
 inline const Preset parametricEQ[]{
   {"Low-mid mud cut", {{U(uFrequency), 300.}, {U(uGain), -3.}, {U(uQ), .8}, {parameter_layout::kSlotEQHighPass, 60.}}},
   {"Harshness cut", {{U(uFrequency), 3500.}, {U(uGain), -3.}, {U(uQ), 1.5}}},
@@ -378,6 +391,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::DynamicEQ: return dynamicEQ;
     case SlotEffect::TransientShaper: return transientShaper;
     case SlotEffect::Multiband: return multiband;
+    case SlotEffect::GraphicEQ: return graphicEQ;
     case SlotEffect::PedalComp: return pedalComp;
     case SlotEffect::SmoothComp: return smoothComp;
     case SlotEffect::PunchComp: return punchComp;

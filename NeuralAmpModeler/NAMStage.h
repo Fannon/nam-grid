@@ -19,6 +19,7 @@
 #include "RoadmapEffects.h"
 #include "SlotHQEffects.h"
 #include "EQSignalSpectrum.h"
+#include "SignalMonitor.h"
 #include "SlotDistortion.h"
 #include "SlotPedalDrive.h"
 #include "SlotPedalComp.h"
@@ -44,6 +45,7 @@ struct SlotMeterData
   double inputEnergy = 0., outputEnergy = 0.;
   int frames = 0;
   LoFiTapeHistory lofi;
+  signal_monitor::Accumulator monitor;
   std::array<float, 2> filterCutoff{}, filterQ{};
   // Multiband Dynamics: each band's largest dynamic gain (dB) and detected level (dBFS).
   std::array<float, 3> bandGain{}, bandLevel{-120.f, -120.f, -120.f};
@@ -57,6 +59,7 @@ inline bool ShowsSignalSpectrum(SlotEffect effect)
          || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter
          || effect == SlotEffect::OutboardChannel || effect == SlotEffect::ConsoleEQ || effect == SlotEffect::Wah
          || effect == SlotEffect::DynamicEQ || effect == SlotEffect::Multiband || effect == SlotEffect::GraphicEQ
+         || effect == SlotEffect::SignalMonitor
          || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
@@ -386,6 +389,7 @@ public:
     mMonitoring = mMeteringEnabled && enabled && info.loaded;
     if (!mMonitoring) mMeter = {};
     float inputPeak = 0.f;
+    const double previousInputEnergy = mMeter.inputEnergy;
     if (mMonitoring)
     {
       for (int i = 0; i < frames; ++i)
@@ -397,6 +401,23 @@ public:
       mMeter.frames += frames;
     }
     mMeter.input = std::max(mMeter.input, inputPeak);
+    if (p && p->effect == SlotEffect::SignalMonitor && !switching && mSwitchGain >= 1.)
+    {
+      // A stable inspection tap needs no audio buffer copies, smoothing or
+      // dry/wet arithmetic. Metering remains observational and selected-only.
+      if (mMonitoring)
+      {
+        mMeter.output = std::max(mMeter.output, inputPeak);
+        mMeter.outputEnergy += mMeter.inputEnergy - previousInputEnergy;
+        if (mCapture)
+          for (int i=0;i<frames;++i)
+          {
+            const double l=samples[i], r=rightSamples?rightSamples[i]:l;
+            mCapture->Push(l,r); mMeter.monitor.Push(l,r);
+          }
+      }
+      return samples;
+    }
     if (p && p->effect != SlotEffect::NAM)
       inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
     if (p && p->effect == SlotEffect::CabinetIR)
@@ -634,6 +655,7 @@ public:
       const bool limitFading = trailing && p->trailFrames >= p->trailLimit - p->trailFade;
       const double outDelta = (outTarget - mOut) / std::max(1, frames);
       const bool spectrum = mCapture && mMonitoring && ShowsSignalSpectrum(p->effect);
+      const bool monitor = p->effect == SlotEffect::SignalMonitor;
       for (int i = 0; i < frames; ++i)
       {
         mOut += outDelta;
@@ -649,11 +671,20 @@ public:
         }
         const double wetMix = mix + mTrail * (1. - mix);
         mSwitchGain = Approach(mSwitchGain, switching ? 0. : 1., mStep);
-        if (rightSamples)
+        if (monitor)
         {
-          rightSamples[i] = (p->right->dry[i] * (1. - mix) + p->right->wet[i] * mOut * wetMix) * mSwitchGain;
+          // Avoid even dry/wet rounding during enable ramps. Only the normal
+          // module-replacement fade may change the signal while switching.
+          samples[i] = p->dry[i] * mSwitchGain;
+          if (rightSamples) rightSamples[i] = p->right->dry[i] * mSwitchGain;
+          if (spectrum) mMeter.monitor.Push(samples[i], rightSamples ? rightSamples[i] : samples[i]);
         }
-        samples[i] = (p->dry[i] * (1. - mix) + p->wet[i] * mOut * wetMix) * mSwitchGain;
+        else
+        {
+          if (rightSamples)
+            rightSamples[i] = (p->right->dry[i] * (1. - mix) + p->right->wet[i] * mOut * wetMix) * mSwitchGain;
+          samples[i] = (p->dry[i] * (1. - mix) + p->wet[i] * mOut * wetMix) * mSwitchGain;
+        }
         if (spectrum)
           mCapture->Push(samples[i], rightSamples ? rightSamples[i] : samples[i]);
         if (mMonitoring)

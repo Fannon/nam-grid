@@ -1,6 +1,6 @@
 # Module guide
 
-Any slot can hold a NAM capture, a cabinet IR or one of 61 built-in effects. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
+Any slot can hold a NAM capture, a cabinet IR or a built-in effect. Each category page lists its modules with their controls, ranges, starting settings and tips; the screenshots show every module at its starting settings.
 
 | Category | Modules |
 | --- | --- |
@@ -13,7 +13,7 @@ Any slot can hold a NAM capture, a cabinet IR or one of 61 built-in effects. Eac
 | [Delay](delay.md) | [Digital Delay](delay.md#digital-delay), [Analog Echo](delay.md#analog-echo), [Tape Echo](delay.md#tape-echo), [Multi-head Tape](delay.md#multi-head-tape), [Reverse Delay](delay.md#reverse-delay), [Dual Delay](delay.md#dual-delay), [Diffused Delay](delay.md#diffused-delay) |
 | [Reverb](reverb.md) | [Room](reverb.md#room), [Dense Plate](reverb.md#dense-plate), [Cloud](reverb.md#cloud), [Hall](reverb.md#hall), [Spring Reverb](reverb.md#spring-reverb), [Shimmer](reverb.md#shimmer), [Airwindows Plate](reverb.md#airwindows-plate), [Airwindows Guitar Hall](reverb.md#airwindows-guitar-hall), [Galactic Space](reverb.md#galactic-space), [Cosmic Echo](reverb.md#cosmic-echo) |
 | [Creative](creative.md) | [Freeze / Hold](creative.md#freeze--hold), [Stutter](creative.md#stutter), [LoFi Tape Machine](creative.md#lofi-tape-machine) |
-| [Utility / Volume](utility-volume.md) | [Utility](utility-volume.md#utility), [Auto Swell](utility-volume.md#auto-swell) |
+| [Utility / Volume](utility-volume.md) | [Utility](utility-volume.md#utility), [Auto Swell](utility-volume.md#auto-swell), [Signal Monitor](utility-volume.md#signal-monitor) |
 
 Five modules have their own pages with more background and recipes: [Pedal Drive](pedal-drive.md), [Noise Gate (Smart)](noise-gate-smart.md), [LoFi Tape Machine](lofi-tape.md), [Cosmic Echo](cosmic-echo.md) and [Cabinet IR processing](ir-processing.md).
 

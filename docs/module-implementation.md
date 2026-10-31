@@ -360,3 +360,18 @@ graphic EQs. Voicing selects one
 of three centre sets (`GraphicEQVoicing.h`, shared with the editor's labels and
 curve); a change glides the centres in octaves with a 10 ms time constant.
 Coefficients update every 16 samples from smoothed gains. No latency.
+
+## Signal Monitor
+
+Signal Monitor is a measurement tap, with no utility controls or new host
+parameters. Its stage returns the original samples directly, preserving signed
+zero and avoiding dry/wet rounding during enable ramps. Module replacement keeps
+the common transition fade. It reports no latency.
+
+The selected visible slot accumulates stereo peak, energy and cross-product in
+bounded meter packets; the UI calculates RMS/correlation with 300 ms exponential
+averaging. Capture buffers are prepared off audio. The shared signal window holds
+both channels for cancellation-safe stereo spectrum analysis; Utility's scope
+continues reading aligned newest samples. FFTs and drawing run on the UI thread.
+Closing the editor, hiding visualizations, deselecting or disabling the monitor
+stops its analysis. The DSP tests check sample identity and zero audio allocations.

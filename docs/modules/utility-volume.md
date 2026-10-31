@@ -1,10 +1,11 @@
 # Utility / Volume
 
-Stereo utilities and volume swells.
+Stereo utilities, volume swells and transparent signal inspection.
 
 | Module | In short |
 | --- | --- |
 | [Utility](#utility) | Balance, Width and polarity reshape stereo; Fine delay aligns paths. |
+| [Signal Monitor](#signal-monitor) | Stereo spectrum, waveform, peak/RMS levels, headroom and correlation; audio passes unchanged. |
 | [Auto Swell](#auto-swell) | Threshold triggers the fade-in; Release closes the next gap. |
 
 ## Utility
@@ -47,3 +48,26 @@ A volume swell that removes the pick attack and fades each phrase in. Pause belo
 | **Mix** | 0–100% | 100% | Blend the swollen signal with dry guitar to retain some pick attack. |
 
 **Display:** The swell envelope, and the input against the output.
+
+## Signal Monitor
+
+![Signal Monitor editor](../screenshots/modules/signal-monitor.png)
+
+Place it anywhere to inspect that point in your rig. It has no sound controls,
+factory/user presets or added latency. Enabling or bypassing it does not change
+samples. Inserting or replacing modules still uses the normal transition fade.
+
+- **Spectrum:** the louder channel at each frequency, rather than a mono sum.
+  Opposite-polarity stereo cannot disappear from the spectrum through cancellation.
+- **Waveform:** the newest left/right samples on a fixed ±1 full-scale display.
+- **Peak / peak hold:** sample peaks from all received audio-meter packets, with
+  a held maximum. These are sample peaks, not oversampled true-peak measurements.
+- **RMS:** separate left/right energy with 300 ms exponential averaging.
+- **Headroom:** distance from the sample peak to 0 dBFS; negative means over full scale.
+- **Correlation:** +1 for matching channels, −1 for opposite polarity and near
+  zero for unrelated signals. Silence has no useful correlation and reads zero.
+
+Analysis runs only while the monitor is selected, enabled and visualizations are
+visible. Peak hold resets when monitoring resumes after a pause. Use the global
+visualization setting to show or hide the display. Other modules' existing footer
+meters remain available for quick input/output comparisons.

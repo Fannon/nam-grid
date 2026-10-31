@@ -70,7 +70,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {compColor, compColor, "Volume"};
   if (effect == SlotEffect::Tape)
     return {boostColor, boostColor, "Tape"};
-  if (effect == SlotEffect::Utility)
+  if (effect == SlotEffect::Utility || effect == SlotEffect::SignalMonitor)
     return {neutralColor, neutralColor, "Utility"};
   if (effect == SlotEffect::CabinetIR)
     return {cabColor, cabColor, "WAV / IR"};
@@ -1283,7 +1283,7 @@ public:
     {
       DrawVisualization(g);
       // The selected module's own input and output sit in the visualization footer.
-      if (!empty)
+      if (!empty && effect != SlotEffect::SignalMonitor)
         DrawModuleLevels(g, IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotMetersTop, grid_layout::visualizationRight - 12, grid_layout::plotMetersBottom),
                          mLevels, mModuleLevels, tone.first);
     }
@@ -1488,11 +1488,23 @@ public:
     {
       if (!ShowsSignalSpectrum(PLUG()->GetSlotEffect(mSlot))) return;
       const auto& window = static_cast<const iplug::ISenderData<1, grid_eq_signal::Window>*>(data)->vals[0];
-      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::Utility)
+      const bool monitor = PLUG()->GetSlotEffect(mSlot) == SlotEffect::SignalMonitor;
+      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::Utility || monitor)
       {
-        // The stereo scope reads the newest samples of both channels.
-        std::copy(window.samples.end() - window.right.size(), window.samples.end(), mScopeLeft.begin());
-        mScopeRight = window.right;
+        // Preserve aligned newest samples when the right FFT window is larger.
+        std::copy(window.samples.end() - grid_eq_signal::scopeSize, window.samples.end(), mScopeLeft.begin());
+        std::copy(window.right.end() - grid_eq_signal::scopeSize, window.right.end(), mScopeRight.begin());
+        if (monitor)
+        {
+          const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+          const auto l = grid_eq_signal::Analyze(window.samples, rate), r = grid_eq_signal::Analyze(window.right, rate);
+          const bool fresh = Now() - mSpectrumTime < .5;
+          for (size_t i=0;i<mSpectrum.size();++i)
+          {
+            const float level = std::max(l[i],r[i]);
+            mSpectrum[i] = fresh ? std::max(level,.65f*mSpectrum[i]+.35f*level) : level;
+          }
+        }
         mSpectrumTime = Now();
         if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
         return; // The stereo scope does not display a frequency spectrum.
@@ -1523,6 +1535,11 @@ public:
       }
       mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
       mMeter.bandGain = meter.bandGain; mMeter.bandLevel = meter.bandLevel;
+      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::SignalMonitor && meter.monitor.frames)
+      {
+        if (Now()-mMonitorTime>.5) mMonitor.Reset();
+        mMonitor.Receive(meter.monitor,PLUG()->GetSampleRate()); mMonitorTime=Now();
+      }
       const auto monitoredEffect = PLUG()->GetSlotEffect(mSlot);
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
@@ -2110,6 +2127,8 @@ private:
     }
     else if (effect == SlotEffect::ConsoleEQ)
       DrawConsoleEQ(g, plot, color);
+    else if (effect == SlotEffect::SignalMonitor)
+      DrawSignalMonitor(g, plot, color);
     else if (effect == SlotEffect::Utility)
       DrawUtility(g, plot, color);
     else if (effect == SlotEffect::Wah)
@@ -2282,6 +2301,50 @@ private:
     return grid_ui::DrawEffectSetup(g, effect, plot, color,
       [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
       PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);
+  }
+  void DrawSignalMonitor(IGraphics& g, const IRECT& plot, IColor color)
+  {
+    using namespace grid_ui;
+    PlotTitle(g,plot,color,"Stereo spectrum | max L/R");
+    PlotDetail(g,plot,"Each frequency shows the louder channel; opposite-polarity audio does not cancel. Meter peaks include all received samples. RMS and correlation average over 300 ms.");
+    PlotFrequencyAxis(g,plot,std::min(20000.,.49*PLUG()->GetSampleRate()),"-72 / 0 dBFS");
+    DrawSignalSpectrum(g,plot,false);
+    const float left=grid_layout::parameterLeft, right=grid_layout::parameterRight;
+    const bool live=Now()-mMonitorTime<.5;
+    g.DrawText(Text(12.f,muted),"Stereo levels | sample peak / 300 ms RMS",IRECT(left,520,right,538));
+    for (int ch=0;ch<2;++ch)
+    {
+      const float top=546.f+30.f*ch;
+      const double peak=live?mMonitor.peak[ch]:0.,rms=live?mMonitor.RMS(ch):0.;
+      const IRECT bar(left+22.f,top+3.f,left+220.f,top+15.f);
+      const auto ink=ch?ampColor:color;
+      g.DrawText(Text(12.f,ink),ch?"R":"L",IRECT(left,top,left+20.f,top+18.f));
+      g.FillRect(surface,bar);g.DrawRect(border,bar);
+      const auto at=[&](double x){return bar.L+bar.W()*static_cast<float>(std::clamp((signal_monitor::Meter::DB(x)+60.)/60.,0.,1.));};
+      g.FillRect(ink.WithOpacity(.5f),IRECT(bar.L,bar.T,at(rms),bar.B));
+      g.DrawLine(peak>=1.?reductionOverflowColor:ink,at(peak),bar.T-2.f,at(peak),bar.B+2.f,nullptr,2.f);
+      WDL_String text;text.SetFormatted(128,"Peak %5.1f   RMS %5.1f dBFS",signal_monitor::Meter::DB(peak),signal_monitor::Meter::DB(rms));
+      g.DrawText(Text(12.f,muted),text.Get(),IRECT(left+238.f,top,right,top+20.f));
+    }
+    WDL_String status;status.SetFormatted(160,"Correlation %+.2f    Peak hold L %.1f / R %.1f dBFS",live?mMonitor.Correlation():0.,signal_monitor::Meter::DB(mMonitor.hold[0]),signal_monitor::Meter::DB(mMonitor.hold[1]));
+    g.DrawText(Text(12.f,muted),status.Get(),IRECT(left,605,right,623));
+    const IRECT wave(left,642,right,694);
+    g.DrawText(Text(11.f,muted),"Waveform | L / R | +/-1 FS",IRECT(left,625,left+230.f,641));
+    WDL_String room;room.SetFormatted(96,"Headroom L %.1f / R %.1f dB",-signal_monitor::Meter::DB(live?mMonitor.peak[0]:0.),-signal_monitor::Meter::DB(live?mMonitor.peak[1]:0.));
+    g.DrawText(Text(11.f,muted,EAlign::Far),room.Get(),IRECT(left+230.f,625,right,641));
+    g.DrawRect(border,wave);g.DrawLine(border,wave.L,wave.MH(),wave.R,wave.MH());
+    if (Now()-mSpectrumTime<.5)
+      for (int ch=0;ch<2;++ch)
+      {
+        const auto& samples=ch?mScopeRight:mScopeLeft;
+        for (size_t i=2;i<samples.size();i+=2)
+        {
+          const auto x=[&](size_t j){return wave.L+wave.W()*static_cast<float>(j)/(samples.size()-1);};
+          const auto y=[&](size_t j){return wave.MH()-wave.H()*.5f*std::clamp(samples[j],-1.f,1.f);};
+          g.DrawLine((ch?ampColor:color).WithOpacity(.75f),x(i-2),y(i-2),x(i),y(i),nullptr,1.f);
+        }
+      }
+    g.DrawText(Text(11.f,muted),"Sample peaks | peak hold resets when monitoring resumes.",IRECT(left,697,right,716));
   }
   // Utility reshapes stereo, so it shows the live output as a goniometer (mid up, side across)
   // with a correlation meter: mono is a vertical line, Width spreads it, Balance tilts it and
@@ -2608,7 +2671,7 @@ private:
     if (effect != mPlotEffect || path != mPlotPath)
     {
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mReductionHistory = {};
-      mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear();
+      mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear(); mMonitor.Reset(); mMonitorTime=-1.;
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
@@ -2954,6 +3017,8 @@ private:
   std::array<float, 120> mInputHistory{}, mOutputHistory{}, mReductionHistory{};
   std::array<float, 96> mResponse{};
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
+  signal_monitor::Meter mMonitor;
+  double mMonitorTime = -1.;
   std::array<double, 9> mResponseKey{-1.};
   std::array<double, 23> mEQKey{};
   std::array<std::array<float, 3>, 162> mEQCurve{};

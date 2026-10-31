@@ -428,7 +428,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 20; // 20 Graphic EQ; 19 Multiband Dynamics; 18 Harmonic Tremolo; 17 Transient Shaper.
+inline constexpr int kEffectStateSchema = 21; // 21 Signal Monitor (no new controls); 20 Graphic EQ; 19 Multiband Dynamics.
 
 struct EffectParameter
 {

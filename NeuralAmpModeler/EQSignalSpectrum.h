@@ -11,12 +11,13 @@ namespace grid_eq_signal
 {
 constexpr size_t windowSize = 4096;
 constexpr size_t bands = 128;
-// The stereo scope only needs the newest samples of the right channel.
+// Waveform views use the newest scopeSize samples; Signal Monitor also needs
+// a full right-channel window for a cancellation-safe stereo spectrum.
 constexpr size_t scopeSize = 1024;
 struct Window
 {
   std::array<float, windowSize> samples{};  // Left output, oldest first.
-  std::array<float, scopeSize> right{};     // Right output (left for mono) for the last scopeSize samples.
+  std::array<float, windowSize> right{};     // Right output (left for mono), oldest first.
 };
 
 inline std::array<float, bands> Analyze(const std::array<float, windowSize>& samples, double rate)

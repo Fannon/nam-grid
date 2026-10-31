@@ -146,6 +146,8 @@ User presets only:
 
 - **Noise Gate, Noise Gate (Smart), Digital Black Gate:** set the threshold to your noise floor and quiet notes; learn the Smart Gate's profile from your own input.
 - **Utility:** balance, polarity, channel choice and alignment depend on the rig.
+
+**Signal Monitor** has no sound settings or preset menu.
 - **Outboard Channel, Console Colour, Console EQ, Ring Modulator, Frequency Shifter, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
 
 Synced recipes select both Tempo sync and Division. Unsynced recipes restore

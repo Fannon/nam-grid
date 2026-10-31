@@ -292,6 +292,7 @@ enum UtilityParam
   uTransientShaperSensitivity = 276,
   uTransientShaperOutput = 277,
   uTransientShaperMix = 278,
+  uHarmonicCrossover = 279,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -403,7 +404,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 17; // 17 Transient Shaper; 16 Dynamic EQ; 15 Spring tank; 14 Chorus voices.
+inline constexpr int kEffectStateSchema = 18; // 18 Harmonic Tremolo; 17 Transient Shaper; 16 Dynamic EQ; 15 Spring tank.
 
 struct EffectParameter
 {
@@ -698,7 +699,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Transient Recovery", "Recovery", 100, 20, 500, 1, "ms", 2, true, 1., 17},
    {"Transient Sensitivity", "Sensitivity", 50, 0, 100, 0.1, "%", 3, false, 1., 17},
    {"Transient Output", "Output", 0, -24, 12, 0.1, "dB", 4, false, 1., 17},
-   {"Transient Mix", "Mix", 100, 0, 100, 0.1, "%", 5, false, 1., 17}}};
+   {"Transient Mix", "Mix", 100, 0, 100, 0.1, "%", 5, false, 1., 17},
+   {"Harmonic Crossover", "Crossover", 500, 200, 2000, 1, "Hz", 3, true, 1., 18}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -755,7 +757,7 @@ inline bool IsModulation(SlotEffect e)
   switch (e)
   {
     case SlotEffect::Chorus: case SlotEffect::Flanger: case SlotEffect::Phaser:
-    case SlotEffect::Tremolo: case SlotEffect::Vibrato: return true;
+    case SlotEffect::Tremolo: case SlotEffect::Vibrato: case SlotEffect::HarmonicTremolo: return true;
     default: return false;
   }
 }
@@ -803,7 +805,9 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uChorusDelay: return e == SlotEffect::Chorus;
       case uJunoWidth: return e == SlotEffect::JunoChorus;
       case uFlangerDelay: return e == SlotEffect::Flanger;
-      case uModSpread: return e == SlotEffect::Flanger || e == SlotEffect::Phaser || e == SlotEffect::Tremolo;
+      case uModSpread: return e == SlotEffect::Flanger || e == SlotEffect::Phaser || e == SlotEffect::Tremolo
+                              || e == SlotEffect::HarmonicTremolo;
+      case uHarmonicCrossover: return e == SlotEffect::HarmonicTremolo;
       case uPhaserStages: return e == SlotEffect::Phaser;
       case uVibratoRise: return e == SlotEffect::Vibrato;
       case uRotaryBalance: return e == SlotEffect::Rotary;
@@ -936,6 +940,7 @@ struct ModuleExtensions
   double delayTimeChange = 0; // 0 Glide (released behavior), 1 Crossfade.
   double chorusVoices = 0; // 0 one voice per channel (released behavior), 1 three voices.
   double springTank = 0; // 0 Classic (released behavior), 1 Dispersive.
+  double harmonicCrossover = 500;
 };
 struct UtilityControls
 {

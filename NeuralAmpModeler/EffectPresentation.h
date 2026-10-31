@@ -83,6 +83,7 @@ inline int TablePosition(SlotEffect e, int p)
   static constexpr int FlangerOrder[]{uModRate, uModDepth, uModFeedback, uModCharacter, uFlangerDelay, uModSpread, uModMix};
   static constexpr int PhaserOrder[]{uModRate, uModDepth, uModFeedback, uModCharacter, uModSpread, uModMix};
   static constexpr int TremoloOrder[]{uModRate, uModDepth, uModCharacter, uModSpread, uModMix};
+  static constexpr int HarmonicTremoloOrder[]{uModRate, uModDepth, uModCharacter, uHarmonicCrossover, uModSpread, uModMix};
   static constexpr int VibratoOrder[]{uModRate, uModDepth, uModCharacter, uVibratoRise};
   static constexpr int RotaryOrder[]{uRotarySlow, uRotaryFast, uRotarySpeed, uRotaryAccel, uRotaryDrive, uRotarySpread, uRotaryBalance, uRotaryMix};
   static constexpr int UniVibeOrder[]{uModRate, uModDepth, uModCharacter, uVibeSpread, uModMix};
@@ -120,6 +121,7 @@ inline int TablePosition(SlotEffect e, int p)
     case SlotEffect::Flanger: order = FlangerOrder; break;
     case SlotEffect::Phaser: order = PhaserOrder; break;
     case SlotEffect::Tremolo: order = TremoloOrder; break;
+    case SlotEffect::HarmonicTremolo: order = HarmonicTremoloOrder; break;
     case SlotEffect::Vibrato: order = VibratoOrder; break;
     case SlotEffect::Rotary: order = RotaryOrder; break;
     case SlotEffect::UniVibe: order = UniVibeOrder; break;
@@ -187,7 +189,8 @@ inline const char* Label(SlotEffect e, int p, int mode = 0)
     return e == SlotEffect::DigitalDelay ? "Ducking" : e == SlotEffect::AnalogDelay ? "Age" : "Saturation";
   if (p == uModCharacter)
     return e == SlotEffect::Phaser ? "Sweep center" : e == SlotEffect::Flanger ? "Feedback sign"
-           : e == SlotEffect::Tremolo ? "Pulse / feel" : e == SlotEffect::UniVibe ? "Sweep color" : "Texture";
+           : e == SlotEffect::Tremolo ? "Pulse / feel" : e == SlotEffect::HarmonicTremolo ? "Shape"
+           : e == SlotEffect::UniVibe ? "Sweep color" : "Texture";
   return kEffectParameters[p].label;
 }
 inline const char* Help(SlotEffect e, int p, int mode = -1)
@@ -219,6 +222,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDoubleHumanize: return "Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets.";
     case uDoubleHighCut: return "Softens only the doubled voices; maximum bypasses this added filter.";
     case uDuckRelease: return "Time for ducked echoes to recover in gaps; 150 ms retains the original recovery.";
+    case uHarmonicCrossover: return "Where bass and treble split. Lower values move more of the guitar into the treble band.";
     case uSpringTank: return "Classic is the original diffuse spring. Dispersive follows a physical spring's chirp: in each echo the lows arrive first and the highs later, the drip of a real tank. Drip sets how strong the chirp is.";
     case uChorusVoices: return "1 voice is the classic single moving delay. 3 voices add two more delays a third of a cycle apart, at slightly different depths and delays, for a lusher, denser chorus.";
     case uDelayTimeChange: return "Glide bends pitch as Time moves, like tape. Crossfade fades to the new time over 30 ms without a pitch sweep; changes of 1 ms or less per update, such as gentle modulation, still glide.";
@@ -352,11 +356,14 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uReverbHighPass: return "Remove bass from the reverb send to keep the tail from getting boomy.";
     case uReverbStereo: return "Stereo wet spread; off folds the reverb to center while preserving dry stereo.";
     case uModRate: return "Speed of the modulation cycle. Tempo sync substitutes a rhythmic division.";
-    case uModDepth: return e == SlotEffect::Tremolo ? "How far the volume dips on each pulse." : "Width of the pitch, delay or filter sweep.";
+    case uModDepth: return e == SlotEffect::Tremolo ? "How far the volume dips on each pulse."
+      : e == SlotEffect::HarmonicTremolo ? "How far each band dips as bass and treble take turns."
+      : "Width of the pitch, delay or filter sweep.";
     case uModFeedback: return "Return the swept signal into itself for a more resonant, pronounced effect.";
     case uModCharacter: return e == SlotEffect::Phaser ? "Raises the center of the selected phase sweep."
       : e == SlotEffect::Flanger ? "Moves feedback from positive through zero to negative. Turning it toward negative also darkens the wet path (12k to 3k) and changes the sweep shape."
       : e == SlotEffect::Tremolo ? "Sharpens pulses; stronger playing also speeds them up when tempo sync is off."
+      : e == SlotEffect::HarmonicTremolo ? "Rounds or squares the swap between bass and treble; zero is a smooth sine."
       : e == SlotEffect::UniVibe ? "Expands the uneven four-stage sweep for a deeper, more vocal swirl."
       : "Warmer tone and more uneven pitch movement; zero keeps a smooth sine sweep.";
     case uChorusSpread: return "Phase offset between left and right chorus voices; zero is centered, 100 is opposite motion.";
@@ -489,6 +496,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Flanger: return "Swept comb notches; Feedback sharpens them.";
     case SlotEffect::Phaser: return "Six swept phase stages; Feedback deepens the resonant swirl.";
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";
+    case SlotEffect::HarmonicTremolo: return "Bass and treble pulse in turn, the swirling brown-panel amp tremolo.";
     case SlotEffect::Vibrato: return "Fully wet pitch motion; Rate and Depth set speed and excursion.";
     case SlotEffect::Rotary: return "Fast switches the rotation speed; Ramp time sets the transition.";
     case SlotEffect::UniVibe: return "Uneven phase sweep; Vibrato mode removes the dry blend.";

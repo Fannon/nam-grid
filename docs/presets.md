@@ -135,6 +135,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Galactic Space | Slow dark space, Wide bright wash, Gentle stereo orbit |
 | Cosmic Echo | Echoes, swells, dense spaces and plate ambience across its styles; see the [factory preset guide](modules/cosmic-echo.md#factory-presets) |
 | Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus; Wide two voices; Slow jet sweep, Light comb motion; Slow vintage phase, Deep stereo phase |
+| Harmonic Tremolo | Brown-panel amp, Slow swirl, Synced throb, Subtle shimmer |
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop; Seasick warble; Vibrato mode swirl; Slow chorale, Fast tremolo |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass; Wide loose double; Sixteenth-note chops; Broken small sampler |
 | LoFi Tape Machine | Subtle drift, Worn cassette, Damaged tape (the [guide's starting points](modules/lofi-tape.md#starting-points); the last two include tape hiss) |

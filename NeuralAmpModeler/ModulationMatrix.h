@@ -175,6 +175,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uDelayTimeChange, t.extra.delayTimeChange);
   family(uDynamicEQFrequency, t.dynamicEQ);
   family(uTransientShaperAttack, t.transientShaper);
+  u(uHarmonicCrossover, t.extra.harmonicCrossover);
   family(uPedalCompSustain, t.pedalComp);
   u(uPedalCompPickup, t.pedalCompPickup);
   u(uChorusVoices, t.extra.chorusVoices);

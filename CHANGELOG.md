@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Harmonic Tremolo:** A new Modulation module that pulses bass and treble in turn, the swirling tremolo of early-1960s brown-panel amps. Crossover sets where the bands split; Tempo sync and Stereo phase work as in Auto Tremolo. Presets: Brown-panel amp, Slow swirl, Synced throb and Subtle shimmer.
+
 - **Transient Shaper:** A new Dynamics module that shapes the start and the decay of each note separately: sharpen or soften the pick, or shorten or lengthen the ring-out. It follows changes in level rather than a threshold, so the same settings work on a DI, after an amp or on bass. Presets: Defined picking, Soft acoustic, Tight palm mutes and Gentle note sustain.
 - **Dynamic EQ:** A new EQ / Filter module that cuts one band only while it is loud: tame palm-mute boom, harsh pick attacks or bass boom without thinning out the rest of your playing. The display shows the cut as it happens. Presets: Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp) and Bass boom control.
 - More useful delay starting points: quiet ducked support, brighter dotted analog and tape echoes, sparse stereo tape heads, short reverse texture, tight stereo doubling and gentle pad echoes. Existing rigs and insertion defaults keep their settings.

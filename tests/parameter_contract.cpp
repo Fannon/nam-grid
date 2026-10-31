@@ -66,6 +66,9 @@ static_assert(kEffectParameters[uDynamicEQFrequency].introducedIn == 16 && kEffe
 static_assert(SlotUtilityParam(0, uTransientShaperAttack) == 4749);
 static_assert(SlotUtilityParam(15, uTransientShaperMix) == 4844);
 static_assert(kEffectParameters[uTransientShaperAttack].introducedIn == 17 && kEffectParameters[uTransientShaperMix].introducedIn == 17);
+static_assert(SlotUtilityParam(0, uHarmonicCrossover) == 4845);
+static_assert(SlotUtilityParam(15, uHarmonicCrossover) == 4860);
+static_assert(kEffectParameters[uHarmonicCrossover].introducedIn == 18);
 
 int main(int argc, char** argv)
 {

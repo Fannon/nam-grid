@@ -4,7 +4,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- **Signal Monitor:** inspect stereo spectrum, waveform, sample peaks, RMS levels, headroom and correlation anywhere in the rig. It has no sound controls and leaves audio unchanged.
+- **Signal Monitor:** inspect a detailed stereo spectrum with resonance markers, vertical peak/RMS meters, a 20-second level history with red marks where samples reached 0 dBFS, headroom and correlation anywhere in the rig. Explanations appear on hover. It has no sound controls and leaves audio unchanged.
 
 - **Graphic EQ:** A new EQ / Filter module with seven fixed bands and Level, like a stompbox graphic EQ. Voicing sets the band frequencies for guitar, bass or full range, and the knob labels follow it. Presets: Lead mid boost, Tight into amp, Bass clarity and Acoustic air.
 - **Multiband Dynamics:** A new Dynamics module with three bands of upward and downward compression and a Depth blend: from a dense "over the top" sound to a regular multiband compressor that evens out boomy lows or spiky highs. Drag the display to move the band splits and Threshold. Presets: Over the top, Gentle glue, Fast and tight and Clean sparkle.

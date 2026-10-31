@@ -373,5 +373,14 @@ bounded meter packets; the UI calculates RMS/correlation with 300 ms exponential
 averaging. Capture buffers are prepared off audio. The shared signal window holds
 both channels for cancellation-safe stereo spectrum analysis; Utility's scope
 continues reading aligned newest samples. FFTs and drawing run on the UI thread.
+
+The UI draws the spectrum at 384 log-spaced points: wide bands keep their loudest
+bin, while low points interpolate inside one 4096-point FFT bin. A 6-second power
+average, updated only while the spectrum is above the floor, feeds the resonance
+markers: local maxima at least 6 dB above the mean of the surrounding third-octaves,
+strongest three, a third-octave apart. Level history uses 50 ms columns of received
+audio frames, not packet timing, keeping the louder channel's sample peak and RMS
+for 20 seconds of monitoring. A packet that spans a column edge marks both columns
+with its peak.
 Closing the editor, hiding visualizations, deselecting or disabling the monitor
 stops its analysis. The DSP tests check sample identity and zero audio allocations.

@@ -59,7 +59,7 @@ private:
     void Draw(IGraphics&) override {}
   };
   struct Region { RegionControl* control = nullptr; IRECT bounds; std::string text; };
-  std::array<Region, 2> mRegions{};
+  std::array<Region, 4> mRegions{};
   size_t mRegionCount = 0;
   std::string mDetail;
 };

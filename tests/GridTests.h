@@ -60,6 +60,78 @@ void TestFixedGrid()
       assert(sample == .125);
   }
 
+  // The steeper lane split: a fourth-order Linkwitz-Riley pair. Empty lanes still reconstruct
+  // the signal, because the low and high outputs sum to a flat-magnitude allpass; the released
+  // first-order pair remains bit-identical and is what a rig without the setting gets.
+  for (double rate : {44100., 48000., 96000.})
+  {
+    const double frequency = 250.;
+    const auto render = [&](bool steep, double tone, double blend, bool onlyA) {
+      FixedNAMGrid grid;
+      grid.ResetStopped(rate, 512);
+      std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> routingControls{};
+      grid_performance::Routing routing;
+      routing.crossover = true; routing.frequency = frequency; routing.linkwitzRiley = steep;
+      routing.muteB = onlyA;
+      std::vector<double> output(static_cast<size_t>(rate * .5));
+      for (int pos = 0; pos < static_cast<int>(output.size()); pos += 512)
+      {
+        const int n = std::min(512, static_cast<int>(output.size()) - pos);
+        for (int i = 0; i < n; ++i)
+          data[i] = .1 * std::sin(2. * grid_fx::pi * tone * (pos + i) / rate);
+        grid.Process(data.data(), n, routingControls, blend, nullptr, routing);
+        std::copy_n(data.data(), n, output.data() + pos);
+      }
+      return output;
+    };
+    const auto rms = [&](const std::vector<double>& x) {
+      double sum = 0.;
+      for (size_t i = x.size() / 2; i < x.size(); ++i) sum += x[i] * x[i];
+      return std::sqrt(sum / (x.size() - x.size() / 2));
+    };
+    for (double tone : {60., frequency, 1000., 5000.})
+    {
+      const double dry = .1 / std::sqrt(2.);
+      for (bool steep : {false, true})
+        assert(std::abs(rms(render(steep, tone, .5, false)) - dry) < .005 * dry);
+    }
+    // A fourth-order low pass is far steeper: near 20x the split, lane A keeps little of the tone.
+    {
+      const double released = rms(render(false, 5000., 0., true)), steep = rms(render(true, 5000., 0., true));
+      assert(steep < .02 * released);
+    }
+    // LR4's phase is allpass, not identical: at the split the two lanes sum inverted, while the
+    // released complementary pair reproduces the input sample for sample.
+    {
+      const auto exactDry = render(false, frequency, .5, false);
+      const auto steep = render(true, frequency, .5, false);
+      double releasedError = 0., steepError = 0.;
+      for (size_t i = steep.size() / 2; i < steep.size(); ++i)
+      {
+        const double dry = .1 * std::sin(2. * grid_fx::pi * frequency * i / rate);
+        releasedError = std::max(releasedError, std::abs(exactDry[i] - dry));
+        steepError = std::max(steepError, std::abs(steep[i] + dry));
+      }
+      assert(releasedError < 1.e-9);
+      assert(steepError < .01 * .1);
+    }
+    // The released path is bit-identical to its own definition: a one-pole low pass whose
+    // complementary high pass and the A/B blend are rebuilt here in the test.
+    {
+      const double blend = .37, coefficient = std::exp(-6.283185307179586 * std::min(.4 * rate, frequency) / rate);
+      std::array<double, 2> low{};
+      const auto output = render(false, 300., blend, false);
+      for (size_t i = 0; i < output.size(); ++i)
+      {
+        const double dry = .1 * std::sin(2. * grid_fx::pi * 300. * i / rate);
+        low[0] = dry + coefficient * (low[0] - dry);
+        const double laneA = dry + (low[0] - dry), laneB = dry - low[0];
+        const double expected = 2. * ((1. - blend) * laneA + blend * laneB);
+        assert(output[i] == expected);
+      }
+    }
+  }
+
   const auto nano = fixture::model(3, 123), standard = fixture::model(8, 456);
   for (double rate : {48000., 44100., 96000.})
   {

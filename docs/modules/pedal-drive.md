@@ -106,9 +106,11 @@ Post, and use both parallel lanes for other processing.
 ## Using the grid split
 
 The grid's **Routing > Frequency split** works earlier in the signal chain, after Pre4.
-It sends low-pass audio to lane A and the complementary remainder to lane B. It is a
-first-order split with broad overlap. Centered A/B, equal lane levels and unprocessed lanes
-reconstruct the original signal.
+It sends low-pass audio to lane A and the complementary remainder to lane B. Its Slope is
+a first-order split with broad overlap by default; **Steep** switches to a 24 dB/octave
+Linkwitz-Riley pair that keeps much more low end out of the driven lane. Either way,
+centered A/B with equal lane levels and unprocessed lanes keeps the full level: the gentle
+split is phase-identical, while the steep split's sum is an allpass.
 
 ```text
                      +-- A: clean lows -------------------+

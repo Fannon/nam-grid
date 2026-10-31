@@ -58,6 +58,7 @@ enum Param
   Seq2Rate, Seq2Sync, Seq2Division, Seq2Retrigger,
   Seq2Step1, Seq2Step2, Seq2Step3, Seq2Step4, Seq2Step5, Seq2Step6, Seq2Step7, Seq2Step8,
   MixLaw, Trails,
+  CrossoverSlope, // Saved state only: keep the released 6 dB/oct split as the default.
   Count,
   // Numbered identities for the original bank; released host names/keys stay unchanged.
   LFO1Shape = LFOShape, LFO1Rate = LFORate, LFO1Sync = LFOSync, LFO1Division = LFODivision,
@@ -255,14 +256,24 @@ inline constexpr std::array<EffectParameter, Count> parameters{{
   {"Sequencer 2 Step 7", "7", 50, 0, 100, 1, "%", 0, false, 1., 6},
   {"Sequencer 2 Step 8", "8", 75, 0, 100, 1, "%", 0, false, 1., 6},
   {"Mix Law", "Keep dry level", 0, 0, 1, 1, "", 0, false, 1., 9},
-  {"Trails", "Trails", 0, 0, 1, 1, "", 0, false, 1., 11}
+  {"Trails", "Trails", 0, 0, 1, 1, "", 0, false, 1., 11},
+  {"Split Slope", "Slope", 0, 0, 1, 1, "", 0, false, 1., 24}
 }};
+// The frequency split's slope: the released first-order pair, or a fourth-order
+// Linkwitz-Riley pair whose magnitude sum is flat and whose phase is allpass.
+enum SplitSlope
+{
+  SplitSlopeFirstOrder = 0,
+  SplitSlopeLinkwitzRiley,
+  SplitSlopes
+};
+inline constexpr std::array<const char*, SplitSlopes> splitSlopeNames{"Gentle (6 dB/oct)", "Steep (24 dB/oct)"};
 // Matrix routing, the LFO shape, Listen at and the Retrigger modes are saved state, like
 // algorithm selectors: no host automation, so a longer list never reinterprets recorded
 // automation. Tempo divisions stay automatable; their list of ten values is frozen.
 inline constexpr bool StateOnly(int parameter)
 {
-  if (parameter == MixLaw || parameter == Trails) return true;
+  if (parameter == MixLaw || parameter == Trails || parameter == CrossoverSlope) return true;
   for (int instance = 0; instance < sourceInstances; ++instance)
     if (parameter == SourceParam(LFO1Shape, instance) || parameter == SourceParam(Env1Input, instance)
         || parameter == SourceParam(LFO1Retrigger, instance) || parameter == SourceParam(Seq1Retrigger, instance)) return true;
@@ -278,11 +289,12 @@ inline Values Defaults()
 struct Routing
 {
   bool crossover = false, muteA = false, muteB = false, soloA = false, soloB = false;
+  bool linkwitzRiley = false;
   double frequency = 250., gainA = 0., gainB = 0., timing = 0.;
 };
 inline Routing Route(const Values& v)
 { return {v[Crossover] >= .5, v[LaneAMute] >= .5, v[LaneBMute] >= .5, v[LaneASolo] >= .5, v[LaneBSolo] >= .5,
-          v[CrossoverFrequency], v[LaneAGain], v[LaneBGain], v[LaneTiming]}; }
+          v[CrossoverSlope] >= SplitSlopeLinkwitzRiley, v[CrossoverFrequency], v[LaneAGain], v[LaneBGain], v[LaneTiming]}; }
 inline bool RowActive(const Values& v, int row)
 { return v[RowParam(row, RowSource)] > 0. && v[RowParam(row, RowDepth)] != 0.; }
 // One LFO cycle at phase 0..1; Random is held per cycle elsewhere.

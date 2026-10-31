@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- More factory presets for every reverb, with a focus on Cosmic Echo: dense modulated spaces, dark washes, scattered echoes, swells and a Photon Plate lead sound. Other reverbs gain close ambience, rhythm and lead settings, ambient beds and pitched tails. Existing rigs and insertion defaults keep their settings.
+
 ## [0.4.0] - 2026-10-31
 
 Existing projects, presets and automation keep loading. New modes and routing options retain the previous settings in existing rigs. Some sound corrections are deliberate changes, listed below.

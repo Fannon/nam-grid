@@ -169,27 +169,39 @@ inline const Preset room[]{
   {"Live room", {{U(uReverbDecay), 1.2}, {U(uReverbSize), 100.}, {U(uReverbPredelay), 12.}, {U(uReverbMix), 18.}}},
   // Short, tight ambience for dry captures and DI-like close sounds.
   {"Small amp room", {{U(uReverbDecay), .45}, {U(uReverbSize), 55.}, {U(uReverbPredelay), 3.}, {U(uReverbMix), 10.}}},
+  {"Dry studio corner", {{U(uReverbDecay), .25}, {U(uReverbSize), 35.}, {U(uReverbTone), 4500.}, {U(uReverbPredelay), 0.}, {U(uReverbMotion), 0.}, {U(uReverbMix), 8.}}},
+  {"Open picking room", {{U(uReverbDecay), 1.8}, {U(uReverbSize), 130.}, {U(uReverbTone), 5500.}, {U(uReverbPredelay), 22.}, {U(uReverbHighPass), 180.}, {U(uReverbMix), 16.}}},
 };
 inline const Preset plate[]{
   {"Short bright plate", {{U(uReverbDecay), 1.1}, {U(uReverbTone), 8000.}, {U(uReverbPredelay), 10.}, {U(uReverbMix), 14.}}},
   {"Singing lead plate", {{U(uReverbDecay), 2.8}, {U(uReverbPredelay), 35.}, {U(uReverbHighPass), 180.}, {U(uReverbDuck), 25.}, {U(uReverbMix), 22.}}},
+  {"Warm rhythm plate", {{U(uReverbDecay), .8}, {U(uReverbSize), 85.}, {U(uReverbTone), 3800.}, {U(uReverbPredelay), 8.}, {U(uReverbMotion), 5.}, {U(uReverbHighPass), 180.}, {U(uReverbMix), 13.}}},
+  {"Wide ballad plate", {{U(uReverbDecay), 4.5}, {U(uReverbTone), 5500.}, {U(uReverbPredelay), 60.}, {U(uReverbMotion), 25.}, {U(uReverbHighPass), 220.}, {U(uReverbDuck), 30.}, {U(uReverbMix), 26.}}},
 };
 inline const Preset hall[]{
   {"Big dark hall", {{U(uReverbDecay), 6.}, {U(uReverbSize), 160.}, {U(uReverbTone), 3500.}, {U(uReverbPredelay), 40.}, {U(uReverbHighPass), 180.}, {U(uReverbMix), 28.}}},
   // A hall that steps back while notes play and blooms in the gaps.
   {"Ducked lead hall", {{U(uReverbDecay), 3.5}, {U(uReverbPredelay), 40.}, {U(uReverbDuck), 40.}, {U(uReverbMix), 25.}}},
+  {"Small recital hall", {{U(uReverbDecay), 1.6}, {U(uReverbSize), 85.}, {U(uReverbTone), 7000.}, {U(uReverbPredelay), 18.}, {U(uReverbMotion), 8.}, {U(uReverbMix), 16.}}},
+  {"Cathedral swells", {{U(uReverbDecay), 10.}, {U(uReverbSize), 190.}, {U(uReverbTone), 4200.}, {U(uReverbPredelay), 70.}, {U(uReverbMotion), 30.}, {U(uReverbHighPass), 250.}, {U(uReverbMix), 32.}}},
 };
 inline const Preset cloud[]{
   {"Long ducked cloud", {{U(uReverbDecay), 12.}, {U(uReverbSize), 180.}, {U(uReverbPredelay), 50.}, {U(uReverbHighPass), 220.}, {U(uReverbDuck), 55.}, {U(uReverbMix), 35.}}},
+  {"Light moving halo", {{U(uReverbDecay), 3.}, {U(uReverbSize), 110.}, {U(uReverbTone), 7000.}, {U(uReverbPredelay), 20.}, {U(uReverbMotion), 25.}, {U(uReverbHighPass), 200.}, {U(uReverbMix), 20.}}},
+  {"Dark suspended chords", {{U(uReverbDecay), 16.}, {U(uReverbSize), 190.}, {U(uReverbTone), 2800.}, {U(uReverbPredelay), 60.}, {U(uReverbMotion), 60.}, {U(uReverbHighPass), 280.}, {U(uReverbMix), 38.}}},
 };
 inline const Preset spring[]{
   {"Small amp spring", {{U(uSpringDecay), 1.2}, {U(uSpringDwell), 1.5}, {U(uSpringDrip), 35.}, {U(uSpringMix), 14.}}},
   // The Dispersive tank's chirp provides the surf "drip"; Dwell drives the tank harder.
   {"Surf drip", {{U(uSpringTank), 1.}, {U(uSpringDecay), 2.5}, {U(uSpringDwell), 7.}, {U(uSpringDrip), 90.}, {U(uReverbTone), 6500.}, {U(uSpringMix), 35.}}},
+  {"Warm blues spring", {{U(uSpringTank), 0.}, {U(uSpringDecay), 1.7}, {U(uSpringDwell), 4.}, {U(uSpringDrip), 45.}, {U(uReverbTone), 3200.}, {U(uSpringMix), 20.}}},
+  {"Short bright splash", {{U(uSpringTank), 1.}, {U(uSpringDecay), .7}, {U(uSpringDwell), 3.}, {U(uSpringDrip), 75.}, {U(uReverbTone), 7000.}, {U(uSpringMix), 22.}}},
 };
 inline const Preset shimmer[]{
   {"Dark octave-down pad", {{U(uShimmerDecay), 8.}, {U(uShimmerPitch), -12.}, {U(uShimmerTone), 3500.},
     {U(uShimmerAmount), 30.}, {U(uShimmerMix), 30.}}},
+  {"Gentle octave halo", {{U(uShimmerDecay), 4.}, {U(uShimmerPitch), 12.}, {U(uShimmerTone), 6500.}, {U(uShimmerAmount), 15.}, {U(uShimmerMod), 20.}, {U(uShimmerMix), 20.}}},
+  {"Rising fifth cloud", {{U(uShimmerDecay), 10.}, {U(uShimmerPitch), 7.}, {U(uShimmerTone), 4500.}, {U(uShimmerAmount), 35.}, {U(uShimmerMod), 40.}, {U(uShimmerMix), 32.}}},
 };
 // Resolution changes in steps: 50% crosses a rate step at 44.1/48/96 kHz,
 // whereas 75% can process at the same internal rate as 100%.
@@ -198,12 +210,16 @@ inline const Preset airPlate[]{
     {U(uAirPlateLowCut), 150.}, {U(uAirPlateMix), 14.}}},
   {"Long dark plate", {{U(uAirPlateSustain), 60.}, {U(uAirPlateResolution), 50.}, {U(uAirPlatePredelay), 35.},
     {U(uAirPlateLowCut), 180.}, {U(uAirPlateMix), 24.}}},
+  {"Clear lead plate", {{U(uAirPlateSustain), 42.}, {U(uAirPlateResolution), 100.}, {U(uAirPlatePredelay), 45.}, {U(uAirPlateLowCut), 220.}, {U(uAirPlateMix), 22.}}},
+  {"Soft plate bed", {{U(uAirPlateSustain), 72.}, {U(uAirPlateResolution), 50.}, {U(uAirPlatePredelay), 65.}, {U(uAirPlateLowCut), 280.}, {U(uAirPlateMix), 30.}}},
 };
 inline const Preset airHall[]{
   {"Close guitar hall", {{U(uAirHallSustain), 30.}, {U(uAirHallResolution), 100.}, {U(uAirHallTone), 65.},
     {U(uAirHallEarly), 80.}, {U(uAirHallPosition), 35.}, {U(uAirHallMix), 15.}}},
   {"Distant dark hall", {{U(uAirHallSustain), 60.}, {U(uAirHallResolution), 50.}, {U(uAirHallTone), 30.},
     {U(uAirHallEarly), 20.}, {U(uAirHallPosition), 75.}, {U(uAirHallMix), 25.}}},
+  {"Bright early room", {{U(uAirHallSustain), 18.}, {U(uAirHallResolution), 100.}, {U(uAirHallTone), 75.}, {U(uAirHallEarly), 90.}, {U(uAirHallPosition), 20.}, {U(uAirHallMix), 12.}}},
+  {"Late ambient hall", {{U(uAirHallSustain), 75.}, {U(uAirHallResolution), 50.}, {U(uAirHallTone), 40.}, {U(uAirHallEarly), 10.}, {U(uAirHallPosition), 90.}, {U(uAirHallMix), 32.}}},
 };
 inline const Preset tape[]{
   {"Light tape rounding", {{U(uTapeDrive), 9.}, {U(uTapeBump), 15.}, {U(uTapeMix), 100.}, {U(uTapeOutput), -9.}}},
@@ -212,13 +228,29 @@ inline const Preset tape[]{
 inline const Preset space[]{
   {"Slow dark space", {{U(uSpaceReplace), 20.}, {U(uSpaceBrightness), 30.}, {U(uSpaceDetune), 20.}, {U(uSpaceSize), 75.}, {U(uSpaceMix), 28.}}},
   {"Wide bright wash", {{U(uSpaceReplace), 8.}, {U(uSpaceBrightness), 45.}, {U(uSpaceDetune), 50.}, {U(uSpaceSize), 95.}, {U(uSpaceMix), 35.}}},
+  {"Gentle stereo orbit", {{U(uSpaceReplace), 55.}, {U(uSpaceBrightness), 60.}, {U(uSpaceDetune), 15.}, {U(uSpaceSize), 45.}, {U(uSpaceResolution), 100.}, {U(uSpaceMix), 18.}}},
+  {"Deep drifting space", {{U(uSpaceReplace), 18.}, {U(uSpaceBrightness), 20.}, {U(uSpaceDetune), 65.}, {U(uSpaceSize), 95.}, {U(uSpaceResolution), 100.}, {U(uSpaceMix), 38.}}},
 };
-// Cosmic Echo recipes follow the documented style starting points.
+// Cosmic Echo recipes use NAM Grid units, not normalized Valhalla preset fields.
+// High Warp/Density follows Valhalla's published Controls/Modes guides:
+// https://valhalladsp.com/2020/05/06/valhallasupermassive-the-controls/
+// https://valhalladsp.com/2020/05/07/valhallasupermassive-the-modes/
+// Velvet constellation and Dark orbit adapt the high-Warp, dense, modulated
+// character of the author's own The Beauty / Dark Pleiades presets. Pleiades
+// is not implemented here; these are independent Gemini/Aurora recipes.
 inline const Preset cosmic[]{
   {"Clustered echoes", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 15.}, {U(uCosmicDensity), 10.}, {U(uCosmicTone), 6500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 20.}}},
   {"Slow swell", {{U(uCosmicStyle), 1.}, {U(uCosmicTime), 400.}, {U(uCosmicMix), 25.}}},
   {"Stereo echo groups", {{U(uCosmicStyle), 7.}, {U(uCosmicTime), 500.}, {U(uCosmicWarp), 0.}, {U(uCosmicDensity), 15.}, {U(uCosmicTone), 6500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 25.}}},
   {"Chord bloom", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 700.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 90.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
+  {"Velvet constellation", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 950.}, {U(uCosmicWarp), 82.}, {U(uCosmicFeedback), 77.}, {U(uCosmicDensity), 98.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 45.}, {U(uCosmicMix), 35.}}},
+  {"Dark orbit", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 500.}, {U(uCosmicWarp), 78.}, {U(uCosmicFeedback), 91.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 2800.}, {U(uCosmicMotion), 50.}, {U(uCosmicMix), 32.}}},
+  {"Pointillist echoes", {{U(uCosmicStyle), 2.}, {U(uCosmicTime), 280.}, {U(uCosmicWarp), 12.}, {U(uCosmicFeedback), 48.}, {U(uCosmicDensity), 20.}, {U(uCosmicTone), 4500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 24.}}},
+  {"Enveloping swells", {{U(uCosmicStyle), 3.}, {U(uCosmicTime), 450.}, {U(uCosmicWarp), 72.}, {U(uCosmicFeedback), 72.}, {U(uCosmicDensity), 95.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
+  {"Smearing echo trail", {{U(uCosmicStyle), 4.}, {U(uCosmicTime), 400.}, {U(uCosmicWarp), 35.}, {U(uCosmicFeedback), 62.}, {U(uCosmicDensity), 55.}, {U(uCosmicTone), 6000.}, {U(uCosmicMotion), 15.}, {U(uCosmicMix), 26.}}},
+  {"Clear distant repeats", {{U(uCosmicStyle), 5.}, {U(uCosmicTime), 600.}, {U(uCosmicWarp), 0.}, {U(uCosmicFeedback), 45.}, {U(uCosmicDensity), 0.}, {U(uCosmicTone), 7000.}, {U(uCosmicMotion), 0.}, {U(uCosmicMix), 22.}}},
+  {"Photon lead plate", {{U(uCosmicStyle), 9.}, {U(uCosmicTime), 100.}, {U(uCosmicWarp), 70.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 10.}, {U(uCosmicMix), 18.}}},
+  {"Compact Gemini room", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 80.}, {U(uCosmicWarp), 65.}, {U(uCosmicFeedback), 38.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 7500.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 14.}}},
 };
 
 inline const Preset chorus[]{

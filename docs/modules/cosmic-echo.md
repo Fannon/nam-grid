@@ -67,6 +67,36 @@ For a clearer Pulsar pattern, try **Time 600 ms, Warp 0%, Feedback 45%, Density 
 
 All three process at the host sample rate with damping inside the feedback paths. Start with Modulation low when comparing their underlying echo patterns. Raise Time and Feedback gradually for long tails. Like the other modes, changing Style fades and clears the sounding tail.
 
+## Factory presets
+
+Open **Presets** in the module editor to apply a complete starting point. These
+recipes also restore controls omitted from the recipe to insertion defaults, so
+switching from a long wash to a short echo clears the previous sound's settings.
+Adjust Mix for your rig; the recipes assume an insert after the amp.
+
+| Preset | Style | Playing idea |
+| --- | --- | --- |
+| Clustered echoes | Aurora Hall | Separate reflections around picked lines |
+| Slow swell | Sagittarius | Leave gaps for the slow attack to develop |
+| Stereo echo groups | Pulsar Echo | Repeating four-tap groups around a riff |
+| Chord bloom | Binary Bloom | Broad, developing tails behind held chords |
+| Velvet constellation | Gemini | Dense, modulated space for slow arpeggios |
+| Dark orbit | Aurora Hall | Dark, sustained wash under volume swells |
+| Pointillist echoes | Virgo | Sparse, darkening reflections around short notes |
+| Enveloping swells | Centaurus | Softer onset around sustained phrases |
+| Smearing echo trail | Great Annihilator | Echo clusters that spread into a tail |
+| Clear distant repeats | Lyra | Sparse repeats with no pitch modulation |
+| Photon lead plate | Photon Plate | Fast, dense ambience behind lead playing |
+| Compact Gemini room | Gemini | Short, lightly mixed space for rhythm parts |
+
+The dense, high-Warp recipes follow the principles in Valhalla DSP's
+[Controls](https://valhalladsp.com/2020/05/06/valhallasupermassive-the-controls/)
+and [Modes](https://valhalladsp.com/2020/05/07/valhallasupermassive-the-modes/)
+guides. Velvet constellation and Dark orbit also take inspiration from personal
+Supermassive settings for dense, modulated spaces. They are NAM Grid recipes:
+Supermassive's normalized preset fields, extra modes, modulation rate and EQ
+controls do not map directly onto Cosmic Echo.
+
 ## The display
 
 The display shows the measured response of the current settings to a single click, on a dB scale. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.

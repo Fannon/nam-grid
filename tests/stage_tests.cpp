@@ -1,6 +1,7 @@
 #include "A2Fixture.h"
 #include "A2PlanarTests.h"
 #include <array>
+#include <chrono>
 #include <cassert>
 #include <cstdlib>
 #include <fstream>
@@ -93,15 +94,89 @@ try
 {
   assert(argc >= 2 && argc <= 6);
   nam::activations::Activation::enable_fast_tanh();
+  const auto run = [](const char* name, void (*test)()) {
+    const auto start = std::chrono::steady_clock::now();
+    std::cout << "[ RUN ] " << name << std::endl;
+    test();
+    const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    std::cout << "[ PASS ] " << name << " (" << elapsed << " s)" << std::endl;
+  };
+  const std::pair<const char*, void (*)()> cases[] = {
+    {"a2-planar", TestA2Planar},
+    {"metering-transparency", TestMeteringTransparency},
+    {"settled-smoothing", TestSettledSmoothing},
+    {"fixed-grid", TestFixedGrid},
+    {"audio-control-cache", TestAudioControlCache},
+    {"rig-transition", TestRigTransition},
+    {"dynamics", TestDynamics},
+    {"slot-features", TestSlotFeatures},
+    {"ir-controls", TestIRControls},
+    {"time-effects", TestTimeEffects},
+    {"tuner-tempo-utility", TestTunerTempoUtility},
+    {"roadmap-effects", TestRoadmapEffects},
+    {"modulation-matrix", TestModulationMatrix},
+    {"hq-effects", TestHQEffects},
+    {"dsp-behavior", TestDSPBehavior},
+    {"stereo-guitar-effects", TestStereoGuitarEffects},
+    {"dsp-review-fixes", TestDSPReviewFixes},
+    {"distortion-and-mono-meters", TestDistortionAndMonoMeters},
+    {"capture-seams", TestCaptureSeams},
+    {"noise-print", TestNoisePrint},
+    {"lo-fi-tape", TestLoFiTape},
+    {"module-controls", TestModuleControls},
+    {"eq-response", TestEQResponse},
+    {"dual-delay-musical-controls", TestDualDelayMusicalControls},
+    {"distortion-tone-preview", TestDistortionTonePreview},
+    {"fx-visualization-math", TestFXVisualizationMath},
+    {"visualization-interactions", TestVisualizationInteractions},
+    {"measured-visualizations", TestMeasuredVisualizations},
+    {"distortion-mode-harmonics", TestDistortionModeHarmonics},
+    {"pedal-drive", TestPedalDrive},
+    {"pedal-comp", TestPedalComp},
+    {"factory-vibe-vibrato", TestFactoryVibeVibrato},
+    {"module-preset-coverage", TestModulePresetCoverage},
+    {"module-preset-shared-controls", TestModulePresetSharedControls},
+    {"smart-gate-user-preset", TestSmartGateUserPreset},
+    {"named-user-preset", TestNamedUserPreset},
+    {"module-presets", TestModulePresets},
+    {"drive-antialiasing", TestDriveAntialiasing},
+    {"oversampled-wet-dry-blend", TestOversampledWetDryBlend},
+    {"oversampled-mix-automation", TestOversampledMixAutomation},
+    {"reverb-delay-candidates", TestReverbDelayCandidates},
+    {"cosmic-echo", TestCosmicEcho},
+    {"cosmic-bypass-drain", TestCosmicBypassDrain},
+    {"multi-head-stereo", TestMultiHeadStereo},
+    {"outboard", TestOutboard},
+    {"air-dynamics", TestAirDynamics},
+    {"mix-law", TestMixLaw},
+    {"delay-time-change", TestDelayTimeChange},
+    {"chorus-voices", TestChorusVoices},
+    {"spring-tank", TestSpringTank},
+    {"trails", TestTrails},
+    {"clicks", TestClicks},
+  };
+  if (argc == 2 && std::string(argv[1]) == "--list")
+  {
+    for (const auto& entry : cases) std::cout << entry.first << '\n';
+    return 0;
+  }
+  if (argc >= 2 && std::string(argv[1]) == "--case")
+  {
+    if (argc == 3)
+      for (const auto& entry : cases)
+        if (std::string(argv[2]) == entry.first) { run(entry.first, entry.second); return 0; }
+    std::cerr << "Use --case NAME with a name from --list\n";
+    return 2;
+  }
   if (std::string(argv[1]) == "--module-presets-only") { TestNamedUserPreset(); TestSmartGateUserPreset(); TestModulePresetCoverage(); TestModulePresetSharedControls(); TestModulePresets(); return 0; }
   if (std::string(argv[1]) == "--mix-law-only") { TestMixLaw(); return 0; }
   if (std::string(argv[1]) == "--delay-time-change-only") { TestDelayTimeChange(); return 0; }
   if (std::string(argv[1]) == "--chorus-voices-only") { TestChorusVoices(); return 0; }
   if (std::string(argv[1]) == "--trails-only") { TestTrails(); return 0; }
   if (std::string(argv[1]) == "--clicks-only") { TestClicks(); return 0; }
-  TestA2Planar();
-  TestMeteringTransparency();
-  TestSettledSmoothing();
+  run("a2-planar", TestA2Planar);
+  run("metering-transparency", TestMeteringTransparency);
+  run("settled-smoothing", TestSettledSmoothing);
   nam::activations::ActivationPReLU prelu(std::vector<float>{.01f, .05f});
   Eigen::MatrixXf activationInput(2, 3);
   activationInput.setConstant(-1.f);
@@ -201,55 +276,55 @@ try
     bypass.Process(data.data(), 1, true, 0, 0);
     assert(std::isfinite(data[0]));
   }
-  TestFixedGrid();
-  TestAudioControlCache();
-  TestRigTransition();
-  TestDynamics();
-  TestSlotFeatures();
-  TestIRControls();
-  TestTimeEffects();
-  TestTunerTempoUtility();
-  TestRoadmapEffects();
-  TestModulationMatrix();
-  TestHQEffects();
-  TestDSPBehavior();
-  TestStereoGuitarEffects();
-  TestDSPReviewFixes();
-  TestDistortionAndMonoMeters();
-  TestCaptureSeams();
-  TestNoisePrint();
-  TestLoFiTape();
-  TestModuleControls();
-  TestEQResponse();
-  TestDualDelayMusicalControls();
-  TestDistortionTonePreview();
-  TestFXVisualizationMath();
-  TestVisualizationInteractions();
-  TestMeasuredVisualizations();
-  TestDistortionModeHarmonics();
-  TestPedalDrive();
-  TestPedalComp();
-  TestFactoryVibeVibrato();
-  TestModulePresetCoverage();
-  TestModulePresetSharedControls();
-  TestSmartGateUserPreset();
-  TestNamedUserPreset();
-  TestModulePresets();
-  TestDriveAntialiasing();
-  TestOversampledWetDryBlend();
-  TestOversampledMixAutomation();
-  TestReverbDelayCandidates();
-  TestCosmicEcho();
-  TestCosmicBypassDrain();
-  TestMultiHeadStereo();
-  TestOutboard();
-  TestAirDynamics();
-  TestMixLaw();
-  TestDelayTimeChange();
-  TestChorusVoices();
-  TestSpringTank();
-  TestTrails();
-  TestClicks();
+  run("fixed-grid", TestFixedGrid);
+  run("audio-control-cache", TestAudioControlCache);
+  run("rig-transition", TestRigTransition);
+  run("dynamics", TestDynamics);
+  run("slot-features", TestSlotFeatures);
+  run("ir-controls", TestIRControls);
+  run("time-effects", TestTimeEffects);
+  run("tuner-tempo-utility", TestTunerTempoUtility);
+  run("roadmap-effects", TestRoadmapEffects);
+  run("modulation-matrix", TestModulationMatrix);
+  run("hq-effects", TestHQEffects);
+  run("dsp-behavior", TestDSPBehavior);
+  run("stereo-guitar-effects", TestStereoGuitarEffects);
+  run("dsp-review-fixes", TestDSPReviewFixes);
+  run("distortion-and-mono-meters", TestDistortionAndMonoMeters);
+  run("capture-seams", TestCaptureSeams);
+  run("noise-print", TestNoisePrint);
+  run("lo-fi-tape", TestLoFiTape);
+  run("module-controls", TestModuleControls);
+  run("eq-response", TestEQResponse);
+  run("dual-delay-musical-controls", TestDualDelayMusicalControls);
+  run("distortion-tone-preview", TestDistortionTonePreview);
+  run("fx-visualization-math", TestFXVisualizationMath);
+  run("visualization-interactions", TestVisualizationInteractions);
+  run("measured-visualizations", TestMeasuredVisualizations);
+  run("distortion-mode-harmonics", TestDistortionModeHarmonics);
+  run("pedal-drive", TestPedalDrive);
+  run("pedal-comp", TestPedalComp);
+  run("factory-vibe-vibrato", TestFactoryVibeVibrato);
+  run("module-preset-coverage", TestModulePresetCoverage);
+  run("module-preset-shared-controls", TestModulePresetSharedControls);
+  run("smart-gate-user-preset", TestSmartGateUserPreset);
+  run("named-user-preset", TestNamedUserPreset);
+  run("module-presets", TestModulePresets);
+  run("drive-antialiasing", TestDriveAntialiasing);
+  run("oversampled-wet-dry-blend", TestOversampledWetDryBlend);
+  run("oversampled-mix-automation", TestOversampledMixAutomation);
+  run("reverb-delay-candidates", TestReverbDelayCandidates);
+  run("cosmic-echo", TestCosmicEcho);
+  run("cosmic-bypass-drain", TestCosmicBypassDrain);
+  run("multi-head-stereo", TestMultiHeadStereo);
+  run("outboard", TestOutboard);
+  run("air-dynamics", TestAirDynamics);
+  run("mix-law", TestMixLaw);
+  run("delay-time-change", TestDelayTimeChange);
+  run("chorus-voices", TestChorusVoices);
+  run("spring-tank", TestSpringTank);
+  run("trails", TestTrails);
+  run("clicks", TestClicks);
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

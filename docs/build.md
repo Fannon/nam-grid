@@ -299,6 +299,30 @@ build targets.
 
 ## Tests
 
+During local fixes, build and run only the affected tests. The focused runner uses
+an already configured build and never opens the native editor:
+
+```sh
+python scripts/test-focused.py --build-dir build/windows/release --suite library
+python scripts/test-focused.py --build-dir build/windows/release --suite state
+python scripts/test-focused.py --build-dir build/windows/release --list-stage-cases
+python scripts/test-focused.py --build-dir build/windows/release --stage-case pedal-comp
+```
+
+Suites include `library`, `state`, `dsp`, `ir` and `resampling`. The state suite
+forces headless CLAP smoke and includes the VST3 parameter contract on Windows.
+DSP cases select existing test groups; they do not run the shared core checks or
+other groups. Each group prints its runtime, including in the complete stage run.
+Existing specialized stage flags remain supported.
+
+CTest labels support selection with `-L headless`, `-L library`, `-L dsp`, or
+exclusion with `-LE ui`. The `ui` label includes the full CLAP smoke test, which
+also contains DSP/state checks; use the focused state suite to run that coverage
+without an editor. UI tests share a resource lock within one CTest invocation.
+This does not coordinate separate CTest processes or make parallel execution of
+all other tests safe. Full validation still runs every test via `bash build.sh --test`
+as the final step, preferably in CI.
+
 | CTest | Coverage |
 | --- | --- |
 | `ir-convolution` | Adaptive direct/FFT cabinet convolution against the direct processor, variable blocks, resampling and allocation checks |

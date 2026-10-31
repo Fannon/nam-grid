@@ -25,6 +25,7 @@ NAM Grid is a CLAP/VST3 guitar-rig plugin built on iPlug2, NAM Core and AudioDSP
 - Run the full suite once as the last finishing step after all fixes are complete, not after each local fix. Prefer CI for full native coverage; use `bash build.sh --test` when doing the final full run locally. Do not add a routine confirmation step for testing.
 - Native UI tests move the mouse and steal focus, disrupting normal computer use. Keep editor-enabled `clap-smoke`, `editor-host`, screenshot/gallery tools and other native-window automation out of routine local fix loops. For DSP/state checks, use `NAM_GRID_HEADLESS_SMOKE=1` with `clap-smoke`; prefer focused tests without UI wherever they cover the change. Defer invasive UI coverage to CI or the final full run.
 - Choose tests by what changed ([coverage table](docs/build.md#tests)):
+  - Use `python scripts/test-focused.py --build-dir build/<platform>/release --suite library` (or `state`, `dsp`, `ir`, `resampling`) to build and run the selected coverage without native editor automation. Use `--list-stage-cases` and `--stage-case <name>` for individual DSP groups. These focused runs do not replace the final full suite.
   - Module DSP: `stages`, plus `aliasing` for nonlinear or oversampled paths.
   - Parameters, modes or state: `parameter-contract`, headless `clap-smoke`, and `vst3-parameter-contract` on Windows.
   - Editor: focused UI checks when needed; defer full editor-enabled `clap-smoke` and `editor-host` to CI or the final full run.

@@ -90,6 +90,7 @@ public:
       mRouteFirst = false;
     }
     const bool steep = routing.linkwitzRiley;
+    const bool wasSteep = mSplitSteep > 0.;
     for (int i = 0; i < frames; ++i)
     {
       mSplitMix += std::clamp((routing.crossover ? 1. : 0.) - mSplitMix, -mStep, mStep);
@@ -143,6 +144,9 @@ public:
       // Equal unprocessed lanes reconstruct unity throughout a crossover fade.
       mSplitGain[i] = 2. / (2. - mSplitMix);
     }
+    // Once inaudible, discard both channels' histories before suspending the LR4 sections.
+    // Routing is fixed for this block, so clearing once here avoids work in the sample loop.
+    if (wasSteep && mSplitSteep == 0.) mLrFilter = {};
     ProcessRow(mLane[0].data(), frames, controls, 4, right ? mRightLane[0].data() : nullptr);
     ProcessRow(mLane[1].data(), frames, controls, 8, right ? mRightLane[1].data() : nullptr);
     UtilityControls fineA, fineB;

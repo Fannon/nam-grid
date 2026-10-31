@@ -278,8 +278,10 @@ void TestUserModulePresets()
       {
         const auto range = RangeOf(i);
         const int p = i - parameter_layout::standardControls;
-        const double middle = .5 * (range.minimum + range.maximum);
-        values[i] = p >= 0 && kEffectParameters[p].step == 1. ? std::floor(middle) : middle;
+        const double middle = range.minimum + .371 * (range.maximum - range.minimum);
+        const bool discrete = p >= 0 && (!EffectChoices(p).empty()
+          || (range.minimum == 0. && range.maximum == 1. && kEffectParameters[p].step == 1.));
+        values[i] = discrete ? std::floor(middle) : middle;
       }
     std::vector<Value> parsed;
     assert(Parse(json::parse(ToJson(effect, values).dump()), effect, parsed).empty());

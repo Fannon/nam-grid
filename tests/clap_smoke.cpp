@@ -1161,6 +1161,7 @@ int main(int argc, char** argv)
   TestPedalDriveClap(plugin, cleared, save, load);
   TestPedalCompClap(plugin, cleared, save, load);
   TestModulePresetRecall(cleared, save, load, settingsBackup.home);
+  TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
@@ -1274,8 +1275,8 @@ int main(int argc, char** argv)
     pumpFor(50);
   };
   {
-    // Read the native tooltip, not an internal label property: the description's
-    // hover region must work alongside header options and update on state loads.
+    // Read the native tooltip, not an internal label property: the module title's
+    // description must update on state loads and when the module changes.
     HWND tooltip = nullptr;
     std::pair<HWND, HWND*> match{editor, &tooltip};
     EnumThreadWindows(GetCurrentThreadId(), [](HWND candidate, LPARAM data) -> BOOL {
@@ -1289,7 +1290,7 @@ int main(int argc, char** argv)
       return FALSE;
     }, reinterpret_cast<LPARAM>(&match));
     assert(tooltip);
-    const auto descriptionTooltip = [&](int x = 100, int y = grid_layout::descriptionTop + 8) {
+    const auto descriptionTooltip = [&](int x = 200, int y = grid_layout::moduleButtonY) {
       InvalidateRect(editor, nullptr, FALSE); UpdateWindow(editor);
       SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
       SendMessage(editor, WM_MOUSEHOVER, 0, 0);
@@ -1304,15 +1305,18 @@ int main(int argc, char** argv)
     description["SlotEffects"][0] = static_cast<int>(SlotEffect::DigitalBlack);
     load(description); selectTile(170, 120);
     const auto beforeHover = save().config();
-    const std::string full = effect_presentation::Sound(SlotEffect::DigitalBlack);
-    assert(descriptionTooltip() == std::wstring(full.begin(), full.end()));
+    const auto titleHelp = [](SlotEffect effect) {
+      const auto text = effect_presentation::Sound(effect) + std::string(" Click to choose or replace the module.");
+      return std::wstring(text.begin(), text.end());
+    };
+    assert(descriptionTooltip() == titleHelp(SlotEffect::DigitalBlack));
     assert(save().config() == beforeHover);
     description["Pre 1 Enabled"] = 0.; load(description); selectTile(170, 120);
-    assert(descriptionTooltip() == std::wstring(L"Bypassed | ") + std::wstring(full.begin(), full.end()));
+    assert(descriptionTooltip() == titleHelp(SlotEffect::DigitalBlack)); // The enable circle shows bypass.
     description["Pre 1 Enabled"] = 1.;
     description["SlotEffects"][0] = static_cast<int>(SlotEffect::SmoothComp);
     load(description); selectTile(170, 120);
-    assert(descriptionTooltip().empty()); // A fitting description must clear the previous module's hint.
+    assert(descriptionTooltip() == titleHelp(SlotEffect::SmoothComp)); // Never the previous module's text.
     if (argc == 4) // Plot help is produced by rendering; the snapshot host shows the editor.
     {
       description["SlotEffects"][0] = static_cast<int>(SlotEffect::Limiter);
@@ -1413,6 +1417,29 @@ int main(int argc, char** argv)
       }
       load(comp); selectTile(170, 120); // Loading a state re-reads the folder settings.
       const int presetX = grid_layout::moduleBrowseX - 26 - 52;
+      const auto presetKey = [&](int key, int modifiers = 0) {
+        BYTE previous[256]{}, pressed[256]{};
+        assert(GetKeyboardState(previous));
+        if (modifiers & 1) pressed[VK_SHIFT] = 0x80;
+        if (modifiers & 2) pressed[VK_CONTROL] = 0x80;
+        if (modifiers & 4) pressed[VK_MENU] = 0x80;
+        assert(SetKeyboardState(pressed));
+        SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+        SendMessage(editor, WM_KEYUP, key, 0);
+        assert(SetKeyboardState(previous));
+      };
+      const auto saveNamedPreset = [&](const wchar_t* name, bool cancel = false) {
+        win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
+        pumpFor(30);
+        presetKey('A', 2);
+        for (const wchar_t c : std::wstring(name))
+        {
+          const auto key = VkKeyScanW(c); assert(key != -1);
+          presetKey(LOBYTE(key), HIBYTE(key));
+        }
+        presetKey(cancel ? VK_ESCAPE : VK_RETURN);
+        pumpFor(50);
+      };
       win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Snappy clean picking");
       pumpFor(50);
       auto chosen = save().config();
@@ -1427,14 +1454,25 @@ int main(int argc, char** argv)
       // User presets: Save current as... writes one JSON file under the first preset folder's
       // Module Presets; the menu lists it after the factory presets and applies it.
       const auto userFile = module_presets::UserFolder(presetRoot, SlotEffect::PedalComp) / "Smoke squash.json";
-      win_file_dialog::Choose(userFile, [&] {
-        win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
-      });
+      const auto beforeName = save().config();
+      saveNamedPreset(L"Cancelled", true);
+      assert(!std::filesystem::exists(userFile.parent_path() / "Cancelled.json") && save().config() == beforeName);
+      saveNamedPreset(L"Smoke squash");
       pumpFor(50);
       assert(std::filesystem::exists(userFile));
       auto changed = chosen;
       changed["Pre 1 Pedal Comp Sustain"] = 5.;
       changed["Pre 1 Pedal Comp Pickup"] = 0.;
+      load(changed); selectTile(170, 120);
+      const auto readUser = [&] { std::ifstream input(userFile); return json::parse(input); };
+      const auto originalUser = readUser();
+      win_file_dialog::Confirm(false, [&] { saveNamedPreset(L"Smoke squash"); });
+      assert(readUser() == originalUser && save().config() == changed);
+      win_file_dialog::Confirm(true, [&] { saveNamedPreset(L"Smoke squash"); });
+      assert(readUser()["values"]["Pedal Comp Sustain"] == 5. && save().config() == changed);
+      load(chosen); selectTile(170, 120);
+      win_file_dialog::Confirm(true, [&] { saveNamedPreset(L"Smoke squash"); });
+      assert(readUser() == originalUser);
       load(changed); selectTile(170, 120);
       win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Smoke squash");
       pumpFor(50);
@@ -1464,9 +1502,7 @@ int main(int argc, char** argv)
       gate["Pre 2 Boost Gain"] = 5.;
       load(gate); selectTile(170, 120);
       const auto gateFile = module_presets::UserFolder(presetRoot, SlotEffect::NoisePrint) / "Learned floor.json";
-      win_file_dialog::Choose(gateFile, [&] {
-        win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
-      });
+      saveNamedPreset(L"Learned floor");
       pumpFor(50);
       std::ifstream gateInput(gateFile);
       const auto gateDocument = json::parse(gateInput);

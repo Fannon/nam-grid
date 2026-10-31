@@ -394,8 +394,8 @@ checkmark, cancellation, unchanged selection, recall and two-choice toggles, the
 exits before the remaining editor checks. An optional screenshot directory captures
 the closed selectors for visual review. Unset it for the complete smoke test.
 
-The README gallery comes from the opt-in, Windows-only `nam-readme-gallery`
-target; see [screenshots/README.md](screenshots/README.md).
+The README gallery comes from the opt-in `nam-readme-gallery` target on Windows
+and macOS; see [screenshots/README.md](screenshots/README.md).
 
 For browser UI iteration on Windows, set `NAM_GRID_BROWSER_SMOKE=1` when running
 `nam-clap-smoke`. This retains the DSP/state setup and the browser/preset interaction

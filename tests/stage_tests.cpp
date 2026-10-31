@@ -93,7 +93,7 @@ try
 {
   assert(argc >= 2 && argc <= 6);
   nam::activations::Activation::enable_fast_tanh();
-  if (std::string(argv[1]) == "--module-presets-only") { TestSmartGateUserPreset(); TestModulePresetCoverage(); TestModulePresetSharedControls(); TestModulePresets(); return 0; }
+  if (std::string(argv[1]) == "--module-presets-only") { TestNamedUserPreset(); TestSmartGateUserPreset(); TestModulePresetCoverage(); TestModulePresetSharedControls(); TestModulePresets(); return 0; }
   if (std::string(argv[1]) == "--mix-law-only") { TestMixLaw(); return 0; }
   if (std::string(argv[1]) == "--delay-time-change-only") { TestDelayTimeChange(); return 0; }
   if (std::string(argv[1]) == "--chorus-voices-only") { TestChorusVoices(); return 0; }
@@ -233,6 +233,7 @@ try
   TestModulePresetCoverage();
   TestModulePresetSharedControls();
   TestSmartGateUserPreset();
+  TestNamedUserPreset();
   TestModulePresets();
   TestDriveAntialiasing();
   TestOversampledWetDryBlend();

@@ -1,11 +1,19 @@
 // On-demand README gallery: renders an example rig in the real CLAP editor and
 // captures each view, then every built-in module's editor panel for the module
-// guides (modules/<name>.bmp). Windows only; see docs/screenshots/README.md.
+// guides (modules/<name>.bmp). Windows writes BMP from the OpenGL surface; macOS writes PNG
+// from the Metal layer. See docs/screenshots/README.md.
 //   nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]
 #include "ClapTestHost.h"
-#include "WinEditorCapture.h"
-#include "WinFileDialogDriver.h"
+#ifdef _WIN32
+  #include "WinEditorCapture.h"
+  #include "WinFileDialogDriver.h"
+#else
+  #include "IsolatedUserHome.h"
+  #include "MacEditorCapture.h"
+  #include <dlfcn.h>
+#endif
 #include "../NeuralAmpModeler/SlotDefaults.h"
+#include "../NeuralAmpModeler/ModulePresets.h"
 #include "../NeuralAmpModeler/CaptureLibrary.h"
 #include "../NeuralAmpModeler/RigPreset.h"
 #include "../NeuralAmpModeler/ModuleCatalog.h"
@@ -61,11 +69,17 @@ static std::string ModuleSlug(const char* name)
 
 static int Run(int argc, char** argv)
 {
-  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n";
+  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n"
+                      "macOS regressions: append --preset-save-smoke or --browser-text-smoke instead.\n";
   if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
-  if (argc != 4 && !(argc == 6 && std::string(argv[4]) == "--module"))
+  const bool browserTextSmoke = argc == 5 && std::string(argv[4]) == "--browser-text-smoke";
+  const bool presetSmoke = argc == 5 && std::string(argv[4]) == "--preset-save-smoke";
+#ifdef _WIN32
+  if (presetSmoke || browserTextSmoke) throw std::runtime_error("Native smoke modes use the macOS editor driver.");
+#endif
+  if (argc != 4 && !presetSmoke && !browserTextSmoke && !(argc == 6 && std::string(argv[4]) == "--module"))
     throw std::runtime_error(usage);
-  const std::string filter = argc == 6 ? ModuleSlug(argv[5]) : "";
+  const std::string filter = browserTextSmoke ? "browser-text" : presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
   if (argc == 6)
   {
     bool found = false;
@@ -80,13 +94,16 @@ static int Run(int argc, char** argv)
   {
     // Library folders are per-user settings; the plugin reads them at startup and on every state load.
     nam_library::Settings settings;
-    settings.rescanOnStartup = settings.showVisualizations = true;
+    settings.rescanOnStartup = !presetSmoke;
+    settings.showVisualizations = true;
     settings.namFolders = {nam_library::PathText(captures)};
     settings.irFolders = {nam_library::PathText(irs)};
     settings.presetFolders = {nam_library::PathText(presets)};
     assert(nam_library::WriteSettings(settingsBackup.file, settings));
   }
-  const auto amp1 = captures / "Example WaveNet amp.nam", amp2 = captures / "Example LSTM amp.nam";
+  const auto amp1 = captures / (browserTextSmoke
+    ? "Very long capture filename with several words and amp settings - bright switch on channel one gain six presence seven bass four middle five treble six cabinet microphone and room details.nam"
+    : "Example WaveNet amp.nam"), amp2 = captures / "Example LSTM amp.nam";
   const auto cab = irs / "Example 4x12 cabinet.wav";
   const auto out = std::filesystem::absolute(argv[3]);
   std::filesystem::create_directories(out);
@@ -94,6 +111,14 @@ static int Run(int argc, char** argv)
   for (const auto& [source, target] : {std::pair{"wavenet.nam", amp1}, std::pair{"lstm.nam", amp2}})
     std::filesystem::copy_file(repository / "NeuralAmpModelerCore" / "example_models" / source, target,
                                std::filesystem::copy_options::overwrite_existing);
+  if (browserTextSmoke)
+  {
+    std::ifstream input(amp1);
+    auto model = json::parse(input);
+    model["metadata"]["gear_make"] = std::string(600, 'M');
+    model["metadata"]["gear_model"] = std::string(600, 'T');
+    std::ofstream(amp1) << model.dump();
+  }
   WriteExampleCabinet(cab);
   // The bundled default capture and Clean Default rig (resources/defaults) for the main image.
   const auto defaults = repository / "NeuralAmpModeler" / "resources" / "defaults";
@@ -101,8 +126,14 @@ static int Run(int argc, char** argv)
   std::filesystem::copy_file(defaults / "riffsmith-clean.nam", cleanCapture, std::filesystem::copy_options::overwrite_existing);
 
   const auto path = std::filesystem::absolute(argv[1]);
+#ifdef _WIN32
   auto library = LoadLibraryW(path.c_str()); assert(library);
   auto* entry = reinterpret_cast<const clap_plugin_entry*>(GetProcAddress(library, "clap_entry"));
+#else
+  auto library = dlopen(path.c_str(), RTLD_NOW);
+  if (!library) throw std::runtime_error(std::string("Cannot load the plugin: ") + dlerror());
+  auto* entry = reinterpret_cast<const clap_plugin_entry*>(dlsym(library, "clap_entry"));
+#endif
   assert(entry && entry->init(path.string().c_str()));
   auto* factory = static_cast<const clap_plugin_factory*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
   Host host;
@@ -169,6 +200,7 @@ static int Run(int argc, char** argv)
   Stream bytes; bytes.string("###nam-grid###"); bytes.string(config.dump());
   clap_istream input{&bytes, Stream::read}; assert(state->load(plugin, &input));
   auto* gui = static_cast<const clap_plugin_gui*>(plugin->get_extension(plugin, CLAP_EXT_GUI));
+#ifdef _WIN32
   assert(gui->create(plugin, CLAP_WINDOW_API_WIN32, false));
   auto parent = CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE, L"STATIC", L"NAM Grid gallery capture", WS_POPUP,
     0, 0, grid_layout::width, grid_layout::height, nullptr, nullptr, GetModuleHandle(nullptr), nullptr); assert(parent);
@@ -176,6 +208,18 @@ static int Run(int argc, char** argv)
   assert(gui->set_parent(plugin, &window));
   SetWindowPos(parent, HWND_TOP, 0, 0, grid_layout::width, grid_layout::height, SWP_NOACTIVATE|SWP_SHOWWINDOW);
   auto editor = GetWindow(parent, GW_CHILD); assert(editor);
+  const auto mouse = [&](int x, int y, bool click) {
+    if (!click) { SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(x, y)); return; }
+    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+  };
+  const auto capture = [&](const std::string& name, int top) { CaptureEditor(editor, out / (name + ".bmp"), top); };
+#else
+  auto* editor = OpenMacEditor(plugin, gui, grid_layout::width, grid_layout::height);
+  const auto mouse = [&](int x, int y, bool click) { MacEditorMouse(editor, x, y, click); };
+  const auto capture = [&](const std::string& name, int top) { CaptureMacEditor(editor, out / (name + ".png"), top); };
+  const auto pump = [] { PumpMacEditor(); };
+#endif
 
   assert(plugin->activate(plugin, 48000, 1, 512)); assert(plugin->start_processing(plugin));
   std::array<double,512> inL{}, inR{}, outL{}, outR{};
@@ -212,24 +256,41 @@ static int Run(int argc, char** argv)
       pump(); std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   };
-  const auto click = [&](int x, int y) {
-    SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
-    SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, y)); play(300);
-  };
+  const auto click = [&](int x, int y) { mouse(x, y, true); play(300); };
   const auto tile = [&](int slot) { return std::pair{grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4) + 94, 64 + 104 * (slot / 4) + 40}; };
   const auto select = [&](int slot) { const auto [x, y] = tile(slot); click(x, y - 26); }; // The ID row only selects.
   // Park the pointer on an empty spot first, so no button shows its hover state.
   const auto shot = [&](const std::string& name, int top = 0) {
-    SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(630, 470)); play(100);
-    CaptureEditor(editor, out / (name + ".bmp"), top);
+    mouse(630, 470, false); play(100);
+    capture(name, top);
   };
 
   play(2500); // Library scan and model preparation
 
+#ifdef __APPLE__
+  if (browserTextSmoke)
+  {
+    select(2); click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); play(1500);
+    click(218, 448); play(2500); // Refresh the generated metadata fixture.
+    click(100, 144); // All folders, independent of the selected capture's context folder.
+    click(100, 75); MacEditorKey(editor, 0, "a", true);
+    for (const char c : std::string("Very long capture")) { const char key[]{c, 0}; MacEditorKey(editor, 0, key); }
+    MacEditorKey(editor, 36, "\r"); play(300);
+    click(400, 144); play(500);
+    shot("browser-long-details");
+    plugin->stop_processing(plugin); plugin->deactivate(plugin);
+    CloseMacEditor(editor, plugin, gui); plugin->destroy(plugin); entry->deinit(); dlclose(library);
+    std::cout << "Captured long browser title, metadata and path into " << out.string() << "\n";
+    return 0;
+  }
+#endif
+
   if (filter.empty())
   {
-    select(2); play(4000); shot("nam");
-    select(3); play(1000); shot("ir");
+    // The NAM and Cabinet IR module-guide panes come from the same frames.
+    std::filesystem::create_directories(out / "modules");
+    select(2); play(4000); shot("nam"); capture("modules/nam", 476);
+    select(3); play(1000); shot("ir"); capture("modules/cabinet-ir", 476);
     select(5); play(3000); shot("delay");
     select(12); play(3000); shot("eq");
     click(grid_layout::modeLeft + 82, grid_layout::optionsY); play(1000); shot("eq-shelf");
@@ -254,9 +315,44 @@ static int Run(int argc, char** argv)
       rig["SlotEffects"][7] = static_cast<int>(effect);
       for (int i = 0; i < 17; ++i) rig[std::string("A 4 ") + standard[i]] = defaults[i];
       for (int i = 0; i < kUtilityControls; ++i) rig[std::string("A 4 ") + kEffectParameters[i].name] = defaults[17 + i];
+      if (presetSmoke) rig[std::string("A 4 ") + kEffectParameters[uCrushBits].name] = 11.;
       Stream moduleBytes; moduleBytes.string("###nam-grid###"); moduleBytes.string(rig.dump());
       clap_istream moduleInput{&moduleBytes, Stream::read}; assert(state->load(plugin, &moduleInput));
       select(7); play(1800);
+#ifdef __APPLE__
+      if (presetSmoke)
+      {
+        const auto savedState = [&] {
+          Stream bytes; clap_ostream output{&bytes, Stream::write};
+          assert(state->save(plugin, &output)); return bytes.config();
+        };
+        const auto before = savedState();
+        const int presetX = grid_layout::moduleBrowseX - 26 - 52;
+        const auto beginName = [&] {
+          MacEditorSelectMenuItem(editor, presetX, grid_layout::moduleButtonY, "Save current as...");
+          play(300);
+          assert(!MacEditorHasSheet(editor)); // The old native Save panel fails here.
+        };
+        const auto type = [&](const char* name) {
+          MacEditorKey(editor, 0, "a", true);
+          for (const char* p = name; *p; ++p) { const char character[]{*p, 0}; MacEditorKey(editor, 0, character); }
+        };
+        beginName(); type("Cancelled"); MacEditorKey(editor, 53, "\x1b"); play(100);
+        const auto folder = module_presets::UserFolder(presets, effect);
+        assert(!std::filesystem::exists(folder / "Cancelled.json") && savedState() == before);
+        beginName(); type("Smoke crunch"); shot("preset-name-entry", 476);
+        MacEditorKey(editor, 36, "\r"); play(200);
+        const auto file = folder / "Smoke crunch.json";
+        assert(std::filesystem::is_regular_file(file) && savedState() == before);
+        const auto users = module_presets::LoadUser({presets}, effect);
+        assert(users.size() == 1 && users[0].name == "Smoke crunch");
+        // It is in the very next menu, before any rescan or settings refresh.
+        MacEditorSelectMenuItem(editor, presetX, grid_layout::moduleButtonY, "Smoke crunch", 1);
+        play(100); assert(savedState() == before);
+        shot("preset-name-saved", 476);
+        std::cout << "Module preset name-only entry, Escape, module folder and immediate menu recall passed\n";
+      }
+#endif
       shot("modules/" + slug, 476);
     }
   // The README main image: the bundled Clean Default rig with A1's capture selected.
@@ -272,7 +368,11 @@ static int Run(int argc, char** argv)
     select(4); play(4000); shot("grid");
   }
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
+#ifdef _WIN32
   gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+#else
+  CloseMacEditor(editor, plugin, gui); plugin->destroy(plugin); entry->deinit(); dlclose(library);
+#endif
   std::cout << "Captured gallery into " << out.string() << "\n";
   return 0;
 }

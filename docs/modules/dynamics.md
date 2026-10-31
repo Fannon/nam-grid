@@ -86,6 +86,8 @@ In the header:
 
 ## Pedal Comp
 
+![Pedal Comp editor](../screenshots/modules/pedal-comp.png)
+
 A guitar compressor in the spirit of sustain pedals, for electric and acoustic guitar. One
 **Sustain** knob sets how much it evens out your playing; the level follows automatically, so
 a typical note stays about as loud as bypass while quiet notes and decaying tails come up.

@@ -1,5 +1,56 @@
 #pragma once
 #include "../NeuralAmpModeler/ModulePresets.h"
+#include <map>
+
+// Use the running plugin's public flags as the independent source of discrete
+// domains, rather than copying the parser's descriptor classification into a test.
+inline void TestModulePresetValueDomains(const clap_plugin* plugin)
+{
+  using namespace module_presets;
+  const auto* params = static_cast<const clap_plugin_params*>(plugin->get_extension(plugin, CLAP_EXT_PARAMS));
+  std::map<std::string, clap_param_info> infos;
+  for (uint32_t i = 0; i < params->count(plugin); ++i)
+  {
+    clap_param_info info{};
+    assert(params->get_info(plugin, i, &info));
+    if (std::string(info.name).starts_with("Pre 1 ")) infos.emplace(info.name, info);
+  }
+  int continuous = 0, discrete = 0;
+  for (int id = 0; id <= static_cast<int>(SlotEffect::Last); ++id)
+  {
+    const auto effect = static_cast<SlotEffect>(id);
+    if (!Supported(effect)) continue;
+    const auto values = SlotDefaultValues(effect);
+    for (int control = 0; control < static_cast<int>(values.size()); ++control)
+    {
+      if (!ModuleControl(effect, control)) continue;
+      const auto& info = infos.at("Pre 1 " + std::string(ControlName(control)));
+      const bool stepped = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
+      // CLAP normalizes continuous parameters; files store their plain values.
+      const auto range = RangeOf(control);
+      double fraction = range.minimum + .371 * (range.maximum - range.minimum);
+      if (fraction == std::floor(fraction)) fraction += std::min(.25, .5 * (range.maximum - fraction));
+      assert(fraction != std::floor(fraction));
+      for (int version : {1, kUserVersion})
+      {
+        auto document = ToJson(effect, values);
+        document["version"] = version;
+        if (version == 1) document.erase("noiseProfile");
+        document["values"][ControlName(control)] = fraction;
+        std::vector<Value> parsed;
+        const auto error = Parse(document, effect, parsed);
+        if (error.empty() == stepped)
+          std::cerr << "Module preset domain differs from host: " << info.name << ": " << error << '\n';
+        assert(error.empty() != stepped);
+        if (!stepped) assert(Apply(effect, parsed, values)[control] == fraction);
+      }
+      stepped ? ++discrete : ++continuous;
+    }
+  }
+  assert(continuous > 0 && discrete > 0);
+  std::cout << "Module preset fractional values checked against host flags: " << continuous
+            << " continuous and " << discrete << " discrete controls, formats 1/2\n";
+}
 
 // Factory recipes are not saved identities. Simulate a replacement recipe under
 // the same name and verify an earlier user file, .ngrid and host state still

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <thread>
 #include "json.hpp"
 #ifdef _WIN32
 #include <windows.h>
@@ -52,8 +53,18 @@ inline void WriteAtomically(const std::filesystem::path& path, const std::string
       if (!output) throw std::runtime_error("Cannot finish writing the file.");
     }
 #ifdef _WIN32
-    if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-      throw std::runtime_error("Cannot replace the file.");
+    // Readers opened without FILE_SHARE_DELETE (including standard streams) can
+    // briefly prevent replacement. Retry off the audio thread, keeping the old
+    // file intact; persistent locks and other errors must still fail promptly.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
+    while (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    {
+      const auto error = GetLastError();
+      if ((error != ERROR_SHARING_VIOLATION && error != ERROR_ACCESS_DENIED)
+          || std::chrono::steady_clock::now() >= deadline)
+        throw std::runtime_error("Cannot replace the file (Windows error " + std::to_string(error) + ").");
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
 #else
     std::filesystem::rename(temporary, path);
 #endif

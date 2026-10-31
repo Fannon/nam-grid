@@ -4,55 +4,64 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-### Performance
+## [0.4.0] - 2026-10-31
 
-- Plugins embed compressed factory content on all platforms to reduce disk size. Missing factory files are decompressed during installation; audio processing and existing files are unchanged.
+Existing projects, presets and automation keep loading. New modes and routing options retain the previous settings in existing rigs. Some sound corrections are deliberate changes, listed below.
 
-- Smooth and Punch compressors reuse the gain-reduction conversion for audio and metering, and cache settled makeup gain to reduce CPU. Gain curves, control smoothing and zero added latency stay the same; existing rigs can differ by floating-point rounding.
-- Multi-head Tape processes its tape heads once while both channels carry the same signal, such as a mono guitar through captures, using about 30% less CPU there. Sound is unchanged.
-- Uni-Vibe calculates its optical filter coefficients every 16 samples and glides between them, using about 25% less CPU without added latency. Sweeps follow the previous per-sample response within about 0.02%; the static response, controls and saved state are unchanged.
-- Modulated rigs use less CPU by accessing destination controls directly. Sound, modulation timing and saved rigs are unchanged.
+### New modules and sounds
 
-### Added
+- **Pedal Comp:** a guitar sustain compressor calibrated against a Ross-type pedal, for electric and acoustic guitar. Sustain evens out your playing near bypass loudness; Attack, Body / Pick, Pickup, Blend and Level fine-tune the response. The Acoustic pickup setting suits piezo pickups and strumming. It adds no latency.
+- **Spring Reverb — Dispersive tank:** a new spring character with a chirp and drip on picked notes. Drip sets its strength. It uses about four times the CPU of Classic; existing rigs keep Classic.
+- **Chorus — 3 voices:** a lusher chorus with three moving delays at the same overall level. Existing rigs keep 1 voice.
+- **Juno Chorus — I+II vintage:** a fast, shallow mode with centered wet sound, based on Juno-60 measurements. Existing modes retain their sound.
+- **Digital Delay — Time change: Crossfade:** switches delay times, including tempo-sync jumps, without a pitch chirp. Gentle time modulation still glides. New and existing rigs start on Glide.
+- **Newer NAM captures:** support for Sequential models (several models chained in one file) and WaveNets with a dilated head, through NAM Core 0.6.0.
 
-- Smart Gate user module presets now save and restore the learned noise profile, so you can reuse a calibrated gate across rigs. Preset checkmarks distinguish learned profiles. Older module presets retain the current profile, and recalling any module preset leaves Learn off.
+### Rig building and performance controls
 
-- LFOs and sequencers add **Retrigger: Song position**. While the DAW plays, they follow its beat position, so synced sweeps and steps line up with the bars on every playback, through tempo changes and loops. Stopped, they run free as before. Existing rigs keep their Retrigger setting.
-- Spring Reverb adds **Tank: Dispersive**, modeled on a real spring's chirp: in each echo the lows arrive first and the highs follow, giving the drip on picked notes. Drip sets the chirp's strength. It uses about four times the CPU of Classic. Existing rigs keep the Classic tank.
-- Chorus adds **Voices: 3 voices**, a lusher multi-voice chorus: two more moving delays a third of a cycle apart, at slightly different depths and delays, at the same overall level. Existing rigs keep 1 voice.
-- Digital Delay adds **Time change: Glide / Crossfade**. Crossfade switches delay times with a 30 ms blend instead of a pitch chirp, including tempo-sync jumps. Gentle time modulation still glides. New and existing rigs start on Glide and retain their sound.
-- Juno Chorus adds **I+II vintage**: fast, shallow 9.75 Hz motion with centered wet sound, based on Juno-60 measurements. Existing I, I+II and II modes retain their sound.
-- **Pedal Comp**, a guitar sustain compressor for electric and acoustic guitar. **Sustain** sets how much it evens out your playing while keeping typical notes at bypass loudness. **Attack** is Fast (snappy squash) or Slow (natural pick). **Body / Pick** chooses whether bright pick attacks or the note body drive the compression, without changing the tone. Add **Blend** and **Level**. The Sustain range and timing are calibrated against recordings of a Ross-type pedal. **Pickup** (Single coil, Humbucker, Acoustic) matches the detector to your guitar; Acoustic suits piezo and transducer pickups and does not pump on strumming. Release follows your playing, and the module adds no latency.
-- Module presets: a **Presets** menu in every module editor. Factory starting points are a short list of established sounds, such as slapback, dotted-eighth, ping-pong and reversed-solo delays, a Screamer boost, surf spring, dark octave-down shimmer, and contrasting Airwindows plate, hall and tape treatments. Gates, Utility and modules whose default already is the usual starting point offer user presets only. NAM and Cabinet IR use the file browser instead. After a divider are your own presets, saved with **Save current as...** as one `.json` file each in your preset folder's `Module Presets`. Choosing one changes only that module's controls; the rest of the rig is unchanged.
-- Cabinet IR and Long IR now load stereo WAV responses, with independent left/right convolution. After a mono capture, a stereo IR spreads the signal into left and right for stereo room and reverb responses. Existing mono IRs retain their sound; four-channel true stereo files are not supported.
-- Routing now has **Trails**: bypassed delays and reverbs ring out instead of cutting their repeats and tail, so a scene that switches them off keeps its ambience. New playing stops reaching the bypassed module after the usual 5 ms fade. It starts off in new and existing rigs, preserving their sound. Tails last up to 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo, including the final fade. A ringing module uses CPU, then drains silently as before.
-- Routing now has **Keep dry level** for all delays and reverbs: keep your dry guitar at unity while Mix sets the wet level. It starts off in new and existing rigs, preserving their sound. Turning it on can raise the total level at high Mix; module Output trims still apply to both dry and wet.
+- **Module presets:** a Presets menu for every built-in effect, with established starting points such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring, octave-down shimmer and Airwindows plates, halls and tape. Save your own with Save current as... and reuse them in any slot. Enter a name to save into the module's configured preset folder; the preset appears in the menu immediately. Choosing one changes only that module. Gates, Utility and modules whose defaults already provide their usual sound offer user presets only; NAM and Cabinet IR keep their file browser.
+- **Smart Gate presets** also save the learned noise profile, so you can reuse a calibrated gate across rigs. Saving an untrained gate remembers that state and clears the profile when recalled. Older presets retain the current profile. Recall always leaves Learn off, and preset checkmarks distinguish different learned profiles.
+- **Trails:** this Routing option lets bypassed delays and reverbs ring out, including during scene changes, while new playing passes through dry. It starts off in new and existing rigs. Tails can last up to 30 seconds for delays and Shimmer, 45 seconds for Room, Dense Plate, Cloud, Hall and Spring, or 60 seconds for Airwindows reverbs and Cosmic Echo. A ringing effect continues to use CPU until its tail ends.
+- **Keep dry level:** this Routing option keeps your dry guitar at unity in delays and reverbs while Mix sets the wet level. It starts off, preserving existing rigs. Turning it on can raise the total level at high Mix; the module's Output still trims both dry and wet.
+- **Retrigger: Song position:** LFOs and sequencers can follow the DAW's beat position, keeping synced sweeps and steps aligned on every playback, through tempo changes and loops. They run free when stopped. Existing rigs keep their Retrigger setting.
+- **Stereo IRs:** Cabinet IR and Long IR load stereo WAV responses for stereo rooms and reverbs, even after a mono capture. Existing mono IRs retain their sound. Four-channel true stereo files are not supported.
 
-### Changed
+### Sound changes in existing rigs
 
-- NAM captures run on NAM Core 0.6.0. Newer model files load, including Sequential models (several models chained in one file) and WaveNet models with a dilated head. Models using FiLM conditioning after the 1×1 layer now render as trained. Standard WaveNet, A2, LSTM and the bundled capture render identically at 48 kHz; resampled captures at 44.1 kHz can differ below −110 dBFS. CPU use is unchanged.
-- The module picker's **Delay > Slapback preset** item is gone. Insert Digital Delay and choose **Slapback** from its **Presets** menu for the same settings.
-- Butter Comp now works at guitar levels. It previously barely reacted below about 70%, because its Airwindows core is designed for full-scale mix-bus signals. The default now gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness. Existing rigs with Butter Comp compress more at the same setting.
+These corrections can change the sound of saved rigs. Controls, ranges and reported latency stay the same.
 
-### Fixed
+- **Butter Comp** now responds at guitar levels and compresses more at the same setting; previously it barely reacted below about 70%. The default gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness.
+- **Frequency Shifter** now produces the selected sideband correctly. At ±100% Sideband the shifted sound is clearer and about 3 dB louder, and high Feedback sustains longer. Sideband 0 keeps its ring-modulator sound.
+- **Cloud** decay times now match their settings: short tails are shorter, and long tails sustain longer and slightly brighter. The mids of long tails ring 20–30% longer than before, as the editor's decay display shows.
+- **Dense Plate** has shorter, less dense tails at short Decay settings, particularly at large Size. Reflection levels can also change.
+- **Shimmer** pitch and Freeze transitions can sound slightly slower. Settled pitch and the mono pitch-shifter path are unchanged.
+- **NAM captures using FiLM conditioning** now sound as trained. Affected captures can sound different; tested standard WaveNet, A2, LSTM and bundled captures retain their output at 48 kHz. Some resampled captures at 44.1 kHz differ below −110 dBFS.
 
-- Spring Reverb's Stereo wet toggle no longer sits underneath the Tank selector. Both controls remain accessible when changing modules or restoring a rig.
-- User module presets now save and restore the shared EQ knobs in Guitar EQ, Cut EQ, Parametric EQ, Boost and Tube Boost, including low/high cuts. Factory recipes remain independent of saved rigs, projects and user presets.
-- Switches and choice boxes among a module's knobs, such as Rotary's Fast or Noise Gate (Smart)'s Learn, are centred on the knob dials instead of sitting below them.
-- Shimmer's pitch smoothing now takes 10 ms per channel rather than advancing twice per stereo sample. Pitch and Freeze transitions in existing Shimmer rigs can sound slightly slower; settled pitch and the mono pitch-shifter path are unchanged.
-- Cloud's Decay now matches its tail length. Short settings no longer ring much longer than set (0.5 s at Size 200% rang for about 1.3 s), and long settings are no longer cut short: below Damping the tail lasts the set time, and the mids of long tails ring 20–30% longer than before, as the editor's decay display shows. Existing Cloud rigs change: short settings sound shorter and long tails sustain longer and slightly brighter. Ranges and zero reported latency are unchanged.
-- Dense Plate's Decay now attenuates energy inside its allpasses as well as its long delays. Short settings no longer ring much longer than their seconds value, especially at large Size. Existing plate rigs can sound shorter and less dense, with changed reflection levels; parameter meanings and zero reported latency are preserved.
-- Outboard Channel Saturate and Console EQ Mid/High Cut automation no longer step at coefficient updates. Their native coefficients now interpolate over 32 samples; settled sound, parameter identities and zero reported latency are unchanged.
-- Frequency Shifter now shifts a single sideband as documented. Its quadrature path was silent, so Sideband at ±100% produced both sidebands like a ring modulator. A new zero-latency allpass network keeps the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz. This changes existing rigs: at ±100% Sideband the shifted sound is clearer, about 3 dB louder, and high Feedback sustains longer; Sideband 0 keeps its ring-modulator sound.
-- Bypassed compressors, gates, Peak Limiter, Auto Swell and Filter let their detectors settle, so re-enabling them no longer resumes a stale gain reduction or skips a swell.
-- Fewer clicks when switching modules, scenes and automation:
-  - Re-enabling or replacing a module no longer clicks. This affected Chorus, Flanger, Vibrato, Rotary, Stereo Doubler, Juno Chorus, Frequency Shifter, LoFi Tape Machine, Dual Delay, Tube Boost and Airwindows Tape. The module's input now fades in, and every module briefly drains its history before it is suspended.
-  - Re-enabling a delay shortly after bypassing it no longer clicks: feedback fades out over 5 ms instead of being cut.
-  - Jumps of Output and Drive in Distortion, Pedal Drive, Tube Boost and Airwindows Tape, and of Output in LoFi Tape Machine, Multi-head Tape, Diffused Delay and the Airwindows reverbs, are smooth instead of zippering.
-  - Utility level, balance and polarity changes always take 5 ms. Juno Chorus Mix rising from 0% no longer jumps in. Changing the Cosmic Echo style no longer clicks on the new style's first repeats.
-  - Settled sound is unchanged; only these transitions differ.
-- Projects and rig presets accept up to 8 MiB instead of 1 MiB, leaving room for future controls in rigs with all three performance scenes stored. Full rigs currently need about 0.9 MiB as a preset.
-- With Startup rescan off, the library browser shows the saved index again instead of an empty list. A missing, invalid, empty or factory-only index triggers a background rescan, and opening an empty or factory-only browser retries it. Unavailable folders and read failures keep the last good saved index.
+### Lower CPU and smaller plugins
+
+- **Smooth and Punch compressors** use less CPU. Their gain curves, smoothing and latency stay the same; existing rigs can differ by floating-point rounding.
+- **Multi-head Tape** uses about 30% less CPU while both channels carry the same signal, such as mono guitar through captures. Sound is unchanged.
+- **Uni-Vibe** uses about 25% less CPU without added latency. Moving sweeps can differ very slightly; the static tone, controls and saved settings stay the same.
+- **Modulated rigs** use less CPU, with unchanged sound, modulation timing and saved settings.
+- **Smaller installed plugins:** factory content is compressed inside both plugin formats on every platform and extracted when missing. Existing library files and audio processing are unchanged.
+
+### Smoother operation and fixes
+
+- Windows library-index, settings and preset saves tolerate brief file-reader contention instead of failing immediately. Persistent locks still fail safely, preserving the previous file.
+- Saved module presets load correctly when continuous controls contain fractional values, including delay and Cosmic Echo times. Existing affected files load without changes.
+- Long filenames, metadata and paths stay inside the library browser's details panel without overlapping its controls.
+- Fewer clicks when bypassing, re-enabling or replacing modules and switching scenes. Re-enabling delays no longer cuts feedback abruptly, and changing Cosmic Echo's style no longer clicks on the first repeats.
+- Smoother Output and Drive automation across drive, tape, delay and reverb modules. Utility level, balance and polarity changes and Juno Chorus Mix near zero also transition smoothly. Settled sound is unchanged.
+- Smoother automation of Outboard Channel Saturate and Console EQ Mid/High Cut, with unchanged settled sound and latency.
+- Re-enabled compressors, gates, Peak Limiter, Auto Swell and Filter no longer resume stale dynamics or skip a swell.
+- With Startup rescan off, the library browser restores its saved index. Empty or invalid indexes trigger a scan; unavailable folders and read failures retain the last good index.
+- Projects and rig presets can hold up to 8 MiB, allowing complete rigs with all three performance scenes.
+
+### Editing
+
+- Hover over the module name for its full description. The row below has more room for options, without shortened description fragments.
+- Switches and choice boxes, such as Rotary's Fast and Smart Gate's Learn, align with the knob dials.
+- The module picker's Delay > Slapback preset item has moved: insert Digital Delay and choose Slapback from its Presets menu for the same settings.
 
 ## [0.3.0] - 2026-10-27
 

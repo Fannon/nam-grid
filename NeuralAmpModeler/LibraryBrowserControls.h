@@ -332,11 +332,11 @@ public:
         : mKind == nam_library::FileKind::RigPreset ? "No preset folders yet.\nAdd one with Manage folders."
         : mKind == nam_library::FileKind::IR ? "No IR folders yet.\nAdd one with Manage folders."
         : "No NAM folders yet.\nAdd one with Manage folders.";
-      g.DrawMultiLineText(Text(14.f, muted), message, IRECT(314, kListTop + 60, 684, kListTop + 180));
+      DrawClippedText(g, Text(14.f, muted), message, IRECT(314, kListTop + 60, 684, kListTop + 180));
     }
     // Errors and load results sit just above the action they concern.
     if (!mStatus.empty())
-      g.DrawMultiLineText(Text(12.f, IColor(255, 238, 147, 122)).WithVAlign(EVAlign::Bottom), mStatus.c_str(),
+      DrawClippedText(g, Text(12.f, IColor(255, 238, 147, 122)).WithVAlign(EVAlign::Bottom), mStatus.c_str(),
                           IRECT(744, FooterTop() - 44, 964, FooterTop() - 6));
   }
 
@@ -647,6 +647,14 @@ private:
         SetDirty(false);
       });
   }
+  static void DrawClippedText(IGraphics& g, const IText& text, const char* content, const IRECT& bounds)
+  {
+    // NanoVG wraps to the width but does not enforce the requested height.
+    // Restore the control's original drawing clip after each text block.
+    g.PathClipRegion(bounds);
+    g.DrawMultiLineText(text, content, bounds);
+    g.PathClipRegion();
+  }
   void DrawDetails(IGraphics& g)
   {
     using namespace grid_ui;
@@ -658,16 +666,18 @@ private:
     {
       FittedText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, kListTop, 964, kListTop + 26));
       const auto body = file->name + "\n\n" + ModuleParameters(static_cast<SlotEffect>(file->module));
-      g.DrawMultiLineText(Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 34, 964, bottom));
+      DrawClippedText(g, Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 34, 964, bottom));
       return;
     }
-    g.DrawMultiLineText(Text(16.f, accent).WithVAlign(EVAlign::Top), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, kListTop + 4, 964, kListTop + 46));
+    // Multiline drawing does not clip to its height. Bound the title to two
+    // lines so long capture filenames cannot run into the metadata below.
+    TwoLineText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()), IRECT(744, kListTop + 4, 964, kListTop + 46));
     const auto metadata = file->kind == nam_library::FileKind::NAM
       ? std::string(nam_library::GearName(file->gear))
         + (file->maker.empty() ? "" : "\n" + file->maker) + (file->model.empty() ? "" : " / " + file->model)
       : file->kind == nam_library::FileKind::IR ? "WAV impulse response" : "Complete NAM Grid rig";
     const auto body = metadata + (file->name.empty() ? "" : "\n" + file->name) + "\n\n" + nam_library::PathText(file->path);
-    g.DrawMultiLineText(Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 52, 964, bottom));
+    DrawClippedText(g, Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 52, 964, bottom));
   }
   static std::string ModuleParameters(SlotEffect effect)
   {

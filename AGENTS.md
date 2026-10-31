@@ -21,12 +21,14 @@ NAM Grid is a CLAP/VST3 guitar-rig plugin built on iPlug2, NAM Core and AudioDSP
 
 - `bash build.sh` builds into `build/<platform>/release/` (`windows`, `macos` or `linux`; plugins in `out/`). Add `--setup` after dependency pins or patches change and `--test` for the CTest and Python suites. Git Bash builds Windows plugins and WSL2 builds Linux plugins.
 - Put special configurations in `build/<platform>/<purpose>/`, and never share a build directory between operating systems, compilers or worktrees. Root-level `build-*` directories are legacy caches: add none, and don't move them.
-- While iterating, build and run one target from the build directory, e.g. `cmake --build build/<platform>/release --target nam-stage-tests` and `ctest --test-dir build/<platform>/release -C Release -R '^stages$' --output-on-failure`. Run `bash build.sh --test` once when the change is complete.
+- While iterating and making local fixes, build and run only the targets affected by the change, e.g. `cmake --build build/<platform>/release --target nam-stage-tests` and `ctest --test-dir build/<platform>/release -C Release -R '^stages$' --output-on-failure`. Broaden testing when failures or cross-cutting changes justify it; do not repeat checks that already passed without a relevant new change.
+- Run the full suite once as the last finishing step after all fixes are complete, not after each local fix. Prefer CI for full native coverage; use `bash build.sh --test` when doing the final full run locally. Do not add a routine confirmation step for testing.
+- Native UI tests move the mouse and steal focus, disrupting normal computer use. Keep editor-enabled `clap-smoke`, `editor-host`, screenshot/gallery tools and other native-window automation out of routine local fix loops. For DSP/state checks, use `NAM_GRID_HEADLESS_SMOKE=1` with `clap-smoke`; prefer focused tests without UI wherever they cover the change. Defer invasive UI coverage to CI or the final full run.
 - Choose tests by what changed ([coverage table](docs/build.md#tests)):
   - Module DSP: `stages`, plus `aliasing` for nonlinear or oversampled paths.
-  - Parameters, modes or state: `parameter-contract`, `clap-smoke`, and `vst3-parameter-contract` on Windows.
-  - Editor: `clap-smoke` and `editor-host`.
-  - Library: `capture-library`.
+  - Parameters, modes or state: `parameter-contract`, headless `clap-smoke`, and `vst3-parameter-contract` on Windows.
+  - Editor: focused UI checks when needed; defer full editor-enabled `clap-smoke` and `editor-host` to CI or the final full run.
+  - Library: `capture-library`, plus `library-startup` for startup/index recovery changes.
   - IRs: `ir-convolution` and `wav-decoder`.
   - Resampling: `resampling`.
   - Scripts and docs: the Python tests.

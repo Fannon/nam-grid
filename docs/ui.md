@@ -29,8 +29,8 @@ Drag cards to move, swap or copy modules, or right-click a card for **Clear**, *
 
 Every module editor uses the same layout:
 
-- **Top row:** slot ID, category badges and the enable/bypass circle, then the module name with its selected mode. Browser and previous/next align on the right. The circle controls the same automatable Enabled parameter as the grid node.
-- **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, **Quality** or **Heads**, on the right of the description row. Click a two-choice option to toggle it; longer lists open a menu.
+- **Top row:** slot ID, category badges and the enable/bypass circle, then the module name with its selected mode. Hover over the name for a description of the module. Browser and previous/next align on the right. The circle controls the same automatable Enabled parameter as the grid node.
+- **Options:** tempo sync and sound-specific choices such as **Style**, **Mode**, **Quality** or **Heads**, on the right below the top row. Click a two-choice option to toggle it; longer lists open a menu.
 - **Knobs:** up to four per row, filled from the left. **Output** comes before **Mix**. All eight positions are available for sound controls.
 - **Display:** a visual guide to the module's response or your playing, with that module's input, output and gain in its footer.
 
@@ -39,18 +39,18 @@ Drag a knob or click its value to type a number; double-click restores its start
 The pointer becomes a text cursor over an editable value. Click the number below
 the knob, type the new value, and press **Enter** to apply it or **Escape** to cancel.
 
-If a module's description ends in `...`, hover over it to read the full description.
-
 Every built-in module except NAM and Cabinet IR has a **Presets** menu in the top row, between the module name and
-the browser button. Choosing a preset sets that module's controls through ordinary parameter
-changes, so the module keeps running and the rest of the rig is unchanged. The button shows
-the preset's name until you move a control. The rig or project stores the resulting control
-values, not a link to the preset.
+the browser button. Choosing a preset sets that module's controls; Smart Gate user presets
+also restore the learned noise profile by preparing a replacement gate. The rest of the rig
+is unchanged. The button shows the preset's name while its controls and any saved profile
+match. The rig or project stores the resulting values and profile, not a link to the preset.
 
 - **Factory presets** come first: a few established starting points for most modules, listed
   in [Rig presets](presets.md#choosing-useful-starting-points). Factory entries are read-only.
 - **Your presets** follow after a divider. **Save current as...** saves this module's
-  current controls as a new preset, also when you started from a factory preset.
+  current controls and, for Smart Gate, its learned profile as a new preset, also when you started from a factory preset.
+  Type a name and press **Enter** to save it in the module's preset folder; **Escape** cancels.
+  The new preset appears in the menu immediately. Saving with an existing name asks before replacing it.
 - **Show presets folder** opens the folder in Explorer or Finder; rename or delete presets
   there.
 

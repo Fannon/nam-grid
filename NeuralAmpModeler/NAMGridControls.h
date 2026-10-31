@@ -1054,6 +1054,7 @@ public:
   , mCardBounds(bounds)
   , mSlot(slot)
   {
+    SetTextEntryLength(128);
   }
 
   void Draw(IGraphics& g) override
@@ -1182,46 +1183,30 @@ public:
     const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
     if (mModelButton->GetRECT() != nameBounds) mModelButton->SetTargetAndDrawRECTs(nameBounds);
   }
-  void LayoutDescription(IGraphics& g, bool draw)
+  // The module description is the name's hover help, keeping the editor free of explanatory text.
+  void UpdateModuleTooltip(IGraphics& g)
   {
     using namespace grid_ui;
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
-    const bool enabled = GetDelegate()->GetParam(SlotActiveParam(mSlot))->Bool();
     const int distortionStyle = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uDistStyle))->Int();
-    const auto hint = std::string(enabled ? "" : "Bypassed | ")
-      + (effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
+    const auto hint = std::string(effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
           : effect == SlotEffect::PedalDrive ? effect_presentation::Help(effect, uPedalStyle,
               GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPedalStyle))->Int())
                                          : effect_presentation::Sound(effect));
-    // The description stops before any option shown on its row (quality, tempo sync, modes).
-    float hintRight = grid_layout::parameterRight;
-    const auto shorten = [&](const IControl* option) {
-      if (option && !option->IsHidden() && option->GetRECT().T < grid_layout::descriptionBottom)
-        hintRight = std::min(hintRight, option->GetRECT().L - 10.f);
-    };
-    shorten(mQualityButton);
-    for (int i = 0; i < kUtilityControls; ++i)
-      if (effect_presentation::HeaderControl(i)) shorten(mUtilityKnobs[i]);
-    const IRECT hintBounds(grid_layout::parameterLeft, grid_layout::descriptionTop, hintRight, grid_layout::descriptionBottom);
-    const bool moved = mDescriptionHint->GetRECT() != hintBounds;
-    if (moved) mDescriptionHint->SetTargetAndDrawRECTs(hintBounds);
-    const auto style = Text(14.f, muted);
-    IRECT measured; g.MeasureText(style, hint.c_str(), measured);
-    const std::string tooltip = !empty && measured.W() > hintBounds.W() ? hint : "";
-    if (moved || tooltip != mDescriptionHint->GetTooltip())
+    const auto tooltip = empty ? std::string("Choose a module.") : hint + " Click to choose or replace the module.";
+    if (tooltip != mModelButton->GetTooltip())
     {
-      mDescriptionHint->SetTooltip(tooltip.c_str());
+      mModelButton->SetTooltip(tooltip.c_str());
       g.UpdateTooltips(); // Refresh native tracking rectangles on macOS as well.
     }
-    if (draw && !empty) FittedText(g, style, hint, hintBounds);
   }
   void DrawEditor(IGraphics& g)
   {
     using namespace grid_ui;
     LayoutHeader(g, true);
-    LayoutDescription(g, true);
+    UpdateModuleTooltip(g);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const bool empty = PLUG()->GetSlotPath(mSlot).empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
@@ -1354,10 +1339,6 @@ public:
   {
     mEditor = new grid_ui::Editor(IRECT(0, grid_layout::editorTop, grid_layout::visualizationRight, grid_layout::visualizationBottom), [this](IGraphics& g) { DrawEditor(g); });
     GetUI()->AttachControl(mEditor);
-    // The description is drawn by the editor; this empty label supplies its hover region.
-    mDescriptionHint = new grid_ui::HintLabel(IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop,
-      grid_layout::parameterRight, grid_layout::descriptionBottom), "", grid_ui::Text(14.f, grid_ui::muted), "");
-    mEditor->AddChildControl(mDescriptionHint);
     mPlotHelp = new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
       grid_layout::visualizationRight - 12, grid_layout::plotFooterBottom));
     mEditor->AddChildControl(mPlotHelp, kCtrlTagPlotHelpBase + static_cast<int>(mSlot));
@@ -2536,14 +2517,11 @@ private:
     mModelButton->SetLabelStr(moduleLabel.c_str());
     mModelButton->SetModeStr(grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot)).c_str());
     mModelButton->SetDirty(false);
-    const auto mode = grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot));
-    mModelButton->SetTooltip(("Choose or replace the module. " + moduleLabel
-                              + (mode.empty() ? std::string{} : " (" + mode + ")")).c_str());
     SetTooltip(path.empty() ? "Click to browse modules. Right-click for Clear / Copy / Move / Swap."
                             : path.c_str());
     if (mEditor && selected)
     {
-      LayoutDescription(*GetUI(), false);
+      UpdateModuleTooltip(*GetUI());
       mEditor->SetDirty(false);
     }
     SetDirty(false);
@@ -2633,20 +2611,40 @@ private:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const auto folder = PLUG()->GetModulePresetFolder(effect);
     if (folder.empty()) return;
-    std::error_code error;
-    std::filesystem::create_directories(folder, error);
+    mSavePresetEffect = effect;
+    mSavePresetFolder = folder;
     const auto suggested = MatchingPresetName(effect);
-    WDL_String file(((suggested.empty() ? std::string("My ") + SlotEffectName(effect) : suggested) + ".json").c_str());
-    WDL_String directory(nam_library::PathText(folder).c_str());
-    GetUI()->PromptForFile(file, directory, EFileAction::Save, "json", [this](const WDL_String& chosen, const WDL_String&) {
-      if (!chosen.GetLength()) return;
-      auto path = std::filesystem::u8path(chosen.Get());
-      if (!path.has_extension()) path += ".json";
+    const auto name = suggested.empty() ? std::string("My ") + module_presets::Utf8(folder.filename()) : suggested;
+    auto text = grid_ui::Text(14.f, grid_ui::text);
+    text.mTextEntryBGColor = grid_ui::surface;
+    text.mTextEntryFGColor = grid_ui::text;
+    GetUI()->CreateTextEntry(*this, text,
+      IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop,
+            mPresetButton->GetRECT().R, grid_layout::moduleHeaderBottom), name.c_str());
+  }
+  void OnTextEntryCompletion(const char* name, int) override
+  {
+    if (!name || !*name || PLUG()->GetSlotEffect(mSlot) != mSavePresetEffect) return;
+    try
+    {
+      const auto path = module_presets::NamedUserFile(mSavePresetFolder, name);
+      if (std::filesystem::exists(path))
+      {
+        const auto message = "Replace the saved preset \"" + module_presets::Utf8(path.stem()) + "\"?";
+        if (GetUI()->ShowMessageBox(message.c_str(), "Replace module preset", kMB_YESNO) != kYES) return;
+      }
       if (const auto failure = PLUG()->SaveUserModulePreset(mSlot, path); !failure.empty())
         grid_ui::ShowNotice(GetUI(), "Cannot save the module preset", failure.c_str());
-      LoadUserPresets(true);
-      Refresh();
-    });
+      else
+      {
+        LoadUserPresets(true); // Read the module folder immediately; no library scan is needed.
+        Refresh();
+      }
+    }
+    catch (const std::exception& error)
+    {
+      grid_ui::ShowNotice(GetUI(), "Cannot save the module preset", error.what());
+    }
   }
   void ShowEditMenu()
   {
@@ -2756,7 +2754,6 @@ private:
   IRECT mCardBounds;
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
-  grid_ui::HintLabel* mDescriptionHint = nullptr;
   grid_ui::PlotHelp* mPlotHelp = nullptr;
   grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;
@@ -2771,6 +2768,8 @@ private:
   SlotEffect mUserPresetsEffect = SlotEffect::NAM;
   int mUnreadablePresets = 0;
   bool mUserPresetsLoaded = false;
+  SlotEffect mSavePresetEffect = SlotEffect::NAM;
+  std::filesystem::path mSavePresetFolder;
   ILayerPtr mPedalPreview;
   std::array<double, 10> mPedalPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;

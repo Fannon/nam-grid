@@ -160,6 +160,17 @@ inline std::vector<size_t> Browse(const Snapshot& library, FileKind kind, const 
   return result;
 }
 
+// The browser's Starred filter: keeps the results that carry any star, in their order.
+inline std::vector<size_t> KeepStarred(const Snapshot& library, std::vector<size_t> results, const Stars& stars,
+                                       const std::filesystem::path& favoritesFolder)
+{
+  results.erase(std::remove_if(results.begin(), results.end(), [&](size_t index) {
+    const auto key = StarKey(library.captures[index], favoritesFolder);
+    return key.empty() || !stars.count(key);
+  }), results.end());
+  return results;
+}
+
 struct BrowserFolder { std::filesystem::path path; std::string label; int depth = 0, rootIndex = -1; };
 inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKind kind,
                                                 const std::vector<std::string>& roots)

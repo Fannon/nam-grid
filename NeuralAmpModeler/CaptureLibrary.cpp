@@ -150,6 +150,7 @@ std::string PathText(const std::filesystem::path& path)
   return {text.begin(), text.end()};
 }
 
+
 namespace
 {
 // One path segment against one .ignore pattern segment: `*`, `?`, `[...]` classes and
@@ -615,6 +616,100 @@ std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& sel
   });
   return result;
 }
+std::string StarKey(const Capture& file, const std::filesystem::path& favoritesFolder)
+{
+  switch (file.kind)
+  {
+    case FileKind::Module: return "Module:" + std::to_string(file.module);
+    // Same bytes, same star: the content hash rigs already use to relink a moved capture.
+    case FileKind::NAM: return file.hash.empty() ? std::string{} : "NAM:" + file.hash;
+    case FileKind::IR: return file.hash.empty() ? std::string{} : "IR:" + file.hash;
+    case FileKind::RigPreset:
+    {
+      // The scan records each preset relative to its source folder, in the file system's spelling.
+      // Forward slashes keep a relative key the same on every platform.
+      const bool local = !favoritesFolder.empty() && !file.relative.empty() && SamePath(file.source, favoritesFolder);
+      const auto& path = local ? file.relative : file.path;
+      return "RigPreset:" + PathText(std::filesystem::path(path.lexically_normal().generic_u8string()));
+    }
+    default: return {};
+  }
+}
+
+int NextStar(int level)
+{
+  return level < 0 || level >= kStarLevels ? 0 : level + 1;
+}
+
+std::filesystem::path FavoritesFolder(const std::vector<std::string>& presetFolders)
+{
+  return presetFolders.empty() ? std::filesystem::path{} : std::filesystem::u8path(presetFolders.front());
+}
+
+std::filesystem::path FavoritesFile(const std::vector<std::string>& presetFolders,
+                                    const std::filesystem::path& configFolder)
+{
+  const auto folder = presetFolders.empty() ? configFolder : FavoritesFolder(presetFolders);
+  return folder.empty() ? folder : folder / "favorites.json";
+}
+
+std::optional<Stars> ReadFavorites(const std::filesystem::path& file)
+{
+  Stars result;
+  try
+  {
+    std::error_code error;
+    if (file.empty() || !std::filesystem::exists(file, error)) return error ? std::nullopt : std::optional(result);
+    std::ifstream input(file, std::ios::binary);
+    if (!input) return std::nullopt;
+    const auto config = nlohmann::json::parse(input);
+    if (!config.is_object()) return std::nullopt;
+    const auto stars = config.find("Stars");
+    if (stars == config.end()) return result;
+    if (!stars->is_object()) return std::nullopt;
+    for (auto entry = stars->begin(); entry != stars->end() && result.size() < 8192; ++entry)
+    {
+      // A damaged or hand-edited entry costs only that star, never the rest of the file.
+      const auto& value = entry.value();
+      if (entry.key().empty() || entry.key().size() > 2048 || !value.is_object()) continue;
+      const auto level = value.find("Level");
+      if (level == value.end() || !level->is_number_integer()) continue;
+      Star star{level->get<int>()};
+      if (star.level < 1 || star.level > kStarLevels) continue;
+      if (const auto name = value.find("Name"); name != value.end() && name->is_string() && name->size() <= 512)
+        star.name = name->get<std::string>();
+      result[entry.key()] = std::move(star);
+    }
+  }
+  catch (const std::exception&)
+  {
+    return std::nullopt;
+  }
+  return result;
+}
+
+bool WriteFavorites(const std::filesystem::path& file, const Stars& stars)
+{
+  try
+  {
+    if (file.empty()) return false;
+    std::filesystem::create_directories(file.parent_path());
+    auto entries = nlohmann::json::object();
+    for (const auto& [key, star] : stars)
+    {
+      auto entry = nlohmann::json{{"Level", star.level}};
+      if (!star.name.empty()) entry["Name"] = star.name;
+      entries[key] = std::move(entry);
+    }
+    rig_preset::WriteAtomically(file, nlohmann::json{{"Format", "nam-grid-favorites"}, {"Version", 1}, {"Stars", entries}}.dump(2));
+    return true;
+  }
+  catch (const std::exception&)
+  {
+    return false;
+  }
+}
+
 // Content identity exists so a renamed or moved capture can be found again after a rescan.
 // It must never shrink the menu: keep every indexed path and only count repeats, so a pack
 // folder stays complete even when a curated copy of the same bytes lives elsewhere.

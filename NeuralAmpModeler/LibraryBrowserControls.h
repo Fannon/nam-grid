@@ -1,12 +1,34 @@
 #pragma once
 #include "LibraryBrowser.h"
 #include "ITextEntryControl.h"
+#include <cmath>
+
+// Browser star: an outline when unrated, filled yellow, orange or red as it is cycled.
+inline void DrawBrowserStar(IGraphics& g, float cx, float cy, float radius, int level)
+{
+  static const IColor colors[] = {grid_ui::muted, IColor(255, 246, 206, 74),
+                                  IColor(255, 244, 148, 56), IColor(255, 232, 82, 74)};
+  const int index = level >= 1 && level <= nam_library::kStarLevels ? level : 0;
+  g.PathClear();
+  for (int point = 0; point < 10; ++point)
+  {
+    const float angle = -1.5707963f + point * 0.62831853f; // Start at the top point.
+    const float r = point % 2 == 0 ? radius : radius * .44f;
+    const float x = cx + r * std::cos(angle), y = cy + r * std::sin(angle);
+    if (point == 0) g.PathMoveTo(x, y);
+    else g.PathLineTo(x, y);
+  }
+  g.PathClose();
+  if (index) g.PathFill(colors[index]);
+  else g.PathStroke(colors[0].WithOpacity(.7f), 1.2f);
+}
 
 class NAMBrowserTab : public grid_ui::Button
 {
 public:
   using grid_ui::Button::Button;
   void SetActive(bool active) { if (mActive != active) { mActive = active; SetDirty(false); } }
+  bool IsActive() const { return mActive; }
   void Draw(IGraphics& g) override
   {
     g.FillRoundRect(mActive ? grid_ui::accent.WithOpacity(.15f) : grid_ui::surface, mRECT, 3.f);
@@ -15,6 +37,21 @@ public:
   }
 private:
   bool mActive = false;
+};
+
+// The results header's Starred toggle: a star and its label, lit like an active tab when on.
+class NAMBrowserStarFilter : public NAMBrowserTab
+{
+public:
+  using NAMBrowserTab::NAMBrowserTab;
+  void Draw(IGraphics& g) override
+  {
+    g.FillRoundRect(IsActive() ? grid_ui::accent.WithOpacity(.15f) : grid_ui::surface, mRECT, 3.f);
+    g.DrawRoundRect(IsActive() ? grid_ui::accent : mMouseIsOver ? grid_ui::muted : grid_ui::border, mRECT, 3.f);
+    DrawBrowserStar(g, mRECT.L + 15.f, mRECT.MH(), 6.5f, IsActive() ? 1 : 0);
+    g.DrawText(grid_ui::Text(14.f, IsActive() ? grid_ui::accent : grid_ui::text, EAlign::Near), GetLabelStr(),
+               IRECT(mRECT.L + 27.f, mRECT.T, mRECT.R - 4.f, mRECT.B));
+  }
 };
 
 // Use iPlug's existing editor for Unicode entry, selection, clipboard and undo.
@@ -172,6 +209,11 @@ public:
     }, "Sort: relevance");
     mSort->SetTooltip("Relevance ranks exact and leading filename matches first; Name sorts alphabetically.");
     AddChildControl(mSort);
+    mStarred = new NAMBrowserStarFilter(IRECT(478, kPanelTop + 2, 576, kListTop - 2), [this](IControl*) {
+      View().starred = !View().starred; View().scroll = 0; Rebuild();
+    }, "Starred");
+    mStarred->SetTooltip("Show only starred results. Search and folders still apply; the browser opens showing everything.");
+    AddChildControl(mStarred);
     mDelete = new Button(IRECT(), [this](IControl*) { DeleteSelectedPreset(); }, "Delete...");
     mDelete->SetTooltip("Delete the selected preset file from disk after confirmation. The current rig stays loaded.");
     AddChildControl(mDelete);
@@ -203,13 +245,14 @@ public:
   {
     Hide(true);
     mPreviewSelection.clear();
+    PLUG()->ReloadLibraryStars(); // Another instance or a synced copy may have changed favorites.json.
     mContext = context;
     mContextKind = kind;
     mSlot = context == nam_library::BrowserContext::Library ? PLUG()->GetSelectedSlot() : slot;
     mPreview = context != nam_library::BrowserContext::Rig && kind != nam_library::FileKind::RigPreset;
     mTitle->SetTooltip(mPreview
-      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; Ctrl/Cmd+F searches."
-      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
+      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; click a star to mark a module, capture or IR, and Starred to list only those; Ctrl/Cmd+F searches."
+      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; click a star to mark a preset, and Starred to list only those; Ctrl/Cmd+F searches; Escape closes.");
     SetTargetAndDrawRECTs(IRECT(0, 0, grid_layout::width, mPreview ? grid_layout::editorTop : grid_layout::height));
     if (mPreview) mStatus = PLUG()->BeginSlotPreview(mSlot);
     mContextWorker.Request(std::vector<std::string>{});
@@ -217,7 +260,7 @@ public:
     SwitchKind(kind);
     auto& view = View();
     view.selected.clear();
-    view.query.clear(); view.folder.clear(); view.scroll = view.folderScroll = 0;
+    view.query.clear(); view.folder.clear(); view.scroll = view.folderScroll = 0; view.starred = false;
     mSearch->SetQuery("");
     if (kind == nam_library::FileKind::Module)
     {
@@ -301,7 +344,7 @@ public:
                         : mKind == nam_library::FileKind::IR ? "IR FOLDERS" : "NAM FOLDERS";
     g.DrawText(Text(13.f, muted), folders, IRECT(36, kPanelTop, 256, kListTop));
     const auto count = std::to_string(mResults.size()) + (mResults.size() == 1 ? " RESULT" : " RESULTS");
-    g.DrawText(Text(13.f, muted), PLUG()->IsLibraryScanning() ? "SCANNING..." : count.c_str(), IRECT(294, kPanelTop, 576, kListTop));
+    g.DrawText(Text(13.f, muted), PLUG()->IsLibraryScanning() ? "SCANNING..." : count.c_str(), IRECT(294, kPanelTop, 470, kListTop));
     if (HasSources()) g.DrawLine(border.WithOpacity(.6f), 36, FolderBottom() + 2, 254, FolderBottom() + 2);
     for (int row = 0; row < FolderRows() && View().folderScroll + row < mFolders.size(); ++row)
     {
@@ -319,7 +362,11 @@ public:
       const bool selected = View().scroll + row == mSelectedRow;
       if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(284, y, 706, y + kRowHeight));
       const bool module = file.kind == nam_library::FileKind::Module;
-      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(294, y, module ? 586 : 696, y + kRowHeight));
+      // Stars mark results for this user only, never for a rig or host. Every row keeps the
+      // star column so names align, even a file the scan has not hashed yet.
+      const auto key = nam_library::StarKey(file, mFavoritesFolder);
+      if (!key.empty()) DrawBrowserStar(g, kStarCenter, y + kRowHeight * .5f, 8.f, PLUG()->GetLibraryStar(key));
+      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(318.f, y, module ? 586 : 696, y + kRowHeight));
       if (module) FittedText(g, Text(12.f, muted, EAlign::Far), nam_library::PathText(file.relative.parent_path()).c_str(), IRECT(594, y, 696, y + kRowHeight));
     }
     Scrollbar(g, 257, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
@@ -328,6 +375,7 @@ public:
     if (mResults.empty())
     {
       const char* message = PLUG()->IsLibraryScanning() ? "Scanning..."
+        : View().starred ? "No starred matches.\nClick the star beside a result to mark it."
         : !mRoots.empty() ? "No matches"
         : mKind == nam_library::FileKind::RigPreset ? "No preset folders yet.\nAdd one with Manage folders."
         : mKind == nam_library::FileKind::IR ? "No IR folders yet.\nAdd one with Manage folders."
@@ -354,11 +402,20 @@ public:
     else if (x >= 282 && x < 707)
     {
       const int index = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
-      if (index < mResults.size()) { mSelectedRow = index; View().selected = nam_library::PathText(mLibrary->captures[mResults[index]].path); mStatus.clear(); SetDirty(false); }
+      if (index < mResults.size())
+      {
+        const auto& file = mLibrary->captures[mResults[index]];
+        // The star is its own target: marking a row keeps the selection and the audition.
+        if (x >= kStarLeft && x < kStarRight) { CycleStar(file); return; }
+        mSelectedRow = index; View().selected = nam_library::PathText(file.path); mStatus.clear(); SetDirty(false);
+      }
     }
   }
   void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
   {
+    // iPlug2 reports a fast second click as a double-click instead of a mouse-down, so a star
+    // cycles once more here; it must never also load the row.
+    if (y >= kListTop && y < ListBottom() && x >= kStarLeft && x < kStarRight) { OnMouseDown(x, y, mod); return; }
     OnMouseDown(x, y, mod);
     const int row = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
     if (x >= 282 && x < 707 && y >= kListTop && y < ListBottom() && row < mResults.size()) LoadSelected();
@@ -400,6 +457,8 @@ private:
   // Panels share one header row; lists start below it. Footer buttons pin to the panel bottom,
   // which moves with the page height (audition above the editor, or full-height presets).
   static constexpr float kRowHeight = 25.f, kPanelTop = 104.f, kListTop = 132.f;
+  // The star sits in the row's left margin, clear of the name text.
+  static constexpr float kStarCenter = 302.f, kStarLeft = 288.f, kStarRight = 316.f;
   int Rows() const { return static_cast<int>((ListBottom() - kListTop) / kRowHeight); }
   int FolderRows() const { return static_cast<int>((FolderBottom() - kListTop) / kRowHeight); }
   float ListBottom() const { return mRECT.B - 12.f; }
@@ -441,7 +500,7 @@ private:
     mCancel->SetTargetAndDrawRECTs(preset ? IRECT(818, top, grid_layout::width - 112, bottom) : IRECT(740, top, grid_layout::width - 152, bottom));
     mApply->SetTargetAndDrawRECTs(preset ? IRECT(grid_layout::width - 104, top, grid_layout::width - 32, bottom) : IRECT(grid_layout::width - 144, top, grid_layout::width - 32, bottom));
   }
-  struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; };
+  struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; bool starred = false; };
   State& View() { return mViews[static_cast<int>(mKind)]; }
   std::vector<std::string> ConfiguredRoots()
   {
@@ -488,8 +547,8 @@ private:
       SetTargetAndDrawRECTs(IRECT(0, 0, grid_layout::width, mPreview ? grid_layout::editorTop : grid_layout::height));
     }
     mTitle->SetTooltip(mPreview
-      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; Ctrl/Cmd+F searches."
-      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
+      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; click a star to mark a module, capture or IR, and Starred to list only those; Ctrl/Cmd+F searches."
+      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; click a star to mark a preset, and Starred to list only those; Ctrl/Cmd+F searches; Escape closes.");
     for (int i = 0; i < 4; ++i) mTabs[i]->SetActive(kind == kTabs[i]);
     mSearch->SetQuery(View().query);
     if (!IsHidden()) { Layout(); GetUI()->SetAllControlsDirty(); }
@@ -533,6 +592,11 @@ private:
     }
     if (std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) { return nam_library::SamePath(f.path, View().folder); })) View().folder.clear();
     mResults = nam_library::Browse(*mLibrary, mKind, View().query, View().folder, -1, mRelevance);
+    // A star cleared under the filter keeps its row until the next rebuild, so it can be cycled on.
+    mFavoritesFolder = PLUG()->GetFavoritesFolder();
+    if (View().starred)
+      mResults = nam_library::KeepStarred(*mLibrary, std::move(mResults), PLUG()->GetLibraryStars(), mFavoritesFolder);
+    mStarred->SetActive(View().starred);
     mSelectedRow = -1;
     const auto selected = std::filesystem::u8path(View().selected);
     for (int i = 0; i < mResults.size(); ++i)
@@ -557,6 +621,15 @@ private:
   int SelectedRow() const { return mSelectedRow; }
   const nam_library::Capture* Selected()
   { const int index = SelectedRow(); return index < 0 ? nullptr : &mLibrary->captures[mResults[index]]; }
+  void CycleStar(const nam_library::Capture& file)
+  {
+    const auto key = nam_library::StarKey(file, mFavoritesFolder);
+    if (key.empty()) return;
+    // A module's path ends in its name; files keep theirs. Either way the name is only a hint.
+    if (!PLUG()->CycleLibraryStar(key, nam_library::PathText(file.path.filename())))
+      mStatus = "Unable to save favorites.json in your preset folder (damaged or read-only?); this star lasts until NAM Grid closes.";
+    SetDirty(false);
+  }
   void RevealSelection()
   {
     const int index = SelectedRow();
@@ -737,6 +810,8 @@ private:
   NAMBrowserSearchControl* mSearch = nullptr;
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
+  NAMBrowserStarFilter* mStarred = nullptr;
+  std::filesystem::path mFavoritesFolder; // Rig preset star keys are relative to it.
   grid_ui::Button *mFoldersButton = nullptr, *mRescan = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr,
                   *mCancel = nullptr, *mTopCancel = nullptr, *mApply = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};

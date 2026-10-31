@@ -46,8 +46,8 @@ void TestModulePresetCoverage()
     const bool calibrated = effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
                             || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
     assert(!calibrated || For(effect).empty());
-    // Cosmic Echo spans ten different networks, plus compact and long variants.
-    assert(For(effect).size() <= (effect == SlotEffect::CosmicEcho ? 12u : effect == SlotEffect::PedalDrive ? 5u : 4u));
+    // Cosmic Echo covers distinct networks as well as practical short/medium/long roles.
+    assert(For(effect).size() <= (effect == SlotEffect::CosmicEcho ? 13u : effect == SlotEffect::PedalDrive ? 5u : 4u));
     for (const auto& preset : For(effect))
     {
       std::vector<int> seen;

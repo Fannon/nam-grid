@@ -47,6 +47,7 @@ Try these starting points, then adjust Mix against your dry guitar:
 | Sound | Time | Warp | Feedback | Density | High cut | Modulation | Mix |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Guitar hall (insertion/reset default) | 225 ms | 65% | 65% | 85% | 7500 Hz | 30% | 20% |
+| Soft ambient bed | Gemini | Moderate, gently moving sustain for picked chords |
 | Clustered echoes | 350 ms | 15% | 65% | 10% | 6500 Hz | 5% | 20% |
 | Long ambient wash | 500 ms | 80% | 94% | 100% | 4500 Hz | 30% | 30% |
 
@@ -74,20 +75,34 @@ recipes also restore controls omitted from the recipe to insertion defaults, so
 switching from a long wash to a short echo clears the previous sound's settings.
 Adjust Mix for your rig; the recipes assume an insert after the amp.
 
+Start with **Compact Gemini room** for a short space or **Photon lead plate**
+for a fast, dense lead reverb. **Soft ambient bed** adds moderate sustain for
+picked chords. **Clear distant repeats** is the simple echo starting point.
+The other recipes explore more movement, slower swells and long ambient tails.
+The selection combines useful playing roles with each style's different response.
+**Reset** returns to the Aurora Hall guitar-hall insertion sound.
+
 | Preset | Style | Playing idea |
 | --- | --- | --- |
+| Compact Gemini room | Gemini | Short, lightly mixed space for rhythm parts |
+| Photon lead plate | Photon Plate | Fast, dense ambience behind lead playing |
+| Soft ambient bed | Gemini | Moderate, gently moving sustain for picked chords |
 | Clustered echoes | Aurora Hall | Separate reflections around picked lines |
-| Slow swell | Sagittarius | Leave gaps for the slow attack to develop |
+| Pointillist echoes | Virgo | Sparse reflections that darken as they repeat |
+| Clear distant repeats | Lyra | Sparse repeats with no pitch modulation |
 | Stereo echo groups | Pulsar Echo | Repeating four-tap groups around a riff |
-| Chord bloom | Binary Bloom | Broad, developing tails behind held chords |
+| Enveloping swells | Centaurus | Earlier, softer build-up around held phrases |
+| Slow swell | Sagittarius | Leave gaps for the slow attack to develop |
+| Diffusing echo trail | Great Annihilator | Echoes that spread into a moderate reverb tail |
 | Velvet constellation | Gemini | Dense, modulated space for slow arpeggios |
 | Dark orbit | Aurora Hall | Dark, sustained wash under volume swells |
-| Pointillist echoes | Virgo | Sparse, darkening reflections around short notes |
-| Enveloping swells | Centaurus | Softer onset around sustained phrases |
-| Smearing echo trail | Great Annihilator | Echo clusters that spread into a tail |
-| Clear distant repeats | Lyra | Sparse repeats with no pitch modulation |
-| Photon lead plate | Photon Plate | Fast, dense ambience behind lead playing |
-| Compact Gemini room | Gemini | Short, lightly mixed space for rhythm parts |
+| Chord bloom | Binary Bloom | Broad, developing tails behind held chords |
+
+Similar tail lengths do not mean the same response. Compare **Pointillist echoes**
+(Virgo's feedback damping) with **Clear distant repeats** (Lyra's clearer echoes).
+**Enveloping swells** develops sooner than **Slow swell**, whose Sagittarius
+build-up needs more space between phrases. **Diffusing echo trail** uses Great
+Annihilator's shared delay/diffusion loop to connect echoes to a reverb tail.
 
 The dense, high-Warp recipes follow the principles in Valhalla DSP's
 [Controls](https://valhalladsp.com/2020/05/06/valhallasupermassive-the-controls/)

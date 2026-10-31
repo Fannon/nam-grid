@@ -27,6 +27,7 @@
 #include "SlotTransientShaper.h"
 #include "SlotMultiband.h"
 #include "SlotGraphicEQ.h"
+#include "SlotPitchShift.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 #include "SlotIR.h"
@@ -59,7 +60,7 @@ inline bool ShowsSignalSpectrum(SlotEffect effect)
          || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter
          || effect == SlotEffect::OutboardChannel || effect == SlotEffect::ConsoleEQ || effect == SlotEffect::Wah
          || effect == SlotEffect::DynamicEQ || effect == SlotEffect::Multiband || effect == SlotEffect::GraphicEQ
-         || effect == SlotEffect::SignalMonitor
+         || effect == SlotEffect::SignalMonitor || effect == SlotEffect::PitchShift
          || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
@@ -117,6 +118,7 @@ public:
     SlotTransientShaper transientShaper;
     SlotMultiband multiband;
     SlotGraphicEQ graphicEQ;
+    SlotPitchShift pitchShift;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -194,6 +196,7 @@ public:
         if (effect == SlotEffect::TransientShaper) transientShaper.Reset(rate);
         if (effect == SlotEffect::Multiband) multiband.Reset(rate);
         if (effect == SlotEffect::GraphicEQ) graphicEQ.Reset(rate);
+        if (effect == SlotEffect::PitchShift) pitchShift.Reset(rate);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -546,6 +549,8 @@ public:
               p->transientShaper.Process(out, r, frames, utility, draining);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->transientShaper.Reduction() * mMix));
             }
+            else if (p->effect == SlotEffect::PitchShift)
+              p->pitchShift.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::GraphicEQ)
               p->graphicEQ.Process(out, r, frames, utility);
             else if (p->effect == SlotEffect::Multiband)

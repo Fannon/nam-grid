@@ -77,6 +77,10 @@ static_assert(SlotUtilityParam(15, uGraphicVoicing) == 5180);
 static_assert(kEffectParameters[uGraphicBand1].introducedIn == 20 && kEffectParameters[uGraphicVoicing].introducedIn == 20);
 
 static_assert(static_cast<int>(SlotEffect::SignalMonitor) == 63);
+static_assert(static_cast<int>(SlotEffect::PitchShift) == 64);
+static_assert(SlotUtilityParam(0, uPitchInterval) == 5181);
+static_assert(SlotUtilityParam(15, uPitchMix) == 5260);
+static_assert(kEffectParameters[uPitchInterval].introducedIn == 22 && kEffectParameters[uPitchMix].introducedIn == 22);
 
 int main(int argc, char** argv)
 {

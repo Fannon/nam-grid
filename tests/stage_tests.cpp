@@ -86,6 +86,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "OutboardTests.h"
 #include "MeteringTests.h"
 #include "SignalMonitorTests.h"
+#include "PitchShiftTests.h"
 #include "SmoothControlsTests.h"
 #include "ClickTests.h"
 #include "MixLawTests.h"
@@ -145,6 +146,7 @@ try
     {"multiband", TestMultiband},
     {"graphic-eq", TestGraphicEQ},
     {"signal-monitor", TestSignalMonitor},
+    {"pitch-shift", TestPitchShift},
     {"factory-vibe-vibrato", TestFactoryVibeVibrato},
     {"module-preset-coverage", TestModulePresetCoverage},
     {"module-preset-shared-controls", TestModulePresetSharedControls},
@@ -322,6 +324,7 @@ try
   run("multiband", TestMultiband);
   run("graphic-eq", TestGraphicEQ);
   run("signal-monitor", TestSignalMonitor);
+  run("pitch-shift", TestPitchShift);
   run("factory-vibe-vibrato", TestFactoryVibeVibrato);
   run("module-preset-coverage", TestModulePresetCoverage);
   run("module-preset-shared-controls", TestModulePresetSharedControls);

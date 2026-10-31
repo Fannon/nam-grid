@@ -63,6 +63,9 @@ static_assert(kEffectParameters[uSpringTank].introducedIn == 15);
 static_assert(SlotUtilityParam(0, uDynamicEQFrequency) == 4621);
 static_assert(SlotUtilityParam(15, uDynamicEQMix) == 4748);
 static_assert(kEffectParameters[uDynamicEQFrequency].introducedIn == 16 && kEffectParameters[uDynamicEQMix].introducedIn == 16);
+static_assert(SlotUtilityParam(0, uTransientShaperAttack) == 4749);
+static_assert(SlotUtilityParam(15, uTransientShaperMix) == 4844);
+static_assert(kEffectParameters[uTransientShaperAttack].introducedIn == 17 && kEffectParameters[uTransientShaperMix].introducedIn == 17);
 
 int main(int argc, char** argv)
 {

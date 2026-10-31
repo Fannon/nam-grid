@@ -288,3 +288,24 @@ Frequency and Q changes update on a continuous 16-sample schedule.
 The implementation is original MIT code derived from published mathematical
 equations, with no external runtime or copied plugin code. The filter reference
 is [Andrew Simper's TPT SVF derivation](https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf).
+
+## Transient Shaper
+
+A stereo-linked 3 ms power average feeds a peak envelope (0.5 ms attack, 25 ms
+release). Two followers derived from it are compared in dB, so the action does
+not depend on input level and a steady note gives no difference. The attack
+detector compares the envelope with a copy that rises over 15 ms and falls with
+it, so its difference covers the first milliseconds of a note. The sustain
+detector compares a copy that holds each note's peak and falls with Recovery
+against the envelope, so its difference grows as the note decays; a rise of
+3 dB over the slow copy re-arms the hold, so Sustain follows the current note
+rather than the previous peak. Sensitivity maps a 12 dB to 1.5 dB difference
+onto full action. Attack and Sustain contribute bounded gain in dB, smoothed
+over 0.3/2 ms followed by a 1 ms gain pole. A quiet guard fades the action
+between -80 and -60 dBFS power.
+
+Neutral Attack/Sustain and Mix zero are exactly dry at unity Output. No audio
+is buffered and there is no lookahead or compensation latency, so the first
+milliseconds of an attack pass before the boost or cut builds. It shapes the
+existing decay rather than synthesizing sustain. This is an original MIT
+design, not a circuit model or an SPL algorithm port.

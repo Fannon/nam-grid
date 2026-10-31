@@ -23,6 +23,7 @@
 #include "SlotPedalDrive.h"
 #include "SlotPedalComp.h"
 #include "SlotDynamicEQ.h"
+#include "SlotTransientShaper.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 #include "SlotIR.h"
@@ -106,6 +107,7 @@ public:
     SlotAirDynamics airDynamics;
     SlotPedalComp pedalComp;
     SlotDynamicEQ dynamicEQ;
+    SlotTransientShaper transientShaper;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -180,6 +182,7 @@ public:
         if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
         if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
         if (effect == SlotEffect::DynamicEQ) dynamicEQ.Reset(rate);
+        if (effect == SlotEffect::TransientShaper) transientShaper.Reset(rate);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -225,6 +228,8 @@ public:
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
                                            // Dynamic EQ's slowest Release (1 s) settles a full-Range cut in about eight time constants.
                                            : effect == SlotEffect::DynamicEQ ? 8.
+                                           // Transient Shaper's slow envelope recovers over at most 500 ms.
+                                           : effect == SlotEffect::TransientShaper ? 5.
                                            // Pedal Comp's release memory lets go over 800 ms.
                                            : effect == SlotEffect::PedalComp ? 6.
                                            // Detectors settle on silence (slowest release: 800 ms), so
@@ -504,6 +509,11 @@ public:
             {
               p->dynamicEQ.Process(out, r, frames, utility, draining);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamicEQ.Reduction() * mMix));
+            }
+            else if (p->effect == SlotEffect::TransientShaper)
+            {
+              p->transientShaper.Process(out, r, frames, utility, draining);
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->transientShaper.Reduction() * mMix));
             }
             else if (p->effect == SlotEffect::PedalComp)
             {

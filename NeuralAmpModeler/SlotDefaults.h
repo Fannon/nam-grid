@@ -25,6 +25,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
   };
   switch (effect)
   {
+    case SlotEffect::TransientShaper:
+      set(uTransientShaperAttack, 3.); set(uTransientShaperSustain, -1.); break;
     case SlotEffect::NoiseGate:
       v[3] = -55.; v[4] = 150.; break;
     case SlotEffect::SmoothComp:

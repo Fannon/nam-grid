@@ -72,7 +72,8 @@ enum class SlotEffect
   HarmonicTremolo = 60,
   Multiband = 61,
   GraphicEQ = 62,
-  Last = GraphicEQ,
+  SignalMonitor = 63,
+  Last = SignalMonitor,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -83,6 +84,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::HarmonicTremolo: return "Harmonic Tremolo";
     case SlotEffect::Multiband: return "Multiband Dynamics";
     case SlotEffect::GraphicEQ: return "Graphic EQ";
+    case SlotEffect::SignalMonitor: return "Signal Monitor";
     case SlotEffect::NAM: return "NAM";
     case SlotEffect::NoiseGate: return "Noise Gate";
     case SlotEffect::SmoothComp: return "Smooth Compressor";

@@ -85,6 +85,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "MultiHeadStereoTests.h"
 #include "OutboardTests.h"
 #include "MeteringTests.h"
+#include "SignalMonitorTests.h"
 #include "SmoothControlsTests.h"
 #include "ClickTests.h"
 #include "MixLawTests.h"
@@ -143,6 +144,7 @@ try
     {"harmonic-tremolo", TestHarmonicTremolo},
     {"multiband", TestMultiband},
     {"graphic-eq", TestGraphicEQ},
+    {"signal-monitor", TestSignalMonitor},
     {"factory-vibe-vibrato", TestFactoryVibeVibrato},
     {"module-preset-coverage", TestModulePresetCoverage},
     {"module-preset-shared-controls", TestModulePresetSharedControls},
@@ -319,6 +321,7 @@ try
   run("harmonic-tremolo", TestHarmonicTremolo);
   run("multiband", TestMultiband);
   run("graphic-eq", TestGraphicEQ);
+  run("signal-monitor", TestSignalMonitor);
   run("factory-vibe-vibrato", TestFactoryVibeVibrato);
   run("module-preset-coverage", TestModulePresetCoverage);
   run("module-preset-shared-controls", TestModulePresetSharedControls);

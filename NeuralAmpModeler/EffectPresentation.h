@@ -521,6 +521,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";
     case SlotEffect::HarmonicTremolo: return "Bass and treble pulse in turn, the swirling brown-panel amp tremolo.";
     case SlotEffect::GraphicEQ: return "Seven fixed bands and Level, voiced for guitar, bass or full range.";
+    case SlotEffect::SignalMonitor: return "Inspect spectrum, waveform, stereo levels and correlation here without changing the audio.";
     case SlotEffect::Multiband: return "Three-band upward and downward compression; drag the display to set splits and Threshold.";
     case SlotEffect::Vibrato: return "Fully wet pitch motion; Rate and Depth set speed and excursion.";
     case SlotEffect::Rotary: return "Fast switches the rotation speed; Ramp time sets the transition.";

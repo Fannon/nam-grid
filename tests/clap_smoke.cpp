@@ -3145,6 +3145,49 @@ int main(int argc, char** argv)
     assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
+  // Wah's Auto button creates the envelope row that makes it an auto-wah, and only exists on Wah.
+  {
+    const int autoX = (grid_layout::modeLeft + grid_layout::parameterRight) / 2;
+    const auto autoRow = [&] {
+      const auto state = save().config();
+      for (int row = 1; row <= grid_performance::rows; ++row)
+      {
+        const auto key = [&](const char* field) { return "Mod " + std::to_string(row) + " " + field; };
+        if (state[key("Source")] == grid_performance::SourceEnv1 && state[key("Slot")] == 0)
+          return std::pair{state[key("Destination")].get<double>(), state[key("Depth")].get<double>()};
+      }
+      return std::pair{-1., 0.};
+    };
+    auto wah = cleared;
+    wah["SlotEffects"][0] = static_cast<int>(SlotEffect::Wah);
+    load(wah);
+    selectTile(170, 120);
+    pumpFor(100);
+    assert(autoRow().first < 0.);
+    const auto parked = save().config()["Pre 1 Wah Position"];
+    click(autoX, grid_layout::optionsY);
+    assert(autoRow().first == parameter_layout::standardControls + uWahPosition && autoRow().second == 25.);
+    assert(save().config()["Pre 1 Wah Position"] == parked); // Quick setup adds a row, it never turns knobs.
+    assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::Wah));
+    // The button belongs to the Wah header: another module leaves the matrix untouched.
+    auto chorus = cleared;
+    chorus["SlotEffects"][0] = static_cast<int>(SlotEffect::Chorus);
+    load(chorus);
+    selectTile(170, 120);
+    pumpFor(100);
+    const auto matrix = [&](const json& state) {
+      json rows = json::array();
+      for (int row = 1; row <= grid_performance::rows; ++row)
+        for (const char* field : {"Source", "Slot", "Destination", "Depth", "Via"})
+          rows.push_back(state["Mod " + std::to_string(row) + " " + field]);
+      return rows;
+    };
+    const auto before = matrix(save().config());
+    click(autoX, grid_layout::optionsY);
+    assert(matrix(save().config()) == before);
+    assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::Chorus));
+    load(cleared);
+  }
   // A shorter lane's new conversion delay requires a restart even when max(A,B) is unchanged.
   auto unequal = cleared; // The library still holds libraryFolder.
   unequal["SlotPaths"][4] = libraryFirst.string();

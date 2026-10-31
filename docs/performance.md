@@ -10,7 +10,7 @@ Click **Modulation** in the header. Sources are on the left; assignments and mac
 
 ### Quick assignment
 
-Right-click a module knob, lane level, crossover, or A/B knob and choose **Modulate with**. NAM Grid uses the next free matrix row at +25% depth.
+Right-click a module knob, lane level, crossover, or A/B knob and choose **Modulate with**. NAM Grid uses the next free matrix row at +25% depth. Some modules also offer a one-click setup in their header; the Wah's **Auto** button creates an Env 1 → Position row for an auto-wah.
 
 - The ring around a modulated knob shows its range; the dot shows its current value.
 - **Alt/Option-drag** adjusts depth; hold Shift for finer moves.

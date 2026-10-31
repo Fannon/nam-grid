@@ -12,6 +12,7 @@ Gates, compressors and limiting.
 | [Punch Compressor](#punch-compressor) | Firmer compression; slow Attack and parallel Mix retain punch. |
 | [Butter Comp](#butter-comp) | Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack. |
 | [Outboard Channel](#outboard-channel) | Channel strip: cuts, compression and saturation in one module. |
+| [Transient Shaper](#transient-shaper) | Attack shapes the pick, Sustain the decay; works at any input level. |
 | [Peak Limiter](#peak-limiter) | Fast peak control; Ceiling and Release set grip and recovery. |
 
 ## Noise Gate
@@ -198,6 +199,32 @@ A channel strip after Airwindows CStrip2: low and high cuts into a compressor an
 | **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 
 **Display:** The cuts over the output spectrum and gain-reduction history on a 0–16 dB scale. The title shows the live gain reduction; hover over the graph for its explanation.
+
+## Transient Shaper
+
+![Transient Shaper editor](../screenshots/modules/transient-shaper.png)
+
+Shapes the start and the decay of each note independently. Attack boosts or softens the first milliseconds after you pick; Sustain raises or shortens the note as it fades. Unlike a compressor, it has no threshold: it follows changes in level, so the same settings work on a DI, after an amp or on bass. It adds no latency, so it reacts to a pick rather than anticipating it.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Attack** | -12 to +12 dB | 3 dB | Boost or soften the first milliseconds of each picked note. |
+| **Sustain** | -12 to +12 dB | -1 dB | Raise or reduce each note as it decays. Raising it also raises noise between notes. |
+| **Recovery** | 20–500 ms | 100 ms | How long a note's peak is remembered. Longer values let Sustain act more strongly on slow decays. |
+| **Sensitivity** | 0–100% | 50% | How small a change in level counts as a full attack or decay. |
+| **Output** | -24 to +12 dB | 0 dB | Final level after Mix. Attack boosts raise peaks, so leave headroom. |
+| **Mix** | 0–100% | 100% | Balance between dry and shaped sound; zero is exactly dry at 0 dB Output. |
+
+**Display:** Input and output level over time. Attack boosts show as output peaks above the input; Sustain cuts as tails below it. The footer meter shows cuts only.
+
+**Presets:** Defined picking, Soft acoustic, Tight palm mutes and Gentle note sustain.
+Gentle note sustain leaves Attack neutral and blends a restrained decay lift with
+the dry sound; use it on held guitar or bass notes rather than to emphasize the pick.
+
+**Tips:**
+
+- Place it before a drive or amp capture to change how hard each pick hits the gain stage, or after the amp to change the finished sound.
+- Sustain shapes decays that already exist; for more sustain at the amp, use a compressor before it.
 
 ## Peak Limiter
 

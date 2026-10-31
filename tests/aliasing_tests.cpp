@@ -27,6 +27,7 @@ Interpretation Classify(E effect)
     case E::ConsoleColour: case E::ConsoleEQ: case E::OutboardChannel:
     case E::Limiter: return Interpretation::Harmonic;
     case E::DynamicEQ: return Interpretation::Dynamic;
+    case E::TransientShaper: return Interpretation::Dynamic;
     case E::NAM: return Interpretation::Model;
     case E::Bitcrusher: case E::RingMod: case E::Octaver: case E::Doubler:
     case E::FrequencyShifter: case E::Freeze: case E::Stutter: case E::LoFiTape:

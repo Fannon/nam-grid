@@ -286,6 +286,12 @@ enum UtilityParam
   uDynamicEQRelease = 270,
   uDynamicEQOutput = 271,
   uDynamicEQMix = 272,
+  uTransientShaperAttack = 273,
+  uTransientShaperSustain = 274,
+  uTransientShaperRecovery = 275,
+  uTransientShaperSensitivity = 276,
+  uTransientShaperOutput = 277,
+  uTransientShaperMix = 278,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -397,7 +403,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 16; // 16 Dynamic EQ; 15 Spring tank; 14 Chorus voices; 13 Pedal Comp.
+inline constexpr int kEffectStateSchema = 17; // 17 Transient Shaper; 16 Dynamic EQ; 15 Spring tank; 14 Chorus voices.
 
 struct EffectParameter
 {
@@ -686,7 +692,13 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Dynamic EQ Attack", "Attack", 5, 0.2, 100, 0.1, "ms", 4, true, 1., 16},
    {"Dynamic EQ Release", "Release", 120, 10, 1000, 1, "ms", 5, true, 1., 16},
    {"Dynamic EQ Output", "Output", 0, -24, 12, 0.1, "dB", 6, false, 1., 16},
-   {"Dynamic EQ Mix", "Mix", 100, 0, 100, 0.1, "%", 7, false, 1., 16}}};
+   {"Dynamic EQ Mix", "Mix", 100, 0, 100, 0.1, "%", 7, false, 1., 16},
+   {"Transient Attack", "Attack", 0, -12, 12, 0.1, "dB", 0, false, 1., 17},
+   {"Transient Sustain", "Sustain", 0, -12, 12, 0.1, "dB", 1, false, 1., 17},
+   {"Transient Recovery", "Recovery", 100, 20, 500, 1, "ms", 2, true, 1., 17},
+   {"Transient Sensitivity", "Sensitivity", 50, 0, 100, 0.1, "%", 3, false, 1., 17},
+   {"Transient Output", "Output", 0, -24, 12, 0.1, "dB", 4, false, 1., 17},
+   {"Transient Mix", "Mix", 100, 0, 100, 0.1, "%", 5, false, 1., 17}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -763,13 +775,14 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
-    case SlotEffect::DynamicEQ:
+    case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uTransientShaperAttack && p <= uTransientShaperMix) return e == SlotEffect::TransientShaper;
   if (p >= uDynamicEQFrequency && p <= uDynamicEQMix) return e == SlotEffect::DynamicEQ;
   if (p >= uToneMidFrequency)
   {
@@ -981,6 +994,7 @@ struct UtilityControls
   std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
   int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.
   std::array<double, 8> dynamicEQ{800, 1, -24, 6, 5, 120, 0, 100};
+  std::array<double, 6> transientShaper{0, 0, 100, 50, 0, 100};
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
   int irLength = 0;

@@ -39,7 +39,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
   if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect)
-      || effect == SlotEffect::PedalComp)
+      || effect == SlotEffect::PedalComp || effect == SlotEffect::TransientShaper)
     return {compColor, compColor, "Compressor"};
   if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ
       || effect == SlotEffect::DynamicEQ)
@@ -1800,6 +1800,12 @@ private:
       DrawSignalSpectrum(g, plot);
       PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 0., color.WithOpacity(.35f), 1.f);
       PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 0., color);
+    }
+    else if (effect == SlotEffect::TransientShaper)
+    {
+      PlotTitle(g, plot, color, "Transient Shaper | live input / output");
+      levels(-60.f, plot);
+      PlotDetail(g, plot, "Grey: input | bright: output. Attack moves the pick, Sustain the decay.");
     }
     else if (effect == SlotEffect::PedalComp)
     {

@@ -69,6 +69,18 @@ inline const Preset limiter[]{
    {{U(uLimiterInput), 6.}, {U(uLimiterCeiling), -1.}, {U(uLimiterRelease), 100.}, {U(uLimiterClip), 30.}}},
 };
 
+// Transient Shaper compares envelopes, so presets work at any input level. Output trims
+// balance the shaping on guitar and bass. Gentle note sustain blends a modest tail
+// lift under the dry attack; boosts still need headroom.
+inline const Preset transientShaper[]{
+  {"Defined picking", {{U(uTransientShaperAttack), 5.}, {U(uTransientShaperSustain), -2.}, {U(uTransientShaperRecovery), 150.},
+    {U(uTransientShaperOutput), -.5}}},
+  {"Soft acoustic", {{U(uTransientShaperAttack), -6.}, {U(uTransientShaperSustain), 1.}, {U(uTransientShaperRecovery), 150.}}},
+  {"Tight palm mutes", {{U(uTransientShaperAttack), 2.}, {U(uTransientShaperSustain), -8.}, {U(uTransientShaperRecovery), 120.},
+    {U(uTransientShaperSensitivity), 70.}, {U(uTransientShaperOutput), 1.5}}},
+  {"Gentle note sustain", {{U(uTransientShaperAttack), 0.}, {U(uTransientShaperSustain), 4.}, {U(uTransientShaperRecovery), 220.},
+    {U(uTransientShaperSensitivity), 45.}, {U(uTransientShaperMix), 60.}, {U(uTransientShaperOutput), -1.}}},
+};
 inline const Preset toneEQ[]{
   // The "smile" curve: fuller lows and highs around scooped low mids.
   {"Scooped mids",
@@ -341,6 +353,7 @@ inline std::span<const Preset> For(SlotEffect effect)
   switch (effect)
   {
     case SlotEffect::DynamicEQ: return dynamicEQ;
+    case SlotEffect::TransientShaper: return transientShaper;
     case SlotEffect::PedalComp: return pedalComp;
     case SlotEffect::SmoothComp: return smoothComp;
     case SlotEffect::PunchComp: return punchComp;

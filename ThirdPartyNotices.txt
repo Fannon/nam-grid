@@ -1005,3 +1005,11 @@ Original NAM Grid MIT implementation of the state-variable filter equations in
 Andrew Simper, "Linear Trapezoidal Integrated State Variable Filter"
 (https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf). No third-party
 source code or runtime dependency is included.
+
+
+Transient Shaper design references
+----------------------------------
+
+Original NAM Grid MIT implementation of the general differential-envelope
+approach to transient shaping. No third-party source code or runtime
+dependency is included.

@@ -271,3 +271,20 @@ saved preset identities. The exporter isolates `NAM_GRID_HOME`, opens no audio
 device, and does not install the rendered rigs. The synthetic measurements screen for
 silence, non-finite output, excessive gain and runaway feedback; the guitar renders
 show behavior on one instrument and input level. Neither replaces listening.
+
+## Dynamic EQ
+
+One causal subtractive bell uses a normalized TPT state-variable band-pass. The
+band feeds a stereo-linked max-power detector whose RMS window spans about two
+periods of the band frequency (0.5 to 25 ms): high bands react to pick bursts, and
+low bands do not modulate their own cycles. A fixed 4:1 reduction curve applies up
+to the user-set Range cap. Attack and Release smooth the
+reduction; gain changes alter the band contribution rather than filter poles.
+Range zero or Mix zero at unity Output is exactly dry. Q describes the underlying
+band-pass width, so this is not an exact constant-Q RBJ bell at every depth.
+There is no lookahead; the first peak of a burst can pass before reduction builds.
+Frequency and Q changes update on a continuous 16-sample schedule.
+
+The implementation is original MIT code derived from published mathematical
+equations, with no external runtime or copied plugin code. The filter reference
+is [Andrew Simper's TPT SVF derivation](https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf).

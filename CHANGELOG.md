@@ -4,6 +4,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Dynamic EQ:** A new EQ / Filter module that cuts one band only while it is loud: tame palm-mute boom, harsh pick attacks or bass boom without thinning out the rest of your playing. The display shows the cut as it happens. Presets: Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp) and Bass boom control.
 - More useful delay starting points: quiet ducked support, brighter dotted analog and tape echoes, sparse stereo tape heads, short reverse texture, tight stereo doubling and gentle pad echoes. Existing rigs and insertion defaults keep their settings.
 
 - More factory presets across the reverbs, with a focus on Cosmic Echo: dense modulated spaces, dark washes, clear repeats, swells and a Photon Plate lead sound. Practical choices include a warm rhythm plate, small recital hall, light moving cloud, short spring splash and gentle shimmer. Existing rigs and insertion defaults keep their settings.

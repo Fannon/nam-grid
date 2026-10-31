@@ -7,6 +7,7 @@ Tone shaping, filters and wah.
 | [Guitar EQ](#guitar-eq) | Bass, Mid and Treble shape the tone; the curve shows the combined response. |
 | [Cut EQ](#cut-eq) | Low cut and High cut trim rumble and fizz; Presence adds bite. |
 | [Parametric EQ](#parametric-eq) | Bell or notch, resonant cuts, and an optional low shelf. |
+| [Dynamic EQ](#dynamic-eq) | Cuts one band only while it is loud: palm-mute boom, harsh picking, bass boom. |
 | [Console EQ](#console-eq) | Broad console bands with harmonic colour on louder notes. |
 | [Filter](#filter) | Cutoff and Resonance shape tone; Envelope follows playing strength. |
 | [Wah](#wah) | Position sweeps the peak; Register moves its heel and toe range. |
@@ -77,6 +78,34 @@ In the header:
 **Tips:**
 
 - Find a harsh frequency with a narrow boost, then turn Gain negative.
+
+## Dynamic EQ
+
+![Dynamic EQ editor](../screenshots/modules/dynamic-eq.png)
+
+One band that cuts only while it is loud, then recovers. Use it where a static cut would thin out the rest of your playing: boom on palm mutes, harsh pick attacks after a bright amp, or loud low notes on bass. It adds no latency, so the first few milliseconds of a sudden burst pass before the cut builds.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Frequency** | 20–20000 Hz | 800 Hz | Center of the band that is detected and cut. |
+| **Q** | 0.2–12 | 1 | Width of the band; higher values focus on a narrower resonance. |
+| **Threshold** | -72 to 0 dB | -24 dB | Band level, in dBFS, above which the cut begins. Set it by ear for your instrument, input level and position in the rig. |
+| **Range** | 0–18 dB | 6 dB | Largest cut at the band center; zero leaves the sound unchanged. |
+| **Attack** | 0.2–100 ms | 5 ms | How quickly the cut builds once the band exceeds Threshold. |
+| **Release** | 10–1000 ms | 120 ms | How quickly the cut recovers after the band gets quieter. |
+| **Output** | -24 to +12 dB | 0 dB | Final level after Mix. Match bypass loudness when comparing. |
+| **Mix** | 0–100% | 100% | Balance between dry and processed sound; zero is exactly dry at 0 dB Output. |
+
+The cut follows a 4:1 ratio above Threshold, up to Range. Thresholds are absolute levels, so a setting that rests on a DI can cut constantly after an amp capture. Watch the live cut in the display while you play: it should move with your loudest notes and return to zero between them.
+
+**Display:** The faint curve is the cut at full Range; the bright curve is the cut right now. Both sit over the live output spectrum.
+
+**Presets:** Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp) and Bass boom control. Thresholds suit a guitar or bass DI peaking near -6 dBFS and the output of a clean capture; adjust Threshold first if your levels differ.
+
+**Tips:**
+
+- Tight into amp, before a high-gain capture, cuts 120 Hz only on loud palm mutes and keeps open low strings full.
+- For an acoustic guitar's body boom, try about 220 Hz with Q 2 and a threshold where the cut moves only on strong strums.
 
 ## Console EQ
 

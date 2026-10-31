@@ -996,3 +996,12 @@ includes a NOTICE file.
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+
+Dynamic EQ design references
+----------------------------
+
+Original NAM Grid MIT implementation of the state-variable filter equations in
+Andrew Simper, "Linear Trapezoidal Integrated State Variable Filter"
+(https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf). No third-party
+source code or runtime dependency is included.

@@ -67,6 +67,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DistortionTests.h"
 #include "PedalDriveTests.h"
 #include "PedalCompTests.h"
+#include "DynamicEQTests.h"
 #include "ModulePresetTests.h"
 #include "DriveAntialiasTests.h"
 #include "NoisePrintTests.h"
@@ -133,6 +134,7 @@ try
     {"distortion-mode-harmonics", TestDistortionModeHarmonics},
     {"pedal-drive", TestPedalDrive},
     {"pedal-comp", TestPedalComp},
+    {"dynamic-eq", TestDynamicEQ},
     {"factory-vibe-vibrato", TestFactoryVibeVibrato},
     {"module-preset-coverage", TestModulePresetCoverage},
     {"module-preset-shared-controls", TestModulePresetSharedControls},
@@ -304,6 +306,7 @@ try
   run("distortion-mode-harmonics", TestDistortionModeHarmonics);
   run("pedal-drive", TestPedalDrive);
   run("pedal-comp", TestPedalComp);
+  run("dynamic-eq", TestDynamicEQ);
   run("factory-vibe-vibrato", TestFactoryVibeVibrato);
   run("module-preset-coverage", TestModulePresetCoverage);
   run("module-preset-shared-controls", TestModulePresetSharedControls);

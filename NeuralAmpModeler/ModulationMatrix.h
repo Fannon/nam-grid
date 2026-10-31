@@ -173,6 +173,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uSwellHold, t.extra.swellHold);
   u(uSwellMix, t.extra.swellMix);
   u(uDelayTimeChange, t.extra.delayTimeChange);
+  family(uDynamicEQFrequency, t.dynamicEQ);
   family(uPedalCompSustain, t.pedalComp);
   u(uPedalCompPickup, t.pedalCompPickup);
   u(uChorusVoices, t.extra.chorusVoices);

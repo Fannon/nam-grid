@@ -234,6 +234,14 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSwellCurve: return "Shape of the fade-in; one retains the original linear swell, higher values enter more slowly.";
     case uSwellHold: return "Time below the closing threshold before a new swell can re-arm; 40 ms retains the original hold.";
     case uSwellMix: return "Blend the swollen signal with dry guitar to retain some pick attack.";
+    case uDynamicEQFrequency: return "Center of the band whose level triggers frequency-selective reduction.";
+    case uDynamicEQQ: return "Width of the selected band; higher values focus on a narrower resonance.";
+    case uDynamicEQThreshold: return "Detected band level above which reduction begins; tune to your input level.";
+    case uDynamicEQRange: return "Maximum reduction at the band center; zero leaves the sound unchanged.";
+    case uDynamicEQAttack: return "Time for reduction to build after the selected band exceeds Threshold.";
+    case uDynamicEQRelease: return "Time for reduction to recover after the selected band becomes quiet.";
+    case uDynamicEQOutput: return "Final module level, after the dry/wet blend. Match bypass loudness when comparing.";
+    case uDynamicEQMix: return "Balance the immediate dry signal with the processed signal; zero is exactly dry at unity Output.";
     case uPedalCompSustain: return "How much the pedal evens out your playing. Level follows automatically, so typical notes stay about as loud as bypass while quiet notes and decaying tails come up.";
     case uPedalCompAttack: return "Fast clamps the pick for the classic squashed, snappy pedal sound. Slow lets about 20 ms of pick attack through before compressing, which sounds more natural.";
     case uPedalCompFocus: return "What the compressor reacts to; the tone itself stays unchanged. Toward Pick it smooths bright pick attacks and lets low notes bloom; toward Body it keeps the pick snap and evens out loud low strings. The middle is neutral.";
@@ -427,6 +435,7 @@ inline const char* Sound(SlotEffect e)
   switch (e)
   {
     case SlotEffect::PedalDrive: return "Ten voiced guitar and bass drives; Low keep restores clean lows within this slot.";
+    case SlotEffect::DynamicEQ: return "Frequency-selective compression: tame boom or bite only when the selected band gets loud.";
     case SlotEffect::PedalComp: return "Guitar sustain pedal: Sustain evens out notes, Blend keeps the pick, Pickup suits your guitar.";
     case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";

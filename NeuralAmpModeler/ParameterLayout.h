@@ -65,8 +65,8 @@ struct Segment
 // {newGlobals, 0} or {0, newControls}, or grow the LAST segment's slotControls.
 // Never edit the counts of a released segment.
 // +1 slot control: Digital Black Hold (state schema 2). {0, 6}: Pedal Comp (schema 13);
-// {0, 1}: Chorus Voices (schema 14); the last {0, 1}: Spring Tank (schema 15).
-inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}};
+// {0, 1}: Chorus Voices (schema 14); {0, 1}: Spring Tank (schema 15); {0, 8}: Dynamic EQ (schema 16).
+inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}, {0, 8}};
 inline constexpr Segment released[]{{83, 216}}; // The 0.1.0 baseline layout
 
 constexpr int GlobalID(std::span<const Segment> table, int index)

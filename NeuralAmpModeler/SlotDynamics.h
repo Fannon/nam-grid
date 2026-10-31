@@ -72,7 +72,7 @@ enum class SlotEffect
   HarmonicTremolo = 60,
   Multiband = 61,
   GraphicEQ = 62,
-  SignalMonitor = 63,
+  Reserved63 = 63, // Retired unreleased monitor module; never reuse.
   PitchShift = 64,
   Last = PitchShift,
 };
@@ -85,7 +85,6 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::HarmonicTremolo: return "Harmonic Tremolo";
     case SlotEffect::Multiband: return "Multiband Dynamics";
     case SlotEffect::GraphicEQ: return "Graphic EQ";
-    case SlotEffect::SignalMonitor: return "Signal Monitor";
     case SlotEffect::PitchShift: return "Pitch Shift";
     case SlotEffect::NAM: return "NAM";
     case SlotEffect::NoiseGate: return "Noise Gate";
@@ -149,7 +148,7 @@ inline const char* SlotEffectName(SlotEffect effect)
   return "Unknown";
 }
 inline bool IsValidSlotEffect(SlotEffect effect)
-{ return effect >= SlotEffect::NAM && effect <= SlotEffect::Last; }
+{ return effect >= SlotEffect::NAM && effect <= SlotEffect::Last && effect != SlotEffect::Reserved63; }
 struct DynamicsControls
 {
   double gateThreshold = -55., gateRelease = 120., gateRange = 60.;

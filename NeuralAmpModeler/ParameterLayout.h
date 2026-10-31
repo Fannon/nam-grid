@@ -68,7 +68,7 @@ struct Segment
 // {0, 1}: Chorus Voices (schema 14); {0, 1}: Spring Tank (schema 15);
 // {0, 8}: Dynamic EQ (schema 16); {0, 6}: Transient Shaper (schema 17); {0, 1}: Harmonic Crossover (schema 18);
 // {0, 11}: Multiband Dynamics (schema 19); {0, 9}: Graphic EQ (schema 20);
-// {0, 5}: Pitch Shift (schema 22). Signal Monitor (schema 21) adds no controls.
+// {0, 5}: Pitch Shift (schema 22). Reserved schema 21 adds no controls.
 inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}, {0, 8}, {0, 6}, {0, 1}, {0, 11}, {0, 9}, {0, 5}};
 inline constexpr Segment released[]{{83, 216}}; // The 0.1.0 baseline layout
 

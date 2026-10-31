@@ -477,7 +477,7 @@ int main(int argc, char** argv)
     assert(!loadBytes(malformed));
     assert(save().config() == base);
   }
-  for (const json& badEffect : {json(-1), json(static_cast<int>(SlotEffect::Last) + 1), json(1.5), json("gate"),
+  for (const json& badEffect : {json(-1), json(63), json(static_cast<int>(SlotEffect::Last) + 1), json(1.5), json("gate"),
                                 json(18446744073709551615ull), json(4294967297ll), json(-4294967295ll)})
   {
     auto malformedEffect = base;

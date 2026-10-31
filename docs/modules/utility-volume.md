@@ -80,5 +80,3 @@ Analysis runs while this panel and the plugin editor are open, independently of
 the module visualization setting. Changing the measurement point or reopening the
 panel clears its history and held peaks. Hover over each part for an explanation.
 Other modules' footer meters remain available for quick input/output comparisons.
-Older rigs containing a Signal Monitor module still load with their original
-slot and unchanged audio; new monitors open from the meters or wires.

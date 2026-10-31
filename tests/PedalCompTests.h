@@ -271,7 +271,7 @@ void TestUserModulePresets()
   for (int e = 1; e <= static_cast<int>(SlotEffect::Last); ++e)
   {
     const auto effect = static_cast<SlotEffect>(e);
-    if (effect == SlotEffect::CabinetIR) continue;
+    if (!IsValidSlotEffect(effect) || effect == SlotEffect::CabinetIR) continue;
     auto values = SlotDefaultValues(effect);
     for (int i = 0; i < static_cast<int>(values.size()); ++i)
       if (ModuleControl(effect, i))

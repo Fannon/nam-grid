@@ -37,7 +37,7 @@ void TestModulePresetCoverage()
   for (int id = 0; id <= static_cast<int>(SlotEffect::Last); ++id)
   {
     const auto effect = static_cast<SlotEffect>(id);
-    const bool supported = effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR && effect != SlotEffect::SignalMonitor;
+    const bool supported = IsValidSlotEffect(effect) && effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR;
     assert(Supported(effect) == supported);
     assert(!supported || !ToJson(effect, SlotDefaultValues(effect))["values"].empty());
     // Deliberate selection policy: gates need input calibration and Utility needs

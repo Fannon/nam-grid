@@ -47,6 +47,7 @@ These corrections can change the sound of saved rigs. Controls, ranges and repor
 
 ### Smoother operation and fixes
 
+- Windows library-index, settings and preset saves tolerate brief file-reader contention instead of failing immediately. Persistent locks still fail safely, preserving the previous file.
 - Saved module presets load correctly when continuous controls contain fractional values, including delay and Cosmic Echo times. Existing affected files load without changes.
 - Long filenames, metadata and paths stay inside the library browser's details panel without overlapping its controls.
 - Fewer clicks when bypassing, re-enabling or replacing modules and switching scenes. Re-enabling delays no longer cuts feedback abruptly, and changing Cosmic Echo's style no longer clicks on the first repeats.

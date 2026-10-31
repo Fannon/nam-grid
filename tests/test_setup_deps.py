@@ -25,16 +25,19 @@ class PatchStackTests(unittest.TestCase):
         git(self.repo, "init", "-q")
         git(self.repo, "config", "user.email", "test@example.com")
         git(self.repo, "config", "user.name", "Test")
+        # Fixtures own their newline policy, independent of personal Git settings.
+        git(self.repo, "config", "core.autocrlf", "false")
+        git(self.repo, "config", "core.attributesfile", "")
         source = self.repo / "source.txt"
-        source.write_text("one\ntwo\nthree\n")
+        source.write_bytes(b"one\ntwo\nthree\n")
         git(self.repo, "add", ".")
         git(self.repo, "commit", "-q", "-m", "pin")
         # The second patch rewrites the line the first one changed, as stacked patches do.
         self.patches = []
         for index, text in enumerate(["one\nTWO\nthree\n", "one\nTWO!\nthree\n"]):
-            source.write_text(text)
+            source.write_bytes(text.encode("utf-8"))
             patch = self.root / ("%03d.patch" % index)
-            patch.write_text(git(self.repo, "diff"))
+            patch.write_bytes(git(self.repo, "diff").encode("utf-8"))
             git(self.repo, "add", ".")
             self.patches.append(patch)
         git(self.repo, "reset", "-q", "--hard")
@@ -72,10 +75,10 @@ class PatchStackTests(unittest.TestCase):
         self.assertFalse(setup_deps.matches_patched_tree(self.repo, self.patches))
 
     def test_added_files_must_exist(self):
-        (self.repo / "added.txt").write_text("new\n")
+        (self.repo / "added.txt").write_bytes(b"new\n")
         git(self.repo, "add", "-N", "added.txt")
         patch = self.root / "added.patch"
-        patch.write_text(git(self.repo, "diff"))
+        patch.write_bytes(git(self.repo, "diff").encode("utf-8"))
         git(self.repo, "rm", "-q", "--cached", "added.txt")
         self.assertTrue(setup_deps.matches_patched_tree(self.repo, [patch]))
         (self.repo / "added.txt").unlink()

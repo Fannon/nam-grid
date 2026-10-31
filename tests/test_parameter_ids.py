@@ -103,6 +103,10 @@ class ParameterIdTests(unittest.TestCase):
             self.assertGreater(introduced, old_schema,
                                f'"{name}" must use a state schema newer than {ref}\'s {old_schema}')
         old_modules = enum_values(read(MODULES, ref), "enum class SlotEffect")
+        # Explicitly retired before release; keep the numeric reservation so other
+        # module IDs stay unchanged. This is not permission to retire released IDs.
+        old_modules = [("Reserved63", value) if (name, value) == ("SignalMonitor", 63)
+                       else (name, value) for name, value in old_modules]
         new_modules = enum_values(read(MODULES), "enum class SlotEffect")
         self.assertEqual(new_modules[:len(old_modules)], old_modules, f"SlotEffect IDs on {ref} changed or were reused")
         old_ids, new_ids = identities(old_text), identities(new_text)

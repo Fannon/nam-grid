@@ -378,11 +378,6 @@ clear the capture. Closed editors and closed panels skip this measurement work.
 The UI calculates RMS/correlation with 300 ms exponential averaging; FFTs and
 drawing also run on the UI thread. Capture buffers are allocated off audio.
 
-The legacy module identity remains loadable but is absent from insertion menus.
-Its stage still returns the original samples directly, preserving signed zero
-and avoiding dry/wet rounding during enable ramps. Replacement retains the common
-transition fade. It reports no latency and adds no controls.
-
 The UI draws the spectrum at 384 log-spaced points: wide bands keep their loudest
 bin, while low points interpolate inside one 4096-point FFT bin. A 6-second power
 average, updated only while the spectrum is above the floor, feeds the resonance

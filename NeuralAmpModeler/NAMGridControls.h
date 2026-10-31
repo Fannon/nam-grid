@@ -70,7 +70,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {compColor, compColor, "Volume"};
   if (effect == SlotEffect::Tape)
     return {boostColor, boostColor, "Tape"};
-  if (effect == SlotEffect::Utility || effect == SlotEffect::SignalMonitor)
+  if (effect == SlotEffect::Utility)
     return {neutralColor, neutralColor, "Utility"};
   if (effect == SlotEffect::CabinetIR)
     return {cabColor, cabColor, "WAV / IR"};
@@ -1487,7 +1487,7 @@ public:
     {
       DrawVisualization(g);
       // The selected module's own input and output sit in the visualization footer.
-      if (!empty && effect != SlotEffect::SignalMonitor)
+      if (!empty)
         DrawModuleLevels(g, IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotMetersTop, grid_layout::visualizationRight - 12, grid_layout::plotMetersBottom),
                          mLevels, mModuleLevels, tone.first);
     }
@@ -1692,23 +1692,10 @@ public:
     {
       if (!ShowsSignalSpectrum(PLUG()->GetSlotEffect(mSlot))) return;
       const auto& window = static_cast<const iplug::ISenderData<1, grid_eq_signal::Window>*>(data)->vals[0];
-      const bool monitor = PLUG()->GetSlotEffect(mSlot) == SlotEffect::SignalMonitor;
-      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::Utility || monitor)
+      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::Utility)
       {
-        if (monitor)
-        {
-          const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
-          auto louder = signal_monitor::Detailed(grid_eq_signal::Magnitudes(window.samples), rate);
-          const auto right = signal_monitor::Detailed(grid_eq_signal::Magnitudes(window.right), rate);
-          for (size_t i = 0; i < louder.size(); ++i) louder[i] = std::max(louder[i], right[i]);
-          mMonitorSpectrum.Receive(louder, Now() - mSpectrumTime < .5, Now() - mSpectrumTime);
-        }
-        else
-        {
-          // Preserve aligned newest samples when the right FFT window is larger.
-          std::copy(window.samples.end() - grid_eq_signal::scopeSize, window.samples.end(), mScopeLeft.begin());
-          std::copy(window.right.end() - grid_eq_signal::scopeSize, window.right.end(), mScopeRight.begin());
-        }
+        std::copy(window.samples.end() - grid_eq_signal::scopeSize, window.samples.end(), mScopeLeft.begin());
+        std::copy(window.right.end() - grid_eq_signal::scopeSize, window.right.end(), mScopeRight.begin());
         mSpectrumTime = Now();
         if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
         return; // The stereo scope does not display a frequency spectrum.
@@ -1739,12 +1726,6 @@ public:
       }
       mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
       mMeter.bandGain = meter.bandGain; mMeter.bandLevel = meter.bandLevel;
-      if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::SignalMonitor && meter.monitor.frames)
-      {
-        if (Now()-mMonitorTime>.5) { mMonitor.Reset(); mMonitorHistory.Resume(); }
-        mMonitor.Receive(meter.monitor,PLUG()->GetSampleRate()); mMonitorTime=Now();
-        mMonitorHistory.Receive(meter.monitor,PLUG()->GetSampleRate());
-      }
       const auto monitoredEffect = PLUG()->GetSlotEffect(mSlot);
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
@@ -2342,8 +2323,6 @@ private:
       DrawSignalSpectrum(g, plot);
       PlotFooter(g, plot, "20 Hz - 20 kHz | 0 / -72 dBFS", "Dry immediate | shifted voice delayed");
     }
-    else if (effect == SlotEffect::SignalMonitor)
-      DrawSignalMonitor(g, plot, color);
     else if (effect == SlotEffect::Utility)
       DrawUtility(g, plot, color);
     else if (effect == SlotEffect::Wah)
@@ -2516,11 +2495,6 @@ private:
     return grid_ui::DrawEffectSetup(g, effect, plot, color,
       [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
       PLUG()->GetTempo(), PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);
-  }
-  void DrawSignalMonitor(IGraphics& g, const IRECT& plot, IColor color)
-  {
-    DrawSignalMonitorView(g, plot, color, PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.,
-      Now(), mMonitor, mMonitorHistory, mMonitorSpectrum, mMonitorTime, mSpectrumTime);
   }
   // Utility reshapes stereo, so it shows the live output as a goniometer (mid up, side across)
   // with a correlation meter: mono is a vertical line, Width spreads it, Balance tilts it and
@@ -2847,8 +2821,7 @@ private:
     if (effect != mPlotEffect || path != mPlotPath)
     {
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mReductionHistory = {};
-      mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear(); mMonitor.Reset(); mMonitorTime=-1.;
-      mMonitorHistory.Reset(); mMonitorSpectrum.Reset();
+      mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear();
       mReductionWrite = 0; mReductionNow = 0.f;
     }
     const bool nam = effect == SlotEffect::NAM;
@@ -3194,10 +3167,6 @@ private:
   std::array<float, 120> mInputHistory{}, mOutputHistory{}, mReductionHistory{};
   std::array<float, 96> mResponse{};
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
-  signal_monitor::Meter mMonitor;
-  signal_monitor::History mMonitorHistory;
-  signal_monitor::SpectrumView mMonitorSpectrum;
-  double mMonitorTime = -1.;
   std::array<double, 9> mResponseKey{-1.};
   std::array<double, 23> mEQKey{};
   std::array<std::array<float, 3>, 162> mEQCurve{};

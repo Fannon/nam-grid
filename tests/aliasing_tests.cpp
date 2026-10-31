@@ -22,7 +22,7 @@ Interpretation Classify(E effect)
   switch (effect)
   {
     case E::CabinetIR: case E::ToneEQ: case E::CutEQ: case E::ParametricEQ:
-    case E::Boost: case E::Utility: case E::SignalMonitor: case E::Wah: case E::GraphicEQ: return Interpretation::Linear;
+    case E::Boost: case E::Utility: case E::Wah: case E::GraphicEQ: return Interpretation::Linear;
     case E::Distortion: case E::PedalDrive: case E::TubeBoost: case E::Tape:
     case E::ConsoleColour: case E::ConsoleEQ: case E::OutboardChannel:
     case E::Limiter: return Interpretation::Harmonic;
@@ -447,6 +447,7 @@ try
   {
     if (only >= 0 && only != id) continue;
     const auto effect = static_cast<E>(id);
+    if (!IsValidSlotEffect(effect)) continue;
     const auto type = Classify(effect);
     auto variants = Variants(effect);
     if (!full) variants.resize(1);
@@ -508,7 +509,10 @@ try
     ++modules;
   }
   if (csv.is_open()) { csv.flush(); Require(csv.good(), "Failed to write spectral report"); }
-  Require(modules == (only < 0 ? static_cast<int>(E::Last) + 1 : 1), "Incomplete module coverage");
+  int expectedModules = 0;
+  for (int id = 0; id <= static_cast<int>(E::Last); ++id)
+    if (IsValidSlotEffect(static_cast<E>(id))) ++expectedModules;
+  Require(modules == (only < 0 ? expectedModules : 1), "Incomplete module coverage");
   // Verify the spectral renders are independent of callback partitioning.
   for (auto effect : {E::Distortion, E::PedalDrive, E::TubeBoost, E::Tape, E::ConsoleColour})
   {

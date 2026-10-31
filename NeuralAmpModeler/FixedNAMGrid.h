@@ -1,5 +1,6 @@
 #pragma once
 #include "NAMStage.h"
+#include "SignalMonitor.h"
 #include "GridPerformance.h"
 #include <array>
 

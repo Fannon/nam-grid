@@ -76,7 +76,7 @@ static_assert(SlotUtilityParam(0, uGraphicBand1) == 5037);
 static_assert(SlotUtilityParam(15, uGraphicVoicing) == 5180);
 static_assert(kEffectParameters[uGraphicBand1].introducedIn == 20 && kEffectParameters[uGraphicVoicing].introducedIn == 20);
 
-static_assert(static_cast<int>(SlotEffect::SignalMonitor) == 63);
+static_assert(static_cast<int>(SlotEffect::Reserved63) == 63);
 static_assert(static_cast<int>(SlotEffect::PitchShift) == 64);
 static_assert(SlotUtilityParam(0, uPitchInterval) == 5181);
 static_assert(SlotUtilityParam(15, uPitchMix) == 5260);
@@ -178,7 +178,8 @@ int main(int argc, char** argv)
     for (int index = 0; index < parameter_layout::globalControls; ++index)
       snapshot["global"].push_back(metadata(parameter_layout::GlobalID(index)));
     for (int effect = 0; effect <= static_cast<int>(SlotEffect::Last); ++effect)
-      snapshot["modules"][SlotEffectName(static_cast<SlotEffect>(effect))] = effect;
+      if (IsValidSlotEffect(static_cast<SlotEffect>(effect)))
+        snapshot["modules"][SlotEffectName(static_cast<SlotEffect>(effect))] = effect;
     std::ofstream(fixture) << snapshot.dump(2) << '\n';
   }
   json snapshot;
@@ -358,6 +359,14 @@ int main(int argc, char** argv)
         assert(!load(bad));
         assert(save() == base);
       }
+  // The unreleased monitor module was removed; reject it before mutating a rig.
+  for (int slot : {0, 15})
+  {
+    auto bad = base;
+    bad["SlotEffects"][slot] = 63;
+    assert(!load(bad));
+    assert(save() == base);
+  }
   plugin->destroy(plugin);
   entry->deinit();
 #ifdef _WIN32

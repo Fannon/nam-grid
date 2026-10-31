@@ -199,31 +199,4 @@ inline void TestSignalMonitor()
   for(size_t i=0;i<window.samples.size();++i)
     assert(window.samples[i]==-window.right[i]);
 
-  for(double rate:{44100.,48000.,96000.,192000.})
-  {
-    SlotConfig config;config.effect=SlotEffect::SignalMonitor;
-    NAMStage stage;stage.Publish(PrepareSlot(config,rate,128).dsp);stage.ResetStopped(rate,128);
-    assert(stage.Latency()==0);
-    SignalCapture samples;stage.AttachCapture(&samples);
-    for(int block=0;block<80;++block)
-    {
-      const int frames=block%3==0?1:block%3==1?37:128;
-      std::array<double,128> l{},r{};
-      for(int i=0;i<frames;++i){l[i]=.3*std::sin((block*128+i)*.071);r[i]=-.2*std::cos((block*128+i)*.043);}
-      l[0]=-0.;const auto dryL=l,dryR=r;
-      const bool enabled=block%5!=0, visible=block%7!=0;
-      stage.EnableMetering(visible);
-      allocations=deletions=0;tracking=true;
-      stage.Process(l.data(),frames,enabled,0.,0.,{},{},{},r.data());
-      tracking=false;
-      assert(allocations==0 && deletions==0);
-      assert(std::memcmp(l.data(),dryL.data(),sizeof(l))==0 && std::memcmp(r.data(),dryR.data(),sizeof(r))==0);
-      const auto observed=stage.TakeMeter();
-      assert(observed.monitor.frames==static_cast<uint64_t>(enabled&&visible?frames:0));
-    }
-    stage.AttachCapture(nullptr);
-    std::array<double,128> l{},r{};
-    stage.Process(l.data(),128,true,0.,0.,{},{},{},r.data());
-    assert(stage.TakeMeter().monitor.frames==0); // No hidden measurement work.
-  }
 }

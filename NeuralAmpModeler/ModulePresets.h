@@ -23,7 +23,7 @@
 namespace module_presets
 {
 inline bool Supported(SlotEffect effect)
-{ return IsValidSlotEffect(effect) && effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR && effect != SlotEffect::SignalMonitor; }
+{ return IsValidSlotEffect(effect) && effect != SlotEffect::NAM && effect != SlotEffect::CabinetIR; }
 // Slot controls the module's editor can show: a preset sets these and nothing else.
 inline bool ModuleControl(SlotEffect effect, int control)
 {

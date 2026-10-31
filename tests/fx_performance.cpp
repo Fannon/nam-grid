@@ -578,7 +578,8 @@ try
     // Module name -> permanent ID, so scripts never hard-code renumberable IDs.
     json modules = json::object();
     for (int effect = 0; effect <= static_cast<int>(SlotEffect::Last); ++effect)
-      modules[SlotEffectName(static_cast<SlotEffect>(effect))] = effect;
+      if (IsValidSlotEffect(static_cast<SlotEffect>(effect)))
+        modules[SlotEffectName(static_cast<SlotEffect>(effect))] = effect;
     std::cout << modules.dump() << '\n';
     return 0;
   }

@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Saved rigs and DAW projects now store scenes more compactly. Scene recall stays fixed to the values you stored, and older presets and projects still load.
+
 - Delete or Backspace clears the selected module while the grid is open. Escape closes the preset browser even while searching and cancels an audition; Settings still saves changes immediately and Escape closes it. Module preset naming has a larger, labelled field with save/cancel hints.
 
 - **Library stars:** mark modules, NAM captures, IR files and rig presets with the star left of their name in the browser. Each click cycles yellow, orange and red, then back to an empty outline. Turn on **Starred** above the results to list only starred items. Captures and IRs keep their star when moved or renamed, and identical copies share it. Stars are saved in `favorites.json` in your preset folder, so they travel with it to another computer, and they never change how anything sounds.

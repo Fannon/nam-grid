@@ -5,6 +5,7 @@
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include <set>
 #include "ModuleControlMetadata.h"
+#include "../NeuralAmpModeler/PerformanceSceneState.h"
 
 // Simulate future growth with hypothetical segment tables: appending controls to
 // the last segment, then a global segment, then more slot controls, must never
@@ -367,6 +368,23 @@ int main(int argc, char** argv)
     assert(!load(bad));
     assert(save() == base);
   }
+  // A real predecessor state with full snapshots must re-save as deltas without
+  // changing its scene values. This fails on the old, full-copy serializer.
+  auto sceneBaseline = performance_scenes::Baseline(base, [&](int i) { return metadata(i)["name"].get<std::string>(); });
+  auto fullScenes = base;
+  fullScenes["schema"] = 22; fullScenes.erase("PerformanceSceneDeltas");
+  fullScenes["PerformanceScenes"] = json::array({sceneBaseline, sceneBaseline, sceneBaseline});
+  assert(load(fullScenes));
+  auto compactScenes = save();
+  assert(compactScenes.dump().size() < fullScenes.dump().size() / 2);
+  assert(compactScenes["PerformanceSceneDeltas"][0].is_object() && compactScenes["PerformanceSceneDeltas"][0].empty());
+  auto expandedScenes = compactScenes;
+  assert(performance_scenes::Expand(expandedScenes, sceneBaseline));
+  assert(expandedScenes["PerformanceScenes"] == fullScenes["PerformanceScenes"]);
+  auto invalidDelta = compactScenes;
+  invalidDelta["PerformanceSceneDeltas"][0]["Output"] = "invalid";
+  assert(!load(invalidDelta)); assert(save() == compactScenes);
+  assert(load(base));
   plugin->destroy(plugin);
   entry->deinit();
 #ifdef _WIN32

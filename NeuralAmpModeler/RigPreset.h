@@ -12,8 +12,7 @@
 
 namespace rig_preset
 {
-// Bounds both preset files and host project state. A full rig with three stored scenes
-// needs about 0.9 MiB as an indented preset, and appended controls add to that.
+// Bounds both preset files and host project state, including fully divergent scenes.
 inline constexpr size_t kMaximumBytes = 8 * 1024 * 1024;
 inline nlohmann::json Read(const std::filesystem::path& path)
 {

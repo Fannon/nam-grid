@@ -81,6 +81,17 @@ Per-user preferences, including the library folders, are never part of a state: 
 them. Every test or tool that loads the plugin uses `IsolatedUserHome` so it never touches a
 developer's real settings or library.
 
+Performance scenes remain full snapshots in memory. Schema 23 adds
+`PerformanceSceneDeltas`, with one entry per scene: `null` means use the legacy
+`PerformanceScenes` entry (an empty object is an unused scene); an object contains
+only differences from this document's scene-eligible rig values. An empty delta
+object is a stored scene equal to that rig. The two representations cannot both
+contain a scene. Deltas are expanded once before applying state, after defaults
+for older controls have been filled. Later edits, recalls and re-saves therefore
+keep the original stored values. Legacy partial snapshots retain their original
+meaning: omitted controls remain untouched on recall. New saves use their legacy
+entry rather than inventing values for those missing controls.
+
 When adding saved data, bump `kEffectStateSchema` and set the new control
 descriptor's `introducedIn` to that schema. Older states then receive that
 control's default; a field that the saved schema already had stays required.

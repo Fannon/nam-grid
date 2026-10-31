@@ -25,6 +25,8 @@ Each grid card is one slot. Click **+ Add module** or a module's name to choose 
 
 Drag cards to move, swap or copy modules, or right-click a card for **Clear**, **Copy**, **Move** and **Swap**; the [mouse and keyboard](#mouse-and-keyboard) table lists the drag modifiers. Controls and bypass travel with the module, while host automation stays with the slot. Moving modules never copies or deletes files on disk.
 
+Delete or Backspace clears the selected module when the grid is open. While typing, these keys edit the text. Escape closes Settings (whose changes save immediately) or cancels the preset browser and any audition, including while searching.
+
 ## Inspect the signal
 
 Click the input/output meters or the small circular taps on the grid wires to

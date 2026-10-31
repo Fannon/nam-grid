@@ -38,6 +38,13 @@ class FocusedRunnerTests(unittest.TestCase):
             # Windows temporary paths may use an 8.3 alias that the runner resolves.
             self.assertTrue(run.call_args.kwargs['cwd'].samefile(folder))
 
+    def test_parity_requires_reference_plugin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / 'CMakeCache.txt').touch()
+            with patch.object(sys, 'argv', ['test-focused', '--build-dir', directory, '--suite', 'parity']):
+                with self.assertRaises(SystemExit):
+                    runner.main()
+
     def test_test_failure_propagates(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / 'CMakeCache.txt').touch()

@@ -16,6 +16,8 @@ SUITES = {
     'dsp': (['nam-stage-tests', 'nam-aliasing-tests'], ['stages', 'aliasing']),
     'ir': (['nam-ir-tests', 'nam-wav-tests'], ['ir-convolution', 'wav-decoder']),
     'resampling': (['nam-resampling-tests'], ['resampling']),
+    'parity': (['nam-grid-clap', 'nam-reference-parity'],
+               ['reference-parity', 'reference-parity-hot', 'reference-parity-lite']),
 }
 
 
@@ -35,6 +37,12 @@ def main():
     if not (build / 'CMakeCache.txt').is_file():
         parser.error('configure the build directory first (see docs/build.md)')
     targets, names = SUITES[args.suite] if args.suite else (['nam-stage-tests'], [])
+    if args.suite == 'parity':
+        cache = (build / 'CMakeCache.txt').read_text(encoding='utf-8', errors='replace')
+        reference = next((line.split('=', 1)[1].strip() for line in cache.splitlines()
+                          if line.startswith('NAM_REFERENCE_CLAP:FILEPATH=')), '')
+        if not reference:
+            parser.error('the parity suite needs -DNAM_REFERENCE_CLAP=/path/to/NeuralAmpModeler.clap')
     if args.suite == 'state' and sys.platform == 'win32':
         targets = targets + ['nam-grid-vst3', 'nam-vst3-parameter-contract']
         names = names + ['vst3-parameter-contract']

@@ -254,6 +254,21 @@ macOS builds ad-hoc sign each complete plugin bundle after linking. They are not
 Developer ID signed or notarized. The [README](../README.md) explains how users
 clear the download quarantine.
 
+## Documentation deployment
+
+Pull requests build and check the docs without publishing them. GitHub Pages
+updates when a release is published, using that release's tagged source. Pushes
+to main and draft releases do not deploy the site.
+
+To publish docs explicitly, run **Deploy docs** in GitHub Actions. Its
+`source-ref` input accepts a branch, tag or commit and defaults to `main`.
+The workflow's **Use workflow from** selector chooses the workflow definition;
+`source-ref` chooses the documentation source to publish. For example:
+
+```sh
+gh workflow run deploy-docs.yml -R Fannon/nam-grid -f source-ref=main
+```
+
 ## Linux
 
 The pinned iPlug2 has no Linux backend. On Linux only, setup applies

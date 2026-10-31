@@ -52,7 +52,10 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   1.66–5.35 ms delay. **Frequency Shifter** is a Bode-style single-sideband shifter (±2000 Hz)
   in a 0.05–1000 ms feedback delay with soft-saturated, bounded feedback. Its quadrature
   pair is a zero-latency polyphase IIR allpass network (Olli Niemitalo's coefficients),
-  keeping the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz.
+  keeping the opposite sideband about 45 dB down from 30 Hz to 20 kHz at 44.1/48 kHz. The
+  feedback range's top maps to a loop gain of 0.97, so a 100% tail always decays, and a
+  20 Hz one-pole blocker in the feedback path removes the near-DC energy that repeated
+  downward shifts fold toward 0 Hz; the wet output itself keeps its low end.
 - **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
   style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
   FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without

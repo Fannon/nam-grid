@@ -370,6 +370,13 @@ private:
 class FrequencyShifter
 {
 public:
+  // The single-sideband shift is unity gain, so the loop gain at Feedback 100% used to be
+  // about one, bounded only by the soft limiter. The top of the invariant 0-100% range now
+  // maps just below unity so a settled tail always decays. Repeated downward shifts fold
+  // partials toward 0 Hz, where a loop gain of one would leave a standing near-DC tone and
+  // offset; the feedback path therefore loses its low end, while the first, directly shifted
+  // pass keeps it.
+  static constexpr double kMaximumFeedback = .97;
   void Reset(double rate)
   {
     mRate = std::max(1., rate);
@@ -379,7 +386,9 @@ public:
       mLine[ch].Reset(static_cast<int>(mRate * 1.05) + 8);
       mHilbert[ch].Reset();
       mLow[ch] = 0.;
+      mFeedbackIn[ch] = mFeedbackOut[ch] = 0.;
     }
+    mFeedbackPole = std::exp(-6.283185307179586 * kFeedbackHighPass / mRate);
     mCosine = 1.;
     mSine = 0.;
     mCosOffset = 1.;
@@ -405,7 +414,8 @@ public:
       const double rightCosine = mCosine * mCosOffset - mSine * mSinOffset;
       const double rightSine = mSine * mCosOffset + mCosine * mSinOffset;
       const double delaySamples = std::max(1., v[2] * .001 * mRate);
-      const double side = v[3] * .01, feedback = v[1] * .01 * mDrain.Tick(draining);
+      const double side = v[3] * .01;
+      const double feedback = std::clamp(v[1], 0., 100.) * .01 * kMaximumFeedback * mDrain.Tick(draining);
       const double dryL = l[i], dryR = r ? r[i] : dryL;
       const double lowPole = mLowPole(-2. * grid_fx::pi * std::min(.45 * mRate, v[4]) / mRate,
                                      [](double x) { return std::exp(x); });
@@ -422,7 +432,7 @@ public:
         mLow[ch] = grid_fx::Flush(
           shifted + lowPole * (mLow[ch] - shifted));
         shifted = mLow[ch];
-        mLine[ch].Push(dry + feedback * SoftLimit(shifted));
+        mLine[ch].Push(dry + feedback * SoftLimit(FeedbackHighPass(shifted, ch)));
         wet[ch] = shifted;
       }
       const double mix = v[6] * .01;
@@ -436,12 +446,23 @@ public:
   }
 
 private:
+  // One-pole DC blocker in the feedback path; the wet output keeps the shifted low end.
+  static constexpr double kFeedbackHighPass = 20.;
+  double FeedbackHighPass(double x, int ch)
+  {
+    const double y = x - mFeedbackIn[ch] + mFeedbackPole * mFeedbackOut[ch];
+    mFeedbackIn[ch] = x;
+    mFeedbackOut[ch] = grid_fx::Flush(y);
+    return mFeedbackOut[ch];
+  }
   std::array<grid_fx::DelayLine, 2> mLine;
   std::array<HilbertPair, 2> mHilbert;
   grid_fx::SmoothControls<7> mControls;
   grid_fx::Memo mLowPole;
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mCosine = 1., mSine = 0., mCosOffset = 1., mSinOffset = 0.;
+  double mFeedbackPole = 1.;
+  std::array<double, 2> mFeedbackIn{}, mFeedbackOut{};
   double mLow[2]{};
   int mCounter = 0;
 };

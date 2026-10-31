@@ -6,6 +6,7 @@ Tone shaping, filters and wah.
 | --- | --- |
 | [Guitar EQ](#guitar-eq) | Bass, Mid and Treble shape the tone; the curve shows the combined response. |
 | [Cut EQ](#cut-eq) | Low cut and High cut trim rumble and fizz; Presence adds bite. |
+| [Graphic EQ](#graphic-eq) | Seven fixed bands and Level, voiced for guitar, bass or full range. |
 | [Parametric EQ](#parametric-eq) | Bell or notch, resonant cuts, and an optional low shelf. |
 | [Dynamic EQ](#dynamic-eq) | Cuts one band only while it is loud: palm-mute boom, harsh picking, bass boom. |
 | [Console EQ](#console-eq) | Broad console bands with harmonic colour on louder notes. |
@@ -46,6 +47,38 @@ Low cut and high cut for rumble and fizz, plus a 3.5 kHz presence shelf.
 **Tips:**
 
 - For bass, lower Low cut to 30 to 45 Hz or turn it off; 80 Hz is an electric-guitar choice.
+
+## Graphic EQ
+
+![Graphic EQ editor](../screenshots/modules/graphic-eq.png)
+
+Seven fixed bands with a boost or cut each, plus Level: the stompbox graphic EQ. Use it to shape the tone before an amp capture, as a mid boost for solos, or to fit a guitar, bass or acoustic into a mix. **Voicing** chooses band frequencies for the instrument, so each slider sits where it is most useful.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **100 Hz / 40 Hz / 63 Hz** | -15 to +15 dB | 0 dB | First band: low end, sub-bass or rumble, for the Guitar, Bass and Full range voicings. |
+| **200 Hz / 80 Hz / 160 Hz** | -15 to +15 dB | 0 dB | Second band: body, bass fundamentals or warmth. |
+| **400 Hz / 160 Hz / 400 Hz** | -15 to +15 dB | 0 dB | Third band: low mids and mud. |
+| **800 Hz / 320 Hz / 1 kHz** | -15 to +15 dB | 0 dB | Fourth band: the guitar's mid hump, or bass growl. |
+| **1.6 kHz / 800 Hz / 2.5 kHz** | -15 to +15 dB | 0 dB | Fifth band: cut-through and presence. |
+| **3.2 kHz / 2.5 kHz / 6.3 kHz** | -15 to +15 dB | 0 dB | Sixth band: pick attack and bite. |
+| **6.4 kHz / 6 kHz / 16 kHz** | -15 to +15 dB | 0 dB | Seventh band: fizz, string noise or air. |
+| **Level** | -15 to +15 dB | 0 dB | Overall level after the bands. Boost into an amp, or match bypass loudness. |
+
+In the header:
+
+- **Voicing** (Guitar, Bass, Full range; starts at Guitar) sets the band frequencies; the knob labels follow it. Guitar uses octave bands from 100 Hz to 6.4 kHz. Bass spans 40 Hz to 6 kHz, weighted to fundamentals and growl. Full range spans 63 Hz to 16 kHz for acoustic guitar or a mix. Changing it keeps the slider positions and glides the bands to their new frequencies. It is saved with the rig, without host automation.
+
+All bands at 0 dB and Level at 0 dB leave the sound exactly unchanged. Each band is about an octave wide on the Guitar voicing, so neighbouring sliders blend into smooth curves.
+
+**Display:** The combined EQ curve with a dot at each band centre, over the live output spectrum.
+
+**Presets:** Lead mid boost, Tight into amp (both Guitar), Bass clarity (Bass) and Acoustic air (Full range). Each preset selects its voicing. Lead mid boost is about 2–3 dB louder for solos; Tight into amp boosts Level to drive the next stage.
+
+**Tips:**
+
+- Before a high-gain capture, cutting 100 and 200 Hz tightens palm mutes; a lift around 800 Hz to 1.6 kHz adds cut-through.
+- On bass, Bass clarity's dip at 160–320 Hz clears mud while 2.5 kHz brings out the attack.
 
 ## Parametric EQ
 

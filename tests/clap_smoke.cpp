@@ -1350,7 +1350,7 @@ int main(int argc, char** argv)
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}, {SlotEffect::PedalComp, uPedalCompPickup},
       {SlotEffect::PedalComp, uPedalCompAttack}, {SlotEffect::Chorus, uChorusVoices},
-      {SlotEffect::SpringReverb, uSpringTank}};
+      {SlotEffect::SpringReverb, uSpringTank}, {SlotEffect::GraphicEQ, uGraphicVoicing}};
     for (const auto& [effect, control] : modes)
     {
       auto original = cleared;

@@ -42,7 +42,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
       || effect == SlotEffect::PedalComp || effect == SlotEffect::TransientShaper || effect == SlotEffect::Multiband)
     return {compColor, compColor, "Compressor"};
   if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ
-      || effect == SlotEffect::DynamicEQ)
+      || effect == SlotEffect::DynamicEQ || effect == SlotEffect::GraphicEQ)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
@@ -1871,6 +1871,30 @@ private:
     }
     else if (effect == SlotEffect::Multiband)
       DrawMultiband(g, plot, color);
+    else if (effect == SlotEffect::GraphicEQ)
+    {
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      const int voicing = graphic_eq::Voicing(value(uGraphicVoicing));
+      std::array<double, graphic_eq::kBands + 2> gains{};
+      for (int p = uGraphicBand1; p <= uGraphicLevel; ++p) gains[p - uGraphicBand1] = value(p);
+      const double upper = std::min(20000., .49 * (PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.));
+      WDL_String caption; caption.SetFormatted(64, "Graphic EQ | %s voicing", kGraphicVoicings[voicing]);
+      PlotTitle(g, plot, color, caption.Get());
+      PlotDetail(g, plot, "Curve, band centres and live output spectrum");
+      PlotFrequencyAxis(g, plot, upper, "Curve -18 / +18 dB");
+      DrawSignalSpectrum(g, plot);
+      PlotCurve(g, plot, [&](double x) {
+        return 20. * std::log10(std::max(1.e-9, graphic_eq::Magnitude(20. * std::pow(upper / 20., x), voicing, gains)));
+      }, -18., 18., color);
+      for (int b = 0; b < graphic_eq::kBands; ++b)
+      {
+        const double hz = graphic_eq::kCentres[voicing][b];
+        if (hz >= upper) continue;
+        const float x = plot.L + plot.W() * static_cast<float>(std::log(hz / 20.) / std::log(upper / 20.));
+        const float y = plot.T + plot.H() * static_cast<float>((18. - std::clamp(gains[b], -18., 18.)) / 36.);
+        g.FillCircle(color, x, y, 3.5f);
+      }
+    }
     else if (effect == SlotEffect::TransientShaper)
     {
       PlotTitle(g, plot, color, "Transient Shaper | live input / output");
@@ -2621,7 +2645,8 @@ private:
         const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf) && !effect_presentation::DisplayControl(i);
         mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
-        const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle : i))->Int();
+        const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle
+                                                                        : effect == SlotEffect::GraphicEQ ? uGraphicVoicing : i))->Int();
         mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, mode));
         if (effect_presentation::HeaderControl(i))
         {

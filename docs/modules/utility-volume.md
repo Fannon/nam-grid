@@ -50,13 +50,13 @@ A volume swell that removes the pick attack and fades each phrase in. Pause belo
 
 ## Signal Monitor
 
-Click an input or output meter, or a small circular tap on the wire after a grid
-slot, to inspect the signal there. The monitor replaces the module editor without
-occupying a slot or changing the rig. Click another tap to move it. Click the same
-tap again, select a module or the tuner, press **Escape**, or click **Close** to leave.
+Click a global input or output meter, or the output meter beside a grid slot,
+to inspect the signal there. The monitor replaces the module editor without
+occupying a slot or changing the rig. Click another meter to move it. Click the same
+meter again, select a module or the tuner, press **Escape**, or click **Close** to leave.
 Input measures after IN gain; Output measures the final signal sent to the host,
-including OUT gain. Slot taps measure that slot's output, even when empty or
-bypassed; lane taps measure their own branch before the lane mix.
+including OUT gain. Slot output meters open the monitor even when empty or
+bypassed; lane output meters inspect their own branch before the lane mix.
 
 - **Spectrum:** the louder channel at each frequency, rather than a mono sum.
   Opposite-polarity stereo cannot disappear from the spectrum through cancellation.

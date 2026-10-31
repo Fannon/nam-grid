@@ -29,11 +29,11 @@ Delete or Backspace clears the selected module when the grid is open. While typi
 
 ## Inspect the signal
 
-Click the input/output meters or the small circular taps on the grid wires to
+Click the global input/output meters or a grid slot's output meter to
 open the [Signal Monitor](modules/utility-volume.md#signal-monitor) at that point.
 It uses the lower editor panel and leaves every module slot available. Click
 another point to move it; select a module or the tuner, press **Escape**, or click
-**Close** to return. The same meter or tap also toggles it closed. Monitoring is
+**Close** to return. The same meter also toggles it closed. Monitoring is
 transient and is not saved with the rig.
 
 ## Shape a module

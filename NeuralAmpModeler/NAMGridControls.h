@@ -895,20 +895,13 @@ private:
   std::array<LevelReadout, 2> mLevels;
   double mTick = Now(), mClipUntil = 0.;
 };
-class MonitorTap : public IControl
+class SlotMeterTap : public IControl
 {
 public:
-  MonitorTap(const IRECT& r, int point) : IControl(r), mPoint(point)
-  { SetTooltip("Inspect the stereo signal after this slot, including when empty or bypassed."); }
+  SlotMeterTap(const IRECT& r, int point) : IControl(r), mPoint(point)
+  { SetTooltip("Click the output meter to inspect the stereo signal after this slot, including when empty or bypassed."); }
   void OnMouseDown(float, float, const IMouseMod&) override { PLUG()->ShowSignalMonitor(mPoint); }
-  void Draw(IGraphics& g) override
-  {
-    const bool selected = PLUG()->SignalMonitorPoint() == mPoint;
-    const auto ink = selected ? accent : mMouseIsOver ? muted : border;
-    g.FillCircle(background, mRECT.MW(), mRECT.MH(), 5.f);
-    g.DrawCircle(ink, mRECT.MW(), mRECT.MH(), 4.f, nullptr, 1.5f);
-    if (selected) g.FillCircle(accent, mRECT.MW(), mRECT.MH(), 2.f);
-  }
+  void Draw(IGraphics&) override {} // The slot card draws the meter beneath this hit target.
 private:
   int mPoint;
 };
@@ -1454,11 +1447,13 @@ public:
     if (enabled && PLUG()->IsSlotLoaded(mSlot))
     {
       if (mSlot != 0) // The global IN meter already covers the first slot's input.
-        DrawMeterBar(g, IRECT(mCardBounds.L - 7, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
+        DrawMeterBar(g, IRECT(mCardBounds.L - 8, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
                      tone.first, Now() < mInputClip);
-      DrawMeterBar(g, IRECT(mCardBounds.R + 4, mCardBounds.T + 5, mCardBounds.R + 7, mCardBounds.B - 5), mMeter.output,
-                   tone.first, Now() < mOutputClip);
     }
+    // Keep the monitor target visible even for an empty or bypassed slot.
+    const bool metering = enabled && PLUG()->IsSlotLoaded(mSlot);
+    DrawMeterBar(g, IRECT(mCardBounds.R + 4, mCardBounds.T + 5, mCardBounds.R + 8, mCardBounds.B - 5),
+                 metering ? mMeter.output : 0., metering ? tone.first : border, metering && Now() < mOutputClip);
     DrawDrop(g);
   }
   void LayoutHeader(IGraphics& g, bool draw)

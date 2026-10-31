@@ -22,7 +22,7 @@ Interpretation Classify(E effect)
   switch (effect)
   {
     case E::CabinetIR: case E::ToneEQ: case E::CutEQ: case E::ParametricEQ:
-    case E::Boost: case E::Utility: case E::Wah: case E::GraphicEQ: return Interpretation::Linear;
+    case E::Boost: case E::Utility: case E::SignalMonitor: case E::Wah: case E::GraphicEQ: return Interpretation::Linear;
     case E::Distortion: case E::PedalDrive: case E::TubeBoost: case E::Tape:
     case E::ConsoleColour: case E::ConsoleEQ: case E::OutboardChannel:
     case E::Limiter: return Interpretation::Harmonic;

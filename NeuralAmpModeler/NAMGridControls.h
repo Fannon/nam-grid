@@ -60,7 +60,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {modulationColor, modulationColor, "Modulation"};
   if (effect == SlotEffect::FrequencyShifter)
     return {modulationColor, modulationColor, "Pitch"};
-  if (effect == SlotEffect::Octaver || effect == SlotEffect::Doubler)
+  if (effect == SlotEffect::PitchShift || effect == SlotEffect::Octaver || effect == SlotEffect::Doubler)
     return {modulationColor, modulationColor, "Pitch"};
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::LoFiTape)
     return {creativeColor, creativeColor, "Creative"};
@@ -2128,6 +2128,16 @@ private:
     }
     else if (effect == SlotEffect::ConsoleEQ)
       DrawConsoleEQ(g, plot, color);
+    else if (effect == SlotEffect::PitchShift)
+    {
+      const double interval = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPitchInterval))->Value();
+      const double cents = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPitchFine))->Value();
+      WDL_String caption; caption.SetFormatted(96, "Fixed interval %+.2f st | fine %+.1f cents", interval, cents);
+      PlotTitle(g, plot, color, caption.Get());
+      PlotDetail(g, plot, "Live output spectrum | dry + one shifted voice | no key or scale tracking");
+      DrawSignalSpectrum(g, plot);
+      PlotFooter(g, plot, "20 Hz - 20 kHz | 0 / -72 dBFS", "Dry immediate | shifted voice delayed");
+    }
     else if (effect == SlotEffect::SignalMonitor)
       DrawSignalMonitor(g, plot, color);
     else if (effect == SlotEffect::Utility)

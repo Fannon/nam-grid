@@ -1,12 +1,33 @@
 # Pitch / Frequency
 
-Octaves, doubling and frequency shifting.
+Fixed-interval pitch shifting, octaves, doubling and frequency shifting.
 
 | Module | In short |
 | --- | --- |
+| [Pitch Shift](#pitch-shift) | One shifted voice for fixed-interval harmony, octaves or fine detuning. |
 | [Mono Octaver](#mono-octaver) | Sub-octave layers follow single notes; Dry retains the pick attack. |
 | [Stereo Doubler](#stereo-doubler) | Opposite detuning and delay suggest a second take; Spread widens it. |
 | [Frequency Shifter](#frequency-shifter) | Hertz offsets make metallic sidebands; Feedback shifts each repeat. |
+
+## Pitch Shift
+
+![Pitch Shift editor](../screenshots/modules/pitch-shift.png)
+
+Blend one shifted voice with the original guitar for fixed-interval harmony, or turn Mix to 100% to hear only the shifted voice. A fifth above stays seven semitones above every note: there is no key/scale tracking. Stereo channels retain their separation and receive the same interval.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Interval** | -24 to +24 st | +7 st | Fixed shift in semitones; +7 adds a fifth, -12 an octave below. Fractional settings allow pitch sweeps. |
+| **Fine tune** | -50 to +50 cents | 0 cents | Small detuning of the shifted voice. Try +8 cents with low Mix for thickness. |
+| **High cut** | 800–16000 Hz | 10000 Hz | Softens the shifted voice. Upward shifts also limit source bandwidth before resampling. Dry stays unfiltered. |
+| **Output** | -18 to +6 dB | 0 dB | Final level after the blend. Match bypass volume. |
+| **Mix** | 0–100% | 25% | Dry at zero, shifted only at 100%; lower blends add harmony beneath the original attack. |
+
+Insertion starts with a modest fifth harmony. Presets add **Shifted fifth only**, **Octave above**, **Octave below** and **Subtle detuned blend**. Try after an amp/cab for a distinct harmony voice, or before an amp to drive both voices together. Use separate parallel slots for more than one harmony interval.
+
+The shifted voice uses short moving playback windows, with waveform alignment at their transitions. It adds a variable delay of roughly a few to fifty milliseconds; dry stays immediate and no host compensation delay is reported. Chords, transients and large shifts can smear or warble. This is a creative harmony effect rather than a transparent replacement for retuning a guitar. At Interval/Fine zero and maximum High cut, the voice is direct; lowering High cut still shapes the wet path.
+
+**Display:** Live output spectrum and the selected interval. The spectrum is not a note detector.
 
 ## Mono Octaver
 

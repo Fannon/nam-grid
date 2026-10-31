@@ -31,7 +31,7 @@ Interpretation Classify(E effect)
     case E::NAM: return Interpretation::Model;
     case E::Bitcrusher: case E::RingMod: case E::Octaver: case E::Doubler:
     case E::FrequencyShifter: case E::Freeze: case E::Stutter: case E::LoFiTape:
-    case E::ShimmerReverb: return Interpretation::Creative;
+    case E::PitchShift: case E::ShimmerReverb: return Interpretation::Creative;
     case E::NoiseGate: case E::NoisePrint: case E::SmoothComp: case E::PunchComp:
     case E::DigitalBlack: case E::ButterComp: case E::PedalComp: case E::SynthFilter: case E::AutoSwell:
     case E::DigitalDelay: case E::AnalogDelay: case E::TapeDelay: case E::MultiHeadDelay:
@@ -81,6 +81,8 @@ void Stress(Controls& c, E effect)
   if (effect == E::ConsoleEQ) { u.consoleEQ[0] = 6.; u.consoleEQ[1] = 3.; u.consoleEQ[2] = 6.; }
   if (effect == E::Limiter) { u.extra.limiterInput = 12.; u.limiterClip = 100.; }
   if (effect == E::LoFiTape) u.extra.lofiDrive = 18.;
+  // Wet-only maximum upshift exposes resampling aliases that a dry blend can hide.
+  if (effect == E::PitchShift) u.pitchShift = {24., 50., 16000., 0., 100.};
   if (effect == E::Rotary) u.rotary[4] = 18.;
   if (effect == E::SpringReverb) u.spring[1] = 12.;
   if (effect == E::AnalogDelay || effect == E::TapeDelay || effect == E::MultiHeadDelay)

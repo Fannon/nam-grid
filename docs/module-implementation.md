@@ -388,3 +388,12 @@ for 20 seconds of monitoring. A packet that spans a column edge marks both colum
 with its peak.
 Closing the editor, hiding visualizations, deselecting or disabling the monitor
 stops its analysis. The DSP tests check sample identity and zero audio allocations.
+
+
+## Pitch Shift
+
+`SlotPitchShift.h` implements one fixed-interval stereo voice. It uses fractional moving read heads with a four-millisecond Hann crossfade at history jumps. A bounded search over past stereo waveforms aligns each new grain; no note/key detector or future samples are needed. Both channels share read positions and overlap weights, preserving channel isolation and inverted stereo. Delay storage is allocated in Reset; processing and transition searches allocate nothing.
+
+Interval and Fine tune glide through the shared control smoother. Mix is linear, Output follows the blend, and removing the interval crossfades back to the direct voice. Mix zero at unity Output is exact dry; neutral unison at maximum High cut is also direct. A fourth-order Butterworth source low-pass reduces bandwidth before upward resampling; two wet output poles soften the shifted voice. All filters are causal and the dry path is unfiltered.
+
+The musical wet delay varies with grain position, roughly a few to fifty milliseconds. Reported compensation latency is zero; the module contributes a conservative short tail allowance. Grain matching reduces steady-note cancellations but does not make chord/transient shifting transparent. Pitch shifting changes the spectrum intentionally: the aliasing audit is diagnostic and needs interpretation alongside pitch-accuracy and playing checks. The implementation is original NAM Grid MIT code; existing Shimmer and Frequency Shifter engines are unchanged.

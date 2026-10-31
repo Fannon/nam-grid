@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Auto-wah:** a new **Auto** button in the Wah module header assigns Env 1 to Position at +25%, so playing opens the wah without setting up a modulation row by hand. Adjust the envelope on the Modulation page, or remove the assignment there.
+
 - Saved rigs and DAW projects now store scenes more compactly. Scene recall stays fixed to the values you stored, and older presets and projects still load.
 
 - Delete or Backspace clears the selected module while the grid is open. Escape closes the preset browser even while searching and cancels an audition; Settings still saves changes immediately and Escape closes it. Module preset naming has a larger, labelled field with save/cancel hints.

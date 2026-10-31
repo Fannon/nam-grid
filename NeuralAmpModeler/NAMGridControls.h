@@ -1676,6 +1676,12 @@ public:
     }, "Quality: A2");
     mQualityButton->SetTooltip("Click to switch between full A2 and lower-CPU A2 Lite for this capture.");
     mEditor->AddChildControl(mQualityButton);
+    // Wah's quick setup: the envelope row that turns a parked wah into an auto-wah.
+    mAutoWah = new grid_ui::Button(IRECT(grid_layout::modeLeft, grid_layout::optionsTop, grid_layout::parameterRight, grid_layout::optionsBottom),
+                                   [this](IControl*) { AssignAutoWah(); }, "Auto");
+    mAutoWah->SetTooltip("Assign Env 1 to Wah Position at +25%, so playing sweeps the wah. Shape the envelope on the "
+                         "Modulation page; turn the assignment off there (or right-click Position) to park it again.");
+    mEditor->AddChildControl(mAutoWah);
     mEnabled = new grid_ui::EnableButton(IRECT(0, grid_layout::moduleHeaderTop, 28, grid_layout::moduleHeaderBottom), SlotActiveParam(mSlot));
     mEditor->AddChildControl(mEnabled);
     // Levels live in the visualization footer, so the dials keep the full editor width.
@@ -2858,6 +2864,17 @@ private:
     for (auto& value : mIRResponse) value -= peak;
     mIRResponseValid = std::isfinite(peak);
   }
+  // Wah's Auto button: one click wires Env 1 to the selected slot's Position. The matrix row is
+  // ordinary saved state, so the assignment survives rig presets and scenes and can be edited or
+  // cleared on the Modulation page like any other row.
+  void AssignAutoWah()
+  {
+    // Matrix destinations store the slot-control index, not the module control index.
+    const int position = parameter_layout::standardControls + uWahPosition;
+    if (PLUG()->AddModulation(grid_performance::SourceEnv1, static_cast<int>(mSlot), position) < 0)
+      grid_ui::ShowNotice(GetUI(), "Modulation",
+                          "All eight modulation rows are in use. Clear a row on the Modulation page.");
+  }
   void Refresh()
   {
     if (!mModelButton)
@@ -2888,6 +2905,7 @@ private:
       mBrowserButton->SetTooltip("Browse this module's category or file folder. The current item is selected.");
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
+      mAutoWah->Hide(effect != SlotEffect::Wah);
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -3190,6 +3208,7 @@ private:
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
+  grid_ui::Button* mAutoWah = nullptr;
   grid_ui::Button* mPresetButton = nullptr;
   static constexpr int kPresetTag = -2000; // Module preset menu items: -2000 - index.
   static constexpr int kSavePresetTag = -2900, kShowPresetsTag = -2901;

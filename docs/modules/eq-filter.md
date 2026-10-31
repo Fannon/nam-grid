@@ -200,3 +200,8 @@ An automatable wah sweep: a resonant band-pass with body. Map Position to an exp
 **Tips:**
 
 - Draw automation for Position, or map it to a MIDI controller in your DAW.
+- **Auto** in the module header turns the wah into an auto-wah with one click: it creates the
+  modulation row that follows your playing with Env 1 and sweeps Position by +25%. Play with the
+  envelope's **Threshold**, **Sensitivity** and **Release** on the Modulation page; the wah opens
+  later in the sweep when you lower Threshold or raise Sensitivity. Remove the assignment with
+  **Remove modulation** on Position, or clear its row on the Modulation page, to park the wah again.

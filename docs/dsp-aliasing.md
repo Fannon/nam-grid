@@ -8,7 +8,9 @@ selector. Secondary selectors vary independently, not as a Cartesian product.
 Driven profiles also exercise boosted Console EQ bands, the limiter's Input/Clip
 path and LoFi Tape's Drive. Neutral Console EQ and zero-Drive LoFi settings alone
 cannot establish the aliasing behavior of those nonlinear paths. New controls
-that introduce or drive nonlinear processing need an explicit stress case.
+that introduce or drive nonlinear processing need an explicit stress case. Pitch Shift also
+uses a wet-only maximum upshift in the driven profile to expose resampling
+artifacts that its insertion dry blend could hide.
 
 Build it with `bash build.sh --test`, or build the `nam-aliasing-tests` target in
 an already configured build directory. For an extended audit from the repository

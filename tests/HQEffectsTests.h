@@ -273,5 +273,51 @@ void TestHQEffects()
         assert(std::isfinite(l[i]) && std::isfinite(r[i]) && std::abs(l[i]) < 100. && std::abs(r[i]) < 100.);
     }
   }
+
+  // Feedback at 100%: the loop gain stays below unity and the feedback path loses DC, so a
+  // burst always decays. A unity loop only bounded by the limiter could ring indefinitely, and
+  // downward shifts folded partials into a standing near-DC tone with a DC offset.
+  for (const double hostRate : {44100., 48000., 96000.})
+    for (const double shift : {300., -300.})
+      for (const double delayMS : {20., 200., 1000.})
+      {
+        grid_hq::FrequencyShifter shifter;
+        shifter.Reset(hostRate);
+        UtilityControls c;
+        c.shift = {shift, 100., delayMS, 100., 12000., 0., 100.};
+        const int total = static_cast<int>(hostRate * 45.);
+        std::vector<double> x(total, 0.);
+        for (int i = 0; i < static_cast<int>(hostRate * .05); ++i)
+          x[i] = .5 * std::sin(2. * grid_fx::pi * 110. * i / hostRate);
+        // Short blocks, as the stage runs the module.
+        for (int pos = 0; pos < total; pos += 128)
+          shifter.Process(x.data() + pos, nullptr, std::min(128, total - pos), c);
+        const auto window = [&](double from, double to, double& mean) {
+          double peak = 0., sum = 0.;
+          const int first = static_cast<int>(hostRate * from), last = std::min(total, static_cast<int>(hostRate * to));
+          for (int i = first; i < last; ++i)
+          {
+            peak = std::max(peak, std::abs(x[i]));
+            sum += x[i];
+          }
+          mean = last > first ? std::abs(sum / (last - first)) : 0.;
+          return peak;
+        };
+        double mean = 0.;
+        const double firstPass = delayMS * .001 + .02; // The wet path is delayed once.
+        const double burst = window(firstPass, firstPass + .5, mean);
+        const double tail = window(40., 45., mean);
+        // A short delay decays by more than 60 dB; a one-second delay is far down and still falling.
+        assert(burst > .2 && std::isfinite(tail));
+        assert(mean < 1.e-4); // No standing DC offset, whatever the shift direction.
+        if (delayMS <= 500.)
+          assert(tail < .001 * burst); // More than 60 dB down after 40 s.
+        else
+        {
+          // A one-second loop loses 0.03 per pass: still falling, never standing.
+          const double middle = window(20., 25., mean);
+          assert(tail < .25 * burst && tail < .5 * middle);
+        }
+      }
   std::cout << "HQ effects: pitch/frequency shift, Juno stereo/mix and Shimmer freeze/reset passed\n";
 }

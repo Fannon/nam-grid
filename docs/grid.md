@@ -1,11 +1,11 @@
 # Grid & routing
 
-NAM Grid gives you 16 slots in four rows: **Pre**, the parallel lanes **A** and **B**, and **Post**. Sound flows left to right through each row; empty slots simply pass it on.
+NAM Grid gives you 16 slots in four rows: **Pre**, lanes **A** and **B**, and **Post**. Sound flows left to right through each row; empty slots simply pass it on. New rigs and the bundled Clean Default preset start in **Sequential** mode. The flow icon above **Routing / Options**, also available on that page, switches between **Parallel** and **Sequential**. The grid wires follow the selected mode.
 
 ![Signal flow: IN, Pre 1–4, then lanes A and B in parallel, the A/B blend, Post 1–4 and OUT](images/signal-flow.svg)
 
-- **Pre** and **Post** process everything, before the split and after the blend.
-- **Lanes A and B** both receive the same sound from Pre 4. **A/B** blends their results.
+- **Sequential:** sound runs **Pre → A → B → Post**, using all 16 slots in one chain. Use it for a conventional pedal → amp → cabinet → effects rig. There is no parallel dry return. A/B, lane levels, balances, timing, mute/solo and frequency split are hidden; their saved values return when switching to Parallel. **Options** keeps the rig-wide Trails and Keep dry level controls available.
+- **Parallel:** A and B both receive the sound from Pre 4; **A/B** blends their results before Post. Use it for two amps, different cabinets, wet/dry layers or a frequency split. Older projects and presets without a lane-mode setting retain this routing, so loading them preserves their sound. The split-bass factory examples explicitly select Parallel.
 - **IN** sets the level reaching the rig, the tuner and the envelope follower. **OUT** sets the final level sent to your DAW.
 
 Any slot can hold a NAM capture, a cabinet IR or a built-in effect. Click a slot's name or **+ Add module** to choose one; see [Editor](ui.md#build-and-arrange-a-rig) for moving, copying and bypassing modules.
@@ -30,6 +30,8 @@ Set a healthy level as you go. Use **IN** for the level into the rig, each modul
 
 **A/B** sets the balance between the lanes: 0% is A alone, 50% is both equally, and 100% is B alone. The blend moves smoothly and can be automated.
 
+With an amp only in A and an empty B, a centred A/B mixes half amp with half the signal from Pre. Turn A/B fully to A, or choose Sequential to run the amp without the empty lane's dry return.
+
 - Try different amps or cabinets in each lane, or keep one lane dry and put effects in the other.
 - An empty lane still passes the sound from Pre. Turn A/B fully toward a lane to hear only that lane.
 - Parallel captures can reinforce or cancel frequencies. If the combination sounds thin, adjust the lane levels or [Lane timing](#routing) and compare in mono.
@@ -39,7 +41,10 @@ Set a healthy level as you go. Use **IN** for the level into the rig, each modul
 
 Click **Routing** below the A/B knob for the lane controls. Select a module, close the page, or press Escape to return.
 
-- **Lane A / Lane B:** set each lane's level, or mute or solo it. Solo respects the current blend; if both lanes are soloed, both play. Mute wins over solo.
+- **Lane A / Lane B level:** adjust each parallel lane's output before the blend.
+- **A / B balance:** place each parallel lane left or right. Centre preserves both channels at unity; turning toward one side attenuates the opposite channel, reaching silence there at the extreme. Stereo material retains its existing left/right content; this does not move one channel's content into the other. These controls can be automated and ramp smoothly.
+- **Mute / solo menu:** optional lane isolation. Solo respects the current blend; if both lanes are soloed, both play. Mute wins over solo. Clear mute/solo in the same menu. Muting or blending away a lane does not suspend its processors; bypass unused modules to save CPU.
+- **Routing view:** with no frequency split, the diagram shows the two branches, blend percentages, lane levels and stereo positions. With the split on, it shows the crossover curves. Both parallel views include live L/R peak meters for each lane's contribution after its level, balance and blend, before Post. An empty lane is measured too. Sequential shows the single chain instead.
 - **Lane timing:** delay one lane by up to 20 ms to explore timing and phase between captures. Positive values delay A; negative values delay B.
 - **Trails:** bypassed delays and reverbs ring out instead of stopping. After the 5 ms bypass fade, new playing no longer reaches them, while their repeats or reverb tail continue over the dry signal. Off by default; saved with the rig and recalled by scenes. Re-enabling a ringing module adds new playing to its tail. Turning Trails off fades a ringing tail over 5 ms, and replacing the module drops it with the usual switch fade. A tail ends once it stays below -100 dB: for 2 s with reverbs, and with delays for their longest possible gap between repeats (9 s for most). It also ends within 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo. A tail still ringing fades during the final second of that limit, within the time reported to the host. A ringing module uses as much CPU as an active one, and it then drains silently as before. Freeze, Stutter and the modulation effects keep their normal bypass.
 - **Keep dry level:** all delays and reverbs keep dry at unity while Mix sets wet level. Off by default (Linear dry/wet crossfade); saved with the rig and recalled by scenes. Changes ramp over 20 ms. Output trims still affect both dry and wet; at high Mix, allow room for the higher total level. Freeze and Stutter are unchanged.
@@ -59,7 +64,7 @@ of the grid's split. Start with Low keep at zero when using Pedal Drive in the h
 of a split rig; otherwise the upper branch is split again. See the
 [routing examples](modules/pedal-drive.md#using-the-grid-split).
 
-Lane levels, the crossover and A/B can all be [modulated](performance.md#modulation).
+Lane levels, the crossover and A/B can all be [modulated](performance.md#modulation) in Parallel mode. Lane mode and balances are saved with rigs and recalled by scenes. Switching mode briefly dips the output while reconnecting the lanes. Model latency is summed across A and B in Sequential; Parallel compensates the shorter lane to match the longer one.
 
 ## Missing captures and IRs
 

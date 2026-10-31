@@ -81,7 +81,7 @@ void TestModulationMatrix()
     assert(StateOnly(i) == ((i >= ModRow && i < RowParam(rows, 0) && (i - ModRow) % RowFields != RowDepth)
                             || i == LFO1Shape || i == Env1Input || i == LFO1Retrigger || i == Seq1Retrigger
                             || i == LFO2Shape || i == Env2Input || i == LFO2Retrigger || i == Seq2Retrigger || i == MixLaw
-                            || i == Trails || i == CrossoverSlope));
+                            || i == Trails || i == CrossoverSlope || i == LaneMode));
 
   // Released source integers and macro identities must not move when banks append.
   static_assert(SourceLFO1 == 1 && SourceEnv1 == 2 && SourceSeq1 == 3);

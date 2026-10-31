@@ -21,8 +21,11 @@ public:
   };
 
   std::array<NAMStage, kSlots> stages;
+  using LanePeaks = std::array<std::array<float, 2>, 2>;
+  void EnableLaneMetering(bool enabled) { mLaneMetering = enabled; mLanePeaks = {}; }
+  LanePeaks TakeLanePeaks() { const auto peaks = mLanePeaks; mLanePeaks = {}; return peaks; }
 
-  static int TotalLatency(const std::array<int, kSlots>& latency)
+  static int TotalLatency(const std::array<int, kSlots>& latency, bool sequential = false)
   {
     int pre = 0, a = 0, b = 0, post = 0;
     for (int i = 0; i < 4; ++i)
@@ -32,7 +35,7 @@ public:
       b += latency[8 + i];
       post += latency[12 + i];
     }
-    return pre + std::max(a, b) + post;
+    return pre + (sequential ? a + b : std::max(a, b)) + post;
   }
 
   void ResetStopped(double rate, int maxBlock)
@@ -64,6 +67,8 @@ public:
     for (int i = 0; i < 2; ++i)
       mRightDelay[i].Reset(std::max(0, latency[1 - i] - latency[i]), mStep, 4 * largestStageDelay);
     mFirstBlend = true;
+    mTopologyFirst = true; mTopologyGain = 1.; mBalance = {};
+    mLanePeaks = {};
   }
 
   void ClearStopped()
@@ -75,7 +80,30 @@ public:
   void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
                double* right = nullptr, const grid_performance::Routing& routing = {}, int inputPrefix = 0)
   {
+    if (mTopologyFirst)
+    {
+      mSequential = routing.sequential; mTopologyFirst = false;
+    }
+    // Dip before reconnecting the lanes. Never run either stage twice or allocate
+    // on a topology change; the new path fades in once the old output is silent.
+    if (mSequential != routing.sequential && mTopologyGain == 0.)
+    {
+      mSequential = routing.sequential;
+      mRouteFirst = mFirstBlend = true;
+      mSplitLow = {}; mLrFilter = {}; mBalance = {};
+      for (auto& delay : mDelay) delay.Clear();
+      for (auto& delay : mRightDelay) delay.Clear();
+      for (auto& delay : mFineDelay) delay.ClearHistory();
+    }
     ProcessRow(samples, frames, controls, inputPrefix, right, 4);
+    if (mSequential)
+    {
+      ProcessRow(samples, frames, controls, 4, right);
+      ProcessRow(samples, frames, controls, 8, right);
+      ProcessRow(samples, frames, controls, 12, right);
+      FadeTopology(samples, right, frames, routing.sequential);
+      return;
+    }
     std::copy_n(samples, frames, mLane[0].data());
     std::copy_n(samples, frames, mLane[1].data());
     if (right)
@@ -87,6 +115,7 @@ public:
       mSplitSteep = routing.linkwitzRiley ? 1. : 0.;
       mGainA = std::pow(10., routing.gainA * .05) * (!routing.muteA && (!routing.soloB || routing.soloA) ? 1. : 0.);
       mGainB = std::pow(10., routing.gainB * .05) * (!routing.muteB && (!routing.soloA || routing.soloB) ? 1. : 0.);
+      mBalance = {std::clamp(routing.balanceA * .01, -1., 1.), std::clamp(routing.balanceB * .01, -1., 1.)};
       mRouteFirst = false;
     }
     const bool steep = routing.linkwitzRiley;
@@ -166,18 +195,35 @@ public:
     }
     const double targetA = std::pow(10., routing.gainA * .05) * (!routing.muteA && (!routing.soloB || routing.soloA) ? 1. : 0.);
     const double targetB = std::pow(10., routing.gainB * .05) * (!routing.muteB && (!routing.soloA || routing.soloB) ? 1. : 0.);
+    const std::array<double, 2> balance{std::clamp(routing.balanceA * .01, -1., 1.), std::clamp(routing.balanceB * .01, -1., 1.)};
     for (int i = 0; i < frames; ++i)
     {
       mBlend = mBlend < blendB ? std::min(blendB, mBlend + mStep) : std::max(blendB, mBlend - mStep);
       mGainA += std::clamp(targetA - mGainA, -mStep * 4., mStep * 4.);
       mGainB += std::clamp(targetB - mGainB, -mStep * 4., mStep * 4.);
+      for (int lane = 0; lane < 2; ++lane)
+        mBalance[lane] += std::clamp(balance[lane] - mBalance[lane], -mStep, mStep);
       // Linear blend: identical/dry lanes remain unity at every blend position.
+      const double a = (1. - mBlend) * mGainA * (right ? 1. - std::max(0., mBalance[0]) : 1.) * mDelay[0].Process(mLane[0][i]);
+      const double b = mBlend * mGainB * (right ? 1. - std::max(0., mBalance[1]) : 1.) * mDelay[1].Process(mLane[1][i]);
+      double ar = a, br = b;
       if (right)
-        right[i] =
-          mSplitGain[i] * ((1. - mBlend) * mGainA * mRightDelay[0].Process(mRightLane[0][i]) + mBlend * mGainB * mRightDelay[1].Process(mRightLane[1][i]));
-      samples[i] = mSplitGain[i] * ((1. - mBlend) * mGainA * mDelay[0].Process(mLane[0][i]) + mBlend * mGainB * mDelay[1].Process(mLane[1][i]));
+      {
+        ar = (1. - mBlend) * mGainA * (1. + std::min(0., mBalance[0])) * mRightDelay[0].Process(mRightLane[0][i]);
+        br = mBlend * mGainB * (1. + std::min(0., mBalance[1])) * mRightDelay[1].Process(mRightLane[1][i]);
+        right[i] = mSplitGain[i] * (ar + br);
+      }
+      samples[i] = mSplitGain[i] * (a + b);
+      if (mLaneMetering)
+      {
+        mLanePeaks[0][0] = std::max(mLanePeaks[0][0], static_cast<float>(std::abs(mSplitGain[i] * a)));
+        mLanePeaks[0][1] = std::max(mLanePeaks[0][1], static_cast<float>(std::abs(mSplitGain[i] * ar)));
+        mLanePeaks[1][0] = std::max(mLanePeaks[1][0], static_cast<float>(std::abs(mSplitGain[i] * b)));
+        mLanePeaks[1][1] = std::max(mLanePeaks[1][1], static_cast<float>(std::abs(mSplitGain[i] * br)));
+      }
     }
     ProcessRow(samples, frames, controls, 12, right);
+    FadeTopology(samples, right, frames, routing.sequential);
   }
 
   // Run only the independent input prefix, before Process skips those stages.
@@ -203,12 +249,24 @@ public:
   const double* TapRight(int instance = 0) const { return mTapStereo[instance] ? mTap[instance][1].data() : nullptr; }
 
 private:
+  void FadeTopology(double* left, double* right, int frames, bool sequential)
+  {
+    const double target = mSequential == sequential ? 1. : 0.;
+    if (mTopologyGain == 1. && target == 1.) return;
+    for (int i = 0; i < frames; ++i)
+    {
+      mTopologyGain += std::clamp(target - mTopologyGain, -mStep, mStep);
+      left[i] *= mTopologyGain;
+      if (right) right[i] *= mTopologyGain;
+    }
+  }
   struct Delay
   {
     std::vector<double> history;
     size_t index = 0;
     int previous = 0, target = 0;
     double mix = 1., step = 1.;
+    void Clear() { std::fill(history.begin(), history.end(), 0.); index = 0; }
     void Reset(int samples, double rampStep, int capacity)
     {
       // Fixed capacity also makes VST3's dynamic latency handoff allocation-free on audio.
@@ -316,6 +374,11 @@ private:
   double mSplitSmoothing = 0.;
   double mSplitCoefficientFrequency = -1., mSplitCoefficient = 0.;
   bool mRouteFirst = true;
+  bool mTopologyFirst = true, mSequential = false;
+  double mTopologyGain = 1.;
+  std::array<double, 2> mBalance{};
+  bool mLaneMetering = false;
+  LanePeaks mLanePeaks{};
   std::array<std::array<std::vector<double>, 2>, grid_performance::sourceInstances> mTap;
   std::array<int, grid_performance::sourceInstances> mTapSlot{-1, -1};
   std::array<bool, grid_performance::sourceInstances> mTapStereo{};

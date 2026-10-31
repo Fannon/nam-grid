@@ -86,6 +86,12 @@ static_assert(kEffectParameters[uPitchInterval].introducedIn == 22 && kEffectPar
 static_assert(PerformanceParam(grid_performance::CrossoverSlope) == 5261);
 static_assert(grid_performance::parameters[grid_performance::CrossoverSlope].introducedIn == 24);
 static_assert(static_cast<int>(grid_performance::SplitSlopeLinkwitzRiley) == 1);
+static_assert(PerformanceParam(grid_performance::LaneMode) == 5262);
+static_assert(PerformanceParam(grid_performance::LaneABalance) == 5263);
+static_assert(PerformanceParam(grid_performance::LaneBBalance) == 5264);
+static_assert(grid_performance::parameters[grid_performance::LaneMode].introducedIn == 25);
+static_assert(grid_performance::StateOnly(grid_performance::LaneMode));
+static_assert(!grid_performance::StateOnly(grid_performance::LaneABalance));
 
 int main(int argc, char** argv)
 {

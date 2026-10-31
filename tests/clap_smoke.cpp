@@ -196,6 +196,10 @@ int main(int argc, char** argv)
     assert(nam_library::WriteSettings(settingsBackup.file, settings));
   };
   auto base = save().config();
+  assert(base["Lane Mode"] == grid_performance::Sequential);
+  // The existing routing regressions explicitly exercise the released parallel path.
+  base["Lane Mode"] = grid_performance::Parallel;
+  load(base);
   assert(!base.contains("NamFolders") && !base.contains("IrFolders") && !base.contains("PresetFolders"));
   {
     // The bundled Clean Default rig loads as saved, with its capture from the default folder.
@@ -205,6 +209,7 @@ int main(int argc, char** argv)
     const auto loaded = save().config();
     assert(loaded["SlotPaths"][4] == clean["SlotPaths"][4] && loaded["SlotEffects"] == clean["SlotEffects"]);
     assert(loaded["Pre 1 Black Hold"] == 0.); // Saved before Hold existed: schema 1 defaults it.
+    assert(loaded["Lane Mode"] == grid_performance::Sequential);
     assert(loadRaw(base));
   }
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
@@ -2465,9 +2470,14 @@ int main(int argc, char** argv)
       }
       click(910, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
-      click(936, 28); click(grid_layout::width - 36, 328);
+      click(936, 28); click(grid_layout::width - 36, 356);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click(grid_layout::width - 36, 328); click(kModulationX, grid_layout::headerY);
+      click(grid_layout::width - 36, 328);
+      assert(save().config()["Lane Mode"] == grid_performance::Sequential);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing-sequential.bmp");
+      click(grid_layout::width - 36, 328);
+      assert(save().config()["Lane Mode"] == grid_performance::Parallel);
+      click(grid_layout::width - 36, 356); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
       click(936, 28); click(kTunerX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
@@ -3005,7 +3015,27 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
-  click(grid_layout::width - 36, 328); // Routing, below the A / B knob
+  click(grid_layout::width - 36, 356); // Routing, below the A / B knob
+  dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
+  const double laneBalance = save().config()["Lane A Balance"];
+  assert(laneBalance != 0.);
+  click(grid_layout::width - 36, 328); // Flow icon on the grid.
+  assert(save().config()["Lane Mode"] == grid_performance::Sequential);
+  dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
+  assert(save().config()["Lane A Balance"] == laneBalance); // Inactive in Sequential.
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "routing-sequential.bmp");
+  if (const char* captures = std::getenv("NAM_GRID_ROUTING_SCREENSHOTS"))
+    CaptureEditor(editor, std::filesystem::path(captures) / "routing-sequential.bmp");
+  click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+  assert(save().config()["Lane Mode"] == grid_performance::Parallel);
+  assert(save().config()["Lane A Balance"] == laneBalance);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "routing-parallel.bmp");
+  if (const char* captures = std::getenv("NAM_GRID_ROUTING_SCREENSHOTS"))
+    CaptureEditor(editor, std::filesystem::path(captures) / "routing-parallel.bmp");
+  win_edit_menu::SelectNamedItem(editor, grid_layout::KnobX(6), grid_layout::KnobGestureY(6), L"Mute A", false);
+  assert(save().config()["Lane A Mute"] == 1.);
+  win_edit_menu::SelectNamedItem(editor, grid_layout::KnobX(6), grid_layout::KnobGestureY(6), L"Clear mute / solo", false);
+  assert(save().config()["Lane A Mute"] == 0.);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Lane A level
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);
@@ -3146,6 +3176,8 @@ int main(int argc, char** argv)
   }
   // The routing page's saved Split Slope choice: steep, then back to the released gentle split.
   {
+    click(grid_layout::parameterRight - 88, grid_layout::optionsY);
+    assert(save().config()["Frequency Split"] == 1.);
     const int slopeX = grid_layout::parameterRight - 210, slopeY = grid_layout::moduleButtonY;
     const std::vector<const char*> slopes{"Gentle (6 dB/oct)", "Steep (24 dB/oct)"};
     assert(save().config()["Split Slope"] == 0.);
@@ -3155,6 +3187,7 @@ int main(int argc, char** argv)
     win_edit_menu::SelectChoice(editor, slopeX, slopeY, slopes, 0, 1);
     pumpFor(30);
     assert(save().config()["Split Slope"] == 0.);
+    click(grid_layout::parameterRight - 88, grid_layout::optionsY);
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
   // Wah's Auto button creates the envelope row that makes it an auto-wah, and only exists on Wah.

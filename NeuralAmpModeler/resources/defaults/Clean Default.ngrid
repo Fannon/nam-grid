@@ -1744,6 +1744,7 @@
     "LFO Retrigger": 0.0,
     "LFO Shape": 0.0,
     "LFO Sync": 0.0,
+    "Lane Mode": 1.0,
     "Lane A Level": 0.0,
     "Lane A Mute": 0.0,
     "Lane A Solo": 0.0,

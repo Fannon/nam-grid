@@ -1018,7 +1018,7 @@ class Wiring : public IControl
 {
 public:
   Wiring(const IRECT& r)
-  : IControl(r)
+  : IControl(r, PerformanceParam(grid_performance::LaneMode))
   { mIgnoreMouse = true; }
   void Draw(IGraphics& g) override
   {
@@ -1037,6 +1037,18 @@ public:
     // IN and OUT reach their knobs, passing behind the stereo meters.
     wire(64, centre(0), 88, centre(0));
     wire(912, centre(3), 940, centre(3));
+    if (PLUG()->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential)
+    {
+      for (int row = 0; row < 3; ++row)
+      {
+        wire(912, centre(row), 928, centre(row));
+        wire(928, centre(row), 928, gap(row));
+        wire(928, gap(row), 69, gap(row));
+        wire(69, gap(row), 69, centre(row + 1));
+        wire(69, centre(row + 1), 88, centre(row + 1));
+      }
+      return;
+    }
     wire(912, centre(0), 928, centre(0));
     wire(928, centre(0), 928, gap(0));
     wire(928, gap(0), 69, gap(0));

@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. Click the flow icon above Routing / Options to choose the existing parallel blend, with independent left/right balances for A and B. The grid wires follow the mode, and Routing shows the signal path or crossover with live stereo lane levels; optional mute/solo controls move into a menu. Sequential hides the parallel controls. Existing projects and saved presets keep their routing and sound.
+
 - Fix a low bass burst when switching the lane split from Gentle back to Steep after silence. The inactive steep filters now discard their old audio once the switch fade completes.
 
 - **Auto-wah:** a new **Auto** button in the Wah module header assigns Env 1 to Position at +25%, so playing opens the wah without setting up a modulation row by hand. Adjust the envelope on the Modulation page, or remove the assignment there.

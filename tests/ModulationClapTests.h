@@ -71,6 +71,29 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
   };
   const auto row = [](int index, int field) { return std::string(parameters[RowParam(index, field)].name); };
 
+  // A-only processing in sequential mode has no empty-B dry return. Independent
+  // balances then isolate the two parallel contributions through the real plugin.
+  {
+    auto serial=cleared;
+    serial["Lane Mode"]=Sequential;
+    serial["SlotEffects"][4]=static_cast<int>(SlotEffect::Utility);
+    serial["A 1 Utility Output"]=6.;
+    load(serial); const auto serialAudio=render();
+    auto reference=cleared;
+    reference["SlotEffects"][0]=static_cast<int>(SlotEffect::Utility);
+    reference["Pre 1 Utility Output"]=6.;
+    load(reference); const auto expected=render();
+    assert(difference(serialAudio,expected)<1.e-12);
+    serial["Lane Mode"]=Parallel;
+    load(serial); const auto parallelAudio=render();
+    assert(difference(serialAudio,parallelAudio)>.01);
+    auto balanced=cleared;
+    balanced["Lane A Balance"]=-100.; balanced["Lane B Balance"]=100.;
+    load(balanced); const auto separated=render();
+    load(cleared); const auto dry=render();
+    for(size_t i=0;i<dry.size();++i) assert(std::abs(separated[i]-.5*dry[i])<1.e-12);
+  }
+
   // Old rigs acquire bank 2 defaults even after editing it. Current states require
   // every new field, and both bank settings and routing survive scene/state recall.
   {
@@ -103,7 +126,7 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
           for (int slot = 0; slot < 16; ++slot) old.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
       load(old);
       const auto upgraded = save().config();
-      for (int p = LFO2Shape; p < Count; ++p) assert(upgraded[parameters[p].name] == parameters[p].initial);
+      for (int p = LFO2Shape; p < Count; ++p) assert(upgraded[parameters[p].name] == StateDefault(p, schema));
       assert(upgraded["LFO Rate"] == 1.7 && upgraded["Envelope Attack"] == 21. && upgraded["Sequencer Step 3"] == 63.);
       assert(upgraded["Macro 4"] == 72. && upgraded[row(0, RowSource)] == SourceMacro4);
       assert(upgraded["PerformanceScenes"] == old["PerformanceScenes"]);
@@ -115,7 +138,8 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
       assert(!loadRaw(bad) && save().config() == configured);
     }
     const std::pair<const char*, double> invalidValues[]{{"LFO 2 Shape", .5}, {"Envelope 2 Listen At", 17.},
-                                                            {"Sequencer 2 Retrigger", 4.}};
+                                                            {"Sequencer 2 Retrigger", 4.}, {"Lane Mode", .5},
+                                                            {"Lane Mode", 2.}, {"Lane A Balance", -101.}, {"Lane B Balance", 101.}};
     for (const auto& [name, value] : invalidValues)
     {
       auto bad = configured; bad[name] = value;

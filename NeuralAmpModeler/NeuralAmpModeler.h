@@ -80,6 +80,7 @@ enum ECtrlTags
   kCtrlTagMainMacros,
   kCtrlTagSignalMonitor,
   kCtrlTagModulePresetName,
+  kCtrlTagRoutingView,
   kCtrlTagGridSlotBase = 100,
   kCtrlTagPlotHelpBase = 200,
   kNumCtrlTags = kCtrlTagPlotHelpBase + 16
@@ -277,6 +278,7 @@ private:
   size_t _GetBufferNumChannels() const;
   size_t _GetBufferNumFrames() const;
   std::atomic<double> mEffectTailSeconds{2.};
+  std::atomic<double> mSequentialTailSeconds{2.};
   // Loads/prepares a slot on the control thread, then publishes it to the audio thread.
   // Returns an empty string on success, or an error message on failure.
   std::string _StageSlot(size_t slot, SlotEffect effect, const std::string& path, const std::string& expectedHash = {});
@@ -402,6 +404,7 @@ private:
   GridDCBlocker mHighPass; // Final DC blocker
   NAMSender mInputSender, mOutputSender;
   iplug::ISender<1, 128, SlotMeterData> mSlotMeterSender;
+  iplug::ISender<1, 64, FixedNAMGrid::LanePeaks> mLaneMeterSender;
   // One output window for the selected spectrum view only. Its packet size
   // differs from the meter packet, which is how slot controls tell them apart.
   iplug::ISender<1, 4, grid_eq_signal::Window> mSlotSignalSender;

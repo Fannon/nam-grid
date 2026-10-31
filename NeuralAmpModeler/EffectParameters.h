@@ -293,6 +293,17 @@ enum UtilityParam
   uTransientShaperOutput = 277,
   uTransientShaperMix = 278,
   uHarmonicCrossover = 279,
+  uMultibandDepth = 280,
+  uMultibandDownward = 281,
+  uMultibandUpward = 282,
+  uMultibandTime = 283,
+  uMultibandLow = 284,
+  uMultibandMid = 285,
+  uMultibandHigh = 286,
+  uMultibandOutput = 287,
+  uMultibandLowSplit = 288,
+  uMultibandHighSplit = 289,
+  uMultibandThreshold = 290,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -404,7 +415,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 18; // 18 Harmonic Tremolo; 17 Transient Shaper; 16 Dynamic EQ; 15 Spring tank.
+inline constexpr int kEffectStateSchema = 19; // 19 Multiband Dynamics; 18 Harmonic Tremolo; 17 Transient Shaper; 16 Dynamic EQ.
 
 struct EffectParameter
 {
@@ -700,7 +711,19 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Transient Sensitivity", "Sensitivity", 50, 0, 100, 0.1, "%", 3, false, 1., 17},
    {"Transient Output", "Output", 0, -24, 12, 0.1, "dB", 4, false, 1., 17},
    {"Transient Mix", "Mix", 100, 0, 100, 0.1, "%", 5, false, 1., 17},
-   {"Harmonic Crossover", "Crossover", 500, 200, 2000, 1, "Hz", 3, true, 1., 18}}};
+   {"Harmonic Crossover", "Crossover", 500, 200, 2000, 1, "Hz", 3, true, 1., 18},
+   // Multiband Dynamics: neutral bank defaults; the splits and Threshold are edited in the display.
+   {"Multiband Depth", "Depth", 100, 0, 100, 0.1, "%", 0, false, 1., 19},
+   {"Multiband Downward", "Downward", 0, 0, 100, 0.1, "%", 1, false, 1., 19},
+   {"Multiband Upward", "Upward", 0, 0, 100, 0.1, "%", 2, false, 1., 19},
+   {"Multiband Time", "Time", 100, 10, 1000, 1, "%", 3, true, 1., 19},
+   {"Multiband Low", "Low", 0, -12, 12, 0.1, "dB", 4, false, 1., 19},
+   {"Multiband Mid", "Mid", 0, -12, 12, 0.1, "dB", 5, false, 1., 19},
+   {"Multiband High", "High", 0, -12, 12, 0.1, "dB", 6, false, 1., 19},
+   {"Multiband Output", "Output", 0, -24, 12, 0.1, "dB", 7, false, 1., 19},
+   {"Multiband Low Split", "Low split", 150, 40, 1000, 1, "Hz", 0, true, 1., 19},
+   {"Multiband High Split", "High split", 2500, 1000, 12000, 1, "Hz", 0, true, 1., 19},
+   {"Multiband Threshold", "Threshold", -30, -60, 0, 0.1, "dB", 0, false, 1., 19}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -777,13 +800,14 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
-    case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper:
+    case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper: case SlotEffect::Multiband:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
     default: return false;
   }
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uMultibandDepth && p <= uMultibandThreshold) return e == SlotEffect::Multiband;
   if (p >= uTransientShaperAttack && p <= uTransientShaperMix) return e == SlotEffect::TransientShaper;
   if (p >= uDynamicEQFrequency && p <= uDynamicEQMix) return e == SlotEffect::DynamicEQ;
   if (p >= uToneMidFrequency)
@@ -1000,6 +1024,10 @@ struct UtilityControls
   int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.
   std::array<double, 8> dynamicEQ{800, 1, -24, 6, 5, 120, 0, 100};
   std::array<double, 6> transientShaper{0, 0, 100, 50, 0, 100};
+  // Multiband Depth, Downward, Upward, Time, Low, Mid, High, Output; then the display's
+  // Low split, High split and Threshold, in ID order.
+  std::array<double, 8> multiband{100, 0, 0, 100, 0, 0, 0, 0};
+  std::array<double, 3> multibandShape{150, 2500, -30};
   ModuleExtensions extra;
   double irInput = 0., irMix = 100., irPredelay = 0., irLowCut = 0., irHighCut = 20000.;
   int irLength = 0;

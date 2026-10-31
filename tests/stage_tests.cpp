@@ -70,6 +70,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DynamicEQTests.h"
 #include "TransientShaperTests.h"
 #include "HarmonicTremoloTests.h"
+#include "MultibandTests.h"
 #include "ModulePresetTests.h"
 #include "DriveAntialiasTests.h"
 #include "NoisePrintTests.h"
@@ -139,6 +140,7 @@ try
     {"dynamic-eq", TestDynamicEQ},
     {"transient-shaper", TestTransientShaper},
     {"harmonic-tremolo", TestHarmonicTremolo},
+    {"multiband", TestMultiband},
     {"factory-vibe-vibrato", TestFactoryVibeVibrato},
     {"module-preset-coverage", TestModulePresetCoverage},
     {"module-preset-shared-controls", TestModulePresetSharedControls},
@@ -313,6 +315,7 @@ try
   run("dynamic-eq", TestDynamicEQ);
   run("transient-shaper", TestTransientShaper);
   run("harmonic-tremolo", TestHarmonicTremolo);
+  run("multiband", TestMultiband);
   run("factory-vibe-vibrato", TestFactoryVibeVibrato);
   run("module-preset-coverage", TestModulePresetCoverage);
   run("module-preset-shared-controls", TestModulePresetSharedControls);

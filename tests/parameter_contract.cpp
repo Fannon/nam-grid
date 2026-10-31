@@ -69,6 +69,9 @@ static_assert(kEffectParameters[uTransientShaperAttack].introducedIn == 17 && kE
 static_assert(SlotUtilityParam(0, uHarmonicCrossover) == 4845);
 static_assert(SlotUtilityParam(15, uHarmonicCrossover) == 4860);
 static_assert(kEffectParameters[uHarmonicCrossover].introducedIn == 18);
+static_assert(SlotUtilityParam(0, uMultibandDepth) == 4861);
+static_assert(SlotUtilityParam(15, uMultibandThreshold) == 5036);
+static_assert(kEffectParameters[uMultibandDepth].introducedIn == 19 && kEffectParameters[uMultibandThreshold].introducedIn == 19);
 
 int main(int argc, char** argv)
 {

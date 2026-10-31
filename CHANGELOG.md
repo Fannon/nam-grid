@@ -4,6 +4,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Multiband Dynamics:** A new Dynamics module with three bands of upward and downward compression and a Depth blend: from a dense "over the top" sound to a regular multiband compressor that evens out boomy lows or spiky highs. Drag the display to move the band splits and Threshold. Presets: Over the top, Gentle glue, Fast and tight and Clean sparkle.
 - **Harmonic Tremolo:** A new Modulation module that pulses bass and treble in turn, the swirling tremolo of early-1960s brown-panel amps. Crossover sets where the bands split; Tempo sync and Stereo phase work as in Auto Tremolo. Presets: Brown-panel amp, Slow swirl, Synced throb and Subtle shimmer.
 
 - **Transient Shaper:** A new Dynamics module that shapes the start and the decay of each note separately: sharpen or soften the pick, or shorten or lengthen the ring-out. It follows changes in level rather than a threshold, so the same settings work on a DI, after an amp or on bass. Presets: Defined picking, Soft acoustic, Tight palm mutes and Gentle note sustain.

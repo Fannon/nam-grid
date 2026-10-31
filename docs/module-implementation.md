@@ -321,3 +321,29 @@ tanh pulse as Auto Tremolo. Early-1960s split-band amp tremolos used separate
 filters near 150 Hz and 650 Hz; one complementary split near their geometric
 middle keeps the alternation without their fixed mid scoop. Crossover updates
 on a 16-sample schedule from a smoothed control. No latency is added.
+
+## Multiband Dynamics
+
+Linkwitz-Riley 24 dB/octave crossovers (two cascaded TPT Butterworth sections)
+split three bands; the low band also passes the high split's second-order
+allpass, so the unprocessed bands sum to a flat-magnitude allpass of the input.
+Depth blends each band's gain towards unity rather than mixing with the raw
+input, so both paths share one phase response and partial Depth never comb
+filters. Depth 0 is that allpass sum regardless of the other controls.
+
+Each band has a stereo-linked max-power detector with attack/release of
+48/280 ms (low), 22/280 ms (mid) and 13.5/130 ms (high) at Time 100%. Threshold
+applies to the mid band; the low and high bands are offset by -3 and -10 dB.
+Above a band's threshold the gain falls with a ratio of 20^(Downward); more
+than 12 dB below it the gain rises with a ratio of 4^(Upward), limited to
++18 dB and faded out between -60 and -75 dBFS. Gains update every 8 samples
+and ramp linearly in between. No lookahead or latency.
+
+Low split, High split and Threshold are display controls: saved, automatable
+parameters edited by dragging in the module display instead of knobs
+(`effect_presentation::DisplayControl`). They are left out of the knob grid,
+the modulation matrix and the docs control tables.
+
+The workflow follows the parallel up/down multiband approach popularised by
+Ableton's "OTT" Multiband Dynamics preset and Xfer OTT; this is an original
+implementation, not a port of either.

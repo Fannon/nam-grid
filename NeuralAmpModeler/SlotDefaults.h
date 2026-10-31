@@ -25,6 +25,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
   };
   switch (effect)
   {
+    case SlotEffect::Multiband:
+      set(uMultibandDepth, 40.); set(uMultibandDownward, 50.); set(uMultibandUpward, 40.); set(uMultibandOutput, 2.); break;
     case SlotEffect::TransientShaper:
       set(uTransientShaperAttack, 3.); set(uTransientShaperSustain, -1.); break;
     case SlotEffect::NoiseGate:

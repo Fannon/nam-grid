@@ -176,6 +176,8 @@ void VisitSlotControls(C& c, Visit&& visit)
   family(uDynamicEQFrequency, t.dynamicEQ);
   family(uTransientShaperAttack, t.transientShaper);
   u(uHarmonicCrossover, t.extra.harmonicCrossover);
+  family(uMultibandDepth, t.multiband);
+  family(uMultibandLowSplit, t.multibandShape);
   family(uPedalCompSustain, t.pedalComp);
   u(uPedalCompPickup, t.pedalCompPickup);
   u(uChorusVoices, t.extra.chorusVoices);
@@ -396,7 +398,7 @@ inline std::vector<Destination> Destinations(SlotEffect effect, bool loaded, boo
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost) result = {{kSlotEQHighPass, 2, "Low cut"}};
   if (effect == SlotEffect::CabinetIR) result = {{kSlotIRLevel, effect_presentation::kOutputPosition, "Output"}};
   for (int p = 0; p < kUtilityControls; ++p)
-    if (Modulatable(standardControls + p) && !effect_presentation::HeaderControl(p)
+    if (Modulatable(standardControls + p) && !effect_presentation::HeaderControl(p) && !effect_presentation::DisplayControl(p)
         && effect_presentation::Visible(effect, p, sync, notch, vibrato, shelf))
       result.push_back({standardControls + p, effect_presentation::Position(effect, p), effect_presentation::Label(effect, p)});
   std::stable_sort(result.begin(), result.end(), [](const auto& a, const auto& b) { return a.position < b.position; });

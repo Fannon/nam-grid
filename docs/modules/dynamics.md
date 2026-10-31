@@ -13,6 +13,7 @@ Gates, compressors and limiting.
 | [Butter Comp](#butter-comp) | Gentle polarity-sensitive glue with output-dependent recovery; Mix retains dry attack. |
 | [Outboard Channel](#outboard-channel) | Channel strip: cuts, compression and saturation in one module. |
 | [Transient Shaper](#transient-shaper) | Attack shapes the pick, Sustain the decay; works at any input level. |
+| [Multiband Dynamics](#multiband-dynamics) | Three-band upward and downward compression; drag the display to set splits and Threshold. |
 | [Peak Limiter](#peak-limiter) | Fast peak control; Ceiling and Release set grip and recovery. |
 
 ## Noise Gate
@@ -225,6 +226,40 @@ the dry sound; use it on held guitar or bass notes rather than to emphasize the 
 
 - Place it before a drive or amp capture to change how hard each pick hits the gain stage, or after the amp to change the finished sound.
 - Sustain shapes decays that already exist; for more sustain at the amp, use a compressor before it.
+
+## Multiband Dynamics
+
+![Multiband Dynamics editor](../screenshots/modules/multiband-dynamics.png)
+
+Splits the sound into low, mid and high bands and compresses each one on its own, in both directions: loud passages are pushed down, quiet ones brought up. At full settings this is the dense, "over the top" multiband sound; with Upward at zero it is a regular multiband compressor that evens out boomy lows or spiky highs without pumping the rest. Depth blends the result with the dry sound for parallel compression.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Depth** | 0–100% | 40% | Blend of the processed bands with the dry sound. 100% is fully processed. |
+| **Downward** | 0–100% | 50% | How hard each band is pushed down above its threshold, from 1:1 to 20:1. |
+| **Upward** | 0–100% | 40% | How much quiet passages in each band are raised, from 1:1 to 4:1. Zero gives a regular multiband compressor. |
+| **Time** | 10–1000% | 100% | Scales every band's attack and release; lower values react faster and pump more. |
+| **Low** | -12 to +12 dB | 0 dB | Level of the low band after its compression. |
+| **Mid** | -12 to +12 dB | 0 dB | Level of the mid band after its compression. |
+| **High** | -12 to +12 dB | 0 dB | Level of the high band after its compression. |
+| **Output** | -24 to +12 dB | 2 dB | Final level after Depth. Match bypass loudness when comparing. |
+
+In the display:
+
+- **Low split** (40–1000 Hz; starts at 150 Hz) and **High split** (1000–12000 Hz; starts at 2500 Hz): drag the vertical lines to move where the bands divide.
+- **Threshold** (-60 to 0 dB; starts at -30 dB): drag up or down anywhere else. It is the mid band's threshold; the low and high bands sit 3 and 10 dB lower, following a guitar's typical spectrum. Upward compression starts 12 dB below each band's threshold.
+- Double-click resets the nearest split, or Threshold. All three are saved with the rig and can be automated in your DAW.
+
+Downward and Upward map to ratios exponentially: Downward 50% is about 4.5:1, Upward 50% is 2:1. Upward gain is limited to +18 dB and fades out below -60 dBFS, so silence and hiss between notes are not raised. The detectors have no lookahead, so the start of a sudden note passes before a band's gain changes; heavy upward settings can raise peaks.
+
+**Display:** Each band's live level as a shaded column, with an arrow to where compression moves it: up for upward, down for downward. The solid line is Threshold, the dashed line where upward compression starts. The live output spectrum sits behind.
+
+**Presets:** Start with Gentle glue for downward-only leveling. Fast and tight reacts sooner; Clean sparkle lifts quieter detail. Over the top is the deliberately extreme choice. Presets keep your Threshold and splits, except Fast and tight, which narrows the mid band.
+
+**Tips:**
+
+- Set Threshold first: play your loudest part and drag until the mid band's arrow moves a few dB.
+- Like any zero-latency crossover, the bands shift phase around the splits. Depth blends with a matching dry signal, so partial Depth never comb filters, but a parallel lane without this module can.
 
 ## Peak Limiter
 

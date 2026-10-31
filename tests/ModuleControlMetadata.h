@@ -62,8 +62,8 @@ inline json ModuleControlMetadata(const clap_plugin* plugin, const clap_plugin_p
     { shared(kSlotCompThreshold, "Threshold"); shared(kSlotCompRelease, "Release"); shared(kSlotCompMakeup, "Makeup"); }
     for (int p = 0; p < kUtilityControls; ++p)
     {
-      // Header choices are documented as prose; tables cover the knob grid.
-      if (p == uTempoDivision || effect_presentation::HeaderControl(p)) continue;
+      // Header choices and display controls are documented as prose; tables cover the knob grid.
+      if (p == uTempoDivision || effect_presentation::HeaderControl(p) || effect_presentation::DisplayControl(p)) continue;
       bool visible = false;
       for (bool sync : {false, true})
         for (bool alternate : {false, true})

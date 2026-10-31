@@ -111,6 +111,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Pedal Comp | Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
 | Smooth / Punch Compressor, Butter Comp, Peak Limiter | Clean guitar leveling, Even bass notes; Tight picking, Parallel punch; Thick parallel; Louder, controlled |
 | Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup; Low-mid mud cut, Harshness cut |
+| Multiband Dynamics | Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes retain calibrated Threshold and splits unless explicitly set |
 | Transient Shaper | Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
 | Dynamic EQ | Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
 | Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |

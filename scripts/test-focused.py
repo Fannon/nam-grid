@@ -16,7 +16,7 @@ SUITES = {
     'dsp': (['nam-stage-tests', 'nam-aliasing-tests'], ['stages', 'aliasing']),
     'ir': (['nam-ir-tests', 'nam-wav-tests'], ['ir-convolution', 'wav-decoder']),
     'resampling': (['nam-resampling-tests'], ['resampling']),
-    'parity': (['nam-grid-clap', 'nam-reference-parity'], ['reference-parity']),
+    'parity': (['nam-grid-clap', 'nam-reference-parity'], ['reference-parity', 'reference-parity-lite']),
 }
 
 

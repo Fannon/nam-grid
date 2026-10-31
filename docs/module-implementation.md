@@ -208,7 +208,8 @@ prepares the model outside the audio thread and switches through the slot's norm
 the [Core size API](https://github.com/sdatkinson/NeuralAmpModelerCore/blob/main/NAM/slimmable.h)
 is not real-time safe. Every slot's `Full Quality` parameter stores the choice; requests from
 the editor or host automation apply on the idle thread and may coalesce. Fixed-size captures
-have no Lite mode.
+have no Lite mode. New slots start at Full Quality; the official shell's Slim control starts
+at its smallest submodel, so A2 captures do not match it at default settings.
 
 ## Real-time behavior, latency and tails
 

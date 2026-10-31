@@ -159,7 +159,7 @@ void PutInt(std::vector<uint8_t>& bytes, int32_t value)
 // The official shell stores the model path inside its iPlug2 chunk. Saving the
 // default state gives us the exact parameter payload for this build; replace
 // the empty path and force neutral settings in the same chunk.
-std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::filesystem::path& model)
+std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::filesystem::path& model, bool lite)
 {
   const auto saved = reference.Save();
   const auto& bytes = saved.bytes;
@@ -195,11 +195,11 @@ std::vector<uint8_t> PrepareReferenceState(Instance& reference, const std::files
   set(7, 0.);
   set(9, 0.);
   set(11, 0.);
-  set(12, 1.);
+  set(12, lite ? 0. : 1.);
   return prepared;
 }
 
-json PrepareGridState(Instance& grid, const std::filesystem::path& model)
+json PrepareGridState(Instance& grid, const std::filesystem::path& model, bool lite)
 {
   auto config = grid.Save().config();
   config["Tuner"] = 0.;
@@ -213,6 +213,8 @@ json PrepareGridState(Instance& grid, const std::filesystem::path& model)
     config[std::string("Pre 1 ") + parameter_layout::slotControlNames[control]] = defaults[control];
   for (int p = 0; p < kUtilityControls; ++p)
     config[std::string("Pre 1 ") + kEffectParameters[p].name] = defaults[17 + p];
+  if (lite)
+    config["Pre 1 Full Quality"] = 0.;
   config["SlotPaths"][0] = Utf8(model);
   return config;
 }
@@ -233,8 +235,8 @@ struct Render
 
 // Deterministic input with a slow level envelope. Both channels differ so the
 // mono-collapse convention is exercised rather than bypassed.
-Render Run(const std::filesystem::path& pluginPath, const std::filesystem::path& model, bool reference, double rate,
-           int buffer, double warmup, double seconds)
+Render Run(const std::filesystem::path& pluginPath, const std::filesystem::path& model, bool reference, bool lite,
+           double rate, int buffer, double warmup, double seconds)
 {
   Library library(pluginPath);
   Instance instance(library);
@@ -245,14 +247,14 @@ Render Run(const std::filesystem::path& pluginPath, const std::filesystem::path&
   {
     if (reference)
     {
-      const auto prepared = PrepareReferenceState(instance, model);
+      const auto prepared = PrepareReferenceState(instance, model, lite);
       Stream bytes;
       bytes.bytes = prepared;
       instance.Load(bytes);
     }
     else
     {
-      LoadGridState(instance, PrepareGridState(instance, model));
+      LoadGridState(instance, PrepareGridState(instance, model, lite));
       const auto recalled = instance.Save().config();
       Check(recalled.at("SlotPaths")[0] == Utf8(model), "Grid did not recall the capture path");
       Check(recalled.at("SlotHashes")[0].is_string() && !recalled.at("SlotHashes")[0].get<std::string>().empty(),
@@ -404,6 +406,7 @@ try
   std::vector<double> rates{48000.};
   std::vector<int> buffers{128};
   double warmup = .5, seconds = 2., tolerance = kGridTolerance;
+  bool lite = false;
   for (int i = 1; i < argc; ++i)
   {
     const std::string arg = argv[i];
@@ -427,6 +430,8 @@ try
       seconds = std::stod(next());
     else if (arg == "--tolerance")
       tolerance = std::stod(next());
+    else if (arg == "--lite")
+      lite = true;
     else if (arg == "--json")
       reportPath = next();
     else
@@ -450,13 +455,14 @@ try
     for (double rate : rates)
       for (int buffer : buffers)
       {
-        const auto reference = Run(referencePath, model, true, rate, buffer, warmup, seconds);
-        const auto grid = Run(gridPath, model, false, rate, buffer, warmup, seconds);
+        const auto reference = Run(referencePath, model, true, lite, rate, buffer, warmup, seconds);
+        const auto grid = Run(gridPath, model, false, lite, rate, buffer, warmup, seconds);
         auto row = Compare(reference, grid, rate, warmup);
         row["model"] = Utf8(model.filename());
         row["rate"] = rate;
         row["buffer"] = buffer;
         row["tolerance"] = tolerance;
+        row["quality"] = lite ? "a2-lite" : "full";
         row["pass"] = row["max_abs_error"].get<double>() <= tolerance
                       && std::abs(row["gain_db"].get<double>()) <= 1.e-6 && row["best_lag"].get<int>() == 0;
         pass = pass && row["pass"].get<bool>();

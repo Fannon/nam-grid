@@ -20,7 +20,8 @@ struct Window
   std::array<float, windowSize> right{};     // Right output (left for mono), oldest first.
 };
 
-inline std::array<float, bands> Analyze(const std::array<float, windowSize>& samples, double rate)
+// Hann-windowed bin magnitudes, scaled so a sine's peak bin reads its amplitude.
+inline std::array<float, windowSize / 2> Magnitudes(const std::array<float, windowSize>& samples)
 {
   std::array<std::complex<float>, windowSize> bins{};
   constexpr float pi = 3.14159265358979323846f;
@@ -56,6 +57,16 @@ inline std::array<float, bands> Analyze(const std::array<float, windowSize>& sam
       }
     }
   }
+  // A Hann window halves a sine's peak bin: 4/N reads a sine's peak amplitude.
+  std::array<float, windowSize / 2> magnitudes{};
+  for (size_t k = 0; k < magnitudes.size(); ++k)
+    magnitudes[k] = std::abs(bins[k]) * (4.f / static_cast<float>(windowSize));
+  return magnitudes;
+}
+
+inline std::array<float, bands> Analyze(const std::array<float, windowSize>& samples, double rate)
+{
+  const auto magnitudes = Magnitudes(samples);
   // Each log band reads the loudest bin between its edges. Above ~400 Hz a band
   // spans several bins; sampling one point would skip most harmonics.
   std::array<float, bands> result{};
@@ -71,9 +82,7 @@ inline std::array<float, bands> Analyze(const std::array<float, windowSize>& sam
     const auto last = std::max(first, static_cast<size_t>(std::lround(bin(hz * halfStep))));
     float magnitude = 0.f;
     for (size_t k = first; k <= last; ++k)
-      magnitude = std::max(magnitude, std::abs(bins[k]));
-    // A Hann window halves a sine's peak bin: 4/N reads a sine's peak amplitude.
-    magnitude *= 4.f / static_cast<float>(windowSize);
+      magnitude = std::max(magnitude, magnitudes[k]);
     result[band] = std::clamp(20.f * std::log10(std::max(1.e-8f, magnitude)), -72.f, 0.f);
   }
   return result;

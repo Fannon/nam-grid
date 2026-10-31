@@ -5,7 +5,7 @@ Stereo utilities, volume swells and transparent signal inspection.
 | Module | In short |
 | --- | --- |
 | [Utility](#utility) | Balance, Width and polarity reshape stereo; Fine delay aligns paths. |
-| [Signal Monitor](#signal-monitor) | Stereo spectrum, waveform, peak/RMS levels, headroom and correlation; audio passes unchanged. |
+| [Signal Monitor](#signal-monitor) | Stereo spectrum with resonance markers, peak/RMS meters, level history, headroom and correlation; audio passes unchanged. |
 | [Auto Swell](#auto-swell) | Threshold triggers the fade-in; Release closes the next gap. |
 
 ## Utility
@@ -59,15 +59,24 @@ samples. Inserting or replacing modules still uses the normal transition fade.
 
 - **Spectrum:** the louder channel at each frequency, rather than a mono sum.
   Opposite-polarity stereo cannot disappear from the spectrum through cancellation.
-- **Waveform:** the newest left/right samples on a fixed ±1 full-scale display.
-- **Peak / peak hold:** sample peaks from all received audio-meter packets, with
-  a held maximum. These are sample peaks, not oversampled true-peak measurements.
-- **RMS:** separate left/right energy with 300 ms exponential averaging.
-- **Headroom:** distance from the sample peak to 0 dBFS; negative means over full scale.
+  A faint line shows a 6-second average while you play.
+- **Resonance markers:** after a few seconds of playing, up to three of the most
+  prominent narrow peaks in the average are marked with their frequency. Cabinet,
+  room and EQ resonances stay put while you play different notes; a single repeated
+  note also marks its own harmonics.
+- **Meters:** vertical left/right meters from -60 to +6 dBFS with the sample peak
+  (line), 300 ms RMS (fill) and held peak (tick, value above). A held peak at or above
+  0 dBFS turns the value and the top of the meter red. These are sample peaks, not
+  oversampled true-peak measurements.
+- **Level history:** the last 20 seconds of monitoring, as a peak line over the RMS
+  fill of the louder channel. Red marks along the top show where samples reached
+  0 dBFS; a faint vertical line marks where monitoring resumed after a pause.
+- **Headroom:** distance from the highest held peak to 0 dBFS; negative means over full scale.
 - **Correlation:** +1 for matching channels, −1 for opposite polarity and near
   zero for unrelated signals. Silence has no useful correlation and reads zero.
 
 Analysis runs only while the monitor is selected, enabled and visualizations are
-visible. Peak hold resets when monitoring resumes after a pause. Use the global
+visible. Peak hold resets when monitoring resumes after a pause; the level history
+continues. Hover over each part for a short explanation. Use the global
 visualization setting to show or hide the display. Other modules' existing footer
 meters remain available for quick input/output comparisons.

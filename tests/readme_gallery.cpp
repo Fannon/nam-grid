@@ -318,7 +318,8 @@ static int Run(int argc, char** argv)
       if (presetSmoke) rig[std::string("A 4 ") + kEffectParameters[uCrushBits].name] = 11.;
       Stream moduleBytes; moduleBytes.string("###nam-grid###"); moduleBytes.string(rig.dump());
       clap_istream moduleInput{&moduleBytes, Stream::read}; assert(state->load(plugin, &moduleInput));
-      select(7); play(1800);
+      // Signal Monitor needs a few seconds of history and spectrum average.
+      select(7); play(effect == SlotEffect::SignalMonitor ? 6000 : 1800);
 #ifdef __APPLE__
       if (presetSmoke)
       {

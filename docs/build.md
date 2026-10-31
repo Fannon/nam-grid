@@ -324,7 +324,7 @@ python scripts/test-focused.py --build-dir build/windows/release --list-stage-ca
 python scripts/test-focused.py --build-dir build/windows/release --stage-case pedal-comp
 ```
 
-Suites include `library`, `state`, `dsp`, `ir` and `resampling`. The state suite
+Suites include `library`, `state`, `dsp`, `ir`, `resampling` and `parity`. The state suite
 forces headless CLAP smoke and includes the VST3 parameter contract on Windows.
 DSP cases select existing test groups; they do not run the shared core checks or
 other groups. Each group prints its runtime, including in the complete stage run.

@@ -232,6 +232,11 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uGraphicBand1: case uGraphicBand2: case uGraphicBand3: case uGraphicBand4:
     case uGraphicBand5: case uGraphicBand6: case uGraphicBand7:
       return "Boost or cut this band by up to 15 dB. Voicing sets the band frequencies.";
+    case uPitchInterval: return "Fixed musical interval in semitones. +7 adds a fifth above; -12 adds an octave below. No key or scale tracking.";
+    case uPitchFine: return "Fine detuning of the shifted voice, in cents. Try a few cents with a low Mix for thickness.";
+    case uPitchTone: return "High cut for the shifted voice. Upward shifts also reduce source bandwidth before resampling; dry stays unfiltered.";
+    case uPitchOutput: return "Final level after blending. Match bypass loudness.";
+    case uPitchMix: return "Dry/shifted blend: 0% dry, 100% shifted only. Lower settings add fixed-interval harmony. The shifted voice has a short grain delay.";
     case uGraphicLevel: return "Overall level after the bands. Boost into an amp, or match bypass loudness.";
     case uGraphicVoicing: return "Band frequencies for the instrument. Guitar: octave bands from 100 Hz to 6.4 kHz. Bass: 40 Hz to 6 kHz, weighted to fundamentals and growl. Full range: 63 Hz to 16 kHz for acoustic or mixes. Changing it keeps the slider positions.";
     case uMultibandDepth: return "Blend of the processed bands with the dry signal. 100% is fully processed; lower values keep more of the natural dynamics.";
@@ -521,6 +526,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";
     case SlotEffect::HarmonicTremolo: return "Bass and treble pulse in turn, the swirling brown-panel amp tremolo.";
     case SlotEffect::GraphicEQ: return "Seven fixed bands and Level, voiced for guitar, bass or full range.";
+    case SlotEffect::PitchShift: return "A shifted voice for fixed-interval harmony or detuning. Mix 100% is shifted only. Moving grains can soften attacks and warble on chords; no key tracking.";
     case SlotEffect::SignalMonitor: return "Inspect spectrum, resonances, stereo levels, level history and correlation here without changing the audio.";
     case SlotEffect::Multiband: return "Three-band upward and downward compression; drag the display to set splits and Threshold.";
     case SlotEffect::Vibrato: return "Fully wet pitch motion; Rate and Depth set speed and excursion.";

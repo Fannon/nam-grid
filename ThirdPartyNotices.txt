@@ -1013,3 +1013,14 @@ Transient Shaper design references
 Original NAM Grid MIT implementation of the general differential-envelope
 approach to transient shaping. No third-party source code or runtime
 dependency is included.
+
+
+Pitch Shift implementation
+--------------------------
+
+SlotPitchShift.h is original NAM Grid MIT code: causal moving fractional read
+heads, short Hann overlaps, bounded stereo waveform matching and wet-only
+filtering. The low-pass sections use Andrew Simper's TPT state-variable filter
+equations (https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf), also
+referenced for Dynamic EQ above. No additional third-party source or runtime
+dependency is included.

@@ -386,6 +386,13 @@ inline const Preset rotary[]{
   {"Fast tremolo", {{U(uRotarySpeed), 1.}, {U(uRotaryFast), 6.7}, {U(uRotaryDrive), 3.}, {U(uRotaryAccel), 1.5}}},
 };
 
+// Insertion already supplies a modest fifth harmony. These add distinct roles.
+inline const Preset pitchShift[]{
+  {"Shifted fifth only", {{U(uPitchInterval), 7.}, {U(uPitchTone), 10000.}, {U(uPitchMix), 100.}}},
+  {"Octave above", {{U(uPitchInterval), 12.}, {U(uPitchTone), 9000.}, {U(uPitchMix), 22.}}},
+  {"Octave below", {{U(uPitchInterval), -12.}, {U(uPitchTone), 7000.}, {U(uPitchMix), 30.}}},
+  {"Subtle detuned blend", {{U(uPitchInterval), 0.}, {U(uPitchFine), 8.}, {U(uPitchTone), 12000.}, {U(uPitchMix), 20.}}},
+};
 inline const Preset octaver[]{
   {"Octave-down blend", {{U(uOctDry), 100.}, {U(uOctSub), 85.}, {U(uOctSub2), 0.}, {U(uOctTone), 800.}, {U(uOctOutput), -3.}}},
   {"Synth bass", {{U(uOctDry), 0.}, {U(uOctSub), 100.}, {U(uOctSub2), 0.}, {U(uOctTone), 600.}, {U(uOctOutput), -4.}}},
@@ -468,6 +475,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::UniVibe: return vibe;
     case SlotEffect::Rotary: return rotary;
     case SlotEffect::Wah: return wah;
+    case SlotEffect::PitchShift: return pitchShift;
     case SlotEffect::Octaver: return octaver;
     case SlotEffect::Doubler: return doubler;
     case SlotEffect::Stutter: return stutter;

@@ -25,6 +25,15 @@ Each grid card is one slot. Click **+ Add module** or a module's name to choose 
 
 Drag cards to move, swap or copy modules, or right-click a card for **Clear**, **Copy**, **Move** and **Swap**; the [mouse and keyboard](#mouse-and-keyboard) table lists the drag modifiers. Controls and bypass travel with the module, while host automation stays with the slot. Moving modules never copies or deletes files on disk.
 
+## Inspect the signal
+
+Click the input/output meters or the small circular taps on the grid wires to
+open the [Signal Monitor](modules/utility-volume.md#signal-monitor) at that point.
+It uses the lower editor panel and leaves every module slot available. Click
+another point to move it; select a module or the tuner, press **Escape**, or click
+**Close** to return. The same meter or tap also toggles it closed. Monitoring is
+transient and is not saved with the rig.
+
 ## Shape a module
 
 Every module editor uses the same layout:

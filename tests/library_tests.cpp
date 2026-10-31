@@ -42,6 +42,7 @@ int main(int argc, char** argv)
   TestRigPresetFiles(root);
   TestLibraryWorkerRecovery(root);
   TestEffectPresentation();
+  assert(ModuleGroupFor(SlotEffect::SignalMonitor) == nullptr); // Legacy identity remains loadable, never insertable.
   for (const auto& group : kModuleGroups)
     for (size_t i = 0; i < group.effects.size(); ++i)
     {
@@ -198,7 +199,8 @@ int main(int argc, char** argv)
         for (int i = 1; i <= static_cast<int>(SlotEffect::Last); ++i)
           assert(
             seen[i]
-            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR) ? 1 : 0));
+            == (IsValidSlotEffect(static_cast<SlotEffect>(i)) && i != static_cast<int>(SlotEffect::CabinetIR)
+                && i != static_cast<int>(SlotEffect::SignalMonitor) ? 1 : 0));
         assert(menu.GetItem(index++)->GetIsSeparator());
         if (quality)
         {

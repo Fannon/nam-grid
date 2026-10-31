@@ -844,13 +844,14 @@ inline void DrawMeterBar(IGraphics& g, const IRECT& r, double level, IColor fill
 class FlowMeter : public IControl
 {
 public:
-  FlowMeter(const IRECT& bar, const IRECT& readout)
-  : IControl(IRECT(std::min(bar.L, readout.L), bar.T, std::max(bar.R, readout.R), readout.B)), mBar(bar), mReadout(readout)
+  FlowMeter(const IRECT& bar, const IRECT& readout, int point)
+  : IControl(IRECT(std::min(bar.L, readout.L), bar.T, std::max(bar.R, readout.R), readout.B)), mBar(bar), mReadout(readout), mPoint(point)
   {
-    mIgnoreMouse = true;
-    SetTooltip("Stereo peak meter (left, right) from -60 to +6 dBFS; the line marks 0 dBFS. Overs stay red for 2 seconds. "
+    SetTooltip("Click to inspect the signal here. Stereo peak meter (left, right) from -60 to +6 dBFS; the line marks 0 dBFS. Overs stay red for 2 seconds. "
                "The value is the higher channel's peak in dBFS, held 1.5 seconds, then falling at 12 dB/second.");
   }
+  bool IsHit(float x, float y) const override { return mBar.GetPadded(3.f).Contains(x, y) || mReadout.Contains(x, y); }
+  void OnMouseDown(float, float, const IMouseMod&) override { PLUG()->ShowSignalMonitor(mPoint); }
   void OnMsgFromDelegate(int message, int size, const void* data) override
   {
     using Packet = iplug::ISenderData<1, std::pair<float, float>>;
@@ -888,10 +889,29 @@ public:
   }
 private:
   static double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+  int mPoint;
   IRECT mBar, mReadout;
   std::array<LevelReadout, 2> mLevels;
   double mTick = Now(), mClipUntil = 0.;
 };
+class MonitorTap : public IControl
+{
+public:
+  MonitorTap(const IRECT& r, int point) : IControl(r), mPoint(point)
+  { SetTooltip("Inspect the stereo signal after this slot, including when empty or bypassed."); }
+  void OnMouseDown(float, float, const IMouseMod&) override { PLUG()->ShowSignalMonitor(mPoint); }
+  void Draw(IGraphics& g) override
+  {
+    const bool selected = PLUG()->SignalMonitorPoint() == mPoint;
+    const auto ink = selected ? accent : mMouseIsOver ? muted : border;
+    g.FillCircle(background, mRECT.MW(), mRECT.MH(), 5.f);
+    g.DrawCircle(ink, mRECT.MW(), mRECT.MH(), 4.f, nullptr, 1.5f);
+    if (selected) g.FillCircle(accent, mRECT.MW(), mRECT.MH(), 2.f);
+  }
+private:
+  int mPoint;
+};
+
 class Editor : public IContainerBase
 {
 public:
@@ -1112,6 +1132,190 @@ private:
   float mStartY = 0.f;
   double mStartThreshold = 0.;
 };
+inline void DrawSignalMonitorView(IGraphics& g, const IRECT& plot, IColor color, double rate, double now,
+  const signal_monitor::Meter& mMonitor, const signal_monitor::History& mMonitorHistory,
+  const signal_monitor::SpectrumView& mMonitorSpectrum, double mMonitorTime, double mSpectrumTime)
+{
+    using namespace grid_ui;
+    using namespace signal_monitor;
+    const bool live=now-mMonitorTime<.5;
+    WDL_String text;
+
+    // Spectrum: live curve, faint long-term average and its resonance markers.
+    PlotTitle(g,plot,color,"Spectrum");
+    PlotDetail(g,plot,"The louder channel at each frequency, so opposite-polarity stereo cannot cancel. "
+                      "Faint line: 6-second average while playing. Markers: the most prominent persistent narrow peaks, "
+                      "often resonances, shown after a few seconds of playing. A single repeated note also marks its own harmonics.");
+    PlotFrequencyAxis(g,plot,SpectrumUpper(rate),"-72 / 0 dBFS");
+    const auto sx=[&](size_t i){return plot.L+plot.W()*static_cast<float>(i)/(spectrumPoints-1);};
+    const auto sy=[&](float db){return plot.B-plot.H()*std::clamp((db-spectrumFloor)/-spectrumFloor,0.f,1.f);};
+    for (float db : {-12.f,-24.f,-48.f,-60.f}) g.DrawLine(border.WithOpacity(.25f),plot.L,sy(db),plot.R,sy(db));
+    if (now-mSpectrumTime<.5)
+    {
+      const auto& spectrum=mMonitorSpectrum.live;
+      g.PathMoveTo(plot.L,plot.B);
+      for (size_t i=0;i<spectrumPoints;++i) g.PathLineTo(sx(i),sy(spectrum[i]));
+      g.PathLineTo(plot.R,plot.B); g.PathClose(); g.PathFill(IPattern(color.WithOpacity(.22f)));
+      for (size_t i=1;i<spectrumPoints;++i) g.DrawLine(color,sx(i-1),sy(spectrum[i-1]),sx(i),sy(spectrum[i]),nullptr,1.2f);
+    }
+    if (mMonitorSpectrum.Settled())
+    {
+      const auto& average=mMonitorSpectrum.average;
+      for (size_t i=1;i<spectrumPoints;++i)
+        g.DrawLine(muted.WithOpacity(.55f),sx(i-1),sy(average[i-1]),sx(i),sy(average[i]),nullptr,1.f);
+      std::array<Resonance,3> peaks{};
+      for (size_t k=0,n=FindResonances(average,rate,peaks);k<n;++k)
+      {
+        const float x=sx(peaks[k].point),y=std::max(plot.T+18.f,sy(peaks[k].db)-4.f);
+        g.FillTriangle(ampColor,x-4.f,y-7.f,x+4.f,y-7.f,x,y);
+        const double hz=PointHz(peaks[k].point,rate);
+        if (hz<1000.) text.SetFormatted(16,"%.0f",hz); else text.SetFormatted(16,"%.1fk",hz/1000.);
+        g.DrawText(Text(11.f,ampColor,EAlign::Center),text.Get(),IRECT(x-20.f,y-20.f,x+20.f,y-8.f));
+      }
+    }
+
+    // Left: vertical L/R meters, then the level history on the same -60..+6 dBFS scale.
+    const float left=grid_layout::parameterLeft,right=grid_layout::parameterRight,top=546.f,bottom=700.f;
+    const std::array<IRECT,2> bars{IRECT(left+30.f,top,left+44.f,bottom),IRECT(left+56.f,top,left+70.f,bottom)};
+    for (double db : {6.,0.,-12.,-24.,-36.,-48.,-60.})
+    {
+      const float y=MeterY(bars[0],std::pow(10.,db/20.));
+      text.SetFormatted(8,"%+.0f",db);
+      g.DrawText(Text(10.f,muted,EAlign::Far),db==0.?"0":text.Get(),IRECT(left,y-6.f,left+26.f,y+6.f));
+    }
+    for (int ch=0;ch<2;++ch)
+    {
+      const IRECT& bar=bars[ch];
+      const auto ink=ch?ampColor:color;
+      const double peak=live?mMonitor.peak[ch]:0.,rms=live?mMonitor.RMS(ch):0.,hold=mMonitor.hold[ch];
+      const float zero=MeterY(bar,1.);
+      g.FillRect(surface,bar); g.DrawRect(border,bar);
+      if (hold>=1.) g.FillRect(COLOR_RED,IRECT(bar.L,bar.T,bar.R,zero));
+      if (rms>0.) g.FillRect(ink.WithOpacity(.55f),IRECT(bar.L,std::max(zero,MeterY(bar,rms)),bar.R,bar.B));
+      if (hold>0.) g.DrawLine(muted,bar.L,MeterY(bar,hold),bar.R,MeterY(bar,hold),nullptr,1.f);
+      if (peak>0.) g.DrawLine(peak>=1.?COLOR_RED:ink,bar.L,MeterY(bar,peak),bar.R,MeterY(bar,peak),nullptr,2.f);
+      g.DrawLine(muted.WithOpacity(.8f),bar.L-1.f,zero,bar.R+1.f,zero);
+      if (hold>1.e-6) text.SetFormatted(16,"%.1f",Meter::DB(hold)); else text.Set("-");
+      g.DrawText(Text(10.f,hold>=1.?COLOR_RED:muted,EAlign::Center),text.Get(),IRECT(bar.MW()-13.f,524.f,bar.MW()+13.f,538.f));
+      g.DrawText(Text(11.f,ink,EAlign::Center),ch?"R":"L",IRECT(bar.L-4.f,702.f,bar.R+4.f,716.f));
+    }
+
+    const IRECT history(left+96.f,top,right,bottom);
+    g.FillRect(surface,history); g.DrawRect(border,history);
+    for (double db : {-12.,-24.,-36.,-48.})
+    {
+      const float y=MeterY(history,std::pow(10.,db/20.));
+      g.DrawLine(border.WithOpacity(.35f),history.L,y,history.R,y);
+    }
+    const float zero=MeterY(history,1.),columnWidth=history.W()/History::columns;
+    g.DrawLine(muted.WithOpacity(.5f),history.L,zero,history.R,zero);
+    const size_t shown=std::min(History::columns,mMonitorHistory.count+1);
+    float previousY=0.f;
+    for (size_t age=0;age<shown;++age)
+    {
+      const auto column=age?mMonitorHistory.Ago(age-1):mMonitorHistory.Current();
+      const float x1=history.R-columnWidth*age,x0=x1-columnWidth;
+      if (column.rms>0.f) g.FillRect(color.WithOpacity(.35f),IRECT(x0,std::max(zero,MeterY(history,column.rms)),x1,history.B));
+      const float y=column.peak>0.f?MeterY(history,column.peak):history.B;
+      if (age) g.DrawLine(column.peak>=1.f?COLOR_RED:color,x0+.5f*columnWidth,y,x1+.5f*columnWidth,previousY,nullptr,1.2f);
+      previousY=y;
+      if (column.peak>=1.f) g.FillRect(COLOR_RED,IRECT(x0-.5f,history.T-6.f,x1+.5f,history.T-1.f));
+      if (column.resumed) g.DrawLine(muted.WithOpacity(.5f),x0,history.T,x0,history.B);
+    }
+    g.DrawText(Text(10.f,muted),"-20 s",IRECT(history.L,702.f,history.L+40.f,716.f));
+    g.DrawText(Text(10.f,muted,EAlign::Far),"now",IRECT(history.R-40.f,702.f,history.R,716.f));
+
+    // Readouts above the history: correlation bar and headroom to the held peak.
+    const IRECT readout(history.L,522.f,history.R,538.f),correlation(history.L+34.f,526.f,history.L+124.f,534.f);
+    g.DrawText(Text(11.f,muted),"Corr",IRECT(history.L,readout.T,history.L+32.f,readout.B));
+    g.FillRect(surface,correlation); g.DrawRect(border,correlation);
+    g.DrawLine(muted,correlation.MW(),correlation.T-2.f,correlation.MW(),correlation.B+2.f);
+    const double r=live?mMonitor.Correlation():0.;
+    if (live)
+    {
+      const float x=correlation.MW()+correlation.W()*.5f*static_cast<float>(r);
+      g.FillRect(r<0.?ampColor:color,IRECT(std::min(x,correlation.MW()),correlation.T,std::max(x,correlation.MW()),correlation.B));
+    }
+    text.SetFormatted(16,"%+.2f",r);
+    g.DrawText(Text(11.f,muted),text.Get(),IRECT(correlation.R+6.f,readout.T,correlation.R+50.f,readout.B));
+    const double held=std::max(mMonitor.hold[0],mMonitor.hold[1]);
+    if (held>1.e-6) text.SetFormatted(32,"Headroom %.1f dB",-Meter::DB(held)); else text.Set("Headroom -");
+    g.DrawText(Text(11.f,held>=1.?COLOR_RED:muted,EAlign::Far),text.Get(),readout);
+
+    PlotRegionDetail(g,IRECT(left,520.f,left+80.f,716.f),
+      "Left and right: sample peak (line), 300 ms RMS (fill) and held peak (tick and value) from -60 to +6 dBFS. "
+      "Red: a sample reached 0 dBFS. Sample peaks, not true peak. Held peaks reset when monitoring resumes after a pause.");
+    PlotRegionDetail(g,IRECT(history.L,history.T-8.f,history.R,716.f),
+      "Last 20 seconds while monitoring: peak line over RMS fill, louder channel. Red marks along the top: "
+      "samples at or above 0 dBFS. A faint vertical line marks where monitoring resumed.");
+    PlotRegionDetail(g,readout,
+      "Correlation over 300 ms: +1 matching channels, 0 unrelated, -1 opposite polarity. "
+      "Headroom: distance from the highest held peak to 0 dBFS; negative is over full scale.");
+}
+
+class NAMGridSignalMonitorControl : public IContainerBase
+{
+public:
+  explicit NAMGridSignalMonitorControl(const IRECT& r) : IContainerBase(r) {}
+  void Reset(int point)
+  {
+    mPoint = point; mMonitor.Reset(); mMonitorHistory.Reset(); mMonitorSpectrum.Reset();
+    mMonitorTime = mSpectrumTime = -1.; mWasLive = false; SetDirty(false);
+  }
+  bool IsDirty() override
+  {
+    if (!IsHidden() && mWasLive && grid_ui::ModuleLevels::Now() - mMonitorTime >= .5)
+    { mWasLive = false; SetDirty(false); }
+    return IContainerBase::IsDirty();
+  }
+  void OnAttached() override
+  {
+    AddChildControl(new grid_ui::Button(IRECT(490, 488, 550, 512), [this](IControl*) {
+      PLUG()->CloseSignalMonitor();
+    }, "Close"));
+    AddChildControl(new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
+      grid_layout::visualizationRight - 12, grid_layout::plotFooterBottom)));
+  }
+  void OnMsgFromDelegate(int, int size, const void* data) override
+  {
+    using Message = iplug::ISenderData<1, signal_monitor::Packet>;
+    if (IsHidden() || !data || size != sizeof(Message)) return;
+    const auto& packet = static_cast<const Message*>(data)->vals[0];
+    if (packet.point != mPoint || packet.generation != PLUG()->MonitorGeneration()) return;
+    const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+    const double now = grid_ui::ModuleLevels::Now();
+    if (now - mMonitorTime > .5) { mMonitor.Reset(); mMonitorHistory.Resume(); }
+    mMonitor.Receive(packet.meter, rate); mMonitorHistory.Receive(packet.meter, rate); mMonitorTime = now; mWasLive = true;
+    if (packet.hasWindow)
+    {
+      auto louder = signal_monitor::Detailed(grid_eq_signal::Magnitudes(packet.window.samples), rate);
+      const auto right = signal_monitor::Detailed(grid_eq_signal::Magnitudes(packet.window.right), rate);
+      for (size_t i = 0; i < louder.size(); ++i) louder[i] = std::max(louder[i], right[i]);
+      mMonitorSpectrum.Receive(louder, now - mSpectrumTime < .5, now - mSpectrumTime); mSpectrumTime = now;
+    }
+    SetDirty(false);
+  }
+  void Draw(IGraphics& g) override
+  {
+    using namespace grid_ui;
+    g.FillRect(editorBackground, mRECT);
+    WDL_String title;
+    if (mPoint == -1) title.Set("Signal Monitor | Input");
+    else if (mPoint == 16) title.Set("Signal Monitor | Output");
+    else title.SetFormatted(64, "Signal Monitor | After %s %d", mPoint < 4 ? "Pre" : mPoint < 8 ? "A" : mPoint < 12 ? "B" : "Post", mPoint % 4 + 1);
+    g.DrawText(Text(16.f, accent), title.Get(), IRECT(12, 488, 480, 512));
+    DrawSignalMonitorView(g, multiband_view::Plot(), accent, PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.,
+      ModuleLevels::Now(), mMonitor, mMonitorHistory, mMonitorSpectrum, mMonitorTime, mSpectrumTime);
+  }
+private:
+  int mPoint = -3;
+  signal_monitor::Meter mMonitor;
+  signal_monitor::History mMonitorHistory;
+  signal_monitor::SpectrumView mMonitorSpectrum;
+  double mMonitorTime = -1., mSpectrumTime = -1.;
+  bool mWasLive = false;
+};
+
 class NAMGridSlotControl : public IControl
 {
 public:
@@ -2315,122 +2519,8 @@ private:
   }
   void DrawSignalMonitor(IGraphics& g, const IRECT& plot, IColor color)
   {
-    using namespace grid_ui;
-    using namespace signal_monitor;
-    const double rate=PLUG()->GetSampleRate()>0.?PLUG()->GetSampleRate():48000.;
-    const bool live=Now()-mMonitorTime<.5;
-    WDL_String text;
-
-    // Spectrum: live curve, faint long-term average and its resonance markers.
-    PlotTitle(g,plot,color,"Spectrum");
-    PlotDetail(g,plot,"The louder channel at each frequency, so opposite-polarity stereo cannot cancel. "
-                      "Faint line: 6-second average while playing. Markers: the most prominent persistent narrow peaks, "
-                      "often resonances, shown after a few seconds of playing. A single repeated note also marks its own harmonics.");
-    PlotFrequencyAxis(g,plot,SpectrumUpper(rate),"-72 / 0 dBFS");
-    const auto sx=[&](size_t i){return plot.L+plot.W()*static_cast<float>(i)/(spectrumPoints-1);};
-    const auto sy=[&](float db){return plot.B-plot.H()*std::clamp((db-spectrumFloor)/-spectrumFloor,0.f,1.f);};
-    for (float db : {-12.f,-24.f,-48.f,-60.f}) g.DrawLine(border.WithOpacity(.25f),plot.L,sy(db),plot.R,sy(db));
-    if (Now()-mSpectrumTime<.5)
-    {
-      const auto& spectrum=mMonitorSpectrum.live;
-      g.PathMoveTo(plot.L,plot.B);
-      for (size_t i=0;i<spectrumPoints;++i) g.PathLineTo(sx(i),sy(spectrum[i]));
-      g.PathLineTo(plot.R,plot.B); g.PathClose(); g.PathFill(IPattern(color.WithOpacity(.22f)));
-      for (size_t i=1;i<spectrumPoints;++i) g.DrawLine(color,sx(i-1),sy(spectrum[i-1]),sx(i),sy(spectrum[i]),nullptr,1.2f);
-    }
-    if (mMonitorSpectrum.Settled())
-    {
-      const auto& average=mMonitorSpectrum.average;
-      for (size_t i=1;i<spectrumPoints;++i)
-        g.DrawLine(muted.WithOpacity(.55f),sx(i-1),sy(average[i-1]),sx(i),sy(average[i]),nullptr,1.f);
-      std::array<Resonance,3> peaks{};
-      for (size_t k=0,n=FindResonances(average,rate,peaks);k<n;++k)
-      {
-        const float x=sx(peaks[k].point),y=std::max(plot.T+18.f,sy(peaks[k].db)-4.f);
-        g.FillTriangle(ampColor,x-4.f,y-7.f,x+4.f,y-7.f,x,y);
-        const double hz=PointHz(peaks[k].point,rate);
-        if (hz<1000.) text.SetFormatted(16,"%.0f",hz); else text.SetFormatted(16,"%.1fk",hz/1000.);
-        g.DrawText(Text(11.f,ampColor,EAlign::Center),text.Get(),IRECT(x-20.f,y-20.f,x+20.f,y-8.f));
-      }
-    }
-
-    // Left: vertical L/R meters, then the level history on the same -60..+6 dBFS scale.
-    const float left=grid_layout::parameterLeft,right=grid_layout::parameterRight,top=546.f,bottom=700.f;
-    const std::array<IRECT,2> bars{IRECT(left+30.f,top,left+44.f,bottom),IRECT(left+56.f,top,left+70.f,bottom)};
-    for (double db : {6.,0.,-12.,-24.,-36.,-48.,-60.})
-    {
-      const float y=MeterY(bars[0],std::pow(10.,db/20.));
-      text.SetFormatted(8,"%+.0f",db);
-      g.DrawText(Text(10.f,muted,EAlign::Far),db==0.?"0":text.Get(),IRECT(left,y-6.f,left+26.f,y+6.f));
-    }
-    for (int ch=0;ch<2;++ch)
-    {
-      const IRECT& bar=bars[ch];
-      const auto ink=ch?ampColor:color;
-      const double peak=live?mMonitor.peak[ch]:0.,rms=live?mMonitor.RMS(ch):0.,hold=mMonitor.hold[ch];
-      const float zero=MeterY(bar,1.);
-      g.FillRect(surface,bar); g.DrawRect(border,bar);
-      if (hold>=1.) g.FillRect(COLOR_RED,IRECT(bar.L,bar.T,bar.R,zero));
-      if (rms>0.) g.FillRect(ink.WithOpacity(.55f),IRECT(bar.L,std::max(zero,MeterY(bar,rms)),bar.R,bar.B));
-      if (hold>0.) g.DrawLine(muted,bar.L,MeterY(bar,hold),bar.R,MeterY(bar,hold),nullptr,1.f);
-      if (peak>0.) g.DrawLine(peak>=1.?COLOR_RED:ink,bar.L,MeterY(bar,peak),bar.R,MeterY(bar,peak),nullptr,2.f);
-      g.DrawLine(muted.WithOpacity(.8f),bar.L-1.f,zero,bar.R+1.f,zero);
-      if (hold>1.e-6) text.SetFormatted(16,"%.1f",Meter::DB(hold)); else text.Set("-");
-      g.DrawText(Text(10.f,hold>=1.?COLOR_RED:muted,EAlign::Center),text.Get(),IRECT(bar.MW()-13.f,524.f,bar.MW()+13.f,538.f));
-      g.DrawText(Text(11.f,ink,EAlign::Center),ch?"R":"L",IRECT(bar.L-4.f,702.f,bar.R+4.f,716.f));
-    }
-
-    const IRECT history(left+96.f,top,right,bottom);
-    g.FillRect(surface,history); g.DrawRect(border,history);
-    for (double db : {-12.,-24.,-36.,-48.})
-    {
-      const float y=MeterY(history,std::pow(10.,db/20.));
-      g.DrawLine(border.WithOpacity(.35f),history.L,y,history.R,y);
-    }
-    const float zero=MeterY(history,1.),columnWidth=history.W()/History::columns;
-    g.DrawLine(muted.WithOpacity(.5f),history.L,zero,history.R,zero);
-    const size_t shown=std::min(History::columns,mMonitorHistory.count+1);
-    float previousY=0.f;
-    for (size_t age=0;age<shown;++age)
-    {
-      const auto column=age?mMonitorHistory.Ago(age-1):mMonitorHistory.Current();
-      const float x1=history.R-columnWidth*age,x0=x1-columnWidth;
-      if (column.rms>0.f) g.FillRect(color.WithOpacity(.35f),IRECT(x0,std::max(zero,MeterY(history,column.rms)),x1,history.B));
-      const float y=column.peak>0.f?MeterY(history,column.peak):history.B;
-      if (age) g.DrawLine(column.peak>=1.f?COLOR_RED:color,x0+.5f*columnWidth,y,x1+.5f*columnWidth,previousY,nullptr,1.2f);
-      previousY=y;
-      if (column.peak>=1.f) g.FillRect(COLOR_RED,IRECT(x0-.5f,history.T-6.f,x1+.5f,history.T-1.f));
-      if (column.resumed) g.DrawLine(muted.WithOpacity(.5f),x0,history.T,x0,history.B);
-    }
-    g.DrawText(Text(10.f,muted),"-20 s",IRECT(history.L,702.f,history.L+40.f,716.f));
-    g.DrawText(Text(10.f,muted,EAlign::Far),"now",IRECT(history.R-40.f,702.f,history.R,716.f));
-
-    // Readouts above the history: correlation bar and headroom to the held peak.
-    const IRECT readout(history.L,522.f,history.R,538.f),correlation(history.L+34.f,526.f,history.L+124.f,534.f);
-    g.DrawText(Text(11.f,muted),"Corr",IRECT(history.L,readout.T,history.L+32.f,readout.B));
-    g.FillRect(surface,correlation); g.DrawRect(border,correlation);
-    g.DrawLine(muted,correlation.MW(),correlation.T-2.f,correlation.MW(),correlation.B+2.f);
-    const double r=live?mMonitor.Correlation():0.;
-    if (live)
-    {
-      const float x=correlation.MW()+correlation.W()*.5f*static_cast<float>(r);
-      g.FillRect(r<0.?ampColor:color,IRECT(std::min(x,correlation.MW()),correlation.T,std::max(x,correlation.MW()),correlation.B));
-    }
-    text.SetFormatted(16,"%+.2f",r);
-    g.DrawText(Text(11.f,muted),text.Get(),IRECT(correlation.R+6.f,readout.T,correlation.R+50.f,readout.B));
-    const double held=std::max(mMonitor.hold[0],mMonitor.hold[1]);
-    if (held>1.e-6) text.SetFormatted(32,"Headroom %.1f dB",-Meter::DB(held)); else text.Set("Headroom -");
-    g.DrawText(Text(11.f,held>=1.?COLOR_RED:muted,EAlign::Far),text.Get(),readout);
-
-    PlotRegionDetail(g,IRECT(left,520.f,left+80.f,716.f),
-      "Left and right: sample peak (line), 300 ms RMS (fill) and held peak (tick and value) from -60 to +6 dBFS. "
-      "Red: a sample reached 0 dBFS. Sample peaks, not true peak. Held peaks reset when monitoring resumes after a pause.");
-    PlotRegionDetail(g,IRECT(history.L,history.T-8.f,history.R,716.f),
-      "Last 20 seconds while monitoring: peak line over RMS fill, louder channel. Red marks along the top: "
-      "samples at or above 0 dBFS. A faint vertical line marks where monitoring resumed.");
-    PlotRegionDetail(g,readout,
-      "Correlation over 300 ms: +1 matching channels, 0 unrelated, -1 opposite polarity. "
-      "Headroom: distance from the highest held peak to 0 dBFS; negative is over full scale.");
+    DrawSignalMonitorView(g, plot, color, PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.,
+      Now(), mMonitor, mMonitorHistory, mMonitorSpectrum, mMonitorTime, mSpectrumTime);
   }
   // Utility reshapes stereo, so it shows the live output as a goniometer (mid up, side across)
   // with a correlation meter: mono is a vertical line, Width spreads it, Balance tilts it and
@@ -2767,7 +2857,7 @@ private:
     const bool ir = effect == SlotEffect::CabinetIR;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     LayoutHeader(*GetUI(), false);
-    mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen());
+    mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen() || PLUG()->IsSignalMonitorOpen());
     if (selected)
     {
       const bool empty = nam && path.empty();

@@ -78,6 +78,7 @@ enum ECtrlTags
   kCtrlTagRouting,
   kCtrlTagRoutingButton,
   kCtrlTagMainMacros,
+  kCtrlTagSignalMonitor,
   kCtrlTagGridSlotBase = 100,
   kCtrlTagPlotHelpBase = 200,
   kNumCtrlTags = kCtrlTagPlotHelpBase + 16
@@ -126,6 +127,11 @@ public:
   void BeginInformHostOfParamChangeFromUI(int paramIdx) override;
   void SendParameterValueFromUI(int paramIdx, double value) override;
   void EndInformHostOfParamChangeFromUI(int paramIdx) override;
+  void ShowSignalMonitor(int point);
+  void CloseSignalMonitor();
+  int SignalMonitorPoint() const { return mMonitorPoint.load(std::memory_order_relaxed); }
+  bool IsSignalMonitorOpen() const { return SignalMonitorPoint() != -3; }
+  unsigned MonitorGeneration() const { return mMonitorGeneration; }
   bool IsTunerActive() const { return GetParam(kTunerActive)->Bool(); }
   // Editor only: measures built-in modules' impulse responses on a worker thread.
   ImpulseProbe& GetImpulseProbe() { return mImpulseProbe; }
@@ -399,6 +405,15 @@ private:
   // differs from the meter packet, which is how slot controls tell them apart.
   iplug::ISender<1, 4, grid_eq_signal::Window> mSlotSignalSender;
   iplug::ISenderData<1, grid_eq_signal::Window> mSignalPacket{iplug::kNoTag, 1, 0}; // Audio thread only.
+  std::atomic<int> mMonitorPoint{-3};
+  unsigned mMonitorGeneration = 0; // UI-owned packet generation, published with the point.
+  std::atomic<unsigned> mMonitorRequest{0};
+  unsigned mAudioMonitorGeneration = 0;
+  int mAudioMonitorPoint = -3, mAudioMonitorGrid = -1;
+  SignalCapture mMonitorCapture;
+  signal_monitor::Accumulator mMonitorAccumulator;
+  iplug::ISender<1, 4, signal_monitor::Packet> mMonitorSender;
+  iplug::ISenderData<1, signal_monitor::Packet> mMonitorPacket{kCtrlTagSignalMonitor, 1, 0};
   SignalCapture mSignalCapture; // Audio thread only; attached to the selected slot's stage.
   ImpulseProbe mImpulseProbe;
   int mCaptureSlot = -2, mCaptureGrid = -1;

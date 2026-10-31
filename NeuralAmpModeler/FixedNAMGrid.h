@@ -156,6 +156,11 @@ public:
       ProcessRow(samples + first, frames - first, controls, 0, right ? right + first : nullptr, slots, first);
   }
 
+  // One on-demand measurement tap, independent of slot contents and enable state.
+  // Pointers belong to the plugin and are attached only at audio block boundaries.
+  void AttachMonitor(int slot, SignalCapture* capture, signal_monitor::Accumulator* meter)
+  { mMonitorSlot = slot; mMonitorCapture = capture; mMonitorMeter = meter; }
+
   // Copy each follower's chosen slot output during Process (-1: grid input).
   void SetTap(int slot, int instance = 0) { mTapSlot[instance] = slot; }
   const double* TapLeft(int instance = 0) const { return mTap[instance][0].data(); }
@@ -215,6 +220,12 @@ private:
     {
       const auto& c = controls[i];
       stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, right);
+      if (i == mMonitorSlot && mMonitorCapture && mMonitorMeter)
+        for (int frame = 0; frame < frames; ++frame)
+        {
+          const double l = samples[frame], r = right ? right[frame] : l;
+          mMonitorCapture->Push(l, r); mMonitorMeter->Push(l, r);
+        }
       for (int instance = 0; instance < grid_performance::sourceInstances; ++instance)
         if (i == mTapSlot[instance])
         {
@@ -224,6 +235,9 @@ private:
         }
     }
   }
+  int mMonitorSlot = -1;
+  SignalCapture* mMonitorCapture = nullptr;
+  signal_monitor::Accumulator* mMonitorMeter = nullptr;
   std::array<int, 2> LaneLatencies() const
   {
     std::array<int, 2> latency{};

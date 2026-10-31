@@ -119,7 +119,10 @@ Timing scales with the host rate; nothing is forced to 44.1 kHz. Pedal Drive and
 Distortion and Tube Boost oversample their driven paths; Tape and Console Colour
 run their cores at 2x below 88.2 kHz. Other built-in effects run at the host rate. Built-in
 effects keep independent left/right histories. A mono NAM stage downmixes once and broadcasts
-its result, so stereo effects belong after the last mono capture.
+its result, so stereo effects belong after the last mono capture. With neutral settings, one
+NAM stage matches the official NeuralAmpModelerPlugin shell down to resampler rounding; the
+opt-in `reference-parity` audit checks WaveNet, LSTM and A2 captures across sample rates and
+block sizes (see [tests](build.md#tests)).
 
 ## Noise Gate (Smart)
 

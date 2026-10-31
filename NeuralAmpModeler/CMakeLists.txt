@@ -200,6 +200,37 @@ if(TARGET iPlug2::CLAP AND IPLUG2_CLAP_SUPPORTED)
       target_link_libraries(nam-fx-performance PRIVATE dl)
     endif()
   endif()
+  # A/B audit of the NAM capture path against the official NeuralAmpModelerPlugin
+  # shell. It needs an external reference binary, so it runs only when
+  # -DNAM_REFERENCE_CLAP=<path> is set (see docs/build.md#tests).
+  add_executable(nam-reference-parity ../tests/nam_parity.cpp)
+  target_include_directories(nam-reference-parity PRIVATE ${CLAP_SDK_DIR}/include .
+    ../NeuralAmpModelerCore/Dependencies/nlohmann ../iPlug2/IPlug ../iPlug2/WDL)
+  target_compile_features(nam-reference-parity PRIVATE cxx_std_20)
+  target_compile_definitions(nam-reference-parity PRIVATE NOMINMAX)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(nam-reference-parity PRIVATE dl)
+  endif()
+  set(NAM_REFERENCE_CLAP "" CACHE FILEPATH
+    "Official NeuralAmpModelerPlugin CLAP binary used by the reference-parity test")
+  if(NAM_REFERENCE_CLAP AND EXISTS "${NAM_REFERENCE_CLAP}")
+    set(NAM_REFERENCE_MODELS
+      "${CMAKE_SOURCE_DIR}/NeuralAmpModelerCore/example_models/wavenet.nam"
+      "${CMAKE_SOURCE_DIR}/NeuralAmpModelerCore/example_models/lstm.nam"
+      "${CMAKE_SOURCE_DIR}/NeuralAmpModelerCore/example_models/A2.nam")
+    set(NAM_REFERENCE_MODEL_ARGS "")
+    foreach(model IN LISTS NAM_REFERENCE_MODELS)
+      if(EXISTS "${model}")
+        list(APPEND NAM_REFERENCE_MODEL_ARGS --model "${model}")
+      endif()
+    endforeach()
+    if(NAM_REFERENCE_MODEL_ARGS)
+      add_test(NAME reference-parity COMMAND nam-reference-parity
+        --grid "$<TARGET_FILE:nam-grid-clap>" --reference "${NAM_REFERENCE_CLAP}"
+        ${NAM_REFERENCE_MODEL_ARGS} --rate 48000 --rate 44100 --buffer 128 --buffer 512)
+      set_tests_properties(reference-parity PROPERTIES TIMEOUT 1800)
+    endif()
+  endif()
   add_executable(nam-fx-audition ../tests/fx_audition.cpp)
   # Explicit build/run only: regenerates the README screenshots (docs/screenshots).
   if(WIN32)

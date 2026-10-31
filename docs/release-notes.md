@@ -12,7 +12,7 @@ A guitar sustain compressor, reusable effect presets, delay and reverb tails tha
 
 ## Faster rig building and performance
 
-- **Module presets:** effect editors have a **Presets** menu with established starting points, such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring and Airwindows plates, halls and tape. Save your own with **Save current as...**; choosing one changes only that module.
+- **Module presets:** effect editors have a **Presets** menu with established starting points, such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring and Airwindows plates, halls and tape. Use **Save current as...** and enter a name to save into the module's configured preset folder, ready to recall immediately; choosing one changes only that module.
 - **Reusable Smart Gate calibration:** user module presets save the learned noise profile along with the controls. Older presets retain the current profile; recalling a preset leaves Learn off.
 - **Trails:** with this Routing option on, bypassed delays and reverbs ring out instead of cutting off, so scene changes keep their ambience.
 - **Keep dry level:** this Routing option keeps your dry guitar at unity in all delays and reverbs while Mix sets only the wet level.
@@ -40,7 +40,7 @@ These corrections change how some saved rigs sound. Parameters, ranges and zero 
 - **Smaller installed plugins:** factory content is compressed inside both plugin formats and extracted when missing, without changing existing library files or audio processing.
 - Re-enabled dynamics no longer resume a stale gain reduction, and the library browser restores its saved index again when Startup rescan is off.
 
-See the [full changelog](https://github.com/Fannon/nam-grid/blob/v0.4.0/CHANGELOG.md#040---2026-10-30) for module details and measurements.
+See the [full changelog](https://github.com/Fannon/nam-grid/blob/v0.4.0/CHANGELOG.md#040---2026-10-31) for module details and measurements.
 
 ## Downloads
 

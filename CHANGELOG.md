@@ -4,13 +4,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-### Fixed
-
-- Saving a user module preset asks only for its name, writes it into the module's configured preset folder and immediately lists it in the Presets menu. The macOS Save dialog could previously place it elsewhere.
-- Fixed saved module presets being rejected when continuous controls contain fractional values, including delay and Cosmic Echo times. Existing affected files now load without changes.
-- Long filenames, metadata and paths stay inside the library browser's details panel without overlapping its controls.
-
-## [0.4.0] - 2026-10-30
+## [0.4.0] - 2026-10-31
 
 Existing projects, presets and automation keep loading. New modes and routing options retain the previous settings in existing rigs. Some sound corrections are deliberate changes, listed below.
 
@@ -25,7 +19,7 @@ Existing projects, presets and automation keep loading. New modes and routing op
 
 ### Rig building and performance controls
 
-- **Module presets:** a Presets menu for every built-in effect, with established starting points such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring, octave-down shimmer and Airwindows plates, halls and tape. Save your own with Save current as... and reuse them in any slot. Choosing one changes only that module. Gates, Utility and modules whose defaults already provide their usual sound offer user presets only; NAM and Cabinet IR keep their file browser.
+- **Module presets:** a Presets menu for every built-in effect, with established starting points such as slapback, dotted-eighth and ping-pong delays, a Screamer boost, surf spring, octave-down shimmer and Airwindows plates, halls and tape. Save your own with Save current as... and reuse them in any slot. Enter a name to save into the module's configured preset folder; the preset appears in the menu immediately. Choosing one changes only that module. Gates, Utility and modules whose defaults already provide their usual sound offer user presets only; NAM and Cabinet IR keep their file browser.
 - **Smart Gate presets** also save the learned noise profile, so you can reuse a calibrated gate across rigs. Saving an untrained gate remembers that state and clears the profile when recalled. Older presets retain the current profile. Recall always leaves Learn off, and preset checkmarks distinguish different learned profiles.
 - **Trails:** this Routing option lets bypassed delays and reverbs ring out, including during scene changes, while new playing passes through dry. It starts off in new and existing rigs. Tails can last up to 30 seconds for delays and Shimmer, 45 seconds for Room, Dense Plate, Cloud, Hall and Spring, or 60 seconds for Airwindows reverbs and Cosmic Echo. A ringing effect continues to use CPU until its tail ends.
 - **Keep dry level:** this Routing option keeps your dry guitar at unity in delays and reverbs while Mix sets the wet level. It starts off, preserving existing rigs. Turning it on can raise the total level at high Mix; the module's Output still trims both dry and wet.
@@ -53,6 +47,8 @@ These corrections can change the sound of saved rigs. Controls, ranges and repor
 
 ### Smoother operation and fixes
 
+- Saved module presets load correctly when continuous controls contain fractional values, including delay and Cosmic Echo times. Existing affected files load without changes.
+- Long filenames, metadata and paths stay inside the library browser's details panel without overlapping its controls.
 - Fewer clicks when bypassing, re-enabling or replacing modules and switching scenes. Re-enabling delays no longer cuts feedback abruptly, and changing Cosmic Echo's style no longer clicks on the first repeats.
 - Smoother Output and Drive automation across drive, tape, delay and reverb modules. Utility level, balance and polarity changes and Juno Chorus Mix near zero also transition smoothly. Settled sound is unchanged.
 - Smoother automation of Outboard Channel Saturate and Console EQ Mid/High Cut, with unchanged settled sound and latency.

@@ -81,3 +81,5 @@ Move every partial by the same number of hertz for metallic, shifting, and conti
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
 
 **Display:** How each pass through the feedback moves the partials.
+
+At 100% Feedback the repeats nearly sustain but always fade, so a long delay builds a wall of shifting echoes and then dies away instead of ringing forever. Repeats also lose the lowest frequencies, which keeps repeated downward shifts from piling up into a low drone or a DC offset; the first, directly shifted pass keeps its low end.

@@ -107,6 +107,9 @@ inline const Preset toneEQ[]{
 inline const Preset cutEQ[]{
   {"Tight high gain", {{parameter_layout::kSlotEQHighPass, 110.}, {parameter_layout::kSlotEQLowPass, 7000.}}},
   {"Bass cleanup", {{parameter_layout::kSlotEQHighPass, 35.}, {parameter_layout::kSlotEQLowPass, 12000.}}},
+  // A narrow 300 Hz-3 kHz band with a presence peak: the telephone/AM-radio effect.
+  {"Telephone band", {{parameter_layout::kSlotEQHighPass, 300.}, {parameter_layout::kSlotEQLowPass, 3000.},
+    {parameter_layout::kSlotEQPresence, 3.}, {U(uEQOutput), 4.}}},
 };
 // Graphic EQ: Voicing is part of each recipe. Lead mid boost is meant to be about 2-3 dB
 // louder for solos and Tight into amp drives the next stage; the others match loudness
@@ -140,6 +143,7 @@ inline const Preset dynamicEQ[]{
 };
 inline const Preset filter[]{
   {"Touch wah", {{U(uFilterCutoff), 500.}, {U(uFilterResonance), 2.}, {U(uFilterEnvelope), 2.}}},
+  {"Bass envelope", {{U(uFilterCutoff), 200.}, {U(uFilterResonance), 2.5}, {U(uFilterEnvelope), 3.5}}},
 };
 // A parked ("cocked") wah used as a fixed tone filter.
 inline const Preset wah[]{
@@ -151,14 +155,20 @@ inline const Preset wah[]{
 inline const Preset boost[]{
   {"Tight amp push", {{U(uBoostGain), 6.}, {U(uBoostTilt), 3.}, {parameter_layout::kSlotEQHighPass, 90.}}},
   {"Warm push", {{U(uBoostGain), 6.}, {U(uBoostTilt), -2.}}},
+  {"Mid push", {{U(uBoostGain), 4.}, {U(uBoostMidGain), 5.}, {parameter_layout::kSlotEQHighPass, 60.}}},
 };
 inline const Preset tube[]{
   {"Warm tube edge", {{U(uTubeDrive), 9.}, {U(uTubeBias), 20.}, {U(uTubeHighCut), 10000.}, {U(uTubeOutput), -7.}}},
+  {"Hot preamp grit", {{U(uTubeDrive), 18.}, {U(uTubeBias), 40.}, {parameter_layout::kSlotEQHighPass, 80.},
+    {U(uTubeHighCut), 7000.}, {U(uTubeOutput), -16.}}},
 };
 inline const Preset distortion[]{
   {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 24.}, {U(uDistTone), 4500.}, {U(uDistOutput), -20.}}},
   // Rectification adds the octave-up character of octave fuzz pedals.
   {"Octave-up fuzz", {{U(uDistStyle), 5.}, {U(uDistDrive), 12.}, {U(uDistTone), 5000.}, {U(uDistOutput), -4.}}},
+  // Strong bias starves the fuzz so decays break up and gate.
+  {"Sputtering gated fuzz", {{U(uDistStyle), 2.}, {U(uDistDrive), 20.}, {U(uDistTone), 4000.}, {U(uDistBias), 70.},
+    {U(uDistOutput), -18.}}},
 };
 // High-gain trims leave typical notes near bypass loudness on a guitar DI.
 inline const Preset pedalDrive[]{
@@ -324,22 +334,34 @@ inline const Preset chorus[]{
   // Slow and shallow: felt more than heard on clean rhythm parts.
   {"Subtle clean width", {{U(uModRate), .6}, {U(uModDepth), 20.}, {U(uChorusSpread), 80.}, {U(uModMix), 25.}}},
   {"Lush 80s chorus", {{U(uChorusVoices), 1.}, {U(uModRate), .8}, {U(uModDepth), 55.}, {U(uModMix), 50.}}},
+  // A deep, single-voice pedal chorus with the depth near maximum.
+  {"Deep watery chorus", {{U(uModRate), 1.1}, {U(uModDepth), 75.}, {U(uModCharacter), 20.}, {U(uChorusSpread), 50.},
+    {U(uModMix), 50.}}},
 };
 inline const Preset juno[]{
   {"Wide two voices", {{U(uJunoMode), 1.}, {U(uJunoWidth), 100.}, {U(uJunoMix), 45.}}},
+  {"Mode II sweep", {{U(uJunoMode), 2.}, {U(uJunoMix), 50.}}},
+  {"Fast vintage shimmer", {{U(uJunoMode), 3.}, {U(uJunoMix), 50.}}},
 };
 inline const Preset flanger[]{
   {"Slow jet sweep", {{U(uModRate), .12}, {U(uModDepth), 75.}, {U(uModFeedback), 55.}, {U(uModMix), 45.}}},
   {"Light comb motion", {{U(uModRate), .4}, {U(uModDepth), 30.}, {U(uModFeedback), 15.}, {U(uFlangerDelay), 5.}, {U(uModMix), 30.}}},
+  // Depth at zero parks the comb, like a flanger's filter-matrix setting.
+  {"Parked metallic comb", {{U(uModDepth), 0.}, {U(uModFeedback), 60.}, {U(uFlangerDelay), 6.}, {U(uModMix), 50.}}},
 };
 inline const Preset phaser[]{
   // Four stages, no feedback and a slow rate: the subtle vintage script-pedal sweep.
   {"Slow vintage phase", {{U(uPhaserStages), 0.}, {U(uModRate), .3}, {U(uModDepth), 55.}, {U(uModFeedback), 0.}, {U(uModMix), 50.}}},
   {"Deep stereo phase", {{U(uPhaserStages), 3.}, {U(uModRate), .18}, {U(uModDepth), 75.}, {U(uModFeedback), 35.}, {U(uModSpread), 70.}, {U(uModMix), 50.}}},
+  // Four stages with strong feedback: the vocal "color" setting of vintage phasers.
+  {"Resonant vintage phase", {{U(uPhaserStages), 0.}, {U(uModRate), .5}, {U(uModDepth), 70.}, {U(uModFeedback), 60.},
+    {U(uModCharacter), 30.}, {U(uModMix), 50.}}},
 };
 inline const Preset tremolo[]{
   {"Amp tremolo", {{U(uModRate), 4.5}, {U(uModDepth), 45.}}},
   {"Hard eighth-note chop", {{U(uTempoSync), 1.}, {U(uTempoDivision), 3.}, {U(uModDepth), 100.}, {U(uModCharacter), 100.}}},
+  // Opposite left/right phase turns the tremolo into a panner on a stereo rig.
+  {"Stereo auto-pan", {{U(uModRate), 1.2}, {U(uModDepth), 80.}, {U(uModSpread), 100.}}},
 };
 // Early-1960s split-band amp tremolos filter bands near 150 and 650 Hz at about 5-7 Hz;
 // one split near their geometric middle gives the same bass/treble alternation.
@@ -351,9 +373,12 @@ inline const Preset harmonicTremolo[]{
 };
 inline const Preset vibrato[]{
   {"Seasick warble", {{U(uModRate), .8}, {U(uModDepth), 45.}}},
+  // Vibrato that develops over each phrase, like a held finger vibrato.
+  {"Delayed lead vibrato", {{U(uModRate), 5.5}, {U(uModDepth), 18.}, {U(uVibratoRise), 700.}}},
 };
 inline const Preset vibe[]{
   {"Vibrato mode swirl", {{U(uVibeMode), 1.}, {U(uModRate), 4.5}, {U(uModDepth), 40.}, {U(uModCharacter), 50.}, {U(uModMix), 100.}}},
+  {"Fast chorus churn", {{U(uModRate), 5.}, {U(uModDepth), 55.}, {U(uModCharacter), 35.}, {U(uModMix), 50.}}},
 };
 // Leslie speeds: about 0.8 Hz chorale and 6.7 Hz tremolo for the horn.
 inline const Preset rotary[]{
@@ -364,6 +389,8 @@ inline const Preset rotary[]{
 inline const Preset octaver[]{
   {"Octave-down blend", {{U(uOctDry), 100.}, {U(uOctSub), 85.}, {U(uOctSub2), 0.}, {U(uOctTone), 800.}, {U(uOctOutput), -3.}}},
   {"Synth bass", {{U(uOctDry), 0.}, {U(uOctSub), 100.}, {U(uOctSub2), 0.}, {U(uOctTone), 600.}, {U(uOctOutput), -4.}}},
+  // Dry, one and two octaves down together, as on two-octave pedals.
+  {"Two-octave blend", {{U(uOctDry), 100.}, {U(uOctSub), 60.}, {U(uOctSub2), 45.}, {U(uOctTone), 1000.}, {U(uOctOutput), -2.}}},
 };
 inline const Preset doubler[]{
   {"Wide loose double", {{U(uDoubleDetune), 10.}, {U(uDoubleDelay), 22.}, {U(uDoubleHumanize), 40.}, {U(uDoubleHighCut), 7000.}, {U(uDoubleMix), 32.}}},
@@ -373,6 +400,8 @@ inline const Preset stutter[]{
 };
 inline const Preset crusher[]{
   {"Broken small sampler", {{U(uCrushBits), 6.}, {U(uCrushRate), 6000.}, {U(uCrushTone), 3500.}, {U(uCrushMix), 65.}, {U(uCrushOutput), -2.}}},
+  // 12 bits at 26.04 kHz, the format of classic 1980s sampling drum machines.
+  {"12-bit sampler", {{U(uCrushBits), 12.}, {U(uCrushRate), 26040.}, {U(uCrushTone), 12000.}, {U(uCrushMix), 100.}}},
 };
 // The LoFi Tape Machine guide's starting points.
 inline const Preset lofi[]{
@@ -382,6 +411,14 @@ inline const Preset lofi[]{
 };
 inline const Preset swell[]{
   {"Slow chord bloom", {{U(uSwellRise), 800.}, {U(uSwellRelease), 300.}, {U(uSwellCurve), 1.5}, {U(uSwellHold), 100.}}},
+  {"Long ambient fade", {{U(uSwellRise), 1600.}, {U(uSwellRelease), 600.}, {U(uSwellCurve), 2.}, {U(uSwellHold), 150.}}},
+};
+// A small shift against a short delay makes notches that keep moving one way (barberpole);
+// a larger shift inside long feedback moves each repeat further from the played pitch.
+inline const Preset frequencyShifter[]{
+  {"Barberpole sweep", {{U(uShiftFrequency), -1.}, {U(uShiftFeedback), 35.}, {U(uShiftDelay), 1.}, {U(uShiftMix), 50.}}},
+  {"Spiraling echoes", {{U(uShiftFrequency), 30.}, {U(uShiftFeedback), 60.}, {U(uShiftDelay), 375.}, {U(uShiftTone), 5000.},
+    {U(uShiftMix), 30.}}},
 };
 
 inline std::span<const Preset> For(SlotEffect effect)
@@ -439,6 +476,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::Distortion: return distortion;
     case SlotEffect::PedalDrive: return pedalDrive;
     case SlotEffect::LoFiTape: return lofi;
+    case SlotEffect::FrequencyShifter: return frequencyShifter;
     default: return {};
   }
 }

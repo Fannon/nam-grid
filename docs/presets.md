@@ -110,13 +110,13 @@ staging, with normal playing peaking around -9 dBFS.
 | --- | --- |
 | Pedal Comp | Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
 | Smooth / Punch Compressor, Butter Comp, Peak Limiter | Clean guitar leveling, Even bass notes; Tight picking, Parallel punch; Thick parallel; Louder, controlled |
-| Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup; Low-mid mud cut, Harshness cut |
+| Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup, Telephone band; Low-mid mud cut, Harshness cut |
 | Multiband Dynamics | Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes retain calibrated Threshold and splits unless explicitly set |
 | Transient Shaper | Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
 | Graphic EQ | Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
 | Dynamic EQ | Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
-| Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
-| Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |
+| Filter, Wah, Auto Swell | Touch wah, Bass envelope; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
+| Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
 | Digital Delay | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support |
 | Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes |
@@ -136,10 +136,11 @@ staging, with normal playing peaking around -9 dBFS.
 | Airwindows Tape | Light tape rounding, Thick parallel tape |
 | Galactic Space | Slow dark space, Wide bright wash, Gentle stereo orbit |
 | Cosmic Echo | Echoes, swells, dense spaces and plate ambience across its styles; see the [factory preset guide](modules/cosmic-echo.md#factory-presets) |
-| Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus; Wide two voices; Slow jet sweep, Light comb motion; Slow vintage phase, Deep stereo phase |
+| Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus, Deep watery chorus; Wide two voices, Mode II sweep, Fast vintage shimmer; Slow jet sweep, Light comb motion, Parked metallic comb; Slow vintage phase, Deep stereo phase, Resonant vintage phase |
 | Harmonic Tremolo | Brown-panel amp, Slow swirl, Synced throb, Subtle shimmer |
-| Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop; Seasick warble; Vibrato mode swirl; Slow chorale, Fast tremolo |
-| Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass; Wide loose double; Sixteenth-note chops; Broken small sampler |
+| Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop, Stereo auto-pan; Seasick warble, Delayed lead vibrato; Vibrato mode swirl, Fast chorus churn; Slow chorale, Fast tremolo |
+| Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass, Two-octave blend; Wide loose double; Sixteenth-note chops; Broken small sampler, 12-bit sampler |
+| Frequency Shifter | Barberpole sweep, Spiraling echoes |
 | LoFi Tape Machine | Subtle drift, Worn cassette, Damaged tape (the [guide's starting points](modules/lofi-tape.md#starting-points); the last two include tape hiss) |
 
 User presets only:
@@ -148,7 +149,7 @@ User presets only:
 - **Utility:** balance, polarity, channel choice and alignment depend on the rig.
 
 **Signal Monitor** has no sound settings or preset menu.
-- **Outboard Channel, Console Colour, Console EQ, Ring Modulator, Frequency Shifter, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
+- **Outboard Channel, Console Colour, Console EQ, Ring Modulator, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
 
 Synced recipes select both Tempo sync and Division. Unsynced recipes restore
 free time/rate; switching recipes cannot accidentally inherit sync, feedback,

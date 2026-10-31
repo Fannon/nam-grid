@@ -48,6 +48,8 @@ Click **Routing** below the A/B knob for the lane controls. Select a module, clo
 
 Use the split for rigs such as a clean low end in A and a driven high band in B. On a bass rig, try **Steep** so palm-muted lows stay out of the driven lane. Check the combined tone in mono as well as stereo: the steeper split's phase shift around the crossover can change how a capture in each lane combines.
 
+Switching to Gentle clears the steep filters' histories after the fade completes, so selecting Steep again cannot bring back old audio after silence.
+
 A drive in **Pre** acts before this split. A drive in **B** receives its upper branch;
 a drive in **Post** receives both branches after they are mixed. A nonlinear Post
 module can therefore distort the lows you kept clean in A.

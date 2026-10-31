@@ -94,7 +94,11 @@ public:
     {
       mSplitMix += std::clamp((routing.crossover ? 1. : 0.) - mSplitMix, -mStep, mStep);
       // Switching slope crossfades the split over the same 5 ms as a bypass fade.
+      const double previousSteep = mSplitSteep;
       mSplitSteep += std::clamp((steep ? 1. : 0.) - mSplitSteep, -mStep, mStep);
+      // Once inaudible, discard both channels' histories before suspending the LR4 sections.
+      // Otherwise selecting Steep later can replay old low-frequency energy after silence.
+      if (previousSteep > 0. && mSplitSteep == 0.) mLrFilter = {};
       const double frequency = std::clamp(routing.frequency, 40., 5000.);
       mSplitFrequency = frequency + mSplitSmoothing * (mSplitFrequency - frequency);
       // Keep sample-rate smoothing/history alive, but reuse the identical

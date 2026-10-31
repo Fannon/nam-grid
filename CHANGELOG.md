@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Fix a low bass burst when switching the lane split from Gentle back to Steep after silence. The inactive steep filters now discard their old audio once the switch fade completes.
+
 - **Auto-wah:** a new **Auto** button in the Wah module header assigns Env 1 to Position at +25%, so playing opens the wah without setting up a modulation row by hand. Adjust the envelope on the Modulation page, or remove the assignment there.
 - **Steep frequency split:** the Routing page's **Slope** choice adds a 24 dB/octave Linkwitz-Riley lane split next to the released 6 dB/octave one, so a driven lane B receives far less low end. Existing rigs keep the gentle split, which sounds exactly as before. The steep split keeps a flat overall level, but its phase turns a full circle around the crossover, so it combines differently with a capture in the other lane; switching slopes crossfades.
 - **Frequency Shifter tails fade:** at high Feedback the shifter could ring for a very long time, and downward shifts piled up into a low drone and a DC offset. Repeats now always decay, and they lose their lowest frequencies, so 100% Feedback still sustains long enough to build shifting walls of echoes but fades away instead of sticking. This changes how existing rigs sound at high Feedback; the control range and its meaning are unchanged.

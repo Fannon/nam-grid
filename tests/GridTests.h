@@ -132,6 +132,54 @@ void TestFixedGrid()
     }
   }
 
+  // Returning to Steep after silence must not replay histories frozen by Gentle.
+  // Low crossover frequencies retain energy well beyond the 5 ms slope fade.
+  for (double rate : {44100., 48000., 96000.})
+    for (double frequency : {40., 60.})
+      for (int block : {37, 512})
+        for (bool stereo : {false, true})
+        {
+          FixedNAMGrid split;
+          split.ResetStopped(rate, block);
+          std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> routingControls{};
+          grid_performance::Routing routing;
+          routing.crossover = routing.linkwitzRiley = true;
+          routing.frequency = frequency;
+          int position = 0;
+          const auto render = [&](double seconds, bool tone) {
+            double peak = 0.;
+            const int frames = static_cast<int>(rate * seconds);
+            std::array<double, 512> left{}, right{};
+            for (int done = 0; done < frames; done += block)
+            {
+              const int n = std::min(block, frames - done);
+              for (int i = 0; i < n; ++i)
+              {
+                const double phase = 2. * grid_fx::pi * frequency * (position + i) / rate;
+                left[i] = tone ? .2 * std::sin(phase) : 0.;
+                right[i] = tone ? .15 * std::sin(phase + .7) : 0.;
+              }
+              split.Process(left.data(), n, routingControls, .5, stereo ? right.data() : nullptr, routing);
+              for (int i = 0; i < n; ++i)
+                peak = std::max({peak, std::abs(left[i]), stereo ? std::abs(right[i]) : 0.});
+              position += n;
+            }
+            return peak;
+          };
+          render(1., true);
+          allocations = deletions = 0;
+          tracking = true;
+          Eigen::internal::set_is_malloc_allowed(false);
+          routing.linkwitzRiley = false;
+          render(1.1, false);
+          routing.linkwitzRiley = true;
+          const double resumedPeak = render(.1, false);
+          Eigen::internal::set_is_malloc_allowed(true);
+          tracking = false;
+          assert(allocations == 0 && deletions == 0);
+          assert(resumedPeak < 1.e-12);
+        }
+
   const auto nano = fixture::model(3, 123), standard = fixture::model(8, 456);
   for (double rate : {48000., 44100., 96000.})
   {

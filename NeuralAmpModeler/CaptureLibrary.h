@@ -30,6 +30,13 @@ enum class Gear
 };
 const char* GearName(Gear gear);
 std::string PathText(const std::filesystem::path& path);
+// Browser stars are a personal mark on a module, NAM capture or IR, kept in the per-user
+// settings rather than in a rig. Levels cycle yellow, orange, red, then back to none.
+inline constexpr int kStarLevels = 3;
+// "Module:<id>" for built-in modules, otherwise "<kind>:<path>", ignoring path case on Windows.
+// Module IDs are append-only, so their stars survive display-name changes.
+std::string StarKey(FileKind kind, const std::filesystem::path& path, int module = -1);
+int NextStar(int level);
 // Each source list indexes only its own file kind; a folder may appear in several lists.
 struct Settings
 {
@@ -42,6 +49,8 @@ struct Settings
   // Whether each list was ever set; an explicitly emptied list stays empty.
   bool namChosen = false, irChosen = false, presetChosen = false;
   bool showMainMacros = true;
+  // Browser stars by StarKey, levels 1..kStarLevels. Unrated keys are absent.
+  std::map<std::string, int> stars;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 struct UserSettings

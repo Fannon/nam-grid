@@ -150,6 +150,26 @@ std::string PathText(const std::filesystem::path& path)
   return {text.begin(), text.end()};
 }
 
+std::string StarKey(FileKind kind, const std::filesystem::path& path, int module)
+{
+  // Module IDs are stable; names, folders and paths are not. Files use their own kind so the
+  // same WAV can be starred as an IR independently of anything else.
+  if (kind == FileKind::Module) return "Module:" + std::to_string(module);
+  auto text = PathText(path.lexically_normal());
+#ifdef _WIN32
+  text = Lower(std::move(text));
+#endif
+  const char* prefix = kind == FileKind::NAM ? "NAM:"
+    : kind == FileKind::IR ? "IR:"
+    : kind == FileKind::RigPreset ? "RigPreset:" : "SlotPreset:";
+  return prefix + text;
+}
+
+int NextStar(int level)
+{
+  return level < 0 || level >= kStarLevels ? 0 : level + 1;
+}
+
 namespace
 {
 // One path segment against one .ignore pattern segment: `*`, `?`, `[...]` classes and
@@ -399,6 +419,14 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
     result.showMainMacros = config.value("ShowMainMacros", true);
     result.presetCrossfade = config.value("PresetCrossfade", false);
     result.presetFolders = NormalizeFolders(config.value("PresetFolders", std::vector<std::string>{}));
+    if (const auto stars = config.find("Stars"); stars != config.end() && stars->is_object())
+      for (auto entry = stars->begin(); entry != stars->end() && result.stars.size() < 8192; ++entry)
+      {
+        // A damaged or hand-edited entry costs only that star, never the settings file.
+        if (!entry.value().is_number_integer() || entry.key().empty() || entry.key().size() > 2048) continue;
+        const int level = entry.value().get<int>();
+        if (level >= 1 && level <= kStarLevels) result.stars[entry.key()] = level;
+      }
     result.namChosen = config.contains("NamFolders");
     result.irChosen = config.contains("IrFolders");
     result.presetChosen = config.contains("PresetFolders");
@@ -420,7 +448,8 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
                      {"ShowVisualizations", settings.showVisualizations},
                      {"ShowMainMacros", settings.showMainMacros},
                      {"PresetCrossfade", settings.presetCrossfade},
-                     {"PresetFolders", settings.presetFolders}}.dump(2));
+                     {"PresetFolders", settings.presetFolders},
+                     {"Stars", settings.stars}}.dump(2));
     return true;
   }
   catch (const std::exception&)

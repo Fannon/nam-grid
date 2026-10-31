@@ -1,6 +1,27 @@
 #pragma once
 #include "LibraryBrowser.h"
 #include "ITextEntryControl.h"
+#include <cmath>
+
+// Browser star: an outline when unrated, filled yellow, orange or red as it is cycled.
+inline void DrawBrowserStar(IGraphics& g, float cx, float cy, float radius, int level)
+{
+  static const IColor colors[] = {grid_ui::muted, IColor(255, 246, 206, 74),
+                                  IColor(255, 244, 148, 56), IColor(255, 232, 82, 74)};
+  const int index = level >= 1 && level <= nam_library::kStarLevels ? level : 0;
+  g.PathClear();
+  for (int point = 0; point < 10; ++point)
+  {
+    const float angle = -1.5707963f + point * 0.62831853f; // Start at the top point.
+    const float r = point % 2 == 0 ? radius : radius * .44f;
+    const float x = cx + r * std::cos(angle), y = cy + r * std::sin(angle);
+    if (point == 0) g.PathMoveTo(x, y);
+    else g.PathLineTo(x, y);
+  }
+  g.PathClose();
+  if (index) g.PathFill(colors[index]);
+  else g.PathStroke(colors[0].WithOpacity(.7f), 1.2f);
+}
 
 class NAMBrowserTab : public grid_ui::Button
 {
@@ -208,7 +229,7 @@ public:
     mSlot = context == nam_library::BrowserContext::Library ? PLUG()->GetSelectedSlot() : slot;
     mPreview = context != nam_library::BrowserContext::Rig && kind != nam_library::FileKind::RigPreset;
     mTitle->SetTooltip(mPreview
-      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; Ctrl/Cmd+F searches."
+      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; click a star to mark a module, capture or IR; Ctrl/Cmd+F searches."
       : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
     SetTargetAndDrawRECTs(IRECT(0, 0, grid_layout::width, mPreview ? grid_layout::editorTop : grid_layout::height));
     if (mPreview) mStatus = PLUG()->BeginSlotPreview(mSlot);
@@ -319,7 +340,10 @@ public:
       const bool selected = View().scroll + row == mSelectedRow;
       if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(284, y, 706, y + kRowHeight));
       const bool module = file.kind == nam_library::FileKind::Module;
-      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(294, y, module ? 586 : 696, y + kRowHeight));
+      // Stars mark modules, captures and IRs for this user only, never for a rig or host.
+      const bool starred = file.kind != nam_library::FileKind::RigPreset;
+      if (starred) DrawBrowserStar(g, kStarCenter, y + kRowHeight * .5f, 8.f, StarLevel(file));
+      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(starred ? 318.f : 294.f, y, module ? 586 : 696, y + kRowHeight));
       if (module) FittedText(g, Text(12.f, muted, EAlign::Far), nam_library::PathText(file.relative.parent_path()).c_str(), IRECT(594, y, 696, y + kRowHeight));
     }
     Scrollbar(g, 257, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
@@ -354,11 +378,19 @@ public:
     else if (x >= 282 && x < 707)
     {
       const int index = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
-      if (index < mResults.size()) { mSelectedRow = index; View().selected = nam_library::PathText(mLibrary->captures[mResults[index]].path); mStatus.clear(); SetDirty(false); }
+      if (index < mResults.size())
+      {
+        const auto& file = mLibrary->captures[mResults[index]];
+        // The star is its own target: marking a row keeps the selection and the audition.
+        if (x >= kStarLeft && x < kStarRight) { CycleStar(file); return; }
+        mSelectedRow = index; View().selected = nam_library::PathText(file.path); mStatus.clear(); SetDirty(false);
+      }
     }
   }
   void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
   {
+    // The click half already cycled once; a double-click must not skip a level.
+    if (y >= kListTop && y < ListBottom() && x >= kStarLeft && x < kStarRight) return;
     OnMouseDown(x, y, mod);
     const int row = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
     if (x >= 282 && x < 707 && y >= kListTop && y < ListBottom() && row < mResults.size()) LoadSelected();
@@ -400,6 +432,8 @@ private:
   // Panels share one header row; lists start below it. Footer buttons pin to the panel bottom,
   // which moves with the page height (audition above the editor, or full-height presets).
   static constexpr float kRowHeight = 25.f, kPanelTop = 104.f, kListTop = 132.f;
+  // The star sits in the row's left margin, clear of the name text.
+  static constexpr float kStarCenter = 302.f, kStarLeft = 288.f, kStarRight = 316.f;
   int Rows() const { return static_cast<int>((ListBottom() - kListTop) / kRowHeight); }
   int FolderRows() const { return static_cast<int>((FolderBottom() - kListTop) / kRowHeight); }
   float ListBottom() const { return mRECT.B - 12.f; }
@@ -488,7 +522,7 @@ private:
       SetTargetAndDrawRECTs(IRECT(0, 0, grid_layout::width, mPreview ? grid_layout::editorTop : grid_layout::height));
     }
     mTitle->SetTooltip(mPreview
-      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; Ctrl/Cmd+F searches."
+      ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; click a star to mark a module, capture or IR; Ctrl/Cmd+F searches."
       : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
     for (int i = 0; i < 4; ++i) mTabs[i]->SetActive(kind == kTabs[i]);
     mSearch->SetQuery(View().query);
@@ -557,6 +591,17 @@ private:
   int SelectedRow() const { return mSelectedRow; }
   const nam_library::Capture* Selected()
   { const int index = SelectedRow(); return index < 0 ? nullptr : &mLibrary->captures[mResults[index]]; }
+  int StarLevel(const nam_library::Capture& file)
+  {
+    return file.kind == nam_library::FileKind::RigPreset ? 0
+      : PLUG()->GetLibraryStar(nam_library::StarKey(file.kind, file.path, file.module));
+  }
+  void CycleStar(const nam_library::Capture& file)
+  {
+    if (file.kind == nam_library::FileKind::RigPreset) return;
+    PLUG()->CycleLibraryStar(nam_library::StarKey(file.kind, file.path, file.module));
+    SetDirty(false);
+  }
   void RevealSelection()
   {
     const int index = SelectedRow();

@@ -46,6 +46,18 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
 #ifdef _WIN32
   assert(SamePath(captures / std::filesystem::u8path("Gr\xc3\xbcn.NAM"), captures / std::filesystem::u8path("GR\xc3\x9cN.nam")));
 #endif
+  // Browser stars cycle none -> yellow -> orange -> red -> none, and keys stay stable.
+  assert(NextStar(0) == 1 && NextStar(1) == 2 && NextStar(2) == 3 && NextStar(3) == 0 && NextStar(-1) == 0);
+  assert(StarKey(FileKind::NAM, nam) == StarKey(FileKind::NAM, nam.lexically_normal()));
+  assert(StarKey(FileKind::NAM, nam) != StarKey(FileKind::IR, nam));
+  assert(StarKey(FileKind::NAM, nam) != StarKey(FileKind::NAM, captures / "Clean" / "Other.nam"));
+#ifdef _WIN32
+  assert(StarKey(FileKind::NAM, captures / "Clean" / "Cab.NAM") == StarKey(FileKind::NAM, captures / "clean" / "cab.nam"));
+#endif
+  // A module's star follows its append-only ID, not its display name or category.
+  assert(StarKey(FileKind::Module, root / "Boost", 3) == "Module:3");
+  assert(StarKey(FileKind::Module, root / "Distortion", 3) == "Module:3");
+  assert(StarKey(FileKind::Module, root / "Boost", 3) != StarKey(FileKind::Module, root / "Boost", 4));
   const auto folders = BrowserFolders(library, FileKind::NAM, {PathText(captures), PathText(root / "missing")});
   assert(folders.size() == 5 && folders.front().path.empty() && folders.back().rootIndex == 1);
   assert(std::none_of(folders.begin(), folders.end(), [&](const auto& f) { return f.path == presets; }));
@@ -81,6 +93,19 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   assert(roundTrip.namFolders.empty() && roundTrip.presetFolders == std::vector<std::string>{PathText(presets)});
   assert(roundTrip.irFolders == std::vector<std::string>{PathText(captures)});
   assert(!roundTrip.rescanOnStartup && !roundTrip.showVisualizations);
+  // Stars are per-user marks in the settings file: they survive folder edits and
+  // recognise a stored file by kind and path, and a module by ID.
+  auto starred = roundTrip;
+  starred.stars = {{StarKey(FileKind::NAM, nam), 2}, {StarKey(FileKind::Module, {}, 5), 3}};
+  assert(WriteSettings(settings, starred));
+  assert(WriteFolderSettings(settings, {})); // Editing folders keeps the stars.
+  const auto kept = ReadSettings(settings);
+  assert(kept.stars.size() == 2 && kept.stars.at(StarKey(FileKind::NAM, nam)) == 2
+         && kept.stars.at(StarKey(FileKind::Module, {}, 5)) == 3 && kept.namFolders.empty());
+  // A damaged star costs only itself, never the rest of the settings file.
+  std::ofstream(settings) << R"({"NamFolders":[],"Stars":{"Module:1":9,"":1,"Module:2":"red","Module:3":2}})";
+  const auto damaged = ReadSettings(settings);
+  assert(damaged.stars.size() == 1 && damaged.stars.at("Module:3") == 2 && damaged.namChosen);
   assert(NormalizeFolders({PathText(captures / ""), PathText(captures)}).size() == 1);
   assert(BoundedQuery(std::string(511, 'a') + "\xc3\xbc") == std::string(511, 'a'));
   assert(ScanLibrary({}, {}, {PathText(presets)}, [] { return true; }).captures.empty());

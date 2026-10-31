@@ -185,6 +185,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mShowVisualizations = librarySettings.showVisualizations;
   mShowMainMacros = librarySettings.showMainMacros;
   mPresetCrossfade = librarySettings.presetCrossfade;
+  mLibraryStars = librarySettings.stars;
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
@@ -1243,6 +1244,26 @@ std::shared_ptr<const nam_library::Snapshot> NeuralAmpModeler::GetCaptureLibrary
 {
   const auto guard = _LockControls();
   return mLibrary;
+}
+
+int NeuralAmpModeler::GetLibraryStar(const std::string& key) const
+{
+  const auto guard = _LockControls();
+  const auto star = mLibraryStars.find(key);
+  return star == mLibraryStars.end() ? 0 : star->second;
+}
+
+void NeuralAmpModeler::CycleLibraryStar(const std::string& key)
+{
+  const auto guard = _LockControls();
+  if (key.empty()) return;
+  const int level = nam_library::NextStar(GetLibraryStar(key));
+  // Read first, so stars changed by another instance and the file's other settings survive.
+  auto settings = nam_library::ReadSettings(CaptureSettingsFile());
+  if (level == 0) settings.stars.erase(key);
+  else settings.stars[key] = level;
+  mLibraryStars = settings.stars;
+  mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
 }
 
 nam_library::Filter NeuralAmpModeler::GetCaptureFilter() const

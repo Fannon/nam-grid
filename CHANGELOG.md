@@ -4,7 +4,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- **Library stars:** mark modules, NAM captures and IR files with the star left of their name in the browser. Each click cycles yellow, orange and red, then back to an empty outline. Turn on **Starred** above the results to list only starred items. Stars belong to your own setup rather than to a rig, preset or project, so they never change how anything sounds.
+- **Library stars:** mark modules, NAM captures, IR files and rig presets with the star left of their name in the browser. Each click cycles yellow, orange and red, then back to an empty outline. Turn on **Starred** above the results to list only starred items. Captures and IRs keep their star when moved or renamed, and identical copies share it. Stars are saved in `favorites.json` in your preset folder, so they travel with it to another computer, and they never change how anything sounds.
 
 - **Signal Monitor:** inspect a detailed stereo spectrum with resonance markers, vertical peak/RMS meters, a 20-second level history with red marks where samples reached 0 dBFS, headroom and correlation anywhere in the rig. Explanations appear on hover. It has no sound controls and leaves audio unchanged.
 

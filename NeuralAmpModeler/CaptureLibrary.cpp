@@ -150,33 +150,6 @@ std::string PathText(const std::filesystem::path& path)
   return {text.begin(), text.end()};
 }
 
-std::string StarKey(FileKind kind, const std::filesystem::path& path, int module)
-{
-  // Module IDs are stable; names, folders and paths are not. Files use their own kind so the
-  // same WAV can be starred as an IR independently of anything else.
-  if (kind == FileKind::Module) return "Module:" + std::to_string(module);
-  auto normal = path.lexically_normal();
-#ifdef _WIN32
-  // Windows names ignore case beyond ASCII too (SamePath compares the same way), so accented
-  // capitals must fold as well or one file could carry two stars.
-  const auto wide = normal.make_preferred().wstring();
-  std::wstring folded(wide.size(), L'\0');
-  if (!wide.empty()
-      && LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.data(), static_cast<int>(wide.size()),
-                       folded.data(), static_cast<int>(folded.size()), nullptr, nullptr, 0) == static_cast<int>(wide.size()))
-    normal = std::filesystem::path(folded);
-#endif
-  const auto text = PathText(normal);
-  const char* prefix = kind == FileKind::NAM ? "NAM:"
-    : kind == FileKind::IR ? "IR:"
-    : kind == FileKind::RigPreset ? "RigPreset:" : "SlotPreset:";
-  return prefix + text;
-}
-
-int NextStar(int level)
-{
-  return level < 0 || level >= kStarLevels ? 0 : level + 1;
-}
 
 namespace
 {
@@ -427,14 +400,6 @@ Settings ReadSettings(const std::filesystem::path& settingsFile)
     result.showMainMacros = config.value("ShowMainMacros", true);
     result.presetCrossfade = config.value("PresetCrossfade", false);
     result.presetFolders = NormalizeFolders(config.value("PresetFolders", std::vector<std::string>{}));
-    if (const auto stars = config.find("Stars"); stars != config.end() && stars->is_object())
-      for (auto entry = stars->begin(); entry != stars->end() && result.stars.size() < 8192; ++entry)
-      {
-        // A damaged or hand-edited entry costs only that star, never the settings file.
-        if (!entry.value().is_number_integer() || entry.key().empty() || entry.key().size() > 2048) continue;
-        const int level = entry.value().get<int>();
-        if (level >= 1 && level <= kStarLevels) result.stars[entry.key()] = level;
-      }
     result.namChosen = config.contains("NamFolders");
     result.irChosen = config.contains("IrFolders");
     result.presetChosen = config.contains("PresetFolders");
@@ -456,8 +421,7 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
                      {"ShowVisualizations", settings.showVisualizations},
                      {"ShowMainMacros", settings.showMainMacros},
                      {"PresetCrossfade", settings.presetCrossfade},
-                     {"PresetFolders", settings.presetFolders},
-                     {"Stars", settings.stars}}.dump(2));
+                     {"PresetFolders", settings.presetFolders}}.dump(2));
     return true;
   }
   catch (const std::exception&)
@@ -652,6 +616,100 @@ std::vector<std::filesystem::path> SiblingFiles(const std::filesystem::path& sel
   });
   return result;
 }
+std::string StarKey(const Capture& file, const std::filesystem::path& favoritesFolder)
+{
+  switch (file.kind)
+  {
+    case FileKind::Module: return "Module:" + std::to_string(file.module);
+    // Same bytes, same star: the content hash rigs already use to relink a moved capture.
+    case FileKind::NAM: return file.hash.empty() ? std::string{} : "NAM:" + file.hash;
+    case FileKind::IR: return file.hash.empty() ? std::string{} : "IR:" + file.hash;
+    case FileKind::RigPreset:
+    {
+      // The scan records each preset relative to its source folder, in the file system's spelling.
+      // Forward slashes keep a relative key the same on every platform.
+      const bool local = !favoritesFolder.empty() && !file.relative.empty() && SamePath(file.source, favoritesFolder);
+      const auto& path = local ? file.relative : file.path;
+      return "RigPreset:" + PathText(std::filesystem::path(path.lexically_normal().generic_u8string()));
+    }
+    default: return {};
+  }
+}
+
+int NextStar(int level)
+{
+  return level < 0 || level >= kStarLevels ? 0 : level + 1;
+}
+
+std::filesystem::path FavoritesFolder(const std::vector<std::string>& presetFolders)
+{
+  return presetFolders.empty() ? std::filesystem::path{} : std::filesystem::u8path(presetFolders.front());
+}
+
+std::filesystem::path FavoritesFile(const std::vector<std::string>& presetFolders,
+                                    const std::filesystem::path& configFolder)
+{
+  const auto folder = presetFolders.empty() ? configFolder : FavoritesFolder(presetFolders);
+  return folder.empty() ? folder : folder / "favorites.json";
+}
+
+std::optional<Stars> ReadFavorites(const std::filesystem::path& file)
+{
+  Stars result;
+  try
+  {
+    std::error_code error;
+    if (file.empty() || !std::filesystem::exists(file, error)) return error ? std::nullopt : std::optional(result);
+    std::ifstream input(file, std::ios::binary);
+    if (!input) return std::nullopt;
+    const auto config = nlohmann::json::parse(input);
+    if (!config.is_object()) return std::nullopt;
+    const auto stars = config.find("Stars");
+    if (stars == config.end()) return result;
+    if (!stars->is_object()) return std::nullopt;
+    for (auto entry = stars->begin(); entry != stars->end() && result.size() < 8192; ++entry)
+    {
+      // A damaged or hand-edited entry costs only that star, never the rest of the file.
+      const auto& value = entry.value();
+      if (entry.key().empty() || entry.key().size() > 2048 || !value.is_object()) continue;
+      const auto level = value.find("Level");
+      if (level == value.end() || !level->is_number_integer()) continue;
+      Star star{level->get<int>()};
+      if (star.level < 1 || star.level > kStarLevels) continue;
+      if (const auto name = value.find("Name"); name != value.end() && name->is_string() && name->size() <= 512)
+        star.name = name->get<std::string>();
+      result[entry.key()] = std::move(star);
+    }
+  }
+  catch (const std::exception&)
+  {
+    return std::nullopt;
+  }
+  return result;
+}
+
+bool WriteFavorites(const std::filesystem::path& file, const Stars& stars)
+{
+  try
+  {
+    if (file.empty()) return false;
+    std::filesystem::create_directories(file.parent_path());
+    auto entries = nlohmann::json::object();
+    for (const auto& [key, star] : stars)
+    {
+      auto entry = nlohmann::json{{"Level", star.level}};
+      if (!star.name.empty()) entry["Name"] = star.name;
+      entries[key] = std::move(entry);
+    }
+    rig_preset::WriteAtomically(file, nlohmann::json{{"Format", "nam-grid-favorites"}, {"Version", 1}, {"Stars", entries}}.dump(2));
+    return true;
+  }
+  catch (const std::exception&)
+  {
+    return false;
+  }
+}
+
 // Content identity exists so a renamed or moved capture can be found again after a rescan.
 // It must never shrink the menu: keep every indexed path and only count repeats, so a pack
 // folder stays complete even when a curated copy of the same bytes lives elsewhere.

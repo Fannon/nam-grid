@@ -161,12 +161,12 @@ inline std::vector<size_t> Browse(const Snapshot& library, FileKind kind, const 
 }
 
 // The browser's Starred filter: keeps the results that carry any star, in their order.
-inline std::vector<size_t> KeepStarred(const Snapshot& library, std::vector<size_t> results,
-                                       const std::map<std::string, int>& stars)
+inline std::vector<size_t> KeepStarred(const Snapshot& library, std::vector<size_t> results, const Stars& stars,
+                                       const std::filesystem::path& favoritesFolder)
 {
   results.erase(std::remove_if(results.begin(), results.end(), [&](size_t index) {
-    const auto& file = library.captures[index];
-    return file.kind == FileKind::RigPreset || !stars.count(StarKey(file.kind, file.path, file.module));
+    const auto key = StarKey(library.captures[index], favoritesFolder);
+    return key.empty() || !stars.count(key);
   }), results.end());
   return results;
 }

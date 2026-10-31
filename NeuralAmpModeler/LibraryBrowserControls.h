@@ -245,14 +245,14 @@ public:
   {
     Hide(true);
     mPreviewSelection.clear();
-    PLUG()->ReloadLibraryStars(); // Another instance may have marked files since this one started.
+    PLUG()->ReloadLibraryStars(); // Another instance or a synced copy may have changed favorites.json.
     mContext = context;
     mContextKind = kind;
     mSlot = context == nam_library::BrowserContext::Library ? PLUG()->GetSelectedSlot() : slot;
     mPreview = context != nam_library::BrowserContext::Rig && kind != nam_library::FileKind::RigPreset;
     mTitle->SetTooltip(mPreview
       ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; click a star to mark a module, capture or IR, and Starred to list only those; Ctrl/Cmd+F searches."
-      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
+      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; click a star to mark a preset, and Starred to list only those; Ctrl/Cmd+F searches; Escape closes.");
     SetTargetAndDrawRECTs(IRECT(0, 0, grid_layout::width, mPreview ? grid_layout::editorTop : grid_layout::height));
     if (mPreview) mStatus = PLUG()->BeginSlotPreview(mSlot);
     mContextWorker.Request(std::vector<std::string>{});
@@ -362,10 +362,11 @@ public:
       const bool selected = View().scroll + row == mSelectedRow;
       if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(284, y, 706, y + kRowHeight));
       const bool module = file.kind == nam_library::FileKind::Module;
-      // Stars mark modules, captures and IRs for this user only, never for a rig or host.
-      const bool starred = file.kind != nam_library::FileKind::RigPreset;
-      if (starred) DrawBrowserStar(g, kStarCenter, y + kRowHeight * .5f, 8.f, StarLevel(file));
-      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(starred ? 318.f : 294.f, y, module ? 586 : 696, y + kRowHeight));
+      // Stars mark results for this user only, never for a rig or host. Every row keeps the
+      // star column so names align, even a file the scan has not hashed yet.
+      const auto key = nam_library::StarKey(file, mFavoritesFolder);
+      if (!key.empty()) DrawBrowserStar(g, kStarCenter, y + kRowHeight * .5f, 8.f, PLUG()->GetLibraryStar(key));
+      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(318.f, y, module ? 586 : 696, y + kRowHeight));
       if (module) FittedText(g, Text(12.f, muted, EAlign::Far), nam_library::PathText(file.relative.parent_path()).c_str(), IRECT(594, y, 696, y + kRowHeight));
     }
     Scrollbar(g, 257, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
@@ -488,7 +489,6 @@ private:
     mSave->Hide(!preset);
     mFile->Hide(!HasSources());
     mDelete->Hide(!preset);
-    mStarred->Hide(preset); // Rig presets carry no stars.
     mFoldersButton->Hide(!HasSources());
     mRescan->Hide(!HasSources());
     const float top = FooterTop() + 6.f, bottom = ListBottom() - 6.f;
@@ -548,7 +548,7 @@ private:
     }
     mTitle->SetTooltip(mPreview
       ? "Select to audition; adjust parameters below. Double-click or Enter keeps the module and edits. Close or Escape restores the original. Up/Down browses; click a star to mark a module, capture or IR, and Starred to list only those; Ctrl/Cmd+F searches."
-      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; Ctrl/Cmd+F searches; Escape closes.");
+      : "Select to inspect. Double-click or Enter to load. Up/Down and Page Up/Down browse; click a star to mark a preset, and Starred to list only those; Ctrl/Cmd+F searches; Escape closes.");
     for (int i = 0; i < 4; ++i) mTabs[i]->SetActive(kind == kTabs[i]);
     mSearch->SetQuery(View().query);
     if (!IsHidden()) { Layout(); GetUI()->SetAllControlsDirty(); }
@@ -593,8 +593,9 @@ private:
     if (std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) { return nam_library::SamePath(f.path, View().folder); })) View().folder.clear();
     mResults = nam_library::Browse(*mLibrary, mKind, View().query, View().folder, -1, mRelevance);
     // A star cleared under the filter keeps its row until the next rebuild, so it can be cycled on.
-    if (View().starred && mKind != nam_library::FileKind::RigPreset)
-      mResults = nam_library::KeepStarred(*mLibrary, std::move(mResults), PLUG()->GetLibraryStars());
+    mFavoritesFolder = PLUG()->GetFavoritesFolder();
+    if (View().starred)
+      mResults = nam_library::KeepStarred(*mLibrary, std::move(mResults), PLUG()->GetLibraryStars(), mFavoritesFolder);
     mStarred->SetActive(View().starred);
     mSelectedRow = -1;
     const auto selected = std::filesystem::u8path(View().selected);
@@ -620,16 +621,13 @@ private:
   int SelectedRow() const { return mSelectedRow; }
   const nam_library::Capture* Selected()
   { const int index = SelectedRow(); return index < 0 ? nullptr : &mLibrary->captures[mResults[index]]; }
-  int StarLevel(const nam_library::Capture& file)
-  {
-    return file.kind == nam_library::FileKind::RigPreset ? 0
-      : PLUG()->GetLibraryStar(nam_library::StarKey(file.kind, file.path, file.module));
-  }
   void CycleStar(const nam_library::Capture& file)
   {
-    if (file.kind == nam_library::FileKind::RigPreset) return;
-    if (!PLUG()->CycleLibraryStar(nam_library::StarKey(file.kind, file.path, file.module)))
-      mStatus = "Unable to save stars to the settings file; this change lasts until NAM Grid closes.";
+    const auto key = nam_library::StarKey(file, mFavoritesFolder);
+    if (key.empty()) return;
+    // A module's path ends in its name; files keep theirs. Either way the name is only a hint.
+    if (!PLUG()->CycleLibraryStar(key, nam_library::PathText(file.path.filename())))
+      mStatus = "Unable to save favorites.json in your preset folder (damaged or read-only?); this star lasts until NAM Grid closes.";
     SetDirty(false);
   }
   void RevealSelection()
@@ -813,6 +811,7 @@ private:
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;
   NAMBrowserStarFilter* mStarred = nullptr;
+  std::filesystem::path mFavoritesFolder; // Rig preset star keys are relative to it.
   grid_ui::Button *mFoldersButton = nullptr, *mRescan = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr,
                   *mCancel = nullptr, *mTopCancel = nullptr, *mApply = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};

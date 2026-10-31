@@ -334,12 +334,6 @@ int main(int argc, char** argv)
   assert(!ReadSettings(preferences).rescanOnStartup); // Editing folders must retain the startup preference.
   assert(!ReadSettings(preferences).showVisualizations);
   assert(!ReadSettings(preferences).showMainMacros && ReadSettings(preferences).presetCrossfade);
-  // Stars are kept by folder edits and by other settings changes.
-  auto withStars = ReadSettings(preferences);
-  withStars.stars = {{"Module:1", 1}, {"NAM:/tmp/Clean.nam", 3}};
-  assert(WriteSettings(preferences, withStars));
-  assert(WriteFolderSettings(preferences, {folders[0]}));
-  assert(ReadSettings(preferences).stars == withStars.stars);
   assert(WriteSettings(preferences, {folders, true}));
   assert(ReadSettings(preferences).rescanOnStartup);
   assert(ReadSettings(preferences).showVisualizations);
@@ -375,12 +369,6 @@ int main(int argc, char** argv)
     assert(edited.settings.irFolders.empty() && edited.settings.namFolders == first.settings.namFolders);
     assert(edited.settings.presetFolders == first.settings.presetFolders && edited.newPresetFolder == home / "Presets");
     assert(ReadSettings(settingsFile).irChosen && ReadSettings(settingsFile).presetChosen);
-    // A later start keeps the stars while it repairs a missing folder list.
-    auto starred = ReadSettings(settingsFile);
-    starred.stars = {{"Module:7", 2}};
-    assert(WriteSettings(settingsFile, starred));
-    assert(PrepareUserSettings(settingsFile, {}, home).settings.stars == starred.stars);
-    assert(ReadSettings(settingsFile).stars == starred.stars);
     // A legacy library.json migrates once: its folders and preferences are kept, and its empty
     // lists (older builds had no defaults) receive the defaults.
     const auto migrated = home / "migrated" / "settings.json", legacy = home / "legacy" / "library.json";

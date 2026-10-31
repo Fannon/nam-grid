@@ -30,11 +30,17 @@ Use **Open file...** for a capture, IR, or preset outside your library. This doe
 
 ## Stars
 
-Click the star left of a result to mark it: empty outline, yellow, orange, red, then empty again. Modules, NAM captures and IR files have stars; rig presets do not.
+Click the star left of a result to mark it: empty outline, yellow, orange, red, then empty again. Modules, NAM captures, IR files and rig presets all have stars.
 
 Turn on **Starred** above the results to list only starred items. Search and the folder column still apply. The browser opens with the filter off, so the current module or file stays selected. A star you clear while the filter is on keeps its row until the list next changes, so you can cycle it back.
 
-Stars are your own notes, kept in your settings rather than in a rig, preset or DAW project. They never change what you hear, and other people opening your rigs see their own stars. Moving or renaming a NAM or IR file loses its star, because the star follows the file's path; a module keeps its star across releases.
+Stars are your own notes, not part of a rig or DAW project. They never change what you hear, and other people opening your rigs see their own stars. What a star follows depends on what it marks:
+
+- **NAM captures and IR files** are recognised by their content. Moving or renaming a file keeps its star, and identical copies in different folders share one star. Editing or re-exporting the file makes it a different capture, without a star.
+- **Rig presets** are recognised by file name and folder, because saving a preset changes its content. Renaming or moving a preset loses its star.
+- **Modules** keep their star across releases.
+
+Stars are saved in `favorites.json` in your first preset folder, the one **Save as** opens in. If you sync or back up your preset folder, your stars come along, and they work on another computer. Without a preset folder, NAM Grid keeps the file in its settings folder instead. Changing the first preset folder starts from that folder's own `favorites.json`; move the file along to keep your stars.
 
 ## Search
 

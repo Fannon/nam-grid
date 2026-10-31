@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -30,13 +31,6 @@ enum class Gear
 };
 const char* GearName(Gear gear);
 std::string PathText(const std::filesystem::path& path);
-// Browser stars are a personal mark on a module, NAM capture or IR, kept in the per-user
-// settings rather than in a rig. Levels cycle yellow, orange, red, then back to none.
-inline constexpr int kStarLevels = 3;
-// "Module:<id>" for built-in modules, otherwise "<kind>:<path>", ignoring path case on Windows.
-// Module IDs are append-only, so their stars survive display-name changes.
-std::string StarKey(FileKind kind, const std::filesystem::path& path, int module = -1);
-int NextStar(int level);
 // Each source list indexes only its own file kind; a folder may appear in several lists.
 struct Settings
 {
@@ -49,8 +43,6 @@ struct Settings
   // Whether each list was ever set; an explicitly emptied list stays empty.
   bool namChosen = false, irChosen = false, presetChosen = false;
   bool showMainMacros = true;
-  // Browser stars by StarKey, levels 1..kStarLevels. Unrated keys are absent.
-  std::map<std::string, int> stars;
 };
 Settings ReadSettings(const std::filesystem::path& settingsFile);
 struct UserSettings
@@ -131,6 +123,33 @@ private:
 // Shared by the background worker and deterministic scanner tests.
 Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root);
 std::string ContentHash(const std::filesystem::path& file, const std::function<bool()>& cancelled = {});
+
+// Browser stars are a personal mark on a module, capture, IR or rig preset, kept in
+// favorites.json beside the user's presets rather than in a rig. Levels cycle yellow, orange,
+// red, then back to none.
+inline constexpr int kStarLevels = 3;
+struct Star
+{
+  int level = 0;
+  std::string name; // The file or module name when starred: a hint for people reading the file.
+};
+using Stars = std::map<std::string, Star>;
+// Keys hold no machine paths where avoidable, so a synced favorites.json works on every computer:
+// "Module:<id>" (append-only IDs survive renames); "NAM:<sha1>" and "IR:<sha1>" by content, so a
+// moved, renamed or duplicated file shares one star; "RigPreset:<path>", relative to the
+// favorites folder when the preset lives there and absolute otherwise, because a preset's
+// content changes with every save. Empty when the file has no content hash yet: no star.
+std::string StarKey(const Capture& file, const std::filesystem::path& favoritesFolder);
+int NextStar(int level);
+// favorites.json in the first preset folder (where Save as starts), or in the config folder
+// when no preset folder is set.
+std::filesystem::path FavoritesFolder(const std::vector<std::string>& presetFolders);
+std::filesystem::path FavoritesFile(const std::vector<std::string>& presetFolders,
+                                    const std::filesystem::path& configFolder);
+// A missing file reads as no stars and a damaged entry costs only itself. A file that exists
+// but cannot be read or parsed returns nothing, so callers never write over it.
+std::optional<Stars> ReadFavorites(const std::filesystem::path& file);
+bool WriteFavorites(const std::filesystem::path& file, const Stars& stars);
 const Capture* FindHash(const Snapshot& library, const std::string& hash, bool isIR);
 // Files of the same kind in the selected file's folder, by name. Files that the .ignore
 // rules of a containing library folder in `roots` exclude are left out.

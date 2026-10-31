@@ -198,12 +198,13 @@ public:
   bool IsLibraryScanning() const { return mLibraryScanning; }
   std::string GetCaptureStatus() const;
   std::shared_ptr<const nam_library::Snapshot> GetCaptureLibrary() const;
-  // Browser stars are a personal, per-user mark in the settings file; they never touch
-  // parameters, rig state or audio. Unrated keys read 0; Cycle cycles 0 -> 1 -> 2 -> 3 -> 0 and
-  // returns false when the settings file cannot be written (the star still holds in memory).
+  // Browser stars are a personal mark in favorites.json beside the user's presets; they never
+  // touch parameters, rig state or audio. Unrated keys read 0; Cycle cycles 0 -> 1 -> 2 -> 3 -> 0
+  // and returns false when favorites.json cannot be written (the star still holds in memory).
   int GetLibraryStar(const std::string& key) const;
-  std::map<std::string, int> GetLibraryStars() const;
-  bool CycleLibraryStar(const std::string& key);
+  nam_library::Stars GetLibraryStars() const;
+  std::filesystem::path GetFavoritesFolder() const;
+  bool CycleLibraryStar(const std::string& key, const std::string& name);
   void ReloadLibraryStars();
   nam_library::Filter GetCaptureFilter() const;
   void SetCaptureFilter(nam_library::Filter filter);
@@ -380,7 +381,7 @@ private:
   size_t mPreviewSlot = 0;
   std::map<std::pair<SlotEffect, std::string>, SlotConfig> mPreviewChoices;
   nam_library::Filter mCaptureFilter;
-  std::map<std::string, int> mLibraryStars;
+  nam_library::Stars mLibraryStars;
   bool mLibraryScanning = false;
   bool mLibraryIndexed = false;
   bool mRescanOnStartup = true;

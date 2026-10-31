@@ -185,7 +185,6 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mShowVisualizations = librarySettings.showVisualizations;
   mShowMainMacros = librarySettings.showMainMacros;
   mPresetCrossfade = librarySettings.presetCrossfade;
-  mLibraryStars = librarySettings.stars;
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
@@ -1250,36 +1249,52 @@ int NeuralAmpModeler::GetLibraryStar(const std::string& key) const
 {
   const auto guard = _LockControls();
   const auto star = mLibraryStars.find(key);
-  return star == mLibraryStars.end() ? 0 : star->second;
+  return star == mLibraryStars.end() ? 0 : star->second.level;
 }
 
-std::map<std::string, int> NeuralAmpModeler::GetLibraryStars() const
+nam_library::Stars NeuralAmpModeler::GetLibraryStars() const
 {
   const auto guard = _LockControls();
   return mLibraryStars;
 }
 
-bool NeuralAmpModeler::CycleLibraryStar(const std::string& key)
+std::filesystem::path NeuralAmpModeler::GetFavoritesFolder() const
+{
+  const auto guard = _LockControls();
+  return nam_library::FavoritesFolder(mPresetFolders);
+}
+
+bool NeuralAmpModeler::CycleLibraryStar(const std::string& key, const std::string& name)
 {
   const auto guard = _LockControls();
   if (key.empty()) return true;
   const int level = nam_library::NextStar(GetLibraryStar(key));
-  // Read first, so stars changed by another instance and the file's other settings survive.
-  auto settings = nam_library::ReadSettings(CaptureSettingsFile());
-  if (level == 0) settings.stars.erase(key);
-  else settings.stars[key] = level;
-  const bool saved = nam_library::WriteSettings(CaptureSettingsFile(), settings);
-  if (saved) mLibraryStars = std::move(settings.stars);
+  // Read first, so stars changed by another instance (or a synced copy) survive the write.
+  const auto file = nam_library::FavoritesFile(mPresetFolders, user_paths::ConfigFolder());
+  // A damaged file is left for the user to repair: the star then lasts only for this session.
+  auto stars = nam_library::ReadFavorites(file);
+  if (stars)
+  {
+    if (level == 0) stars->erase(key);
+    else (*stars)[key] = {level, name};
+  }
+  const bool saved = stars && nam_library::WriteFavorites(file, *stars);
+  if (saved) mLibraryStars = std::move(*stars);
   else if (level == 0) mLibraryStars.erase(key);
-  else mLibraryStars[key] = level;
+  else mLibraryStars[key] = {level, name};
   return saved;
 }
 
 void NeuralAmpModeler::ReloadLibraryStars()
 {
-  auto stars = nam_library::ReadSettings(CaptureSettingsFile()).stars;
+  std::filesystem::path file;
+  {
+    const auto guard = _LockControls();
+    file = nam_library::FavoritesFile(mPresetFolders, user_paths::ConfigFolder());
+  }
+  auto stars = nam_library::ReadFavorites(file);
   const auto guard = _LockControls();
-  mLibraryStars = std::move(stars);
+  if (stars) mLibraryStars = std::move(*stars); // A damaged file keeps this session's stars.
 }
 
 nam_library::Filter NeuralAmpModeler::GetCaptureFilter() const

@@ -357,3 +357,23 @@ to the relevant PR. Only enduring instructions belong in this guide.
 
 For a standalone comparison of direct, uniform FFT, two-stage FFT and WDL
 convolution, see [IR engine comparison](ir-convolution-comparison.md).
+
+## Offline preset audition
+
+Build `nam-fx-audition` explicitly to render factory module recipes through the
+CLAP plugin without an editor or audio device:
+
+```sh
+cmake --build build/windows/release --target nam-fx-audition
+NAM_AUDITION_MODULE="Digital Delay" NAM_AUDITION_PRESET="Quiet ducked support" \
+  NAM_AUDITION_BPM=90 build/windows/release/NeuralAmpModeler/nam-fx-audition \
+  build/windows/release/out/nam-grid.clap tmp/delay-audition factory
+```
+
+The optional module and preset filters use exact display names. Host tempo
+defaults to 120 BPM; `NAM_AUDITION_BPM` accepts 30–300. Factory exports include
+loadable rigs, mixed plucks and impulses, and longer isolated wet impulses.
+`NAM_AUDITION_GUITAR` can name mono little-endian float32 audio at 48 kHz for
+additional guitar renders. WAV files retain the recipe's Mix and Output without
+normalization; wet impulses override Mix to isolate the response. Measurements
+can verify timing, levels and stability, but do not replace listening.

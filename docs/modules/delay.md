@@ -16,6 +16,50 @@ Routing's **Keep dry level** toggle applies to every delay and reverb in the rig
 | [Dual Delay](#dual-delay) | Two delays; Time ratio sets the second rhythm. |
 | [Diffused Delay](#diffused-delay) | Repeats smear into stereo clouds as Diffusion rises. |
 
+## Factory starting points
+
+For ordinary support behind your guitar, the insertion sounds are deliberately
+moderate; **Reset** restores them. Use **Presets** for a different playing role,
+then adjust Mix in the rig. These recipes assume an insert after the amp.
+
+| Module | Useful starting point | Why choose it |
+| --- | --- | --- |
+| Digital Delay | Quiet ducked support | A low-mix quarter-note echo that stays behind playing and recovers in the gaps; Crossfade follows tempo jumps without a pitch bend. |
+| Analog Echo | Warm lead repeats; Bright dotted echoes | Choose soft, dark lead support or a clearer dotted-eighth rhythm with restrained modulation. |
+| Tape Echo | Rock lead echo; Clean dotted tape | A quiet, short lead repeat or a brighter synced rhythm with light saturation and wobble. |
+| Multi-head Tape | Sparse stereo heads | Half-time on the left and full-time on the right; fewer taps than the rolling and cascade patterns. |
+| Reverse Delay | Short reverse texture | A short capture window and modest mix under your dry attack; Reverse half notes gives longer reversed phrases. |
+| Dual Delay | Tight stereo double | Two short taps with no feedback, for light width; Quarter and dotted eighth gives an interlocking rhythm instead. |
+| Diffused Delay | Gentle pad echoes | Moderate feedback and diffusion soften sustained notes; Echo into cloud is the longer, more diffuse alternative. |
+
+**Timing:** at 120 BPM, a quarter note is 500 ms and a dotted eighth is 375 ms.
+Sparse stereo heads puts the left head at half the quarter-note Time (250 ms)
+and the right at full Time (500 ms). Tight stereo double instead uses fixed
+80/100 ms left/right taps; it is not tempo-synced. Reverse Delay's Time is a
+capture-window length, so do not treat it as the time of a conventional first echo.
+
+**Use the differences:** Analog Echo darkens and saturates successive repeats;
+Tape Echo has a different saturation and wobble character. The two dotted recipes
+share a rhythm so you can compare their color. Multi-head Tape reads several
+positions in one tape pattern; Dual Delay has two independently timed taps.
+Diffused Delay smears attacks rather than merely turning down the high cut.
+
+Start with modest Feedback, then raise Mix until the first repeats support the
+part. Lower High cut if echoes compete with the pick attack; keep modulation low
+for tight rhythm. Digital Delay's Ducking makes space while notes sound. A
+longer Duck release keeps echoes down through short gaps; a shorter release lets
+them return sooner. Check stereo recipes folded to mono as well as in stereo.
+
+These choices draw on the author's personal ValhallaDelay Analog Past,
+ChromeTape for Pads and Space 1 settings and Valhalla DSP's
+[Controls](https://valhalladsp.com/2019/04/16/valhalladelay-the-controls/),
+[Style](https://valhalladsp.com/2019/04/16/valhalladelay-the-style-control/) and
+[Diffusion](https://valhalladsp.com/2019/06/13/valhalladelay-the-diffusion-section/)
+guides. They adapt playing roles, not normalized preset values or exact sounds.
+For example, NAM Grid's Analog Echo does not have ValhallaDelay's ducking, and
+Tape Echo does not expose its diffusion controls. Quiet ducked support uses
+Digital Delay, while Gentle pad echoes uses Diffused Delay.
+
 ## Digital Delay
 
 ![Digital Delay editor](../screenshots/modules/digital-delay.png)

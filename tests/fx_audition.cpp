@@ -4,6 +4,7 @@
 #include "../NeuralAmpModeler/ModulePresets.h"
 #include "../NeuralAmpModeler/RigPreset.h"
 #include <iomanip>
+#include <cstdlib>
 
 // Offline audition/export tool; never opens an audio device or plays sound.
 using Audio = std::array<std::vector<double>, 2>;
@@ -69,6 +70,14 @@ int main(int argc,char** argv)
     Stream bytes; bytes.string("###nam-grid###"); bytes.string(config.dump());
     clap_istream streamIn{&bytes,Stream::read}; assert(state->load(plugin,&streamIn));
   };
+  // Optional tempo for synced factory recipes; always send explicit host tempo.
+  double bpm=120.;
+  if (const char* value=std::getenv("NAM_AUDITION_BPM"))
+  {
+    char* end=nullptr; bpm=std::strtod(value,&end);
+    if (end==value || *end!='\0' || !std::isfinite(bpm) || bpm<30. || bpm>300.)
+    { std::cerr<<"NAM_AUDITION_BPM must be a number from 30 to 300\n"; return 1; }
+  }
   constexpr int rate=48000, block=128;
   clap_input_events empty{nullptr,[](const clap_input_events*)->uint32_t{return 0;},
     [](const clap_input_events*,uint32_t)->const clap_event_header*{return nullptr;}};
@@ -86,6 +95,10 @@ int main(int argc,char** argv)
     clap_audio_buffer input{nullptr,inputs,2,0,0},output{nullptr,outputs,2,0,0};
     clap_process process{}; process.audio_inputs=&input; process.audio_outputs=&output;
     process.audio_inputs_count=process.audio_outputs_count=1; process.in_events=&empty; process.out_events=&sent;
+    clap_event_transport transport{};
+    transport.header.size=sizeof(transport); transport.header.type=CLAP_EVENT_TRANSPORT;
+    transport.header.space_id=CLAP_CORE_EVENT_SPACE_ID; transport.flags=CLAP_TRANSPORT_HAS_TEMPO;
+    transport.tempo=bpm; process.transport=&transport;
     double seconds=0.;
     for(int pos=0;pos<count;pos+=block)
     {
@@ -131,6 +144,9 @@ int main(int argc,char** argv)
     }
     const char* capture=std::getenv("NAM_AUDITION_CAPTURE");
     const char* onlyModule=std::getenv("NAM_AUDITION_MODULE");
+    // Optional exact recipe name for focused tempo comparisons.
+    const char* onlyPreset=std::getenv("NAM_AUDITION_PRESET");
+    int renderedPresets=0;
     if (onlyModule)
     {
       bool found=false;
@@ -175,6 +191,8 @@ int main(int argc,char** argv)
         };
         const auto config=place(base,0);
         const auto label=std::to_string(id)+"-"+std::to_string(index++);
+        if (onlyPreset && std::strcmp(onlyPreset,preset.name)!=0) continue;
+        ++renderedPresets;
         auto rig=config; rig["PresetName"]=std::string(SlotEffectName(effect))+" - "+preset.name;
         rig_preset::Write(destination/(label+".ngrid"),rig);
         // Keep the mixed response for comparing echo levels to dry, and
@@ -219,6 +237,7 @@ int main(int argc,char** argv)
         }
       }
     }
+    if (!renderedPresets) { std::cerr<<"No matching factory presets\n"; return 1; }
   }
   else
   {

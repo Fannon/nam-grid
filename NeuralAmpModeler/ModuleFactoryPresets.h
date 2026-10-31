@@ -119,6 +119,13 @@ inline const Preset pedalDrive[]{
 };
 
 // Delay levels: one loud repeat for slapback, two to four repeats for rhythmic and lead echoes.
+// New recipes favor practical gaps: quiet ducked support, brighter synced analog/tape,
+// sparse stereo heads, short reverse texture, stereo doubling and moderate pad echoes.
+// The author's ValhallaDelay Analog Past, ChromeTape for Pads and Space 1 presets
+// inform these roles, not parameter conversions: NAM Grid uses different DSP and
+// does not combine ducking, saturation, diffusion and independent L/R sync in one module.
+// References: https://valhalladsp.com/2019/04/16/valhalladelay-the-controls/
+// https://valhalladsp.com/2019/04/16/valhalladelay-the-style-control/
 inline const Preset digitalDelay[]{
   {"Slapback",
    {{U(uDelayTime), 110.}, {U(uDelayFeedback), 0.}, {U(uDelayTone), 8000.}, {U(uDelayCharacter), 0.},
@@ -133,36 +140,49 @@ inline const Preset digitalDelay[]{
   {"Quarter-note ping-pong",
    {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.},
     {U(uDelayTone), 6000.}, {U(uDelayCharacter), 0.}, {U(uDelayMix), 30.}}},
+  {"Quiet ducked support", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayTimeChange), 1.},
+    {U(uDelayFeedback), 28.}, {U(uDelayTone), 6500.}, {U(uDelayCharacter), 70.}, {U(uDuckRelease), 220.}, {U(uDelayMix), 12.}}},
 };
 inline const Preset analogDelay[]{
   {"Warm lead repeats", {{U(uDelayTime), 420.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 3200.}, {U(uDelayCharacter), 40.}, {U(uDelayMix), 30.}}},
   {"Dark modulated wash", {{U(uDelayTime), 600.}, {U(uDelayFeedback), 55.}, {U(uDelayTone), 2400.}, {U(uDelayCharacter), 50.}, {U(uDelayMotion), 40.}, {U(uDelayMix), 30.}}},
   // Single dark, saturated repeat, as with analog slapback pedals.
   {"Dark slapback", {{U(uDelayTime), 120.}, {U(uDelayFeedback), 5.}, {U(uDelayTone), 2800.}, {U(uDelayCharacter), 45.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 40.}}},
+  {"Bright dotted echoes", {{U(uTempoSync), 1.}, {U(uTempoDivision), 4.}, {U(uDelayFeedback), 30.},
+    {U(uDelayTone), 6500.}, {U(uDelayCharacter), 15.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 22.}}},
 };
 inline const Preset tapeDelay[]{
   {"Tape slapback", {{U(uDelayTime), 120.}, {U(uDelayFeedback), 5.}, {U(uDelayTone), 5500.}, {U(uDelayCharacter), 25.}, {U(uDelayMotion), 8.}, {U(uDelayMix), 35.}}},
   {"Worn tape repeats", {{U(uDelayTime), 430.}, {U(uDelayFeedback), 38.}, {U(uDelayTone), 3000.}, {U(uDelayCharacter), 55.}, {U(uDelayMotion), 35.}, {U(uDelayMix), 30.}}},
   // About one quiet 300 ms repeat: the classic rock lead echo of an EP-3.
   {"Rock lead echo", {{U(uDelayTime), 300.}, {U(uDelayFeedback), 8.}, {U(uDelayTone), 4500.}, {U(uDelayCharacter), 30.}, {U(uDelayMotion), 12.}, {U(uDelayMix), 25.}}},
+  {"Clean dotted tape", {{U(uTempoSync), 1.}, {U(uTempoDivision), 4.}, {U(uDelayFeedback), 28.},
+    {U(uDelayTone), 6000.}, {U(uDelayCharacter), 12.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 22.}}},
 };
 inline const Preset multiHead[]{
   {"Rolling three heads", {{U(uTapeHeads), 2.}, {U(uDelayTime), 600.}, {U(uDelayFeedback), 28.}, {U(uDelayMix), 28.}}},
   {"Stereo cascade", {{U(uTapeHeads), 7.}, {U(uTempoSync), 1.}, {U(uTempoDivision), 7.}, {U(uDelayFeedback), 35.}, {U(uDelayMix), 28.}}},
   {"All-head wash", {{U(uTapeHeads), 3.}, {U(uDelayTime), 850.}, {U(uDelayFeedback), 55.}, {U(uDelayTone), 3000.}, {U(uDelayCharacter), 40.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 30.}}},
+  {"Sparse stereo heads", {{U(uTapeHeads), 6.}, {U(uTempoSync), 1.}, {U(uTempoDivision), 5.},
+    {U(uDelayFeedback), 22.}, {U(uDelayTone), 6000.}, {U(uDelayCharacter), 15.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 20.}}},
 };
 inline const Preset reverseDelay[]{
   {"Reverse half notes", {{U(uTempoSync), 1.}, {U(uTempoDivision), 7.}, {U(uReverseFeedback), 25.}, {U(uDelayTone), 4500.}, {U(uDelayMix), 35.}}},
   // Mostly reversed playing, like a backwards-tape solo.
   {"Reversed solo", {{U(uDelayTime), 750.}, {U(uReverseFeedback), 30.}, {U(uDelayTone), 5000.}, {U(uDelayMix), 70.}}},
+  {"Short reverse texture", {{U(uDelayTime), 220.}, {U(uReverseFeedback), 0.}, {U(uDelayTone), 6500.}, {U(uDelayMix), 22.}}},
 };
 inline const Preset dualDelay[]{
   {"Quarter and dotted eighth", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDualRatio), .75}, {U(uDelayFeedback), 28.}, {U(uDelayMix), 30.}}},
   {"Wide ping-pong", {{U(uDelayTime), 350.}, {U(uDualRatio), 1.5}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.}, {U(uDelayMix), 28.}}},
+  {"Tight stereo double", {{U(uDelayTime), 80.}, {U(uDualRatio), 1.25}, {U(uDualBalance), 50.},
+    {U(uDelayFeedback), 0.}, {U(uDelayTone), 8000.}, {U(uDelayPingPong), 0.}, {U(uDelayMix), 15.}}},
 };
 inline const Preset diffusedDelay[]{
   {"Echo into cloud", {{U(uDelayTime), 650.}, {U(uDelayFeedback), 60.}, {U(uDelayDiffusion), 85.}, {U(uDelayTone), 4500.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 32.}}},
   {"Soft echo clusters", {{U(uDelayTime), 320.}, {U(uDelayFeedback), 30.}, {U(uDelayDiffusion), 40.}, {U(uDelayMix), 22.}}},
+  {"Gentle pad echoes", {{U(uDelayTime), 550.}, {U(uDelayFeedback), 37.}, {U(uDelayDiffusion), 68.},
+    {U(uDelayTone), 4500.}, {U(uDelayMotion), 15.}, {U(uDelayMix), 22.}}},
 };
 
 inline const Preset room[]{

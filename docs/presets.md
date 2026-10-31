@@ -87,6 +87,12 @@ is the restrained Galactic Space option. Cosmic Echo's **Compact Gemini room**
 and **Photon lead plate** are its most immediate starting points; **Soft ambient
 bed** adds moderate, gently moving sustain for picked chords.
 
+For delays, **Quiet ducked support**, **Rock lead echo** and **Gentle pad echoes**
+keep the guitar in front. **Bright dotted echoes**, **Clean dotted tape** and
+**Sparse stereo heads** add synchronized rhythms. See the
+[delay starting points](modules/delay.md#factory-starting-points) for timing and
+texture differences.
+
 The longer swells and washes are deliberate ambient choices. Leave space between
 phrases and set Mix against your dry guitar. Use the module's Reset action to
 return to its insertion sound.
@@ -108,8 +114,13 @@ staging, with normal playing peaking around -9 dBFS.
 | Filter, Wah, Auto Swell | Touch wah; Cocked wah, throaty and lead bite; Slow chord bloom |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push; Warm tube edge; Hard rhythm, Octave-up fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
-| Digital Delay, Analog Echo, Tape Echo | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong; Warm lead repeats, Dark modulated wash, Dark slapback; Tape slapback, Worn tape repeats, Rock lead echo |
-| Multi-head Tape, Reverse, Dual and Diffused Delay | Rolling three heads, Stereo cascade, All-head wash; Reverse half notes, Reversed solo; Quarter and dotted eighth, Wide ping-pong; Echo into cloud, Soft echo clusters |
+| Digital Delay | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support |
+| Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes |
+| Tape Echo | Tape slapback, Worn tape repeats, Rock lead echo, Clean dotted tape |
+| Multi-head Tape | Rolling three heads, Stereo cascade, All-head wash, Sparse stereo heads |
+| Reverse Delay | Reverse half notes, Reversed solo, Short reverse texture |
+| Dual Delay | Quarter and dotted eighth, Wide ping-pong, Tight stereo double |
+| Diffused Delay | Echo into cloud, Soft echo clusters, Gentle pad echoes |
 | Room | Live room, Small amp room |
 | Dense Plate | Short bright plate, Singing lead plate, Warm rhythm plate |
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |

@@ -249,14 +249,16 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       if (!error.empty() && GetUI()) _ShowMessageBox(GetUI(), error.c_str(), "New rig", EMsgBoxType::kMB_OK);
     }, "New", grid_ui::Icon::New, true), kCtrlTagPresetNew)->SetTooltip("New rig: start an empty rig. Library folders and tuner settings stay.");
     ui->AttachControl(new NAMRigSaveControl(header(saveLeft, saveLeft + fileButtonWidth)), kCtrlTagPresetSave);
-    ui->AttachControl(new grid_ui::Button(header(modulationLeft, modulationRight), [](IControl* caller) {
+    ui->AttachControl(new grid_ui::Button(header(modulationLeft, modulationRight), [this](IControl* caller) {
+      CloseSignalMonitor();
       caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
       caller->GetUI()->GetControlWithTag(kCtrlTagPerformance)->Hide(false);
     }, "Modulation", grid_ui::Icon::Modulation))->SetTooltip("Modulation sources, macros and the modulation matrix.");
     ui->AttachControl(new grid_ui::Button(
       header(settingsLeft, settingsRight),
-      [](IControl* caller) {
+      [this](IControl* caller) {
+        CloseSignalMonitor();
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
@@ -282,9 +284,17 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       ->SetTooltip("Final output gain after the complete grid.");
     // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
     // A small gap separates them from the first and last cards' own level strips.
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(72 + gridOffset, 68, 79 + gridOffset, 140), IRECT(4, 140, sidebarRight, 158)), kCtrlTagInputMeter);
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(width - 74, 380, width - 67, 452), IRECT(width - 68, 450, width, 468)), kCtrlTagOutputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(72 + gridOffset, 68, 79 + gridOffset, 140), IRECT(4, 140, sidebarRight, 158), -1), kCtrlTagInputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(width - 74, 380, width - 67, 452), IRECT(width - 68, 450, width, 468), 16), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridMacroControl(IRECT(0, 170, sidebarRight, 468)), kCtrlTagMainMacros)->Hide(!mShowMainMacros);
+    // The gaps between cards expose the output of the preceding physical slot.
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      const float left = cardLeft + columnPitch * (slot % 4) + 188.f;
+      const float y = cardTop + rowPitch * (slot / 4) + cardHeight * .5f;
+      ui->AttachControl(new grid_ui::MonitorTap(IRECT(left, y - 12, left + (slot == 15 ? 10.f : 24.f), y + 12), slot));
+    }
+    ui->AttachControl(new NAMGridSignalMonitorControl(IRECT(0, editorTop, width, height)), kCtrlTagSignalMonitor)->Hide(true);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);
     ui->AttachControl(new NAMGridTunerControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagTuner)->Hide(true);
     ui->AttachControl(new NAMGridRoutingControl(IRECT(0, grid_layout::editorTop, grid_layout::width, grid_layout::height)), kCtrlTagRouting)->Hide(true);
@@ -296,6 +306,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         return keyUp || browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
       auto* performance = ui->GetControlWithTag(kCtrlTagPerformance);
       if (!keyUp && key.VK == kVK_ESCAPE && !performance->IsHidden()) { performance->Hide(true); return true; }
+      if (!keyUp && key.VK == kVK_ESCAPE && IsSignalMonitorOpen()) { CloseSignalMonitor(); return true; }
       auto* tuner = ui->GetControlWithTag(kCtrlTagTuner);
       if (!keyUp && key.VK == kVK_ESCAPE && !tuner->IsHidden())
       {
@@ -427,6 +438,23 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     if (slot >= 0 && slot < static_cast<int>(FixedNAMGrid::kSlots)) grid.stages[slot].AttachCapture(&mSignalCapture);
     mCaptureSlot = slot; mCaptureGrid = mAudibleGrid;
   }
+  const unsigned monitorRequest = mMonitorRequest.load(std::memory_order_acquire);
+  const int monitorPoint = metering ? static_cast<int>(monitorRequest & 31u) - 3 : -3;
+  const unsigned monitorGeneration = monitorRequest >> 5;
+  if (monitorPoint != mAudioMonitorPoint || monitorGeneration != mAudioMonitorGeneration || mAudioMonitorGrid != mAudibleGrid)
+  {
+    mMonitorCapture.Clear(); mMonitorAccumulator = {};
+    mAudioMonitorPoint = monitorPoint; mAudioMonitorGeneration = monitorGeneration; mAudioMonitorGrid = mAudibleGrid;
+  }
+  for (int i = 0; i < 2; ++i)
+    mGrids[i].AttachMonitor(i == mAudibleGrid ? monitorPoint : -3,
+      monitorPoint >= 0 && monitorPoint < 16 ? &mMonitorCapture : nullptr, &mMonitorAccumulator);
+  if (monitorPoint == -1)
+    for (int i = 0; i < nFrames; ++i)
+    {
+      mMonitorCapture.Push(mInputPointers[0][i], mInputPointers[1][i]);
+      mMonitorAccumulator.Push(mInputPointers[0][i], mInputPointers[1][i]);
+    }
   // A dip leaves the incoming rig silent at first; it starts once it becomes audible.
   const bool incoming = !switching || mRigTransition.IncomingAudible(nFrames);
   mLastModulated = incoming && mModulation.Active(performance);
@@ -519,7 +547,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   mNoteCount = 0; // Notes act within their own block only.
   if (metering) mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));
-  if (mMeterFrames >= meterInterval)
+  const bool sendMeters = mMeterFrames >= meterInterval;
+  if (sendMeters)
   {
     mMeterFrames %= meterInterval;
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
@@ -543,6 +572,21 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   if (metering)
     mOutputSender.ProcessBlock(
       outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
+  if (monitorPoint == 16)
+    for (int i = 0; i < nFrames; ++i)
+    {
+      const double l = outputs[0][i], r = numChannelsExternalOut > 1 ? outputs[1][i] : l;
+      mMonitorCapture.Push(l, r); mMonitorAccumulator.Push(l, r);
+    }
+  if (sendMeters && monitorPoint != -3)
+  {
+    auto& packet = mMonitorPacket.vals[0];
+    packet.point = monitorPoint; packet.generation = monitorGeneration;
+    packet.meter = mMonitorAccumulator; mMonitorAccumulator = {};
+    packet.hasWindow = mMonitorCapture.Take(packet.window);
+    mMonitorSender.PushData(mMonitorPacket);
+  }
+
 }
 
 void NeuralAmpModeler::OnReset()
@@ -570,6 +614,7 @@ void NeuralAmpModeler::OnReset()
     std::fill(channel.begin(), channel.end(), 0.);
 
   _UpdateTailSize();
+  mMonitorCapture.Clear(); mMonitorAccumulator = {}; mAudioMonitorGrid = -1;
   mInputSender.Reset(sampleRate);
   mOutputSender.Reset(sampleRate);
   // Adopt pending slots and prepare them for the new rate and maximum block. Any rig
@@ -724,6 +769,7 @@ void NeuralAmpModeler::SelectSlot(size_t slot)
 {
   if (slot >= FixedNAMGrid::kSlots)
     return;
+  CloseSignalMonitor();
   mSelectedSlot = slot;
   if (mRoutingOpen) SetRoutingOpen(false); // Choosing a slot shows its editor again.
   // The Tuner button works like selecting a module: choosing a slot leaves the tuner.
@@ -750,6 +796,7 @@ void NeuralAmpModeler::OpenLibraryBrowser(nam_library::BrowserContext context, n
   {
     ui->GetControlWithTag(kCtrlTagSettingsBox)->Hide(true);
     ui->GetControlWithTag(kCtrlTagPerformance)->Hide(true);
+    CloseSignalMonitor();
     ui->GetControlWithTag(kCtrlTagTuner)->Hide(true);
     ui->GetControlWithTag(kCtrlTagLibraryBrowser)->As<NAMLibraryBrowserControl>()->Open(context, kind, slot);
   }
@@ -1197,7 +1244,7 @@ void NeuralAmpModeler::SetPresetCrossfade(bool enabled)
 void NeuralAmpModeler::SetShowVisualizations(bool enabled)
 {
   mShowVisualizations = enabled;
-  mSpectrumSlot.store(enabled ? static_cast<int>(mSelectedSlot) : -1, std::memory_order_relaxed);
+  mSpectrumSlot.store(enabled && !IsSignalMonitorOpen() ? static_cast<int>(mSelectedSlot) : -1, std::memory_order_relaxed);
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
   settings.showVisualizations = enabled;
   mLibraryDefaultSaveFailed = !nam_library::WriteSettings(CaptureSettingsFile(), settings);
@@ -1372,6 +1419,7 @@ void NeuralAmpModeler::OnIdle()
   mOutputSender.TransmitData(*this);
   mSlotMeterSender.TransmitData(*this);
   mSlotSignalSender.TransmitData(*this);
+  mMonitorSender.TransmitData(*this);
 }
 
 // First state schema that saved a host parameter. Older states default it; a
@@ -1850,6 +1898,7 @@ void NeuralAmpModeler::OnParamReset(iplug::EParamSource)
 
 void NeuralAmpModeler::OnUIClose()
 {
+  CloseSignalMonitor();
   mEditorOpen.store(false, std::memory_order_relaxed);
   EndSlotPreview(false);
   iplug::Plugin::OnUIClose();
@@ -1887,9 +1936,45 @@ void NeuralAmpModeler::ProcessMidiMsg(const IMidiMsg& msg)
     mNoteFrames[mNoteCount++] = std::max(0, msg.mOffset);
 }
 
+void NeuralAmpModeler::ShowSignalMonitor(int point)
+{
+  if (point < -1 || point > 16) return;
+  auto* ui = GetUI();
+  if (!ui) return;
+  if (IsSignalMonitorOpen() && mMonitorPoint.load(std::memory_order_relaxed) == point)
+  { CloseSignalMonitor(); return; }
+  if (IsTunerActive()) grid_ui::DisableTunerFromUI(ui);
+  if (mRoutingOpen) SetRoutingOpen(false);
+  mMonitorPoint.store(point, std::memory_order_relaxed);
+  mSpectrumSlot.store(-1, std::memory_order_relaxed);
+  ++mMonitorGeneration;
+  auto* monitor = ui->GetControlWithTag(kCtrlTagSignalMonitor)->As<NAMGridSignalMonitorControl>();
+  monitor->Reset(point); monitor->Hide(false);
+  mMonitorRequest.store((mMonitorGeneration << 5) | static_cast<unsigned>(point + 3), std::memory_order_release);
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot))->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
+  ui->SetAllControlsDirty();
+}
+
+void NeuralAmpModeler::CloseSignalMonitor()
+{
+  if (!IsSignalMonitorOpen()) return;
+  mMonitorPoint.store(-3, std::memory_order_relaxed);
+  mSpectrumSlot.store(mShowVisualizations ? static_cast<int>(mSelectedSlot) : -1, std::memory_order_relaxed);
+  mMonitorRequest.store(++mMonitorGeneration << 5, std::memory_order_release);
+  if (auto* ui = GetUI())
+  {
+    ui->GetControlWithTag(kCtrlTagSignalMonitor)->Hide(true);
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+      ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot))->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
+    ui->SetAllControlsDirty();
+  }
+}
+
 void NeuralAmpModeler::SetRoutingOpen(bool open)
 {
   auto* ui = GetUI();
+  if (open) CloseSignalMonitor();
   if (open && IsTunerActive() && ui) grid_ui::DisableTunerFromUI(ui);
   mRoutingOpen = open;
   if (!ui) return;
@@ -1918,6 +2003,7 @@ void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 
 void NeuralAmpModeler::_RefreshParamDependentUI(bool tunerChanged)
 {
+  if (tunerChanged && IsTunerActive()) CloseSignalMonitor();
   if (tunerChanged && IsTunerActive())
     if (auto* ui = GetUI())
     {

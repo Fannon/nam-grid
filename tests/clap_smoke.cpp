@@ -1854,6 +1854,41 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_KEYUP, key, 0);
     assert(SetKeyboardState(previous)); pumpFor(20);
   };
+  // On-demand inspection must cover the module's controls without changing the
+  // rig. Exercise both meters and every wire, then each supported way back.
+  {
+    auto rig = browserState;
+    rig["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
+    const int knobX = grid_layout::KnobX(1), knobY = grid_layout::KnobGestureY(1);
+    for (int point = -1; point <= 16; ++point)
+    {
+      load(rig); selectTile(170, 120);
+      const auto before = save().config();
+      const int x = point == -1 ? 95 : point == 16 ? grid_layout::width - 71
+        : grid_layout::cardLeft + grid_layout::columnPitch * (point % 4) + (point == 15 ? 193 : 200);
+      const int y = point == -1 ? 80 : point == 16 ? 390
+        : grid_layout::cardTop + grid_layout::rowPitch * (point / 4) + grid_layout::cardHeight / 2;
+      click(x, y); dragAt(knobX, knobY);
+      assert(save().config() == before); // The measurement panel owns the lower editor.
+      if (argc == 4 && point == -1) CaptureEditor(editor, std::filesystem::path(argv[3]) / "signal-monitor-input.bmp");
+      switch ((point + 1) % 5)
+      {
+        case 0: keyAtEditor(VK_ESCAPE); break;
+        case 1: click(x, y); break;
+        case 2: click(520, 500); break;
+        case 3: selectTile(170, 120); break;
+        case 4:
+          click((grid_layout::tunerLeft + grid_layout::tunerRight) / 2, grid_layout::headerY);
+          assert(save().config()["Tuner"] == 1.);
+          click((grid_layout::tunerLeft + grid_layout::tunerRight) / 2, grid_layout::headerY);
+          break;
+      }
+      dragAt(knobX, knobY);
+      assert(save().config()["Pre 1 Utility Width"] != before["Pre 1 Utility Width"]);
+    }
+    load(browserState); selectTile(170, 120);
+    std::cout << "On-demand monitor meters, wire taps, state isolation and panel exits passed\n";
+  }
   const auto typeBrowserSearch = [&](const std::string& query) {
     if (IsWindowVisible(editor)) assert(GetFocus() == editor);
     for (const char ch : query) keyAtEditor(ch == ' ' ? VK_SPACE : ch);

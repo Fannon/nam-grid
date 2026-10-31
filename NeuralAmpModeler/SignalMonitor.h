@@ -22,6 +22,15 @@ struct Accumulator
     peak[0] = std::max(peak[0], std::abs(l)); peak[1] = std::max(peak[1], std::abs(r));
   }
 };
+// Transient UI packet; point IDs are input=-1, slot outputs=0..15, output=16.
+struct Packet
+{
+  grid_eq_signal::Window window;
+  Accumulator meter;
+  int point = -3;
+  unsigned generation = 0;
+  bool hasWindow = false;
+};
 // UI-side 300 ms exponential RMS/correlation; peaks cover every audio sample
 // received in meter packets, not merely the displayed FFT/waveform window.
 struct Meter

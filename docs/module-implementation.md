@@ -363,16 +363,21 @@ Coefficients update every 16 samples from smoothed gains. No latency.
 
 ## Signal Monitor
 
-Signal Monitor is a measurement tap, with no utility controls or new host
-parameters. Its stage returns the original samples directly, preserving signed
-zero and avoiding dry/wet rounding during enable ramps. Module replacement keeps
-the common transition fade. It reports no latency.
+The on-demand Signal Monitor is transient editor state, with no host parameters
+or saved rig fields. A block-boundary request selects input (after IN), one physical
+slot output, or final host output (after DC blocking, OUT gain and tuner mute).
+The audible grid copies the selected slot's output independently of its module,
+empty/bypass state or modulation quantum. Only one tap accumulates stereo peak,
+energy and cross-product; bounded packets carry a generation so queued data from
+an earlier selection cannot contaminate a newly opened view. Point and rig changes
+clear the capture. Closed editors and closed panels skip this measurement work.
+The UI calculates RMS/correlation with 300 ms exponential averaging; FFTs and
+drawing also run on the UI thread. Capture buffers are allocated off audio.
 
-The selected visible slot accumulates stereo peak, energy and cross-product in
-bounded meter packets; the UI calculates RMS/correlation with 300 ms exponential
-averaging. Capture buffers are prepared off audio. The shared signal window holds
-both channels for cancellation-safe stereo spectrum analysis; Utility's scope
-continues reading aligned newest samples. FFTs and drawing run on the UI thread.
+The legacy module identity remains loadable but is absent from insertion menus.
+Its stage still returns the original samples directly, preserving signed zero
+and avoiding dry/wet rounding during enable ramps. Replacement retains the common
+transition fade. It reports no latency and adds no controls.
 
 The UI draws the spectrum at 384 log-spaced points: wide bands keep their loudest
 bin, while low points interpolate inside one 4096-point FFT bin. A 6-second power
@@ -382,9 +387,9 @@ strongest three, a third-octave apart. Level history uses 50 ms columns of recei
 audio frames, not packet timing, keeping the louder channel's sample peak and RMS
 for 20 seconds of monitoring. A packet that spans a column edge marks both columns
 with its peak.
-Closing the editor, hiding visualizations, deselecting or disabling the monitor
-stops its analysis. The DSP tests check sample identity and zero audio allocations.
-
+Closing the panel or editor stops its analysis. Reopening or selecting another
+point resets history. DSP tests compare every slot tap to the existing follower
+tap and verify exact audio identity with zero audio allocations.
 
 ## Pitch Shift
 

@@ -108,9 +108,69 @@ inline void TestSignalMonitorSpectrum()
   assert(view.Settled());
 }
 
+// Compare the independent inspection tap against the existing follower tap, at
+// every physical slot, with crossover, bypass, empty slots and a batched prefix.
+inline void TestGridSignalMonitorTap()
+{
+  constexpr int frames = 128;
+  for (int point = 0; point < 16; ++point)
+  {
+    FixedNAMGrid observed, reference;
+    std::array<FixedNAMGrid::Controls, 16> controls{};
+    for (auto* grid : {&observed, &reference})
+    {
+      for (int slot : {0, 5, 9, 14})
+      {
+        SlotConfig config; config.effect = SlotEffect::Utility;
+        grid->stages[slot].Publish(PrepareSlot(config, 48000., frames).dsp);
+        controls[slot].trimDB = slot % 2 ? -6. : 3.;
+      }
+      grid->ResetStopped(48000., frames);
+      grid->SetTap(point);
+    }
+    controls[5].enabled = false;
+    SignalCapture capture;
+    signal_monitor::Accumulator measured, expected;
+    observed.AttachMonitor(point, &capture, &measured);
+    grid_performance::Routing routing; routing.crossover = true;
+    for (int block = 0; block < 40; ++block)
+    {
+      std::array<double, frames> l{}, r{};
+      for (int i = 0; i < frames; ++i)
+      { l[i] = .2 * std::sin((block * frames + i) * .071); r[i] = -.3 * std::cos((block * frames + i) * .043); }
+      auto dryL = l, dryR = r;
+      allocations = deletions = 0; tracking = true;
+      observed.ProcessInputPrefix(l.data(), frames, controls, 2, 16, r.data());
+      observed.Process(l.data(), frames, controls, .35, r.data(), routing, 2);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      reference.ProcessInputPrefix(dryL.data(), frames, controls, 2, 16, dryR.data());
+      reference.Process(dryL.data(), frames, controls, .35, dryR.data(), routing, 2);
+      assert(std::memcmp(l.data(), dryL.data(), sizeof(l)) == 0);
+      assert(std::memcmp(r.data(), dryR.data(), sizeof(r)) == 0);
+      for (int i = 0; i < frames; ++i) expected.Push(observed.TapLeft()[i], observed.TapRight()[i]);
+    }
+    assert(measured.frames == expected.frames && measured.frames == 40 * frames);
+    assert(measured.energy == expected.energy && measured.peak == expected.peak && measured.product == expected.product);
+    grid_eq_signal::Window window;
+    assert(capture.Take(window));
+    for (int i = 0; i < frames; ++i)
+    {
+      assert(window.samples[window.samples.size() - frames + i] == static_cast<float>(observed.TapLeft()[i]));
+      assert(window.right[window.right.size() - frames + i] == static_cast<float>(observed.TapRight()[i]));
+    }
+    const auto stopped = measured.frames;
+    observed.AttachMonitor(-3, nullptr, nullptr);
+    std::array<double, frames> silence{};
+    observed.Process(silence.data(), frames, controls, .35);
+    assert(measured.frames == stopped);
+  }
+}
+
 inline void TestSignalMonitor()
 {
   using namespace signal_monitor;
+  TestGridSignalMonitorTap();
   TestGoniometerBounds();
   TestSignalMonitorHistory();
   TestSignalMonitorSpectrum();

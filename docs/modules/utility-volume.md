@@ -5,7 +5,6 @@ Stereo utilities, volume swells and transparent signal inspection.
 | Module | In short |
 | --- | --- |
 | [Utility](#utility) | Balance, Width and polarity reshape stereo; Fine delay aligns paths. |
-| [Signal Monitor](#signal-monitor) | Stereo spectrum with resonance markers, peak/RMS meters, level history, headroom and correlation; audio passes unchanged. |
 | [Auto Swell](#auto-swell) | Threshold triggers the fade-in; Release closes the next gap. |
 
 ## Utility
@@ -51,11 +50,13 @@ A volume swell that removes the pick attack and fades each phrase in. Pause belo
 
 ## Signal Monitor
 
-![Signal Monitor editor](../screenshots/modules/signal-monitor.png)
-
-Place it anywhere to inspect that point in your rig. It has no sound controls,
-factory/user presets or added latency. Enabling or bypassing it does not change
-samples. Inserting or replacing modules still uses the normal transition fade.
+Click an input or output meter, or a small circular tap on the wire after a grid
+slot, to inspect the signal there. The monitor replaces the module editor without
+occupying a slot or changing the rig. Click another tap to move it. Click the same
+tap again, select a module or the tuner, press **Escape**, or click **Close** to leave.
+Input measures after IN gain; Output measures the final signal sent to the host,
+including OUT gain. Slot taps measure that slot's output, even when empty or
+bypassed; lane taps measure their own branch before the lane mix.
 
 - **Spectrum:** the louder channel at each frequency, rather than a mono sum.
   Opposite-polarity stereo cannot disappear from the spectrum through cancellation.
@@ -75,8 +76,9 @@ samples. Inserting or replacing modules still uses the normal transition fade.
 - **Correlation:** +1 for matching channels, −1 for opposite polarity and near
   zero for unrelated signals. Silence has no useful correlation and reads zero.
 
-Analysis runs only while the monitor is selected, enabled and visualizations are
-visible. Peak hold resets when monitoring resumes after a pause; the level history
-continues. Hover over each part for a short explanation. Use the global
-visualization setting to show or hide the display. Other modules' existing footer
-meters remain available for quick input/output comparisons.
+Analysis runs while this panel and the plugin editor are open, independently of
+the module visualization setting. Changing the measurement point or reopening the
+panel clears its history and held peaks. Hover over each part for an explanation.
+Other modules' footer meters remain available for quick input/output comparisons.
+Older rigs containing a Signal Monitor module still load with their original
+slot and unchanged audio; new monitors open from the meters or wires.

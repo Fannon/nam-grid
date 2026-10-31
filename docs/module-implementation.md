@@ -309,3 +309,15 @@ is buffered and there is no lookahead or compensation latency, so the first
 milliseconds of an attack pass before the boost or cut builds. It shapes the
 existing decay rather than synthesizing sustain. This is an original MIT
 design, not a circuit model or an SPL algorithm port.
+
+## Harmonic Tremolo
+
+Harmonic Tremolo runs in the shared modulation engine, so Rate, Tempo sync,
+Stereo phase and Mix behave as in Auto Tremolo. A critically damped (Q 0.5)
+TPT low-pass at Crossover forms the bass band; the treble band is the exact
+remainder, so the bands always sum to the input and Depth 0 is the input
+itself. Two gains in opposite phase dip the bands in turn, shaped by the same
+tanh pulse as Auto Tremolo. Early-1960s split-band amp tremolos used separate
+filters near 150 Hz and 650 Hz; one complementary split near their geometric
+middle keeps the alternation without their fixed mid scoop. Crossover updates
+on a 16-sample schedule from a smoothed control. No latency is added.

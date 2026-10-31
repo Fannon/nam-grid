@@ -158,7 +158,7 @@ int main(int argc,char** argv)
     const auto followsAmp=[](SlotEffect e) {
       switch (e)
       {
-        case SlotEffect::Chorus: case SlotEffect::JunoChorus: case SlotEffect::Flanger: case SlotEffect::Tremolo:
+        case SlotEffect::Chorus: case SlotEffect::JunoChorus: case SlotEffect::Flanger: case SlotEffect::Tremolo: case SlotEffect::HarmonicTremolo:
         case SlotEffect::Vibrato: case SlotEffect::Rotary: case SlotEffect::Doubler: case SlotEffect::Stutter:
         case SlotEffect::Freeze: case SlotEffect::LoFiTape: case SlotEffect::Limiter: case SlotEffect::ButterComp:
         case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ:

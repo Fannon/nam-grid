@@ -317,7 +317,7 @@ public:
     mRate = rate;
     mLine.Reset(static_cast<int>(.06 * rate));
     mControls.Reset(rate);
-    mSpread.Reset(rate); mExtension.Reset(rate); mRise = 0.;
+    mSpread.Reset(rate); mExtension.Reset(rate); mCrossover.Reset(rate); mRise = 0.; mSplit = {};
     mPhase = mFeedback = mEnv = mTone = 0.;
     mAllpass = {}; mFirstStages = true; mStageWeights = {0., 1., 0., 0.};
     mCounter = 0; mFirstVoices = true; mVoices = 0.;
@@ -331,6 +331,7 @@ public:
     mSpread.Target({right && effect != SlotEffect::Vibrato ? (effect == SlotEffect::Chorus ? controls.chorusSpread : controls.extra.modSpread) : 0.}, uChorusSpread);
     mExtension.Target({controls.extra.chorusDelay, controls.extra.flangerDelay, controls.extra.vibratoRise},
       std::array<int, 3>{uChorusDelay, uFlangerDelay, uVibratoRise});
+    if (effect == SlotEffect::HarmonicTremolo) mCrossover.Target({controls.extra.harmonicCrossover}, uHarmonicCrossover);
     const int stages = std::clamp(static_cast<int>(controls.extra.phaserStages), 0, 3);
     if (mFirstStages) { mStageWeights = {}; mStageWeights[stages] = 1.; mFirstStages = false; }
     const double voices = effect == SlotEffect::Chorus && controls.extra.chorusVoices >= .5 ? 1. : 0.;
@@ -357,6 +358,26 @@ public:
       {
         const double shape = 1. + 5. * character;
         wet = x * (1. - .5 * depth * (1. + std::tanh(shape * lfo) / mShape(shape, [](double s) { return std::tanh(s); })));
+      }
+      else if (effect == SlotEffect::HarmonicTremolo)
+      {
+        const double crossover = mCrossover.Tick()[0];
+        if (mCounter++ % 16 == 0)
+        {
+          mSplitG = std::tan(grid_fx::pi * std::min(crossover, .4 * mRate) / mRate);
+          mSplitA = 1. / (1. + mSplitG * (mSplitG + 2.));
+        }
+        mCounter %= 16;
+        // Critically damped (Q 0.5) TPT low-pass; the treble band is the exact remainder, so
+        // the bands always sum to the input and Depth 0 is the input itself.
+        const double band = mSplitA * (mSplit[0] + mSplitG * (x - mSplit[1]));
+        const double low = mSplit[1] + mSplitG * band;
+        mSplit[0] = grid_fx::Flush(2. * band - mSplit[0]);
+        mSplit[1] = grid_fx::Flush(2. * low - mSplit[1]);
+        const double shape = 1. + 5. * character;
+        const double swing = std::tanh(shape * lfo) / mShape(shape, [](double s) { return std::tanh(s); });
+        // Bass dips while treble returns, then the reverse: two gains in opposite phase.
+        wet = x - depth * (.5 * (1. + swing) * low + .5 * (1. - swing) * (x - low));
       }
       else if (effect == SlotEffect::Phaser)
       {
@@ -433,6 +454,9 @@ private:
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mSpread;
   grid_fx::SmoothControls<3> mExtension;
+  grid_fx::SmoothControls<1> mCrossover;
+  std::array<double, 2> mSplit{};
+  double mSplitG = 0., mSplitA = 1.;
   double mRise = 0.;
   std::array<double, 4> mStageWeights{0., 1., 0., 0.};
   bool mFirstStages = true;

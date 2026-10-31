@@ -83,6 +83,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       mod(.35, 65., 15., 20., 50.); break;
     case SlotEffect::Tremolo:
       mod(4., 60., 0., 0., 100.); break;
+    case SlotEffect::HarmonicTremolo:
+      mod(5.5, 60., 0., 15., 100.); break;
     case SlotEffect::Vibrato:
       mod(4.5, 15., 0., 0., 100.); break;
     case SlotEffect::UniVibe:

@@ -9,6 +9,7 @@ Chorus, flanger, phaser, tremolo, rotary and ring modulation.
 | [Flanger](#flanger) | Swept comb notches; Feedback sharpens them. |
 | [Phaser](#phaser) | Selectable phase stages; Feedback deepens the resonant swirl. |
 | [Auto Tremolo](#auto-tremolo) | Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion. |
+| [Harmonic Tremolo](#harmonic-tremolo) | Bass and treble pulse in turn, the swirling brown-panel amp tremolo. |
 | [Vibrato](#vibrato) | Fully wet pitch motion; Rate and Depth set speed and excursion. |
 | [Rotary](#rotary) | Fast switches the rotation speed; Ramp time sets the transition. |
 | [Uni-Vibe](#uni-vibe) | Uneven phase sweep; Vibrato mode removes the dry blend. |
@@ -127,6 +128,34 @@ In the header:
 - **Tempo sync** locks Rate to your DAW tempo; **Division** then sets it in note values. See [tempo sync](README.md#tempo-sync).
 
 **Display:** The gain over two seconds, including the dry blend.
+
+## Harmonic Tremolo
+
+![Harmonic Tremolo editor](../screenshots/modules/harmonic-tremolo.png)
+
+Splits the guitar into a bass and a treble band and pulses them in turn: while the bass dips, the treble comes up, and the other way round. The result is the softer, swirling tremolo of early-1960s brown-panel amps, with a hint of phaser movement rather than a plain volume chop. The two bands always add up to the original sound, so Depth 0 leaves the guitar unchanged and partial Mix never thins it out.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Rate** | 0.05–10 Hz | 5.5 Hz | Speed of the modulation cycle. |
+| **Depth** | 0–100% | 60% | How far each band dips as bass and treble take turns. |
+| **Shape** | 0–100% | 15% | Rounds or squares the swap between bass and treble; zero is a smooth sine. |
+| **Crossover** | 200–2000 Hz | 500 Hz | Where bass and treble split. Lower values move more of the guitar into the treble band. |
+| **Stereo phase** | 0–100% | 0% | Phase offset between left and right modulation; zero retains the original motion. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
+
+In the header:
+
+- **Tempo sync** locks Rate to your DAW tempo; **Division** then sets it in note values. See [tempo sync](README.md#tempo-sync).
+
+**Display:** The gain of each band over two seconds, including the dry blend: bright for treble, faint for bass.
+
+**Presets:** Brown-panel amp, Slow swirl, Synced throb and Subtle shimmer.
+
+**Tips:**
+
+- Place it after a clean or edge-of-breakup amp capture, where amp tremolo circuits sit. Before a driven amp, distortion fills in the dips.
+- Stereo phase at 50% or more on a stereo rig moves the swirl across the speakers.
 
 ## Vibrato
 

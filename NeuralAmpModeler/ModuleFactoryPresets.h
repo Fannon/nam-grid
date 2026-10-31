@@ -313,6 +313,14 @@ inline const Preset tremolo[]{
   {"Amp tremolo", {{U(uModRate), 4.5}, {U(uModDepth), 45.}}},
   {"Hard eighth-note chop", {{U(uTempoSync), 1.}, {U(uTempoDivision), 3.}, {U(uModDepth), 100.}, {U(uModCharacter), 100.}}},
 };
+// Early-1960s split-band amp tremolos filter bands near 150 and 650 Hz at about 5-7 Hz;
+// one split near their geometric middle gives the same bass/treble alternation.
+inline const Preset harmonicTremolo[]{
+  {"Brown-panel amp", {{U(uModRate), 5.5}, {U(uModDepth), 60.}, {U(uModCharacter), 15.}, {U(uHarmonicCrossover), 400.}}},
+  {"Slow swirl", {{U(uModRate), 1.8}, {U(uModDepth), 75.}, {U(uModCharacter), 0.}, {U(uHarmonicCrossover), 900.}, {U(uModSpread), 50.}}},
+  {"Synced throb", {{U(uTempoSync), 1.}, {U(uTempoDivision), 3.}, {U(uModDepth), 85.}, {U(uModCharacter), 60.}, {U(uHarmonicCrossover), 500.}}},
+  {"Subtle shimmer", {{U(uModRate), 7.}, {U(uModDepth), 30.}, {U(uModCharacter), 0.}, {U(uHarmonicCrossover), 1200.}}},
+};
 inline const Preset vibrato[]{
   {"Seasick warble", {{U(uModRate), .8}, {U(uModDepth), 45.}}},
 };
@@ -388,6 +396,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::Flanger: return flanger;
     case SlotEffect::Phaser: return phaser;
     case SlotEffect::Tremolo: return tremolo;
+    case SlotEffect::HarmonicTremolo: return harmonicTremolo;
     case SlotEffect::Vibrato: return vibrato;
     case SlotEffect::UniVibe: return vibe;
     case SlotEffect::Rotary: return rotary;

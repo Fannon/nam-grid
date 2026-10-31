@@ -156,6 +156,22 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
         return 20.*std::log10(std::max(1.e-9,effect_preview::ModulationMagnitude(effect,hz,phase,controls,sampleRate)));
       },-30.,12.,color.WithOpacity(phase==.25 ? 1.f : .25f),phase==.25 ? 1.8f : 1.f);
   }
+  else if (effect == SlotEffect::HarmonicTremolo)
+  {
+    caption("Bass and treble in turn");
+    text.SetFormatted(80, "Bright: treble | faint: bass | split %.0f Hz", value(uHarmonicCrossover));
+    PlotDetail(g,plot,text.Get());
+    const double mix = value(uModMix) * .01, shape = 1. + 5. * character;
+    const auto band = [&](double sign) {
+      return [=](double t) {
+        const double swing = std::tanh(shape * std::sin(2. * grid_fx::pi * t * 2. * rate)) / std::tanh(shape);
+        return 1. - mix * depth * .5 * (1. + sign * swing);
+      };
+    };
+    curve(band(1.), 0., 1.1, color.WithOpacity(.35f));
+    curve(band(-1.), 0., 1.1, color);
+    timeLabel(2., "Band gain 0 - 100%");
+  }
   else if (effect == SlotEffect::Tremolo)
   {
     const bool envelope = value(uTempoSync) < .5 && character > 0.;

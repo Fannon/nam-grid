@@ -39,7 +39,7 @@ Interpretation Classify(E effect)
     case E::RoomReverb: case E::PlateReverb: case E::CloudReverb: case E::HallReverb:
     case E::SpringReverb: case E::AirPlate: case E::AirHall: case E::GalacticSpace:
     case E::CosmicEcho: case E::Chorus: case E::JunoChorus: case E::Flanger:
-    case E::Phaser: case E::Tremolo: case E::Vibrato: case E::Rotary: case E::UniVibe:
+    case E::Phaser: case E::Tremolo: case E::HarmonicTremolo: case E::Vibrato: case E::Rotary: case E::UniVibe:
       return Interpretation::Dynamic;
   }
   throw std::runtime_error("New module needs a spectral interpretation");

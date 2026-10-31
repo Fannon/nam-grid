@@ -35,7 +35,8 @@ class FocusedRunnerTests(unittest.TestCase):
             with patch.object(sys, 'argv', ['test-focused', '--build-dir', directory, '--stage-case', 'pedal-comp']), patch.object(runner.subprocess, 'run') as run:
                 runner.main()
             self.assertEqual(run.call_args.args[0][1:], ['--case', 'pedal-comp'])
-            self.assertEqual(run.call_args.kwargs['cwd'], folder)
+            # Windows temporary paths may use an 8.3 alias that the runner resolves.
+            self.assertTrue(run.call_args.kwargs['cwd'].samefile(folder))
 
     def test_test_failure_propagates(self):
         with tempfile.TemporaryDirectory() as directory:

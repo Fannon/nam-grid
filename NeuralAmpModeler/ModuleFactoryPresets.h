@@ -81,6 +81,21 @@ inline const Preset transientShaper[]{
   {"Gentle note sustain", {{U(uTransientShaperAttack), 0.}, {U(uTransientShaperSustain), 4.}, {U(uTransientShaperRecovery), 220.},
     {U(uTransientShaperSensitivity), 45.}, {U(uTransientShaperMix), 60.}, {U(uTransientShaperOutput), -1.}}},
 };
+// Multiband Dynamics keeps the player's Threshold. Output trims match loudness within about
+// 1 dB on a guitar DI and a bass DI peaking near -6 dBFS; a hotter amp output comes out
+// 2-3 dB quieter on the heavier presets until Threshold is raised.
+inline const Preset multiband[]{
+  {"Gentle glue", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 30.}, {U(uMultibandUpward), 0.},
+    {U(uMultibandTime), 150.}, {U(uMultibandOutput), 5.}}},
+  {"Over the top", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 100.}, {U(uMultibandUpward), 100.},
+    {U(uMultibandTime), 100.}, {U(uMultibandOutput), 7.}}},
+
+  {"Fast and tight", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 60.}, {U(uMultibandUpward), 0.},
+    {U(uMultibandTime), 50.}, {U(uMultibandLow), -1.}, {U(uMultibandHigh), 1.}, {U(uMultibandOutput), 7.},
+    {U(uMultibandLowSplit), 120.}, {U(uMultibandHighSplit), 3000.}}},
+  {"Clean sparkle", {{U(uMultibandDepth), 50.}, {U(uMultibandDownward), 20.}, {U(uMultibandUpward), 70.},
+    {U(uMultibandTime), 120.}, {U(uMultibandHigh), 2.}, {U(uMultibandOutput), 1.5}}},
+};
 inline const Preset toneEQ[]{
   // The "smile" curve: fuller lows and highs around scooped low mids.
   {"Scooped mids",
@@ -362,6 +377,7 @@ inline std::span<const Preset> For(SlotEffect effect)
   {
     case SlotEffect::DynamicEQ: return dynamicEQ;
     case SlotEffect::TransientShaper: return transientShaper;
+    case SlotEffect::Multiband: return multiband;
     case SlotEffect::PedalComp: return pedalComp;
     case SlotEffect::SmoothComp: return smoothComp;
     case SlotEffect::PunchComp: return punchComp;

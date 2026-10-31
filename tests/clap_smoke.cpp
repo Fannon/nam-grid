@@ -2500,7 +2500,7 @@ int main(int argc, char** argv)
     load(effectControls);
     selectTile(170, 120);
     for (int p = 0; p < kUtilityControls; ++p)
-      if (UsesUtility(effect, p))
+      if (UsesUtility(effect, p) && !effect_presentation::DisplayControl(p)) // Display drags: tested below.
       {
         // Shelf gain is conditional: expose it before testing its gesture.
         if (effect == SlotEffect::ParametricEQ && p == uParamShelfGain)
@@ -2561,6 +2561,33 @@ int main(int argc, char** argv)
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::TapeDelay));
     click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); chooseBrowserItem("DUAL DELAY"); pumpFor(30);
     assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::DualDelay));
+  }
+  // Multiband Dynamics: dragging a split line moves that split; dragging elsewhere moves
+  // Threshold relative to where the drag started. Both are ordinary saved parameters.
+  {
+    auto bands = browserState;
+    bands["SlotEffects"][0] = static_cast<int>(SlotEffect::Multiband);
+    load(bands); selectTile(170, 120);
+    const double left = grid_layout::visualizationLeft + 12., right = grid_layout::visualizationRight - 12.;
+    const auto x = [&](double hz) { return static_cast<int>(std::lround(left + (right - left) * std::log(hz / 20.) / std::log(1000.))); };
+    const int middle = (grid_layout::plotTop + grid_layout::plotBottom) / 2;
+    const auto drag = [&](int x0, int y0, int x1, int y1) {
+      SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x0, y0));
+      SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x1, y1));
+      SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x1, y1));
+      pumpFor(30);
+    };
+    const auto before = save().config();
+    const double split = before["Pre 1 Multiband Low Split"].get<double>();
+    drag(x(split), middle, x(split * 2.), middle);
+    const auto moved = save().config();
+    assert(moved["Pre 1 Multiband Low Split"].get<double>() > split * 1.5);
+    assert(moved["Pre 1 Multiband Threshold"] == before["Pre 1 Multiband Threshold"]);
+    assert(moved["Pre 1 Multiband High Split"] == before["Pre 1 Multiband High Split"]);
+    drag(x(700.), middle, x(700.), middle - 20);
+    const auto raised = save().config();
+    assert(raised["Pre 1 Multiband Threshold"].get<double>() > before["Pre 1 Multiband Threshold"].get<double>());
+    assert(raised["Pre 1 Multiband Low Split"] == moved["Pre 1 Multiband Low Split"]);
   }
   // The larger top-right grid toggle changes bypass without replacing the module.
   {

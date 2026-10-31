@@ -33,6 +33,10 @@ inline const char* ChoiceDescription(int p, int mode)
 // holds only the automatable musical controls.
 inline bool HeaderControl(int p)
 { return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || IsAlgorithmMode(p); }
+// Saved, automatable controls edited by dragging in the module display rather than with a
+// knob. They take no place in the knob grid and are documented as prose.
+inline bool DisplayControl(int p)
+{ return p == uMultibandLowSplit || p == uMultibandHighSplit || p == uMultibandThreshold; }
 // Header options share one row. Keep their horizontal bounds available to
 // both the editor and headless layout checks, including effect-specific moves.
 struct HeaderArea { float left, right; };
@@ -172,7 +176,7 @@ inline int Position(SlotEffect e, int p)
 {
   auto used = FixedPlaces(e);
   for (int q = 0; q < kUtilityControls; ++q)
-    if (!HeaderControl(q))
+    if (!HeaderControl(q) && !DisplayControl(q))
       for (bool sync : {false, true})
         for (bool alternate : {false, true})
           if (Visible(e, q, sync, alternate, alternate, alternate)) used[TablePosition(e, q)] = true;
@@ -222,6 +226,17 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDoubleHumanize: return "Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets.";
     case uDoubleHighCut: return "Softens only the doubled voices; maximum bypasses this added filter.";
     case uDuckRelease: return "Time for ducked echoes to recover in gaps; 150 ms retains the original recovery.";
+    case uMultibandDepth: return "Blend of the processed bands with the dry signal. 100% is fully processed; lower values keep more of the natural dynamics.";
+    case uMultibandDownward: return "How hard each band is pushed down above Threshold, up to 20:1. Zero turns downward compression off.";
+    case uMultibandUpward: return "How much quiet passages in each band are raised when they fall more than 12 dB below Threshold, up to 4:1. Zero gives a regular multiband compressor.";
+    case uMultibandTime: return "Scales every band's attack and release; lower values react faster and pump more.";
+    case uMultibandLow: return "Level of the low band after its compression.";
+    case uMultibandMid: return "Level of the mid band after its compression.";
+    case uMultibandHigh: return "Level of the high band after its compression.";
+    case uMultibandOutput: return "Final level after Depth. Match bypass loudness when comparing.";
+    case uMultibandLowSplit: return "Split between the low and mid bands; drag its line in the display.";
+    case uMultibandHighSplit: return "Split between the mid and high bands; drag its line in the display.";
+    case uMultibandThreshold: return "Band level where downward compression starts; upward starts 12 dB below. Drag vertically in the display.";
     case uHarmonicCrossover: return "Where bass and treble split. Lower values move more of the guitar into the treble band.";
     case uSpringTank: return "Classic is the original diffuse spring. Dispersive follows a physical spring's chirp: in each echo the lows arrive first and the highs later, the drip of a real tank. Drip sets how strong the chirp is.";
     case uChorusVoices: return "1 voice is the classic single moving delay. 3 voices add two more delays a third of a cycle apart, at slightly different depths and delays, for a lusher, denser chorus.";
@@ -497,6 +512,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Phaser: return "Six swept phase stages; Feedback deepens the resonant swirl.";
     case SlotEffect::Tremolo: return "Rate sets pulses, Depth sets dips; Pulse / feel adds sharper motion.";
     case SlotEffect::HarmonicTremolo: return "Bass and treble pulse in turn, the swirling brown-panel amp tremolo.";
+    case SlotEffect::Multiband: return "Three-band upward and downward compression; drag the display to set splits and Threshold.";
     case SlotEffect::Vibrato: return "Fully wet pitch motion; Rate and Depth set speed and excursion.";
     case SlotEffect::Rotary: return "Fast switches the rotation speed; Ramp time sets the transition.";
     case SlotEffect::UniVibe: return "Uneven phase sweep; Vibrato mode removes the dry blend.";

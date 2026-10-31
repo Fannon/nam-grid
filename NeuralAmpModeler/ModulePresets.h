@@ -46,7 +46,12 @@ inline bool ModuleControl(SlotEffect effect, int control)
 }
 // The player's own setup, kept across presets that do not name it.
 inline bool KeepsSetup(SlotEffect effect, int control)
-{ return effect == SlotEffect::PedalComp && control == U(uPedalCompPickup); }
+{
+  if (effect == SlotEffect::PedalComp) return control == U(uPedalCompPickup);
+  if (effect == SlotEffect::Multiband)
+    return control == U(uMultibandThreshold) || control == U(uMultibandLowSplit) || control == U(uMultibandHighSplit);
+  return false;
+}
 // The complete slot values after choosing a preset: module controls the preset leaves out
 // return to the module's insertion defaults (setup controls keep their current value),
 // everything else keeps its current value.

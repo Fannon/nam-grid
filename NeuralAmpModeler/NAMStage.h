@@ -24,6 +24,7 @@
 #include "SlotPedalComp.h"
 #include "SlotDynamicEQ.h"
 #include "SlotTransientShaper.h"
+#include "SlotMultiband.h"
 #include "SlotLoFiTape.h"
 #include "AdaptiveIR.h"
 #include "SlotIR.h"
@@ -43,6 +44,8 @@ struct SlotMeterData
   int frames = 0;
   LoFiTapeHistory lofi;
   std::array<float, 2> filterCutoff{}, filterQ{};
+  // Multiband Dynamics: each band's largest dynamic gain (dB) and detected level (dBFS).
+  std::array<float, 3> bandGain{}, bandLevel{-120.f, -120.f, -120.f};
 };
 
 // Effects whose editor overlays a live output spectrum on the response curve: every
@@ -52,7 +55,7 @@ inline bool ShowsSignalSpectrum(SlotEffect effect)
   return effect == SlotEffect::NAM || effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ
          || effect == SlotEffect::ParametricEQ || effect == SlotEffect::SynthFilter
          || effect == SlotEffect::OutboardChannel || effect == SlotEffect::ConsoleEQ || effect == SlotEffect::Wah
-         || effect == SlotEffect::DynamicEQ
+         || effect == SlotEffect::DynamicEQ || effect == SlotEffect::Multiband
          || effect == SlotEffect::Utility; // Utility uses the window's stereo samples for its scope.
 }
 
@@ -108,6 +111,7 @@ public:
     SlotPedalComp pedalComp;
     SlotDynamicEQ dynamicEQ;
     SlotTransientShaper transientShaper;
+    SlotMultiband multiband;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
     SlotCosmicEcho cosmic;
@@ -183,6 +187,7 @@ public:
         if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
         if (effect == SlotEffect::DynamicEQ) dynamicEQ.Reset(rate);
         if (effect == SlotEffect::TransientShaper) transientShaper.Reset(rate);
+        if (effect == SlotEffect::Multiband) multiband.Reset(rate);
         if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
         else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
       }
@@ -230,6 +235,8 @@ public:
                                            : effect == SlotEffect::DynamicEQ ? 8.
                                            // Transient Shaper's slow envelope recovers over at most 500 ms.
                                            : effect == SlotEffect::TransientShaper ? 5.
+                                           // Multiband's slowest release is 2.8 s at Time 1000%.
+                                           : effect == SlotEffect::Multiband ? 20.
                                            // Pedal Comp's release memory lets go over 800 ms.
                                            : effect == SlotEffect::PedalComp ? 6.
                                            // Detectors settle on silence (slowest release: 800 ms), so
@@ -514,6 +521,20 @@ public:
             {
               p->transientShaper.Process(out, r, frames, utility, draining);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->transientShaper.Reduction() * mMix));
+            }
+            else if (p->effect == SlotEffect::Multiband)
+            {
+              p->multiband.Process(out, r, frames, utility);
+              if (mMonitoring)
+              {
+                mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->multiband.Reduction() * mMix));
+                for (int b = 0; b < SlotMultiband::kBands; ++b)
+                {
+                  const auto gain = static_cast<float>(p->multiband.BandGain()[b]);
+                  if (std::abs(gain) > std::abs(mMeter.bandGain[b])) mMeter.bandGain[b] = gain;
+                  mMeter.bandLevel[b] = std::max(mMeter.bandLevel[b], static_cast<float>(p->multiband.BandLevel()[b]));
+                }
+              }
             }
             else if (p->effect == SlotEffect::PedalComp)
             {

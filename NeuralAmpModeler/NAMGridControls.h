@@ -39,7 +39,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
   if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect)
-      || effect == SlotEffect::PedalComp || effect == SlotEffect::TransientShaper)
+      || effect == SlotEffect::PedalComp || effect == SlotEffect::TransientShaper || effect == SlotEffect::Multiband)
     return {compColor, compColor, "Compressor"};
   if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::ParametricEQ || effect == SlotEffect::ConsoleEQ
       || effect == SlotEffect::DynamicEQ)
@@ -1047,6 +1047,71 @@ public:
 #include "ModulePresets.h"
 
 // A selectable card with an independently clipped module editor below the grid.
+// Multiband Dynamics display: log frequency across, band level -72 to 0 dBFS down.
+namespace multiband_view
+{
+inline constexpr double kFloor = -72.;
+inline IRECT Plot() { return IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTop, grid_layout::visualizationRight - 12, grid_layout::plotBottom); }
+inline double Upper(double rate) { return std::min(20000., .49 * (rate > 0. ? rate : 48000.)); }
+inline float X(const IRECT& p, double hz, double upper)
+{ return p.L + p.W() * static_cast<float>(std::log(std::clamp(hz, 20., upper) / 20.) / std::log(upper / 20.)); }
+inline double Hz(const IRECT& p, float x, double upper)
+{ return 20. * std::pow(upper / 20., static_cast<double>(std::clamp((x - p.L) / p.W(), 0.f, 1.f))); }
+inline float Y(const IRECT& p, double db) { return p.T + p.H() * static_cast<float>(std::clamp(db, kFloor, 0.) / kFloor); }
+inline double DB(const IRECT& p, float y) { return kFloor * std::clamp((y - p.T) / p.H(), 0.f, 1.f); }
+} // namespace multiband_view
+// Drags in the Multiband display: near a split line it moves that split, elsewhere
+// vertically it sets Threshold. Each drag is one host gesture on that parameter.
+class MultibandHandles : public IControl
+{
+public:
+  MultibandHandles(int slot)
+  : IControl(multiband_view::Plot(), {SlotUtilityParam(slot, uMultibandLowSplit), SlotUtilityParam(slot, uMultibandHighSplit),
+                                      SlotUtilityParam(slot, uMultibandThreshold)})
+  , mSlot(slot)
+  {
+    SetTooltip("Drag a vertical line to move that band split. Drag anywhere else up or down to set Threshold. Double-click resets.");
+  }
+  void Draw(IGraphics&) override {}
+  bool IsHit(float x, float y) const override
+  { return Plug().GetShowVisualizations() && Plug().GetSlotEffect(mSlot) == SlotEffect::Multiband && mRECT.Contains(x, y); }
+  int GetValIdxForPos(float x, float) const override
+  {
+    const double upper = multiband_view::Upper(Plug().GetSampleRate());
+    for (int split = 0; split < 2; ++split)
+      if (std::abs(x - multiband_view::X(mRECT, GetParam(split)->Value(), upper)) <= 8.f) return split;
+    return 2;
+  }
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  {
+    if (mod.R) return;
+    mTarget = GetValIdxForPos(x, y);
+    mStartY = y; mStartThreshold = GetParam(2)->Value();
+    if (mTarget < 2) Set(x, y); // A split jumps to the line under the pointer; Threshold moves relative.
+  }
+  void OnMouseDrag(float x, float y, float, float, const IMouseMod& mod) override { if (!mod.R) Set(x, y); }
+  void OnMouseDblClick(float x, float y, const IMouseMod&) override
+  {
+    const int target = GetValIdxForPos(x, y);
+    SetValue(GetParam(target)->GetDefault(true), target);
+    SetDirty(true, target);
+  }
+private:
+  PLUG_CLASS_NAME& Plug() const { return *static_cast<PLUG_CLASS_NAME*>(const_cast<MultibandHandles*>(this)->GetDelegate()); }
+  void Set(float x, float y)
+  {
+    if (mTarget < 0) return;
+    const auto* param = GetParam(mTarget);
+    const double upper = multiband_view::Upper(PLUG()->GetSampleRate());
+    const double value = mTarget < 2 ? multiband_view::Hz(mRECT, x, upper)
+                                     : mStartThreshold + (y - mStartY) / mRECT.H() * multiband_view::kFloor;
+    SetValue(param->ToNormalized(std::clamp(value, param->GetMin(), param->GetMax())), mTarget);
+    SetDirty(true, mTarget);
+  }
+  int mSlot, mTarget = -1;
+  float mStartY = 0.f;
+  double mStartThreshold = 0.;
+};
 class NAMGridSlotControl : public IControl
 {
 public:
@@ -1410,6 +1475,8 @@ public:
         mUtilityKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(p.position), SlotUtilityParam(mSlot, i), p.label, true, mSlot);
       mEditor->AddChildControl(mUtilityKnobs[i]);
     }
+    mBandHandles = new MultibandHandles(static_cast<int>(mSlot));
+    mEditor->AddChildControl(mBandHandles);
     SetTooltip("Click the ID row to select; click the name button to browse. Drag onto another tile to swap; "
                "Shift-drag replaces, Alt-drag duplicates. Right-click for Clear / Copy / Move / Swap. Top-right toggle switches bypass.");
     Refresh();
@@ -1455,6 +1522,7 @@ public:
         if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
       }
       mMeter.filterCutoff = meter.filterCutoff; mMeter.filterQ = meter.filterQ;
+      mMeter.bandGain = meter.bandGain; mMeter.bandLevel = meter.bandLevel;
       const auto monitoredEffect = PLUG()->GetSlotEffect(mSlot);
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
@@ -1801,6 +1869,8 @@ private:
       PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 0., color.WithOpacity(.35f), 1.f);
       PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 0., color);
     }
+    else if (effect == SlotEffect::Multiband)
+      DrawMultiband(g, plot, color);
     else if (effect == SlotEffect::TransientShaper)
     {
       PlotTitle(g, plot, color, "Transient Shaper | live input / output");
@@ -2254,6 +2324,53 @@ private:
   }
   // Outboard Channel is a cut EQ, a compressor and a saturator in series. The cuts and the
   // gain reduction get views; the title reports measured reduction rather than repeating knobs.
+  void DrawMultiband(IGraphics& g, const IRECT& plot, IColor color)
+  {
+    using namespace grid_ui;
+    using namespace multiband_view;
+    const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+    const double upper = Upper(PLUG()->GetSampleRate());
+    WDL_String caption;
+    caption.SetFormatted(96, "Multiband | low %+.1f  mid %+.1f  high %+.1f dB", mMeter.bandGain[0], mMeter.bandGain[1], mMeter.bandGain[2]);
+    PlotTitle(g, plot, color, caption.Get());
+    PlotDetail(g, plot, "Drag a split line, or up and down for Threshold");
+    PlotFrequencyAxis(g, plot, upper, "Band level -72 / 0 dBFS");
+    DrawSignalSpectrum(g, plot, false);
+    const float low = X(plot, value(uMultibandLowSplit), upper), high = X(plot, std::max(value(uMultibandHighSplit), value(uMultibandLowSplit)), upper);
+    const std::array<std::pair<float, float>, 3> bands{{{plot.L, low}, {low, high}, {high, plot.R}}};
+    // Each band: its detected level, and an arrow to where its gain moves it (up: upward, down: downward).
+    for (int b = 0; b < 3; ++b)
+    {
+      const auto [left, right] = bands[b];
+      if (right - left < 6.f) continue;
+      const float centre = .5f * (left + right), level = Y(plot, mMeter.bandLevel[b]);
+      g.FillRect(color.WithOpacity(.18f), IRECT(left + 2.f, level, right - 2.f, plot.B));
+      const float moved = Y(plot, mMeter.bandLevel[b] + mMeter.bandGain[b]);
+      if (std::abs(moved - level) > .5f)
+      {
+        const auto ink = mMeter.bandGain[b] < 0.f ? ampColor : color;
+        g.DrawLine(ink, centre, level, centre, moved, nullptr, 3.f);
+        g.FillCircle(ink, centre, moved, 3.f);
+      }
+    }
+    const double threshold = value(uMultibandThreshold);
+    g.DrawLine(text.WithOpacity(.85f), plot.L, Y(plot, threshold), plot.R, Y(plot, threshold), nullptr, 1.5f);
+    for (float x = plot.L; x < plot.R; x += 8.f)
+      g.DrawLine(text.WithOpacity(.5f), x, Y(plot, threshold - SlotMultiband::kUpwardGap), std::min(x + 4.f, plot.R), Y(plot, threshold - SlotMultiband::kUpwardGap));
+    WDL_String label;
+    label.SetFormatted(48, "Threshold %.0f dB | upward below %.0f", threshold, threshold - SlotMultiband::kUpwardGap);
+    g.DrawText(Text(11.f, text, EAlign::Far), label.Get(), IRECT(plot.L, Y(plot, threshold) - 14.f, plot.R - 4.f, Y(plot, threshold) - 2.f));
+    for (int split = 0; split < 2; ++split)
+    {
+      const float x = split ? high : low;
+      g.DrawLine(color, x, plot.T, x, plot.B, nullptr, 2.f);
+      g.FillCircle(color, x, plot.MH(), 5.f);
+      const double hz = value(split ? uMultibandHighSplit : uMultibandLowSplit);
+      label.SetFormatted(32, hz >= 1000. ? "%.1fk" : "%.0f Hz", hz >= 1000. ? hz * .001 : hz);
+      g.DrawText(Text(11.f, color, split ? EAlign::Near : EAlign::Far), label.Get(),
+                 split ? IRECT(x + 4.f, plot.T + 2.f, x + 60.f, plot.T + 14.f) : IRECT(x - 60.f, plot.T + 2.f, x - 4.f, plot.T + 14.f));
+    }
+  }
   void DrawOutboardChannel(IGraphics& g, const IRECT& plot, IColor color)
   {
     using namespace grid_ui;
@@ -2492,6 +2609,7 @@ private:
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
         mFXKnobs[i]->Hide(i < 3 ? !gate : !compressor);
+      mBandHandles->Hide(effect != SlotEffect::Multiband);
       for (int i = 0; i < 7; ++i)
         mEQKnobs[i]->Hide(i < 3   ? (effect != SlotEffect::ToneEQ && !(nam && !path.empty()))
                           : i < 6 ? effect != SlotEffect::CutEQ
@@ -2500,7 +2618,7 @@ private:
       const bool sync = flag(uTempoSync), notch = flag(uEQMode), vibrato = flag(uVibeMode), shelf = flag(uParamLowMode);
       for (int i = 0; i < kUtilityControls; ++i)
       {
-        const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf);
+        const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf) && !effect_presentation::DisplayControl(i);
         mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle : i))->Int();
@@ -2788,6 +2906,7 @@ private:
   size_t mSlot;
   grid_ui::Editor* mEditor = nullptr;
   grid_ui::PlotHelp* mPlotHelp = nullptr;
+  MultibandHandles* mBandHandles = nullptr;
   grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};

@@ -287,12 +287,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     ui->AttachControl(new grid_ui::FlowMeter(IRECT(72 + gridOffset, 68, 79 + gridOffset, 140), IRECT(4, 140, sidebarRight, 158), -1), kCtrlTagInputMeter);
     ui->AttachControl(new grid_ui::FlowMeter(IRECT(width - 74, 380, width - 67, 452), IRECT(width - 68, 450, width, 468), 16), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridMacroControl(IRECT(0, 170, sidebarRight, 468)), kCtrlTagMainMacros)->Hide(!mShowMainMacros);
-    // The gaps between cards expose the output of the preceding physical slot.
+    // Each output meter opens its slot's monitor; pad the thin strip for clicking.
     for (int slot = 0; slot < 16; ++slot)
     {
       const float left = cardLeft + columnPitch * (slot % 4) + 188.f;
-      const float y = cardTop + rowPitch * (slot / 4) + cardHeight * .5f;
-      ui->AttachControl(new grid_ui::MonitorTap(IRECT(left, y - 12, left + (slot == 15 ? 10.f : 24.f), y + 12), slot));
+      const float top = cardTop + rowPitch * (slot / 4);
+      ui->AttachControl(new grid_ui::SlotMeterTap(IRECT(left + 2.f, top + 3.f, left + 10.f, top + cardHeight - 3.f), slot));
     }
     ui->AttachControl(new NAMGridSignalMonitorControl(IRECT(0, editorTop, width, height)), kCtrlTagSignalMonitor)->Hide(true);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);

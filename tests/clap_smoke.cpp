@@ -1870,7 +1870,7 @@ int main(int argc, char** argv)
     assert(SetKeyboardState(previous)); pumpFor(20);
   };
   // On-demand inspection must cover the module's controls without changing the
-  // rig. Exercise both meters and every wire, then each supported way back.
+  // rig. Exercise the global meters and every slot output meter, then each way back.
   {
     auto rig = browserState;
     rig["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
@@ -1880,7 +1880,7 @@ int main(int argc, char** argv)
       load(rig); selectTile(170, 120);
       const auto before = save().config();
       const int x = point == -1 ? 95 : point == 16 ? grid_layout::width - 71
-        : grid_layout::cardLeft + grid_layout::columnPitch * (point % 4) + (point == 15 ? 193 : 200);
+        : grid_layout::cardLeft + grid_layout::columnPitch * (point % 4) + 194;
       const int y = point == -1 ? 80 : point == 16 ? 390
         : grid_layout::cardTop + grid_layout::rowPitch * (point / 4) + grid_layout::cardHeight / 2;
       click(x, y); dragAt(knobX, knobY);
@@ -1902,7 +1902,7 @@ int main(int argc, char** argv)
       assert(save().config()["Pre 1 Utility Width"] != before["Pre 1 Utility Width"]);
     }
     load(browserState); selectTile(170, 120);
-    std::cout << "On-demand monitor meters, wire taps, state isolation and panel exits passed\n";
+    std::cout << "On-demand monitor meters, state isolation and panel exits passed\n";
   }
   const auto typeBrowserSearch = [&](const std::string& query) {
     if (IsWindowVisible(editor)) assert(GetFocus() == editor);

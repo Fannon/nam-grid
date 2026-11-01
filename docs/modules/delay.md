@@ -2,9 +2,9 @@
 
 Echoes from clean digital to tape and diffused.
 
-Routing's **Trails** toggle lets every bypassed delay and reverb ring out: new playing stops reaching it, and its tail continues over the dry signal. It is off by default; see [Routing](../grid.md#routing).
+Settings' **Trails** toggle lets every bypassed delay and reverb ring out: new playing stops reaching it, and its tail continues over the dry signal. It is off by default; see [rig behaviour in Settings](../ui.md#rig-behaviour).
 
-Routing's **Keep dry level** toggle applies to every delay and reverb in the rig. Off (the default), Mix crossfades from dry to wet. On, the dry signal stays at unity and Mix sets the wet level: 100% gives full dry plus full wet. Whole-signal Output trims still affect both, so high Mix settings can raise the total level. Mix 0% stays dry in both laws.
+Settings' **Keep dry level** toggle applies to every delay and reverb in the rig. Off (the default), Mix crossfades from dry to wet. On, the dry signal stays at unity and Mix sets the wet level: 100% gives full dry plus full wet. Whole-signal Output trims still affect both, so high Mix settings can raise the total level. Mix 0% stays dry in both laws.
 
 | Module | In short |
 | --- | --- |
@@ -74,7 +74,7 @@ Clean repeats with a high cut. Ducking lowers the repeats while you play and bri
 | **Ducking** | 0–100% | 0% | Ducks repeats while you play; echoes recover in the gaps. |
 | **Duck release** | 10–1000 ms | 150 ms | Time for ducked echoes to recover in gaps; 150 ms retains the original recovery. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
-| **Mix** | 0–100% | 20% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 20% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
@@ -98,7 +98,7 @@ Darker, softer repeats with gradually worn-in character. Age adds more darkening
 | **Age** | 0–100% | 35% | More darkening and soft saturation on each repeat. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 10% | Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble. |
-| **Mix** | 0–100% | 22% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 22% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
@@ -121,7 +121,7 @@ Filtered, saturated repeats with tape-style wow and flutter from Modulation.
 | **Saturation** | 0–100% | 30% | Soft saturation on repeats. Modulation controls the tape wobble separately. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 20% | Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble. |
-| **Mix** | 0–100% | 22% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 22% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
@@ -144,7 +144,7 @@ Up to four playback heads in eight patterns, including stereo modes; only the la
 | **Saturation** | 0–100% | 25% | Soft saturation on repeats. Modulation controls the tape wobble separately. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 12% | Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble. |
-| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
@@ -165,7 +165,7 @@ Records a window and plays it backwards one window later.
 | **Feedback** | 0–75% | 0% | Returns reversed playback into the next capture, creating repeating reversed phrases. |
 | **High cut** | 800–12000 Hz | 6000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
-| **Mix** | 0–100% | 30% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 30% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
@@ -187,7 +187,7 @@ Two delay taps; the right tap's time is Time multiplied by Time ratio. Ping-pong
 | **Time ratio** | 0.25–2× | 0.75× | Right delay time divided by left time. 0.75 gives a dotted-eighth partner to a quarter-note left delay. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Tap balance** | 0–100% | 50% | Balance between the two wet taps; center keeps both at full level. Dry stereo stays unchanged. |
-| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
@@ -214,7 +214,7 @@ Repeats smear into stereo reflection clusters as Diffusion rises; zero is a plai
 | **Diffusion** | 0–100% | 60% | Smear each repeat through rotating allpass stages. Zero is a clear echo; higher values spread attacks into stereo clouds. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 15% | Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble. |
-| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Routing's **Keep dry level** on. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 

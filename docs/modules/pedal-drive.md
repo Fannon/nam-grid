@@ -148,7 +148,9 @@ in mono and leave Lane timing at zero unless you deliberately want a timing offs
 ## Example rigs
 
 Fresh installations include **Drive Examples** in the preset library. Existing users can
-choose **Settings > Add drive presets...**, select a folder and rescan if needed.
+choose **Settings > Install factory content...** and select a library folder.
+The installer adds the drive examples alongside the other bundled content and
+indexes it, preserving existing files.
 The action adds the folder to the preset library and keeps existing files, including
 edited examples. Loading an example replaces the current rig.
 

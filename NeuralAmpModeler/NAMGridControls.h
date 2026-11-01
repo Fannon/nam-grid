@@ -23,10 +23,10 @@ const IColor accent(255, 113, 199, 178), text(255, 232, 235, 239);
 const IColor editorBackground(255, 14, 16, 19);
 // Stable semantic palette. Future effects already have reserved colors.
 const IColor ampColor(255, 238, 164, 90), cabColor(255, 109, 174, 255), pedalColor(255, 135, 216, 107);
-const IColor compColor(255, 205, 210, 216), gateColor(255, 205, 210, 216), eqColor(255, 229, 140, 182);
+const IColor compColor(255, 216, 196, 156), gateColor(255, 205, 210, 216), eqColor(255, 229, 140, 182);
 const IColor boostColor(255, 238, 126, 95), modulationColor(255, 168, 153, 245);
 const IColor delayColor(255, 104, 206, 232), reverbColor(255, 199, 143, 237), neutralColor(255, 170, 179, 192);
-const IColor creativeColor(255, 235, 137, 219);
+const IColor creativeColor(255, 235, 137, 219), volumeColor(255, 205, 210, 216);
 // Give everyday 2-4 dB compression more space while retaining room for heavy reduction.
 inline constexpr float compressionReductionRange = 16.f;
 const IColor reductionOverflowColor(255, 255, 112, 96);
@@ -68,7 +68,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
   if (effect == SlotEffect::Bitcrusher)
     return {boostColor, boostColor, "Texture"};
   if (effect == SlotEffect::AutoSwell)
-    return {compColor, compColor, "Volume"};
+    return {volumeColor, volumeColor, "Volume"};
   if (effect == SlotEffect::Tape)
     return {boostColor, boostColor, "Tape"};
   if (effect == SlotEffect::Utility)

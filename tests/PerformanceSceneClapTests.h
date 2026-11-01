@@ -40,7 +40,9 @@ void TestPerformanceSceneState(const clap_plugin* plugin, json base, Save save, 
   clap_output_events output{nullptr, [](const clap_output_events*, const clap_event_header*) { return true; }};
   params->flush(plugin, &input, &output);
   auto edited = save().config();
-  assert(edited["Lane A Level"] == 7.25);
+  // CLAP doubles round-trip through normalization; ARM may fuse that conversion.
+  // Keep scene persistence/recall exact below, allowing only input rounding here.
+  assert(std::abs(edited["Lane A Level"].template get<double>() - 7.25) < 1.e-12);
   for (const auto& delta : edited["PerformanceSceneDeltas"]) assert(delta["Lane A Level"] == original["Lane A Level"]);
   assert(raw(edited));
   auto decoded = save().config();
@@ -79,7 +81,7 @@ void TestPerformanceSceneState(const clap_plugin* plugin, json base, Save save, 
     {
       clap_param_info info{}; assert(params->get_info(plugin, i, &info));
       if (!performance_scenes::IsParameter(info.id) || (info.flags & CLAP_PARAM_IS_STEPPED)) continue;
-      const double value = original[info.name].get<double>();
+      const double value = original[info.name].template get<double>();
       const double offset = (scene + 1) * 1.2345678901234567e-7 * std::max(1., std::abs(value));
       worst["PerformanceScenes"][scene][info.name] = value + (info.default_value < .5 ? offset : -offset);
     }

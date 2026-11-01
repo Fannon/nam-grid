@@ -4,54 +4,57 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- Noise Gate, Noise Gate (Smart) and Digital Black Gate now have their own **Gate** category, just before Dynamics. Module step arrows cycle within gates or within the remaining Dynamics effects.
+## [0.5.0] - 2026-11-01
 
-- NAM and IR sidebars now list folders only; detected tags remain available in search and Details. Refresh filename aliases for newer vendor, creator, model, cabinet and microphone codes, and keep gain labels separate from channel/boost settings.
-- Module frequency displays use Signal Monitor's detailed stereo spectrum, and response curves draw as continuous lines instead of many short strokes. Flat EQ lines look smoother; this changes only the display.
+Existing released projects, presets and automation keep loading. New rigs start with sequential lanes; saved rigs keep their routing. Frequency Shifter feedback and the optional steep crossover have audible differences described below.
 
-- Add **Aurora Hall Medium** to Cosmic Echo's factory presets, preserving the settings from the author's user preset.
+### New modules and sounds
 
-- Expand every delay module's factory presets with more beat-synced rhythms: eighths, triplets, dotted leads, tape-head patterns, stereo pairs, reverse blooms and diffused clouds. Each bank keeps the character of its delay type. Digital Delay includes a clear quarter-note lead and all its synced recipes crossfade tempo jumps; the reverse wash keeps more dry attack with a longer trail. Existing rigs and insertion defaults keep their settings.
-
-- **Settings and Modulation polish:** Settings has readable footer buttons and an untruncated Settings folder action. **Install factory content...** replaces the drive-only installer, adding the bundled clean capture, Empty, Clean Default and drive examples to a chosen library folder while preserving existing files. Settings and Modulation drop their header dividers; Modulation starts directly with aligned matrix controls, without a separate Matrix heading or caption.
-
-- Fix Routing's M/S buttons leaving a lane soloed or muted when releasing a conflicting mute-and-solo combination recalled from an older rig. Either button now clears the opposite state on that lane, including when switched off. Loading saved rigs still preserves their sound.
-
-- Module preset naming on Windows uses a native text field so DAW shortcuts can yield letters and spaces to the name. Clicking a module's input meter opens Signal Monitor at the preceding slot's output.
-
-- **NAM and IR browsers:** folders beginning with `_` sort first. Filename and subfolder hints expand known device and capture-maker abbreviations, gain, EQ, channel, microphone and speaker labels into readable tags in the details pane and sidebar. Search includes those tags; click an individual tag value to search all folders, including either vendor or model in a dual rig. Long details can be scrolled.
-
-- **Clearer Multiband Dynamics:** Mix, Down comp, Up comp and band gain labels explain the controls. The display shows each band's actual compression thresholds, detector level and gain reduction or upward lift. Selecting a module preset now restores Threshold and crossover positions too. Existing rigs keep their sound.
-
-- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing; further clicks switch mode while keeping it open. Parallel adds independent left/right balances for A and B, with B controls below A. The amber/blue icon and grid wires follow the mode. The signal path stays visible above the compact crossover, M/S buttons mute or solo directly on each branch, and live stereo meters work in both modes. S unmutes its lane and clears the other solo; M clears its lane's solo. Sequential hides parallel controls. Trails and Keep dry level move to Settings and remain saved per rig. Existing projects and saved presets keep their routing and sound.
-- **Frequency hover readouts:** point at the Signal Monitor spectrum or a module's frequency chart to see a vertical cursor and its frequency in Hz plus the nearest note, such as F5.
-
-- Fix a low bass burst when switching the lane split from Gentle back to Steep after silence. The inactive steep filters now discard their old audio once the switch fade completes.
-
-- **Auto-wah:** a new **Auto** button in the Wah module header assigns Env 1 to Position at +25%, so playing opens the wah without setting up a modulation row by hand. Adjust the envelope on the Modulation page, or remove the assignment there.
-- **Frequency split:** one Routing button cycles Off, Gentle (6 dB/oct) and Steep (24 dB/oct), combining enable and slope. The Linkwitz-Riley steep split sends far less low end to a driven lane B. Existing presets and automation keep their settings; turning off preserves the stored slope. The steep split keeps a flat overall level, but its phase turns a full circle around the crossover, so it combines differently with a capture in the other lane; switching slopes crossfades.
-- **Frequency Shifter tails fade:** at high Feedback the shifter could ring for a very long time, and downward shifts piled up into a low drone and a DC offset. Repeats now always decay, and they lose their lowest frequencies, so 100% Feedback still sustains long enough to build shifting walls of echoes but fades away instead of sticking. This changes how existing rigs sound at high Feedback; the control range and its meaning are unchanged.
-
-- Saved rigs and DAW projects now store scenes more compactly. Scene recall stays fixed to the values you stored, and older presets and projects still load.
-
-- Delete or Backspace clears the selected module while the grid is open. Escape closes the preset browser even while searching and cancels an audition; Settings still saves changes immediately and Escape closes it. Module preset naming has a larger, labelled field with save/cancel hints.
-
-- **Library stars:** mark modules, NAM captures, IR files and rig presets with the star left of their name in the browser. Each click cycles yellow, orange and red, then back to an empty outline. Turn on **Starred** above the results to list only starred items. Captures and IRs keep their star when moved or renamed, and identical copies share it. Stars are saved in `favorites.json` in your preset folder, so they travel with it to another computer, and they never change how anything sounds.
 - Add Pitch Shift for fixed-interval harmony, octave layers and fine detuning, with four starting presets and a live spectrum. The dry attack stays immediate; the shifted voice has short grain delay and can smear or warble on chords and large shifts.
-
-- **Signal Monitor:** click the global input/output meters or a slot's output meter to inspect that point in the rig without using a module slot. Module meters are 1 px wider, and the grid wires stay clear of tap dots. The on-demand panel shows stereo spectrum and resonance markers, peak/RMS meters, level history, headroom and correlation. Select a module or the tuner, press Escape, or click Close to return. The unreleased monitor module has been removed; saved development rigs containing it are no longer supported.
-
 - **Graphic EQ:** A new EQ / Filter module with seven fixed bands and Level, like a stompbox graphic EQ. Voicing sets the band frequencies for guitar, bass or full range, and the knob labels follow it. Presets: Lead mid boost, Tight into amp, Bass clarity and Acoustic air.
-- **Multiband Dynamics:** A new Dynamics module with three bands of upward and downward compression and a Depth blend: from a dense "over the top" sound to a regular multiband compressor that evens out boomy lows or spiky highs. Drag the display to move the band splits and Threshold. Presets: Over the top, Gentle glue, Fast and tight and Clean sparkle.
+- **Multiband Dynamics:** A new Dynamics module with three bands of upward and downward compression and a Mix blend: from a dense "over the top" sound to a regular multiband compressor that evens out boomy lows or spiky highs. Drag the display to move the band splits and Threshold. Presets: Over the top, Gentle glue, Fast and tight and Clean sparkle.
 - **Harmonic Tremolo:** A new Modulation module that pulses bass and treble in turn, the swirling tremolo of early-1960s brown-panel amps. Crossover sets where the bands split; Tempo sync and Stereo phase work as in Auto Tremolo. Presets: Brown-panel amp, Slow swirl, Synced throb and Subtle shimmer.
-
 - **Transient Shaper:** A new Dynamics module that shapes the start and the decay of each note separately: sharpen or soften the pick, or shorten or lengthen the ring-out. It follows changes in level rather than a threshold, so the same settings work on a DI, after an amp or on bass. Presets: Defined picking, Soft acoustic, Tight palm mutes and Gentle note sustain.
 - **Dynamic EQ:** A new EQ / Filter module that cuts one band only while it is loud: tame palm-mute boom, harsh pick attacks or bass boom without thinning out the rest of your playing. The display shows the cut as it happens. Presets: Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp) and Bass boom control.
+- **Auto-wah:** a new **Auto** button in the Wah module header assigns Env 1 to Position at +25%, so playing opens the wah without setting up a modulation row by hand. Adjust the envelope on the Modulation page, or remove the assignment there.
+
+### Routing and sound changes
+
+- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing; further clicks switch mode while keeping it open. Parallel adds independent left/right balances for A and B, with B controls below A. The amber/blue icon and grid wires follow the mode. The signal path stays visible above the compact crossover, M/S buttons mute or solo directly on each branch, and live stereo meters work in both modes. S unmutes its lane and clears the other solo; M clears its lane's solo. Sequential hides parallel controls. Trails and Keep dry level move to Settings and remain saved per rig. Existing projects and saved presets keep their routing and sound.
+- **Frequency split:** one Routing button cycles Off, Gentle (6 dB/oct) and Steep (24 dB/oct), combining enable and slope. The Linkwitz-Riley steep split sends far less low end to a driven lane B. Existing presets and automation keep their settings; turning off preserves the stored slope. The steep split keeps a flat overall level, but its phase turns a full circle around the crossover, so it combines differently with a capture in the other lane; switching slopes crossfades.
+- **Frequency Shifter tails fade:** at high Feedback the shifter could ring for a very long time, and downward shifts piled up into a low drone and a DC offset. Repeats now always decay, and they lose their lowest frequencies, so 100% Feedback still sustains long enough to build shifting walls of echoes but fades away instead of sticking. This changes how existing rigs sound at high Feedback; the control range and its meaning are unchanged.
+- Fix a low bass burst when switching the lane split from Gentle back to Steep after silence. The inactive steep filters now discard their old audio once the switch fade completes.
+- Fix Routing's M/S buttons leaving a lane soloed or muted when releasing a conflicting mute-and-solo combination recalled from an older rig. Either button now clears the opposite state on that lane, including when switched off. Loading saved rigs still preserves their sound.
+
+### Finding and building rigs
+
+- **Library stars:** mark modules, NAM captures, IR files and rig presets with the star left of their name in the browser. Each click cycles yellow, orange and red, then back to an empty outline. Turn on **Starred** above the results to list only starred items. Captures and IRs keep their star when moved or renamed, and identical copies share it. Stars are saved in `favorites.json` in your preset folder, so they travel with it to another computer, and they never change how anything sounds.
+- **NAM and IR browsers:** folders beginning with `_` sort first. Filename and subfolder hints expand known device and capture-maker abbreviations, gain, EQ, channel, microphone and speaker labels into readable tags in the details pane. Search includes those tags; click an individual tag value in Details to search all folders, including either vendor or model in a dual rig. Long details can be scrolled.
+- NAM and IR sidebars now list folders only; detected tags remain available in search and Details. Refresh filename aliases for newer vendor, creator, model, cabinet and microphone codes, and keep gain labels separate from channel/boost settings.
+- Noise Gate, Noise Gate (Smart) and Digital Black Gate now have their own **Gate** category, just before Dynamics. Module step arrows cycle within gates or within the remaining Dynamics effects. Dynamics uses a warm sand color; Gate keeps its silver color.
+
+### Monitoring and controls
+
+- **Signal Monitor:** click the global input/output meters or a slot's output meter to inspect that point in the rig without using a module slot. Module meters are 1 px wider, and the grid wires stay clear of tap dots. The on-demand panel shows stereo spectrum and resonance markers, peak/RMS meters, level history, headroom and correlation. Select a module or the tuner, press Escape, or click Close to return.
+- **Frequency hover readouts:** point at the Signal Monitor spectrum or a module's frequency chart to see a vertical cursor and its frequency in Hz plus the nearest note, such as F5.
+- Module frequency displays use Signal Monitor's detailed stereo spectrum, and response curves draw as continuous lines instead of many short strokes. Flat EQ lines look smoother; this changes only the display.
+- **Clearer Multiband Dynamics:** Mix, Down comp, Up comp and band gain labels explain the controls. The display shows each band's actual compression thresholds, detector level and gain reduction or upward lift. Selecting a module preset now restores Threshold and crossover positions too. Existing rigs keep their sound.
+- Delete or Backspace clears the selected module while the grid is open. Escape closes the preset browser even while searching and cancels an audition; Settings still saves changes immediately and Escape closes it. Module preset naming has a larger, labelled field with save/cancel hints.
+- Module preset naming on Windows uses a native text field so DAW shortcuts can yield letters and spaces to the name. Clicking a module's input meter opens Signal Monitor at the preceding slot's output.
+- **Settings and Modulation polish:** Settings has readable footer buttons and an untruncated Settings folder action. **Install factory content...** replaces the drive-only installer, adding the bundled clean capture, Empty, Clean Default and drive examples to a chosen library folder while preserving existing files. Settings and Modulation drop their header dividers; Modulation starts directly with aligned matrix controls, without a separate Matrix heading or caption.
+- Saved rigs and DAW projects now store scenes more compactly. Scene recall stays fixed to the values you stored, and older presets and projects still load.
+
+### More starting presets
+
+- Expand every delay module's factory presets with more beat-synced rhythms: eighths, triplets, dotted leads, tape-head patterns, stereo pairs, reverse blooms and diffused clouds. Each bank keeps the character of its delay type. Digital Delay includes a clear quarter-note lead and all its synced recipes crossfade tempo jumps; the reverse wash keeps more dry attack with a longer trail. Existing rigs and insertion defaults keep their settings.
 - More useful delay starting points: quiet ducked support, brighter dotted analog and tape echoes, sparse stereo tape heads, short reverse texture, tight stereo doubling and gentle pad echoes. Existing rigs and insertion defaults keep their settings.
-
 - More module presets where a module had few or none: a telephone band (Cut EQ), bass envelope filter, mid push boost, hot tube preamp, sputtering gated fuzz, deep watery chorus, Juno mode II and fast vintage shimmer, parked metallic flanger comb, resonant vintage phaser, stereo auto-pan, delayed lead vibrato, fast Uni-Vibe churn, two-octave blend, 12-bit sampler and a long ambient swell. Frequency Shifter gains its first presets: Barberpole sweep and Spiraling echoes. Existing rigs and insertion defaults keep their settings.
-
 - More factory presets across the reverbs, with a focus on Cosmic Echo: dense modulated spaces, dark washes, clear repeats, swells and a Photon Plate lead sound. Practical choices include a warm rhythm plate, small recital hall, light moving cloud, short spring splash and gentle shimmer. Existing rigs and insertion defaults keep their settings.
+- Add **Aurora Hall Medium** to Cosmic Echo's factory presets, preserving the settings from the author's user preset.
+
+### Platform compatibility
+
+- Fix macOS builds failing during the compile-time parameter ownership checks as the effect bank grows. Every slot and global remains checked, with the same parameter identities. Fix Linux test compilation for saved scene coverage too.
 
 ## [0.4.0] - 2026-10-31
 

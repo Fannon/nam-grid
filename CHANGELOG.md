@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Noise Gate, Noise Gate (Smart) and Digital Black Gate now have their own **Gate** category, just before Dynamics. Module step arrows cycle within gates or within the remaining Dynamics effects.
+
 - NAM and IR sidebars now list folders only; detected tags remain available in search and Details. Refresh filename aliases for newer vendor, creator, model, cabinet and microphone codes, and keep gain labels separate from channel/boost settings.
 - Module frequency displays use Signal Monitor's detailed stereo spectrum, and response curves draw as continuous lines instead of many short strokes. Flat EQ lines look smoother; this changes only the display.
 

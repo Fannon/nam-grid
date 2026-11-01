@@ -92,6 +92,7 @@ export default defineConfig({
         items: [
           { text: 'Captures & cabinets', link: '/modules/captures' },
           { text: 'Distortion', link: '/modules/distortion' },
+          { text: 'Gate', link: '/modules/gate' },
           { text: 'Dynamics', link: '/modules/dynamics' },
           { text: 'EQ / Filter', link: '/modules/eq-filter' },
           { text: 'Modulation', link: '/modules/modulation' },

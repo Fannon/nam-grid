@@ -23,6 +23,7 @@ The player guides are published at **[fannon.github.io/nam-grid](https://fannon.
 
 ## Modules
 
+- [Gate](modules/gate.md): noise gates and learned noise reduction.
 - [Module guide](modules/README.md): every module, its controls, starting settings and tips.
 - Deep dives: [Pedal Drive](modules/pedal-drive.md), [Noise Gate (Smart)](modules/noise-gate-smart.md), [LoFi Tape Machine](modules/lofi-tape.md), [Cosmic Echo](modules/cosmic-echo.md) and [Cabinet IR processing](modules/ir-processing.md).
 

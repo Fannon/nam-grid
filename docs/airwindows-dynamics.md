@@ -1,7 +1,7 @@
 # Digital Black Gate
 
 Digital Black Gate is an adapted Airwindows dynamics module; the other native mappings
-are in [airwindows-outboard.md](airwindows-outboard.md). It belongs in Dynamics and has
+are in [airwindows-outboard.md](airwindows-outboard.md). It belongs in Gate and has
 three knobs, Enabled, a header Mode selector and its own stereo state.
 
 Pressure6 was evaluated and left out. Its threshold is fixed and set by the Compress

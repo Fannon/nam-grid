@@ -52,6 +52,11 @@ int main(int argc, char** argv)
       assert(StepModule(effect, 1) == group.effects.begin()[(i + 1) % group.effects.size()]);
       assert(StepModule(StepModule(effect, 1), -1) == effect);
     }
+  // Module stepping wraps within gates, separately from compression and limiting.
+  assert(StepModule(SlotEffect::DigitalBlack, 1) == SlotEffect::NoiseGate);
+  assert(StepModule(SlotEffect::NoiseGate, -1) == SlotEffect::DigitalBlack);
+  assert(StepModule(SlotEffect::Limiter, 1) == SlotEffect::PedalComp);
+  assert(StepModule(SlotEffect::PedalComp, -1) == SlotEffect::Limiter);
   auto write = [&](const std::filesystem::path& relative, const json& metadata) {
     const auto path = root / relative;
     std::filesystem::create_directories(path.parent_path());
@@ -177,7 +182,7 @@ int main(int argc, char** argv)
           assert(std::string(menu.GetItemText(index++)) == label);
         assert(menu.GetItem(index++)->GetIsSeparator());
         std::array<int, static_cast<int>(SlotEffect::Last) + 1> seen{};
-        for (const char* label : {"Distortion", "Dynamics", "EQ / Filter", "Modulation", "Pitch / Frequency",
+        for (const char* label : {"Distortion", "Gate", "Dynamics", "EQ / Filter", "Modulation", "Pitch / Frequency",
                                   "Delay", "Reverb", "Creative", "Utility / Volume"})
         {
           assert(std::string(menu.GetItemText(index)) == label);
@@ -190,9 +195,11 @@ int main(int argc, char** argv)
             const int type = -item->GetTag() - 20;
             assert(type > 0 && IsValidSlotEffect(static_cast<SlotEffect>(type)));
             if (type == static_cast<int>(SlotEffect::NoisePrint))
-              assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate (Smart)");
+              assert(std::string(label) == "Gate" && std::string(item->GetText()) == "Noise Gate (Smart)");
             if (type == static_cast<int>(SlotEffect::NoiseGate))
-              assert(std::string(label) == "Dynamics" && std::string(item->GetText()) == "Noise Gate");
+              assert(std::string(label) == "Gate" && std::string(item->GetText()) == "Noise Gate");
+            if (type == static_cast<int>(SlotEffect::DigitalBlack))
+              assert(std::string(label) == "Gate" && std::string(item->GetText()) == "Digital Black Gate");
             ++seen[type];
             assert(item->GetChecked() == (type == static_cast<int>(SlotEffect::SpringReverb)));
           }

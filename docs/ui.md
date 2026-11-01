@@ -108,12 +108,15 @@ Turn all displays on or off in **Settings > Visualizations**. This changes only 
 
 **Settings** in the header manages your capture, IR and preset folders (see [library folders](browser.md#library-folders)) and a few preferences:
 
+![Settings with library folders, rig behaviour and documentation buttons](screenshots/settings.png)
+
 - **Visualizations** turns all module displays on or off.
 - **Main macros** shows or hides the four knobs below IN. They are shown by default; unassigned macros are dimmed. Hiding them preserves their values, names and assignments.
 - **Preset switch** chooses how rigs change while you play; see [rig presets](presets.md#switching-while-you-play).
 - **Startup rescan** rescans your folders whenever NAM Grid starts.
 - **Settings folder** opens the folder that stores these choices; see [where settings are stored](troubleshooting.md#where-are-my-settings-stored).
-- Links to this documentation, the source code and the issue tracker.
+- **Install factory content...** adds the bundled clean capture and factory rig presets to a chosen library folder, preserving existing files. See [rig presets](presets.md).
+- The footer buttons open this documentation, the source code and the issue tracker.
 
 ### Rig behaviour
 

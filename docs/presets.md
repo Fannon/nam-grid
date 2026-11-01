@@ -15,9 +15,12 @@ Click the preset name in the header to open the [preset browser](browser.md). Se
 
 Fresh installs also include a **Drive Examples** subfolder with a starting rig for each
 Pedal Drive style, Flat/Tight/Warm clean boosts and two split-band bass rigs.
-Existing users can choose **Settings > Add drive presets...**, then select a
-folder. NAM Grid creates the subfolder, preserves existing files and indexes the chosen
-folder. These examples contain effects only; add your amp and cabinet captures where
+Choose **Settings > Install factory content...**, then select a library folder,
+to add the bundled clean capture, Empty, Clean Default and the drive examples.
+NAM Grid creates **NAM Captures** and **Presets** subfolders, adds them to their
+library lists and indexes them. Existing files, including edited presets, are
+preserved; missing factory files are restored. The **+ NAM / IR / Preset folder**
+buttons instead index content you already have. The drive examples contain effects only; add your amp and cabinet captures where
 needed. Loading one replaces the current rig. See [Pedal Drive](modules/pedal-drive.md).
 
 Presets use `.ngrid` files. They reference NAM and IR files by path rather than embedding them, so keep those files in place when moving or sharing a rig. If a referenced file is missing, relink it through the module browser; NAM Grid will not silently substitute another file.

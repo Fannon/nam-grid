@@ -647,11 +647,10 @@ public:
           const int soloParam = lane ? LaneBSolo : LaneASolo;
           const int target = solo ? soloParam : muteParam;
           const bool enable = Value(target) < .5;
-          if (enable)
-          {
-            PLUG()->SetParameterFromUI(PerformanceParam(solo ? muteParam : soloParam), 0.);
-            if (solo) PLUG()->SetParameterFromUI(PerformanceParam(lane ? LaneASolo : LaneBSolo), 0.);
-          }
+          // An older saved rig can have both active. Any edit resolves that
+          // conflict, including releasing an already-active M or S button.
+          PLUG()->SetParameterFromUI(PerformanceParam(solo ? muteParam : soloParam), 0.);
+          if (enable && solo) PLUG()->SetParameterFromUI(PerformanceParam(lane ? LaneASolo : LaneBSolo), 0.);
           PLUG()->SetParameterFromUI(PerformanceParam(target), enable ? 1. : 0.);
           return;
         }
@@ -1025,7 +1024,7 @@ public:
     }
     for (int i = 0; i < 4; ++i)
     {
-      auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 512, 607.f + 123.f * i, 590), i, true);
+      auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 492, 607.f + 123.f * i, 570), i, true);
       Add(knob);
       Add(new MacroLabel(knob->NameBounds(), i, true));
     }
@@ -1046,11 +1045,8 @@ public:
     using namespace grid_ui; using namespace grid_performance;
     g.FillRect(background, mRECT);
     IconLabel(g, Icon::Modulation, "Modulation", IRECT(pageLeft, 8, 300, 48), Text(23.f));
-    g.DrawLine(border, pageLeft, 56, pageRight, 56);
-    g.DrawText(Text(17.f, accent), "Matrix", IRECT(484, pageTop, pageRight, pageTop + 24));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "Rows on one knob add, within its range", IRECT(484, pageTop, pageRight, pageTop + 24));
     const auto columnLabel = [&](const char* label, float l, float r, EAlign align = EAlign::Near) {
-      g.DrawText(Text(12.f, muted, align), label, IRECT(l, 104, r, 120));
+      g.DrawText(Text(13.f, muted, align), label, IRECT(l, pageTop, r, pageTop + 26));
     };
     columnLabel("Source", 504, 594);
     columnLabel("Destination", 600, 806);
@@ -1061,7 +1057,7 @@ public:
       WDL_String index; index.SetFormatted(8, "%d", row + 1);
       g.DrawText(Text(13.f, muted, EAlign::Center), index.Get(), IRECT(484, RowTop(row), 500, RowTop(row) + 32));
     }
-    g.DrawText(Text(17.f, accent), "Macros", IRECT(484, 484, pageRight, 508));
+    g.DrawText(Text(17.f, accent), "Macros", IRECT(484, 464, pageRight, 488));
     g.DrawText(Text(13.f, muted), "Right-click any module knob to modulate it. Alt-drag a modulated knob to change its depth.",
                IRECT(pageLeft, grid_layout::visualizationBottom - 40, pageRight, grid_layout::visualizationBottom - 16));
   }
@@ -1090,7 +1086,7 @@ public:
     if (GetUI()) GetUI()->SetAllControlsDirty();
   }
 private:
-  static float RowTop(int row) { return 126.f + 44.f * row; }
+  static float RowTop(int row) { return 106.f + 44.f * row; }
   IControl* Add(IControl* control) { AddChildControl(control); mControls.push_back(control); return control; }
   // Source controls are shown for their source tab only.
   IControl* AddSource(int source, IControl* control)

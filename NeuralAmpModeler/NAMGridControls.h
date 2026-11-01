@@ -3318,8 +3318,6 @@ public:
   {
     using namespace grid_ui;
     g.FillRect(background, mRECT);
-    // Same frame as the Modulation page and browsers: title, header buttons, divider.
-    g.DrawLine(border, kLeft, 56, kRight, 56);
     g.DrawText(Text(13.f, muted), "LIBRARY FOLDERS", IRECT(kLeft, 124, 400, 152));
     const auto rows = Rows();
     mScroll = std::min(mScroll, std::max(0, static_cast<int>(rows.size()) - kRows));
@@ -3345,9 +3343,10 @@ public:
     g.DrawText(Text(13.f, muted), "RIG BEHAVIOUR · saved with the rig and scenes", IRECT(kLeft, 480, kRight, 504));
     g.DrawText(Text(13.f, muted), "Trails keeps bypassed echoes ringing. Keep dry level adds ambience without reducing the dry signal.",
                IRECT(kLeft, 556, kRight, 580));
-    // Footer: version and open-source links (Documentation, Source code, Report an issue).
-    g.DrawText(Text(13.f, muted), "NAM Grid " PLUG_VERSION_STR "  ·  Free and open source",
-               IRECT(kLeft, kFooterTop, kFooterLinksL - 12, kFooterTop + kFooterHeight));
+    g.DrawText(Text(14.f), "NAM Grid " PLUG_VERSION_STR,
+               IRECT(kLeft, kFooterTop - 4, 440, kFooterTop + 16));
+    g.DrawText(Text(13.f, muted), "Free and open source",
+               IRECT(kLeft, kFooterTop + 16, 440, kFooterTop + 36));
   }
   void OnAttached() override
   {
@@ -3355,20 +3354,20 @@ public:
     AddChildControl(new HintLabel(IRECT(kLeft, 8, 360, 48), "Settings", Text(23.f),
       "NAM, IR and preset folders are separate lists; each folder is scanned only for its own file type. Add a folder to several lists if it mixes types. Up to 32 folders per type.", Icon::Settings));
     AddChildControl(new Button(IRECT(kRight - 80, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close));
-    AddChildControl(new Button(IRECT(kRight - 584, 14, kRight - 424, 42), [this](IControl*) {
+    AddChildControl(new Button(IRECT(kRight - 632, 14, kRight - 444, 42), [this](IControl*) {
       WDL_String folder;
       GetUI()->PromptForDirectory(folder, [plugin = PLUG(), ui = GetUI()](const WDL_String&, const WDL_String& chosen) {
         if (!chosen.GetLength()) return;
-        const auto error = plugin->InstallDrivePresets(std::filesystem::u8path(chosen.Get()));
-        if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot add drive presets", error.c_str());
+        const auto error = plugin->InstallFactoryContent(std::filesystem::u8path(chosen.Get()));
+        if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot install factory content", error.c_str());
       });
-    }, "Add drive presets..."))->SetTooltip(
-      "Choose a folder for guitar, bass and boost example rigs. Adds a Drive Examples subfolder and indexes it; existing files are preserved.");
+    }, "Install factory content..."))->SetTooltip(
+      "Choose a library folder for the bundled clean capture, Empty, Clean Default and drive examples. Creates NAM Captures and Presets subfolders and indexes them; existing files are preserved.");
     AddChildControl(new Button(IRECT(kRight - 244, 14, kRight - 92, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library", Icon::Browse));
     // settings.json lives in the platform's per-user config folder (see UserPaths.h).
-    AddChildControl(new Button(IRECT(kRight - 408, 14, kRight - 256, 42), [this](IControl*) {
+    AddChildControl(new Button(IRECT(kRight - 432, 14, kRight - 256, 42), [this](IControl*) {
       Reveal(nam_library::PathText(user_paths::ConfigFolder()));
     }, "Settings folder", Icon::Folder))->SetTooltip(("Open the folder that holds settings.json: "
                                         + nam_library::PathText(user_paths::ConfigFolder())).c_str());
@@ -3423,13 +3422,13 @@ public:
       PLUG()->SetParameterFromUI(id, PLUG()->GetParam(id)->Bool() ? 0. : 1.);
     }, "Keep dry level: OFF");
     AddChildControl(mKeepDry)->SetTooltip("Delays/reverbs only. Off: Mix crossfades dry to wet. On: dry stays at unity while Mix adds wet. At 50%: 100% dry + 50% wet. Leave off for wet-only parallel returns. Saved with this rig.");
-    // Footer links: documentation site, open-source repository, issue tracker.
-    AddChildControl(new IURLControl(IRECT(560, kFooterTop, 690, kFooterTop + kFooterHeight),
-      "Documentation", CLAP_MANUAL_URL, Text(13.f, accent)))->SetTooltip("Open the NAM Grid documentation site.");
-    AddChildControl(new IURLControl(IRECT(702, kFooterTop, 822, kFooterTop + kFooterHeight),
-      "Source code", PLUG_URL_STR, Text(13.f, accent)))->SetTooltip("Open the NAM Grid source repository.");
-    AddChildControl(new IURLControl(IRECT(834, kFooterTop, kRight, kFooterTop + kFooterHeight),
-      "Report an issue", CLAP_SUPPORT_URL, Text(13.f, accent)))->SetTooltip("Report a problem or suggest an improvement.");
+    const auto link = [&](float left, float right, const char* label, const char* url, const char* help) {
+      AddChildControl(new Button(IRECT(left, kFooterTop, right, kFooterTop + kFooterHeight),
+        [url](IControl* control) { control->GetUI()->OpenURL(url); }, label))->SetTooltip(help);
+    };
+    link(500, 660, "Documentation", CLAP_MANUAL_URL, "Open the NAM Grid documentation site.");
+    link(672, 816, "Source code", PLUG_URL_STR, "Open the NAM Grid source repository.");
+    link(828, kRight, "Report an issue", CLAP_SUPPORT_URL, "Report a problem or suggest an improvement.");
   }
   void Hide(bool hide) override
   {
@@ -3504,9 +3503,9 @@ private:
   inline static const std::array<IRECT, 3> kAddRects{IRECT(kRight - 428, 124, kRight - 290, 152), IRECT(kRight - 278, 124, kRight - 140, 152), IRECT(kRight - 128, 124, kRight, 152)};
   static constexpr float kListTop = 164.f, kRowPitch = 38.f, kRowHeight = 32.f;
   static constexpr float kOpenL = kRight - 156.f, kOpenR = kRight - 86.f, kRemoveL = kRight - 80.f, kRemoveR = kRight - 8.f;
-  // Footer row with the version and open-source links, anchored to the page's bottom margin.
-  static constexpr float kFooterTop = grid_layout::height - 52.f, kFooterHeight = 24.f, kFooterLinksL = 560.f;
-  // Five equal option buttons across the page, below the divider.
+  // Footer uses the same button height and spacing as the page options.
+  static constexpr float kFooterTop = grid_layout::height - 60.f, kFooterHeight = 32.f;
+  // Five equal option buttons across the page.
   static IRECT OptionRect(int index)
   {
     const float width = (kRight - kLeft - 4 * 12.f) / 5.f, left = kLeft + index * (width + 12.f);

@@ -68,16 +68,4 @@ inline std::vector<nlohmann::json> Make(const nlohmann::json& empty)
   return result;
 }
 
-// Called on the control thread, only for fresh default folders or an explicit
-// export. Preserve all existing files, including user-edited factory examples.
-inline void Install(const std::filesystem::path& folder, const nlohmann::json& empty)
-{
-  std::filesystem::create_directories(folder);
-  for (const auto& rig : Make(empty))
-  {
-    const auto file = folder / (rig.at("PresetName").get<std::string>() + ".ngrid");
-    if (!std::filesystem::exists(file))
-      rig_preset::Write(file, rig);
-  }
-}
 } // namespace drive_presets

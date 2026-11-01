@@ -1163,13 +1163,16 @@ inline void DrawSignalMonitorView(IGraphics& g, const IRECT& plot, IColor color,
       g.PathMoveTo(plot.L,plot.B);
       for (size_t i=0;i<spectrumPoints;++i) g.PathLineTo(sx(i),sy(spectrum[i]));
       g.PathLineTo(plot.R,plot.B); g.PathClose(); g.PathFill(IPattern(color.WithOpacity(.22f)));
-      for (size_t i=1;i<spectrumPoints;++i) g.DrawLine(color,sx(i-1),sy(spectrum[i-1]),sx(i),sy(spectrum[i]),nullptr,1.2f);
+      g.PathMoveTo(sx(0),sy(spectrum[0]));
+      for (size_t i=1;i<spectrumPoints;++i) g.PathLineTo(sx(i),sy(spectrum[i]));
+      g.PathStroke(IPattern(color),1.2f);
     }
     if (mMonitorSpectrum.Settled())
     {
       const auto& average=mMonitorSpectrum.average;
-      for (size_t i=1;i<spectrumPoints;++i)
-        g.DrawLine(muted.WithOpacity(.55f),sx(i-1),sy(average[i-1]),sx(i),sy(average[i]),nullptr,1.f);
+      g.PathClear(); g.PathMoveTo(sx(0),sy(average[0]));
+      for (size_t i=1;i<spectrumPoints;++i) g.PathLineTo(sx(i),sy(average[i]));
+      g.PathStroke(IPattern(muted.WithOpacity(.55f)),1.f);
       std::array<Resonance,3> peaks{};
       for (size_t k=0,n=FindResonances(average,rate,peaks);k<n;++k)
       {
@@ -1296,9 +1299,7 @@ public:
     mMonitor.Receive(packet.meter, rate); mMonitorHistory.Receive(packet.meter, rate); mMonitorTime = now; mWasLive = true;
     if (packet.hasWindow)
     {
-      auto louder = signal_monitor::Detailed(grid_eq_signal::Magnitudes(packet.window.samples), rate);
-      const auto right = signal_monitor::Detailed(grid_eq_signal::Magnitudes(packet.window.right), rate);
-      for (size_t i = 0; i < louder.size(); ++i) louder[i] = std::max(louder[i], right[i]);
+      const auto louder = signal_monitor::AnalyzeWindow(packet.window, rate);
       mMonitorSpectrum.Receive(louder, now - mSpectrumTime < .5, now - mSpectrumTime); mSpectrumTime = now;
     }
     SetDirty(false);
@@ -1773,7 +1774,7 @@ public:
         if (mEditor && PLUG()->GetSelectedSlot() == mSlot) mEditor->SetDirty(false);
         return; // The stereo scope does not display a frequency spectrum.
       }
-      const auto analyzed = grid_eq_signal::Analyze(window.samples,
+      const auto analyzed = signal_monitor::AnalyzeWindow(window,
         PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.);
       // Instant rise, gentle fall: transients stay visible without flicker.
       const bool fresh = Now() - mSpectrumTime < .5;
@@ -2516,14 +2517,16 @@ private:
                                                   frequencyX(center * std::exp2(.5 * octaves)), plot.B));
       }
       DrawSignalSpectrum(g, plot);
-      for (size_t i = 1; i < mEQCurve.size(); ++i)
-      {
-        if (filter && (std::abs(key[12] - key[14]) > 1. || std::abs(key[13] - key[15]) > .01))
-          g.DrawLine(color.WithOpacity(.5f), plot.L + plot.W() * mEQCurve[i - 1][0], y(mEQCurve[i - 1][2]),
-                                           plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][2]), nullptr, 1.f);
-        g.DrawLine(color, plot.L + plot.W() * mEQCurve[i - 1][0], y(mEQCurve[i - 1][1]),
-                          plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][1]), nullptr, 1.5f);
-      }
+      const auto curve = [&](size_t component, IColor ink, float width) {
+        g.PathClear();
+        g.PathMoveTo(plot.L + plot.W() * mEQCurve[0][0], y(mEQCurve[0][component]));
+        for (size_t i = 1; i < mEQCurve.size(); ++i)
+          g.PathLineTo(plot.L + plot.W() * mEQCurve[i][0], y(mEQCurve[i][component]));
+        g.PathStroke(IPattern(ink), width);
+      };
+      if (filter && (std::abs(key[12] - key[14]) > 1. || std::abs(key[13] - key[15]) > .01))
+        curve(2, color.WithOpacity(.5f), 1.f);
+      curve(1, color, 1.5f);
       if(filter)
       {
         // Cutoff x 2^(Envelope x min(1, 4 x input peak)): the full shift needs
@@ -2830,12 +2833,15 @@ private:
       return area.B - area.H() * std::clamp((db + 72.f) / 72.f, 0.f, 1.f);
     };
     const float step = area.W() / static_cast<float>(mSpectrum.size() - 1);
+    g.PathClear(); g.PathMoveTo(area.L, area.B);
     for (size_t i = 0; i < mSpectrum.size(); ++i)
-    {
-      const float x = area.L + step * static_cast<float>(i);
-      g.FillRect(ampColor.WithOpacity(.2f), IRECT(std::max(area.L, x - .5f * step), signalY(mSpectrum[i]),
-                                                  std::min(area.R, x + .5f * step), area.B));
-    }
+      g.PathLineTo(area.L + step * i, signalY(mSpectrum[i]));
+    g.PathLineTo(area.R, area.B); g.PathClose();
+    g.PathFill(IPattern(ampColor.WithOpacity(.2f)));
+    g.PathClear(); g.PathMoveTo(area.L, signalY(mSpectrum[0]));
+    for (size_t i = 1; i < mSpectrum.size(); ++i)
+      g.PathLineTo(area.L + step * i, signalY(mSpectrum[i]));
+    g.PathStroke(IPattern(ampColor.WithOpacity(.55f)), 1.f);
     if (!labels) return;
     g.DrawText(Text(11.f, ampColor, EAlign::Far), "0 dBFS", IRECT(area.R - 60.f, area.T, area.R - 2.f, area.T + 12.f));
     g.DrawText(Text(11.f, ampColor, EAlign::Far), "-72", IRECT(area.R - 60.f, area.B - 12.f, area.R - 2.f, area.B));
@@ -3273,11 +3279,11 @@ private:
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
   std::array<double, 9> mResponseKey{-1.};
   std::array<double, 23> mEQKey{};
-  std::array<std::array<float, 3>, 162> mEQCurve{};
-  std::array<float, grid_eq_signal::bands> mSpectrum{};
+  std::array<std::array<float, 3>, 386> mEQCurve{};
+  std::array<float, signal_monitor::spectrumPoints> mSpectrum{};
   double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.
   std::string mIRResponsePath; // Cabinet IR whose response is cached below.
-  std::array<float, 120> mIRResponse{};
+  std::array<float, signal_monitor::spectrumPoints> mIRResponse{};
   double mIRUpper = 20000.;
   double mIRSeconds = 0., mIRHostRate = 0.;
   bool mIRLong = false;

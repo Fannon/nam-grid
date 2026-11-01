@@ -85,6 +85,8 @@ Use `--browser-text-smoke` on Windows or macOS for a focused capture with a long
 filename, metadata and path, to check the details panel and its footer controls.
 The Windows check also verifies that filename hover text includes the full filename
 and captures the details pane before and after scrolling.
+Use `--capture-graphs` for a short capture of the NAM, EQ, IR and Signal Monitor
+frequency plots without rendering the complete module gallery.
 
 To refresh a single module, append `--module` and its filename slug (the module's
 name in lowercase, with spaces replaced by hyphens). For example, with Ninja:

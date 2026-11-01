@@ -20,10 +20,6 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   assert(Browse(hintLibrary, FileKind::NAM, "\"king of tone\" shure -creator:junkie").size() == 1);
   assert(Browse(hintLibrary, FileKind::NAM, "-eq:balanced").empty());
   assert((Filter{"AmalgamAudio balanced", -1}.Matches(tagged)));
-  assert(KeepHint(hintLibrary, {0}, "vendor", "Bad Cat").size() == 1);
-  assert(KeepHint(hintLibrary, {0}, "vendor", "Fender").empty());
-  const auto facets = BrowserHintFilters(hintLibrary, FileKind::NAM);
-  assert(std::any_of(facets.begin(), facets.end(), [](const auto& f) { return f.label == "EQ: Balanced variant 3"; }));
   Capture compact; compact.path = "A FEN DLX CL.nam"; compact.hints = InferFilenameHints(compact);
   assert(HintText(compact).find("model: Fender Deluxe Reverb Reissue") != std::string::npos);
   assert(Search("fender \"deluxe reverb\" gain:clean").Score(compact) >= 0);
@@ -47,6 +43,33 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   assert(Search("shure balanced \"vintage 30\"").Score(ir) >= 0 && HintText(ir, "format").empty());
   Capture rig = tagged; rig.kind = FileKind::RigPreset;
   assert(InferFilenameHints(rig).empty());
+  Capture revised;
+  revised.path = "VOX AC30 TB Super Twin 1964 + FEN Super Reverb 1965 - Edge - Boost WRM KLN Mesa412OS V30 SM57 - Cab - AA.nam";
+  revised.hints = InferFilenameHints(revised);
+  assert((DetailValues(revised, "model") == std::vector<std::string>{"VOX AC30 Top Boost Super Twin 1964", "Fender Super Reverb 1965"}));
+  assert(HintText(revised, "gain") == "gain: Edge of breakup"); // Boost is a setting, not another gain category.
+  assert(Search("creator:AMG model:TB30 eq:WRM speaker:V30").Score(revised) >= 0);
+  assert(Search("-creator:AMG").Score(revised) < 0);
+  assert((Filter{"AMG TB30", -1}.Matches(revised)));
+  assert(HintText(revised, "mic/cab").find("Mesa Rectifier Oversized") != std::string::npos);
+  assert(HintText(revised, "settings").find("Volume 30") == std::string::npos); // V30 is a speaker.
+  revised.path = "VOX AC30 Top Boost 1965 - Clean - Cab - TNJ.nam"; revised.hints = InferFilenameHints(revised);
+  assert(HintText(revised, "gain") == "gain: Clean" && HintText(revised, "channel").empty());
+  revised.path = "MES Badlander 100W - Crunch - Bold Clean CleanPushed2 Fredman1 - Cab - 2DR.nam";
+  revised.hints = InferFilenameHints(revised);
+  assert(HintText(revised, "gain") == "gain: Crunch");
+  revised.path = "BOSS AD-2 Acoustic Preamp - Color - Resonance 75pct - LEM.nam"; revised.hints = InferFilenameHints(revised);
+  assert(HintText(revised, "settings") == "settings: Resonance 75%");
+  revised.path = "UAD 610-B - Clean - Gain -10 Line Input EQ Off - GLU.nam"; revised.hints = InferFilenameHints(revised);
+  assert(HintText(revised, "settings").find("Gain -10") != std::string::npos);
+  revised.path = "WIZ Modern Classic MCII - High Gain - Ch3 G7 V6 - Head - AA.nam"; revised.hints = InferFilenameHints(revised);
+  assert(HintText(revised, "vendor") == "vendor: Wizard");
+  assert(HintText(revised, "format") == "format: Direct input (no cabinet)");
+  assert(HintText(revised, "settings").find("Gain 7") != std::string::npos);
+  revised.path = "FEN Super Head - Clean - BAL - Cab - AA.nam"; revised.hints = InferFilenameHints(revised);
+  assert(HintText(revised, "format") == "format: Amp + Cab"); // A model name does not override the format field.
+  revised.path = "I MES DRF HG.nam"; revised.hints = InferFilenameHints(revised);
+  assert(Search("model:\"dual rectifier\" gain:\"high gain\"").Score(revised) >= 0);
   Capture folderHints; folderHints.path = "Library/Pedals/Ibanez/TS9/Take 01.nam"; folderHints.source = "Library";
   folderHints.hints = InferLibraryHints(folderHints);
   assert(HintText(folderHints, "vendor") == "vendor: Ibanez");

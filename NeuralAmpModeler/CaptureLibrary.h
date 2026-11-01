@@ -68,6 +68,7 @@ struct LibraryHint
 {
   std::string key, value;
   bool fromFolder = false;
+  std::string aliases; // Search-only spellings; never displayed as extra tags.
 };
 struct Capture
 {
@@ -85,6 +86,7 @@ struct Capture
 std::vector<LibraryHint> InferFilenameHints(const Capture& capture);
 std::vector<LibraryHint> InferLibraryHints(const Capture& capture);
 std::string HintText(const Capture& capture, const std::string& key = {}, int origin = -1);
+std::string HintSearchText(const Capture& capture);
 
 struct Filter
 {

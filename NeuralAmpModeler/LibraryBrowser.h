@@ -117,7 +117,7 @@ public:
   {
     const auto hintValues = [&](const std::string& key) {
       std::string result;
-      for (const auto& hint : file.hints) if (hint.key == key) result += " " + hint.value;
+      for (const auto& hint : file.hints) if (hint.key == key) result += " " + hint.value + " " + hint.aliases;
       return SearchText(result);
     };
     const auto filename = SearchText(PathText(file.path.stem()));
@@ -125,7 +125,7 @@ public:
                model = SearchText(file.model) + hintValues("model");
     const auto path = SearchText(PathText(file.path));
     const auto gear = file.kind == FileKind::NAM ? SearchText(GearName(file.gear)) : "";
-    const auto all = filename + " " + name + " " + maker + " " + model + " " + path + " " + gear + " " + SearchText(HintText(file));
+    const auto all = filename + " " + name + " " + maker + " " + model + " " + path + " " + gear + " " + SearchText(HintSearchText(file));
     int score = 0;
     for (const auto& term : mTerms)
     {
@@ -231,7 +231,7 @@ inline std::vector<size_t> KeepStarred(const Snapshot& library, std::vector<size
   return results;
 }
 
-struct BrowserFolder { std::filesystem::path path; std::string label; int depth = 0, rootIndex = -1; std::string hintKey, hintValue; };
+struct BrowserFolder { std::filesystem::path path; std::string label; int depth = 0, rootIndex = -1; };
 inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKind kind,
                                                 const std::vector<std::string>& roots)
 {
@@ -292,25 +292,4 @@ inline std::string HintLabel(const std::string& key)
   return label;
 }
 
-inline std::vector<BrowserFolder> BrowserHintFilters(const Snapshot& library, FileKind kind)
-{
-  std::set<std::pair<std::string, std::string>> values;
-  for (const auto& file : library.captures)
-    if (file.kind == kind)
-      for (const auto& hint : file.hints)
-        if (hint.key != "settings" && hint.key != "model") values.insert({hint.key, hint.value});
-  std::vector<BrowserFolder> result;
-  for (const auto& [key, value] : values) result.push_back({{}, HintLabel(key) + ": " + value, 0, -1, key, value});
-  return result;
-}
-
-inline std::vector<size_t> KeepHint(const Snapshot& library, std::vector<size_t> results,
-                                    const std::string& key, const std::string& value)
-{
-  if (!key.empty()) results.erase(std::remove_if(results.begin(), results.end(), [&](size_t i) {
-    const auto& hints = library.captures[i].hints;
-    return std::none_of(hints.begin(), hints.end(), [&](const auto& hint) { return hint.key == key && hint.value == value; });
-  }), results.end());
-  return results;
-}
 } // namespace nam_library

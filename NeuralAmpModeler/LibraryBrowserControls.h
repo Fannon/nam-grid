@@ -292,7 +292,7 @@ public:
     SwitchKind(kind);
     auto& view = View();
     view.selected.clear();
-    view.query.clear(); view.folder.clear(); view.hintKey.clear(); view.hintValue.clear(); view.scroll = view.folderScroll = 0; view.starred = false;
+    view.query.clear(); view.folder.clear(); view.scroll = view.folderScroll = 0; view.starred = false;
     mSearch->SetQuery("");
     if (kind == nam_library::FileKind::Module)
     {
@@ -373,7 +373,7 @@ public:
     g.FillRoundRect(surface.WithOpacity(.5f), IRECT(732, kPanelTop, grid_layout::width - 24, ListBottom()), 4);
     const char* folders = mKind == nam_library::FileKind::Module ? "FX CATEGORIES"
                         : mKind == nam_library::FileKind::RigPreset ? "PRESET FOLDERS"
-                        : mKind == nam_library::FileKind::IR ? "IR FOLDERS / TAGS" : "NAM FOLDERS / TAGS";
+                        : mKind == nam_library::FileKind::IR ? "IR FOLDERS" : "NAM FOLDERS";
     g.DrawText(Text(13.f, muted), folders, IRECT(36, kPanelTop, 224, kListTop));
     const auto count = std::to_string(mResults.size()) + (mResults.size() == 1 ? " RESULT" : " RESULTS");
     g.DrawText(Text(13.f, muted), PLUG()->IsLibraryScanning() ? "SCANNING..." : count.c_str(), IRECT(262, kPanelTop, 470, kListTop));
@@ -382,8 +382,7 @@ public:
     {
       const auto& folder = mFolders[View().folderScroll + row];
       const float y = kListTop + row * kRowHeight;
-      const bool selected = nam_library::SamePath(folder.path, View().folder)
-                            && folder.hintKey == View().hintKey && folder.hintValue == View().hintValue;
+      const bool selected = nam_library::SamePath(folder.path, View().folder);
       if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(26, y, 225, y + kRowHeight));
       FittedText(g, Text(14.f, selected ? accent : text), folder.label.c_str(),
                  IRECT(36.f + std::min(folder.depth, 7) * 12, y, 218, y + kRowHeight));
@@ -442,7 +441,7 @@ public:
       {
         const auto query = link.query;
         const auto target = link.file;
-        FinishSearch(); View().folder.clear(); View().hintKey.clear(); View().hintValue.clear();
+        FinishSearch(); View().folder.clear();
         View().starred = false; View().scroll = View().folderScroll = 0;
         if (!target.empty()) { View().folder = target.parent_path(); View().selected = nam_library::PathText(target); }
         View().query = target.empty() ? query : ""; mSearch->SetQuery(View().query); Rebuild();
@@ -459,8 +458,7 @@ public:
     {
       const int index = View().folderScroll + static_cast<int>((y - kListTop) / kRowHeight);
       if (index < mFolders.size()) {
-        View().folder = mFolders[index].path; View().hintKey = mFolders[index].hintKey;
-        View().hintValue = mFolders[index].hintValue; View().scroll = 0; Rebuild();
+        View().folder = mFolders[index].path; View().scroll = 0; Rebuild();
       }
     }
     else if (x >= 250 && x < 707)
@@ -569,7 +567,7 @@ private:
     mCancel->SetTargetAndDrawRECTs(preset ? IRECT(818, top, grid_layout::width - 112, bottom) : IRECT(740, top, grid_layout::width - 152, bottom));
     mApply->SetTargetAndDrawRECTs(preset ? IRECT(grid_layout::width - 104, top, grid_layout::width - 32, bottom) : IRECT(grid_layout::width - 144, top, grid_layout::width - 32, bottom));
   }
-  struct State { std::string query, selected, hintKey, hintValue; std::filesystem::path folder; int scroll = 0, folderScroll = 0; bool starred = false; };
+  struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; bool starred = false; };
   State& View() { return mViews[static_cast<int>(mKind)]; }
   std::vector<std::string> ConfiguredRoots()
   {
@@ -656,20 +654,14 @@ private:
           mFolders.push_back({std::filesystem::u8path(group.name), group.name});
       }
       else mFolders = nam_library::BrowserFolders(*mLibrary, mKind, mRoots);
-      if (mKind == nam_library::FileKind::NAM || mKind == nam_library::FileKind::IR)
-      {
-        const auto hints = nam_library::BrowserHintFilters(*mLibrary, mKind);
-        mFolders.insert(mFolders.end(), hints.begin(), hints.end());
-      }
       if (ContextApplies() && !mContextRoot.empty()
           && std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) { return nam_library::SamePath(f.path, mContextRoot); }))
         mFolders.push_back({mContextRoot, "Current folder"});
     }
     if (std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) {
-      return nam_library::SamePath(f.path, View().folder) && f.hintKey == View().hintKey && f.hintValue == View().hintValue;
-    })) { View().folder.clear(); View().hintKey.clear(); View().hintValue.clear(); }
+      return nam_library::SamePath(f.path, View().folder);
+    })) { View().folder.clear(); }
     mResults = nam_library::Browse(*mLibrary, mKind, View().query, View().folder, -1, mRelevance);
-    mResults = nam_library::KeepHint(*mLibrary, std::move(mResults), View().hintKey, View().hintValue);
     // A star cleared under the filter keeps its row until the next rebuild, so it can be cycled on.
     mFavoritesFolder = PLUG()->GetFavoritesFolder();
     if (View().starred)

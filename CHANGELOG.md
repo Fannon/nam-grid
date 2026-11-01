@@ -4,6 +4,9 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- NAM and IR sidebars now list folders only; detected tags remain available in search and Details. Refresh filename aliases for newer vendor, creator, model, cabinet and microphone codes, and keep gain labels separate from channel/boost settings.
+- Module frequency displays use Signal Monitor's detailed stereo spectrum, and response curves draw as continuous lines instead of many short strokes. Flat EQ lines look smoother; this changes only the display.
+
 - Add **Aurora Hall Medium** to Cosmic Echo's factory presets, preserving the settings from the author's user preset.
 
 - Expand every delay module's factory presets with more beat-synced rhythms: eighths, triplets, dotted leads, tape-head patterns, stereo pairs, reverse blooms and diffused clouds. Each bank keeps the character of its delay type. Digital Delay includes a clear quarter-note lead and all its synced recipes crossfade tempo jumps; the reverse wash keeps more dry attack with a longer trail. Existing rigs and insertion defaults keep their settings.

@@ -4,9 +4,9 @@
 #include <cmath>
 #include <complex>
 
-// UI-thread only: one 4096-point FFT of the latest EQ output window per meter
-// update. The audio thread only copies the selected slot's samples into a
-// separate small sender; other slots' meter packets stay small.
+// UI-thread FFT utilities for the latest output window. The audio thread only
+// copies the selected slot's samples into a separate sender; other slots'
+// meter packets stay small. Module views share Signal Monitor's detailed display.
 namespace grid_eq_signal
 {
 constexpr size_t windowSize = 4096;

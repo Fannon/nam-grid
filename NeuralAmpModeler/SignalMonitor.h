@@ -139,6 +139,19 @@ inline std::array<float, spectrumPoints> Detailed(const std::array<float, grid_e
   return db;
 }
 
+// UI-only spectrum shared by module views and Signal Monitor. Reuse the mono
+// transform when channels are identical; otherwise retain right-only peaks too.
+inline std::array<float, spectrumPoints> AnalyzeWindow(const grid_eq_signal::Window& window, double rate)
+{
+  auto result = Detailed(grid_eq_signal::Magnitudes(window.samples), rate);
+  if (window.right != window.samples)
+  {
+    const auto right = Detailed(grid_eq_signal::Magnitudes(window.right), rate);
+    for (size_t i = 0; i < result.size(); ++i) result[i] = std::max(result[i], right[i]);
+  }
+  return result;
+}
+
 // Persistent narrow peaks in a long-term spectrum: local maxima standing at least
 // 6 dB above the mean of their surrounding third-octaves. Broad tone and isolated
 // noise do not qualify; the strongest three, a third-octave apart, are kept.

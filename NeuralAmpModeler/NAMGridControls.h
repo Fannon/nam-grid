@@ -1130,7 +1130,7 @@ private:
     const auto* param = GetParam(mTarget);
     const double upper = multiband_view::Upper(PLUG()->GetSampleRate());
     const double value = mTarget < 2 ? multiband_view::Hz(mRECT, x, upper)
-                                     : mStartThreshold + (y - mStartY) / mRECT.H() * multiband_view::kFloor;
+                                     : mStartThreshold + (y - mStartY) / (mRECT.H() - 50.f) * multiband_view::kFloor;
     SetValue(param->ToNormalized(std::clamp(value, param->GetMin(), param->GetMax())), mTarget);
     SetDirty(true, mTarget);
   }
@@ -2624,44 +2624,65 @@ private:
     level(meters.T + 72.f, "R", sumR);
     PlotFooter(g, plot, "Scope auto-scaled", "RMS -60..0 dB");
   }
-  // Outboard Channel is a cut EQ, a compressor and a saturator in series. The cuts and the
-  // gain reduction get views; the title reports measured reduction rather than repeating knobs.
+  // Three independent detectors with shared up/down amounts and timing.
   void DrawMultiband(IGraphics& g, const IRECT& plot, IColor color)
   {
     using namespace grid_ui;
     using namespace multiband_view;
     const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
     const double upper = Upper(PLUG()->GetSampleRate());
+    const double threshold = value(uMultibandThreshold);
+    const bool down = value(uMultibandDownward) > 0., up = value(uMultibandUpward) > 0.;
     WDL_String caption;
-    caption.SetFormatted(96, "Multiband | low %+.1f  mid %+.1f  high %+.1f dB", mMeter.bandGain[0], mMeter.bandGain[1], mMeter.bandGain[2]);
+    caption.SetFormatted(96, "Threshold %.1f dB | Down %.1f:1 | Up %.1f:1", threshold,
+      std::pow(20., value(uMultibandDownward) * .01), std::pow(4., value(uMultibandUpward) * .01));
     PlotTitle(g, plot, color, caption.Get());
-    PlotDetail(g, plot, "Drag a split line, or up and down for Threshold");
-    PlotFrequencyAxis(g, plot, upper, "Band level -72 / 0 dBFS");
-    DrawSignalSpectrum(g, plot, false);
+    PlotDetail(g, plot, "Each band reacts independently. Solid = downward threshold; dashed = upward threshold. "
+      "Amber = gain reduction; blue = upward lift, before band gains and Mix. "
+      "Drag vertical split lines horizontally, or elsewhere vertically for Threshold. Double-click resets.");
+    PlotFrequencyAxis(g, plot, upper, "Band detector -72 / 0 dBFS");
     const float low = X(plot, value(uMultibandLowSplit), upper), high = X(plot, std::max(value(uMultibandHighSplit), value(uMultibandLowSplit)), upper);
     const std::array<std::pair<float, float>, 3> bands{{{plot.L, low}, {low, high}, {high, plot.R}}};
-    // Each band: its detected level, and an arrow to where its gain moves it (up: upward, down: downward).
+    const char* names[]{"LOW", "MID", "HIGH"};
+    WDL_String label;
+    // Actual detector thresholds include the DSP's band offsets. The previous
+    // single horizontal line incorrectly suggested identical thresholds.
     for (int b = 0; b < 3; ++b)
     {
       const auto [left, right] = bands[b];
       if (right - left < 6.f) continue;
-      const float centre = .5f * (left + right), level = Y(plot, mMeter.bandLevel[b]);
-      g.FillRect(color.WithOpacity(.18f), IRECT(left + 2.f, level, right - 2.f, plot.B));
-      const float moved = Y(plot, mMeter.bandLevel[b] + mMeter.bandGain[b]);
-      if (std::abs(moved - level) > .5f)
+      const IRECT lane(left + 2.f, plot.T + 24.f, right - 2.f, plot.B - 26.f);
+      const double bandThreshold = threshold + SlotMultiband::kOffset[b];
+      const float downY = Y(lane, bandThreshold), upY = Y(lane, bandThreshold - SlotMultiband::kUpwardGap);
+      g.FillRect(surface, lane);
+      if (down) g.FillRect(ampColor.WithOpacity(.10f), IRECT(lane.L, lane.T, lane.R, downY));
+      if (up) g.FillRect(cabColor.WithOpacity(.10f), IRECT(lane.L, upY, lane.R, lane.B));
+      for (double db : {-12., -24., -36., -48., -60.})
+        g.DrawLine(border.WithOpacity(.3f), lane.L, Y(lane, db), lane.R, Y(lane, db));
+      if (down) g.DrawLine(ampColor, lane.L, downY, lane.R, downY, nullptr, 1.5f);
+      if (up) for (float x = lane.L; x < lane.R; x += 7.f)
+        g.DrawLine(cabColor, x, upY, std::min(x + 3.f, lane.R), upY);
+      // Input level is measured; the signed gain meter excludes the output trims.
+      const float centre = lane.MW(), level = Y(lane, mMeter.bandLevel[b]);
+      const float halfWidth = std::min(14.f, lane.W() * .15f);
+      g.FillRect(text.WithOpacity(.35f), IRECT(centre - halfWidth, level, centre + halfWidth, lane.B));
+      const double gain = mMeter.bandGain[b];
+      const auto ink = gain < 0. ? ampColor : cabColor;
+      const float moved = Y(lane, mMeter.bandLevel[b] + gain);
+      g.DrawLine(ink, centre - halfWidth - 2.f, moved, centre + halfWidth + 2.f, moved, nullptr, 2.f);
+      if (lane.W() > 38.f)
       {
-        const auto ink = mMeter.bandGain[b] < 0.f ? ampColor : color;
-        g.DrawLine(ink, centre, level, centre, moved, nullptr, 3.f);
-        g.FillCircle(ink, centre, moved, 3.f);
+        g.DrawText(Text(11.f, text, EAlign::Center), names[b], IRECT(left, plot.T, right, plot.T + 13.f));
+        label.SetFormatted(32, "D %.0f / U %.0f", bandThreshold, bandThreshold - SlotMultiband::kUpwardGap);
+        g.DrawText(Text(10.f, muted, EAlign::Center), label.Get(), IRECT(left, plot.T + 12.f, right, plot.T + 24.f));
+        label.SetFormatted(32, "%s %.1f", gain < -.05 ? "GR" : gain > .05 ? "Lift" : "Gain", std::abs(gain));
+        g.DrawText(Text(11.f, ink, EAlign::Center), label.Get(), IRECT(left, plot.B - 24.f, right, plot.B - 11.f));
+        const float extent = std::min(lane.W() * .45f, 45.f), zero = lane.MW(), y = plot.B - 5.f;
+        g.DrawLine(border, zero - extent, y, zero + extent, y, nullptr, 3.f);
+        g.DrawLine(ink, zero, y, zero + extent * static_cast<float>(std::clamp(gain / 18., -1., 1.)), y, nullptr, 3.f);
+        g.DrawLine(muted, zero, y - 3.f, zero, y + 3.f);
       }
     }
-    const double threshold = value(uMultibandThreshold);
-    g.DrawLine(text.WithOpacity(.85f), plot.L, Y(plot, threshold), plot.R, Y(plot, threshold), nullptr, 1.5f);
-    for (float x = plot.L; x < plot.R; x += 8.f)
-      g.DrawLine(text.WithOpacity(.5f), x, Y(plot, threshold - SlotMultiband::kUpwardGap), std::min(x + 4.f, plot.R), Y(plot, threshold - SlotMultiband::kUpwardGap));
-    WDL_String label;
-    label.SetFormatted(48, "Threshold %.0f dB | upward below %.0f", threshold, threshold - SlotMultiband::kUpwardGap);
-    g.DrawText(Text(11.f, text, EAlign::Far), label.Get(), IRECT(plot.L, Y(plot, threshold) - 14.f, plot.R - 4.f, Y(plot, threshold) - 2.f));
     for (int split = 0; split < 2; ++split)
     {
       const float x = split ? high : low;
@@ -2669,8 +2690,7 @@ private:
       g.FillCircle(color, x, plot.MH(), 5.f);
       const double hz = value(split ? uMultibandHighSplit : uMultibandLowSplit);
       label.SetFormatted(32, hz >= 1000. ? "%.1fk" : "%.0f Hz", hz >= 1000. ? hz * .001 : hz);
-      g.DrawText(Text(11.f, color, split ? EAlign::Near : EAlign::Far), label.Get(),
-                 split ? IRECT(x + 4.f, plot.T + 2.f, x + 60.f, plot.T + 14.f) : IRECT(x - 60.f, plot.T + 2.f, x - 4.f, plot.T + 14.f));
+      g.DrawText(Text(10.f, color, EAlign::Near), label.Get(), IRECT(x + 4.f, plot.MH() + 7.f, std::min(x + 58.f, plot.R), plot.MH() + 20.f));
     }
   }
   void DrawOutboardChannel(IGraphics& g, const IRECT& plot, IColor color)

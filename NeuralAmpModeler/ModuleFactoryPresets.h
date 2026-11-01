@@ -81,7 +81,7 @@ inline const Preset transientShaper[]{
   {"Gentle note sustain", {{U(uTransientShaperAttack), 0.}, {U(uTransientShaperSustain), 4.}, {U(uTransientShaperRecovery), 220.},
     {U(uTransientShaperSensitivity), 45.}, {U(uTransientShaperMix), 60.}, {U(uTransientShaperOutput), -1.}}},
 };
-// Multiband Dynamics keeps the player's Threshold. Output trims match loudness within about
+// Multiband Dynamics restores Threshold and splits with each recipe. Output trims match loudness within about
 // 1 dB on a guitar DI and a bass DI peaking near -6 dBFS; a hotter amp output comes out
 // 2-3 dB quieter on the heavier presets until Threshold is raised.
 inline const Preset multiband[]{

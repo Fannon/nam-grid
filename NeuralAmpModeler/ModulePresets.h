@@ -48,8 +48,6 @@ inline bool ModuleControl(SlotEffect effect, int control)
 inline bool KeepsSetup(SlotEffect effect, int control)
 {
   if (effect == SlotEffect::PedalComp) return control == U(uPedalCompPickup);
-  if (effect == SlotEffect::Multiband)
-    return control == U(uMultibandThreshold) || control == U(uMultibandLowSplit) || control == U(uMultibandHighSplit);
   return false;
 }
 // The complete slot values after choosing a preset: module controls the preset leaves out

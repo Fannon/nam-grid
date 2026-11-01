@@ -151,8 +151,7 @@ Fresh installations include **Drive Examples** in the preset library. Existing u
 choose **Settings > Install factory content...** and select a library folder.
 The installer adds the drive examples alongside the other bundled content and
 indexes it, preserving existing files.
-The action adds the folder to the preset library and keeps existing files, including
-edited examples. Loading an example replaces the current rig.
+Loading an example replaces the current rig.
 
 The examples contain effects without external capture or IR dependencies:
 

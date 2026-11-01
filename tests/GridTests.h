@@ -107,6 +107,37 @@ void TestFixedGrid()
         assert(std::abs(peaks[1][0]-bL)<1.e-7 && std::abs(peaks[1][1]-bR)<1.e-7);
         assert(pan.TakeLanePeaks()==FixedNAMGrid::LanePeaks{});
       }
+  // Sequential metering is after A and after B, before Post. Measuring must not
+  // change audio, including mono NAM channel collapse, or allocate in processing.
+  {
+    std::array<std::vector<double>, 2> rendered;
+    for (bool metering : {false, true})
+    {
+      FixedNAMGrid serial;
+      for (int slot : {4, 8})
+      {
+        auto model = linear;
+        model["weights"] = slot == 4 ? nlohmann::json{2., .01} : nlohmann::json{3., .02};
+        serial.stages[slot].Publish(prepare(model, 48000.));
+      }
+      serial.ResetStopped(48000., 512); serial.EnableLaneMetering(metering);
+      grid_performance::Routing route; route.sequential = true;
+      std::array<double, 512> left{}, right{}; left.fill(.2); right.fill(.3);
+      allocations = deletions = 0; tracking = true;
+      serial.Process(left.data(), 512, {}, .5, right.data(), route);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      const auto peaks = serial.TakeLanePeaks();
+      for (int ch = 0; ch < 2; ++ch)
+      {
+        assert(std::abs(peaks[0][ch] - (metering ? .51 : 0.)) < 1.e-6);
+        assert(std::abs(peaks[1][ch] - (metering ? 1.55 : 0.)) < 1.e-6);
+      }
+      rendered[metering].assign(left.begin(), left.end());
+      rendered[metering].insert(rendered[metering].end(), right.begin(), right.end());
+    }
+    assert(rendered[0] == rendered[1]);
+  }
   // Topology changes dip and recover without allocating. After silence, dormant
   // timing/compensation histories cannot leak audio when parallel is restored.
   {

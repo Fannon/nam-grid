@@ -273,6 +273,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       header(settingsLeft, settingsRight),
       [this](IControl* caller) {
         CloseSignalMonitor();
+        if (mRoutingOpen) SetRoutingOpen(false);
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },

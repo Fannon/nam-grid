@@ -99,7 +99,9 @@ public:
     if (mSequential)
     {
       ProcessRow(samples, frames, controls, 4, right);
+      if (mLaneMetering) MeasureLane(0, samples, right, frames);
       ProcessRow(samples, frames, controls, 8, right);
+      if (mLaneMetering) MeasureLane(1, samples, right, frames);
       ProcessRow(samples, frames, controls, 12, right);
       FadeTopology(samples, right, frames, routing.sequential);
       return;
@@ -249,6 +251,14 @@ public:
   const double* TapRight(int instance = 0) const { return mTapStereo[instance] ? mTap[instance][1].data() : nullptr; }
 
 private:
+  void MeasureLane(int lane, const double* left, const double* right, int frames)
+  {
+    for (int i = 0; i < frames; ++i)
+    {
+      mLanePeaks[lane][0] = std::max(mLanePeaks[lane][0], static_cast<float>(std::abs(left[i])));
+      mLanePeaks[lane][1] = std::max(mLanePeaks[lane][1], static_cast<float>(std::abs(right ? right[i] : left[i])));
+    }
+  }
   void FadeTopology(double* left, double* right, int frames, bool sequential)
   {
     const double target = mSequential == sequential ? 1. : 0.;

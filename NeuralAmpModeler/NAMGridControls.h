@@ -3322,6 +3322,9 @@ public:
                  IRECT(kLeft + 12, kListTop, kRight - 12, kListTop + kRowHeight));
     g.DrawText(Text(14.f, muted), PLUG()->GetCaptureStatus().c_str(),
                IRECT(kLeft, kListTop + kRows * kRowPitch + 4, kRight, kListTop + kRows * kRowPitch + 28));
+    g.DrawText(Text(13.f, muted), "RIG BEHAVIOUR · saved with the rig and scenes", IRECT(kLeft, 480, kRight, 504));
+    g.DrawText(Text(13.f, muted), "Trails keeps bypassed echoes ringing. Keep dry level adds ambience without reducing the dry signal.",
+               IRECT(kLeft, 556, kRight, 580));
     // Footer: version and open-source links (Documentation, Source code, Report an issue).
     g.DrawText(Text(13.f, muted), "NAM Grid " PLUG_VERSION_STR "  ·  Free and open source",
                IRECT(kLeft, kFooterTop, kFooterLinksL - 12, kFooterTop + kFooterHeight));
@@ -3390,6 +3393,16 @@ public:
     mPresetSwitch->SetTooltip("How rig presets change while audio plays. Short fade dips the output for about 25 ms "
                               "and runs one rig at a time. Crossfade blends both rigs over 40 ms for a seamless change, "
                               "briefly using about twice the CPU.");
+    mTrails = new Button(IRECT(kLeft, 516, kLeft + 212, 548), [this](IControl*) {
+      const int id = PerformanceParam(grid_performance::Trails);
+      PLUG()->SetParameterFromUI(id, PLUG()->GetParam(id)->Bool() ? 0. : 1.);
+    }, "Trails: OFF");
+    AddChildControl(mTrails)->SetTooltip("Let bypassed delays and reverbs ring out. New playing no longer reaches their tails. Saved with this rig, not as a user preference.");
+    mKeepDry = new Button(IRECT(kLeft + 224, 516, kLeft + 468, 548), [this](IControl*) {
+      const int id = PerformanceParam(grid_performance::MixLaw);
+      PLUG()->SetParameterFromUI(id, PLUG()->GetParam(id)->Bool() ? 0. : 1.);
+    }, "Keep dry level: OFF");
+    AddChildControl(mKeepDry)->SetTooltip("Delays/reverbs only. Off: Mix crossfades dry to wet. On: dry stays at unity while Mix adds wet. At 50%: 100% dry + 50% wet. Leave off for wet-only parallel returns. Saved with this rig.");
     // Footer links: documentation site, open-source repository, issue tracker.
     AddChildControl(new IURLControl(IRECT(560, kFooterTop, 690, kFooterTop + kFooterHeight),
       "Documentation", CLAP_MANUAL_URL, Text(13.f, accent)))->SetTooltip("Open the NAM Grid documentation site.");
@@ -3418,6 +3431,10 @@ public:
       mPresetSwitch->SetLabelStr(switchLabel);
     if (mStartupScan && std::strcmp(mStartupScan->GetLabelStr(), scanLabel) != 0)
       mStartupScan->SetLabelStr(scanLabel);
+    const char* trails = PLUG()->GetParam(PerformanceParam(grid_performance::Trails))->Bool() ? "Trails: ON" : "Trails: OFF";
+    const char* dry = PLUG()->GetParam(PerformanceParam(grid_performance::MixLaw))->Bool() ? "Keep dry level: ON" : "Keep dry level: OFF";
+    if (mTrails && std::strcmp(mTrails->GetLabelStr(), trails) != 0) mTrails->SetLabelStr(trails);
+    if (mKeepDry && std::strcmp(mKeepDry->GetLabelStr(), dry) != 0) mKeepDry->SetLabelStr(dry);
     for (int i = 0; i < 3; ++i)
     {
       const bool full = PLUG()->GetLibraryFolders(kKinds[i]).size() >= 32;
@@ -3503,6 +3520,8 @@ private:
   grid_ui::Button* mVisualizations = nullptr;
   grid_ui::Button* mPresetSwitch = nullptr;
   grid_ui::Button* mMainMacros = nullptr;
+  grid_ui::Button* mTrails = nullptr;
+  grid_ui::Button* mKeepDry = nullptr;
 };
 
 

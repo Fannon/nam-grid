@@ -115,6 +115,28 @@ Turn all displays on or off in **Settings > Visualizations**. This changes only 
 - **Settings folder** opens the folder that stores these choices; see [where settings are stored](troubleshooting.md#where-are-my-settings-stored).
 - Links to this documentation, the source code and the issue tracker.
 
+### Rig behaviour
+
+Settings also holds **Trails** and **Keep dry level**. These affect the whole rig
+and stay saved with that rig and its scenes, independently of user preferences.
+Both are off by default.
+
+![Rig behaviour switches in Settings: Trails and Keep dry level, saved with the rig](screenshots/rig-behaviour.png)
+
+- **Trails:** bypassed delays and reverbs ring out instead of stopping. After the 5 ms bypass fade, new playing no longer reaches them, while their repeats or reverb tail continue over the dry signal. Off by default; saved with the rig and recalled by scenes. Re-enabling a ringing module adds new playing to its tail. Turning Trails off fades a ringing tail over 5 ms, and replacing the module drops it with the usual switch fade. A tail ends once it stays below -100 dB: for 2 s with reverbs, and with delays for their longest possible gap between repeats (9 s for most). It also ends within 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo. A tail still ringing fades during the final second of that limit, within the time reported to the host. A ringing module uses as much CPU as an active one, and it then drains silently as before. Freeze, Stutter and the modulation effects keep their normal bypass.
+
+**Keep dry level** changes the Mix law of delays and reverbs:
+
+| Mix | Off: dry/wet crossfade | On: dry stays at unity |
+| --- | --- | --- |
+| 50% | 50% dry + 50% wet | 100% dry + 50% wet |
+| 100% | Wet only | 100% dry + 100% wet |
+
+Use it to add ambience while keeping the dry attack at its original level. Leave
+it off for a wet-only parallel return or the usual dry/wet crossfade. Turning it
+on can raise the combined level; module Output still trims the result. Changes
+ramp over 20 ms. Freeze and Stutter keep their usual Mix behaviour.
+
 ## Mouse and keyboard
 
 | Where | Action | Result |

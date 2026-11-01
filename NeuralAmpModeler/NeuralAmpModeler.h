@@ -247,7 +247,7 @@ public:
   void ApplyUserModulePreset(size_t slot, const module_presets::UserPreset& preset);
   std::string SaveRigPreset(const std::filesystem::path& path);
   std::string LoadRigPreset(const std::filesystem::path& path);
-  std::string InstallDrivePresets(const std::filesystem::path& folder);
+  std::string InstallFactoryContent(const std::filesystem::path& folder);
   void PromptRigPreset(bool save);
   // Saves over the loaded preset file, or prompts Save as when there is none.
   void QuickSaveRigPreset();
@@ -304,7 +304,6 @@ private:
   void _UnserializeApplyConfig(nlohmann::json& config);
   // Library folders from this user's settings.json (control thread).
   void _ReloadLibraryFolders();
-  void _InstallDefaultContent(const std::filesystem::path& namFolder, const std::filesystem::path& presetFolder);
 
   // Update all controls that depend on a model
   void _UpdateControlsFromModel();

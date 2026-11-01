@@ -94,6 +94,9 @@ editor views. An unknown module name fails before opening the editor. Use a fres
 output directory when reviewing a filtered run so older images cannot be mistaken
 for newly generated captures. `--help` prints the command syntax.
 
+Append `--pages` instead to refresh only `settings` and `control` (Modulation),
+using the same demo rig and library as the full gallery.
+
 It creates the demo library and renders every view, then each built-in module in
 the empty A4 slot, cropped to the editor panel, as `modules/<module-name>.bmp`. The NAM
 and Cabinet IR panes are cropped from the `nam` and `ir` frames in the same way. The tool uses a private temporary `NAM_GRID_HOME` for settings and demo files,

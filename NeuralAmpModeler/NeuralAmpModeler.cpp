@@ -2,6 +2,7 @@
 #include "NoisePrintState.h"
 #include "DefaultContent.h"
 #include "DrivePresets.h"
+#include "FactoryContent.h"
 #include "ModulePresets.h"
 #include "EmbeddedFont.h"
 #include <fstream>
@@ -202,7 +203,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mIrFolders = librarySettings.irFolders;
   mPresetFolders = librarySettings.presetFolders;
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
-  _InstallDefaultContent(prepared.newNamFolder, prepared.newPresetFolder);
+  factory_content::Install(prepared.newNamFolder, prepared.newPresetFolder, mEmptyRig, drive_presets::Make(mEmptyRig));
   const auto content = user_paths::ContentFolder();
   mFactoryLibraryFiles = {nam_library::PathText(content / "NAM Captures" / default_content::kCleanCaptureName),
                           nam_library::PathText(content / "Presets" / "Empty.ngrid"),
@@ -701,62 +702,29 @@ void NeuralAmpModeler::SetLibraryFolders(nam_library::FileKind kind, std::vector
   _UpdateLibraryControls();
 }
 
-// A fresh install's new default folders get a clean capture, the Empty grid and the Clean
-// Default rig that uses that capture, so a first start is not blank. Existing files and
-// folders the user chose are never touched. Optional: the plugin works without any of it.
-void NeuralAmpModeler::_InstallDefaultContent(const std::filesystem::path& namFolder,
-                                              const std::filesystem::path& presetFolder)
+std::string NeuralAmpModeler::InstallFactoryContent(const std::filesystem::path& folder)
 {
-  std::error_code error;
-  const auto capture = namFolder.empty() ? namFolder : namFolder / default_content::kCleanCaptureName;
+  const auto nam = folder / "NAM Captures", presets = folder / "Presets";
+  // Check the limit before writing files, preserving existing library order.
+  const auto add = [&](nam_library::FileKind kind, const std::filesystem::path& path) {
+    auto folders = GetLibraryFolders(kind);
+    const auto name = nam_library::PathText(path);
+    const bool known = std::any_of(folders.begin(), folders.end(), [&](const auto& existing) {
+      return nam_library::NormalizeFolders({existing, name}).size() == 1;
+    });
+    if (!known && folders.size() >= 32)
+      throw std::runtime_error("The library already has 32 folders of this type. Remove a folder before installing factory content.");
+    if (!known) folders.push_back(name);
+    return nam_library::NormalizeFolders(folders);
+  };
   try
   {
-    if (!capture.empty() && !std::filesystem::exists(capture, error))
-    {
-      const auto bytes = default_content::CleanCapture();
-      std::ofstream(capture, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-    }
-  }
-  catch (const std::exception&) {}
-  if (presetFolder.empty()) return;
-  try { drive_presets::Install(presetFolder / "Drive Examples", mEmptyRig); }
-  catch (const std::exception&) {}
-  try
-  {
-    const auto empty = presetFolder / "Empty.ngrid";
-    if (!std::filesystem::exists(empty, error))
-    {
-      auto rig = mEmptyRig;
-      rig["PresetName"] = "Empty";
-      rig_preset::Write(empty, rig);
-    }
-  }
-  catch (const std::exception&) {}
-  try
-  {
-    const auto preset = presetFolder / default_content::kCleanPresetName;
-    if (capture.empty() || !std::filesystem::is_regular_file(capture, error) || std::filesystem::exists(preset, error)) return;
-    const auto bytes = default_content::CleanPreset();
-    auto document = nlohmann::json::parse(bytes.begin(), bytes.end());
-    auto& rig = document.at("rig");
-    // Bundled captures are named by filename; point them at the installed copies.
-    for (auto& path : rig.at("SlotPaths"))
-    {
-      const auto name = path.get<std::string>();
-      if (!name.empty() && !std::filesystem::u8path(name).has_parent_path())
-        path = nam_library::PathText(namFolder / std::filesystem::u8path(name));
-    }
-    rig_preset::Write(preset, rig);
-  }
-  catch (const std::exception&) {}
-}
-
-std::string NeuralAmpModeler::InstallDrivePresets(const std::filesystem::path& folder)
-{
-  try
-  {
-    drive_presets::Install(folder / "Drive Examples", mEmptyRig);
-    AddLibraryFolder(nam_library::FileKind::RigPreset, nam_library::PathText(folder).c_str());
+    const auto namFolders = add(nam_library::FileKind::NAM, nam);
+    const auto presetFolders = add(nam_library::FileKind::RigPreset, presets);
+    const auto error = factory_content::Install(nam, presets, mEmptyRig, drive_presets::Make(mEmptyRig));
+    if (!error.empty()) return error;
+    SetLibraryFolders(nam_library::FileKind::NAM, namFolders, true);
+    SetLibraryFolders(nam_library::FileKind::RigPreset, presetFolders, true);
     RescanCaptureFolder();
     return {};
   }

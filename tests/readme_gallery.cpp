@@ -69,15 +69,16 @@ static std::string ModuleSlug(const char* name)
 
 static int Run(int argc, char** argv)
 {
-  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug>]\n"
+  const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug> | --pages]\n"
                       "macOS regressions: append --preset-save-smoke or --browser-text-smoke instead.\n";
   if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
   const bool browserTextSmoke = argc == 5 && std::string(argv[4]) == "--browser-text-smoke";
   const bool presetSmoke = argc == 5 && std::string(argv[4]) == "--preset-save-smoke";
+  const bool pagesOnly = argc == 5 && std::string(argv[4]) == "--pages";
 #ifdef _WIN32
   if (presetSmoke || browserTextSmoke) throw std::runtime_error("Native smoke modes use the macOS editor driver.");
 #endif
-  if (argc != 4 && !presetSmoke && !browserTextSmoke && !(argc == 6 && std::string(argv[4]) == "--module"))
+  if (argc != 4 && !presetSmoke && !browserTextSmoke && !pagesOnly && !(argc == 6 && std::string(argv[4]) == "--module"))
     throw std::runtime_error(usage);
   const std::string filter = browserTextSmoke ? "browser-text" : presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
   if (argc == 6)
@@ -285,7 +286,13 @@ static int Run(int argc, char** argv)
   }
 #endif
 
-  if (filter.empty())
+  if (pagesOnly)
+  {
+    click(919, 28); play(800); shot("settings"); click(936, 28);
+    click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY);
+    play(2000); shot("control"); click(936, 28);
+  }
+  else if (filter.empty())
   {
     // The NAM and Cabinet IR module-guide panes come from the same frames.
     std::filesystem::create_directories(out / "modules");
@@ -309,6 +316,7 @@ static int Run(int argc, char** argv)
     for (const auto effect : group.effects)
     {
       const auto slug = ModuleSlug(SlotEffectName(effect));
+      if (pagesOnly) continue;
       if (!filter.empty() && slug != filter) continue;
       auto rig = config;
       const auto defaults = SlotDefaultValues(effect);
@@ -356,7 +364,7 @@ static int Run(int argc, char** argv)
       shot("modules/" + slug, 476);
     }
   // The README main image: the bundled Clean Default rig with A1's capture selected.
-  if (filter.empty())
+  if (filter.empty() && !pagesOnly)
   {
     auto clean = rig_preset::Read(defaults / "Clean Default.ngrid");
     for (auto& path : clean["SlotPaths"])

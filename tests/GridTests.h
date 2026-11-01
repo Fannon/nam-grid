@@ -242,7 +242,11 @@ void TestFixedGrid()
         const double dry = .1 * std::sin(2. * grid_fx::pi * 300. * i / rate);
         low[0] = dry + coefficient * (low[0] - dry);
         const double laneA = dry + (low[0] - dry), laneB = dry - low[0];
-        const double expected = 2. * ((1. - blend) * laneA + blend * laneB);
+        // Match the production statement boundaries: a single expression can
+        // contract the blend into an FMA on ARM and round differently.
+        const double a = (1. - blend) * laneA;
+        const double b = blend * laneB;
+        const double expected = 2. * (a + b);
         assert(output[i] == expected);
       }
     }

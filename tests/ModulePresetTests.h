@@ -68,8 +68,8 @@ void TestModulePresetCoverage()
       assert(Apply(effect, saved, SlotDefaultValues(effect)) == applied);
     }
   }
-  // Factory recipes retain input calibration and split setup unless explicitly
-  // overridden. User files still save and restore all three named controls.
+  // Selecting a factory recipe restores its complete graph setup, even after
+  // another recipe or a manual edit. User files restore all three controls too.
   const auto multiband = SlotEffect::Multiband;
   auto calibrated = SlotDefaultValues(multiband);
   const std::array<int, 3> setup{U(uMultibandThreshold), U(uMultibandLowSplit), U(uMultibandHighSplit)};
@@ -79,11 +79,17 @@ void TestModulePresetCoverage()
     const auto applied = Apply(multiband, preset, calibrated);
     for (int control : setup)
     {
-      double expected = calibrated[control];
+      double expected = SlotDefaultValues(multiband)[control];
       for (const auto& v : preset.values) if (v.control == control) expected = v.value;
       assert(applied[control] == expected);
+      for (const auto& previous : For(multiband))
+      {
+        const auto other = Apply(multiband, previous, calibrated);
+        assert(Apply(multiband, preset, other)[control] == expected);
+      }
     }
   }
+  assert(Matching(multiband, calibrated) == -1);
   const auto savedSetup = ToJson(multiband, calibrated);
   std::vector<Value> restoredSetup;
   assert(Parse(savedSetup, multiband, restoredSetup).empty());

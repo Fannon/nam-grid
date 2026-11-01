@@ -1335,12 +1335,21 @@ int main(int argc, char** argv)
     assert(save().config()["Lane B Level"] != 0. && save().config()["Lane A Level"] == 0.);
     assert(save().config()["Lane B Balance"] != 0. && save().config()["Lane A Balance"] == 0.);
     checkLaneButtons();
-    click(grid_layout::parameterLeft + 88, grid_layout::optionsY);
-    assert(save().config()["Frequency Split"] == 1.);
-    click(grid_layout::parameterRight - 210, grid_layout::moduleButtonY);
-    assert(save().config()["Split Slope"] == 1.);
-    click(grid_layout::parameterRight - 210, grid_layout::moduleButtonY);
-    assert(save().config()["Split Slope"] == 0.);
+    const auto splitChoice = [&] { click(grid_layout::parameterRight - 210, grid_layout::moduleButtonY); };
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 1.);
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 0. && save().config()["Split Slope"] == 1.);
+    auto storedOff = save().config();
+    const auto expectedOff = storedOff;
+    click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY);
+    load(storedOff); // Off still preserves a previously stored Steep slope.
+    assert(save().config() == expectedOff);
+    click(grid_layout::width - 36, 328);
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
     capture("routing-split.bmp");
     POINT originalCursor{}; GetCursorPos(&originalCursor);
     const auto hover = [&](int x, int y) {
@@ -3266,19 +3275,16 @@ int main(int argc, char** argv)
     assert(state["Mod 1 Source"] == grid_performance::SourceMacro1 && state["Mod 1 Slot"] == grid_performance::gridSlot);
     assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
   }
-  // The routing page's saved Split Slope choice: steep, then back to the released gentle split.
+  // One UI choice over two stable parameters: Off -> Gentle -> Steep -> Off.
   {
-    click(grid_layout::parameterLeft + 88, grid_layout::optionsY);
-    assert(save().config()["Frequency Split"] == 1.);
     const int slopeX = grid_layout::parameterRight - 210, slopeY = grid_layout::moduleButtonY;
-    assert(save().config()["Split Slope"] == 0.);
+    assert(save().config()["Frequency Split"] == 0.);
     click(slopeX, slopeY);
-    pumpFor(30);
-    assert(save().config()["Split Slope"] == 1.);
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
     click(slopeX, slopeY);
-    pumpFor(30);
-    assert(save().config()["Split Slope"] == 0.);
-    click(grid_layout::parameterLeft + 88, grid_layout::optionsY);
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 1.);
+    click(slopeX, slopeY);
+    assert(save().config()["Frequency Split"] == 0. && save().config()["Split Slope"] == 1.);
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
   // Wah's Auto button creates the envelope row that makes it an auto-wah, and only exists on Wah.

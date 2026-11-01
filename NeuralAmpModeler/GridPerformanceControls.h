@@ -145,48 +145,36 @@ private:
   IPopupMenu mMenu;
 };
 
-// A saved-state choice in one header row: shows "Label: value" and opens a menu of its
-// values. Used for the split's slope, which is never host automation (see StateOnly).
-class PerformanceChoice : public IControl
+// One presentation choice over the released split-enable and slope parameters.
+class FrequencySplitChoice : public IControl
 {
 public:
-  PerformanceChoice(const IRECT& r, int parameter, const char* label) : IControl(r, parameter), mLabel(label) {}
+  explicit FrequencySplitChoice(const IRECT& r)
+  : IControl(r, {PerformanceParam(grid_performance::Crossover), PerformanceParam(grid_performance::CrossoverSlope)})
+  { SetTooltip("Click to cycle: Off, Gentle (6 dB/oct), Steep (24 dB/oct). The split sends lows to A and highs to B."); }
   void Draw(IGraphics& g) override
   {
-    WDL_String value;
-    GetParam()->GetDisplay(GetValue(), true, value);
+    const char* value = !GetParam(0)->Bool() ? "Split: Off"
+                       : GetParam(1)->Int() == 0 ? "Split: Gentle (6 dB/oct)" : "Split: Steep (24 dB/oct)";
     g.FillRoundRect(surface, mRECT, 3.f);
     g.DrawRoundRect(mMouseIsOver ? muted : border, mRECT, 3.f);
-    FittedText(g, Text(13.f, text, EAlign::Center), mLabel + ": " + value.Get(), mRECT.GetHPadded(-8.f));
+    FittedText(g, Text(13.f, text, EAlign::Center), value, mRECT.GetHPadded(-8.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
+    using namespace grid_performance;
     if (!mod.L) return;
-    if (GetParam()->GetMax() - GetParam()->GetMin() == 1.)
+    if (!GetParam(0)->Bool())
     {
-      PLUG()->SetParameterFromUI(GetParamIdx(), GetParam()->Int() == GetParam()->GetMin() ? GetParam()->GetMax() : GetParam()->GetMin());
-      return;
+      PLUG()->SetParameterFromUI(PerformanceParam(CrossoverSlope), SplitSlopeFirstOrder);
+      PLUG()->SetParameterFromUI(PerformanceParam(Crossover), 1.);
     }
-    mMenu.Clear();
-    const auto* param = GetParam();
-    for (int value = static_cast<int>(param->GetMin()); value <= static_cast<int>(param->GetMax()); ++value)
-    {
-      WDL_String item;
-      param->GetDisplay(value, false, item);
-      mMenu.AddItem(new IPopupMenu::Item(item.Get(), param->Int() == value ? IPopupMenu::Item::kChecked : 0, value));
-    }
-    GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
-  }
-  void OnPopupMenuSelection(IPopupMenu* menu, int) override
-  {
-    if (const auto* item = menu ? menu->GetChosenItem() : nullptr)
-      PLUG()->SetParameterFromUI(GetParamIdx(), item->GetTag());
+    else if (GetParam(1)->Int() == SplitSlopeFirstOrder)
+      PLUG()->SetParameterFromUI(PerformanceParam(CrossoverSlope), SplitSlopeLinkwitzRiley);
+    else
+      PLUG()->SetParameterFromUI(PerformanceParam(Crossover), 0.); // Retain the saved slope while off.
     SetDirty(false);
   }
-
-private:
-  std::string mLabel;
-  IPopupMenu mMenu;
 };
 
 // Matrix row cells ------------------------------------------------------------
@@ -943,13 +931,8 @@ public:
     knob(2, CrossoverFrequency, "Frequency dividing the low A branch and high B branch when Frequency split is on.");
     knob(3, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
                         "timing; it cannot correct every phase difference and never advances audio.");
-    AddChildControl(new Toggle(IRECT(grid_layout::parameterLeft, grid_layout::descriptionTop, grid_layout::parameterLeft + 176, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
-      ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
-    AddChildControl(new PerformanceChoice(IRECT(grid_layout::parameterRight - 292, grid_layout::moduleHeaderTop,
-                                                grid_layout::parameterRight - 128, grid_layout::moduleHeaderBottom),
-                                         PerformanceParam(CrossoverSlope), "Slope"))
-      ->SetTooltip("Gentle is the released 6 dB/octave split. Steep is a 24 dB/octave Linkwitz-Riley split: the "
-                   "driven lane gets far less low end, at the cost of an allpass phase shift around the split.");
+    AddChildControl(new FrequencySplitChoice(IRECT(grid_layout::parameterRight - 292, grid_layout::moduleHeaderTop,
+                                                   grid_layout::parameterRight - 128, grid_layout::moduleHeaderBottom)));
     AddChildControl(new FlowMode(IRECT(grid_layout::parameterLeft + 100, grid_layout::moduleHeaderTop,
                                       grid_layout::parameterRight - 304, grid_layout::moduleHeaderBottom)));
     AddChildControl(new Button(IRECT(grid_layout::parameterRight - 80, grid_layout::moduleHeaderTop, grid_layout::parameterRight, grid_layout::moduleHeaderBottom), [](IControl* caller) {

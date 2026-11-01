@@ -20,10 +20,10 @@ using parameter_layout::kSlotCompThreshold;
 using parameter_layout::kSlotCompRelease;
 using parameter_layout::kSlotCompMakeup;
 
-// Each module offers a few established, clearly different starting points rather than every
-// variation; a module whose insertion default already is its usual starting point may have
-// none. Settings follow published pedal-manual starting points, documented player settings and
-// professional plugin presets, translated to these controls and checked on a guitar DI. Names
+// Each module offers established starting points; delay banks include shared rhythmic roles
+// voiced for each module, since changing delay types requires replacing the module. A module
+// whose insertion default already is its usual starting point may have none. Settings follow published pedal-manual starting points, documented player settings and
+// professional plugin presets, translated to these controls and checked with offline audio. Names
 // describe the result. Values use NAM Grid units; unlisted controls use insertion defaults.
 // These arrays and their order are NOT persistent identities; only applied values are saved.
 
@@ -182,29 +182,41 @@ inline const Preset pedalDrive[]{
 };
 
 // Delay levels: one loud repeat for slapback, two to four repeats for rhythmic and lead echoes.
-// New recipes favor practical gaps: quiet ducked support, brighter synced analog/tape,
-// sparse stereo heads, short reverse texture, stereo doubling and moderate pad echoes.
+// Synced recipes deliberately share rhythms across modules, with tone, motion and feedback
+// suited to each topology. Digital crossfades tempo jumps; analog/tape keep pitch glide.
+// Reverse divisions set capture windows; multi-head divisions set the LAST head.
+// Dual ping-pong alternates unequal times; parallel pairs keep independent pulse trains.
+// Community roles: https://www.reddit.com/r/guitarpedals/comments/1k7acuc/
+// https://line6.com/support/topic/1856-dotted-8th-settings/
+// Head timing: https://www.strymon.net/support/volante/
 // The author's ValhallaDelay Analog Past, ChromeTape for Pads and Space 1 presets
 // inform these roles, not parameter conversions: NAM Grid uses different DSP and
 // does not combine ducking, saturation, diffusion and independent L/R sync in one module.
 // References: https://valhalladsp.com/2019/04/16/valhalladelay-the-controls/
 // https://valhalladsp.com/2019/04/16/valhalladelay-the-style-control/
 inline const Preset digitalDelay[]{
+  // Straight, unducked support before the more specialized rhythmic recipes.
+  {"Clear quarter-note lead", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayTimeChange), 1.},
+    {U(uDelayFeedback), 32.}, {U(uDelayTone), 8000.}, {U(uDelayCharacter), 0.}, {U(uDelayMix), 25.}}},
   {"Slapback",
    {{U(uDelayTime), 110.}, {U(uDelayFeedback), 0.}, {U(uDelayTone), 8000.}, {U(uDelayCharacter), 0.},
     {U(uDelayMix), 35.}}},
   {"Dotted eighth",
-   {{U(uTempoSync), 1.}, {U(uTempoDivision), 4.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 6000.},
+   {{U(uTempoSync), 1.}, {U(uTempoDivision), 4.}, {U(uDelayTimeChange), 1.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 6000.},
     {U(uDelayCharacter), 0.}, {U(uDelayMix), 30.}}},
   // Long lead repeats that duck under played notes and bloom in the gaps.
   {"Ducked lead",
    {{U(uDelayTime), 480.}, {U(uDelayFeedback), 40.}, {U(uDelayTone), 7000.}, {U(uDelayCharacter), 60.},
     {U(uDelayMix), 30.}}},
   {"Quarter-note ping-pong",
-   {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.},
+   {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayTimeChange), 1.}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.},
     {U(uDelayTone), 6000.}, {U(uDelayCharacter), 0.}, {U(uDelayMix), 30.}}},
   {"Quiet ducked support", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDelayTimeChange), 1.},
     {U(uDelayFeedback), 28.}, {U(uDelayTone), 6500.}, {U(uDelayCharacter), 70.}, {U(uDuckRelease), 220.}, {U(uDelayMix), 12.}}},
+  {"Clear eighth-note rhythm", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 3.0}, {U(uDelayTimeChange), 1.0}, {U(uDelayFeedback), 22.0}, {U(uDelayTone), 10000.0}, {U(uDelayCharacter), 0.0}, {U(uDelayMix), 24.0}}},
+  {"Triplet ping-pong", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 2.0}, {U(uDelayTimeChange), 1.0}, {U(uDelayPingPong), 1.0}, {U(uDelayFeedback), 32.0}, {U(uDelayTone), 8500.0}, {U(uDelayCharacter), 0.0}, {U(uDelayMix), 27.0}}},
+  {"Ducked dotted eighth", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 4.0}, {U(uDelayTimeChange), 1.0}, {U(uDelayFeedback), 38.0}, {U(uDelayTone), 7500.0}, {U(uDelayCharacter), 65.0}, {U(uDelayMix), 26.0}, {U(uDuckRelease), 180.0}}},
+  {"Half-note space", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uDelayTimeChange), 1.0}, {U(uDelayPingPong), 1.0}, {U(uDelayFeedback), 48.0}, {U(uDelayTone), 6500.0}, {U(uDelayCharacter), 25.0}, {U(uDelayMix), 25.0}, {U(uDuckRelease), 280.0}}},
 };
 inline const Preset analogDelay[]{
   {"Warm lead repeats", {{U(uDelayTime), 420.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 3200.}, {U(uDelayCharacter), 40.}, {U(uDelayMix), 30.}}},
@@ -213,6 +225,10 @@ inline const Preset analogDelay[]{
   {"Dark slapback", {{U(uDelayTime), 120.}, {U(uDelayFeedback), 5.}, {U(uDelayTone), 2800.}, {U(uDelayCharacter), 45.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 40.}}},
   {"Bright dotted echoes", {{U(uTempoSync), 1.}, {U(uTempoDivision), 4.}, {U(uDelayFeedback), 30.},
     {U(uDelayTone), 6500.}, {U(uDelayCharacter), 15.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 22.}}},
+  {"Warm quarter notes", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uDelayFeedback), 32.0}, {U(uDelayTone), 3800.0}, {U(uDelayCharacter), 35.0}, {U(uDelayMotion), 10.0}, {U(uDelayMix), 24.0}}},
+  {"Soft eighth-note pulse", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 3.0}, {U(uDelayFeedback), 24.0}, {U(uDelayTone), 4200.0}, {U(uDelayCharacter), 25.0}, {U(uDelayMotion), 5.0}, {U(uDelayMix), 22.0}}},
+  {"Dark dotted lead", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 4.0}, {U(uDelayFeedback), 40.0}, {U(uDelayTone), 3000.0}, {U(uDelayCharacter), 48.0}, {U(uDelayMotion), 14.0}, {U(uDelayMix), 28.0}}},
+  {"Modulated half-note bed", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uDelayFeedback), 52.0}, {U(uDelayTone), 2600.0}, {U(uDelayCharacter), 45.0}, {U(uDelayMotion), 32.0}, {U(uDelayMix), 27.0}}},
 };
 inline const Preset tapeDelay[]{
   {"Tape slapback", {{U(uDelayTime), 120.}, {U(uDelayFeedback), 5.}, {U(uDelayTone), 5500.}, {U(uDelayCharacter), 25.}, {U(uDelayMotion), 8.}, {U(uDelayMix), 35.}}},
@@ -221,6 +237,10 @@ inline const Preset tapeDelay[]{
   {"Rock lead echo", {{U(uDelayTime), 300.}, {U(uDelayFeedback), 8.}, {U(uDelayTone), 4500.}, {U(uDelayCharacter), 30.}, {U(uDelayMotion), 12.}, {U(uDelayMix), 25.}}},
   {"Clean dotted tape", {{U(uTempoSync), 1.}, {U(uTempoDivision), 4.}, {U(uDelayFeedback), 28.},
     {U(uDelayTone), 6000.}, {U(uDelayCharacter), 12.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 22.}}},
+  {"Warm quarter-note tape", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uDelayFeedback), 34.0}, {U(uDelayTone), 4800.0}, {U(uDelayCharacter), 32.0}, {U(uDelayMotion), 12.0}, {U(uDelayMix), 25.0}}},
+  {"Eighth-note tape bounce", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 3.0}, {U(uDelayFeedback), 25.0}, {U(uDelayTone), 5500.0}, {U(uDelayCharacter), 22.0}, {U(uDelayMotion), 6.0}, {U(uDelayMix), 24.0}}},
+  {"Dotted-quarter tape drift", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 6.0}, {U(uDelayFeedback), 43.0}, {U(uDelayTone), 3800.0}, {U(uDelayCharacter), 45.0}, {U(uDelayMotion), 24.0}, {U(uDelayMix), 28.0}}},
+  {"Half-note tape haze", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uDelayFeedback), 52.0}, {U(uDelayTone), 3200.0}, {U(uDelayCharacter), 48.0}, {U(uDelayMotion), 30.0}, {U(uDelayMix), 28.0}}},
 };
 inline const Preset multiHead[]{
   {"Rolling three heads", {{U(uTapeHeads), 2.}, {U(uDelayTime), 600.}, {U(uDelayFeedback), 28.}, {U(uDelayMix), 28.}}},
@@ -228,24 +248,41 @@ inline const Preset multiHead[]{
   {"All-head wash", {{U(uTapeHeads), 3.}, {U(uDelayTime), 850.}, {U(uDelayFeedback), 55.}, {U(uDelayTone), 3000.}, {U(uDelayCharacter), 40.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 30.}}},
   {"Sparse stereo heads", {{U(uTapeHeads), 6.}, {U(uTempoSync), 1.}, {U(uTempoDivision), 5.},
     {U(uDelayFeedback), 22.}, {U(uDelayTone), 6000.}, {U(uDelayCharacter), 15.}, {U(uDelayMotion), 5.}, {U(uDelayMix), 20.}}},
+  {"Eighth and quarter heads", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uTapeHeads), 1.0}, {U(uDelayFeedback), 26.0}, {U(uDelayTone), 5500.0}, {U(uDelayCharacter), 25.0}, {U(uDelayMotion), 7.0}, {U(uDelayMix), 26.0}}},
+  {"Dotted and quarter heads", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uTapeHeads), 5.0}, {U(uDelayFeedback), 30.0}, {U(uDelayTone), 6000.0}, {U(uDelayCharacter), 20.0}, {U(uDelayMotion), 5.0}, {U(uDelayMix), 28.0}}},
+  {"Synced rolling heads", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uTapeHeads), 2.0}, {U(uDelayFeedback), 25.0}, {U(uDelayTone), 5000.0}, {U(uDelayCharacter), 28.0}, {U(uDelayMotion), 8.0}, {U(uDelayMix), 27.0}}},
+  {"Half-note head cloud", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uTapeHeads), 3.0}, {U(uDelayFeedback), 48.0}, {U(uDelayTone), 3200.0}, {U(uDelayCharacter), 42.0}, {U(uDelayMotion), 22.0}, {U(uDelayMix), 30.0}}},
 };
 inline const Preset reverseDelay[]{
   {"Reverse half notes", {{U(uTempoSync), 1.}, {U(uTempoDivision), 7.}, {U(uReverseFeedback), 25.}, {U(uDelayTone), 4500.}, {U(uDelayMix), 35.}}},
   // Mostly reversed playing, like a backwards-tape solo.
   {"Reversed solo", {{U(uDelayTime), 750.}, {U(uReverseFeedback), 30.}, {U(uDelayTone), 5000.}, {U(uDelayMix), 70.}}},
   {"Short reverse texture", {{U(uDelayTime), 220.}, {U(uReverseFeedback), 0.}, {U(uDelayTone), 6500.}, {U(uDelayMix), 22.}}},
+  {"Eighth-note reverse flicker", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 3.0}, {U(uReverseFeedback), 8.0}, {U(uDelayTone), 6500.0}, {U(uDelayMix), 28.0}}},
+  {"Quarter-note reverse bloom", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uReverseFeedback), 22.0}, {U(uDelayTone), 5500.0}, {U(uDelayMix), 38.0}}},
+  {"Dotted-quarter reverse wash", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 6.0}, {U(uReverseFeedback), 50.0}, {U(uDelayTone), 3500.0}, {U(uDelayMix), 38.0}}},
 };
 inline const Preset dualDelay[]{
   {"Quarter and dotted eighth", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uDualRatio), .75}, {U(uDelayFeedback), 28.}, {U(uDelayMix), 30.}}},
   {"Wide ping-pong", {{U(uDelayTime), 350.}, {U(uDualRatio), 1.5}, {U(uDelayPingPong), 1.}, {U(uDelayFeedback), 35.}, {U(uDelayMix), 28.}}},
   {"Tight stereo double", {{U(uDelayTime), 80.}, {U(uDualRatio), 1.25}, {U(uDualBalance), 50.},
     {U(uDelayFeedback), 0.}, {U(uDelayTone), 8000.}, {U(uDelayPingPong), 0.}, {U(uDelayMix), 15.}}},
+  {"Eighth and dotted eighth", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 3.0}, {U(uDualRatio), 1.5}, {U(uDualBalance), 50.0}, {U(uDelayFeedback), 26.0}, {U(uDelayTone), 7500.0}, {U(uDelayPingPong), 0.0}, {U(uDelayMix), 28.0}}},
+  {"Quarter and eighth", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uDualRatio), 0.5}, {U(uDualBalance), 50.0}, {U(uDelayFeedback), 25.0}, {U(uDelayTone), 7000.0}, {U(uDelayPingPong), 0.0}, {U(uDelayMix), 26.0}}},
+  {"Quarter and triplet", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uDualRatio), 2. / 3.}, {U(uDualBalance), 50.0}, {U(uDelayFeedback), 28.0}, {U(uDelayTone), 6500.0}, {U(uDelayPingPong), 0.0}, {U(uDelayMix), 27.0}}},
+  {"Synced dotted ping-pong", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uDualRatio), 0.75}, {U(uDualBalance), 50.0}, {U(uDelayFeedback), 36.0}, {U(uDelayTone), 6500.0}, {U(uDelayPingPong), 1.0}, {U(uDelayMix), 28.0}}},
+  {"Half and dotted quarter", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uDualRatio), 0.75}, {U(uDualBalance), 50.0}, {U(uDelayFeedback), 44.0}, {U(uDelayTone), 5000.0}, {U(uDelayPingPong), 0.0}, {U(uDelayMix), 28.0}}},
 };
 inline const Preset diffusedDelay[]{
   {"Echo into cloud", {{U(uDelayTime), 650.}, {U(uDelayFeedback), 60.}, {U(uDelayDiffusion), 85.}, {U(uDelayTone), 4500.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 32.}}},
   {"Soft echo clusters", {{U(uDelayTime), 320.}, {U(uDelayFeedback), 30.}, {U(uDelayDiffusion), 40.}, {U(uDelayMix), 22.}}},
   {"Gentle pad echoes", {{U(uDelayTime), 550.}, {U(uDelayFeedback), 37.}, {U(uDelayDiffusion), 68.},
     {U(uDelayTone), 4500.}, {U(uDelayMotion), 15.}, {U(uDelayMix), 22.}}},
+  {"Soft dotted-eighth rhythm", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 4.0}, {U(uDelayFeedback), 32.0}, {U(uDelayDiffusion), 28.0}, {U(uDelayTone), 7000.0}, {U(uDelayMotion), 6.0}, {U(uDelayMix), 25.0}}},
+  {"Quarter-note echo halo", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 5.0}, {U(uDelayFeedback), 38.0}, {U(uDelayDiffusion), 48.0}, {U(uDelayTone), 6000.0}, {U(uDelayMotion), 12.0}, {U(uDelayMix), 25.0}}},
+  {"Triplet echo clusters", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 2.0}, {U(uDelayFeedback), 30.0}, {U(uDelayDiffusion), 42.0}, {U(uDelayTone), 6500.0}, {U(uDelayMotion), 8.0}, {U(uDelayMix), 24.0}}},
+  {"Dotted-quarter dream", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 6.0}, {U(uDelayFeedback), 52.0}, {U(uDelayDiffusion), 72.0}, {U(uDelayTone), 4500.0}, {U(uDelayMotion), 22.0}, {U(uDelayMix), 29.0}}},
+  {"Half-note cloud", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uDelayFeedback), 62.0}, {U(uDelayDiffusion), 90.0}, {U(uDelayTone), 3800.0}, {U(uDelayMotion), 28.0}, {U(uDelayMix), 32.0}}},
 };
 
 inline const Preset room[]{
@@ -328,6 +365,8 @@ inline const Preset cosmic[]{
   {"Velvet constellation", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 950.}, {U(uCosmicWarp), 82.}, {U(uCosmicFeedback), 77.}, {U(uCosmicDensity), 98.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 45.}, {U(uCosmicMix), 35.}}},
   {"Dark orbit", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 500.}, {U(uCosmicWarp), 78.}, {U(uCosmicFeedback), 91.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 2800.}, {U(uCosmicMotion), 50.}, {U(uCosmicMix), 32.}}},
   {"Chord bloom", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 700.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 90.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
+  // Imported verbatim from the author's Aurora Hall Medium user preset.
+  {"Aurora Hall Medium", {{U(uCosmicStyle), 6.0}, {U(uCosmicTime), 223.79993441233353}, {U(uCosmicWarp), 92.53975891179422}, {U(uCosmicFeedback), 53.12700236474072}, {U(uCosmicDensity), 50.26504676358348}, {U(uCosmicTone), 5820.088880230463}, {U(uCosmicMotion), 16.963387498747824}, {U(uCosmicMix), 18.899712527662025}}},
 };
 
 inline const Preset chorus[]{

@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Add **Aurora Hall Medium** to Cosmic Echo's factory presets, preserving the settings from the author's user preset.
+
+- Expand every delay module's factory presets with more beat-synced rhythms: eighths, triplets, dotted leads, tape-head patterns, stereo pairs, reverse blooms and diffused clouds. Each bank keeps the character of its delay type. Digital Delay includes a clear quarter-note lead and all its synced recipes crossfade tempo jumps; the reverse wash keeps more dry attack with a longer trail. Existing rigs and insertion defaults keep their settings.
+
 - **Clearer Multiband Dynamics:** Mix, Down comp, Up comp and band gain labels explain the controls. The display shows each band's actual compression thresholds, detector level and gain reduction or upward lift. Selecting a module preset now restores Threshold and crossover positions too. Existing rigs keep their sound.
 
 - **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing; further clicks switch mode while keeping it open. Parallel adds independent left/right balances for A and B, with B controls below A. The amber/blue icon and grid wires follow the mode. The signal path stays visible above the compact crossover, M/S buttons mute or solo directly on each branch, and live stereo meters work in both modes. S unmutes its lane and clears the other solo; M clears its lane's solo. Sequential hides parallel controls. Trails and Keep dry level move to Settings and remain saved per rig. Existing projects and saved presets keep their routing and sound.

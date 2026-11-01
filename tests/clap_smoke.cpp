@@ -1293,6 +1293,21 @@ int main(int argc, char** argv)
     assert(save().config()["Lane B Mute"] == 1. && save().config()["Lane B Solo"] == 0.);
     click(865, 572); // Restore the full parallel mix.
     assert(save().config()["Lane A Mute"] == 0. && save().config()["Lane B Mute"] == 0.);
+    const auto normal = save().config();
+    for (int lane = 0; lane < 2; ++lane)
+      for (bool soloButton : {false, true})
+      {
+        auto legacy = normal;
+        const char* mute = lane ? "Lane B Mute" : "Lane A Mute";
+        const char* solo = lane ? "Lane B Solo" : "Lane A Solo";
+        legacy[mute] = legacy[solo] = 1.;
+        click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY);
+        load(legacy);
+        assert(save().config()[mute] == 1. && save().config()[solo] == 1.); // Preserve saved sound.
+        click(grid_layout::width - 36, 328);
+        click(soloButton ? 888 : 865, lane ? 572 : 530);
+        assert(save().config()[mute] == 0. && save().config()[solo] == 0.); // Either release clears the conflict.
+      }
   };
   if (std::getenv("NAM_GRID_ROUTING_SMOKE"))
   {
@@ -3249,13 +3264,13 @@ int main(int argc, char** argv)
     const auto position = [&](int source) {
       return static_cast<int>(std::find(sourceMenuOrder.begin(), sourceMenuOrder.end(), source) - sourceMenuOrder.begin());
     };
-    win_edit_menu::SelectChoice(editor, 550, 141, choices, position(SourceLFO2), position(named["Mod 1 Source"].get<int>()));
+    win_edit_menu::SelectChoice(editor, 550, 121, choices, position(SourceLFO2), position(named["Mod 1 Source"].get<int>()));
     pumpFor(30);
     assert(save().config()["Mod 1 Source"] == SourceLFO2);
-    win_edit_menu::SelectChoice(editor, 936, 141, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
+    win_edit_menu::SelectChoice(editor, 936, 121, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
     pumpFor(30);
     assert(save().config()["Mod 1 Via"] == SourceEnv2); // Compact second-bank label must draw safely.
-    win_edit_menu::SelectChoice(editor, 550, 141, choices, position(SourceMacro1), position(SourceLFO2));
+    win_edit_menu::SelectChoice(editor, 550, 121, choices, position(SourceMacro1), position(SourceLFO2));
     pumpFor(30);
     assert(save().config()["Mod 1 Source"] == SourceMacro1);
     const bool sync = save().config()["LFO Sync"].get<double>() >= .5;
@@ -3263,7 +3278,7 @@ int main(int argc, char** argv)
     assert((save().config()["LFO Sync"].get<double>() >= .5) != sync);
     load(before);
   }
-  dragAt(862, 141); // Matrix row 1 depth
+  dragAt(862, 121); // Matrix row 1 depth
   assert(save().config()["Mod 1 Depth"] > 0.);
   click(936, 28); // Close overlay
   // Right-click a knob to modulate it: the routing panel (still open) has Lane A level, which

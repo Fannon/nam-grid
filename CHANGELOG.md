@@ -12,6 +12,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - Fix Routing's M/S buttons leaving a lane soloed or muted when releasing a conflicting mute-and-solo combination recalled from an older rig. Either button now clears the opposite state on that lane, including when switched off. Loading saved rigs still preserves their sound.
 
+- Module preset naming on Windows uses a native text field so DAW shortcuts can yield letters and spaces to the name. Clicking a module's input meter opens Signal Monitor at the preceding slot's output.
+
+- **NAM and IR browsers:** folders beginning with `_` sort first. Filename and subfolder hints expand known device and capture-maker abbreviations, gain, EQ, channel, microphone and speaker labels into readable tags in the details pane and sidebar. Search includes those tags; click an individual tag value to search all folders, including either vendor or model in a dual rig. Long details can be scrolled.
+
 - **Clearer Multiband Dynamics:** Mix, Down comp, Up comp and band gain labels explain the controls. The display shows each band's actual compression thresholds, detector level and gain reduction or upward lift. Selecting a module preset now restores Threshold and crossover positions too. Existing rigs keep their sound.
 
 - **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing; further clicks switch mode while keeping it open. Parallel adds independent left/right balances for A and B, with B controls below A. The amber/blue icon and grid wires follow the mode. The signal path stays visible above the compact crossover, M/S buttons mute or solo directly on each branch, and live stereo meters work in both modes. S unmutes its lane and clears the other solo; M clears its lane's solo. Sequential hides parallel controls. Trails and Keep dry level move to Settings and remain saved per rig. Existing projects and saved presets keep their routing and sound.

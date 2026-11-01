@@ -1550,14 +1550,24 @@ int main(int argc, char** argv)
         if (modifiers & 2) pressed[VK_CONTROL] = 0x80;
         if (modifiers & 4) pressed[VK_MENU] = 0x80;
         assert(SetKeyboardState(pressed));
-        SendMessage(editor, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
-        SendMessage(editor, WM_KEYUP, key, 0);
+        const auto target = GetFocus();
+        wchar_t kind[32]{}; GetClassNameW(target, kind, 32);
+        const bool native = lstrcmpiW(kind, L"Edit") == 0 && IsChild(editor, target);
+        const auto receiver = native ? target : editor;
+        SendMessage(receiver, WM_KEYDOWN, key, static_cast<LPARAM>(MapVirtualKey(key, MAPVK_VK_TO_VSC)) << 16);
+        if (native && !(modifiers & 6) && key != VK_RETURN && key != VK_ESCAPE && key != VK_DELETE)
+        {
+          wchar_t characters[8]{};
+          const int length = ToUnicode(key, MapVirtualKey(key, MAPVK_VK_TO_VSC), pressed, characters, 8, 0);
+          for (int i = 0; i < length; ++i) SendMessageW(receiver, WM_CHAR, characters[i], 0);
+        }
+        SendMessage(receiver, WM_KEYUP, key, 0);
         assert(SetKeyboardState(previous));
       };
       const auto saveNamedPreset = [&](const wchar_t* name, bool cancel = false) {
         win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
         pumpFor(30);
-        assert(GetFocus() == editor); // Type through actual focus, as a DAW user does.
+        assert(GetFocus() == editor || IsChild(editor, GetFocus())); // Native name field owns focus.
         // Deletion in this field edits the name; it must never clear the module.
         presetKey('A', 2); presetKey(VK_BACK); presetKey(VK_DELETE);
         for (const wchar_t c : std::wstring(name))
@@ -1581,11 +1591,11 @@ int main(int argc, char** argv)
       assert(chosen["Pre 1 Pedal Comp Pickup"] == 2. && chosen["Pre 1 Pedal Comp Blend"] == 85.);
       // User presets: Save current as... writes one JSON file under the first preset folder's
       // Module Presets; the menu lists it after the factory presets and applies it.
-      const auto userFile = module_presets::UserFolder(presetRoot, SlotEffect::PedalComp) / "Smoke squash.json";
+      const auto userFile = module_presets::UserFolder(presetRoot, SlotEffect::PedalComp) / "A Smoke squash.json";
       const auto beforeName = save().config();
       saveNamedPreset(L"Cancelled", true);
       assert(!std::filesystem::exists(userFile.parent_path() / "Cancelled.json") && save().config() == beforeName);
-      saveNamedPreset(L"Smoke squash");
+      saveNamedPreset(L"A Smoke squash");
       pumpFor(50);
       assert(std::filesystem::exists(userFile) && save().config() == beforeName);
       // Delete/Backspace clear only the selected slot, with no modal page open.
@@ -1607,15 +1617,15 @@ int main(int argc, char** argv)
       load(changed); selectTile(170, 120);
       const auto readUser = [&] { std::ifstream input(userFile); return json::parse(input); };
       const auto originalUser = readUser();
-      win_file_dialog::Confirm(false, [&] { saveNamedPreset(L"Smoke squash"); });
+      win_file_dialog::Confirm(false, [&] { saveNamedPreset(L"A Smoke squash"); });
       assert(readUser() == originalUser && save().config() == changed);
-      win_file_dialog::Confirm(true, [&] { saveNamedPreset(L"Smoke squash"); });
+      win_file_dialog::Confirm(true, [&] { saveNamedPreset(L"A Smoke squash"); });
       assert(readUser()["values"]["Pedal Comp Sustain"] == 5. && save().config() == changed);
       load(chosen); selectTile(170, 120);
-      win_file_dialog::Confirm(true, [&] { saveNamedPreset(L"Smoke squash"); });
+      win_file_dialog::Confirm(true, [&] { saveNamedPreset(L"A Smoke squash"); });
       assert(readUser() == originalUser);
       load(changed); selectTile(170, 120);
-      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Smoke squash");
+      win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"A Smoke squash");
       pumpFor(50);
       chosen = save().config();
       assert(chosen["Pre 1 Pedal Comp Sustain"] == 35. && chosen["Pre 1 Pedal Comp Pickup"] == 2.);

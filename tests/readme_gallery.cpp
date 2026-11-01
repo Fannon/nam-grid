@@ -7,6 +7,8 @@
 #ifdef _WIN32
   #include "WinEditorCapture.h"
   #include "WinFileDialogDriver.h"
+  #include "WinEditMenuDriver.h"
+  #include <commctrl.h>
 #else
   #include "IsolatedUserHome.h"
   #include "MacEditorCapture.h"
@@ -19,6 +21,7 @@
 #include "../NeuralAmpModeler/ModuleCatalog.h"
 #include "../NeuralAmpModeler/GridLayout.h"
 #include <cctype>
+#include <cwctype>
 #include <random>
 #include <thread>
 
@@ -70,14 +73,11 @@ static std::string ModuleSlug(const char* name)
 static int Run(int argc, char** argv)
 {
   const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug> | --pages]\n"
-                      "macOS regressions: append --preset-save-smoke or --browser-text-smoke instead.\n";
+                      "Focused preset check: --preset-save-smoke; browser text check: --browser-text-smoke.\n";
   if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
   const bool browserTextSmoke = argc == 5 && std::string(argv[4]) == "--browser-text-smoke";
   const bool presetSmoke = argc == 5 && std::string(argv[4]) == "--preset-save-smoke";
   const bool pagesOnly = argc == 5 && std::string(argv[4]) == "--pages";
-#ifdef _WIN32
-  if (presetSmoke || browserTextSmoke) throw std::runtime_error("Native smoke modes use the macOS editor driver.");
-#endif
   if (argc != 4 && !presetSmoke && !browserTextSmoke && !pagesOnly && !(argc == 6 && std::string(argv[4]) == "--module"))
     throw std::runtime_error(usage);
   const std::string filter = browserTextSmoke ? "browser-text" : presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
@@ -103,7 +103,7 @@ static int Run(int argc, char** argv)
     assert(nam_library::WriteSettings(settingsBackup.file, settings));
   }
   const auto amp1 = captures / (browserTextSmoke
-    ? "Very long capture filename with several words and amp settings - bright switch on channel one gain six presence seven bass four middle five treble six cabinet microphone and room details.nam"
+    ? "Very long capture - VOX AC30 Top Boost Super Twin 1964 + Fender Super Reverb 1965 - Edge - Warm EQ - Cabinet microphone blend.nam"
     : "Example WaveNet amp.nam"), amp2 = captures / "Example LSTM amp.nam";
   const auto cab = irs / "Example 4x12 cabinet.wav";
   const auto out = std::filesystem::absolute(argv[3]);
@@ -268,6 +268,48 @@ static int Run(int argc, char** argv)
 
   play(2500); // Library scan and model preparation
 
+#ifdef _WIN32
+  if (browserTextSmoke)
+  {
+    select(2); click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); play(500);
+    click(100,144); click(100,75);
+    for (char c : std::string("Very long capture"))
+    {
+      const auto mapped = VkKeyScanW(c); BYTE previous[256]{}, pressed[256]{};
+      GetKeyboardState(previous);
+      if (HIBYTE(mapped) & 1) pressed[VK_SHIFT] = 0x80;
+      SetKeyboardState(pressed);
+      SendMessage(editor, WM_KEYDOWN, LOBYTE(mapped), static_cast<LPARAM>(MapVirtualKey(LOBYTE(mapped), MAPVK_VK_TO_VSC)) << 16);
+      SendMessage(editor, WM_KEYUP, LOBYTE(mapped), 0); SetKeyboardState(previous);
+    }
+    SendMessage(editor, WM_KEYDOWN, VK_RETURN, 0); play(150);
+    click(400,144); shot("browser-long-details");
+    mouse(400,144,false); SendMessage(editor, WM_MOUSEHOVER, 0, MAKELPARAM(400,144));
+    HWND tooltip = nullptr;
+    std::pair<HWND,HWND*> match{editor,&tooltip};
+    EnumThreadWindows(GetCurrentThreadId(), [](HWND window, LPARAM data)->BOOL {
+      auto& match = *reinterpret_cast<std::pair<HWND,HWND*>*>(data);
+      wchar_t kind[64]{}; GetClassNameW(window,kind,64);
+      if (lstrcmpW(kind,TOOLTIPS_CLASSW)) return TRUE;
+      TOOLINFOW info{}; info.cbSize=TTTOOLINFOW_V2_SIZE; info.hwnd=match.first; info.uId=reinterpret_cast<UINT_PTR>(match.first);
+      if (!SendMessageW(window,TTM_GETTOOLINFOW,0,reinterpret_cast<LPARAM>(&info))) return TRUE;
+      *match.second=window; return FALSE;
+    },reinterpret_cast<LPARAM>(&match));
+    assert(tooltip);
+    wchar_t fullName[4096]{}; TOOLINFOW info{}; info.cbSize=TTTOOLINFOW_V2_SIZE;
+    info.hwnd=editor; info.uId=reinterpret_cast<UINT_PTR>(editor); info.lpszText=fullName;
+    SendMessageW(tooltip,TTM_GETTEXTW,4096,reinterpret_cast<LPARAM>(&info));
+    assert(std::wstring(fullName)==amp1.filename().wstring());
+    POINT details{900,320}; ClientToScreen(editor,&details);
+    for (int i=0;i<8;++i) SendMessage(editor,WM_MOUSEWHEEL,MAKEWPARAM(0,static_cast<WORD>(-WHEEL_DELTA)),MAKELPARAM(details.x,details.y));
+    play(150); shot("browser-long-details-scrolled");
+    plugin->stop_processing(plugin); plugin->deactivate(plugin);
+    gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+    std::cout << "Full filename hover text and long-details scrolling passed\n";
+    return 0;
+  }
+#endif
+
 #ifdef __APPLE__
   if (browserTextSmoke)
   {
@@ -327,6 +369,49 @@ static int Run(int argc, char** argv)
       Stream moduleBytes; moduleBytes.string("###nam-grid###"); moduleBytes.string(rig.dump());
       clap_istream moduleInput{&moduleBytes, Stream::read}; assert(state->load(plugin, &moduleInput));
       select(7); play(1800);
+#ifdef _WIN32
+      if (presetSmoke)
+      {
+        const int presetX = grid_layout::moduleBrowseX - 26 - 52;
+        const auto savedState = [&] {
+          Stream bytes; clap_ostream output{&bytes, Stream::write};
+          assert(state->save(plugin, &output)); return bytes.config();
+        };
+        const auto before = savedState();
+        const auto beginName = [&] {
+          win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Save current as...");
+          play(100);
+          auto field = GetFocus(); wchar_t kind[32]{}; GetClassNameW(field, kind, 32);
+          assert(IsChild(editor, field) && lstrcmpiW(kind, L"Edit") == 0);
+          return field;
+        };
+        const auto folder = module_presets::UserFolder(presets, effect);
+        auto field = beginName();
+        SendMessageW(field, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(L"Cancelled"));
+        SendMessageW(field, WM_KEYDOWN, VK_ESCAPE, 0); play(200);
+        assert(!std::filesystem::exists(folder / "Cancelled.json") && savedState() == before);
+        field = beginName();
+        SendMessageW(field, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(L""));
+        for (wchar_t c : std::wstring(L"A Warm Amp"))
+        {
+          assert(GetFocus() == field);
+          SendMessageW(field, WM_KEYDOWN, c == ' ' ? VK_SPACE : std::towupper(c), 0);
+          SendMessageW(field, WM_CHAR, c, 0);
+          SendMessageW(field, WM_KEYUP, c == ' ' ? VK_SPACE : std::towupper(c), 0);
+        }
+        wchar_t typed[64]{}; GetWindowTextW(field, typed, 64);
+        assert(std::wstring(typed) == L"A Warm Amp");
+        SendMessageW(field, WM_KEYDOWN, VK_RETURN, 0); play(250);
+        assert(std::filesystem::is_regular_file(folder / "A Warm Amp.json") && savedState() == before);
+        win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"A Warm Amp"); play(100);
+        assert(savedState() == before);
+        // Closing native entry restores drawn entry for the ordinary browser.
+        click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY); play(150);
+        SendMessage(editor, WM_KEYDOWN, 'Z', 0); SendMessage(editor, WM_KEYUP, 'Z', 0);
+        SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, 0); play(100);
+        std::cout << "Native preset name: capital A, spaces, Escape, save, recall and browser restore passed\n";
+      }
+#endif
 #ifdef __APPLE__
       if (presetSmoke)
       {

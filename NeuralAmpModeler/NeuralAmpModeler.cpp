@@ -309,6 +309,11 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       const float left = cardLeft + columnPitch * (slot % 4) + 188.f;
       const float top = cardTop + rowPitch * (slot / 4);
       ui->AttachControl(new grid_ui::SlotMeterTap(IRECT(left + 2.f, top + 3.f, left + 10.f, top + cardHeight - 3.f), slot));
+      if (slot > 0)
+      {
+        const float input = cardLeft + columnPitch * (slot % 4);
+        ui->AttachControl(new grid_ui::SlotMeterTap(IRECT(input - 10.f, top + 3.f, input - 2.f, top + cardHeight - 3.f), slot - 1, true));
+      }
     }
     ui->AttachControl(new NAMGridSignalMonitorControl(IRECT(0, editorTop, width, height)), kCtrlTagSignalMonitor)->Hide(true);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);

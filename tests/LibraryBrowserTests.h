@@ -4,11 +4,111 @@
 inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
 {
   using namespace nam_library;
+  // Catalog abbreviations expand to searchable hints without replacing metadata.
+  Capture tagged;
+  tagged.path = "TWO CRS + BAD Era 30 - Edge - BAL3 KOT SM57 Gain 5 - Cab - AMG.nam";
+  tagged.maker = "Explicit maker"; tagged.model = "Explicit model";
+  tagged.hints = InferFilenameHints(tagged);
+  const auto hints = HintText(tagged);
+  assert(hints.find("vendor: Two-Rock") != std::string::npos && hints.find("vendor: Bad Cat") != std::string::npos);
+  assert(hints.find("creator: AmalgamAudio") != std::string::npos);
+  assert(hints.find("eq: Balanced variant 3") != std::string::npos);
+  assert(hints.find("chain: King of Tone") != std::string::npos && hints.find("mic/cab: Shure SM57") != std::string::npos);
+  assert(hints.find("settings: Gain 5") != std::string::npos && tagged.maker == "Explicit maker" && tagged.model == "Explicit model");
+  Snapshot hintLibrary; hintLibrary.captures = {tagged};
+  assert(Browse(hintLibrary, FileKind::NAM, "maker:\"two-rock\" creator:amalgam eq:balanced gain:breakup").size() == 1);
+  assert(Browse(hintLibrary, FileKind::NAM, "\"king of tone\" shure -creator:junkie").size() == 1);
+  assert(Browse(hintLibrary, FileKind::NAM, "-eq:balanced").empty());
+  assert((Filter{"AmalgamAudio balanced", -1}.Matches(tagged)));
+  assert(KeepHint(hintLibrary, {0}, "vendor", "Bad Cat").size() == 1);
+  assert(KeepHint(hintLibrary, {0}, "vendor", "Fender").empty());
+  const auto facets = BrowserHintFilters(hintLibrary, FileKind::NAM);
+  assert(std::any_of(facets.begin(), facets.end(), [](const auto& f) { return f.label == "EQ: Balanced variant 3"; }));
+  Capture compact; compact.path = "A FEN DLX CL.nam"; compact.hints = InferFilenameHints(compact);
+  assert(HintText(compact).find("model: Fender Deluxe Reverb Reissue") != std::string::npos);
+  assert(Search("fender \"deluxe reverb\" gain:clean").Score(compact) >= 0);
+  Capture dual; dual.path = "DUAL CRS-ER30 Drive BAL KLN CAB.nam"; dual.hints = InferFilenameHints(dual);
+  const auto dualModels = DetailValues(dual, "model");
+  assert((dualModels == std::vector<std::string>{"Two-Rock CRS", "Bad Cat Era 30"}));
+  for (const auto& value : dualModels) assert(Search(DetailQuery("model", value)).Score(dual) >= 0);
+  const auto dualVendors = DetailValues(dual, "vendor");
+  assert(dualVendors.size() == 2);
+  for (const auto& value : dualVendors) assert(Search(DetailQuery("vendor", value)).Score(dual) >= 0);
+  Capture quoted; quoted.model = "My \"Custom\" Amp";
+  assert(Search(DetailQuery("model", quoted.model)).Score(quoted) >= 0);
+  Capture metadataVendor; metadataVendor.maker = "My Studio";
+  assert(Search(DetailQuery("vendor", metadataVendor.maker)).Score(metadataVendor) >= 0);
+  Capture unknown; unknown.path = "FENderish unbalanced AMGain MARvel.nam";
+  assert(InferFilenameHints(unknown).empty());
+  unknown.path = "MAR JTM45 - Clean - Mesa OS - Cab - TNJ.nam"; unknown.hints = InferFilenameHints(unknown);
+  assert(HintText(unknown, "vendor") == "vendor: Marshall");
+  assert(HintText(unknown, "creator") == "creator: Tone Junkie");
+  Capture ir; ir.path = "Mesa2x12 V30_SM57_BAL.wav"; ir.kind = FileKind::IR; ir.hints = InferFilenameHints(ir);
+  assert(Search("shure balanced \"vintage 30\"").Score(ir) >= 0 && HintText(ir, "format").empty());
+  Capture rig = tagged; rig.kind = FileKind::RigPreset;
+  assert(InferFilenameHints(rig).empty());
+  Capture folderHints; folderHints.path = "Library/Pedals/Ibanez/TS9/Take 01.nam"; folderHints.source = "Library";
+  folderHints.hints = InferLibraryHints(folderHints);
+  assert(HintText(folderHints, "vendor") == "vendor: Ibanez");
+  assert(HintText(folderHints, "category") == "category: Pedal");
+  folderHints.path = "Library/Amalgam/Fender/Clean/Take 01.nam";
+  folderHints.hints = InferLibraryHints(folderHints);
+  assert(Search("creator:amalgam vendor:fender gain:clean").Score(folderHints) >= 0);
+  assert(HintText(folderHints, {}, 0).empty() && !HintText(folderHints, {}, 1).empty());
+  folderHints.path = "Marshall/Library/Amalgam/Clean/Take 01.nam"; folderHints.source = "Marshall/Library";
+  folderHints.hints = InferLibraryHints(folderHints);
+  assert(HintText(folderHints, "vendor").empty()); // An ancestor outside the source is not evidence.
+  folderHints.path = "Library/Fender/Marshall/Take 01.nam"; folderHints.source = "Library";
+  folderHints.hints = InferLibraryHints(folderHints);
+  assert(HintText(folderHints, "vendor") == "vendor: Marshall"); // Nearest folder wins.
+  folderHints.path = "Library/Fender/FRI BE-100 - Crunch - FAT - AMG.nam";
+  folderHints.hints = InferLibraryHints(folderHints);
+  assert(HintText(folderHints, "vendor") == "vendor: Friedman"); // Filename beats folder.
+  ir.path = "Library/OwnHammer/V30 Mix.wav"; ir.source = "Library"; ir.hints = InferLibraryHints(ir);
+  assert(HintText(ir, "creator") == "creator: OwnHammer"); // MIX is not a NAM creator suffix in an IR.
+  folderHints.path = "Library/Packs/My Pack/Creators/My Studio/Vendors/My Brand/Models/My Amp/Take.nam";
+  folderHints.hints = InferLibraryHints(folderHints);
+  assert(Search("creator:\"my studio\" vendor:\"my brand\" model:\"my amp\" collection:\"my pack\"").Score(folderHints) >= 0);
+  Snapshot folderOrder;
+  for (const auto& name : {"Zoo/Z.nam", "_Top10/A.nam", "Amps/Z/Z.nam", "Amps/_Best/A.nam", "Amps/A.nam"})
+  { Capture f; f.path = std::filesystem::path("library") / name; folderOrder.captures.push_back(f); }
+  const auto ordered = BrowserFolders(folderOrder, FileKind::NAM, {"library"});
+  assert(ordered.size() == 7 && ordered[2].label == "_Top10" && ordered[3].label == "Amps"
+         && ordered[4].label == "_Best" && ordered[5].label == "Z" && ordered[6].label == "Zoo");
   const auto root = fixtureRoot / "browser-fixtures";
   const auto captures = root / "captures", presets = root / "presets";
   std::filesystem::create_directories(captures / "Clean");
   std::filesystem::create_directories(captures / "Cleanish");
   std::filesystem::create_directories(presets / "Acoustic");
+  const auto inferredFile = root / "FEN Twin - Clean - BRI - Cab - TNJ.nam";
+  std::ofstream(inferredFile) << "{}";
+  const auto inspected = Inspect(inferredFile, root);
+  assert(HintText(inspected, "eq") == "eq: Bright EQ");
+  IndexEntries cache;
+  cache["test"].capture = inspected;
+  const auto cacheFile = root / "hints-index.json";
+  assert(WriteIndex(cacheFile, cache));
+  const auto restoredHints = ReadIndex(cacheFile);
+  assert(restoredHints.size() == 1 && HintText(restoredHints.begin()->second.capture) == HintText(inspected));
+  const auto contextRoot = root / "Folder Library";
+  const auto contextFile = contextRoot / "Pedals" / "Ibanez" / "Take.nam";
+  std::filesystem::create_directories(contextFile.parent_path());
+  std::ofstream(contextFile) << "{}";
+  IndexCache contextIndex;
+  const auto contextScan = ScanLibrary({PathText(contextRoot)}, {}, {}, {}, &contextIndex);
+  assert(contextScan.captures.size() == 1 && HintText(contextScan.captures.front(), "vendor") == "vendor: Ibanez");
+  assert(WriteIndex(cacheFile, contextIndex.next));
+  std::atomic<int> contextScans{0};
+  Worker contextWorker(cacheFile, [&](const auto& n, const auto& i, const auto& p, const auto& cancel, IndexCache* index) {
+    ++contextScans; return ScanLibrary(n, i, p, cancel, index);
+  });
+  contextWorker.Request({PathText(contextRoot)}, {}, {}, false);
+  std::shared_ptr<const Snapshot> contextRestored;
+  const auto contextDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!(contextRestored = contextWorker.TakeResult()) && std::chrono::steady_clock::now() < contextDeadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  assert(contextRestored && contextScans == 0 && contextRestored->captures.size() == 1
+         && HintText(contextRestored->captures.front()) == HintText(contextScan.captures.front()));
   const auto nam = captures / "Clean" / std::filesystem::u8path("Gr\xc3\xbcn Clean.nam");
   std::ofstream(nam) << R"({"metadata":{"name":"Silver clean","gear_make":"Vox","gear_model":"AC30","gear_type":"amp_head"}})";
   std::ofstream(captures / "Cleanish" / "Other.nam") << "{}";
@@ -92,6 +192,24 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   // Identical copies are both kept: one star, every copy.
   Snapshot copies;
   copies.captures = {grun, copy, byPath(captures / "Cleanish" / "Other.nam")};
+  const auto contentFolders = ContentFolders(copies, grun);
+  assert(contentFolders.size() == 2 && contentFolders[0] == PathText(nam.parent_path())
+         && contentFolders[1] == PathText(copy.path.parent_path()));
+  assert(ContentCopyInFolder(copies, grun, copy.path.parent_path()) == copy.path);
+  assert(ContentCopyInFolder(copies, copy, nam.parent_path()) == nam);
+  assert(ContentCopyInFolder(copies, grun, root / "missing").empty());
+  assert(ContentCopyInFolder(copies, unhashed, copy.path.parent_path()).empty());
+  auto anotherCopy = copy; anotherCopy.path = copy.path.parent_path() / "Another name.nam";
+  copies.captures.push_back(anotherCopy);
+  assert(ContentFolders(copies, grun).size() == 2); // Several copies in one folder list it once.
+  assert(ContentCopyInFolder(copies, copy, copy.path.parent_path()) == copy.path); // Keep the current copy selected.
+  copies.captures.pop_back();
+  auto otherKind = copy; otherKind.kind = FileKind::IR; otherKind.path = root / "IRs" / "Copy.wav";
+  copies.captures.push_back(otherKind);
+  assert(ContentFolders(copies, grun).size() == 2); // Matching bytes of another kind are unrelated.
+  assert(ContentCopyInFolder(copies, grun, otherKind.path.parent_path()).empty());
+  copies.captures.pop_back();
+  assert(ContentFolders(copies, unhashed) == std::vector<std::string>{PathText(unhashed.path.parent_path())});
   assert((KeepStarred(copies, {0, 1, 2}, {{StarKey(grun, {}), {1}}}, {}) == std::vector<size_t>{0, 1}));
   const auto folders = BrowserFolders(library, FileKind::NAM, {PathText(captures), PathText(root / "missing")});
   assert(folders.size() == 5 && folders.front().path.empty() && folders.back().rootIndex == 1);

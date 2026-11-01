@@ -9,6 +9,32 @@
 
 namespace nam_library
 {
+inline std::vector<std::string> DetailValues(const Capture& capture, const std::string& key)
+{
+  std::vector<std::string> values;
+  for (const auto& hint : capture.hints)
+    if (hint.key == key)
+    {
+      size_t start = 0;
+      do
+      {
+        const auto end = key == "model" ? hint.value.find(" + ", start) : std::string::npos;
+        const auto value = hint.value.substr(start, end == std::string::npos ? end : end - start);
+        if (!value.empty() && std::find(values.begin(), values.end(), value) == values.end()) values.push_back(value);
+        if (end == std::string::npos) break;
+        start = end + 3;
+      } while (start < hint.value.size());
+    }
+  return values;
+}
+
+inline std::string DetailQuery(const std::string& key, const std::string& value)
+{
+  std::string query = (key == "vendor" ? "maker" : key) + ":\"";
+  for (const auto c : value) { if (c == '"' || c == '\\') query += '\\'; query += c; }
+  return query + '"';
+}
+
 inline std::string BoundedQuery(std::string query)
 {
   if (query.size() <= 512) return query;
@@ -70,6 +96,7 @@ public:
       while (i < text.size())
       {
         const char c = text[i++];
+        if (c == '\\' && i < text.size() && (text[i] == '"' || text[i] == '\\')) { term.text += text[i++]; continue; }
         if (c == '"') { quoted = !quoted; continue; }
         if (!quoted && std::isspace(static_cast<unsigned char>(c))) break;
         term.text += c;
@@ -78,7 +105,9 @@ public:
       if (colon != std::string::npos)
       {
         const auto field = term.text.substr(0, colon);
-        if (field == "name" || field == "maker" || field == "model" || field == "path" || field == "gear")
+        if (field == "name" || field == "maker" || field == "model" || field == "path" || field == "gear"
+            || field == "vendor" || field == "creator" || field == "eq" || field == "gain" || field == "category" || field == "collection"
+            || field == "channel" || field == "chain" || field == "settings" || field == "format" || field == "platform" || field == "mic/cab" || field == "speaker")
         { term.field = field; term.text.erase(0, colon + 1); }
       }
       if (!term.text.empty()) mTerms.push_back(std::move(term));
@@ -86,17 +115,23 @@ public:
   }
   int Score(const Capture& file) const
   {
+    const auto hintValues = [&](const std::string& key) {
+      std::string result;
+      for (const auto& hint : file.hints) if (hint.key == key) result += " " + hint.value;
+      return SearchText(result);
+    };
     const auto filename = SearchText(PathText(file.path.stem()));
-    const auto name = SearchText(file.name), maker = SearchText(file.maker), model = SearchText(file.model);
+    const auto name = SearchText(file.name), maker = SearchText(file.maker) + hintValues("vendor"),
+               model = SearchText(file.model) + hintValues("model");
     const auto path = SearchText(PathText(file.path));
     const auto gear = file.kind == FileKind::NAM ? SearchText(GearName(file.gear)) : "";
-    const auto all = filename + " " + name + " " + maker + " " + model + " " + path + " " + gear;
+    const auto all = filename + " " + name + " " + maker + " " + model + " " + path + " " + gear + " " + SearchText(HintText(file));
     int score = 0;
     for (const auto& term : mTerms)
     {
       const auto& haystack = term.field == "name" ? filename : term.field == "maker" ? maker
                              : term.field == "model" ? model : term.field == "path" ? path
-                             : term.field == "gear" ? gear : all;
+                             : term.field == "gear" ? gear : term.field.empty() ? all : hintValues(term.field);
       const bool found = haystack.find(term.text) != std::string::npos;
       if (found == term.exclude) return -1;
       if (!term.exclude)
@@ -119,6 +154,31 @@ inline bool SamePath(std::filesystem::path first, std::filesystem::path second)
 #else
   return first == second;
 #endif
+}
+
+inline std::vector<std::string> ContentFolders(const Snapshot& library, const Capture& selected)
+{
+  std::vector<std::filesystem::path> folders{selected.path.parent_path()};
+  if (!selected.hash.empty())
+    for (const auto& file : library.captures)
+      if (file.kind == selected.kind && file.hash == selected.hash
+          && std::none_of(folders.begin(), folders.end(), [&](const auto& folder) { return SamePath(folder, file.path.parent_path()); }))
+        folders.push_back(file.path.parent_path());
+  std::vector<std::string> result;
+  for (const auto& folder : folders) result.push_back(PathText(folder));
+  return result;
+}
+
+inline std::filesystem::path ContentCopyInFolder(const Snapshot& library, const Capture& selected,
+                                                 const std::filesystem::path& folder)
+{
+  if (SamePath(selected.path.parent_path(), folder)) return selected.path;
+  std::filesystem::path result;
+  if (!selected.hash.empty())
+    for (const auto& file : library.captures)
+      if (file.kind == selected.kind && file.hash == selected.hash && SamePath(file.path.parent_path(), folder)
+          && (result.empty() || file.path < result)) result = file.path;
+  return result;
 }
 
 inline bool Within(const std::filesystem::path& file, const std::filesystem::path& folder)
@@ -171,7 +231,7 @@ inline std::vector<size_t> KeepStarred(const Snapshot& library, std::vector<size
   return results;
 }
 
-struct BrowserFolder { std::filesystem::path path; std::string label; int depth = 0, rootIndex = -1; };
+struct BrowserFolder { std::filesystem::path path; std::string label; int depth = 0, rootIndex = -1; std::string hintKey, hintValue; };
 inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKind kind,
                                                 const std::vector<std::string>& roots)
 {
@@ -197,7 +257,22 @@ inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKi
       if (file.kind == kind && Within(file.path, root))
         for (auto parent = file.path.parent_path(); parent != root && Within(parent, root); parent = parent.parent_path())
           children.insert(parent);
-    for (const auto& child : children)
+    std::vector<std::filesystem::path> ordered(children.begin(), children.end());
+    // Compare each path component so underscore folders lead among siblings,
+    // while every parent stays immediately before its own descendants.
+    std::sort(ordered.begin(), ordered.end(), [&](const auto& a, const auto& b) {
+      const auto ar = a.lexically_relative(root), br = b.lexically_relative(root);
+      auto ai = ar.begin(), bi = br.begin();
+      for (; ai != ar.end() && bi != br.end(); ++ai, ++bi)
+      {
+        const auto an = SearchText(PathText(*ai)), bn = SearchText(PathText(*bi));
+        if (an == bn) { if (*ai != *bi) return PathText(*ai) < PathText(*bi); continue; }
+        const bool au = !an.empty() && an.front() == '_', bu = !bn.empty() && bn.front() == '_';
+        return au != bu ? au : an < bn;
+      }
+      return ai == ar.end() && bi != br.end();
+    });
+    for (const auto& child : ordered)
     {
       const auto relative = child.lexically_relative(root);
       result.push_back({child, PathText(child.filename()),
@@ -205,5 +280,37 @@ inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKi
     }
   }
   return result;
+}
+
+inline std::string HintLabel(const std::string& key)
+{
+  if (key == "eq") return "EQ";
+  if (key == "mic/cab") return "Mic / Cab";
+  if (key == "chain") return "Captured FX";
+  auto label = key;
+  if (!label.empty()) label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
+  return label;
+}
+
+inline std::vector<BrowserFolder> BrowserHintFilters(const Snapshot& library, FileKind kind)
+{
+  std::set<std::pair<std::string, std::string>> values;
+  for (const auto& file : library.captures)
+    if (file.kind == kind)
+      for (const auto& hint : file.hints)
+        if (hint.key != "settings" && hint.key != "model") values.insert({hint.key, hint.value});
+  std::vector<BrowserFolder> result;
+  for (const auto& [key, value] : values) result.push_back({{}, HintLabel(key) + ": " + value, 0, -1, key, value});
+  return result;
+}
+
+inline std::vector<size_t> KeepHint(const Snapshot& library, std::vector<size_t> results,
+                                    const std::string& key, const std::string& value)
+{
+  if (!key.empty()) results.erase(std::remove_if(results.begin(), results.end(), [&](size_t i) {
+    const auto& hints = library.captures[i].hints;
+    return std::none_of(hints.begin(), hints.end(), [&](const auto& hint) { return hint.key == key && hint.value == value; });
+  }), results.end());
+  return results;
 }
 } // namespace nam_library

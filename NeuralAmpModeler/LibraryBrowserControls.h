@@ -159,6 +159,21 @@ private:
   std::function<void()> mCancelled;
 };
 
+class NAMBrowserResultHoverControl : public IControl
+{
+public:
+  using Click = std::function<void(float, float, const IMouseMod&)>;
+  NAMBrowserResultHoverControl(Click click, Click doubleClick, std::function<void(float, float, const IMouseMod&, float)> wheel)
+  : IControl(IRECT()), mClick(std::move(click)), mDoubleClick(std::move(doubleClick)), mWheel(std::move(wheel)) { Hide(true); }
+  void Draw(IGraphics&) override {}
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override { mClick(x, y, mod); }
+  void OnMouseDblClick(float x, float y, const IMouseMod& mod) override { mDoubleClick(x, y, mod); }
+  void OnMouseWheel(float x, float y, const IMouseMod& mod, float delta) override { mWheel(x, y, mod, delta); }
+private:
+  Click mClick, mDoubleClick;
+  std::function<void(float, float, const IMouseMod&, float)> mWheel;
+};
+
 class NAMLibraryBrowserControl : public IContainerBase
 {
 public:
@@ -192,6 +207,14 @@ public:
         modules->captures.push_back(std::move(item));
       }
     mModules = modules;
+    for (int row = 0; row < (grid_layout::height - 12 - kListTop) / kRowHeight; ++row)
+    {
+      auto* hint = new NAMBrowserResultHoverControl(
+        [this](float x, float y, const IMouseMod& mod) { OnMouseDown(x, y, mod); },
+        [this](float x, float y, const IMouseMod& mod) { OnMouseDblClick(x, y, mod); },
+        [this](float x, float y, const IMouseMod& mod, float delta) { OnMouseWheel(x, y, mod, delta); });
+      AddChildControl(hint); mResultHints.push_back(hint);
+    }
     // "..." marks the actions that open a file dialog. Save as is a rig action, top right;
     // Open file is the alternative to searching, so it sits beside the search field.
     mSave = new Button(IRECT(grid_layout::width - 224, 14, grid_layout::width - 112, 42), [this](IControl*) { PLUG()->PromptRigPreset(true); }, "Save as...", Icon::Save);
@@ -212,7 +235,7 @@ public:
       View().query = text; Rebuild();
     }, [this] { Hide(true); });
     AddChildControl(mSearch);
-    mSearch->SetTooltip("Match all words across names, paths and metadata. Use quoted phrases, -exclude, maker:vox, model:ac30, path:clean or gear:amp. Ctrl/Cmd+F focuses search; the cross clears it.");
+    mSearch->SetTooltip("Match names, paths, metadata and inferred filename tags. Use quoted phrases, -exclude, maker:vox, creator:amalgam, eq:balanced, gain:clean or speaker:celestion. Ctrl/Cmd+F focuses search; the cross clears it.");
     mSort = new Button(IRECT(584, kPanelTop + 2, 706, kListTop - 2), [this](IControl*) {
       mRelevance = !mRelevance; Rebuild();
     }, "Sort: relevance");
@@ -269,7 +292,7 @@ public:
     SwitchKind(kind);
     auto& view = View();
     view.selected.clear();
-    view.query.clear(); view.folder.clear(); view.scroll = view.folderScroll = 0; view.starred = false;
+    view.query.clear(); view.folder.clear(); view.hintKey.clear(); view.hintValue.clear(); view.scroll = view.folderScroll = 0; view.starred = false;
     mSearch->SetQuery("");
     if (kind == nam_library::FileKind::Module)
     {
@@ -330,7 +353,7 @@ public:
       if (const auto* selected = Selected())
         mDetailsTitle->SetTooltip((selected->kind == nam_library::FileKind::Module
           ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
-          : nam_library::PathText(selected->path)).c_str());
+          : nam_library::HintText(*selected) + "\n" + nam_library::PathText(selected->path)).c_str());
       Disabled(mDelete, !Selected() || Selected()->kind != nam_library::FileKind::RigPreset);
       Disabled(mApply, !Selected());
     }
@@ -345,40 +368,52 @@ public:
     for (int i = 0; i < 4; ++i)
       if (mKind == kTabs[i] && !mTabs[i]->IsHidden())
       { const auto r = mTabs[i]->GetRECT(); g.FillRect(accent, IRECT(r.L, r.B + 3, r.R, r.B + 5)); }
-    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(24, kPanelTop, 266, ListBottom()), 4);
-    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(282, kPanelTop, 716, ListBottom()), 4);
+    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(24, kPanelTop, 234, ListBottom()), 4);
+    g.FillRoundRect(surface.WithOpacity(.5f), IRECT(250, kPanelTop, 716, ListBottom()), 4);
     g.FillRoundRect(surface.WithOpacity(.5f), IRECT(732, kPanelTop, grid_layout::width - 24, ListBottom()), 4);
     const char* folders = mKind == nam_library::FileKind::Module ? "FX CATEGORIES"
                         : mKind == nam_library::FileKind::RigPreset ? "PRESET FOLDERS"
-                        : mKind == nam_library::FileKind::IR ? "IR FOLDERS" : "NAM FOLDERS";
-    g.DrawText(Text(13.f, muted), folders, IRECT(36, kPanelTop, 256, kListTop));
+                        : mKind == nam_library::FileKind::IR ? "IR FOLDERS / TAGS" : "NAM FOLDERS / TAGS";
+    g.DrawText(Text(13.f, muted), folders, IRECT(36, kPanelTop, 224, kListTop));
     const auto count = std::to_string(mResults.size()) + (mResults.size() == 1 ? " RESULT" : " RESULTS");
-    g.DrawText(Text(13.f, muted), PLUG()->IsLibraryScanning() ? "SCANNING..." : count.c_str(), IRECT(294, kPanelTop, 470, kListTop));
-    if (HasSources()) g.DrawLine(border.WithOpacity(.6f), 36, FolderBottom() + 2, 254, FolderBottom() + 2);
+    g.DrawText(Text(13.f, muted), PLUG()->IsLibraryScanning() ? "SCANNING..." : count.c_str(), IRECT(262, kPanelTop, 470, kListTop));
+    if (HasSources()) g.DrawLine(border.WithOpacity(.6f), 36, FolderBottom() + 2, 222, FolderBottom() + 2);
     for (int row = 0; row < FolderRows() && View().folderScroll + row < mFolders.size(); ++row)
     {
       const auto& folder = mFolders[View().folderScroll + row];
       const float y = kListTop + row * kRowHeight;
-      const bool selected = nam_library::SamePath(folder.path, View().folder);
-      if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(26, y, 257, y + kRowHeight));
+      const bool selected = nam_library::SamePath(folder.path, View().folder)
+                            && folder.hintKey == View().hintKey && folder.hintValue == View().hintValue;
+      if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(26, y, 225, y + kRowHeight));
       FittedText(g, Text(14.f, selected ? accent : text), folder.label.c_str(),
-                 IRECT(36.f + std::min(folder.depth, 7) * 12, y, 250, y + kRowHeight));
+                 IRECT(36.f + std::min(folder.depth, 7) * 12, y, 218, y + kRowHeight));
     }
     for (int row = 0; row < Rows() && View().scroll + row < mResults.size(); ++row)
     {
       const auto& file = mLibrary->captures[mResults[View().scroll + row]];
       const float y = kListTop + row * kRowHeight;
       const bool selected = View().scroll + row == mSelectedRow;
-      if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(284, y, 706, y + kRowHeight));
+      if (selected) g.FillRect(accent.WithOpacity(.14f), IRECT(252, y, 706, y + kRowHeight));
       const bool module = file.kind == nam_library::FileKind::Module;
       // Stars mark results for this user only, never for a rig or host. Every row keeps the
       // star column so names align, even a file the scan has not hashed yet.
       const auto key = nam_library::StarKey(file, mFavoritesFolder);
       if (!key.empty()) DrawBrowserStar(g, kStarCenter, y + kRowHeight * .5f, 8.f, PLUG()->GetLibraryStar(key));
-      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(318.f, y, module ? 586 : 696, y + kRowHeight));
+      FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(286.f, y, module ? 586 : 696, y + kRowHeight));
       if (module) FittedText(g, Text(12.f, muted, EAlign::Far), nam_library::PathText(file.relative.parent_path()).c_str(), IRECT(594, y, 696, y + kRowHeight));
     }
-    Scrollbar(g, 257, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
+    for (int row = 0; row < mResultHints.size(); ++row)
+    {
+      const bool shown = row < Rows() && View().scroll + row < mResults.size();
+      mResultHints[row]->Hide(!shown);
+      if (shown)
+      {
+        const float y = kListTop + row * kRowHeight;
+        mResultHints[row]->SetTargetAndDrawRECTs(IRECT(286, y, 696, y + kRowHeight));
+        mResultHints[row]->SetTooltip(nam_library::PathText(mLibrary->captures[mResults[View().scroll + row]].path.filename()).c_str());
+      }
+    }
+    Scrollbar(g, 225, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
     Scrollbar(g, 707, ListBottom(), View().scroll, mResults.size(), Rows());
     DrawDetails(g);
     if (mResults.empty())
@@ -389,7 +424,7 @@ public:
         : mKind == nam_library::FileKind::RigPreset ? "No preset folders yet.\nAdd one with Manage folders."
         : mKind == nam_library::FileKind::IR ? "No IR folders yet.\nAdd one with Manage folders."
         : "No NAM folders yet.\nAdd one with Manage folders.";
-      DrawClippedText(g, Text(14.f, muted), message, IRECT(314, kListTop + 60, 684, kListTop + 180));
+      DrawClippedText(g, Text(14.f, muted), message, IRECT(282, kListTop + 60, 684, kListTop + 180));
     }
     // Errors and load results sit just above the action they concern.
     if (!mStatus.empty())
@@ -400,15 +435,35 @@ public:
   void OnMouseDown(float x, float y, const IMouseMod&) override
   {
     if (y < kListTop || y >= ListBottom()) return;
-    const bool folderColumn = x >= 24 && x <= 266 && y < FolderBottom();
-    if (folderColumn && x >= 257) { mDrag = 1; DragScroll(y); return; }
+    if (x >= mApply->GetRECT().R - 7 && x <= mApply->GetRECT().R && y < FooterTop() - 6 && mDetailsMaximum > 0)
+    { mDrag = 3; DragScroll(y); return; }
+    for (const auto& link : mDetailLinks)
+      if (link.bounds.Contains(x, y))
+      {
+        const auto query = link.query;
+        const auto target = link.file;
+        FinishSearch(); View().folder.clear(); View().hintKey.clear(); View().hintValue.clear();
+        View().starred = false; View().scroll = View().folderScroll = 0;
+        if (!target.empty()) { View().folder = target.parent_path(); View().selected = nam_library::PathText(target); }
+        View().query = target.empty() ? query : ""; mSearch->SetQuery(View().query); Rebuild();
+        if (!target.empty())
+          for (int i = 0; i < mFolders.size(); ++i)
+            if (nam_library::SamePath(mFolders[i].path, View().folder))
+            { View().folderScroll = std::max(0, i - FolderRows() + 1); break; }
+        mSearch->Focus(); return;
+      }
+    const bool folderColumn = x >= 24 && x <= 234 && y < FolderBottom();
+    if (folderColumn && x >= 225) { mDrag = 1; DragScroll(y); return; }
     if (x >= 707 && x <= 716) { mDrag = 2; DragScroll(y); return; }
     if (folderColumn)
     {
       const int index = View().folderScroll + static_cast<int>((y - kListTop) / kRowHeight);
-      if (index < mFolders.size()) { View().folder = mFolders[index].path; View().scroll = 0; Rebuild(); }
+      if (index < mFolders.size()) {
+        View().folder = mFolders[index].path; View().hintKey = mFolders[index].hintKey;
+        View().hintValue = mFolders[index].hintValue; View().scroll = 0; Rebuild();
+      }
     }
-    else if (x >= 282 && x < 707)
+    else if (x >= 250 && x < 707)
     {
       const int index = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
       if (index < mResults.size())
@@ -427,14 +482,19 @@ public:
     if (y >= kListTop && y < ListBottom() && x >= kStarLeft && x < kStarRight) { OnMouseDown(x, y, mod); return; }
     OnMouseDown(x, y, mod);
     const int row = View().scroll + static_cast<int>((y - kListTop) / kRowHeight);
-    if (x >= 282 && x < 707 && y >= kListTop && y < ListBottom() && row < mResults.size()) LoadSelected();
+    if (x >= 250 && x < 707 && y >= kListTop && y < ListBottom() && row < mResults.size()) LoadSelected();
   }
   void OnMouseDrag(float, float y, float, float, const IMouseMod&) override { if (mDrag) DragScroll(y); }
   void OnMouseUp(float, float, const IMouseMod&) override { mDrag = 0; }
   void OnMouseWheel(float x, float y, const IMouseMod&, float delta) override
   {
     if (y < kListTop || y >= ListBottom()) return;
-    const bool folders = x < 282;
+    if (x >= 732)
+    {
+      mDetailsScroll = std::clamp(mDetailsScroll + (delta < 0 ? 66 : -66), 0, mDetailsMaximum);
+      SetDirty(false); return;
+    }
+    const bool folders = x < 250;
     auto& scroll = folders ? View().folderScroll : View().scroll;
     const int maximum = std::max(0, static_cast<int>(folders ? mFolders.size() : mResults.size()) - (folders ? FolderRows() : Rows()));
     scroll = std::clamp(scroll + (delta < 0 ? 3 : -3), 0, maximum); SetDirty(false);
@@ -467,7 +527,7 @@ private:
   // which moves with the page height (audition above the editor, or full-height presets).
   static constexpr float kRowHeight = 25.f, kPanelTop = 104.f, kListTop = 132.f;
   // The star sits in the row's left margin, clear of the name text.
-  static constexpr float kStarCenter = 302.f, kStarLeft = 288.f, kStarRight = 316.f;
+  static constexpr float kStarCenter = 270.f, kStarLeft = 256.f, kStarRight = 284.f;
   int Rows() const { return static_cast<int>((ListBottom() - kListTop) / kRowHeight); }
   int FolderRows() const { return static_cast<int>((FolderBottom() - kListTop) / kRowHeight); }
   float ListBottom() const { return mRECT.B - 12.f; }
@@ -501,15 +561,15 @@ private:
     mFoldersButton->Hide(!HasSources());
     mRescan->Hide(!HasSources());
     const float top = FooterTop() + 6.f, bottom = ListBottom() - 6.f;
-    mFoldersButton->SetTargetAndDrawRECTs(IRECT(32, top, 170, bottom));
-    mRescan->SetTargetAndDrawRECTs(IRECT(178, top, 258, bottom));
+    mFoldersButton->SetTargetAndDrawRECTs(IRECT(32, top, 148, bottom));
+    mRescan->SetTargetAndDrawRECTs(IRECT(156, top, 226, bottom));
     mSearch->SetTargetAndDrawRECTs(IRECT(24, 58, HasSources() ? grid_layout::width - 144 : grid_layout::width - 24, 92));
     // Presets add Delete to the footer actions, left of Close and Load.
     mDelete->SetTargetAndDrawRECTs(IRECT(740, top, 810, bottom));
     mCancel->SetTargetAndDrawRECTs(preset ? IRECT(818, top, grid_layout::width - 112, bottom) : IRECT(740, top, grid_layout::width - 152, bottom));
     mApply->SetTargetAndDrawRECTs(preset ? IRECT(grid_layout::width - 104, top, grid_layout::width - 32, bottom) : IRECT(grid_layout::width - 144, top, grid_layout::width - 32, bottom));
   }
-  struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; bool starred = false; };
+  struct State { std::string query, selected, hintKey, hintValue; std::filesystem::path folder; int scroll = 0, folderScroll = 0; bool starred = false; };
   State& View() { return mViews[static_cast<int>(mKind)]; }
   std::vector<std::string> ConfiguredRoots()
   {
@@ -566,6 +626,7 @@ private:
   }
   void Rebuild()
   {
+    mDetailLinks.clear();
     const auto snapshot = PLUG()->GetCaptureLibrary();
     const auto roots = Roots();
     const bool refreshFolders = snapshot != mScanLibrary || roots != mRoots || mFolderKind != mKind;
@@ -595,12 +656,20 @@ private:
           mFolders.push_back({std::filesystem::u8path(group.name), group.name});
       }
       else mFolders = nam_library::BrowserFolders(*mLibrary, mKind, mRoots);
+      if (mKind == nam_library::FileKind::NAM || mKind == nam_library::FileKind::IR)
+      {
+        const auto hints = nam_library::BrowserHintFilters(*mLibrary, mKind);
+        mFolders.insert(mFolders.end(), hints.begin(), hints.end());
+      }
       if (ContextApplies() && !mContextRoot.empty()
           && std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) { return nam_library::SamePath(f.path, mContextRoot); }))
         mFolders.push_back({mContextRoot, "Current folder"});
     }
-    if (std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) { return nam_library::SamePath(f.path, View().folder); })) View().folder.clear();
+    if (std::none_of(mFolders.begin(), mFolders.end(), [this](const auto& f) {
+      return nam_library::SamePath(f.path, View().folder) && f.hintKey == View().hintKey && f.hintValue == View().hintValue;
+    })) { View().folder.clear(); View().hintKey.clear(); View().hintValue.clear(); }
     mResults = nam_library::Browse(*mLibrary, mKind, View().query, View().folder, -1, mRelevance);
+    mResults = nam_library::KeepHint(*mLibrary, std::move(mResults), View().hintKey, View().hintValue);
     // A star cleared under the filter keeps its row until the next rebuild, so it can be cycled on.
     mFavoritesFolder = PLUG()->GetFavoritesFolder();
     if (View().starred)
@@ -737,30 +806,155 @@ private:
     g.DrawMultiLineText(text, content, bounds);
     g.PathClipRegion();
   }
+  static std::vector<std::string> WrapDetailsText(IGraphics& g, const IText& style, const std::string& value, float width)
+  {
+    std::vector<std::string> lines;
+    for (size_t start = 0; start < value.size();)
+    {
+      size_t end = start, space = std::string::npos;
+      while (end < value.size() && value[end] != '\n')
+      {
+        size_t next = end + 1;
+        while (next < value.size() && (static_cast<unsigned char>(value[next]) & 0xc0) == 0x80) ++next;
+        IRECT measured; g.MeasureText(style, value.substr(start, next - start).c_str(), measured);
+        if (measured.W() > width && end > start) break;
+        if (value[end] == ' ') space = end;
+        end = next;
+      }
+      if (end < value.size() && value[end] != '\n' && space != std::string::npos && space > start) end = space;
+      lines.push_back(value.substr(start, end - start)); start = end;
+      if (start < value.size() && (value[start] == '\n' || value[start] == ' ')) ++start;
+    }
+    return lines;
+  }
   void DrawDetails(IGraphics& g)
   {
     using namespace grid_ui;
+    mDetailLinks.clear();
     const auto* file = Selected();
     if (!file) return;
     // Content flows from the header down; the actions stay pinned to the footer.
     const float bottom = FooterTop() - (mStatus.empty() ? 6.f : 48.f);
+    const float scrollX = mApply->GetRECT().R - 7.f, right = scrollX - 8.f;
+    const auto kind = file->kind == nam_library::FileKind::NAM ? nam_library::GearName(file->gear)
+      : file->kind == nam_library::FileKind::IR ? "Impulse response" : file->kind == nam_library::FileKind::Module ? "Module" : "Rig preset";
+    struct Row { std::string label, key; std::vector<std::string> values; bool secondary = false; };
+    std::vector<Row> rows{{"Type", file->kind == nam_library::FileKind::NAM ? "gear" : "", {kind}}};
+    const auto useful = [](const std::string& value) {
+      const auto lower = nam_library::SearchText(value);
+      return !value.empty() && lower != "misc" && lower != "unknown" && lower != "t3k-unset";
+    };
+    const auto add = [&](const std::string& key, const std::string& fallback = "") {
+      auto values = nam_library::DetailValues(*file, key);
+      if (values.empty() && useful(fallback)) values.push_back(fallback);
+      if (!values.empty()) rows.push_back({nam_library::HintLabel(key), key, values});
+    };
     if (file->kind == nam_library::FileKind::Module)
     {
-      FittedText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()).c_str(), IRECT(744, kListTop, 964, kListTop + 26));
-      const auto body = file->name + "\n\n" + ModuleParameters(static_cast<SlotEffect>(file->module));
-      DrawClippedText(g, Text(14.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 34, 964, bottom));
-      return;
+      rows.push_back({"Sound", "", {file->name}});
+      rows.push_back({"Controls", "", {ModuleParameters(static_cast<SlotEffect>(file->module))}});
     }
-    // Multiline drawing does not clip to its height. Bound the title to two
-    // lines so long capture filenames cannot run into the metadata below.
-    TwoLineText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()), IRECT(744, kListTop + 4, 964, kListTop + 46));
-    const auto metadata = file->kind == nam_library::FileKind::NAM
-      ? std::string(nam_library::GearName(file->gear))
-        + (file->maker.empty() ? "" : "\n" + file->maker) + (file->model.empty() ? "" : " / " + file->model)
-      : file->kind == nam_library::FileKind::IR ? "WAV impulse response" : "Complete NAM Grid rig";
-    const auto body = metadata + (file->name.empty() ? "" : "\n" + file->name) + "\n\n" + nam_library::PathText(file->path);
-    DrawClippedText(g, Text(13.f, muted).WithVAlign(EVAlign::Top), body.c_str(), IRECT(744, kListTop + 52, 964, bottom));
+    else
+    {
+    add("vendor", file->maker); add("model", file->model); add("creator");
+    for (const auto& key : {"gain", "eq", "channel", "speaker", "mic/cab", "chain", "settings", "collection", "platform", "category"}) add(key);
+    // Type already describes the format when NAM metadata agrees.
+    if (file->gear != nam_library::Gear::AmpCab && file->gear != nam_library::Gear::AmpHead) add("format");
+    if (useful(file->name)) rows.push_back({"Name", "", {file->name}, true});
+    rows.push_back({"Folders", "path", nam_library::ContentFolders(*mLibrary, *file)});
+
+    }
+
+    const auto valueStyle = Text(13.f, text).WithVAlign(EVAlign::Top);
+    const auto labelStyle = Text(12.f, muted).WithVAlign(EVAlign::Top);
+    struct Run { std::string value, query; float x, width; std::filesystem::path file; };
+    struct Line { std::string label; std::vector<Run> runs; bool secondary, separator; bool title = false; int height = 22; };
+    std::vector<Line> lines;
+    for (const auto& part : WrapDetailsText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()), right - 744))
+      lines.push_back({"", {{part, "", 744, 0, {}}}, false, false, true});
+    lines.push_back({"", {}, false, false, false, 8});
+    for (const auto& row : rows)
+    {
+      Line line{row.label, {}, row.secondary, true};
+      float x = 816;
+      for (const auto& rawValue : row.values)
+      {
+        auto value = rawValue;
+        if (row.key == "path" && !file->source.empty())
+        {
+          const auto folder = std::filesystem::u8path(rawValue);
+          if (nam_library::Within(folder, file->source))
+          {
+            const auto relative = folder.lexically_relative(file->source);
+            value = nam_library::PathText(relative == "." ? file->source.filename() : relative);
+          }
+        }
+        IRECT measured;
+        g.MeasureText(valueStyle, value.c_str(), measured);
+        if (!line.runs.empty() && ((row.key == "model" || row.key == "path") || x + measured.W() > right))
+        { lines.push_back(line); line = {"", {}, row.secondary, false}; x = 816; }
+        const auto target = row.key == "path" ? nam_library::ContentCopyInFolder(*mLibrary, *file, std::filesystem::u8path(rawValue)) : std::filesystem::path{};
+        const auto query = row.secondary || row.key.empty() || row.key == "path" ? "" : nam_library::DetailQuery(row.key, rawValue);
+        for (size_t start = 0; start < value.size();)
+        {
+          size_t end = start, space = std::string::npos;
+          while (end < value.size() && value[end] != '\n')
+          {
+            size_t next = end + 1;
+            while (next < value.size() && (static_cast<unsigned char>(value[next]) & 0xc0) == 0x80) ++next;
+            g.MeasureText(valueStyle, value.substr(start, next - start).c_str(), measured);
+            if (measured.W() > right - x && end > start) break;
+            if (value[end] == ' ') space = end;
+            end = next;
+          }
+          if (end < value.size() && value[end] != '\n' && space != std::string::npos && space > start) end = space;
+          const auto part = value.substr(start, end - start);
+          g.MeasureText(valueStyle, part.c_str(), measured);
+          line.runs.push_back({part, query, x, measured.W(), target});
+          start = end;
+          if (start < value.size() && (value[start] == '\n' || value[start] == ' ')) ++start;
+          if (start < value.size())
+          { lines.push_back(line); line = {"", {}, row.secondary, false}; x = 816; }
+          else x += measured.W() + 10;
+        }
+      }
+      if (!line.runs.empty()) lines.push_back(line);
+    }
+    const float top = kListTop + 6;
+    const int visible = std::max(1, static_cast<int>(bottom - top));
+    int contentHeight = 0;
+    for (const auto& line : lines) contentHeight += line.height;
+    mDetailsVisible = visible;
+    mDetailsMaximum = std::max(0, contentHeight - visible);
+    if (mDetailsPath != file->path) { mDetailsPath = file->path; mDetailsScroll = 0; }
+    mDetailsScroll = std::clamp(mDetailsScroll, 0, mDetailsMaximum);
+    g.PathClipRegion(IRECT(740, top, right + 1, bottom));
+    float y = top - mDetailsScroll;
+    for (const auto& line : lines)
+    {
+      if (y + line.height > top && y < bottom)
+      {
+        if (line.separator) g.DrawLine(border.WithOpacity(.35f), 744, y - 4, right, y - 4);
+        g.DrawText(labelStyle, line.label.c_str(), IRECT(744, y, 810, y + line.height));
+        for (const auto& run : line.runs)
+        {
+          const auto style = line.title ? Text(16.f, accent).WithVAlign(EVAlign::Top)
+            : line.secondary ? Text(12.f, muted).WithVAlign(EVAlign::Top)
+            : Text(13.f, run.query.empty() && run.file.empty() ? text : accent).WithVAlign(EVAlign::Top);
+          g.DrawText(style, run.value.c_str(), IRECT(run.x, y, right, y + line.height));
+          if (!run.query.empty() || !run.file.empty())
+          {
+            g.DrawLine(accent.WithOpacity(.35f), run.x, y + 15, run.x + run.width, y + 15);
+            mDetailLinks.push_back({IRECT(run.x, std::max(top, y), std::min(right, run.x + run.width + 3), std::min(bottom, y + line.height)), run.query, run.file});
+          }
+        }
+      }
+      y += line.height;
+    }
+    g.PathClipRegion();
+    Scrollbar(g, scrollX, bottom, mDetailsScroll, contentHeight, visible, top);
   }
+
   static std::string ModuleParameters(SlotEffect effect)
   {
     switch (effect)
@@ -780,16 +974,23 @@ private:
       }
     return result;
   }
-  void Scrollbar(IGraphics& g, float x, float bottom, int offset, int count, int visible)
+  void Scrollbar(IGraphics& g, float x, float bottom, int offset, int count, int visible, float top = kListTop)
   {
     if (count <= visible) return;
-    g.FillRect(grid_ui::border.WithOpacity(.3f), IRECT(x, kListTop, x + 7, bottom));
-    const float height = std::max(24.f, (bottom - kListTop) * visible / count);
-    const float y = kListTop + ((bottom - kListTop) - height) * offset / (count - visible);
+    g.FillRect(grid_ui::border.WithOpacity(.3f), IRECT(x, top, x + 7, bottom));
+    const float height = std::max(24.f, (bottom - top) * visible / count);
+    const float y = top + ((bottom - top) - height) * offset / (count - visible);
     g.FillRoundRect(grid_ui::muted.WithOpacity(.6f), IRECT(x, y, x + 7, y + height), 3);
   }
   void DragScroll(float y)
   {
+    if (mDrag == 3)
+    {
+      const float top = kListTop + 6, bottom = FooterTop() - (mStatus.empty() ? 6.f : 48.f);
+      const float thumb = std::max(24.f, (bottom - top) * mDetailsVisible / std::max(1, mDetailsVisible + mDetailsMaximum));
+      mDetailsScroll = static_cast<int>(std::clamp((y - top - thumb * .5f) / std::max(1.f, bottom - top - thumb), 0.f, 1.f) * mDetailsMaximum);
+      SetDirty(false); return;
+    }
     auto& offset = mDrag == 1 ? View().folderScroll : View().scroll;
     const int maximum = std::max(0, static_cast<int>(mDrag == 1 ? mFolders.size() : mResults.size()) - (mDrag == 1 ? FolderRows() : Rows()));
     const float bottom = mDrag == 1 ? FolderBottom() : ListBottom();
@@ -816,6 +1017,11 @@ private:
   bool mRelevance = true;
   int mDrag = 0;
   int mSelectedRow = -1;
+  struct DetailLink { IRECT bounds; std::string query; std::filesystem::path file; };
+  std::vector<DetailLink> mDetailLinks;
+  int mDetailsScroll = 0, mDetailsMaximum = 0, mDetailsVisible = 0;
+  std::filesystem::path mDetailsPath;
+  std::vector<NAMBrowserResultHoverControl*> mResultHints;
   NAMBrowserSearchControl* mSearch = nullptr;
   grid_ui::HintLabel* mTitle = nullptr;
   grid_ui::HintLabel* mDetailsTitle = nullptr;

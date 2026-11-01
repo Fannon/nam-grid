@@ -4,6 +4,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Add **Aurora Hall Medium** to Cosmic Echo's factory presets, preserving the settings from the author's user preset.
+
+- Expand every delay module's factory presets with more beat-synced rhythms: eighths, triplets, dotted leads, tape-head patterns, stereo pairs, reverse blooms and diffused clouds. Each bank keeps the character of its delay type. Digital Delay includes a clear quarter-note lead and all its synced recipes crossfade tempo jumps; the reverse wash keeps more dry attack with a longer trail. Existing rigs and insertion defaults keep their settings.
+
 - **Settings and Modulation polish:** Settings has readable footer buttons and an untruncated Settings folder action. **Install factory content...** replaces the drive-only installer, adding the bundled clean capture, Empty, Clean Default and drive examples to a chosen library folder while preserving existing files. Settings and Modulation drop their header dividers; Modulation starts directly with aligned matrix controls, without a separate Matrix heading or caption.
 
 - Fix Routing's M/S buttons leaving a lane soloed or muted when releasing a conflicting mute-and-solo combination recalled from an older rig. Either button now clears the opposite state on that lane, including when switched off. Loading saved rigs still preserves their sound.

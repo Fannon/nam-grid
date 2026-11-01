@@ -42,12 +42,12 @@ void TestModulePresetCoverage()
     assert(!supported || !ToJson(effect, SlotDefaultValues(effect))["values"].empty());
     // Deliberate selection policy: gates need input calibration and Utility needs
     // routing/phase context. Others have factory recipes only for established uses
-    // that differ from the insertion default (docs/presets.md); keep the menus short.
+    // suited to the module (docs/presets.md). Delays also cover shared beat-synced roles.
     const bool calibrated = effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
                             || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
     assert(!calibrated || For(effect).empty());
     // Cosmic Echo covers distinct networks as well as practical short/medium/long roles.
-    assert(For(effect).size() <= (effect == SlotEffect::CosmicEcho ? 13u : (effect == SlotEffect::PedalDrive || effect == SlotEffect::DigitalDelay) ? 5u : 4u));
+    assert(For(effect).size() <= (effect == SlotEffect::CosmicEcho ? 14u : IsDelay(effect) ? 12u : effect == SlotEffect::PedalDrive ? 5u : 4u));
     for (const auto& preset : For(effect))
     {
       std::vector<int> seen;

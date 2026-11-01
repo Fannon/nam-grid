@@ -100,11 +100,12 @@ The longer swells and washes are deliberate ambient choices. Leave space between
 phrases and set Mix against your dry guitar. Use the module's Reset action to
 return to its insertion sound.
 
-Factory presets are a short list of established starting points, not a bank of
-variations. Each one is a familiar use that the module's insertion default does
-not already cover: slapback, dotted-eighth repeats, a parked wah, a Leslie at
-chorale or fast speed. Where the insertion default already is the usual starting
-point, a module has fewer presets or none. Recipes use the module's own ranges;
+Factory presets are established starting points. Delay banks deliberately offer
+some of the same rhythmic roles across types: replacing the module should not
+mean losing a favorite beat division. Each bank voices those roles for its own
+character, from clear rhythmic repeats to dark echoes and smeared clouds.
+Other modules keep a shorter selection where their insertion default already
+covers the usual starting point. Recipes use the module's own ranges;
 similarly named controls in other plugins do not imply identical processing or
 knob values. Threshold, drive and output trims assume ordinary interface gain
 staging, with normal playing peaking around -9 dBFS.
@@ -121,13 +122,13 @@ staging, with normal playing peaking around -9 dBFS.
 | Filter, Wah, Auto Swell | Touch wah, Bass envelope; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
-| Digital Delay | Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support |
-| Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes |
-| Tape Echo | Tape slapback, Worn tape repeats, Rock lead echo, Clean dotted tape |
-| Multi-head Tape | Rolling three heads, Stereo cascade, All-head wash, Sparse stereo heads |
-| Reverse Delay | Reverse half notes, Reversed solo, Short reverse texture |
-| Dual Delay | Quarter and dotted eighth, Wide ping-pong, Tight stereo double |
-| Diffused Delay | Echo into cloud, Soft echo clusters, Gentle pad echoes |
+| Digital Delay | Clear quarter-note lead, Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support, Clear eighth-note rhythm, Triplet ping-pong, Ducked dotted eighth, Half-note space |
+| Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes, Warm quarter notes, Soft eighth-note pulse, Dark dotted lead, Modulated half-note bed |
+| Tape Echo | Tape slapback, Worn tape repeats, Rock lead echo, Clean dotted tape, Warm quarter-note tape, Eighth-note tape bounce, Dotted-quarter tape drift, Half-note tape haze |
+| Multi-head Tape | Rolling three heads, Stereo cascade, All-head wash, Sparse stereo heads, Eighth and quarter heads, Dotted and quarter heads, Synced rolling heads, Half-note head cloud |
+| Reverse Delay | Reverse half notes, Reversed solo, Short reverse texture, Eighth-note reverse flicker, Quarter-note reverse bloom, Dotted-quarter reverse wash |
+| Dual Delay | Quarter and dotted eighth, Wide ping-pong, Tight stereo double, Eighth and dotted eighth, Quarter and eighth, Quarter and triplet, Synced dotted ping-pong, Half and dotted quarter |
+| Diffused Delay | Echo into cloud, Soft echo clusters, Gentle pad echoes, Soft dotted-eighth rhythm, Quarter-note echo halo, Triplet echo clusters, Dotted-quarter dream, Half-note cloud |
 | Room | Live room, Small amp room |
 | Dense Plate | Short bright plate, Singing lead plate, Warm rhythm plate |
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |

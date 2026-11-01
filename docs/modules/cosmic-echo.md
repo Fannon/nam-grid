@@ -97,6 +97,7 @@ The selection combines useful playing roles with each style's different response
 | Velvet constellation | Gemini | Dense, modulated space for slow arpeggios |
 | Dark orbit | Aurora Hall | Dark, sustained wash under volume swells |
 | Chord bloom | Binary Bloom | Broad, developing tails behind held chords |
+| Aurora Hall Medium | Aurora Hall | High-Warp hall ambience at a restrained mix, imported from the author's user preset |
 
 Similar tail lengths do not mean the same response. Compare **Pointillist echoes**
 (Virgo's feedback damping) with **Clear distant repeats** (Lyra's clearer echoes).

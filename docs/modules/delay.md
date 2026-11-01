@@ -24,13 +24,47 @@ then adjust Mix in the rig. These recipes assume an insert after the amp.
 
 | Module | Useful starting point | Why choose it |
 | --- | --- | --- |
-| Digital Delay | Quiet ducked support | A low-mix quarter-note echo that stays behind playing and recovers in the gaps; Crossfade follows tempo jumps without a pitch bend. |
+| Digital Delay | Clear quarter-note lead; Quiet ducked support | Choose a clear, unducked quarter-note echo or quiet support that recovers in the gaps. All synced Digital Delay recipes use Crossfade for tempo jumps. |
 | Analog Echo | Warm lead repeats; Bright dotted echoes | Choose soft, dark lead support or a clearer dotted-eighth rhythm with restrained modulation. |
 | Tape Echo | Rock lead echo; Clean dotted tape | A quiet, short lead repeat or a brighter synced rhythm with light saturation and wobble. |
 | Multi-head Tape | Sparse stereo heads | Half-time on the left and full-time on the right; fewer taps than the rolling and cascade patterns. |
 | Reverse Delay | Short reverse texture | A short capture window and modest mix under your dry attack; Reverse half notes gives longer reversed phrases. |
 | Dual Delay | Tight stereo double | Two short taps with no feedback, for light width; Quarter and dotted eighth gives an interlocking rhythm instead. |
 | Diffused Delay | Gentle pad echoes | Moderate feedback and diffusion soften sustained notes; Echo into cloud is the longer, more diffuse alternative. |
+
+The banks also include beat-synced choices for rhythm, leads and ambient parts.
+Shared divisions are intentional: choose a delay type for its character, then a
+recipe for the part. These are starting settings, not exact artist or pedal models.
+
+| Module | More synced choices | Character and use |
+| --- | --- | --- |
+| Digital Delay | Clear eighth-note rhythm; Triplet ping-pong; Ducked dotted eighth; Half-note space | Clear articulation, alternating stereo echoes and ducking for busy lead phrases. These recipes use Crossfade for tempo jumps. |
+| Analog Echo | Warm quarter notes; Soft eighth-note pulse; Dark dotted lead; Modulated half-note bed | Worn, progressively darker repeats; restrained motion for rhythms and more movement for sustained chords. |
+| Tape Echo | Warm quarter-note tape; Eighth-note tape bounce; Dotted-quarter tape drift; Half-note tape haze | Saturation and wobble, from short rhythmic bounces to long drifting trails. |
+| Multi-head Tape | Eighth and quarter heads; Dotted and quarter heads; Synced rolling heads; Half-note head cloud | Multiple taps per cycle, with sparse pairs, syncopated patterns or a dense all-head trail. |
+| Reverse Delay | Eighth-note reverse flicker; Quarter-note reverse bloom; Dotted-quarter reverse wash | Short reversed fragments, phrase blooms or a darker wash. The division sets the capture window, rather than a conventional repeat interval. |
+| Dual Delay | Eighth and dotted eighth; Quarter and eighth; Quarter and triplet; Synced dotted ping-pong; Half and dotted quarter | Independent stereo pulse trains, or alternating unequal delays with Ping-pong enabled. |
+| Diffused Delay | Soft dotted-eighth rhythm; Quarter-note echo halo; Triplet echo clusters; Dotted-quarter dream; Half-note cloud | Low diffusion retains the pulse; higher diffusion turns longer divisions into clouds behind sustained notes. |
+
+At 120 BPM, eighth notes are 250 ms, eighth-note triplets about 167 ms, and
+dotted quarters 750 ms. **Quarter and triplet** uses a 500 ms left tap and a
+333 ms right tap (quarter-note triplets). **Eighth and dotted eighth** uses
+250/375 ms; **Half and dotted quarter** uses 1000/750 ms.
+With **Synced dotted ping-pong**, the 500/375 ms taps alternate through
+cross-feedback; each side does not repeat as an independent pulse train.
+
+Multi-head Time sets the last head. With a quarter-note division at 120 BPM,
+**Eighth and quarter heads** plays taps at 250/500 ms, **Dotted and quarter
+heads** at 375/500 ms, and **Synced rolling heads** at 125/375/500 ms.
+**Half-note head cloud** uses all heads at 250/500/750/1000 ms.
+
+**Starting levels:** Clear quarter-note lead is the straightforward digital lead
+choice; Quiet ducked support leaves more space during busy phrases. The reverse
+wash keeps a clear dry attack with longer feedback, while Reversed solo is
+deliberately wet enough to put the backwards phrase in front. The named washes
+and clouds are ambient options; start with the quieter support recipes for
+continuous rhythm playing. Free-time and synced versions intentionally coexist:
+a fixed echo can suit a phrase even when it does not follow the host tempo.
 
 **Timing:** at 120 BPM, a quarter note is 500 ms and a dotted eighth is 375 ms.
 Sparse stereo heads puts the left head at half the quarter-note Time (250 ms)
@@ -59,6 +93,15 @@ guides. They adapt playing roles, not normalized preset values or exact sounds.
 For example, NAM Grid's Analog Echo does not have ValhallaDelay's ducking, and
 Tape Echo does not expose its diffusion controls. Quiet ducked support uses
 Digital Delay, while Gentle pad echoes uses Diffused Delay.
+
+The expanded rhythmic choices also draw on players' suggestions in the
+[delay tips discussion](https://www.reddit.com/r/guitarpedals/comments/1k7acuc/)
+and [Line 6 dotted-eighth discussion](https://line6.com/support/topic/1856-dotted-8th-settings/),
+including dotted-eighth leads, quarter-note support and reverse dotted-quarter
+textures. [Strymon's Volante guide](https://www.strymon.net/support/volante/)
+explains the even head-spacing rhythms used as inspiration for the multi-head
+pairs. NAM Grid has fixed head patterns and last-head feedback, so it does not
+reproduce Volante's independent head-feedback switches.
 
 ## Digital Delay
 

@@ -505,6 +505,17 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
   };
   const auto stem = PathText(capture.path.stem());
   const auto words = normalize(stem);
+  std::vector<std::string> fields;
+  for (size_t start = 0;;)
+  {
+    const auto end = stem.find(" - ", start);
+    fields.push_back(stem.substr(start, end == std::string::npos ? end : end - start));
+    if (end == std::string::npos) break;
+    start = end + 3;
+  }
+  const bool structured = fields.size() >= 3;
+  const auto setting = structured ? fields[2] : stem;
+  const auto settingsWords = normalize(setting);
   std::vector<LibraryHint> hints;
   const auto add = [&](const std::string& key, const std::string& value) {
     if (std::none_of(hints.begin(), hints.end(), [&](const auto& h) { return h.key == key && h.value == value; }))
@@ -513,9 +524,21 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
   const auto contains = [&](const std::string& token) { return words.find(normalize(token)) != std::string::npos; };
   // Device brands precede the first spaced separator; cabinet and creator
   // brands in subsequent segments do not identify the captured device.
-  const auto device = normalize(stem.substr(0, stem.find(" - ")));
-  for (const auto& alias : filename_hints::vendors)
-    if (device.find(normalize(alias.token)) != std::string::npos) add(alias.key, alias.label);
+  const auto deviceName = stem.substr(0, stem.find(" - "));
+  const auto device = normalize(deviceName);
+  for (size_t start = 0;;)
+  {
+    const auto end = deviceName.find(" + ", start);
+    auto part = normalize(deviceName.substr(start, end == std::string::npos ? end : end - start));
+    const auto slotEnd = part.find(' ', 1);
+    const auto slot = part.substr(1, slotEnd - 1);
+    if (slot.size() == 1 || (slot.size() == 2 && std::isdigit(static_cast<unsigned char>(slot[0])) && std::isdigit(static_cast<unsigned char>(slot[1]))))
+      part.erase(0, slotEnd);
+    for (const auto& alias : filename_hints::vendors)
+      if (part.find(normalize(alias.token)) == 0) add(alias.key, alias.label);
+    if (end == std::string::npos) break;
+    start = end + 3;
+  }
   if (capture.kind == FileKind::NAM)
   {
     std::vector<std::pair<size_t, size_t>> modelSpans;
@@ -533,6 +556,12 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
         if (normalize(alias.label).find(normalize(vendor.token)) != std::string::npos) add("vendor", vendor.label);
     }
   }
+  // Whole original names are fallback evidence, not substring matches against
+  // generic settings such as "All 5" or "Lead" in an unrelated capture.
+  if (capture.kind == FileKind::NAM && std::none_of(hints.begin(), hints.end(), [](const auto& h) { return h.key == "model"; }))
+    for (const auto& alias : filename_hints::originalModels)
+      if (words == normalize(alias.token))
+      { add("model", alias.label); if (alias.vendor[0]) add("vendor", alias.vendor); break; }
   for (const auto& alias : filename_hints::creators)
   {
     const auto token = normalize(alias.token);
@@ -551,20 +580,32 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
   }();
   // Longest aliases win where phrases overlap within one category.
   std::map<std::string, std::vector<std::pair<size_t, size_t>>> used;
-  const auto separator = stem.find(" - ");
-  const auto settingsWords = normalize(separator == std::string::npos ? stem : stem.substr(separator + 3));
   for (const auto& alias : settings)
   {
     const std::string key = alias.key;
     if (capture.kind == FileKind::IR && key != "eq" && key != "mic/cab" && key != "speaker") continue;
     const auto token = normalize(alias.token);
-    const auto& text = (key == "channel" || key == "chain") ? settingsWords : words;
+    const auto& text = settingsWords;
     const auto pos = text.find(token);
     if (pos == std::string::npos) continue;
     auto& spans = used[key];
     if (std::any_of(spans.begin(), spans.end(), [&](const auto& s) { return pos + 1 < s.second && pos + token.size() - 1 > s.first; })) continue;
     spans.push_back({pos + 1, pos + token.size() - 1});
     add(key, alias.label);
+  }
+  // In the canonical grammar Gain/Function is its own field. A model's
+  // "Top Boost" or a channel/boost setting must never introduce another gain.
+  if (capture.kind == FileKind::NAM)
+    for (const auto& alias : filename_hints::gains)
+      if (structured ? normalize(fields[1]) == normalize(alias.token)
+                     : contains(alias.token) && !(normalize(alias.token) == " boost " && (contains("Top Boost") || contains("TopBoost"))))
+      { add("gain", alias.label); break; }
+  static const std::regex channel(R"(\bCh(?:annel)?\s*([1-9][0-9]*|[A-D])\b)", std::regex::icase);
+  for (auto it = std::sregex_iterator(setting.begin(), setting.end(), channel); it != std::sregex_iterator(); ++it)
+  {
+    auto number = (*it)[1].str();
+    for (auto& c : number) c = static_cast<char>(std::toupper(c));
+    add("channel", "Channel " + number);
   }
   // Expand compact model codes only in the slot/make/model/gain export grammar.
   static const std::regex compact(R"(^([A-Za-z]|[0-9]{2}) +([A-Za-z0-9]+) +([A-Za-z0-9]+) +(CL|ED|CR|DR|HG|BS)( +DI)?$)", std::regex::icase);
@@ -578,16 +619,48 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
     add("gain", gains.at(normalize(match[4].str())));
     add("format", match[5].matched ? "Direct input (no cabinet)" : "Amp + Cab");
   }
-  static const std::regex knob(R"(\b(Gain|Drive|Tone|Bass|Mid|Middle|Treble|Presence|Master|Volume|Level|Blend)\s*=?\s*(-?[0-9]+(?:[.,][0-9]+)?)(%|pct)?\b)", std::regex::icase);
-  for (auto it = std::sregex_iterator(stem.begin(), stem.end(), knob); it != std::sregex_iterator(); ++it)
+  const auto claimed = [&](const std::string& token, bool includeSettings) {
+    for (const auto& alias : filename_hints::settings)
+      if ((includeSettings || std::string(alias.key) != "settings")
+          && settingsWords.find(normalize(alias.token)) != std::string::npos
+          && normalize(alias.token).find(normalize(token)) != std::string::npos) return true;
+    return false;
+  };
+  static const std::regex knob(R"(\b(Gain|Drive|Tone|Bass|Mid|Middle|Treble|Presence|Master|Volume|Level|Blend|Resonance|Input|Output|GR|Ratio|Attack|Release)\s*=?\s*(-?[0-9]+(?:[.,][0-9]+)?)(pct|%|dB|ms|Hz)?(?![A-Za-z0-9]))", std::regex::icase);
+  for (auto it = std::sregex_iterator(setting.begin(), setting.end(), knob); it != std::sregex_iterator(); ++it)
   {
+    if (claimed(it->str(), false)) continue;
     auto label = Lower((*it)[1].str()); label[0] = static_cast<char>(std::toupper(label[0]));
-    add("settings", label + " " + (*it)[2].str() + ((*it)[3].matched ? "%" : ""));
+    if (label == "Gr") label = "Gain reduction";
+    auto unit = Lower((*it)[3].str());
+    unit = unit == "pct" || unit == "%" ? "%" : unit == "db" ? " dB" : unit.empty() ? "" : " " + unit;
+    add("settings", label + " " + (*it)[2].str() + unit);
   }
+  static const std::regex compactKnob(R"(\b([GVMBCPTD])(-?[0-9]+(?:[.,][0-9]+)?)\b)", std::regex::icase);
+  const std::map<char, std::string> knobNames{{'G', "Gain"}, {'V', "Volume"}, {'M', "Master"}, {'B', "Bass"},
+    {'C', "Tone cut"}, {'P', "Presence"}, {'T', "Tone / treble"}, {'D', "Drive"}};
+  for (auto it = std::sregex_iterator(setting.begin(), setting.end(), compactKnob); it != std::sregex_iterator(); ++it)
+    if (!claimed(it->str(), true))
+      add("settings", knobNames.at(static_cast<char>(std::toupper((*it)[1].str()[0]))) + " " + (*it)[2].str());
   if (capture.kind == FileKind::NAM)
   {
-    if (contains("No Cab") || contains("DI") || contains("Direct")) add("format", "Direct input (no cabinet)");
-    else if (contains("Cab") || contains("Full Rig")) add("format", "Amp + Cab");
+    const auto format = structured ? normalize(fields[fields.size() - 2]) : words;
+    const auto hasFormat = [&](const std::string& token) { return structured ? format == normalize(token) : contains(token); };
+    if (hasFormat("No Cab") || hasFormat("DI") || hasFormat("Direct") || hasFormat("Head")) add("format", "Direct input (no cabinet)");
+    else if (hasFormat("Cab") || hasFormat("Full Rig")) add("format", "Amp + Cab");
+  }
+  // Expand all spellings for search, while displaying one readable value.
+  for (auto& hint : hints)
+  {
+    const auto append = [&](const auto& table) {
+      for (const auto& alias : table)
+        if (hint.key == alias.key && hint.value == alias.label) hint.aliases += " " + std::string(alias.token);
+    };
+    append(filename_hints::vendors); append(filename_hints::creators); append(filename_hints::settings);
+    append(filename_hints::gains); append(filename_hints::compactModels);
+    if (hint.key == "model")
+      for (const auto& alias : filename_hints::models)
+        if (hint.value.find(alias.label) != std::string::npos) hint.aliases += " " + std::string(alias.token);
   }
   return hints;
 }
@@ -628,8 +701,15 @@ std::vector<LibraryHint> InferLibraryHints(const Capture& capture)
         {"vendors", "vendor"}, {"brands", "vendor"}, {"models", "model"}, {"packs", "collection"},
         {"collections", "collection"}};
       const auto role = roles.find(parentToken);
-      if (role != roles.end() && std::none_of(candidates.begin(), candidates.end(), [&](const auto& h) { return h.key == role->second; }))
-        candidates.push_back({role->second, PathText(folder.filename())});
+      if (role != roles.end())
+      {
+        if (role->second != "collection")
+          candidates.erase(std::remove_if(candidates.begin(), candidates.end(), [&](const auto& h) {
+            return h.key != role->second && !(role->second == "model" && h.key == "vendor");
+          }), candidates.end());
+        if (std::none_of(candidates.begin(), candidates.end(), [&](const auto& h) { return h.key == role->second; }))
+          candidates.push_back({role->second, PathText(folder.filename())});
+      }
     }
     if ((folderToken == "amp" || folderToken == "amps" || folderToken == "amplifiers")
         && (capture.gear == Gear::Unknown || capture.gear == Gear::AmpHead || capture.gear == Gear::AmpCab))
@@ -642,7 +722,7 @@ std::vector<LibraryHint> InferLibraryHints(const Capture& capture)
       // A nearer folder already established this category: do not broaden it.
       if (std::any_of(nearerHints.begin(), nearerHints.end(), [&](const auto& h) { return h.key == hint.key; })) continue;
       if (std::none_of(hints.begin(), hints.end(), [&](const auto& h) { return h.key == hint.key && h.value == hint.value; }))
-        hints.push_back({hint.key, hint.value, true});
+        hints.push_back({hint.key, hint.value, true, hint.aliases});
     }
     if (SamePath(folder, capture.source)) break;
   }
@@ -655,6 +735,13 @@ std::string HintText(const Capture& capture, const std::string& key, int origin)
   for (const auto& hint : capture.hints)
     if ((key.empty() || hint.key == key) && (origin < 0 || static_cast<int>(hint.fromFolder) == origin))
       result += (result.empty() ? "" : "\n") + hint.key + ": " + hint.value;
+  return result;
+}
+
+std::string HintSearchText(const Capture& capture)
+{
+  std::string result;
+  for (const auto& hint : capture.hints) result += " " + hint.key + ": " + hint.value + " " + hint.aliases;
   return result;
 }
 
@@ -689,7 +776,7 @@ Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& 
     // Whole-word markers work before the extension and across spaces, hyphens or underscores.
     const auto words = FilenameWords(PathText(file.stem()));
     const bool noCab = words.find(" no cab ") != std::string::npos;
-    const bool direct = noCab || words.find(" di ") != std::string::npos || words.find(" direct ") != std::string::npos;
+    const bool direct = noCab || words.find(" di ") != std::string::npos || words.find(" direct ") != std::string::npos || (Lower(PathText(file.stem())).find(" - head - ") != std::string::npos || (words.size() >= 6 && words.compare(words.size() - 6, 6, " head ") == 0));
     const bool cabinet =
       (!noCab && words.find(" cab ") != std::string::npos) || words.find(" full rig ") != std::string::npos;
     bool ampContext = reader.complete && Token(reader.values["gear_type"]) == "amp";
@@ -727,7 +814,7 @@ bool Filter::Matches(const Capture& capture) const
   if (gear >= 0 && static_cast<int>(capture.gear) != gear)
     return false;
   const auto haystack = Lower(PathText(capture.relative) + " " + capture.name + " " + capture.maker + " "
-                              + capture.model + " " + GearName(capture.gear) + " " + HintText(capture) + (capture.isIR ? " IR WAV" : " NAM"));
+                              + capture.model + " " + GearName(capture.gear) + " " + HintSearchText(capture) + (capture.isIR ? " IR WAV" : " NAM"));
   std::istringstream words(Lower(search));
   for (std::string word; words >> word;)
     if (haystack.find(word) == std::string::npos)

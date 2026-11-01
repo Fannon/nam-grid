@@ -126,13 +126,15 @@ template<class Function>
 void PlotCurve(IGraphics& g, const IRECT& p, Function f, double low, double high, IColor ink, float width = 1.5f)
 {
   const auto y = [&](double v) { return p.B - p.H() * static_cast<float>(std::clamp((v-low)/(high-low), 0., 1.)); };
-  double previous = f(0.);
+  g.PathClear();
+  g.PathMoveTo(p.L, y(f(0.)));
   for (int i=1; i<=384; ++i)
   {
     const double current=f(i/384.);
-    g.DrawLine(ink,p.L+p.W()*(i-1)/384.f,y(previous),p.L+p.W()*i/384.f,y(current),nullptr,width);
-    previous=current;
+    g.PathLineTo(p.L + p.W() * i / 384.f, y(current));
   }
+  // One stroke avoids antialiased caps/seams between adjacent short segments.
+  g.PathStroke(IPattern(ink), width);
 }
 inline void PlotGrid(IGraphics& g, const IRECT& p)
 {

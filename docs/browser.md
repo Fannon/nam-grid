@@ -21,9 +21,10 @@ Hover a result to read its complete filename, including the extension. The detai
 title wraps in full; its table follows below it. Long titles and their details
 scroll together so the remaining fields stay accessible.
 
-Folders starting with `_` appear first among siblings. Below the folders, NAM and IR
-sidebars offer detected tags as `category: value` filters. Select **All folders** to
-clear a folder or tag filter; search and stars also apply to tag selections.
+Folders starting with `_` appear first among siblings. The NAM and IR sidebars
+show only library folders. Use search tags such as `vendor:fender`, `creator:amalgam`
+or `eq:balanced`, or click a value in Details to search for it. **All folders**
+clears the folder selection; search and stars still apply.
 
 Details expand known filename and subfolder abbreviations into device vendors, capture creators,
 models, gain, EQ, channels, captured pedals, microphones, speakers and knob settings.
@@ -40,7 +41,7 @@ as a single value in the same table as Vendor and Model.
 Scroll over the details pane to read longer descriptions and folder paths.
 Click an underlined attribute value to search **All folders** in the current NAM
 or IR tab. Each vendor and each model in a dual rig has its own link. This replaces
-the search and clears folder, tag and Starred restrictions.
+the search and clears folder and Starred restrictions.
 The shipped vocabulary includes NAM Catalog aliases and its compact slot/make/model/gain
 export grammar; it does not require an external catalog file. Hints describe names,
 not verified equipment or processing, and never change the file or sound.
@@ -61,6 +62,15 @@ Each rule maps an alias to a category and readable value; model aliases addition
 identify their device vendor. Add regression examples when extending this vocabulary.
 Hints are rebuilt from current rules when scanning or restoring the index, so
 dictionary changes do not require deleting the cache.
+
+Update the shipped table from a canonical NAM Catalog registry with
+`python scripts/generate-filename-vocabulary.py /path/to/name-registry.json`.
+The generator includes current and legacy vendor/creator aliases, model names,
+compact export codes and typed cabinet/mic tokens, and skips ambiguous model aliases.
+Search accepts the aliases as well as their expanded labels, including field searches
+such as `creator:AMG`, `model:TB30` and `eq:BAL3`.
+In structured filenames, Gain/Function comes from its own field: `Top Boost` in a
+model name or `Boost` in the settings does not add another gain category.
 
 For modules, captures, and IRs:
 

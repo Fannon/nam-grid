@@ -78,6 +78,16 @@ inline void TestSignalMonitorSpectrum()
   // The refactored EQ bands match the detailed points for the same signal.
   const auto bands = grid_eq_signal::Analyze(sine(1000., .5), rate);
   assert(std::abs(*std::max_element(bands.begin(), bands.end()) + 6.02f) < 1.5f);
+  // Module graphs and Signal Monitor use the same detailed stereo display.
+  grid_eq_signal::Window window;
+  window.samples = sine(1000., .5); window.right = window.samples;
+  const auto mono = AnalyzeWindow(window, rate);
+  assert(mono == Detailed(grid_eq_signal::Magnitudes(window.samples), rate));
+  for (auto& sample : window.right) sample = -sample;
+  const auto opposite = AnalyzeWindow(window, rate);
+  assert(std::abs(opposite[nearest(1000.)] + 6.02f) < 1.5f);
+  window.samples.fill(0.f); window.right = sine(5000., .5);
+  assert(std::abs(AnalyzeWindow(window, rate)[nearest(5000.)] + 6.02f) < 1.5f);
 
   // Resonances: narrow peaks above a sloped floor; broad bumps never qualify.
   std::array<float, spectrumPoints> db{};

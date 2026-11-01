@@ -73,14 +73,15 @@ static std::string ModuleSlug(const char* name)
 static int Run(int argc, char** argv)
 {
   const char* usage = "Usage: nam-readme-gallery <nam-grid.clap> <repository root> <output directory> [--module <slug> | --pages]\n"
-                      "Focused preset check: --preset-save-smoke; browser text check: --browser-text-smoke.\n";
+                      "Focused preset check: --preset-save-smoke; browser text check: --browser-text-smoke; graph preview: --capture-graphs.\n";
   if (argc == 2 && std::string(argv[1]) == "--help") { std::cout << usage; return 0; }
+  const bool captureGraphs = argc == 5 && std::string(argv[4]) == "--capture-graphs";
   const bool browserTextSmoke = argc == 5 && std::string(argv[4]) == "--browser-text-smoke";
   const bool presetSmoke = argc == 5 && std::string(argv[4]) == "--preset-save-smoke";
   const bool pagesOnly = argc == 5 && std::string(argv[4]) == "--pages";
-  if (argc != 4 && !presetSmoke && !browserTextSmoke && !pagesOnly && !(argc == 6 && std::string(argv[4]) == "--module"))
+  if (argc != 4 && !captureGraphs && !presetSmoke && !browserTextSmoke && !pagesOnly && !(argc == 6 && std::string(argv[4]) == "--module"))
     throw std::runtime_error(usage);
-  const std::string filter = browserTextSmoke ? "browser-text" : presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
+  const std::string filter = captureGraphs ? "capture-graphs" : browserTextSmoke ? "browser-text" : presetSmoke ? "bitcrusher" : argc == 6 ? ModuleSlug(argv[5]) : "";
   if (argc == 6)
   {
     bool found = false;
@@ -267,6 +268,21 @@ static int Run(int argc, char** argv)
   };
 
   play(2500); // Library scan and model preparation
+  if (captureGraphs)
+  {
+    select(2); play(1200); shot("capture-flat-eq");
+    select(12); play(1200); shot("eq-response");
+    select(3); play(1200); shot("ir-response");
+    click(grid_layout::width - 70, 410); play(1500); shot("signal-monitor-reference");
+    plugin->stop_processing(plugin); plugin->deactivate(plugin);
+#ifdef _WIN32
+    gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+#else
+    CloseMacEditor(editor, plugin, gui); plugin->destroy(plugin); entry->deinit(); dlclose(library);
+#endif
+    return 0;
+  }
+
 
 #ifdef _WIN32
   if (browserTextSmoke)

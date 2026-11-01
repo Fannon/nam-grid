@@ -4,7 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. Click the flow icon above Routing / Options to choose the existing parallel blend, with independent left/right balances for A and B. The grid wires follow the mode, and Routing shows the signal path or crossover with live stereo lane levels; optional mute/solo controls move into a menu. Sequential hides the parallel controls. Existing projects and saved presets keep their routing and sound.
+- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing, where you can choose the existing parallel blend, with independent left/right balances for A and B. The icon colours A amber and B blue, matching the diagram. The grid wires follow the mode, and Routing shows the signal path or crossover with live stereo lane levels; optional mute/solo controls move into a menu. Sequential hides the parallel controls. Existing projects and saved presets keep their routing and sound.
+- **Frequency hover readouts:** point at the Signal Monitor spectrum or a module's frequency chart to see a vertical cursor and its frequency in Hz plus the nearest note, such as F5.
 
 - Fix a low bass burst when switching the lane split from Gentle back to Steep after silence. The inactive steep filters now discard their old audio once the switch fade completes.
 

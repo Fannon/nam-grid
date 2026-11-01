@@ -94,6 +94,7 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
     const double tone = std::min(.45 * sampleRate, value(uRingFrequency + 2));
     const int carrierShape = static_cast<int>(value(uRingShape));
     const double upper = std::max(1200., 880. + frequency * (carrierShape ? 5. : 1.)) * 1.05;
+    PlotFrequency(g, plot, 0., upper, false);
     PlotDetail(g,plot,"A 220 Hz reference and its harmonics. Gray: retained partials; colour: carrier sidebands. High cut shapes all components.");
     const auto bar = [&](double hz, double level, IColor ink, float width) {
       if (hz <= 0. || hz > upper || level < .005) return;

@@ -4,30 +4,43 @@
 // grid, and the header scene buttons. Pages use the main editor's 24 px margins.
 namespace grid_ui
 {
-// One state-only topology choice, shared by the grid and Routing page.
-class FlowMode : public IVToggleControl
+inline void DrawFlowIcon(IGraphics& g, float x, float y, bool serial)
+{
+  const auto line = [&](float a, float b, float c, float d, IColor ink) {
+    g.DrawLine(ink, x+a, y+b, x+c, y+d, nullptr, 1.5f);
+  };
+  if (serial)
+  {
+    line(-17,0,17,0,muted);
+    g.FillRect(ampColor, IRECT(x-13,y-3,x-7,y+3));
+    g.FillRect(cabColor, IRECT(x+7,y-3,x+13,y+3));
+  }
+  else
+  {
+    line(-19,0,-12,0,muted); line(-12,-5,-12,5,muted);
+    line(-12,-5,12,-5,ampColor); line(-12,5,12,5,cabColor);
+    line(12,-5,12,5,muted); line(12,0,19,0,muted);
+    g.FillRect(ampColor, IRECT(x-3,y-7,x+3,y-3));
+    g.FillRect(cabColor, IRECT(x-3,y+3,x+3,y+7));
+  }
+}
+// Change topology explicitly inside Routing; the grid button only opens that page.
+class FlowMode : public IControl
 {
 public:
-  FlowMode(const IRECT& r) : IVToggleControl(r, PerformanceParam(grid_performance::LaneMode), "", Style(), "Parallel", "Sequential")
+  FlowMode(const IRECT& r) : IControl(r, PerformanceParam(grid_performance::LaneMode))
   { SetTooltip("Click to switch lanes: Parallel splits into A and B then blends; Sequential runs Pre > A > B > Post."); }
+  void OnMouseDown(float, float, const IMouseMod& mod) override
+  {
+    if (mod.L) PLUG()->SetParameterFromUI(PerformanceParam(grid_performance::LaneMode), GetParam()->Int() ? 0. : 1.);
+  }
   void Draw(IGraphics& g) override
   {
-    const bool serial = GetValue() >= .5;
+    const bool serial = GetParam()->Int() == grid_performance::Sequential;
     g.FillRoundRect(surface, mRECT, 3.f);
     g.DrawRoundRect(mMouseIsOver ? accent : border, mRECT, 3.f);
     const float x = mRECT.W() > 100.f ? mRECT.L + 24.f : mRECT.MW(), y = mRECT.MH();
-    const auto line = [&](float a, float b, float c, float d) { g.DrawLine(accent, x+a,y+b,x+c,y+d,nullptr,1.5f); };
-    if (serial)
-    {
-      line(-17,0,17,0);
-      for (float dx : {-10.f, 10.f}) g.FillRect(accent, IRECT(x+dx-3,y-3,x+dx+3,y+3));
-    }
-    else
-    {
-      line(-19,0,-12,0); line(-12,-5,-12,5); line(-12,-5,12,-5); line(-12,5,12,5);
-      line(12,-5,12,5); line(12,0,19,0);
-      for (float dy : {-5.f, 5.f}) g.FillRect(accent, IRECT(x-3,y+dy-2,x+3,y+dy+2));
-    }
+    DrawFlowIcon(g, x, y, serial);
     if (mRECT.W() > 100.f)
       g.DrawText(Text(12.f, text, EAlign::Center), serial ? "Sequential" : "Parallel", IRECT(mRECT.L+46,mRECT.T,mRECT.R-3,mRECT.B));
   }
@@ -661,6 +674,7 @@ public:
     }
     for (const auto& [hz, label] : {std::pair{100., "100"}, std::pair{1000., "1k"}, std::pair{10000., "10k"}})
       g.DrawText(Text(11.f, muted, EAlign::Center), label, IRECT(x(hz) - 20, plot.B + 6, x(hz) + 20, plot.B + 22));
+    DrawFrequencyCursor(g, plot, 20., 20000.);
     DrawMeters(g);
   }
   void OnMsgFromDelegate(int, int size, const void* data) override
@@ -678,11 +692,20 @@ public:
     for (auto& lane : mPeaks)
       for (auto& peak : lane)
         if (peak > 1.e-6f) { peak *= decay; SetDirty(false); } else peak = 0.f;
+    if (!IsHidden())
+    {
+      float x, y; GetUI()->GetMouseLocation(x, y);
+      const bool hovered = IRECT(mRECT.L+14,mRECT.T+34,mRECT.R-14,mRECT.B-72).Contains(x,y);
+      if (hovered != mHovered || (hovered && x != mHoverX))
+      { mHovered = hovered; mHoverX = x; SetDirty(false); }
+    }
     return IControl::IsDirty();
   }
 private:
   FixedNAMGrid::LanePeaks mPeaks{};
   double mTime = ModuleLevels::Now();
+  bool mHovered = false;
+  float mHoverX = -1.f;
   void DrawMeters(IGraphics& g)
   {
     for (int lane=0; lane<2; ++lane)
@@ -838,15 +861,16 @@ private:
 class RoutingButton : public IControl
 {
 public:
-  RoutingButton(const IRECT& r) : IControl(r)
-  { SetTooltip("Sequential or parallel lanes, left/right balance, levels and frequency split."); }
+  RoutingButton(const IRECT& r) : IControl(r, PerformanceParam(grid_performance::LaneMode))
+  { SetTooltip("Open routing options. Choose Sequential or Parallel, adjust lane levels and balance, or set a frequency split. Amber = A; blue = B."); }
   void Draw(IGraphics& g) override
   {
     const bool open = PLUG()->IsRoutingOpen();
     g.FillRoundRect(open ? IColor(255, 49, 53, 59) : surface, mRECT, 3.f);
     g.DrawRoundRect(open || mMouseIsOver ? muted : border, mRECT, 3.f);
     const bool serial = PLUG()->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential;
-    g.DrawText(Text(13.f, open ? text : muted, EAlign::Center), serial ? "Options" : "Routing", mRECT);
+    DrawFlowIcon(g, mRECT.MW(), mRECT.T + 14.f, serial);
+    g.DrawText(Text(10.f, open ? text : muted, EAlign::Center), serial ? "Sequential" : "Parallel", mRECT.GetFromBottom(20.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
@@ -930,7 +954,7 @@ public:
     using namespace grid_ui;
     DrawEditorBackground(g, mRECT);
     const bool serial = static_cast<PLUG_CLASS_NAME*>(GetDelegate())->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential;
-    g.DrawText(Text(22.f, accent), serial ? "Options" : "Routing", IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, 110, grid_layout::moduleHeaderBottom));
+    g.DrawText(Text(22.f, accent), "Routing", IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, 110, grid_layout::moduleHeaderBottom));
     if (serial)
     {
       g.DrawText(Text(16.f, text), "Pre > A > B > Post",

@@ -82,6 +82,12 @@ Displays help answer practical questions: Is the compressor working? How dark ar
 Hover over a graph for its explanation and colour legend. Captions show live
 measurements and useful derived information; axis ranges stay visible.
 
+Frequency charts, including the Signal Monitor spectrum, show a vertical line
+at the pointer and a label such as **698.5 Hz | F5**. The frequency follows that
+chart's axis, including partial-width and linear-frequency plots. The note names
+the nearest equal-tempered pitch at A4 = 440 Hz. Move outside the chart to clear
+the readout. Hovering leaves knob values and saved rigs unchanged.
+
 Compressor and limiter gain-reduction displays use a 0–16 dB scale, giving typical
 2–4 dB compression more room while allowing heavier reduction. Outboard Channel
 and Butter Comp histories mark 2, 4, 8 and 12 dB. The numeric GR readout continues

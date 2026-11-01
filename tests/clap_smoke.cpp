@@ -1281,6 +1281,51 @@ int main(int argc, char** argv)
     win_edit_menu::SelectChoice(editor, x, y, EffectChoices(control), choice, current, dismiss);
     pumpFor(50);
   };
+  if (std::getenv("NAM_GRID_ROUTING_SMOKE"))
+  {
+    const int modeX = (grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2;
+    const auto capture = [&](const char* name) {
+      if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / name);
+    };
+    load(cleared);
+    click(grid_layout::width - 36, 328);
+    assert(save().config()["Lane Mode"] == grid_performance::Parallel); // Open without switching.
+    capture("routing-parallel.bmp");
+    click(modeX, grid_layout::moduleButtonY);
+    assert(save().config()["Lane Mode"] == grid_performance::Sequential);
+    capture("routing-sequential.bmp");
+    click(modeX, grid_layout::moduleButtonY);
+    assert(save().config()["Lane Mode"] == grid_performance::Parallel);
+    click(grid_layout::parameterRight - 88, grid_layout::optionsY);
+    assert(save().config()["Frequency Split"] == 1.);
+    capture("routing-split.bmp");
+    POINT originalCursor{}; GetCursorPos(&originalCursor);
+    const auto hover = [&](int x, int y) {
+      POINT at{x,y}; ClientToScreen(editor,&at); SetCursorPos(at.x,at.y);
+      SendMessage(editor,WM_MOUSEMOVE,0,MAKELPARAM(x,y)); pumpFor(150);
+    };
+    hover(800,600); capture("routing-split-hover.bmp");
+    for (const auto effect : {SlotEffect::ToneEQ, SlotEffect::Multiband, SlotEffect::PedalDrive,
+                              SlotEffect::Wah, SlotEffect::RingMod, SlotEffect::OutboardChannel})
+    {
+      auto rig=cleared; rig["SlotEffects"][0]=static_cast<int>(effect);
+      load(rig); selectTile(170,120);
+      const auto before=save().config();
+      hover(effect==SlotEffect::PedalDrive?900:780,600);
+      const auto name="frequency-hover-"+std::to_string(static_cast<int>(effect))+".bmp";
+      capture(name.c_str());
+      assert(save().config()==before);
+    }
+    click(95,80); // Signal Monitor input.
+    const auto before=save().config();
+    hover(780,600); capture("signal-monitor-frequency-hover.bmp");
+    assert(save().config()==before);
+    SetCursorPos(originalCursor.x,originalCursor.y);
+    gui->destroy(plugin); DestroyWindow(parent);
+    plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+    std::cout << "Focused routing modes and frequency-hover state isolation passed\n";
+    return 0;
+  }
   {
     // Read the native tooltip, not an internal label property: the module title's
     // description must update on state loads and when the module changes.
@@ -2472,10 +2517,10 @@ int main(int argc, char** argv)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
       click(936, 28); click(grid_layout::width - 36, 356);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click(grid_layout::width - 36, 328);
+      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
       assert(save().config()["Lane Mode"] == grid_performance::Sequential);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing-sequential.bmp");
-      click(grid_layout::width - 36, 328);
+      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
       assert(save().config()["Lane Mode"] == grid_performance::Parallel);
       click(grid_layout::width - 36, 356); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
@@ -3019,7 +3064,7 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
   const double laneBalance = save().config()["Lane A Balance"];
   assert(laneBalance != 0.);
-  click(grid_layout::width - 36, 328); // Flow icon on the grid.
+  click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
   assert(save().config()["Lane Mode"] == grid_performance::Sequential);
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
   assert(save().config()["Lane A Balance"] == laneBalance); // Inactive in Sequential.

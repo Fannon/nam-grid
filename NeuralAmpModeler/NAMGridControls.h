@@ -1279,8 +1279,9 @@ public:
     AddChildControl(new grid_ui::Button(IRECT(490, 488, 550, 512), [this](IControl*) {
       PLUG()->CloseSignalMonitor();
     }, "Close"));
-    AddChildControl(new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
-      grid_layout::visualizationRight - 12, grid_layout::plotFooterBottom)));
+    mPlotHelp = new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
+      grid_layout::visualizationRight - 12, grid_layout::plotFooterBottom));
+    AddChildControl(mPlotHelp, kCtrlTagSignalMonitorPlotHelp);
   }
   void OnMsgFromDelegate(int, int size, const void* data) override
   {
@@ -1310,11 +1311,14 @@ public:
     else if (mPoint == 16) title.Set("Signal Monitor | Output");
     else title.SetFormatted(64, "Signal Monitor | After %s %d", mPoint < 4 ? "Pre" : mPoint < 8 ? "A" : mPoint < 12 ? "B" : "Post", mPoint % 4 + 1);
     g.DrawText(Text(16.f, accent), title.Get(), IRECT(12, 488, 480, 512));
+    mPlotHelp->Begin();
     DrawSignalMonitorView(g, multiband_view::Plot(), accent, PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.,
       ModuleLevels::Now(), mMonitor, mMonitorHistory, mMonitorSpectrum, mMonitorTime, mSpectrumTime);
+    mPlotHelp->End(g);
   }
 private:
   int mPoint = -3;
+  grid_ui::PlotHelp* mPlotHelp = nullptr;
   signal_monitor::Meter mMonitor;
   signal_monitor::History mMonitorHistory;
   signal_monitor::SpectrumView mMonitorSpectrum;
@@ -1932,6 +1936,7 @@ private:
     const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
     const std::array<double, 10> key{rate, value(uPedalStyle), value(uPedalDrive), value(uPedalTone),
       value(uPedalBody), value(uPedalSplit), value(uPedalLowKeep), value(uPedalOutput), value(uPedalMix), value(uPedalCharacter)};
+    PlotFrequency(g, IRECT(plot.MW() + 8.f, plot.T, plot.R, plot.B), 20., std::min(20000., .49 * rate));
     // Audio meters repaint continuously; regenerate synthetic curves only when their
     // controls, sample rate or graphics scale change. The live meters draw afterward.
     if (key == mPedalPreviewKey && g.CheckLayer(mPedalPreview))
@@ -2095,6 +2100,7 @@ private:
       eq.highPass = eqValue(3); eq.lowPass = eqValue(4); eq.presence = 0.;
       const grid_eq_response::Response tone(rate, SlotEffect::ToneEQ, eq, {});
       const grid_eq_response::Response cuts(rate, SlotEffect::CutEQ, eq, {});
+      PlotFrequency(g, eqPlot, 20., upper);
       PlotGrid(g, eqPlot);
       DrawSignalSpectrum(g, eqPlot);
       PlotCurve(g, eqPlot, [&](double x) {
@@ -2682,6 +2688,7 @@ private:
     UpdateMeasuredResponse(SlotEffect::OutboardChannel, {value(uStripLowCut), value(uStripHighCut), 0., 25., 0., 0., 100.}, rate);
     const double upper = std::min(20000., .49 * rate);
     PlotGrid(g, eq);
+    PlotFrequency(g, eq, 20., upper);
     for (double hz : {100., 1000., 10000.})
       if (hz < upper)
       {

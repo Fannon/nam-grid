@@ -1,8 +1,22 @@
 #pragma once
 #include "GridLayout.h"
+#include "FrequencyReadout.h"
 
 namespace grid_ui
 {
+inline void DrawFrequencyCursor(IGraphics& g, const IRECT& bounds, double low, double high, bool logarithmic = true)
+{
+  float x, y; g.GetMouseLocation(x, y);
+  if (!bounds.Contains(x, y)) return;
+  const double hz = frequency_readout::Hertz((x - bounds.L) / bounds.W(), low, high, logarithmic);
+  const auto label = frequency_readout::Label(hz);
+  g.DrawLine(accent.WithOpacity(.85f), x, bounds.T, x, bounds.B, nullptr, 1.f);
+  const float width = std::min(148.f, bounds.W());
+  const float left = std::clamp(x + 8.f, bounds.L, bounds.R - width);
+  const IRECT box(left, bounds.T + 4.f, left + width, bounds.T + 25.f);
+  g.FillRoundRect(surface, box, 3.f); g.DrawRoundRect(accent, box, 3.f);
+  g.DrawText(Text(12.f, text, EAlign::Center), label.c_str(), box);
+}
 // Every FX preview reserves the same title, chart and footer rows.
 // Muted = reference/dry, module colour = processed, amber = second channel/GR.
 class PlotHelp : public IContainerBase
@@ -18,8 +32,24 @@ public:
       region.control->Hide(true);
     }
   }
-  void Draw(IGraphics&) override {}
-  void Begin() { mDetail.clear(); mRegionCount = 0; }
+  void Draw(IGraphics& g) override
+  {
+    if (mFrequency) DrawFrequencyCursor(g, mFrequencyBounds, mLow, mHigh, mLogarithmic);
+  }
+  bool IsDirty() override
+  {
+    if (!IsHidden())
+    {
+      float x, y; GetUI()->GetMouseLocation(x, y);
+      const bool hovered = mFrequency && mFrequencyBounds.Contains(x, y);
+      if (hovered != mHovered || (hovered && x != mHoverX))
+      { mHovered = hovered; mHoverX = x; SetDirty(false); }
+    }
+    return IContainerBase::IsDirty();
+  }
+  void Begin() { mDetail.clear(); mRegionCount = 0; mFrequency = false; }
+  void Frequency(const IRECT& bounds, double low, double high, bool logarithmic = true)
+  { mFrequencyBounds = bounds; mLow = low; mHigh = high; mLogarithmic = logarithmic; mFrequency = true; }
   void Detail(const char* text) { mDetail = text; }
   void RegionDetail(const IRECT& bounds, const char* text)
   {
@@ -62,20 +92,29 @@ private:
   std::array<Region, 4> mRegions{};
   size_t mRegionCount = 0;
   std::string mDetail;
+  IRECT mFrequencyBounds;
+  double mLow = 20., mHigh = 20000.;
+  bool mFrequency = false, mLogarithmic = true, mHovered = false;
+  float mHoverX = -1.f;
 };
+inline PlotHelp* CurrentPlotHelp(IGraphics& g)
+{
+  auto* plug = static_cast<PLUG_CLASS_NAME*>(g.GetDelegate());
+  const int tag = plug->IsSignalMonitorOpen() ? kCtrlTagSignalMonitorPlotHelp
+                                            : kCtrlTagPlotHelpBase + static_cast<int>(plug->GetSelectedSlot());
+  return static_cast<PlotHelp*>(g.GetControlWithTag(tag));
+}
+inline void PlotFrequency(IGraphics& g, const IRECT& bounds, double low, double high, bool logarithmic = true)
+{ if (auto* help = CurrentPlotHelp(g)) help->Frequency(bounds, low, high, logarithmic); }
 inline void PlotTitle(IGraphics& g, const IRECT& p, IColor ink, const char* title)
 { g.DrawText(Text(14.f, ink), title, IRECT(p.L, grid_layout::plotTitleTop, p.R, grid_layout::plotTitleBottom)); }
 inline void PlotDetail(IGraphics& g, const IRECT&, const char* detail)
 {
-  const auto slot = static_cast<PLUG_CLASS_NAME*>(g.GetDelegate())->GetSelectedSlot();
-  if (auto* help = g.GetControlWithTag(kCtrlTagPlotHelpBase + static_cast<int>(slot)))
-    static_cast<PlotHelp*>(help)->Detail(detail);
+  if (auto* help = CurrentPlotHelp(g)) help->Detail(detail);
 }
 inline void PlotRegionDetail(IGraphics& g, const IRECT& bounds, const char* detail)
 {
-  const auto slot = static_cast<PLUG_CLASS_NAME*>(g.GetDelegate())->GetSelectedSlot();
-  if (auto* help = g.GetControlWithTag(kCtrlTagPlotHelpBase + static_cast<int>(slot)))
-    static_cast<PlotHelp*>(help)->RegionDetail(bounds, detail);
+  if (auto* help = CurrentPlotHelp(g)) help->RegionDetail(bounds, detail);
 }
 inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const char* right = "")
 {
@@ -102,6 +141,7 @@ inline void PlotGrid(IGraphics& g, const IRECT& p)
 }
 inline void PlotFrequencyAxis(IGraphics& g, const IRECT& p, double upper, const char* scale)
 {
+  PlotFrequency(g, p, 20., upper);
   PlotGrid(g,p);
   for (double hz : {100.,1000.,10000.})
     if (hz<upper)

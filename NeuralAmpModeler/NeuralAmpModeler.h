@@ -81,6 +81,7 @@ enum ECtrlTags
   kCtrlTagSignalMonitor,
   kCtrlTagModulePresetName,
   kCtrlTagRoutingView,
+  kCtrlTagSignalMonitorPlotHelp,
   kCtrlTagGridSlotBase = 100,
   kCtrlTagPlotHelpBase = 200,
   kNumCtrlTags = kCtrlTagPlotHelpBase + 16

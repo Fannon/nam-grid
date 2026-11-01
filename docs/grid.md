@@ -1,10 +1,10 @@
 # Grid & routing
 
-NAM Grid gives you 16 slots in four rows: **Pre**, lanes **A** and **B**, and **Post**. Sound flows left to right through each row; empty slots simply pass it on. New rigs and the bundled Clean Default preset start in **Sequential** mode. The flow icon above **Routing / Options**, also available on that page, switches between **Parallel** and **Sequential**. The grid wires follow the selected mode.
+NAM Grid gives you 16 slots in four rows: **Pre**, lanes **A** and **B**, and **Post**. Sound flows left to right through each row; empty slots simply pass it on. New rigs and the bundled Clean Default preset start in **Sequential** mode. The single routing button below A/B shows the current mode and flow, with A in amber and B in blue. Click it to open Routing, then choose **Parallel** or **Sequential** there. The grid wires follow the selected mode. Opening the page leaves the sound unchanged.
 
 ![Signal flow: IN, Pre 1–4, then lanes A and B in parallel, the A/B blend, Post 1–4 and OUT](images/signal-flow.svg)
 
-- **Sequential:** sound runs **Pre → A → B → Post**, using all 16 slots in one chain. Use it for a conventional pedal → amp → cabinet → effects rig. There is no parallel dry return. A/B, lane levels, balances, timing, mute/solo and frequency split are hidden; their saved values return when switching to Parallel. **Options** keeps the rig-wide Trails and Keep dry level controls available.
+- **Sequential:** sound runs **Pre → A → B → Post**, using all 16 slots in one chain. Use it for a conventional pedal → amp → cabinet → effects rig. There is no parallel dry return. A/B, lane levels, balances, timing, mute/solo and frequency split are hidden; their saved values return when switching to Parallel. Routing keeps the rig-wide Trails and Keep dry level controls available.
 - **Parallel:** A and B both receive the sound from Pre 4; **A/B** blends their results before Post. Use it for two amps, different cabinets, wet/dry layers or a frequency split. Older projects and presets without a lane-mode setting retain this routing, so loading them preserves their sound. The split-bass factory examples explicitly select Parallel.
 - **IN** sets the level reaching the rig, the tuner and the envelope follower. **OUT** sets the final level sent to your DAW.
 
@@ -39,7 +39,7 @@ With an amp only in A and an empty B, a centred A/B mixes half amp with half the
 
 ## Routing
 
-Click **Routing** below the A/B knob for the lane controls. Select a module, close the page, or press Escape to return.
+Click the flow icon below the A/B knob for Routing. Choose Sequential or Parallel in the page header. Select a module, close the page, or press Escape to return.
 
 - **Lane A / Lane B level:** adjust each parallel lane's output before the blend.
 - **A / B balance:** place each parallel lane left or right. Centre preserves both channels at unity; turning toward one side attenuates the opposite channel, reaching silence there at the extreme. Stereo material retains its existing left/right content; this does not move one channel's content into the other. These controls can be automated and ramp smoothly.

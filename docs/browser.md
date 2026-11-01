@@ -17,6 +17,51 @@ The slot browser offers **Modules**, **NAM captures**, and **IR files**. The pre
 
 Choose a folder or category, then select a result. The details pane describes the selection and shows capture metadata or a module's controls.
 
+Hover a result to read its complete filename, including the extension. The details
+title wraps in full; its table follows below it. Long titles and their details
+scroll together so the remaining fields stay accessible.
+
+Folders starting with `_` appear first among siblings. Below the folders, NAM and IR
+sidebars offer detected tags as `category: value` filters. Select **All folders** to
+clear a folder or tag filter; search and stars also apply to tag selections.
+
+Details expand known filename and subfolder abbreviations into device vendors, capture creators,
+models, gain, EQ, channels, captured pedals, microphones, speakers and knob settings.
+Details use an aligned label/value table with capitalized category labels. Matching
+filename and folder hints are combined into one row per category; repeated values
+are shown only once.
+Unknown tokens stay unknown, and a source platform is distinct from a capture creator.
+The **Folders** row lists every indexed folder containing the same NAM or IR
+content, including renamed copies. Multiple copies in one folder list it once;
+files without a content hash show only their own folder. Clicking a folder opens it,
+clears search and filters, and selects that folder's copy, including a renamed copy.
+The current copy stays selected when it is already in that folder. **Type** appears
+as a single value in the same table as Vendor and Model.
+Scroll over the details pane to read longer descriptions and folder paths.
+Click an underlined attribute value to search **All folders** in the current NAM
+or IR tab. Each vendor and each model in a dual rig has its own link. This replaces
+the search and clears folder, tag and Starred restrictions.
+The shipped vocabulary includes NAM Catalog aliases and its compact slot/make/model/gain
+export grammar; it does not require an external catalog file. Hints describe names,
+not verified equipment or processing, and never change the file or sound.
+
+Folder inference stays within the configured library root. The nearest matching
+folder wins for each category, and filename hints take precedence over folders.
+For example, `Pedals/Ibanez/Take.nam` supplies a pedal category and device vendor;
+`Amalgam/Fender/Clean/Take.nam` supplies creator, vendor and gain hints.
+IR provider folders such as `OwnHammer` and `Celestion` supply creator hints.
+Explicit role folders also support names outside the dictionary:
+`Creators/My Studio`, `Vendors/My Brand`, `Brands/My Brand`, `Models/My Amp`,
+`Packs/My Pack` and `Collections/My Collection`. Packs and collections keep their
+own provenance tag rather than claiming to identify a capture creator.
+
+The portable alias tables live in
+[`FilenameHintVocabulary.h`](../NeuralAmpModeler/FilenameHintVocabulary.h).
+Each rule maps an alias to a category and readable value; model aliases additionally
+identify their device vendor. Add regression examples when extending this vocabulary.
+Hints are rebuilt from current rules when scanning or restoring the index, so
+dictionary changes do not require deleting the cache.
+
 For modules, captures, and IRs:
 
 1. Select a result to hear it in the current slot.
@@ -44,16 +89,22 @@ Stars are saved in `favorites.json` in your first preset folder, the one **Save 
 
 ## Search
 
-Search is focused whenever the browser opens, including **+ Add module**, so you can start typing immediately. Search matches filenames, paths, preset names, and available NAM metadata. All ordinary words must match; common Latin accents are ignored, so `grun` finds `Grün`.
+Search is focused whenever the browser opens, including **+ Add module**, so you can start typing immediately. Search matches filenames, paths, preset names, available NAM metadata and inferred filename/folder tags. All ordinary words must match; common Latin accents are ignored, so `grun` finds `Grün`.
 
 | Example | Finds |
 | --- | --- |
 | `vox clean` | Items containing both words |
 | `"silver clean" -bright` | That phrase, excluding `bright` |
 | `maker:vox model:ac30` | Matching capture maker and model |
+| `creator:amalgam eq:balanced` | Expanded capture creator and EQ hints |
+| `speaker:celestion` | Detected speaker labels in NAM or IR filenames |
 | `path:"amp heads" -name:test` | A folder phrase, excluding test filenames |
 
 Use `name:` for filenames and `gear:` for capture type. Relevance sorting puts exact filename matches first; **Sort: name** switches to alphabetical order.
+
+`maker:` also matches inferred device vendors. Other tag fields include `vendor:`,
+`gain:`, `channel:`, `chain:`, `mic/cab:`, `settings:`, `format:`, `platform:`,
+`category:` and `collection:`.
 
 **Ctrl/Cmd+F** focuses search. Use Up/Down, Page Up/Down, Home/End to move through results. Enter accepts a choice; while editing search, the first Enter finishes the edit and the second accepts. Escape first leaves search editing, then cancels the browser.
 

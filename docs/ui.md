@@ -31,6 +31,7 @@ Delete or Backspace clears the selected module when the grid is open. While typi
 
 Click the global input/output meters or a grid slot's output meter to
 open the [Signal Monitor](modules/utility-volume.md#signal-monitor) at that point.
+Clicking a slot's input meter is a shortcut to the preceding slot's output monitor.
 It uses the lower editor panel and leaves every module slot available. Click
 another point to move it; select a module or the tuner, press **Escape**, or click
 **Close** to return. The same meter also toggles it closed. Monitoring is

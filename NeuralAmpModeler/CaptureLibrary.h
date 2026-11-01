@@ -64,6 +64,11 @@ std::vector<std::string> NormalizeFolders(const std::vector<std::string>& folder
 std::string ReadFolderSetting(const std::filesystem::path& settingsFile);
 bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::string& folder);
 
+struct LibraryHint
+{
+  std::string key, value;
+  bool fromFolder = false;
+};
 struct Capture
 {
   std::filesystem::path path, relative, source;
@@ -75,7 +80,11 @@ struct Capture
   bool inferred = false; // Filename/folder hint, rather than an explicit metadata category.
   FileKind kind = FileKind::NAM;
   int module = -1; // Built-in module ID; populated by the UI catalog, never by a file reader.
+  std::vector<LibraryHint> hints; // Derived on inspect/index read; never persisted as metadata.
 };
+std::vector<LibraryHint> InferFilenameHints(const Capture& capture);
+std::vector<LibraryHint> InferLibraryHints(const Capture& capture);
+std::string HintText(const Capture& capture, const std::string& key = {}, int origin = -1);
 
 struct Filter
 {

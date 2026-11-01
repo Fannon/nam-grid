@@ -76,11 +76,15 @@ about three minutes. It ignores the real pointer, so you can keep working. It ne
 screen-recording permission and writes PNG directly. Retina frames are averaged down
 to the 1x size of the gallery; text renders slightly heavier than on Windows.
 
-For the macOS module-preset save regression, append `--preset-save-smoke` to the
+For the Windows or macOS module-preset save regression, append `--preset-save-smoke` to the
 command instead of `--module`. It checks name entry, Escape, saving into the module
 folder and recall from the next menu without a library scan, using private settings.
-Use `--browser-text-smoke` for a focused capture with a long filename, metadata and
-path, to check the details panel and its footer controls.
+On Windows it also checks native text-field focus, capital A and spaces, and
+restoring ordinary browser text entry after the name field closes.
+Use `--browser-text-smoke` on Windows or macOS for a focused capture with a long
+filename, metadata and path, to check the details panel and its footer controls.
+The Windows check also verifies that filename hover text includes the full filename
+and captures the details pane before and after scrolling.
 
 To refresh a single module, append `--module` and its filename slug (the module's
 name in lowercase, with spaces replaced by hyphens). For example, with Ninja:

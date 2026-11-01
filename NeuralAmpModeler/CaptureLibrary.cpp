@@ -1,6 +1,8 @@
 #include "CaptureLibrary.h"
 #include "RigPreset.h"
 #include "LibraryBrowser.h"
+#include "FilenameHintVocabulary.h"
+#include <regex>
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -490,6 +492,172 @@ bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::st
     settingsFile, folder.empty() ? std::vector<std::string>{} : std::vector<std::string>{folder});
 }
 
+std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
+{
+  if (capture.kind != FileKind::NAM && capture.kind != FileKind::IR) return {};
+  const auto normalize = [](const std::string& text) {
+    std::string result = " ";
+    for (const unsigned char c : text)
+      if (std::isalnum(c)) result += static_cast<char>(std::tolower(c));
+      else if (result.back() != ' ') result += ' ';
+    if (result.back() != ' ') result += ' ';
+    return result;
+  };
+  const auto stem = PathText(capture.path.stem());
+  const auto words = normalize(stem);
+  std::vector<LibraryHint> hints;
+  const auto add = [&](const std::string& key, const std::string& value) {
+    if (std::none_of(hints.begin(), hints.end(), [&](const auto& h) { return h.key == key && h.value == value; }))
+      hints.push_back({key, value});
+  };
+  const auto contains = [&](const std::string& token) { return words.find(normalize(token)) != std::string::npos; };
+  // Device brands precede the first spaced separator; cabinet and creator
+  // brands in subsequent segments do not identify the captured device.
+  const auto device = normalize(stem.substr(0, stem.find(" - ")));
+  for (const auto& alias : filename_hints::vendors)
+    if (device.find(normalize(alias.token)) != std::string::npos) add(alias.key, alias.label);
+  if (capture.kind == FileKind::NAM)
+  {
+    std::vector<std::pair<size_t, size_t>> modelSpans;
+    for (const auto& alias : filename_hints::models)
+    {
+      const auto token = normalize(alias.token);
+      const auto pos = device.find(token);
+      if (pos == std::string::npos || std::any_of(modelSpans.begin(), modelSpans.end(), [&](const auto& s) {
+        return pos + 1 < s.second && pos + token.size() - 1 > s.first;
+      })) continue;
+      modelSpans.push_back({pos + 1, pos + token.size() - 1});
+      add("model", alias.label);
+      if (alias.vendor[0]) add("vendor", alias.vendor);
+      else for (const auto& vendor : filename_hints::vendors)
+        if (normalize(alias.label).find(normalize(vendor.token)) != std::string::npos) add("vendor", vendor.label);
+    }
+  }
+  for (const auto& alias : filename_hints::creators)
+  {
+    const auto token = normalize(alias.token);
+    // Short creator codes are suffixes, never arbitrary model/knob tokens.
+    if ((std::string(alias.token).size() > 3 && contains(alias.token))
+        || (capture.kind == FileKind::NAM && words.size() >= token.size()
+            && words.compare(words.size() - token.size(), token.size(), token) == 0))
+      add(alias.key, alias.label);
+  }
+  static const auto settings = [&] {
+    std::vector<filename_hints::Alias> result(std::begin(filename_hints::settings), std::end(filename_hints::settings));
+    std::stable_sort(result.begin(), result.end(), [&](const auto& a, const auto& b) {
+      return normalize(a.token).size() > normalize(b.token).size();
+    });
+    return result;
+  }();
+  // Longest aliases win where phrases overlap within one category.
+  std::map<std::string, std::vector<std::pair<size_t, size_t>>> used;
+  const auto separator = stem.find(" - ");
+  const auto settingsWords = normalize(separator == std::string::npos ? stem : stem.substr(separator + 3));
+  for (const auto& alias : settings)
+  {
+    const std::string key = alias.key;
+    if (capture.kind == FileKind::IR && key != "eq" && key != "mic/cab" && key != "speaker") continue;
+    const auto token = normalize(alias.token);
+    const auto& text = (key == "channel" || key == "chain") ? settingsWords : words;
+    const auto pos = text.find(token);
+    if (pos == std::string::npos) continue;
+    auto& spans = used[key];
+    if (std::any_of(spans.begin(), spans.end(), [&](const auto& s) { return pos + 1 < s.second && pos + token.size() - 1 > s.first; })) continue;
+    spans.push_back({pos + 1, pos + token.size() - 1});
+    add(key, alias.label);
+  }
+  // Expand compact model codes only in the slot/make/model/gain export grammar.
+  static const std::regex compact(R"(^([A-Za-z]|[0-9]{2}) +([A-Za-z0-9]+) +([A-Za-z0-9]+) +(CL|ED|CR|DR|HG|BS)( +DI)?$)", std::regex::icase);
+  std::smatch match;
+  if (capture.kind == FileKind::NAM && std::regex_match(stem, match, compact))
+  {
+    for (const auto& alias : filename_hints::compactModels)
+      if (normalize(match[3].str()) == normalize(alias.token)) add(alias.key, alias.label);
+    const std::map<std::string, std::string> gains{{" cl ", "Clean"}, {" ed ", "Edge of breakup"}, {" cr ", "Crunch"},
+      {" dr ", "Drive"}, {" hg ", "High gain"}, {" bs ", "Boost"}};
+    add("gain", gains.at(normalize(match[4].str())));
+    add("format", match[5].matched ? "Direct input (no cabinet)" : "Amp + Cab");
+  }
+  static const std::regex knob(R"(\b(Gain|Drive|Tone|Bass|Mid|Middle|Treble|Presence|Master|Volume|Level|Blend)\s*=?\s*(-?[0-9]+(?:[.,][0-9]+)?)(%|pct)?\b)", std::regex::icase);
+  for (auto it = std::sregex_iterator(stem.begin(), stem.end(), knob); it != std::sregex_iterator(); ++it)
+  {
+    auto label = Lower((*it)[1].str()); label[0] = static_cast<char>(std::toupper(label[0]));
+    add("settings", label + " " + (*it)[2].str() + ((*it)[3].matched ? "%" : ""));
+  }
+  if (capture.kind == FileKind::NAM)
+  {
+    if (contains("No Cab") || contains("DI") || contains("Direct")) add("format", "Direct input (no cabinet)");
+    else if (contains("Cab") || contains("Full Rig")) add("format", "Amp + Cab");
+  }
+  return hints;
+}
+
+std::vector<LibraryHint> InferLibraryHints(const Capture& capture)
+{
+  auto hints = InferFilenameHints(capture);
+  if ((capture.kind != FileKind::NAM && capture.kind != FileKind::IR)
+      || capture.source.empty() || !Within(capture.path, capture.source)) return hints;
+  const auto filenameHints = hints;
+  // Only the configured source and its descendants supply context. Never use
+  // arbitrary ancestors, and let filename evidence win over broader folders.
+  for (auto folder = capture.path.parent_path(); Within(folder, capture.source); folder = folder.parent_path())
+  {
+    Capture label; label.path = folder.filename(); label.kind = capture.kind;
+    // Dots in a folder name are not filename extensions.
+    label.path += capture.kind == FileKind::IR ? ".wav" : ".nam";
+    auto candidates = InferFilenameHints(label);
+    for (const auto& alias : filename_hints::creators)
+      if (std::string(alias.token).size() > 3 && Lower(PathText(folder.filename())) == Lower(alias.token))
+        candidates.push_back({alias.key, alias.label});
+    if (capture.kind == FileKind::IR)
+      for (const auto& name : {"OwnHammer", "Celestion", "York Audio"})
+        if (Lower(PathText(folder.filename())) == Lower(name)) candidates.push_back({"creator", name});
+    auto category = FolderCategory(folder.filename());
+    if (capture.gear == Gear::Unknown || capture.inferred || category == capture.gear)
+    {
+      if (category != Gear::Unknown) candidates.push_back({"category", GearName(category)});
+      if (Lower(PathText(folder.filename())) == "acoustic & line") candidates.push_back({"category", "Acoustic & Line"});
+    }
+    const auto folderToken = Token(PathText(folder.filename()));
+    // Explicit folder roles also support names absent from the shipped alias
+    // dictionary, e.g. Creators/My Studio or Packs/My Collection.
+    const auto parentToken = Token(PathText(folder.parent_path().filename()));
+    if (!SamePath(folder, capture.source))
+    {
+      const std::map<std::string, std::string> roles{{"creators", "creator"}, {"capturevendors", "creator"},
+        {"vendors", "vendor"}, {"brands", "vendor"}, {"models", "model"}, {"packs", "collection"},
+        {"collections", "collection"}};
+      const auto role = roles.find(parentToken);
+      if (role != roles.end() && std::none_of(candidates.begin(), candidates.end(), [&](const auto& h) { return h.key == role->second; }))
+        candidates.push_back({role->second, PathText(folder.filename())});
+    }
+    if ((folderToken == "amp" || folderToken == "amps" || folderToken == "amplifiers")
+        && (capture.gear == Gear::Unknown || capture.gear == Gear::AmpHead || capture.gear == Gear::AmpCab))
+      candidates.push_back({"category", "Amp"});
+    const auto nearerHints = hints;
+    for (const auto& hint : candidates)
+    {
+      if (hint.key == "settings" || hint.key == "format") continue;
+      if (std::any_of(filenameHints.begin(), filenameHints.end(), [&](const auto& f) { return f.key == hint.key; })) continue;
+      // A nearer folder already established this category: do not broaden it.
+      if (std::any_of(nearerHints.begin(), nearerHints.end(), [&](const auto& h) { return h.key == hint.key; })) continue;
+      if (std::none_of(hints.begin(), hints.end(), [&](const auto& h) { return h.key == hint.key && h.value == hint.value; }))
+        hints.push_back({hint.key, hint.value, true});
+    }
+    if (SamePath(folder, capture.source)) break;
+  }
+  return hints;
+}
+
+std::string HintText(const Capture& capture, const std::string& key, int origin)
+{
+  std::string result;
+  for (const auto& hint : capture.hints)
+    if ((key.empty() || hint.key == key) && (origin < 0 || static_cast<int>(hint.fromFolder) == origin))
+      result += (result.empty() ? "" : "\n") + hint.key + ": " + hint.value;
+  return result;
+}
+
 Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& root)
 {
   Capture result;
@@ -501,6 +669,7 @@ Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& 
     result.isIR = true;
     result.kind = FileKind::IR;
     result.gear = Gear::Cabinet;
+    result.hints = InferLibraryHints(result);
     return result; // Validate WAV contents only when loading; library scanning never decodes audio.
   }
   std::ifstream stream(file, std::ios::binary);
@@ -549,6 +718,7 @@ Capture Inspect(const std::filesystem::path& file, const std::filesystem::path& 
       result.gear = Gear::AmpHead;
     result.inferred = result.gear != Gear::Unknown;
   }
+  result.hints = InferLibraryHints(result);
   return result;
 }
 
@@ -557,7 +727,7 @@ bool Filter::Matches(const Capture& capture) const
   if (gear >= 0 && static_cast<int>(capture.gear) != gear)
     return false;
   const auto haystack = Lower(PathText(capture.relative) + " " + capture.name + " " + capture.maker + " "
-                              + capture.model + " " + GearName(capture.gear) + (capture.isIR ? " IR WAV" : " NAM"));
+                              + capture.model + " " + GearName(capture.gear) + " " + HintText(capture) + (capture.isIR ? " IR WAV" : " NAM"));
   std::istringstream words(Lower(search));
   for (std::string word; words >> word;)
     if (haystack.find(word) == std::string::npos)
@@ -773,6 +943,7 @@ IndexEntries ReadIndex(const std::filesystem::path& file)
       capture.maker = item.value("Maker", std::string{});
       capture.model = item.value("Model", std::string{});
       capture.hash = item.value("Hash", std::string{});
+      capture.hints = InferFilenameHints(capture);
       entries[IndexKey(capture.path)] = std::move(entry);
     }
   }
@@ -872,6 +1043,7 @@ static Snapshot ScanSource(const std::filesystem::path& root, unsigned kinds, co
       }
       capture.path = it->path(); capture.source = root;
       capture.relative = it->path().lexically_relative(root);
+      capture.hints = InferLibraryHints(capture);
       if (indexed) index->next[key] = {size, modified, capture};
       const auto parent = capture.relative.parent_path();
       capture.folderDepth = static_cast<size_t>(std::distance(parent.begin(), parent.end()));
@@ -909,6 +1081,7 @@ static Snapshot CachedSource(const std::filesystem::path& root, unsigned kinds, 
     auto capture = file;
     capture.source = root;
     capture.relative = file.path.lexically_relative(root);
+    capture.hints = InferLibraryHints(capture);
     const auto parent = capture.relative.parent_path();
     capture.folderDepth = static_cast<size_t>(std::distance(parent.begin(), parent.end()));
     result.captures.push_back(std::move(capture));

@@ -898,8 +898,9 @@ private:
 class SlotMeterTap : public IControl
 {
 public:
-  SlotMeterTap(const IRECT& r, int point) : IControl(r), mPoint(point)
-  { SetTooltip("Click the output meter to inspect the stereo signal after this slot, including when empty or bypassed."); }
+  SlotMeterTap(const IRECT& r, int point, bool input = false) : IControl(r), mPoint(point)
+  { SetTooltip(input ? "Click to inspect the preceding output signal in Signal Monitor."
+                     : "Click the output meter to inspect the stereo signal after this slot, including when empty or bypassed."); }
   void OnMouseDown(float, float, const IMouseMod&) override { PLUG()->ShowSignalMonitor(mPoint); }
   void Draw(IGraphics&) override {} // The slot card draws the meter beneath this hit target.
 private:
@@ -1339,6 +1340,11 @@ public:
     auto style = grid_ui::Text(16.f);
     style.mTextEntryBGColor = grid_ui::surface;
     style.mTextEntryFGColor = grid_ui::text;
+#ifdef OS_WIN
+    // Native EDIT focus tells hosts such as Bitwig that A/Space belong to a
+    // text field, before their shortcut processing can consume those keys.
+    GetUI()->RemoveTextEntryControl();
+#endif
     GetUI()->CreateTextEntry(owner, style, IRECT(248, 566, 772, 598), name);
     GetUI()->SetAllControlsDirty();
   }
@@ -1347,8 +1353,12 @@ public:
     if (!IsHidden())
     {
       auto* entry = GetUI()->GetTextEntryControl();
-      if (!entry || !entry->EditInProgress() || GetUI()->GetControlInTextEntry() != mOwner)
+      const bool editing = GetUI()->IsInPlatformTextEntry() || (entry && entry->EditInProgress());
+      if (!editing || GetUI()->GetControlInTextEntry() != mOwner)
       {
+#ifdef OS_WIN
+        GetUI()->AttachTextEntryControl();
+#endif
         Hide(true);
         GetUI()->SetAllControlsDirty();
       }

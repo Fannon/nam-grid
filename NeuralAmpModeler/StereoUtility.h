@@ -8,6 +8,12 @@
 class StereoUtility
 {
 public:
+  // Discard inactive routing audio without changing capacity or allocating.
+  void ClearHistory()
+  {
+    for (auto& history : mHistory) std::fill(history.begin(), history.end(), 0.);
+    mIndex = 0; mFirst = true;
+  }
   void Reset(double rate)
   {
     mStep = 1. / std::max(1., rate * .005);

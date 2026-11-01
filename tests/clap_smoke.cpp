@@ -196,6 +196,10 @@ int main(int argc, char** argv)
     assert(nam_library::WriteSettings(settingsBackup.file, settings));
   };
   auto base = save().config();
+  assert(base["Lane Mode"] == grid_performance::Sequential);
+  // The existing routing regressions explicitly exercise the released parallel path.
+  base["Lane Mode"] = grid_performance::Parallel;
+  load(base);
   assert(!base.contains("NamFolders") && !base.contains("IrFolders") && !base.contains("PresetFolders"));
   {
     // The bundled Clean Default rig loads as saved, with its capture from the default folder.
@@ -205,6 +209,7 @@ int main(int argc, char** argv)
     const auto loaded = save().config();
     assert(loaded["SlotPaths"][4] == clean["SlotPaths"][4] && loaded["SlotEffects"] == clean["SlotEffects"]);
     assert(loaded["Pre 1 Black Hold"] == 0.); // Saved before Hold existed: schema 1 defaults it.
+    assert(loaded["Lane Mode"] == grid_performance::Sequential);
     assert(loadRaw(base));
   }
   assert(base["Tuner"] == 0. && base["schema"] == kEffectStateSchema);
@@ -1276,6 +1281,110 @@ int main(int argc, char** argv)
     win_edit_menu::SelectChoice(editor, x, y, EffectChoices(control), choice, current, dismiss);
     pumpFor(50);
   };
+  const auto checkLaneButtons = [&] {
+    click(865, 530); // Mute A.
+    assert(save().config()["Lane A Mute"] == 1. && save().config()["Lane A Solo"] == 0.);
+    click(888, 530); // Solo A also unmutes A.
+    assert(save().config()["Lane A Mute"] == 0. && save().config()["Lane A Solo"] == 1.);
+    click(888, 572); // Solo B replaces Solo A.
+    assert(save().config()["Lane A Solo"] == 0. && save().config()["Lane B Solo"] == 1.);
+    assert(save().config()["Lane B Mute"] == 0.);
+    click(865, 572); // Mute B clears Solo B.
+    assert(save().config()["Lane B Mute"] == 1. && save().config()["Lane B Solo"] == 0.);
+    click(865, 572); // Restore the full parallel mix.
+    assert(save().config()["Lane A Mute"] == 0. && save().config()["Lane B Mute"] == 0.);
+  };
+  if (std::getenv("NAM_GRID_ROUTING_SMOKE"))
+  {
+    const int modeX = (grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2;
+    const auto capture = [&](const char* name) {
+      // Give routing screenshots real lane meters in the isolated host.
+      if (std::strncmp(name, "routing-", 8) == 0)
+      {
+        assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
+        process.frames_count = 512;
+        for (int block = 0; block < 32; ++block)
+        {
+          for (int i = 0; i < 512; ++i)
+          {
+            input[0][i] = .16 * std::sin((block * 512 + i) * .031);
+            input[1][i] = .12 * std::sin((block * 512 + i) * .031 + .2);
+          }
+          assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+        }
+        plugin->stop_processing(plugin); plugin->deactivate(plugin); pumpFor(20);
+      }
+      if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / name);
+    };
+    load(cleared);
+    click(grid_layout::width - 36, 328);
+    assert(save().config()["Lane Mode"] == grid_performance::Parallel); // Open without switching.
+    capture("routing-parallel.bmp");
+    click(grid_layout::width - 36, 328); // Already open: switch mode without closing.
+    assert(save().config()["Lane Mode"] == grid_performance::Sequential);
+    capture("routing-sequential.bmp");
+    click(modeX, grid_layout::moduleButtonY);
+    assert(save().config()["Lane Mode"] == grid_performance::Parallel);
+    const auto dragRouting = [&](int position) {
+      const int x = grid_layout::KnobX(position), y = grid_layout::KnobGestureY(position);
+      SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x,y));
+      SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(x,y-30));
+      SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x,y-30)); pumpFor(50);
+    };
+    dragRouting(4); dragRouting(5);
+    assert(save().config()["Lane B Level"] != 0. && save().config()["Lane A Level"] == 0.);
+    assert(save().config()["Lane B Balance"] != 0. && save().config()["Lane A Balance"] == 0.);
+    checkLaneButtons();
+    const auto splitChoice = [&] { click(grid_layout::parameterRight - 210, grid_layout::moduleButtonY); };
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 1.);
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 0. && save().config()["Split Slope"] == 1.);
+    auto storedOff = save().config();
+    const auto expectedOff = storedOff;
+    click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY);
+    load(storedOff); // Off still preserves a previously stored Steep slope.
+    assert(save().config() == expectedOff);
+    click(grid_layout::width - 36, 328);
+    splitChoice();
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
+    capture("routing-split.bmp");
+    POINT originalCursor{}; GetCursorPos(&originalCursor);
+    const auto hover = [&](int x, int y) {
+      POINT at{x,y}; ClientToScreen(editor,&at); SetCursorPos(at.x,at.y);
+      SendMessage(editor,WM_MOUSEMOVE,0,MAKELPARAM(x,y)); pumpFor(150);
+    };
+    hover(800,630); capture("routing-split-hover.bmp");
+    click((grid_layout::settingsLeft + grid_layout::settingsRight)/2, grid_layout::headerY);
+    capture("settings-rig-behaviour.bmp");
+    click(130,532); click(370,532);
+    assert(save().config()["Trails"] == 1. && save().config()["Mix Law"] == 1.);
+    capture("settings-rig-behaviour-on.bmp");
+    assert(save().config()["Trails"] == 1. && save().config()["Mix Law"] == 1.);
+    click(956,28);
+    for (const auto effect : {SlotEffect::ToneEQ, SlotEffect::Multiband, SlotEffect::PedalDrive,
+                              SlotEffect::Wah, SlotEffect::RingMod, SlotEffect::OutboardChannel})
+    {
+      auto rig=cleared; rig["SlotEffects"][0]=static_cast<int>(effect);
+      load(rig); selectTile(170,120);
+      const auto before=save().config();
+      hover(effect==SlotEffect::PedalDrive?900:780,600);
+      const auto name="frequency-hover-"+std::to_string(static_cast<int>(effect))+".bmp";
+      capture(name.c_str());
+      assert(save().config()==before);
+    }
+    click(95,80); // Signal Monitor input.
+    const auto before=save().config();
+    hover(780,600); capture("signal-monitor-frequency-hover.bmp");
+    assert(save().config()==before);
+    SetCursorPos(originalCursor.x,originalCursor.y);
+    gui->destroy(plugin); DestroyWindow(parent);
+    plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
+    std::cout << "Focused routing modes and frequency-hover state isolation passed\n";
+    return 0;
+  }
   {
     // Read the native tooltip, not an internal label property: the module title's
     // description must update on state loads and when the module changes.
@@ -2465,9 +2574,14 @@ int main(int argc, char** argv)
       }
       click(910, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
-      click(936, 28); click(grid_layout::width - 36, 328);
+      click(936, 28); click(grid_layout::width - 36, 356);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click(grid_layout::width - 36, 328); click(kModulationX, grid_layout::headerY);
+      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+      assert(save().config()["Lane Mode"] == grid_performance::Sequential);
+      CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing-sequential.bmp");
+      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+      assert(save().config()["Lane Mode"] == grid_performance::Parallel);
+      click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
       click(936, 28); click(kTunerX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
@@ -3005,7 +3119,24 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
-  click(grid_layout::width - 36, 328); // Routing, below the A / B knob
+  click(grid_layout::width - 36, 356); // Routing, below the A / B knob
+  dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
+  const double laneBalance = save().config()["Lane A Balance"];
+  assert(laneBalance != 0.);
+  click(grid_layout::width - 36, 328); // Open Routing stays open while mode changes.
+  assert(save().config()["Lane Mode"] == grid_performance::Sequential);
+  dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
+  assert(save().config()["Lane A Balance"] == laneBalance); // Inactive in Sequential.
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "routing-sequential.bmp");
+  if (const char* captures = std::getenv("NAM_GRID_ROUTING_SCREENSHOTS"))
+    CaptureEditor(editor, std::filesystem::path(captures) / "routing-sequential.bmp");
+  click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+  assert(save().config()["Lane Mode"] == grid_performance::Parallel);
+  assert(save().config()["Lane A Balance"] == laneBalance);
+  if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "routing-parallel.bmp");
+  if (const char* captures = std::getenv("NAM_GRID_ROUTING_SCREENSHOTS"))
+    CaptureEditor(editor, std::filesystem::path(captures) / "routing-parallel.bmp");
+  checkLaneButtons();
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // Lane A level
   const double sceneGain = save().config()["Lane A Level"];
   assert(sceneGain != 0.);
@@ -3144,17 +3275,16 @@ int main(int argc, char** argv)
     assert(state["Mod 1 Source"] == grid_performance::SourceMacro1 && state["Mod 1 Slot"] == grid_performance::gridSlot);
     assert(state["Mod 1 Destination"] == grid_performance::GridLaneA && state["Mod 1 Depth"] == 25.);
   }
-  // The routing page's saved Split Slope choice: steep, then back to the released gentle split.
+  // One UI choice over two stable parameters: Off -> Gentle -> Steep -> Off.
   {
     const int slopeX = grid_layout::parameterRight - 210, slopeY = grid_layout::moduleButtonY;
-    const std::vector<const char*> slopes{"Gentle (6 dB/oct)", "Steep (24 dB/oct)"};
-    assert(save().config()["Split Slope"] == 0.);
-    win_edit_menu::SelectChoice(editor, slopeX, slopeY, slopes, 1, 0);
-    pumpFor(30);
-    assert(save().config()["Split Slope"] == 1.);
-    win_edit_menu::SelectChoice(editor, slopeX, slopeY, slopes, 0, 1);
-    pumpFor(30);
-    assert(save().config()["Split Slope"] == 0.);
+    assert(save().config()["Frequency Split"] == 0.);
+    click(slopeX, slopeY);
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
+    click(slopeX, slopeY);
+    assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 1.);
+    click(slopeX, slopeY);
+    assert(save().config()["Frequency Split"] == 0. && save().config()["Split Slope"] == 1.);
   }
   keyAtEditor(VK_ESCAPE); // Closes the routing panel.
   // Wah's Auto button creates the envelope row that makes it an auto-wah, and only exists on Wah.

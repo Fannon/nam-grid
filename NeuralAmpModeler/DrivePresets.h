@@ -54,6 +54,7 @@ inline std::vector<nlohmann::json> Make(const nlohmann::json& empty)
     slot(rig, 8, SlotEffect::PedalDrive);
     rig["PresetName"] = edge ? "Bass - Split Edge" : "Bass - Split Warm";
     rig["Frequency Split"] = 1.;
+    rig["Lane Mode"] = grid_performance::Parallel;
     rig["Split Frequency"] = 180.;
     rig["A/B Blend"] = 50.;
     rig["B 1 Pedal Style"] =

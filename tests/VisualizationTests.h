@@ -4,11 +4,21 @@
 #include "NAMStage.h"
 #include "ImpulseProbe.h"
 #include "LevelReadout.h"
+#include "FrequencyReadout.h"
 
 // Checks the parameter-interaction previews against the actual processors:
 // Uni-Vibe notches, delay-sweep pitch, reverb band decay and the EQ analyzer.
 void TestVisualizationInteractions()
 {
+  // Frequency charts use their own logarithmic or linear axis, and notes use A4=440 Hz.
+  assert(std::abs(frequency_readout::Hertz(.5, 20., 20000.) - std::sqrt(20. * 20000.)) < 1.e-9);
+  assert(frequency_readout::Hertz(.5, 0., 2000., false) == 1000.);
+  assert(frequency_readout::Hertz(-1., 20., 20000.) == 20.);
+  assert(frequency_readout::Hertz(2., 20., 20000.) == 20000.);
+  assert(frequency_readout::Label(440.) == "440.0 Hz | A4");
+  assert(frequency_readout::Label(698.456462866) == "698.5 Hz | F5");
+  assert(frequency_readout::Label(261.6255653) == "261.6 Hz | C4");
+  assert(frequency_readout::Label(0.) == "0 Hz");
   for (double rate : {44100., 48000., 96000.})
   {
     // Uni-Vibe at a frozen lamp (Depth 0): chorus mode notches, vibrato mode flat.

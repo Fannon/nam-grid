@@ -86,6 +86,12 @@ static_assert(kEffectParameters[uPitchInterval].introducedIn == 22 && kEffectPar
 static_assert(PerformanceParam(grid_performance::CrossoverSlope) == 5261);
 static_assert(grid_performance::parameters[grid_performance::CrossoverSlope].introducedIn == 24);
 static_assert(static_cast<int>(grid_performance::SplitSlopeLinkwitzRiley) == 1);
+static_assert(PerformanceParam(grid_performance::LaneMode) == 5262);
+static_assert(PerformanceParam(grid_performance::LaneABalance) == 5263);
+static_assert(PerformanceParam(grid_performance::LaneBBalance) == 5264);
+static_assert(grid_performance::parameters[grid_performance::LaneMode].introducedIn == 25);
+static_assert(grid_performance::StateOnly(grid_performance::LaneMode));
+static_assert(!grid_performance::StateOnly(grid_performance::LaneABalance));
 
 int main(int argc, char** argv)
 {
@@ -275,6 +281,7 @@ int main(int argc, char** argv)
   for (int schema = kInitialEffectStateSchema; schema <= 11; ++schema)
   {
     auto expected = base;
+    expected["Lane Mode"] = grid_performance::Parallel;
     if (schema >= 10)
       for (const int slot : {0, 15})
       {
@@ -315,7 +322,9 @@ int main(int argc, char** argv)
     for (int slot = 0; slot < 16; ++slot)
       historical.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
   assert(load(historical));
-  assert(save() == base);
+  auto historicalExpected = base;
+  historicalExpected["Lane Mode"] = grid_performance::Parallel;
+  assert(save() == historicalExpected);
   for (int p = 0; p < kUtilityControls; ++p)
     if (IsAlgorithmMode(p))
       for (const auto& mode : AlgorithmIdentities(p))

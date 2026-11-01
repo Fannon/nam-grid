@@ -188,6 +188,18 @@ inline int Position(SlotEffect e, int p)
 }
 inline const char* Label(SlotEffect e, int p, int mode = 0)
 {
+  // Presentation wording only: host names and saved keys stay stable.
+  switch (p)
+  {
+    case uMultibandDepth: return "Mix";
+    case uMultibandDownward: return "Down comp";
+    case uMultibandUpward: return "Up comp";
+    case uMultibandTime: return "Time scale";
+    case uMultibandLow: return "Low gain";
+    case uMultibandMid: return "Mid gain";
+    case uMultibandHigh: return "High gain";
+    default: break;
+  }
   if (e == SlotEffect::GraphicEQ && p >= uGraphicBand1 && p <= uGraphicBand7)
     return graphic_eq::kLabels[graphic_eq::Voicing(mode)][p - uGraphicBand1];
   if (e == SlotEffect::PedalDrive && p == uPedalCharacter)
@@ -239,17 +251,17 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uPitchMix: return "Dry/shifted blend: 0% dry, 100% shifted only. Lower settings add fixed-interval harmony. The shifted voice has a short grain delay.";
     case uGraphicLevel: return "Overall level after the bands. Boost into an amp, or match bypass loudness.";
     case uGraphicVoicing: return "Band frequencies for the instrument. Guitar: octave bands from 100 Hz to 6.4 kHz. Bass: 40 Hz to 6 kHz, weighted to fundamentals and growl. Full range: 63 Hz to 16 kHz for acoustic or mixes. Changing it keeps the slider positions.";
-    case uMultibandDepth: return "Blend of the processed bands with the dry signal. 100% is fully processed; lower values keep more of the natural dynamics.";
-    case uMultibandDownward: return "How hard each band is pushed down above Threshold, up to 20:1. Zero turns downward compression off.";
-    case uMultibandUpward: return "How much quiet passages in each band are raised when they fall more than 12 dB below Threshold, up to 4:1. Zero gives a regular multiband compressor.";
+    case uMultibandDepth: return "Dry/processed blend (OTT Depth). 0% is dry; 100% is fully processed, including Low/Mid/High gain. Output follows this blend.";
+    case uMultibandDownward: return "Shared downward amount for all three bands, each reacting to its own level. 50% is about 4.5:1; 100% is 20:1. Zero turns it off. Solid lines show each band's threshold.";
+    case uMultibandUpward: return "Shared upward amount for all three bands, each reacting independently below its dashed line. 50% is 2:1; 100% is 4:1. Zero turns it off. Lift is limited to 18 dB and fades out near silence.";
     case uMultibandTime: return "Scales every band's attack and release; lower values react faster and pump more.";
-    case uMultibandLow: return "Level of the low band after its compression.";
-    case uMultibandMid: return "Level of the mid band after its compression.";
-    case uMultibandHigh: return "Level of the high band after its compression.";
-    case uMultibandOutput: return "Final level after Depth. Match bypass loudness when comparing.";
+    case uMultibandLow: return "Low-band output gain after compression, before Mix. Does not change the detector or compression amount.";
+    case uMultibandMid: return "Mid-band output gain after compression, before Mix. Does not change the detector or compression amount.";
+    case uMultibandHigh: return "High-band output gain after compression, before Mix. Does not change the detector or compression amount.";
+    case uMultibandOutput: return "Final level after Mix. Match bypass loudness when comparing.";
     case uMultibandLowSplit: return "Split between the low and mid bands; drag its line in the display.";
     case uMultibandHighSplit: return "Split between the mid and high bands; drag its line in the display.";
-    case uMultibandThreshold: return "Band level where downward compression starts; upward starts 12 dB below. Drag vertically in the display.";
+    case uMultibandThreshold: return "Shared threshold reference: mid band uses this value, low is 3 dB lower and high 10 dB lower. Upward starts 12 dB below each. Drag vertically between the split lines; double-click resets.";
     case uHarmonicCrossover: return "Where bass and treble split. Lower values move more of the guitar into the treble band.";
     case uSpringTank: return "Classic is the original diffuse spring. Dispersive follows a physical spring's chirp: in each echo the lows arrive first and the highs later, the drip of a real tank. Drip sets how strong the chirp is.";
     case uChorusVoices: return "1 voice is the classic single moving delay. 3 voices add two more delays a third of a cycle apart, at slightly different depths and delays, for a lusher, denser chorus.";

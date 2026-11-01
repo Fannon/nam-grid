@@ -166,7 +166,13 @@ attached to physical slots. Captures and IRs are external files, not copied asse
 Model changes that alter CLAP latency request host reactivation. Same-latency
 replacement uses the existing switching fades. Lane timing is compensated the
 same way: the shorter lane is delayed to match the longer one, so the reported
-host latency is the Pre sum plus the longer lane plus the Post sum. Legacy
+host latency is the Pre sum plus the longer lane plus the Post sum in Parallel.
+Sequential runs Pre, A, B and Post in order, so their latencies sum and no lane
+alignment is inserted. Lane topology is a state-only selector. New rigs default
+to Sequential; older states that omit this control explicitly default to Parallel,
+independent of the new-rig default, with centred lane balances. Parallel-only controls retain
+their saved values while Sequential is active. Topology changes dip the output
+and clear dormant routing histories without allocating. Legacy
 Buffer-based NAM models with zero prewarm samples receive a silence block
 during preparation so their lazily allocated buffers are reserved in time.
 

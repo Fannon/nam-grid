@@ -231,18 +231,20 @@ the dry sound; use it on held guitar or bass notes rather than to emphasize the 
 
 ![Multiband Dynamics editor](../screenshots/modules/multiband-dynamics.png)
 
-Splits the sound into low, mid and high bands and compresses each one on its own, in both directions: loud passages are pushed down, quiet ones brought up. At full settings this is the dense, "over the top" multiband sound; with Upward at zero it is a regular multiband compressor that evens out boomy lows or spiky highs without pumping the rest. Depth blends the result with the dry sound for parallel compression.
+Splits the sound into low, mid and high bands and compresses each one on its own, in both directions: loud passages are pushed down, quiet ones brought up. At full settings this is the dense, "over the top" multiband sound; with Upward at zero it is a regular multiband compressor that evens out boomy lows or spiky highs without pumping the rest. Mix (called Depth in host automation) blends the result with the dry sound for parallel compression.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Depth** | 0–100% | 40% | Blend of the processed bands with the dry sound. 100% is fully processed. |
-| **Downward** | 0–100% | 50% | How hard each band is pushed down above its threshold, from 1:1 to 20:1. |
-| **Upward** | 0–100% | 40% | How much quiet passages in each band are raised, from 1:1 to 4:1. Zero gives a regular multiband compressor. |
-| **Time** | 10–1000% | 100% | Scales every band's attack and release; lower values react faster and pump more. |
-| **Low** | -12 to +12 dB | 0 dB | Level of the low band after its compression. |
-| **Mid** | -12 to +12 dB | 0 dB | Level of the mid band after its compression. |
-| **High** | -12 to +12 dB | 0 dB | Level of the high band after its compression. |
-| **Output** | -24 to +12 dB | 2 dB | Final level after Depth. Match bypass loudness when comparing. |
+| **Mix** | 0–100% | 40% | Blend of the processed bands with the dry sound. 100% is fully processed. |
+| **Down comp** | 0–100% | 50% | How hard each band is pushed down above its threshold, from 1:1 to 20:1. |
+| **Up comp** | 0–100% | 40% | How much quiet passages in each band are raised, from 1:1 to 4:1. Zero gives a regular multiband compressor. |
+| **Time scale** | 10–1000% | 100% | Scales every band's attack and release; lower values react faster and pump more. |
+| **Low gain** | -12 to +12 dB | 0 dB | Level of the low band after its compression. |
+| **Mid gain** | -12 to +12 dB | 0 dB | Level of the mid band after its compression. |
+| **High gain** | -12 to +12 dB | 0 dB | Level of the high band after its compression. |
+| **Output** | -24 to +12 dB | 2 dB | Final level after Mix. Match bypass loudness when comparing. |
+
+Down comp, Up comp and Time scale apply to all three bands. Each band has its own detector, so a loud bass note can trigger low-band compression without the same gain change in the mids and highs. Low/Mid/High gain are output trims after compression; they do not drive the detectors. Mix blends those processed bands with dry, then Output adjusts the final level. At Mix 0%, band gain and compression have no effect.
 
 In the display:
 
@@ -252,14 +254,14 @@ In the display:
 
 Downward and Upward map to ratios exponentially: Downward 50% is about 4.5:1, Upward 50% is 2:1. Upward gain is limited to +18 dB and fades out below -60 dBFS, so silence and hiss between notes are not raised. The detectors have no lookahead, so the start of a sudden note passes before a band's gain changes; heavy upward settings can raise peaks.
 
-**Display:** Each band's live level as a shaded column, with an arrow to where compression moves it: up for upward, down for downward. The solid line is Threshold, the dashed line where upward compression starts. The live output spectrum sits behind.
+**Display:** LOW, MID and HIGH show independent detector levels as grey bars, with a bright marker at the level after dynamic gain. Each band shows its own downward threshold (solid amber) and upward threshold (dashed blue); inactive compression directions hide their lines and shaded regions. The numbers under each band name are its downward / upward thresholds in dBFS. Below, GR means gain reduction and Lift means upward gain, in dB; the signed meter extends left for reduction and right for lift. These readings precede band output gains, Mix and Output. Drag the vertical dividers to set the crossovers; their labels show the split frequencies.
 
-**Presets:** Start with Gentle glue for downward-only leveling. Fast and tight reacts sooner; Clean sparkle lifts quieter detail. Over the top is the deliberately extreme choice. Presets keep your Threshold and splits, except Fast and tight, which narrows the mid band.
+**Presets:** Start with Gentle glue for downward-only leveling. Fast and tight reacts sooner; Clean sparkle lifts quieter detail. Over the top is the deliberately extreme choice. Selecting any factory preset restores its Threshold and splits as well as the knobs. Fast and tight uses 120 Hz / 3 kHz; the other recipes use 150 Hz / 2.5 kHz, all with a -30 dB threshold reference.
 
 **Tips:**
 
-- Set Threshold first: play your loudest part and drag until the mid band's arrow moves a few dB.
-- Like any zero-latency crossover, the bands shift phase around the splits. Depth blends with a matching dry signal, so partial Depth never comb filters, but a parallel lane without this module can.
+- Set Threshold first: play your loudest part and drag until the mid band's GR meter shows a few dB.
+- Like any zero-latency crossover, the bands shift phase around the splits. Mix blends with a matching dry signal, so partial Mix never comb filters, but a parallel lane without this module can.
 
 ## Peak Limiter
 

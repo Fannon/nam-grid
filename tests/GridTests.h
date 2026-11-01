@@ -50,6 +50,122 @@ void TestFixedGrid()
         assert(std::abs(sample - expected) < 1e-5);
     }
   // Empty lanes don't double correlated input, at any blend or during blend automation.
+  // Sequential must compose A then B (affine models make the order observable),
+  // regardless of old parallel settings, blend or host block size.
+  for (double rate : {48000.})
+    for (int block : {1, 37, 512})
+      for (bool stereo : {false, true})
+      {
+        controls = {};
+        grid.ResetStopped(rate, 512);
+        grid_performance::Routing routing;
+        routing.sequential = true;
+        routing.crossover = routing.linkwitzRiley = true;
+        routing.muteA = routing.muteB = routing.soloA = true;
+        routing.gainA = -20.; routing.gainB = 6.; routing.timing = 12.;
+        routing.balanceA = -100.; routing.balanceB = 100.;
+        std::array<double, 512> right{};
+        double expected = .05;
+        for (int slot=0; slot<16; ++slot) expected = expected*gains[slot]+biases[slot];
+        // NAM intentionally folds stereo to mono; identical inputs isolate topology.
+        for (int pass=0; pass<3; ++pass)
+        {
+          data.fill(.05); right.fill(.05);
+          allocations = deletions = 0; tracking = true;
+          Eigen::internal::set_is_malloc_allowed(false);
+          grid.Process(data.data(), block, controls, pass*.5, stereo?right.data():nullptr, routing);
+          Eigen::internal::set_is_malloc_allowed(true); tracking = false;
+          assert(allocations == 0 && deletions == 0);
+          for (int i=0; i<block; ++i)
+          {
+            assert(std::abs(data[i]-expected)<1.e-5);
+            if(stereo) assert(std::abs(right[i]-expected)<1.e-5);
+          }
+        }
+      }
+  // Balance is applied independently after each lane, preserving centre gain.
+  // Live lane peaks measure the contributions, including blend and balance.
+  for (double balanceA : {-100., -37., 0., 63., 100.})
+    for (double balanceB : {-100., 0., 100.})
+      for (double blend : {0., .37, .5, 1.})
+      {
+        FixedNAMGrid pan;
+        pan.ResetStopped(48000.,512); pan.EnableLaneMetering(true);
+        grid_performance::Routing routing;
+        routing.balanceA=balanceA; routing.balanceB=balanceB;
+        std::array<double,512> right{};
+        data.fill(.2); right.fill(.3);
+        pan.Process(data.data(),512,{},blend,right.data(),routing);
+        const double aL=(1.-blend)*.2*(1.-std::max(0.,balanceA*.01));
+        const double bL=blend*.2*(1.-std::max(0.,balanceB*.01));
+        const double aR=(1.-blend)*.3*(1.+std::min(0.,balanceA*.01));
+        const double bR=blend*.3*(1.+std::min(0.,balanceB*.01));
+        for(int i=0;i<512;++i)
+        { assert(std::abs(data[i]-aL-bL)<1.e-12); assert(std::abs(right[i]-aR-bR)<1.e-12); }
+        const auto peaks=pan.TakeLanePeaks();
+        assert(std::abs(peaks[0][0]-aL)<1.e-7 && std::abs(peaks[0][1]-aR)<1.e-7);
+        assert(std::abs(peaks[1][0]-bL)<1.e-7 && std::abs(peaks[1][1]-bR)<1.e-7);
+        assert(pan.TakeLanePeaks()==FixedNAMGrid::LanePeaks{});
+      }
+  // Sequential metering is after A and after B, before Post. Measuring must not
+  // change audio, including mono NAM channel collapse, or allocate in processing.
+  {
+    std::array<std::vector<double>, 2> rendered;
+    for (bool metering : {false, true})
+    {
+      FixedNAMGrid serial;
+      for (int slot : {4, 8})
+      {
+        auto model = linear;
+        model["weights"] = slot == 4 ? nlohmann::json{2., .01} : nlohmann::json{3., .02};
+        serial.stages[slot].Publish(prepare(model, 48000.));
+      }
+      serial.ResetStopped(48000., 512); serial.EnableLaneMetering(metering);
+      grid_performance::Routing route; route.sequential = true;
+      std::array<double, 512> left{}, right{}; left.fill(.2); right.fill(.3);
+      allocations = deletions = 0; tracking = true;
+      serial.Process(left.data(), 512, {}, .5, right.data(), route);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      const auto peaks = serial.TakeLanePeaks();
+      for (int ch = 0; ch < 2; ++ch)
+      {
+        assert(std::abs(peaks[0][ch] - (metering ? .51 : 0.)) < 1.e-6);
+        assert(std::abs(peaks[1][ch] - (metering ? 1.55 : 0.)) < 1.e-6);
+      }
+      rendered[metering].assign(left.begin(), left.end());
+      rendered[metering].insert(rendered[metering].end(), right.begin(), right.end());
+    }
+    assert(rendered[0] == rendered[1]);
+  }
+  // Topology changes dip and recover without allocating. After silence, dormant
+  // timing/compensation histories cannot leak audio when parallel is restored.
+  {
+    FixedNAMGrid switching;
+    switching.ResetStopped(48000.,37);
+    grid_performance::Routing routing;
+    routing.timing=20.; routing.crossover=routing.linkwitzRiley=true;
+    std::array<double,37> l{},r{};
+    const auto render=[&](bool tone) {
+      l.fill(tone?.1:0.); r=l;
+      switching.Process(l.data(),37,{},.5,r.data(),routing);
+    };
+    for(int i=0;i<100;++i) render(true);
+    allocations=deletions=0; tracking=true;
+    routing.sequential=true;
+    for(int i=0;i<100;++i) render(false);
+    routing.sequential=false;
+    for(int i=0;i<100;++i) render(false);
+    tracking=false;
+    assert(allocations==0 && deletions==0);
+    for(int i=0;i<37;++i) assert(l[i]==0. && r[i]==0.);
+  }
+  {
+    std::array<int,16> latency{};
+    latency[0]=3; latency[4]=7; latency[8]=11; latency[12]=5;
+    assert(FixedNAMGrid::TotalLatency(latency)==19);
+    assert(FixedNAMGrid::TotalLatency(latency,true)==26);
+  }
   FixedNAMGrid empty;
   empty.ResetStopped(48000., 512);
   for (double blend : {0., .2, .5, 1., 0.})
@@ -224,6 +340,7 @@ void TestFixedGrid()
     FixedNAMGrid aligned;
     for (int slot : {0, 4, 5, 8, 12})
       aligned.stages[slot].Publish(prepare(slot == 8 ? standard : nano, rate));
+    for (bool sequential : {false, true})
     for (int maxBlock : {512, 1})
     {
       aligned.ResetStopped(rate, maxBlock);
@@ -233,7 +350,8 @@ void TestFixedGrid()
       std::array<int, 16> latencies{};
       for (int slot = 0; slot < 16; ++slot)
         latencies[slot] = aligned.stages[slot].Latency();
-      const auto delay = FixedNAMGrid::TotalLatency(latencies);
+      const auto delay = FixedNAMGrid::TotalLatency(latencies, sequential);
+      grid_performance::Routing routing; routing.sequential=sequential;
       int position = 0;
       while (position < 1024)
       {
@@ -244,7 +362,7 @@ void TestFixedGrid()
         allocations = deletions = 0;
         tracking = true;
         Eigen::internal::set_is_malloc_allowed(false);
-        aligned.Process(data.data(), frames, controls, .5);
+        aligned.Process(data.data(), frames, controls, .5, nullptr, routing);
         Eigen::internal::set_is_malloc_allowed(true);
         tracking = false;
         assert(allocations == 0 && deletions == 0);

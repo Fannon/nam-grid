@@ -145,6 +145,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       for (int mode = 0; mode < grid_performance::RetriggerModes; ++mode)
         param->SetDisplayText(mode, grid_performance::retriggerNames[mode]);
     }
+    else if (i == grid_performance::LaneMode)
+    {
+      param->InitEnum(p.name, static_cast<int>(p.initial), grid_performance::LaneTopologies, "", IParam::kFlagCannotAutomate);
+      for (int mode = 0; mode < grid_performance::LaneTopologies; ++mode)
+        param->SetDisplayText(mode, grid_performance::laneModeNames[mode]);
+    }
     else if (i == grid_performance::CrossoverSlope)
     {
       // The split's slope is saved state, not automation: it never reinterprets a recording.
@@ -267,6 +273,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       header(settingsLeft, settingsRight),
       [this](IControl* caller) {
         CloseSignalMonitor();
+        if (mRoutingOpen) SetRoutingOpen(false);
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
@@ -287,7 +294,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(width - 72, 235, width, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
-    ui->AttachControl(new grid_ui::RoutingButton(IRECT(width - 64, 316, width - 8, 340)), kCtrlTagRoutingButton);
+    ui->AttachControl(new grid_ui::RoutingButton(IRECT(width - 64, 316, width - 8, 360)), kCtrlTagRoutingButton);
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(width - 72, 379, width, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
     // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
@@ -388,7 +395,10 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   if (metering != mMetering)
   {
     for (auto& candidate : mGrids)
+    {
+      candidate.EnableLaneMetering(metering);
       for (auto& stage : candidate.stages) stage.EnableMetering(metering);
+    }
     mMetering = metering;
     mMeterFrames = 0;
   }
@@ -570,6 +580,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   const bool sendMeters = mMeterFrames >= meterInterval;
   if (sendMeters)
   {
+    mLaneMeterSender.PushData({kCtrlTagRoutingView, {grid.TakeLanePeaks()}});
     mMeterFrames %= meterInterval;
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
       mSlotMeterSender.PushData({kCtrlTagGridSlotBase + static_cast<int>(slot), {grid.stages[slot].TakeMeter()}});
@@ -643,6 +654,7 @@ void NeuralAmpModeler::OnReset()
   mGrids[1 - mEditGrid].ClearStopped();
   mInactiveGridUsed = false;
   mGrids[mEditGrid].ResetStopped(sampleRate, maxBlockSize);
+  for (auto& grid : mGrids) grid.EnableLaneMetering(mMetering);
   mAudibleGrid = mOutgoingGrid = mEditGrid;
   for (auto& buffer : mOutgoingBuffers)
     buffer.assign(maxBlockSize, 0.);
@@ -1420,6 +1432,7 @@ void NeuralAmpModeler::_UpdateLibraryControls()
 void NeuralAmpModeler::OnIdle()
 {
   const auto guard = _LockControls();
+  _UpdateLatency();
   _UpdateTunerControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     if (mSlotEffects[slot] == SlotEffect::CabinetIR
@@ -1483,6 +1496,7 @@ void NeuralAmpModeler::OnIdle()
   mInputSender.TransmitData(*this);
   mOutputSender.TransmitData(*this);
   mSlotMeterSender.TransmitData(*this);
+  mLaneMeterSender.TransmitData(*this);
   mSlotSignalSender.TransmitData(*this);
   mMonitorSender.TransmitData(*this);
 }
@@ -1885,15 +1899,20 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     {
       const char* name = GetParam(i)->GetName();
       if (schema < IntroducedIn(i) && !config.contains(name))
-        config[name] = GetParam(i)->GetDefault();
+      {
+        const int performance = PerformanceIndex(i);
+        config[name] = performance >= 0 ? grid_performance::StateDefault(performance, schema) : GetParam(i)->GetDefault();
+      }
       if (!config.contains(name) || !config[name].is_number() || !std::isfinite(config[name].get<double>()))
         return -1;
       // An unknown algorithm must fail before applying any state, rather than
       // silently clamp to a different sound. Native mode IDs never normalize.
-      if (IsStateOnlyParam(i))
+      const bool laneBalance = i == PerformanceParam(grid_performance::LaneABalance)
+                               || i == PerformanceParam(grid_performance::LaneBBalance);
+      if (IsStateOnlyParam(i) || laneBalance)
       {
         const double value = config[name].get<double>();
-        if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
+        if ((!laneBalance && std::floor(value) != value) || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
           return -1;
       }
     }
@@ -1908,10 +1927,12 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
         const auto it = scene.find(GetParam(i)->GetName());
         if (it == scene.end()) continue;
         if (!IsPerformanceSceneParam(i) || !it->is_number() || !std::isfinite(it->get<double>())) return -1;
-        if (IsStateOnlyParam(i))
+        const bool laneBalance = i == PerformanceParam(grid_performance::LaneABalance)
+                                 || i == PerformanceParam(grid_performance::LaneBBalance);
+        if (IsStateOnlyParam(i) || laneBalance)
         {
           const double value = it->get<double>();
-          if (std::floor(value) != value || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
+          if ((!laneBalance && std::floor(value) != value) || value < GetParam(i)->GetMin() || value > GetParam(i)->GetMax())
             return -1;
         }
         ++recognized;
@@ -2047,6 +2068,7 @@ void NeuralAmpModeler::SetRoutingOpen(bool open)
   mRoutingOpen = open;
   if (!ui) return;
   ui->GetControlWithTag(kCtrlTagRouting)->Hide(!open);
+  _RefreshParamDependentUI(false);
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot))->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
   ui->SetAllControlsDirty();
@@ -2081,6 +2103,24 @@ void NeuralAmpModeler::_RefreshParamDependentUI(bool tunerChanged)
     }
   _UpdateTunerControls();
   // Refresh labels/quality and selected-module controls after automation or preset recall.
+  if (auto* ui = GetUI())
+  {
+    const bool sequential = GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential;
+    const bool split = GetParam(PerformanceParam(grid_performance::Crossover))->Bool();
+    ui->ForAllControlsFunc([&](IControl* control) {
+      if (control->GetTag() == kCtrlTagRoutingView) return;
+      const int id = control->GetParamIdx();
+      const int performance = PerformanceIndex(id);
+      if (id == kParallelBlend || (performance >= 0 && grid_performance::ParallelOnly(performance)))
+      {
+        const auto* parent = control->GetParent();
+        control->Hide(sequential || (parent && parent->IsHidden()));
+        control->SetDisabled(sequential || (!split && (performance == grid_performance::CrossoverFrequency
+                                                     || performance == grid_performance::CrossoverSlope)));
+      }
+    });
+    ui->SetAllControlsDirty();
+  }
   if (auto* ui = GetUI())
     for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
       if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot)))
@@ -2263,6 +2303,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
                       : mSlotEffects[i] == SlotEffect::CabinetIR ? mPreparedIRTail[i]
                       : mSlotEffects[i] == SlotEffect::Stutter ? 33. : mSlotEffects[i] == SlotEffect::Freeze ? 4. : 0.;
   mEffectTailSeconds.store(std::min(60., 2. + rowTails[0] + std::max(rowTails[1], rowTails[2]) + rowTails[3]));
+  mSequentialTailSeconds.store(std::min(60., 2. + rowTails[0] + rowTails[1] + rowTails[2] + rowTails[3]));
 
   mSlotInfo[slot] = info;
   mSlotGear[slot] = config.effect == SlotEffect::CabinetIR ? nam_library::Gear::Cabinet : nam_library::Gear::Unknown;
@@ -2410,14 +2451,17 @@ void NeuralAmpModeler::_UpdateTailSize()
       && GetParam(SlotActiveParam(slot))->Bool();
   const int tail = holding
                      ? kTailInfinite
-                     : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate() * mEffectTailSeconds.load())));
+                     : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate()
+                         * (GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential
+                              ? mSequentialTailSeconds.load() : mEffectTailSeconds.load()))));
   if (GetTailSize() != tail)
     SetTailSize(tail);
 }
 
 void NeuralAmpModeler::_UpdateLatency(bool forceRestart)
 {
-  const int latency = FixedNAMGrid::TotalLatency(mRequestedLatencies);
+  const int latency = FixedNAMGrid::TotalLatency(mRequestedLatencies,
+    GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential);
   // A lane's delay can change while the longer lane and total host latency remain the same.
   // CLAP must still reactivate to adopt/reset the pending model and alignment buffers.
   if (GetLatency() != latency || forceRestart)

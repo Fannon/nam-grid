@@ -4,6 +4,48 @@
 // grid, and the header scene buttons. Pages use the main editor's 24 px margins.
 namespace grid_ui
 {
+inline void DrawFlowIcon(IGraphics& g, float x, float y, bool serial)
+{
+  const auto line = [&](float a, float b, float c, float d, IColor ink) {
+    g.DrawLine(ink, x+a, y+b, x+c, y+d, nullptr, 1.5f);
+  };
+  if (serial)
+  {
+    line(-17,0,17,0,muted);
+    g.FillRect(ampColor, IRECT(x-13,y-3,x-7,y+3));
+    g.FillRect(cabColor, IRECT(x+7,y-3,x+13,y+3));
+  }
+  else
+  {
+    line(-19,0,-12,0,muted); line(-12,-5,-12,5,muted);
+    line(-12,-5,12,-5,ampColor); line(-12,5,12,5,cabColor);
+    line(12,-5,12,5,muted); line(12,0,19,0,muted);
+    g.FillRect(ampColor, IRECT(x-3,y-7,x+3,y-3));
+    g.FillRect(cabColor, IRECT(x-3,y+3,x+3,y+7));
+  }
+}
+// Change topology explicitly inside Routing; the grid button only opens that page.
+class FlowMode : public IControl
+{
+public:
+  FlowMode(const IRECT& r) : IControl(r, PerformanceParam(grid_performance::LaneMode))
+  { SetTooltip("Click to switch lanes: Parallel splits into A and B then blends; Sequential runs Pre > A > B > Post."); }
+  void OnMouseDown(float, float, const IMouseMod& mod) override
+  {
+    if (mod.L) PLUG()->SetParameterFromUI(PerformanceParam(grid_performance::LaneMode), GetParam()->Int() ? 0. : 1.);
+  }
+  void Draw(IGraphics& g) override
+  {
+    const bool serial = GetParam()->Int() == grid_performance::Sequential;
+    g.FillRoundRect(surface, mRECT, 3.f);
+    g.DrawRoundRect(mMouseIsOver ? accent : border, mRECT, 3.f);
+    const float x = mRECT.W() > 100.f ? mRECT.L + 24.f : mRECT.MW(), y = mRECT.MH();
+    DrawFlowIcon(g, x, y, serial);
+    if (mRECT.W() > 100.f)
+      g.DrawText(Text(12.f, text, EAlign::Center), serial ? "Sequential" : "Parallel", IRECT(mRECT.L+46,mRECT.T,mRECT.R-3,mRECT.B));
+  }
+};
+
 inline constexpr float pageLeft = 24.f, pageRight = grid_layout::width - 24.f, pageTop = 72.f;
 
 // Segmented page or source selector; the selected segment is raised.
@@ -103,43 +145,36 @@ private:
   IPopupMenu mMenu;
 };
 
-// A saved-state choice in one header row: shows "Label: value" and opens a menu of its
-// values. Used for the split's slope, which is never host automation (see StateOnly).
-class PerformanceChoice : public IControl
+// One presentation choice over the released split-enable and slope parameters.
+class FrequencySplitChoice : public IControl
 {
 public:
-  PerformanceChoice(const IRECT& r, int parameter, const char* label) : IControl(r, parameter), mLabel(label) {}
+  explicit FrequencySplitChoice(const IRECT& r)
+  : IControl(r, {PerformanceParam(grid_performance::Crossover), PerformanceParam(grid_performance::CrossoverSlope)})
+  { SetTooltip("Click to cycle: Off, Gentle (6 dB/oct), Steep (24 dB/oct). The split sends lows to A and highs to B."); }
   void Draw(IGraphics& g) override
   {
-    WDL_String value;
-    GetParam()->GetDisplay(GetValue(), true, value);
+    const char* value = !GetParam(0)->Bool() ? "Split: Off"
+                       : GetParam(1)->Int() == 0 ? "Split: Gentle (6 dB/oct)" : "Split: Steep (24 dB/oct)";
     g.FillRoundRect(surface, mRECT, 3.f);
     g.DrawRoundRect(mMouseIsOver ? muted : border, mRECT, 3.f);
-    FittedText(g, Text(13.f, text, EAlign::Center), mLabel + ": " + value.Get(), mRECT.GetHPadded(-8.f));
+    FittedText(g, Text(13.f, text, EAlign::Center), value, mRECT.GetHPadded(-8.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
+    using namespace grid_performance;
     if (!mod.L) return;
-    mMenu.Clear();
-    const auto* param = GetParam();
-    for (int value = static_cast<int>(param->GetMin()); value <= static_cast<int>(param->GetMax()); ++value)
+    if (!GetParam(0)->Bool())
     {
-      WDL_String item;
-      param->GetDisplay(value, false, item);
-      mMenu.AddItem(new IPopupMenu::Item(item.Get(), param->Int() == value ? IPopupMenu::Item::kChecked : 0, value));
+      PLUG()->SetParameterFromUI(PerformanceParam(CrossoverSlope), SplitSlopeFirstOrder);
+      PLUG()->SetParameterFromUI(PerformanceParam(Crossover), 1.);
     }
-    GetUI()->CreatePopupMenu(*this, mMenu, mRECT);
-  }
-  void OnPopupMenuSelection(IPopupMenu* menu, int) override
-  {
-    if (const auto* item = menu ? menu->GetChosenItem() : nullptr)
-      PLUG()->SetParameterFromUI(GetParamIdx(), item->GetTag());
+    else if (GetParam(1)->Int() == SplitSlopeFirstOrder)
+      PLUG()->SetParameterFromUI(PerformanceParam(CrossoverSlope), SplitSlopeLinkwitzRiley);
+    else
+      PLUG()->SetParameterFromUI(PerformanceParam(Crossover), 0.); // Retain the saved slope while off.
     SetDirty(false);
   }
-
-private:
-  std::string mLabel;
-  IPopupMenu mMenu;
 };
 
 // Matrix row cells ------------------------------------------------------------
@@ -568,61 +603,204 @@ private:
     SetDirty(true, step);
   }
 };
-// Lows feed lane A and highs lane B, split by a first-order pair or a fourth-order
-// Linkwitz-Riley pair. The curves are the selected slope's magnitudes, below 0 dBFS.
+// Routing always shows the signal path, with a compact crossover below it when enabled.
 class CrossoverView : public IControl
 {
 public:
   CrossoverView(const IRECT& r)
   : IControl(r, {PerformanceParam(grid_performance::Crossover), PerformanceParam(grid_performance::CrossoverFrequency),
-                 PerformanceParam(grid_performance::CrossoverSlope)})
-  { mIgnoreMouse = true; }
+                 PerformanceParam(grid_performance::CrossoverSlope), PerformanceParam(grid_performance::LaneMode), kParallelBlend,
+                 PerformanceParam(grid_performance::LaneAGain), PerformanceParam(grid_performance::LaneBGain),
+                 PerformanceParam(grid_performance::LaneABalance), PerformanceParam(grid_performance::LaneBBalance),
+                 PerformanceParam(grid_performance::LaneAMute), PerformanceParam(grid_performance::LaneBMute),
+                 PerformanceParam(grid_performance::LaneASolo), PerformanceParam(grid_performance::LaneBSolo)})
+  { SetTooltip("M mutes a lane. S solos and unmutes it, clearing the other solo. Solo keeps the A/B blend level. M and S on the same lane are exclusive."); }
+
   void Draw(IGraphics& g) override
   {
     using namespace grid_performance;
     VisualizationBackground(g, mRECT);
-    const bool on = PLUG()->GetParam(PerformanceParam(Crossover))->Bool();
-    const double frequency = PLUG()->GetParam(PerformanceParam(CrossoverFrequency))->Value();
-    const bool steep = PLUG()->GetParam(PerformanceParam(CrossoverSlope))->Int() >= SplitSlopeLinkwitzRiley;
-    const auto plot = IRECT(mRECT.L + 14, mRECT.T + 34, mRECT.R - 14, mRECT.B - 26);
-    g.DrawText(Text(14.f, on ? text : muted), on ? "Split: lows to A, highs to B" : "Split off: both lanes get the full signal",
-               IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 74, mRECT.T + 28));
-    g.DrawText(Text(12.f, muted, EAlign::Far), steep ? "24 dB/oct" : "6 dB/oct",
-               IRECT(mRECT.L + 14, mRECT.T + 8, mRECT.R - 14, mRECT.T + 28));
-    const auto x = [&](double hz) { return plot.L + plot.W() * static_cast<float>(std::log(hz / 20.) / std::log(1000.)); };
-    const auto y = [&](double gain) { return plot.B - plot.H() * static_cast<float>(gain); };
-    for (double hz : {100., 1000., 10000.})
-      g.DrawLine(border.WithOpacity(.5f), x(hz), plot.T, x(hz), plot.B);
+    const bool serial = Value(LaneMode) >= .5;
+    const bool split = !serial && Value(Crossover) >= .5;
+    if (serial != mSerial) { mPeaks = {}; mSerial = serial; }
+    DrawFlow(g, serial, split);
+    if (split) DrawSplit(g);
+    DrawMeters(g, serial);
+  }
+  bool IsHit(float x, float y) const override
+  {
+    if (Value(grid_performance::LaneMode) >= .5) return false;
+    for (int lane = 0; lane < 2; ++lane)
+      for (bool solo : {false, true})
+        if (LaneButton(lane, solo).Contains(x, y)) return true;
+    return false;
+  }
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  {
+    using namespace grid_performance;
+    if (!mod.L || Value(LaneMode) >= .5) return;
+    for (int lane = 0; lane < 2; ++lane)
+      for (bool solo : {false, true})
+        if (LaneButton(lane, solo).Contains(x, y))
+        {
+          const int muteParam = lane ? LaneBMute : LaneAMute;
+          const int soloParam = lane ? LaneBSolo : LaneASolo;
+          const int target = solo ? soloParam : muteParam;
+          const bool enable = Value(target) < .5;
+          if (enable)
+          {
+            PLUG()->SetParameterFromUI(PerformanceParam(solo ? muteParam : soloParam), 0.);
+            if (solo) PLUG()->SetParameterFromUI(PerformanceParam(lane ? LaneASolo : LaneBSolo), 0.);
+          }
+          PLUG()->SetParameterFromUI(PerformanceParam(target), enable ? 1. : 0.);
+          return;
+        }
+  }
+  void OnMsgFromDelegate(int, int size, const void* data) override
+  {
+    if (!data || size != sizeof(iplug::ISenderData<1, FixedNAMGrid::LanePeaks>)) return;
+    const auto& peaks = static_cast<const iplug::ISenderData<1, FixedNAMGrid::LanePeaks>*>(data)->vals[0];
+    for (int lane = 0; lane < 2; ++lane)
+      for (int ch = 0; ch < 2; ++ch) mPeaks[lane][ch] = std::max(mPeaks[lane][ch], peaks[lane][ch]);
+    SetDirty(false);
+  }
+  bool IsDirty() override
+  {
+    const double now = ModuleLevels::Now(), dt = std::max(0., now - mTime); mTime = now;
+    const float decay = static_cast<float>(std::exp(-dt / .35));
+    for (auto& lane : mPeaks)
+      for (auto& peak : lane)
+        if (peak > 1.e-6f) { peak *= decay; SetDirty(false); } else peak = 0.f;
+    if (!IsHidden())
+    {
+      float x, y; GetUI()->GetMouseLocation(x, y);
+      const bool hovered = Value(grid_performance::LaneMode) < .5
+        && Value(grid_performance::Crossover) >= .5 && SplitPlot().Contains(x, y);
+      if (hovered != mHovered || (hovered && x != mHoverX))
+      { mHovered = hovered; mHoverX = x; SetDirty(false); }
+    }
+    return IControl::IsDirty();
+  }
+private:
+  FixedNAMGrid::LanePeaks mPeaks{};
+  double mTime = ModuleLevels::Now();
+  bool mHovered = false, mSerial = false;
+  float mHoverX = -1.f;
+  double Value(int p) const
+  { return static_cast<PLUG_CLASS_NAME*>(const_cast<CrossoverView*>(this)->GetDelegate())->GetParam(PerformanceParam(p))->Value(); }
+  float LaneY(int lane) const { return mRECT.T + (lane ? 88.f : 46.f); }
+  IRECT LaneNode(int lane) const { return IRECT(mRECT.MW()-112, LaneY(lane)-13, mRECT.MW()+112, LaneY(lane)+13); }
+  IRECT LaneButton(int lane, bool solo) const
+  {
+    const auto node = LaneNode(lane);
+    return IRECT(node.R-(solo?24.f:47.f), node.T+4, node.R-(solo?5.f:28.f), node.B-4);
+  }
+  IRECT SplitPlot() const { return IRECT(mRECT.L+14, mRECT.T+122, mRECT.R-14, mRECT.B-54); }
+  void DrawMeters(IGraphics& g, bool serial)
+  {
     for (int lane = 0; lane < 2; ++lane)
     {
-      const auto color = (lane ? cabColor : ampColor).WithOpacity(on ? 1.f : .35f);
+      const float x = mRECT.L+14+lane*(mRECT.W()*.5f), y = mRECT.B-20;
+      const auto color = lane ? cabColor : ampColor;
+      WDL_String caption;
+      const float peak = std::max(mPeaks[lane][0], mPeaks[lane][1]);
+      const char* name = lane ? (serial ? "After B" : "B") : (serial ? "After A" : "A");
+      if (peak > 1.e-6f) caption.SetFormatted(64, "%s  %.1f dBFS", name, 20.f*std::log10(peak));
+      else caption.SetFormatted(64, "%s  -inf dBFS", name);
+      g.DrawText(Text(11.f, muted), caption.Get(), IRECT(x, y-17, x+mRECT.W()*.5f-24, y-3));
+      for (int ch = 0; ch < 2; ++ch)
+      {
+        const IRECT bar(x+12, y+ch*8, x+mRECT.W()*.5f-28, y+ch*8+5);
+        g.DrawText(Text(9.f, muted), ch ? "R" : "L", IRECT(x, y+ch*8-3, x+10, y+ch*8+8));
+        g.FillRect(surface, bar);
+        const float db = 20.f*std::log10(std::max(1.e-6f, mPeaks[lane][ch]));
+        g.FillRect(db >= 0.f ? COLOR_RED : color, IRECT(bar.L, bar.T, bar.L+bar.W()*std::clamp((db+60.f)/60.f, 0.f, 1.f), bar.B));
+      }
+    }
+  }
+  void DrawFlow(IGraphics& g, bool serial, bool split)
+  {
+    using namespace grid_performance;
+    const float l = mRECT.L+18, r = mRECT.R-18, y = mRECT.T+67;
+    g.DrawText(Text(14.f, text), serial ? "Sequential: Pre > A > B > Post" : "Parallel: lane contributions to Post",
+               IRECT(l, mRECT.T+6, r, mRECT.T+26));
+    const auto box = [&](const IRECT& b, const char* label, IColor color) {
+      g.FillRoundRect(surface, b, 4.f); g.DrawRoundRect(color, b, 4.f);
+      g.DrawText(Text(12.f, color, EAlign::Center), label, b);
+    };
+    if (serial)
+    {
+      const float step = (r-l)/4.f;
+      g.DrawLine(border, l+20, y, r-20, y, nullptr, 2.f);
+      const char* labels[]{"Pre", "A", "B", "Post"};
+      for (int i = 0; i < 4; ++i)
+        box(IRECT(l+i*step, y-17, l+(i+1)*step-12, y+17), labels[i], i == 1 ? ampColor : i == 2 ? cabColor : muted);
+      g.DrawText(Text(12.f, muted, EAlign::Center), "Meters: after each lane, before Post", IRECT(l, y+35, r, y+57));
+      return;
+    }
+    const float fork = l+54, merge = r-54;
+    g.DrawLine(border, l+42, y, fork, y); g.DrawLine(border, fork, LaneY(0), fork, LaneY(1));
+    g.DrawLine(border, merge, LaneY(0), merge, LaneY(1)); g.DrawLine(border, merge, y, r-42, y);
+    box(IRECT(l, y-13, l+42, y+13), "Pre", muted);
+    box(IRECT(r-42, y-13, r, y+13), "Post", muted);
+    const double blend = PLUG()->GetParam(kParallelBlend)->Value();
+    for (int lane = 0; lane < 2; ++lane)
+    {
+      const auto color = lane ? cabColor : ampColor;
+      const auto node = LaneNode(lane);
+      g.DrawLine(color, fork, LaneY(lane), merge, LaneY(lane));
+      const double balance = Value(lane ? LaneBBalance : LaneABalance);
+      const double gain = Value(lane ? LaneBGain : LaneAGain);
+      const bool mute = Value(lane ? LaneBMute : LaneAMute) >= .5;
+      const bool solo = Value(lane ? LaneBSolo : LaneASolo) >= .5;
+      const bool silent = mute || (Value(lane ? LaneASolo : LaneBSolo) >= .5 && !solo);
+      g.FillRoundRect(surface, node, 4.f); g.DrawRoundRect(silent ? muted : color, node, 4.f);
+      WDL_String label;
+      label.SetFormatted(80, "%c %.0f%% %+.1f dB %s", lane ? 'B' : 'A', lane ? blend : 100.-blend,
+                         gain, silent ? "Muted" : balance == 0. ? "Centre" : balance < 0. ? "Left" : "Right");
+      g.DrawText(Text(11.f, silent ? muted : color, EAlign::Center), label.Get(), IRECT(node.L+4, node.T, node.R-50, node.B));
+      for (bool soloButton : {false, true})
+      {
+        const bool active = soloButton ? solo : mute;
+        const auto button = LaneButton(lane, soloButton);
+        g.FillRoundRect(active ? color : editorBackground, button, 2.f);
+        g.DrawRoundRect(active ? color : border, button, 2.f);
+        g.DrawText(Text(11.f, active ? background : muted, EAlign::Center), soloButton ? "S" : "M", button);
+      }
+    }
+    if (!split)
+      g.DrawText(Text(11.f, muted, EAlign::Center), "Empty lanes pass the signal from Pre.", IRECT(l, mRECT.T+108, r, mRECT.T+129));
+  }
+  void DrawSplit(IGraphics& g)
+  {
+    using namespace grid_performance;
+    const double frequency = Value(CrossoverFrequency);
+    const bool steep = Value(CrossoverSlope) >= .5;
+    const auto plot = SplitPlot();
+    g.DrawText(Text(11.f, muted), "Split: low A / high B", IRECT(plot.L, plot.T-18, plot.R, plot.T-3));
+    g.DrawText(Text(11.f, muted, EAlign::Far), steep ? "24 dB/oct" : "6 dB/oct", IRECT(plot.L, plot.T-18, plot.R, plot.T-3));
+    const auto x = [&](double hz) { return plot.L+plot.W()*static_cast<float>(std::log(hz/20.)/std::log(1000.)); };
+    for (double hz : {100., 1000., 10000.}) g.DrawLine(border.WithOpacity(.5f), x(hz), plot.T, x(hz), plot.B);
+    for (int lane = 0; lane < 2; ++lane)
+    {
       float px = plot.L, py = 0.f;
       for (int i = 0; i <= 160; ++i)
       {
-        const double hz = 20. * std::pow(1000., i / 160.), ratio = hz / frequency;
-        // First order: 3 dB/octave pairs. Linkwitz-Riley: two cascaded Butterworth sections.
-        const double low = steep ? 1. / (1. + ratio * ratio * ratio * ratio)
-                                 : 1. / std::sqrt(1. + ratio * ratio);
-        const double high = steep ? ratio * ratio * ratio * ratio / (1. + ratio * ratio * ratio * ratio)
-                                  : ratio / std::sqrt(1. + ratio * ratio);
-        const double gain = on ? (lane ? high : low) : 1.;
-        const float nx = x(hz), ny = y(gain * .9);
-        if (i) g.DrawLine(color, px, py, nx, ny, nullptr, 2.f);
+        const double hz = 20.*std::pow(1000., i/160.), ratio = hz/frequency;
+        const double low = steep ? 1./(1.+std::pow(ratio, 4.)) : 1./std::sqrt(1.+ratio*ratio);
+        const double high = steep ? std::pow(ratio, 4.)/(1.+std::pow(ratio, 4.)) : ratio/std::sqrt(1.+ratio*ratio);
+        const float nx = x(hz), ny = plot.B-plot.H()*.9f*static_cast<float>(lane ? high : low);
+        if (i) g.DrawLine(lane ? cabColor : ampColor, px, py, nx, ny, nullptr, 1.5f);
         px = nx; py = ny;
       }
     }
-    g.DrawLine(muted.WithOpacity(on ? .9f : .4f), x(frequency), plot.T, x(frequency), plot.B);
-    if (on)
-    {
-      // Lane legend in the caption row, clear of the frequency labels.
-      const IRECT caption(mRECT.L + 14, mRECT.T + 8, mRECT.R - 84, mRECT.T + 28);
-      g.DrawText(Text(12.f, cabColor, EAlign::Far), "B", caption);
-      g.DrawText(Text(12.f, ampColor, EAlign::Far), "A", caption.GetHShifted(-14.f));
-    }
+    g.DrawLine(muted, x(frequency), plot.T, x(frequency), plot.B);
     for (const auto& [hz, label] : {std::pair{100., "100"}, std::pair{1000., "1k"}, std::pair{10000., "10k"}})
-      g.DrawText(Text(11.f, muted, EAlign::Center), label, IRECT(x(hz) - 20, plot.B + 6, x(hz) + 20, plot.B + 22));
+      g.DrawText(Text(10.f, muted, EAlign::Center), label, IRECT(x(hz)-20, plot.B+1, x(hz)+20, plot.B+13));
+    DrawFrequencyCursor(g, plot, 20., 20000.);
   }
 };
+
 // Header scene buttons: click recalls a stored scene; right-click stores or clears.
 class SceneButton : public IControl
 {
@@ -678,22 +856,26 @@ private:
   int mScene, mState = -1;
   IPopupMenu mMenu;
 };
-// Below the A / B knob: shows or hides the routing panel in place of the module editor.
+// First click opens Routing; further clicks change mode while keeping it visible.
 class RoutingButton : public IControl
 {
 public:
-  RoutingButton(const IRECT& r) : IControl(r)
-  { SetTooltip("Lane levels, mute/solo, timing and the frequency split, shown below the grid."); }
+  RoutingButton(const IRECT& r) : IControl(r, PerformanceParam(grid_performance::LaneMode))
+  { SetTooltip("Open Routing; click again to switch Sequential / Parallel while keeping it open. Amber = A; blue = B. Close or Escape returns to the module."); }
   void Draw(IGraphics& g) override
   {
     const bool open = PLUG()->IsRoutingOpen();
     g.FillRoundRect(open ? IColor(255, 49, 53, 59) : surface, mRECT, 3.f);
     g.DrawRoundRect(open || mMouseIsOver ? muted : border, mRECT, 3.f);
-    g.DrawText(Text(13.f, open ? text : muted, EAlign::Center), "Routing", mRECT);
+    const bool serial = PLUG()->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential;
+    DrawFlowIcon(g, mRECT.MW(), mRECT.T + 14.f, serial);
+    g.DrawText(Text(10.f, open ? text : muted, EAlign::Center), serial ? "Sequential" : "Parallel", mRECT.GetFromBottom(20.f));
   }
   void OnMouseDown(float, float, const IMouseMod& mod) override
   {
-    if (mod.L) PLUG()->SetRoutingOpen(!PLUG()->IsRoutingOpen());
+    if (!mod.L) return;
+    if (!PLUG()->IsRoutingOpen()) PLUG()->SetRoutingOpen(true);
+    else PLUG()->SetParameterFromUI(PerformanceParam(grid_performance::LaneMode), GetParam()->Int() ? 0. : 1.);
   }
   bool IsDirty() override
   {
@@ -742,39 +924,35 @@ public:
     const auto knob = [&](int position, int parameter, const char* tip) {
       AddChildControl(new Knob(ControlBounds(position), PerformanceParam(parameter), parameters[parameter].label, true))->SetTooltip(tip);
     };
-    const auto toggle = [&](int position, int parameter, const char* tip) {
-      AddChildControl(new Toggle(ControlBounds(position), PerformanceParam(parameter), parameters[parameter].label))->SetTooltip(tip);
-    };
     knob(0, LaneAGain, "Lane A level after its four slots. Right-click to modulate it.");
-    toggle(1, LaneAMute, "Silence lane A. Mute wins over solo.");
-    toggle(2, LaneASolo, "Hear only lane A, keeping its blend level. Soloing both lanes passes both.");
-    knob(3, CrossoverFrequency, "Split frequency of the first-order crossover. Right-click to modulate it.");
+    knob(1, LaneABalance, "Lane A left/right balance: -100% left, 0% centre, +100% right. Centre preserves both channels; turning attenuates the opposite channel.");
     knob(4, LaneBGain, "Lane B level after its four slots. Right-click to modulate it.");
-    toggle(5, LaneBMute, "Silence lane B. Mute wins over solo.");
-    toggle(6, LaneBSolo, "Hear only lane B, keeping its blend level. Soloing both lanes passes both.");
-    knob(7, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
+    knob(5, LaneBBalance, "Lane B left/right balance: -100% left, 0% centre, +100% right. Centre preserves both channels; turning attenuates the opposite channel.");
+    knob(2, CrossoverFrequency, "Frequency dividing the low A branch and high B branch when Frequency split is on.");
+    knob(3, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
                         "timing; it cannot correct every phase difference and never advances audio.");
-    AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 528, grid_layout::descriptionTop, grid_layout::parameterRight - 360, grid_layout::descriptionTop + 24), PerformanceParam(Trails), "Trails"))
-      ->SetTooltip("Let bypassed delays and reverbs ring out; new playing no longer reaches them.");
-    AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 352, grid_layout::descriptionTop, grid_layout::parameterRight - 184, grid_layout::descriptionTop + 24), PerformanceParam(MixLaw), "Keep dry level"))
-      ->SetTooltip("Keep delay and reverb dry levels at unity; Mix sets the wet level.");
-    AddChildControl(new Toggle(IRECT(grid_layout::parameterRight - 176, grid_layout::descriptionTop, grid_layout::parameterRight, grid_layout::descriptionTop + 24), PerformanceParam(Crossover), "Frequency split"))
-      ->SetTooltip("Send lows to lane A and highs to lane B. With A / B centred, empty lanes rebuild the original signal.");
-    AddChildControl(new PerformanceChoice(IRECT(grid_layout::parameterRight - 292, grid_layout::moduleHeaderTop,
-                                                grid_layout::parameterRight - 128, grid_layout::moduleHeaderBottom),
-                                         PerformanceParam(CrossoverSlope), "Slope"))
-      ->SetTooltip("Gentle is the released 6 dB/octave split. Steep is a 24 dB/octave Linkwitz-Riley split: the "
-                   "driven lane gets far less low end, at the cost of an allpass phase shift around the split.");
+    AddChildControl(new FrequencySplitChoice(IRECT(grid_layout::parameterRight - 292, grid_layout::moduleHeaderTop,
+                                                   grid_layout::parameterRight - 128, grid_layout::moduleHeaderBottom)));
+    AddChildControl(new FlowMode(IRECT(grid_layout::parameterLeft + 100, grid_layout::moduleHeaderTop,
+                                      grid_layout::parameterRight - 304, grid_layout::moduleHeaderBottom)));
     AddChildControl(new Button(IRECT(grid_layout::parameterRight - 80, grid_layout::moduleHeaderTop, grid_layout::parameterRight, grid_layout::moduleHeaderBottom), [](IControl* caller) {
       static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close", Icon::Close))
       ->SetTooltip("Back to the selected module (Escape).");
-    AddChildControl(new CrossoverView(IRECT(grid_layout::visualizationLeft, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom)));
+    AddChildControl(new CrossoverView(IRECT(grid_layout::visualizationLeft, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom)), kCtrlTagRoutingView);
   }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
     DrawEditorBackground(g, mRECT);
-    g.DrawText(Text(22.f, accent), "Routing", IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, 300, grid_layout::moduleHeaderBottom));
+    const bool serial = static_cast<PLUG_CLASS_NAME*>(GetDelegate())->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential;
+    g.DrawText(Text(22.f, accent), "Routing", IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, 110, grid_layout::moduleHeaderBottom));
+    if (serial)
+    {
+      g.DrawText(Text(16.f, text), "Pre > A > B > Post",
+                 IRECT(grid_layout::parameterLeft+12, grid_layout::knobTop+22, grid_layout::parameterRight, grid_layout::knobTop+48));
+      g.DrawText(Text(13.f, muted), "One chain. Switch to Parallel for lane mixing and balance.",
+                 IRECT(grid_layout::parameterLeft+12, grid_layout::knobTop+54, grid_layout::parameterRight, grid_layout::knobTop+80));
+    }
   }
 };
 

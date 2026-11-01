@@ -38,7 +38,20 @@ The generated gallery uses a demo library containing:
 | `settings.png` | Settings |
 | `control.png` | Modulation page: LFO source, three matrix rows and macros |
 | `tuner.png` | Tuner with a sustained A2 note, +9 cents |
+| `routing-sequential.png` | Sequential grid wiring and live stereo levels after A and B |
+| `routing-parallel.png` | Parallel flow, paired A/B controls, M/S buttons and contribution meters |
+| `routing-split.png` | Routing pane with branch diagram, compact crossover and stereo meters |
+| `rig-behaviour.png` | Rig-wide Trails and Keep dry level switches in Settings |
 | `modules/*.png` | Focused parameter panes for every built-in module, NAM, and Cabinet IR, for the [module guide](../modules/README.md) |
+
+The routing images are selected captures from the focused native routing smoke
+test (`NAM_GRID_ROUTING_SMOKE=1`; see [editor screenshots](../build.md#editor-screenshots)).
+They show an empty example rig while generated stereo tones drive the meters.
+Sequential and Parallel retain the full editor to show the grid connections;
+the split image is cropped to the routing pane, and rig behaviour to the Settings
+section, so folder paths stay out of the manual. BMPs are converted losslessly to
+PNG. These are maintained routing-guide illustrations; ordinary test captures
+remain in `tmp/`.
 
 To regenerate the gallery, build the opt-in `nam-readme-gallery` target and run it
 with the plugin, the repository root and an output folder. On Windows:

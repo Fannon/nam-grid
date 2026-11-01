@@ -444,6 +444,12 @@ usual Windows scale after the checks.
 
 ## Editor screenshots
 
+For focused routing and frequency-hover checks on Windows, set
+`NAM_GRID_ROUTING_SMOKE=1` when running `nam-clap-smoke`. It checks opening Routing
+without changing mode, switching modes on the page, and state preservation while
+hovering module frequency charts and the Signal Monitor. An optional absolute
+screenshot-directory argument captures both routing modes and the hover readouts.
+
 For focused native mode-selector checks on Windows, set `NAM_GRID_MODE_SMOKE=1`
 when running `nam-clap-smoke`. It checks every dropdown choice, the current-item
 checkmark, cancellation, unchanged selection, recall and two-choice toggles, then

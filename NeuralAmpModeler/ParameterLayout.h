@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <span>
 #include <string>
+#include <utility>
 
 // Permanent host-parameter layout. Host IDs equal iPlug2 parameter indices and
 // are allocated in append-only segments: each segment first adds global
@@ -219,16 +220,25 @@ constexpr std::array<int, parameter_layout::slotControls> SlotParamIndices(size_
     result[i] = SlotParam(slot, i);
   return result;
 }
+// Evaluate each slot independently so Clang's constexpr step budget does not
+// grow with the entire parameter bank. Every slot still receives the same check.
+template <size_t Slot>
+inline constexpr bool SlotParameterOwnershipValid = [] {
+  for (const int index : SlotParamIndices(Slot))
+    if (index < 0 || index >= kNumParams || SlotControlOwner(index) != static_cast<int>(Slot))
+      return false;
+  return true;
+}();
+template <size_t... Slots>
+constexpr bool AllSlotParameterOwnersValid(std::index_sequence<Slots...>)
+{ return (SlotParameterOwnershipValid<Slots> && ...); }
+static_assert(AllSlotParameterOwnersValid(std::make_index_sequence<parameter_layout::slots>{}),
+              "Every slot parameter must map back to its owning slot");
 static_assert(
   [] {
-    for (size_t slot = 0; slot < 16; ++slot)
-      for (const int index : SlotParamIndices(slot))
-        if (index < 0 || index >= kNumParams
-            || SlotControlOwner(index) != static_cast<int>(slot))
-          return false;
     for (int parameter = 0; parameter < grid_performance::Count; ++parameter)
       if (SlotControlOwner(PerformanceParam(parameter)) != -1)
         return false;
     return SlotControlOwner(kOutputLevel) == -1;
   }(),
-  "Every slot parameter must map back to its owning slot");
+  "Global parameters must not belong to a slot");

@@ -52,6 +52,10 @@ Existing released projects, presets and automation keep loading. New rigs start 
 - More factory presets across the reverbs, with a focus on Cosmic Echo: dense modulated spaces, dark washes, clear repeats, swells and a Photon Plate lead sound. Practical choices include a warm rhythm plate, small recital hall, light moving cloud, short spring splash and gentle shimmer. Existing rigs and insertion defaults keep their settings.
 - Add **Aurora Hall Medium** to Cosmic Echo's factory presets, preserving the settings from the author's user preset.
 
+### Platform compatibility
+
+- Fix macOS builds failing during the compile-time parameter ownership checks as the effect bank grows. Every slot and global remains checked, with the same parameter identities. Fix Linux test compilation for saved scene coverage too.
+
 ## [0.4.0] - 2026-10-31
 
 Existing projects, presets and automation keep loading. New modes and routing options retain the previous settings in existing rigs. Some sound corrections are deliberate changes, listed below.

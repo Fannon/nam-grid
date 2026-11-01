@@ -79,7 +79,7 @@ void TestPerformanceSceneState(const clap_plugin* plugin, json base, Save save, 
     {
       clap_param_info info{}; assert(params->get_info(plugin, i, &info));
       if (!performance_scenes::IsParameter(info.id) || (info.flags & CLAP_PARAM_IS_STEPPED)) continue;
-      const double value = original[info.name].get<double>();
+      const double value = original[info.name].template get<double>();
       const double offset = (scene + 1) * 1.2345678901234567e-7 * std::max(1., std::abs(value));
       worst["PerformanceScenes"][scene][info.name] = value + (info.default_value < .5 ? offset : -offset);
     }

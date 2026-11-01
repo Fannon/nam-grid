@@ -37,6 +37,6 @@ Multiband Dynamics has clearer labels and shows its actual thresholds, detector 
 
 ## Platforms and compatibility
 
-Windows x64, macOS Apple Silicon and Linux x64 builds contain CLAP and VST3. macOS bundles are ad-hoc signed, not notarized. Linux uses X11/XWayland and has not been tested in a real DAW. Automated tests complement listening and host testing; they do not establish complete DAW coverage.
+Windows x64, macOS Apple Silicon and Linux x64 builds contain CLAP and VST3. Fixed a macOS build failure in the parameter compatibility checks as the effect bank grew. macOS bundles are ad-hoc signed, not notarized. Linux uses X11/XWayland and has not been tested in a real DAW. Automated tests complement listening and host testing; they do not establish complete DAW coverage.
 
 NAM captures and cabinet IRs outside the bundled examples remain external files: keep them available when moving rigs between computers. Projects and presets from before the 0.1.0 compatibility baseline are not supported. Development rigs that used the unreleased standalone Signal Monitor module must use the new meter view instead.

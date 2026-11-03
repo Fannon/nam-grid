@@ -141,12 +141,27 @@ existing valid print, and during a new capture the last completed print remains 
 snapshot. Very large or invalid samples are bounded so they cannot poison the filter histories.
 
 The optional final broadband gate works independently of the spectral profile, also without
-learning. It detects the original input's maximum L/R peak (so either channel, including
-anti-phase input, can open it), applies one linked gain after the spectral mix, and closes
-linearly to exact zero over Release after a 20 ms hold, with a fixed 0.5 ms opening ramp, 5 ms
+learning. It detects the cleaned signal's maximum L/R peak after spectral Mix and before its
+own gain (so either channel, including anti-phase input, can open it), applies one linked gain,
+and closes linearly to exact zero over the selected release after a 20 ms hold. The saved
+Gate timing choice defaults to Linked, following spectral Release for older states.
+Independent uses the 1–500 ms Gate release control. Its continuous range contains no link
+sentinel, so modulation cannot switch the timing source. It has a fixed 0.5 ms opening ramp, 5 ms
 peak-detector decay and 3 dB hysteresis. An enabled gate starts closed after reset or recall to
 avoid an initial noise burst; turning it Off reopens it over 0.5 ms. The GR readout estimates
 band gain plus gate attenuation, capped at 120 dB.
+
+The spectral path retains the original gain curve, global confidence protection, causal
+resonator bank, stereo-linked histories and exact neutral paths. The editor's amber history
+is the measured peak after spectral Mix and before the final gate.
+
+The opening coefficient depends on energy above the learned floor. At band power ratios up to four times
+the sensitivity-adjusted noise threshold, Attack is unchanged. From four to sixteen times,
+the coefficient interpolates toward one quarter of that time constant. Only opening gains
+use this coefficient; closing gains retain Release. This causal adjustment preserves more
+of clear attacks while allowing more energy through abrupt noise bursts. A shorter fixed
+Attack can preserve still more transient energy at a further noise-suppression cost. It changes
+existing rigs' transient response during 0.x without changing parameter IDs or saved profiles.
 
 With Gate Off, untrained, settled Mix 0 and Reduction 0 pass the exact finite input. Completed
 snapshots survive project recall, rig-preset save/load and Copy/Move/Swap; Learn is saved off,

@@ -19,7 +19,13 @@ Change one control at a time; the [control table](gate.md#noise-gate-smart) list
 
 1. Raise **Sensitivity** until the remaining noise is gone, and back off if sustain loses detail.
 2. Lower **Reduction** if pauses sound unnaturally dead; a little room tone often sounds better than silence.
-3. Only if you want completely silent pauses, raise **Gate threshold** from **Off** to just above the noise floor. It shares the Release knob and has a short hold, so it does not chatter.
+3. Only if you want completely silent pauses, raise **Gate threshold** from **Off** to just above the cleaned noise floor. Its detector listens after reduction and Mix, before its own gain. **Gate timing** starts **Linked** to spectral Release. Choose **Independent** to use the separate **Gate release** knob. A short hold and hysteresis reduce chatter. Check quiet picking again after adjusting the threshold: a cleaned note below it cannot open the gate.
+
+Bands open faster when their energy clearly exceeds the learned noise. This can preserve more of short picked notes without changing the quiet-level gain curve or spectral Release. Attack still adjusts opening speed: lower it for more transient preservation, at the cost of letting more changing noise through. Abrupt noise bursts can also trigger faster opening, so this does not replace a representative learned profile or the final gate.
+
+Gate timing is a saved choice. Automating or modulating Gate release changes only its time; it never switches between Linked and Independent. While Linked, the Gate release knob has no effect.
+
+The history shows gray input, amber cleaned audio before the final gate, and coloured final output. The dashed gate threshold applies to the amber trace. Increasing reduction or changing Mix therefore changes when the final gate closes.
 
 The **GR** readout estimates the current reduction. It is a guide, not a measurement of how much quieter the noise sounds.
 

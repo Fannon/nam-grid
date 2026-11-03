@@ -26,6 +26,8 @@ struct Controls
   bool learn = false;
   double sensitivity = 1.5, reduction = 24., attack = 2., release = 120., mix = 100.;
   double gateThreshold = -100.; // Minimum is Off, independent of the learned print.
+  int gateTiming = 0; // 0 Linked to spectral Release, 1 Independent.
+  double gateRelease = 120.; // Independent closing time; no sentinel in the modulated range.
 };
 
 // Stage-lifetime mailbox: audio is the sole writer. Control never touches an
@@ -83,6 +85,7 @@ public:
     mLearning = false;
     mChanged = true;
     mReduction = 0.;
+    mCleanPeak = 0.;
     mGateEnvelope = 0.;
     mGateGain = 1.;
     mGateHold = 0;
@@ -120,9 +123,11 @@ public:
     return changed;
   }
   double Reduction() const { return mReduction; }
+  double CleanPeak() const { return mCleanPeak; }
 
   void Process(double* left, double* right, int frames, const Controls& c)
   {
+    mCleanPeak = 0.;
     if (c.learn && !mLearning)
     {
       mMean = {};
@@ -155,7 +160,8 @@ public:
     const double gateLevel = std::pow(10., gateThreshold * .05);
     const double gateDetectorRelease = std::exp(-1. / (.005 * mRate));
     const double gateOpenStep = 1. / (.0005 * mRate);
-    const double gateCloseStep = 1. / (.001 * std::clamp(c.release, 20., 500.) * mRate);
+    const double gateCloseStep = 1. / (.001 * (c.gateTiming == 1 ? std::clamp(c.gateRelease, 1., 500.)
+                                                                             : std::clamp(c.release, 20., 500.)) * mRate);
     const auto gateHoldSamples = static_cast<uint64_t>(.020 * mRate);
     double learnedPower = 0.;
     std::array<double, bands> inverseThreshold;
@@ -197,10 +203,12 @@ public:
       mMix += std::clamp(mixTarget - mMix, -mixStep, mixStep);
       // Exact dry/untrained/learning paths: no crossover coloration or buffering.
       const bool neutral = !mProfile.valid || mMix == 0.;
-      // Apply the broadband gate after the spectral mix. Detect the original
-      // input so changing sensitivity/mix cannot move its threshold. Max L/R
-      // detection and one gain preserve stereo placement, including anti-phase.
-      const double peak = std::max(std::abs(dry[0]), std::abs(dry[1]));
+      // Both detector and gain follow the spectral mix. Detect before the gate's
+      // own gain so a closed gate can reopen. Max L/R preserves anti-phase input.
+      const double cleaned[2]{neutral ? dry[0] : dry[0] + mMix * (wet[0] - dry[0]),
+                              right ? (neutral ? dry[1] : dry[1] + mMix * (wet[1] - dry[1])) : 0.};
+      const double peak = std::max(std::abs(cleaned[0]), std::abs(cleaned[1]));
+      mCleanPeak = std::max(mCleanPeak, peak);
       mGateEnvelope = std::max(peak, Flush(mGateEnvelope * gateDetectorRelease));
       if (!gateEnabled || mGateEnvelope >= gateLevel)
       {
@@ -218,9 +226,9 @@ public:
       }
       const double gateTarget = mGateOpen ? 1. : 0.;
       mGateGain += std::clamp(gateTarget - mGateGain, -gateCloseStep, gateOpenStep);
-      left[sample] = (neutral ? dry[0] : dry[0] + mMix * (wet[0] - dry[0])) * mGateGain;
+      left[sample] = cleaned[0] * mGateGain;
       if (right)
-        right[sample] = (neutral ? dry[1] : dry[1] + mMix * (wet[1] - dry[1])) * mGateGain;
+        right[sample] = cleaned[1] * mGateGain;
       minimumGain = std::min(minimumGain, (1. - mMix + mMix * gainSum / bands) * mGateGain);
     }
     mReduction = -20. * std::log10(std::max(1.e-6, minimumGain));
@@ -302,15 +310,21 @@ private:
                     const Split& split, double* wet)
   {
     double reference = 1., gainSum = 0., bandSum[2]{};
+    const double fastAttack = attack * attack * attack * attack;
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
     const auto one = _mm_set1_pd(1.), zero = _mm_setzero_pd();
     auto gains = zero, minimum = one, sumL = zero, sumR = zero, wetL = zero, wetR = zero;
     for (int i = 0; i < bands; i += 2)
     {
       auto target = one;
+      auto openingAttack = _mm_set1_pd(attack);
       if (reducing)
       {
         const auto ratio = _mm_mul_pd(_mm_loadu_pd(&mPower[i]), _mm_loadu_pd(&inverseThreshold[i]));
+        // Bands well above the learned floor open faster, including abrupt noise.
+        // Near the learned floor keep the selected Attack and suppression curve.
+        const auto evidence = _mm_min_pd(one, _mm_max_pd(zero, _mm_mul_pd(_mm_sub_pd(ratio, _mm_set1_pd(4.)), _mm_set1_pd(1. / 12.))));
+        openingAttack = _mm_add_pd(openingAttack, _mm_mul_pd(evidence, _mm_set1_pd(fastAttack - attack)));
         const auto knee = _mm_min_pd(one, _mm_max_pd(zero, _mm_sub_pd(ratio, one)));
         auto curve = _mm_mul_pd(_mm_mul_pd(_mm_set1_pd(1. - floor), knee), knee);
         curve = _mm_mul_pd(curve, _mm_sub_pd(_mm_set1_pd(3.), _mm_mul_pd(_mm_set1_pd(2.), knee)));
@@ -319,7 +333,7 @@ private:
       const auto previous = _mm_loadu_pd(&mGain[i]);
       const auto opening = _mm_cmpgt_pd(target, previous);
       const auto coefficient =
-        _mm_or_pd(_mm_and_pd(opening, _mm_set1_pd(attack)), _mm_andnot_pd(opening, _mm_set1_pd(release)));
+        _mm_or_pd(_mm_and_pd(opening, openingAttack), _mm_andnot_pd(opening, _mm_set1_pd(release)));
       const auto gain = _mm_add_pd(target, _mm_mul_pd(coefficient, _mm_sub_pd(previous, target)));
       _mm_storeu_pd(&mGain[i], gain);
       gains = _mm_add_pd(gains, gain);
@@ -353,16 +367,19 @@ private:
     for (int i = 0; i < bands; i += 2)
     {
       auto target = one;
+      auto openingAttack = vdupq_n_f64(attack);
       if (reducing)
       {
         const auto ratio = vmulq_f64(vld1q_f64(&mPower[i]), vld1q_f64(&inverseThreshold[i]));
+        const auto evidence = vminq_f64(one, vmaxq_f64(zero, vmulq_n_f64(vsubq_f64(ratio, vdupq_n_f64(4.)), 1. / 12.)));
+        openingAttack = vfmaq_n_f64(openingAttack, evidence, fastAttack - attack);
         const auto knee = vminq_f64(one, vmaxq_f64(zero, vsubq_f64(ratio, one)));
         const auto curve = vmulq_f64(vmulq_n_f64(knee, 1. - floor), knee);
         target = vmaxq_f64(vdupq_n_f64(protection),
                           vfmaq_f64(vdupq_n_f64(floor), curve, vfmsq_n_f64(vdupq_n_f64(3.), knee, 2.)));
       }
       const auto previous = vld1q_f64(&mGain[i]);
-      const auto coefficient = vbslq_f64(vcgtq_f64(target, previous), vdupq_n_f64(attack), vdupq_n_f64(release));
+      const auto coefficient = vbslq_f64(vcgtq_f64(target, previous), openingAttack, vdupq_n_f64(release));
       vst1q_f64(&mGain[i], vfmaq_f64(target, coefficient, vsubq_f64(previous, target)));
     }
     // Keep reductions in their original band order after updating gains in pairs.
@@ -385,13 +402,15 @@ private:
     for (int i = 0; i < bands; ++i)
     {
       double target = 1.;
+      double openingAttack = attack;
       if (reducing)
       {
         const double ratio = mPower[i] * inverseThreshold[i];
+        openingAttack += std::clamp((ratio - 4.) / 12., 0., 1.) * (fastAttack - attack);
         const double knee = std::clamp(ratio - 1., 0., 1.);
         target = std::max(protection, floor + (1. - floor) * knee * knee * (3. - 2. * knee));
       }
-      const double coefficient = target > mGain[i] ? attack : release;
+      const double coefficient = target > mGain[i] ? openingAttack : release;
       mGain[i] = target + coefficient * (mGain[i] - target);
       gainSum += mGain[i];
       if (synthesize)
@@ -424,7 +443,7 @@ private:
   Profile mProfile;
   uint64_t mSamples = 0, mWarmup = 0;
   double mRate = 48000., mMix = 1., mReduction = 0., mSynthesis = 1.;
-  double mGateEnvelope = 0., mGateGain = 1.;
+  double mGateEnvelope = 0., mGateGain = 1., mCleanPeak = 0.;
   uint64_t mGateHold = 0;
   bool mGateOpen = false, mGateFirst = true;
   bool mLearning = false, mChanged = true;

@@ -1803,6 +1803,7 @@ public:
       const auto monitoredEffect = PLUG()->GetSlotEffect(mSlot);
       mReductionNow = meter.reduction;
       mInputHistory[mReductionWrite] = meter.input;
+      mCleanHistory[mReductionWrite] = meter.cleaned;
       mReductionHistory[mReductionWrite] = meter.reduction;
       const bool compressor=monitoredEffect==SlotEffect::SmoothComp || monitoredEffect==SlotEffect::PunchComp;
       mOutputHistory[mReductionWrite] = compressor ? meter.beforeMakeup : meter.output;
@@ -2090,6 +2091,7 @@ private:
         }
       };
       trace(mInputHistory, muted.WithOpacity(.85f), 1.f);
+      if (effect == SlotEffect::NoisePrint) trace(mCleanHistory, ampColor, 1.f);
       trace(mOutputHistory, color, 1.5f);
     };
     if (effect == SlotEffect::NAM)
@@ -2291,6 +2293,7 @@ private:
       const bool off = smart && threshold <= -100.;
       WDL_String caption;
       if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
+      else if (smart) caption.SetFormatted(64, "Gate on CLEAN | GR %.1f dB", mReductionNow);
       else caption.SetFormatted(64, "GR %.1f dB", mReductionNow);
       PlotTitle(g,plot,color,caption.Get());
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
@@ -2340,7 +2343,7 @@ private:
       }
       else
       {
-        PlotDetail(g,plot,"Gray IN / colour OUT | gate line dashed");
+        PlotDetail(g,plot,"Gray IN / amber CLEAN / colour OUT | dashed: gate on CLEAN");
         PlotFooter(g,plot,"0 / -100 dB | GR bar 0 - 24 dB","Older > now");
       }
       levels(gate || smart ? -100.f : -60.f, history);
@@ -2933,7 +2936,7 @@ private:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     if (effect != mPlotEffect || path != mPlotPath)
     {
-      mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mReductionHistory = {};
+      mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mCleanHistory = {}; mReductionHistory = {};
       mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear();
       mReductionWrite = 0; mReductionNow = 0.f;
     }
@@ -3274,7 +3277,7 @@ private:
   std::array<double, 10> mPedalPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;
   std::string mPlotPath;
-  std::array<float, 120> mInputHistory{}, mOutputHistory{}, mReductionHistory{};
+  std::array<float, 120> mInputHistory{}, mOutputHistory{}, mCleanHistory{}, mReductionHistory{};
   std::array<float, 96> mResponse{};
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
   std::array<double, 9> mResponseKey{-1.};

@@ -151,10 +151,12 @@ void TestDistortionTonePreview()
   // DC rejection, dry/wet phase sum and output gain against actual samples.
   for (double rate : {44100., 48000., 88200., 96000., 176400., 192000.})
   for (double frequency : {100., 1000., 6000.})
+  for (double preserve : {0., 10., 180., 1000.})
     for (double mix : {0., 35., 100.})
     {
       SlotDistortion distortion; distortion.Reset(rate);
       UtilityControls c; c.distortion = {1., 0., 1800., 0., mix, -3.};
+      c.distortionLowPreserve = preserve;
       double inputPower = 0., outputPower = 0.;
       const int observed = static_cast<int>(rate * .1), warm = observed * 4;
       for (int i = 0; i < warm + observed; ++i)

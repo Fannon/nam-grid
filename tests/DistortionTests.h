@@ -46,6 +46,7 @@ void TestDistortionAndMonoMeters()
       c.distortion = {double(segment % effect_modes::distortionCount), double((segment % 4) * 12),
                       segment % 2 ? 200. : 12000., double((segment % 3 - 1) * 100),
                       double((segment % 3) * 50), segment % 2 ? -6. : 6.};
+      c.distortionLowPreserve = segment % 2 ? 1000. : 0.;
       const int n = std::min({static_cast<int>(actual.size()) - position, 256 - position % 256,
                              std::array<int, 4>{1, 3, 37, 128}[block++ % 4]});
       allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
@@ -94,6 +95,7 @@ void TestDistortionAndMonoMeters()
       {
         c.distortion = {double(segment), segment % 2 ? 36. : 0., segment % 2 ? 200. : 12000.,
                         segment % 2 ? 100. : -100., 100., 6.};
+        c.distortionLowPreserve = segment % 2 ? 1000. : 0.;
         for (int pos = segment * 1024, block = 0; pos < (segment + 1) * 1024;)
         {
           const int n = std::min((segment + 1) * 1024 - pos,
@@ -115,9 +117,29 @@ void TestDistortionAndMonoMeters()
     }
     SlotDistortion dry; dry.Reset(rate);
     UtilityControls c; c.distortion[4] = c.distortion[5] = 0.;
+    c.distortionLowPreserve = 1000.;
     std::array<double, 4> samples{.5, -.75, .125, 0.}, expected = samples;
     dry.Process(samples.data(), 4, c);
     assert(samples == expected);
+
+    // Preservation must actually reduce low-note harmonics, not merely add
+    // bass underneath the same full-band distortion. Use a coherent 40 Hz tone.
+    const int size = static_cast<int>(rate);
+    const auto bass = [&](double preserve) {
+      SlotDistortion effect; effect.Reset(rate);
+      UtilityControls controls; controls.distortion = {0., 12., 12000., 0., 100., 0.};
+      controls.distortionLowPreserve = preserve;
+      std::vector<double> audio(size * 2);
+      for (int i = 0; i < audio.size(); ++i) audio[i] = .5 * std::sin(2. * grid_fx::pi * 40. * i / rate);
+      effect.Process(audio.data(), static_cast<int>(audio.size()), controls);
+      audio.erase(audio.begin(), audio.begin() + size);
+      return audio;
+    };
+    const auto full = bass(0.), preserved = bass(400.);
+    const double fullThird = spectral_test::ToneAmplitude(full, 120);
+    const double keptThird = spectral_test::ToneAmplitude(preserved, 120);
+    assert(keptThird < fullThird * .05); // At least 26 dB less third harmonic.
+    assert(spectral_test::ToneAmplitude(preserved, 40) > .45); // Clean body remains.
 
     // Measure the signal's mono sum, rather than taking the louder channel.
     SlotConfig config; config.effect = SlotEffect::Utility;

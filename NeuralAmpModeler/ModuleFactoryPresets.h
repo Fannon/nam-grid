@@ -163,6 +163,8 @@ inline const Preset tube[]{
     {U(uTubeHighCut), 7000.}, {U(uTubeOutput), -16.}}},
 };
 inline const Preset distortion[]{
+  {"Clean lows, warm grit", {{U(uDistStyle), 0.}, {U(uDistDrive), 9.}, {U(uDistTone), 6000.},
+    {U(uDistLowPreserve), 220.}, {U(uDistOutput), -6.}, {U(uDistMix), 60.}}},
   {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 24.}, {U(uDistTone), 4500.}, {U(uDistOutput), -20.}}},
   // Rectification adds the octave-up character of octave fuzz pedals.
   {"Octave-up fuzz", {{U(uDistStyle), 5.}, {U(uDistDrive), 12.}, {U(uDistTone), 5000.}, {U(uDistOutput), -4.}}},

@@ -25,6 +25,7 @@ Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the
 | **Drive** | 0–36 dB | 9 dB | Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output. |
 | **High cut** | 200–12000 Hz | 5500 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
 | **Bias** | -100 to +100% | 0% | Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC. |
+| **Low preserve** | Off–1000 Hz | Off | Routes lows around distortion and High cut, then restores them clean. The split is gentle, with overlapping bands. |
 | **Output** | -24 to +6 dB | -6 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
@@ -32,12 +33,15 @@ In the header:
 
 - **Style** (Soft clip, Hard clip, Fuzz, Foldback, Diode, Rectify; starts at Soft clip) Choose soft or hard clipping, dense fuzz, wavefolding, asymmetric diode clipping or octave-like rectification.
 
-**Display:** Left: the static shaper curve before tone and mix; the highlighted span shows how much of the curve your playing reaches. Right: the High cut, Mix and Output response.
+**Display:** Left: the static shaper curve before tone and mix; the highlighted span shows how much of the full-band input reaches the module. Right: the Low preserve, High cut, Mix and Output response.
+
+**Presets:** Clean lows, warm grit, Hard rhythm, Octave-up fuzz and Sputtering gated fuzz.
 
 **Tips:**
 
 - Drive into a following NAM capture for a pedal-into-amp sound, with Output lowered to keep the capture's input sensible.
 - Fuzz and Rectify respond strongly to Bias; small moves change the character more than Drive.
+- Try Low preserve around 150–300 Hz to keep bass weight while adding grit above it. High cut only darkens the distorted path; the restored lows remain clean. This is a gentle separation, so high Drive can still distort some bass. Off retains the original sound exactly; no lookahead or compensation delay is added.
 
 ## Pedal Drive
 

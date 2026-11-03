@@ -25,7 +25,7 @@ Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the
 | **Drive** | 0–36 dB | 9 dB | Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output. |
 | **High cut** | 200–12000 Hz | 5500 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
 | **Bias** | -100 to +100% | 0% | Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC. |
-| **Low preserve** | Off–1000 Hz | Off | Routes lows around distortion and High cut, then restores them clean. The split is gentle, with overlapping bands. |
+| **Low preserve** | 0–1000 Hz | 0 Hz | Routes lows around distortion and High cut, then restores them clean; zero is Off. The split is gentle, with overlapping bands. |
 | **Output** | -24 to +6 dB | -6 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 

@@ -109,7 +109,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
       else
         param->InitDouble((name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit);
-      if (i == uNoiseGateThreshold)
+      if (i == uNoiseGateThreshold || i == uDistLowPreserve)
         param->SetDisplayText(p.minimum, "Off");
     }
     GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);

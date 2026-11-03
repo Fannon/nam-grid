@@ -462,6 +462,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
       : "Choose soft or hard clipping, dense fuzz, wavefolding, asymmetric diode clipping or octave-like rectification.";
     case uDistDrive: case uTubeDrive: return "Gain into the shaper; more drive compresses and adds harmonics. Match loudness with Output.";
     case uDistBias: case uTubeBias: return "Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC.";
+    case uDistLowPreserve: return "Keep lows clean below this frequency, restoring them after distortion and High cut. The split is gentle; zero turns preservation off.";
     case uNoiseLearn: return "Learn while playing only the unwanted noise, then turn Learn off before playing guitar.";
     case uNoiseSensitivity: return "Raise the learned noise threshold; too much can reduce quiet sustain.";
     case uNoiseReduction: return "Maximum reduction in noisy bands. Less can retain more natural room tone and note tails.";

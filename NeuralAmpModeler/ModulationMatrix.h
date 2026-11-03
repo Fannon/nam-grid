@@ -118,6 +118,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   family(uShimmerMix, t.shimmer);
   family(uShiftFrequency, t.shift);
   family(uDistStyle, t.distortion);
+  u(uDistLowPreserve, t.distortionLowPreserve);
   family(uLoFiSpeed, t.lofi);
   u(uTapeHeads, t.tapeHeads);
   u(uDelayDiffusion, t.delayDiffusion);

@@ -43,6 +43,8 @@ public:
     mSmooth = std::exp(-1. / (.02 * mRate));
     mDC = std::exp(-2. * grid_fx::pi * 5. / mRate);
     mControls.Reset(mRate);
+    mLowControls.Reset(mRate);
+    mLowState = 0.; mLowFrequency = -1.; mLowPole = 0.;
     mWeights = {};
     mPrevious = mHighPass = mLowPass = 0.;
     mFirst = true;
@@ -54,6 +56,7 @@ public:
   void Process(double* samples, int frames, const UtilityControls& controls)
   {
     mControls.Target(controls.distortion, uDistStyle);
+    mLowControls.Target({controls.distortionLowPreserve}, uDistLowPreserve);
     const int style = static_cast<int>(std::clamp(controls.distortion[0], 0., double(effect_modes::distortionCount - 1)));
     if (mFirst) { mWeights[style] = 1.; mFirst = false; }
     for (int i = 0; i < frames; ++i)
@@ -65,6 +68,24 @@ public:
       if (c[5] != mCached[2]) mOutput = std::pow(10., c[5] / 20.);
       mCached = {c[1], c[2], c[5]};
       const double dry = samples[i], bias = c[3] * .004;
+      // Complementary one-pole split, as in Pedal Drive: lows bypass both the
+      // shaper and High cut. No lookahead or dry/clean-low compensation delay.
+      // Fade preservation below 20 Hz so automating through Off never suddenly
+      // introduces or removes a charged filter history. Off keeps the old path.
+      const double lowFrequency = mLowControls.Tick()[0];
+      double kept = 0.;
+      if (lowFrequency > 1.e-6)
+      {
+        if (lowFrequency != mLowFrequency)
+        {
+          mLowPole = std::exp(-2. * grid_fx::pi * std::min(std::max(20., lowFrequency), .4 * mRate) / mRate);
+          mLowFrequency = lowFrequency;
+        }
+        mLowState = grid_fx::Flush(dry + mLowPole * (mLowState - dry));
+        kept = mLowState * std::min(1., lowFrequency / 20.);
+      }
+      else mLowState = 0.;
+      const double input = dry - kept;
       for (int j = 0; j < effect_modes::distortionCount; ++j)
         mWeights[j] = grid_fx::Flush((j == style ? 1. : 0.) + mSmooth * (mWeights[j] - (j == style ? 1. : 0.)));
       const auto shape = [&](double input) {
@@ -111,14 +132,14 @@ public:
         mPreviousInput = input;
         return wet;
       };
-      const double wet = mFactor == 2 ? mOversample2.Tick(dry, shape)
-                       : mFactor == 4 ? mOversample4.Tick(dry, shape)
-                       : mFactor == 8 ? mOversample8.Tick(dry, shape) : shape(dry);
+      const double wet = mFactor == 2 ? mOversample2.Tick(input, shape)
+                       : mFactor == 4 ? mOversample4.Tick(input, shape)
+                       : mFactor == 8 ? mOversample8.Tick(input, shape) : shape(input);
       // Reject the remaining signal-dependent DC from asymmetric distortion.
       mHighPass = grid_fx::Flush(wet - mPrevious + mDC * mHighPass);
       mPrevious = wet;
       mLowPass = grid_fx::Flush((1. - mTone) * mHighPass + mTone * mLowPass);
-      samples[i] = (dry + c[4] * .01 * (mLowPass - dry)) * mOutput;
+      samples[i] = (dry + c[4] * .01 * (mLowPass + kept - dry)) * mOutput;
     }
   }
 
@@ -188,6 +209,8 @@ private:
   unsigned mIntegralMask = 0, mBiasMask = 0;
   uint64_t mIntegralDriveKey = 0, mBiasKey = 0;
   grid_fx::SmoothControls<6> mControls;
+  grid_fx::SmoothControls<1> mLowControls;
+  double mLowState = 0., mLowFrequency = -1., mLowPole = 0.;
   std::array<double, effect_modes::distortionCount> mWeights{};
   std::array<double, 3> mCached{};
   double mRate = 48000., mSmooth = 0., mDC = 0.;

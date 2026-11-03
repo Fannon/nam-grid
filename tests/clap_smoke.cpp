@@ -322,6 +322,26 @@ int main(int argc, char** argv)
     assert(loadRaw(legacyEQ));
     assert(save().config() == base);
   }
+  // Low preserve is opt-in: schema 25 restores Off even after an enabled rig.
+  // Current states must retain the value in every slot and require the field.
+  {
+    auto enabled = base, legacy = base;
+    legacy["schema"] = 25;
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      const auto key = GridSlotName(slot) + " " + kEffectParameters[uDistLowPreserve].name;
+      assert(base[key] == 0.);
+      enabled[key] = 200. + slot;
+      legacy.erase(key);
+    }
+    load(enabled);
+    assert(save().config() == enabled);
+    load(legacy);
+    assert(save().config() == base);
+    enabled.erase("Pre 1 Distortion Low Preserve");
+    assert(!loadRaw(enabled));
+    assert(save().config() == base);
+  }
   assert(params->count(plugin) == 5 + grid_performance::Count + 16 * (17 + kUtilityControls));
   // Every slot exposes the same host controls; no upstream single-amp parameters remain.
   for (const char* name : {"Threshold", "Bass", "ToneStack", "IRToggle", "OutputMode", "CalibrateInput",
@@ -399,7 +419,7 @@ int main(int argc, char** argv)
     assert(save().config() == base);
   }
   // Integers outside int must not wrap into a valid schema or module ID.
-  for (const json& schema : {json(0), json(kEffectStateSchema + 1), json(26), json(99), json(4294967297ll),
+  for (const json& schema : {json(0), json(kEffectStateSchema + 1), json(99), json(4294967297ll),
                              json(-4294967295ll), json(18446744073709551615ull), json(1.)})
   {
     auto unsupported = base;

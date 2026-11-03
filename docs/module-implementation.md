@@ -59,7 +59,11 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
 - **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
   style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
   FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
-  lookahead or reported delay. **Tube Boost** is an original biased soft saturator with Boost's
+  lookahead or reported delay. Low preserve uses a complementary one-pole split before
+  the shaper and restores the clean lows after the DC blocker and High cut. Below 20 Hz
+  its amount fades toward Off; Off retains the original processing exactly. The wet
+  high band retains the oversampler's phase, while dry and restored lows are unshifted.
+  **Tube Boost** is an original biased soft saturator with Boost's
   Tilt/Low cut voicing and a locally oversampled saturator (4x/2x/1x at the same host-rate bands). It uses the shared minimum-phase FIR with 32 base taps; the host-rate tone and DC filters remain outside it. A collapsed identity FIR
   aligns the partial-Mix dry reference; a 20 ms fade handles the exact-dry bypass at Mix zero.
 - **Pedal Drive** ([SlotPedalDrive.h](../NeuralAmpModeler/SlotPedalDrive.h),

@@ -126,7 +126,13 @@ void TestModulationMatrixClap(const clap_plugin* plugin, json cleared, Save save
           for (int slot = 0; slot < 16; ++slot) old.erase(GridSlotName(slot) + " " + kEffectParameters[p].name);
       load(old);
       const auto upgraded = save().config();
-      for (int p = LFO2Shape; p < Count; ++p) assert(upgraded[parameters[p].name] == StateDefault(p, schema));
+      for (int p = LFO2Shape; p < Count; ++p)
+      {
+        // Fields already present in this schema retain the saved value (for
+        // example, schema 25 can explicitly select parallel lane routing).
+        const auto expected = parameters[p].introducedIn > schema ? json(StateDefault(p, schema)) : old.at(parameters[p].name);
+        assert(upgraded[parameters[p].name] == expected);
+      }
       assert(upgraded["LFO Rate"] == 1.7 && upgraded["Envelope Attack"] == 21. && upgraded["Sequencer Step 3"] == 63.);
       assert(upgraded["Macro 4"] == 72. && upgraded[row(0, RowSource)] == SourceMacro4);
       assert(upgraded["PerformanceScenes"] == old["PerformanceScenes"]);

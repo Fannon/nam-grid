@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob routes lows around the distortion and High cut, with no added compensation delay. It starts Off, so existing rigs retain their sound.
+
 ## [0.5.0] - 2026-11-01
 
 Existing released projects, presets and automation keep loading. New rigs start with sequential lanes; saved rigs keep their routing. Frequency Shifter feedback and the optional steep crossover have audible differences described below.

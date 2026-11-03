@@ -18,7 +18,7 @@ void TestNoisePrintGate()
     noise_print::Controls c;
     c.gateThreshold = -40.;
     c.mix = 0.; // The final gate works independently of the spectral mix/profile.
-    c.release = 80.;
+    c.gateRelease = 80.;
     std::array<double, 512> left{}, right{};
     auto render = [&](double seconds, double l, double r) {
       for (int done = 0, total = static_cast<int>(seconds * rate); done < total;)
@@ -62,11 +62,11 @@ void TestNoisePrintGate()
     c.gateThreshold = -100.;
     assert((render(.002, .001, -.001) == std::array<double, 2>{.001, -.001}));
     c.gateThreshold = -40.;
-    c.release = 300.;
+    c.gateRelease = 300.;
     render(.005, .1, -.1);
     const auto slow = render(.15, .001, -.001);
     assert(slow[0] > 0. && slow[0] < .001);
-    c.release = 20.;
+    c.gateRelease = 20.;
     render(.005, .1, -.1);
     assert((render(.15, .001, -.001) == std::array<double, 2>{0., 0.}));
     processor.Reset(rate);
@@ -77,26 +77,22 @@ void TestNoisePrintGate()
 
 void TestNoisePrintTiming()
 {
-  // Timing is a saved choice, not a discontinuity in a modulated time knob.
-  // Sweep the independent time while Linked: output must remain bit-identical.
+  // The final gate starts Off, with a tighter independent closing time ready
+  // for when it is enabled. Spectral defaults retain their separate meaning.
+  const auto defaults = SlotDefaultValues(SlotEffect::NoisePrint);
+  assert(defaults[17 + uNoiseGateThreshold] == -100.);
+  assert(defaults[17 + uNoiseGateRelease] == 40.);
+  assert(defaults[17 + uNoiseRelease] == 120.);
   noise_print::Processor fixed, modulated;
-  fixed.Reset(48000.); modulated.Reset(48000.);
   noise_print::Controls c;
-  c.gateThreshold = -40.; c.release = 120.;
-  for (int i = 0; i < 24000; ++i)
-  {
-    double a = i < 2400 ? .1 : .001, b = a;
-    auto varied = c;
-    varied.gateRelease = 1. + (i % 500);
-    fixed.Process(&a, nullptr, 1, c);
-    modulated.Process(&b, nullptr, 1, varied);
-    assert(a == b);
-  }
-  // Independent timing ignores spectral Release, including both time endpoints.
+  assert(c.gateThreshold == -100. && c.gateRelease == 40. && c.release == 120.);
+  c.gateThreshold = -40.;
+  // There is no linked mode: varying spectral Release must never change final
+  // gate closure, including at both Gate release endpoints.
   for (double time : {1., 40., 500.})
   {
     fixed.Reset(48000.); modulated.Reset(48000.);
-    c.gateTiming = 1; c.gateRelease = time;
+    c.gateRelease = time;
     for (int i = 0; i < 36000; ++i)
     {
       double a = i < 2400 ? .1 : .001, b = a;
@@ -123,7 +119,7 @@ void TestNoisePrintReopening()
     gated.Reset(rate); ungated.Reset(rate);
     noise_print::Controls c;
     c.mix = mix; c.sensitivity = sensitivity;
-    c.gateThreshold = -48.; c.gateTiming = 1; c.gateRelease = 40.;
+    c.gateThreshold = -48.; c.gateRelease = 40.;
     uint32_t seed = 89;
     int firstOpen = -1;
     double error = 0., reference = 0.;
@@ -225,7 +221,6 @@ void TestNoisePrint()
     processor.Reset(48000.);
     c.release = 500.;
     c.gateRelease = 20.;
-    c.gateTiming = 1;
     samples.fill(.1);
     processor.Process(samples.data(), nullptr, 128, c);
     for (int block = 0; block < 60; ++block)
@@ -311,14 +306,13 @@ void TestNoisePrint()
     assert(noise_print::Load(noise_print::Save(saved)) == saved);
   }
   // Exact block partitioning, stereo linking, dry path and short-learn rejection.
-  for (int timing = 0; timing < 2; ++timing)
+  for (double gateRelease : {1., 45., 500.})
   {
     noise_print::Processor whole, split;
     whole.Reset(48000.); split.Reset(48000.);
     whole.Restore(learned); split.Restore(learned);
     noise_print::Controls controls;
-    controls.gateTiming = timing;
-    controls.gateRelease = 45.;
+    controls.gateRelease = gateRelease;
     controls.gateThreshold = -60.;
     uint32_t seed = 12;
     std::array<double, 128> l{}, r{}, sl{}, sr{};

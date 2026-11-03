@@ -26,8 +26,7 @@ struct Controls
   bool learn = false;
   double sensitivity = 1.5, reduction = 24., attack = 2., release = 120., mix = 100.;
   double gateThreshold = -100.; // Minimum is Off, independent of the learned print.
-  int gateTiming = 0; // 0 Linked to spectral Release, 1 Independent.
-  double gateRelease = 120.; // Independent closing time; no sentinel in the modulated range.
+  double gateRelease = 40.; // Independent final-gate closing time.
 };
 
 // Stage-lifetime mailbox: audio is the sole writer. Control never touches an
@@ -160,8 +159,7 @@ public:
     const double gateLevel = std::pow(10., gateThreshold * .05);
     const double gateDetectorRelease = std::exp(-1. / (.005 * mRate));
     const double gateOpenStep = 1. / (.0005 * mRate);
-    const double gateCloseStep = 1. / (.001 * (c.gateTiming == 1 ? std::clamp(c.gateRelease, 1., 500.)
-                                                                             : std::clamp(c.release, 20., 500.)) * mRate);
+    const double gateCloseStep = 1. / (.001 * std::clamp(c.gateRelease, 1., 500.) * mRate);
     const auto gateHoldSamples = static_cast<uint64_t>(.020 * mRate);
     double learnedPower = 0.;
     std::array<double, bands> inverseThreshold;

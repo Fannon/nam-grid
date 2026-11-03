@@ -143,10 +143,10 @@ snapshot. Very large or invalid samples are bounded so they cannot poison the fi
 The optional final broadband gate works independently of the spectral profile, also without
 learning. It detects the cleaned signal's maximum L/R peak after spectral Mix and before its
 own gain (so either channel, including anti-phase input, can open it), applies one linked gain,
-and closes linearly to exact zero over the selected release after a 20 ms hold. The saved
-Gate timing choice defaults to Linked, following spectral Release for older states.
-Independent uses the 1–500 ms Gate release control. Its continuous range contains no link
-sentinel, so modulation cannot switch the timing source. It has a fixed 0.5 ms opening ramp, 5 ms
+and closes linearly to exact zero over Gate release after a 20 ms hold. Gate release is
+always independent of spectral Release, ranges from 1–500 ms and defaults to 40 ms.
+The final gate defaults to Off. Older states receive the independent release default;
+there is no legacy linked timing or sentinel. It has a fixed 0.5 ms opening ramp, 5 ms
 peak-detector decay and 3 dB hysteresis. An enabled gate starts closed after reset or recall to
 avoid an initial noise burst; turning it Off reopens it over 0.5 ms. The GR readout estimates
 band gain plus gate attenuation, capped at 120 dB.

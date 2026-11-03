@@ -64,7 +64,6 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uNoiseRelease, t.noise.release);
   u(uNoiseMix, t.noise.mix);
   u(uNoiseGateThreshold, t.noise.gateThreshold);
-  u(uNoiseGateTiming, t.noise.gateTiming);
   u(uNoiseGateRelease, t.noise.gateRelease);
   u(uTempoSync, t.sync);
   u(uTempoDivision, t.division);

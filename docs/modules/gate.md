@@ -48,9 +48,9 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 | **Release** | 20–500 ms | 120 ms | Recovery toward noise reduction after notes; longer settings preserve sustain. |
 | **Gate threshold** | -100 to 0 dB | -100 dB | Final gate detects the cleaned signal after Mix. Minimum is Off; raise carefully to avoid cutting sustain. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
-| **Gate release** | 1–500 ms | 120 ms | Closing time of the final gate when Gate timing is Independent. Linked timing follows spectral Release. |
+| **Gate release** | 1–500 ms | 40 ms | Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently. |
 
-**Gate timing:** Linked (default) follows spectral Release. Independent uses Gate release. This choice is saved with the rig and is not automated; modulating the release time cannot switch the choice.
+The final gate starts **Off**. Gate release always controls its closing time separately from spectral Release.
 
 **Display:** Gray shows input, amber shows the cleaned signal before the final gate, and the module colour shows output. The dashed threshold applies to the amber trace. The GR bar estimates combined attenuation.
 

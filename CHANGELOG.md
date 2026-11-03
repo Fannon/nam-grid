@@ -4,7 +4,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- **Smart Gate:** bands above the learned noise floor open faster to retain more pick attack; abrupt noise bursts can also pass more easily. The final gate now listens to the cleaned signal after noise reduction and Mix, so existing rigs with the gate enabled can close sooner. The display adds an amber cleaned-signal trace. Choose Linked gate timing to follow spectral Release, or Independent to set Gate release separately without modulation switching the timing source. No added latency.
+- **Smart Gate:** bands above the learned noise floor open faster to retain more pick attack; abrupt noise bursts can also pass more easily. The final gate now listens to the cleaned signal after noise reduction and Mix, so existing rigs with the gate enabled can close sooner. The display adds an amber cleaned-signal trace. Gate release always controls the final gate independently, starting at 40 ms; older rigs with the gate enabled also use this separate closing time. The final gate remains Off by default. No added latency.
 
 - **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob routes lows around the distortion and High cut, with no added compensation delay. It starts Off, so existing rigs retain their sound.
 

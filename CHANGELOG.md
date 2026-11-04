@@ -5,6 +5,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ## [Unreleased]
 
 - **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob routes lows around the distortion and High cut, with no added compensation delay. It starts Off, so existing rigs retain their sound.
+- **Wider editor:** the window grows from 1020 to 1152 pixels wide, a 16:10 shape that fills common laptop and desktop screens when scaled up. Module displays and the Tuner's pitch history get the extra width. The library browser has a wider results list, so long NAM and IR file names fit, and Modulation has a wider Destination column. Grid cards are wider, with more space around IN, OUT, A/B and Routing. In each display's footer, the IN and OUT readouts now sit next to their own meters. Sound, saved rigs and automation are unchanged.
 
 ## [0.5.0] - 2026-11-01
 

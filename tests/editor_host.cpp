@@ -3,6 +3,7 @@
 #include "ClapTestHost.h"
 #include "IsolatedUserHome.h"
 #include "WinEditorCapture.h"
+#include "../NeuralAmpModeler/GridLayout.h"
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/base/keycodes.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
@@ -94,8 +95,8 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
   auto editor = GetWindow(parent, GW_CHILD); assert(editor);
   PumpFor(200);
   RECT client{}; assert(GetClientRect(editor, &client));
-  assert(std::abs(client.right - 1020 * scale) <= 1);
-  assert(std::abs(client.bottom - 720 * scale) <= 1);
+  assert(std::abs(client.right - grid_layout::width * scale) <= 1);
+  assert(std::abs(client.bottom - grid_layout::height * scale) <= 1);
   const auto xy = [&](double x, double y) { return MAKELPARAM(std::lround(x * scale), std::lround(y * scale)); };
   const auto clickValue = [&] {
     SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, xy(37, 128));

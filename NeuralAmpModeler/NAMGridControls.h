@@ -958,8 +958,9 @@ private:
 inline void DrawModuleLevels(IGraphics& g, const IRECT& r, const LevelComparison& levels,
                              const ModuleLevels& state, IColor ink)
 {
-  const float y = r.MH(), labelWidth = 24.f, valueWidth = 74.f;
-  const float barWidth = std::max(34.f, (r.W() - 64.f) * .5f - labelWidth - 3.f - valueWidth - 6.f);
+  // Each readout sits by its own bar; a wider gap separates the IN and OUT groups.
+  const float y = r.MH(), labelWidth = 24.f, valueWidth = 66.f, groupGap = 18.f, gainWidth = 64.f;
+  const float barWidth = std::max(34.f, (r.W() - gainWidth) * .5f - labelWidth - 3.f - valueWidth - groupGap);
   float x = r.L;
   const auto meter = [&](const char* label, const LevelComparison::Side& side, int index) {
     g.DrawText(Text(12.f, muted), label, IRECT(x, r.T, x + labelWidth, r.B));
@@ -982,7 +983,7 @@ inline void DrawModuleLevels(IGraphics& g, const IRECT& r, const LevelComparison
     else value.Set("-");
     g.DrawText(Text(12.f, clipped ? COLOR_RED : text, EAlign::Far), value.Get(),
                IRECT(track.R + 3.f, r.T, track.R + 3.f + valueWidth, r.B));
-    x = track.R + 3.f + valueWidth + 6.f;
+    x = track.R + 3.f + valueWidth + groupGap;
   };
   meter("IN", levels.input, 0);
   meter("OUT", levels.output, 1);
@@ -1023,45 +1024,46 @@ public:
   { mIgnoreMouse = true; }
   void Draw(IGraphics& g) override
   {
-    const auto wire = [&](float x1, float y1, float x2, float y2) {
-      g.DrawLine(border, x1 + grid_layout::gridOffset, y1, x2 + grid_layout::gridOffset, y2);
-    };
+    using namespace grid_layout;
+    const auto wire = [&](float x1, float y1, float x2, float y2) { g.DrawLine(border, x1, y1, x2, y2); };
     // Connectors meet card centres; returns run through the middle of the gap between rows.
-    const auto centre = [](int row) { return grid_layout::cardTop + grid_layout::rowPitch * row + grid_layout::cardHeight * .5f; };
-    const auto gap = [](int row) { return grid_layout::cardTop + grid_layout::rowPitch * row + (grid_layout::cardHeight + grid_layout::rowPitch) * .5f; };
+    const auto centre = [](int row) { return cardTop + rowPitch * row + cardHeight * .5f; };
+    const auto gap = [](int row) { return cardTop + rowPitch * row + (cardHeight + rowPitch) * .5f; };
     for (int row = 0; row < 4; ++row)
       for (int col = 0; col < 3; ++col)
       {
-        const float x = 276.f + 212.f * col;
-        wire(x, centre(row), x + 24, centre(row));
+        const float x = cardLeft + cardWidth + columnPitch * col;
+        wire(x, centre(row), x + cardGap, centre(row));
       }
     // IN and OUT reach their knobs, passing behind the stereo meters.
-    wire(64, centre(0), 88, centre(0));
-    wire(912, centre(3), 940, centre(3));
+    wire(sidebarRight + 2, centre(0), cardLeft, centre(0));
+    wire(gridRight, centre(3), sideCenterX - 24, centre(3));
     if (PLUG()->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential)
     {
       for (int row = 0; row < 3; ++row)
       {
-        wire(912, centre(row), 928, centre(row));
-        wire(928, centre(row), 928, gap(row));
-        wire(928, gap(row), 69, gap(row));
-        wire(69, gap(row), 69, centre(row + 1));
-        wire(69, centre(row + 1), 88, centre(row + 1));
+        wire(gridRight, centre(row), returnRight, centre(row));
+        wire(returnRight, centre(row), returnRight, gap(row));
+        wire(returnRight, gap(row), returnLeft, gap(row));
+        wire(returnLeft, gap(row), returnLeft, centre(row + 1));
+        wire(returnLeft, centre(row + 1), cardLeft, centre(row + 1));
       }
       return;
     }
-    wire(912, centre(0), 928, centre(0));
-    wire(928, centre(0), 928, gap(0));
-    wire(928, gap(0), 69, gap(0));
-    wire(69, gap(0), 69, centre(2));
-    wire(69, centre(1), 88, centre(1));
-    wire(69, centre(2), 88, centre(2));
-    wire(912, centre(1), 930, centre(1));
-    wire(930, centre(1), 930, gap(2));
-    wire(912, centre(2), 930, centre(2));
-    wire(930, gap(2), 69, gap(2));
-    wire(69, gap(2), 69, centre(3));
-    wire(69, centre(3), 88, centre(3));
+    // Parallel: Pre feeds both lanes on the left; the lanes merge to Post on a second return.
+    constexpr int mergeRight = returnRight + 2;
+    wire(gridRight, centre(0), returnRight, centre(0));
+    wire(returnRight, centre(0), returnRight, gap(0));
+    wire(returnRight, gap(0), returnLeft, gap(0));
+    wire(returnLeft, gap(0), returnLeft, centre(2));
+    wire(returnLeft, centre(1), cardLeft, centre(1));
+    wire(returnLeft, centre(2), cardLeft, centre(2));
+    wire(gridRight, centre(1), mergeRight, centre(1));
+    wire(mergeRight, centre(1), mergeRight, gap(2));
+    wire(gridRight, centre(2), mergeRight, centre(2));
+    wire(mergeRight, gap(2), returnLeft, gap(2));
+    wire(returnLeft, gap(2), returnLeft, centre(3));
+    wire(returnLeft, centre(3), cardLeft, centre(3));
   }
 };
 } // namespace grid_ui
@@ -1346,7 +1348,7 @@ public:
     // text field, before their shortcut processing can consume those keys.
     GetUI()->RemoveTextEntryControl();
 #endif
-    GetUI()->CreateTextEntry(owner, style, IRECT(248, 566, 772, 598), name);
+    GetUI()->CreateTextEntry(owner, style, IRECT(kLeft + 28, 566, kRight - 28, 598), name);
     GetUI()->SetAllControlsDirty();
   }
   bool IsDirty() override
@@ -1370,15 +1372,17 @@ public:
   {
     using namespace grid_ui;
     g.FillRect(IColor(180, 0, 0, 0), mRECT);
-    g.FillRoundRect(editorBackground, IRECT(220, 492, 800, 654), 8.f);
-    g.DrawRoundRect(border, IRECT(220, 492, 800, 654), 8.f);
-    g.DrawText(Text(20.f), "Save module preset", IRECT(244, 508, 776, 538));
-    g.DrawText(Text(13.f, muted), "Name", IRECT(244, 540, 776, 562));
-    g.FillRoundRect(surface, IRECT(244, 562, 776, 602), 4.f);
-    g.DrawRoundRect(accent, IRECT(244, 562, 776, 602), 4.f);
-    g.DrawText(Text(13.f, muted), "Enter to save  /  Esc to cancel", IRECT(244, 612, 776, 638));
+    g.FillRoundRect(editorBackground, IRECT(kLeft, 492, kRight, 654), 8.f);
+    g.DrawRoundRect(border, IRECT(kLeft, 492, kRight, 654), 8.f);
+    g.DrawText(Text(20.f), "Save module preset", IRECT(kLeft + 24, 508, kRight - 24, 538));
+    g.DrawText(Text(13.f, muted), "Name", IRECT(kLeft + 24, 540, kRight - 24, 562));
+    g.FillRoundRect(surface, IRECT(kLeft + 24, 562, kRight - 24, 602), 4.f);
+    g.DrawRoundRect(accent, IRECT(kLeft + 24, 562, kRight - 24, 602), 4.f);
+    g.DrawText(Text(13.f, muted), "Enter to save  /  Esc to cancel", IRECT(kLeft + 24, 612, kRight - 24, 638));
   }
 private:
+  // Centred over the module editor.
+  static constexpr float kLeft = grid_layout::width / 2 - 290.f, kRight = grid_layout::width / 2 + 290.f;
   IControl* mOwner = nullptr;
 };
 
@@ -1915,7 +1919,7 @@ private:
     PlotDetail(g,plot,"Measured head motion | +/-60 cents");
     PlotFooter(g,plot,"Speed also changes bandwidth","2.56 s");
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
-      g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(plot.L, center - 38, 790, center - 21));
+      g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(plot.L, center - 38, plot.R - 140, center - 21));
       const float start = plot.L, end = plot.R, height = 14.f;
       g.DrawLine(border.WithOpacity(.5f), start, center, end, center);
       float previous = center;
@@ -3442,9 +3446,9 @@ public:
       AddChildControl(new Button(IRECT(left, kFooterTop, right, kFooterTop + kFooterHeight),
         [url](IControl* control) { control->GetUI()->OpenURL(url); }, label))->SetTooltip(help);
     };
-    link(500, 660, "Documentation", CLAP_MANUAL_URL, "Open the NAM Grid documentation site.");
-    link(672, 816, "Source code", PLUG_URL_STR, "Open the NAM Grid source repository.");
-    link(828, kRight, "Report an issue", CLAP_SUPPORT_URL, "Report a problem or suggest an improvement.");
+    link(kRight - 496, kRight - 336, "Documentation", CLAP_MANUAL_URL, "Open the NAM Grid documentation site.");
+    link(kRight - 324, kRight - 180, "Source code", PLUG_URL_STR, "Open the NAM Grid source repository.");
+    link(kRight - 168, kRight, "Report an issue", CLAP_SUPPORT_URL, "Report a problem or suggest an improvement.");
   }
   void Hide(bool hide) override
   {
@@ -3515,7 +3519,7 @@ private:
   // One list of all source folders, grouped by the single file kind each one indexes.
   static constexpr std::array<nam_library::FileKind, 3> kKinds{
     nam_library::FileKind::NAM, nam_library::FileKind::IR, nam_library::FileKind::RigPreset};
-  static constexpr float kLeft = 24.f, kRight = grid_layout::width - 24.f; // The full-page margins (grid_ui::pageLeft/pageRight).
+  static constexpr float kLeft = grid_layout::pageLeft, kRight = grid_layout::pageRight;
   inline static const std::array<IRECT, 3> kAddRects{IRECT(kRight - 428, 124, kRight - 290, 152), IRECT(kRight - 278, 124, kRight - 140, 152), IRECT(kRight - 128, 124, kRight, 152)};
   static constexpr float kListTop = 164.f, kRowPitch = 38.f, kRowHeight = 32.f;
   static constexpr float kOpenL = kRight - 156.f, kOpenR = kRight - 86.f, kRemoveL = kRight - 80.f, kRemoveR = kRight - 8.f;

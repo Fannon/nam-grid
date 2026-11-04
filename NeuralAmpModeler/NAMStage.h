@@ -41,6 +41,7 @@ struct SlotMeterData
 {
   float input = 0.f, output = 0.f, reduction = 0.f;
   float beforeMakeup = 0.f;
+  float cleaned = 0.f; // Smart Gate: after spectral Mix, before the final gate.
   // Mono-sum energy and frame count since the last take, for the editor's RMS level strip.
   double inputEnergy = 0., outputEnergy = 0.;
   int frames = 0;
@@ -490,7 +491,10 @@ public:
             if (p->noise.TakeChanged())
               mNoiseSnapshot.Publish(p->noise.GetProfile(), p->noiseEpoch);
             if (mMonitoring)
+            {
               mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->noise.Reduction() * mMix));
+              mMeter.cleaned = std::max(mMeter.cleaned, static_cast<float>(p->noise.CleanPeak()));
+            }
           }
           else if (UsesCoupledStereo(p->effect))
           {

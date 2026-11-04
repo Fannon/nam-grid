@@ -18,7 +18,7 @@ void TestNoisePrintGate()
     noise_print::Controls c;
     c.gateThreshold = -40.;
     c.mix = 0.; // The final gate works independently of the spectral mix/profile.
-    c.release = 80.;
+    c.gateRelease = 80.;
     std::array<double, 512> left{}, right{};
     auto render = [&](double seconds, double l, double r) {
       for (int done = 0, total = static_cast<int>(seconds * rate); done < total;)
@@ -62,11 +62,11 @@ void TestNoisePrintGate()
     c.gateThreshold = -100.;
     assert((render(.002, .001, -.001) == std::array<double, 2>{.001, -.001}));
     c.gateThreshold = -40.;
-    c.release = 300.;
+    c.gateRelease = 300.;
     render(.005, .1, -.1);
     const auto slow = render(.15, .001, -.001);
     assert(slow[0] > 0. && slow[0] < .001);
-    c.release = 20.;
+    c.gateRelease = 20.;
     render(.005, .1, -.1);
     assert((render(.15, .001, -.001) == std::array<double, 2>{0., 0.}));
     processor.Reset(rate);
@@ -75,9 +75,161 @@ void TestNoisePrintGate()
   }
 }
 
+void TestNoisePrintTiming()
+{
+  // The final gate starts Off, with a tighter independent closing time ready
+  // for when it is enabled. Spectral defaults retain their separate meaning.
+  const auto defaults = SlotDefaultValues(SlotEffect::NoisePrint);
+  assert(defaults[17 + uNoiseGateThreshold] == -100.);
+  assert(defaults[17 + uNoiseGateRelease] == 40.);
+  assert(defaults[17 + uNoiseRelease] == 120.);
+  noise_print::Processor fixed, modulated;
+  noise_print::Controls c;
+  assert(c.gateThreshold == -100. && c.gateRelease == 40. && c.release == 120.);
+  c.gateThreshold = -40.;
+  // There is no linked mode: varying spectral Release must never change final
+  // gate closure, including at both Gate release endpoints.
+  for (double time : {1., 40., 500.})
+  {
+    fixed.Reset(48000.); modulated.Reset(48000.);
+    c.gateRelease = time;
+    for (int i = 0; i < 36000; ++i)
+    {
+      double a = i < 2400 ? .1 : .001, b = a;
+      auto varied = c;
+      varied.release = 20. + (i % 481);
+      fixed.Process(&a, nullptr, 1, c);
+      modulated.Process(&b, nullptr, 1, varied);
+      assert(a == b);
+      if (i == 35999) assert(a == 0.);
+    }
+  }
+}
+
+void TestNoisePrintReopening()
+{
+  // Exercise the learned spectral path and the final gate together. The older
+  // reopening checks use an untrained, dry path and cannot cover this interaction.
+  for (double rate : {44100., 48000., 96000.})
+    for (double mix : {50., 100.})
+      for (double sensitivity : {1.5, 4.5})
+        for (int articulation : {0, 1, 2})
+  {
+    noise_print::Processor gated, ungated;
+    gated.Reset(rate); ungated.Reset(rate);
+    noise_print::Controls c;
+    c.mix = mix; c.sensitivity = sensitivity;
+    c.gateThreshold = -48.; c.gateRelease = 40.;
+    uint32_t seed = 89;
+    int firstOpen = -1;
+    double error = 0., reference = 0.;
+    const int onset = static_cast<int>(1.5 * rate);
+    for (int i = 0; i < static_cast<int>(2.5 * rate); ++i)
+    {
+      const double t = i / rate, age = std::max(0., (i - onset) / rate);
+      double note = 0.;
+      if (i >= onset && age < .25)
+      {
+        const double frequency = articulation == 0 ? 82.4 : articulation == 1 ? 146.83 : 110.;
+        const double attack = articulation == 1 ? .008 : .001;
+        const double decay = articulation == 2 ? .035 : .25;
+        for (int harmonic = 1; harmonic <= 6; ++harmonic)
+          note += .025 * std::min(age / attack, 1.) * std::exp(-age / decay)
+                  * std::sin(6.283185307179586 * frequency * harmonic * age) / std::pow(double(harmonic), 1.5);
+      }
+      seed = seed * 1664525u + 1013904223u;
+      const double noise = .0015 * (double(seed) / 4294967296. * 2. - 1.)
+                           + .0015 * std::sin(6.283185307179586 * 150. * t);
+      double a = note + noise, b = a;
+      c.learn = t < 1.;
+      auto dryGate = c; dryGate.gateThreshold = -100.;
+      gated.Process(&a, nullptr, 1, c);
+      ungated.Process(&b, nullptr, 1, dryGate);
+      if (t >= 1.35 && i < onset) assert(a == 0.);
+      if (i >= onset && firstOpen < 0 && a != 0.) firstOpen = i - onset;
+      if (age >= .020 && age < .050)
+      {
+        error += (a - b) * (a - b);
+        reference += b * b;
+      }
+      if (t > 2.3) assert(a == 0.);
+    }
+    assert(gated.GetProfile().valid);
+    assert(firstOpen >= 0 && firstOpen < .015 * rate);
+    assert(reference > 0. && error < 1.e-12 * reference);
+  }
+}
+
 void TestNoisePrint()
 {
   TestNoisePrintGate();
+  TestNoisePrintTiming();
+  TestNoisePrintReopening();
+  // Short picked notes need to open before their energy has already decayed.
+  // Require <4% error energy in the first 20 ms of each high-SNR chug. The
+  // previous fixed opening coefficient gives about 8.5% on this signal.
+  {
+    noise_print::Processor processor;
+    processor.Reset(48000.);
+    noise_print::Controls c;
+    uint32_t seed = 42;
+    double error = 0., wanted = 0.;
+    for (int sample = 0; sample < 7 * 48000; ++sample)
+    {
+      const double t = sample / 48000.;
+      const double age = std::fmod(t, .5);
+      double clean = 0.;
+      if (t >= 2. && t < 6.)
+        for (int h = 1; h <= 8; ++h)
+          clean += .1 * std::min(age / .001, 1.) * std::exp(-age / .035)
+                   * std::sin(6.283185307179586 * 110. * h * age) / std::pow(double(h), 1.5);
+      seed = seed * 1664525u + 1013904223u;
+      const double noise = .002 * (double(seed) / 4294967296. * 2. - 1.)
+                           + .002 * std::sin(6.283185307179586 * 60. * t);
+      double output = clean + noise;
+      c.learn = t < 1.;
+      processor.Process(&output, nullptr, 1, c);
+      if (t >= 2. && t < 6. && age < .020)
+      {
+        error += (output - clean) * (output - clean);
+        wanted += clean * clean;
+      }
+    }
+    assert(error < .04 * wanted);
+  }
+  // The final gate must key from the denoised signal, not the louder raw noise.
+  {
+    noise_print::Processor processor;
+    processor.Reset(48000.);
+    noise_print::Controls c;
+    c.learn = true;
+    c.gateThreshold = -40.;
+    c.release = 20.;
+    uint32_t seed = 42;
+    std::array<double, 128> samples{};
+    for (int block = 0; block < 1500; ++block)
+    {
+      c.learn = block < 600;
+      for (int i = 0; i < 128; ++i)
+        samples[i] = 3. * NoiseSample(seed, block * 128 + i, 48000.);
+      processor.Process(samples.data(), nullptr, 128, c);
+    }
+    assert(processor.GetProfile().valid);
+    assert(processor.CleanPeak() > 0. && processor.CleanPeak() < .01);
+    for (double sample : samples) assert(sample == 0.);
+    // Gate release can be tightened without shortening spectral Release.
+    processor.Reset(48000.);
+    c.release = 500.;
+    c.gateRelease = 20.;
+    samples.fill(.1);
+    processor.Process(samples.data(), nullptr, 128, c);
+    for (int block = 0; block < 60; ++block)
+    {
+      samples.fill(.001);
+      processor.Process(samples.data(), nullptr, 128, c);
+    }
+    for (double sample : samples) assert(sample == 0.);
+  }
   std::cout << std::unitbuf;
   noise_print::Profile learned;
   for (double rate : {44100., 48000., 96000., 192000.})
@@ -154,6 +306,39 @@ void TestNoisePrint()
     assert(noise_print::Load(noise_print::Save(saved)) == saved);
   }
   // Exact block partitioning, stereo linking, dry path and short-learn rejection.
+  for (double gateRelease : {1., 45., 500.})
+  {
+    noise_print::Processor whole, split;
+    whole.Reset(48000.); split.Reset(48000.);
+    whole.Restore(learned); split.Restore(learned);
+    noise_print::Controls controls;
+    controls.gateRelease = gateRelease;
+    controls.gateThreshold = -60.;
+    uint32_t seed = 12;
+    std::array<double, 128> l{}, r{}, sl{}, sr{};
+    for (int block = 0; block < 120; ++block)
+    {
+      for (int i = 0; i < 128; ++i)
+      {
+        l[i] = sl[i] = NoiseSample(seed, block * 128 + i, 48000.);
+        r[i] = sr[i] = -l[i];
+      }
+      allocations = deletions = 0; tracking = true;
+      whole.Process(l.data(), r.data(), 128, controls);
+      for (int i = 0; i < 128; ++i) split.Process(sl.data()+i, sr.data()+i, 1, controls);
+      tracking = false;
+      assert(!allocations && !deletions);
+      for (int i = 0; i < 128; ++i)
+        assert(std::isfinite(l[i]) && l[i] == sl[i] && r[i] == sr[i] && l[i] == -r[i]);
+    }
+    controls.reduction = 0.; controls.gateThreshold = -100.;
+    for (int block = 0; block < 10; ++block)
+    {
+      l.fill(.123); r.fill(-.123);
+      whole.Process(l.data(), r.data(), 128, controls);
+    }
+    for (int i = 0; i < 128; ++i) assert(l[i] == .123 && r[i] == -.123);
+  }
   noise_print::Processor single, blocked;
   single.Reset(48000.);
   blocked.Reset(48000.);

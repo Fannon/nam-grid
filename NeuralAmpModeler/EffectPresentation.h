@@ -468,7 +468,8 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uNoiseReduction: return "Maximum reduction in noisy bands. Less can retain more natural room tone and note tails.";
     case uNoiseAttack: return "Speed at which the denoiser lets new signal through; short settings preserve pick attacks.";
     case uNoiseRelease: return "Recovery toward noise reduction after notes; longer settings preserve sustain.";
-    case uNoiseGateThreshold: return "Optional final gate after denoising. Minimum is Off; raise carefully to avoid cutting sustain.";
+    case uNoiseGateThreshold: return "Final gate detects the cleaned signal after Mix. Minimum is Off; raise carefully to avoid cutting sustain.";
+    case uNoiseGateRelease: return "Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently.";
     case uGateMode: return "Natural closes gently; Tight clamps gaps more firmly. Threshold, Release and Reduction remain independent.";
     case uTempoSync: return "Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.";
     case uTempoDivision: return "Musical interval at the current host tempo. Longer divisions give slower sweeps or longer repeats.";

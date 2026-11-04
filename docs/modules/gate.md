@@ -46,10 +46,13 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 | **Reduction** | 0–48 dB | 24 dB | Maximum reduction in noisy bands. Less can retain more natural room tone and note tails. |
 | **Attack** | 0.2–20 ms | 2 ms | Speed at which the denoiser lets new signal through; short settings preserve pick attacks. |
 | **Release** | 20–500 ms | 120 ms | Recovery toward noise reduction after notes; longer settings preserve sustain. |
-| **Gate threshold** | -100 to 0 dB | -100 dB | Optional final gate after denoising. Minimum is Off; raise carefully to avoid cutting sustain. |
+| **Gate threshold** | -100 to 0 dB | -100 dB | Final gate detects the cleaned signal after Mix. Minimum is Off; raise carefully to avoid cutting sustain. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
+| **Gate release** | 1–500 ms | 40 ms | Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently. |
 
-**Display:** Gain reduction, input and output over time, and the gate threshold.
+The final gate starts **Off**. Gate release always controls its closing time separately from spectral Release.
+
+**Display:** Gray shows input, amber shows the cleaned signal before the final gate, and the module colour shows output. The dashed threshold applies to the amber trace. The GR bar estimates combined attenuation.
 
 **Tips:**
 

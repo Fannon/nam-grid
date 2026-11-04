@@ -899,7 +899,7 @@ class SlotMeterTap : public IControl
 {
 public:
   SlotMeterTap(const IRECT& r, int point, bool input = false) : IControl(r), mPoint(point)
-  { SetTooltip(input ? "Click to inspect the preceding output signal in Signal Monitor."
+  { SetTooltip(input ? "Click to inspect the signal before this slot in Signal Monitor."
                      : "Click the output meter to inspect the stereo signal after this slot, including when empty or bypassed."); }
   void OnMouseDown(float, float, const IMouseMod&) override { PLUG()->ShowSignalMonitor(mPoint); }
   void Draw(IGraphics&) override {} // The slot card draws the meter beneath this hit target.
@@ -1036,7 +1036,7 @@ public:
         wire(x, centre(row), x + cardGap, centre(row));
       }
     // IN and OUT reach their knobs, passing behind the stereo meters.
-    wire(sidebarRight + 2, centre(0), cardLeft, centre(0));
+    wire(inCenterX + 24, centre(0), cardLeft, centre(0));
     wire(gridRight, centre(3), sideCenterX - 24, centre(3));
     if (PLUG()->GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential)
     {
@@ -1477,9 +1477,8 @@ public:
     g.DrawLine(muted, iconX, iconY + 2, iconX + 4, iconY + 2);
     if (enabled && PLUG()->IsSlotLoaded(mSlot))
     {
-      if (mSlot != 0) // The global IN meter already covers the first slot's input.
-        DrawMeterBar(g, IRECT(mCardBounds.L - 8, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
-                     tone.first, Now() < mInputClip);
+      DrawMeterBar(g, IRECT(mCardBounds.L - 8, mCardBounds.T + 5, mCardBounds.L - 4, mCardBounds.B - 5), mMeter.input,
+                   tone.first, Now() < mInputClip);
     }
     // Keep the monitor target visible even for an empty or bypassed slot.
     const bool metering = enabled && PLUG()->IsSlotLoaded(mSlot);

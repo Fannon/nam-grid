@@ -10,8 +10,9 @@ inline constexpr int sidebarRight = 92;
 inline constexpr int cardLeft = 122, cardWidth = 208, columnPitch = 232, cardGap = columnPitch - cardWidth;
 inline constexpr int gridRight = cardLeft + 3 * columnPitch + cardWidth;
 inline constexpr int returnLeft = cardLeft - 19, returnRight = gridRight + 16;
-inline constexpr int inputMeterLeft = cardLeft - 16;
-// The right column centres between the return wiring and the window edge.
+// The right column centres between the return wiring and the window edge. The stereo IN and OUT
+// meters mirror each other beside their knobs, apart from Pre 1's input and Post 4's output strips.
+inline constexpr int inCenterX = (4 + sidebarRight) / 2, inputMeterLeft = inCenterX + 31;
 inline constexpr int sideCenterX = (returnRight + width) / 2, outputMeterLeft = sideCenterX - 38;
 inline constexpr float cardCornerRadius = 4.f;
 // Header: one 28 px row. Scenes and the rig preset on the left, the preset file actions in the

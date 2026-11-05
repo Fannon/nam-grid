@@ -1419,7 +1419,7 @@ int main(int argc, char** argv)
       capture(name.c_str());
       assert(save().config()==before);
     }
-    click(95,80); // Signal Monitor input.
+    click(grid_layout::inputMeterLeft + 4,80); // Signal Monitor input.
     const auto before=save().config();
     hover(780,600); capture("signal-monitor-frequency-hover.bmp");
     assert(save().config()==before);
@@ -2292,7 +2292,7 @@ int main(int argc, char** argv)
   std::cout << "Context browser tile/icon entry, exact current selection, live search and NAM/IR/FX targeting passed\n";
   {
     // Drag from a tile's ID row: plain drag swaps or moves, Shift replaces, Alt duplicates.
-    const auto header = [](int slot) { return std::pair{88 + 212 * (slot % 4) + 60, grid_layout::cardTop + grid_layout::rowPitch * (slot / 4) + 14}; };
+    const auto header = [](int slot) { return std::pair{grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4) + 60, grid_layout::cardTop + grid_layout::rowPitch * (slot / 4) + 14}; };
     const auto dragTile = [&](int from, int to, WPARAM keys = 0, bool alt = false) {
       BYTE previous[256]{}, state[256]{};
       assert(GetKeyboardState(previous)); std::copy(std::begin(previous), std::end(previous), state);
@@ -2379,7 +2379,7 @@ int main(int argc, char** argv)
     std::cout << "Cosmic Echo: direct numeric entry of 250 ms passed\n";
   }
   for (const auto& control : std::array<std::tuple<int, int, int, const char*, double>, 3>{{
-         {37, 130, 100, "Input", 0.}, {967, 298, 268, "A/B Blend", 50.}, {967, 442, 412, "Output", 0.}}})
+         {grid_layout::inCenterX, 130, 100, "Input", 0.}, {grid_layout::sideCenterX, 298, 268, "A/B Blend", 50.}, {grid_layout::sideCenterX, 442, 412, "Output", 0.}}})
   {
     const auto [x, valueY, dialY, name, initial] = control;
     click(x, valueY); keyAtEditor('6'); keyAtEditor(VK_RETURN);
@@ -3306,7 +3306,7 @@ int main(int argc, char** argv)
     win_edit_menu::SelectChoice(editor, 550, 121, choices, position(SourceLFO2), position(named["Mod 1 Source"].get<int>()));
     pumpFor(30);
     assert(save().config()["Mod 1 Source"] == SourceLFO2);
-    win_edit_menu::SelectChoice(editor, 936, 121, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
+    win_edit_menu::SelectChoice(editor, grid_layout::pageRight - 61, 121, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
     pumpFor(30);
     assert(save().config()["Mod 1 Via"] == SourceEnv2); // Compact second-bank label must draw safely.
     win_edit_menu::SelectChoice(editor, 550, 121, choices, position(SourceMacro1), position(SourceLFO2));

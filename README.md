@@ -65,7 +65,9 @@ both CLAP and VST3. Copy the plugin into your DAW's plugin folder, rescan, and i
 **NAM Grid** on an audio track. NAM Grid comes with a clean amp-and-cab capture and
 two starter rigs, so you can play right away.
 
-The Linux build has not been tested in a real DAW environment. If you use it, let me know how well it works.
+Tested in Bitwig Studio on Windows and macOS, with both CLAP and VST3. The Linux build
+has not been tested in a real DAW environment. If something does not work in your DAW,
+please [open an issue](https://github.com/Fannon/nam-grid/issues).
 
 [Getting started](https://fannon.github.io/nam-grid/getting-started) has the plugin folders for each system, the
 one-time step that macOS needs for the unsigned build, DAW setup and a walk-through of

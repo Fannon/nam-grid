@@ -46,7 +46,7 @@ public:
   }
 };
 
-inline constexpr float pageLeft = 24.f, pageRight = grid_layout::width - 24.f, pageTop = 72.f;
+inline constexpr float pageLeft = grid_layout::pageLeft, pageRight = grid_layout::pageRight, pageTop = 72.f;
 
 // Segmented page or source selector; the selected segment is raised.
 class Tabs : public IControl
@@ -1024,7 +1024,7 @@ public:
     }
     for (int i = 0; i < 4; ++i)
     {
-      auto* knob = new MacroKnob(IRECT(484.f + 123.f * i, 492, 607.f + 123.f * i, 570), i, true);
+      auto* knob = new MacroKnob(IRECT(kIndexL + kMacroPitch * i, 492, kIndexL + kMacroPitch * (i + 1), 570), i, true);
       Add(knob);
       Add(new MacroLabel(knob->NameBounds(), i, true));
     }
@@ -1032,12 +1032,12 @@ public:
     {
       const float top = RowTop(row);
       const auto rowCell = [&](float l, float r) { return IRECT(l, top, r, top + 32.f); };
-      Add(new SourceCell(rowCell(504, 594), PerformanceParam(RowParam(row, RowSource)), false));
-      Add(new DestinationCell(rowCell(600, 806), row));
-      Add(new DepthCell(rowCell(812, 912), row));
-      Add(new SourceCell(rowCell(918, 952), PerformanceParam(RowParam(row, RowVia)), true))
+      Add(new SourceCell(rowCell(kSourceL, kSourceR), PerformanceParam(RowParam(row, RowSource)), false));
+      Add(new DestinationCell(rowCell(kSourceR + 6, kDepthL - 6), row));
+      Add(new DepthCell(rowCell(kDepthL, kDepthR), row));
+      Add(new SourceCell(rowCell(kViaL, kViaR), PerformanceParam(RowParam(row, RowVia)), true))
         ->SetTooltip("Via: another source scales this row's depth, from none (at its minimum) to all.");
-      Add(new ClearCell(rowCell(956, pageRight), row));
+      Add(new ClearCell(rowCell(kViaR + 4, pageRight), row));
     }
   }
   void Draw(IGraphics& g) override
@@ -1048,16 +1048,16 @@ public:
     const auto columnLabel = [&](const char* label, float l, float r, EAlign align = EAlign::Near) {
       g.DrawText(Text(13.f, muted, align), label, IRECT(l, pageTop, r, pageTop + 26));
     };
-    columnLabel("Source", 504, 594);
-    columnLabel("Destination", 600, 806);
-    columnLabel("Depth", 812, 912, EAlign::Center);
-    columnLabel("Via", 918, 952, EAlign::Center);
+    columnLabel("Source", kSourceL, kSourceR);
+    columnLabel("Destination", kSourceR + 6, kDepthL - 6);
+    columnLabel("Depth", kDepthL, kDepthR, EAlign::Center);
+    columnLabel("Via", kViaL, kViaR, EAlign::Center);
     for (int row = 0; row < rows; ++row)
     {
       WDL_String index; index.SetFormatted(8, "%d", row + 1);
-      g.DrawText(Text(13.f, muted, EAlign::Center), index.Get(), IRECT(484, RowTop(row), 500, RowTop(row) + 32));
+      g.DrawText(Text(13.f, muted, EAlign::Center), index.Get(), IRECT(kIndexL, RowTop(row), kSourceL - 4, RowTop(row) + 32));
     }
-    g.DrawText(Text(17.f, accent), "Macros", IRECT(484, 464, pageRight, 488));
+    g.DrawText(Text(17.f, accent), "Macros", IRECT(kIndexL, 464, pageRight, 488));
     g.DrawText(Text(13.f, muted), "Right-click any module knob to modulate it. Alt-drag a modulated knob to change its depth.",
                IRECT(pageLeft, grid_layout::visualizationBottom - 40, pageRight, grid_layout::visualizationBottom - 16));
   }
@@ -1086,6 +1086,10 @@ public:
     if (GetUI()) GetUI()->SetAllControlsDirty();
   }
 private:
+  // Matrix columns: Destination takes the spare width; Depth, Via and Clear pin to the right margin.
+  static constexpr float kIndexL = 484.f, kSourceL = 504.f, kSourceR = 594.f;
+  static constexpr float kViaR = grid_layout::pageRight - 44.f, kViaL = kViaR - 34.f, kDepthR = kViaL - 6.f, kDepthL = kDepthR - 100.f;
+  static constexpr float kMacroPitch = (grid_layout::pageRight - 20.f - kIndexL) / 4.f;
   static float RowTop(int row) { return 106.f + 44.f * row; }
   IControl* Add(IControl* control) { AddChildControl(control); mControls.push_back(control); return control; }
   // Source controls are shown for their source tab only.

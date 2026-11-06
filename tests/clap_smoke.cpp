@@ -38,6 +38,15 @@ constexpr int kNewX = grid_layout::newLeft + grid_layout::fileButtonWidth / 2;
 constexpr int kSaveX = grid_layout::saveLeft + grid_layout::fileButtonWidth / 2;
 constexpr int kModulationX = (grid_layout::modulationLeft + grid_layout::modulationRight) / 2;
 constexpr int kTunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
+constexpr int kSettingsX = (grid_layout::settingsLeft + grid_layout::settingsRight) / 2;
+// Settings, Modulation and the library browser close at the top right.
+constexpr int kCloseX = grid_layout::pageCloseX;
+// The grid card's bypass circle, and the routing view's M/S buttons right of each lane's centred node.
+constexpr int kToggleX = grid_layout::cardLeft + grid_layout::cardWidth - 12;
+constexpr int kRoutingCenterX = (grid_layout::visualizationLeft + grid_layout::visualizationRight) / 2;
+constexpr int kLaneMuteX = kRoutingCenterX + 75, kLaneSoloX = kRoutingCenterX + 98;
+// Delete is the first footer action under the rig preset browser's details panel.
+constexpr int kPresetDeleteX = grid_layout::pageRight - 221;
 int main(int argc, char** argv)
 {
   std::cout << std::unitbuf;
@@ -1302,16 +1311,16 @@ int main(int argc, char** argv)
     pumpFor(50);
   };
   const auto checkLaneButtons = [&] {
-    click(865, 530); // Mute A.
+    click(kLaneMuteX, 530); // Mute A.
     assert(save().config()["Lane A Mute"] == 1. && save().config()["Lane A Solo"] == 0.);
-    click(888, 530); // Solo A also unmutes A.
+    click(kLaneSoloX, 530); // Solo A also unmutes A.
     assert(save().config()["Lane A Mute"] == 0. && save().config()["Lane A Solo"] == 1.);
-    click(888, 572); // Solo B replaces Solo A.
+    click(kLaneSoloX, 572); // Solo B replaces Solo A.
     assert(save().config()["Lane A Solo"] == 0. && save().config()["Lane B Solo"] == 1.);
     assert(save().config()["Lane B Mute"] == 0.);
-    click(865, 572); // Mute B clears Solo B.
+    click(kLaneMuteX, 572); // Mute B clears Solo B.
     assert(save().config()["Lane B Mute"] == 1. && save().config()["Lane B Solo"] == 0.);
-    click(865, 572); // Restore the full parallel mix.
+    click(kLaneMuteX, 572); // Restore the full parallel mix.
     assert(save().config()["Lane A Mute"] == 0. && save().config()["Lane B Mute"] == 0.);
     const auto normal = save().config();
     for (int lane = 0; lane < 2; ++lane)
@@ -1324,8 +1333,8 @@ int main(int argc, char** argv)
         click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY);
         load(legacy);
         assert(save().config()[mute] == 1. && save().config()[solo] == 1.); // Preserve saved sound.
-        click(grid_layout::width - 36, 328);
-        click(soloButton ? 888 : 865, lane ? 572 : 530);
+        click(grid_layout::sideCenterX, 328);
+        click(soloButton ? kLaneSoloX : kLaneMuteX, lane ? 572 : 530);
         assert(save().config()[mute] == 0. && save().config()[solo] == 0.); // Either release clears the conflict.
       }
   };
@@ -1352,10 +1361,10 @@ int main(int argc, char** argv)
       if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / name);
     };
     load(cleared);
-    click(grid_layout::width - 36, 328);
+    click(grid_layout::sideCenterX, 328);
     assert(save().config()["Lane Mode"] == grid_performance::Parallel); // Open without switching.
     capture("routing-parallel.bmp");
-    click(grid_layout::width - 36, 328); // Already open: switch mode without closing.
+    click(grid_layout::sideCenterX, 328); // Already open: switch mode without closing.
     assert(save().config()["Lane Mode"] == grid_performance::Sequential);
     capture("routing-sequential.bmp");
     click(modeX, grid_layout::moduleButtonY);
@@ -1382,7 +1391,7 @@ int main(int argc, char** argv)
     click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY);
     load(storedOff); // Off still preserves a previously stored Steep slope.
     assert(save().config() == expectedOff);
-    click(grid_layout::width - 36, 328);
+    click(grid_layout::sideCenterX, 328);
     splitChoice();
     assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
     capture("routing-split.bmp");
@@ -1398,7 +1407,7 @@ int main(int argc, char** argv)
     assert(save().config()["Trails"] == 1. && save().config()["Mix Law"] == 1.);
     capture("settings-rig-behaviour-on.bmp");
     assert(save().config()["Trails"] == 1. && save().config()["Mix Law"] == 1.);
-    click(956,28);
+    click(kCloseX, 28);
     for (const auto effect : {SlotEffect::ToneEQ, SlotEffect::Multiband, SlotEffect::PedalDrive,
                               SlotEffect::Wah, SlotEffect::RingMod, SlotEffect::OutboardChannel})
     {
@@ -1410,7 +1419,7 @@ int main(int argc, char** argv)
       capture(name.c_str());
       assert(save().config()==before);
     }
-    click(95,80); // Signal Monitor input.
+    click(grid_layout::inputMeterLeft + 4,80); // Signal Monitor input.
     const auto before=save().config();
     hover(780,600); capture("signal-monitor-frequency-hover.bmp");
     assert(save().config()==before);
@@ -1623,7 +1632,7 @@ int main(int argc, char** argv)
       {
         load(comp); selectTile(170, 120);
         presetKey(key, 2); assert(save().config() == comp); // Modified keys are not shortcuts.
-        click(936, 28); presetKey(key); assert(save().config() == comp); // Settings owns the key.
+        click(kSettingsX, 28); presetKey(key); assert(save().config() == comp); // Settings owns the key.
         presetKey(VK_ESCAPE); pumpFor(50);
         presetKey(key); pumpFor(50);
         const auto removed = save().config();
@@ -1830,7 +1839,7 @@ int main(int argc, char** argv)
   }
   if (browserOnly)
   {
-    click(910, 28); click(138, 88); click(936, 28);
+    click(kSettingsX, 28); click(138, 88); click(kCloseX, 28);
     pumpFor(250); // Exercise configured sources even when the user's startup rescan is off.
   }
   if (!browserOnly)
@@ -1912,7 +1921,7 @@ int main(int argc, char** argv)
         }
     load(browserState);
     std::cout << "Slot edit menus passed; checking module menus\n";
-    click(910, 28); click(138, 88); click(936, 28); // Rescan all from library settings.
+    click(kSettingsX, 28); click(138, 88); click(kCloseX, 28); // Rescan all from library settings.
     pumpFor(250);
     // Recall follows the saved content even when the old filename disappeared or
     // now points at another model. Both loader types resolve through the index.
@@ -1998,7 +2007,7 @@ int main(int argc, char** argv)
     // Empty slots have neither a card toggle nor a lone editor Enabled control.
     {
       const auto empty = save().config();
-      click(grid_layout::cardLeft + 176, grid_layout::cardTop + 12);
+      click(kToggleX, grid_layout::cardTop + 12);
       assert(save().config() == empty);
     }
     std::cout << "Single-click module selection and right-click Clear slot passed\n";
@@ -2035,8 +2044,8 @@ int main(int argc, char** argv)
     {
       load(rig); selectTile(170, 120);
       const auto before = save().config();
-      const int x = point == -1 ? 95 : point == 16 ? grid_layout::width - 71
-        : grid_layout::cardLeft + grid_layout::columnPitch * (point % 4) + 194;
+      const int x = point == -1 ? grid_layout::inputMeterLeft + 3 : point == 16 ? grid_layout::outputMeterLeft + 3
+        : grid_layout::cardLeft + grid_layout::columnPitch * (point % 4) + grid_layout::cardWidth + 6;
       const int y = point == -1 ? 80 : point == 16 ? 390
         : grid_layout::cardTop + grid_layout::rowPitch * (point / 4) + grid_layout::cardHeight / 2;
       click(x, y); dragAt(knobX, knobY);
@@ -2256,7 +2265,7 @@ int main(int argc, char** argv)
   click(grid_layout::moduleBrowseX, grid_layout::moduleButtonY);
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   assert(save().config()["SlotEffects"][0] != static_cast<int>(SlotEffect::ConsoleEQ)); // Auditioned, not saved.
-  click(936, 28);
+  click(kCloseX, 28);
   assert(save().config()["Pre 1 EQ Bass"] == 6.);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // The browser closed: the editor takes gestures again.
   assert(save().config()["Pre 1 EQ Bass"] != 6.);
@@ -2268,8 +2277,8 @@ int main(int argc, char** argv)
   assert(save().config()["SlotEffects"][0] == static_cast<int>(SlotEffect::ConsoleEQ));
   load(moduleBrowser); selectTile(170, 120);
   const auto beforeLibraryAudition = save().config();
-  click(910, 28); // Browse from settings must audition the selected slot too.
-  click(808, 28);
+  click(kSettingsX, 28); // Browse from settings must audition the selected slot too.
+  click(grid_layout::pageRight - 168, 28);
   click(310, 28); // Modules tab
   enterBrowserSearch("CONSOLE EQ"); keyAtEditor(VK_RETURN);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
@@ -2283,7 +2292,7 @@ int main(int argc, char** argv)
   std::cout << "Context browser tile/icon entry, exact current selection, live search and NAM/IR/FX targeting passed\n";
   {
     // Drag from a tile's ID row: plain drag swaps or moves, Shift replaces, Alt duplicates.
-    const auto header = [](int slot) { return std::pair{88 + 212 * (slot % 4) + 60, grid_layout::cardTop + grid_layout::rowPitch * (slot / 4) + 14}; };
+    const auto header = [](int slot) { return std::pair{grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4) + 60, grid_layout::cardTop + grid_layout::rowPitch * (slot / 4) + 14}; };
     const auto dragTile = [&](int from, int to, WPARAM keys = 0, bool alt = false) {
       BYTE previous[256]{}, state[256]{};
       assert(GetKeyboardState(previous)); std::copy(std::begin(previous), std::end(previous), state);
@@ -2370,7 +2379,7 @@ int main(int argc, char** argv)
     std::cout << "Cosmic Echo: direct numeric entry of 250 ms passed\n";
   }
   for (const auto& control : std::array<std::tuple<int, int, int, const char*, double>, 3>{{
-         {37, 130, 100, "Input", 0.}, {967, 298, 268, "A/B Blend", 50.}, {967, 442, 412, "Output", 0.}}})
+         {grid_layout::inCenterX, 130, 100, "Input", 0.}, {grid_layout::sideCenterX, 298, 268, "A/B Blend", 50.}, {grid_layout::sideCenterX, 442, 412, "Output", 0.}}})
   {
     const auto [x, valueY, dialY, name, initial] = control;
     click(x, valueY); keyAtEditor('6'); keyAtEditor(VK_RETURN);
@@ -2379,7 +2388,7 @@ int main(int argc, char** argv)
   }
   std::cout << "Editable values below module/IN/OUT/A-B dials and double-click defaults passed\n";
   const auto beforeGains = save().config();
-  dragAt(38, 105); dragAt(967, 272); dragAt(967, 416);
+  dragAt((4 + grid_layout::sidebarRight) / 2 - 5, 105); dragAt(grid_layout::sideCenterX - 17, 272); dragAt(grid_layout::sideCenterX - 17, 416);
   assert(save().config()["Input"] != beforeGains["Input"]);
   assert(save().config()["A/B Blend"] != beforeGains["A/B Blend"]);
   assert(save().config()["Output"] != beforeGains["Output"]);
@@ -2442,10 +2451,10 @@ int main(int argc, char** argv)
   click(470, 28);
   click(430, 28); // Preset context shows no tabs, so no NAM tab here.
   click(100, 688); // Manage folders opens settings.
-  win_file_dialog::Choose(presetDirectory, [&] { click(912, 138); }, false, true);
+  win_file_dialog::Choose(presetDirectory, [&] { click(grid_layout::pageRight - 64, 138); }, false, true);
   pumpFor(250);
   assert(userFolders().presetFolders == pathTexts({presetDirectory})); // Saved for this user, not the project.
-  click(936, 28); click(470, 28);
+  click(kCloseX, 28); click(470, 28);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "browser-presets.bmp");
   chooseBrowserItem("SECOND RIG");
   assert(save().config()["Output"] == -10. && userFolders().presetFolders.size() == 1);
@@ -2456,7 +2465,7 @@ int main(int argc, char** argv)
   if (save().config()["PresetName"] != "Clean rig" || save().config()["Output"] != -8.)
     std::cerr << "Previous preset: " << save().config()["PresetName"] << ", output=" << save().config()["Output"] << '\n';
   assert(save().config()["PresetName"] == "Clean rig" && save().config()["Output"] == -8.);
-  click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(932, 688); // Load button.
+  click(470, 28); enterBrowserSearch("SECOND RIG"); keyAtEditor(VK_RETURN); click(grid_layout::width - 68, 688); // Load button.
   assert(save().config()["PresetName"] == "Second rig");
   click(kPreviousX, grid_layout::headerY);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "preset-gains.bmp");
@@ -2544,7 +2553,7 @@ int main(int argc, char** argv)
   chooseBrowserItem("SWITCH A");
   assert(save().config()["PresetName"] == "Switch A");
   measureSwitch(false);
-  click(910, 28); click(861, 88); click(936, 28); // Library & settings: Preset switch -> Crossfade.
+  click(kSettingsX, 28); click(grid_layout::pageRight - 100, 88); click(kCloseX, 28); // Library & settings: Preset switch -> Crossfade.
   measureSwitch(true);
   click(470, 28); click(100, 144); chooseBrowserItem("CLEAN RIG"); // All folders, then search.
   assert(save().config()["PresetName"] == "Clean rig");
@@ -2558,9 +2567,9 @@ int main(int argc, char** argv)
   // Deleting the selected (current) preset removes only its file, after confirmation.
   const auto beforeDelete = save().config();
   click(470, 28);
-  win_file_dialog::Confirm(false, [&] { click(775, 688); });
+  win_file_dialog::Confirm(false, [&] { click(kPresetDeleteX, 688); });
   assert(std::filesystem::exists(presetFile));
-  win_file_dialog::Confirm(true, [&] { click(775, 688); });
+  win_file_dialog::Confirm(true, [&] { click(kPresetDeleteX, 688); });
   assert(!std::filesystem::exists(presetFile) && std::filesystem::exists(presetDirectory / "Second rig.ngrid"));
   assert(save().config() == beforeDelete);
   keyAtEditor(VK_ESCAPE);
@@ -2617,9 +2626,9 @@ int main(int argc, char** argv)
         load(preview); selectTile(170, 120);
         CaptureEditor(editor, std::filesystem::path(argv[3]) / (std::string("readable-") + name + ".bmp"));
       }
-      click(910, 28);
+      click(kSettingsX, 28);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
-      click(936, 28); click(grid_layout::width - 36, 356);
+      click(kCloseX, 28); click(grid_layout::sideCenterX, 356);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
       click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
       assert(save().config()["Lane Mode"] == grid_performance::Sequential);
@@ -2628,7 +2637,7 @@ int main(int argc, char** argv)
       assert(save().config()["Lane Mode"] == grid_performance::Parallel);
       click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
-      click(936, 28); click(kTunerX, grid_layout::headerY);
+      click(kCloseX, 28); click(kTunerX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-tuner.bmp");
       keyAtEditor(VK_ESCAPE);
     }
@@ -2803,10 +2812,10 @@ int main(int argc, char** argv)
   // The larger top-right grid toggle changes bypass without replacing the module.
   {
     const auto before = save().config();
-    click(grid_layout::cardLeft + 176, grid_layout::cardTop + 12);
+    click(kToggleX, grid_layout::cardTop + 12);
     assert(save().config()["Pre 1 Enabled"] == 1. - before["Pre 1 Enabled"].get<double>());
     assert(save().config()["SlotEffects"] == before["SlotEffects"]);
-    click(grid_layout::cardLeft + 176, grid_layout::cardTop + 12);
+    click(kToggleX, grid_layout::cardTop + 12);
     assert(save().config()["Pre 1 Enabled"] == before["Pre 1 Enabled"]);
   }
   // Capture actual transport history in the compact editor, with no synthetic UI animation.
@@ -2888,7 +2897,7 @@ int main(int argc, char** argv)
       assert(save().config()["Pre 1 Pedal Character"] == 0.);
       toggleHeader();
       assert(save().config()["Pre 1 Enabled"] == 0.);
-      click(grid_layout::cardLeft + 176, 80);
+      click(kToggleX, 80);
       assert(save().config()["Pre 1 Enabled"] == 1.);
       assert(save().config()["Pre 1 Pedal Character"] == 0.);
       if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / ("pedal-character-" + std::to_string(style) + ".bmp"));
@@ -3005,9 +3014,9 @@ int main(int argc, char** argv)
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Pre 2 NAM Output"] == effectUI["Pre 2 NAM Output"]);
   // Card dot bypass and editor-header circle must share the same automated parameter.
-  click(grid_layout::cardLeft + grid_layout::columnPitch + 176, grid_layout::cardTop + 16);
+  click(kToggleX + grid_layout::columnPitch, grid_layout::cardTop + 16);
   assert(save().config()["Pre 2 Enabled"] == 0.);
-  click(grid_layout::cardLeft + grid_layout::columnPitch + 176, grid_layout::cardTop + 16);
+  click(kToggleX + grid_layout::columnPitch, grid_layout::cardTop + 16);
   assert(save().config()["Pre 2 Enabled"] == 1.);
   // FX navigation stays in the current menu category and wraps in both directions.
   auto navigation = browserState;
@@ -3051,7 +3060,7 @@ int main(int argc, char** argv)
   if (argc == 4)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "grid.bmp");
   const auto beforeSettings = save().config();
-  click(910, 36);
+  click(kSettingsX, 36);
   click(510, 88); // Global visualizations off.
   assert(save().config() == beforeSettings); // Editor preference is outside the rig.
   click(510, 88); // Restore preference for subsequent tests/previews.
@@ -3059,10 +3068,10 @@ int main(int argc, char** argv)
     CaptureEditor(editor, std::filesystem::path(argv[3]) / "settings.bmp");
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0)); // NAM Input underneath; the settings reference dial starts below this point.
   assert(save().config() == beforeSettings);
-  click(936, 28);
-  click(910, 36);
+  click(kCloseX, 28);
+  click(kSettingsX, 36);
   // Escape closes settings so the selected module becomes editable again.
-  SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(936, 28));
+  SendMessage(editor, WM_MOUSEMOVE, 0, MAKELPARAM(kCloseX, 28));
   SendMessage(editor, WM_KEYDOWN, VK_ESCAPE, static_cast<LPARAM>(MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC)) << 16);
   pumpFor(100);
   dragAt(grid_layout::KnobX(0), grid_layout::KnobGestureY(0));
@@ -3164,11 +3173,11 @@ int main(int argc, char** argv)
   plugin->deactivate(plugin);
   // Exercise the real performance overlay and scene transactions without replacing models.
   load(cleared);
-  click(grid_layout::width - 36, 356); // Routing, below the A / B knob
+  click(grid_layout::sideCenterX, 356); // Routing, below the A / B knob
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
   const double laneBalance = save().config()["Lane A Balance"];
   assert(laneBalance != 0.);
-  click(grid_layout::width - 36, 328); // Open Routing stays open while mode changes.
+  click(grid_layout::sideCenterX, 328); // Open Routing stays open while mode changes.
   assert(save().config()["Lane Mode"] == grid_performance::Sequential);
   dragAt(grid_layout::KnobX(1), grid_layout::KnobGestureY(1));
   assert(save().config()["Lane A Balance"] == laneBalance); // Inactive in Sequential.
@@ -3297,7 +3306,7 @@ int main(int argc, char** argv)
     win_edit_menu::SelectChoice(editor, 550, 121, choices, position(SourceLFO2), position(named["Mod 1 Source"].get<int>()));
     pumpFor(30);
     assert(save().config()["Mod 1 Source"] == SourceLFO2);
-    win_edit_menu::SelectChoice(editor, 936, 121, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
+    win_edit_menu::SelectChoice(editor, grid_layout::pageRight - 61, 121, choices, position(SourceEnv2), position(named["Mod 1 Via"].get<int>()));
     pumpFor(30);
     assert(save().config()["Mod 1 Via"] == SourceEnv2); // Compact second-bank label must draw safely.
     win_edit_menu::SelectChoice(editor, 550, 121, choices, position(SourceMacro1), position(SourceLFO2));
@@ -3308,9 +3317,9 @@ int main(int argc, char** argv)
     assert((save().config()["LFO Sync"].get<double>() >= .5) != sync);
     load(before);
   }
-  dragAt(862, 121); // Matrix row 1 depth
+  dragAt(grid_layout::pageRight - 134, 121); // Matrix row 1 depth
   assert(save().config()["Mod 1 Depth"] > 0.);
-  click(936, 28); // Close overlay
+  click(kCloseX, 28); // Close overlay
   // Right-click a knob to modulate it: the routing panel (still open) has Lane A level, which
   // takes the first free row.
   win_edit_menu::SelectNamedItem(editor, grid_layout::KnobX(0), grid_layout::KnobGestureY(0), L"Modulate with Macro 1", true);
@@ -3380,7 +3389,7 @@ int main(int argc, char** argv)
   unequal["SlotPaths"][4] = libraryFirst.string();
   unequal["SlotPaths"][5] = libraryFirst.string();
   load(unequal);
-  click(910, 28); click(138, 88); click(936, 28); pumpFor(250);
+  click(kSettingsX, 28); click(138, 88); click(kCloseX, 28); pumpFor(250);
   assert(plugin->activate(plugin, 44100., 1, 512));
   assert(plugin->start_processing(plugin));
   process.frames_count = 512;

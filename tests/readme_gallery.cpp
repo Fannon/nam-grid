@@ -259,8 +259,9 @@ static int Run(int argc, char** argv)
     }
   };
   const auto click = [&](int x, int y) { mouse(x, y, true); play(300); };
-  const auto tile = [&](int slot) { return std::pair{grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4) + 94, 64 + 104 * (slot / 4) + 40}; };
+  const auto tile = [&](int slot) { return std::pair{grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4) + grid_layout::cardWidth / 2, 64 + 104 * (slot / 4) + 40}; };
   const auto select = [&](int slot) { const auto [x, y] = tile(slot); click(x, y - 26); }; // The ID row only selects.
+  constexpr int settingsX = (grid_layout::settingsLeft + grid_layout::settingsRight) / 2;
   // Park the pointer on an empty spot first, so no button shows its hover state.
   const auto shot = [&](const std::string& name, int top = 0) {
     mouse(630, 470, false); play(100);
@@ -273,7 +274,7 @@ static int Run(int argc, char** argv)
     select(2); play(1200); shot("capture-flat-eq");
     select(12); play(1200); shot("eq-response");
     select(3); play(1200); shot("ir-response");
-    click(grid_layout::width - 70, 410); play(1500); shot("signal-monitor-reference");
+    click(grid_layout::outputMeterLeft + 4, 410); play(1500); shot("signal-monitor-reference");
     plugin->stop_processing(plugin); plugin->deactivate(plugin);
 #ifdef _WIN32
     gui->destroy(plugin); DestroyWindow(parent); plugin->destroy(plugin); entry->deinit(); FreeLibrary(library);
@@ -346,9 +347,9 @@ static int Run(int argc, char** argv)
 
   if (pagesOnly)
   {
-    click(919, 28); play(800); shot("settings"); click(936, 28);
+    click(settingsX, 28); play(800); shot("settings"); click(grid_layout::pageCloseX, 28);
     click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY);
-    play(2000); shot("control"); click(936, 28);
+    play(2000); shot("control"); click(grid_layout::pageCloseX, 28);
   }
   else if (filter.empty())
   {
@@ -360,10 +361,10 @@ static int Run(int argc, char** argv)
     select(12); play(3000); shot("eq");
     click(grid_layout::modeLeft + 82, grid_layout::optionsY); play(1000); shot("eq-shelf");
     click(grid_layout::modeLeft + 82, grid_layout::optionsY);
-    { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(794, 448); // Cancel
-    click(470, 28); play(1500); shot("browser-presets"); click(853, 688); // Close
-    click(919, 28); play(800); shot("settings"); click(936, 28);
-    click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY); play(2000); shot("control"); click(936, 28);
+    { const auto [x, y] = tile(4); click(x, y); } play(800); shot("browser-modules"); click(grid_layout::pageRight - 192, 448); // Cancel
+    click(470, 28); play(1500); shot("browser-presets"); click(grid_layout::pageRight - 133, 688); // Close
+    click(settingsX, 28); play(800); shot("settings"); click(grid_layout::pageCloseX, 28);
+    click((grid_layout::modulationLeft + grid_layout::modulationRight) / 2, grid_layout::headerY); play(2000); shot("control"); click(grid_layout::pageCloseX, 28);
     constexpr int tunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
     sustained = true; play(500); click(tunerX, grid_layout::headerY); play(3000); shot("tuner"); click(tunerX, grid_layout::headerY);
     sustained = false;

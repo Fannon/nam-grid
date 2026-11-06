@@ -2,20 +2,33 @@
 
 namespace grid_layout
 {
-inline constexpr int width = 1020, height = 720;
-inline constexpr int gridOffset = 20, cardLeft = 88 + gridOffset, columnPitch = 212;
-inline constexpr int sidebarRight = 82;
+// 16:10, so scaling the editor up fills common laptop and desktop displays.
+inline constexpr int width = 1152, height = 720;
+// Sidebars beside the 4x4 grid: IN, its meter and the macros on the left; A/B, Routing, OUT
+// and the output meter on the right. Both stay clear of the return wiring in the gutters.
+inline constexpr int sidebarRight = 92;
+inline constexpr int cardLeft = 122, cardWidth = 208, columnPitch = 232, cardGap = columnPitch - cardWidth;
+inline constexpr int gridRight = cardLeft + 3 * columnPitch + cardWidth;
+inline constexpr int returnLeft = cardLeft - 19, returnRight = gridRight + 16;
+// The right column centres between the return wiring and the window edge. The stereo IN and OUT
+// meters mirror each other beside their knobs, apart from Pre 1's input and Post 4's output strips.
+inline constexpr int inCenterX = (4 + sidebarRight) / 2, inputMeterLeft = inCenterX + 31;
+inline constexpr int sideCenterX = (returnRight + width) / 2, outputMeterLeft = sideCenterX - 38;
 inline constexpr float cardCornerRadius = 4.f;
 // Header: one 28 px row. Scenes and the rig preset on the left, the preset file actions in the
-// middle, and the views (Modulation, Tuner, Settings) on the right.
+// middle, and the views (Modulation, Tuner, Settings) pinned to the right edge.
 inline constexpr int headerTop = 14, headerBottom = 42, headerY = (headerTop + headerBottom) / 2;
 inline constexpr int sceneLeft = 165, sceneWidth = 28, scenePitch = 32;
-inline constexpr int presetLeft = 269, presetRight = 548;
-inline constexpr int previousLeft = 554, nextLeft = 586, arrowWidth = 28;
-inline constexpr int newLeft = 626, saveLeft = 660, fileButtonWidth = 28;
-inline constexpr int modulationLeft = 700, modulationRight = 810;
-inline constexpr int tunerLeft = 816, tunerRight = 892;
-inline constexpr int settingsLeft = 898, settingsRight = width - headerTop;
+inline constexpr int settingsRight = width - headerTop, settingsLeft = settingsRight - 108;
+inline constexpr int tunerRight = settingsLeft - 6, tunerLeft = tunerRight - 76;
+inline constexpr int modulationRight = tunerLeft - 6, modulationLeft = modulationRight - 110;
+// The rig preset name takes the remaining width; its file actions keep a group gap before the views.
+inline constexpr int presetLeft = 269, presetRight = modulationLeft - 164;
+inline constexpr int previousLeft = presetRight + 6, nextLeft = previousLeft + 32, arrowWidth = 28;
+inline constexpr int newLeft = nextLeft + 40, saveLeft = newLeft + 34, fileButtonWidth = 28;
+// Full pages (Settings, Modulation, the library browser) share these margins and a Close button
+// at the top right.
+inline constexpr int pageLeft = 24, pageRight = width - 24, pageCloseX = pageRight - 40;
 inline constexpr int SceneX(int scene) { return sceneLeft + scenePitch * scene + sceneWidth / 2; }
 inline constexpr int cardTop = 64, rowPitch = 104, cardHeight = 80;
 inline constexpr int editorTop = 480, editorBottom = height - 24;

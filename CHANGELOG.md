@@ -7,6 +7,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - **Smart Gate:** bands above the learned noise floor open faster to retain more pick attack; abrupt noise bursts can also pass more easily. The final gate now listens to the cleaned signal after noise reduction and Mix, so existing rigs with the gate enabled can close sooner. The display adds an amber cleaned-signal trace. Gate release always controls the final gate independently, starting at 40 ms; older rigs with the gate enabled also use this separate closing time. The final gate remains Off by default. No added latency.
 
 - **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob routes lows around the distortion and High cut, with no added compensation delay. It starts Off, so existing rigs retain their sound.
+- **Wider editor:** the window grows from 1020 to 1152 pixels wide, a 16:10 shape that fills common laptop and desktop screens when scaled up. Module displays and the Tuner's pitch history get the extra width. The library browser has a wider results list, so long NAM and IR file names fit, and Modulation has a wider Destination column. Grid cards are wider, with more space around IN, OUT, A/B and Routing. Pre 1 now has its own input meter, as Post 4 has its own output meter, with the stereo IN meter beside the IN knob. In each display's footer, the IN and OUT readouts now sit next to their own meters. Sound, saved rigs and automation are unchanged.
 
 ## [0.5.0] - 2026-11-01
 

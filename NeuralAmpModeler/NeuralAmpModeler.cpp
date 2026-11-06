@@ -223,6 +223,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   // Start the background scan only after the bundled files exist.
   SetLibraryFolders(nam_library::FileKind::NAM, librarySettings.namFolders);
 
+  static_assert(PLUG_WIDTH == grid_layout::width && PLUG_HEIGHT == grid_layout::height, "config.h and GridLayout.h must agree");
   mMakeGraphicsFunc = [&]() {
 
 #ifdef OS_IOS
@@ -288,32 +289,30 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
     {
       const float left = grid_layout::cardLeft + grid_layout::columnPitch * (slot % 4);
       const float top = grid_layout::cardTop + grid_layout::rowPitch * static_cast<float>(slot / 4);
-      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + 188.f, top + grid_layout::cardHeight), slot),
+      ui->AttachControl(new NAMGridSlotControl(IRECT(left, top, left + grid_layout::cardWidth, top + grid_layout::cardHeight), slot),
                         kCtrlTagGridSlotBase + static_cast<int>(slot));
     }
     ui->AttachControl(new grid_ui::FlowKnob(IRECT(4, 67, grid_layout::sidebarRight, 135), PerformanceParam(grid_performance::InputGain), "IN"))
       ->SetTooltip("Input gain before every grid module. Double-click to reset to 0 dB.");
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(width - 72, 235, width, 303), kParallelBlend, "A / B"))
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(sideCenterX - 36, 235, sideCenterX + 36, 303), kParallelBlend, "A / B"))
       ->SetTooltip("Lane balance: 0% is A, 50% is both lanes equally, 100% is B.");
-    ui->AttachControl(new grid_ui::RoutingButton(IRECT(width - 64, 316, width - 8, 360)), kCtrlTagRoutingButton);
-    ui->AttachControl(new grid_ui::FlowKnob(IRECT(width - 72, 379, width, 447), kOutputLevel, "OUT"))
+    ui->AttachControl(new grid_ui::RoutingButton(IRECT(sideCenterX - 28, 316, sideCenterX + 28, 360)), kCtrlTagRoutingButton);
+    ui->AttachControl(new grid_ui::FlowKnob(IRECT(sideCenterX - 36, 379, sideCenterX + 36, 447), kOutputLevel, "OUT"))
       ->SetTooltip("Final output gain after the complete grid.");
-    // Stereo L/R bars beside the first and last cards; the peak readout stays clear of the wiring.
-    // A small gap separates them from the first and last cards' own level strips.
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(72 + gridOffset, 68, 79 + gridOffset, 140), IRECT(4, 140, sidebarRight, 158), -1), kCtrlTagInputMeter);
-    ui->AttachControl(new grid_ui::FlowMeter(IRECT(width - 74, 380, width - 67, 452), IRECT(width - 68, 450, width, 468), 16), kCtrlTagOutputMeter);
+    // Stereo L/R bars beside the IN and OUT knobs, apart from the first and last cards' own level
+    // strips; the peak readouts stay clear of the wiring.
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(inputMeterLeft, 68, inputMeterLeft + 7, 140), IRECT(4, 140, sidebarRight, 158), -1), kCtrlTagInputMeter);
+    ui->AttachControl(new grid_ui::FlowMeter(IRECT(outputMeterLeft, 380, outputMeterLeft + 7, 452), IRECT(sideCenterX - 32, 450, sideCenterX + 36, 468), 16), kCtrlTagOutputMeter);
     ui->AttachControl(new NAMGridMacroControl(IRECT(0, 170, sidebarRight, 468)), kCtrlTagMainMacros)->Hide(!mShowMainMacros);
     // Each output meter opens its slot's monitor; pad the thin strip for clicking.
     for (int slot = 0; slot < 16; ++slot)
     {
-      const float left = cardLeft + columnPitch * (slot % 4) + 188.f;
+      const float left = cardLeft + columnPitch * (slot % 4) + cardWidth;
       const float top = cardTop + rowPitch * (slot / 4);
       ui->AttachControl(new grid_ui::SlotMeterTap(IRECT(left + 2.f, top + 3.f, left + 10.f, top + cardHeight - 3.f), slot));
-      if (slot > 0)
-      {
-        const float input = cardLeft + columnPitch * (slot % 4);
-        ui->AttachControl(new grid_ui::SlotMeterTap(IRECT(input - 10.f, top + 3.f, input - 2.f, top + cardHeight - 3.f), slot - 1, true));
-      }
+      // An input meter shows the preceding output; Pre 1's input is the grid input.
+      const float input = cardLeft + columnPitch * (slot % 4);
+      ui->AttachControl(new grid_ui::SlotMeterTap(IRECT(input - 10.f, top + 3.f, input - 2.f, top + cardHeight - 3.f), slot - 1, true));
     }
     ui->AttachControl(new NAMGridSignalMonitorControl(IRECT(0, editorTop, width, height)), kCtrlTagSignalMonitor)->Hide(true);
     ui->AttachControl(new NAMGridSettingsControl(b), kCtrlTagSettingsBox)->Hide(true);

@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     && tunerEvents[1]==CLAP_EVENT_PARAM_VALUE && tunerEvents[2]==CLAP_EVENT_PARAM_GESTURE_END);
   automate(tuner.id,1.);pumpFor(50);
   tunerEvents.clear();
-  SendMessage(editor,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(936,500));SendMessage(editor,WM_LBUTTONUP,0,MAKELPARAM(936,500));pumpFor(50);
+  SendMessage(editor,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(grid_layout::width-64,500));SendMessage(editor,WM_LBUTTONUP,0,MAKELPARAM(grid_layout::width-64,500));pumpFor(50);
   params->flush(plugin,&empty,&sent);
   assert(save().config()["Tuner"]==0.);
   assert(tunerEvents.size()==3 && tunerEvents.front()==CLAP_EVENT_PARAM_GESTURE_BEGIN && tunerEvents.back()==CLAP_EVENT_PARAM_GESTURE_END);

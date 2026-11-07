@@ -7,6 +7,7 @@
 #include "../NeuralAmpModeler/SlotDefaults.h"
 #include "../NeuralAmpModeler/ParameterLayout.h"
 #include <algorithm>
+#include <functional>
 #include <iomanip>
 #include <limits>
 #include <map>
@@ -336,7 +337,14 @@ static json Measure(const Library& library, const json& scenario, const json& se
   // Upstream loaders need the host rate and block limit before preparing assets.
   instance.Activate(rate, buffer);
   instance.Deactivate();
-  auto config = Configure(instance.Save(), scenario);
+  // A saved rig replaces the single-module case: its controls, modules and assets as stored.
+  const bool rig = scenario.contains("rig");
+  auto config = instance.Save();
+  if (rig)
+    for (auto it = scenario["rig"].begin(); it != scenario["rig"].end(); ++it)
+      config[it.key()] = it.value();
+  else
+    config = Configure(std::move(config), scenario);
   // Capture needs live input history before Hold is engaged.
   const std::string latch = config.value("Pre 1 Freeze Hold", 0.) >= .5      ? "Freeze Hold"
                             : config.value("Pre 1 Shimmer Freeze", 0.) >= .5 ? "Shimmer Freeze"
@@ -352,20 +360,30 @@ static json Measure(const Library& library, const json& scenario, const json& se
   instance.Load(config);
   const double loadMs = std::chrono::duration<double, std::milli>(Clock::now() - loadStart).count();
   const auto recalled = instance.Save();
-  Check(recalled.at("SlotEffects")[0] == scenario.at("effect"), "Module selection not recalled");
-  for (int slot = 0; slot < scenario.value("copies", 1); ++slot)
+  if (rig)
   {
-    Check(recalled.at("SlotEffects")[slot] == scenario.at("effect"), "Stacked module selection not recalled");
-    if (scenario.contains("asset"))
-      Check(recalled.at("SlotHashes")[slot].is_string() && !recalled.at("SlotHashes")[slot].get<std::string>().empty(),
-            "Stacked asset failed to load");
+    for (size_t slot = 0; slot < recalled.at("SlotPaths").size(); ++slot)
+      Check(recalled.at("SlotPaths")[slot].get<std::string>().empty()
+              || !recalled.at("SlotHashes")[slot].get<std::string>().empty(),
+            "Rig asset failed to load: " + recalled.at("SlotPaths")[slot].get<std::string>());
   }
-  for (auto it = scenario.at("controls").begin(); it != scenario.at("controls").end(); ++it)
-    if (it.key() != "Freeze Hold" && it.key() != "Shimmer Freeze" && it.key() != "Noise Learn")
-      Check(recalled.at("Pre 1 " + it.key()) == it.value(), "Mode not recalled: " + it.key());
-  if (scenario.contains("asset"))
-    Check(recalled.at("SlotHashes")[0].is_string() && !recalled.at("SlotHashes")[0].get<std::string>().empty(),
-          "Asset failed to load (plugin recalled a missing/invalid file)");
+  else
+  {
+    Check(recalled.at("SlotEffects")[0] == scenario.at("effect"), "Module selection not recalled");
+    for (int slot = 0; slot < scenario.value("copies", 1); ++slot)
+    {
+      Check(recalled.at("SlotEffects")[slot] == scenario.at("effect"), "Stacked module selection not recalled");
+      if (scenario.contains("asset"))
+        Check(recalled.at("SlotHashes")[slot].is_string() && !recalled.at("SlotHashes")[slot].get<std::string>().empty(),
+              "Stacked asset failed to load");
+    }
+    for (auto it = scenario.at("controls").begin(); it != scenario.at("controls").end(); ++it)
+      if (it.key() != "Freeze Hold" && it.key() != "Shimmer Freeze" && it.key() != "Noise Learn")
+        Check(recalled.at("Pre 1 " + it.key()) == it.value(), "Mode not recalled: " + it.key());
+    if (scenario.contains("asset"))
+      Check(recalled.at("SlotHashes")[0].is_string() && !recalled.at("SlotHashes")[0].get<std::string>().empty(),
+            "Asset failed to load (plugin recalled a missing/invalid file)");
+  }
   const auto activationStart = Clock::now();
   instance.Activate(rate, buffer);
   const double activationMs = std::chrono::duration<double, std::milli>(Clock::now() - activationStart).count();
@@ -556,6 +574,18 @@ static json Measure(const Library& library, const json& scenario, const json& se
               {"process_errors", errors},
               {"output_peak", peak},
               {"paced", paced}};
+  if (rig)
+  {
+    // Where a rig's worst callbacks fall shows periodic work that averages hide.
+    std::vector<std::pair<double, int>> ranked;
+    for (size_t i = 0; i < signal.size(); ++i) ranked.emplace_back(signal[i], static_cast<int>(i));
+    for (size_t i = 0; i < silence.size(); ++i) ranked.emplace_back(silence[i], static_cast<int>(signal.size() + i));
+    const auto count = std::min<size_t>(12, ranked.size());
+    std::partial_sort(ranked.begin(), ranked.begin() + count, ranked.end(), std::greater<>());
+    result["worst_blocks"] = json::array();
+    for (size_t i = 0; i < count; ++i)
+      result["worst_blocks"].push_back({{"seconds", ranked[i].second * static_cast<double>(buffer) / rate}, {"us", ranked[i].first}});
+  }
   if (paced)
     result["paced_completion"] = {
       {"late_blocks", std::count_if(late.begin(), late.end(), [](double t) { return t > 0.; })},

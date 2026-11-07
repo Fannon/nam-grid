@@ -42,7 +42,7 @@ reproducible source of these changes.
 | --- | --- | --- | --- |
 | `NeuralAmpModelerCore` | [sdatkinson/NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) `v0.6.0` | `nam-core-a2-planar`: planar NEON A2 kernels from [Core PR #313](https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313) | PR #313 is released |
 | `AudioDSPTools` | [sdatkinson/AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) `v0.1.2` | `audio-dsp-001` WAV decoding safety and polarity, `002` resampler warm-up, `003` GCC build, `004` stereo IR loading | `v0.2.0` covers `004` with a different stereo API ([#28](https://github.com/sdatkinson/AudioDSPTools/pull/28)) and the alias half of `003` ([#26](https://github.com/sdatkinson/AudioDSPTools/pull/26)); `001`/`002` are local |
-| `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
+| `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract`, `iplug2-clap-latency-reporting` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
 | `eigen` | [libeigen/eigen](https://gitlab.com/libeigen/eigen) `ed8cda3` | None | |
 
 Core's own nested `Dependencies/eigen` and `Dependencies/AudioDSPTools` are not used;

@@ -699,6 +699,41 @@ int main(int argc, char** argv)
   cleared["SlotPaths"][1] = "";
   load(cleared);
   assert(save().config() == cleared);
+  // An active plugin requests a restart for a new latency and reports it during the next
+  // activate. Bitwig flags any other report as "plugin reported latency change while activated".
+  {
+    const auto* latency = static_cast<const clap_plugin_latency*>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
+    const auto activate = [&] {
+      host.activating = true;
+      assert(plugin->activate(plugin, 44100., 1, 512));
+      host.activating = false;
+      assert(plugin->start_processing(plugin));
+    };
+    activate();
+    assert(latency->get(plugin) == 0);
+    host.restart = false;
+    host.latencyReports = host.misplacedLatencyReports = 0;
+    auto resampled = cleared;
+    resampled["SlotPaths"][0] = path1.string();
+    load(resampled);
+    pump();
+    if (host.callback)
+    {
+      host.callback = false;
+      plugin->on_main_thread(plugin);
+    }
+    assert(host.restart);
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    assert(host.latencyReports == 0);
+    activate();
+    assert(latency->get(plugin) > 0);
+    assert(host.latencyReports == 1 && host.misplacedLatencyReports == 0);
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    host.restart = false;
+    load(cleared);
+  }
   if (const char* cacheOnly = std::getenv("NAM_GRID_CACHE_SMOKE"); cacheOnly && std::strcmp(cacheOnly, "1") == 0)
   {
     TestCachedControlsClap(plugin, cleared, load, fixtures);

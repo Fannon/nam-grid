@@ -80,6 +80,18 @@ def asset_cases(nam_paths, ir_paths, modules={"NAM": 0, "Cabinet IR": 6}, ir_len
     return cases
 
 
+def rig_cases(paths):
+    """Whole saved rigs, measured with their own modules, controls, routing and assets."""
+    cases = []
+    for index, path in enumerate(paths):
+        preset = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(preset, dict) or preset.get("format") != "nam-grid-preset" or "rig" not in preset:
+            raise ValueError(f"Not a NAM Grid rig preset: {path}")
+        cases.append({"id": f"rig-{index + 1}", "module": "Rig", "mode": path.stem, "effect": 0, "controls": {},
+                      "rig": preset["rig"], "rig_sha256": sha256(path)})
+    return cases
+
+
 def stacked_cases(cases, copies):
     """Repeat a processor in grid order; keep one empty-grid control case."""
     if any(n < 1 or n > 16 for n in copies):
@@ -312,6 +324,14 @@ def write_reports(folder, metadata, rows):
         label = (case["module"] + " / " + case["mode"]).replace("|", "\\|")
         lines.append(f"| {label} | {row['rate']} | {row['buffer']} | {row['repeat'] + 1} | {timing['cpu_percent']:.2f} | "
                      f"{timing['p99_us']:.1f} | {timing['max_us']:.1f} | {row['status']} |")
+    worst = [r for r in rows if r.get("worst_blocks")]
+    if worst:
+        lines += ["", "## Worst rig callbacks", "",
+                  "Measured time of each slowest callback. Evenly spaced times point to periodic work; isolated ones to the machine.", ""]
+        for row in worst:
+            times = ", ".join(f"{b['seconds']:.2f} s: {b['us']:.0f} µs" for b in sorted(row["worst_blocks"], key=lambda b: b["seconds"]))
+            lines.append(f"- {row['case']['mode']} at {row['rate']} Hz/{row['buffer']} frames, repeat {row['repeat'] + 1} "
+                         f"(deadline {row['deadline_us']:.0f} µs): {times}")
     if errors:
         lines += ["", "## Errors", ""]
         for row in errors[:30]:
@@ -319,7 +339,7 @@ def write_reports(folder, metadata, rows):
                          f"{row.get('error', 'Non-finite output or CLAP process error')}")
     lines += ["", "## Limits", "",
               "This does not open ASIO/CoreAudio, measure driver xruns/DPC latency, listen for clicks, "
-              "exercise UI/automation or concurrent asset loading, or reproduce an arbitrary user rig. "
+              "exercise UI/automation or concurrent asset loading, or replay real playing; --rig measures a saved rig with a test signal. "
               "Stacked cases repeat one processor in grid order; they are not a whole DAW project. "
               "A single module's cost is not a complete DAW project budget. Even paced mode uses an ordinary "
               "OS thread, so wake-up lateness is host/scheduler evidence rather than a measured device xrun. "
@@ -345,6 +365,7 @@ def main(argv=None):
     parser.add_argument("--ir", type=Path, action="append", default=[], help="add a real WAV IR (repeatable)")
     parser.add_argument("--ir-length", choices=("cabinet", "long"), default="cabinet",
                         help="processing length for all WAV IR cases (default: cabinet; long retains up to 30 seconds)")
+    parser.add_argument("--rig", type=Path, action="append", default=[], help="measure a saved .ngrid rig as a whole instead of the module cases (repeatable)")
     parser.add_argument("--filter", action="append", default=[], help="case-insensitive module/mode/id substring (OR; baseline always included)")
     parser.add_argument("--module", action="append", default=[], help="exact module name; repeatable; includes all modes and the empty-grid baseline")
     parser.add_argument("--modulation", choices=MODULATION_PROFILES, default="none", help="matrix profile applied to every case, including the empty grid")
@@ -375,6 +396,8 @@ def main(argv=None):
     cases += asset_cases(nam_paths + [p.resolve() for p in args.nam], ir_paths + [p.resolve() for p in args.ir], modules, args.ir_length)
     cases = stacked_cases(select_cases(cases, args.module, args.filter), args.copies)
     cases = modulation_cases(cases, args.modulation)
+    if args.rig:
+        cases = [c for c in cases if c["id"] == "empty"] + rig_cases([p.resolve() for p in args.rig])
     if args.list:
         for case in cases:
             print(f"{case['id']:20} {case['module']}: {case['mode']}")
@@ -397,7 +420,7 @@ def main(argv=None):
                 "settings": settings, "cases": cases, "sample_format": "stereo float64", "planned_measurements": len(cases) * count}
     if baseline is not None:
         check_comparison_settings(baseline, metadata)
-        identities = lambda selected: {c["id"]: (c["effect"], c["controls"], c.get("asset_sha256"), c.get("globals", {}), c.get("copies", 1)) for c in selected}
+        identities = lambda selected: {c["id"]: (c["effect"], c["controls"], c.get("asset_sha256"), c.get("rig_sha256"), c.get("globals", {}), c.get("copies", 1)) for c in selected}
         if identities(baseline["metadata"]["cases"]) != identities(cases):
             raise ValueError("Comparison requires matching selected cases, module controls, routing, copies and asset hashes")
     rows = []

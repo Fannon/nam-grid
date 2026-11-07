@@ -55,6 +55,9 @@ struct Stream
 struct Host
 {
   bool restart = false, callback = false, dirty = false, flushRequested = false;
+  // host_latency.changed() is legal only while the plugin is being activated.
+  bool activating = false;
+  int latencyReports = 0, misplacedLatencyReports = 0;
   clap_param_rescan_flags rescanned = 0;
 #ifdef __linux__
   // Linux editors run on the host's main-thread timer and X11 connection, as in Bitwig or REAPER.
@@ -88,7 +91,11 @@ struct Host
     if (std::strcmp(id, CLAP_EXT_POSIX_FD_SUPPORT) == 0)
       return &posixFd;
 #endif
-    static const clap_host_latency latency{[](const clap_host*) {}};
+    static const clap_host_latency latency{[](const clap_host* h) {
+      auto* self = static_cast<Host*>(h->host_data);
+      ++self->latencyReports;
+      self->misplacedLatencyReports += !self->activating;
+    }};
     static const clap_host_state state{[](const clap_host* h) { static_cast<Host*>(h->host_data)->dirty = true; }};
     static const clap_host_params params{
       [](const clap_host* h, clap_param_rescan_flags flags) { static_cast<Host*>(h->host_data)->rescanned |= flags; },

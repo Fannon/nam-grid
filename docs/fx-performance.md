@@ -99,6 +99,23 @@ report overruns without making variable machine load a hard pass/fail gate.
 `--timeout` overrides the automatically sized per-scenario wall-time timeout.
 Ctrl+C retains the rows from completed scenarios and writes a partial report.
 
+## Whole rigs
+
+`--rig` replaces the module cases with a saved `.ngrid` rig, measured with its own
+modules, controls, routing and captures. The rate and buffer should match the DAW:
+
+```sh
+python scripts/fx-performance.py --rig "/path/My rig.ngrid" --rates 88200 --buffers 256 --seconds 40 --repeats 3 --output tmp/rig-check
+```
+
+`report.md` lists when each repeat's slowest callbacks happened. Evenly spaced times
+point to periodic work in the plugin. A rig that stays well inside its deadline here
+but spikes in the DAW points to the host or the machine; see
+[troubleshooting](troubleshooting.md#crackles-dropouts-or-high-cpu). The signal is
+the benchmark's test tones, so a rig with a closed gate or a level-dependent module
+can behave differently from real playing. A rig's captures must exist at their saved
+paths, and `--compare` also requires the rig files to match.
+
 ## Individual modules and before/after comparisons
 
 `--module` matches an exact module name, case-insensitively. It includes all that

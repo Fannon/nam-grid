@@ -89,6 +89,33 @@ class ReportTests(unittest.TestCase):
             cases = benchmark.asset_cases([model], [ir], {"NAM": 40, "Cabinet IR": 41})
             self.assertEqual([c["effect"] for c in cases], [40, 41])
 
+    def test_rig_cases_keep_the_saved_rig_and_identify_it_by_content(self):
+        with tempfile.TemporaryDirectory() as folder:
+            first, second = Path(folder) / "Clean.ngrid", Path(folder) / "other.ngrid"
+            first.write_text(json.dumps({"format": "nam-grid-preset", "version": 1, "rig": {"Output": -3.}}))
+            second.write_text(json.dumps({"format": "nam-grid-preset", "version": 1, "rig": {"Output": -6.}}))
+            cases = benchmark.rig_cases([first, second])
+            self.assertEqual([c["mode"] for c in cases], ["Clean", "other"])
+            self.assertEqual(cases[0]["rig"], {"Output": -3.})
+            self.assertNotEqual(cases[0]["rig_sha256"], cases[1]["rig_sha256"])
+
+    def test_rig_cases_reject_other_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "module.json"
+            path.write_text(json.dumps({"format": "other", "rig": {}}))
+            with self.assertRaises(ValueError):
+                benchmark.rig_cases([path])
+
+    def test_report_lists_worst_rig_callbacks_in_time_order(self):
+        with tempfile.TemporaryDirectory() as folder:
+            row = measurement("rig-1")
+            row["case"].update(module="Rig", mode="Clean")
+            row["deadline_us"] = 2902.
+            row["worst_blocks"] = [{"seconds": 2.5, "us": 900.}, {"seconds": 1.5, "us": 800.}]
+            benchmark.write_reports(Path(folder), {"generated_utc": "x", "plugin_sha256": "x", "settings": {"paced": False}}, [row])
+            report = (Path(folder) / "report.md").read_text(encoding="utf-8")
+            self.assertIn("1.50 s: 800 µs, 2.50 s: 900 µs", report)
+
     def test_long_ir_cases_retain_mode_and_cabinet_identity(self):
         with tempfile.TemporaryDirectory() as folder:
             ir = Path(folder) / "tail.wav"

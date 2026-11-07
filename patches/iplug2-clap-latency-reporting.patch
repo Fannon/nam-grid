@@ -1,0 +1,47 @@
+diff --git a/IPlug/CLAP/IPlugCLAP.cpp b/IPlug/CLAP/IPlugCLAP.cpp
+--- a/IPlug/CLAP/IPlugCLAP.cpp
++++ b/IPlug/CLAP/IPlugCLAP.cpp
+@@ -118,16 +118,10 @@
+   
+   if (GetClapHost().canUseLatency())
+   {
+-    // If active request restart on the main thread (or update the host)
++    // CLAP permits host_latency.changed() only during activate(), which reports this.
++    mLatencyUpdate = true;
+     if (isActive())
+-    {
+-      mLatencyUpdate = true;
+       runOnMainThread([&](){ if (!isBeingDestroyed()) GetClapHost().requestRestart(); });
+-    }
+-    else
+-    {
+-      runOnMainThread([&](){ if (!isBeingDestroyed()) GetClapHost().latencyChanged(); });
+-    }
+   }
+ }
+ 
+@@ -164,18 +158,18 @@
+   mHostHasTail = GetClapHost().canUseTail();
+   mTailCount = 0;
+ 
++  if (mLatencyUpdate)
++  {
++    GetClapHost().latencyChanged();
++    mLatencyUpdate = false;
++  }
++
+   return true;
+ }
+ 
+ void IPlugCLAP::deactivate() noexcept
+ {
+   OnActivate(false);
+-  
+-  if (mLatencyUpdate)
+-  {
+-    GetClapHost().latencyChanged();
+-    mLatencyUpdate = false;
+-  }
+ 
+   // TODO - should we clear mTailUpdate here or elsewhere?
+ }

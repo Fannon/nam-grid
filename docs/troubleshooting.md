@@ -23,6 +23,7 @@ Quick answers to common problems and questions. If yours is not here, [report it
 - Every loaded capture uses CPU, even when A/B favours the other lane. Bypass or clear the ones you do not need.
 - Compatible A2 captures offer **Quality: A2 Lite** in the module header, which uses less CPU.
 - **Settings > Preset switch > Crossfade** briefly runs two rigs at once. Use **Short fade** when CPU is tight.
+- Look at the spikes in your DAW's performance graph. If they arrive at a steady rhythm, such as once a second, while average load stays low, the cause is usually outside the plugin. On Windows, close hardware monitoring tools first: AMD Ryzen Master can freeze every CPU core for several milliseconds each time it updates its readings, and no thread priority or plugin setting avoids that. A larger buffer only helps once it is longer than the freeze.
 
 ## A capture or IR is missing
 

@@ -408,7 +408,8 @@ inline void IconLabel(IGraphics& g, Icon icon, const char* label, const IRECT& b
   const float width = std::min(bounds.W(), measured.W() + 24.f);
   const float left = style.mAlign == EAlign::Center ? bounds.MW() - width * .5f : bounds.L;
   DrawIcon(g, icon, left + 8.f, bounds.MH(), style.mFGColor);
-  FittedText(g, style.WithAlign(EAlign::Near), label, IRECT(left + 24.f, bounds.T, left + width, bounds.B));
+  // Up to the full bounds: a box exactly as wide as the measured text clips at fractional window scales.
+  FittedText(g, style.WithAlign(EAlign::Near), label, IRECT(left + 24.f, bounds.T, bounds.R, bounds.B));
 }
 inline void DrawEditorBackground(IGraphics& g, const IRECT& bounds)
 {

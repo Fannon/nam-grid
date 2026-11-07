@@ -16,10 +16,10 @@ inline constexpr int inCenterX = (4 + sidebarRight) / 2, inputMeterLeft = inCent
 inline constexpr int sideCenterX = (returnRight + width) / 2, outputMeterLeft = sideCenterX - 38;
 inline constexpr float cardCornerRadius = 4.f;
 // Header: one 28 px row. Scenes and the rig preset on the left, the preset file actions in the
-// middle, and the views (Modulation, Tuner, Settings) pinned to the right edge.
+// middle, and the views (Modulation, Tuner, the Settings icon) pinned to the right edge.
 inline constexpr int headerTop = 14, headerBottom = 42, headerY = (headerTop + headerBottom) / 2;
 inline constexpr int sceneLeft = 165, sceneWidth = 28, scenePitch = 32;
-inline constexpr int settingsRight = width - headerTop, settingsLeft = settingsRight - 108;
+inline constexpr int settingsRight = width - headerTop, settingsLeft = settingsRight - 28;
 inline constexpr int tunerRight = settingsLeft - 6, tunerLeft = tunerRight - 76;
 inline constexpr int modulationRight = tunerLeft - 6, modulationLeft = modulationRight - 110;
 // The rig preset name takes the remaining width; its file actions keep a group gap before the views.

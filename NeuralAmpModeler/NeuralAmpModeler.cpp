@@ -279,7 +279,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         caller->GetUI()->GetControlWithTag(kCtrlTagTuner)->Hide(true);
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
-      "Settings", grid_ui::Icon::Settings))->SetTooltip("Settings: library folders, scanning, visualizations and preset switching.");
+      "Settings", grid_ui::Icon::Settings, true))->SetTooltip("Settings: library folders, scanning, visualizations and preset switching.");
     ui->AttachControl(new grid_ui::Toggle(header(tunerLeft, tunerRight), kTunerActive, "Tuner", true, grid_ui::Icon::Tuner), kCtrlTagTunerButton)
       ->SetTooltip("Show the tuner in place of the module editor; click again or select a slot to leave it. "
                    "Automatable; mutes the output while on unless Mute output is off.");

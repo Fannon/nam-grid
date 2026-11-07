@@ -24,6 +24,23 @@ class FilenameVocabularyTests(unittest.TestCase):
         self.assertIn('{"creator", "AMG", "AmalgamAudio"}', text)
         self.assertIn('{"model", "TB30", "VOX AC30 Top Boost Super Twin"}', text)
 
+    def test_function_words_are_not_model_names(self):
+        text = vocabulary.generate({'gain': {'categories': ['Clean']},
+                                    'pedal_models': {'MXR Distortion+': {'brand': 'MXR', 'model': 'Distortion+', 'original_names': ['Distortion', 'Dist Plus']}}})
+        self.assertNotIn('{"distortion", "MXR Distortion+", "MXR"}', text)
+        self.assertIn('{"dist plus", "MXR Distortion+", "MXR"}', text)
+
+    def test_ir_hints_keep_real_gear_and_drop_creator_blends(self):
+        text = vocabulary.generate({'cab_standard': {'mics': {
+            'SM57': {'desc': 'Shure SM57'}, 'R121': {'desc': 'Royer R-121', 'aliases': ['121']},
+            '57+VR2': {'desc': 'SM57 + VR2 blend'}, 'Blend': {'desc': 'creator mic blend (2dor: SM57+SM58)'}}}},
+            {'vendors': [], 'creators': [], 'hints': [], 'micCodes': [], 'categories': [], 'models': []})
+        ir = text[text.index('irHints[]'):text.index('irMicCodes[]')]
+        self.assertIn('{"mic/cab", "SM57", "Shure SM57"}', ir)
+        self.assertIn('{"mic/cab", "R121", "Royer R-121"}', ir)
+        self.assertNotIn('"121"', ir)
+        self.assertNotIn('blend', ir.lower())
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -51,6 +51,17 @@ folder wins for each category, and filename hints take precedence over folders.
 For example, `Pedals/Ibanez/Take.nam` supplies a pedal category and device vendor;
 `Amalgam/Fender/Clean/Take.nam` supplies creator, vendor and gain hints.
 IR provider folders such as `OwnHammer` and `Celestion` supply creator hints.
+
+IR names follow each vendor's own habits rather than the NAM grammar, so they have their
+own vocabulary. It recognises cabinet sizes and back types (`412`, `1x12`, `112 C`), speakers,
+microphones and combined mic codes (`421+121`, OwnHammer's `57-05`), acoustic guitars and
+pickup matches (`Pz1`, `SB1`), and reverb units such as `BM7`. **Category** gives the broad
+type: `Cabinet`, `Acoustic`, `Hall`, `Room`, `Plate`, `Spring`, `Chamber`, `Ambience` and so on,
+from the filename first and then the nearest folder. A pack's name (`Packs/Room`) and the
+configured library folder (`AUDIO IR Space`) do not set a type, and a bare number counts as a
+cabinet only alongside a vendor or speaker. Short vendor codes must be upper case here, so
+`Art Museum` is not `ART`. Knob settings are never read from IR names.
+
 Explicit role folders also support names outside the dictionary:
 `Creators/My Studio`, `Vendors/My Brand`, `Brands/My Brand`, `Models/My Amp`,
 `Packs/My Pack` and `Collections/My Collection`. Packs and collections keep their
@@ -59,14 +70,17 @@ own provenance tag rather than claiming to identify a capture creator.
 The portable alias tables live in
 [`FilenameHintVocabulary.h`](../NeuralAmpModeler/FilenameHintVocabulary.h).
 Each rule maps an alias to a category and readable value; model aliases additionally
-identify their device vendor. Add regression examples when extending this vocabulary.
+identify their device vendor. IR rules live in
+[`scripts/ir-vocabulary.json`](../scripts/ir-vocabulary.json) because IR libraries have no
+naming registry. Add regression examples when extending this vocabulary.
 Hints are rebuilt from current rules when scanning or restoring the index, so
 dictionary changes do not require deleting the cache.
 
 Update the shipped table from a canonical NAM Catalog registry with
 `python scripts/generate-filename-vocabulary.py /path/to/name-registry.json`.
 The generator includes current and legacy vendor/creator aliases, model names,
-compact export codes and typed cabinet/mic tokens, and skips ambiguous model aliases.
+compact export codes and typed cabinet/mic tokens, merges the IR vocabulary, and skips
+ambiguous model aliases and function words such as `Distortion`.
 Search accepts the aliases as well as their expanded labels, including field searches
 such as `creator:AMG`, `model:TB30` and `eq:BAL3`.
 In structured filenames, Gain/Function comes from its own field: `Top Boost` in a
@@ -108,6 +122,8 @@ Search is focused whenever the browser opens, including **+ Add module**, so you
 | `maker:vox model:ac30` | Matching capture maker and model |
 | `creator:amalgam eq:balanced` | Expanded capture creator and EQ hints |
 | `speaker:celestion` | Detected speaker labels in NAM or IR filenames |
+| `category:hall` | IRs detected as halls; also `cabinet`, `acoustic`, `plate`, `spring` |
+| `mic/cab:"4x12 cabinet" mic/cab:md421` | Cabinet size and microphone in IR filenames |
 | `path:"amp heads" -name:test` | A folder phrase, excluding test filenames |
 
 Use `name:` for filenames and `gear:` for capture type. Relevance sorting puts exact filename matches first; **Sort: name** switches to alphabetical order.

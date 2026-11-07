@@ -1282,7 +1282,7 @@ public:
   }
   void OnAttached() override
   {
-    AddChildControl(new grid_ui::Button(IRECT(490, 488, 550, 512), [this](IControl*) {
+    AddChildControl(new grid_ui::Button(IRECT(grid_layout::visualizationLeft - 74, 488, grid_layout::visualizationLeft - 14, 512), [this](IControl*) {
       PLUG()->CloseSignalMonitor();
     }, "Close"));
     mPlotHelp = new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
@@ -3570,7 +3570,7 @@ class NAMGridTunerControl : public IContainerBase
 {
   // Left section: the note readout, then Mute output and Reference in a column; the tuning
   // bar spans both. The pitch history fills the right section.
-  static constexpr float kLeftL = 24.f, kLeftR = 476.f, kNoteR = 290.f, kColumnL = 306.f, kHistoryL = 496.f;
+  static constexpr float kHistoryL = grid_layout::visualizationLeft, kLeftL = 24.f, kLeftR = kHistoryL - 20.f, kColumnL = kLeftR - 170.f, kNoteR = kColumnL - 16.f;
 
 public:
   explicit NAMGridTunerControl(const IRECT& r) : IContainerBase(r) {}

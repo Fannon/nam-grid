@@ -2,12 +2,12 @@
 
 namespace grid_layout
 {
-// 16:10, so scaling the editor up fills common laptop and desktop displays.
-inline constexpr int width = 1152, height = 720;
+// 3:2: wider than the original editor without taking a full 16:10 of the screen.
+inline constexpr int width = 1080, height = 720;
 // Sidebars beside the 4x4 grid: IN, its meter and the macros on the left; A/B, Routing, OUT
 // and the output meter on the right. Both stay clear of the return wiring in the gutters.
 inline constexpr int sidebarRight = 92;
-inline constexpr int cardLeft = 122, cardWidth = 208, columnPitch = 232, cardGap = columnPitch - cardWidth;
+inline constexpr int cardLeft = 118, cardWidth = 196, columnPitch = 220, cardGap = columnPitch - cardWidth;
 inline constexpr int gridRight = cardLeft + 3 * columnPitch + cardWidth;
 inline constexpr int returnLeft = cardLeft - 19, returnRight = gridRight + 16;
 // The right column centres between the return wiring and the window edge. The stereo IN and OUT
@@ -34,7 +34,8 @@ inline constexpr int cardTop = 64, rowPitch = 104, cardHeight = 80;
 inline constexpr int editorTop = 480, editorBottom = height - 24;
 // The visualization sits equally close to the editor's top, right and bottom edges.
 inline constexpr int visualizationInset = 4, visualizationTop = editorTop + visualizationInset;
-inline constexpr int visualizationLeft = 564;
+// The module editor and visualization split under the grid, at the end of the second column.
+inline constexpr int visualizationLeft = cardLeft + columnPitch + cardWidth;
 inline constexpr int visualizationRight = width - visualizationInset;
 inline constexpr int visualizationBottom = height - visualizationInset;
 // Inside the visualization: title, chart, axis legend and shared level meters.

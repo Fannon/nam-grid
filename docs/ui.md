@@ -15,7 +15,7 @@ Build your rig in the grid, then use the panel below it to shape the selected mo
 | **Macros** | Adjust four assignable controls below IN. Double-click a label to name it; names and values are saved with the rig. |
 | **A/B** | Balance the two parallel lanes. **Routing** opens their [level, timing, and split controls](grid.md#routing). |
 
-Settings, Tuner and Modulation have icons beside their names. The page-with-plus and disk icons beside the preset arrows are **New** and **Save**; hover over them for help. A divider and subtly lighter background mark the parameter area below the grid, including when auditioning modules in the browser.
+Modulation and Tuner have icons beside their names, and the gear icon opens **Settings**. The page-with-plus and disk icons beside the preset arrows are **New** and **Save**; hover over them for help. A divider and subtly lighter background mark the parameter area below the grid, including when auditioning modules in the browser.
 
 Visualizations use the same black as the grid, with matching space above, below and to the right of the module display.
 
@@ -109,7 +109,7 @@ Turn all displays on or off in **Settings > Visualizations**. This changes only 
 
 ## Settings
 
-**Settings** in the header manages your capture, IR and preset folders (see [library folders](browser.md#library-folders)) and a few preferences:
+The gear icon in the header opens **Settings**, which manages your capture, IR and preset folders (see [library folders](browser.md#library-folders)) and a few preferences:
 
 ![Settings with library folders, rig behaviour and documentation buttons](screenshots/settings.png)
 

@@ -408,7 +408,8 @@ inline void IconLabel(IGraphics& g, Icon icon, const char* label, const IRECT& b
   const float width = std::min(bounds.W(), measured.W() + 24.f);
   const float left = style.mAlign == EAlign::Center ? bounds.MW() - width * .5f : bounds.L;
   DrawIcon(g, icon, left + 8.f, bounds.MH(), style.mFGColor);
-  FittedText(g, style.WithAlign(EAlign::Near), label, IRECT(left + 24.f, bounds.T, left + width, bounds.B));
+  // Up to the full bounds: a box exactly as wide as the measured text clips at fractional window scales.
+  FittedText(g, style.WithAlign(EAlign::Near), label, IRECT(left + 24.f, bounds.T, bounds.R, bounds.B));
 }
 inline void DrawEditorBackground(IGraphics& g, const IRECT& bounds)
 {
@@ -1282,7 +1283,7 @@ public:
   }
   void OnAttached() override
   {
-    AddChildControl(new grid_ui::Button(IRECT(490, 488, 550, 512), [this](IControl*) {
+    AddChildControl(new grid_ui::Button(IRECT(grid_layout::visualizationLeft - 74, 488, grid_layout::visualizationLeft - 14, 512), [this](IControl*) {
       PLUG()->CloseSignalMonitor();
     }, "Close"));
     mPlotHelp = new grid_ui::PlotHelp(IRECT(grid_layout::visualizationLeft + 12, grid_layout::plotTitleTop,
@@ -3570,7 +3571,7 @@ class NAMGridTunerControl : public IContainerBase
 {
   // Left section: the note readout, then Mute output and Reference in a column; the tuning
   // bar spans both. The pitch history fills the right section.
-  static constexpr float kLeftL = 24.f, kLeftR = 476.f, kNoteR = 290.f, kColumnL = 306.f, kHistoryL = 496.f;
+  static constexpr float kHistoryL = grid_layout::visualizationLeft, kLeftL = 24.f, kLeftR = kHistoryL - 20.f, kColumnL = kLeftR - 170.f, kNoteR = kColumnL - 16.f;
 
 public:
   explicit NAMGridTunerControl(const IRECT& r) : IContainerBase(r) {}

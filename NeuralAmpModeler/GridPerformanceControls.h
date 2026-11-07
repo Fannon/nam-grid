@@ -930,10 +930,10 @@ public:
     knob(2, CrossoverFrequency, "Frequency dividing the low A branch and high B branch when Frequency split is on.");
     knob(3, LaneTiming, "Positive values delay A, negative values delay B, up to 20 ms. Use it to audition capture "
                         "timing; it cannot correct every phase difference and never advances audio.");
-    AddChildControl(new FrequencySplitChoice(IRECT(grid_layout::parameterRight - 292, grid_layout::moduleHeaderTop,
-                                                   grid_layout::parameterRight - 128, grid_layout::moduleHeaderBottom)));
+    AddChildControl(new FrequencySplitChoice(IRECT(grid_layout::parameterRight - 256, grid_layout::moduleHeaderTop,
+                                                   grid_layout::parameterRight - 92, grid_layout::moduleHeaderBottom)));
     AddChildControl(new FlowMode(IRECT(grid_layout::parameterLeft + 100, grid_layout::moduleHeaderTop,
-                                      grid_layout::parameterRight - 304, grid_layout::moduleHeaderBottom)));
+                                      grid_layout::parameterRight - 268, grid_layout::moduleHeaderBottom)));
     AddChildControl(new Button(IRECT(grid_layout::parameterRight - 80, grid_layout::moduleHeaderTop, grid_layout::parameterRight, grid_layout::moduleHeaderBottom), [](IControl* caller) {
       static_cast<PLUG_CLASS_NAME*>(caller->GetDelegate())->SetRoutingOpen(false); }, "Close", Icon::Close))
       ->SetTooltip("Back to the selected module (Escape).");

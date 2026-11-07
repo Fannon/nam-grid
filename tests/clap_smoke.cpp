@@ -1340,7 +1340,7 @@ int main(int argc, char** argv)
   };
   if (std::getenv("NAM_GRID_ROUTING_SMOKE"))
   {
-    const int modeX = (grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2;
+    const int modeX = (grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 268) / 2;
     const auto capture = [&](const char* name) {
       // Give routing screenshots real lane meters in the isolated host.
       if (std::strncmp(name, "routing-", 8) == 0)
@@ -1379,7 +1379,7 @@ int main(int argc, char** argv)
     assert(save().config()["Lane B Level"] != 0. && save().config()["Lane A Level"] == 0.);
     assert(save().config()["Lane B Balance"] != 0. && save().config()["Lane A Balance"] == 0.);
     checkLaneButtons();
-    const auto splitChoice = [&] { click(grid_layout::parameterRight - 210, grid_layout::moduleButtonY); };
+    const auto splitChoice = [&] { click(grid_layout::parameterRight - 174, grid_layout::moduleButtonY); };
     splitChoice();
     assert(save().config()["Frequency Split"] == 1. && save().config()["Split Slope"] == 0.);
     splitChoice();
@@ -2055,7 +2055,7 @@ int main(int argc, char** argv)
       {
         case 0: keyAtEditor(VK_ESCAPE); break;
         case 1: click(x, y); break;
-        case 2: click(520, 500); break;
+        case 2: click(grid_layout::visualizationLeft - 44, 500); break;
         case 3: selectTile(170, 120); break;
         case 4:
           click((grid_layout::tunerLeft + grid_layout::tunerRight) / 2, grid_layout::headerY);
@@ -2630,10 +2630,10 @@ int main(int argc, char** argv)
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-settings.bmp");
       click(kCloseX, 28); click(grid_layout::sideCenterX, 356);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing.bmp");
-      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 268) / 2, grid_layout::moduleButtonY);
       assert(save().config()["Lane Mode"] == grid_performance::Sequential);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-routing-sequential.bmp");
-      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+      click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 268) / 2, grid_layout::moduleButtonY);
       assert(save().config()["Lane Mode"] == grid_performance::Parallel);
       click(grid_layout::parameterRight - 40, grid_layout::moduleButtonY); click(kModulationX, grid_layout::headerY);
       CaptureEditor(editor, std::filesystem::path(argv[3]) / "readable-modulation.bmp");
@@ -3184,7 +3184,7 @@ int main(int argc, char** argv)
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "routing-sequential.bmp");
   if (const char* captures = std::getenv("NAM_GRID_ROUTING_SCREENSHOTS"))
     CaptureEditor(editor, std::filesystem::path(captures) / "routing-sequential.bmp");
-  click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 304) / 2, grid_layout::moduleButtonY);
+  click((grid_layout::parameterLeft + 100 + grid_layout::parameterRight - 268) / 2, grid_layout::moduleButtonY);
   assert(save().config()["Lane Mode"] == grid_performance::Parallel);
   assert(save().config()["Lane A Balance"] == laneBalance);
   if (argc == 4) CaptureEditor(editor, std::filesystem::path(argv[3]) / "routing-parallel.bmp");

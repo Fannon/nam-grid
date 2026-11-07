@@ -20,6 +20,17 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   assert(Browse(hintLibrary, FileKind::NAM, "\"king of tone\" shure -creator:junkie").size() == 1);
   assert(Browse(hintLibrary, FileKind::NAM, "-eq:balanced").empty());
   assert((Filter{"AmalgamAudio balanced", -1}.Matches(tagged)));
+  Capture color; color.path = "Y BAE 1073 CO DI.nam"; color.hints = InferFilenameHints(color);
+  assert(HintText(color, "gain") == "gain: Color" && HintText(color, "model") == "model: BAE 1073MP");
+  Capture culture; culture.source = "Library"; culture.path = std::filesystem::path("Library") / "Distortion" / "Culture Vulture HIGH OD.nam";
+  culture.hints = InferLibraryHints(culture);
+  assert(HintText(culture, "model").empty() && HintText(culture, "vendor").empty()); // A function word is not MXR's Distortion+.
+  Capture freeform; freeform.path = "Vintage Marshall Plexi e906.nam"; freeform.hints = InferFilenameHints(freeform);
+  assert(HintText(freeform, "vendor") == "vendor: Marshall" && HintText(freeform, "mic/cab") == "mic/cab: Sennheiser e906");
+  assert(HintText(freeform, "model") == "model: Marshall Plexi"); // Unknown units still name their family.
+  assert(HintText(freeform, "channel").empty());
+  Capture borrowed; borrowed.path = "Vintage Fender Twin Reverb SM57.nam"; borrowed.hints = InferFilenameHints(borrowed);
+  assert(HintText(borrowed, "channel").empty() && HintText(borrowed, "model") == "model: Fender Twin Reverb");
   Capture compact; compact.path = "A FEN DLX CL.nam"; compact.hints = InferFilenameHints(compact);
   assert(HintText(compact).find("model: Fender Deluxe Reverb Reissue") != std::string::npos);
   assert(Search("fender \"deluxe reverb\" gain:clean").Score(compact) >= 0);
@@ -41,6 +52,73 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   assert(HintText(unknown, "creator") == "creator: Tone Junkie");
   Capture ir; ir.path = "Mesa2x12 V30_SM57_BAL.wav"; ir.kind = FileKind::IR; ir.hints = InferFilenameHints(ir);
   assert(Search("shure balanced \"vintage 30\"").Score(ir) >= 0 && HintText(ir, "format").empty());
+  // IR names carry gear, not NAM knobs: V60, M251, C800 and M7 stay out of settings.
+  const auto irHints = [](const std::filesystem::path& path) {
+    Capture file; file.path = path; file.kind = FileKind::IR; file.isIR = true; file.hints = InferFilenameHints(file);
+    return file;
+  };
+  const auto ownHammer = irHints("OH 412 MES-ST V60 421+57-M+.wav");
+  assert(HintText(ownHammer, "settings").empty() && HintText(ownHammer, "creator") == "creator: OwnHammer");
+  assert(HintText(ownHammer, "model") == "model: Mesa 4x12 Standard" && HintText(ownHammer, "vendor") == "vendor: Mesa Boogie");
+  assert(HintText(ownHammer, "speaker") == "speaker: Celestion Vintage 30 (V60)" && HintText(ownHammer, "category") == "category: Cabinet");
+  const auto ownHammerMics = HintText(ownHammer, "mic/cab");
+  assert(ownHammerMics.find("4x12 cabinet") != std::string::npos && ownHammerMics.find("Sennheiser MD421") != std::string::npos
+         && ownHammerMics.find("Shure SM57") != std::string::npos);
+  const auto celestion = irHints("G12M Creambk 112 C All+Room Stereo Celestion.wav");
+  assert(HintText(celestion, "speaker") == "speaker: Celestion G12M-65 Creamback" && HintText(celestion, "format") == "format: Stereo");
+  assert(HintText(celestion, "category") == "category: Cabinet"); // A room mic does not make it a Room IR.
+  assert(HintText(celestion, "mic/cab").find("Closed back") != std::string::npos);
+  const auto acoustic = irHints("Y Tay816 M251 SB1.wav");
+  assert(HintText(acoustic, "vendor") == "vendor: Taylor" && HintText(acoustic, "category") == "category: Acoustic");
+  assert(HintText(acoustic, "settings").empty() && HintText(acoustic, "mic/cab").find("Soundboard pickup") != std::string::npos);
+  assert(HintText(irHints("BM7 Boston Hall A.wav"), "category") == "category: Hall");
+  assert(HintText(irHints("BM7 Boston Hall A.wav"), "model") == "model: Bricasti M7");
+  // Ordinary words stay ordinary: none of these name a vendor, a creator or a cabinet.
+  for (const auto* name : {"Art Museum.wav", "Amp Spring Bright.wav", "Bad Flanging.wav", "Sun Plate.wav", "Ping-Pong Malfunction.wav", "M7 Nonlin A.wav", "PCM Room B1.wav", "Fair Hall.wav"})
+  {
+    const auto word = irHints(name);
+    assert(HintText(word, "vendor").empty() && HintText(word, "creator").empty() && HintText(word, "settings").empty());
+    assert(HintText(word, "mic/cab").empty() && HintText(word, "speaker").empty());
+  }
+  assert(HintText(irHints("Spring 412.wav"), "mic/cab").empty()); // A bare number needs other cabinet evidence.
+  // The rules hold for names from other libraries, not only for the vocabulary's own examples.
+  const auto foreign = irHints("York Audio Marshall 1960BV 4x12 G12T75 SM57 Cap Edge Closed 48k.wav");
+  assert(HintText(foreign, "creator") == "creator: York Audio" && HintText(foreign, "vendor") == "vendor: Marshall");
+  assert(HintText(foreign, "model") == "model: Marshall 1960BV" && HintText(foreign, "speaker") == "speaker: Celestion G12T-75");
+  const auto foreignMics = HintText(foreign, "mic/cab");
+  assert(foreignMics.find("Cap edge") != std::string::npos && foreignMics.find("Dust cap") == std::string::npos);
+  assert(foreignMics.find("Closed back") != std::string::npos && HintText(foreign, "format") == "format: 48 kHz");
+  assert(HintText(irHints("Marshall4x12_e906_OffAxis.wav"), "vendor") == "vendor: Marshall");
+  assert(HintText(irHints("Ampeg SVT 8x10 RE20.wav"), "category") == "category: Bass cabinet");
+  assert(HintText(irHints("Fender Twin SM57.wav"), "category") == "category: Cabinet"); // Vendor plus mic, no size.
+  assert(HintText(irHints("Gibson J-45 U87.wav"), "category") == "category: Acoustic"); // Gibson also makes amps.
+  assert(HintText(irHints("Gold Hall Edge Blue.wav"), "speaker").empty()); // Speaker words need a cabinet.
+  assert(HintText(irHints("Gold Hall Edge Blue.wav"), "mic/cab").empty());
+  assert(HintText(irHints("Trash Pz7.wav"), "mic/cab") == "mic/cab: Piezo pickup"); // Numbered variants are a pattern.
+  assert(HintText(irHints("Mesa Recto OS V30 57 Edge.wav"), "mic/cab").find("Shure SM57") != std::string::npos);
+  assert(HintText(irHints("Fender 57 Deluxe.wav"), "mic/cab").empty()); // A year, not a mic.
+  assert(HintText(irHints("Ampeg SVT-810 RE20.wav"), "category") == "category: Bass cabinet");
+  assert(HintText(irHints("Vox_AC30_Blue_Alnico_Ribbon.wav"), "speaker") == "speaker: Celestion Alnico Blue");
+  assert(HintText(irHints("Martin D-28 Neumann U87.wav"), "category") == "category: Acoustic");
+  assert(HintText(irHints("Mandolin - Gibson Wayne Benson - DPA 4011.wav"), "vendor").empty());
+  assert(HintText(irHints("York Audio Marshall SM57.wav"), "category") == "category: Cabinet");
+  assert(HintText(irHints("Delay 200ms.wav"), "format").empty()); // A delay time, not the file's length.
+  // A place or a joke name is not gear; reverb brands still name their reverbs.
+  assert(HintText(irHints("Orange County Arena.wav"), "vendor").empty());
+  assert(HintText(irHints("Marshall Stacks Cafe Hall.wav"), "vendor").empty());
+  assert(HintText(irHints("Lexicon Large Hall.wav"), "vendor") == "vendor: Lexicon");
+  Capture packed; packed.kind = FileKind::IR; packed.isIR = true; packed.gear = Gear::Cabinet; packed.source = "Library";
+  const auto folderCategory = [&](const std::filesystem::path& path) {
+    packed.path = path; packed.hints = InferLibraryHints(packed);
+    return HintText(packed, "category");
+  };
+  assert(folderCategory("Library/Packs/Room/09 Springs/Gentle.wav") == "category: Spring");
+  assert(folderCategory("Library/Packs/Room/04 Made for Drums/Snap.wav").empty()); // A pack's name is not a type.
+  assert(folderCategory("Library/Packs/faIR/Mono_Bushlyerine_Tube.wav") == "category: Cabinet");
+  assert(folderCategory("Library/Bass IRs/Fender 2x10 D112.wav") == "category: Bass cabinet");
+  assert(folderCategory("Library/Packs/Redwirez/Thing.wav") == "category: Cabinet"); // Makers of cabinet IRs.
+  packed.source = "AUDIO IR Space";
+  assert(folderCategory("AUDIO IR Space/Trash/Body/Thump.wav").empty()); // Neither is the library root's.
   Capture rig = tagged; rig.kind = FileKind::RigPreset;
   assert(InferFilenameHints(rig).empty());
   Capture revised;

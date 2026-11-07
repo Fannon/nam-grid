@@ -494,18 +494,27 @@ bool WriteFolderSetting(const std::filesystem::path& settingsFile, const std::st
 
 namespace
 {
-// Cabinet sizes, back types, numeric mic codes and the IR's broad type. Hints already found by the
-// alias tables are the evidence that a bare "412" is a cabinet and that "Room" is a room mic.
+// Whether a vendor alias is an all-capitals code, which must match exactly in free-form IR names.
+bool VendorCode(const std::string& token)
+{
+  return std::none_of(token.begin(), token.end(), [](unsigned char c) { return std::islower(c); });
+}
+
+// Cabinet sizes, back types, numeric mic codes and the IR's broad type. Evidence decides what
+// ambiguous words mean: "412", "Gold" or "Edge" count only in a name that is clearly a cabinet,
+// and a room mic in a cabinet name does not make it a Room IR.
 template <typename Add>
-void AddIrStructureHints(std::string text, const std::string& words, const Add& add, const std::vector<LibraryHint>& hints)
+void AddIrStructureHints(std::string text, const std::string& words, const Add& add, std::vector<LibraryHint>& hints)
 {
   std::replace(text.begin(), text.end(), '_', ' ');
   const auto has = [&](const std::string& key) {
     return std::any_of(hints.begin(), hints.end(), [&](const auto& h) { return h.key == key; });
   };
   static const std::regex size(R"((?:^|[^0-9])([1-8])x(8|10|12|15)(?![0-9]))", std::regex::icase);
-  static const std::regex compactSize(R"(\b([124])(10|12)( [CO])?\b)");
-  static const std::regex closedOrOpen(R"(\b(closed|open)[ -]*(?:back)?[ -]*[1-8]x(?:8|10|12|15)\b)", std::regex::icase);
+  static const std::regex compactSize(R"(\b([1248])(10|12|15)( [CO])?\b)");
+  static const std::regex backType(R"(\b(closed|open)(?:[ -]*back)?\b)", std::regex::icase);
+  static const std::regex backCode(R"(\b(CB|OB)\b)");
+  static const std::regex sampleRate(R"(\b(44\.?1|48|88\.?2|96|192) ?k(?:hz)?\b)", std::regex::icase);
   std::smatch match;
   bool cabinet = false;
   if (std::regex_search(text, match, size))
@@ -519,20 +528,13 @@ void AddIrStructureHints(std::string text, const std::string& words, const Add& 
     cabinet = true;
     if (match[3].matched) add("mic/cab", match[3].str() == " C" ? "Closed back" : "Open back");
   }
-  if (std::regex_search(text, match, closedOrOpen))
-    add("mic/cab", Lower(match[1].str()) == "closed" ? "Closed back" : "Open back");
-  // "421+121" and OwnHammer's "57-05" are mic codes; a lone number never is.
-  static const std::regex micCode(R"(^([0-9]{2,3}(?:\+[0-9]{2,3})*)(?:-(?:[0-9]{2}|M\+))?$)");
-  std::istringstream tokens(text);
-  for (std::string token; tokens >> token;)
-    if (token.find_first_of("+-") != std::string::npos && std::regex_match(token, match, micCode))
-    {
-      std::istringstream codes(match[1].str());
-      for (std::string code; std::getline(codes, code, '+');)
-        for (const auto& alias : filename_hints::irMicCodes)
-          if (code == alias.token) add(alias.key, alias.label);
-    }
-  if (cabinet || has("speaker")) { add("category", "Cabinet"); return; }
+  if (std::regex_search(text, match, sampleRate))
+  {
+    auto rate = match[1].str();
+    if (rate.size() == 3 && rate.find('.') == std::string::npos && rate != "192") rate.insert(2, ".");
+    add("format", rate + " kHz");
+  }
+  // A broad type from the name's own words; the earliest word decides.
   size_t first = std::string::npos;
   std::string category;
   for (const auto& alias : filename_hints::irCategories)
@@ -541,7 +543,72 @@ void AddIrStructureHints(std::string text, const std::string& words, const Add& 
     const auto pos = words.find(FilenameWords(alias.token));
     if (pos < first) { first = pos; category = alias.label; }
   }
-  if (!category.empty()) add("category", category);
+  const bool cabinetName = cabinet || has("speaker") || (has("vendor") && has("mic/cab") && category != "Acoustic");
+  if (cabinetName)
+  {
+    if (std::regex_search(text, match, backType))
+      add("mic/cab", Lower(match[1].str()) == "closed" ? "Closed back" : "Open back");
+    else if (std::regex_search(text, match, backCode))
+      add("mic/cab", match[1].str() == "CB" ? "Closed back" : "Open back");
+    // Longest first, so that "Cap Edge" is one position and not "Cap" and "Edge".
+    auto remaining = words;
+    static const auto cabinetWords = [] {
+      std::vector<filename_hints::Alias> result;
+      for (const auto& alias : filename_hints::irHints)
+        if (std::string_view(alias.key).substr(0, 4) == "cab:") result.push_back(alias);
+      std::stable_sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
+        return std::string_view(a.token).size() > std::string_view(b.token).size();
+      });
+      return result;
+    }();
+    const bool speakerKnown = has("speaker");
+    for (const auto& alias : cabinetWords)
+    {
+      const auto token = FilenameWords(alias.token);
+      const auto pos = remaining.find(token);
+      const std::string key = std::string(alias.key).substr(4);
+      if (pos == std::string::npos || (key == "speaker" && speakerKnown)) continue;
+      remaining.replace(pos + 1, token.size() - 2, std::string(token.size() - 2, ' '));
+      add(key, alias.label);
+    }
+  }
+  // "421+121" and OwnHammer's "57-05" are mic codes. A lone number is one only in a cabinet name
+  // and away from the brand, where "Fender 57" is a year.
+  static const std::regex micCode(R"(^([0-9]{2,3}(?:\+[0-9]{2,3})*)(?:-(?:[0-9]{2}|M\+))?$)");
+  std::istringstream tokens(text);
+  size_t index = 0;
+  for (std::string token; tokens >> token; ++index)
+    if ((token.find_first_of("+-") != std::string::npos || (cabinetName && (token.size() == 3 || index >= 2)))
+        && std::regex_match(token, match, micCode))
+    {
+      std::istringstream codes(match[1].str());
+      for (std::string code; std::getline(codes, code, '+');)
+        for (const auto& alias : filename_hints::irMicCodes)
+          if (code == alias.token) add(alias.key, alias.label);
+    }
+  // A cabinet makes the vendor's position irrelevant: "York Audio Marshall 1960A V30.wav".
+  const auto addAnywhere = [&](const auto& table) {
+    for (const auto& alias : table)
+      if (const std::string token = alias.token; token.size() > 2 && words.find(FilenameWords(token)) != std::string::npos
+          && (!VendorCode(token) || text.find(token) != std::string::npos))
+        add(alias.key, alias.label);
+  };
+  // Guitars are named after people too: "Gibson Wayne Benson" is not a Benson amp.
+  if (cabinetName || (has("mic/cab") && category.empty())) { addAnywhere(filename_hints::vendors); addAnywhere(filename_hints::irVendors); }
+  if (cabinetName || (has("vendor") && has("mic/cab") && category != "Acoustic"))
+  {
+    static const std::regex bass(R"(\b(bass|bassman|svt|8x10|[1-8]x15)\b)", std::regex::icase);
+    add("category", std::regex_search(text, bass) ? "Bass cabinet" : "Cabinet");
+    return;
+  }
+  if (category.empty()) return;
+  add("category", category);
+  // "Orange County Arena" is a place. Reverb and effect brands keep their name on a reverb.
+  if (category != "Acoustic" && category != "Speaker" && !has("model"))
+    hints.erase(std::remove_if(hints.begin(), hints.end(), [](const auto& h) {
+      return h.key == "vendor" && std::none_of(std::begin(filename_hints::irVendors), std::end(filename_hints::irVendors),
+                                               [&](const auto& alias) { return h.value == alias.label; });
+    }), hints.end());
 }
 } // namespace
 
@@ -556,7 +623,10 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
     if (result.back() != ' ') result += ' ';
     return result;
   };
-  const auto stem = PathText(capture.path.stem());
+  auto stem = PathText(capture.path.stem());
+  // Separate a cabinet size glued to its brand or back: "Mesa2x12", "Closed1x12".
+  static const std::regex gluedSize(R"(([A-Za-z])([1-8]x(?:8|10|12|15)(?![0-9])))", std::regex::icase);
+  if (capture.kind == FileKind::IR) stem = std::regex_replace(stem, gluedSize, "$1 $2");
   const auto words = normalize(stem);
   std::vector<std::string> fields;
   for (size_t start = 0;;)
@@ -590,8 +660,11 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
     // Free-form IR names need an upper-case code to match exactly: "Art Museum" is not ART.
     const auto addVendor = [&](const filename_hints::Alias& alias) {
       const std::string token = alias.token;
-      const bool code = std::none_of(token.begin(), token.end(), [](unsigned char c) { return std::islower(c); });
-      if (part.find(normalize(token)) == 0 && (capture.kind != FileKind::IR || !code || stem.find(token) != std::string::npos))
+      const bool code = VendorCode(token);
+      // Outside the structured grammar a brand can sit anywhere: "Vintage Marshall Plexi.nam".
+      const auto pos = part.find(normalize(token));
+      const bool placed = pos == 0 || (pos != std::string::npos && capture.kind == FileKind::NAM && !structured && !code && token.size() > 3);
+      if (placed && (capture.kind != FileKind::IR || !code || stem.find(token) != std::string::npos))
         add(alias.key, alias.label);
     };
     for (const auto& alias : filename_hints::vendors) addVendor(alias);
@@ -617,6 +690,11 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
         if (normalize(alias.label).find(normalize(vendor.token)) != std::string::npos) add("vendor", vendor.label);
     }
   }
+  // Model families name no exact unit, so they only fill in for a name the registry does not know.
+  if (capture.kind == FileKind::NAM && std::none_of(hints.begin(), hints.end(), [](const auto& h) { return h.key == "model"; }))
+    for (const auto& alias : filename_hints::modelFamilies)
+      if (device.find(normalize(alias.token)) != std::string::npos)
+      { add("model", alias.label); add("vendor", alias.vendor); break; }
   // Whole original names are fallback evidence, not substring matches against
   // generic settings such as "All 5" or "Lead" in an unrelated capture.
   if (capture.kind == FileKind::NAM && std::none_of(hints.begin(), hints.end(), [](const auto& h) { return h.key == "model"; }))
@@ -628,9 +706,10 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
     for (const auto& alias : filename_hints::irModels)
       if (contains(alias.token) && stem.find(alias.token) != std::string::npos)
       { add("model", alias.label); add("vendor", alias.vendor); }
-    // Exact case keeps ordinary words such as "Oh" or "fair" out of a creator hint.
+    // Exact case keeps ordinary short words such as "Oh" or "fair" out of a creator hint.
     for (const auto& alias : filename_hints::irCreators)
-      if (contains(alias.token) && stem.find(alias.token) != std::string::npos) add(alias.key, alias.label);
+      if (contains(alias.token) && (std::string_view(alias.token).size() > 5 || stem.find(alias.token) != std::string::npos))
+        add(alias.key, alias.label);
   }
   else for (const auto& alias : filename_hints::creators)
   {
@@ -641,20 +720,30 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
             && words.compare(words.size() - token.size(), token.size(), token) == 0))
       add(alias.key, alias.label);
   }
-  const auto byLength = [&](const auto& table) {
+  const auto byLength = [&](const auto& table, const auto& gear) {
     std::vector<filename_hints::Alias> result(std::begin(table), std::end(table));
+    result.insert(result.end(), std::begin(gear), std::end(gear));
     std::stable_sort(result.begin(), result.end(), [&](const auto& a, const auto& b) {
       return normalize(a.token).size() > normalize(b.token).size();
     });
     return result;
   };
-  static const auto namSettings = byLength(filename_hints::settings);
-  static const auto irSettings = byLength(filename_hints::irHints);
+  static const auto namSettings = byLength(filename_hints::settings, filename_hints::gearHints);
+  static const auto irSettings = byLength(filename_hints::irHints, filename_hints::gearHints);
   // Longest aliases win where phrases overlap within one category.
   std::map<std::string, std::vector<std::pair<size_t, size_t>>> used;
   for (const auto& alias : capture.kind == FileKind::IR ? irSettings : namSettings)
   {
     const std::string key = alias.key;
+    if (key.rfind("cab:", 0) == 0) continue; // AddIrStructureHints decides these once it knows the name is a cabinet.
+    // Labels like "Vintage mode (Mesa Rectifier)" describe one source's channel; outside the
+    // structured Setting field the same word is ordinary: "Vintage Fender Twin.nam".
+    if (capture.kind == FileKind::NAM && !structured && key != "speaker" && key != "mic/cab")
+    {
+      const std::string label = alias.label;
+      if (label.find('(') != std::string::npos || label.find("source") != std::string::npos || label.find("reator") != std::string::npos)
+        continue;
+    }
     const auto token = normalize(alias.token);
     const auto& text = capture.kind == FileKind::IR ? words : settingsWords;
     const auto pos = text.find(token);
@@ -733,7 +822,7 @@ std::vector<LibraryHint> InferFilenameHints(const Capture& capture)
     append(filename_hints::vendors); append(filename_hints::creators); append(filename_hints::settings);
     append(filename_hints::gains); append(filename_hints::compactModels);
     append(filename_hints::irVendors); append(filename_hints::irCreators); append(filename_hints::irHints);
-    append(filename_hints::irMicCodes); append(filename_hints::irCategories);
+    append(filename_hints::irMicCodes); append(filename_hints::irCategories); append(filename_hints::gearHints);
     if (hint.key == "model")
     {
       for (const auto& alias : filename_hints::models)
@@ -806,6 +895,11 @@ std::vector<LibraryHint> InferLibraryHints(const Capture& capture)
         if (std::string(alias.key) == "folder" && folderWords.find(FilenameWords(alias.token)) != std::string::npos)
         { candidates.push_back({"category", alias.label}); break; }
     }
+    // A name can show a cabinet without showing that the folder holds bass cabinets.
+    if (capture.kind == FileKind::IR && !SamePath(folder, capture.source)
+        && FilenameWords(PathText(folder.filename())).find(" bass ") != std::string::npos)
+      for (auto& hint : hints)
+        if (hint.key == "category" && hint.value == "Cabinet") hint.value = "Bass cabinet";
     if ((folderToken == "amp" || folderToken == "amps" || folderToken == "amplifiers")
         && (capture.gear == Gear::Unknown || capture.gear == Gear::AmpHead || capture.gear == Gear::AmpCab))
       candidates.push_back({"category", "Amp"});

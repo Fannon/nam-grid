@@ -53,14 +53,25 @@ For example, `Pedals/Ibanez/Take.nam` supplies a pedal category and device vendo
 IR provider folders such as `OwnHammer` and `Celestion` supply creator hints.
 
 IR names follow each vendor's own habits rather than the NAM grammar, so they have their
-own vocabulary. It recognises cabinet sizes and back types (`412`, `1x12`, `112 C`), speakers,
-microphones and combined mic codes (`421+121`, OwnHammer's `57-05`), acoustic guitars and
-pickup matches (`Pz1`, `SB1`), and reverb units such as `BM7`. **Category** gives the broad
-type: `Cabinet`, `Acoustic`, `Hall`, `Room`, `Plate`, `Spring`, `Chamber`, `Ambience` and so on,
-from the filename first and then the nearest folder. A pack's name (`Packs/Room`) and the
-configured library folder (`AUDIO IR Space`) do not set a type, and a bare number counts as a
-cabinet only alongside a vendor or speaker. Short vendor codes must be upper case here, so
-`Art Museum` is not `ART`. Knob settings are never read from IR names.
+own vocabulary. It recognises cabinet sizes and back types (`412`, `1x12`, `112 C`, `Closed`),
+speakers, microphones and mic positions, combined mic codes (`421+121`, `57-05`), acoustic
+guitars and pickup matches (`Pz1`, `SB1`), reverb units such as `BM7`, and sample rate
+(`48k`). **Category** gives the broad type: `Cabinet`, `Bass cabinet`,
+`Acoustic`, `Hall`, `Room`, `Plate`, `Spring`, `Chamber`, `Ambience` and so on, from the
+filename first and then the nearest folder.
+
+Evidence decides what ambiguous words mean. A name counts as a cabinet once it has a size or
+speaker, or a vendor and a mic. Only then can a vendor sit anywhere in the name, and only then
+do `412`, `Gold` or `Edge` mean a cabinet, a speaker or a mic position. A pack's name
+(`Packs/Room`) and the configured library folder (`AUDIO IR Space`) do not set a type, though
+a folder named after a cabinet IR maker does. Short vendor codes must be upper case, so
+`Art Museum` is not `ART`, and an amp brand on a place (`Orange County Arena`) is dropped.
+Knob settings are never read from IR names.
+
+NAM names outside the structured grammar get the same care. A brand can sit anywhere, such
+as `Vintage Marshall Plexi`. A name that matches no known unit falls back to its model family
+(`Marshall JCM800`). Setting labels tied to one source's gear, such as a Mesa channel called
+`Vintage`, apply only inside the structured Setting field.
 
 Explicit role folders also support names outside the dictionary:
 `Creators/My Studio`, `Vendors/My Brand`, `Brands/My Brand`, `Models/My Amp`,
@@ -72,7 +83,9 @@ The portable alias tables live in
 Each rule maps an alias to a category and readable value; model aliases additionally
 identify their device vendor. IR rules live in
 [`scripts/ir-vocabulary.json`](../scripts/ir-vocabulary.json) because IR libraries have no
-naming registry. Add regression examples when extending this vocabulary.
+naming registry; its `gear` speakers and mics and `modelFamilies` also apply to NAM names.
+A trailing `#` in a token covers its numbered variants. Add regression examples when
+extending this vocabulary, including a name from outside your own library.
 Hints are rebuilt from current rules when scanning or restoring the index, so
 dictionary changes do not require deleting the cache.
 

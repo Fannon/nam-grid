@@ -34,12 +34,22 @@ class FilenameVocabularyTests(unittest.TestCase):
         text = vocabulary.generate({'cab_standard': {'mics': {
             'SM57': {'desc': 'Shure SM57'}, 'R121': {'desc': 'Royer R-121', 'aliases': ['121']},
             '57+VR2': {'desc': 'SM57 + VR2 blend'}, 'Blend': {'desc': 'creator mic blend (2dor: SM57+SM58)'}}}},
-            {'vendors': [], 'creators': [], 'hints': [], 'micCodes': [], 'categories': [], 'models': []})
+            {'vendors': [], 'creators': [], 'cabinetCreators': [], 'gear': [], 'hints': [['mic/cab', 'Pz#', 'Piezo']],
+             'knobLikeGear': [], 'micCodes': [], 'categories': [], 'models': [], 'modelFamilies': []})
         ir = text[text.index('irHints[]'):text.index('irMicCodes[]')]
         self.assertIn('{"mic/cab", "SM57", "Shure SM57"}', ir)
         self.assertIn('{"mic/cab", "R121", "Royer R-121"}', ir)
         self.assertNotIn('"121"', ir)
         self.assertNotIn('blend', ir.lower())
+        self.assertIn('{"mic/cab", "Pz", "Piezo"}', ir)
+        self.assertIn('{"mic/cab", "Pz9", "Piezo"}', ir)
+
+    def test_cabinet_makers_type_their_folders(self):
+        text = vocabulary.generate({}, {'vendors': [], 'creators': [], 'gear': [], 'hints': [], 'knobLikeGear': [], 'micCodes': [],
+                                        'categories': [], 'models': [], 'modelFamilies': [],
+                                        'cabinetCreators': [['creator', 'OH', 'OwnHammer'], ['creator', 'OwnHammer', 'OwnHammer']]})
+        self.assertIn('{"folder", "OwnHammer", "Cabinet"}', text)
+        self.assertNotIn('{"folder", "OH", "Cabinet"}', text)
 
 
 if __name__ == '__main__':

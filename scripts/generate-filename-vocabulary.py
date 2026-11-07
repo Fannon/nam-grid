@@ -22,8 +22,10 @@ def ir_hints(registry, tables, ir):
     rows = {}
     def add(key, token, label):
         rows.setdefault((key, normalized(token)), (key, token, label))
-    for key, token, label in ir['hints']:
-        add(key, token, label)
+    # A trailing # stands for the numbered variants of a token: Pz#, Pz, Pz1 ... Pz9.
+    for key, token, label in ir['hints'] + ir['knobLikeGear']:
+        for variant in [token[:-1] + suffix for suffix in ['', *'123456789']] if token.endswith('#') else [token]:
+            add(key, variant, label)
     for key, token, label in tables['settings'].values():
         if key == 'speaker':
             add(key, token, label)
@@ -55,7 +57,7 @@ def generate(registry, ir=None):
                 add('vendors', 'vendor', alias, name)
     for name, code in registry.get('export', {}).get('make_codes', {}).items():
         add('vendors', 'vendor', code, name)
-    for code, name in [('HWTT', 'Hiwatt'), ('CRR', 'Carr'), ('MAGN', 'Magnatone')]:
+    for code, name in [('HWTT', 'Hiwatt'), ('CRR', 'Carr'), ('MAGN', 'Magnatone'), ('Mesa', 'Mesa Boogie')]:
         add('vendors', 'vendor', code, name)
     for name, item in registry.get('nam_vendors', {}).items():
         for alias in [name, item.get('code3'), *item.get('aliases', [])]:
@@ -133,9 +135,11 @@ def generate(registry, ir=None):
         for entry in sorted(entries.values(), key=lambda row: (row[0], normalized(row[1]))):
             lines.append('  {' + ', '.join(q(v) for v in entry) + '},')
         lines.append('};')
-    for name, entries in [('irVendors', ir['vendors']), ('irCreators', ir['creators']),
-                          ('irHints', ir_hints(registry, tables, ir)), ('irMicCodes', ir['micCodes']),
-                          ('irCategories', ir['categories'])]:
+    # Makers that only publish cabinets type their whole folder, whatever a pack is called.
+    categories = ir['categories'] + [['folder', token, 'Cabinet'] for _, token, _ in ir['cabinetCreators'] if len(token) > 3]
+    for name, entries in [('irVendors', ir['vendors']), ('irCreators', ir['cabinetCreators'] + ir['creators']),
+                          ('gearHints', ir['gear']), ('irHints', ir_hints(registry, tables, ir)),
+                          ('irMicCodes', ir['micCodes']), ('irCategories', categories)]:
         lines.append('inline constexpr Alias ' + name + '[] = {')
         for entry in entries:
             lines.append('  {' + ', '.join(q(v) for v in entry) + '},')
@@ -148,10 +152,11 @@ def generate(registry, ir=None):
                 label, vendor = next(iter(candidates))
                 lines.append('  {' + ', '.join(q(v) for v in [token, label, vendor]) + '},')
         lines.append('};')
-    lines.append('inline constexpr ModelAlias irModels[] = {')
-    for entry in ir['models']:
-        lines.append('  {' + ', '.join(q(v) for v in entry) + '},')
-    lines.append('};')
+    for name, entries in [('irModels', ir['models']), ('modelFamilies', ir['modelFamilies'])]:
+        lines.append('inline constexpr ModelAlias ' + name + '[] = {')
+        for entry in entries:
+            lines.append('  {' + ', '.join(q(v) for v in entry) + '},')
+        lines.append('};')
     return '\n'.join(lines + ['} } // namespace nam_library::filename_hints', ''])
 
 

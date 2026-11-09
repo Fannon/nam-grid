@@ -1,42 +1,26 @@
-# NAM Grid 0.5.0
+# NAM Grid 0.6.0
 
-Six new effects, more useful starting presets, clearer routing and faster ways to find and inspect your sound. Existing released projects, presets and automation keep loading. Saved rigs retain their routing; new rigs start with sequential lanes.
+A wider editor, clean lows under Distortion, a Smart Gate that keeps more of your pick attack, and much richer IR details in the browser. Existing projects, presets and automation keep loading. Smart Gate is the only audible change to existing rigs.
 
-## New sounds
+## Sound
 
-- **Pitch Shift:** fixed-interval harmony, octave layers and fine detuning. The dry attack stays immediate; the shifted voice has short grain delay and can smear or warble on chords and large shifts.
-- **Graphic EQ:** seven stompbox-style bands, with guitar, bass and full-range voicings.
-- **Dynamic EQ:** cut a troublesome band only when it gets loud, for palm-mute boom or harsh pick attacks.
-- **Multiband Dynamics:** three bands of upward and downward compression, from gentle control to a dense over-the-top sound. Drag the display to set the band splits and Threshold.
-- **Transient Shaper:** sharpen or soften the pick, and shorten or lengthen the sustain without setting a threshold.
-- **Harmonic Tremolo:** the swirling bass/treble pulse of early brown-panel amps.
-- **Auto-wah:** one Auto button assigns the envelope to Wah Position, ready to follow your playing.
+- **Distortion Low preserve:** keep bass weight clean while adding grit above it. Set the knob around 150–300 Hz, or start from the new **Clean lows, warm grit** preset. It starts Off, so existing rigs sound the same.
+- **Smart Gate:** notes clearly above the learned noise open faster, so short picked notes keep more attack; abrupt noise bursts can also pass more easily. The optional final gate now listens to the cleaned signal and has its own **Gate release** knob, starting at 40 ms. An amber trace in the display shows what the gate hears. Existing rigs with the final gate enabled can close sooner.
 
-## Build and navigate your rig
+## Editor
 
-- Choose **Sequential** (Pre → A → B → Post) or **Parallel** lanes. New rigs and Clean Default start sequential, so an empty lane no longer adds a dry return. Saved rigs keep their routing and sound. Parallel adds separate left/right balances for each lane, direct mute/solo buttons and stereo contribution meters.
-- The optional frequency split offers **Gentle** or **Steep** filtering. Steep keeps more low end out of a driven lane. Its overall level is flat, but its phase changes how the lanes combine with other processing; switching slopes crossfades.
-- Mark modules, captures, IRs and rig presets with yellow, orange or red **stars**, and use Starred to narrow the browser. Capture and IR stars survive moves and renames; identical copies share them.
-- NAM and IR browsers show folders in the sidebar, with `_` folders first. Search and Details understand more device, maker, gain, channel, cabinet and microphone abbreviations. Click a tag value in Details to search across folders; scroll long details.
-- **Gate** now holds the three noise gates, before Dynamics. Gate stays silver; Dynamics uses warm sand. Module arrows cycle within each category.
-- More factory presets across delays, reverbs and other effects, including beat-synced rhythms, practical guitar support, Frequency Shifter recipes and **Aurora Hall Medium** for Cosmic Echo. Existing rigs and insertion settings stay as they were.
+The window is now 1080 pixels wide, a 3:2 shape. Module displays and the Tuner get most of the extra room, grid cards are wider, and long NAM and IR names fit in the browser. Pre 1 has its own input meter beside the stereo IN meter, Settings is a gear icon, and button labels beside icons no longer get cut short at some window sizes.
 
-## See and control your sound
+## Finding captures and IRs
 
-Click a global or slot output meter to open **Signal Monitor**: stereo spectrum, resonance markers, level history, headroom and correlation, without using a module slot. A module input meter opens the preceding slot's output. Hover over frequency charts for frequency and note readouts; module spectra and response curves are clearer.
+IR files now show what their names say: cabinet size, speaker, mic and position, acoustic guitar and pickup, reverb unit, and a type such as Cabinet, Hall, Plate or Spring. Search with `category:hall`, `speaker:creamback` or `mic/cab:md421`. NAM captures gain more brands, mics, speakers and model families, with fewer false labels for both captures and IRs.
 
-Multiband Dynamics has clearer labels and shows its actual thresholds, detector levels and gain changes. Its presets now restore Threshold and band splits too. Delete or Backspace clears the selected module; Escape closes the preset browser and cancels audition. Windows module preset naming accepts letters and spaces in a native text field.
+## Host compatibility
 
-**Install factory content...** in Settings adds the bundled clean capture, Empty, Clean Default and drive examples to your chosen library folder, preserving existing files. Trails and Keep dry level now live in Settings and remain saved per rig. Settings and Modulation have cleaner layouts. Saved scenes take less space and keep the values you stored.
-
-## Sound changes and fixes
-
-- **Frequency Shifter at high Feedback:** repeats now decay and shed their lowest frequencies, preventing a stuck drone or DC buildup. Existing high-feedback rigs will sound different; the control range is unchanged.
-- Fixed a low bass burst when switching the frequency split from Gentle back to Steep after silence.
-- Fixed mute/solo buttons leaving a lane muted or soloed when clearing conflicting settings recalled from an older rig. Loading the rig still preserves its saved sound.
+When a rig changes the plugin's latency, for example while a project with resampled captures loads, NAM Grid now reports it the way CLAP requires. Bitwig should no longer log "plugin reported latency change while activated".
 
 ## Platforms and compatibility
 
-Windows x64, macOS Apple Silicon and Linux x64 builds contain CLAP and VST3. Fixed a macOS build failure in the parameter compatibility checks as the effect bank grew. macOS bundles are ad-hoc signed, not notarized. Linux uses X11/XWayland and has not been tested in a real DAW.
+Windows x64, macOS Apple Silicon and Linux x64 builds contain CLAP and VST3. macOS bundles are ad-hoc signed, not notarized. Linux uses X11/XWayland and has not been tested in a real DAW.
 
-NAM captures and cabinet IRs outside the bundled examples remain external files: keep them available when moving rigs between computers. Projects and presets from before the 0.1.0 compatibility baseline are not supported. Development rigs that used the unreleased standalone Signal Monitor module must use the new meter view instead.
+NAM captures and cabinet IRs outside the bundled examples remain external files: keep them available when moving rigs between computers. Projects and presets from before the 0.1.0 compatibility baseline are not supported.

@@ -4,12 +4,32 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- **CLAP latency changes:** when a rig changes the plugin's latency, for example when a project loads with resampled captures, NAM Grid now reports the new value while the host restarts it, as CLAP requires. Bitwig should no longer flag "plugin reported latency change while activated". Sound and saved rigs are unchanged.
-- **Smart Gate:** bands above the learned noise floor open faster to retain more pick attack; abrupt noise bursts can also pass more easily. The final gate now listens to the cleaned signal after noise reduction and Mix, so existing rigs with the gate enabled can close sooner. The display adds an amber cleaned-signal trace. Gate release always controls the final gate independently, starting at 40 ms; older rigs with the gate enabled also use this separate closing time. The final gate remains Off by default. No added latency.
+## [0.6.0] - 2026-11-09
 
-- **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob routes lows around the distortion and High cut, with no added compensation delay. It starts Off, so existing rigs retain their sound.
-- **Wider editor:** the window grows from 1020 to 1080 pixels wide, a 3:2 shape. Module displays and the Tuner get the extra width, and the module editor and its display now split at the same place as the Tuner. The library browser has a wider results list, so long NAM and IR file names fit, and Modulation has a wider Destination column. Grid cards are wider, with more space around IN, OUT, A/B and Routing. Pre 1 now has its own input meter, as Post 4 has its own output meter, with the stereo IN meter beside the IN knob. In each display's footer, the IN and OUT readouts now sit next to their own meters. Settings in the header is now a gear icon, leaving more room for the rig name, and button labels beside an icon no longer get cut short at some window sizes. Sound, saved rigs and automation are unchanged.
-- **Better browser details:** IR files now show what their names say: cabinet size and back, speaker, mic and position, acoustic guitar and pickup, reverb unit, and a type such as Cabinet, Bass cabinet, Acoustic, Hall, Plate or Spring. This covers common IR makers and gear, so it works beyond one vendor's naming. Search with `category:hall`, `speaker:creamback` or `mic/cab:md421`. Names no longer produce false matches such as `V60` read as a volume setting or `Art Museum` read as the ART brand. NAM captures gain more brands, mics and speakers, model families such as `JCM800` for names without an exact match, and fewer false labels: a folder called `Distortion` no longer marks its captures as an MXR pedal. Sound, rigs and files are unchanged.
+A wider editor, clean lows under Distortion and much richer IR details in the browser. Existing projects, presets and automation keep loading. Smart Gate is the only audible change to existing rigs, described below.
+
+### Sound
+
+- **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob, from Off up to 1 kHz, routes the lows around the distortion and High cut and adds them back clean. Try 150–300 Hz, or start from the new **Clean lows, warm grit** preset. It starts Off, so existing rigs retain their sound, and it adds no latency.
+- **Smart Gate keeps more pick attack:** bands clearly above the learned noise floor now open faster, so short picked notes come through more intact. Abrupt noise bursts can pass more easily too. This changes how existing Smart Gate rigs respond to attacks.
+- **Smart Gate final gate:** the optional gate now listens to the cleaned signal after noise reduction and Mix, so leftover raw noise no longer holds it open. A new **Gate release** knob sets its closing time, starting at 40 ms, separate from the spectral Release. Existing rigs with the final gate enabled can close sooner and use this new release time. The display adds an amber trace of the cleaned signal, so you can set the threshold against what the gate actually hears. The final gate remains Off by default, and nothing adds latency.
+
+### Editor
+
+- **Wider window:** the editor grows from 1020 to 1080 pixels wide, a 3:2 shape. Module displays and the Tuner use most of the extra width; the module editor and its display now split at the same place as the Tuner. Grid cards are wider, with more room around IN, OUT, A/B and Routing.
+- **Room for long names:** the library browser's results list is wider, so long NAM and IR file names fit, and Modulation has a wider Destination column. Settings in the header is now a gear icon, leaving more room for the rig name.
+- **Meters:** Pre 1 now has its own input meter, as Post 4 has its own output meter, with the stereo IN meter beside the IN knob. In each display's footer, the IN and OUT readouts sit next to their own meters.
+- Fix button labels beside an icon, such as **Settings folder**, being cut short at some window sizes.
+
+### Finding captures and IRs
+
+- **IR details from file names:** the browser now shows cabinet size and back, speaker, mic and position, acoustic guitar and pickup, reverb unit, and a type such as Cabinet, Bass cabinet, Acoustic, Hall, Plate or Spring. This covers common IR makers and gear rather than one vendor's naming. Search with `category:hall`, `speaker:creamback` or `mic/cab:md421`.
+- **Better NAM capture details:** more brands, mics and speakers, and model families such as `JCM800` for names without an exact match.
+- **Fewer false labels:** `V60` is no longer read as a volume setting, `Art Museum` no longer as the ART brand, and a folder called `Distortion` no longer marks its captures as an MXR pedal.
+
+### Host compatibility
+
+- **CLAP latency changes:** when a rig changes the plugin's latency, for example when a project loads with resampled captures, NAM Grid now reports the new value while the host restarts it, as CLAP requires. Bitwig should no longer log "plugin reported latency change while activated". Sound and saved rigs are unchanged.
 
 ## [0.5.0] - 2026-11-01
 

@@ -2,6 +2,7 @@
 #include "SlotOperations.h"
 #include "NoisePrintState.h"
 #include <iostream>
+#include "NoisePrintTrackingTests.h"
 
 inline double NoiseSample(uint32_t& state, int sample, double rate)
 {
@@ -162,6 +163,7 @@ void TestNoisePrintReopening()
 
 void TestNoisePrint()
 {
+  TestNoisePrintTracking();
   TestNoisePrintGate();
   TestNoisePrintTiming();
   TestNoisePrintReopening();

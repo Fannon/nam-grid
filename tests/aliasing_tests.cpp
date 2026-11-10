@@ -112,6 +112,15 @@ Rendered Render(E effect, const Controls& c, double rate, int bin, double amplit
   const int analysisCount = count * resolution;
   auto p = std::make_unique<NAMStage::Prepared>();
   p->effect = effect;
+  if (effect == E::NoisePrint)
+  {
+    // An untrained Smart Gate is exact dry, which cannot audit its spectral
+    // gains or either tracking choice. Use a committed broadband reference.
+    noise_print::Profile profile;
+    profile.valid = true;
+    profile.power.fill(1.e-6);
+    p->noise.Restore(profile);
+  }
   if (effect == E::NAM)
     p->model = std::make_unique<ResamplingNAM>(nam::get_dsp(capture), rate);
   if (effect == E::CabinetIR)

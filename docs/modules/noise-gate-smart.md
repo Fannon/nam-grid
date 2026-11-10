@@ -35,6 +35,14 @@ Learn again after changing pickups, guitar volume or input gain, moving to a dif
 
 The learned profile is saved with your project, rig preset and user module presets, and travels with Copy, Move and Swap. Learn itself is never saved switched on, and scenes do not change the profile.
 
+## Follow a changing noise level
+
+The **Tracking** selector in the module header starts at **Fixed**, which uses the learned profile as before. Choose **Follow** if the same background noise gradually gets louder. Leave a few seconds of idle noise for it to respond, then check quiet picking and sustain again.
+
+Follow temporarily raises the noise estimate by up to **6 dB** when a broad part of the spectrum matches the learned noise. It waits for a stable match, pauses upward changes around attacks and coherent decays, and ignores strongly tonal profiles. It returns toward the learned level when the noise falls. The learned profile itself stays unchanged; the temporary adjustment restarts on reset or recall.
+
+This is deliberately conservative: short pauses, changing noise and continuous playing may give it too little evidence to help. It cannot reliably distinguish every quiet note from noise, so use Fixed if quiet playing loses detail. A different noise character still needs Learn again. Tracking is saved with the module and scenes; older projects load as Fixed. The final gate remains a separate manual setting.
+
 ## Good to know
 
 - Keep it before delays and reverbs, so their tails are not reduced.

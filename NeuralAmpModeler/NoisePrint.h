@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include "NoisePrintTracking.h"
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
   #include <emmintrin.h>
 #elif defined(__aarch64__) && !defined(NAM_NOISE_PRINT_SCALAR)
@@ -27,6 +28,7 @@ struct Controls
   double sensitivity = 1.5, reduction = 24., attack = 2., release = 120., mix = 100.;
   double gateThreshold = -100.; // Minimum is Off, independent of the learned print.
   double gateRelease = 40.; // Independent final-gate closing time.
+  int trackingMode = 0; // Fixed=0; Follow=1, saved selector.
 };
 
 // Stage-lifetime mailbox: audio is the sole writer. Control never touches an
@@ -76,6 +78,8 @@ public:
   void Reset(double rate)
   {
     mRate = std::max(1., rate);
+    mTracking.Reset(mRate);
+    mTracking.Reference(mProfile.power, mProfile.valid);
     mFilters = {};
     mPower = {};
     mMean = {};
@@ -112,6 +116,7 @@ public:
   void Restore(const Profile& profile)
   {
     mProfile = profile;
+    mTracking.Reference(mProfile.power, mProfile.valid);
     mChanged = true;
   }
   const Profile& GetProfile() const { return mProfile; }
@@ -123,6 +128,7 @@ public:
   }
   double Reduction() const { return mReduction; }
   double CleanPeak() const { return mCleanPeak; }
+  double TrackingScale() const { return mTracking.Scale(); }
 
   void Process(double* left, double* right, int frames, const Controls& c)
   {
@@ -130,6 +136,7 @@ public:
     if (c.learn && !mLearning)
     {
       mMean = {};
+      mTracking.Clear();
       mSamples = mWarmup = 0;
     }
     if (!c.learn && mLearning && mSamples >= static_cast<uint64_t>(mRate * .25))
@@ -143,11 +150,13 @@ public:
         mProfile = {mMean, true};
         for (auto& power : mProfile.power)
           power = std::min(power, 1.e6);
+        mTracking.Reference(mProfile.power, mProfile.valid);
         mChanged = true;
       }
     }
     mLearning = c.learn;
     const bool reducing = mProfile.valid && !c.learn;
+    const bool following = reducing && c.trackingMode == 1;
     const double margin = std::pow(10., std::clamp(c.sensitivity, -6., 12.) * .1);
     const double floor = std::pow(10., -std::clamp(c.reduction, 0., 48.) * .05);
     const double attack = std::exp(-1. / (.001 * std::clamp(c.attack, .2, 20.) * mRate));
@@ -170,6 +179,7 @@ public:
         inverseThreshold[i] = 1. / std::max(1.e-30, mProfile.power[i] * margin);
     }
     const double inverseLearnedPower = 1. / std::max(1.e-30, learnedPower);
+    std::array<double, bands> followThreshold;
     double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
@@ -193,11 +203,19 @@ public:
       // Strong notes need less spectral attenuation. The resonator
       // bank overlaps: limiting reduction during confident signal prevents
       // low-level band leakage from coloring the wanted harmonics.
-      const double confidence = reducing ? std::max(0., totalPower * inverseLearnedPower - 4.) : 0.;
+      double scale = 1.;
+      if (following || mTracking.Scale() != 1. || mTracking.Active())
+        scale = mTracking.Tick(mPower, following);
+      const bool adjusted = reducing && scale != 1.;
+      const double inverseScale = adjusted ? 1. / scale : 1.;
+      if (adjusted)
+        for (int i = 0; i < bands; ++i) followThreshold[i] = inverseThreshold[i] * inverseScale;
+      const double ratio = totalPower * inverseLearnedPower;
+      const double confidence = reducing ? std::max(0., (adjusted ? ratio * inverseScale : ratio) - 4.) : 0.;
       const double protection = .5 * confidence / (confidence + 8.);
       double wet[2]{};
       const double gainSum = Synthesize(
-        dry, right != nullptr, reducing, synthesize, protection, floor, attack, release, inverseThreshold, split, wet);
+        dry, right != nullptr, reducing, synthesize, protection, floor, attack, release, adjusted ? followThreshold : inverseThreshold, split, wet);
       mMix += std::clamp(mixTarget - mMix, -mixStep, mixStep);
       // Exact dry/untrained/learning paths: no crossover coloration or buffering.
       const bool neutral = !mProfile.valid || mMix == 0.;
@@ -439,6 +457,7 @@ private:
   Coefficient mCoefficient;
   std::array<double, bands> mDetector{}, mPower{}, mMean{}, mGain{};
   Profile mProfile;
+  Tracking mTracking;
   uint64_t mSamples = 0, mWarmup = 0;
   double mRate = 48000., mMix = 1., mReduction = 0., mSynthesis = 1.;
   double mGateEnvelope = 0., mGateGain = 1., mCleanPeak = 0.;

@@ -92,6 +92,10 @@ static_assert(PerformanceParam(grid_performance::LaneBBalance) == 5264);
 static_assert(grid_performance::parameters[grid_performance::LaneMode].introducedIn == 25);
 static_assert(grid_performance::StateOnly(grid_performance::LaneMode));
 static_assert(!grid_performance::StateOnly(grid_performance::LaneABalance));
+static_assert(SlotUtilityParam(0, uNoiseTrackingMode) == 5297);
+static_assert(SlotUtilityParam(15, uNoiseTrackingMode) == 5312);
+static_assert(kEffectParameters[uNoiseTrackingMode].introducedIn == 28);
+static_assert(IsAlgorithmMode(uNoiseTrackingMode));
 
 int main(int argc, char** argv)
 {
@@ -276,6 +280,46 @@ int main(int argc, char** argv)
   // All selectors, all current choices and all slots must survive state recall.
   // Scenes retain raw algorithm identities too; no normalized values are saved.
   const auto base = save();
+  // Loading the predecessor after Follow restores Fixed in the live rig and
+  // delta scenes. Legacy partial scenes must retain their omitted controls.
+  auto expectedTracking = base;
+  expectedTracking["SlotEffects"][0] = static_cast<int>(SlotEffect::NoisePrint);
+  expectedTracking["SlotPaths"][0] = expectedTracking["SlotHashes"][0] = "";
+  expectedTracking["Pre 1 Noise Sensitivity"] = 4.5;
+  expectedTracking["NoisePrintProfiles"][0] = {{"version", 1}, {"power", std::vector<double>(noise_print::bands, 1.e-6)}};
+  expectedTracking["PerformanceScenes"][0]["Pre 1 Noise Sensitivity"] = 2.5;
+  expectedTracking["PerformanceSceneDeltas"][1] = {{"Pre 1 Noise Sensitivity", 2.5}};
+  for (int slot = 0; slot < 16; ++slot)
+    expectedTracking["PerformanceScenes"][0][GridSlotName(slot) + " Noise Tracking"] = 0.;
+  auto trackingState = expectedTracking;
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const auto key = GridSlotName(slot) + " Noise Tracking";
+    trackingState[key] = 1.;
+    trackingState["PerformanceScenes"][0][key] = 1.;
+  }
+  assert(load(trackingState));
+  assert(save() == trackingState);
+  auto legacyTracking = expectedTracking;
+  legacyTracking["schema"] = 27;
+  for (int slot = 0; slot < 16; ++slot)
+  {
+    const auto key = GridSlotName(slot) + " Noise Tracking";
+    legacyTracking.erase(key);
+    for (auto& scene : legacyTracking["PerformanceScenes"]) scene.erase(key);
+  }
+  assert(load(legacyTracking));
+  for (int slot = 0; slot < 16; ++slot)
+    expectedTracking["PerformanceScenes"][0].erase(GridSlotName(slot) + " Noise Tracking");
+  const auto migratedTracking = save();
+  if (migratedTracking != expectedTracking)
+    std::cerr << "Tracking migration changed: " << json::diff(expectedTracking, migratedTracking) << '\n';
+  assert(migratedTracking == expectedTracking);
+  auto expandedTracking = migratedTracking;
+  assert(performance_scenes::Expand(expandedTracking,
+    performance_scenes::Baseline(migratedTracking, [&](int i) { return metadata(i)["name"].get<std::string>(); })));
+  assert(expandedTracking["PerformanceScenes"][1]["Pre 1 Noise Tracking"] == 0.);
+  assert(!expandedTracking["PerformanceScenes"][0].contains("Pre 1 Noise Tracking"));
   // Released schemas and both actual predecessor layouts lack Time Change. Loading
   // one after Crossfade must restore Glide while retaining Juno-10 and Trails-11 data.
   for (int schema = kInitialEffectStateSchema; schema <= 11; ++schema)

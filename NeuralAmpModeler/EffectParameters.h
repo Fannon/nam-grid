@@ -320,6 +320,7 @@ enum UtilityParam
   uPitchMix = 304,
   uDistLowPreserve = 305,
   uNoiseGateRelease = 306,
+  uNoiseTrackingMode = 307,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -328,6 +329,7 @@ inline constexpr const char* uRingShapeChoices[]{"Sine", "Triangle", "Square"};
 inline constexpr const char* uUtilityModeChoices[]{"Stereo", "Swap", "Left to both", "Right to both"};
 inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
 inline constexpr const char* kDelayTimeChanges[]{"Glide", "Crossfade"};
+inline constexpr const char* kNoiseTrackingModes[]{"Fixed", "Follow"};
 inline constexpr const char* kGraphicVoicings[]{"Guitar", "Bass", "Full range"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
@@ -353,6 +355,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uChorusVoices: return effect_modes::chorusVoiceNames;
     case uSpringTank: return effect_modes::springTankNames;
     case uGraphicVoicing: return kGraphicVoicings;
+    case uNoiseTrackingMode: return kNoiseTrackingModes;
     default: return {};
   }
 }
@@ -394,6 +397,7 @@ inline constexpr AlgorithmIdentity timeChange[]{{0, "glide"}, {1, "crossfade"}};
 inline constexpr AlgorithmIdentity pickup[]{{0, "single-coil"}, {1, "humbucker"}, {2, "acoustic"}};
 inline constexpr AlgorithmIdentity chorusVoices[]{{0, "one"}, {1, "three"}};
 inline constexpr AlgorithmIdentity springTank[]{{0, "classic"}, {1, "dispersive"}};
+inline constexpr AlgorithmIdentity noiseTracking[]{{0, "fixed"}, {1, "follow"}};
 inline constexpr AlgorithmIdentity graphicVoicing[]{{0, "guitar"}, {1, "bass"}, {2, "full-range"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
@@ -422,6 +426,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uChorusVoices: return chorusVoices;
     case uSpringTank: return springTank;
     case uGraphicVoicing: return graphicVoicing;
+    case uNoiseTrackingMode: return noiseTracking;
     default: return {};
   }
 }
@@ -435,7 +440,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 27; // 27 Smart Gate independent gate timing.
+inline constexpr int kEffectStateSchema = 28; // 28 optional Smart Gate noise-level tracking.
 
 struct EffectParameter
 {
@@ -760,7 +765,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pitch Output", "Output", 0, -18, 6, 0.1, "dB", 3, false, 1., 22},
    {"Pitch Mix", "Mix", 0, 0, 100, 0.1, "%", 4, false, 1., 22},
    {"Distortion Low Preserve", "Low preserve", 0, 0, 1000, 1, "Hz", 3, false, 2., 26},
-   {"Noise Gate Release", "Gate release", 40, 1, 500, 1, "ms", 7, false, 2., 27}}};
+   {"Noise Gate Release", "Gate release", 40, 1, 500, 1, "ms", 7, false, 2., 27},
+   {"Noise Tracking", "Tracking", 0, 0, 1, 1, "", 0, false, 1., 28}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -845,7 +851,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
-  if (p == uNoiseGateRelease) return e == SlotEffect::NoisePrint;
+  if (p == uNoiseGateRelease || p == uNoiseTrackingMode) return e == SlotEffect::NoisePrint;
   if (p == uDistLowPreserve) return e == SlotEffect::Distortion;
   if (p >= uPitchInterval && p <= uPitchMix) return e == SlotEffect::PitchShift;
   if (p >= uGraphicBand1 && p <= uGraphicVoicing) return e == SlotEffect::GraphicEQ;

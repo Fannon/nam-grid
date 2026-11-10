@@ -52,6 +52,8 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 The final gate starts **Off**. Gate release always controls its closing time separately from spectral Release.
 
+The header's **Tracking** selector starts at **Fixed**. **Follow** slowly raises the temporary noise estimate by up to 6 dB after a stable match to the learned noise. Attacks, coherent decays and tonal profiles inhibit upward tracking. Allow a few seconds of idle noise; learn again when its character changes. See [tracking tips](noise-gate-smart.md#follow-a-changing-noise-level).
+
 **Display:** Gray shows input, amber shows the cleaned signal before the final gate, and the module colour shows output. The dashed threshold applies to the amber trace. The GR bar estimates combined attenuation.
 
 **Tips:**

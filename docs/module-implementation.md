@@ -133,6 +133,23 @@ block sizes (see [tests](build.md#tests)).
 
 ## Noise Gate (Smart)
 
+Tracking defaults to Fixed, retaining the original DSP arithmetic. Optional Follow scales
+the committed print's level at runtime without changing or publishing its powers. A
+control estimator observes the existing stereo-linked band powers about 250 times per
+second, smooths normalized powers over 40 ms and compares their lower quartile with the
+upper spectrum. It requires 250 ms of spectral agreement; a sudden rise or a coherent
+50 ms downward slope holds upward changes for 250 ms. Strongly tonal references and
+profiles with too few usable bands remain fixed. These guards reduce ambiguity with
+quiet notes; they are not a classifier or a guarantee of sustain preservation.
+
+The temporary power scale stays between 1 and 4 (approximately +6 dB), with a 1 s rise
+and 250 ms fall. It scales both band thresholds and global confidence. Switching to
+Fixed returns toward unity over 20 ms and then snaps to exact unity. Learn, restore
+and reset clear the temporary estimate; the saved profile format is unchanged. The
+estimator uses bounded arrays with no allocation or lookahead. Its observation clock
+runs across block boundaries. Tracking is a saved, nonautomatable header selector;
+older states receive Fixed. Continuous playing and short gaps may prevent adaptation.
+
 The spectral gate learns a per-band noise print during Learn and applies stereo-linked band
 gains, so the image does not wobble. A confidence guard relaxes suppression on strong notes and
 returns to the learned profile for quiet playing. Learning transitions to dry over 5 ms and

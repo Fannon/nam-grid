@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Optional Smart Gate tracking:** choose **Follow** in the module header to adjust to a steady rise in the learned noise, up to 6 dB. It waits for a stable match and limits adaptation around attacks, decays and strongly tonal noise. Allow a few seconds of idle noise; a different noise character still needs Learn again. **Fixed** remains the default, and existing projects retain their sound. No latency is added.
+
 ## [0.6.0] - 2026-11-09
 
 A wider editor, clean lows under Distortion and much richer IR details in the browser. Existing projects, presets and automation keep loading. Smart Gate is the only audible change to existing rigs, described below.

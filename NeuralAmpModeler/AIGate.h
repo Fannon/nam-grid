@@ -230,21 +230,17 @@ private:
   void Infer(double floor, float bias)
   {
     const Model& m = mModel;
-    alignas(16) float feature[bands], x[maxUnits], gi[3 * maxUnits], gh[3 * maxUnits], logit[bands];
+    alignas(16) float feature[bands], x[maxUnits], gi[3 * maxUnits], gh[3 * maxUnits], logit[bands], shifted[bands];
     const double inverseHop = 1. / mHop;
     for (int i = 0; i < bands; ++i)
     {
       feature[i] = static_cast<float>(10. * std::log10(mAccumulator[i] * inverseHop + 1.e-12) + 60.) * (1.f / 30.f);
       mAccumulator[i] = 0.;
     }
-    for (int j = 0; j < m.inner; ++j)
-      x[j] = m.inputBias[j] + Dot(m.inputWeight + j * bands, feature, bands);
+    MatVec(m.inputWeight, m.inputBias, feature, m.inner, bands, x);
     Tanh(x, m.inner);
-    for (int j = 0; j < 3 * m.hidden; ++j)
-    {
-      gi[j] = m.gruInputBias[j] + Dot(m.gruInput + j * m.inner, x, m.inner);
-      gh[j] = m.gruHiddenBias[j] + Dot(m.gruHidden + j * m.hidden, mState.data(), m.hidden);
-    }
+    MatVec(m.gruInput, m.gruInputBias, x, 3 * m.hidden, m.inner, gi);
+    MatVec(m.gruHidden, m.gruHiddenBias, mState.data(), 3 * m.hidden, m.hidden, gh);
     const int h = m.hidden;
     for (int j = 0; j < 2 * h; ++j)
       gi[j] += gh[j];
@@ -255,7 +251,8 @@ private:
     for (int j = 0; j < h; ++j)
       mState[j] = gi[2 * h + j] + gi[h + j] * (mState[j] - gi[2 * h + j]);
     for (int k = 0; k < bands; ++k)
-      logit[k] = m.outputBias[k] - bias + Dot(m.outputWeight + k * h, mState.data(), h);
+      shifted[k] = m.outputBias[k] - bias;
+    MatVec(m.outputWeight, shifted, mState.data(), bands, h, logit);
     Sigmoid(logit, bands);
     for (int k = 0; k < bands; ++k)
       mStep[k] = (floor + (1. - floor) * logit[k] - mGain[k]) * inverseHop;
@@ -268,17 +265,36 @@ private:
     return _mm_andnot_pd(_mm_cmplt_pd(magnitude, _mm_set1_pd(1.e-30)), value);
   }
   static double SumPair(__m128d value) { return _mm_cvtsd_f64(value) + _mm_cvtsd_f64(_mm_unpackhi_pd(value, value)); }
-  static float Dot(const float* a, const float* b, int n)
+  // out[r] = bias[r] + weight row r . x, for rows a multiple of four and columns a multiple
+  // of eight. Four rows share each load of x and reduce their lanes together. Every row
+  // keeps the portable path's order: two four-lane sums over alternate groups of four,
+  // then (0 + 2) + (1 + 3), so the output is unchanged by this layout.
+  static void MatVec(const float* weight, const float* bias, const float* x, int rows, int columns, float* out)
   {
-    auto first = _mm_setzero_ps(), second = first;
-    for (int i = 0; i < n; i += 8)
+    for (int r = 0; r < rows; r += 4)
     {
-      first = _mm_add_ps(first, _mm_mul_ps(_mm_loadu_ps(a + i), _mm_loadu_ps(b + i)));
-      second = _mm_add_ps(second, _mm_mul_ps(_mm_loadu_ps(a + i + 4), _mm_loadu_ps(b + i + 4)));
+      const float* w0 = weight + r * columns;
+      const float *w1 = w0 + columns, *w2 = w1 + columns, *w3 = w2 + columns;
+      auto a0 = _mm_setzero_ps(), b0 = a0, a1 = a0, b1 = a0, a2 = a0, b2 = a0, a3 = a0, b3 = a0;
+      for (int i = 0; i < columns; i += 8)
+      {
+        const auto low = _mm_loadu_ps(x + i), high = _mm_loadu_ps(x + i + 4);
+        a0 = _mm_add_ps(a0, _mm_mul_ps(_mm_loadu_ps(w0 + i), low));
+        b0 = _mm_add_ps(b0, _mm_mul_ps(_mm_loadu_ps(w0 + i + 4), high));
+        a1 = _mm_add_ps(a1, _mm_mul_ps(_mm_loadu_ps(w1 + i), low));
+        b1 = _mm_add_ps(b1, _mm_mul_ps(_mm_loadu_ps(w1 + i + 4), high));
+        a2 = _mm_add_ps(a2, _mm_mul_ps(_mm_loadu_ps(w2 + i), low));
+        b2 = _mm_add_ps(b2, _mm_mul_ps(_mm_loadu_ps(w2 + i + 4), high));
+        a3 = _mm_add_ps(a3, _mm_mul_ps(_mm_loadu_ps(w3 + i), low));
+        b3 = _mm_add_ps(b3, _mm_mul_ps(_mm_loadu_ps(w3 + i + 4), high));
+      }
+      const auto v0 = _mm_add_ps(a0, b0), v1 = _mm_add_ps(a1, b1), v2 = _mm_add_ps(a2, b2), v3 = _mm_add_ps(a3, b3);
+      // Lanes (0 + 2) and (1 + 3) of each row, then their sum, for four rows at once.
+      const auto s01 = _mm_add_ps(_mm_unpacklo_ps(v0, v1), _mm_unpackhi_ps(v0, v1));
+      const auto s23 = _mm_add_ps(_mm_unpacklo_ps(v2, v3), _mm_unpackhi_ps(v2, v3));
+      const auto sum = _mm_add_ps(_mm_movelh_ps(s01, s23), _mm_movehl_ps(s23, s01));
+      _mm_storeu_ps(out + r, _mm_add_ps(_mm_loadu_ps(bias + r), sum));
     }
-    first = _mm_add_ps(first, second);
-    first = _mm_add_ps(first, _mm_movehl_ps(first, first));
-    return _mm_cvtss_f32(_mm_add_ss(first, _mm_shuffle_ps(first, first, 1)));
   }
   // Cephes-style single-precision exp; inputs are clamped where the sigmoid saturates.
   static __m128 Exp(__m128 x)
@@ -315,6 +331,11 @@ private:
       for (int j = 0; j < 8; ++j)
         sum[j] += a[i + j] * b[i + j];
     return ((sum[0] + sum[4]) + (sum[2] + sum[6])) + ((sum[1] + sum[5]) + (sum[3] + sum[7]));
+  }
+  static void MatVec(const float* weight, const float* bias, const float* x, int rows, int columns, float* out)
+  {
+    for (int r = 0; r < rows; ++r)
+      out[r] = bias[r] + Dot(weight + r * columns, x, columns);
   }
   static float Exp(float x)
   {

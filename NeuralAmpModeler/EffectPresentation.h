@@ -471,6 +471,10 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uNoiseAttack: return "Speed at which the denoiser lets new signal through; short settings preserve pick attacks.";
     case uNoiseRelease: return "Recovery toward noise reduction after notes; longer settings preserve sustain.";
     case uNoiseGateThreshold: return "Final gate detects the cleaned signal after Mix. Minimum is Off; raise carefully to avoid cutting sustain.";
+    case uAIGateReduction: return "Maximum reduction in bands the gate judges to be noise. Less leaves a little room tone in pauses.";
+    case uAIGateSensitivity: return "Higher closes sooner and cleans more between notes; lower protects quiet picking and long ring-outs.";
+    case uAIGateMix: return "Blend between the untreated input and the gated signal.";
+    case uAIGateAttackProtection: return "Preserve more of clear pick attacks while the network catches up. Higher values also let more sudden noise bursts through; zero uses only neural gain decisions.";
     case uNoiseGateRelease: return "Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently.";
     case uGateMode: return "Natural closes gently; Tight clamps gaps more firmly. Threshold, Release and Reduction remain independent.";
     case uTempoSync: return "Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.";
@@ -504,6 +508,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::CabinetIR: return "Convolution for cabinets, reverbs and textures. Long IR keeps tails up to 30 seconds; Mix blends with dry.";
     case SlotEffect::NoiseGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";
     case SlotEffect::NoisePrint: return "Learn the noise alone; Sensitivity and Reduction protect sustain.";
+    case SlotEffect::AIGate: return "Automatic band-by-band hum and hiss reduction. Sensitivity and Reduction balance cleanup with quiet notes; no Learn step.";
     case SlotEffect::SmoothComp: return "Gentle leveling; Attack preserves pick, Makeup restores level.";
     case SlotEffect::PunchComp: return "Firmer compression; slow Attack and parallel Mix retain punch.";
     case SlotEffect::Limiter: return "Fast peak control; Ceiling and Release set grip and recovery.";

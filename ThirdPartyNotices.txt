@@ -1031,3 +1031,22 @@ The causal resonator gate, noise-profile tracking, robust capture summaries and
 attack-protection layer are original NAM Grid implementations under the project
 MIT license. No third-party noise-suppression implementation was copied. Sources:
 NeuralAmpModeler/NoisePrint.h, NoisePrintTracking.h and NoisePrintCapture.h.
+
+Noise Gate (AI) model and implementation
+----------------------------------------
+
+AIGate.h and the training scripts in scripts/ai-gate/ are original NAM Grid MIT
+code. The network weights in AIGateModel.h were trained by the NAM Grid authors
+on:
+
+- GuitarSet (Qingyang Xi, Rachel M. Bittner, Johan Pauwels, Xuzhou Ye and Juan
+  P. Bello, "GuitarSet: A Dataset for Guitar Transcription", ISMIR 2018),
+  https://zenodo.org/records/3371780, licensed under Creative Commons
+  Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/).
+  The pickup-mix recordings were resampled, cleaned of their recording floor
+  and mixed with noise. No recording is included in NAM Grid.
+- The authors' own guitar and noise recordings, and synthetic noise.
+
+The single-precision exponential approximation uses the polynomial
+coefficients of the Cephes Mathematical Library (Stephen L. Moshier). No
+third-party source file or runtime dependency is included.

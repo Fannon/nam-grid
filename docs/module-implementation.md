@@ -131,6 +131,47 @@ NAM stage matches the official NeuralAmpModelerPlugin shell down to resampler ro
 opt-in `reference-parity` audit checks WaveNet, LSTM and A2 captures across sample rates and
 block sizes (see [tests](build.md#tests)).
 
+## Noise Gate (AI)
+
+`AIGate.h` reuses the Smart Gate's zero-latency resonator bank (96 constant-Q band-passes) and
+replaces the learned-profile gain rule with a small recurrent network. About 1500 times a
+second (every `round(rate / 1500)` samples) it reads the mean power of each band over the
+last interval, runs one dense layer, one GRU layer and one output layer (64 units each, about
+37 thousand weights in `AIGateModel.h`) and obtains one gain per band. The gains ramp linearly
+to the new values over the next interval and are applied with the Smart Gate's reconstruction,
+so equal gains return the scaled input exactly. There is no lookahead, buffering or reported
+latency. Decisions follow arriving audio, so a note opening a closed gate can lose initial
+energy. An independent causal onset protector bridges clear attacks while the network catches
+up. Protect attack blends this protection from Off to full, with a 50% default. Its cost is
+passing more abrupt noise bursts; it does not classify the onset as guitar.
+
+Reduction limits the lowest gain, Sensitivity shifts every output of the network before its
+sigmoid (plus or minus four units at the ends of the range), and Mix blends with the dry input.
+The onset protector compares 0.2 ms and 20 ms power followers, with a fixed -50 dBFS power
+regularizer, a 0.1 ms rise, a 3 ms hold and a 5 ms decay. It listens to maximum L/R power,
+so one-sided and inverted stereo attacks remain linked. Its strength and Mix ramp over 5 ms;
+reset takes the initial controls directly. Detector and protection histories reset explicitly.
+Reduction 0 dB and Mix 0% are exactly dry. The gate starts closed after a reset or recall and
+does not remember earlier automation. Stereo is linked: both channels share one set of gains
+computed from their mean band power, so the image does not move. Unsupported model sizes fall
+back to the built-in model, and the inference path allocates nothing.
+
+x64 uses SSE2 for the bank and the network. Other targets use portable code with the same
+summation order and exponential polynomial; ARM has no NEON path yet and costs more CPU there.
+Results agree to rounding, not bit for bit, between the two paths.
+
+The weights are a sound identity together with the band definition, the feature scaling and
+the control rate. `scripts/ai-gate/` holds the data preparation, training and export code:
+clean guitar is mixed with synthetic and recorded noise, the gains predicted from the mixture
+are applied to the guitar and noise parts separately, and the loss scores transparency on
+notes, depth in pauses, sustain of bands that are still above the noise, and the first 20 ms
+after an onset. Data preparation resamples the cleaned GuitarSet recordings to 48 kHz,
+matching the model's filter and noise clocks. Its metadata records the source rates and
+prepared-array offsets so excerpts retain their timing. Training data and attribution are
+in `ThirdPartyNotices.txt`. Replacing the
+weights changes how existing rigs sound and needs a changelog entry; from 1.0 it needs a new
+mode identity.
+
 ## Noise Gate (Smart)
 
 Tracking defaults to Fixed. With Protect attack at zero, Fixed retains the original

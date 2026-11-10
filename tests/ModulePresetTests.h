@@ -43,7 +43,9 @@ void TestModulePresetCoverage()
     // Deliberate selection policy: gates need input calibration and Utility needs
     // routing/phase context. Others have factory recipes only for established uses
     // suited to the module (docs/presets.md). Delays also cover shared beat-synced roles.
+    // The AI gate adapts by itself: its controls are taste, not recipes.
     const bool calibrated = effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
+                            || effect == SlotEffect::AIGate
                             || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
     assert(!calibrated || For(effect).empty());
     // Cosmic Echo covers distinct networks as well as practical short/medium/long roles.

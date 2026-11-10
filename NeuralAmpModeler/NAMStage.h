@@ -99,6 +99,7 @@ public:
     SlotDynamics dynamics;
     noise_print::Processor noise;
     uint64_t noiseEpoch = 0;
+    ai_gate::Processor aiGate;
     SlotEQ eq, namCuts;
     SlotParametricEQ parametric;
     SlotBoost boost;
@@ -157,6 +158,8 @@ public:
       dynamics.Reset(rate);
       if (effect == SlotEffect::NoisePrint && !rightChannel)
         noise.Reset(rate);
+      if (effect == SlotEffect::AIGate && !rightChannel)
+        aiGate.Reset(rate);
       eq.Reset(rate);
       parametric.Reset(rate);
       boost.Reset(rate);
@@ -495,6 +498,15 @@ public:
               mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->noise.Reduction() * mMix));
               mMeter.cleaned = std::max(mMeter.cleaned, static_cast<float>(p->noise.CleanPeak()));
             }
+          }
+          else if (p->effect == SlotEffect::AIGate)
+          {
+            std::copy_n(in, frames, out);
+            if (rightSamples)
+              std::copy_n(p->right->input.data(), frames, p->right->wet.data());
+            p->aiGate.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility.aiGate);
+            if (mMonitoring)
+              mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->aiGate.Reduction() * mMix));
           }
           else if (UsesCoupledStereo(p->effect))
           {

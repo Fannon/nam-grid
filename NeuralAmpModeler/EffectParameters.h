@@ -7,6 +7,7 @@
 #include "TempoSync.h"
 #include "SlotDynamics.h"
 #include "NoisePrint.h"
+#include "AIGate.h"
 
 // Shared within a family, independent for every grid slot. Descriptors also drive
 // the editor, so parameter ranges, defaults and the eight control positions agree.
@@ -322,6 +323,10 @@ enum UtilityParam
   uNoiseGateRelease = 306,
   uNoiseTrackingMode = 307,
   uNoiseProtectAttack = 308,
+  uAIGateReduction = 309,
+  uAIGateSensitivity = 310,
+  uAIGateMix = 311,
+  uAIGateAttackProtection = 312,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -441,7 +446,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 29; // 29 Smart Gate attack protection.
+inline constexpr int kEffectStateSchema = 30; // 30 Noise Gate (AI); 29 Smart Gate attack protection.
 
 struct EffectParameter
 {
@@ -768,7 +773,11 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Distortion Low Preserve", "Low preserve", 0, 0, 1000, 1, "Hz", 3, false, 2., 26},
    {"Noise Gate Release", "Gate release", 40, 1, 500, 1, "ms", 7, false, 2., 27},
    {"Noise Tracking", "Tracking", 0, 0, 1, 1, "", 0, false, 1., 28},
-   {"Noise Protect Attack", "Protect attack", 100, 0, 100, 1, "%", 0, false, 1., 29}}};
+   {"Noise Protect Attack", "Protect attack", 100, 0, 100, 1, "%", 0, false, 1., 29},
+   {"AI Gate Reduction", "Reduction", 40, 0, 60, .1, "dB", 0, false, 1., 30},
+   {"AI Gate Sensitivity", "Sensitivity", 0, -100, 100, 1, "%", 1, false, 1., 30},
+   {"AI Gate Mix", "Mix", 100, 0, 100, .1, "%", 6, false, 1., 30},
+   {"AI Gate Protect Attack", "Protect attack", 50, 0, 100, .1, "%", 2, false, 1., 30}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -840,7 +849,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::Freeze: case SlotEffect::Stutter: case SlotEffect::ShimmerReverb:
     case SlotEffect::JunoChorus:
     case SlotEffect::FrequencyShifter:
-    case SlotEffect::NoisePrint: case SlotEffect::LoFiTape:
+    case SlotEffect::NoisePrint: case SlotEffect::AIGate: case SlotEffect::LoFiTape:
     case SlotEffect::RoomReverb: case SlotEffect::PlateReverb: case SlotEffect::CloudReverb: case SlotEffect::HallReverb:
     case SlotEffect::AirPlate: case SlotEffect::AirHall: case SlotEffect::GalacticSpace:
     case SlotEffect::MultiHeadDelay: case SlotEffect::DiffusedDelay: case SlotEffect::CosmicEcho:
@@ -853,6 +862,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
   if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
   if (p == uDistLowPreserve) return e == SlotEffect::Distortion;
   if (p >= uPitchInterval && p <= uPitchMix) return e == SlotEffect::PitchShift;
@@ -1054,6 +1064,7 @@ struct UtilityControls
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
   double distortionLowPreserve = 0.;
   noise_print::Controls noise;
+  ai_gate::Controls aiGate;
   std::array<double, 7> lofi{7.5, 25., 20., 20., 25., 100., 0.};
   int tapeHeads = 1;
   double delayDiffusion = 50.;

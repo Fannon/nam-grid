@@ -1,11 +1,12 @@
 # Gate
 
-Noise gating and learned noise reduction.
+Noise gating, learned noise reduction and an automatic gate.
 
 | Module | In short |
 | --- | --- |
 | [Noise Gate](#noise-gate) | Threshold opens the gate; Release and Reduction shape the gaps. |
 | [Noise Gate (Smart)](#noise-gate-smart) | Learn the noise alone; Sensitivity and Reduction protect sustain. |
+| [Noise Gate (AI)](#noise-gate-ai) | Experimental automatic hum and hiss reduction; no Learn step. Balance cleanup with quiet notes. |
 | [Digital Black Gate](#digital-black-gate) | Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour. |
 
 ## Noise Gate
@@ -61,6 +62,28 @@ The header's **Tracking** selector starts at **Fixed**. **Follow** slowly raises
 **Tips:**
 
 - Learn with the guitar connected and strings muted, for a few seconds, then turn Learn off.
+
+## Noise Gate (AI)
+
+An experimental gate with no threshold or Learn step. A small neural network estimates noise reduction in each frequency band. It can follow changing hum, buzz and hiss automatically, but quiet picking and sustained decays can be attenuated. Smart Gate remains the recommended choice for gentle note preservation.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Reduction** | 0–60 dB | 24 dB | Maximum reduction in bands the gate judges to be noise. Less leaves a little room tone in pauses. |
+| **Sensitivity** | -100 to +100% | 0% | Higher closes sooner and cleans more between notes; lower protects quiet picking and long ring-outs. |
+| **Protect attack** | 0–100% | 50% | Preserve clear pick attacks while the network catches up. Higher values also let more sudden noise bursts through; zero leaves all decisions to the network. |
+| **Mix** | 0–100% | 100% | Blend between the untreated input and the gated signal. |
+
+**Display:** Gray shows input and the module colour shows output. The GR bar estimates the current attenuation.
+
+**Tips:**
+
+- Put it in a Pre slot, before drives and captures, like the other gates.
+- Start with the defaults. If long ring-outs fade too early, lower Sensitivity; if noise lingers after notes, raise it.
+- It adds no latency. Protect attack helps clear onsets, but some attenuation at the beginning of a note remains. Compare quiet picking and abrupt noise bursts when adjusting it.
+- Lower Protect attack if changing interference opens the gate too easily. Its detector favours clear, stronger attacks rather than faint picking.
+- It was trained on guitar. Other sources can be gated in unexpected ways.
+- [Noise Gate (Smart)](#noise-gate-smart) remains the better choice when the noise is steady and you want the gentlest handling of ring-outs: its learned profile knows your exact noise.
 
 ## Digital Black Gate
 

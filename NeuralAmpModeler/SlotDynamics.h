@@ -74,7 +74,8 @@ enum class SlotEffect
   GraphicEQ = 62,
   Reserved63 = 63, // Retired unreleased monitor module; never reuse.
   PitchShift = 64,
-  Last = PitchShift,
+  AIGate = 65,
+  Last = AIGate,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -144,6 +145,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::PedalComp: return "Pedal Comp";
     case SlotEffect::LoFiTape: return "LoFi Tape Machine";
     case SlotEffect::NoisePrint: return "Noise Gate (Smart)";
+    case SlotEffect::AIGate: return "Noise Gate (AI)";
   }
   return "Unknown";
 }

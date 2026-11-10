@@ -37,7 +37,8 @@ struct NodeTone
 };
 inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
-  if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
+  if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate
+      || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect)
       || effect == SlotEffect::PedalComp || effect == SlotEffect::TransientShaper || effect == SlotEffect::Multiband)
@@ -2286,24 +2287,27 @@ private:
       DrawCosmicSetup(g,plot,value,measured,measured.key==request.key,rate);
       if(measured.key!=request.key) mEditor->SetDirty(false); // Redraw until the measurement arrives.
     }
-    else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
+    else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate
         || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
     {
       const bool gate = effect == SlotEffect::NoiseGate;
-      const bool smart = effect == SlotEffect::NoisePrint;
-      const double threshold = smart ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseGateThreshold))->Value()
+      // The AI gate shares the Smart Gate's full-width history; it has no threshold or cleaned trace.
+      const bool ai = effect == SlotEffect::AIGate;
+      const bool smart = effect == SlotEffect::NoisePrint || ai;
+      const double threshold = ai ? -100. : smart ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseGateThreshold))->Value()
                              : effect == SlotEffect::Limiter ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLimiterCeiling))->Value()
                              : GetDelegate()->GetParam(SlotDynamicsParam(mSlot, gate ? 0 : 3))->Value();
       const bool off = smart && threshold <= -100.;
       WDL_String caption;
-      if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
+      if (ai) caption.SetFormatted(64, "GR %.1f dB", mReductionNow);
+      else if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
       else if (smart) caption.SetFormatted(64, "Gate on CLEAN | GR %.1f dB", mReductionNow);
       else caption.SetFormatted(64, "GR %.1f dB", mReductionNow);
       PlotTitle(g,plot,color,caption.Get());
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
       const IRECT history(smart ? plot.L : plot.MW()+8,plot.T,plot.R,plot.B);
       const IRECT reductionBar(plot.L,plot.T+8.f,plot.R,plot.T+11.f);
-      const float reductionRange = gate || smart ? 24.f : compressionReductionRange;
+      const float reductionRange = ai ? 40.f : gate || smart ? 24.f : compressionReductionRange;
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
         reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/reductionRange,0.f,1.f),reductionBar.B));
@@ -2347,8 +2351,8 @@ private:
       }
       else
       {
-        PlotDetail(g,plot,"Gray IN / amber CLEAN / colour OUT | dashed: gate on CLEAN");
-        PlotFooter(g,plot,"0 / -100 dB | GR bar 0 - 24 dB","Older > now");
+        PlotDetail(g,plot,ai ? "Gray IN / colour OUT" : "Gray IN / amber CLEAN / colour OUT | dashed: gate on CLEAN");
+        PlotFooter(g,plot,ai ? "0 / -100 dB | GR bar 0 - 40 dB" : "0 / -100 dB | GR bar 0 - 24 dB","Older > now");
       }
       levels(gate || smart ? -100.f : -60.f, history);
       if (gate)

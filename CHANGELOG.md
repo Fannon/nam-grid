@@ -4,6 +4,12 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### New modules and sounds
+
+- **Experimental Noise Gate (AI):** automatic band-by-band hum and hiss reduction with no threshold or Learn step, starting at 24 dB Reduction. Sensitivity balances cleanup with quiet notes, and Protect attack trades clearer picks against passing sudden noise. Find it under **Gate**. Quiet picking and decays can still be attenuated; Smart Gate remains recommended for gentle note preservation. No latency is added.
+
+### Smart Gate
+
 - **Smart Gate learns through brief mistakes:** short clicks or accidental plucks have less influence on a new noise profile. Existing saved profiles stay unchanged; keep the strings muted while learning.
 - **Smart Gate Protect attack:** a new control briefly speeds opening on detected attacks. It starts at 100%, also in existing projects and presets, so their note starts now open slightly faster; set it to 0% for the previous response. Higher settings can let more noise bursts through. Learn moves to the module header to make room for the new knob.
 - **Optional Smart Gate tracking:** choose **Follow** in the module header to adjust to a steady rise in the learned noise, up to 6 dB. It waits for a stable match and limits adaptation around attacks, decays and strongly tonal noise. Allow a few seconds of idle noise; a different noise character still needs Learn again. **Fixed** remains the default, and existing projects retain their sound. No latency is added.

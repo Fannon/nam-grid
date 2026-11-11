@@ -77,6 +77,7 @@ void TestNoisePrintRefinements()
   noise_print::Processor legacy, assisted;
   legacy.Reset(48000.); assisted.Reset(48000.);
   noise_print::Controls old, current;
+  old.protectAttack = 0.; // The original opening response.
   current.protectAttack = 100.;
   uint32_t seed = 20261126;
   double oldError = 0., newError = 0.;
@@ -128,6 +129,6 @@ void TestNoisePrintRefinements()
     for (int i = 0; i < 128; ++i)
       assert(std::isfinite(a[i]) && a[i] == b[i] && l[i] == r[i] && a[i] == -l[i]);
   }
-  assert(noise_print::Controls{}.protectAttack == 0.);
+  assert(noise_print::Controls{}.protectAttack == 100.);
   assert(SlotDefaultValues(SlotEffect::NoisePrint)[17 + uNoiseProtectAttack] == 100.);
 }

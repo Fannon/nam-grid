@@ -323,11 +323,14 @@ int main(int argc, char** argv)
     performance_scenes::Baseline(migratedTracking, [&](int i) { return metadata(i)["name"].get<std::string>(); })));
   assert(expandedTracking["PerformanceScenes"][1]["Pre 1 Noise Tracking"] == 0.);
   assert(!expandedTracking["PerformanceScenes"][0].contains("Pre 1 Noise Tracking"));
-  // Newly inserted Smart Gates start protected; actual older states receive
-  // zero so their recorded attack response remains unchanged.
+  // Older states gain the declared Protect attack default (100%), also after a
+  // project that had turned it off.
   auto protectedRig = base;
   for (int slot = 0; slot < 16; ++slot)
-    protectedRig[GridSlotName(slot) + " Noise Protect Attack"] = 100.;
+  {
+    assert(protectedRig[GridSlotName(slot) + " Noise Protect Attack"] == 100.);
+    protectedRig[GridSlotName(slot) + " Noise Protect Attack"] = 0.;
+  }
   assert(load(protectedRig));
   auto oldAttackRig = base;
   oldAttackRig["schema"] = 28;

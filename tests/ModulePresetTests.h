@@ -191,8 +191,7 @@ void TestSmartGateUserPreset()
   assert(!Parse(other, SlotEffect::PedalComp, parsed).empty());
   assert(For(SlotEffect::NoisePrint).empty()); // Profiles never enter factory recipes.
 
-  // The recipe default can differ from the declared compatibility default.
-  // A schema-28 user preset must keep the old opening response after loading.
+  // A schema-28 user preset lacks Protect attack and gains the module's 100% default.
   auto predecessor = trained;
   predecessor["schema"] = 28;
   predecessor["values"].erase("Noise Protect Attack");
@@ -200,7 +199,7 @@ void TestSmartGateUserPreset()
   std::optional<noise_print::Profile> predecessorProfile;
   assert(Parse(predecessor, SlotEffect::NoisePrint, predecessorValues, &predecessorProfile).empty());
   auto expectedPredecessor = values;
-  expectedPredecessor[U(uNoiseProtectAttack)] = 0.;
+  assert(expectedPredecessor[U(uNoiseProtectAttack)] == 100.);
   const auto restoredPredecessor = Apply(SlotEffect::NoisePrint, predecessorValues, values);
   assert(restoredPredecessor == expectedPredecessor);
   assert(predecessorProfile && *predecessorProfile == learned);

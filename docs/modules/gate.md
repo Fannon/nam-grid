@@ -52,7 +52,7 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 The final gate starts **Off**. Gate release always controls its closing time separately from spectral Release.
 
-The header's **Learn** switch captures the unwanted noise; turn it off before playing. Brief capture outliers have less influence on the print. Older projects receive Protect attack at 0%; new and reset modules start at 100%.
+The header's **Learn** switch captures the unwanted noise; turn it off before playing. Brief capture outliers have less influence on the print. Protect attack starts at 100%, also in existing projects; 0% restores the previous opening response.
 
 The header's **Tracking** selector starts at **Fixed**. **Follow** slowly raises the temporary noise estimate by up to 6 dB after a stable match to the learned noise. Attacks, coherent decays and tonal profiles inhibit upward tracking. Allow a few seconds of idle noise; learn again when its character changes. See [tracking tips](noise-gate-smart.md#follow-a-changing-noise-level).
 

@@ -768,7 +768,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Distortion Low Preserve", "Low preserve", 0, 0, 1000, 1, "Hz", 3, false, 2., 26},
    {"Noise Gate Release", "Gate release", 40, 1, 500, 1, "ms", 7, false, 2., 27},
    {"Noise Tracking", "Tracking", 0, 0, 1, 1, "", 0, false, 1., 28},
-   {"Noise Protect Attack", "Protect attack", 0, 0, 100, 1, "%", 0, false, 1., 29}}};
+   {"Noise Protect Attack", "Protect attack", 100, 0, 100, 1, "%", 0, false, 1., 29}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {

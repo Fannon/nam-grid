@@ -31,7 +31,7 @@ struct Controls
   double sensitivity = 1.5, reduction = 24., attack = 2., release = 120., mix = 100.;
   double gateThreshold = -100.; // Minimum is Off, independent of the learned print.
   double gateRelease = 40.; // Independent final-gate closing time.
-  double protectAttack = 0.; // Existing states retain their original opening response.
+  double protectAttack = 100.; // 0 restores the original opening response.
   int trackingMode = 0; // Fixed=0; Follow=1, saved selector.
 };
 

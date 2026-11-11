@@ -161,12 +161,6 @@ inline std::string Parse(const nlohmann::json& document, SlotEffect effect, std:
     // so recalling either format must leave Learn off without replacing a legacy profile.
     values.push_back({control, effect == SlotEffect::NoisePrint && control == U(uNoiseLearn) ? 0. : number});
   }
-  // Protect attack intentionally has a legacy default distinct from the new
-  // insertion recipe. Preserve older Smart Gate files without changing the
-  // existing sparse-recipe fallback for other omitted module controls.
-  if (effect == SlotEffect::NoisePrint && schema < kEffectParameters[uNoiseProtectAttack].introducedIn
-      && !document["values"].contains(ControlName(U(uNoiseProtectAttack))))
-    values.push_back({U(uNoiseProtectAttack), kEffectParameters[uNoiseProtectAttack].initial});
   return {};
 }
 inline std::filesystem::path UserFolder(const std::filesystem::path& presetFolder, SlotEffect effect)

@@ -4,6 +4,9 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <memory>
+#include "NoisePrintCapture.h"
+#include "NoisePrintTracking.h"
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
   #include <emmintrin.h>
 #elif defined(__aarch64__) && !defined(NAM_NOISE_PRINT_SCALAR)
@@ -15,6 +18,7 @@
 namespace noise_print
 {
 inline constexpr int bands = 96;
+static_assert(bands == RobustCapture::bands);
 struct Profile
 {
   std::array<double, bands> power{};
@@ -27,6 +31,8 @@ struct Controls
   double sensitivity = 1.5, reduction = 24., attack = 2., release = 120., mix = 100.;
   double gateThreshold = -100.; // Minimum is Off, independent of the learned print.
   double gateRelease = 40.; // Independent final-gate closing time.
+  double protectAttack = 100.; // 0 restores the original opening response.
+  int trackingMode = 0; // Fixed=0; Follow=1, saved selector.
 };
 
 // Stage-lifetime mailbox: audio is the sole writer. Control never touches an
@@ -76,6 +82,17 @@ public:
   void Reset(double rate)
   {
     mRate = std::max(1., rate);
+    // Reset/preparation is outside processing. Other module types carry only a
+    // null pointer; the bounded capture storage belongs to Smart Gate instances.
+    if (!mCapture)
+      mCapture = std::make_unique<RobustCapture>();
+    mCapture->Reset(mRate);
+    mOnsetFast = mOnsetSlow = 0.;
+    mOnsetHold = 0;
+    mOnsetFastPole = std::exp(-1. / (.0005 * mRate));
+    mOnsetSlowPole = std::exp(-1. / (.020 * mRate));
+    mTracking.Reset(mRate);
+    mTracking.Reference(mProfile.power, mProfile.valid);
     mFilters = {};
     mPower = {};
     mMean = {};
@@ -112,6 +129,7 @@ public:
   void Restore(const Profile& profile)
   {
     mProfile = profile;
+    mTracking.Reference(mProfile.power, mProfile.valid);
     mChanged = true;
   }
   const Profile& GetProfile() const { return mProfile; }
@@ -123,6 +141,7 @@ public:
   }
   double Reduction() const { return mReduction; }
   double CleanPeak() const { return mCleanPeak; }
+  double TrackingScale() const { return mTracking.Scale(); }
 
   void Process(double* left, double* right, int frames, const Controls& c)
   {
@@ -130,27 +149,34 @@ public:
     if (c.learn && !mLearning)
     {
       mMean = {};
+      mCapture->Reset(mRate);
+      mTracking.Clear();
       mSamples = mWarmup = 0;
     }
     if (!c.learn && mLearning && mSamples >= static_cast<uint64_t>(mRate * .25))
     {
+      const auto captured = mCapture->Finish(mMean);
       double total = 0.;
-      for (double power : mMean)
+      for (double power : captured)
         total += power;
       // Reject digital silence/short captures, preserving a previous valid print.
       if (std::isfinite(total) && total > 1.e-18)
       {
-        mProfile = {mMean, true};
+        mProfile = {captured, true};
         for (auto& power : mProfile.power)
           power = std::min(power, 1.e6);
+        mTracking.Reference(mProfile.power, mProfile.valid);
         mChanged = true;
       }
     }
     mLearning = c.learn;
     const bool reducing = mProfile.valid && !c.learn;
+    const bool following = reducing && c.trackingMode == 1;
     const double margin = std::pow(10., std::clamp(c.sensitivity, -6., 12.) * .1);
     const double floor = std::pow(10., -std::clamp(c.reduction, 0., 48.) * .05);
     const double attack = std::exp(-1. / (.001 * std::clamp(c.attack, .2, 20.) * mRate));
+    const double onsetAmount = std::clamp(c.protectAttack, 0., 100.) * .01;
+    const double onsetAttack = onsetAmount > 0. ? std::pow(attack, 1. + 3. * onsetAmount) : attack;
     const double release = std::exp(-1. / (.001 * std::clamp(c.release, 20., 500.) * mRate));
     const double mixTarget = mProfile.valid && !c.learn && c.reduction > 0. ? std::clamp(c.mix, 0., 100.) * .01 : 0.;
     const double mixStep = 1. / (.005 * mRate);
@@ -170,6 +196,7 @@ public:
         inverseThreshold[i] = 1. / std::max(1.e-30, mProfile.power[i] * margin);
     }
     const double inverseLearnedPower = 1. / std::max(1.e-30, learnedPower);
+    std::array<double, bands> followThreshold;
     double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
@@ -190,14 +217,38 @@ public:
         ++mSamples;
       const double inverseSamples = collecting ? 1. / static_cast<double>(mSamples) : 0.;
       const double totalPower = Analyze(dry, right != nullptr, collecting, inverseSamples, split);
+      if (collecting)
+        mCapture->Advance();
+      if (onsetAmount > 0.)
+      {
+        const double power = right ? .5 * (dry[0] * dry[0] + dry[1] * dry[1]) : dry[0] * dry[0];
+        mOnsetFast = power + mOnsetFastPole * (mOnsetFast - power);
+        mOnsetSlow = power + mOnsetSlowPole * (mOnsetSlow - power);
+        if (mOnsetFast > 3. * mOnsetSlow && mOnsetFast > 1.e-12)
+          mOnsetHold = static_cast<int>(.008 * mRate);
+        else if (mOnsetHold)
+          --mOnsetHold;
+      }
       // Strong notes need less spectral attenuation. The resonator
       // bank overlaps: limiting reduction during confident signal prevents
       // low-level band leakage from coloring the wanted harmonics.
-      const double confidence = reducing ? std::max(0., totalPower * inverseLearnedPower - 4.) : 0.;
+      double scale = 1.;
+      if (following || mTracking.Scale() != 1. || mTracking.Active())
+        scale = mTracking.Tick(mPower, following);
+      const bool adjusted = reducing && scale != 1.;
+      const double inverseScale = adjusted ? 1. / scale : 1.;
+      if (adjusted)
+        for (int i = 0; i < bands; ++i) followThreshold[i] = inverseThreshold[i] * inverseScale;
+      const double ratio = totalPower * inverseLearnedPower;
+      const double confidence = reducing ? std::max(0., (adjusted ? ratio * inverseScale : ratio) - 4.) : 0.;
       const double protection = .5 * confidence / (confidence + 8.);
+      // Brief opening assistance leaves the target gains and closing Release
+      // untouched. Noise bursts can trigger it too, so the player controls it.
+      const double selectedAttack = onsetAmount > 0. && mOnsetHold > 0 && confidence < 4. ? onsetAttack : attack;
       double wet[2]{};
       const double gainSum = Synthesize(
-        dry, right != nullptr, reducing, synthesize, protection, floor, attack, release, inverseThreshold, split, wet);
+        dry, right != nullptr, reducing, synthesize, protection, floor, selectedAttack, release,
+        adjusted ? followThreshold : inverseThreshold, split, wet);
       mMix += std::clamp(mixTarget - mMix, -mixStep, mixStep);
       // Exact dry/untrained/learning paths: no crossover coloration or buffering.
       const bool neutral = !mProfile.valid || mMix == 0.;
@@ -276,6 +327,7 @@ private:
       {
         const auto mean = _mm_loadu_pd(&mMean[i]);
         _mm_storeu_pd(&mMean[i], _mm_add_pd(mean, _mm_mul_pd(_mm_sub_pd(power, mean), _mm_set1_pd(inverseSamples))));
+        mCapture->Accumulate(i, power);
       }
     }
 #else
@@ -294,7 +346,10 @@ private:
         stereo ? .5 * (split[0][i] * split[0][i] + split[1][i] * split[1][i]) : split[0][i] * split[0][i];
       mPower[i] = Flush(power + mDetector[i] * (mPower[i] - power));
       if (collecting)
+      {
         mMean[i] += (power - mMean[i]) * inverseSamples;
+        mCapture->Accumulate(i, power);
+      }
     }
 #endif
     // Preserve the learned-power reduction order on both implementations.
@@ -438,7 +493,11 @@ private:
   { std::array<double, bands> b0{}, a1{}, a2{}; };
   Coefficient mCoefficient;
   std::array<double, bands> mDetector{}, mPower{}, mMean{}, mGain{};
+  std::unique_ptr<RobustCapture> mCapture;
+  double mOnsetFast = 0., mOnsetSlow = 0., mOnsetFastPole = 0., mOnsetSlowPole = 0.;
+  int mOnsetHold = 0;
   Profile mProfile;
+  Tracking mTracking;
   uint64_t mSamples = 0, mWarmup = 0;
   double mRate = 48000., mMix = 1., mReduction = 0., mSynthesis = 1.;
   double mGateEnvelope = 0., mGateGain = 1., mCleanPeak = 0.;

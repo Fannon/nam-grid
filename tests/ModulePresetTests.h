@@ -191,6 +191,19 @@ void TestSmartGateUserPreset()
   assert(!Parse(other, SlotEffect::PedalComp, parsed).empty());
   assert(For(SlotEffect::NoisePrint).empty()); // Profiles never enter factory recipes.
 
+  // A schema-28 user preset lacks Protect attack and gains the module's 100% default.
+  auto predecessor = trained;
+  predecessor["schema"] = 28;
+  predecessor["values"].erase("Noise Protect Attack");
+  std::vector<Value> predecessorValues;
+  std::optional<noise_print::Profile> predecessorProfile;
+  assert(Parse(predecessor, SlotEffect::NoisePrint, predecessorValues, &predecessorProfile).empty());
+  auto expectedPredecessor = values;
+  assert(expectedPredecessor[U(uNoiseProtectAttack)] == 100.);
+  const auto restoredPredecessor = Apply(SlotEffect::NoisePrint, predecessorValues, values);
+  assert(restoredPredecessor == expectedPredecessor);
+  assert(predecessorProfile && *predecessorProfile == learned);
+
   const auto root = std::filesystem::current_path() / "smart-gate-user-preset-fixture";
   const auto file = UserFolder(root, SlotEffect::NoisePrint) / "Learned.json";
   SaveUser(file, SlotEffect::NoisePrint, values, learned);

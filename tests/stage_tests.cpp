@@ -129,6 +129,7 @@ try
     {"distortion-and-mono-meters", TestDistortionAndMonoMeters},
     {"capture-seams", TestCaptureSeams},
     {"noise-print", TestNoisePrint},
+    {"noise-print-user-preset", TestSmartGateUserPreset},
     {"lo-fi-tape", TestLoFiTape},
     {"module-controls", TestModuleControls},
     {"eq-response", TestEQResponse},
@@ -307,6 +308,7 @@ try
   run("distortion-and-mono-meters", TestDistortionAndMonoMeters);
   run("capture-seams", TestCaptureSeams);
   run("noise-print", TestNoisePrint);
+  run("noise-print-user-preset", TestSmartGateUserPreset);
   run("lo-fi-tape", TestLoFiTape);
   run("module-controls", TestModuleControls);
   run("eq-response", TestEQResponse);

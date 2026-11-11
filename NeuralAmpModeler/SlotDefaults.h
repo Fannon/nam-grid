@@ -31,6 +31,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       set(uMultibandDepth, 40.); set(uMultibandDownward, 50.); set(uMultibandUpward, 40.); set(uMultibandOutput, 2.); break;
     case SlotEffect::TransientShaper:
       set(uTransientShaperAttack, 3.); set(uTransientShaperSustain, -1.); break;
+    case SlotEffect::NoisePrint:
+      set(uNoiseProtectAttack, 100.); break;
     case SlotEffect::NoiseGate:
       v[3] = -55.; v[4] = 150.; break;
     case SlotEffect::SmoothComp:
@@ -115,11 +117,11 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::OutboardChannel:
       set(uStripCompress, 20.); set(uStripOutput, 0.); break;
     // Neutral EQ/utility, modest octave blend, unlatched Freeze, and the
-    // already auditioned Smart Gate retain the descriptor defaults.
+    // other listed effects retain the descriptor defaults.
     case SlotEffect::NAM: case SlotEffect::CabinetIR: case SlotEffect::ToneEQ:
     case SlotEffect::ParametricEQ: case SlotEffect::Wah: case SlotEffect::Utility: case SlotEffect::Limiter:
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
-    case SlotEffect::NoisePrint: case SlotEffect::AirPlate: case SlotEffect::AirHall:
+    case SlotEffect::AirPlate: case SlotEffect::AirHall:
     case SlotEffect::GalacticSpace:
     case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalDrive: case SlotEffect::PedalComp: break;

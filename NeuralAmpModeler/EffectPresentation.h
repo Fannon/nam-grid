@@ -33,7 +33,7 @@ inline const char* ChoiceDescription(int p, int mode)
 // on the right (Digital Delay's Time change sits left of Tempo sync). The knob grid
 // holds only the automatable musical controls.
 inline bool HeaderControl(int p)
-{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || IsAlgorithmMode(p); }
+{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uNoiseLearn || IsAlgorithmMode(p); }
 // Saved, automatable controls edited by dragging in the module display rather than with a
 // knob. They take no place in the knob grid and are documented as prose.
 inline bool DisplayControl(int p)
@@ -47,7 +47,7 @@ inline HeaderArea HeaderBounds(SlotEffect e, int p)
   if (p == uDelayTimeChange) return {tempoLeft - 160.f, tempoLeft - 10.f};
   // Spring's Tank selector owns the right side; keep Stereo wet accessible
   // on the free left side instead of placing both controls on top of each other.
-  if (p == uTempoSync || p == uEQMode || (e == SlotEffect::SpringReverb && p == uReverbStereo))
+  if (p == uTempoSync || p == uEQMode || p == uNoiseLearn || (e == SlotEffect::SpringReverb && p == uReverbStereo))
     return {tempoLeft, tempoLeft + 110.f};
   return {modeLeft, parameterRight};
 }
@@ -464,6 +464,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDistBias: case uTubeBias: return "Asymmetric clipping adds even harmonics and changes attack texture. The processor removes DC.";
     case uDistLowPreserve: return "Keep lows clean below this frequency, restoring them after distortion and High cut. The split is gentle; zero turns preservation off.";
     case uNoiseTrackingMode: return "Fixed uses the learned print. Follow slowly tracks steady noise up to +6 dB; learn again when its character changes.";
+    case uNoiseProtectAttack: return "Briefly open faster on detected attacks. Higher settings preserve pick starts but can pass more noise bursts. Zero keeps the original response.";
     case uNoiseLearn: return "Learn while playing only the unwanted noise, then turn Learn off before playing guitar.";
     case uNoiseSensitivity: return "Raise the learned noise threshold; too much can reduce quiet sustain.";
     case uNoiseReduction: return "Maximum reduction in noisy bands. Less can retain more natural room tone and note tails.";

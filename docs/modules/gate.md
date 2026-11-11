@@ -41,7 +41,7 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Learn** | Off / On | Off | Learn while playing only the unwanted noise, then turn Learn off before playing guitar. |
+| **Protect attack** | 0–100% | 100% | Briefly speed opening on detected attacks. Higher settings preserve pick starts but can pass more noise bursts; zero retains the original response. |
 | **Sensitivity** | -6 to +12 dB | 1.5 dB | Raise the learned noise threshold; too much can reduce quiet sustain. |
 | **Reduction** | 0–48 dB | 24 dB | Maximum reduction in noisy bands. Less can retain more natural room tone and note tails. |
 | **Attack** | 0.2–20 ms | 2 ms | Speed at which the denoiser lets new signal through; short settings preserve pick attacks. |
@@ -51,6 +51,8 @@ Learns your rig's noise profile and reduces it frequency by frequency, with an o
 | **Gate release** | 1–500 ms | 40 ms | Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently. |
 
 The final gate starts **Off**. Gate release always controls its closing time separately from spectral Release.
+
+The header's **Learn** switch captures the unwanted noise; turn it off before playing. Brief capture outliers have less influence on the print. Older projects receive Protect attack at 0%; new and reset modules start at 100%.
 
 The header's **Tracking** selector starts at **Fixed**. **Follow** slowly raises the temporary noise estimate by up to 6 dB after a stable match to the learned noise. Attacks, coherent decays and tonal profiles inhibit upward tracking. Allow a few seconds of idle noise; learn again when its character changes. See [tracking tips](noise-gate-smart.md#follow-a-changing-noise-level).
 

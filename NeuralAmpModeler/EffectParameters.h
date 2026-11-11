@@ -321,6 +321,7 @@ enum UtilityParam
   uDistLowPreserve = 305,
   uNoiseGateRelease = 306,
   uNoiseTrackingMode = 307,
+  uNoiseProtectAttack = 308,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -440,7 +441,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 28; // 28 optional Smart Gate noise-level tracking.
+inline constexpr int kEffectStateSchema = 29; // 29 Smart Gate attack protection.
 
 struct EffectParameter
 {
@@ -766,7 +767,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pitch Mix", "Mix", 0, 0, 100, 0.1, "%", 4, false, 1., 22},
    {"Distortion Low Preserve", "Low preserve", 0, 0, 1000, 1, "Hz", 3, false, 2., 26},
    {"Noise Gate Release", "Gate release", 40, 1, 500, 1, "ms", 7, false, 2., 27},
-   {"Noise Tracking", "Tracking", 0, 0, 1, 1, "", 0, false, 1., 28}}};
+   {"Noise Tracking", "Tracking", 0, 0, 1, 1, "", 0, false, 1., 28},
+   {"Noise Protect Attack", "Protect attack", 0, 0, 100, 1, "%", 0, false, 1., 29}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -851,7 +853,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
-  if (p == uNoiseGateRelease || p == uNoiseTrackingMode) return e == SlotEffect::NoisePrint;
+  if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
   if (p == uDistLowPreserve) return e == SlotEffect::Distortion;
   if (p >= uPitchInterval && p <= uPitchMix) return e == SlotEffect::PitchShift;
   if (p >= uGraphicBand1 && p <= uGraphicVoicing) return e == SlotEffect::GraphicEQ;

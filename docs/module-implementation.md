@@ -133,7 +133,8 @@ block sizes (see [tests](build.md#tests)).
 
 ## Noise Gate (Smart)
 
-Tracking defaults to Fixed, retaining the original DSP arithmetic. Optional Follow scales
+Tracking defaults to Fixed. With Protect attack at zero, Fixed retains the original
+processing arithmetic. Optional Follow scales
 the committed print's level at runtime without changing or publishing its powers. A
 control estimator observes the existing stereo-linked band powers about 250 times per
 second, smooths normalized powers over 40 ms and compares their lower quartile with the
@@ -149,6 +150,23 @@ and reset clear the temporary estimate; the saved profile format is unchanged. T
 estimator uses bounded arrays with no allocation or lookahead. Its observation clock
 runs across block boundaries. Tracking is a saved, nonautomatable header selector;
 older states receive Fixed. Continuous playing and short gaps may prevent adaptation.
+
+Learn reuses raw stereo-linked detector powers to fill bounded time buckets. After enough
+history, each band's bucket powers are capped at four times their median before taking a
+time-weighted average. Adjacent buckets coalesce during long captures; captures with fewer
+than eight complete buckets retain the original mean. This limits brief outliers while
+preserving the profile format and all previously committed prints. The final capped estimate
+must also pass the silence check before replacing a committed print. The capture workspace
+is allocated once in Smart Gate preparation, reused on reset and Learn, and never allocated
+or destroyed by processing. Other module types carry only the inactive processor's pointer.
+
+Protect attack compares 0.5 ms and 20 ms raw-power envelopes. A ratio above three triggers
+8 ms of opening assistance. While global confidence is below four, the opening pole is
+raised to an exponent from one to four according to Protect attack. Gain targets, the
+strong-band opening rule, spectral Release and final-gate timing stay unchanged. This is
+causal and can also respond to noise bursts. The declared/legacy default is zero; insertion
+and editor reset use 100%. Learn moves to the header, leaving its old knob position for
+Protect attack. Parameter identity and automation behavior of Learn are unchanged.
 
 The spectral gate learns a per-band noise print during Learn and applies stereo-linked band
 gains, so the image does not wobble. A confidence guard relaxes suppression on strong notes and

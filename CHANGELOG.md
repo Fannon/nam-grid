@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Smart Gate learns through brief mistakes:** short clicks or accidental plucks have less influence on a new noise profile. Existing saved profiles stay unchanged; keep the strings muted while learning.
+- **Smart Gate Protect attack:** a new control briefly speeds opening on detected attacks. It starts at 100% for new or reset modules; older projects receive 0% and retain their opening response. Higher settings can let more noise bursts through. Learn moves to the module header to make room for the new knob.
 - **Optional Smart Gate tracking:** choose **Follow** in the module header to adjust to a steady rise in the learned noise, up to 6 dB. It waits for a stable match and limits adaptation around attacks, decays and strongly tonal noise. Allow a few seconds of idle noise; a different noise character still needs Learn again. **Fixed** remains the default, and existing projects retain their sound. No latency is added.
 
 ## [0.6.0] - 2026-11-09

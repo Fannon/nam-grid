@@ -96,6 +96,9 @@ static_assert(SlotUtilityParam(0, uNoiseTrackingMode) == 5297);
 static_assert(SlotUtilityParam(15, uNoiseTrackingMode) == 5312);
 static_assert(kEffectParameters[uNoiseTrackingMode].introducedIn == 28);
 static_assert(IsAlgorithmMode(uNoiseTrackingMode));
+static_assert(SlotUtilityParam(0, uNoiseProtectAttack) == 5313);
+static_assert(SlotUtilityParam(15, uNoiseProtectAttack) == 5328);
+static_assert(kEffectParameters[uNoiseProtectAttack].introducedIn == 29);
 
 int main(int argc, char** argv)
 {
@@ -320,6 +323,18 @@ int main(int argc, char** argv)
     performance_scenes::Baseline(migratedTracking, [&](int i) { return metadata(i)["name"].get<std::string>(); })));
   assert(expandedTracking["PerformanceScenes"][1]["Pre 1 Noise Tracking"] == 0.);
   assert(!expandedTracking["PerformanceScenes"][0].contains("Pre 1 Noise Tracking"));
+  // Newly inserted Smart Gates start protected; actual older states receive
+  // zero so their recorded attack response remains unchanged.
+  auto protectedRig = base;
+  for (int slot = 0; slot < 16; ++slot)
+    protectedRig[GridSlotName(slot) + " Noise Protect Attack"] = 100.;
+  assert(load(protectedRig));
+  auto oldAttackRig = base;
+  oldAttackRig["schema"] = 28;
+  for (int slot = 0; slot < 16; ++slot)
+    oldAttackRig.erase(GridSlotName(slot) + " Noise Protect Attack");
+  assert(load(oldAttackRig));
+  assert(save() == base);
   // Released schemas and both actual predecessor layouts lack Time Change. Loading
   // one after Crossfade must restore Glide while retaining Juno-10 and Trails-11 data.
   for (int schema = kInitialEffectStateSchema; schema <= 11; ++schema)

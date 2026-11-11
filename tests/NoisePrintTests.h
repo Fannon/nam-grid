@@ -3,6 +3,7 @@
 #include "NoisePrintState.h"
 #include <iostream>
 #include "NoisePrintTrackingTests.h"
+#include "NoisePrintRefinementTests.h"
 
 inline double NoiseSample(uint32_t& state, int sample, double rate)
 {
@@ -164,6 +165,7 @@ void TestNoisePrintReopening()
 void TestNoisePrint()
 {
   TestNoisePrintTracking();
+  TestNoisePrintRefinements();
   TestNoisePrintGate();
   TestNoisePrintTiming();
   TestNoisePrintReopening();

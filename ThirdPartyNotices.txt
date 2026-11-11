@@ -1024,3 +1024,10 @@ filtering. The low-pass sections use Andrew Simper's TPT state-variable filter
 equations (https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf), also
 referenced for Dynamic EQ above. No additional third-party source or runtime
 dependency is included.
+
+Original NAM Grid Smart Gate processing
+--------------------------------------
+The causal resonator gate, noise-profile tracking, robust capture summaries and
+attack-protection layer are original NAM Grid implementations under the project
+MIT license. No third-party noise-suppression implementation was copied. Sources:
+NeuralAmpModeler/NoisePrint.h, NoisePrintTracking.h and NoisePrintCapture.h.

@@ -1892,12 +1892,14 @@ int main(int argc, char** argv)
     SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(grid_layout::KnobX(5), grid_layout::KnobGestureY(5) - 25));
     pumpFor(100);
     assert(save().config()["Pre 1 Noise Gate Threshold"] > learnedNoiseState["Pre 1 Noise Gate Threshold"]);
-    click(grid_layout::KnobX(0), grid_layout::ToggleY(0)); // Learn is an actual toggle in the fixed bottom panel.
+    // Learn is an actual toggle in the module header, where switches and modes live.
+    const int learnX = optionX(uNoiseLearn, SlotEffect::NoisePrint);
+    click(learnX, grid_layout::optionsY);
     double learningValue = 0.;
     assert(params->get_value(plugin, learnInfo.id, &learningValue));
     assert(learningValue == 1.);
     assert(save().config()["Pre 1 Noise Learn"] == 0.);
-    click(grid_layout::KnobX(0), grid_layout::ToggleY(0));
+    click(learnX, grid_layout::optionsY);
     assert(params->get_value(plugin, learnInfo.id, &learningValue) && learningValue == 0.);
     load(browserState);
     // Exercise the actual native selection callback, parameter commit and prepared publication.

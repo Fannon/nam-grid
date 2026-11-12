@@ -112,15 +112,21 @@ is not a guarantee for every pedal voice, drive or input frequency.
 Zero added reported latency excludes adding a fixed lookahead or compensation
 delay to built-in modules. It does not exclude filtering. Ordinary EQ, minimum-
 phase FIR and IIR filters are causal and introduce frequency-dependent phase and
-group delay. Pedal Drive already uses minimum-phase FIR interpolation and
-decimation with zero reported latency. Its wet signal is not phase-identical to
-its unshifted dry path; parallel blends must be evaluated accordingly.
+group delay. Pedal Drive, Distortion and Pedal Distortion interpolate and decimate
+with halfband IIR filters, the other oversampled modules with a minimum-phase FIR,
+all with zero reported latency. Their wet signal is not phase-identical to
+the unshifted dry path; parallel blends must be evaluated accordingly.
+
+A halfband decimator folds the band just above the host Nyquist frequency back to just
+below it. The audit counts folded bins up to Nyquist, so it shows that band even though
+it lies above 20 kHz; the drive modules therefore follow the decimator with a guard
+lowpass at the host rate. When changing those filters, compare the audit before and after.
 
 A linear-phase resampling filter normally adds a fixed group delay and is not a
-suitable default for this goal. Distortion combines local minimum-phase
+suitable default for this goal. Distortion combines local
 oversampling and first-order
 antiderivative antialiasing (ADAA). ADAA has its own filtering and effective delay;
-it is not a zero-group-delay substitute. The tone preview includes both FIRs'
+it is not a zero-group-delay substitute. The tone preview includes the resampling filters'
 complex response and ADAA's small-signal averaging, including partial Mix phase.
 The [compatibility contract](development.md#parameter-and-project-compatibility)
 allows measured DSP quality improvements during 0.x while keeping parameter

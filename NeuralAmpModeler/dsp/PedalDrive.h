@@ -1,6 +1,6 @@
 #pragma once
 #include "Antiderivative.h"
-#include "MinimumPhaseOversampling.h"
+#include "HalfbandOversampling.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -24,8 +24,9 @@ inline constexpr double pi = 3.14159265358979323846;
 inline double Flush(double x)
 { return std::abs(x) < 1.e-30 ? 0. : x; }
 
-// Preserve the pedal's fixed 4x processing and coefficient design.
-using Oversampler4x = grid_oversampling::FIR<4>;
+// The pedal always runs at four times the host rate. Aligned with the FIR it was
+// released with, so parallel blends keep their sound.
+using Oversampler4x = grid_oversampling::AlignedIIR<4>;
 
 struct Coefficients
 {

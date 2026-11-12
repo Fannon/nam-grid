@@ -17,7 +17,7 @@ Drives, boosts and saturation.
 
 ![Distortion editor](../screenshots/modules/distortion.png)
 
-Nine distortion voices, from smooth clipping to octave-like buzz and synth-like folding. Bias shifts the symmetry for different harmonics and attack textures. Antiderivative antialiasing and minimum-phase oversampling reduce aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz, and 1x from 176.4 kHz upward. Extreme Foldback and bright, high-drive settings can still alias.
+Nine distortion voices, from smooth clipping to octave-like buzz and synth-like folding. Bias shifts the symmetry for different harmonics and attack textures. Antiderivative antialiasing and oversampling reduce aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz, and 1x from 176.4 kHz upward. Extreme Foldback and bright, high-drive settings can still alias.
 
 **Latency:** zero added reported latency and no lookahead. The wet path has frequency-dependent phase and group delay, so partial Mix blends can change the attack and tone. Mix 0% keeps the dry signal unshifted. The same controls and saved presets continue to load; this 0.x sound-quality improvement changes existing Distortion rigs.
 
@@ -76,7 +76,7 @@ In the header:
 
 **Display:** The Body/drive/High cut path and the clean low return.
 
-**Latency:** none. The antialiasing filters are minimum phase, so your DAW needs no
+**Latency:** none. The antialiasing filters need no lookahead, so your DAW needs no
 extra delay compensation and stacking pedals does not add up. Dry Mix, bypass and
 parallel lanes stay aligned.
 
@@ -118,7 +118,7 @@ In the header:
 
 **Display:** Left: a 220 Hz test tone at -12 and -30 dBFS through the selected voice, showing how far it cleans up with playing level. Right: the Bass, Mid and Treble response with Mix and Level.
 
-**Latency:** none. Each voice clips at four times the host rate through minimum-phase filters, so no compensation delay is added and Mix 0% returns the exact dry signal. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
+**Latency:** none. Each voice clips at four times the host rate through filters that need no lookahead, so no compensation delay is added and Mix 0% returns the exact dry signal. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
 
 **Presets:** Classic rock distortion, British crunch, Scooped metal rhythm and Chainsaw death metal.
 

@@ -197,10 +197,13 @@ levels and include quiet notes and decays.
 
 ## Processing and latency
 
-Pedal Drive runs its nonlinear path at four times the host sample rate, with minimum-phase
-FIR filtering on interpolation and decimation. This reduces aliasing without adding latency:
+Pedal Drive runs its nonlinear path at four times the host sample rate. Cascaded halfband
+filters interpolate and decimate, and a lowpass at the host rate keeps the top of the band
+clean. None of them looks ahead, so this reduces aliasing without adding latency:
 the plugin reports no delay for it, and dry Mix, bypass and the clean low return pass through
 unshifted. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
+Its timing matches the filter the pedal was first released with, so parallel blends in
+existing rigs keep their sound.
 
 Every clipping stage is also averaged between adjacent oversampled samples (antiderivative
 antialiasing). On a hard-driven 1.5 kHz note this lowers the inharmonic residue of the

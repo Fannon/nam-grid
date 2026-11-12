@@ -56,25 +56,31 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   feedback range's top maps to a loop gain of 0.97, so a 100% tail always decays, and a
   20 Hz one-pole blocker in the feedback path removes the near-DC energy that repeated
   downward shifts fold toward 0 Hz; the wet output itself keeps its low end.
-- **Distortion** offers ten original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
-  style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
-  FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
+- **Distortion** offers original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
+  style crossfades. It combines first-order antiderivative antialiasing with
+  [halfband IIR oversampling](../NeuralAmpModeler/dsp/HalfbandOversampling.h)
+  (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
   lookahead or reported delay. Low preserve uses a complementary one-pole split before
   the shaper and restores the clean lows after the DC blocker and High cut. Below 20 Hz
   its amount fades toward Off; Off retains the original processing exactly. The wet
   high band retains the oversampler's phase, while dry and restored lows are unshifted.
   **Tube Boost** is an original biased soft saturator with Boost's
-  Tilt/Low cut voicing and a locally oversampled saturator (4x/2x/1x at the same host-rate bands). It uses the shared minimum-phase FIR with 32 base taps; the host-rate tone and DC filters remain outside it. A collapsed identity FIR
+  Tilt/Low cut voicing and a locally oversampled saturator (4x/2x/1x at the same host-rate bands). It uses the shared minimum-phase FIR with 32 base taps; the host-rate tone and DC filters remain outside it. The FIR loops share input loads across interpolation phases; on x64 each 4x dot product is split over four accumulators held in registers, and the variants agree to roundoff. A collapsed identity FIR
   aligns the partial-Mix dry reference; a 20 ms fade handles the exact-dry bypass at Mix zero.
 - **Pedal Drive** ([SlotPedalDrive.h](../NeuralAmpModeler/SlotPedalDrive.h),
   [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
-  informed by documented pedal designs. It uses fixed 4x minimum-phase FIR oversampling with zero added reported
+  informed by documented pedal designs. It uses fixed 4x halfband IIR oversampling with zero added reported
   latency, unshifted dry/bypass and local clean-low returns, independent
   stereo histories and 20 ms style crossfades. Its centered character parameter
   changes function/label by style; derived bias normalization is cached on the
-  16-sample control schedule. The FIR loops share input loads
-  across interpolation phases; on x64 each 4x dot product is split over four accumulators
-  held in registers, and the variants agree to roundoff. Settled styles use a single-voice
+  16-sample control schedule. The
+  [oversampler](../NeuralAmpModeler/dsp/HalfbandOversampling.h) is shared with Distortion
+  and Pedal Distortion: two elliptic halfband stages, each a pair of allpass paths, and a
+  seventh-order elliptic guard lowpass at the host rate that removes the band the halfband
+  stages fold back (above 20 kHz at 44.1 kHz). It is portable scalar code at about a third of
+  the cost of the minimum-phase FIR these modules used before. Pedal Drive and Distortion
+  add a short alignment delay before decimation so their wet path keeps the phase of that
+  FIR and partial Mix blends keep their sound; Pedal Distortion omits it. Settled styles use a single-voice
   path; only participating styles run during
   transitions; an inactive style starts with cleared filter history. Every clipping stage
   uses first-order antiderivative antialiasing with a curve whose antiderivative needs no
@@ -100,7 +106,7 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   bandwidth falls with gain. A level-following bias on the asymmetric styles adds an offset
   in proportion to how far a stage is overdriven (10 ms smoothing), so the duty cycle and
   the even harmonics hold at high gain instead of collapsing into a symmetric square wave.
-  Everything up to the clipping runs at a fixed 4x through the shared minimum-phase FIR; the
+  Everything up to the clipping runs at a fixed 4x through the shared halfband IIR oversampler; the
   style's linear voicing and the shared Bass/Mid/Treble biquads run at the host rate
   afterward. Style crossfades (20 ms) mix the clipped signals before the one decimator and
   mix the voicings after it. No latency is reported and Mix 0% is exact dry.
@@ -352,7 +358,7 @@ silence after bypass and then suspend: a muted delay stops writing feedback and 
 No callback clears a whole delay ring at once.
 
 Built-in effects have no block buffering and report zero host compensation latency;
-oversampled modules use minimum-phase filters, so their dry, clean-low and bypass paths
+oversampled modules use causal filters without lookahead, so their dry, clean-low and bypass paths
 pass through unshifted.
 Delay, reverb and vibrato (8 ms center delay) delay the effected signal on purpose; that
 effect time is not compensated. NAM sample-rate conversion reports its own latency, and

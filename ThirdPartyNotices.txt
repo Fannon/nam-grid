@@ -14,6 +14,10 @@ Pedal Drive design references
 -----------------------------
 
 Pedal Drive is original MIT-licensed NAM Grid code; no pedal-model code was copied.
+The oversampling filters of Pedal Drive, Distortion and Pedal Distortion are original
+code after published designs: halfband filters as two allpass paths (Valenzuela and
+Constantinides, IEE Proceedings G 130(6), 1983) and an elliptic lowpass as two allpass
+paths (Vaidyanathan, Mitra and Neuvo, IEEE Trans. ASSP 34(2), 1986).
 Its voices are informed by Aion FX's published Stratus, Helios, Refractor, Halo,
 Cerulean and Solaris
 schematics, Darkglass B3K/X Ultra manuals, and Keeley Katana, BOSS BD-2 and Analog

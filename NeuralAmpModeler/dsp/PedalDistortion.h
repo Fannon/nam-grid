@@ -1,5 +1,5 @@
 #pragma once
-#include "MinimumPhaseOversampling.h"
+#include "HalfbandOversampling.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -18,7 +18,7 @@ namespace grid_pedal_distortion
 {
 inline constexpr double pi = 3.14159265358979323846;
 inline double Flush(double x) { return std::abs(x) < 1.e-30 ? 0. : x; }
-using Oversampler4x = grid_oversampling::FIR<4>;
+using Oversampler4x = grid_oversampling::IIR<4>;
 
 // Clipping curves for first-order antiderivative antialiasing (Parker, Zavalishin and
 // Le Bivic, DAFx 2016). Every curve has unity slope at zero and a cheap closed-form

@@ -89,9 +89,9 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
 
 void TestPedalDrive()
 {
-  // The minimum-phase resampling filters must be causal (no lookahead), peak
-  // promptly and keep unity DC gain.
-  grid_pedal::Oversampler4x oversampler;
+  // The minimum-phase FIR that Pedal Drive introduced still serves other modules. Its
+  // filters must be causal (no lookahead), peak promptly and keep unity DC gain.
+  grid_oversampling::FIR<4> oversampler;
   oversampler.Reset();
   // Independently reconstruct the released linear-phase design. The direct
   // convolution oracle below shares production taps, so it cannot catch a
@@ -148,16 +148,18 @@ void TestPedalDrive()
     assert(std::abs(actual - reference.Tick(input)) < 1.e-12);
   }
 
-  // Measure a fifth-harmonic alias independently using a coherent high sine.
+  // Measure a fifth-harmonic alias independently using a coherent high sine, through
+  // the oversampler the pedal runs.
   constexpr int n = 8192, fundamental = 1093, alias = n - 5 * fundamental;
   std::vector<double> native(n), filtered(2 * n);
-  oversampler.Reset();
+  grid_pedal::Oversampler4x pedalOversampler;
+  pedalOversampler.Reset();
   for (int i = 0; i < 2 * n; ++i)
   {
     const double x = 4. * std::sin(2. * grid_fx::pi * fundamental * i / n);
     if (i >= n)
       native[i - n] = std::tanh(x);
-    filtered[i] = oversampler.Tick(x, [](double value) { return std::tanh(value); });
+    filtered[i] = pedalOversampler.Tick(x, [](double value) { return std::tanh(value); });
   }
   const double nativeAlias = pedal_test::Harmonic(native, 0, n, alias);
   const double filteredAlias = pedal_test::Harmonic(filtered, n, n, alias);

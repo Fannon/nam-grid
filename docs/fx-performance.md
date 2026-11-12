@@ -360,7 +360,7 @@ module loops cheap without changing output:
   filter or a band bank, let each accumulator keep its own tap order and vectorize
   across accumulators. Pairing two of them in one register is bit-identical;
   reordering taps within one, or letting the compiler contract multiply-add pairs,
-  is not. The shared Distortion/Pedal Drive oversampler packs phases with SSE2
+  is not. The minimum-phase FIR oversampler (Tube Boost, LoFi Tape) packs phases with SSE2
   on x64 and NEON for its 4x path on arm64; other paths retain scalar loops.
   SSE2 requires no AVX/FMA dispatch or extra latency. `-DNAM_PEDAL_DRIVE_SCALAR`
   forces the portable path for comparisons.

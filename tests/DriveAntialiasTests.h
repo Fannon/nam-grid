@@ -3,6 +3,7 @@
 #include "SlotOutboard.h"
 #include "SlotTimeEffects.h"
 #include "dsp/Antiderivative.h"
+#include "dsp/HalfbandOversampling.h"
 
 void TestDriveAntialiasing()
 {
@@ -23,6 +24,76 @@ void TestDriveAntialiasing()
   };
   split.operator()<2, 32>(); split.operator()<4, 32>();
   split.operator()<2, 64>(); split.operator()<4, 64>(); split.operator()<8, 64>();
+
+  // The halfband IIR oversampler of the drive modules.
+  const auto halfband = []<int Factor, int Align>() {
+    grid_oversampling::IIR<Factor, Align> filter, fused, separate;
+    filter.Reset(); fused.Reset(); separate.Reset();
+    // Causal with no lookahead: the response starts at once, peaks promptly, keeps DC.
+    std::vector<double> impulse(8192);
+    for (size_t i = 0; i < impulse.size(); ++i) impulse[i] = filter.Tick(i == 0 ? 1. : 0., [](double x) { return x; });
+    assert(filter.latency == 0 && impulse[Align ? 1 : 0] != 0.);
+    assert(std::max_element(impulse.begin(), impulse.end()) - impulse.begin() <= 8);
+    double gain = 0.;
+    for (double value : impulse) gain += value;
+    assert(std::abs(gain - 1.) < 1.e-9);
+    // A decayed filter rests at exactly zero, never on denormal values.
+    for (size_t i = 4096; i < impulse.size(); ++i) assert(impulse[i] == 0. || std::abs(impulse[i]) > 1.e-200);
+    assert(impulse.back() == 0.);
+    // The whole wet path at the host rate: flat within the guard's 0.01 dB ripple to
+    // 0.417 of the rate, with the phase Linear() reports, and 70 dB down where the
+    // halfband stages fold. Without the guard that band passes at full level; with
+    // the stages run out of order the passband is not flat.
+    for (double fraction : {.002, .02, .1, .2, .3, .4, .417, .4535, .47, .499})
+    {
+      std::complex<double> measured{};
+      for (size_t i = 0; i < impulse.size(); ++i) measured += impulse[i] * std::polar(1., -2. * grid_fx::pi * fraction * i);
+      if (fraction <= .417) assert(std::abs(std::abs(measured) - 1.) < 1.3e-3);
+      else assert(std::abs(measured) < 3.3e-4);
+      if (fraction <= .4) assert(std::abs(measured - filter.Linear(fraction, Factor)) < 1.e-6);
+    }
+    // Each direction rejects everything from the stopband edge to the oversampled
+    // Nyquist frequency by at least 88 dB, images of the inner stages included, and
+    // passes everything below the folded band.
+    for (double fraction = .5465; fraction <= .5 * Factor; fraction += .001)
+      assert(std::abs(filter.Response(fraction, Factor)) < 4.e-5);
+    assert(std::abs(std::abs(filter.Response(.4535, Factor)) - 1.) < 1.e-6);
+    // The split interface matches the fused one exactly.
+    for (int i = 0; i < 2048; ++i)
+    {
+      const double x = .4 * std::sin(i * .17) + .1 * std::cos(i * .013);
+      const auto shape = [](double v) { return std::tanh(3. * v); };
+      auto up = separate.Upsample(x);
+      for (double& v : up) v = shape(v);
+      assert(fused.Tick(x, shape) == separate.Downsample(up));
+    }
+  };
+  halfband.operator()<2, 0>(); halfband.operator()<4, 0>(); halfband.operator()<8, 0>();
+  halfband.operator()<2, 1>(); halfband.operator()<4, 4>(); halfband.operator()<8, 10>();
+  // The aligned variant has the phase of the minimum-phase FIR it replaced, so a partial
+  // Mix against unshifted dry audio combs where it did (unaligned: 0.6 rad at a tenth
+  // of the host rate, which moves the first notch of a clean blend up by 0.7 kHz).
+  const auto aligned = []<int Factor>() {
+    grid_oversampling::AlignedIIR<Factor> iir; iir.Reset();
+    grid_oversampling::FIR<Factor> fir; fir.Reset();
+    std::vector<double> a(4096), b(4096);
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+      a[i] = iir.Tick(i == 0 ? 1. : 0., [](double x) { return x; });
+      b[i] = fir.Tick(i == 0 ? 1. : 0., [](double x) { return x; });
+    }
+    for (double fraction : {.002, .02, .05, .1})
+    {
+      std::complex<double> first{}, second{};
+      for (size_t i = 0; i < a.size(); ++i)
+      {
+        const auto phase = std::polar(1., -2. * grid_fx::pi * fraction * i);
+        first += a[i] * phase; second += b[i] * phase;
+      }
+      assert(std::abs(std::arg(first / second)) < .1);
+    }
+  };
+  aligned.operator()<2>(); aligned.operator()<4>(); aligned.operator()<8>();
 
   // Collapsing the identity path must preserve its actual polyphase response,
   // including its causal phase-zero output, for arbitrary signal histories.

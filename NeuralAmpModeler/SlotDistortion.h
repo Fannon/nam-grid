@@ -1,6 +1,6 @@
 #pragma once
 #include "SlotTimeEffects.h"
-#include "dsp/MinimumPhaseOversampling.h"
+#include "dsp/HalfbandOversampling.h"
 #include <bit>
 #include <cstdint>
 
@@ -20,12 +20,12 @@ public:
   {
     const int factor = FactorForRate(rate);
     const auto highZ = std::polar(1., -2. * grid_fx::pi * hz / (factor * rate));
-    const auto filter = factor == 4 ? grid_oversampling::FIR<4>::Response(hz, factor * rate)
-                      : factor == 2 ? grid_oversampling::FIR<2>::Response(hz, factor * rate)
-                                    : std::complex<double>(1.);
-    // Unity-slope ADAA is the average of adjacent high-rate samples. The two
-    // resampling filters each contribute their complex response to the wet path.
-    return filter * filter * .5 * (1. + highZ);
+    const auto filters = factor == 4 ? grid_oversampling::AlignedIIR<4>::Linear(hz, factor * rate)
+                       : factor == 2 ? grid_oversampling::AlignedIIR<2>::Linear(hz, factor * rate)
+                                     : std::complex<double>(1.);
+    // Unity-slope ADAA is the average of adjacent high-rate samples; the resampling
+    // filters contribute the phase of the wet path.
+    return filters * .5 * (1. + highZ);
   }
   int OversamplingFactor() const { return mFactor; }
   // Explicit factors/ADAA are for offline quality comparisons, not saved controls.
@@ -211,9 +211,10 @@ private:
       default: return std::tanh(x);
     }
   }
-  grid_oversampling::FIR<2> mOversample2;
-  grid_oversampling::FIR<4> mOversample4;
-  grid_oversampling::FIR<8> mOversample8;
+  // Aligned with the FIR the module was released with: parallel blends keep their sound.
+  grid_oversampling::AlignedIIR<2> mOversample2;
+  grid_oversampling::AlignedIIR<4> mOversample4;
+  grid_oversampling::AlignedIIR<8> mOversample8;
   int mFactor = 4;
   bool mADAA = true;
   double mPreviousInput = 0.;

@@ -320,6 +320,40 @@ void TestPedalDrive()
   assert(peak(tone(PedalStyle::GatedFuzz, 9., 100., .03)) < 1.e-9);
   assert(peak(tone(PedalStyle::GatedFuzz, 9., 0., .06)) > .3);
   assert(peak(tone(PedalStyle::GatedFuzz, 36., -100., .003)) > .3);
+  // Moving Gate reshapes the averaged curve. Its output is the mean of a curve bounded
+  // by one, so it stays bounded while the control moves, including where the input
+  // barely changes between samples (a waveform peak).
+  {
+    grid_pedal::Averaged stage;
+    const auto starved = [&](double x, double open) {
+      constexpr double steep = 24.;
+      return stage.Tick(x, open,
+        [=](double v) { return v > open ? grid_pedal::Soft(steep * (v - open)) : 0.; },
+        [=](double v) { return v > open ? grid_pedal::SoftIntegral(steep * (v - open)) / steep : 0.; });
+    };
+    starved(.8, .3);
+    assert(std::abs(starved(.80002, .301)) <= 1.);
+    for (double hz : {82., 220., 440.})
+      for (double level : {.03, .2})
+      {
+        SlotPedalDrive drive;
+        drive.Reset(48000.);
+        UtilityControls c;
+        c.pedal = {double(static_cast<int>(PedalStyle::GatedFuzz)), 9., 12000., 0., 180., 0., 0., 100., -100.};
+        std::vector<double> audio(48000);
+        for (int i = 0; i < audio.size(); ++i)
+          audio[i] = level * std::sin(2. * grid_fx::pi * hz * i / 48000.);
+        double worst = 0.;
+        for (int position = 0; position < audio.size(); position += 64)
+        {
+          // Sweep Gate up, down and up again after the voice has settled.
+          if (position >= 12032) c.pedal[8] = (position / 9600) % 2 ? 100. : -100.;
+          drive.Process(audio.data() + position, 64, c);
+          for (int i = position; i < position + 64; ++i) worst = std::max(worst, std::abs(audio[i]));
+        }
+        assert(worst < 1.2);
+      }
+  }
   // Sub Fuzz divides a single note: with Sub at maximum the octave below dominates.
   {
     const auto sub = tone(PedalStyle::SubFuzz, 12., 100., .1);

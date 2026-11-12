@@ -96,7 +96,7 @@ inline double WarmSlope(double x)
 // and an unchanged input (silence) reuses its value without evaluating anything.
 struct Averaged
 {
-  double previous = 0., integral = 0., held = 0.;
+  double previous = 0., integral = 0., held = 0., control = 0.;
   bool primed = false, holding = false;
   template <class Curve, class Integral>
   double Tick(double x, Curve&& curve, Integral&& primitive)
@@ -115,6 +115,21 @@ struct Averaged
     previous = x;
     integral = current;
     return y;
+  }
+  // A curve shaped by a control. The stored antiderivative belongs to the curve it
+  // was evaluated with: when the control moves it is evaluated again, so both ends
+  // of the interval use one curve. Otherwise the control's step would be divided by
+  // the distance between two audio samples.
+  template <class Curve, class Integral>
+  double Tick(double x, double shapedBy, Curve&& curve, Integral&& primitive)
+  {
+    if (shapedBy != control)
+    {
+      control = shapedBy;
+      holding = false;
+      if (primed) integral = primitive(previous);
+    }
+    return Tick(x, curve, primitive);
   }
   double Soft(double x) { return Tick(x, grid_pedal::Soft, SoftIntegral); }
   double Warm(double x) { return Tick(x, grid_pedal::Warm, WarmIntegral); }
@@ -311,7 +326,7 @@ struct Voice
         const double coupled = first - lp(first, P::Sub);
         constexpr double steep = 24.;
         const double open = character.gateOpen, close = character.gateClose;
-        const double starved = fuzzSecond.Tick(coupled,
+        const double starved = fuzzSecond.Tick(coupled, open,
           [=](double v) { return v > open ? Soft(steep * (v - open)) : v < -close ? Soft(steep * (v + close)) : 0.; },
           [=](double v) { return v > open ? SoftIntegral(steep * (v - open)) / steep : v < -close ? SoftIntegral(steep * (v + close)) / steep : 0.; });
         return lp(.8 * starved, P::RodentTop);

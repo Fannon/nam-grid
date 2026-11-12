@@ -3,9 +3,10 @@
 #include "dsp/PedalDistortion.h"
 
 // Distortion-pedal voices with a shared post-clip EQ, independent per channel in
-// NAMStage. Each style runs its whole nonlinear chain at four times the host rate
-// through minimum-phase filters, so the pedal adds no reported latency and dry Mix
-// passes through unshifted. Style changes crossfade over 20 ms.
+// NAMStage. Each style clips at four times the host rate through minimum-phase
+// filters, so the pedal adds no reported latency and dry Mix passes through
+// unshifted; its linear voicing and the EQ run at the host rate. Style changes
+// crossfade over 20 ms.
 class SlotPedalDistortion
 {
 public:
@@ -17,11 +18,9 @@ public:
     mControls.Reset(mRate);
     mOversampler.Reset();
     mWeights = {};
+    mTight = 0.;
     for (int i = 0; i < grid_pedal_distortion::styleCount; ++i)
-    {
-      mVoices[i] = {};
-      mVoices[i].Configure(i, 4. * mRate, 0.);
-    }
+      Start(i);
     mBass = mMid = mTreble = {};
     mCached.fill(-1.e30);
     mCounter = 0;
@@ -47,19 +46,18 @@ public:
       mFirst = false;
     }
     else if (mWeights[style] == 0.)
-    {
-      // A style returning from silence starts with clean histories.
-      mVoices[style] = {};
-      mVoices[style].Configure(style, 4. * mRate, mTight);
-    }
+      Start(style); // A style returning from silence starts with clean histories.
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
+      const bool settled = mWeights[style] == 1.;
       // Gains follow every smoothed sample; filters keep a 16-sample schedule.
-      if (c[1] != mCached[1] || style != mGainStyle)
+      // Fading styles follow Gain through their own ranges.
+      if (!settled || c[1] != mCached[1])
       {
-        mGain = pd::GainFor(style, c[1]);
-        mGainStyle = style;
+        for (int j = 0; j < pd::styleCount; ++j)
+          if (j == style || mWeights[j] > 0.)
+            mCores[j].SetGain(pd::GainFor(j, c[1]));
         mCached[1] = c[1];
       }
       if (c[7] != mCached[7])
@@ -73,8 +71,8 @@ public:
         {
           mTight = c[2] * .01;
           for (int j = 0; j < pd::styleCount; ++j)
-            if (mWeights[j] > 0. || j == style)
-              mVoices[j].Configure(j, 4. * mRate, mTight);
+            if (j == style || mWeights[j] > 0.)
+              mCores[j].SetTight(mTight);
           mCached[2] = c[2];
         }
         if (c[3] != mCached[3] || c[4] != mCached[4] || c[5] != mCached[5] || c[6] != mCached[6])
@@ -84,7 +82,6 @@ public:
         }
       }
       mCounter = (mCounter + 1) % 16;
-      const bool settled = mWeights[style] == 1.;
       if (!settled)
       {
         double others = 0.;
@@ -97,21 +94,37 @@ public:
         mWeights[style] = 1. - others;
       }
       const double dry = samples[i];
-      double wet = mOversampler.Tick(dry, [&](double x) {
+      const double clipped = mOversampler.Tick(dry, [&](double x) {
         if (settled)
-          return mVoices[style].Tick(x, mGain);
+          return mCores[style].Tick(x);
         double sum = 0.;
         for (int j = 0; j < pd::styleCount; ++j)
           if (mWeights[j] > 0.)
-            sum += mWeights[j] * mVoices[j].Tick(x, j == style ? mGain : pd::GainFor(j, c[1]));
+            sum += mWeights[j] * mCores[j].Tick(x);
         return sum;
       });
+      // One decimator serves every fading style, so their voicings share its output.
+      double wet = 0.;
+      if (settled)
+        wet = mVoicings[style].Tick(clipped);
+      else
+        for (int j = 0; j < pd::styleCount; ++j)
+          if (mWeights[j] > 0.)
+            wet += mWeights[j] * mVoicings[j].Tick(clipped);
       wet = mTreble.Tick(mMid.Tick(mBass.Tick(wet)));
       samples[i] = (dry + c[8] * .01 * (wet - dry)) * mLevel;
     }
   }
 
 private:
+  void Start(int style)
+  {
+    mCores[style] = {};
+    mCores[style].Configure(style, 4. * mRate);
+    mCores[style].SetTight(mTight);
+    mVoicings[style] = {};
+    mVoicings[style].Configure(style, mRate);
+  }
   static void Design(grid_pedal_distortion::Biquad& bass, grid_pedal_distortion::Biquad& mid,
                      grid_pedal_distortion::Biquad& treble, double rate, double bassDb, double midDb, double midHz,
                      double trebleDb)
@@ -122,11 +135,12 @@ private:
   }
   grid_fx::SmoothControls<9> mControls;
   grid_pedal_distortion::Oversampler4x mOversampler;
-  std::array<grid_pedal_distortion::Voice, grid_pedal_distortion::styleCount> mVoices{};
+  std::array<grid_pedal_distortion::Core, grid_pedal_distortion::styleCount> mCores{};
+  std::array<grid_pedal_distortion::Voicing, grid_pedal_distortion::styleCount> mVoicings{};
   std::array<double, grid_pedal_distortion::styleCount> mWeights{};
   std::array<double, 9> mCached{};
   grid_pedal_distortion::Biquad mBass, mMid, mTreble;
-  double mRate = 48000., mGain = 1., mLevel = 1., mTight = 0.;
-  int mCounter = 0, mGainStyle = -1;
+  double mRate = 48000., mLevel = 1., mTight = 0.;
+  int mCounter = 0;
   bool mFirst = true;
 };

@@ -389,10 +389,10 @@ inline constexpr AlgorithmIdentity pedal[]{
   {0, "screamer"}, {1, "rodent"}, {2, "bass-edge"}, {3, "parallel-od"},
   {4, "sustain-fuzz"}, {5, "cascaded-preamp"}, {6, "treble-drive"},
   {7, "blues-breaker"}, {8, "transparent-od"}, {9, "vintage-fuzz"},
-  {10, "bender-fuzz"}, {11, "octave-fuzz"}};
+  {10, "bender-fuzz"}, {11, "octave-fuzz"}, {12, "gated-fuzz"}, {13, "sub-fuzz"}};
 inline constexpr AlgorithmIdentity distortion[]{
   {0, "soft"}, {1, "hard"}, {2, "fuzz"}, {3, "foldback"}, {4, "diode"}, {5, "rectify"},
-  {6, "tube"}, {7, "overdrive"}, {8, "half-wave"}, {9, "sine-fold"}};
+  {6, "overdrive"}, {7, "half-wave"}, {8, "sine-fold"}};
 inline constexpr AlgorithmIdentity pedalDistortion[]{
   {0, "classic-dist"}, {1, "raw-dist"}, {2, "british-crunch"}, {3, "hot-lead"}, {4, "metal-stack"}, {5, "chainsaw"}};
 inline constexpr AlgorithmIdentity juno[]{{0, "i"}, {1, "i-ii"}, {2, "ii"}, {3, "i-ii-vintage"}};

@@ -53,6 +53,8 @@ void TestPedalDistortion()
       c.pedalDistortion[0] = style;
       outputs[style] = Render(input, rate, c);
       for (double v : outputs[style]) assert(std::isfinite(v) && std::abs(v) < 4.);
+      // Silence stays silent from a reset, including through the biased stages.
+      for (double v : Render(std::vector<double>(2048, 0.), rate, c)) assert(std::abs(v) < 1.e-15);
       // Level matching: Gain 50% with a flat EQ stays near the input loudness.
       const double change = DB(RMS(outputs[style]) / inputRMS);
       assert(change > -8. && change < 6.);
@@ -95,6 +97,42 @@ void TestPedalDistortion()
     };
     assert(fundamental(100.) < fundamental(-100.));
   }
+  // A settled tone through one style, and one partial of it relative to another.
+  constexpr int toneCount = 16384;
+  const auto settledTone = [&](int style, double gain, int bin, double level) {
+    UtilityControls c; c.pedalDistortion[0] = style; c.pedalDistortion[1] = gain;
+    std::vector<double> tone(toneCount * 3);
+    for (size_t i = 0; i < tone.size(); ++i) tone[i] = level * std::sin(2. * spectral_test::pi * bin * i / toneCount);
+    const auto y = Render(tone, rate, c);
+    return std::vector<double>(y.end() - toneCount, y.end());
+  };
+  const auto partial = [&](const std::vector<double>& y, int bin) { return spectral_test::ToneAmplitude(y, bin); };
+  // Even harmonics stay in loud notes. The level-following bias keeps the duty cycle
+  // uneven where a fixed bias alone clips into a symmetric square wave; the voices
+  // without it stay odd.
+  {
+    constexpr int bin = 75; // 220 Hz
+    const auto second = [&](pd::Style style) {
+      const auto y = settledTone(static_cast<int>(style), 70., bin, .25);
+      return DB(partial(y, 2 * bin) / partial(y, bin));
+    };
+    assert(second(pd::Style::ClassicDist) > -24.);
+    assert(second(pd::Style::RawDist) > -20.);
+    assert(second(pd::Style::BritishCrunch) > -30. && second(pd::Style::BritishCrunch) < second(pd::Style::RawDist));
+    assert(second(pd::Style::HotLead) < -30.);
+    assert(second(pd::Style::MetalStack) < -80.);
+  }
+  // Raw Dist's bass corner follows Gain: a low setting stays full-range and a
+  // high one thins the lows, measured at small signal.
+  {
+    const auto bassShare = [&](double gain) {
+      const int raw = static_cast<int>(pd::Style::RawDist);
+      return DB(partial(settledTone(raw, gain, 28, 1.e-6), 28) / partial(settledTone(raw, gain, 341, 1.e-6), 341)); // 82 Hz and 1 kHz
+    };
+    assert(bassShare(0.) > -3.);
+    assert(bassShare(50.) < bassShare(0.) - 3. && bassShare(50.) > bassShare(100.) + 3.);
+    assert(bassShare(100.) < -12.);
+  }
   // The shared EQ is flat at zero, reaches its settings at the band centres and
   // the editor response matches the processed small-signal filters.
   for (double hz : {40., 100., 800., 3000., 12000.})
@@ -132,5 +170,5 @@ void TestPedalDistortion()
     assert(jump < .5);
   }
   std::cout << "Pedal Distortion: " << pd::styleCount
-            << " styles level-matched, exact dry Mix, Gain compression, Tight, EQ and crossfades at 44.1-96 kHz passed\n";
+            << " styles level-matched, exact dry Mix, silence, Gain compression, even harmonics, Tight, EQ and crossfades at 44.1-96 kHz passed\n";
 }

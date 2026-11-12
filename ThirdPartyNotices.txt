@@ -21,7 +21,8 @@ Man Beano Boost descriptions, plus the MXR Timmy manual. They are original inter
 replicas. Product and company names identify design references and belong to their
 respective owners. NAM Grid is not affiliated with or endorsed by those manufacturers.
 Bender Fuzz and Octave Fuzz are informed by published Sola Sound Tone Bender MkII
-and Tycobrahe Octavia schematics.
+and Tycobrahe Octavia schematics. Gated Fuzz and Sub Fuzz follow general circuit
+ideas (a starved transistor stage and a flip-flop octave divider), not one pedal.
 Links and implementation details are in docs/modules/pedal-drive.md and
 NeuralAmpModeler/dsp/PedalDrive.h in the source repository.
 

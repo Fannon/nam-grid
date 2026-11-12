@@ -28,6 +28,8 @@ All eight dial positions are available for sound controls.
 | **Vintage Fuzz** | Two inverting stages with coupling and bias-dependent decay | Fuzz Face-inspired leads, rounder fuzz or pinched, gated textures |
 | **Bender Fuzz** | A bass-cut first stage into a high-gain asymmetric pair: more gain and mids than Vintage Fuzz | Tone Bender-inspired raspy riffs and sustaining, cutting leads |
 | **Octave Fuzz** | Fuzz, smooth full-wave rectification, then more fuzz: a ringing octave up | Octavia-inspired single-note leads; strongest on higher frets and the neck pickup |
+| **Gated Fuzz** | A starved second stage that only conducts above a threshold: full fuzz on loud notes, then narrowing, sputtering pulses and an abrupt cut-off. Pauses are silent | Velcro-like riffs and stabs; staccato parts that need dead silence between notes. Drive sets how long notes sustain |
+| **Sub Fuzz** | An octave divider flips every other cycle of the note, then fuzz: a synth-like note one octave down | Single-note riffs and bass-synth lines. Play one note at a time, ideally on the neck pickup; chords and fading notes glitch, which is part of the sound |
 
 These are original voices informed by pedal families, rather than measured or calibrated
 replicas. Product and company names identify design references and belong to their
@@ -59,6 +61,8 @@ Every voice has its base sound at the center.
 | Vintage Fuzz | **Bias** | Rounder, more symmetric fuzz | Base vintage fuzz | Pinched waveform and gated quiet decays |
 | Bender Fuzz | **Bias** | Smoother, more symmetric fuzz | Base three-stage fuzz | Spitting asymmetry and sputtering decays |
 | Octave Fuzz | **Octave** | More fuzz under the octave | Base octave blend | Purer rectified octave |
+| Gated Fuzz | **Gate** | Notes ring longer before they sputter out | Base gated fuzz | Notes cut off sooner: short, spitting stabs |
+| Sub Fuzz | **Sub** | Normal fuzz with the octave down underneath | Base blend | Mostly the octave down |
 
 Focus on Screamer explores the direction of bass/fat modifications. Unlike **Low keep**,
 it changes how much bass participates in distortion. **Body** remains a broad shelf before
@@ -222,6 +226,9 @@ published designs and descriptions as references:
 - Published Sola Sound Tone Bender MkII and Tycobrahe Octavia schematics: a three-transistor
   fuzz and a transformer/diode full-wave rectifier octave fuzz. The voices were voiced against
   measurements of NAM captures of a BOSS TB-2w and an EarthQuaker Fuzz Master General.
+- Gated Fuzz and Sub Fuzz follow general circuit ideas, not one pedal: a misbiased,
+  starved transistor stage that stops conducting as the note decays, and a flip-flop
+  octave divider that inverts every other cycle of the note.
 - [Darkglass B3K](https://www.darkglass.com/pages/microtubes-b3k-manual) and
   [X Ultra](https://www.darkglass.com/pages/microtubes-x-ultra-manual) manuals:
   clean-signal blending and separate low/high processing.

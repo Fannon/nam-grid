@@ -17,7 +17,7 @@ inline const char* ChoiceDescription(int p, int mode)
   static constexpr const char* distortion[]{
     "Smooth, rounded drive", "Sharper, brighter drive", "Dense, compressed sustain",
     "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz",
-    "Warm, uneven tube-like drive", "Open, touch-sensitive overdrive", "Gated, buzzing fuzz", "Smooth, synth-like folding"};
+    "Open, touch-sensitive overdrive", "Gated, buzzing fuzz", "Smooth, synth-like folding"};
   static constexpr const char* juno[]{"Slower voice", "Both voices", "Faster voice", "Fast, shallow, centered vintage chorus"};
   std::span<const char* const> descriptions;
   switch (p)
@@ -509,7 +509,7 @@ inline const char* Sound(SlotEffect e)
 {
   switch (e)
   {
-    case SlotEffect::PedalDrive: return "Twelve voiced guitar and bass drives and fuzzes; Low keep restores clean lows within this slot.";
+    case SlotEffect::PedalDrive: return "Fourteen voiced guitar and bass drives and fuzzes; Low keep restores clean lows within this slot.";
     case SlotEffect::PedalDistortion: return "Six distortion-pedal voices, from classic and British crunch to metal; Bass, Mid and Treble shape the result.";
     case SlotEffect::DynamicEQ: return "Frequency-selective compression: tame boom or bite only when the selected band gets loud.";
     case SlotEffect::TransientShaper: return "Attack shapes the pick, Sustain the decay; works at any input level.";

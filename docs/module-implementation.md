@@ -79,17 +79,28 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   first-order antiderivative antialiasing before a continuously integrated slew
   limiter/hard clip; its filter rate remains 4x. See
   [voices, signal flow and design references](modules/pedal-drive.md).
-  Bender Fuzz and Octave Fuzz follow the same structure; Octave Fuzz rectifies with
-  sqrt(x² + e²) - e, a rounded corner the 4x rate resolves better than |x|.
+  Bender, Octave, Gated and Sub Fuzz follow the same structure. Their clipping stages use
+  x / sqrt(1 + x²) with first-order antiderivative antialiasing: its antiderivative is one
+  square root, so the averaged stage costs less than a plain tanh. Octave Fuzz rectifies with
+  sqrt(x² + e²) - e, a rounded corner the 4x rate resolves better than |x|. Gated Fuzz's
+  second stage is a dead zone into the same curve, so silence stays exactly silent. Sub Fuzz
+  finds one peak-relative trigger per cycle of the low-passed input and flips polarity at the
+  next zero crossing, so the octave-down signal has no steps; it adds no delay.
 - **Pedal Distortion** ([SlotPedalDistortion.h](../NeuralAmpModeler/SlotPedalDistortion.h),
   [DSP](../NeuralAmpModeler/dsp/PedalDistortion.h)) shares one table-driven structure across
   its styles: input coupling (moved by Tight), an optional pre-clip peak, two clipping stages
   with first-order antiderivative antialiasing and interstage filters, a 5 Hz DC blocker and
-  the style's post-clip peaks and low-pass. Gain divides its decibels between the stages; Raw
-  Dist instead models a bass-shy op-amp whose bandwidth falls with gain. Everything
-  style-specific runs at a fixed 4x through the shared minimum-phase FIR, so style crossfades
-  (20 ms) mix whole voices; the shared Bass/Mid/Treble biquads run at the host rate afterward,
-  on the 16-sample control schedule. No latency is reported and Mix 0% is exact dry.
+  the style's post-clip peaks and low-pass. The clipping curves (x / sqrt(1 + x²), its blend
+  with a hard clip, x / (1 + |x|) and a hard clip) have antiderivatives without exp or log,
+  which keeps the two averaged stages cheaper than one tanh each. Gain divides its decibels
+  between the stages; Raw Dist instead models an op-amp whose bass corner rises and whose
+  bandwidth falls with gain. A level-following bias on the asymmetric styles adds an offset
+  in proportion to how far a stage is overdriven (10 ms smoothing), so the duty cycle and
+  the even harmonics hold at high gain instead of collapsing into a symmetric square wave.
+  Everything up to the clipping runs at a fixed 4x through the shared minimum-phase FIR; the
+  style's linear voicing and the shared Bass/Mid/Treble biquads run at the host rate
+  afterward. Style crossfades (20 ms) mix the clipped signals before the one decimator and
+  mix the voicings after it. No latency is reported and Mix 0% is exact dry.
 - **Pedal Comp** ([SlotPedalComp.h](../NeuralAmpModeler/SlotPedalComp.h)) is an original
   feed-forward compressor that takes the playing behaviour of guitar sustain pedals
   without modelling a circuit. One linked stereo detector feeds a soft-knee curve whose

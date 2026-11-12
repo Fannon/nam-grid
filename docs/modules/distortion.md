@@ -5,7 +5,7 @@ Drives, boosts and saturation.
 | Module | In short |
 | --- | --- |
 | [Distortion](#distortion) | Style changes harmonics; High cut softens edges, Mix restores dry attack. |
-| [Pedal Drive](#pedal-drive) | Twelve voiced guitar/bass drives and fuzzes; Low keep restores clean lows within the slot. |
+| [Pedal Drive](#pedal-drive) | Fourteen voiced guitar/bass drives and fuzzes; Low keep restores clean lows within the slot. |
 | [Pedal Distortion](#pedal-distortion) | Six distortion-pedal voices, from classic to metal; Bass, Mid and Treble shape the result. |
 | [Boost](#boost) | Clean boost into the next module; Tilt balances body and bite. |
 | [Tube Boost](#tube-boost) | Softer clipping with asymmetric harmonics; Output matches loudness. |
@@ -32,7 +32,7 @@ Ten distortion voices, from smooth clipping and tube-like drive to octave-like b
 
 In the header:
 
-- **Style** (Soft clip, Hard clip, Fuzz, Foldback, Diode, Rectify, Tube, Overdrive, Half-wave, Sine fold; starts at Soft clip) Choose soft or hard clipping, dense fuzz, wavefolding, asymmetric diode clipping or octave-like rectification. **Tube** saturates positive peaks sooner than negative ones and adds second harmonic even at low Drive. **Overdrive** grows logarithmically and never flattens, so it stays touch-sensitive. **Half-wave** mutes the negative half-cycles for a gated, buzzing fuzz. **Sine fold** folds peaks smoothly for synth-like harmonics that sweep as Drive rises.
+- **Style** (Soft clip, Hard clip, Fuzz, Foldback, Diode, Rectify, Overdrive, Half-wave, Sine fold; starts at Soft clip) Choose soft or hard clipping, dense fuzz, wavefolding, asymmetric diode clipping or octave-like rectification. **Overdrive** sounds like Soft clip at low Drive but never fully flattens, so at high Drive it keeps more picking dynamics. **Half-wave** mutes the negative half-cycles for a gated, buzzing fuzz. **Sine fold** folds peaks smoothly for synth-like harmonics that sweep as Drive rises.
 
 **Display:** Left: the static shaper curve before tone and mix; the highlighted span shows how much of the full-band input reaches the module. Right: the Low preserve, High cut, Mix and Output response.
 
@@ -42,7 +42,7 @@ In the header:
 
 - Drive into a following NAM capture for a pedal-into-amp sound, with Output lowered to keep the capture's input sensible.
 - Fuzz and Rectify respond strongly to Bias; small moves change the character more than Drive.
-- Tube with Drive around 6–12 dB adds warmth without obvious distortion. Sine fold is a sound-design tool: automate Drive for sweeping harmonics.
+- For even-harmonic warmth, use Diode or raise Bias on Soft clip. Sine fold is a sound-design tool: automate Drive for sweeping harmonics.
 - Try Low preserve around 150–300 Hz to keep bass weight while adding grit above it. High cut only darkens the distorted path; the restored lows remain clean. This is a gentle separation, so high Drive can still distort some bass. Off retains the original sound exactly; no lookahead or compensation delay is added.
 
 ## Pedal Drive
@@ -51,10 +51,11 @@ In the header:
 
 Voiced overdrive, distortion, fuzz and colored boost, with **Style** in the header:
 Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp, Treble Drive,
-Blues OD, Transparent OD, Vintage Fuzz, Bender Fuzz and Octave Fuzz.
+Blues OD, Transparent OD, Vintage Fuzz, Bender Fuzz, Octave Fuzz, Gated Fuzz and Sub Fuzz.
 Rodent antialiases its input saturation and integrates the slew/clip stage over
 sample intervals; it keeps the pedal's existing 4x rate. This reduces high-frequency
-foldover and can slightly change attack and partial Mix. Other voices retain their DSP.
+foldover and can slightly change attack and partial Mix. The four newest fuzzes
+antialias their clipping too. Other voices retain their DSP.
 Each voice has its own filtering and gain structure. These are original interpretations
 inspired by pedal families, rather than calibrated replicas.
 
@@ -63,7 +64,7 @@ inspired by pedal families, rather than calibrated replicas.
 | **Drive** | 0–36 dB | 9 dB | Gain into the drive stages. |
 | **High cut** | 200–12000 Hz | 5500 Hz | Darkens the driven path after its style-specific filters; restored clean lows are unaffected. |
 | **Body** | -6 to +6 dB | 0 dB | Broad bass shelf before drive: positive adds body; negative tightens clipping. Restored clean lows are unaffected. |
-| **Character** | -100 to +100% | 0% | Changes label and function with Style: Focus, Bite, Attack, Blend, Mids, Asymmetry, Clipping, Bias or Octave. Center is the base voice. |
+| **Character** | -100 to +100% | 0% | Changes label and function with Style: Focus, Bite, Attack, Blend, Mids, Asymmetry, Clipping, Bias, Octave, Gate or Sub. Center is the base voice. |
 | **Split** | 50–500 Hz | 180 Hz | Local low-band frequency for Low keep. Inactive at Low keep 0%; independent of grid routing. |
 | **Output** | -24 to +12 dB | -6 dB | Final gain after Mix, including clean lows. |
 | **Low keep** | 0–100% | 0% | Diverts this share of the low band around the drive and restores it clean. The gentle split has overlapping bands. |
@@ -82,7 +83,9 @@ parallel lanes stay aligned.
 
 Use Screamer or Treble Drive before a crunchy amp capture, Rodent for heavier rhythm,
 and Sustain Fuzz for dense leads or bass fuzz. Bender Fuzz is a raspier, more cutting fuzz
-for riffs; Octave Fuzz adds a ringing octave up to single-note leads. Try Bass Edge with Low keep raised for
+for riffs; Octave Fuzz adds a ringing octave up to single-note leads. Gated Fuzz sputters
+and cuts off as notes decay, and Sub Fuzz adds a synth-like octave below single notes.
+Try Bass Edge with Low keep raised for
 one-slot bass drive. [Pedal Drive](pedal-drive.md) explains all voices, example rigs,
 latency and how the local split interacts with the grid.
 
@@ -93,7 +96,7 @@ Distortion pedals with more gain than Pedal Drive's overdrives and a real tone s
 | Style | Inspired by | Sound and use |
 | --- | --- | --- |
 | **Classic Dist** | The orange-box distortion of the late '70s (DS-1 family) | Bright, scooped, gritty. Punk, grunge and classic rock into a clean or edge-of-breakup amp. |
-| **Raw Dist** | Simple op-amp and germanium-diode pedals (Distortion+ and 250 family) | Bass-light, raspy and fizzy, with soft clipping. Pushes a crunchy amp; '80s rock rhythm. |
+| **Raw Dist** | Simple op-amp and germanium-diode pedals (Distortion+ and 250 family) | Raspy and fizzy, with soft clipping. It keeps its bass at low Gain and thins out as Gain rises. Pushes a crunchy amp; '80s rock rhythm. |
 | **British Crunch** | Amp-in-a-box pedals voiced like a cranked plexi (Guv'nor, Plextortion and Crunch Box family) | Mid-forward and darker, two preamp-like stages. Classic rock rhythm into a clean amp. |
 | **Hot Lead** | Hot-rodded British lead boxes (Shredmaster, Riot and similar) | Tighter bass, more gain and a smooth top for modern rock rhythm and solos. |
 | **Metal Stack** | High-gain metal pedals with active EQ (Metal Zone family) | Pre-clip mid hump and a scooped, aggressive post voicing. Carve it with Mid and Mid freq. |
@@ -116,12 +119,13 @@ In the header:
 
 **Display:** Left: a 220 Hz test tone at -12 and -30 dBFS through the selected voice, showing how far it cleans up with playing level. Right: the Bass, Mid and Treble response with Mix and Level.
 
-**Latency:** none. Each voice runs at four times the host rate through minimum-phase filters, so no compensation delay is added and Mix 0% returns the exact dry signal. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
+**Latency:** none. Each voice clips at four times the host rate through minimum-phase filters, so no compensation delay is added and Mix 0% returns the exact dry signal. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
 
 **Presets:** Classic rock distortion, British crunch, Scooped metal rhythm and Chainsaw death metal.
 
 **Tips:**
 
+- Classic Dist, Raw Dist, British Crunch and Chainsaw clip unevenly, and the unevenness follows your playing level: loud notes keep the even harmonics that make these pedals sound raspy instead of hollow. Hot Lead and Metal Stack stay symmetric and smoother.
 - Put it before an amp capture set clean or just breaking up; most of these pedals were designed to drive a clean amp. Into a high-gain amp, lower Gain and use it as a tight boost.
 - For metal, raise Tight to 30–50% and put a gate before the pedal. The classic Chainsaw sound keeps the EQ flat: the style already has every tone knob at maximum.
 - Lower Treble before raising Gain if the result fizzes; a cabinet IR or amp capture after the pedal also rounds off the top end.

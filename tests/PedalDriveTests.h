@@ -273,6 +273,71 @@ void TestPedalDrive()
   }
   assert(quietEnergy[0] > .001 && quietEnergy[1] < quietEnergy[0] * .001);
 
+  // A steady tone through one style: the settled second half and the bin of its fundamental.
+  constexpr int toneCount = 16384, toneBin = 76; // 223 Hz at 48 kHz
+  const auto tone = [&](effect_modes::PedalStyle style, double driveDb, double character, double level) {
+    SlotPedalDrive drive;
+    drive.Reset(48000.);
+    UtilityControls c;
+    c.pedal[0] = static_cast<int>(style);
+    c.pedal[1] = driveDb;
+    c.pedal[6] = 0.;
+    c.pedal[8] = character;
+    std::vector<double> audio(2 * toneCount);
+    for (int i = 0; i < audio.size(); ++i)
+      audio[i] = level * std::sin(2. * grid_fx::pi * toneBin * i / toneCount);
+    drive.Process(audio.data(), static_cast<int>(audio.size()), c);
+    return std::vector<double>(audio.begin() + toneCount, audio.end());
+  };
+  const auto peak = [](const std::vector<double>& x) {
+    double value = 0.;
+    for (double v : x) value = std::max(value, std::abs(v));
+    return value;
+  };
+  // Gated Fuzz is a full fuzz on a loud note and silent, not amplified, below its
+  // threshold. More Drive or a lower Gate lets the same quiet note through.
+  using effect_modes::PedalStyle;
+  assert(pedal_test::Harmonic(tone(PedalStyle::GatedFuzz, 9., 0., .2), 0, toneCount, toneBin) > .5);
+  assert(peak(tone(PedalStyle::GatedFuzz, 9., 0., .003)) < 1.e-9);
+  assert(peak(tone(PedalStyle::GatedFuzz, 9., 100., .03)) < 1.e-9);
+  assert(peak(tone(PedalStyle::GatedFuzz, 9., 0., .06)) > .3);
+  assert(peak(tone(PedalStyle::GatedFuzz, 36., -100., .003)) > .3);
+  // Sub Fuzz divides a single note: with Sub at maximum the octave below dominates.
+  {
+    const auto sub = tone(PedalStyle::SubFuzz, 12., 100., .1);
+    const double octaveDown = pedal_test::Harmonic(sub, 0, toneCount, toneBin / 2);
+    assert(octaveDown > .5 && octaveDown > 10. * pedal_test::Harmonic(sub, 0, toneCount, toneBin));
+    // With Sub at minimum the played pitch stays in front.
+    const auto fuzz = tone(PedalStyle::SubFuzz, 12., -100., .1);
+    assert(pedal_test::Harmonic(fuzz, 0, toneCount, toneBin) > 2. * pedal_test::Harmonic(fuzz, 0, toneCount, toneBin / 2));
+  }
+  // The fuzzes added after 0.1 antialias their clipping: a hard-driven 5 kHz tone
+  // folds far less than Vintage Fuzz, whose released arithmetic is unchanged.
+  {
+    constexpr int highBin = 1707; // 5001 Hz, odd and coprime with the window
+    const auto folded = [&](PedalStyle style) {
+      SlotPedalDrive drive;
+      drive.Reset(48000.);
+      UtilityControls c;
+      c.pedal = {double(static_cast<int>(style)), 36., 12000., 0., 180., 0., 0., 100., 0.};
+      std::vector<double> audio(2 * toneCount);
+      for (int i = 0; i < audio.size(); ++i)
+        audio[i] = .2 * std::sin(2. * grid_fx::pi * highBin * i / toneCount);
+      drive.Process(audio.data(), static_cast<int>(audio.size()), c);
+      // Harmonics below Nyquist are legitimate; everything else folded.
+      double harmonic = 0., other = 0.;
+      for (int bin = 1; bin < toneCount / 2; ++bin)
+      {
+        const double a = pedal_test::Harmonic(audio, toneCount, toneCount, bin);
+        (bin % highBin == 0 ? harmonic : other) += a * a;
+      }
+      return 10. * std::log10(other / harmonic);
+    };
+    const double reference = folded(PedalStyle::VintageFuzz);
+    assert(folded(PedalStyle::BenderFuzz) < reference - 30.);
+    assert(folded(PedalStyle::GatedFuzz) < reference - 6.);
+  }
+
   // Dry drive in B must reconstruct the input with the clean low A lane,
   // including when bypassed, without shifting either path.
   for (double rate : {44100., 48000., 96000.})
@@ -305,7 +370,7 @@ void TestPedalDrive()
         }
       }
     }
-  std::cout << "Pedal Drive: ten voices and centered character, alias reduction, low retention, blocks, allocation, "
+  std::cout << "Pedal Drive: fourteen voices and centered character, alias reduction, low retention, blocks, allocation, "
                "dry/bypass and split "
                "alignment passed\n";
 }

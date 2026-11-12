@@ -1,5 +1,4 @@
 #pragma once
-#include "Antiderivative.h"
 #include "MinimumPhaseOversampling.h"
 #include <algorithm>
 #include <array>
@@ -8,48 +7,72 @@
 
 // Original MIT DSP for NAM Grid. Distortion-pedal voices with a shared two-stage
 // structure: input coupling, optional pre-clip emphasis, two clipping stages with
-// interstage filtering, then each style's own post-clip voicing. Design references
-// (no circuit-model code copied): published BOSS DS-1, MT-2 and HM-2 manuals and
-// circuit analyses (ElectroSmash, Electric Druid, PedalPCB forum), the MXR Distortion+
-// and DOD 250 schematics, and Marshall Guv'nor/Shredmaster descriptions. Voices were
-// voiced against measured responses of NAM pedal captures; they are inspired voices,
-// not calibrated emulations. See docs/modules/distortion.md and ThirdPartyNotices.txt.
+// interstage filtering and a level-following bias shift, then each style's own
+// post-clip voicing. Design references (no circuit-model code copied): published
+// BOSS DS-1, MT-2 and HM-2 manuals and circuit analyses (ElectroSmash, Electric
+// Druid, PedalPCB forum), the MXR Distortion+ and DOD 250 schematics, and Marshall
+// Guv'nor/Shredmaster descriptions. Voices were voiced against measured responses
+// of NAM pedal captures; they are inspired voices, not calibrated emulations.
+// See docs/modules/distortion.md and ThirdPartyNotices.txt.
 namespace grid_pedal_distortion
 {
 inline constexpr double pi = 3.14159265358979323846;
 inline double Flush(double x) { return std::abs(x) < 1.e-30 ? 0. : x; }
 using Oversampler4x = grid_oversampling::FIR<4>;
 
-// Clipping curves with closed-form antiderivatives for first-order ADAA.
+// Clipping curves for first-order antiderivative antialiasing (Parker, Zavalishin and
+// Le Bivic, DAFx 2016). Every curve has unity slope at zero and a cheap closed-form
+// antiderivative that is zero at zero: these run eight times per host sample, where
+// tanh's log-cosh antiderivative cost about a third of the whole module.
 enum class Shape
 {
-  Soft,      // tanh: smooth op-amp/tube-like saturation
-  Silicon,   // half tanh, half hard clip: a firm knee like silicon diodes to ground
+  Soft,      // x / sqrt(1 + x^2): smooth op-amp/transistor saturation
+  Silicon,   // half Soft, half hard clip: a firm knee like silicon diodes to ground
   Germanium, // x / (1 + |x|): low threshold, very gradual knee
   Rail       // hard clip: op-amp rail or a second hard diode stage
 };
+inline double HardIntegral(double x)
+{ const double m = std::abs(x); return m <= 1. ? .5 * x * x : m - .5; }
 inline double Curve(Shape shape, double x)
 {
   switch (shape)
   {
-    case Shape::Silicon: return .5 * (std::tanh(x) + std::clamp(x, -1., 1.));
+    case Shape::Silicon: return .5 * (x / std::sqrt(1. + x * x) + std::clamp(x, -1., 1.));
     case Shape::Germanium: return x / (1. + std::abs(x));
     case Shape::Rail: return std::clamp(x, -1., 1.);
-    default: return std::tanh(x);
+    default: return x / std::sqrt(1. + x * x);
   }
 }
-inline double HardIntegral(double x)
-{ const double m = std::abs(x); return m <= 1. ? .5 * x * x : m - .5; }
 inline double CurveIntegral(Shape shape, double x)
 {
   switch (shape)
   {
-    case Shape::Silicon: return .5 * (grid_adaa::LogCosh(x) + HardIntegral(x));
+    case Shape::Silicon: return .5 * (std::sqrt(1. + x * x) - 1. + HardIntegral(x));
     case Shape::Germanium: { const double m = std::abs(x); return m - std::log1p(m); }
     case Shape::Rail: return HardIntegral(x);
-    default: return grid_adaa::LogCosh(x);
+    default: return std::sqrt(1. + x * x) - 1.;
   }
 }
+// Averages a curve over the line between adjacent oversampled inputs. The previous
+// antiderivative is always kept, so each sample costs one evaluation; nearly equal
+// inputs use the curve at their midpoint instead of a cancelling difference. The
+// first sample starts at its own input, so a biased stage is silent from a reset.
+struct Clipper
+{
+  double previous = 0., integral = 0.;
+  bool primed = false;
+  double Tick(Shape shape, double x)
+  {
+    const double current = CurveIntegral(shape, x);
+    if (!primed) { primed = true; previous = x; integral = current; }
+    const double delta = x - previous;
+    const double scale = std::max(1., std::max(std::abs(x), std::abs(previous)));
+    const double y = std::abs(delta) > 1.e-5 * scale ? (current - integral) / delta : Curve(shape, .5 * (x + previous));
+    previous = x;
+    integral = current;
+    return y;
+  }
+};
 
 // A peaking, shelving or pass biquad (RBJ Audio EQ Cookbook equations, public
 // formulas; implementation original). Transposed direct form II.
@@ -108,9 +131,10 @@ struct Design
   double firstShare;         // share of the gain (in dB) applied before the first stage
   double inputHP; bool inputSecondOrder;
   Band emphasis;             // pre-clip peak
-  Shape first; double firstBias, firstDrive;
+  Shape first; double firstBias, firstDrive, firstTrack;
   double interLP, interHP;
-  Shape second; double secondBias;
+  Shape second; double secondBias, secondTrack;
+                             // Track: bias added per unit of that stage's overdrive (see Core)
   double clipLP;             // one-pole after clipping
   std::array<Band, 3> post;  // post-clip voicing peaks
   double postLP, postLPQ;    // second-order low-pass, 0 = none
@@ -132,116 +156,187 @@ inline constexpr int styleCount = static_cast<int>(Style::Count);
 // Tuning per style, informed by capture measurements in tmp/ and the published analyses.
 inline constexpr std::array<Design, styleCount> designs{{
   // Classic Dist: soft-asymmetric transistor boost into silicon diodes to ground and a scooped tone.
-  {20., 56., .45, 190., false, {}, Shape::Soft, .35, 1., 15000., 0., Shape::Silicon, .12, 12000.,
-   {{{600., .7, -5.}, {}, {}}}, 0., .7, .073},
-  // Raw Dist: bass-shy op-amp gain with bandwidth that falls as gain rises, into germanium diodes.
-  {12., 62., 0., 30., false, {}, Shape::Soft, 0., 0., 0., 0., Shape::Germanium, .3, 16000.,
-   {{}}, 0., .7, .138},
+  {20., 56., .45, 190., false, {}, Shape::Soft, .35, 1., .3, 15000., 0., Shape::Silicon, .12, 1., 12000.,
+   {{{600., .7, -5.}, {}, {}}}, 0., .7, .0766},
+  // Raw Dist: op-amp gain whose bass corner and bandwidth move with Gain, into germanium diodes.
+  {12., 62., 0., 30., false, {}, Shape::Soft, 0., 0., 0., 0., 0., Shape::Germanium, .15, .7, 16000.,
+   {{}}, 0., .7, .0933},
   // British Crunch: two preamp-like stages, interstage coupling and a darker amp-style top.
-  {24., 54., .5, 70., false, {700., .8, 3.}, Shape::Soft, .18, 1., 2200., 120., Shape::Soft, .06, 0.,
-   {{{650., .8, 2.}, {110., .7, 5.}, {}}}, 4500., .55, .041},
+  {24., 54., .5, 70., false, {700., .8, 3.}, Shape::Soft, .18, 1., .1, 2200., 120., Shape::Soft, .06, .1, 0.,
+   {{{650., .8, 2.}, {110., .7, 5.}, {}}}, 4500., .55, .0434},
   // Hot Lead: tighter, higher-gain cascade with a mid hump and smooth top.
-  {26., 60., .45, 220., true, {800., .8, 4.}, Shape::Soft, .05, 1., 3000., 150., Shape::Silicon, 0., 0.,
-   {{{900., .9, 2.}, {}, {}}}, 6500., .7, .0487},
+  {26., 60., .45, 220., true, {800., .8, 4.}, Shape::Soft, .05, 1., 0., 3000., 150., Shape::Silicon, 0., 0., 0.,
+   {{{900., .9, 2.}, {}, {}}}, 6500., .7, .0499},
   // Metal Stack: pre-clip mid hump, two hard stages, then a double-peaked mid scoop.
-  {20., 58., .4, 106., false, {1000., .5, 9.}, Shape::Soft, 0., 1., 7200., 48., Shape::Rail, 0., 10000.,
+  {20., 58., .4, 106., false, {1000., .5, 9.}, Shape::Soft, 0., 1., 0., 7200., 48., Shape::Rail, 0., 0., 10000.,
    {{{105., .9, 10.}, {4900., 1.6, 7.}, {1200., .6, -5.}}}, 0., .7, .0365},
   // Chainsaw: dense asymmetric drive, then the low and stagger-tuned upper-mid peaks at maximum.
-  {22., 52., .5, 60., false, {}, Shape::Soft, .2, 1., 7000., 100., Shape::Silicon, .1, 9000.,
-   {{{87., 1.2, 14.}, {960., 1.6, 12.}, {1300., 1.6, 12.}}}, 7000., .7, .0269},
+  {22., 52., .5, 60., false, {}, Shape::Soft, .2, 1., .1, 7000., 100., Shape::Silicon, .1, .15, 9000.,
+   {{{87., 1.2, 14.}, {960., 1.6, 12.}, {1300., 1.6, 12.}}}, 7000., .7, .0281},
 }};
 
-// One style's processing chain at the oversampled rate. Configure is called on
-// preparation and whenever the Tight control moves; Tick allocates nothing.
-class Voice
+// The oversampled half of a style: everything up to and including the clipping.
+// Configure runs in preparation; SetTight and SetGain run when those controls move.
+// Tick allocates nothing.
+class Core
 {
 public:
-  void Configure(int style, double rate, double tight)
+  void Configure(int style, double rate)
   {
     mStyle = std::clamp(style, 0, styleCount - 1);
-    const auto& d = designs[mStyle];
-    const double factor = std::pow(2., 1.3 * std::clamp(tight, -1., 1.));
-    const auto pole = [&](double hz) { return hz <= 0. ? 0. : std::exp(-2. * pi * std::min(hz, .45 * rate) / rate); };
-    mInputPole = pole(d.inputHP * factor);
-    mInterLP = pole(d.interLP); mInterHP = pole(d.interHP);
-    mClipLP = pole(d.clipLP);
-    mDC = pole(5.);
-    mEmphasis.Peak(d.emphasis.hz, d.emphasis.q, d.emphasis.db, rate);
-    // Only the configured peaks run; the table lists them first.
-    mPostCount = 0;
-    for (const auto& band : d.post)
-      if (band.db != 0.) mPost[mPostCount++].Peak(band.hz, band.q, band.db, rate);
-    if (d.postLP > 0.) mLowPass.Pass(d.postLP, d.postLPQ, rate, false); else mLowPass.Identity();
     mRate = rate;
-    // Gain-dependent coefficients are recalculated on the next Tick.
-    mBandwidthGain = mSplitGain = -1.;
+    const auto& d = designs[mStyle];
+    mRaw = mStyle == static_cast<int>(Style::RawDist);
+    mInterLP = Pole(d.interLP); mInterHP = Pole(d.interHP);
+    mClipLP = Pole(d.clipLP);
+    mDC = Pole(5.);
+    mTrackPole = std::exp(-1. / (.01 * rate));
+    mEmphasis.Peak(d.emphasis.hz, d.emphasis.q, d.emphasis.db, rate);
+    mFirstOffset = Curve(d.first, d.firstBias);
+    mSecondOffset = Curve(d.second, d.secondBias);
+    const double gain = mGain;
+    mTight = 2.; mGain = -1.; // force both updates
+    SetTight(0.);
+    SetGain(gain);
   }
-  // gain is the linear Gain from the selected style's range.
-  double Tick(double x, double gain)
+  // Tight scales the style's bass cut before clipping by up to 2.5 times either way.
+  void SetTight(double tight)
+  {
+    tight = std::clamp(tight, -1., 1.);
+    if (tight == mTight) return;
+    mTight = tight;
+    mTightFactor = std::pow(2., 1.3 * tight);
+    mInputPole = Pole(designs[mStyle].inputHP * mTightFactor);
+    UpdateRaw();
+  }
+  // gain is the linear Gain from the selected style's range (GainFor).
+  void SetGain(double gain)
+  {
+    gain = std::max(gain, 1.e-6);
+    if (gain == mGain) return;
+    mGain = gain;
+    const auto& d = designs[mStyle];
+    const double first = std::pow(gain, d.firstShare);
+    mFirstGain = d.firstDrive * first;
+    mSecondGain = gain / first;
+    UpdateRaw();
+  }
+  double Tick(double x)
   {
     const auto& d = designs[mStyle];
     // Input coupling (and Tight): one or two first-order high-pass sections.
     x -= mInput1 = Flush(x + mInputPole * (mInput1 - x));
     if (d.inputSecondOrder) x -= mInput2 = Flush(x + mInputPole * (mInput2 - x));
     if (d.emphasis.db != 0.) x = mEmphasis.Tick(x);
-    double y;
-    if (mStyle == static_cast<int>(Style::RawDist))
+    double drive; // the second clipping stage's input
+    if (mRaw)
     {
-      // Gain applies above a 720 Hz corner (the gain leg's capacitor); bass sees unity.
-      if (gain != mBandwidthGain)
-      {
-        mBandwidthGain = gain;
-        mGBW = std::exp(-2. * pi * std::min(std::max(3.e6 / gain, 5000.), .45 * mRate) / mRate);
-        mGainHP = std::exp(-2. * pi * 720. / mRate);
-      }
+      // Non-inverting op-amp: bass below the gain leg's corner sees unity gain, and
+      // the op-amp's bandwidth falls as its gain rises. Its rails sit far above the diodes.
       mGainLow = Flush(x + mGainHP * (mGainLow - x));
-      const double opamp = x + (gain - 1.) * (x - mGainLow);
+      const double opamp = x + (mGain - 1.) * (x - mGainLow);
       mBandwidth = Flush(opamp + mGBW * (mBandwidth - opamp));
-      // The op-amp swings beyond the diodes; its rails only matter far above them.
-      y = mSecond.Tick(mBandwidth * .9 + d.secondBias, [](double v) { return Curve(Shape::Germanium, v); },
-                       [](double v) { return CurveIntegral(Shape::Germanium, v); });
+      drive = .9 * mBandwidth;
     }
     else
     {
-      if (gain != mSplitGain)
-      {
-        // Split the gain's decibels between the stages only when Gain moves.
-        mSplitGain = gain;
-        mFirstGain = d.firstDrive * std::pow(std::max(gain, 1.e-6), d.firstShare);
-        mSecondGain = gain / std::pow(std::max(gain, 1.e-6), d.firstShare);
-      }
-      const double firstIn = mFirstGain * x + d.firstBias;
-      double s = mFirst.Tick(firstIn, [&](double v) { return Curve(d.first, v); },
-                             [&](double v) { return CurveIntegral(d.first, v); });
-      s -= Curve(d.first, d.firstBias);
+      const double input = mFirstGain * x;
+      double s = mFirst.Tick(d.first, input + d.firstBias + d.firstTrack * Follow(mFirstTrack, input)) - mFirstOffset;
       if (mInterLP > 0.) s = mInter1 = Flush(s + mInterLP * (mInter1 - s));
       if (mInterHP > 0.) s -= mInter2 = Flush(s + mInterHP * (mInter2 - s));
-      const double secondIn = mSecondGain * s + d.secondBias;
-      y = mSecond.Tick(secondIn, [&](double v) { return Curve(d.second, v); },
-                       [&](double v) { return CurveIntegral(d.second, v); });
-      y -= Curve(d.second, d.secondBias);
+      drive = mSecondGain * s;
     }
+    double y = mSecond.Tick(d.second, drive + d.secondBias + d.secondTrack * Follow(mSecondTrack, drive)) - mSecondOffset;
     if (mClipLP > 0.) y = mClip = Flush(y + mClipLP * (mClip - y));
     // Remove the signal-dependent DC that asymmetric clipping creates.
     const double blocked = mBlock = Flush(y - mPrevious + mDC * mBlock);
     mPrevious = y;
-    double v = blocked;
-    for (int i = 0; i < mPostCount; ++i) v = mPost[i].Tick(v);
-    if (d.postLP > 0.) v = mLowPass.Tick(v);
-    return v * d.output;
+    return blocked;
   }
-  int Style() const { return mStyle; }
 
 private:
-  int mStyle = 0, mPostCount = 0;
-  double mRate = 192000.;
-  double mInputPole = 0., mInterLP = 0., mInterHP = 0., mClipLP = 0., mDC = 0.;
+  // Level-following bias: the operating point moves with how far a stage is overdriven,
+  // like a coupling capacitor charged by one-sided conduction. The duty cycle then stays
+  // uneven however hard the stage is driven, which keeps even harmonics in loud notes
+  // where a fixed bias vanishes into a symmetric square wave.
+  double Follow(double& state, double input) const
+  {
+    const double excess = std::max(input - 1., 0.);
+    return state = Flush(excess + mTrackPole * (state - excess));
+  }
+  double Pole(double hz) const { return hz <= 0. ? 0. : std::exp(-2. * pi * std::min(hz, .45 * mRate) / mRate); }
+  void UpdateRaw()
+  {
+    if (!mRaw) return;
+    // The gain leg's capacitor puts the bass corner at 3.4 Hz per unit of gain, so
+    // low Gain stays full-range and high Gain thins out, up to the 720 Hz of
+    // the original at maximum. Tight moves this corner too.
+    mGainHP = Pole(std::clamp(3.4 * (mGain - 1.), 20., 720.) * mTightFactor);
+    mGBW = Pole(std::max(3.e6 / mGain, 5000.));
+  }
+  int mStyle = 0;
+  bool mRaw = false;
+  double mRate = 192000., mTight = 0., mTightFactor = 1., mGain = 1.;
+  double mInputPole = 0., mInterLP = 0., mInterHP = 0., mClipLP = 0., mDC = 0., mTrackPole = 0.;
+  double mGBW = 0., mGainHP = 0., mFirstGain = 1., mSecondGain = 1., mFirstOffset = 0., mSecondOffset = 0.;
   double mInput1 = 0., mInput2 = 0., mInter1 = 0., mInter2 = 0., mClip = 0., mBlock = 0., mPrevious = 0.;
-  double mBandwidthGain = -1., mGBW = 0., mGainHP = 0., mGainLow = 0., mBandwidth = 0.;
-  double mSplitGain = -1., mFirstGain = 1., mSecondGain = 1.;
-  Biquad mEmphasis, mLowPass;
-  std::array<Biquad, 3> mPost{};
-  grid_adaa::Average mFirst, mSecond;
+  double mGainLow = 0., mBandwidth = 0., mFirstTrack = 0., mSecondTrack = 0.;
+  Biquad mEmphasis;
+  Clipper mFirst, mSecond;
+};
+
+// The linear half of a style after clipping: voicing peaks, low-pass and output trim.
+// Being linear, it runs after decimation at the host rate.
+class Voicing
+{
+public:
+  void Configure(int style, double rate)
+  {
+    const auto& d = designs[std::clamp(style, 0, styleCount - 1)];
+    // Only the configured peaks run; the table lists them first.
+    mCount = 0;
+    for (const auto& band : d.post)
+      if (band.db != 0.) mPeaks[mCount++].Peak(band.hz, band.q, band.db, rate);
+    mHasLowPass = d.postLP > 0.;
+    if (mHasLowPass) mLowPass.Pass(d.postLP, d.postLPQ, rate, false);
+    mOutput = d.output;
+  }
+  double Tick(double x)
+  {
+    for (int i = 0; i < mCount; ++i) x = mPeaks[i].Tick(x);
+    if (mHasLowPass) x = mLowPass.Tick(x);
+    return x * mOutput;
+  }
+
+private:
+  int mCount = 0;
+  bool mHasLowPass = false;
+  double mOutput = 1.;
+  std::array<Biquad, 3> mPeaks{};
+  Biquad mLowPass;
+};
+
+// A whole style at one rate, for the editor's preview. The audio path runs Core
+// oversampled and Voicing at the host rate.
+class Voice
+{
+public:
+  void Configure(int style, double rate, double tight)
+  {
+    mCore = {}; mVoicing = {};
+    mCore.Configure(style, rate);
+    mCore.SetTight(tight);
+    mVoicing.Configure(style, rate);
+  }
+  double Tick(double x, double gain)
+  {
+    mCore.SetGain(gain);
+    return mVoicing.Tick(mCore.Tick(x));
+  }
+
+private:
+  Core mCore;
+  Voicing mVoicing;
 };
 
 inline double GainFor(int style, double percent)

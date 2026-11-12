@@ -255,14 +255,10 @@ struct Voice
       {
         const double tight = x - lp(x, P::Body);
         const double pre = fuzzFirst.Soft(1.5 * gain * tight);
-        // sqrt(v^2 + e^2) - e: a rounded rectifier, averaged like the clipping stages.
-        constexpr double e = .03;
-        const double rectified = fuzzRectifier.Tick(pre,
-          [](double v) { return std::sqrt(v * v + e * e) - e; },
-          [](double v) {
-            const double m = std::abs(v), root = std::sqrt(v * v + e * e);
-            return std::copysign(.5 * (m * root + e * e * std::log((m + root) / e)) - e * m, v);
-          });
+        // Full-wave rectifier, averaged like the clipping stages: |v| integrates to
+        // v |v| / 2, so its corner is resolved exactly without a transcendental.
+        const double rectified = fuzzRectifier.Tick(pre, [](double v) { return std::abs(v); },
+                                                    [](double v) { return .5 * v * std::abs(v); });
         const double octave = rectified - lp(rectified, P::Sub);
         const double blended = character.octave * 2. * octave + (1. - character.octave) * pre;
         return lp(.85 * fuzzSecond.Soft(1.8 * rootGain * blended), P::RodentTop);

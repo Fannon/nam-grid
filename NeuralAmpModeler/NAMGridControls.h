@@ -37,7 +37,8 @@ struct NodeTone
 };
 inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
 {
-  if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::DigitalBlack)
+  if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate
+      || effect == SlotEffect::DigitalBlack)
     return {gateColor, gateColor, "Gate"};
   if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter || IsOutboardCompressor(effect)
       || effect == SlotEffect::PedalComp || effect == SlotEffect::TransientShaper || effect == SlotEffect::Multiband)
@@ -2095,7 +2096,7 @@ private:
         }
       };
       trace(mInputHistory, muted.WithOpacity(.85f), 1.f);
-      if (effect == SlotEffect::NoisePrint) trace(mCleanHistory, ampColor, 1.f);
+      if (effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate) trace(mCleanHistory, ampColor, 1.f);
       trace(mOutputHistory, color, 1.5f);
     };
     if (effect == SlotEffect::NAM)
@@ -2231,6 +2232,8 @@ private:
       {
         caption.Set("Measured input / output");
       }
+      else if(effect==SlotEffect::DigitalBlack && mReductionNow>=119.5f)
+        caption.Set("Attenuation: closed, silent"); // Zero gain, not a 120 dB level drop.
       else if(effect==SlotEffect::DigitalBlack)
         caption.SetFormatted(80,"Attenuation %.1f dB",mReductionNow);
       else caption.SetFormatted(80,"Detector GR %.1f dB | IN / OUT",mReductionNow);
@@ -2255,8 +2258,11 @@ private:
       const float floorDB = effect==SlotEffect::DigitalBlack ? -90.f : -60.f;
       const IRECT scatter(plot.L, plot.T, plot.L + plot.H(), plot.B), history(scatter.R + 12.f, plot.T, plot.R, plot.B);
       DrawTransferScatter(g, scatter, color, floorDB);
+      if (effect == SlotEffect::DigitalBlack) // Before Output, like its GR bar.
+        DrawMeasuredDrop(g, history, 24.f,
+          static_cast<float>(GetDelegate()->GetParam(SlotUtilityParam(mSlot, uBlackOutput))->Value()));
       levels(floorDB, history);
-      PlotDetail(g,plot,effect == SlotEffect::DigitalBlack ? "GR before trim | IN > OUT, then history" : "Left: IN > OUT | right: gray IN, colour OUT");
+      PlotDetail(g,plot,effect == SlotEffect::DigitalBlack ? "GR before trim | IN > OUT, then history; shade: IN - OUT" : "Left: IN > OUT | right: gray IN, colour OUT");
       PlotFooter(g,plot,effect==SlotEffect::ConsoleColour ? "0 dB top / -60 dB floor" : "0 / -90 dB | GR bar 0 - 24 dB","Older > now");
       if(effect==SlotEffect::DigitalBlack)
       {
@@ -2286,24 +2292,29 @@ private:
       DrawCosmicSetup(g,plot,value,measured,measured.key==request.key,rate);
       if(measured.key!=request.key) mEditor->SetDirty(false); // Redraw until the measurement arrives.
     }
-    else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
+    else if (effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate
         || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp || effect == SlotEffect::Limiter)
     {
       const bool gate = effect == SlotEffect::NoiseGate;
-      const bool smart = effect == SlotEffect::NoisePrint;
+      // The AI gate shares the Smart Gate's full-width history and final gate.
+      const bool ai = effect == SlotEffect::AIGate;
+      const bool smart = effect == SlotEffect::NoisePrint || ai;
       const double threshold = smart ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseGateThreshold))->Value()
                              : effect == SlotEffect::Limiter ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, uLimiterCeiling))->Value()
                              : GetDelegate()->GetParam(SlotDynamicsParam(mSlot, gate ? 0 : 3))->Value();
       const bool off = smart && threshold <= -100.;
       WDL_String caption;
+      // A fully closed final gate outputs exact silence: its gain is zero, not a level drop.
+      const bool closed = smart && mReductionNow >= 119.5f;
       if (off) caption.SetFormatted(64, "Gate Off | GR %.1f dB", mReductionNow);
+      else if (closed) caption.Set("Gate on CLEAN | closed: silent");
       else if (smart) caption.SetFormatted(64, "Gate on CLEAN | GR %.1f dB", mReductionNow);
       else caption.SetFormatted(64, "GR %.1f dB", mReductionNow);
       PlotTitle(g,plot,color,caption.Get());
       const bool compressor=effect==SlotEffect::SmoothComp || effect==SlotEffect::PunchComp;
       const IRECT history(smart ? plot.L : plot.MW()+8,plot.T,plot.R,plot.B);
       const IRECT reductionBar(plot.L,plot.T+8.f,plot.R,plot.T+11.f);
-      const float reductionRange = gate || smart ? 24.f : compressionReductionRange;
+      const float reductionRange = ai ? 40.f : gate || smart ? 24.f : compressionReductionRange;
       g.FillRect(surface,reductionBar);
       g.FillRect(ampColor.WithOpacity(.8f),IRECT(reductionBar.L,reductionBar.T,
         reductionBar.L+reductionBar.W()*std::clamp(mReductionNow/reductionRange,0.f,1.f),reductionBar.B));
@@ -2338,7 +2349,7 @@ private:
         }
         WDL_String info;
         if(compressor) info.Set("Dot: live input on the compression curve. Gray: input; colour: output before makeup. Amber bar: gain reduction; red tip: beyond 16 dB.");
-        else if(gate) info.Set("Dot: live input. Hysteresis sets the closing threshold below the opening threshold. Gray: input; colour: output. Amber bar: attenuation.");
+        else if(gate) info.Set("Dot: live input. Hysteresis sets the closing threshold below the opening threshold. Gray: input; colour: output. Amber bar and shade: attenuation.");
         else info.Set("Dot: live input on the limiting curve. Gray: input; colour: output. Dashed line: ceiling. Amber bar: gain reduction; red tip: beyond 16 dB.");
         PlotDetail(g,plot,info.Get());
         if (gate) info.SetFormatted(64,"IN %.0f..0 / OUT %.0f..+18 dB",floor,floor);
@@ -2347,9 +2358,11 @@ private:
       }
       else
       {
-        PlotDetail(g,plot,"Gray IN / amber CLEAN / colour OUT | dashed: gate on CLEAN");
-        PlotFooter(g,plot,"0 / -100 dB | GR bar 0 - 24 dB","Older > now");
+        PlotDetail(g,plot,"Gray IN / amber CLEAN / colour OUT | dashed: gate on CLEAN | shade: IN - OUT");
+        PlotFooter(g,plot,ai ? "0 / -100 dB | GR bar, shade 0 - 40 dB" : "0 / -100 dB | GR bar, shade 0 - 24 dB","Older > now");
       }
+      if (gate || smart)
+        DrawMeasuredDrop(g, history, reductionRange);
       levels(gate || smart ? -100.f : -60.f, history);
       if (gate)
       {
@@ -2799,6 +2812,22 @@ private:
         if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
       }
       mResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::abs(sum) / level)));
+    }
+  }
+  // Measured level drop, IN minus OUT before a known output trim, hanging from the top of a
+  // level history on a GR scale. Unlike a gain estimate it cannot exceed the input above -100 dB.
+  void DrawMeasuredDrop(IGraphics& g, const IRECT& area, float range, float trimDB = 0.f)
+  {
+    const size_t size = mInputHistory.size();
+    const float step = area.W() / static_cast<float>(size - 1);
+    for (size_t i = 0; i < size; ++i)
+    {
+      const size_t k = (mReductionWrite + i) % size;
+      const float drop = 20.f * std::log10(std::max(mInputHistory[k], 1.e-5f) / std::max(mOutputHistory[k], 1.e-5f)) + trimDB;
+      if (drop <= 0.f) continue;
+      const float x = area.L + step * static_cast<float>(i);
+      g.FillRect(grid_ui::ampColor.WithOpacity(.16f), IRECT(std::max(area.L, x - .5f * step), area.T,
+        std::min(area.R, x + .5f * step), area.T + area.H() * std::min(drop / range, 1.f)));
     }
   }
   // Gain reduction over time, hanging from 0 dB at the top like a console GR meter.

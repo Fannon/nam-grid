@@ -102,6 +102,8 @@ void TestNoisePrintTracking()
     assert(follow.TrackingScale() == 1.);
   }
   const auto defaults = SlotDefaultValues(SlotEffect::NoisePrint);
-  assert(defaults[17 + uNoiseTrackingMode] == 0.);
+  // New insertions follow; the descriptor and processor stay Fixed for older states.
+  assert(defaults[17 + uNoiseTrackingMode] == 1.);
+  assert(kEffectParameters[uNoiseTrackingMode].initial == 0.);
   assert(noise_print::Controls{}.trackingMode == 0);
 }

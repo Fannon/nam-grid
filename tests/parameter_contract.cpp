@@ -99,6 +99,12 @@ static_assert(IsAlgorithmMode(uNoiseTrackingMode));
 static_assert(SlotUtilityParam(0, uNoiseProtectAttack) == 5313);
 static_assert(SlotUtilityParam(15, uNoiseProtectAttack) == 5328);
 static_assert(kEffectParameters[uNoiseProtectAttack].introducedIn == 29);
+// Noise Gate (AI) (schema 30) appends one module and four slot controls after every previous ID.
+static_assert(static_cast<int>(SlotEffect::AIGate) == 65);
+static_assert(SlotUtilityParam(0, uAIGateReduction) == 5329);
+static_assert(SlotUtilityParam(15, uAIGateAttackProtection) == 5392);
+static_assert(kEffectParameters[uAIGateReduction].introducedIn == 30
+              && kEffectParameters[uAIGateAttackProtection].introducedIn == 30);
 
 int main(int argc, char** argv)
 {
@@ -372,6 +378,23 @@ int main(int argc, char** argv)
     assert(save() == expected);
   }
   assert(load(base));
+  // Schema 29 predates the AI gate. Its declared defaults must restore after
+  // automation, in both projects and scene snapshots.
+  {
+    auto legacy = base;
+    legacy["schema"] = 29;
+    auto changed = base;
+    for (int slot = 0; slot < 16; ++slot)
+    {
+      const auto key = GridSlotName(slot) + " " + kEffectParameters[uAIGateAttackProtection].name;
+      legacy.erase(key);
+      for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+      changed[key] = 100.;
+    }
+    assert(load(changed));
+    assert(load(legacy));
+    assert(save() == base);
+  }
   // Future controls must explicitly declare their introduction version so this
   // original baseline preset gains defaults without losing any existing values.
   auto historical = base;

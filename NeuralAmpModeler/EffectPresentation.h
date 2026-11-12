@@ -314,10 +314,10 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uPedalLowKeep: return "Remove this share of the low band before distortion and restore it clean afterward. 100% preserves clean lows; the split is gentle.";
     case uPedalOutput: return "Final level after dry/wet blending, including preserved lows. Match bypass loudness before judging the drive.";
     case uPedalMix: return "Blend the complete pedal sound, including Low keep, with latency-aligned dry input. Output follows the blend.";
-    case uBlackHold: return "Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold no longer chatters. A NAM Grid addition; 0 ms is the native gate.";
-    case uBlackMode: return "Zero crossing is DigitalBlack's darkening closure. Hysteresis uses CStrip's re-arming gate. Changes fade through dry.";
-    case uBlackThreshold: return "Level that opens the gate. The -74 to -10 dB range stays inside the native threshold mapping; neither mode has hold or reduction controls.";
-    case uBlackMix: return "Blend the gate and its darkened closing texture with the original signal. Zero restores the dry sound before Output.";
+    case uBlackHold: return "Keeps the gate open a little longer after the signal drops below Threshold. Raise it if the gate flutters on noise; 0 ms is the original behaviour.";
+    case uBlackMode: return "Zero crossing closes fast, and low notes stay open longer than high ones. Hysteresis is steadier and flutters less around Threshold.";
+    case uBlackThreshold: return "Level that opens the gate. Set it just above the noise with your strings muted.";
+    case uBlackMix: return "Blend with the ungated signal. Lower values keep some noise and room tone in pauses.";
     case uBlackOutput: return "Final gain after dry/wet blending. Match bypass loudness before judging the effect.";
     case uColourDesk: return "Eight console voices. Desk changes fade through dry while the convolution and sag histories reset.";
     case uColourInput: return "Gain into the console colour, in real dB. More level drives the nonlinear convolution and saturation harder.";
@@ -471,7 +471,14 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uNoiseAttack: return "Speed at which the denoiser lets new signal through; short settings preserve pick attacks.";
     case uNoiseRelease: return "Recovery toward noise reduction after notes; longer settings preserve sustain.";
     case uNoiseGateThreshold: return "Final gate detects the cleaned signal after Mix. Minimum is Off; raise carefully to avoid cutting sustain.";
-    case uNoiseGateRelease: return "Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently.";
+    case uAIGateReduction: return "Maximum reduction in bands the gate judges to be noise. Less leaves a little room tone in pauses.";
+    case uAIGateSensitivity: return "Higher closes sooner and cleans more between notes; lower protects quiet picking and long ring-outs.";
+    case uAIGateMix: return "Blend between the untreated input and the gated signal.";
+    case uAIGateAttackProtection: return "Preserve more of clear pick attacks while the network catches up. Higher values also let more sudden noise bursts through; zero uses only neural gain decisions.";
+    case uNoiseGateRelease:
+      return e == SlotEffect::AIGate
+               ? "Closing time of the final gate after its hold. Short times tighten gaps; longer times fade more gently."
+               : "Closing time of the final gate after its hold, independent of spectral Release. Short times tighten gaps; longer times fade more gently.";
     case uGateMode: return "Natural closes gently; Tight clamps gaps more firmly. Threshold, Release and Reduction remain independent.";
     case uTempoSync: return "Use host tempo and a rhythmic division instead of manual time/rate. Falls back to 120 BPM without host tempo.";
     case uTempoDivision: return "Musical interval at the current host tempo. Longer divisions give slower sweeps or longer repeats.";
@@ -495,7 +502,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::DynamicEQ: return "Frequency-selective compression: tame boom or bite only when the selected band gets loud.";
     case SlotEffect::TransientShaper: return "Attack shapes the pick, Sustain the decay; works at any input level.";
     case SlotEffect::PedalComp: return "Guitar sustain pedal: Sustain evens out notes, Blend keeps the pick, Pickup suits your guitar.";
-    case SlotEffect::DigitalBlack: return "Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour.";
+    case SlotEffect::DigitalBlack: return "Simple, fast gate: low notes hold open longer than high ones. Hysteresis mode is steadier.";
     case SlotEffect::OutboardChannel: return "Capacitor cuts into CStrip2 compression and Spiral colour; Output matches level.";
     case SlotEffect::ConsoleColour: return "Eight nonlinear console voices; Input drives the colour, Output matches loudness.";
     case SlotEffect::ConsoleEQ: return "Nonlinear band density and native cuts; louder notes add harmonics beyond the curve.";
@@ -504,6 +511,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::CabinetIR: return "Convolution for cabinets, reverbs and textures. Long IR keeps tails up to 30 seconds; Mix blends with dry.";
     case SlotEffect::NoiseGate: return "Threshold opens the gate; Release and Reduction shape the gaps.";
     case SlotEffect::NoisePrint: return "Learn the noise alone; Sensitivity and Reduction protect sustain.";
+    case SlotEffect::AIGate: return "Automatic band-by-band hum and hiss reduction. Sensitivity and Reduction balance cleanup with quiet notes; no Learn step.";
     case SlotEffect::SmoothComp: return "Gentle leveling; Attack preserves pick, Makeup restores level.";
     case SlotEffect::PunchComp: return "Firmer compression; slow Attack and parallel Mix retain punch.";
     case SlotEffect::Limiter: return "Fast peak control; Ceiling and Release set grip and recovery.";

@@ -150,6 +150,7 @@ staging, with normal playing peaking around -9 dBFS.
 User presets only:
 
 - **Noise Gate, Noise Gate (Smart), Digital Black Gate:** set the threshold to your noise floor and quiet notes; learn the Smart Gate's profile from your own input.
+- **Noise Gate (AI):** adapts to the input by itself; Reduction and Sensitivity are a matter of taste.
 - **Utility:** balance, polarity, channel choice and alignment depend on the rig.
 
 The on-demand [Signal Monitor](modules/utility-volume.md#signal-monitor) has no sound settings or presets.

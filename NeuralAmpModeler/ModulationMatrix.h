@@ -67,6 +67,10 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uNoiseGateRelease, t.noise.gateRelease);
   u(uNoiseTrackingMode, t.noise.trackingMode);
   u(uNoiseProtectAttack, t.noise.protectAttack);
+  u(uAIGateReduction, t.aiGate.reduction);
+  u(uAIGateSensitivity, t.aiGate.sensitivity);
+  u(uAIGateMix, t.aiGate.mix);
+  u(uAIGateAttackProtection, t.aiGate.attackProtection);
   u(uTempoSync, t.sync);
   u(uTempoDivision, t.division);
   u(uUtilityLevel, t.level);

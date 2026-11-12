@@ -196,6 +196,8 @@ int main(int argc, char** argv)
             assert(type > 0 && IsValidSlotEffect(static_cast<SlotEffect>(type)));
             if (type == static_cast<int>(SlotEffect::NoisePrint))
               assert(std::string(label) == "Gate" && std::string(item->GetText()) == "Noise Gate (Smart)");
+            if (type == static_cast<int>(SlotEffect::AIGate))
+              assert(std::string(label) == "Gate" && std::string(item->GetText()) == "Noise Gate (AI)");
             if (type == static_cast<int>(SlotEffect::NoiseGate))
               assert(std::string(label) == "Gate" && std::string(item->GetText()) == "Noise Gate");
             if (type == static_cast<int>(SlotEffect::DigitalBlack))

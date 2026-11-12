@@ -16,7 +16,8 @@ inline const char* ChoiceDescription(int p, int mode)
     "Swelling reverb bloom", "Long, evolving tails", "Clear, sparse repeats", "Echoes to a diffused guitar hall", "Pulsing stereo echoes", "Two-scale ambient wash", "Quick, dense multi-tap plate"};
   static constexpr const char* distortion[]{
     "Smooth, rounded drive", "Sharper, brighter drive", "Dense, compressed sustain",
-    "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz"};
+    "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz",
+    "Warm, uneven tube-like drive", "Open, touch-sensitive overdrive", "Gated, buzzing fuzz", "Smooth, synth-like folding"};
   static constexpr const char* juno[]{"Slower voice", "Both voices", "Faster voice", "Fast, shallow, centered vintage chorus"};
   std::span<const char* const> descriptions;
   switch (p)
@@ -24,6 +25,7 @@ inline const char* ChoiceDescription(int p, int mode)
     case uCosmicStyle: descriptions = cosmic; break;
     case uDistStyle: descriptions = distortion; break;
     case uPedalStyle: descriptions = effect_modes::pedalHelp; break;
+    case uPDistStyle: descriptions = effect_modes::pedalDistortionHelp; break;
     case uJunoMode: descriptions = juno; break;
     default: break;
   }
@@ -314,6 +316,15 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uPedalLowKeep: return "Remove this share of the low band before distortion and restore it clean afterward. 100% preserves clean lows; the split is gentle.";
     case uPedalOutput: return "Final level after dry/wet blending, including preserved lows. Match bypass loudness before judging the drive.";
     case uPedalMix: return "Blend the complete pedal sound, including Low keep, with latency-aligned dry input. Output follows the blend.";
+    case uPDistStyle: return effect_modes::pedalDistortionHelp[std::clamp(mode, 0, effect_modes::pedalDistortionCount - 1)];
+    case uPDistGain: return "Distortion amount. Each style maps 0-100% to its own gain range; Level keeps typical playing near bypass loudness at 50%.";
+    case uPDistTight: return "Moves the style's bass cut before clipping. Positive tightens palm mutes and low strings; negative lets more bass into the distortion. Center is the base voice.";
+    case uPDistBass: return "Low shelf around 100 Hz after the distortion. Adds or removes weight without changing how hard the bass clips.";
+    case uPDistMid: return "Mid boost or cut after the distortion, at Mid freq. Cut for a scooped rhythm sound, boost to cut through a band mix.";
+    case uPDistMidFrequency: return "Center of the Mid control, from 200 Hz to 5 kHz. Around 500-800 Hz shapes body; 1.5-3 kHz shapes bite and presence.";
+    case uPDistTreble: return "High shelf around 3 kHz after the distortion. Lower it to tame fizz into an amp capture; raise it for more pick definition.";
+    case uPDistLevel: return "Final level after Mix. Match bypass loudness, or raise it to push the next module harder.";
+    case uPDistMix: return "Blend the distortion with the dry input. Lower settings restore attack and note definition under heavy gain.";
     case uBlackHold: return "Keeps the gate open a little longer after the signal drops below Threshold. Raise it if the gate flutters on noise; 0 ms is the original behaviour.";
     case uBlackMode: return "Zero crossing closes fast, and low notes stay open longer than high ones. Hysteresis is steadier and flutters less around Threshold.";
     case uBlackThreshold: return "Level that opens the gate. Set it just above the noise with your strings muted.";
@@ -498,7 +509,8 @@ inline const char* Sound(SlotEffect e)
 {
   switch (e)
   {
-    case SlotEffect::PedalDrive: return "Ten voiced guitar and bass drives; Low keep restores clean lows within this slot.";
+    case SlotEffect::PedalDrive: return "Twelve voiced guitar and bass drives and fuzzes; Low keep restores clean lows within this slot.";
+    case SlotEffect::PedalDistortion: return "Six distortion-pedal voices, from classic and British crunch to metal; Bass, Mid and Treble shape the result.";
     case SlotEffect::DynamicEQ: return "Frequency-selective compression: tame boom or bite only when the selected band gets loud.";
     case SlotEffect::TransientShaper: return "Attack shapes the pick, Sustain the decay; works at any input level.";
     case SlotEffect::PedalComp: return "Guitar sustain pedal: Sustain evens out notes, Blend keeps the pick, Pickup suits your guitar.";

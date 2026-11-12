@@ -56,7 +56,7 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   feedback range's top maps to a loop gain of 0.97, so a 100% tail always decays, and a
   20 Hz one-pole blocker in the feedback path removes the near-DC energy that repeated
   downward shifts fold toward 0 Hz; the wet output itself keeps its low end.
-- **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
+- **Distortion** offers ten original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
   style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
   FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
   lookahead or reported delay. Low preserve uses a complementary one-pole split before
@@ -79,6 +79,17 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   first-order antiderivative antialiasing before a continuously integrated slew
   limiter/hard clip; its filter rate remains 4x. See
   [voices, signal flow and design references](modules/pedal-drive.md).
+  Bender Fuzz and Octave Fuzz follow the same structure; Octave Fuzz rectifies with
+  sqrt(x² + e²) - e, a rounded corner the 4x rate resolves better than |x|.
+- **Pedal Distortion** ([SlotPedalDistortion.h](../NeuralAmpModeler/SlotPedalDistortion.h),
+  [DSP](../NeuralAmpModeler/dsp/PedalDistortion.h)) shares one table-driven structure across
+  its styles: input coupling (moved by Tight), an optional pre-clip peak, two clipping stages
+  with first-order antiderivative antialiasing and interstage filters, a 5 Hz DC blocker and
+  the style's post-clip peaks and low-pass. Gain divides its decibels between the stages; Raw
+  Dist instead models a bass-shy op-amp whose bandwidth falls with gain. Everything
+  style-specific runs at a fixed 4x through the shared minimum-phase FIR, so style crossfades
+  (20 ms) mix whole voices; the shared Bass/Mid/Treble biquads run at the host rate afterward,
+  on the 16-sample control schedule. No latency is reported and Mix 0% is exact dry.
 - **Pedal Comp** ([SlotPedalComp.h](../NeuralAmpModeler/SlotPedalComp.h)) is an original
   feed-forward compressor that takes the playing behaviour of guitar sustain pedals
   without modelling a circuit. One linked stereo detector feeds a soft-knee curve whose
@@ -326,9 +337,9 @@ silence after bypass and then suspend: a muted delay stops writing feedback and 
 8.1-second buffer in about nine seconds, reverbs drain for 30 seconds, modulation for 70 ms.
 No callback clears a whole delay ring at once.
 
-Built-in effects have no block buffering. Pedal Drive reports 64 host samples for its
-oversampling filters and aligns its dry, clean-low and bypass paths; other built-in
-effects report zero host compensation latency.
+Built-in effects have no block buffering and report zero host compensation latency;
+oversampled modules use minimum-phase filters, so their dry, clean-low and bypass paths
+pass through unshifted.
 Delay, reverb and vibrato (8 ms center delay) delay the effected signal on purpose; that
 effect time is not compensated. NAM sample-rate conversion reports its own latency, and
 parallel lanes are aligned to the longer one. Host tail reporting follows serial and parallel

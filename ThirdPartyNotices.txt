@@ -20,8 +20,24 @@ schematics, Darkglass B3K/X Ultra manuals, and Keeley Katana, BOSS BD-2 and Anal
 Man Beano Boost descriptions, plus the MXR Timmy manual. They are original interpretations, not calibrated
 replicas. Product and company names identify design references and belong to their
 respective owners. NAM Grid is not affiliated with or endorsed by those manufacturers.
+Bender Fuzz and Octave Fuzz are informed by published Sola Sound Tone Bender MkII
+and Tycobrahe Octavia schematics.
 Links and implementation details are in docs/modules/pedal-drive.md and
 NeuralAmpModeler/dsp/PedalDrive.h in the source repository.
+
+
+Pedal Distortion design references
+----------------------------------
+
+Pedal Distortion is original MIT-licensed NAM Grid code; no pedal-model code was copied.
+Its voices are informed by the BOSS DS-1, MT-2 and HM-2 owner's manuals, Electric Druid's
+MT-2 circuit analysis, the PedalPCB forum's HM-2 tone-stack analysis, the published MXR
+Distortion+ and DOD 250 schematics, and Marshall Guv'nor and Shredmaster descriptions. Its
+peaking, shelving and low-pass filters use the public RBJ Audio EQ Cookbook formulas. The
+voices are original interpretations, not calibrated replicas. Product and company names
+identify design references and belong to their respective owners. NAM Grid is not
+affiliated with or endorsed by those manufacturers. Details are in
+docs/modules/distortion.md and NeuralAmpModeler/dsp/PedalDistortion.h.
 
 
 RiffSmith Clean NAM capture

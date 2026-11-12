@@ -26,6 +26,8 @@ All eight dial positions are available for sound controls.
 | **Blues OD** | Bluesbreaker-inspired, bandwidth-limited gain into soft clipping with a clean contribution | Light breakup, chord definition and stacking into another drive |
 | **Transparent OD** | Restrained voicing with bass shaping before clipping and treble filtering afterward | Timmy-inspired boost and overdrive that preserves more of the surrounding rig's character |
 | **Vintage Fuzz** | Two inverting stages with coupling and bias-dependent decay | Fuzz Face-inspired leads, rounder fuzz or pinched, gated textures |
+| **Bender Fuzz** | A bass-cut first stage into a high-gain asymmetric pair: more gain and mids than Vintage Fuzz | Tone Bender-inspired raspy riffs and sustaining, cutting leads |
+| **Octave Fuzz** | Fuzz, smooth full-wave rectification, then more fuzz: a ringing octave up | Octavia-inspired single-note leads; strongest on higher frets and the neck pickup |
 
 These are original voices informed by pedal families, rather than measured or calibrated
 replicas. Product and company names identify design references and belong to their
@@ -41,7 +43,7 @@ hot active bass or an already loud signal.
 
 The top-right dial is a **Character** control whose label changes with Style. It runs
 from **-100% to +100%**, starts at **0%**, and double-clicking returns it to the center.
-The seven original voices retain their original sound at the center.
+Every voice has its base sound at the center.
 
 | Style | Dial label | Negative | Center | Positive |
 | --- | --- | --- | --- | --- |
@@ -55,6 +57,8 @@ The seven original voices retain their original sound at the center.
 | Blues OD | **Clipping** | More open soft clipping | Base soft clipping | Additional harder output clipping |
 | Transparent OD | **Clipping** | More compressed symmetric clipping | Open symmetric clipping | Asymmetric clipping |
 | Vintage Fuzz | **Bias** | Rounder, more symmetric fuzz | Base vintage fuzz | Pinched waveform and gated quiet decays |
+| Bender Fuzz | **Bias** | Smoother, more symmetric fuzz | Base three-stage fuzz | Spitting asymmetry and sputtering decays |
+| Octave Fuzz | **Octave** | More fuzz under the octave | Base octave blend | Purer rectified octave |
 
 Focus on Screamer explores the direction of bass/fat modifications. Unlike **Low keep**,
 it changes how much bass participates in distortion. **Body** remains a broad shelf before
@@ -182,11 +186,10 @@ levels and include quiet notes and decays.
 
 ## Processing and latency
 
-Pedal Drive runs its nonlinear path at four times the host sample rate, with FIR filtering
-on interpolation and decimation. This reduces aliasing while adding **64 host samples**
-of latency: approximately 1.45 ms at 44.1 kHz or 1.33 ms at 48 kHz. The plugin reports the
-delay to the host and aligns dry Mix, bypass, the clean low return and parallel grid lanes.
-The delay stays constant across styles and while bypassed.
+Pedal Drive runs its nonlinear path at four times the host sample rate, with minimum-phase
+FIR filtering on interpolation and decimation. This reduces aliasing without adding latency:
+the plugin reports no delay for it, and dry Mix, bypass and the clean low return pass through
+unshifted. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
 
 Style changes crossfade over 20 ms. Left and right channels have independent histories.
 Control changes are smoothed, and processing does not allocate memory in the audio callback.
@@ -216,6 +219,9 @@ published designs and descriptions as references:
   pre-drive bass shaping, post-drive treble filtering and clipping/headroom choices.
 - [Aion Solaris schematic and notes](https://aionfx.com/app/files/docs/solaris_documentation.pdf):
   Fuzz Face-family coupled stages, input/body controls and adjustable bias.
+- Published Sola Sound Tone Bender MkII and Tycobrahe Octavia schematics: a three-transistor
+  fuzz and a transformer/diode full-wave rectifier octave fuzz. The voices were voiced against
+  measurements of NAM captures of a BOSS TB-2w and an EarthQuaker Fuzz Master General.
 - [Darkglass B3K](https://www.darkglass.com/pages/microtubes-b3k-manual) and
   [X Ultra](https://www.darkglass.com/pages/microtubes-x-ultra-manual) manuals:
   clean-signal blending and separate low/high processing.

@@ -159,6 +159,7 @@ public:
   }
 
 private:
+  static constexpr double kTubePositive = .7, kTubeNegative = 1.3;
   static double LogCosh(double x)
   { return std::abs(x) + std::log1p(std::exp(-2. * std::abs(x))) - std::log(2.); }
   static double Integral(double x, int style)
@@ -177,6 +178,16 @@ private:
       }
       case effect_modes::DistortionStyle::Diode: return x >= 0. ? LogCosh(x) : .25 * LogCosh(2. * x);
       case effect_modes::DistortionStyle::Rectify: return std::copysign(LogCosh(x), x);
+      case effect_modes::DistortionStyle::Tube:
+        return x >= 0. ? kTubePositive * x + kTubePositive * kTubePositive * (std::exp(-x / kTubePositive) - 1.)
+                       : kTubeNegative * kTubeNegative * LogCosh(x / kTubeNegative);
+      case effect_modes::DistortionStyle::Overdrive:
+      {
+        const double u = 2. * x;
+        return .25 * (u * std::asinh(u) - std::sqrt(u * u + 1.) + 1.);
+      }
+      case effect_modes::DistortionStyle::HalfWave: return x > 0. ? LogCosh(x) : 0.;
+      case effect_modes::DistortionStyle::SineFold: return 1. - std::cos(x);
       default: return LogCosh(x);
     }
   }
@@ -196,6 +207,14 @@ private:
       // original asymmetric shaper, not a physical diode-circuit model.
       case effect_modes::DistortionStyle::Diode: return x >= 0. ? std::tanh(x) : .5 * std::tanh(2. * x);
       case effect_modes::DistortionStyle::Rectify: return std::abs(std::tanh(x));
+      // Unity small-signal slope on both sides; the positive side saturates sooner
+      // and more gradually, like grid conduction, the negative side later.
+      case effect_modes::DistortionStyle::Tube:
+        return x >= 0. ? kTubePositive * (1. - std::exp(-x / kTubePositive)) : kTubeNegative * std::tanh(x / kTubeNegative);
+      // Logarithmic growth without a ceiling, as with diodes in an op-amp feedback loop.
+      case effect_modes::DistortionStyle::Overdrive: return .5 * std::asinh(2. * x);
+      case effect_modes::DistortionStyle::HalfWave: return x > 0. ? std::tanh(x) : 0.;
+      case effect_modes::DistortionStyle::SineFold: return std::sin(x);
       default: return std::tanh(x);
     }
   }

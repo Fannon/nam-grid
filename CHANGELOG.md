@@ -6,6 +6,9 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### New modules and sounds
 
+- **Pedal Distortion:** a new Distortion module for distortion pedals, with six voices: **Classic Dist** (bright and scooped, for punk, grunge and classic rock), **Raw Dist** (raspy op-amp grit), **British Crunch** and **Hot Lead** (amp-in-a-box crunch and hot-rodded lead), **Metal Stack** (high-gain metal with a scooped voicing) and **Chainsaw** (the Swedish death-metal sound with every knob at maximum). Bass, Mid with a sweepable Mid freq, and Treble shape the result after the clipping; Tight moves the bass cut before it. Gain 50% stays near bypass loudness, and four presets cover classic rock, British crunch, scooped metal and chainsaw. No latency is added.
+- **Two new Pedal Drive fuzzes:** **Bender Fuzz**, a raspier, more cutting three-stage fuzz than Vintage Fuzz, and **Octave Fuzz**, which adds a ringing octave up to single-note leads. Character becomes Bias and Octave. Existing Pedal Drive voices are unchanged.
+- **Four new Distortion styles:** **Tube** (warm, uneven, second-harmonic drive), **Overdrive** (logarithmic, never fully flat, touch-sensitive), **Half-wave** (gated, buzzing fuzz) and **Sine fold** (smooth, synth-like folding). Existing styles are unchanged.
 - **Experimental Noise Gate (AI):** automatic band-by-band hum and hiss reduction with no threshold or Learn step, starting at 24 dB Reduction. Sensitivity balances cleanup with quiet notes, and Protect attack trades clearer picks against passing sudden noise. Find it under **Gate**. An optional final gate, the same as Smart Gate's, listens to the cleaned signal and can silence what is left in pauses; it starts Off. Quiet picking and decays can still be attenuated; Smart Gate remains recommended for gentle note preservation. No latency is added.
 
 ### Smart Gate

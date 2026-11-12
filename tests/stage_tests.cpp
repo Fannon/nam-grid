@@ -76,6 +76,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DriveAntialiasTests.h"
 #include "NoisePrintTests.h"
 #include "AIGateTests.h"
+#include "PedalDistortionTests.h"
 #include "LoFiTapeTests.h"
 #include "ModuleControlsTests.h"
 #include "EQResponseTests.h"
@@ -132,6 +133,7 @@ try
     {"noise-print", TestNoisePrint},
     {"noise-print-user-preset", TestSmartGateUserPreset},
     {"ai-gate", TestAIGate},
+    {"pedal-distortion", TestPedalDistortion},
     {"lo-fi-tape", TestLoFiTape},
     {"module-controls", TestModuleControls},
     {"eq-response", TestEQResponse},
@@ -312,6 +314,7 @@ try
   run("noise-print", TestNoisePrint);
   run("noise-print-user-preset", TestSmartGateUserPreset);
   run("ai-gate", TestAIGate);
+  run("pedal-distortion", TestPedalDistortion);
   run("lo-fi-tape", TestLoFiTape);
   run("module-controls", TestModuleControls);
   run("eq-response", TestEQResponse);

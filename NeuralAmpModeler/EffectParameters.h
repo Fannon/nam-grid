@@ -327,6 +327,15 @@ enum UtilityParam
   uAIGateSensitivity = 310,
   uAIGateMix = 311,
   uAIGateAttackProtection = 312,
+  uPDistStyle = 313,
+  uPDistGain = 314,
+  uPDistTight = 315,
+  uPDistBass = 316,
+  uPDistMid = 317,
+  uPDistMidFrequency = 318,
+  uPDistTreble = 319,
+  uPDistLevel = 320,
+  uPDistMix = 321,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -351,6 +360,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uJunoMode: return effect_modes::junoNames;
     case uDistStyle: return effect_modes::distortionNames;
     case uPedalStyle: return effect_modes::pedalNames;
+    case uPDistStyle: return effect_modes::pedalDistortionNames;
     case uGateMode: return effect_modes::gateNames;
     case uFilterMode: return effect_modes::filterNames;
     case uTapeHeads: return effect_modes::tapeHeadNames;
@@ -378,9 +388,13 @@ namespace algorithm_identities
 inline constexpr AlgorithmIdentity pedal[]{
   {0, "screamer"}, {1, "rodent"}, {2, "bass-edge"}, {3, "parallel-od"},
   {4, "sustain-fuzz"}, {5, "cascaded-preamp"}, {6, "treble-drive"},
-  {7, "blues-breaker"}, {8, "transparent-od"}, {9, "vintage-fuzz"}};
+  {7, "blues-breaker"}, {8, "transparent-od"}, {9, "vintage-fuzz"},
+  {10, "bender-fuzz"}, {11, "octave-fuzz"}};
 inline constexpr AlgorithmIdentity distortion[]{
-  {0, "soft"}, {1, "hard"}, {2, "fuzz"}, {3, "foldback"}, {4, "diode"}, {5, "rectify"}};
+  {0, "soft"}, {1, "hard"}, {2, "fuzz"}, {3, "foldback"}, {4, "diode"}, {5, "rectify"},
+  {6, "tube"}, {7, "overdrive"}, {8, "half-wave"}, {9, "sine-fold"}};
+inline constexpr AlgorithmIdentity pedalDistortion[]{
+  {0, "classic-dist"}, {1, "raw-dist"}, {2, "british-crunch"}, {3, "hot-lead"}, {4, "metal-stack"}, {5, "chainsaw"}};
 inline constexpr AlgorithmIdentity juno[]{{0, "i"}, {1, "i-ii"}, {2, "ii"}, {3, "i-ii-vintage"}};
 inline constexpr AlgorithmIdentity gate[]{{0, "natural"}, {1, "tight"}};
 inline constexpr AlgorithmIdentity filter[]{{0, "low-pass"}, {1, "high-pass"}, {2, "band-pass"}};
@@ -417,6 +431,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uIRLength: return irLength;
     case uDistStyle: return distortion;
     case uPedalStyle: return pedal;
+    case uPDistStyle: return pedalDistortion;
     case uJunoMode: return juno;
     case uGateMode: return gate;
     case uFilterMode: return filter;
@@ -446,7 +461,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 30; // 30 Noise Gate (AI); 29 Smart Gate attack protection.
+inline constexpr int kEffectStateSchema = 31; // 31 Pedal Distortion; 30 Noise Gate (AI); 29 Smart Gate attack protection.
 
 struct EffectParameter
 {
@@ -777,7 +792,16 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"AI Gate Reduction", "Reduction", 40, 0, 60, .1, "dB", 0, false, 1., 30},
    {"AI Gate Sensitivity", "Sensitivity", 0, -100, 100, 1, "%", 1, false, 1., 30},
    {"AI Gate Mix", "Mix", 100, 0, 100, .1, "%", 6, false, 1., 30},
-   {"AI Gate Protect Attack", "Protect attack", 50, 0, 100, .1, "%", 2, false, 1., 30}}};
+   {"AI Gate Protect Attack", "Protect attack", 50, 0, 100, .1, "%", 2, false, 1., 30},
+   {"Pedal Dist Style", "Style", 0, 0, effect_modes::pedalDistortionCount - 1, 1, "", 0, false, 1., 31},
+   {"Pedal Dist Gain", "Gain", 50, 0, 100, .1, "%", 0, false, 1., 31},
+   {"Pedal Dist Tight", "Tight", 0, -100, 100, .1, "%", 5, false, 1., 31},
+   {"Pedal Dist Bass", "Bass", 0, -12, 12, .1, "dB", 1, false, 1., 31},
+   {"Pedal Dist Mid", "Mid", 0, -12, 12, .1, "dB", 2, false, 1., 31},
+   {"Pedal Dist Mid Freq", "Mid freq", 800, 200, 5000, 1, "Hz", 6, true, 1., 31},
+   {"Pedal Dist Treble", "Treble", 0, -12, 12, .1, "dB", 3, false, 1., 31},
+   {"Pedal Dist Level", "Level", 0, -24, 12, .1, "dB", 4, false, 1., 31},
+   {"Pedal Dist Mix", "Mix", 100, 0, 100, .1, "%", 7, false, 1., 31}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -863,6 +887,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
 inline bool UsesUtility(SlotEffect e, int p)
 {
   if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
+  if (p >= uPDistStyle && p <= uPDistMix) return e == SlotEffect::PedalDistortion;
   // Noise Gate (AI) shares Smart Gate's final gate.
   if (p == uNoiseGateThreshold || p == uNoiseGateRelease) return e == SlotEffect::NoisePrint || e == SlotEffect::AIGate;
   if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
@@ -1083,6 +1108,8 @@ struct UtilityControls
   std::array<double, 3> black{-55.,100.,0.};
   int blackMode = 0;
   std::array<double, 9> pedal{0., 9., 5500., 0., 180., 0., -6., 100., 0.};
+  // Pedal Distortion Style, Gain, Tight, Bass, Mid, Mid freq, Treble, Level and Mix, in ID order.
+  std::array<double, 9> pedalDistortion{0., 50., 0., 0., 0., 800., 0., 0., 100.};
   // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Focus (Body -100 to Pick +100), Blend and Level, in ID order.
   std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
   int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.

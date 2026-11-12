@@ -5,7 +5,8 @@ Drives, boosts and saturation.
 | Module | In short |
 | --- | --- |
 | [Distortion](#distortion) | Style changes harmonics; High cut softens edges, Mix restores dry attack. |
-| [Pedal Drive](#pedal-drive) | Ten voiced guitar/bass drives; Low keep restores clean lows within the slot. |
+| [Pedal Drive](#pedal-drive) | Twelve voiced guitar/bass drives and fuzzes; Low keep restores clean lows within the slot. |
+| [Pedal Distortion](#pedal-distortion) | Six distortion-pedal voices, from classic to metal; Bass, Mid and Treble shape the result. |
 | [Boost](#boost) | Clean boost into the next module; Tilt balances body and bite. |
 | [Tube Boost](#tube-boost) | Softer clipping with asymmetric harmonics; Output matches loudness. |
 | [Airwindows Tape](#airwindows-tape) | Drive adds tape saturation; Bump adds low-end body. |
@@ -16,7 +17,7 @@ Drives, boosts and saturation.
 
 ![Distortion editor](../screenshots/modules/distortion.png)
 
-Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the symmetry for different harmonics and attack textures. Antiderivative antialiasing and minimum-phase oversampling reduce aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz, and 1x from 176.4 kHz upward. Extreme Foldback and bright, high-drive settings can still alias.
+Ten distortion voices, from smooth clipping and tube-like drive to octave-like buzz and synth-like folding. Bias shifts the symmetry for different harmonics and attack textures. Antiderivative antialiasing and minimum-phase oversampling reduce aliasing: 4x at 44.1/48 kHz, 2x at 88.2/96 kHz, and 1x from 176.4 kHz upward. Extreme Foldback and bright, high-drive settings can still alias.
 
 **Latency:** zero added reported latency and no lookahead. The wet path has frequency-dependent phase and group delay, so partial Mix blends can change the attack and tone. Mix 0% keeps the dry signal unshifted. The same controls and saved presets continue to load; this 0.x sound-quality improvement changes existing Distortion rigs.
 
@@ -31,7 +32,7 @@ Six distortion voices, from smooth clipping to octave-like buzz. Bias shifts the
 
 In the header:
 
-- **Style** (Soft clip, Hard clip, Fuzz, Foldback, Diode, Rectify; starts at Soft clip) Choose soft or hard clipping, dense fuzz, wavefolding, asymmetric diode clipping or octave-like rectification.
+- **Style** (Soft clip, Hard clip, Fuzz, Foldback, Diode, Rectify, Tube, Overdrive, Half-wave, Sine fold; starts at Soft clip) Choose soft or hard clipping, dense fuzz, wavefolding, asymmetric diode clipping or octave-like rectification. **Tube** saturates positive peaks sooner than negative ones and adds second harmonic even at low Drive. **Overdrive** grows logarithmically and never flattens, so it stays touch-sensitive. **Half-wave** mutes the negative half-cycles for a gated, buzzing fuzz. **Sine fold** folds peaks smoothly for synth-like harmonics that sweep as Drive rises.
 
 **Display:** Left: the static shaper curve before tone and mix; the highlighted span shows how much of the full-band input reaches the module. Right: the Low preserve, High cut, Mix and Output response.
 
@@ -41,6 +42,7 @@ In the header:
 
 - Drive into a following NAM capture for a pedal-into-amp sound, with Output lowered to keep the capture's input sensible.
 - Fuzz and Rectify respond strongly to Bias; small moves change the character more than Drive.
+- Tube with Drive around 6–12 dB adds warmth without obvious distortion. Sine fold is a sound-design tool: automate Drive for sweeping harmonics.
 - Try Low preserve around 150–300 Hz to keep bass weight while adding grit above it. High cut only darkens the distorted path; the restored lows remain clean. This is a gentle separation, so high Drive can still distort some bass. Off retains the original sound exactly; no lookahead or compensation delay is added.
 
 ## Pedal Drive
@@ -49,7 +51,7 @@ In the header:
 
 Voiced overdrive, distortion, fuzz and colored boost, with **Style** in the header:
 Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp, Treble Drive,
-Blues OD, Transparent OD and Vintage Fuzz.
+Blues OD, Transparent OD, Vintage Fuzz, Bender Fuzz and Octave Fuzz.
 Rodent antialiases its input saturation and integrates the slew/clip stage over
 sample intervals; it keeps the pedal's existing 4x rate. This reduces high-frequency
 foldover and can slightly change attack and partial Mix. Other voices retain their DSP.
@@ -61,7 +63,7 @@ inspired by pedal families, rather than calibrated replicas.
 | **Drive** | 0–36 dB | 9 dB | Gain into the drive stages. |
 | **High cut** | 200–12000 Hz | 5500 Hz | Darkens the driven path after its style-specific filters; restored clean lows are unaffected. |
 | **Body** | -6 to +6 dB | 0 dB | Broad bass shelf before drive: positive adds body; negative tightens clipping. Restored clean lows are unaffected. |
-| **Character** | -100 to +100% | 0% | Changes label and function with Style: Focus, Bite, Attack, Blend, Mids, Asymmetry, Clipping or Bias. Center is the base voice. |
+| **Character** | -100 to +100% | 0% | Changes label and function with Style: Focus, Bite, Attack, Blend, Mids, Asymmetry, Clipping, Bias or Octave. Center is the base voice. |
 | **Split** | 50–500 Hz | 180 Hz | Local low-band frequency for Low keep. Inactive at Low keep 0%; independent of grid routing. |
 | **Output** | -24 to +12 dB | -6 dB | Final gain after Mix, including clean lows. |
 | **Low keep** | 0–100% | 0% | Diverts this share of the low band around the drive and restores it clean. The gentle split has overlapping bands. |
@@ -79,9 +81,52 @@ extra delay compensation and stacking pedals does not add up. Dry Mix, bypass an
 parallel lanes stay aligned.
 
 Use Screamer or Treble Drive before a crunchy amp capture, Rodent for heavier rhythm,
-and Sustain Fuzz for dense leads or bass fuzz. Try Bass Edge with Low keep raised for
+and Sustain Fuzz for dense leads or bass fuzz. Bender Fuzz is a raspier, more cutting fuzz
+for riffs; Octave Fuzz adds a ringing octave up to single-note leads. Try Bass Edge with Low keep raised for
 one-slot bass drive. [Pedal Drive](pedal-drive.md) explains all voices, example rigs,
 latency and how the local split interacts with the grid.
+
+## Pedal Distortion
+
+Distortion pedals with more gain than Pedal Drive's overdrives and a real tone section after the clipping. Choose **Style** in the header; each voice has its own gain range, input coupling, clipping stages and post-clip voicing. **Bass**, **Mid** and **Treble** then shape the result, like the EQ on a distortion pedal. These are original voices informed by classic pedal families and voiced against measurements of NAM pedal captures, not calibrated replicas.
+
+| Style | Inspired by | Sound and use |
+| --- | --- | --- |
+| **Classic Dist** | The orange-box distortion of the late '70s (DS-1 family) | Bright, scooped, gritty. Punk, grunge and classic rock into a clean or edge-of-breakup amp. |
+| **Raw Dist** | Simple op-amp and germanium-diode pedals (Distortion+ and 250 family) | Bass-light, raspy and fizzy, with soft clipping. Pushes a crunchy amp; '80s rock rhythm. |
+| **British Crunch** | Amp-in-a-box pedals voiced like a cranked plexi (Guv'nor, Plextortion and Crunch Box family) | Mid-forward and darker, two preamp-like stages. Classic rock rhythm into a clean amp. |
+| **Hot Lead** | Hot-rodded British lead boxes (Shredmaster, Riot and similar) | Tighter bass, more gain and a smooth top for modern rock rhythm and solos. |
+| **Metal Stack** | High-gain metal pedals with active EQ (Metal Zone family) | Pre-clip mid hump and a scooped, aggressive post voicing. Carve it with Mid and Mid freq. |
+| **Chainsaw** | The Swedish death-metal pedal with every knob at maximum (HM-2 family) | Dense, raspy distortion with huge peaks at 87 Hz and around 1 kHz. Old-school death metal and crust. |
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Gain** | 0–100% | 50% | Distortion amount. Each style maps the knob to its own gain range. |
+| **Bass** | -12 to +12 dB | 0 dB | Low shelf around 100 Hz after the distortion. Changes weight without changing how hard the bass clips. |
+| **Mid** | -12 to +12 dB | 0 dB | Mid bell after the distortion, at Mid freq. Cut for scooped rhythm, boost to cut through a band. |
+| **Treble** | -12 to +12 dB | 0 dB | High shelf around 3 kHz after the distortion. Lower it to tame fizz into an amp capture. |
+| **Level** | -24 to +12 dB | 0 dB | Final level after Mix. Gain 50% stays near bypass loudness on a typical guitar DI. |
+| **Tight** | -100 to +100% | 0% | Moves the style's bass cut before clipping. Positive tightens palm mutes; negative lets more bass into the distortion. Center is the base voice. |
+| **Mid freq** | 200–5000 Hz | 800 Hz | Center of the Mid control. 500–800 Hz shapes body; 1.5–3 kHz shapes bite and presence. |
+| **Mix** | 0–100% | 100% | Blend with the dry input. Lower settings restore attack and note definition under heavy gain. |
+
+In the header:
+
+- **Style** (Classic Dist, Raw Dist, British Crunch, Hot Lead, Metal Stack, Chainsaw; starts at Classic Dist) Selects the voice. Changes crossfade over 20 ms.
+
+**Display:** Left: a 220 Hz test tone at -12 and -30 dBFS through the selected voice, showing how far it cleans up with playing level. Right: the Bass, Mid and Treble response with Mix and Level.
+
+**Latency:** none. Each voice runs at four times the host rate through minimum-phase filters, so no compensation delay is added and Mix 0% returns the exact dry signal. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
+
+**Presets:** Classic rock distortion, British crunch, Scooped metal rhythm and Chainsaw death metal.
+
+**Tips:**
+
+- Put it before an amp capture set clean or just breaking up; most of these pedals were designed to drive a clean amp. Into a high-gain amp, lower Gain and use it as a tight boost.
+- For metal, raise Tight to 30–50% and put a gate before the pedal. The classic Chainsaw sound keeps the EQ flat: the style already has every tone knob at maximum.
+- Lower Treble before raising Gain if the result fizzes; a cabinet IR or amp capture after the pedal also rounds off the top end.
+
+Design references (no circuit-model code was copied): the BOSS DS-1, MT-2 and HM-2 owner's manuals; Electric Druid's [Metal Zone analysis](https://electricdruid.net/boss-mt-2-metal-zone-pedal-analysis/); the PedalPCB forum's [HM-2 tone-stack analysis](https://forum.pedalpcb.com/threads/tone-stacks-part-3-tube-screamer-hm-2-gyrators.8557); and the published MXR Distortion+ and DOD 250 schematics. Product and company names identify design references and belong to their owners; NAM Grid is not affiliated with or endorsed by them.
 
 ## Boost
 

@@ -23,7 +23,7 @@ Interpretation Classify(E effect)
   {
     case E::CabinetIR: case E::ToneEQ: case E::CutEQ: case E::ParametricEQ:
     case E::Boost: case E::Utility: case E::Wah: case E::GraphicEQ: return Interpretation::Linear;
-    case E::Distortion: case E::PedalDrive: case E::TubeBoost: case E::Tape:
+    case E::Distortion: case E::PedalDrive: case E::PedalDistortion: case E::TubeBoost: case E::Tape:
     case E::ConsoleColour: case E::ConsoleEQ: case E::OutboardChannel:
     case E::Limiter: return Interpretation::Harmonic;
     case E::DynamicEQ: return Interpretation::Dynamic;
@@ -71,6 +71,7 @@ void Stress(Controls& c, E effect)
   // Deliberate, documented stress cases, not all-controls-at-maximum presets.
   if (effect == E::Distortion) { u.distortion[1] = 36.; u.distortion[2] = 12000.; }
   if (effect == E::PedalDrive) { u.pedal[1] = 36.; u.pedal[2] = 12000.; }
+  if (effect == E::PedalDistortion) { u.pedalDistortion[1] = 100.; u.pedalDistortion[6] = 12.; }
   if (effect == E::TubeBoost) u.tube[0] = 24.;
   if (effect == E::Tape) u.tape[0] = 12.;
   if (effect == E::ConsoleColour) u.colour[0] = 18.;

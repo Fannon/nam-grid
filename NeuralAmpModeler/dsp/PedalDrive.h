@@ -13,7 +13,8 @@
 // Original MIT DSP for NAM Grid. Design references (no circuit-model code copied):
 // Aion Stratus, Helios, Refractor and Halo schematics; Darkglass B3K/X Ultra
 // manuals; Keeley Katana, BOSS BD-2 and Analog Man Beano descriptions; Aion
-// Cerulean and Solaris schematics, and the MXR Timmy manual.
+// Cerulean and Solaris schematics, the MXR Timmy manual, and published Tone Bender
+// MkII and Tycobrahe Octavia schematics.
 // See docs/modules/pedal-drive.md and ThirdPartyNotices.txt. These are inspired voices,
 // not calibrated emulations of the named pedals.
 namespace grid_pedal
@@ -77,7 +78,8 @@ struct Character
 {
   double value = 0., screamerBass = .8, rodentBite = 1.4, slewMultiplier = 1., bassAttack = .9, scoop = .65;
   double odBlend = 0., hardBlend = 0., bluesHeadroom = 1., transparentHeadroom = 1.2, gateThreshold = 0.;
-  BiasedStage preampFirst, preampSecond, transparent, vintage;
+  double octave = .85, benderGate = 0.;
+  BiasedStage preampFirst, preampSecond, transparent, vintage, bender;
   void Reset(double control)
   {
     value = std::clamp(control, -1., 1.);
@@ -95,6 +97,9 @@ struct Character
     preampSecond.Reset(-.08 * (1. + value));
     transparent.Reset(.22 * std::max(0., value));
     vintage.Reset(.28 + .25 * value);
+    bender.Reset(.45 + .25 * value);
+    benderGate = .006 * std::max(0., value);
+    octave = std::clamp(.85 + (value < 0. ? .5 : .15) * value, 0., 1.);
   }
 };
 
@@ -191,6 +196,29 @@ struct Voice
         const double gate =
           character.gateThreshold == 0. ? 1. : std::clamp((envelope - character.gateThreshold) * 100., 0., 1.);
         return lp(.9 * character.vintage.Tick(-2.8 * gain * coupled) * gate, P::RodentTop);
+      }
+      case 10: // Tone Bender family: bass-cut first stage, coupling, then a high-gain
+               // asymmetric pair. More gain and mids than case 9; Bias adds sputter.
+      {
+        const double tight = x - lp(x, P::Body);
+        const double first = -std::tanh(3. * rootGain * tight) * .5;
+        const double coupled = lp(first - lp(first, P::LowerMid), P::UpperMid);
+        envelope = Flush(std::abs(coupled) + c.envelope * (envelope - std::abs(coupled)));
+        const double gate =
+          character.benderGate == 0. ? 1. : std::clamp((envelope - character.benderGate) * 200., 0., 1.);
+        return lp(.7 * character.bender.Tick(-9.6 * rootGain * coupled) * gate, P::PreampTop);
+      }
+      case 11: // Octavia family: a milder gain stage, smooth full-wave rectification
+               // that doubles the fundamental, then fuzz.
+      {
+        const double tight = x - lp(x, P::Body);
+        const double pre = std::tanh(1.5 * gain * tight);
+        // sqrt(v^2 + e^2) - e: a rounded rectifier whose corner the 4x rate resolves.
+        constexpr double e = .03;
+        const double rectified = std::sqrt(pre * pre + e * e) - e;
+        const double octave = rectified - lp(rectified, P::Sub);
+        const double blended = character.octave * 2. * octave + (1. - character.octave) * pre;
+        return lp(.85 * std::tanh(1.8 * rootGain * blended), P::RodentTop);
       }
       default: return x;
     }

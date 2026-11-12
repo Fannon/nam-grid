@@ -150,7 +150,7 @@ struct Voice
   grid_adaa::Average rodentInput;
   grid_adaa::SlewClip rodentSlew;
   // The fuzzes added after 0.1 average their clipping stages.
-  Averaged fuzzFirst, fuzzSecond;
+  Averaged fuzzFirst, fuzzSecond, fuzzRectifier;
   // Sub Fuzz's octave divider.
   double peakHigh = 0., peakLow = 0., tracked = 0., polarity = 1.;
   bool high = false, pending = false;
@@ -255,9 +255,14 @@ struct Voice
       {
         const double tight = x - lp(x, P::Body);
         const double pre = fuzzFirst.Soft(1.5 * gain * tight);
-        // sqrt(v^2 + e^2) - e: a rounded rectifier whose corner the 4x rate resolves.
+        // sqrt(v^2 + e^2) - e: a rounded rectifier, averaged like the clipping stages.
         constexpr double e = .03;
-        const double rectified = std::sqrt(pre * pre + e * e) - e;
+        const double rectified = fuzzRectifier.Tick(pre,
+          [](double v) { return std::sqrt(v * v + e * e) - e; },
+          [](double v) {
+            const double m = std::abs(v), root = std::sqrt(v * v + e * e);
+            return std::copysign(.5 * (m * root + e * e * std::log((m + root) / e)) - e * m, v);
+          });
         const double octave = rectified - lp(rectified, P::Sub);
         const double blended = character.octave * 2. * octave + (1. - character.octave) * pre;
         return lp(.85 * fuzzSecond.Soft(1.8 * rootGain * blended), P::RodentTop);

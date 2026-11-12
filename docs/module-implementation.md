@@ -82,7 +82,7 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   Bender, Octave, Gated and Sub Fuzz follow the same structure. Their clipping stages use
   x / sqrt(1 + x²) with first-order antiderivative antialiasing: its antiderivative is one
   square root, so the averaged stage costs less than a plain tanh. Octave Fuzz rectifies with
-  sqrt(x² + e²) - e, a rounded corner the 4x rate resolves better than |x|. Gated Fuzz's
+  sqrt(x² + e²) - e, a rounded corner that is averaged the same way. Gated Fuzz's
   second stage is a dead zone into the same curve, so silence stays exactly silent. Sub Fuzz
   finds one peak-relative trigger per cycle of the low-passed input and flips polarity at the
   next zero crossing, so the octave-down signal has no steps; it adds no delay.

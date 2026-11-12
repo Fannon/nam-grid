@@ -73,15 +73,18 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   stereo histories and 20 ms style crossfades. Its centered character parameter
   changes function/label by style; derived bias normalization is cached on the
   16-sample control schedule. The FIR loops share input loads
-  across interpolation phases and use independent decimation accumulators for
-  portable vectorization. Settled styles use a single-voice path; only participating styles run during
-  transitions; an inactive style starts with cleared filter history. Rodent adds
-  first-order antiderivative antialiasing before a continuously integrated slew
-  limiter/hard clip; its filter rate remains 4x. See
+  across interpolation phases; on x64 each 4x dot product is split over four accumulators
+  held in registers, and the variants agree to roundoff. Settled styles use a single-voice
+  path; only participating styles run during
+  transitions; an inactive style starts with cleared filter history. Every clipping stage
+  uses first-order antiderivative antialiasing with a curve whose antiderivative needs no
+  exp or log, so the averaged stage costs about what a plain tanh did, and an unchanged
+  input (silence) skips the curve entirely. The voices released in 0.1 use Warm, a blend of
+  x / sqrt(1 + x²) and a cubic soft clip that stays within 0.013 of the tanh they were
+  voiced with; biased stages re-centre it and restore unity small-signal gain. Rodent keeps
+  tanh, averaged, before a continuously integrated slew limiter/hard clip. See
   [voices, signal flow and design references](modules/pedal-drive.md).
-  Bender, Octave, Gated and Sub Fuzz follow the same structure. Their clipping stages use
-  x / sqrt(1 + x²) with first-order antiderivative antialiasing: its antiderivative is one
-  square root, so the averaged stage costs less than a plain tanh. Octave Fuzz rectifies with
+  Bender, Octave, Gated and Sub Fuzz use x / sqrt(1 + x²) itself. Octave Fuzz rectifies with
   |x|, averaged the same way so its corner is resolved exactly. Gated Fuzz's
   second stage is a dead zone into the same curve, so silence stays exactly silent. Sub Fuzz
   finds one peak-relative trigger per cycle of the low-passed input and flips polarity at the

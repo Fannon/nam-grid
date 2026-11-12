@@ -57,21 +57,56 @@ struct Coefficients
     peak = std::exp(-1. / (.03 * rate));
   }
 };
-// The fuzzes added after 0.1 clip with x / sqrt(1 + x^2), averaged over the line
-// between adjacent oversampled inputs (first-order antiderivative antialiasing). Its
-// antiderivative is one square root, so the averaging costs less than a plain tanh.
-// Released voices keep their exact arithmetic.
+// Every clipping stage except Rodent's is averaged over the line between adjacent
+// oversampled inputs (first-order antiderivative antialiasing), so the curves need
+// antiderivatives that cost less than the exp and log of tanh's.
+// Soft, x / sqrt(1 + x^2), is the curve of the fuzzes added after 0.1.
 inline double Soft(double x) { return x / std::sqrt(1. + x * x); }
 inline double SoftIntegral(double x) { return std::sqrt(1. + x * x) - 1.; }
-// The antiderivative must be cheap: it is evaluated for every sample. The first
-// sample starts at its own input, so a biased stage is silent from a reset.
+// Warm stands in for the tanh of the voices released in 0.1: 57% Soft at 1.2 times the
+// drive plus 43% of a cubic soft clip. It has unity slope at zero, saturates at +/-1 and
+// stays within 0.013 of tanh everywhere, so those voices keep their drive and level
+// calibration. Its antiderivative is one square root and a polynomial.
+namespace warm
+{
+inline constexpr double share = .5703, rate = 1.1958;
+inline constexpr double knee = 1.5 * (1. - share / rate) / (1. - share); // unity asymptote
+} // namespace warm
+inline double Warm(double x)
+{
+  const double u = std::clamp(x, -warm::knee, warm::knee);
+  return warm::share * x / std::sqrt(1. + warm::rate * warm::rate * x * x)
+         + (1. - warm::share) * (u - u * u * u / (3. * warm::knee * warm::knee));
+}
+inline double WarmIntegral(double x)
+{
+  // Branch-free: the cubic part is integrated up to the knee and continues as a line.
+  constexpr double softScale = warm::share / (warm::rate * warm::rate), quartic = 1. / (12. * warm::knee * warm::knee);
+  const double m = std::abs(x), u = std::min(m, warm::knee), u2 = u * u;
+  return softScale * (std::sqrt(1. + warm::rate * warm::rate * x * x) - 1.)
+         + (1. - warm::share) * (u2 * (.5 - quartic * u2) + (2. * warm::knee / 3.) * (m - u));
+}
+inline double WarmSlope(double x)
+{
+  const double u = std::min(std::abs(x), warm::knee) / warm::knee;
+  return warm::share * std::pow(1. + warm::rate * warm::rate * x * x, -1.5) + (1. - warm::share) * (1. - u * u);
+}
+// The antiderivative must be cheap: it is evaluated for every changing sample. The
+// first sample starts at its own input, so a biased stage is silent from a reset,
+// and an unchanged input (silence) reuses its value without evaluating anything.
 struct Averaged
 {
-  double previous = 0., integral = 0.;
-  bool primed = false;
+  double previous = 0., integral = 0., held = 0.;
+  bool primed = false, holding = false;
   template <class Curve, class Integral>
   double Tick(double x, Curve&& curve, Integral&& primitive)
   {
+    if (x == previous && primed)
+    {
+      if (!holding) { held = curve(x); holding = true; }
+      return held;
+    }
+    holding = false;
     const double current = primitive(x);
     if (!primed) { primed = true; previous = x; integral = current; }
     const double delta = x - previous;
@@ -82,25 +117,24 @@ struct Averaged
     return y;
   }
   double Soft(double x) { return Tick(x, grid_pedal::Soft, SoftIntegral); }
+  double Warm(double x) { return Tick(x, grid_pedal::Warm, WarmIntegral); }
 };
-inline double Biased(double x, double bias)
-{
-  const double offset = std::tanh(bias);
-  return (std::tanh(x + bias) - offset) / (1. - offset * offset);
-}
 
-// Bias-dependent normalization is updated with the smoothed character control,
-// rather than evaluating the bias tanh for every oversampled audio sample.
+// An asymmetric Warm stage: the bias moves the operating point, and the output is
+// re-centred and scaled back to unity small-signal gain. That normalization is
+// updated with the smoothed character control, not for every oversampled sample.
 struct BiasedStage
 {
-  double bias = 0., offset = 0., denominator = 1.;
+  double bias = 0., offset = 0., slope = 1.;
+  BiasedStage() = default;
+  explicit BiasedStage(double value) { Reset(value); }
   void Reset(double value)
   {
     bias = value;
-    offset = std::tanh(value);
-    denominator = 1. - offset * offset;
+    offset = Warm(value);
+    slope = WarmSlope(value);
   }
-  double Tick(double x) const { return (std::tanh(x + bias) - offset) / denominator; }
+  double Tick(Averaged& stage, double x) const { return (stage.Warm(x + bias) - offset) / slope; }
 };
 struct Character
 {
@@ -109,6 +143,8 @@ struct Character
   double octave = .85, benderGate = 0., gateOpen = .3, gateClose = .48, sub = .6;
   double benderBias = .45, benderOffset = 0., benderSlope = 1.;
   BiasedStage preampFirst, preampSecond, transparent, vintage;
+  // Fixed biases: Bass Edge's two stages and Treble Drive.
+  BiasedStage edgeFirst{.12}, edgeSecond{-.06}, treble{.2};
   void Reset(double control)
   {
     value = std::clamp(control, -1., 1.);
@@ -149,7 +185,7 @@ struct Voice
   double slew = 0., envelope = 0.;
   grid_adaa::Average rodentInput;
   grid_adaa::SlewClip rodentSlew;
-  // The fuzzes added after 0.1 average their clipping stages.
+  // Up to three averaged nonlinear stages per voice.
   Averaged fuzzFirst, fuzzSecond, fuzzRectifier;
   // Sub Fuzz's octave divider.
   double peakHigh = 0., peakLow = 0., tracked = 0., polarity = 1.;
@@ -164,7 +200,7 @@ struct Voice
     switch (style)
     {
       case 0: // Mid-focused soft feedback-clip character, with a small clean feed.
-        return lp(.15 * x + .85 * std::tanh(2. * gain * (x - character.screamerBass * lp(x, P::Mid))), P::SoftTop);
+        return lp(.15 * x + .85 * fuzzFirst.Warm(2. * gain * (x - character.screamerBass * lp(x, P::Mid))), P::SoftTop);
       case 1: // Shaped op-amp gain, limited slew, then harder diode-like clipping.
       {
         const double high = x - lp(x, P::Bass);
@@ -180,33 +216,34 @@ struct Voice
       {
         const double tight = x - .65 * lp(x, P::Bass);
         const double bite = tight + character.bassAttack * (tight - lp(tight, P::Attack));
-        return lp(.85 * Biased(1.2 * Biased(2.4 * gain * bite, .12), -.06), P::PreampTop);
+        const double first = character.edgeFirst.Tick(fuzzFirst, 2.4 * gain * bite);
+        return lp(.85 * character.edgeSecond.Tick(fuzzSecond, 1.2 * first), P::PreampTop);
       }
       case 3: // Internal clean/clipped blend is distinct from the outer Mix.
       {
-        const double clipped = .9 * std::tanh(3. * gain * (x - .65 * lp(x, P::LowerMid)));
+        const double clipped = .9 * fuzzFirst.Warm(3. * gain * (x - .65 * lp(x, P::LowerMid)));
         const double blend = std::clamp(amount + character.odBlend, 0., 1.);
         return lp((1. - blend) * x + blend * clipped, P::PreampTop);
       }
       case 4: // Cascaded clipping, coupling loss and a broad passive-style scoop.
       {
         const double tight = x - lp(x, P::Sub);
-        const double first = lp(std::tanh(3. * rootGain * tight), P::PreampTop);
-        const double second = lp(std::tanh(2.8 * rootGain * first), P::FuzzTop);
+        const double first = lp(fuzzFirst.Warm(3. * rootGain * tight), P::PreampTop);
+        const double second = lp(fuzzSecond.Warm(2.8 * rootGain * first), P::FuzzTop);
         return .9 * (second - character.scoop * (lp(second, P::UpperMid) - lp(second, P::LowerMid)));
       }
       case 5: // Mild, asymmetric preamp stages with interstage coupling/filtering.
       {
-        const double first = lp(character.preampFirst.Tick(1.1 * rootGain * x), P::PreampTop);
+        const double first = lp(character.preampFirst.Tick(fuzzFirst, 1.1 * rootGain * x), P::PreampTop);
         const double coupled = first - lp(first, P::Sub);
-        return .9 * character.preampSecond.Tick(1.2 * rootGain * coupled);
+        return .9 * character.preampSecond.Tick(fuzzSecond, 1.2 * rootGain * coupled);
       }
       case 6: // Colored treble booster; Focus changes the pre-drive bass shaping.
       {
         const double mid = lp(x, P::Mid), upper = lp(x, P::Attack);
         const double focused =
           character.value <= 0. ? x - (1. + .7 * character.value) * mid : (x - mid) + character.value * (mid - upper);
-        return lp(Biased(1.7 * gain * focused, .2), P::PreampTop);
+        return lp(character.treble.Tick(fuzzFirst, 1.7 * gain * focused), P::PreampTop);
       }
       case 7: // Bluesbreaker family: bandwidth-limited gain into feedback-style
               // soft clipping with a clean contribution, then optional hard clipping.
@@ -214,8 +251,10 @@ struct Voice
         const double tight = x - .35 * lp(x, P::Bass);
         const double first = lp(.65 * rootGain * tight, P::RodentTop);
         const double soft =
-          .12 * first + .88 * character.bluesHeadroom * std::tanh(1.1 * rootGain * first / character.bluesHeadroom);
-        return lp(soft + character.hardBlend * (std::clamp(soft, -.4, .4) - soft), P::PreampTop);
+          .12 * first + .88 * character.bluesHeadroom * fuzzFirst.Warm(1.1 * rootGain * first / character.bluesHeadroom);
+        const double hard = fuzzSecond.Tick(soft, [](double v) { return std::clamp(v, -.4, .4); },
+                                            [](double v) { const double m = std::abs(v); return m <= .4 ? .5 * v * v : .4 * m - .08; });
+        return lp(soft + character.hardBlend * (hard - soft), P::PreampTop);
       }
       case 8: // Timmy family: restrained bass shaping before clipping, treble
               // filtering after it, with compressed/open/asymmetric clip character.
@@ -223,19 +262,19 @@ struct Voice
         const double voiced = x - .4 * lp(x, P::Bass);
         const double driven = (1. + .6 * (gain - 1.)) * voiced;
         const double clipped =
-          character.transparentHeadroom * character.transparent.Tick(driven / character.transparentHeadroom);
+          character.transparentHeadroom * character.transparent.Tick(fuzzFirst, driven / character.transparentHeadroom);
         return lp(.1 * voiced + .9 * clipped, P::RodentTop);
       }
       case 9: // Fuzz Face family: two inverting stages, interstage coupling
               // and a bias-dependent pinched decay. No analog pickup loading model.
       {
         const double tight = x - .25 * lp(x, P::Sub);
-        const double first = -.6 * std::tanh(1.8 * tight);
+        const double first = -.6 * fuzzFirst.Warm(1.8 * tight);
         const double coupled = first - .7 * lp(first, P::Bass);
         envelope = Flush(std::abs(coupled) + c.envelope * (envelope - std::abs(coupled)));
         const double gate =
           character.gateThreshold == 0. ? 1. : std::clamp((envelope - character.gateThreshold) * 100., 0., 1.);
-        return lp(.9 * character.vintage.Tick(-2.8 * gain * coupled) * gate, P::RodentTop);
+        return lp(.9 * character.vintage.Tick(fuzzSecond, -2.8 * gain * coupled) * gate, P::RodentTop);
       }
       case 10: // Tone Bender family: bass-cut first stage, coupling, then a high-gain
                // asymmetric pair. More gain and mids than case 9; Bias adds sputter.

@@ -195,6 +195,13 @@ FIR filtering on interpolation and decimation. This reduces aliasing without add
 the plugin reports no delay for it, and dry Mix, bypass and the clean low return pass through
 unshifted. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
 
+Every clipping stage is also averaged between adjacent oversampled samples (antiderivative
+antialiasing). On a hard-driven 1.5 kHz note this lowers the inharmonic residue of the
+voices by about 20 to 30 dB. The voices released in 0.1 use a curve that stays within 0.013
+of their original tanh, so their Drive and level calibration is unchanged: across Drive and
+Character settings their level, compression and frequency balance stay within about 0.3 dB
+of the earlier sound.
+
 Style changes crossfade over 20 ms. Left and right channels have independent histories.
 Control changes are smoothed, and processing does not allocate memory in the audio callback.
 The display responds as you turn the controls. On the left, the selected style shapes a

@@ -164,6 +164,24 @@ void TestPedalDrive()
   assert(nativeAlias > .03 && filteredAlias < nativeAlias * .01);
   assert(spectral_test::SuppressionDB(native, std::span<const double>(filtered).subspan(n, n), alias) > 40.);
 
+  // Warm replaces tanh in the released voices, so it must stay close to it: unity
+  // slope at zero, saturation at exactly one and a small worst-case distance. Its
+  // antiderivative and slope must match the curve, or the averaging and the biased
+  // stages' normalization would change the sound.
+  {
+    double worst = 0.;
+    for (double x = -12.; x <= 12.; x += .001)
+    {
+      worst = std::max(worst, std::abs(grid_pedal::Warm(x) - std::tanh(x)));
+      constexpr double h = 1.e-5;
+      assert(std::abs((grid_pedal::WarmIntegral(x + h) - grid_pedal::WarmIntegral(x - h)) / (2. * h) - grid_pedal::Warm(x)) < 1.e-8);
+      assert(std::abs((grid_pedal::Warm(x + h) - grid_pedal::Warm(x - h)) / (2. * h) - grid_pedal::WarmSlope(x)) < 1.e-6);
+    }
+    assert(worst < .013);
+    assert(grid_pedal::WarmIntegral(0.) == 0. && grid_pedal::WarmSlope(0.) == 1.);
+    assert(std::abs(grid_pedal::Warm(1.e6) - 1.) < 1.e-6 && std::abs(grid_pedal::Warm(-1.e6) + 1.) < 1.e-6);
+  }
+
   for (double rate : {44100., 48000., 96000., 192000.})
   {
     std::array<std::vector<double>, effect_modes::pedalCount> voices;
@@ -311,8 +329,10 @@ void TestPedalDrive()
     const auto fuzz = tone(PedalStyle::SubFuzz, 12., -100., .1);
     assert(pedal_test::Harmonic(fuzz, 0, toneCount, toneBin) > 2. * pedal_test::Harmonic(fuzz, 0, toneCount, toneBin / 2));
   }
-  // The fuzzes added after 0.1 antialias their clipping: a hard-driven 5 kHz tone
-  // folds far less than Vintage Fuzz, whose released arithmetic is unchanged.
+  // Every voice antialiases its clipping: a hard-driven 5 kHz tone leaves little
+  // energy away from its harmonics (Vintage Fuzz measured -31 dB before its stages
+  // were averaged, -59 dB after). Octave and Sub Fuzz are excluded: an octave above
+  // 5 kHz and a divided pitch are not harmonics of the input.
   {
     constexpr int highBin = 1707; // 5001 Hz, odd and coprime with the window
     const auto folded = [&](PedalStyle style) {
@@ -333,9 +353,13 @@ void TestPedalDrive()
       }
       return 10. * std::log10(other / harmonic);
     };
-    const double reference = folded(PedalStyle::VintageFuzz);
-    assert(folded(PedalStyle::BenderFuzz) < reference - 30.);
-    assert(folded(PedalStyle::GatedFuzz) < reference - 6.);
+    for (int style = 0; style < effect_modes::pedalCount; ++style)
+    {
+      const auto voice = static_cast<PedalStyle>(style);
+      // Rodent has its own slew-clip checks; Gated Fuzz's steep dead zone folds more.
+      if (voice == PedalStyle::Rodent || voice == PedalStyle::OctaveFuzz || voice == PedalStyle::SubFuzz) continue;
+      assert(folded(voice) < (voice == PedalStyle::GatedFuzz ? -36. : -44.));
+    }
   }
 
   // Dry drive in B must reconstruct the input with the clean low A lane,

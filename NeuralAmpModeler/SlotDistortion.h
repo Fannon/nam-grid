@@ -159,8 +159,9 @@ public:
   }
 
 private:
+  // log(.5 + .5 e) equals log1p(e) - log(2) to a few ulp and costs about half as much.
   static double LogCosh(double x)
-  { return std::abs(x) + std::log1p(std::exp(-2. * std::abs(x))) - std::log(2.); }
+  { const double m = std::abs(x); return m + std::log(.5 + .5 * std::exp(-2. * m)); }
   static double Integral(double x, int style)
   {
     const double magnitude = std::abs(x);

@@ -8,8 +8,10 @@
 // The averaging has phase/group delay and must be included in wet/dry checks.
 namespace grid_adaa
 {
+// log(cosh(x)) without overflow. log(.5 + .5 e) equals log1p(e) - log(2) to a few
+// ulp of the result and costs about half as much where log1p is not an intrinsic.
 inline double LogCosh(double x)
-{ return std::abs(x) + std::log1p(std::exp(-2. * std::abs(x))) - std::log(2.); }
+{ const double m = std::abs(x); return m + std::log(.5 + .5 * std::exp(-2. * m)); }
 class Average
 {
 public:

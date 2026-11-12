@@ -54,15 +54,22 @@ inline double CurveIntegral(Shape shape, double x)
   }
 }
 // Averages a curve over the line between adjacent oversampled inputs. The previous
-// antiderivative is always kept, so each sample costs one evaluation; nearly equal
-// inputs use the curve at their midpoint instead of a cancelling difference. The
-// first sample starts at its own input, so a biased stage is silent from a reset.
+// antiderivative is always kept, so each changing sample costs one evaluation; nearly
+// equal inputs use the curve at their midpoint instead of a cancelling difference. The
+// first sample starts at its own input, so a biased stage is silent from a reset, and
+// an unchanged input (silence) reuses its value without evaluating anything.
 struct Clipper
 {
-  double previous = 0., integral = 0.;
-  bool primed = false;
+  double previous = 0., integral = 0., held = 0.;
+  bool primed = false, holding = false;
   double Tick(Shape shape, double x)
   {
+    if (x == previous && primed)
+    {
+      if (!holding) { held = Curve(shape, x); holding = true; }
+      return held;
+    }
+    holding = false;
     const double current = CurveIntegral(shape, x);
     if (!primed) { primed = true; previous = x; integral = current; }
     const double delta = x - previous;

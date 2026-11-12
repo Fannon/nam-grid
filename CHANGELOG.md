@@ -11,6 +11,11 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - **Three new Distortion styles:** **Overdrive** (never fully flat, so it keeps picking dynamics at high Drive), **Half-wave** (gated, buzzing fuzz) and **Sine fold** (smooth, synth-like folding). Existing styles are unchanged.
 - **Experimental Noise Gate (AI):** automatic band-by-band hum and hiss reduction with no threshold or Learn step, starting at 24 dB Reduction. Sensitivity balances cleanup with quiet notes, and Protect attack trades clearer picks against passing sudden noise. Find it under **Gate**. An optional final gate, the same as Smart Gate's, listens to the cleaned signal and can silence what is left in pauses; it starts Off. Quiet picking and decays can still be attenuated; Smart Gate remains recommended for gentle note preservation. No latency is added.
 
+### Sound and performance
+
+- **Pedal Drive: cleaner high notes at high Drive.** Every voice now antialiases its clipping. On a hard-driven high lead note, the inharmonic fizz under the note drops by about 20 to 30 dB. Existing rigs keep their settings and their sound: level, compression and tone of the ten existing voices stay within about 0.3 dB, and Rodent is unchanged. CPU is about the same.
+- **Lower CPU for the drive modules:** Distortion uses up to 12% less (Soft clip, Diode, Rectify and Half-wave gain the most) and Tube Boost about 11% less, with no audible change.
+
 ### Smart Gate
 
 - **Smart Gate learns through brief mistakes:** short clicks or accidental plucks have less influence on a new noise profile. Existing saved profiles stay unchanged; keep the strings muted while learning.

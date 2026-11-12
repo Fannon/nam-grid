@@ -52,10 +52,9 @@ In the header:
 Voiced overdrive, distortion, fuzz and colored boost, with **Style** in the header:
 Screamer, Rodent, Bass Edge, Parallel OD, Sustain Fuzz, Cascaded Preamp, Treble Drive,
 Blues OD, Transparent OD, Vintage Fuzz, Bender Fuzz, Octave Fuzz, Gated Fuzz and Sub Fuzz.
-Rodent antialiases its input saturation and integrates the slew/clip stage over
-sample intervals; it keeps the pedal's existing 4x rate. This reduces high-frequency
-foldover and can slightly change attack and partial Mix. The four newest fuzzes
-antialias their clipping too. Other voices retain their DSP.
+Every voice antialiases its clipping on top of the 4x rate, so high notes at high Drive
+stay free of the inharmonic fizz that folded harmonics add. Rodent also integrates its
+slew/clip stage over sample intervals.
 Each voice has its own filtering and gain structure. These are original interpretations
 inspired by pedal families, rather than calibrated replicas.
 

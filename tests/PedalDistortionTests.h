@@ -153,8 +153,7 @@ void TestPedalDistortion()
       assert(std::abs(std::abs(sum) - std::abs(b.Response(hz, rate))) < 1.e-9);
     }
   }
-  // Style changes crossfade: after 20 ms the selected voice alone is audible and
-  // a returning style starts from clean histories.
+  // Style changes crossfade: switching styles in the middle of a note makes no step.
   {
     const auto input = Pluck(rate, .6);
     UtilityControls a; a.pedalDistortion[0] = 1.;

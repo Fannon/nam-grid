@@ -77,6 +77,13 @@ Vintage Fuzz models the character of coupled gain stages and adjustable bias; it
 not simulate analog pickup impedance or recreate a particular transistor pair. Lowering
 its input can clean up the sound, but hardware guitar-volume interaction is not guaranteed.
 
+Treble Drive and Vintage Fuzz clip asymmetrically, and their bias follows how hard the
+stage is driven, as a coupling capacitor charging in a transistor stage would. Loud notes
+therefore keep their even harmonics: the second harmonic stays about 20 to 24 dB below
+the fundamental, where a fixed bias let it fall by another 20 to 30 dB as the wave squared
+up. Quiet playing and level are unchanged. At Vintage Fuzz's lowest Bias the stage stays
+close to symmetric.
+
 ## Preserve lows within one slot
 
 For a simple single-lane bass rig, start here: Low keep preserves bass weight without

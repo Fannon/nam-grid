@@ -363,6 +363,17 @@ void TestPedalDrive()
     const auto fuzz = tone(PedalStyle::SubFuzz, 12., -100., .1);
     assert(pedal_test::Harmonic(fuzz, 0, toneCount, toneBin) > 2. * pedal_test::Harmonic(fuzz, 0, toneCount, toneBin / 2));
   }
+  // Treble Drive and Vintage Fuzz keep their even harmonics on a loud note: the bias
+  // follows the overdrive, so the clipped wave does not settle into a symmetric square
+  // (fixed bias: -44 and -56 dB here). Vintage Fuzz's lowest Bias stays near symmetric.
+  {
+    const auto second = [&](PedalStyle style, double character) {
+      const auto loud = tone(style, 36., character, .5);
+      return 20. * std::log10(pedal_test::Harmonic(loud, 0, toneCount, 2 * toneBin) / pedal_test::Harmonic(loud, 0, toneCount, toneBin));
+    };
+    assert(second(PedalStyle::TrebleDrive, 0.) > -30. && second(PedalStyle::VintageFuzz, 0.) > -30.);
+    assert(second(PedalStyle::VintageFuzz, -100.) < second(PedalStyle::VintageFuzz, 0.) - 10.);
+  }
   // Every voice antialiases its clipping: a hard-driven 5 kHz tone leaves little
   // energy away from its harmonics (Vintage Fuzz measured -31 dB before its stages
   // were averaged, -59 dB after). Octave and Sub Fuzz are excluded: an octave above

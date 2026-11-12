@@ -45,7 +45,7 @@ struct Coefficients
     Count
   };
   std::array<double, Count> poles{};
-  double dc = 0., slew = 0., envelope = 0., peak = 0.;
+  double dc = 0., slew = 0., envelope = 0., peak = 0., follow = 0.;
   void Reset(double rate)
   {
     constexpr std::array<double, Count> hz{35., 80., 250., 300., 720., 1400., 1700., 4200., 5000., 7000., 9000.};
@@ -55,6 +55,7 @@ struct Coefficients
     slew = 35000. / rate;
     envelope = std::exp(-1. / (.005 * rate));
     peak = std::exp(-1. / (.03 * rate));
+    follow = std::exp(-1. / (.01 * rate));
   }
 };
 // Every clipping stage except Rodent's is averaged over the line between adjacent
@@ -138,18 +139,31 @@ struct Averaged
 // An asymmetric Warm stage: the bias moves the operating point, and the output is
 // re-centred and scaled back to unity small-signal gain. That normalization is
 // updated with the smoothed character control, not for every oversampled sample.
+//
+// A fixed bias alone loses its even harmonics on loud notes: the clipped wave tends to
+// a square whose duty cycle returns to one half. A transistor stage keeps them, because
+// its coupling capacitor charges with the overdrive and moves the operating point. So a
+// following stage adds bias in proportion to how far the input exceeds the knee,
+// smoothed over 10 ms. The lift is added to the input, so the averaged curve is fixed.
 struct BiasedStage
 {
-  double bias = 0., offset = 0., slope = 1.;
+  double bias = 0., offset = 0., slope = 1., follow = 0.;
   BiasedStage() = default;
-  explicit BiasedStage(double value) { Reset(value); }
-  void Reset(double value)
+  explicit BiasedStage(double value, double following = 0.) { Reset(value, following); }
+  void Reset(double value, double following = 0.)
   {
     bias = value;
     offset = Warm(value);
     slope = WarmSlope(value);
+    follow = following;
   }
   double Tick(Averaged& stage, double x) const { return (stage.Warm(x + bias) - offset) / slope; }
+  double Tick(Averaged& stage, double x, double& lift, double pole) const
+  {
+    const double excess = std::max(x - 1., 0.);
+    lift = Flush(excess + pole * (lift - excess));
+    return (stage.Warm(x + bias + follow * lift) - offset) / slope;
+  }
 };
 struct Character
 {
@@ -158,8 +172,9 @@ struct Character
   double octave = .85, benderGate = 0., gateOpen = .3, gateClose = .48, sub = .6;
   double benderBias = .45, benderOffset = 0., benderSlope = 1.;
   BiasedStage preampFirst, preampSecond, transparent, vintage;
-  // Fixed biases: Bass Edge's two stages and Treble Drive.
-  BiasedStage edgeFirst{.12}, edgeSecond{-.06}, treble{.2};
+  // Fixed biases: Bass Edge's two stages and Treble Drive, whose bias follows the level.
+  BiasedStage edgeFirst{.12}, edgeSecond{-.06}, treble{.2, trebleFollow};
+  static constexpr double trebleFollow = .2, vintageFollow = 1.;
   void Reset(double control)
   {
     value = std::clamp(control, -1., 1.);
@@ -176,7 +191,8 @@ struct Character
     preampFirst.Reset(.1 * (1. + value));
     preampSecond.Reset(-.08 * (1. + value));
     transparent.Reset(.22 * std::max(0., value));
-    vintage.Reset(.28 + .25 * value);
+    // The level-following share grows with Bias, so the low end of the control stays symmetric.
+    vintage.Reset(.28 + .25 * value, vintageFollow * (.28 + .25 * value));
     // Soft's bias, its output at rest and its small-signal slope there.
     benderBias = .45 + .25 * value;
     benderOffset = Soft(benderBias);
@@ -202,6 +218,8 @@ struct Voice
   grid_adaa::SlewClip rodentSlew;
   // Up to three averaged nonlinear stages per voice.
   Averaged fuzzFirst, fuzzSecond, fuzzRectifier;
+  // Level-following bias of Treble Drive and Vintage Fuzz.
+  double lift = 0.;
   // Sub Fuzz's octave divider.
   double peakHigh = 0., peakLow = 0., tracked = 0., polarity = 1.;
   bool high = false, pending = false;
@@ -258,7 +276,7 @@ struct Voice
         const double mid = lp(x, P::Mid), upper = lp(x, P::Attack);
         const double focused =
           character.value <= 0. ? x - (1. + .7 * character.value) * mid : (x - mid) + character.value * (mid - upper);
-        return lp(character.treble.Tick(fuzzFirst, 1.7 * gain * focused), P::PreampTop);
+        return lp(character.treble.Tick(fuzzFirst, 1.7 * gain * focused, lift, c.follow), P::PreampTop);
       }
       case 7: // Bluesbreaker family: bandwidth-limited gain into feedback-style
               // soft clipping with a clean contribution, then optional hard clipping.
@@ -289,7 +307,7 @@ struct Voice
         envelope = Flush(std::abs(coupled) + c.envelope * (envelope - std::abs(coupled)));
         const double gate =
           character.gateThreshold == 0. ? 1. : std::clamp((envelope - character.gateThreshold) * 100., 0., 1.);
-        return lp(.9 * character.vintage.Tick(fuzzSecond, -2.8 * gain * coupled) * gate, P::RodentTop);
+        return lp(.9 * character.vintage.Tick(fuzzSecond, -2.8 * gain * coupled, lift, c.follow) * gate, P::RodentTop);
       }
       case 10: // Tone Bender family: bass-cut first stage, coupling, then a high-gain
                // asymmetric pair. More gain and mids than case 9; Bias adds sputter.

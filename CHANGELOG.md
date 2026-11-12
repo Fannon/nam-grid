@@ -14,6 +14,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ### Sound and performance
 
 - **Pedal Drive: cleaner high notes at high Drive.** Every voice now antialiases its clipping. On a hard-driven high lead note, the inharmonic fizz under the note drops by about 20 to 30 dB. Existing rigs keep their settings and their sound: level, compression and tone of the ten existing voices stay within about 0.3 dB, and Rodent is unchanged. CPU is about the same.
+- **Pedal Drive: Treble Drive and Vintage Fuzz keep their warmth when hit hard.** Loud notes and high Drive used to square these two voices up into a symmetric, buzzier fuzz. Their bias now follows the playing level, so the even harmonics that give them their vowel-like, asymmetric character stay in place. Existing rigs sound the same on quiet and medium playing; hard-picked notes at high Drive sound slightly rounder. Level is unchanged.
 - **Lower CPU for the drive modules:** Distortion uses up to 12% less (Soft clip, Diode, Rectify and Half-wave gain the most) and Tube Boost about 11% less, with no audible change.
 
 ### Smart Gate

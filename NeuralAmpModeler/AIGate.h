@@ -10,10 +10,12 @@
   #define NAM_AI_GATE_SSE2 0
 #endif
 #include "AIGateModel.h"
+#include "FinalGate.h"
 
 // Original MIT NAM Grid module. A small recurrent network reads the Smart Gate's
 // zero-latency resonator bank about 1500 times a second and sets one gain per band:
-// no Learn step, lookahead or reported latency. Training: scripts/ai-gate/.
+// no Learn step, lookahead or reported latency. An optional final gate, shared with
+// Smart Gate, follows Mix. Training: scripts/ai-gate/.
 namespace ai_gate
 {
 inline constexpr int bands = 96, maxUnits = 64;
@@ -54,6 +56,8 @@ struct Controls
   double sensitivity = 0.; // -100..100 %: positive closes sooner, negative protects quiet sustain.
   double mix = 100.;
   double attackProtection = 50.; // Clear pick attacks versus passing sudden noise bursts, 0..100%.
+  // Smart Gate's final-gate parameters, shared by the slot: -100 dB is Off.
+  double gateThreshold = -100., gateRelease = 40.;
 };
 
 class Processor
@@ -64,6 +68,7 @@ public:
   void Reset(double rate, const Model& model = DefaultModel())
   {
     mModel = Supported(model) ? model : DefaultModel();
+    mRate = std::max(1., rate);
     mHop = std::max(1, static_cast<int>(std::lround(std::max(1., rate) / mModel.tickRate)));
     mFilters = {};
     mAccumulator = {};
@@ -71,7 +76,8 @@ public:
     mGain.fill(1.);
     mStep.fill(0.);
     mCount = 0;
-    mReduction = 0.;
+    mReduction = mCleanPeak = 0.;
+    mGate.Reset();
     mFirst = true;
     mFastPower = mSlowPower = mOnsetGuard = 0.;
     mOnsetHold = 0;
@@ -98,6 +104,8 @@ public:
     mControlStep = 1. - std::exp(-mHop / (.005 * std::max(1., rate)));
   }
   double Reduction() const { return mReduction; }
+  // Block peak after Mix, before the final gate: what the gate detects.
+  double CleanPeak() const { return mCleanPeak; }
 
   void Process(double* left, double* right, int frames, const Controls& c)
   {
@@ -105,7 +113,9 @@ public:
     const double bias = std::clamp(c.sensitivity, -100., 100.) * .04;
     const double mixTarget = std::clamp(c.mix, 0., 100.) * .01;
     const double protectionTarget = std::clamp(c.attackProtection, 0., 100.) * .01;
+    const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate);
     double minimumGain = 1.;
+    mCleanPeak = 0.;
     if (mFirst)
     {
       // Starts closed after a reset or recall, so idle noise does not burst through
@@ -142,10 +152,16 @@ public:
       // Rounded ramp endpoints can sit an ulp below unity. Once Reduction has
       // settled at zero, return exact dry while continuing all processor histories.
       const double effectiveMix = mReductionDB == 0. ? 0. : mMix * (1. - mProtection * mOnsetGuard);
-      left[sample] = dry[0] + effectiveMix * (wet[0] - dry[0]);
+      // The final gate detects this cleaned signal; when Off its gain is exactly one.
+      const double cleaned[2]{dry[0] + effectiveMix * (wet[0] - dry[0]),
+                              right ? dry[1] + effectiveMix * (wet[1] - dry[1]) : 0.};
+      const double peak = std::max(std::abs(cleaned[0]), std::abs(cleaned[1]));
+      mCleanPeak = std::max(mCleanPeak, peak);
+      const double gateGain = mGate.Tick(peak, gate);
+      left[sample] = cleaned[0] * gateGain;
       if (right)
-        right[sample] = dry[1] + effectiveMix * (wet[1] - dry[1]);
-      minimumGain = std::min(minimumGain, 1. - effectiveMix + effectiveMix * gainSum / bands);
+        right[sample] = cleaned[1] * gateGain;
+      minimumGain = std::min(minimumGain, (1. - effectiveMix + effectiveMix * gainSum / bands) * gateGain);
       if (++mCount >= mHop)
       {
         // Reduction and Sensitivity jumps glide over about 5 ms and then settle exactly.
@@ -371,6 +387,8 @@ private:
   std::array<double, bands> mB0{}, mA1{}, mA2{}, mAccumulator{}, mGain{}, mStep{};
   alignas(16) std::array<float, maxUnits> mState{};
   Model mModel;
+  final_gate::Gate mGate;
+  double mRate = 48000., mCleanPeak = 0.;
   double mSynthesis = 1., mMix = 1., mMixStep = 0., mReduction = 0.;
   double mReductionDB = 40., mBias = 0., mControlStep = 1.;
   int mHop = 32, mCount = 0;

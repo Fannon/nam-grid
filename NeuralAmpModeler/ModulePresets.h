@@ -161,6 +161,10 @@ inline std::string Parse(const nlohmann::json& document, SlotEffect effect, std:
     // so recalling either format must leave Learn off without replacing a legacy profile.
     values.push_back({control, effect == SlotEffect::NoisePrint && control == U(uNoiseLearn) ? 0. : number});
   }
+  // Smart Gate presets from before Tracking keep Fixed, not the Follow insertion default.
+  if (effect == SlotEffect::NoisePrint && schema < kEffectParameters[uNoiseTrackingMode].introducedIn
+      && std::none_of(values.begin(), values.end(), [](const Value& v) { return v.control == U(uNoiseTrackingMode); }))
+    values.push_back({U(uNoiseTrackingMode), kEffectParameters[uNoiseTrackingMode].initial});
   return {};
 }
 inline std::filesystem::path UserFolder(const std::filesystem::path& presetFolder, SlotEffect effect)

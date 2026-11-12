@@ -167,6 +167,20 @@ void TestSmartGateUserPreset()
   legacy["values"]["Noise Learn"] = 1.; // Version 1 could save a live recording toggle.
   assert(Parse(legacy, SlotEffect::NoisePrint, parsed, &profile).empty() && !profile);
   assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == values);
+  // Presets saved before Tracking existed keep Fixed; newer ones keep their saved choice.
+  assert(values[U(uNoiseTrackingMode)] == 1.);
+  auto beforeTracking = trained;
+  beforeTracking["schema"] = kEffectParameters[uNoiseTrackingMode].introducedIn - 1;
+  beforeTracking["values"].erase("Noise Tracking");
+  beforeTracking["values"].erase("Noise Protect Attack");
+  assert(Parse(beforeTracking, SlotEffect::NoisePrint, parsed, &profile).empty());
+  auto fixedValues = values;
+  fixedValues[U(uNoiseTrackingMode)] = 0.;
+  assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == fixedValues);
+  auto savedFixed = trained;
+  savedFixed["values"]["Noise Tracking"] = 0.;
+  assert(Parse(savedFixed, SlotEffect::NoisePrint, parsed, &profile).empty());
+  assert(Apply(SlotEffect::NoisePrint, parsed, SlotDefaultValues(SlotEffect::NoisePrint)) == fixedValues);
   const auto rejected = [&](const nlohmann::json& data) {
     return !Parse(data, SlotEffect::NoisePrint, parsed, &profile).empty();
   };

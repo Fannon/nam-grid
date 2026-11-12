@@ -151,10 +151,15 @@ The onset protector compares 0.2 ms and 20 ms power followers, with a fixed -50 
 regularizer, a 0.1 ms rise, a 3 ms hold and a 5 ms decay. It listens to maximum L/R power,
 so one-sided and inverted stereo attacks remain linked. Its strength and Mix ramp over 5 ms;
 reset takes the initial controls directly. Detector and protection histories reset explicitly.
-Reduction 0 dB and Mix 0% are exactly dry. The gate starts closed after a reset or recall and
+Reduction 0 dB and Mix 0% are exactly dry. The spectral gate starts closed after a reset or recall and
 does not remember earlier automation. Stereo is linked: both channels share one set of gains
 computed from their mean band power, so the image does not move. Unsupported model sizes fall
 back to the built-in model, and the inference path allocates nothing.
+
+The optional final gate is the Smart Gate's (`FinalGate.h`) and uses the same slot parameters,
+Gate threshold and Gate release. It detects the output after Mix and the onset protector, so
+the editor's amber trace and dashed threshold mean the same as in Smart Gate. Off at -100 dB
+leaves the output bit-identical. Reduction 0 dB and Mix 0% stay exactly dry before this gate.
 
 x64 uses SSE2 for the bank and the network. Other targets use portable code with the same
 summation order and exponential polynomial; ARM has no NEON path yet and costs more CPU there.
@@ -174,7 +179,9 @@ mode identity.
 
 ## Noise Gate (Smart)
 
-Tracking defaults to Fixed. With Protect attack at zero, Fixed retains the original
+Tracking's parameter default is Fixed, so older states load as Fixed; new insertions and editor
+resets start at Follow, and module presets saved before Tracking existed apply Fixed
+explicitly. With Protect attack at zero, Fixed retains the original
 processing arithmetic. Optional Follow scales
 the committed print's level at runtime without changing or publishing its powers. A
 control estimator observes the existing stereo-linked band powers about 250 times per
@@ -216,8 +223,8 @@ opens the final gate; digital silence and captures shorter than about 300 ms do 
 existing valid print, and during a new capture the last completed print remains the recallable
 snapshot. Very large or invalid samples are bounded so they cannot poison the filter histories.
 
-The optional final broadband gate works independently of the spectral profile, also without
-learning. It detects the cleaned signal's maximum L/R peak after spectral Mix and before its
+The optional final broadband gate (`FinalGate.h`, shared with Noise Gate (AI)) works
+independently of the spectral profile, also without learning. It detects the cleaned signal's maximum L/R peak after spectral Mix and before its
 own gain (so either channel, including anti-phase input, can open it), applies one linked gain,
 and closes linearly to exact zero over Gate release after a 20 ms hold. Gate release is
 always independent of spectral Release, ranges from 1–500 ms and defaults to 40 ms.
@@ -225,7 +232,8 @@ The final gate defaults to Off. Older states receive the independent release def
 there is no legacy linked timing or sentinel. It has a fixed 0.5 ms opening ramp, 5 ms
 peak-detector decay and 3 dB hysteresis. An enabled gate starts closed after reset or recall to
 avoid an initial noise burst; turning it Off reopens it over 0.5 ms. The GR readout estimates
-band gain plus gate attenuation, capped at 120 dB.
+band gain plus gate attenuation, capped at 120 dB; the editor shows a fully closed gate as
+closed. Its history shades the measured input-to-output level drop separately from this estimate.
 
 The spectral path retains the original gain curve, global confidence protection, causal
 resonator bank, stereo-linked histories and exact neutral paths. The editor's amber history

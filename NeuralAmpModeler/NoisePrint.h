@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include "FinalGate.h"
 #include "NoisePrintCapture.h"
 #include "NoisePrintTracking.h"
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
@@ -102,11 +103,7 @@ public:
     mChanged = true;
     mReduction = 0.;
     mCleanPeak = 0.;
-    mGateEnvelope = 0.;
-    mGateGain = 1.;
-    mGateHold = 0;
-    mGateOpen = false;
-    mGateFirst = true;
+    mGate.Reset();
     constexpr double q = 4.;
     const double step = std::log(4000.) / (bands - 1);
     // The real response of a constant-Q bandpass integrates to
@@ -180,13 +177,7 @@ public:
     const double release = std::exp(-1. / (.001 * std::clamp(c.release, 20., 500.) * mRate));
     const double mixTarget = mProfile.valid && !c.learn && c.reduction > 0. ? std::clamp(c.mix, 0., 100.) * .01 : 0.;
     const double mixStep = 1. / (.005 * mRate);
-    const double gateThreshold = std::clamp(c.gateThreshold, -100., 0.);
-    const bool gateEnabled = !c.learn && gateThreshold > -100.;
-    const double gateLevel = std::pow(10., gateThreshold * .05);
-    const double gateDetectorRelease = std::exp(-1. / (.005 * mRate));
-    const double gateOpenStep = 1. / (.0005 * mRate);
-    const double gateCloseStep = 1. / (.001 * std::clamp(c.gateRelease, 1., 500.) * mRate);
-    const auto gateHoldSamples = static_cast<uint64_t>(.020 * mRate);
+    const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate, !c.learn);
     double learnedPower = 0.;
     std::array<double, bands> inverseThreshold;
     for (int i = 0; i < bands; ++i)
@@ -200,12 +191,6 @@ public:
     double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
-      if (mGateFirst)
-      {
-        // An enabled gate starts closed on recall/reset, avoiding a noise burst.
-        mGateGain = gateEnabled ? 0. : 1.;
-        mGateFirst = false;
-      }
       const double dry[2]{Safe(left[sample]), right ? Safe(right[sample]) : 0.};
       const bool synthesize = mProfile.valid && (mMix > 0. || mixTarget > 0.);
       // Each used channel is fully written before reading. Contiguous band
@@ -258,27 +243,11 @@ public:
                               right ? (neutral ? dry[1] : dry[1] + mMix * (wet[1] - dry[1])) : 0.};
       const double peak = std::max(std::abs(cleaned[0]), std::abs(cleaned[1]));
       mCleanPeak = std::max(mCleanPeak, peak);
-      mGateEnvelope = std::max(peak, Flush(mGateEnvelope * gateDetectorRelease));
-      if (!gateEnabled || mGateEnvelope >= gateLevel)
-      {
-        mGateOpen = true;
-        mGateHold = gateHoldSamples;
-      }
-      else if (mGateOpen)
-      {
-        if (mGateEnvelope >= gateLevel * .7079457843841379) // 3 dB hysteresis.
-          mGateHold = gateHoldSamples;
-        else if (mGateHold)
-          --mGateHold;
-        else
-          mGateOpen = false;
-      }
-      const double gateTarget = mGateOpen ? 1. : 0.;
-      mGateGain += std::clamp(gateTarget - mGateGain, -gateCloseStep, gateOpenStep);
-      left[sample] = cleaned[0] * mGateGain;
+      const double gateGain = mGate.Tick(peak, gate);
+      left[sample] = cleaned[0] * gateGain;
       if (right)
-        right[sample] = cleaned[1] * mGateGain;
-      minimumGain = std::min(minimumGain, (1. - mMix + mMix * gainSum / bands) * mGateGain);
+        right[sample] = cleaned[1] * gateGain;
+      minimumGain = std::min(minimumGain, (1. - mMix + mMix * gainSum / bands) * gateGain);
     }
     mReduction = -20. * std::log10(std::max(1.e-6, minimumGain));
   }
@@ -500,9 +469,8 @@ private:
   Tracking mTracking;
   uint64_t mSamples = 0, mWarmup = 0;
   double mRate = 48000., mMix = 1., mReduction = 0., mSynthesis = 1.;
-  double mGateEnvelope = 0., mGateGain = 1., mCleanPeak = 0.;
-  uint64_t mGateHold = 0;
-  bool mGateOpen = false, mGateFirst = true;
+  double mCleanPeak = 0.;
+  final_gate::Gate mGate;
   bool mLearning = false, mChanged = true;
 };
 } // namespace noise_print

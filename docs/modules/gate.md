@@ -7,7 +7,7 @@ Noise gating, learned noise reduction and an automatic gate.
 | [Noise Gate](#noise-gate) | Threshold opens the gate; Release and Reduction shape the gaps. |
 | [Noise Gate (Smart)](#noise-gate-smart) | Learn the noise alone; Sensitivity and Reduction protect sustain. |
 | [Noise Gate (AI)](#noise-gate-ai) | Experimental automatic hum and hiss reduction; no Learn step. Balance cleanup with quiet notes. |
-| [Digital Black Gate](#digital-black-gate) | Zero-crossing gate darkens quiet tails; Hysteresis adds the strip's re-arming behaviour. |
+| [Digital Black Gate](#digital-black-gate) | Simple, fast gate: low notes hold open longer than high ones. Hysteresis mode is steadier. |
 
 ## Noise Gate
 
@@ -28,7 +28,7 @@ In the header:
 
 - **Mode** (Natural, Tight; starts at Natural) Natural closes gently; Tight clamps gaps more firmly. Threshold, Release and Reduction remain independent.
 
-**Display:** The static gate curve with a dot at the live input, and the input/output history.
+**Display:** The static gate curve with a dot at the live input, and the input/output history. The shade from the top of the history shows the measured drop from input to output.
 
 **Tips:**
 
@@ -55,9 +55,9 @@ The final gate starts **Off**. Gate release always controls its closing time sep
 
 The header's **Learn** switch captures the unwanted noise; turn it off before playing. Brief capture outliers have less influence on the print. Protect attack starts at 100%, also in existing projects; 0% restores the previous opening response.
 
-The header's **Tracking** selector starts at **Fixed**. **Follow** slowly raises the temporary noise estimate by up to 6 dB after a stable match to the learned noise. Attacks, coherent decays and tonal profiles inhibit upward tracking. Allow a few seconds of idle noise; learn again when its character changes. See [tracking tips](noise-gate-smart.md#follow-a-changing-noise-level).
+The header's **Tracking** selector starts at **Follow** for a newly added Smart Gate; projects and module presets from before Tracking existed load as **Fixed**. Follow slowly raises the temporary noise estimate by up to 6 dB after a stable match to the learned noise. Attacks, coherent decays and tonal profiles inhibit upward tracking. Allow a few seconds of idle noise; learn again when its character changes. See [tracking tips](noise-gate-smart.md#follow-a-changing-noise-level).
 
-**Display:** Gray shows input, amber shows the cleaned signal before the final gate, and the module colour shows output. The dashed threshold applies to the amber trace. The GR bar estimates combined attenuation.
+**Display:** Gray shows input, amber shows the cleaned signal before the final gate, and the module colour shows output. The dashed threshold applies to the amber trace. The GR bar estimates combined attenuation; the shade from the top shows the measured drop from input to output on the same scale. When the final gate is fully closed the readout says **closed**: the output is silent.
 
 **Tips:**
 
@@ -72,15 +72,20 @@ An experimental gate with no threshold or Learn step. A small neural network est
 | **Reduction** | 0–60 dB | 24 dB | Maximum reduction in bands the gate judges to be noise. Less leaves a little room tone in pauses. |
 | **Sensitivity** | -100 to +100% | 0% | Higher closes sooner and cleans more between notes; lower protects quiet picking and long ring-outs. |
 | **Protect attack** | 0–100% | 50% | Preserve clear pick attacks while the network catches up. Higher values also let more sudden noise bursts through; zero leaves all decisions to the network. |
+| **Gate threshold** | -100 to 0 dB | -100 dB | Final gate detects the cleaned signal after Mix. Minimum is Off; raise carefully to avoid cutting sustain. |
 | **Mix** | 0–100% | 100% | Blend between the untreated input and the gated signal. |
+| **Gate release** | 1–500 ms | 40 ms | Closing time of the final gate after its hold. Short times tighten gaps; longer times fade more gently. |
 
-**Display:** Gray shows input and the module colour shows output. The GR bar estimates the current attenuation.
+The final gate is the same as Smart Gate's and starts **Off**. It listens to the AI Gate's cleaned output, so leftover hum, buzz or bursts the network lets through can be cut in pauses without setting the threshold against the raw noise.
+
+**Display:** As Smart Gate: gray input, amber cleaned signal before the final gate, module-colour output and the dashed threshold on the amber trace. The GR bar estimates combined attenuation, the shade from the top shows the measured drop from input to output, and the readout says **closed** when the final gate silences the output.
 
 **Tips:**
 
 - Put it in a Pre slot, before drives and captures, like the other gates.
 - Start with the defaults. If long ring-outs fade too early, lower Sensitivity; if noise lingers after notes, raise it.
 - It adds no latency. Protect attack helps clear onsets, but some attenuation at the beginning of a note remains. Compare quiet picking and abrupt noise bursts when adjusting it.
+- If some noise remains in pauses, raise Gate threshold until the amber trace's idle noise sits just below the dashed line.
 - Lower Protect attack if changing interference opens the gate too easily. Its detector favours clear, stronger attacks rather than faint picking.
 - It was trained on guitar. Other sources can be gated in unexpected ways.
 - [Noise Gate (Smart)](#noise-gate-smart) remains the better choice when the noise is steady and you want the gentlest handling of ring-outs: its learned profile knows your exact noise.
@@ -89,20 +94,20 @@ An experimental gate with no threshold or Learn step. A small neural network est
 
 ![Digital Black Gate editor](../screenshots/modules/digital-black-gate.png)
 
-A gate after Airwindows DigitalBlack that darkens notes as they close, or the firmer gate from Airwindows CStrip in Hysteresis mode.
+A simple, fast gate based on Airwindows DigitalBlack, with no attack or release knobs to set. It closes quickly once a note falls below Threshold, and how long it waits first follows the pitch: low notes stay open longer than high ones. Hysteresis mode, from Airwindows CStrip, is a steadier gate for noise that hovers around Threshold.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
 | **Threshold** | -74 to -10 dB | -55 dB | Level that opens the gate. |
-| **Hold** | 0–200 ms | 0 ms | Keeps the gate open this long after the signal last crossed Threshold, so noise near Threshold does not make it chatter. 0 ms is the original Airwindows gate. |
+| **Hold** | 0–200 ms | 0 ms | Keeps the gate open a little longer after the signal drops below Threshold. Raise it if the gate flutters on noise; 0 ms is the original behaviour. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume before judging the effect. |
-| **Mix** | 0–100% | 100% | Balance between dry sound and the gate with its darkened closing texture. |
+| **Mix** | 0–100% | 100% | Blend with the ungated signal. Lower values keep some noise and room tone in pauses. |
 
 In the header:
 
-- **Mode** (Zero crossing, Hysteresis; starts at Zero crossing) Zero crossing darkens notes as they close; Hysteresis is a firmer gate that re-arms cleanly. Switching fades smoothly.
+- **Mode** (Zero crossing, Hysteresis; starts at Zero crossing) Zero crossing closes fast and lets low notes ring longer; Hysteresis is steadier and flutters less around Threshold. Switching fades smoothly.
 
-**Display:** Input against output with the threshold, and the attenuation history.
+**Display:** Input against output with the threshold, and the attenuation history. The shade from the top of the history shows the measured drop from input to output, before Output.
 
 **Tips:**
 

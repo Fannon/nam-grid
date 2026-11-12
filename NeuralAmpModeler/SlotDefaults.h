@@ -35,6 +35,10 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       v[3] = -55.; v[4] = 150.; break;
     case SlotEffect::AIGate:
       set(uAIGateReduction, 24.); break;
+    case SlotEffect::NoisePrint:
+      // New Smart Gates follow a steady rise in the learned noise. The descriptor stays
+      // Fixed, so projects and module presets from before Tracking keep their sound.
+      set(uNoiseTrackingMode, 1.); break;
     case SlotEffect::SmoothComp:
       v[6] = -24.; v[7] = 150.; v[8] = 3.; set(uCompAttack, 10.); break;
     case SlotEffect::PunchComp:
@@ -116,12 +120,11 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       set(uLoFiWow, 50.); set(uLoFiFlutter, 28.); set(uLoFiNoise, 0.); set(uLoFiWear, 0.); break;
     case SlotEffect::OutboardChannel:
       set(uStripCompress, 20.); set(uStripOutput, 0.); break;
-    // Neutral EQ/utility, modest octave blend, unlatched Freeze, and the
-    // already auditioned Smart Gate retain the descriptor defaults.
+    // Neutral EQ/utility, modest octave blend and unlatched Freeze retain the descriptor defaults.
     case SlotEffect::NAM: case SlotEffect::CabinetIR: case SlotEffect::ToneEQ:
     case SlotEffect::ParametricEQ: case SlotEffect::Wah: case SlotEffect::Utility: case SlotEffect::Limiter:
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
-    case SlotEffect::NoisePrint: case SlotEffect::AirPlate: case SlotEffect::AirHall:
+    case SlotEffect::AirPlate: case SlotEffect::AirHall:
     case SlotEffect::GalacticSpace:
     case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalDrive: case SlotEffect::PedalComp: break;

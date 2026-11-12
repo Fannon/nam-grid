@@ -863,6 +863,8 @@ inline bool UsesCoupledStereo(SlotEffect e)
 inline bool UsesUtility(SlotEffect e, int p)
 {
   if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
+  // Noise Gate (AI) shares Smart Gate's final gate.
+  if (p == uNoiseGateThreshold || p == uNoiseGateRelease) return e == SlotEffect::NoisePrint || e == SlotEffect::AIGate;
   if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
   if (p == uDistLowPreserve) return e == SlotEffect::Distortion;
   if (p >= uPitchInterval && p <= uPitchMix) return e == SlotEffect::PitchShift;

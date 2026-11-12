@@ -88,10 +88,64 @@ inline void TestAIGateProtectionCost()
   assert(Render(processor, input, c) == plain);
 }
 
+inline void TestAIGateFinalGate()
+{
+  using namespace ai_gate_tests;
+  // Reduction 0 is exact dry, isolating the final gate shared with Smart Gate.
+  constexpr double rate = 48000.;
+  std::vector<double> input(static_cast<int>(1.2 * rate));
+  uint32_t seed = 5;
+  for (int i = 0; i < static_cast<int>(input.size()); ++i)
+    input[i] = Noise(seed, i, rate) + Note(i / rate - .3) * (i < .7 * rate ? 1. : 0.);
+  ai_gate::Processor processor;
+  ai_gate::Controls c;
+  c.reduction = 0.;
+  processor.Reset(rate);
+  assert(Render(processor, input, c) == input); // Off at -100 dB.
+  c.gateThreshold = -30.; // Above the -52 dBFS noise, below the note.
+  processor.Reset(rate);
+  const auto gated = Render(processor, input, c);
+  // Starts closed, passes the note unchanged once open, then closes after it.
+  assert(Energy(gated, 0., .29, rate) < 1.e-6 * Energy(input, 0., .29, rate));
+  assert(Energy(gated, .32, .6, rate) > .999 * Energy(input, .32, .6, rate));
+  assert(Energy(gated, .9, 1.2, rate) < 1.e-6 * Energy(input, .9, 1.2, rate));
+  assert(processor.Reduction() > 100.);
+  // A longer Gate release fades more of what follows the note.
+  c.gateRelease = 400.;
+  processor.Reset(rate);
+  const auto slow = Render(processor, input, c);
+  assert(Energy(slow, .7, .9, rate) > 2. * Energy(gated, .7, .9, rate));
+
+  // In a slot, AI Gate uses Smart Gate's Gate threshold and Gate release parameters.
+  assert(UsesUtility(SlotEffect::AIGate, uNoiseGateThreshold) && UsesUtility(SlotEffect::AIGate, uNoiseGateRelease));
+  assert(!UsesUtility(SlotEffect::AIGate, uNoiseRelease) && !UsesUtility(SlotEffect::AIGate, uNoiseLearn));
+  SlotConfig config;
+  config.effect = SlotEffect::AIGate;
+  NAMStage stage;
+  stage.Publish(PrepareSlot(config, rate, 128).dsp);
+  stage.ResetStopped(rate, 128);
+  UtilityControls utility;
+  utility.aiGate.reduction = 0.;
+  utility.noise.gateThreshold = -30.;
+  std::array<double, 128> block;
+  seed = 5;
+  double energy = 0.;
+  for (int done = 0; done < 4800; done += 128)
+  {
+    for (int i = 0; i < 128; ++i)
+      block[i] = Noise(seed, done + i, rate);
+    stage.Process(block.data(), 128, true, 0., 0., {}, {}, utility);
+    for (double x : block)
+      energy += x * x;
+  }
+  assert(energy == 0.);
+}
+
 inline void TestAIGate()
 {
   using namespace ai_gate_tests;
   TestAIGateProtectionCost();
+  TestAIGateFinalGate();
   // The built-in weights are finite; unsupported models never reach the inference loops.
   {
     namespace m = ai_gate::model;

@@ -361,8 +361,12 @@ module loops cheap without changing output:
   across accumulators. Pairing two of them in one register is bit-identical;
   reordering taps within one, or letting the compiler contract multiply-add pairs,
   is not. The minimum-phase FIR oversampler (Tube Boost, LoFi Tape) packs phases with SSE2
-  on x64 and NEON for its 4x path on arm64; other paths retain scalar loops.
-  SSE2 requires no AVX/FMA dispatch or extra latency. `-DNAM_PEDAL_DRIVE_SCALAR`
+  on x64 and NEON for its 2x/4x paths on arm64. Other arm64 factors retain
+  scalar loops. Long 2x/4x NEON sums use independent
+  accumulators and explicit fused multiply-add; the collapsed dry reference
+  splits its NEON sum too. Like the x64 4x split, these agree with the portable
+  loop to roundoff rather than bit for bit. Other tap counts retain sequential
+  accumulation. SSE2 requires no AVX/FMA dispatch or extra latency. `-DNAM_PEDAL_DRIVE_SCALAR`
   forces the portable path for comparisons.
 
 Confirm such changes are bit-identical with `verify-fx-processing.py`. A change

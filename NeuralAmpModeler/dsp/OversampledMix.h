@@ -41,9 +41,15 @@ public:
     std::array<double, 2> lanes{}; _mm_storeu_pd(lanes.data(), sum);
     result = lanes[0] + lanes[1];
 #elif defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
-    auto sum = vdupq_n_f64(0.);
-    for (int i = 0; i < taps - 1; i += 2)
-      sum = vaddq_f64(sum, vmulq_f64(vld1q_f64(mKernel.data() + i), vld1q_f64(mHistory.data() + mIndex + i)));
+    // BaseTaps is even, so the paired loop covers every tap except the last.
+    // Independent fused sums avoid a single long NEON dependency chain.
+    auto a = vdupq_n_f64(0.), b = a;
+    for (int i = 0; i < taps - 1; i += 4)
+    {
+      a = vfmaq_f64(a, vld1q_f64(mKernel.data() + i), vld1q_f64(mHistory.data() + mIndex + i));
+      b = vfmaq_f64(b, vld1q_f64(mKernel.data() + i + 2), vld1q_f64(mHistory.data() + mIndex + i + 2));
+    }
+    const auto sum = vaddq_f64(a, b);
     result = vgetq_lane_f64(sum, 0) + vgetq_lane_f64(sum, 1);
 #else
     for (int i = 0; i < taps - 1; ++i) result += mKernel[i] * mHistory[mIndex + i];

@@ -94,12 +94,12 @@ Distortion pedals with more gain than Pedal Drive's overdrives and a real tone s
 
 | Style | Inspired by | Sound and use |
 | --- | --- | --- |
-| **Classic Dist** | The orange-box distortion of the late '70s (DS-1 family) | Bright, scooped, gritty. Punk, grunge and classic rock into a clean or edge-of-breakup amp. |
-| **Raw Dist** | Simple op-amp and germanium-diode pedals (Distortion+ and 250 family) | Raspy and fizzy, with soft clipping. It keeps its bass at low Gain and thins out as Gain rises. Pushes a crunchy amp; '80s rock rhythm. |
-| **British Crunch** | Amp-in-a-box pedals voiced like a cranked plexi (Guv'nor, Plextortion and Crunch Box family) | Mid-forward and darker, two preamp-like stages. Classic rock rhythm into a clean amp. |
-| **Hot Lead** | Hot-rodded British lead boxes (Shredmaster, Riot and similar) | Tighter bass, more gain and a smooth top for modern rock rhythm and solos. |
-| **Metal Stack** | High-gain metal pedals with active EQ (Metal Zone family) | Pre-clip mid hump and a scooped, aggressive post voicing. Carve it with Mid and Mid freq. |
-| **Chainsaw** | The Swedish death-metal pedal with every knob at maximum (HM-2 family) | Dense, raspy distortion with huge peaks at 87 Hz and around 1 kHz. Old-school death metal and crust. |
+| **Classic Dist** | Classic late-'70s single-knob distortion voicing | Bright, scooped, gritty. Punk, grunge and classic rock into a clean or edge-of-breakup amp. |
+| **Raw Dist** | Simple op-amp and germanium-diode distortion boxes | Raspy and fizzy, with soft clipping. It keeps its bass at low Gain and thins out as Gain rises. Pushes a crunchy amp; '80s rock rhythm. |
+| **British Crunch** | Amp-in-a-box pedals voiced like a cranked British plexi-style stack | Mid-forward and darker, two preamp-like stages. Classic rock rhythm into a clean amp. |
+| **Hot Lead** | Hot-rodded British-style lead boxes | Tighter bass, more gain and a smooth top for modern rock rhythm and solos. |
+| **Metal Stack** | High-gain metal pedals with active EQ | Pre-clip mid hump and a scooped, aggressive post voicing. Carve it with Mid and Mid freq. |
+| **Chainsaw** | Old-school high-gain distortion with every tone knob at maximum | Dense, raspy distortion with huge peaks at 87 Hz and around 1 kHz. Old-school death metal and crust. |
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -129,7 +129,7 @@ In the header:
 - For metal, raise Tight to 30–50% and put a gate before the pedal. The classic Chainsaw sound keeps the EQ flat: the style already has every tone knob at maximum.
 - Lower Treble before raising Gain if the result fizzes; a cabinet IR or amp capture after the pedal also rounds off the top end.
 
-Design references (no circuit-model code was copied): the BOSS DS-1, MT-2 and HM-2 owner's manuals; Electric Druid's [Metal Zone analysis](https://electricdruid.net/boss-mt-2-metal-zone-pedal-analysis/); the PedalPCB forum's [HM-2 tone-stack analysis](https://forum.pedalpcb.com/threads/tone-stacks-part-3-tube-screamer-hm-2-gyrators.8557); and the published MXR Distortion+ and DOD 250 schematics. Product and company names identify design references and belong to their owners; NAM Grid is not affiliated with or endorsed by them.
+Design references (no circuit-model code was copied): published owner's manuals, schematics and tone-stack analyses of classic distortion and high-gain pedals. Product and company names belong to their owners; NAM Grid is not affiliated with or endorsed by them.
 
 ## Boost
 

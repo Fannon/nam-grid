@@ -1,0 +1,45 @@
+{
+  "kit": "amber",
+  "pages": [
+    {
+      "name": "AMP",
+      "columns": [
+        [
+          "Amp Knob 1",
+          "Amp Knob 5",
+          "Amp Knob 6",
+          "Amp Knob 7"
+        ],
+        [
+          "Amp Knob 2",
+          "Amp Knob 3",
+          "Amp Knob 4",
+          "Amp Opt 1"
+        ],
+        [
+          "Amp Folder",
+          "Amp File",
+          "Rescan"
+        ],
+        [
+          "Gate Type",
+          "Cab On"
+        ]
+      ],
+      "headings": [
+        "LEVELS",
+        "TONE",
+        "CAPTURE",
+        "GATE / CAB"
+      ]
+    },
+    {
+      "name": "GATE",
+      "section": "Gate"
+    },
+    {
+      "name": "CAB",
+      "section": "Cab"
+    }
+  ]
+}

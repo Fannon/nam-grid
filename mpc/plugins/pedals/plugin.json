@@ -1,0 +1,15 @@
+{
+  "name": "NAM Grid Pedals",
+  "manufacturer": "Simon Heimler",
+  "version": "0.1.0",
+  "format": "vst2",
+  "kind": "effect",
+  "uid": "NGPd",
+  "category": "Distortion",
+  "numInputs": 2,
+  "numOutputs": 2,
+  "file64": "VST/nam-grid-pedals-arm64.so",
+  "description": "Pedal Comp into Pedal Drive and Pedal Distortion voices.",
+  "url": "https://github.com/Fannon/nam-grid",
+  "license": "MIT"
+}

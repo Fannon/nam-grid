@@ -2,7 +2,7 @@
 
 Ten selectable ambient echo and reverb styles, from rhythmic repeats to vast washes. Find **Cosmic Echo** in the Reverb category.
 
-The first six styles are directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). Those styles are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical. **Aurora Hall**, **Pulsar Echo**, **Binary Bloom** and **Photon Plate** are original NAM Grid designs with different diffusion and feedback arrangements.
+The first six styles are adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/) of a commercial reverb-echo algorithm. Those styles are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical. **Aurora Hall**, **Pulsar Echo**, **Binary Bloom** and **Photon Plate** are original NAM Grid designs with different diffusion and feedback arrangements.
 
 ![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
@@ -105,9 +105,8 @@ Similar tail lengths do not mean the same response. Compare **Pointillist echoes
 build-up needs more space between phrases. **Diffusing echo trail** uses Great
 Annihilator's shared delay/diffusion loop to connect echoes to a reverb tail.
 
-The dense, high-Warp recipes follow the principles in Valhalla DSP's
-[Controls](https://valhalladsp.com/2020/05/06/valhallasupermassive-the-controls/)
-and [Modes](https://valhalladsp.com/2020/05/07/valhallasupermassive-the-modes/)
+The dense, high-Warp recipes follow general principles of this family of reverb-echoes:
+Warp, Density and the mode choice
 guides. Velvet constellation and Dark orbit also take inspiration from personal
 Supermassive settings for dense, modulated spaces. They are NAM Grid recipes:
 Supermassive's normalized preset fields, extra modes, modulation rate and EQ

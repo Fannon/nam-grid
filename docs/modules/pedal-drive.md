@@ -23,11 +23,11 @@ All eight dial positions are available for sound controls.
 | **Sustain Fuzz** | Cascaded clipping, interstage filtering and scooped mids | Dense guitar leads, heavy bass fuzz and sustained chords |
 | **Cascaded Preamp** | Two mildly asymmetric stages with filtering between them | Gentle breakup and a warmer bass upper band |
 | **Treble Drive** | Bass-light colored boost with asymmetric grit | Push a crunchy amp capture for classic rock sounds |
-| **Blues OD** | Bluesbreaker-inspired, bandwidth-limited gain into soft clipping with a clean contribution | Light breakup, chord definition and stacking into another drive |
-| **Transparent OD** | Restrained voicing with bass shaping before clipping and treble filtering afterward | Timmy-inspired boost and overdrive that preserves more of the surrounding rig's character |
-| **Vintage Fuzz** | Two inverting stages with coupling and bias-dependent decay | Fuzz Face-inspired leads, rounder fuzz or pinched, gated textures |
-| **Bender Fuzz** | A bass-cut first stage into a high-gain asymmetric pair: more gain and mids than Vintage Fuzz | Tone Bender-inspired raspy riffs and sustaining, cutting leads |
-| **Octave Fuzz** | Fuzz, smooth full-wave rectification, then more fuzz: a ringing octave up | Octavia-inspired single-note leads; strongest on higher frets and the neck pickup |
+| **Blues OD** | Blues-style, bandwidth-limited gain into soft clipping with a clean contribution | Light breakup, chord definition and stacking into another drive |
+| **Transparent OD** | Restrained voicing with bass shaping before clipping and treble filtering afterward | Transparent boost and overdrive that preserves more of the surrounding rig's character |
+| **Vintage Fuzz** | Two inverting stages with coupling and bias-dependent decay | Vintage transistor-fuzz leads, rounder fuzz or pinched, gated textures |
+| **Bender Fuzz** | A bass-cut first stage into a high-gain asymmetric pair: more gain and mids than Vintage Fuzz | Raspy, sustaining riffs and cutting leads |
+| **Octave Fuzz** | Fuzz, smooth full-wave rectification, then more fuzz: a ringing octave up | Single-note octave-up leads; strongest on higher frets and the neck pickup |
 | **Gated Fuzz** | A starved second stage that only conducts above a threshold: full fuzz on loud notes, then narrowing, sputtering pulses and an abrupt cut-off. Pauses are silent | Velcro-like riffs and stabs; staccato parts that need dead silence between notes. Drive sets how long notes sustain |
 | **Sub Fuzz** | An octave divider flips every other cycle of the note, then fuzz: a synth-like note one octave down | Single-note riffs and bass-synth lines. Play one note at a time, ideally on the neck pickup; chords and fading notes glitch, which is part of the sound |
 
@@ -223,35 +223,14 @@ stateful processing. The footer meters show the module's actual input, output an
 
 ## Design references
 
-No pedal-model source code was copied. The original implementation uses the following
-published designs and descriptions as references:
+No pedal-model source code was copied. The original implementation uses published
+schematics, owner's manuals and general circuit descriptions of classic booster, fuzz,
+octave and high-gain circuits as references. The voices were voiced against measurements of
+NAM captures of commercial pedals; they are inspired by those sounds, not replicas.
 
-- [Aion Stratus schematic and notes](https://aionfx.com/app/files/docs/stratus_documentation.pdf):
-  mid-focused feedback clipping and low-frequency gain shaping.
-- [Aion Helios schematic and notes](https://aionfx.com/app/files/docs/helios_documentation.pdf):
-  frequency-shaped gain followed by diode-to-ground clipping.
-- [Aion Refractor documentation](https://aionfx.com/app/files/docs/refractor_documentation.pdf):
-  coupled gain and internal clean/clipped blending.
-- [Aion Halo documentation](https://aionfx.com/app/files/docs/halo_documentation.pdf):
-  cascaded clipping and midrange shaping.
-- [Aion Cerulean schematic and notes](https://aionfx.com/app/files/docs/cerulean_documentation.pdf):
-  Bluesbreaker-family gain structure and soft/hard clipping options.
-- [MXR Timmy manual](https://www.jimdunlop.com/content/manuals/CSP027.pdf):
-  pre-drive bass shaping, post-drive treble filtering and clipping/headroom choices.
-- [Aion Solaris schematic and notes](https://aionfx.com/app/files/docs/solaris_documentation.pdf):
-  Fuzz Face-family coupled stages, input/body controls and adjustable bias.
-- Published Sola Sound Tone Bender MkII and Tycobrahe Octavia schematics: a three-transistor
-  fuzz and a transformer/diode full-wave rectifier octave fuzz. The voices were voiced against
-  measurements of NAM captures of a BOSS TB-2w and an EarthQuaker Fuzz Master General.
 - Gated Fuzz and Sub Fuzz follow general circuit ideas, not one pedal: a misbiased,
   starved transistor stage that stops conducting as the note decays, and a flip-flop
   octave divider that inverts every other cycle of the note.
-- [Darkglass B3K](https://www.darkglass.com/pages/microtubes-b3k-manual) and
-  [X Ultra](https://www.darkglass.com/pages/microtubes-x-ultra-manual) manuals:
-  clean-signal blending and separate low/high processing.
-- [Keeley Katana](https://robertkeeley.com/product/katana-boost/) and
-  [BOSS BD-2](https://www.boss.info/global/products/bd-2/): staged preamp/drive concepts.
-- [Analog Man Beano Boost](https://www.analogman.com/beano.htm): a colored, frequency-selective booster.
 
 For the aliasing problem and approaches beyond oversampling, see
 [Parker, Zavalishin and Le Bivic, DAFx 2016](https://www.dafx.de/paper-archive/2016/dafxpapers/20-DAFx-16_paper_41-PN.pdf).

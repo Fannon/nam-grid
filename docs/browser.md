@@ -22,7 +22,7 @@ title wraps in full; its table follows below it. Long titles and their details
 scroll together so the remaining fields stay accessible.
 
 Folders starting with `_` appear first among siblings. The NAM and IR sidebars
-show only library folders. Use search tags such as `vendor:fender`, `creator:amalgam`
+show only library folders. Use search tags such as `vendor:brand`, `creator:maker`
 or `eq:balanced`, or click a value in Details to search for it. **All folders**
 clears the folder selection; search and stars still apply.
 
@@ -48,9 +48,9 @@ not verified equipment or processing, and never change the file or sound.
 
 Folder inference stays within the configured library root. The nearest matching
 folder wins for each category, and filename hints take precedence over folders.
-For example, `Pedals/Ibanez/Take.nam` supplies a pedal category and device vendor;
-`Amalgam/Fender/Clean/Take.nam` supplies creator, vendor and gain hints.
-IR provider folders such as `OwnHammer` and `Celestion` supply creator hints.
+For example, `Pedals/Brand/Take.nam` supplies a pedal category and device vendor;
+`Maker/Brand/Clean/Take.nam` supplies creator, vendor and gain hints.
+IR provider folders such as `Provider` supply creator hints.
 
 IR names follow each vendor's own habits rather than the NAM grammar, so they have their
 own vocabulary. It recognises cabinet sizes and back types (`412`, `1x12`, `112 C`, `Closed`),
@@ -69,8 +69,8 @@ a folder named after a cabinet IR maker does. Short vendor codes must be upper c
 Knob settings are never read from IR names.
 
 NAM names outside the structured grammar get the same care. A brand can sit anywhere, such
-as `Vintage Marshall Plexi`. A name that matches no known unit falls back to its model family
-(`Marshall JCM800`). Setting labels tied to one source's gear, such as a Mesa channel called
+as `Vintage Brand Plexi`. A name that matches no known unit falls back to its model family
+(`Brand JCM800`). Setting labels tied to one source's gear, such as a channel called
 `Vintage`, apply only inside the structured Setting field.
 
 Explicit role folders also support names outside the dictionary:
@@ -130,11 +130,11 @@ Search is focused whenever the browser opens, including **+ Add module**, so you
 
 | Example | Finds |
 | --- | --- |
-| `vox clean` | Items containing both words |
+| `clean combo` | Items containing both words |
 | `"silver clean" -bright` | That phrase, excluding `bright` |
-| `maker:vox model:ac30` | Matching capture maker and model |
-| `creator:amalgam eq:balanced` | Expanded capture creator and EQ hints |
-| `speaker:celestion` | Detected speaker labels in NAM or IR filenames |
+| `maker:brand model:combo-30` | Matching capture maker and model |
+| `creator:maker eq:balanced` | Expanded capture creator and EQ hints |
+| `speaker:12-inch` | Detected speaker labels in NAM or IR filenames |
 | `category:hall` | IRs detected as halls; also `cabinet`, `acoustic`, `plate`, `spring` |
 | `mic/cab:"4x12 cabinet" mic/cab:md421` | Cabinet size and microphone in IR filenames |
 | `path:"amp heads" -name:test` | A folder phrase, excluding test filenames |

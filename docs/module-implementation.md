@@ -42,8 +42,8 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   Dattorro/Griesinger tank; Cloud is a rotating stereo allpass loop. Decay is nominal RT60,
   0.15–30 s; Size 25–200%; Damping 800–12000 Hz; Pre-delay 0–200 ms; Low cut filters only
   the wet input. See [reverb core adaptations](../NeuralAmpModeler/dsp/reverb/README.md).
-- **Cosmic Echo** uses David Braun's MIT Faust reconstruction of the Valhalla Supermassive
-  algorithms; see [Cosmic Echo](#cosmic-echo) below and the [player guide](modules/cosmic-echo.md).
+- **Cosmic Echo** uses David Braun's MIT Faust reconstruction of a commercial reverb-echo
+  algorithm; see [Cosmic Echo](#cosmic-echo) below and the [player guide](modules/cosmic-echo.md).
 - **Shimmer** is an eight-line reverb with granular pitched feedback (±24 semitones); Freeze
   holds the tail and stops new input. Polyphonic pitch shifting and a harmonizer are not
   implemented.
@@ -317,7 +317,7 @@ In the first six styles, Warp, Density, Feedback and modulation keep the source 
 uses a quadratic dial; Time/Warp automation moves allpass-interpolated reads and can bend the
 sounding tail. Style changes fade and clear the old tail. The display is rendered by a private
 copy of the DSP whenever a setting changes: a measured impulse response, not an RT60 estimate.
-See the [Faust reference](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive).
+See the [Faust reference library](https://faustlibraries.grame.fr/libs/reverbs/).
 
 Aurora Hall is an original NAM Grid design: Density controls an orthogonal eight-way scattering network and the allpass coefficients inside the loops. Warp spreads clustered main delays; short diffusers retain irregular spacing. Loop filters damp successive repeats. All delays scale with sample rate and process every host sample. No Airwindows source or undersampling is used. The existing sixteen-line bank supplies eight main delays and eight diffusers. See [Aurora Hall settings](modules/cosmic-echo.md#aurora-hall-echoes-and-washes).
 

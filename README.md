@@ -135,9 +135,8 @@ NAM Grid is built on the work of many open-source projects:
     CStrip2, BussColors4, ButterComp2, DigitalBlack and CStrip's gate.
   - **[Faust reverb library](https://faustlibraries.grame.fr/libs/reverbs/)**
     (GRAME) — [JPverb](https://faustlibraries.grame.fr/libs/reverbs/#rejpverb),
-    Greyhole, and David Braun's MIT Faust reconstruction of the
-    [Valhalla Supermassive](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive)
-    algorithms behind Cosmic Echo.
+    Greyhole, and David Braun's MIT Faust reconstruction of the reverb algorithms
+    behind Cosmic Echo.
   - **[Signalsmith Audio basics](https://github.com/Signalsmith-Audio/basics)**
     (Geraint Luff) — the Room/Hall reverb cores.
   - **[Mutable Instruments Clouds](https://github.com/pichenettes/eurorack/tree/master/clouds)**

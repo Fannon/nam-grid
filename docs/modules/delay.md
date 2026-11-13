@@ -84,12 +84,8 @@ for tight rhythm. Digital Delay's Ducking makes space while notes sound. A
 longer Duck release keeps echoes down through short gaps; a shorter release lets
 them return sooner. Check stereo recipes folded to mono as well as in stereo.
 
-These choices draw on the author's personal ValhallaDelay Analog Past,
-ChromeTape for Pads and Space 1 settings and Valhalla DSP's
-[Controls](https://valhalladsp.com/2019/04/16/valhalladelay-the-controls/),
-[Style](https://valhalladsp.com/2019/04/16/valhalladelay-the-style-control/) and
-[Diffusion](https://valhalladsp.com/2019/06/13/valhalladelay-the-diffusion-section/)
-guides. They adapt playing roles, not normalized preset values or exact sounds.
+These choices draw on the author's own analog-style and tape-style delay settings
+and on general delay-control practice. They adapt playing roles, not normalized preset values or exact sounds.
 For example, NAM Grid's Analog Echo does not have ValhallaDelay's ducking, and
 Tape Echo does not expose its diffusion controls. Quiet ducked support uses
 Digital Delay, while Gentle pad echoes uses Diffused Delay.

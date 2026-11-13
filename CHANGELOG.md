@@ -45,7 +45,7 @@ A wider editor, clean lows under Distortion and much richer IR details in the br
 
 - **IR details from file names:** the browser now shows cabinet size and back, speaker, mic and position, acoustic guitar and pickup, reverb unit, and a type such as Cabinet, Bass cabinet, Acoustic, Hall, Plate or Spring. This covers common IR makers and gear rather than one vendor's naming. Search with `category:hall`, `speaker:creamback` or `mic/cab:md421`.
 - **Better NAM capture details:** more brands, mics and speakers, and model families such as `JCM800` for names without an exact match.
-- **Fewer false labels:** `V60` is no longer read as a volume setting, `Art Museum` no longer as the ART brand, and a folder called `Distortion` no longer marks its captures as an MXR pedal.
+- **Fewer false labels:** `V60` is no longer read as a volume setting, `Art Museum` no longer as the ART brand, and a folder called `Distortion` no longer marks its captures as a particular pedal brand.
 
 ### Host compatibility
 

@@ -17,7 +17,7 @@ Settings' **Keep dry level** toggle applies to every delay and reverb in the rig
 | [Airwindows Plate](#airwindows-plate) | Airwindows kPlate140: dense plate character; Sustain sets the length. |
 | [Airwindows Guitar Hall](#airwindows-guitar-hall) | Airwindows kGuitarHall2: colored hall with selectable early-reflection positions. |
 | [Galactic Space](#galactic-space) | Airwindows Galactic3: huge stereo space; Replace controls how new notes enter the wash. |
-| [Cosmic Echo](#cosmic-echo) | Reverb-echo styles adapted from a commercial algorithm; Warp spreads echoes into a wash, Density then thickens it. |
+| [Cosmic Echo](#cosmic-echo) | Valhalla Supermassive-inspired; Warp spreads echoes into a wash, Density then thickens it. |
 
 ## Room
 
@@ -225,7 +225,7 @@ Airwindows Galactic3's huge, slowly evolving stereo space. Replace sets how quic
 
 ![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
-Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction of a commercial reverb-echo algorithm, plus four original NAM Grid networks: Aurora Hall, Pulsar Echo, Binary Bloom and Photon Plate. See [Cosmic Echo](cosmic-echo.md) for the styles.
+Six ambient echo and reverb styles from David Braun's MIT Faust reconstruction of the Valhalla Supermassive algorithms, plus four original NAM Grid networks: Aurora Hall, Pulsar Echo, Binary Bloom and Photon Plate. See [Cosmic Echo](cosmic-echo.md) for the styles.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |

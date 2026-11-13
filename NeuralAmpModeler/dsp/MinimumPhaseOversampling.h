@@ -198,13 +198,56 @@ private:
       x /= sum;
     MinimumPhase();
   }
-  // The dot products dominate the cost of every oversampled module. On arm64 each
-  // phase accumulates its taps in the scalar order, two phases to a register; x64
-  // also splits each 4x sum over several accumulators; other targets keep the
-  // portable loop. The variants agree to roundoff.
+  // Pair independent phases in SIMD registers and split long sums across four
+  // accumulators to hide add latency (2x/4x on arm64, 4x on x64). NEON uses
+  // explicit fused multiply-add; regrouping and fusion agree with the portable
+  // loop to roundoff. Other tap counts keep the sequential SIMD fallback.
   void Interpolate(double* up) const
   {
 #if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    if constexpr (factor == 2 && BaseTaps % 4 == 0)
+    {
+      auto a = vdupq_n_f64(0.), b = a, c = a, d = a;
+      for (int sample = 0; sample < BaseTaps; sample += 4)
+      {
+        a = vfmaq_f64(a, vld1q_f64(mKernel.data() + 2 * (sample + 0)), vdupq_n_f64(mInput[mInputIndex + sample + 0]));
+        b = vfmaq_f64(b, vld1q_f64(mKernel.data() + 2 * (sample + 1)), vdupq_n_f64(mInput[mInputIndex + sample + 1]));
+        c = vfmaq_f64(c, vld1q_f64(mKernel.data() + 2 * (sample + 2)), vdupq_n_f64(mInput[mInputIndex + sample + 2]));
+        d = vfmaq_f64(d, vld1q_f64(mKernel.data() + 2 * (sample + 3)), vdupq_n_f64(mInput[mInputIndex + sample + 3]));
+      }
+      vst1q_f64(up, vaddq_f64(vaddq_f64(a, b), vaddq_f64(c, d)));
+      return;
+    }
+    if constexpr (factor == 2)
+    {
+      auto sum = vdupq_n_f64(0.);
+      for (int sample = 0; sample < BaseTaps; ++sample)
+        sum = vfmaq_f64(sum, vld1q_f64(mKernel.data() + 2 * sample), vdupq_n_f64(mInput[mInputIndex + sample]));
+      vst1q_f64(up, sum);
+      return;
+    }
+    if constexpr (factor == 4 && BaseTaps % 4 == 0)
+    {
+      // Four accumulators per phase pair hide the multiply-add dependency.
+      const double* in = &mInput[mInputIndex];
+      const double* kernel = mKernel.data();
+      float64x2_t a0 = vdupq_n_f64(0.), a1 = a0, b0 = a0, b1 = a0, c0 = a0, c1 = a0, d0 = a0, d1 = a0;
+      for (int sample = 0; sample < BaseTaps; sample += 4, in += 4, kernel += 16)
+      {
+        const float64x2_t i0 = vdupq_n_f64(in[0]), i1 = vdupq_n_f64(in[1]), i2 = vdupq_n_f64(in[2]), i3 = vdupq_n_f64(in[3]);
+        a0 = vfmaq_f64(a0, vld1q_f64(kernel), i0);
+        a1 = vfmaq_f64(a1, vld1q_f64(kernel + 2), i0);
+        b0 = vfmaq_f64(b0, vld1q_f64(kernel + 4), i1);
+        b1 = vfmaq_f64(b1, vld1q_f64(kernel + 6), i1);
+        c0 = vfmaq_f64(c0, vld1q_f64(kernel + 8), i2);
+        c1 = vfmaq_f64(c1, vld1q_f64(kernel + 10), i2);
+        d0 = vfmaq_f64(d0, vld1q_f64(kernel + 12), i3);
+        d1 = vfmaq_f64(d1, vld1q_f64(kernel + 14), i3);
+      }
+      vst1q_f64(up, vaddq_f64(vaddq_f64(a0, b0), vaddq_f64(c0, d0)));
+      vst1q_f64(up + 2, vaddq_f64(vaddq_f64(a1, b1), vaddq_f64(c1, d1)));
+      return;
+    }
     if constexpr (factor == 4)
     {
       float64x2_t low = vdupq_n_f64(0.), high = vdupq_n_f64(0.);
@@ -213,10 +256,10 @@ private:
       for (int group = 0; group < (taps - 1) / (factor * 2); ++group)
       {
         const float64x2_t first = vdupq_n_f64(in[0]), second = vdupq_n_f64(in[1]);
-        low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel), first));
-        high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 2), first));
-        low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel + 4), second));
-        high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 6), second));
+        low = vfmaq_f64(low, vld1q_f64(kernel), first);
+        high = vfmaq_f64(high, vld1q_f64(kernel + 2), first);
+        low = vfmaq_f64(low, vld1q_f64(kernel + 4), second);
+        high = vfmaq_f64(high, vld1q_f64(kernel + 6), second);
         kernel += 2 * factor;
         in += 2;
       }
@@ -273,6 +316,47 @@ private:
   void Decimate(double* down) const
   {
 #if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    if constexpr (factor == 2 && BaseTaps % 4 == 0)
+    {
+      auto a = vdupq_n_f64(0.), b = a, c = a, d = a;
+      for (int sample = 0; sample < BaseTaps; sample += 4)
+      {
+        a = vfmaq_f64(a, vld1q_f64(mKernel.data() + 2 * (sample + 0)), vld1q_f64(mHigh.data() + mHighIndex + 2 * (sample + 0)));
+        b = vfmaq_f64(b, vld1q_f64(mKernel.data() + 2 * (sample + 1)), vld1q_f64(mHigh.data() + mHighIndex + 2 * (sample + 1)));
+        c = vfmaq_f64(c, vld1q_f64(mKernel.data() + 2 * (sample + 2)), vld1q_f64(mHigh.data() + mHighIndex + 2 * (sample + 2)));
+        d = vfmaq_f64(d, vld1q_f64(mKernel.data() + 2 * (sample + 3)), vld1q_f64(mHigh.data() + mHighIndex + 2 * (sample + 3)));
+      }
+      vst1q_f64(down, vaddq_f64(vaddq_f64(a, b), vaddq_f64(c, d)));
+      return;
+    }
+    if constexpr (factor == 2)
+    {
+      auto sum = vdupq_n_f64(0.);
+      for (int tap = 0; tap < taps - 1; tap += 2)
+        sum = vfmaq_f64(sum, vld1q_f64(mKernel.data() + tap), vld1q_f64(mHigh.data() + mHighIndex + tap));
+      vst1q_f64(down, sum);
+      return;
+    }
+    if constexpr (factor == 4 && BaseTaps % 4 == 0)
+    {
+      const double* ring = &mHigh[mHighIndex];
+      const double* kernel = mKernel.data();
+      float64x2_t a0 = vdupq_n_f64(0.), a1 = a0, b0 = a0, b1 = a0, c0 = a0, c1 = a0, d0 = a0, d1 = a0;
+      for (int tap = 0; tap < taps - 1; tap += 16, ring += 16, kernel += 16)
+      {
+        a0 = vfmaq_f64(a0, vld1q_f64(kernel), vld1q_f64(ring));
+        a1 = vfmaq_f64(a1, vld1q_f64(kernel + 2), vld1q_f64(ring + 2));
+        b0 = vfmaq_f64(b0, vld1q_f64(kernel + 4), vld1q_f64(ring + 4));
+        b1 = vfmaq_f64(b1, vld1q_f64(kernel + 6), vld1q_f64(ring + 6));
+        c0 = vfmaq_f64(c0, vld1q_f64(kernel + 8), vld1q_f64(ring + 8));
+        c1 = vfmaq_f64(c1, vld1q_f64(kernel + 10), vld1q_f64(ring + 10));
+        d0 = vfmaq_f64(d0, vld1q_f64(kernel + 12), vld1q_f64(ring + 12));
+        d1 = vfmaq_f64(d1, vld1q_f64(kernel + 14), vld1q_f64(ring + 14));
+      }
+      vst1q_f64(down, vaddq_f64(vaddq_f64(a0, b0), vaddq_f64(c0, d0)));
+      vst1q_f64(down + 2, vaddq_f64(vaddq_f64(a1, b1), vaddq_f64(c1, d1)));
+      return;
+    }
     if constexpr (factor == 4)
     {
       float64x2_t low = vdupq_n_f64(0.), high = vdupq_n_f64(0.);
@@ -280,10 +364,10 @@ private:
       const double* kernel = mKernel.data();
       for (int group = 0; group < (taps - 1) / (factor * 2); ++group)
       {
-        low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel), vld1q_f64(ring)));
-        high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 2), vld1q_f64(ring + 2)));
-        low = vaddq_f64(low, vmulq_f64(vld1q_f64(kernel + 4), vld1q_f64(ring + 4)));
-        high = vaddq_f64(high, vmulq_f64(vld1q_f64(kernel + 6), vld1q_f64(ring + 6)));
+        low = vfmaq_f64(low, vld1q_f64(kernel), vld1q_f64(ring));
+        high = vfmaq_f64(high, vld1q_f64(kernel + 2), vld1q_f64(ring + 2));
+        low = vfmaq_f64(low, vld1q_f64(kernel + 4), vld1q_f64(ring + 4));
+        high = vfmaq_f64(high, vld1q_f64(kernel + 6), vld1q_f64(ring + 6));
         kernel += 2 * factor;
         ring += 2 * factor;
       }

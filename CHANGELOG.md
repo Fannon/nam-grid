@@ -13,6 +13,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### Sound and performance
 
+- **Lower Apple Silicon CPU use** for Tube Boost, driven LoFi Tape Machine, Console Colour and Airwindows Tape, including their aligned dry/wet filters. Filter sums use NEON more efficiently; output changes only by floating-point roundoff, with no added latency.
+
 - **Pedal Drive: cleaner high notes at high Drive.** Every voice now antialiases its clipping. On a hard-driven high lead note, the inharmonic fizz under the note drops by about 20 to 30 dB. Existing rigs keep their settings and their sound: level, compression and tone of the ten existing voices stay within about 0.3 dB, and Rodent is unchanged.
 - **Pedal Drive: Treble Drive and Vintage Fuzz stay asymmetric when hit hard.** Loud notes and high Drive used to square these two voices up into a symmetric fuzz. Their bias now follows the playing level, so the even harmonics behind their asymmetric character stay in place when you dig in. Quiet and medium playing sounds as before, and level is unchanged.
 - **Pedal Drive and Distortion use about a quarter to a third less CPU.** Their oversampling filters were replaced with much cheaper ones. Fully wet sounds are unchanged, and parallel blends at partial Mix stay within about half a decibel of before. Tube Boost uses about 11% less. No latency is added.

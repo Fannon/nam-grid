@@ -11,17 +11,40 @@ void TestDriveAntialiasing()
   const auto split = []<int Factor, int Taps>() {
     grid_oversampling::FIR<Factor, Taps> fused, separate;
     fused.Reset(); separate.Reset();
+    // Independent zero-stuffed convolution checks both SIMD directions, including
+    // ring wraps, the final tap and nonlinear rounding amplification.
+    std::array<double, fused.taps> input{}, output{};
+    const auto& kernel = fused.Kernel();
     for (int i = 0; i < 2048; ++i)
     {
       const double x = .4 * std::sin(i * .17) + .1 * std::cos(i * .013);
       const auto shape = [](double v) { return std::tanh(3. * v); };
       auto up = separate.Upsample(x);
       for (double& v : up) v = shape(v);
-      assert(fused.Tick(x, shape) == separate.Downsample(up));
+      const double actual = fused.Tick(x, shape);
+      assert(actual == separate.Downsample(up));
+      double expected = 0.;
+      for (int phase = 0; phase < Factor; ++phase)
+      {
+        std::move_backward(input.begin(), input.end() - 1, input.end());
+        input[0] = phase == 0 ? Factor * x : 0.;
+        double high = 0.;
+        for (int tap = 0; tap < fused.taps; ++tap) high += kernel[tap] * input[tap];
+        std::move_backward(output.begin(), output.end() - 1, output.end());
+        output[0] = grid_oversampling::Flush(shape(high));
+        if (phase == 0)
+          for (int tap = 0; tap < fused.taps; ++tap) expected += kernel[tap] * output[tap];
+      }
+      assert(std::abs(actual - expected) < 1.e-12);
     }
-    assert(std::abs(std::abs(separate.Response(10000., Factor * 48000.)) - 1.) < .002);
-    assert(std::abs(separate.Response(28800., Factor * 48000.)) < .01);
+    if constexpr (Taps >= 32)
+    {
+      assert(std::abs(std::abs(separate.Response(10000., Factor * 48000.)) - 1.) < .002);
+      assert(std::abs(separate.Response(28800., Factor * 48000.)) < .01);
+    }
   };
+  // Even tap counts not divisible by four exercise the sequential SIMD fallback.
+  split.operator()<2, 18>(); split.operator()<4, 18>();
   split.operator()<2, 32>(); split.operator()<4, 32>();
   split.operator()<2, 64>(); split.operator()<4, 64>(); split.operator()<8, 64>();
 
@@ -106,6 +129,7 @@ void TestDriveAntialiasing()
       assert(std::abs(full.Tick(x, [](double v) { return v; }) - dry.Tick(x)) < 2.e-14);
     }
   };
+  reference.operator()<2, 18>(); reference.operator()<4, 18>();
   reference.operator()<2, 32>(); reference.operator()<4, 32>();
   reference.operator()<2, 64>(); reference.operator()<4, 64>(); reference.operator()<8, 64>();
 

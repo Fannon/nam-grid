@@ -189,6 +189,8 @@ inline const Preset pedalDistortion[]{
   {"British crunch", {{U(uPDistStyle), 2.}, {U(uPDistGain), 40.}, {U(uPDistBass), 1.}, {U(uPDistLevel), -1.}}},
   {"Scooped metal rhythm", {{U(uPDistStyle), 4.}, {U(uPDistGain), 70.}, {U(uPDistTight), 40.}, {U(uPDistBass), 4.},
     {U(uPDistMid), -6.}, {U(uPDistMidFrequency), 700.}, {U(uPDistLevel), -1.5}}},
+  // Raw distortion with gain well above the default; Level trims the rise in loudness.
+  {"Raw garage grit", {{U(uPDistStyle), 1.}, {U(uPDistGain), 70.}, {U(uPDistTreble), -1.}, {U(uPDistLevel), -3.}}},
   // Hot-rodded lead box: more gain, the mid hump pushed up, and a smooth top.
   {"Singing lead", {{U(uPDistStyle), 3.}, {U(uPDistGain), 65.}, {U(uPDistMid), 3.}, {U(uPDistMidFrequency), 1200.},
     {U(uPDistTreble), -2.}, {U(uPDistLevel), -3.5}}},

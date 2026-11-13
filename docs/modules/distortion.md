@@ -120,7 +120,7 @@ In the header:
 
 **Latency:** none. Each voice clips at four times the host rate through filters that need no lookahead, so no compensation delay is added and Mix 0% returns the exact dry signal. The wet path has frequency-dependent phase, so partial Mix blends can change the attack.
 
-**Presets:** Classic rock distortion, British crunch, Scooped metal rhythm and Singing lead.
+**Presets:** Classic rock distortion, British crunch, Scooped metal rhythm, Singing lead and Raw garage grit.
 
 **Tips:**
 

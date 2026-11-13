@@ -122,7 +122,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Filter, Wah, Auto Swell | Touch wah, Bass envelope; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
-| Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Chainsaw death metal |
+| Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Singing lead |
 | Digital Delay | Clear quarter-note lead, Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support, Clear eighth-note rhythm, Triplet ping-pong, Ducked dotted eighth, Half-note space |
 | Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes, Warm quarter notes, Soft eighth-note pulse, Dark dotted lead, Modulated half-note bed |
 | Tape Echo | Tape slapback, Worn tape repeats, Rock lead echo, Clean dotted tape, Warm quarter-note tape, Eighth-note tape bounce, Dotted-quarter tape drift, Half-note tape haze |

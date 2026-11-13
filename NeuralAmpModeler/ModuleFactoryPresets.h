@@ -189,8 +189,9 @@ inline const Preset pedalDistortion[]{
   {"British crunch", {{U(uPDistStyle), 2.}, {U(uPDistGain), 40.}, {U(uPDistBass), 1.}, {U(uPDistLevel), -1.}}},
   {"Scooped metal rhythm", {{U(uPDistStyle), 4.}, {U(uPDistGain), 70.}, {U(uPDistTight), 40.}, {U(uPDistBass), 4.},
     {U(uPDistMid), -6.}, {U(uPDistMidFrequency), 700.}, {U(uPDistLevel), -1.5}}},
-  // Every tone knob at maximum is the classic setting for this style; Tight keeps the low peak focused.
-  {"Chainsaw death metal", {{U(uPDistStyle), 5.}, {U(uPDistGain), 80.}, {U(uPDistTight), 30.}, {U(uPDistLevel), -4.5}}},
+  // Hot-rodded lead box: more gain, the mid hump pushed up, and a smooth top.
+  {"Singing lead", {{U(uPDistStyle), 3.}, {U(uPDistGain), 65.}, {U(uPDistMid), 3.}, {U(uPDistMidFrequency), 1200.},
+    {U(uPDistTreble), -2.}, {U(uPDistLevel), -3.5}}},
 };
 
 // Delay levels: one loud repeat for slapback, two to four repeats for rhythmic and lead echoes.

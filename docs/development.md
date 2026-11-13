@@ -103,9 +103,11 @@ rule: Source, Slot, Destination and Via, the LFO Shape, the envelope's Listen at
 modes are saved state without automation flags (`IsStateOnlyParam`), so their lists
 can grow; Depth is automatable. MIDI input exists only to retrigger modulation; CMake
 sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy parameters. Destinations store
-slot-control indices. `grid_modulation::VisitSlotControls` maps every slot control to
-its audio-snapshot field for both the host refresh and the matrix, so a new snapshot
-field must be added there; the stage tests check that each control is mapped exactly once.
+slot-control indices. `grid_modulation::VisitSlotControls`
+([SlotControlMap.h](../NeuralAmpModeler/SlotControlMap.h)) maps every slot control to
+its audio-snapshot field for the host refresh, the matrix and the [MPC plugins](mpc.md), so a
+new snapshot field must be added there; the stage tests check that each control is mapped
+exactly once.
 
 Editor open, state restore and parameter reset push values to the UI in one pass over
 the controls (`_SendAllParamValuesToUI`, `OnParamReset`). iPlug2's defaults handle one

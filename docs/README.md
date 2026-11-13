@@ -20,6 +20,7 @@ The player guides are published at **[fannon.github.io/nam-grid](https://fannon.
 | [Rig presets](presets.md) | Saving, loading and sharing rigs; switching while you play |
 | [Tuner](tuner.md) | Tuning without leaving your rig |
 | [Modulation & scenes](performance.md) | LFO, envelope, sequencer, macros, the matrix and performance scenes |
+| [NAM Grid on Akai MPC](mpc.md) | Experimental: the Amp, Pedals, Delay, Cosmic Echo, Lo-Fi, Mod and Console plugins for Akai MPCs, their library folders and limits |
 
 ## Modules
 

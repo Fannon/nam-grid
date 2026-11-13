@@ -1,0 +1,41 @@
+{
+  "kit": "amber",
+  "pages": [
+    {
+      "name": "PEDAL",
+      "columns": [
+        [
+          "Drive Knob 1",
+          "Drive Knob 2",
+          "Drive Knob 3",
+          "Drive Knob 4"
+        ],
+        [
+          "Drive Knob 5",
+          "Drive Knob 6",
+          "Drive Knob 7",
+          "Drive Knob 8"
+        ],
+        [
+          "Drive Type"
+        ],
+        [
+          "Comp On",
+          "Comp Knob 1",
+          "Comp Knob 5",
+          "Comp Knob 6"
+        ]
+      ],
+      "headings": [
+        "@Drive Type",
+        "",
+        "VOICE",
+        "COMP"
+      ]
+    },
+    {
+      "name": "COMP",
+      "section": "Comp"
+    }
+  ]
+}

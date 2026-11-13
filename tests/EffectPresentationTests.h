@@ -123,6 +123,13 @@ void TestEffectPresentation()
   }
   assert(effect_presentation::Position(SlotEffect::PedalDrive, uPedalCharacter) == 3);
   assert(effect_presentation::Position(SlotEffect::PedalDrive, uPedalMix) == 7);
+  // Pedal Distortion: Gain and the three tone controls on top; Level, Tight, Mid freq and Mix below.
+  for (const auto [control, place] : {std::pair{uPDistGain, 0}, {uPDistBass, 1}, {uPDistMid, 2}, {uPDistTreble, 3},
+                                      {uPDistLevel, 4}, {uPDistTight, 5}, {uPDistMidFrequency, 6}, {uPDistMix, 7}})
+    assert(effect_presentation::Position(SlotEffect::PedalDistortion, control) == place);
+  assert(effect_presentation::HeaderControl(uPDistStyle));
+  for (int style = 0; style < effect_modes::pedalDistortionCount; ++style)
+    assert(std::strlen(effect_presentation::Help(SlotEffect::PedalDistortion, uPDistStyle, style)) > 25);
   UtilityControls c; c.delay = {400., 50., 5000., 0., 100.}; c.dual = {.75, 50.};
   const auto repeats = effect_preview::Delay(SlotEffect::DualDelay, c, 48000.);
   assert(repeats.count >= 4);

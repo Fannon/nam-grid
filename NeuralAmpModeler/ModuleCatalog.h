@@ -12,7 +12,7 @@ struct ModuleGroup
 };
 using E = SlotEffect;
 inline const ModuleGroup kModuleGroups[]{
-  {"Distortion", {E::Distortion, E::PedalDrive, E::Boost, E::TubeBoost, E::Tape, E::ConsoleColour, E::Bitcrusher}},
+  {"Distortion", {E::Distortion, E::PedalDrive, E::PedalDistortion, E::Boost, E::TubeBoost, E::Tape, E::ConsoleColour, E::Bitcrusher}},
   {"Gate", {E::NoiseGate, E::NoisePrint, E::AIGate, E::DigitalBlack}},
   {"Dynamics", {E::PedalComp, E::SmoothComp, E::PunchComp, E::ButterComp, E::OutboardChannel, E::TransientShaper, E::Multiband, E::Limiter}},
   {"EQ / Filter", {E::ToneEQ, E::CutEQ, E::GraphicEQ, E::ParametricEQ, E::DynamicEQ, E::ConsoleEQ, E::SynthFilter, E::Wah}},

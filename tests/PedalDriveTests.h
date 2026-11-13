@@ -89,9 +89,9 @@ inline std::vector<double> Render(double rate, UtilityControls controls, bool ti
 
 void TestPedalDrive()
 {
-  // The minimum-phase resampling filters must be causal (no lookahead), peak
-  // promptly and keep unity DC gain.
-  grid_pedal::Oversampler4x oversampler;
+  // The minimum-phase FIR that Pedal Drive introduced still serves other modules. Its
+  // filters must be causal (no lookahead), peak promptly and keep unity DC gain.
+  grid_oversampling::FIR<4> oversampler;
   oversampler.Reset();
   // Independently reconstruct the released linear-phase design. The direct
   // convolution oracle below shares production taps, so it cannot catch a
@@ -148,21 +148,41 @@ void TestPedalDrive()
     assert(std::abs(actual - reference.Tick(input)) < 1.e-12);
   }
 
-  // Measure a fifth-harmonic alias independently using a coherent high sine.
+  // Measure a fifth-harmonic alias independently using a coherent high sine, through
+  // the oversampler the pedal runs.
   constexpr int n = 8192, fundamental = 1093, alias = n - 5 * fundamental;
   std::vector<double> native(n), filtered(2 * n);
-  oversampler.Reset();
+  grid_pedal::Oversampler4x pedalOversampler;
+  pedalOversampler.Reset();
   for (int i = 0; i < 2 * n; ++i)
   {
     const double x = 4. * std::sin(2. * grid_fx::pi * fundamental * i / n);
     if (i >= n)
       native[i - n] = std::tanh(x);
-    filtered[i] = oversampler.Tick(x, [](double value) { return std::tanh(value); });
+    filtered[i] = pedalOversampler.Tick(x, [](double value) { return std::tanh(value); });
   }
   const double nativeAlias = pedal_test::Harmonic(native, 0, n, alias);
   const double filteredAlias = pedal_test::Harmonic(filtered, n, n, alias);
   assert(nativeAlias > .03 && filteredAlias < nativeAlias * .01);
   assert(spectral_test::SuppressionDB(native, std::span<const double>(filtered).subspan(n, n), alias) > 40.);
+
+  // Warm replaces tanh in the released voices, so it must stay close to it: unity
+  // slope at zero, saturation at exactly one and a small worst-case distance. Its
+  // antiderivative and slope must match the curve, or the averaging and the biased
+  // stages' normalization would change the sound.
+  {
+    double worst = 0.;
+    for (double x = -12.; x <= 12.; x += .001)
+    {
+      worst = std::max(worst, std::abs(grid_pedal::Warm(x) - std::tanh(x)));
+      constexpr double h = 1.e-5;
+      assert(std::abs((grid_pedal::WarmIntegral(x + h) - grid_pedal::WarmIntegral(x - h)) / (2. * h) - grid_pedal::Warm(x)) < 1.e-8);
+      assert(std::abs((grid_pedal::Warm(x + h) - grid_pedal::Warm(x - h)) / (2. * h) - grid_pedal::WarmSlope(x)) < 1.e-6);
+    }
+    assert(worst < .013);
+    assert(grid_pedal::WarmIntegral(0.) == 0. && grid_pedal::WarmSlope(0.) == 1.);
+    assert(std::abs(grid_pedal::Warm(1.e6) - 1.) < 1.e-6 && std::abs(grid_pedal::Warm(-1.e6) + 1.) < 1.e-6);
+  }
 
   for (double rate : {44100., 48000., 96000., 192000.})
   {
@@ -273,6 +293,122 @@ void TestPedalDrive()
   }
   assert(quietEnergy[0] > .001 && quietEnergy[1] < quietEnergy[0] * .001);
 
+  // A steady tone through one style: the settled second half and the bin of its fundamental.
+  constexpr int toneCount = 16384, toneBin = 76; // 223 Hz at 48 kHz
+  const auto tone = [&](effect_modes::PedalStyle style, double driveDb, double character, double level) {
+    SlotPedalDrive drive;
+    drive.Reset(48000.);
+    UtilityControls c;
+    c.pedal[0] = static_cast<int>(style);
+    c.pedal[1] = driveDb;
+    c.pedal[6] = 0.;
+    c.pedal[8] = character;
+    std::vector<double> audio(2 * toneCount);
+    for (int i = 0; i < audio.size(); ++i)
+      audio[i] = level * std::sin(2. * grid_fx::pi * toneBin * i / toneCount);
+    drive.Process(audio.data(), static_cast<int>(audio.size()), c);
+    return std::vector<double>(audio.begin() + toneCount, audio.end());
+  };
+  const auto peak = [](const std::vector<double>& x) {
+    double value = 0.;
+    for (double v : x) value = std::max(value, std::abs(v));
+    return value;
+  };
+  // Gated Fuzz is a full fuzz on a loud note and silent, not amplified, below its
+  // threshold. More Drive or a lower Gate lets the same quiet note through.
+  using effect_modes::PedalStyle;
+  assert(pedal_test::Harmonic(tone(PedalStyle::GatedFuzz, 9., 0., .2), 0, toneCount, toneBin) > .5);
+  assert(peak(tone(PedalStyle::GatedFuzz, 9., 0., .003)) < 1.e-9);
+  assert(peak(tone(PedalStyle::GatedFuzz, 9., 100., .03)) < 1.e-9);
+  assert(peak(tone(PedalStyle::GatedFuzz, 9., 0., .06)) > .3);
+  assert(peak(tone(PedalStyle::GatedFuzz, 36., -100., .003)) > .3);
+  // Moving Gate reshapes the averaged curve. Its output is the mean of a curve bounded
+  // by one, so it stays bounded while the control moves, including where the input
+  // barely changes between samples (a waveform peak).
+  {
+    grid_pedal::Averaged stage;
+    const auto starved = [&](double x, double open) {
+      constexpr double steep = 24.;
+      return stage.Tick(x, open,
+        [=](double v) { return v > open ? grid_pedal::Soft(steep * (v - open)) : 0.; },
+        [=](double v) { return v > open ? grid_pedal::SoftIntegral(steep * (v - open)) / steep : 0.; });
+    };
+    starved(.8, .3);
+    assert(std::abs(starved(.80002, .301)) <= 1.);
+    for (double hz : {82., 220., 440.})
+      for (double level : {.03, .2})
+      {
+        SlotPedalDrive drive;
+        drive.Reset(48000.);
+        UtilityControls c;
+        c.pedal = {double(static_cast<int>(PedalStyle::GatedFuzz)), 9., 12000., 0., 180., 0., 0., 100., -100.};
+        std::vector<double> audio(48000);
+        for (int i = 0; i < audio.size(); ++i)
+          audio[i] = level * std::sin(2. * grid_fx::pi * hz * i / 48000.);
+        double worst = 0.;
+        for (int position = 0; position < audio.size(); position += 64)
+        {
+          // Sweep Gate up, down and up again after the voice has settled.
+          if (position >= 12032) c.pedal[8] = (position / 9600) % 2 ? 100. : -100.;
+          drive.Process(audio.data() + position, 64, c);
+          for (int i = position; i < position + 64; ++i) worst = std::max(worst, std::abs(audio[i]));
+        }
+        assert(worst < 1.2);
+      }
+  }
+  // Sub Fuzz divides a single note: with Sub at maximum the octave below dominates.
+  {
+    const auto sub = tone(PedalStyle::SubFuzz, 12., 100., .1);
+    const double octaveDown = pedal_test::Harmonic(sub, 0, toneCount, toneBin / 2);
+    assert(octaveDown > .5 && octaveDown > 10. * pedal_test::Harmonic(sub, 0, toneCount, toneBin));
+    // With Sub at minimum the played pitch stays in front.
+    const auto fuzz = tone(PedalStyle::SubFuzz, 12., -100., .1);
+    assert(pedal_test::Harmonic(fuzz, 0, toneCount, toneBin) > 2. * pedal_test::Harmonic(fuzz, 0, toneCount, toneBin / 2));
+  }
+  // Treble Drive and Vintage Fuzz keep their even harmonics on a loud note: the bias
+  // follows the overdrive, so the clipped wave does not settle into a symmetric square
+  // (fixed bias: -44 and -56 dB here). Vintage Fuzz's lowest Bias stays near symmetric.
+  {
+    const auto second = [&](PedalStyle style, double character) {
+      const auto loud = tone(style, 36., character, .5);
+      return 20. * std::log10(pedal_test::Harmonic(loud, 0, toneCount, 2 * toneBin) / pedal_test::Harmonic(loud, 0, toneCount, toneBin));
+    };
+    assert(second(PedalStyle::TrebleDrive, 0.) > -30. && second(PedalStyle::VintageFuzz, 0.) > -30.);
+    assert(second(PedalStyle::VintageFuzz, -100.) < second(PedalStyle::VintageFuzz, 0.) - 10.);
+  }
+  // Every voice antialiases its clipping: a hard-driven 5 kHz tone leaves little
+  // energy away from its harmonics (Vintage Fuzz measured -31 dB before its stages
+  // were averaged, -59 dB after). Octave and Sub Fuzz are excluded: an octave above
+  // 5 kHz and a divided pitch are not harmonics of the input.
+  {
+    constexpr int highBin = 1707; // 5001 Hz, odd and coprime with the window
+    const auto folded = [&](PedalStyle style) {
+      SlotPedalDrive drive;
+      drive.Reset(48000.);
+      UtilityControls c;
+      c.pedal = {double(static_cast<int>(style)), 36., 12000., 0., 180., 0., 0., 100., 0.};
+      std::vector<double> audio(2 * toneCount);
+      for (int i = 0; i < audio.size(); ++i)
+        audio[i] = .2 * std::sin(2. * grid_fx::pi * highBin * i / toneCount);
+      drive.Process(audio.data(), static_cast<int>(audio.size()), c);
+      // Harmonics below Nyquist are legitimate; everything else folded.
+      double harmonic = 0., other = 0.;
+      for (int bin = 1; bin < toneCount / 2; ++bin)
+      {
+        const double a = pedal_test::Harmonic(audio, toneCount, toneCount, bin);
+        (bin % highBin == 0 ? harmonic : other) += a * a;
+      }
+      return 10. * std::log10(other / harmonic);
+    };
+    for (int style = 0; style < effect_modes::pedalCount; ++style)
+    {
+      const auto voice = static_cast<PedalStyle>(style);
+      // Rodent has its own slew-clip checks; Gated Fuzz's steep dead zone folds more.
+      if (voice == PedalStyle::Rodent || voice == PedalStyle::OctaveFuzz || voice == PedalStyle::SubFuzz) continue;
+      assert(folded(voice) < (voice == PedalStyle::GatedFuzz ? -36. : -44.));
+    }
+  }
+
   // Dry drive in B must reconstruct the input with the clean low A lane,
   // including when bypassed, without shifting either path.
   for (double rate : {44100., 48000., 96000.})
@@ -305,7 +441,7 @@ void TestPedalDrive()
         }
       }
     }
-  std::cout << "Pedal Drive: ten voices and centered character, alias reduction, low retention, blocks, allocation, "
+  std::cout << "Pedal Drive: fourteen voices and centered character, alias reduction, low retention, blocks, allocation, "
                "dry/bypass and split "
                "alignment passed\n";
 }

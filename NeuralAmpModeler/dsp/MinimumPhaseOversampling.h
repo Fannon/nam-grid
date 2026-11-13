@@ -198,10 +198,10 @@ private:
       x /= sum;
     MinimumPhase();
   }
-  // Each phase accumulates its own taps in the scalar order the reference uses,
-  // so pairing two phases in one SIMD register keeps the output bit-identical.
-  // On arm64 this halves the instructions per tap of the four dot products that
-  // dominate Pedal Drive's cost; other targets keep the portable loop.
+  // The dot products dominate the cost of every oversampled module. On arm64 each
+  // phase accumulates its taps in the scalar order, two phases to a register; x64
+  // also splits each 4x sum over several accumulators; other targets keep the
+  // portable loop. The variants agree to roundoff.
   void Interpolate(double* up) const
   {
 #if defined(__aarch64__) && !defined(NAM_PEDAL_DRIVE_SCALAR)
@@ -226,8 +226,33 @@ private:
     }
 #endif
 #if (defined(_M_X64) || defined(__x86_64__)) && !defined(NAM_PEDAL_DRIVE_SCALAR)
-    // Pack independent phases, preserving the scalar tap order within each
-    // lane. SSE2 is baseline on x64; no AVX/FMA or CPU dispatch is required.
+    // SSE2 is baseline on x64; no AVX/FMA or CPU dispatch is required.
+    if constexpr (factor == 4 && BaseTaps % 4 == 0)
+    {
+      // Two phases share a register and each sum is split over four accumulators
+      // held in named registers. One accumulator is a serial chain of additions,
+      // which bounds the filter by add latency instead of throughput; the split
+      // changes the result by roundoff only.
+      const double* in = &mInput[mInputIndex];
+      const double* kernel = mKernel.data();
+      __m128d a0 = _mm_setzero_pd(), a1 = a0, b0 = a0, b1 = a0, c0 = a0, c1 = a0, d0 = a0, d1 = a0;
+      for (int sample = 0; sample < BaseTaps; sample += 4, in += 4, kernel += 16)
+      {
+        const __m128d i0 = _mm_set1_pd(in[0]), i1 = _mm_set1_pd(in[1]), i2 = _mm_set1_pd(in[2]), i3 = _mm_set1_pd(in[3]);
+        a0 = _mm_add_pd(a0, _mm_mul_pd(_mm_loadu_pd(kernel), i0));
+        a1 = _mm_add_pd(a1, _mm_mul_pd(_mm_loadu_pd(kernel + 2), i0));
+        b0 = _mm_add_pd(b0, _mm_mul_pd(_mm_loadu_pd(kernel + 4), i1));
+        b1 = _mm_add_pd(b1, _mm_mul_pd(_mm_loadu_pd(kernel + 6), i1));
+        c0 = _mm_add_pd(c0, _mm_mul_pd(_mm_loadu_pd(kernel + 8), i2));
+        c1 = _mm_add_pd(c1, _mm_mul_pd(_mm_loadu_pd(kernel + 10), i2));
+        d0 = _mm_add_pd(d0, _mm_mul_pd(_mm_loadu_pd(kernel + 12), i3));
+        d1 = _mm_add_pd(d1, _mm_mul_pd(_mm_loadu_pd(kernel + 14), i3));
+      }
+      _mm_storeu_pd(up, _mm_add_pd(_mm_add_pd(a0, b0), _mm_add_pd(c0, d0)));
+      _mm_storeu_pd(up + 2, _mm_add_pd(_mm_add_pd(a1, b1), _mm_add_pd(c1, d1)));
+      return;
+    }
+    // Other factors pack independent phases with one accumulator per register.
     __m128d sums[factor / 2];
     for (auto& sum : sums) sum = _mm_setzero_pd();
     for (int sample = 0; sample < (taps - 1) / factor; ++sample)
@@ -268,6 +293,27 @@ private:
     }
 #endif
 #if (defined(_M_X64) || defined(__x86_64__)) && !defined(NAM_PEDAL_DRIVE_SCALAR)
+    if constexpr (factor == 4 && BaseTaps % 4 == 0)
+    {
+      // Four accumulators per register, as in Interpolate.
+      const double* ring = &mHigh[mHighIndex];
+      const double* kernel = mKernel.data();
+      __m128d a0 = _mm_setzero_pd(), a1 = a0, b0 = a0, b1 = a0, c0 = a0, c1 = a0, d0 = a0, d1 = a0;
+      for (int tap = 0; tap < taps - 1; tap += 16, ring += 16, kernel += 16)
+      {
+        a0 = _mm_add_pd(a0, _mm_mul_pd(_mm_loadu_pd(kernel), _mm_loadu_pd(ring)));
+        a1 = _mm_add_pd(a1, _mm_mul_pd(_mm_loadu_pd(kernel + 2), _mm_loadu_pd(ring + 2)));
+        b0 = _mm_add_pd(b0, _mm_mul_pd(_mm_loadu_pd(kernel + 4), _mm_loadu_pd(ring + 4)));
+        b1 = _mm_add_pd(b1, _mm_mul_pd(_mm_loadu_pd(kernel + 6), _mm_loadu_pd(ring + 6)));
+        c0 = _mm_add_pd(c0, _mm_mul_pd(_mm_loadu_pd(kernel + 8), _mm_loadu_pd(ring + 8)));
+        c1 = _mm_add_pd(c1, _mm_mul_pd(_mm_loadu_pd(kernel + 10), _mm_loadu_pd(ring + 10)));
+        d0 = _mm_add_pd(d0, _mm_mul_pd(_mm_loadu_pd(kernel + 12), _mm_loadu_pd(ring + 12)));
+        d1 = _mm_add_pd(d1, _mm_mul_pd(_mm_loadu_pd(kernel + 14), _mm_loadu_pd(ring + 14)));
+      }
+      _mm_storeu_pd(down, _mm_add_pd(_mm_add_pd(a0, b0), _mm_add_pd(c0, d0)));
+      _mm_storeu_pd(down + 2, _mm_add_pd(_mm_add_pd(a1, b1), _mm_add_pd(c1, d1)));
+      return;
+    }
     __m128d sums[factor / 2];
     for (auto& sum : sums) sum = _mm_setzero_pd();
     for (int tap = 0; tap < taps - 1; tap += factor)

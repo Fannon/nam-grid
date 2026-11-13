@@ -1,6 +1,6 @@
 #pragma once
 #include "SlotTimeEffects.h"
-#include "dsp/MinimumPhaseOversampling.h"
+#include "dsp/HalfbandOversampling.h"
 #include <bit>
 #include <cstdint>
 
@@ -20,12 +20,12 @@ public:
   {
     const int factor = FactorForRate(rate);
     const auto highZ = std::polar(1., -2. * grid_fx::pi * hz / (factor * rate));
-    const auto filter = factor == 4 ? grid_oversampling::FIR<4>::Response(hz, factor * rate)
-                      : factor == 2 ? grid_oversampling::FIR<2>::Response(hz, factor * rate)
-                                    : std::complex<double>(1.);
-    // Unity-slope ADAA is the average of adjacent high-rate samples. The two
-    // resampling filters each contribute their complex response to the wet path.
-    return filter * filter * .5 * (1. + highZ);
+    const auto filters = factor == 4 ? grid_oversampling::AlignedIIR<4>::Linear(hz, factor * rate)
+                       : factor == 2 ? grid_oversampling::AlignedIIR<2>::Linear(hz, factor * rate)
+                                     : std::complex<double>(1.);
+    // Unity-slope ADAA is the average of adjacent high-rate samples; the resampling
+    // filters contribute the phase of the wet path.
+    return filters * .5 * (1. + highZ);
   }
   int OversamplingFactor() const { return mFactor; }
   // Explicit factors/ADAA are for offline quality comparisons, not saved controls.
@@ -159,8 +159,9 @@ public:
   }
 
 private:
+  // log(.5 + .5 e) equals log1p(e) - log(2) to a few ulp and costs about half as much.
   static double LogCosh(double x)
-  { return std::abs(x) + std::log1p(std::exp(-2. * std::abs(x))) - std::log(2.); }
+  { const double m = std::abs(x); return m + std::log(.5 + .5 * std::exp(-2. * m)); }
   static double Integral(double x, int style)
   {
     const double magnitude = std::abs(x);
@@ -177,6 +178,13 @@ private:
       }
       case effect_modes::DistortionStyle::Diode: return x >= 0. ? LogCosh(x) : .25 * LogCosh(2. * x);
       case effect_modes::DistortionStyle::Rectify: return std::copysign(LogCosh(x), x);
+      case effect_modes::DistortionStyle::Overdrive:
+      {
+        const double u = 2. * x;
+        return .25 * (u * std::asinh(u) - std::sqrt(u * u + 1.) + 1.);
+      }
+      case effect_modes::DistortionStyle::HalfWave: return x > 0. ? LogCosh(x) : 0.;
+      case effect_modes::DistortionStyle::SineFold: return 1. - std::cos(x);
       default: return LogCosh(x);
     }
   }
@@ -196,12 +204,17 @@ private:
       // original asymmetric shaper, not a physical diode-circuit model.
       case effect_modes::DistortionStyle::Diode: return x >= 0. ? std::tanh(x) : .5 * std::tanh(2. * x);
       case effect_modes::DistortionStyle::Rectify: return std::abs(std::tanh(x));
+      // Logarithmic growth without a ceiling, as with diodes in an op-amp feedback loop.
+      case effect_modes::DistortionStyle::Overdrive: return .5 * std::asinh(2. * x);
+      case effect_modes::DistortionStyle::HalfWave: return x > 0. ? std::tanh(x) : 0.;
+      case effect_modes::DistortionStyle::SineFold: return std::sin(x);
       default: return std::tanh(x);
     }
   }
-  grid_oversampling::FIR<2> mOversample2;
-  grid_oversampling::FIR<4> mOversample4;
-  grid_oversampling::FIR<8> mOversample8;
+  // Aligned with the FIR the module was released with: parallel blends keep their sound.
+  grid_oversampling::AlignedIIR<2> mOversample2;
+  grid_oversampling::AlignedIIR<4> mOversample4;
+  grid_oversampling::AlignedIIR<8> mOversample8;
   int mFactor = 4;
   bool mADAA = true;
   double mPreviousInput = 0.;

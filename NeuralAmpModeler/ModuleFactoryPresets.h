@@ -182,6 +182,19 @@ inline const Preset pedalDrive[]{
   {"Bass drive, clean lows",
    {{U(uPedalStyle), 2.}, {U(uPedalDrive), 15.}, {U(uPedalLowKeep), 100.}, {U(uPedalSplit), 180.}, {U(uPedalOutput), -16.}}},
 };
+// Levels leave a guitar DI about 1.5 dB above bypass RMS; the clipped signal's lower crest
+// factor already sounds louder. Metal settings follow common scooped, tightened rhythm setups.
+inline const Preset pedalDistortion[]{
+  {"Classic rock distortion", {{U(uPDistStyle), 0.}, {U(uPDistGain), 45.}, {U(uPDistTreble), -2.}, {U(uPDistLevel), -1.}}},
+  {"British crunch", {{U(uPDistStyle), 2.}, {U(uPDistGain), 40.}, {U(uPDistBass), 1.}, {U(uPDistLevel), -1.}}},
+  {"Scooped metal rhythm", {{U(uPDistStyle), 4.}, {U(uPDistGain), 70.}, {U(uPDistTight), 40.}, {U(uPDistBass), 4.},
+    {U(uPDistMid), -6.}, {U(uPDistMidFrequency), 700.}, {U(uPDistLevel), -1.5}}},
+  // Raw distortion with gain well above the default; Level trims the rise in loudness.
+  {"Raw garage grit", {{U(uPDistStyle), 1.}, {U(uPDistGain), 70.}, {U(uPDistTreble), -1.}, {U(uPDistLevel), -3.}}},
+  // Hot-rodded lead box: more gain, the mid hump pushed up, and a smooth top.
+  {"Singing lead", {{U(uPDistStyle), 3.}, {U(uPDistGain), 65.}, {U(uPDistMid), 3.}, {U(uPDistMidFrequency), 1200.},
+    {U(uPDistTreble), -2.}, {U(uPDistLevel), -3.5}}},
+};
 
 // Delay levels: one loud repeat for slapback, two to four repeats for rhythmic and lead echoes.
 // Synced recipes deliberately share rhythms across modules, with tone, motion and feedback
@@ -524,6 +537,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::TubeBoost: return tube;
     case SlotEffect::Distortion: return distortion;
     case SlotEffect::PedalDrive: return pedalDrive;
+    case SlotEffect::PedalDistortion: return pedalDistortion;
     case SlotEffect::LoFiTape: return lofi;
     case SlotEffect::FrequencyShifter: return frequencyShifter;
     default: return {};

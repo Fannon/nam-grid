@@ -48,7 +48,8 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {eqColor, eqColor, "EQ"};
   if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
     return {boostColor, boostColor, "Boost"};
-  if (effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive || effect == SlotEffect::ConsoleColour)
+  if (effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive || effect == SlotEffect::PedalDistortion
+      || effect == SlotEffect::ConsoleColour)
     return {boostColor, boostColor, "Distortion"};
   if (IsDelay(effect))
     return {delayColor, delayColor, "Delay"};
@@ -319,7 +320,7 @@ public:
   {
     g.DrawArc(border, cx, cy, radius, -135.f, 135.f, &mBlend, 2.f);
     const int control = parameter_layout::UtilityControl(GetParamIdx());
-    const bool centered = control == uPedalCharacter || control == uPedalCompFocus;
+    const bool centered = control == uPedalCharacter || control == uPedalCompFocus || control == uPDistTight;
     g.DrawArc(muted, cx, cy, radius, centered ? std::min(0.f, angle) : -135.f,
               centered ? std::max(0.f, angle) : angle, &mBlend, 2.f);
     // Modulation ring: the reach of every row on this knob, plus a dot at the live value.
@@ -1537,6 +1538,8 @@ public:
     const auto hint = std::string(effect == SlotEffect::Distortion ? effect_presentation::Help(effect, uDistStyle, distortionStyle)
           : effect == SlotEffect::PedalDrive ? effect_presentation::Help(effect, uPedalStyle,
               GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPedalStyle))->Int())
+          : effect == SlotEffect::PedalDistortion ? effect_presentation::Help(effect, uPDistStyle,
+              GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPDistStyle))->Int())
                                          : effect_presentation::Sound(effect));
     const auto tooltip = empty ? std::string("Choose a module.") : hint + " Click to choose or replace the module.";
     if (tooltip != mModelButton->GetTooltip())
@@ -2056,6 +2059,87 @@ private:
     g.DrawLayer(mPedalPreview);
   }
 
+  // Pedal Distortion: loud and quiet test tones through the selected voice, and the
+  // shared Bass/Mid/Treble EQ with Mix and Level at small signal.
+  void DrawPedalDistortion(IGraphics& g, const IRECT& plot, IColor color)
+  {
+    using namespace grid_ui;
+    namespace pd = grid_pedal_distortion;
+    PlotDetail(g, plot, "Left: loud and quiet test tones through the pedal; right: Bass, Mid and Treble. Gray is input, colour is processed.");
+    const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+    const int style = std::clamp(static_cast<int>(value(uPDistStyle)), 0, pd::styleCount - 1);
+    const double rate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
+    const std::array<double, 10> key{rate, value(uPDistStyle), value(uPDistGain), value(uPDistTight), value(uPDistBass),
+      value(uPDistMid), value(uPDistMidFrequency), value(uPDistTreble), value(uPDistLevel), value(uPDistMix)};
+    const double upper = std::min(20000., .49 * rate);
+    PlotFrequency(g, IRECT(plot.MW() + 8.f, plot.T, plot.R, plot.B), 20., upper);
+    if (key == mPedalDistortionPreviewKey && g.CheckLayer(mPedalDistortionPreview))
+    {
+      g.DrawLayer(mPedalDistortionPreview);
+      return;
+    }
+    const IRECT bounds(grid_layout::visualizationLeft, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom);
+    g.StartLayer(this, bounds);
+    VisualizationBackground(g, bounds);
+    PlotTitle(g, plot, color, "Pedal response | loud / quiet input");
+    const IRECT shape(plot.L, plot.T, plot.MW() - 8.f, plot.B), tone(plot.MW() + 8.f, plot.T, plot.R, plot.B);
+    // The voice runs at the host rate here; the audio path runs it oversampled.
+    constexpr double hz = 220.;
+    const int samples = std::min(1024, std::max(64, static_cast<int>(rate / hz * 2.)));
+    const int warm = static_cast<int>(rate * .05);
+    const double gain = pd::GainFor(style, value(uPDistGain));
+    struct Render { std::array<float, 1024> input{}, shaped{}; float peak = 1.e-6f; };
+    const auto render = [&](double amplitude) {
+      Render result;
+      pd::Voice voice;
+      voice.Configure(style, rate, value(uPDistTight) * .01);
+      for (int i = 0; i < warm + samples; ++i)
+      {
+        const double x = amplitude * std::sin(2. * pd::pi * hz * i / rate);
+        const double y = voice.Tick(x, gain);
+        if (i < warm) continue;
+        result.input[i - warm] = static_cast<float>(x);
+        result.shaped[i - warm] = static_cast<float>(y);
+        result.peak = std::max(result.peak, std::abs(static_cast<float>(y)));
+      }
+      return result;
+    };
+    const auto loud = render(.25), quiet = render(.03);
+    const float scale = std::max(loud.peak, quiet.peak);
+    const float inputScale = .25f;
+    const IRECT scope(shape.L, shape.T + 18.f, shape.R, shape.B);
+    g.DrawText(Text(11.f, muted), "Shape at -12 and -30 dBFS", IRECT(shape.L, shape.T, shape.R, shape.T + 14));
+    const auto at = [&](int i) { return scope.L + scope.W() * i / static_cast<float>(samples - 1); };
+    const auto yAt = [&](float v, float s) { return scope.MH() - std::clamp(v / s, -1.f, 1.f) * scope.H() * .5f; };
+    g.DrawLine(border.WithOpacity(.6f), scope.L, scope.MH(), scope.R, scope.MH());
+    for (int i = 1; i < samples; ++i)
+      g.DrawLine(muted.WithOpacity(.28f), at(i - 1), yAt(loud.input[i - 1], inputScale), at(i), yAt(loud.input[i], inputScale));
+    for (int i = 1; i < samples; ++i)
+      g.DrawLine(color, at(i - 1), yAt(loud.shaped[i - 1], scale), at(i), yAt(loud.shaped[i], scale), nullptr, 2.f);
+    for (int i = 1; i < samples; ++i)
+      g.DrawLine(color.WithOpacity(.45f), at(i - 1), yAt(quiet.shaped[i - 1], scale), at(i), yAt(quiet.shaped[i], scale), nullptr, 1.5f);
+
+    const double mix = value(uPDistMix) * .01, level = std::pow(10., value(uPDistLevel) * .05);
+    const auto magnitude = [&](double f) {
+      const auto eq = SlotPedalDistortion::EQResponse(f, rate, value(uPDistBass), value(uPDistMid), value(uPDistMidFrequency), value(uPDistTreble));
+      return std::abs(1. - mix + mix * eq) * level;
+    };
+    const auto xFor = [&](double f) { return tone.L + tone.W() * static_cast<float>(std::log(f / 20.) / std::log(upper / 20.)); };
+    const auto yFor = [&](double db) { return tone.B - tone.H() * static_cast<float>((std::clamp(db, -18., 18.) + 18.) / 36.); };
+    for (double guide : {100., 1000., 10000.})
+      if (guide < upper) g.DrawLine(border.WithOpacity(.35f), xFor(guide), tone.T, xFor(guide), tone.B);
+    g.DrawLine(border, tone.L, yFor(0.), tone.R, yFor(0.));
+    const double midHz = value(uPDistMidFrequency);
+    g.DrawLine(ampColor.WithOpacity(.5f), xFor(midHz), tone.T, xFor(midHz), tone.B);
+    PlotCurve(g, tone, [&](double x) {
+      return 20. * std::log10(std::max(1.e-9, magnitude(20. * std::pow(upper / 20., x))));
+    }, -18., 18., color);
+    PlotFooter(g, plot, "Bass / mid / treble", "20 Hz - 20k");
+    mPedalDistortionPreview = g.EndLayer();
+    mPedalDistortionPreviewKey = key;
+    g.DrawLayer(mPedalDistortionPreview);
+  }
+
   bool HasVisualization()
   {
     if (!PLUG()->GetShowVisualizations()) return false;
@@ -2441,6 +2525,8 @@ private:
     }
     else if (effect == SlotEffect::PedalDrive)
       DrawPedalDrive(g, plot, color);
+    else if (effect == SlotEffect::PedalDistortion)
+      DrawPedalDistortion(g, plot, color);
     else if (DrawDriveSetup(g, effect, plot, color,
                [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); },
                GetDelegate()->GetParam(SlotEQParam(mSlot, 3))->Value(),
@@ -3308,6 +3394,8 @@ private:
   std::filesystem::path mSavePresetFolder;
   ILayerPtr mPedalPreview;
   std::array<double, 10> mPedalPreviewKey{};
+  ILayerPtr mPedalDistortionPreview;
+  std::array<double, 10> mPedalDistortionPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;
   std::string mPlotPath;
   std::array<float, 120> mInputHistory{}, mOutputHistory{}, mCleanHistory{}, mReductionHistory{};

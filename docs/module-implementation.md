@@ -56,29 +56,60 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   feedback range's top maps to a loop gain of 0.97, so a 100% tail always decays, and a
   20 Hz one-pole blocker in the feedback path removes the near-DC energy that repeated
   downward shifts fold toward 0 Hz; the wet output itself keeps its low end.
-- **Distortion** offers six original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
-  style crossfades. It combines first-order antiderivative antialiasing with minimum-phase
-  FIR oversampling (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
+- **Distortion** offers original waveshapers with ±100% Bias, a 5 Hz DC blocker and 20 ms
+  style crossfades. It combines first-order antiderivative antialiasing with
+  [halfband IIR oversampling](../NeuralAmpModeler/dsp/HalfbandOversampling.h)
+  (4x below 88.2 kHz, 2x below 176.4 kHz, otherwise 1x), without
   lookahead or reported delay. Low preserve uses a complementary one-pole split before
   the shaper and restores the clean lows after the DC blocker and High cut. Below 20 Hz
   its amount fades toward Off; Off retains the original processing exactly. The wet
   high band retains the oversampler's phase, while dry and restored lows are unshifted.
   **Tube Boost** is an original biased soft saturator with Boost's
-  Tilt/Low cut voicing and a locally oversampled saturator (4x/2x/1x at the same host-rate bands). It uses the shared minimum-phase FIR with 32 base taps; the host-rate tone and DC filters remain outside it. A collapsed identity FIR
+  Tilt/Low cut voicing and a locally oversampled saturator (4x/2x/1x at the same host-rate bands). It uses the shared minimum-phase FIR with 32 base taps; the host-rate tone and DC filters remain outside it. The FIR loops share input loads across interpolation phases; on x64 each 4x dot product is split over four accumulators held in registers, and the variants agree to roundoff. A collapsed identity FIR
   aligns the partial-Mix dry reference; a 20 ms fade handles the exact-dry bypass at Mix zero.
 - **Pedal Drive** ([SlotPedalDrive.h](../NeuralAmpModeler/SlotPedalDrive.h),
   [DSP](../NeuralAmpModeler/dsp/PedalDrive.h)) is an original set of voiced drives
-  informed by documented pedal designs. It uses fixed 4x minimum-phase FIR oversampling with zero added reported
+  informed by documented pedal designs. It uses fixed 4x halfband IIR oversampling with zero added reported
   latency, unshifted dry/bypass and local clean-low returns, independent
   stereo histories and 20 ms style crossfades. Its centered character parameter
   changes function/label by style; derived bias normalization is cached on the
-  16-sample control schedule. The FIR loops share input loads
-  across interpolation phases and use independent decimation accumulators for
-  portable vectorization. Settled styles use a single-voice path; only participating styles run during
-  transitions; an inactive style starts with cleared filter history. Rodent adds
-  first-order antiderivative antialiasing before a continuously integrated slew
-  limiter/hard clip; its filter rate remains 4x. See
+  16-sample control schedule. The
+  [oversampler](../NeuralAmpModeler/dsp/HalfbandOversampling.h) is shared with Distortion
+  and Pedal Distortion: two elliptic halfband stages, each a pair of allpass paths, and a
+  seventh-order elliptic guard lowpass at the host rate that removes the band the halfband
+  stages fold back (above 20 kHz at 44.1 kHz). It is portable scalar code at about a third of
+  the cost of the minimum-phase FIR these modules used before. Pedal Drive and Distortion
+  add a short alignment delay before decimation so their wet path keeps the phase of that
+  FIR and partial Mix blends keep their sound; Pedal Distortion omits it. Settled styles use a single-voice
+  path; only participating styles run during
+  transitions; an inactive style starts with cleared filter history. Every clipping stage
+  uses first-order antiderivative antialiasing with a curve whose antiderivative needs no
+  exp or log, so the averaged stage costs about what a plain tanh did, and an unchanged
+  input (silence) skips the curve entirely. The voices released in 0.1 use Warm, a blend of
+  x / sqrt(1 + x²) and a cubic soft clip that stays within 0.013 of the tanh they were
+  voiced with; biased stages re-centre it and restore unity small-signal gain. Rodent keeps
+  tanh, averaged, before a continuously integrated slew limiter/hard clip. See
   [voices, signal flow and design references](modules/pedal-drive.md).
+  Bender, Octave, Gated and Sub Fuzz use x / sqrt(1 + x²) itself. Octave Fuzz rectifies with
+  |x|, averaged the same way so its corner is resolved exactly. Gated Fuzz's
+  second stage is a dead zone into the same curve, so silence stays exactly silent. Sub Fuzz
+  finds one peak-relative trigger per cycle of the low-passed input and flips polarity at the
+  next zero crossing, so the octave-down signal has no steps; it adds no delay.
+- **Pedal Distortion** ([SlotPedalDistortion.h](../NeuralAmpModeler/SlotPedalDistortion.h),
+  [DSP](../NeuralAmpModeler/dsp/PedalDistortion.h)) shares one table-driven structure across
+  its styles: input coupling (moved by Tight), an optional pre-clip peak, two clipping stages
+  with first-order antiderivative antialiasing and interstage filters, a 5 Hz DC blocker and
+  the style's post-clip peaks and low-pass. The clipping curves (x / sqrt(1 + x²), its blend
+  with a hard clip, x / (1 + |x|) and a hard clip) have antiderivatives without exp or log,
+  which keeps the two averaged stages cheaper than one tanh each. Gain divides its decibels
+  between the stages; Raw Dist instead models an op-amp whose bass corner rises and whose
+  bandwidth falls with gain. A level-following bias on the asymmetric styles adds an offset
+  in proportion to how far a stage is overdriven (10 ms smoothing), so the duty cycle and
+  the even harmonics hold at high gain instead of collapsing into a symmetric square wave.
+  Everything up to the clipping runs at a fixed 4x through the shared halfband IIR oversampler; the
+  style's linear voicing and the shared Bass/Mid/Treble biquads run at the host rate
+  afterward. Style crossfades (20 ms) mix the clipped signals before the one decimator and
+  mix the voicings after it. No latency is reported and Mix 0% is exact dry.
 - **Pedal Comp** ([SlotPedalComp.h](../NeuralAmpModeler/SlotPedalComp.h)) is an original
   feed-forward compressor that takes the playing behaviour of guitar sustain pedals
   without modelling a circuit. One linked stereo detector feeds a soft-knee curve whose
@@ -326,9 +357,9 @@ silence after bypass and then suspend: a muted delay stops writing feedback and 
 8.1-second buffer in about nine seconds, reverbs drain for 30 seconds, modulation for 70 ms.
 No callback clears a whole delay ring at once.
 
-Built-in effects have no block buffering. Pedal Drive reports 64 host samples for its
-oversampling filters and aligns its dry, clean-low and bypass paths; other built-in
-effects report zero host compensation latency.
+Built-in effects have no block buffering and report zero host compensation latency;
+oversampled modules use causal filters without lookahead, so their dry, clean-low and bypass paths
+pass through unshifted.
 Delay, reverb and vibrato (8 ms center delay) delay the effected signal on purpose; that
 effect time is not compensated. NAM sample-rate conversion reports its own latency, and
 parallel lanes are aligned to the longer one. Host tail reporting follows serial and parallel

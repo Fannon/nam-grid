@@ -127,7 +127,8 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::AirPlate: case SlotEffect::AirHall:
     case SlotEffect::GalacticSpace:
     case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
-    case SlotEffect::DigitalBlack: case SlotEffect::PedalDrive: case SlotEffect::PedalComp: break;
+    case SlotEffect::DigitalBlack: case SlotEffect::PedalDrive: case SlotEffect::PedalComp:
+    case SlotEffect::PedalDistortion: break;
   }
   return v;
 }

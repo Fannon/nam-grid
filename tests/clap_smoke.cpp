@@ -1535,7 +1535,7 @@ int main(int argc, char** argv)
     const std::pair<SlotEffect, int> modes[]{
       {SlotEffect::CosmicEcho, uCosmicStyle}, {SlotEffect::MultiHeadDelay, uTapeHeads},
       {SlotEffect::ConsoleColour, uColourDesk}, {SlotEffect::Distortion, uDistStyle},
-      {SlotEffect::PedalDrive, uPedalStyle},
+      {SlotEffect::PedalDrive, uPedalStyle}, {SlotEffect::PedalDistortion, uPDistStyle},
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
       {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}, {SlotEffect::PedalComp, uPedalCompPickup},

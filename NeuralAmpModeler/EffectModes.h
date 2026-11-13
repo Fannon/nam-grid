@@ -19,12 +19,16 @@ enum class PedalStyle
   BluesBreaker = 7,
   TransparentOD = 8,
   VintageFuzz = 9,
+  BenderFuzz = 10,
+  OctaveFuzz = 11,
+  GatedFuzz = 12,
+  SubFuzz = 13,
   Count
 };
 inline constexpr int pedalCount = static_cast<int>(PedalStyle::Count);
 inline constexpr std::array<const char*, pedalCount> pedalNames{
   "Screamer", "Rodent", "Bass Edge", "Parallel OD", "Sustain Fuzz", "Cascaded Preamp", "Treble Drive",
-  "Blues OD", "Transparent OD", "Vintage Fuzz"};
+  "Blues OD", "Transparent OD", "Vintage Fuzz", "Bender Fuzz", "Octave Fuzz", "Gated Fuzz", "Sub Fuzz"};
 inline constexpr std::array<const char*, pedalCount> pedalHelp{
   "Screamer: mid-focused soft drive with reduced bass into clipping. Useful before a driven amp.",
   "Rodent: filtered high gain, slew rounding and hard clipping for crunch and heavy sustain.",
@@ -35,9 +39,14 @@ inline constexpr std::array<const char*, pedalCount> pedalHelp{
   "Treble Drive: bass-light, colored boost with asymmetric grit. Try it before a crunchy amp.",
   "Blues OD: two-stage, lightly voiced overdrive. Clipping moves from open to harder distortion.",
   "Transparent OD: restrained voicing, pre-drive bass shaping and post-drive treble filtering. Clipping changes compression and symmetry.",
-  "Vintage Fuzz: coupled, inverting stages for responsive fuzz. Bias moves from rounder sustain to pinched, gated decay."};
+  "Vintage Fuzz: coupled, inverting stages for responsive fuzz. Bias moves from rounder sustain to pinched, gated decay.",
+  "Bender Fuzz: three-stage fuzz with more gain and mids than Vintage Fuzz. Raspy, sustaining and cutting for riffs and leads.",
+  "Octave Fuzz: rectified fuzz that adds a ringing octave up. Strongest on single notes, higher frets and the neck pickup.",
+  "Gated Fuzz: starved, velcro-like fuzz. Loud notes are full; decays narrow, sputter and cut off, and pauses stay silent. Drive sets the sustain.",
+  "Sub Fuzz: an octave divider into fuzz for a synth-like note one octave down. Tracks single notes; chords and fading notes glitch."};
 inline constexpr std::array<const char*, pedalCount> pedalCharacterNames{
-  "Focus", "Bite", "Attack", "Blend", "Mids", "Asymmetry", "Focus", "Clipping", "Clipping", "Bias"};
+  "Focus", "Bite", "Attack", "Blend", "Mids", "Asymmetry", "Focus", "Clipping", "Clipping", "Bias", "Bias", "Octave",
+  "Gate", "Sub"};
 inline constexpr std::array<const char*, pedalCount> pedalCharacterHelp{
   "Focus: negative restores more bass into clipping; positive tightens the drive's bass and emphasizes mids. Center keeps the original voice.",
   "Bite: negative rounds the upper-mid gain and attack; positive increases bite and slew speed. Center keeps the original voice.",
@@ -48,7 +57,11 @@ inline constexpr std::array<const char*, pedalCount> pedalCharacterHelp{
   "Focus: negative admits more low end; positive shifts emphasis toward higher frequencies. Center keeps the original treble drive.",
   "Clipping: negative opens up soft clipping; center is the base soft drive; positive adds harder output clipping.",
   "Clipping: negative compresses with symmetric clipping; center has open symmetric clipping; positive adds asymmetry.",
-  "Bias: negative gives rounder, more symmetric fuzz; positive pinches the waveform and gates quiet decays. Center is the base fuzz."};
+  "Bias: negative gives rounder, more symmetric fuzz; positive pinches the waveform and gates quiet decays. Center is the base fuzz.",
+  "Bias: negative gives a smoother, more symmetric fuzz; positive adds spitting asymmetry and sputter on decays. Center is the base fuzz.",
+  "Octave: negative favors the fuzz under the octave; positive brings out the rectified octave up. Center is the base blend.",
+  "Gate: negative lets notes ring longer before they sputter out; positive cuts them off sooner for short, spitting stabs. Center is the base fuzz.",
+  "Sub: negative favors the normal fuzz with the octave down underneath; positive leaves mostly the octave down. Center is the base blend."};
 inline constexpr std::array<const char*, 2> blackNames{"Zero crossing", "Hysteresis"};
 // Pedal Comp detector voicings. They set sensitivity and what the detector hears,
 // never the audible tone.
@@ -65,18 +78,45 @@ enum class DistortionStyle
   Foldback = 3,
   Diode = 4,
   Rectify = 5,
+  Overdrive = 6,
+  HalfWave = 7,
+  SineFold = 8,
   Count
 };
 inline constexpr int distortionCount = static_cast<int>(DistortionStyle::Count);
 inline constexpr std::array<const char*, distortionCount> distortionNames{
-  "Soft clip", "Hard clip", "Fuzz", "Foldback", "Diode", "Rectify"};
+  "Soft clip", "Hard clip", "Fuzz", "Foldback", "Diode", "Rectify", "Overdrive", "Half-wave", "Sine fold"};
 inline constexpr std::array<const char*, distortionCount> distortionHelp{
   "Soft clip rounds peaks for smooth compression and predominantly odd harmonics.",
   "Hard clip flattens peaks abruptly for a sharper, brighter edge.",
   "Fuzz saturates strongly even at low Drive, making notes dense and compressed.",
   "Foldback folds peaks back on themselves; Drive changes the harmonic pattern.",
   "Diode clips negative peaks sooner than positive peaks, adding even harmonics.",
-  "Rectify turns both half-cycles upward for an octave-like buzz; DC is removed."};
+  "Rectify turns both half-cycles upward for an octave-like buzz; DC is removed.",
+  "Overdrive never fully flattens, like diodes in an op-amp's feedback loop: at high Drive it keeps more picking dynamics than Soft clip.",
+  "Half-wave passes positive half-cycles and mutes the rest for a gated, buzzing fuzz with strong even harmonics; DC is removed.",
+  "Sine fold folds peaks smoothly back for rich, synth-like harmonics that sweep as Drive rises."};
+// Pedal Distortion styles. Stored integers are permanent: append only.
+enum class PedalDistortionStyle
+{
+  ClassicDist = 0,
+  RawDist = 1,
+  BritishCrunch = 2,
+  HotLead = 3,
+  MetalStack = 4,
+  Chainsaw = 5,
+  Count
+};
+inline constexpr int pedalDistortionCount = static_cast<int>(PedalDistortionStyle::Count);
+inline constexpr std::array<const char*, pedalDistortionCount> pedalDistortionNames{
+  "Classic Dist", "Raw Dist", "British Crunch", "Hot Lead", "Metal Stack", "Chainsaw"};
+inline constexpr std::array<const char*, pedalDistortionCount> pedalDistortionHelp{
+  "Classic Dist: an orange-box style distortion. Bright, scooped and gritty for punk, grunge and classic rock.",
+  "Raw Dist: a simple op-amp distortion with soft germanium clipping. Bass-light, raspy and fizzy; pushes an amp well.",
+  "British Crunch: an amp-in-a-box crunch with two preamp-like stages and a mid-forward, darker top.",
+  "Hot Lead: a hot-rodded British lead box. Tighter bass, more gain and a smooth top for rhythm and solos.",
+  "Metal Stack: a high-gain metal distortion with a pre-clip mid hump and a scooped, aggressive post voicing. Use Mid and Mid freq to carve it.",
+  "Chainsaw: a dense, raspy distortion with huge low and upper-mid peaks, like a Swedish death-metal pedal with every knob at maximum."};
 inline constexpr std::array<const char*, 4> junoNames{"I", "I+II", "II", "I+II vintage"};
 inline constexpr std::array<const char*, 2> gateNames{"Natural", "Tight"};
 inline constexpr std::array<const char*, 3> filterNames{"Low-pass", "High-pass", "Band-pass"};

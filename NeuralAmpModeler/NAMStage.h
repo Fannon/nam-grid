@@ -21,6 +21,7 @@
 #include "EQSignalSpectrum.h"
 #include "SlotDistortion.h"
 #include "SlotPedalDrive.h"
+#include "SlotPedalDistortion.h"
 #include "SlotPedalComp.h"
 #include "SlotDynamicEQ.h"
 #include "SlotTransientShaper.h"
@@ -106,6 +107,7 @@ public:
     SlotTubeBoost tube;
     SlotDistortion distortion;
     SlotPedalDrive pedal;
+    SlotPedalDistortion pedalDistortion;
     SlotEnvelopeFilter filter;
     SlotAutoSwell swell;
     SlotDelay echo;
@@ -169,6 +171,8 @@ public:
         distortion.Reset(rate);
       if (effect == SlotEffect::PedalDrive)
         pedal.Reset(rate);
+      if (effect == SlotEffect::PedalDistortion)
+        pedalDistortion.Reset(rate);
       if (effect == SlotEffect::SynthFilter)
         filter.Reset(rate);
       if (effect == SlotEffect::AutoSwell)
@@ -240,7 +244,8 @@ public:
                                            : effect == SlotEffect::Freeze ? 7.
                                            : effect == SlotEffect::Stutter ? 33.
                                            : effect == SlotEffect::Utility ? .045
-                                           : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive ? 1.
+                                           : effect == SlotEffect::Distortion || effect == SlotEffect::PedalDrive
+                                               || effect == SlotEffect::PedalDistortion ? 1.
                                            : effect == SlotEffect::LoFiTape || IsOutboard(effect) || IsAirDynamics(effect) ? 1.
                                            // Dynamic EQ's slowest Release (1 s) settles a full-Range cut in about eight time constants.
                                            : effect == SlotEffect::DynamicEQ ? 8.
@@ -740,6 +745,8 @@ private:
         p->distortion.Process(out, frames, utility);
       else if (p->effect == SlotEffect::PedalDrive)
         p->pedal.Process(out, frames, utility);
+      else if (p->effect == SlotEffect::PedalDistortion)
+        p->pedalDistortion.Process(out, frames, utility);
       else if (p->effect == SlotEffect::SynthFilter)
         p->filter.Process(out, frames, utility);
       else if (p->effect == SlotEffect::AutoSwell)

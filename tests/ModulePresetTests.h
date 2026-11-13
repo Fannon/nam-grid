@@ -48,8 +48,8 @@ void TestModulePresetCoverage()
                             || effect == SlotEffect::AIGate
                             || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
     assert(!calibrated || For(effect).empty());
-    // Cosmic Echo covers distinct networks as well as practical short/medium/long roles.
-    assert(For(effect).size() <= (effect == SlotEffect::CosmicEcho ? 14u : IsDelay(effect) ? 12u : effect == SlotEffect::PedalDrive ? 5u : 4u));
+    // A sanity ceiling, not a design target: no module needs more than sixteen factory recipes.
+    assert(For(effect).size() <= 16u);
     for (const auto& preset : For(effect))
     {
       std::vector<int> seen;

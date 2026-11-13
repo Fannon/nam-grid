@@ -105,6 +105,12 @@ static_assert(SlotUtilityParam(0, uAIGateReduction) == 5329);
 static_assert(SlotUtilityParam(15, uAIGateAttackProtection) == 5392);
 static_assert(kEffectParameters[uAIGateReduction].introducedIn == 30
               && kEffectParameters[uAIGateAttackProtection].introducedIn == 30);
+// Pedal Distortion (schema 31) appends one module and nine slot controls after every previous ID.
+static_assert(static_cast<int>(SlotEffect::PedalDistortion) == 66);
+static_assert(SlotUtilityParam(0, uPDistStyle) == 5393);
+static_assert(SlotUtilityParam(15, uPDistMix) == 5536);
+static_assert(kEffectParameters[uPDistStyle].introducedIn == 31 && kEffectParameters[uPDistMix].introducedIn == 31);
+static_assert(IsAlgorithmMode(uPDistStyle));
 
 int main(int argc, char** argv)
 {
@@ -391,6 +397,23 @@ int main(int argc, char** argv)
       for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
       changed[key] = 100.;
     }
+    assert(load(changed));
+    assert(load(legacy));
+    assert(save() == base);
+  }
+  // Schema 30 predates Pedal Distortion: its controls restore their declared defaults.
+  {
+    auto legacy = base;
+    legacy["schema"] = 30;
+    auto changed = base;
+    for (int slot = 0; slot < 16; ++slot)
+      for (int p = uPDistStyle; p <= uPDistMix; ++p)
+      {
+        const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
+        legacy.erase(key);
+        for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+        if (p == uPDistGain) changed[key] = 90.;
+      }
     assert(load(changed));
     assert(load(legacy));
     assert(save() == base);

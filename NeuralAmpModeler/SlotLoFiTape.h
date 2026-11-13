@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "SlotTimeEffects.h"
-#include "dsp/PedalDrive.h"
+#include "dsp/MinimumPhaseOversampling.h"
 
 struct LoFiTapeHistory
 {
@@ -137,7 +137,7 @@ private:
   grid_fx::SmoothControls<7> mControls;
   grid_fx::SmoothControls<1> mDriveControl;
   grid_fx::Memo mDriveGain;
-  std::array<grid_pedal::Oversampler4x, 2> mSaturator;
+  std::array<grid_oversampling::FIR<4>, 2> mSaturator;
   std::array<double, 2> mLow{}, mLow2{}, mDC{}, mNoiseLow{};
   std::array<uint32_t, 2> mNoiseSeed{};
   uint32_t mTransportSeed = 1;

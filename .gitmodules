@@ -10,3 +10,6 @@
 [submodule "NeuralAmpModelerCore"]
 	path = NeuralAmpModelerCore
 	url = https://github.com/sdatkinson/NeuralAmpModelerCore.git
+[submodule "mpc-plugin-sdk"]
+	path = mpc-plugin-sdk
+	url = https://github.com/inmusic-software/mpc-plugin-builder-sdk.git

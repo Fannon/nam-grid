@@ -309,7 +309,8 @@ C++20, `-fsigned-char` for WDL, and `-z nodelete` for the ELF libraries. It comp
 incrementally into `build/<platform>/mpc/obj/` (shared DSP objects once per target), lays out
 each page from the plugin's `pages.json` in four Q-Link columns, generates `Plugin Skins/` with
 the SDK's `gen_ui.py` through `mpc/skins.py` (column panels, headings and fitted focus
-rectangles), and runs `validate.py`. The SDK infers
+rectangles), replaces the kit graphics with the desktop editor's look (`mpc/nam_kit.py`, cached
+per build), and runs `validate.py`. The SDK infers
 parameter kinds by probing display text, so each plugin writes a manifest of its menus and
 module-dependent controls (`NAM_GRID_MPC_MANIFEST`) that the build merges into `params.json`. Only 64-bit MPCs are supported, so
 `plugin.json` has no `file32`; the build accepts the validator's error about that alone. The first run installs zig into

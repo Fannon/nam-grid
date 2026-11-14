@@ -34,6 +34,10 @@ sys.path.insert(0, SDK_TOOLS)
 import build as sdk  # noqa: E402  (the SDK's build.py: zig discovery and version.xml)
 sys.path.insert(0, os.path.join(ROOT, "mpc"))
 import skins  # noqa: E402  (the SDK's gen_ui.py with grouped columns)
+import nam_kit  # noqa: E402  (the desktop editor's look for knobs, faders and switches)
+
+# The desktop editor's colours (grid_ui): background, text and the label colour per plugin.
+BACKGROUND, TEXT = "ff0e1013", "ffe8ebef"
 
 PLATFORM = "windows" if os.name == "nt" else "macos" if sys.platform == "darwin" else "linux"
 BUILD = os.path.join(ROOT, "build", PLATFORM, "mpc")
@@ -259,6 +263,8 @@ def dump_params(sim, plugin):
         kind = kinds.get(str(prm["index"]))
         if kind == "float":
             prm["kind"], prm["choices"] = "float", []
+        elif kind == ["Off", "On"]:
+            prm["kind"], prm["choices"] = "bool", kind  # A toggle, green when on.
         elif kind is not None:
             prm["kind"], prm["choices"] = "choice", kind
     path = os.path.join(plugin.work, "params.json")
@@ -330,7 +336,9 @@ def make_skins(plugin, params_json):
         headings[page["name"]] = page_headings
     ui_path = os.path.join(plugin.work, "ui.json")
     with open(ui_path, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump({"kit": plugin.pages.get("kit", "amber"), "pages": pages}, fh, indent=2)
+        colour = plugin.pages["colour"]
+        json.dump({"kit": "mono", "style": {"background": BACKGROUND, "text": TEXT, "muted": colour, "accent": colour},
+                   "pages": pages}, fh, indent=2)
         fh.write("\n")
     out = os.path.join(plugin.out, "Plugin Skins")
     if os.path.isdir(out):
@@ -339,6 +347,7 @@ def make_skins(plugin, params_json):
     if not skins.generate(params_json, ui_path, out, BUILD, headings, handles):
         log("ERROR: gen_ui.py failed for %s" % plugin.name)
         return False
+    nam_kit.restyle(out, BUILD)
     # The generated files keep duplicate JSON keys, so they are edited as text.
     tui = os.path.join(out, "TUI.json")
     with open(tui, "r", encoding="utf-8") as fh:

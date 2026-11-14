@@ -20,3 +20,4 @@ python mpc/build.py --test   # MPC plugin tests and the SDK host simulator
 | `tests/mpc_tests.cpp` | Behaviour tests of every plugin through the VST2 entry point. |
 | `build.py` | Cross-compiles with zig, lays out the pages, generates skins and validates each plugin folder. |
 | `skins.py` | The SDK's skin generator with a panel, heading and fitted Q-Link focus rectangle per column. |
+| `nam_kit.py` | Knobs, faders, toggles and selector buttons drawn like the desktop editor, replacing the SDK kit's PNGs. |

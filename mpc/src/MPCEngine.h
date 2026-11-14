@@ -263,10 +263,45 @@ public:
     mExtraApplied = false;
     mLoadingState.store(true);
   }
-  void EndStateLoad()
+  void EndStateLoad(bool loaded)
   {
     mLoadingState.store(false);
-    if (!mExtraApplied) ApplyParametersAsEdits(); // A chunk from elsewhere: rebuild from its parameters.
+    if (loaded && !mExtraApplied) ApplyParametersAsEdits(); // A parameter-only chunk.
+  }
+  // The SDK applies parameters while parsing the chunk. Validate it first so a truncated,
+  // foreign or malformed preset cannot partly change the current rig or throw through VST.
+  bool CanLoadState(const uint8_t* data, size_t size) const
+  {
+    if (!data || size < 12 || std::memcmp(data, "MPCP", 4) != 0) return false;
+    size_t pos = 4;
+    const auto u32 = [&](uint32_t& value) {
+      if (size - pos < 4) return false;
+      value = 0;
+      for (int i = 0; i < 4; ++i) value |= uint32_t(data[pos++]) << (8 * i);
+      return true;
+    };
+    uint32_t version = 0, count = 0;
+    if (!u32(version) || (version != 1 && version != 2) || !u32(count)) return false;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+      if (pos == size) return false;
+      const size_t length = data[pos++];
+      if (length > size - pos) return false;
+      pos += length;
+      for (int field = 0; field < (version == 1 ? 1 : 2); ++field)
+      {
+        uint32_t bits;
+        if (!u32(bits)) return false;
+        float value;
+        std::memcpy(&value, &bits, sizeof value);
+        if (!std::isfinite(value)) return false;
+      }
+    }
+    uint32_t extraSize;
+    if (!u32(extraSize) || extraSize != size - pos) return false;
+    if (extraSize == 0) return true;
+    try { return ValidExtraState(nlohmann::json::parse(data + pos, data + size)); }
+    catch (...) { return false; }
   }
   const PluginSpec& Spec() const { return mSpec; }
 
@@ -391,6 +426,7 @@ public:
       case Role::Type: SelectChoice(role.section, static_cast<int>(std::lround(plainValue))); return;
       case Role::Folder:
         section.folderNorm.store(getNormalised(index));
+        section.fileDirty.store(false); // A later Folder turn supersedes an earlier pending File turn.
         section.folderDirty.store(true);
         mRescan.store(true); // Files copied while the plugin runs appear when browsing folders.
         return;
@@ -443,8 +479,16 @@ public:
     state["schema"] = kStateSchema;
     auto& sections = state["sections"] = nlohmann::json::object();
     std::lock_guard<std::mutex> lock(mControlMutex);
-    for (auto& section : mSections)
+    for (size_t s = 0; s < mSections.size(); ++s)
     {
+      auto& section = mSections[s];
+      // A save can arrive before the worker sees the latest Folder/File turn. Save that
+      // selection by name now, and leave its preparation queued for the worker.
+      if (section.folderDirty.load() || section.fileDirty.load())
+      {
+        ResolveFileLocked(static_cast<int>(s));
+        section.rebuild.store(true);
+      }
       const auto& choice = Current(section);
       nlohmann::json j;
       j["module"] = choice.key;
@@ -475,10 +519,7 @@ public:
     {
       return;
     }
-    if (!state.is_object() || state.value("format", "") != mSpec.stateFormat || !state.contains("sections")
-        || !state["sections"].is_object() || state.value("schema", 0) < 1)
-      return;
-    // Newer schemas only add named values, so unknown keys are ignored.
+    if (!ValidExtraState(state)) return;
     std::lock_guard<std::mutex> lock(mControlMutex);
     const auto& sections = state["sections"];
     for (size_t s = 0; s < mSections.size(); ++s)
@@ -515,6 +556,7 @@ public:
       }
       values[standardControls + uNoiseLearn] = 0.;
       values[kSlotEnabled] = 1.;
+      std::fill(section.rememberedValid.begin(), section.rememberedValid.end(), 0);
       section.choice.store(choice);
       StoreValues(section, values);
       section.fileRoot.clear();
@@ -538,6 +580,7 @@ public:
         if (!valid) section.noise = {};
       }
       section.noiseReset.store(false);
+      section.noiseEpoch = ++mNextNoiseEpoch; // Ignore audio snapshots until this project's profile is published.
       section.folderDirty.store(false);
       section.fileDirty.store(false);
       section.rebuild.store(true);
@@ -551,6 +594,41 @@ public:
   }
 
 private:
+  bool ValidExtraState(const nlohmann::json& state) const
+  {
+    if (!state.is_object() || !state.contains("format") || !state["format"].is_string()
+        || state["format"] != mSpec.stateFormat || !state.contains("schema") || !state["schema"].is_number_integer()
+        || state["schema"] < 1 || state["schema"] > kStateSchema || !state.contains("sections")
+        || !state["sections"].is_object()) return false;
+    for (const auto& section : mSections)
+    {
+      const auto it = state["sections"].find(section.spec->id);
+      if (it == state["sections"].end()) continue; // Missing sections use their defaults.
+      const auto& j = *it;
+      if (!j.is_object() || (j.contains("module") && !j["module"].is_string())) return false;
+      if (j.contains("values"))
+      {
+        if (!j["values"].is_object()) return false;
+        for (int c = 0; c < slotControls; ++c)
+          if (const auto v = j["values"].find(ControlKey(c)); v != j["values"].end())
+            if (!v->is_number() || !std::isfinite(v->get<double>())) return false;
+      }
+      if (j.contains("file"))
+      {
+        const auto& f = j["file"];
+        if (!f.is_object() || (f.contains("root") && !f["root"].is_string())
+            || (f.contains("path") && !f["path"].is_string())) return false;
+      }
+      if (j.contains("noise"))
+      {
+        const auto& noise = j["noise"];
+        if (!noise.is_array() || noise.size() != noise_print::Profile{}.power.size()) return false;
+        for (const auto& v : noise)
+          if (!v.is_number() || !std::isfinite(v.get<double>()) || v.get<double>() < 0.) return false;
+      }
+    }
+    return true;
+  }
   struct ParamRole
   {
     int section;
@@ -678,22 +756,28 @@ private:
   // After a parameter-only state (no extra state from this plugin): treat every value as an edit.
   void ApplyParametersAsEdits()
   {
+    // RefreshLayout writes the host values. Keep the incoming values until options (which
+    // can replace Time/Rate with Division) and then knobs have been interpreted.
+    std::vector<float> incoming(numParams());
+    for (int i = 0; i < numParams(); ++i) incoming[i] = getNormalised(i);
     for (size_t s = 0; s < mSections.size(); ++s)
     {
       auto& section = mSections[s];
       const int choice = section.typeParam >= 0 ? getInt(section.typeParam) : 0;
       section.choice.store(std::clamp(choice, 0, static_cast<int>(section.spec->choices.size()) - 1));
+      std::fill(section.rememberedValid.begin(), section.rememberedValid.end(), 0);
       StoreValues(section, ChoiceDefaults(Current(section)));
       RefreshLayout(static_cast<int>(s));
       for (size_t o = 0; o < section.optionParams.size(); ++o)
-        if (const int c = section.options[o].load(); c >= 0) section.values[c].store(FromNormalized(c, getNormalised(section.optionParams[o])));
+        if (const int c = section.options[o].load(); c >= 0) section.values[c].store(FromNormalized(c, incoming[section.optionParams[o]]));
+      RefreshLayout(static_cast<int>(s));
       for (size_t k = 0; k < section.knobParams.size(); ++k)
-        if (const int c = section.knobs[k].load(); c >= 0) section.values[c].store(FromNormalized(c, getNormalised(section.knobParams[k])));
+        if (const int c = section.knobs[k].load(); c >= 0) section.values[c].store(FromNormalized(c, incoming[section.knobParams[k]]));
       RefreshLayout(static_cast<int>(s));
       if (section.folderParam >= 0)
       {
-        section.folderNorm.store(getNormalised(section.folderParam));
-        section.fileNorm.store(getNormalised(section.fileParam));
+        section.folderNorm.store(incoming[section.folderParam]);
+        section.fileNorm.store(incoming[section.fileParam]);
         section.folderDirty.store(true);
         section.fileDirty.store(true);
       }
@@ -879,7 +963,7 @@ private:
       if (folder >= 0)
       {
         // A new folder starts at its first file; a File edit steps within the folder.
-        const int position = folderEdit ? 0 : IndexFromNormalized(section.fileNorm.load(), folders[folder].count);
+        const int position = fileEdit ? IndexFromNormalized(section.fileNorm.load(), folders[folder].count) : 0;
         chosen = folders[folder].first + std::max(0, position);
       }
       section.fileRoot = chosen >= 0 ? entries[chosen].root : std::string();
@@ -1071,9 +1155,10 @@ inline VstIntPtr Dispatcher(AEffect* e, VstInt32 opcode, VstInt32 index, VstIntP
   }
   if (plugin != nullptr && opcode == effSetChunk)
   {
+    if (value < 0 || !plugin->CanLoadState(static_cast<const uint8_t*>(ptr), static_cast<size_t>(value))) return 0;
     plugin->BeginStateLoad();
     const auto result = mpc::detail::dispatcher(e, opcode, index, value, ptr, opt);
-    plugin->EndStateLoad();
+    plugin->EndStateLoad(result != 0);
     return result;
   }
   return mpc::detail::dispatcher(e, opcode, index, value, ptr, opt);

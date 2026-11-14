@@ -27,6 +27,9 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
   Their names start with **NG** to fit the MPC's effect displays. Each page is four columns of four controls, one Q-Link bank each, in the desktop editor's look, with green/red toggles; options keep fixed places when you switch modules. They are separate from the desktop plugin. See [NAM Grid on Akai MPC](docs/mpc.md).
 
+- **MPC preset recall:** parameter-only presets retain knob values and tempo divisions; opening another project clears the previous project's remembered module settings and replaces its learned Smart Gate profile. Invalid, incompatible or truncated presets leave the current settings intact. Saving immediately after choosing a capture or IR keeps the new selection.
+- **NG Amp:** disabled Low cut and High cut settings display **Off**.
+
 ## [0.7.0] - 2026-11-15
 
 ### New modules and sounds

@@ -274,6 +274,8 @@ inline std::string FormatValue(int control, double value)
   using namespace parameter_layout;
   const auto s = Spec(control);
   if (control == kSlotFullQuality) return value >= .5 ? "Full" : "Lite";
+  if ((control == kSlotEQHighPass && value <= s.minimum) || (control == kSlotEQLowPass && value >= s.maximum))
+    return "Off";
   if (IsUtility(control))
   {
     const int p = UtilityControl(control);

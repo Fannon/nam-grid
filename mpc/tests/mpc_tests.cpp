@@ -270,6 +270,8 @@ void TestLayouts()
   CHECK(std::abs(FromNormalized(cut, .5) - std::sqrt(200. * 16000.)) < 1.e-6);
   CHECK(FormatValue(standardControls + uNoiseGateThreshold, -100.) == "Off");
   CHECK(FormatValue(cut, 6000.) == "6.00 kHz");
+  CHECK(FormatValue(parameter_layout::kSlotEQHighPass, 0.) == "Off");
+  CHECK(FormatValue(parameter_layout::kSlotEQLowPass, 20000.) == "Off");
   // Library folders group files and keep each folder together.
   std::vector<LibraryEntry> entries{{"user", "A/a1.nam", "", "a1"}, {"user", "A/a2.nam", "", "a2"},
                                     {"user", "A/B/b.nam", "", "b"}, {"factory", "f.nam", "", "f"}};
@@ -324,6 +326,34 @@ void TestAmpGates()
   CHECK(b.Load(a.Chunk()));
   CHECK(b.Display("gate_type") == "Smart Gate");
   CHECK(Extra(b.Chunk())["sections"]["gate"]["noise"] == learned["noise"]);
+  // A second project loaded into a used instance must replace the old audio snapshot too.
+  a.Process(l2, r2);
+  auto replacement = Extra(a.Chunk());
+  replacement["sections"]["gate"]["noise"] = std::vector<double>(noise_print::Profile{}.power.size(), .0001);
+  CHECK(a.Load(WithExtra(a.Chunk(), replacement)));
+  a.Process(l2, r2);
+  Settle();
+  CHECK(Extra(a.Chunk())["sections"]["gate"]["noise"] == replacement["sections"]["gate"]["noise"]);
+}
+
+void TestAmpParameterState()
+{
+  Instance a(mpc_plugins::AmpSpec());
+  a.Set("amp_file", 1.f); // Save immediately, before the worker resolves the File edit.
+  const auto chunk = a.Chunk();
+  CHECK(Extra(chunk)["sections"]["amp"]["file"]["path"] == "A/a2.nam");
+  CHECK(WaitFor([&] { return a.Display("amp_file") == "a2"; }));
+  auto parameters = a.Chunk();
+  parameters.resize(ExtraOffset(parameters));
+  parameters.insert(parameters.end(), 4, 0);
+  Instance b(mpc_plugins::AmpSpec());
+  CHECK(b.Load(parameters));
+  CHECK(WaitFor([&] { return b.Display("amp_file") == "a2"; }));
+  // The latest turn wins: changing Folder after File starts at the new folder's first file.
+  a.Set("amp_folder", .5f);
+  a.Set("amp_file", 1.f);
+  a.Set("amp_folder", 0.f);
+  CHECK(Extra(a.Chunk())["sections"]["amp"]["file"]["path"] == "A/a1.nam");
 }
 
 void TestAmpLibrary(const std::string& library)
@@ -405,6 +435,61 @@ void TestAmpState()
   CHECK(c.Load(WithExtra(chunk, j)));
   CHECK(c.Display("gate_type") == "Off");
   CHECK(Extra(c.Chunk())["sections"]["amp"]["values"]["EQ Bass"].get<double>() == 12.);
+}
+
+void TestStateValidation()
+{
+  Instance source(mpc_plugins::DelaySpec());
+  source.Choose("delay_type", "Tape");
+  source.Set("delay_k1", .82f);
+  const auto sourceChunk = source.Chunk();
+  Instance target(mpc_plugins::DelaySpec());
+  target.Set("delay_k1", .27f);
+  const auto original = target.Chunk();
+  const auto reject = [&](const std::vector<uint8_t>& chunk) {
+    CHECK(!target.Load(chunk));
+    CHECK(target.Chunk() == original); // Rejection must leave parameters and named state intact.
+  };
+  reject({});
+  reject(std::vector<uint8_t>(sourceChunk.begin(), sourceChunk.begin() + 20)); // Truncated after header.
+  auto invalid = Extra(sourceChunk);
+  invalid["format"] = 17;
+  try { reject(WithExtra(sourceChunk, invalid)); }
+  catch (...) { CHECK(false); } // No exception may escape the VST dispatcher.
+  invalid = Extra(sourceChunk);
+  invalid["schema"] = kStateSchema + 1;
+  reject(WithExtra(sourceChunk, invalid));
+  invalid = Extra(sourceChunk);
+  invalid["format"] = "nam-grid-mod";
+  reject(WithExtra(sourceChunk, invalid));
+  invalid = Extra(sourceChunk);
+  invalid["sections"]["delay"]["file"] = {{"root", 42}, {"path", "test.nam"}};
+  try { reject(WithExtra(sourceChunk, invalid)); }
+  catch (...) { CHECK(false); }
+
+  // A valid parameter-only chunk keeps the incoming knobs and the tempo-dependent layout.
+  source.Set("delay_o1", 1.f);
+  source.Set("delay_k1", .8f);
+  source.Set("delay_k2", .73f);
+  const auto savedDivision = source.Display("delay_k1");
+  auto parameters = source.Chunk();
+  parameters.resize(ExtraOffset(parameters));
+  parameters.insert(parameters.end(), 4, 0); // No plugin-specific extra state.
+  CHECK(target.Load(parameters));
+  CHECK(target.Display("delay_type") == "Tape");
+  CHECK(target.Name("delay_k1") == "Division" && target.Display("delay_k1") == savedDivision);
+  CHECK(std::abs(target.Get("delay_k2") - .73f) < 1.e-6f);
+
+  // Loading another project clears remembered module settings from the old project.
+  Instance reused(mpc_plugins::DelaySpec());
+  reused.Choose("delay_type", "Digital");
+  reused.Set("delay_k2", .95f);
+  reused.Choose("delay_type", "Analog");
+  Instance fresh(mpc_plugins::DelaySpec());
+  CHECK(reused.Load(fresh.Chunk()));
+  reused.Choose("delay_type", "Digital");
+  fresh.Choose("delay_type", "Digital");
+  CHECK(reused.Display("delay_k2") == fresh.Display("delay_k2"));
 }
 
 // NG Amp: other drives, Lite by default, mono processing, DC blocker and Normalize.
@@ -641,8 +726,10 @@ int main(int argc, char** argv)
 #endif
   TestLayouts();
   TestAmpGates();
+  TestAmpParameterState();
   TestAmpLibrary(library);
   TestAmpState();
+  TestStateValidation();
   TestAmpDrivesAndLevels(library);
   TestPedals();
   TestDelay();

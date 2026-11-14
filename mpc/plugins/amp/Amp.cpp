@@ -23,15 +23,16 @@ inline const mpc_grid::PluginSpec& AmpSpec()
         {"ai-gate", "AI Gate", SlotEffect::AIGate, FileKind::None, -1, 0,
          {U(uAIGateReduction), U(uAIGateSensitivity), U(uAIGateAttackProtection), U(uAIGateMix),
           U(uNoiseGateThreshold), U(uNoiseGateRelease)}}},
-       0},
+       0, false, true, nullptr, false, {U(uGateMode), U(uNoiseLearn), U(uNoiseTrackingMode)}},
       // A 5 Hz DC blocker follows the capture.
-      {"amp", "Amp", {{"capture", "Capture", SlotEffect::NAM, FileKind::Capture}}, 0, false, true, nullptr, true},
+      {"amp", "Amp", {{"capture", "Capture", SlotEffect::NAM, FileKind::Capture}}, 0, false, true, nullptr, true,
+       {parameter_layout::kSlotFullQuality}},
       // The cabinet is off by default (many captures include one). Knob columns as on the
       // AMP page: levels and cuts, then mix and pre-delay.
       {"cab", "Cab",
        {{"cabinet-ir", "Cabinet IR", SlotEffect::CabinetIR, FileKind::IR, -1, 0,
          {U(uIRInput), parameter_layout::kSlotIRLevel, U(uIRLowCut), U(uIRHighCut), U(uIRMix), U(uIRPredelay)}}},
-       0, true, false},
+       0, true, false, nullptr, false, {U(uIRLength)}},
     },
     {}, // Programs would replace the chosen capture; the MPC's own presets keep it.
     true, // Mono: NAM captures are mono, so the gate and cabinet run once, not per channel.

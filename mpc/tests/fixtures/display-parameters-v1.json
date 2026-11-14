@@ -1,0 +1,13 @@
+{
+  "plugin": "nam-grid-amp",
+  "firstIndex": 35,
+  "ids": [
+    "amp_info1", "amp_info2", "amp_info3", "amp_info4", "amp_info5",
+    "amp_info6", "amp_info7", "amp_info8", "amp_info9", "amp_info10",
+    "amp_info11", "amp_info12", "amp_info13", "amp_info14", "amp_info15",
+    "cab_info1", "cab_info2", "cab_info3", "cab_info4", "cab_info5",
+    "cab_info6", "cab_info7", "cab_info8", "cab_info9", "cab_info10",
+    "cab_info11", "cab_info12", "cab_info13", "cab_info14", "cab_info15",
+    "normalize_info"
+  ]
+}

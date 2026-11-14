@@ -14,7 +14,7 @@ inline const mpc_grid::PluginSpec& ModSpec()
        {"uni-vibe", "Uni-Vibe", SlotEffect::UniVibe},
        {"rotary", "Rotary", SlotEffect::Rotary},
        {"harmonic-tremolo", "Harmonic Trem", SlotEffect::HarmonicTremolo}},
-      0, false, true, "Type"}},
+      0, false, true, "Type", false, {U(uTempoSync), U(uJunoMode), U(uVibeMode)}}},
     {{"Juno Chorus", {0}}, {"Uni-Vibe", {1}}, {"Rotary", {2}}, {"Harmonic Tremolo", {3}}},
   };
   return spec;

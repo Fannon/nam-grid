@@ -17,7 +17,7 @@ inline const mpc_grid::PluginSpec& DelaySpec()
        {"diffused-delay", "Diffused", SlotEffect::DiffusedDelay},
        {"reverse-delay", "Reverse", SlotEffect::ReverseDelay},
        {"dual-delay", "Dual", SlotEffect::DualDelay}},
-      1, false, true, "Type"}},
+      1, false, true, "Type", false, {U(uTempoSync), U(uDelayPingPong), U(uDelayTimeChange), U(uTapeHeads)}}},
     {{"Digital", {0}}, {"Analog", {1}}, {"Tape", {2}}, {"Multi-Head", {3}}, {"Diffused", {4}}, {"Reverse", {5}},
      {"Dual", {6}}},
   };

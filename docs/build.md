@@ -320,6 +320,15 @@ every plugin's module layouts and curves, names, voice and type changes, state r
 library folders and files, Smart Gate profiles, programs and dry passthrough. It then runs
 the SDK's `host_sim test` on each plugin, which mimics the
 MPC host's load sequence, block sizes, parameter quirks, chunks and in-place processing.
+The MPC tests also enforce the original host/control contract and load the saved-state
+fixtures in `mpc/tests/fixtures/`; do not regenerate them to make a change pass.
+Object cache receipts include compiler flags and toolchain identity, so changing
+`--debug`, definitions or compiler versions rebuilds the affected sources.
+
+Add `--gallery tmp/<task>/gallery` to capture a deterministic SVG gallery from live
+plugin states, including every voice and synced layout plus file/error and empty states.
+Open its `index.svg` for visual review. It uses the skin's geometry and assets without
+opening an editor or requiring a browser; hardware fonts and touch still need MPC testing.
 
 `--arm-tests arm64` builds the tests and `host_sim` for the shipped arm64 library;
 `--emulate` runs them under `qemu-aarch64 -L /usr/aarch64-linux-gnu` (Ubuntu packages

@@ -13,7 +13,7 @@ inline const mpc_grid::PluginSpec& ConsoleSpec()
       {{"console-colour", "Console Colour", SlotEffect::ConsoleColour},
        {"outboard-channel", "Outboard", SlotEffect::OutboardChannel},
        {"butter-comp", "Butter Comp", SlotEffect::ButterComp}},
-      0, false, true, "Type"}},
+      0, false, true, "Type", false, {U(uColourDesk)}}},
     {{"Console Colour", {0}}, {"Outboard Channel", {1}}, {"Butter Comp", {2}}},
   };
   return spec;

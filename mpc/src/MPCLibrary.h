@@ -50,6 +50,33 @@ inline std::string Stem(const std::string& name)
   const auto dot = file.find_last_of('.');
   return dot == std::string::npos || dot == 0 ? file : file.substr(0, dot);
 }
+// The SDK writes at most 31 display bytes. Split UTF-8 without cutting a code point.
+// Ten 30-byte lines cover the MPC filesystem's 255-byte file-name limit.
+inline std::string DetailLine(const std::string& text, int line)
+{
+  size_t start = 0;
+  for (int n = 0; start < text.size(); ++n)
+  {
+    size_t end = std::min(text.size(), start + 30);
+    while (end < text.size() && (static_cast<unsigned char>(text[end]) & 0xc0) == 0x80) --end;
+    if (end < text.size())
+    {
+      const auto space = text.rfind(' ', end - 1);
+      // Prefer whole words while reserving enough of the ten lines for the rest.
+      if (space != std::string::npos && space >= start
+          && text.size() - space - 1 <= static_cast<size_t>(std::max(0, 9 - n)) * 27)
+        end = space + 1;
+    }
+    if (n == line) return text.substr(start, end - start);
+    start = end;
+  }
+  return {};
+}
+inline std::string FileName(const std::string& path)
+{
+  const auto slash = path.find_last_of("/\\");
+  return slash == std::string::npos ? path : path.substr(slash + 1);
+}
 // "Packs/Fender/Twin.nam" -> "Packs/Fender"; "Twin.nam" -> "".
 inline std::string FolderOf(const std::string& relative)
 {
@@ -243,7 +270,11 @@ inline int FindEntry(const std::vector<LibraryEntry>& entries, const std::string
 // Reads a whole file through stdio (no stat), or returns false.
 inline bool ReadWholeFile(const std::string& path, std::string& out)
 {
+#if defined(_WIN32)
+  std::FILE* f = _wfopen(std::filesystem::u8path(path).c_str(), L"rb");
+#else
   std::FILE* f = std::fopen(path.c_str(), "rb");
+#endif
   if (!f) return false;
   out.clear();
   char buffer[65536];

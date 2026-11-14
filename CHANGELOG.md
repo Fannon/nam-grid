@@ -19,6 +19,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - **MPC preset recall:** parameter-only presets retain knob values and tempo divisions; opening another project clears the previous project's remembered module settings and replaces its learned Smart Gate profile. Invalid, incompatible or truncated presets leave the current settings intact. Saving immediately after choosing a capture or IR keeps the new selection.
 - **NG Amp:** disabled Low cut and High cut settings display **Off**.
+- **NG Amp Library page:** see full capture and IR file names, folders, loading/error status and normalization availability. Repaired files can be retried by browsing folders or rescanning. Gate Off and Pedal None pages now explain how to add a processor.
 
 ### New modules and sounds
 

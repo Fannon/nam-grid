@@ -59,6 +59,7 @@ struct SectionSpec
   bool defaultOn = true;
   const char* typeName = nullptr; // Screen name of the Type menu (default: the section name).
   bool dcBlock = false; // A 5 Hz DC blocker after the section (NAM captures can have a DC offset).
+  std::vector<int> optionOrder; // Permanent host option assignments. Append; never infer from menu popularity.
 };
 struct ProgramSpec
 {
@@ -101,41 +102,10 @@ inline FileKind SectionFiles(const SectionSpec& section)
     if (c.files != FileKind::None) return c.files;
   return FileKind::None;
 }
-// How many knobs and options a section needs across its choices and tempo-sync states.
-// The section's options in fixed places: every option any of its choices uses, the most
-// common first, so an option keeps its place (and its switch) across module changes.
+// Explicit host assignments: adding another module must not move existing automation.
 inline std::vector<int> SectionOptionOrder(const SectionSpec& section)
 {
-  std::vector<int> order, count;
-  for (const auto& choice : section.choices)
-  {
-    std::vector<int> seen;
-    for (bool sync : {false, true})
-    {
-      auto values = ChoiceDefaults(choice);
-      values[standardControls + uTempoSync] = sync ? 1. : 0.;
-      for (int c : BaseLayout(choice, values, true).options)
-        if (c >= 0 && std::find(seen.begin(), seen.end(), c) == seen.end()) seen.push_back(c);
-    }
-    for (int c : seen)
-    {
-      const auto it = std::find(order.begin(), order.end(), c);
-      if (it == order.end())
-      {
-        order.push_back(c);
-        count.push_back(1);
-      }
-      else
-        ++count[it - order.begin()];
-    }
-  }
-  std::vector<size_t> index(order.size());
-  for (size_t i = 0; i < index.size(); ++i) index[i] = i;
-  std::stable_sort(index.begin(), index.end(), [&](size_t a, size_t b) { return count[a] > count[b]; });
-  std::vector<int> sorted;
-  for (size_t i : index) sorted.push_back(order[i]);
-  if (sorted.size() > kOptions) sorted.resize(kOptions);
-  return sorted;
+  return section.optionOrder;
 }
 // How many knobs a section needs across its choices and tempo-sync states.
 inline int SectionKnobCount(const SectionSpec& section)
@@ -156,7 +126,8 @@ inline int SectionKnobCount(const SectionSpec& section)
 class GridPlugin : public mpc::Plugin
 {
 public:
-  enum class Role { Global, Type, On, Folder, File, Option, Knob };
+  enum class Role { Global, Type, On, Folder, File, Option, Knob, Detail };
+  static constexpr int kFileDetails = 15; // Status, reason, ten name lines, three folder lines.
 
   explicit GridPlugin(const PluginSpec& spec) : mpc::Plugin(Info(spec)), mSpec(spec), mSections(spec.sections.size())
   {
@@ -210,6 +181,26 @@ public:
                                          Role::Knob, k));
     }
     mRoles.resize(numParams(), {-1, Role::Global, 0});
+    // Read-only display carriers append after every existing control. They have no audio
+    // meaning and never receive Q-Link assignments or automation.
+    for (size_t s = 0; s < mSections.size(); ++s)
+      if (SectionFiles(*mSections[s].spec) != FileKind::None)
+        for (int line = 0; line < kFileDetails; ++line)
+        {
+          const auto& section = *mSections[s].spec;
+          auto p = mpc::floatParam((std::string(section.id) + "_info" + std::to_string(line + 1)).c_str(),
+                                   (std::string(section.name) + " Info " + std::to_string(line + 1)).c_str(), 0.f, 1.f, 0.f);
+          p.automatable = false;
+          addParam(p);
+          mRoles.push_back({static_cast<int>(s), Role::Detail, line});
+        }
+    if (captures)
+    {
+      auto p = mpc::floatParam("normalize_info", "Normalize Status", 0.f, 1.f, 0.f);
+      p.automatable = false;
+      mNormalizeInfoParam = addParam(p);
+      mRoles.push_back({-1, Role::Global, 0});
+    }
     for (size_t s = 0; s < mSections.size(); ++s)
     {
       auto& section = mSections[s];
@@ -253,6 +244,7 @@ public:
       case Role::On: return std::string(section.spec->name) + " On";
       case Role::Folder: return choice.files == FileKind::None ? "" : "Folder";
       case Role::File: return choice.files == FileKind::Capture ? "Capture" : choice.files == FileKind::IR ? "IR" : "";
+      case Role::Detail: return param(index).name;
       default: break;
     }
     const int control = ControlOf(index);
@@ -413,6 +405,7 @@ public:
   void parameterChanged(int index, float plainValue) override
   {
     if (mLoadingState.load()) return; // loadExtraState() applies the saved state as a whole.
+    if (index == mNormalizeParam) { mNamesDirty.store(true); return; }
     if (index == mRescanParam)
     {
       if (plainValue >= .5f) mRescan.store(true);
@@ -452,6 +445,23 @@ public:
   {
     (void)plainValue;
     const auto role = mRoles[index];
+    if (index == mNormalizeInfoParam)
+    {
+      out = "Off";
+      if (getBool(mNormalizeParam))
+      {
+        std::lock_guard<std::mutex> lock(mControlMutex);
+        for (const auto& section : mSections)
+          if (Current(section).files == FileKind::Capture)
+          {
+            const double loudness = section.loudness.load();
+            out = section.loadStatus != "Ready" ? "Unavailable: capture not loaded"
+                  : std::isfinite(loudness) ? "On: " + FormatNumber(kNormalizedLoudness - loudness, .1, "dB") + " to -18 dB"
+                                           : "On: no loudness metadata";
+          }
+      }
+      return true;
+    }
     if (index == mOutputParam)
     {
       out = FormatNumber(plainValue, .1, "dB"); // The MPC shows no unit labels.
@@ -459,6 +469,15 @@ public:
     }
     if (role.section < 0 || role.role == Role::Type || role.role == Role::On) return false;
     auto& section = mSections[role.section];
+    if (role.role == Role::Detail)
+    {
+      std::lock_guard<std::mutex> lock(mControlMutex);
+      if (role.n == 0) out = section.folderDirty.load() || section.fileDirty.load() ? "Selecting..." : section.loadStatus;
+      else if (role.n == 1) out = DetailLine(section.loadError, 0);
+      else if (role.n < 12) out = DetailLine(FileName(section.fileRelative), role.n - 2);
+      else out = DetailLine(section.folderStatus, role.n - 12);
+      return true;
+    }
     if (role.role == Role::Folder || role.role == Role::File)
     {
       std::lock_guard<std::mutex> lock(mControlMutex);
@@ -583,6 +602,7 @@ public:
       section.noiseEpoch = ++mNextNoiseEpoch; // Ignore audio snapshots until this project's profile is published.
       section.folderDirty.store(false);
       section.fileDirty.store(false);
+      if (Current(section).files != FileKind::None) section.loadStatus = "Loading...";
       section.rebuild.store(true);
       if (section.typeParam >= 0)
         values_[section.typeParam]->store(param(section.typeParam).toNormalised(static_cast<float>(choice)));
@@ -654,6 +674,7 @@ private:
     std::vector<char> rememberedValid;
     // Control data: worker and host UI threads, under mControlMutex.
     std::string fileRoot, fileRelative, filePath, fileStatus, folderStatus, preparedKey, failedPath;
+    std::string loadStatus = "Waiting for library", loadError;
     noise_print::Profile noise;
     uint64_t noiseEpoch = 0;
     NAMStage stage;
@@ -863,6 +884,8 @@ private:
       for (size_t o = 0; o < section.optionParams.size(); ++o) describe(section.optionParams[o], static_cast<int>(o), true);
       for (size_t k = 0; k < section.knobParams.size(); ++k) describe(section.knobParams[k], static_cast<int>(k), false);
     }
+    for (int i = 0; i < numParams(); ++i)
+      if (mRoles[i].role == Role::Detail || i == mNormalizeInfoParam) kinds[std::to_string(i)] = "float";
     // The plugin-wide Output is only offered when no module has an output of its own.
     bool ownOutput = false;
     for (const auto& section : mSpec.sections)
@@ -946,6 +969,7 @@ private:
   {
     auto& section = mSections[s];
     const auto kind = Current(section).files;
+    const auto previousPath = section.filePath;
     section.filePath.clear();
     if (kind == FileKind::None)
     {
@@ -974,11 +998,25 @@ private:
     {
       section.filePath = entries[index].path;
       section.fileStatus = section.filePath == section.failedPath ? "Load failed" : entries[index].display;
+      if (section.filePath == section.failedPath) section.loadStatus = "Load failed - dry";
+      else if (section.filePath != previousPath)
+      {
+        section.loadStatus = "Loading...";
+        section.loadError.clear();
+      }
     }
     else if (!section.fileRelative.empty())
+    {
       section.fileStatus = "Missing: " + Stem(section.fileRelative);
+      section.loadStatus = "Missing - dry";
+      section.loadError = "Reconnect drive or pick file.";
+    }
     else
+    {
       section.fileStatus = kind == FileKind::IR ? "No IRs" : "No captures";
+      section.loadStatus = section.fileStatus + " - dry";
+      section.loadError = "Add files, then turn Folder.";
+    }
     RefreshFileViewsLocked(s);
   }
   // Points Folder and File at the current file (or keeps the folder when it is missing).
@@ -1017,6 +1055,7 @@ private:
     auto& section = mSections[s];
     SlotConfig config;
     std::string key;
+    uint64_t noiseEpoch;
     {
       std::lock_guard<std::mutex> lock(mControlMutex);
       ResolveFileLocked(s);
@@ -1027,10 +1066,18 @@ private:
       config.values = LoadValues(section);
       config.path = section.filePath;
       config.noiseProfile = section.noise;
+      noiseEpoch = section.noiseEpoch;
       key = PreparedKey(s);
+      if (!config.path.empty())
+      {
+        section.loadStatus = "Loading...";
+        section.loadError.clear();
+      }
     }
+    if (!config.path.empty() && mPrepared.load()) requestDisplayUpdate();
     PreparedSlot prepared;
     bool failed = false;
+    std::string error;
     try
     {
       // Read captures here rather than in NAM Core: its existence check uses std::filesystem,
@@ -1044,22 +1091,43 @@ private:
       }
       prepared = PrepareSlot(config, mRate, mBlock, std::move(model));
     }
+    catch (const std::exception& e)
+    {
+      failed = !config.path.empty();
+      error = dynamic_cast<const nlohmann::json::parse_error*>(&e) ? "Invalid capture JSON" : e.what();
+      config.path.clear();
+      prepared = PrepareSlot(config, mRate, mBlock);
+    }
     catch (...)
     {
       failed = !config.path.empty();
+      error = "Cannot load file";
       config.path.clear();
       prepared = PrepareSlot(config, mRate, mBlock);
     }
     const auto info = prepared.dsp->Info();
     const bool slimmable = info.slimmable;
-    section.loudness.store(info.hasLoudness ? info.loudness : std::numeric_limits<double>::quiet_NaN());
     {
       std::lock_guard<std::mutex> lock(mControlMutex);
+      // Another selection or project may arrive while a capture loads. Only the current
+      // request may update its status, profile, loudness and published processor.
+      if (section.folderDirty.load() || section.fileDirty.load() || key != PreparedKey(s)
+          || noiseEpoch != section.noiseEpoch)
+      {
+        section.rebuild.store(true);
+        return;
+      }
+      section.loudness.store(info.hasLoudness ? info.loudness : std::numeric_limits<double>::quiet_NaN());
       section.noiseEpoch = ++mNextNoiseEpoch;
       prepared.dsp->noiseEpoch = section.noiseEpoch;
       section.preparedKey = key;
       section.failedPath = failed ? section.filePath : std::string();
       if (failed) section.fileStatus = "Load failed";
+      if (!section.filePath.empty())
+      {
+        section.loadStatus = failed ? "Load failed - dry" : "Ready";
+        section.loadError = failed ? error : "";
+      }
     }
     section.stage.Publish(std::move(prepared.dsp));
     if (slimmable != section.slimmable.exchange(slimmable)) RefreshLayout(s);
@@ -1083,7 +1151,10 @@ private:
           // A section with a pending Folder or File edit keeps it: the edit is resolved against
           // the new lists below, and only then do its views follow.
           for (size_t s = 0; s < mSections.size(); ++s)
+          {
             if (!mSections[s].folderDirty.load() && !mSections[s].fileDirty.load()) RefreshFileViewsLocked(static_cast<int>(s));
+            if (!mSections[s].failedPath.empty()) mSections[s].rebuild.store(true); // Retry a repaired file on rescan.
+          }
           if (mRescanParam >= 0) values_[mRescanParam]->store(0.f);
           changed = true;
         }
@@ -1116,7 +1187,7 @@ private:
   const PluginSpec& mSpec;
   std::vector<Section> mSections;
   std::vector<ParamRole> mRoles;
-  int mOutputParam = 0, mRescanParam = -1, mNormalizeParam = -1;
+  int mOutputParam = 0, mRescanParam = -1, mNormalizeParam = -1, mNormalizeInfoParam = -1;
   std::vector<std::array<double, 2>> mDcState; // Per section: the DC blocker's input and output memory.
   double mDcCoefficient = .9993;
   std::vector<double> mLeft, mRight;

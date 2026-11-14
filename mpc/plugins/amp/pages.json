@@ -36,7 +36,8 @@
     },
     {
       "name": "GATE",
-      "section": "Gate"
+      "section": "Gate",
+      "empty": {"param": "Gate Type", "choice": 0, "title": "Gate is off", "text": "Choose a gate in Setup."}
     },
     {
       "name": "CAB",
@@ -63,6 +64,7 @@
         "MIX",
         "IR"
       ]
-    }
+    },
+    {"name": "LIBRARY", "library": true}
   ]
 }

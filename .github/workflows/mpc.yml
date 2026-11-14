@@ -15,6 +15,7 @@ on:
       - 'iPlug2'
       - 'patches/**'
       - 'scripts/setup-deps.py'
+      - 'tests/test_mpc_*.py'
       - '.github/workflows/mpc.yml'
 permissions:
   contents: read
@@ -39,9 +40,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y qemu-user libc6-arm64-cross
       - run: python scripts/setup-deps.py
       # The first run installs zig into mpc-plugin-sdk/.sdk-tools.
-      - run: python mpc/build.py --test --arm-tests arm64 --emulate
+      - run: python -m unittest discover -s tests -p 'test_mpc_*.py'
+      - run: python mpc/build.py --test --arm-tests arm64 --emulate --gallery tmp/mpc-ci/gallery
       - uses: actions/upload-artifact@v4
         with:
           name: nam-grid-mpc
           path: build/linux/mpc/out/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nam-grid-mpc-gallery
+          path: tmp/mpc-ci/gallery/
           if-no-files-found: error

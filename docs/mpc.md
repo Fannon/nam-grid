@@ -45,7 +45,7 @@ A project remembers each file by its folder and name, so adding files never chan
 
 ## Pages and Q-Links
 
-Every page is four columns of four controls, and each column is one Q-Link bank. A panel with a heading marks each column; the first heading shows the module, voice or style that is playing, and the MPC's highlight fits the panel of the active bank. Settings with two to four states are switches. On an MPC with four Q-Links, the bank buttons step through the columns from left to right, each read top to bottom; touching a control selects its column. Most pages use the same order:
+Every page is four columns of four controls, and each column is one Q-Link bank. A panel with a heading marks each column; the first heading shows the module, voice or style that is playing, and the MPC's highlight fits the panel of the active bank. Knobs, labels and colours follow the desktop editor: each plugin's labels use its module category's colour. On/off settings are toggles, green when on and red when off; other settings with two to four states are selector buttons. On an MPC with four Q-Links, the bank buttons step through the columns from left to right, each read top to bottom; touching a control selects its column. Most pages use the same order:
 
 1. The four main controls of the module.
 2. Four more controls: usually Output and Mix.

@@ -16,7 +16,7 @@ if SDK_TOOLS not in sys.path:
     sys.path.insert(0, SDK_TOOLS)
 import gen_ui  # noqa: E402
 
-PANEL_COLOUR = "ff2b2a2c"  # A step above the kit's background (ff1e1d1e).
+PANEL_COLOUR = "ff171a1e"  # The desktop editor's surface colour.
 # One rectangle per column, enclosing its heading and its four slots with an 8 px margin.
 COLUMN_BOUNDS = ["%d 4 %d 608" % (x - 8, gen_ui.SLOT_W + 16) for x in gen_ui.SLOT_X]
 _headings = {}

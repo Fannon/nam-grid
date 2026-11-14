@@ -34,6 +34,7 @@
 
 #include <array>
 #include <atomic>
+#include <functional>
 #include <chrono>
 #include <cstdlib>
 #include <memory>
@@ -92,9 +93,45 @@ inline FileKind SectionFiles(const SectionSpec& section)
   return FileKind::None;
 }
 // How many knobs and options a section needs across its choices and tempo-sync states.
-inline std::pair<int, int> SectionControlCounts(const SectionSpec& section)
+// The section's options in fixed places: every option any of its choices uses, the most
+// common first, so an option keeps its place (and its switch) across module changes.
+inline std::vector<int> SectionOptionOrder(const SectionSpec& section)
 {
-  int knobs = 0, options = 0;
+  std::vector<int> order, count;
+  for (const auto& choice : section.choices)
+  {
+    std::vector<int> seen;
+    for (bool sync : {false, true})
+    {
+      auto values = ChoiceDefaults(choice);
+      values[standardControls + uTempoSync] = sync ? 1. : 0.;
+      for (int c : BaseLayout(choice, values, true).options)
+        if (c >= 0 && std::find(seen.begin(), seen.end(), c) == seen.end()) seen.push_back(c);
+    }
+    for (int c : seen)
+    {
+      const auto it = std::find(order.begin(), order.end(), c);
+      if (it == order.end())
+      {
+        order.push_back(c);
+        count.push_back(1);
+      }
+      else
+        ++count[it - order.begin()];
+    }
+  }
+  std::vector<size_t> index(order.size());
+  for (size_t i = 0; i < index.size(); ++i) index[i] = i;
+  std::stable_sort(index.begin(), index.end(), [&](size_t a, size_t b) { return count[a] > count[b]; });
+  std::vector<int> sorted;
+  for (size_t i : index) sorted.push_back(order[i]);
+  if (sorted.size() > kOptions) sorted.resize(kOptions);
+  return sorted;
+}
+// How many knobs a section needs across its choices and tempo-sync states.
+inline int SectionKnobCount(const SectionSpec& section)
+{
+  int knobs = 0;
   for (const auto& choice : section.choices)
     for (bool sync : {false, true})
     {
@@ -103,10 +140,8 @@ inline std::pair<int, int> SectionControlCounts(const SectionSpec& section)
       const auto layout = MakeLayout(choice, values, true);
       for (int k = 0; k < kKnobs; ++k)
         if (layout.knobs[k] >= 0) knobs = std::max(knobs, k + 1);
-      for (int o = 0; o < kOptions; ++o)
-        if (layout.options[o] >= 0) options = std::max(options, o + 1);
     }
-  return {knobs, options};
+  return knobs;
 }
 
 class GridPlugin : public mpc::Plugin
@@ -149,7 +184,8 @@ public:
         section.folderParam = add(mpc::floatParam((id + "folder").c_str(), (name + "Folder").c_str(), 0.f, 1.f, 0.f, "", 3), Role::Folder);
         section.fileParam = add(mpc::floatParam((id + "file").c_str(), (name + "File").c_str(), 0.f, 1.f, 0.f, "", 3), Role::File);
       }
-      const auto [knobs, options] = SectionControlCounts(sectionSpec);
+      section.optionOrder = SectionOptionOrder(sectionSpec);
+      const int knobs = SectionKnobCount(sectionSpec), options = static_cast<int>(section.optionOrder.size());
       for (int o = 0; o < options; ++o)
         section.optionParams.push_back(add(mpc::floatParam((id + "o" + std::to_string(o + 1)).c_str(),
                                                            (name + "Opt " + std::to_string(o + 1)).c_str(), 0.f, 1.f, 0.f, "", 3),
@@ -321,6 +357,7 @@ public:
       case Role::Folder:
         section.folderNorm.store(getNormalised(index));
         section.folderDirty.store(true);
+        mRescan.store(true); // Files copied while the plugin runs appear when browsing folders.
         return;
       case Role::File:
         section.fileNorm.store(getNormalised(index));
@@ -344,6 +381,11 @@ public:
   {
     (void)plainValue;
     const auto role = mRoles[index];
+    if (index == mOutputParam)
+    {
+      out = FormatNumber(plainValue, .1, "dB"); // The MPC shows no unit labels.
+      return true;
+    }
     if (role.section < 0 || role.role == Role::Type || role.role == Role::On) return false;
     auto& section = mSections[role.section];
     if (role.role == Role::Folder || role.role == Role::File)
@@ -485,6 +527,7 @@ private:
     const SectionSpec* spec = nullptr;
     int typeParam = -1, onParam = -1, folderParam = -1, fileParam = -1;
     std::vector<int> optionParams, knobParams;
+    std::vector<int> optionOrder; // Fixed option places (SectionOptionOrder).
     std::atomic<int> choice{0};
     std::array<std::atomic<double>, slotControls> values{};
     std::array<std::atomic<int>, kKnobs> knobs{};
@@ -581,7 +624,7 @@ private:
   {
     auto& section = mSections[s];
     const auto values = LoadValues(section);
-    const auto layout = MakeLayout(Current(section), values, section.slimmable.load());
+    const auto layout = MakeLayout(Current(section), values, section.slimmable.load(), &section.optionOrder);
     for (size_t k = 0; k < section.knobParams.size(); ++k)
     {
       section.knobs[k].store(layout.knobs[k]);
@@ -635,7 +678,7 @@ private:
         const int choiceIndex = s < program.choices.size() ? program.choices[s] : section.spec->defaultChoice;
         const auto& choice = section.spec->choices[choiceIndex];
         const auto defaults = ChoiceDefaults(choice);
-        const auto layout = MakeLayout(choice, defaults, false);
+        const auto layout = MakeLayout(choice, defaults, false, &section.optionOrder);
         if (section.typeParam >= 0) values[section.typeParam] = static_cast<float>(choiceIndex);
         if (section.onParam >= 0)
         {
@@ -683,7 +726,7 @@ private:
           {
             auto values = ChoiceDefaults(choice);
             values[standardControls + uTempoSync] = sync ? 1. : 0.;
-            const auto layout = MakeLayout(choice, values, true);
+            const auto layout = MakeLayout(choice, values, true, &section.optionOrder);
             const int c = option ? layout.options[place] : layout.knobs[place];
             if (c >= 0 && std::find(controls.begin(), controls.end(), c) == controls.end()) controls.push_back(c);
           }
@@ -714,6 +757,33 @@ private:
           }
       }
     manifest["showOutput"] = !ownOutput;
+    // "shown": for every section parameter, its section and the choices in which it has a
+    // name (is visible). The skin hides a column's panel when its anchor control is hidden.
+    auto& shown = manifest["shown"] = nlohmann::json::object();
+    for (const auto& section : mSections)
+    {
+      const auto& choices = section.spec->choices;
+      const auto record = [&](int index, const std::function<bool(int)>& visible) {
+        if (index < 0) return;
+        auto list = nlohmann::json::array();
+        for (int c = 0; c < static_cast<int>(choices.size()); ++c)
+          if (visible(c)) list.push_back(c);
+        shown[std::to_string(index)] = {{"section", section.spec->id}, {"choices", list}};
+      };
+      const auto layoutOf = [&](int c, bool sync) {
+        auto values = ChoiceDefaults(choices[c]);
+        values[standardControls + uTempoSync] = sync ? 1. : 0.;
+        return MakeLayout(choices[c], values, true, &section.optionOrder);
+      };
+      record(section.typeParam, [](int) { return true; });
+      record(section.onParam, [](int) { return true; });
+      record(section.folderParam, [&](int c) { return choices[c].files != FileKind::None; });
+      record(section.fileParam, [&](int c) { return choices[c].files != FileKind::None; });
+      for (size_t k = 0; k < section.knobParams.size(); ++k)
+        record(section.knobParams[k], [&](int c) { return layoutOf(c, false).knobs[k] >= 0 || layoutOf(c, true).knobs[k] >= 0; });
+      for (size_t o = 0; o < section.optionParams.size(); ++o)
+        record(section.optionParams[o], [&](int c) { return layoutOf(c, false).options[o] >= 0 || layoutOf(c, true).options[o] >= 0; });
+    }
     std::ofstream(path) << manifest.dump(2);
   }
 
@@ -883,7 +953,10 @@ private:
         {
           std::lock_guard<std::mutex> lock(mControlMutex);
           ScanLibraryLocked();
-          for (size_t s = 0; s < mSections.size(); ++s) RefreshFileViewsLocked(static_cast<int>(s));
+          // A section with a pending Folder or File edit keeps it: the edit is resolved against
+          // the new lists below, and only then do its views follow.
+          for (size_t s = 0; s < mSections.size(); ++s)
+            if (!mSections[s].folderDirty.load() && !mSections[s].fileDirty.load()) RefreshFileViewsLocked(static_cast<int>(s));
           if (mRescanParam >= 0) values_[mRescanParam]->store(0.f);
           changed = true;
         }

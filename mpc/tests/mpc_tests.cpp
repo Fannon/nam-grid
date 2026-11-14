@@ -260,7 +260,7 @@ void TestLayouts()
         for (int c : MakeLayout(choice, values, true).knobs)
           own = own || (c >= 0 && (ControlLabel(choice, c, values) == "Output" || ControlLabel(choice, c, values) == "Level"));
       }
-    const bool expected = std::string_view(spec->name) == "NAM Grid Cosmic Echo" || std::string_view(spec->name) == "NAM Grid Mod";
+    const bool expected = std::string_view(spec->name) == "NG Cosmic" || std::string_view(spec->name) == "NG Mod";
     CHECK(own != expected);
   }
   // Curves match the desktop host parameters.
@@ -298,16 +298,17 @@ void TestAmpGates()
 
   // Smart Gate: learn, try another gate, come back: the profile is kept and saved.
   a.Choose("gate_type", "Smart Gate");
-  CHECK(a.Name("gate_o1") == "Learn");
+  // Options keep fixed places across gates: Noise Gate's Mode first, then Learn and Tracking.
+  CHECK(a.Name("gate_o1").empty() && a.Name("gate_o2") == "Learn" && a.Name("gate_o3") == "Tracking");
   CHECK(a.Name("gate_k1") == "Sensitivity" && a.Name("gate_k5") == "Gate threshold" && a.Name("gate_k8") == "Mix");
   Settle();
   std::vector<float> l(44100 * 2), r(44100 * 2);
   std::mt19937 rng(3);
   std::normal_distribution<float> noise(0.f, .01f);
   for (size_t i = 0; i < l.size(); ++i) l[i] = r[i] = noise(rng);
-  a.Set("gate_o1", 1.f);
+  a.Set("gate_o2", 1.f);
   a.Process(l, r);
-  a.Set("gate_o1", 0.f);
+  a.Set("gate_o2", 0.f);
   std::vector<float> l2(4096), r2(4096);
   a.Process(l2, r2);
   const auto learned = Extra(a.Chunk())["sections"]["gate"];

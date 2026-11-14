@@ -21,6 +21,15 @@ PANEL_COLOUR = "ff171a1e"  # The desktop editor's surface colour.
 COLUMN_BOUNDS = ["%d 4 %d 608" % (x - 8, gen_ui.SLOT_W + 16) for x in gen_ui.SLOT_X]
 _headings = {}
 _handles = {}
+_anchors = {}
+_original_label = gen_ui.label_data
+
+
+def _label_data(label_type, colour, height=30.0, justification="left", text=None):
+    # A little smaller than the SDK's 26/30 px, so names like "Gate threshold" fit beside a knob.
+    if label_type in ("Name", "Value"):
+        height = {26.0: 23.0, 30.0: 27.0, 24.0: 22.0}.get(float(height), height)
+    return _original_label(label_type, colour, height, justification, text)
 _original_tab = gen_ui.tab_component
 _original_build = gen_ui.build_tui
 
@@ -30,20 +39,25 @@ def _tab_component(page, style):
     children = dict(comp)["componentsData"]
     used = sorted({i % 4 for i, ctl in enumerate(page.controls) if ctl.widget != "empty"})
     texts = _headings.get(page.name, [""] * 4)
+    anchors = _anchors.get(page.name, [None] * 4)
     extra = []
     for c in used:
+        # A column whose controls the current module does not use disappears with them: its
+        # panel and heading follow the visibility (name) of the column's anchor control.
+        anchor = anchors[c]
+        show = "HideOnInvalidName" if anchor else "Show"
+        remap = [("Data", _handles[anchor])] if anchor else []
         # Panels first, so they are drawn behind the controls; they ignore touches.
         extra.append(gen_ui.entry("panel %d" % c, "columnPanel", gen_ui.obj(("version", 1), ("handleName", "Data")),
-                                  COLUMN_BOUNDS[c], "No", "Show", "Always"))
+                                  COLUMN_BOUNDS[c], "No", show, "Always", remap=remap))
         bounds = "%d 8 %d 32" % (gen_ui.SLOT_X[c] + 15, gen_ui.SLOT_W - 30)
         if texts[c].startswith("@"):
             # A live heading: the value of a parameter, such as the chosen voice or style.
-            extra.append(gen_ui.entry("heading %d" % c, "Label", gen_ui.label_data("Value", style["accent"], 22.0, "left"),
+            extra.append(gen_ui.entry("heading %d" % c, "Label", _original_label("Value", style["accent"], 22.0, "left"),
                                       bounds, "No", "Show", "Always", remap=[("Data", _handles[texts[c][1:]])]))
         elif texts[c]:
-            extra.append(gen_ui.entry("heading %d" % c, "Label",
-                                      gen_ui.label_data("Text", style["accent"], 22.0, "left", texts[c]),
-                                      bounds, "No", "Show", "Always"))
+            data = _original_label("Text", style["accent"], 22.0, "left", texts[c])
+            extra.append(gen_ui.entry("heading %d" % c, "Label", data, bounds, "No", show, "Always", remap=remap))
     children[0:0] = extra
     return comp
 
@@ -58,17 +72,20 @@ def _build_tui(*args, **kwargs):
 
 
 gen_ui.tab_component = _tab_component
+gen_ui.label_data = _label_data
 gen_ui.build_tui = _build_tui
 gen_ui.QLINK_BOUNDS = COLUMN_BOUNDS
 
 
-def generate(params_json, ui_json, out_dir, kit_cache, headings, handles):
+def generate(params_json, ui_json, out_dir, kit_cache, headings, handles, anchors=None):
     """Runs gen_ui.py. `headings` maps page names to four column headings; a heading "@<name>"
     shows that parameter's value, with `handles` mapping names to "Parameter N". Returns True on success."""
     _headings.clear()
     _headings.update(headings)
     _handles.clear()
     _handles.update(handles)
+    _anchors.clear()
+    _anchors.update(anchors or {})
     try:
         code = gen_ui.main(["--params", params_json, "--ui", ui_json, "--out", out_dir, "--kit-cache", kit_cache, "--quiet"])
     except SystemExit as e:

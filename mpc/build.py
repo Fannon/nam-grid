@@ -257,6 +257,7 @@ def dump_params(sim, plugin):
         manifest = json.load(fh)
     kinds = manifest["kinds"]
     plugin.show_output = manifest["showOutput"]
+    plugin.shown = manifest["shown"]
     # host_sim infers kinds from the current display text: it misses menus over 16 entries and
     # takes module-dependent controls for fixed lists. The plugin's own description wins.
     for prm in data["params"]:
@@ -281,37 +282,59 @@ def widget(name, params):
     p = params[name]
     if name.endswith(" Type"):
         return {"param": name, "widget": "slider", "overlay": "menu"}
-    # Settings that always mean the same thing and have two to four states are switches.
-    if p["kind"] in ("bool", "choice") and 2 <= len(p["choices"]) <= 4:
+    # Settings that always mean the same thing are switches: on/off as a toggle, two to four
+    # states as segments when their labels fit a segment (else a menu).
+    fits = {2: 10, 3: 7, 4: 4}
+    if p["kind"] == "bool" or (p["kind"] == "choice" and 2 <= len(p["choices"]) <= 4
+                               and all(len(c) <= fits[len(p["choices"])] for c in p["choices"])):
         return {"param": name, "widget": "switch"}
-    if " Knob " in name:
+    if p["kind"] == "choice":
+        return {"param": name, "widget": "slider", "overlay": "menu"}
+    if " Knob " in name or name == "Output":
         return {"param": name, "widget": "knob", "polarity": "unipolar"}
-    if name == "Output":
-        return {"param": name, "widget": "fader"}
     return {"param": name, "widget": "slider"}
 
 
 def section_columns(section, names, show_output):
-    """A section's page: main knobs, more knobs, choosing, options. Each column is a Q-Link group."""
+    """A section's page: main knobs, more knobs, setup (Type, On, files, options), more options.
+    Each column is a Q-Link group."""
     knobs = ["%s Knob %d" % (section, k) for k in range(1, 9)]
-    select = [n for n in ("%s Type" % section, "%s On" % section, "%s Folder" % section, "%s File" % section) if n in names]
-    options = ["%s Opt %d" % (section, o) for o in range(1, 4) if "%s Opt %d" % (section, o) in names]
-    extras = (["Output"] if show_output else []) + (["Rescan"] if "%s Folder" % section in names else [])
-    for column in (options, select):
-        while extras and len(column) < 4:
-            column.append(extras.pop(0))
-    if extras:
-        raise SystemExit("ERROR: the %s page has no room for %s" % (section, extras))
-    columns = [knobs[:4], knobs[4:], select, options]
-    third = "FILE" if "%s Folder" % section in select else "SELECT" if select else ""
+    second = knobs[4:]
+    setup = [n for n in ("%s Type" % section, "%s On" % section, "%s Folder" % section, "%s File" % section) if n in names]
+    options = ["%s Opt %d" % (section, o) for o in range(1, 5) if "%s Opt %d" % (section, o) in names]
+    output = ["Output"] if show_output else []
+    # The plugin-wide Output joins Mix in the second knob column when a knob place is free.
+    if output and knobs[7] not in names:
+        second = knobs[4:7] + output
+        output = []
+    rest = options + output
+    while rest and len(setup) < 4:
+        setup.append(rest.pop(0))
+    if len(rest) > 4:
+        raise SystemExit("ERROR: the %s page has no room for %s" % (section, rest))
+    columns = [knobs[:4], second, setup, rest]
     # The first heading names the module, voice or style the section is playing.
     first = "@%s Type" % section if "%s Type" % section in names else section.upper()
-    headings = [first, "", third, "OPTIONS" if options else ""]
+    third = "SETUP" if "%s Type" % section in names else "FILE" if "%s Folder" % section in names else "OPTIONS"
+    headings = [first, "", third, "OPTIONS" if any(" Opt " in n for n in rest) else "OUTPUT"]
     return columns, headings
 
 
-def page_layout(page, names, show_output):
-    """(controls in reading order, column headings) for one page of pages.json."""
+def column_anchor(column, shown):
+    """The control whose visibility stands for its column's: shown whenever any of the column's
+    controls is. None when the column always has something to show."""
+    entries = [shown.get(n) for n in column if n != "empty"]
+    if not entries or any(e is None for e in entries) or len({e["section"] for e in entries}) != 1:
+        return None
+    union = set().union(*(set(e["choices"]) for e in entries))
+    for name in column:
+        if name != "empty" and set(shown[name]["choices"]) >= union:
+            return name
+    return None
+
+
+def page_layout(page, names, show_output, shown=None):
+    """(controls in reading order, column headings, column anchors) for one page of pages.json."""
     if "columns" in page:
         columns = [list(c) for c in page["columns"]]
         headings = list(page.get("headings", [""] * 4))
@@ -323,17 +346,20 @@ def page_layout(page, names, show_output):
         raise SystemExit("ERROR: page %s has more than 4 x 4 controls" % page["name"])
     headings = (headings + [""] * 4)[:4]
     headings = [h if any(n != "empty" for n in columns[i]) else "" for i, h in enumerate(headings)]
-    return [widget(columns[c][r], names) for r in range(4) for c in range(4)], headings
+    anchors = [column_anchor(c, shown or {}) for c in columns]
+    return [widget(columns[c][r], names) for r in range(4) for c in range(4)], headings, anchors
 
 
 def make_skins(plugin, params_json):
     with open(params_json, encoding="utf-8") as fh:
         names = {p["name"]: p for p in json.load(fh)["params"]}
-    pages, headings = [], {}
+    shown = {p["name"]: plugin.shown[str(p["index"])] for p in names.values() if str(p["index"]) in plugin.shown}
+    pages, headings, anchors = [], {}, {}
     for page in plugin.pages["pages"]:
-        controls, page_headings = page_layout(page, names, plugin.show_output)
+        controls, page_headings, page_anchors = page_layout(page, names, plugin.show_output, shown)
         pages.append({"name": page["name"], "controls": controls})
         headings[page["name"]] = page_headings
+        anchors[page["name"]] = page_anchors
     ui_path = os.path.join(plugin.work, "ui.json")
     with open(ui_path, "w", encoding="utf-8", newline="\n") as fh:
         colour = plugin.pages["colour"]
@@ -344,7 +370,7 @@ def make_skins(plugin, params_json):
     if os.path.isdir(out):
         shutil.rmtree(out)
     handles = {name: "Parameter %d" % p["index"] for name, p in names.items()}
-    if not skins.generate(params_json, ui_path, out, BUILD, headings, handles):
+    if not skins.generate(params_json, ui_path, out, BUILD, headings, handles, anchors):
         log("ERROR: gen_ui.py failed for %s" % plugin.name)
         return False
     nam_kit.restyle(out, BUILD)

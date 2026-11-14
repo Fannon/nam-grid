@@ -7,15 +7,15 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ### NAM Grid for Akai MPC (experimental)
 
 - **Seven plugins for standalone Akai MPCs** (MPC OS 3.10.1 or later, 64-bit models such as MPC One G2, Live III and XL), using the same DSP as the desktop plugin. Pedals, Amp, Delay and Cosmic Echo fill a track's four inserts as a guitar rig; Lo-Fi, Mod and Console suit any track or bus:
-  - **NAM Grid Pedals:** one Voice menu with None, Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice, with optional Pedal Comp in front.
-  - **NAM Grid Amp:** Noise Gate, Smart Gate or AI Gate, a NAM capture and a cabinet IR. Captures and IRs go into a **NAM Grid** folder on the MPC's drive, chosen by Folder and File.
-  - **NAM Grid Delay:** the digital, analog, tape, multi-head, diffused, reverse and dual delays behind one Type menu, synced to the MPC's tempo.
-  - **NAM Grid Cosmic Echo:** every Cosmic Echo style.
-  - **NAM Grid Lo-Fi:** LoFi Tape Machine, Airwindows Tape and Bitcrusher.
-  - **NAM Grid Mod:** Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo.
-  - **NAM Grid Console:** Console Colour, Outboard Channel and Butter Comp.
+  - **NG Pedals:** one Voice menu with None, Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice, with optional Pedal Comp in front.
+  - **NG Amp:** Noise Gate, Smart Gate or AI Gate, a NAM capture and a cabinet IR. Captures and IRs go into a **NAM Grid** folder on the MPC's drive, chosen by Folder and File.
+  - **NG Delay:** the digital, analog, tape, multi-head, diffused, reverse and dual delays behind one Type menu, synced to the MPC's tempo.
+  - **NG Cosmic:** every Cosmic Echo style.
+  - **NG Lo-Fi:** LoFi Tape Machine, Airwindows Tape and Bitcrusher.
+  - **NG Mod:** Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo.
+  - **NG Console:** Console Colour, Outboard Channel and Butter Comp.
 
-  Each page is four columns of four controls, one Q-Link bank each, with a panel and heading per column. They are separate from the desktop plugin. See [NAM Grid on Akai MPC](docs/mpc.md).
+  Their names start with **NG** to fit the MPC's effect displays. Each page is four columns of four controls, one Q-Link bank each, in the desktop editor's look, with green/red toggles; options keep fixed places when you switch modules. They are separate from the desktop plugin. See [NAM Grid on Akai MPC](docs/mpc.md).
 
 ### New modules and sounds
 

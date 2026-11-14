@@ -1,4 +1,4 @@
-// NAM Grid Cosmic Echo for MPC: the Cosmic Echo module with its styles as one menu.
+// NAM Grid Cosmic Echo for MPC (shown as NG Cosmic): the Cosmic Echo module with its styles as one menu.
 #include "MPCEngine.h"
 
 namespace mpc_plugins
@@ -12,7 +12,7 @@ inline const mpc_grid::PluginSpec& CosmicEchoSpec()
       styles.push_back({"cosmic-echo", effect_modes::cosmicNames[i], SlotEffect::CosmicEcho, FileKind::None,
                         standardControls + uCosmicStyle, i});
     const int initial = static_cast<int>(effect_modes::CosmicStyle::AuroraHall);
-    PluginSpec s{"NAM Grid Cosmic Echo", MPC_FOURCC('N', 'G', 'C', 'e'), "nam-grid-cosmic-echo",
+    PluginSpec s{"NG Cosmic", MPC_FOURCC('N', 'G', 'C', 'e'), "nam-grid-cosmic-echo",
                  {{"echo", "Echo", styles, initial, false, true, "Style"}}, {}};
     // One program per style, the module's default first.
     s.programs.push_back({effect_modes::cosmicNames[initial], {initial}});

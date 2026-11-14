@@ -1,5 +1,5 @@
 {
-  "name": "NAM Grid Delay",
+  "name": "NG Delay",
   "manufacturer": "Simon Heimler",
   "version": "0.1.0",
   "format": "vst2",
@@ -9,7 +9,7 @@
   "numInputs": 2,
   "numOutputs": 2,
   "file64": "VST/nam-grid-delay-arm64.so",
-  "description": "Digital, analog, tape, multi-head, diffused, reverse and dual delays.",
+  "description": "NAM Grid Delay: Digital, analog, tape, multi-head, diffused, reverse and dual delays.",
   "url": "https://github.com/Fannon/nam-grid",
   "license": "MIT"
 }

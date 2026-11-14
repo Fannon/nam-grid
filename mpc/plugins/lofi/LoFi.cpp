@@ -1,4 +1,4 @@
-// NAM Grid Lo-Fi for MPC: LoFi Tape Machine, Airwindows Tape and Bitcrusher behind one
+// NAM Grid Lo-Fi for MPC (shown as NG Lo-Fi): LoFi Tape Machine, Airwindows Tape and Bitcrusher behind one
 // Type menu. Each type starts from its own starting settings.
 #include "MPCEngine.h"
 
@@ -8,7 +8,7 @@ inline const mpc_grid::PluginSpec& LoFiSpec()
 {
   using namespace mpc_grid;
   static const PluginSpec spec{
-    "NAM Grid Lo-Fi", MPC_FOURCC('N', 'G', 'L', 'f'), "nam-grid-lofi",
+    "NG Lo-Fi", MPC_FOURCC('N', 'G', 'L', 'f'), "nam-grid-lofi",
     {{"lofi", "LoFi",
       {{"lofi-tape", "LoFi Tape", SlotEffect::LoFiTape},
        {"tape", "Airwindows Tape", SlotEffect::Tape},

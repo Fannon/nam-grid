@@ -1,4 +1,4 @@
-// NAM Grid Amp for MPC: Gate -> NAM capture -> cabinet IR.
+// NAM Grid Amp for MPC (shown as NG Amp): Gate -> NAM capture -> cabinet IR.
 // The gate is Off (default), the standard Noise Gate, Noise Gate (Smart) or Noise Gate (AI); a Smart
 // Gate's learned profile is kept when another gate is tried in between. Captures and IRs
 // come from <drive>/NAM Grid/Captures and /IRs, chosen by Folder and File.
@@ -10,7 +10,7 @@ inline const mpc_grid::PluginSpec& AmpSpec()
 {
   using namespace mpc_grid;
   static const PluginSpec spec{
-    "NAM Grid Amp", MPC_FOURCC('N', 'G', 'A', 'm'), "nam-grid-amp",
+    "NG Amp", MPC_FOURCC('N', 'G', 'A', 'm'), "nam-grid-amp",
     {
       // Gate first in the signal path; off by default. Knob columns: the gate itself, then
       // the final gate and Mix.

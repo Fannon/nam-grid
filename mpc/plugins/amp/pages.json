@@ -13,16 +13,16 @@
         [
           "Amp Knob 2",
           "Amp Knob 3",
-          "Amp Knob 4",
-          "Amp Opt 1"
+          "Amp Knob 4"
         ],
         [
           "Amp Folder",
           "Amp File",
-          "Rescan"
+          "Amp Opt 1"
         ],
         [
           "Gate Type",
+          "Gate Knob 1",
           "Cab On"
         ]
       ],
@@ -39,7 +39,29 @@
     },
     {
       "name": "CAB",
-      "section": "Cab"
+      "columns": [
+        [
+          "Cab Knob 1",
+          "Cab Knob 2",
+          "Cab Knob 3",
+          "Cab Knob 4"
+        ],
+        [
+          "Cab Knob 5",
+          "Cab Knob 6",
+          "Cab Opt 1"
+        ],
+        [
+          "Cab On",
+          "Cab Folder",
+          "Cab File"
+        ]
+      ],
+      "headings": [
+        "LEVELS",
+        "MIX",
+        "IR"
+      ]
     }
   ]
 }

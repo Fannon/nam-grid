@@ -1,4 +1,4 @@
-// NAM Grid Pedals for MPC: optional Pedal Comp -> one pedal.
+// NAM Grid Pedals for MPC (shown as NG Pedals): optional Pedal Comp -> one pedal.
 // The Voice menu holds None, Clean Boost, Tube Boost and every Pedal Drive and Pedal
 // Distortion voice. Another voice of the same pedal keeps the other settings, like a voice
 // switch; another pedal returns to its last settings (or its starting settings). Every voice
@@ -36,7 +36,7 @@ inline const mpc_grid::PluginSpec& PedalsSpec()
     };
     const int screamer = voice("Screamer");
     // Comp first in the signal path, off by default; its controls are on the main page too.
-    PluginSpec s{"NAM Grid Pedals", MPC_FOURCC('N', 'G', 'P', 'd'), "nam-grid-pedals",
+    PluginSpec s{"NG Pedals", MPC_FOURCC('N', 'G', 'P', 'd'), "nam-grid-pedals",
                  {{"comp", "Comp", {{"pedal-comp", "Pedal Comp", SlotEffect::PedalComp}}, 0, true, false},
                   {"drive", "Drive", voices, screamer, false, true, "Voice"}},
                  {}};

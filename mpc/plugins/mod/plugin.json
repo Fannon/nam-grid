@@ -1,5 +1,5 @@
 {
-  "name": "NAM Grid Mod",
+  "name": "NG Mod",
   "manufacturer": "Simon Heimler",
   "version": "0.1.0",
   "format": "vst2",
@@ -9,7 +9,7 @@
   "numInputs": 2,
   "numOutputs": 2,
   "file64": "VST/nam-grid-mod-arm64.so",
-  "description": "Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo.",
+  "description": "NAM Grid Mod: Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo.",
   "url": "https://github.com/Fannon/nam-grid",
   "license": "MIT"
 }

@@ -1,4 +1,4 @@
-// NAM Grid Mod for MPC: the characterful modulation modules (Juno Chorus, Uni-Vibe, Rotary,
+// NAM Grid Mod for MPC (shown as NG Mod): the characterful modulation modules (Juno Chorus, Uni-Vibe, Rotary,
 // Harmonic Tremolo) behind one Type menu. Tempo sync follows the MPC's tempo.
 #include "MPCEngine.h"
 
@@ -8,7 +8,7 @@ inline const mpc_grid::PluginSpec& ModSpec()
 {
   using namespace mpc_grid;
   static const PluginSpec spec{
-    "NAM Grid Mod", MPC_FOURCC('N', 'G', 'M', 'd'), "nam-grid-mod",
+    "NG Mod", MPC_FOURCC('N', 'G', 'M', 'd'), "nam-grid-mod",
     {{"mod", "Mod",
       {{"juno-chorus", "Juno Chorus", SlotEffect::JunoChorus},
        {"uni-vibe", "Uni-Vibe", SlotEffect::UniVibe},

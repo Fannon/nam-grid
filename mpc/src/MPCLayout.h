@@ -25,7 +25,7 @@ using parameter_layout::standardControls;
 
 inline constexpr int kSlots = 4;
 inline constexpr int kKnobs = 8;
-inline constexpr int kOptions = 3;
+inline constexpr int kOptions = 4;
 
 enum class FileKind
 {
@@ -144,7 +144,8 @@ struct Layout
   std::array<int, kKnobs> knobs;
   std::array<int, kOptions> options;
 };
-inline Layout MakeLayout(const Choice& choice, const SlotValues& values, bool slimmable)
+// The module's knobs in the desktop editor's places (or its knobOrder) and its options in order.
+inline Layout BaseLayout(const Choice& choice, const SlotValues& values, bool slimmable)
 {
   using namespace parameter_layout;
   Layout layout;
@@ -190,6 +191,19 @@ inline Layout MakeLayout(const Choice& choice, const SlotValues& values, bool sl
     const int place = effect_presentation::Position(e, p);
     if (place >= 0 && place < kKnobs && layout.knobs[place] < 0) layout.knobs[place] = standardControls + p;
   }
+  return layout;
+}
+// `optionOrder` (optional) gives every option of a section a fixed place across its choices:
+// option k shows optionOrder[k] when the choice uses it, so options never change meaning.
+inline Layout MakeLayout(const Choice& choice, const SlotValues& values, bool slimmable,
+                         const std::vector<int>* optionOrder = nullptr)
+{
+  auto layout = BaseLayout(choice, values, slimmable);
+  if (!optionOrder) return layout;
+  const auto used = layout.options;
+  layout.options.fill(-1);
+  for (size_t k = 0; k < optionOrder->size() && k < kOptions; ++k)
+    if (std::find(used.begin(), used.end(), (*optionOrder)[k]) != used.end()) layout.options[k] = (*optionOrder)[k];
   return layout;
 }
 

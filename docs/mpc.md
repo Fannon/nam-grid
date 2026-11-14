@@ -2,17 +2,17 @@
 
 > **Experimental:** the MPC plugins are new. Save your project before you add them, and see [Known limits](#known-limits).
 
-Seven plugins bring NAM Grid to standalone Akai MPCs. They use the same DSP as the desktop plugin, one job each, so the MPC's own insert chain does the routing:
+Seven plugins bring NAM Grid to standalone Akai MPCs. Their names start with **NG** (NAM Grid) to fit the MPC's effect displays. They use the same DSP as the desktop plugin, one job each, so the MPC's own insert chain does the routing:
 
 | Plugin | What it does |
 | --- | --- |
-| **NAM Grid Pedals** | One pedal (Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice) with optional compression. |
-| **NAM Grid Amp** | A noise gate (standard, Smart or AI), a NAM capture and a cabinet IR. |
-| **NAM Grid Delay** | Digital, analog, tape, multi-head, diffused, reverse and dual delays. |
-| **NAM Grid Cosmic Echo** | Cosmic Echo's ambient echoes and reverbs, one style at a time. |
-| **NAM Grid Lo-Fi** | LoFi Tape Machine, Airwindows Tape and Bitcrusher. |
-| **NAM Grid Mod** | Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo. |
-| **NAM Grid Console** | Console Colour, Outboard Channel and Butter Comp for buses and finished mixes. |
+| **NG Pedals** | One pedal (Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice) with optional compression. |
+| **NG Amp** | A noise gate (standard, Smart or AI), a NAM capture and a cabinet IR. |
+| **NG Delay** | Digital, analog, tape, multi-head, diffused, reverse and dual delays. |
+| **NG Cosmic** | Cosmic Echo's ambient echoes and reverbs, one style at a time. |
+| **NG Lo-Fi** | LoFi Tape Machine, Airwindows Tape and Bitcrusher. |
+| **NG Mod** | Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo. |
+| **NG Console** | Console Colour, Outboard Channel and Butter Comp for buses and finished mixes. |
 
 A full guitar rig uses a track's four insert slots: **Pedals → Amp → Delay → Cosmic Echo**. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi, Mod and Console suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
 
@@ -22,24 +22,24 @@ They run on the 64-bit MPCs (MPC One G2, MPC Live III, MPC XL and later). The 32
 
 1. Update the MPC to **MPC OS 3.10.1** or later.
 2. On the MPC, open **Preferences > Enhancements**, then switch on **Enable Enhancements** and **External Plugin Support**.
-3. Copy the plugin folders you want (**Simon Heimler - VST - NAM Grid Amp** and the others) into a folder named exactly `VST2 Plugins` at the top of a drive: a USB stick, an SD card or the internal drive.
+3. Copy the plugin folders you want (**Simon Heimler - VST - NG Amp** and the others) into a folder named exactly `VST2 Plugins` at the top of a drive: a USB stick, an SD card or the internal drive.
 4. Restart the MPC. The plugins appear among the effect plugins under **External Plugins**.
 
 To update, replace the folders and restart the MPC. With developer mode on, the build can also install over the network; see [build.md](build.md#mpc).
 
 ## Add captures and IRs
 
-NAM Grid Amp looks for files in a **NAM Grid** folder at the top of the drive that holds `VST2 Plugins`:
+NG Amp looks for files in a **NAM Grid** folder at the top of the drive that holds `VST2 Plugins`:
 
 ```text
 <drive>/
-  VST2 Plugins/Simon Heimler - VST - NAM Grid Amp/   the plugin
+  VST2 Plugins/Simon Heimler - VST - NG Amp/   the plugin
   NAM Grid/
     Captures/   your .nam captures, in folders
     IRs/        your cabinet impulse responses (.wav), in folders
 ```
 
-Your files keep their place when you update the plugin. A clean factory capture is included, so the Amp plays straight away. Organise files into folders: **Folder** picks a folder and starts at its first file, and **File** steps through that folder. A favourites folder such as `_Top10` sorts first. After copying new files while the Amp is loaded, press **Rescan**.
+Your files keep their place when you update the plugin. A clean factory capture is included, so the Amp plays straight away. Organise files into folders: **Folder** picks a folder and starts at its first file, and **File** steps through that folder. A favourites folder such as `_Top10` sorts first. Files copied while the Amp is loaded appear when you next turn **Folder**.
 
 A project remembers each file by its folder and name, so adding files never changes which capture a project uses. If you move or rename a file, the File display shows **Missing:** and the Amp plays dry until the file is back.
 
@@ -49,31 +49,31 @@ Every page is four columns of four controls, and each column is one Q-Link bank.
 
 1. The four main controls of the module.
 2. Four more controls: usually Output and Mix.
-3. Choosing: the module, voice or style, **On**, or **Folder** and **File**.
-4. Options such as **Tempo sync**, **Learn** or **Mode**.
+3. Setup: the module, voice or style, **On**, or **Folder** and **File**, then options such as **Tempo sync**, **Learn** or **Mode**.
+4. Any further options, or the plugin's **Output**.
 
-Knobs show the name of the control they hold; places a module does not use are empty. The knobs keep the desktop editor's order, except where another grouping suits the Q-Links better. **Output** for the whole plugin only appears on Cosmic Echo and Mod; the other plugins' modules have their own Output or Level.
+Knobs show the name of the control they hold; places a module does not use are empty, and a column the module does not use at all disappears. Each option has a fixed place in its plugin, so switching modules never moves an option or changes what a switch does. The knobs keep the desktop editor's order, except where another grouping suits the Q-Links better. **Output** for the whole plugin only appears on NG Cosmic (next to Mix) and NG Mod; the other plugins' modules have their own Output or Level.
 
-### NAM Grid Amp
+### NG Amp
 
-- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid, Treble and **Quality**, which switches slimmable (A2) captures between Full and Lite; **CAPTURE** has Folder, File and Rescan; **GATE / CAB** chooses the gate and switches the cabinet on.
+- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File and **Quality**, which switches slimmable (A2) captures between Full and Lite; **GATE / CAB** chooses the gate, holds its main control (Threshold, Sensitivity or Reduction) and switches the cabinet on.
 - **GATE:** **Off** (the default), **Noise Gate**, **Smart Gate** or **AI Gate**, with the chosen gate's controls: the gate itself in the first column, its final gate and Mix in the second. For Smart Gate, mute the strings, switch **Learn** on for one to three seconds, then off. The learned noise is saved with the project and kept while you try another gate.
-- **CAB:** the cabinet IR, off by default because many captures include a cabinet. Input, Output and the cuts come first, as on the AMP page, then Mix and Pre-delay, Folder and File, and **Length** (Cabinet or Long IR).
+- **CAB:** the cabinet IR, off by default because many captures include a cabinet. **LEVELS** has Input, Output and the cuts, as on the AMP page; **MIX** has Mix, Pre-delay and **Length** (Cabinet or Long IR); **IR** has Cab On, Folder and File.
 
-### NAM Grid Pedals
+### NG Pedals
 
 - **PEDAL:** **Voice** chooses **None**, **Clean Boost**, **Tube Boost** or any Pedal Drive or Pedal Distortion voice. Every voice has its gain and output in the first column. Another voice of the same pedal keeps your settings, like a voice switch; another pedal, or None in between, returns to that pedal's last settings. The **COMP** column switches on Pedal Comp before the pedal, with Sustain, Level and Blend: a clean boost with compression is Clean Boost plus Comp On.
 - **COMP:** every Pedal Comp control, including Attack, Body / Pick and Pickup.
 
-### NAM Grid Delay
+### NG Delay
 
 **Type** chooses the delay; each starts from its own starting settings, and returns to your last settings when you come back to it. **Tempo sync** follows the MPC's tempo and turns Time into **Division**.
 
-### NAM Grid Cosmic Echo
+### NG Cosmic
 
 **Style** chooses the space. Styles share the knob settings, so you can compare them directly.
 
-### NAM Grid Lo-Fi, Mod and Console
+### NG Lo-Fi, Mod and Console
 
 **Type** chooses the module; each starts from its own starting settings, and returns to your last settings when you come back to it. The options hold each module's switches: Juno Chorus **Mode**, Uni-Vibe **Vibrato mode**, **Tempo sync** for Uni-Vibe and Harmonic Tremolo (following the MPC's tempo), and the Console Colour **Desk**.
 

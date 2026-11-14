@@ -1,4 +1,4 @@
-// NAM Grid Delay for MPC: the NAM Grid delay family behind one Type menu. Tempo sync
+// NAM Grid Delay for MPC (shown as NG Delay): the NAM Grid delay family behind one Type menu. Tempo sync
 // follows the MPC's tempo. Each type starts from its own starting settings.
 #include "MPCEngine.h"
 
@@ -8,7 +8,7 @@ inline const mpc_grid::PluginSpec& DelaySpec()
 {
   using namespace mpc_grid;
   static const PluginSpec spec{
-    "NAM Grid Delay", MPC_FOURCC('N', 'G', 'D', 'l'), "nam-grid-delay",
+    "NG Delay", MPC_FOURCC('N', 'G', 'D', 'l'), "nam-grid-delay",
     {{"delay", "Delay",
       {{"digital-delay", "Digital", SlotEffect::DigitalDelay},
        {"analog-delay", "Analog", SlotEffect::AnalogDelay},

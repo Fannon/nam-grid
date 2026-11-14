@@ -1,4 +1,4 @@
-// NAM Grid Console for MPC: the Airwindows-based mix colour modules (Console Colour,
+// NAM Grid Console for MPC (shown as NG Console): the Airwindows-based mix colour modules (Console Colour,
 // Outboard Channel, Butter Comp) behind one Type menu, for buses and finished beats.
 #include "MPCEngine.h"
 
@@ -8,7 +8,7 @@ inline const mpc_grid::PluginSpec& ConsoleSpec()
 {
   using namespace mpc_grid;
   static const PluginSpec spec{
-    "NAM Grid Console", MPC_FOURCC('N', 'G', 'C', 's'), "nam-grid-console",
+    "NG Console", MPC_FOURCC('N', 'G', 'C', 's'), "nam-grid-console",
     {{"console", "Console",
       {{"console-colour", "Console Colour", SlotEffect::ConsoleColour},
        {"outboard-channel", "Outboard", SlotEffect::OutboardChannel},

@@ -4,6 +4,23 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+### NAM Grid for Akai MPC (experimental)
+
+- **Seven plugins for standalone Akai MPCs** (MPC OS 3.10.1 or later, 64-bit models such as MPC One G2, Live III and XL), using the same DSP as the desktop plugin. Pedals, Amp, Delay and Cosmic Echo fill a track's four inserts as a guitar rig; Lo-Fi, Mod and Console suit any track or bus:
+  - **NG Pedals:** one Voice menu with None, Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice, with optional Pedal Comp in front.
+  - **NG Amp:** Noise Gate, Smart Gate or AI Gate, a NAM capture and a cabinet IR, in mono. Captures and IRs go into a **NAM Grid** folder on any of the MPC's drives, chosen by Folder and File. Captures start at Lite quality, and **Normalize** levels them to the same loudness.
+  - **NG Delay:** the digital, analog, tape, multi-head, diffused, reverse and dual delays behind one Type menu, synced to the MPC's tempo.
+  - **NG Cosmic:** every Cosmic Echo style.
+  - **NG Lo-Fi:** LoFi Tape Machine, Airwindows Tape and Bitcrusher.
+  - **NG Mod:** Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo.
+  - **NG Console:** Console Colour, Outboard Channel and Butter Comp.
+
+  Their names start with **NG** to fit the MPC's effect displays. Each page is four columns of four controls, one Q-Link bank each, in the desktop editor's look, with green/red toggles; options keep fixed places when you switch modules. They are separate from the desktop plugin. See [NAM Grid on Akai MPC](docs/mpc.md).
+
+- **MPC preset recall:** parameter-only presets retain knob values and tempo divisions; opening another project clears the previous project's remembered module settings and replaces its learned Smart Gate profile. Invalid, incompatible or truncated presets leave the current settings intact. Saving immediately after choosing a capture or IR keeps the new selection.
+- **NG Amp:** disabled Low cut and High cut settings display **Off**.
+- **NG Amp Library page:** see full capture and IR file names, folders, loading/error status and normalization availability. Repaired files can be retried by browsing folders or rescanning. Gate Off and Pedal None pages now explain how to add a processor.
+
 ### New modules and sounds
 
 - **Pedal Distortion:** a new Distortion module for distortion pedals, with six voices: **Classic Dist** (bright and scooped, for punk, grunge and classic rock), **Raw Dist** (raspy op-amp grit that keeps its bass at low Gain and thins out as Gain rises), **British Crunch** and **Hot Lead** (amp-in-a-box crunch and hot-rodded lead), **Metal Stack** (high-gain metal with a scooped voicing) and **Chainsaw** (the Swedish death-metal sound with every knob at maximum). The raspy voices keep their even harmonics on loud notes instead of turning hollow. Bass, Mid with a sweepable Mid freq, and Treble shape the result after the clipping; Tight moves the bass cut before it. Gain 50% stays near bypass loudness, and four presets cover classic rock, British crunch, scooped metal and chainsaw. No latency is added.

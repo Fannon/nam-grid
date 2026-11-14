@@ -1,0 +1,15 @@
+{
+  "name": "NG Console",
+  "manufacturer": "Simon Heimler",
+  "version": "0.1.0",
+  "format": "vst2",
+  "kind": "effect",
+  "uid": "NGCs",
+  "category": "Mix",
+  "numInputs": 2,
+  "numOutputs": 2,
+  "file64": "VST/nam-grid-console-arm64.so",
+  "description": "NAM Grid Console: Console Colour, Outboard Channel and Butter Comp for buses and mixes.",
+  "url": "https://github.com/Fannon/nam-grid",
+  "license": "MIT"
+}

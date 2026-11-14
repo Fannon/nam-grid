@@ -1,0 +1,70 @@
+{
+  "colour": "ffeea45a",
+  "pages": [
+    {
+      "name": "AMP",
+      "columns": [
+        [
+          "Amp Knob 1",
+          "Amp Knob 5",
+          "Amp Knob 6",
+          "Amp Knob 7"
+        ],
+        [
+          "Amp Knob 2",
+          "Amp Knob 3",
+          "Amp Knob 4"
+        ],
+        [
+          "Amp Folder",
+          "Amp File",
+          "Amp Opt 1",
+          "Normalize"
+        ],
+        [
+          "Gate Type",
+          "Gate Knob 1",
+          "Cab On"
+        ]
+      ],
+      "headings": [
+        "LEVELS",
+        "TONE",
+        "CAPTURE",
+        "GATE / CAB"
+      ]
+    },
+    {
+      "name": "GATE",
+      "section": "Gate",
+      "empty": {"param": "Gate Type", "choice": 0, "title": "Gate is off", "text": "Choose a gate in Setup."}
+    },
+    {
+      "name": "CAB",
+      "columns": [
+        [
+          "Cab Knob 1",
+          "Cab Knob 2",
+          "Cab Knob 3",
+          "Cab Knob 4"
+        ],
+        [
+          "Cab Knob 5",
+          "Cab Knob 6",
+          "Cab Opt 1"
+        ],
+        [
+          "Cab On",
+          "Cab Folder",
+          "Cab File"
+        ]
+      ],
+      "headings": [
+        "LEVELS",
+        "MIX",
+        "IR"
+      ]
+    },
+    {"name": "LIBRARY", "library": true}
+  ]
+}

@@ -1,0 +1,54 @@
+name: MPC build
+# NAM Grid for Akai MPC: cross-compiles the MPC plugin folder, runs the MPC plugin tests and
+# the SDK host simulator natively, and runs the shipped arm64 library under qemu.
+# Linux minutes only; the folder is uploaded for testing on hardware.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mpc/**'
+      - 'mpc-plugin-sdk'
+      - 'NeuralAmpModeler/**'
+      - 'NeuralAmpModelerCore'
+      - 'AudioDSPTools'
+      - 'eigen'
+      - 'iPlug2'
+      - 'patches/**'
+      - 'scripts/setup-deps.py'
+      - 'tests/test_mpc_*.py'
+      - '.github/workflows/mpc.yml'
+permissions:
+  contents: read
+concurrency:
+  group: mpc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  mpc:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned submodules
+        # Same Eigen mirror as the main build; scoped to this command.
+        run: >-
+          git -c "url.https://github.com/eigen-mirror/eigen.insteadOf=https://gitlab.com/libeigen/eigen"
+          submodule update --init --recursive --depth=1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install the ARM emulator and C libraries
+        run: sudo apt-get update && sudo apt-get install -y qemu-user libc6-arm64-cross
+      - run: python scripts/setup-deps.py
+      # The first run installs zig into mpc-plugin-sdk/.sdk-tools.
+      - run: python -m unittest discover -s tests -p 'test_mpc_*.py'
+      - run: python mpc/build.py --test --arm-tests arm64 --emulate --gallery tmp/mpc-ci/gallery
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nam-grid-mpc
+          path: build/linux/mpc/out/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nam-grid-mpc-gallery
+          path: tmp/mpc-ci/gallery/
+          if-no-files-found: error

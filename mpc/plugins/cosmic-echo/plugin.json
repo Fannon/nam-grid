@@ -1,0 +1,15 @@
+{
+  "name": "NG Cosmic",
+  "manufacturer": "Simon Heimler",
+  "version": "0.1.0",
+  "format": "vst2",
+  "kind": "effect",
+  "uid": "NGCe",
+  "category": "Reverb",
+  "numInputs": 2,
+  "numOutputs": 2,
+  "file64": "VST/nam-grid-cosmic-echo-arm64.so",
+  "description": "NAM Grid Cosmic Echo: Ambient echoes and reverb in ten styles.",
+  "url": "https://github.com/Fannon/nam-grid",
+  "license": "MIT"
+}

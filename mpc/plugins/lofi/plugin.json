@@ -1,0 +1,15 @@
+{
+  "name": "NG Lo-Fi",
+  "manufacturer": "Simon Heimler",
+  "version": "0.1.0",
+  "format": "vst2",
+  "kind": "effect",
+  "uid": "NGLf",
+  "category": "Lo-Fi",
+  "numInputs": 2,
+  "numOutputs": 2,
+  "file64": "VST/nam-grid-lofi-arm64.so",
+  "description": "NAM Grid Lo-Fi: LoFi Tape Machine, Airwindows Tape and Bitcrusher.",
+  "url": "https://github.com/Fannon/nam-grid",
+  "license": "MIT"
+}

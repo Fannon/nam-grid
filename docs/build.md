@@ -23,7 +23,7 @@ plugin in saved projects; they must never change after a release.
   Configure with `CC=gcc-12 CXX=g++-12` and `-G Ninja`. Run CTest under
   `xvfb-run -a` on machines without a display; see [Linux](#linux).
 - Recursive submodules pinned in this repository: iPlug2, NAM Core,
-  AudioDSPTools and Eigen.
+  AudioDSPTools, Eigen and, for the [MPC build](#mpc) only, the inMusic MPC plugin SDK.
 - SDKs downloaded by `scripts/setup-deps.py`: CLAP 1.2.10 at `a47f6ba`, helpers at
   `29389e4`, and MIT-licensed VST3 3.8.1 at `3cdf9ca`. No WebView, JUCE, or prebuilt
   graphics libraries are needed for this build.
@@ -44,6 +44,7 @@ reproducible source of these changes.
 | `AudioDSPTools` | [sdatkinson/AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) `v0.1.2` | `audio-dsp-001` WAV decoding safety and polarity, `002` resampler warm-up, `003` GCC build, `004` stereo IR loading | `v0.2.0` covers `004` with a different stereo API ([#28](https://github.com/sdatkinson/AudioDSPTools/pull/28)) and the alias half of `003` ([#26](https://github.com/sdatkinson/AudioDSPTools/pull/26)); `001`/`002` are local |
 | `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract`, `iplug2-clap-latency-reporting` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
 | `eigen` | [libeigen/eigen](https://gitlab.com/libeigen/eigen) `ed8cda3` | None | |
+| `mpc-plugin-sdk` | [inmusic-software/mpc-plugin-builder-sdk](https://github.com/inmusic-software/mpc-plugin-builder-sdk) `febd2ca` (no release tags yet) | None | |
 
 Core's own nested `Dependencies/eigen` and `Dependencies/AudioDSPTools` are not used;
 the build includes the top-level `eigen` and `AudioDSPTools`.
@@ -290,6 +291,62 @@ Build releases on Ubuntu 22.04 so they run on that glibc and newer. On Windows, 
 dedicated WSL distribution works without changing others:
 `wsl --install Ubuntu-22.04 --name nam-linux-build`, then build in its Linux file system,
 not under `/mnt/c`.
+
+## MPC
+
+The [MPC plugins](mpc.md) are separate VST2-ABI plugins for Akai MPC standalones, built
+with the `mpc-plugin-sdk` submodule's framework and tools rather than CMake. Each folder
+under `mpc/plugins/` is one plugin; `--plugin amp` limits a build to some of them:
+
+```sh
+python mpc/build.py                     # native libraries, arm64, skins, SDK validation
+python mpc/build.py --target native --test   # MPC plugin tests and the SDK host simulator
+python mpc/build.py --test --arm-tests arm64 --emulate   # also the arm64 library under qemu (Linux)
+```
+
+The script drives zig with the SDK's 64-bit target (`aarch64-linux-gnu.2.31`/`cortex_a55`),
+C++20, `-fsigned-char` for WDL, and `-z nodelete` for the ELF libraries. It compiles
+incrementally into `build/<platform>/mpc/obj/` (shared DSP objects once per target), lays out
+each page from the plugin's `pages.json` in four Q-Link columns, generates `Plugin Skins/` with
+the SDK's `gen_ui.py` through `mpc/skins.py` (column panels, headings and fitted focus
+rectangles), replaces the kit graphics with the desktop editor's look (`mpc/nam_kit.py`, cached
+per build), and runs `validate.py`. The SDK infers
+parameter kinds by probing display text, so each plugin writes a manifest of its menus and
+module-dependent controls (`NAM_GRID_MPC_MANIFEST`) that the build merges into `params.json`. Only 64-bit MPCs are supported, so
+`plugin.json` has no `file32`; the build accepts the validator's error about that alone. The first run installs zig into
+`mpc-plugin-sdk/.sdk-tools/` (ignored by the SDK). `--test` runs
+[`mpc/tests/mpc_tests.cpp`](../mpc/tests/mpc_tests.cpp) through the VST2 entry point:
+every plugin's module layouts and curves, names, voice and type changes, state round trips,
+library folders and files, Smart Gate profiles, programs and dry passthrough. It then runs
+the SDK's `host_sim test` on each plugin, which mimics the
+MPC host's load sequence, block sizes, parameter quirks, chunks and in-place processing.
+The MPC tests also enforce the original host/control contract and load the saved-state
+fixtures in `mpc/tests/fixtures/`; do not regenerate them to make a change pass.
+Object cache receipts include compiler flags and toolchain identity, so changing
+`--debug`, definitions or compiler versions rebuilds the affected sources.
+
+Add `--gallery tmp/<task>/gallery` to capture a deterministic SVG gallery from live
+plugin states, including every voice and synced layout plus file/error and empty states.
+Open its `index.svg` for visual review. It uses the skin's geometry and assets without
+opening an editor or requiring a browser; hardware fonts and touch still need MPC testing.
+
+`--arm-tests arm64` builds the tests and `host_sim` for the shipped arm64 library;
+`--emulate` runs them under `qemu-aarch64 -L /usr/aarch64-linux-gnu` (Ubuntu packages
+`qemu-user` and `libc6-arm64-cross`). The `linux64` target is the same Linux/glibc
+configuration on x86-64, for running them natively in WSL or CI. Run the script inside
+Linux (on Windows, the `nam-linux-build` WSL distribution with `ZIG` pointing at a Python
+that has `ziglang`); it writes to `build/linux/mpc/`. Emulated timing says nothing about
+MPC CPU use.
+
+To install on an MPC over the network, switch on developer mode (see the SDK's
+`mpc-plugin-deploy` skill) and run, for each folder in `build/<platform>/mpc/out/`,
+`python mpc-plugin-sdk/tools/mpc_remote.py <ip> update "<folder>" --drive 1 --yes --no-color`,
+then `restart --yes` once the project on the MPC is saved (the MPC only scans plugins when it
+starts). On Windows, set `PYTHONUTF8=1` first: the tool prints characters the console code page
+cannot encode when its output is captured.
+The tool only lists drives under `/media` and `/nvme`; on models whose internal storage it does
+not list (such as the MPC One G2), install over USB into the internal drive's `VST2 Plugins`
+instead. A second copy on the card makes every plugin appear twice in the MPC's browser.
 
 ## Manual releases
 

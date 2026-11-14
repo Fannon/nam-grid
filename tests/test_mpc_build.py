@@ -2,6 +2,7 @@
 import argparse
 import importlib.util
 from pathlib import Path
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,6 +14,16 @@ spec.loader.exec_module(build)
 
 
 class MPCBuildTests(unittest.TestCase):
+    def test_object_paths_for_sources_outside_the_repository(self):
+        # CI checks out on D: while temporary files live on C:; relpath cannot span drives.
+        other = "Z:\elsewhere\source.cpp" if os.name == "nt" else "/elsewhere/source.cpp"
+        obj = build.object_path("native", other)
+        self.assertTrue(obj.startswith(os.path.join(build.BUILD, "obj", "native")))
+        self.assertNotIn("..", obj)
+        self.assertEqual(obj, build.object_path("native", other))
+        inside = build.object_path("native", str(ROOT / "mpc" / "src" / "x.cpp"))
+        self.assertTrue(inside.endswith("mpc_src_x.cpp.o"))
+
     def test_flags_and_toolchain_changes_recompile_unchanged_sources(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.cpp"

@@ -3,6 +3,7 @@
   "pages": [
     {
       "name": "PEDAL",
+      "empty": {"param": "Drive Type", "choice": 0, "title": "No pedal selected", "text": "Choose a Voice. Compression stays available."},
       "columns": [
         [
           "Drive Knob 1",

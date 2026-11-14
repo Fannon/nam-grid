@@ -43,6 +43,12 @@ A **NAM Grid** folder on any other drive (SD card, USB drive) is found too; its 
 
 A project remembers each file by its folder and name, so adding files never changes which capture a project uses. If you move or rename a file, the File display shows **Missing:** and the Amp plays dry until the file is back.
 
+Open **LIBRARY** in NG Amp to see the complete capture and IR file names, their folders,
+and whether each is loading, ready, missing or failed. A failed load includes a short
+reason and leaves that section dry. After repairing a file, turn Folder or rescan to
+retry it. **Normalize** on this page shows the applied gain, or says when a capture has
+no loudness metadata. The page only displays information; choose files on AMP and CAB.
+
 ## Pages and Q-Links
 
 Every page is four columns of four controls, and each column is one Q-Link bank. A panel with a heading marks each column; the first heading shows the module, voice or style that is playing, and the MPC's highlight fits the panel of the active bank. Knobs, labels and colours follow the desktop editor: each plugin's labels use its module category's colour. On/off settings are toggles, green when on and red when off; other settings with two to four states are selector buttons. On an MPC with four Q-Links, the bank buttons step through the columns from left to right, each read top to bottom; touching a control selects its column. Most pages use the same order:
@@ -60,6 +66,7 @@ The Amp's Low cut at its minimum and High cut at its maximum show **Off**, becau
 - **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File, **Quality**, which switches slimmable (A2) captures between Lite (the default on the MPC) and Full, and **Normalize**, which levels every capture to −18 dB from its loudness metadata so captures can be compared at the same volume (on by default); **GATE / CAB** chooses the gate, holds its main control (Threshold, Sensitivity or Reduction) and switches the cabinet on.
 - **GATE:** **Off** (the default), **Noise Gate**, **Smart Gate** or **AI Gate**, with the chosen gate's controls: the gate itself in the first column, its final gate and Mix in the second. For Smart Gate, mute the strings, switch **Learn** on for one to three seconds, then off. The learned noise is saved with the project and kept while you try another gate.
 - **CAB:** the cabinet IR, off by default because many captures include a cabinet. **LEVELS** has Input, Output and the cuts, as on the AMP page; **MIX** has Mix, Pre-delay and **Length** (Cabinet or Long IR); **IR** has Cab On, Folder and File.
+- **LIBRARY:** full file names, folders, loading/error status and normalization availability. A file may be ready while its cabinet section is switched off.
 
 ### NG Pedals
 
@@ -96,6 +103,13 @@ NAM captures use the most CPU. Watch the MPC's CPU meter while you build a rig:
 - Bypassed delays and reverbs stop at once; trails are off.
 - The plugins have had little testing on MPC hardware so far. Report problems with the MPC model and OS version.
 
+For performance reports, include the MPC model, OS version, audio buffer size, the exact
+plugin chain, capture name and Lite/Full setting, gate type, cabinet setting, and whether
+the input was silent or playing. Compare NG Amp alone with the complete
+Pedals → Amp → Delay → Cosmic chain, then compare Lite and Full at the same settings.
+Record the MPC's CPU reading and any audible dropouts. Emulated CPU readings do not
+predict how many instances the MPC can run.
+
 ## Build from source
 
 The MPC build uses the [inMusic MPC plugin SDK](https://github.com/inmusic-software/mpc-plugin-builder-sdk), pinned as the `mpc-plugin-sdk` submodule:
@@ -118,3 +132,17 @@ The first build installs the zig cross compiler into the SDK's `.sdk-tools/` (ne
 - NG Amp processes in mono (`PluginSpec::mono`) and has a 5 Hz DC blocker after the capture (`SectionSpec::dcBlock`). The library also scans `NAM Grid` on `/media/*` and `/nvme` (`NAM_GRID_MPC_DRIVES` overrides the list for tests); references from those drives are saved as `drive:<name>`. The cabinet convolver's multiply-accumulate is already vectorised with NEON by clang on arm64.
 - `plugin.json` has no `file32`, so 32-bit MPCs ignore the plugins; the build accepts the SDK validator's error about it.
 - The libraries are linked with `-z nodelete`, because zig's shared-library startup does not run static destructors when the host unloads the plugin. On Linux, file access avoids libc++ `std::filesystem` stat calls, which fail in 32-bit builds for files with large inode numbers.
+- Option assignments are explicit in each section spec. The MPC tests compare plugin identity, host parameter order/ranges/flags, module keys and control assignments with the reviewed fixtures in `mpc/tests/fixtures/`, and load their original saved states. Adding a module must not move an existing option. Automatable Type menu ranges are frozen too; growing one requires a compatibility design that preserves existing normalized automation.
+- The incremental object cache records the effective compiler command and toolchain identity beside each object. Changing optimization flags, definitions, targets or compiler versions rebuilds the affected objects; failed compiles cannot leave a usable cache entry.
+
+Generate repeatable UI previews with:
+
+```sh
+python mpc/build.py --target native --gallery tmp/mpc-gallery
+```
+
+Open `index.svg` in that folder. The gallery captures each module/voice and tempo-sync
+layout from the running engine, plus empty, long-name, missing-file and error states.
+It uses the skin's geometry and bitmap assets, with no browser, network or native editor
+automation. Font rendering and touch behavior on an MPC still need hardware testing.
+The MPC workflow uploads the gallery alongside the deployable plugins.

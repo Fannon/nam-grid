@@ -19,19 +19,23 @@ the SDK's 64-bit target and flags, then reuses the SDK's skin generator and vali
 import argparse
 import concurrent.futures
 import glob
+import importlib.util
 import json
 import os
 import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MPC = os.path.join(ROOT, "mpc")
 SDK = os.path.join(ROOT, "mpc-plugin-sdk")
 SDK_TOOLS = os.path.join(SDK, "tools")
 sys.path.insert(0, SDK_TOOLS)
-import build as sdk  # noqa: E402  (the SDK's build.py: zig discovery and version.xml)
+_sdk_spec = importlib.util.spec_from_file_location("nam_grid_mpc_sdk_build", os.path.join(SDK_TOOLS, "build.py"))
+sdk = importlib.util.module_from_spec(_sdk_spec)
+_sdk_spec.loader.exec_module(sdk)
 sys.path.insert(0, os.path.join(ROOT, "mpc"))
 import skins  # noqa: E402  (the SDK's gen_ui.py with grouped columns)
 import nam_kit  # noqa: E402  (the desktop editor's look for knobs, faders and switches)
@@ -148,7 +152,25 @@ def up_to_date(obj, dep):
             continue
         files.append(current + token)
         current = ""
-    return all(os.path.isfile(f) and os.path.getmtime(f) <= stamp for f in files)
+    return bool(files) and not current and all(os.path.isfile(f) and os.path.getmtime(f) <= stamp for f in files)
+
+
+def compiler_identity(zig):
+    code, version = run(zig + ["version"])
+    if code != 0 or not version.strip():
+        raise sdk.BuildError("Cannot identify the zig compiler: " + version)
+    executable = shutil.which(zig[0]) or zig[0]
+    stat = os.stat(executable) if os.path.isfile(executable) else None
+    return {"command": zig, "version": version.strip(), "executable": os.path.realpath(executable),
+            "modified": stat.st_mtime_ns if stat else None, "size": stat.st_size if stat else None}
+
+
+def matching_command(path, signature):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh) == signature
+    except (OSError, ValueError):
+        return False
 
 
 def is_elf(target):
@@ -162,23 +184,33 @@ def compile_sources(zig, target, sources, args, label, extra_defines=(), obj_tar
     base += ["-D" + d for d in list(DEFINES) + list(extra_defines)]
     if is_elf(target):
         base.append("-D_LARGEFILE64_SOURCE")  # readdir64/stat64 for the library scan
+    compiler = compiler_identity(zig)
     jobs = []
     for source in sources:
         obj = object_path(obj_target or target, source)
         dep = obj[:-2] + ".d"
-        if up_to_date(obj, dep):
+        argv = base + ["-c", source, "-o", obj, "-MMD", "-MF", dep]
+        receipt = obj + ".command.json"
+        signature = {"compiler": compiler, "argv": argv}
+        if up_to_date(obj, dep) and matching_command(receipt, signature):
             continue
         os.makedirs(os.path.dirname(obj), exist_ok=True)
-        jobs.append((source, base + ["-c", source, "-o", obj, "-MMD", "-MF", dep]))
+        # A failed compiler can leave an object behind. It must never acquire a valid receipt.
+        if os.path.isfile(receipt):
+            os.remove(receipt)
+        jobs.append((source, argv, receipt, signature))
     if jobs:
         log("[%s] compiling %d of %d %s sources" % (target, len(jobs), len(sources), label))
     failures = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        for (source, _), (code, out) in zip(jobs, pool.map(lambda j: run(j[1]), jobs)):
+        for (source, _, receipt, signature), (code, out) in zip(jobs, pool.map(lambda j: run(j[1]), jobs)):
             if code != 0:
                 failures.append((source, out))
-            elif VERBOSE and out.strip():
-                log(out.rstrip())
+            else:
+                with open(receipt, "w", encoding="utf-8", newline="\n") as fh:
+                    json.dump(signature, fh, sort_keys=True)
+                if VERBOSE and out.strip():
+                    log(out.rstrip())
     for source, out in failures:
         log("ERROR compiling %s:\n%s" % (os.path.relpath(source, ROOT), out.rstrip()))
     return not failures
@@ -221,13 +253,11 @@ def host_sim(zig, target="native"):
     suffix = "" if target == "native" else "-" + target
     exe = os.path.join(BUILD, "tools", "host_sim" + suffix + (".exe" if os.name == "nt" and target == "native" else ""))
     src = os.path.join(SDK_TOOLS, "host-sim", "host_sim.cpp")
-    if os.path.isfile(exe) and os.path.getmtime(exe) >= os.path.getmtime(src):
-        return exe
-    os.makedirs(os.path.dirname(exe), exist_ok=True)
-    code, out = run(zig + ["c++", "-std=c++17", "-O2"] + TARGET_FLAGS[target] + ["-I" + os.path.join(SDK, "framework"),
-                    "-I" + os.path.dirname(src), "-o", exe, src])
-    if code != 0:
-        log("ERROR building host_sim:\n" + out)
+    args = argparse.Namespace(debug=False, jobs=1)
+    objects = "host-sim-" + target
+    if not compile_sources(zig, target, [src], args, "host simulator", obj_target=objects):
+        return None
+    if not link(zig, target, [object_path(objects, src)], exe, args, shared=False):
         return None
     return exe
 
@@ -335,8 +365,13 @@ def column_anchor(column, shown):
 
 def page_layout(page, names, show_output, shown=None):
     """(controls in reading order, column headings, column anchors) for one page of pages.json."""
+    if page.get("library"):
+        return ["empty"] * 16, [""] * 4, [None] * 4
     if "columns" in page:
         columns = [list(c) for c in page["columns"]]
+        missing = [n for column in columns for n in column if n != "empty" and n not in names]
+        if missing:
+            raise ValueError("Unknown controls on %s: %s" % (page["name"], ", ".join(missing)))
         headings = list(page.get("headings", [""] * 4))
     else:
         columns, headings = section_columns(page["section"], names, show_output)
@@ -354,12 +389,17 @@ def make_skins(plugin, params_json):
     with open(params_json, encoding="utf-8") as fh:
         names = {p["name"]: p for p in json.load(fh)["params"]}
     shown = {p["name"]: plugin.shown[str(p["index"])] for p in names.values() if str(p["index"]) in plugin.shown}
-    pages, headings, anchors = [], {}, {}
+    pages, headings, anchors, notes = [], {}, {}, {}
     for page in plugin.pages["pages"]:
         controls, page_headings, page_anchors = page_layout(page, names, plugin.show_output, shown)
         pages.append({"name": page["name"], "controls": controls})
         headings[page["name"]] = page_headings
         anchors[page["name"]] = page_anchors
+        notes[page["name"]] = {"library": page.get("library", False)}
+        if "empty" in page:
+            hint = dict(page["empty"])
+            hint["count"] = len(names[hint["param"]]["choices"])
+            notes[page["name"]]["empty"] = hint
     ui_path = os.path.join(plugin.work, "ui.json")
     with open(ui_path, "w", encoding="utf-8", newline="\n") as fh:
         colour = plugin.pages["colour"]
@@ -370,18 +410,10 @@ def make_skins(plugin, params_json):
     if os.path.isdir(out):
         shutil.rmtree(out)
     handles = {name: "Parameter %d" % p["index"] for name, p in names.items()}
-    if not skins.generate(params_json, ui_path, out, BUILD, headings, handles, anchors):
+    if not skins.generate(params_json, ui_path, out, BUILD, headings, handles, anchors, notes):
         log("ERROR: gen_ui.py failed for %s" % plugin.name)
         return False
     nam_kit.restyle(out, BUILD)
-    # The generated files keep duplicate JSON keys, so they are edited as text.
-    tui = os.path.join(out, "TUI.json")
-    with open(tui, "r", encoding="utf-8") as fh:
-        text = fh.read()
-    # Knobs and options a module does not use report an empty name: hide them.
-    text = text.replace('"showWhenDataModelInvalid": "Hide"', '"showWhenDataModelInvalid": "HideOnInvalidName"')
-    with open(tui, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
     return True
 
 
@@ -452,10 +484,37 @@ def run_unit_tests(zig, args, target="native", runner=()):
     # The Amp's factory capture comes from its assembled folder.
     env["MPC_PLUGIN_FOLDER"] = next(p.out for p in all_plugins() if p.uses_captures)
     scratch = os.path.join(BUILD, "tests", "scratch-" + target)
-    p = subprocess.run(list(runner) + [exe, scratch], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+    p = subprocess.run(list(runner) + [exe, scratch, os.path.join(MPC, "tests", "fixtures")], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                        timeout=3600)
     log(p.stdout.decode("utf-8", errors="replace").rstrip())
     return p.returncode == 0
+
+
+def run_gallery(zig, args, destination, plugins):
+    import gallery
+
+    source = os.path.join(MPC, "tests", "inspect.cpp")
+    exe = os.path.join(BUILD, "tools", "mpc-inspect" + (".exe" if os.name == "nt" else ""))
+    if not compile_sources(zig, "native", [source], args, "gallery inspector", ["MPC_GRID_NO_ENTRY"], obj_target="inspect"):
+        return False
+    objects = [object_path("inspect", source)] + [object_path("native", s) for s in SHARED_SOURCES]
+    if not link(zig, "native", objects, exe, args, shared=False):
+        return False
+    os.makedirs(destination, exist_ok=True)
+    scratch_parent = os.path.join(BUILD, "tests")
+    os.makedirs(scratch_parent, exist_ok=True)
+    snapshot = os.path.abspath(os.path.join(destination, "states.json"))
+    amp = next(p for p in all_plugins() if p.uses_captures)
+    with tempfile.TemporaryDirectory(prefix="gallery-", dir=scratch_parent) as scratch:
+        env = plugin_env(amp, NAM_GRID_MPC_LIBRARY=scratch, NAM_GRID_MPC_DRIVES="")
+        code, out = run([exe, "--gallery", snapshot], env=env, timeout=120)
+        if code:
+            log("ERROR capturing gallery: " + out)
+            return False
+    with open(snapshot, encoding="utf-8") as fh:
+        count = gallery.generate(sys.modules[__name__], json.load(fh), destination, plugins)
+    log("[gallery] %d previews: %s" % (count, os.path.abspath(os.path.join(destination, "index.svg"))))
+    return True
 
 
 def main(argv=None):
@@ -473,6 +532,7 @@ def main(argv=None):
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--debug", action="store_true")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--gallery", metavar="DIR", help="capture live states and write a deterministic SVG UI gallery")
     args = ap.parse_args(argv)
     VERBOSE = args.verbose
 
@@ -492,7 +552,7 @@ def main(argv=None):
     for plugin in (all_plugins() if args.test or args.arm_tests else plugins):
         assemble(plugin)
     targets = ["native", "arm64"] if args.target == "all" else [args.target]
-    if "native" not in targets and (args.test or args.target == "all"):
+    if "native" not in targets and (args.test or args.gallery or args.target == "all"):
         targets.insert(0, "native")
     targets += [t for t in args.arm_tests if t not in targets]
     for target in targets:
@@ -520,6 +580,8 @@ def main(argv=None):
         for plugin in plugins:
             if not run_host_test(sim, plugin, args.seconds):
                 return 1
+    if args.gallery and not run_gallery(zig, args, args.gallery, plugins):
+        return 1
     # The shipped Linux/ARM libraries, through the tests and host_sim built for the same target.
     for target in args.arm_tests:
         target_sim = host_sim(zig, target)

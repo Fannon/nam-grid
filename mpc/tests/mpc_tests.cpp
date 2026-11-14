@@ -8,6 +8,7 @@
 #include "../plugins/lofi/LoFi.cpp"
 #include "../plugins/mod/Mod.cpp"
 #include "../plugins/console/Console.cpp"
+#include "Contract.h"
 
 #include <cassert>
 #include <cerrno>
@@ -24,6 +25,7 @@ namespace
 {
 using namespace mpc_grid;
 int gFailures = 0;
+std::atomic<bool> gSawLoading{false};
 #define CHECK(condition)                                                                   \
   do                                                                                       \
   {                                                                                        \
@@ -34,8 +36,14 @@ int gFailures = 0;
     }                                                                                      \
   } while (0)
 
-VstIntPtr Host(AEffect*, VstInt32 opcode, VstInt32, VstIntPtr, void*, float)
+VstIntPtr Host(AEffect* effect, VstInt32 opcode, VstInt32, VstIntPtr, void*, float)
 {
+  if (effect && opcode == audioMasterUpdateDisplay)
+  {
+    auto& plugin = *static_cast<GridPlugin*>(mpc::detail::self(effect));
+    for (int i = 0; i < plugin.numParams(); ++i)
+      if (plugin.param(i).id == "amp_info1" && plugin.displayText(i) == "Loading...") gSawLoading.store(true);
+  }
   return opcode == audioMasterVersion ? 2400 : 0;
 }
 
@@ -278,6 +286,149 @@ void TestLayouts()
   const auto folders = LibraryFolders(entries);
   CHECK(folders.size() == 3 && folders[0].display == "A" && folders[0].count == 2 && folders[2].display == "Factory");
   CHECK(FolderDisplay("user", "Packs/Some Pack/Amps") == "Some Pack/Amps");
+}
+
+// Existing arrays are prefixes: new parameters and choices may append. Formerly unused
+// knob/option places may acquire controls without changing the meaning of occupied places.
+bool ContractContains(const nlohmann::json& actual, const nlohmann::json& expected)
+{
+  if (expected.is_object())
+  {
+    if (!actual.is_object()) return false;
+    for (auto it = expected.begin(); it != expected.end(); ++it)
+      if (!actual.contains(it.key()) || !ContractContains(actual[it.key()], it.value())) return false;
+    return true;
+  }
+  if (expected.is_array())
+  {
+    if (!actual.is_array() || actual.size() < expected.size()) return false;
+    for (size_t i = 0; i < expected.size(); ++i)
+      if (!ContractContains(actual[i], expected[i])) return false;
+    return true;
+  }
+  if (expected.is_string() && expected.get<std::string>().empty()) return actual.is_string();
+  return actual == expected;
+}
+
+std::vector<uint8_t> LegacyChunk(const nlohmann::json& state)
+{
+  std::vector<uint8_t> chunk{'M', 'P', 'C', 'P'};
+  const auto u32 = [&](uint32_t value) { for (int i = 0; i < 4; ++i) chunk.push_back(static_cast<uint8_t>(value >> (8 * i))); };
+  const auto f32 = [&](float value) { uint32_t bits; std::memcpy(&bits, &value, 4); u32(bits); };
+  u32(2);
+  u32(static_cast<uint32_t>(state["parameters"].size()));
+  for (const auto& p : state["parameters"])
+  {
+    const auto id = p["id"].get<std::string>();
+    chunk.push_back(static_cast<uint8_t>(id.size()));
+    chunk.insert(chunk.end(), id.begin(), id.end());
+    f32(p["plain"].get<float>());
+    f32(p["normalized"].get<float>());
+  }
+  const auto extra = state["extra"].dump();
+  u32(static_cast<uint32_t>(extra.size()));
+  chunk.insert(chunk.end(), extra.begin(), extra.end());
+  return chunk;
+}
+
+void TestCompatibility(const std::string& fixtures)
+{
+  std::ifstream input(std::filesystem::u8path(fixtures + "/contract-v1.json"));
+  nlohmann::json baseline;
+  if (!(input >> baseline)) { CHECK(false); return; }
+  for (const auto* spec : Specs())
+  {
+    Instance instance(*spec);
+    auto& plugin = *static_cast<GridPlugin*>(mpc::detail::self(instance.e));
+    const auto& frozen = baseline.at(spec->stateFormat);
+    CHECK(ContractContains(DescribeContract(plugin), frozen["contract"]));
+    CHECK(instance.Load(LegacyChunk(frozen["state"])));
+    auto expectedState = frozen["state"]["extra"];
+    auto actualState = Extra(instance.Chunk());
+    CHECK(actualState["schema"] >= expectedState["schema"]);
+    expectedState.erase("schema"); // New saves may use an additive schema while old values retain their meaning.
+    CHECK(ContractContains(actualState, expectedState));
+    if (std::string(spec->stateFormat) == "nam-grid-amp")
+    {
+      std::ifstream displayInput(std::filesystem::u8path(fixtures + "/display-parameters-v1.json"));
+      nlohmann::json display;
+      displayInput >> display;
+      const int first = display["firstIndex"].get<int>();
+      CHECK(plugin.numParams() >= first + static_cast<int>(display["ids"].size()));
+      for (size_t i = 0; i < display["ids"].size() && first + static_cast<int>(i) < plugin.numParams(); ++i)
+      {
+        const auto& p = plugin.param(first + static_cast<int>(i));
+        CHECK(p.id == display["ids"][i].get<std::string>() && !p.automatable);
+        CHECK(p.kind == mpc::Param::Kind::Float && p.min == 0.f && p.max == 1.f && p.def == 0.f);
+      }
+    }
+    // An appended module cannot change the existing option assignments.
+    for (const auto& section : spec->sections)
+      for (const auto& choice : section.choices)
+      {
+        auto expanded = section;
+        expanded.choices.insert(expanded.choices.end(), 20, choice);
+        CHECK(SectionOptionOrder(expanded) == SectionOptionOrder(section));
+      }
+  }
+  // Ensure the comparator itself catches parameter remapping and reordered option meaning.
+  auto changed = baseline.begin().value()["contract"];
+  changed["parameters"][0]["id"] = "wrong-id";
+  CHECK(!ContractContains(changed, baseline.begin().value()["contract"]));
+}
+
+void TestLibraryDetails(const std::string& library)
+{
+  {
+    Instance check(mpc_plugins::AmpSpec());
+    auto& plugin = *static_cast<GridPlugin*>(mpc::detail::self(check.e));
+    bool found = false;
+    for (int i = 0; i < plugin.numParams(); ++i) found = found || plugin.param(i).id == "amp_info1";
+    CHECK(found);
+    if (!found) return;
+  }
+  std::string capture;
+  CHECK(ReadWholeFile(library + "/Captures/A/a1.nam", capture));
+  // Long names must survive the SDK's 31-byte display limit, including UTF-8 boundaries.
+  std::string name(5, 'W');
+  for (int i = 0; i < 80; ++i) name += "\xc3\xa4";
+  name += " guitar capture.nam";
+  WriteFile(library + "/Captures/A/" + name, capture);
+  auto metadataFree = nlohmann::json::parse(capture);
+  metadataFree["metadata"].erase("loudness");
+  WriteFile(library + "/Captures/A/no-level.nam", metadataFree.dump());
+  Instance a(mpc_plugins::AmpSpec());
+  auto chunk = a.Chunk();
+  auto extra = Extra(chunk);
+  extra["sections"]["amp"]["file"] = {{"root", "user"}, {"path", "A/" + name}};
+  gSawLoading.store(false);
+  CHECK(a.Load(WithExtra(chunk, extra)));
+  CHECK(WaitFor([&] { return a.Display("amp_info1") == "Ready"; }));
+  CHECK(gSawLoading.load());
+  std::string fullName;
+  for (int line = 3; line <= 12; ++line) fullName += a.Display("amp_info" + std::to_string(line));
+  CHECK(fullName == name);
+  CHECK(a.Display("amp_info13") == "A");
+  CHECK(a.Display("normalize_info").find("to -18 dB") != std::string::npos);
+  a.Set("normalize", 0.f);
+  CHECK(a.Display("normalize_info") == "Off");
+  extra["sections"]["amp"]["file"]["path"] = "A/no-level.nam";
+  CHECK(a.Load(WithExtra(chunk, extra)));
+  CHECK(WaitFor([&] { return a.Display("amp_info1") == "Ready"; }));
+  CHECK(a.Display("normalize_info") == "On: no loudness metadata");
+  extra["sections"]["amp"]["file"]["path"] = "Broken/broken.nam";
+  CHECK(a.Load(WithExtra(chunk, extra)));
+  CHECK(WaitFor([&] { return a.Display("amp_info1") == "Load failed - dry"; }));
+  CHECK(a.Display("amp_info2") == "Invalid capture JSON");
+  CHECK(a.Display("amp_info3") == "broken.nam");
+  CHECK(a.Display("normalize_info") == "Unavailable: capture not loaded");
+  WriteFile(library + "/Captures/Broken/broken.nam", capture);
+  a.Set("rescan", 1.f);
+  CHECK(WaitFor([&] { return a.Display("amp_info1") == "Ready"; }));
+  CHECK(a.Display("amp_info2").empty());
+  auto& plugin = *static_cast<GridPlugin*>(mpc::detail::self(a.e));
+  for (int i = 0; i < plugin.numParams(); ++i)
+    if (plugin.param(i).id.find("_info") != std::string::npos) CHECK(!plugin.param(i).automatable);
 }
 
 // ----- NAM Grid Amp --------------------------------------------------------------------
@@ -725,6 +876,7 @@ int main(int argc, char** argv)
   setenv("NAM_GRID_MPC_LIBRARY", library.c_str(), 1);
 #endif
   TestLayouts();
+  TestCompatibility(argc >= 3 ? argv[2] : "mpc/tests/fixtures");
   TestAmpGates();
   TestAmpParameterState();
   TestAmpLibrary(library);
@@ -735,6 +887,7 @@ int main(int argc, char** argv)
   TestDelay();
   TestCosmicEcho();
   TestNewPlugins();
+  TestLibraryDetails(library);
   std::error_code ec;
   std::filesystem::remove_all(std::filesystem::u8path(FolderOf(library)), ec);
   if (gFailures) std::fprintf(stderr, "%d check(s) failed\n", gFailures);

@@ -37,7 +37,8 @@ inline const mpc_grid::PluginSpec& PedalsSpec()
     const int screamer = voice("Screamer");
     // Comp first in the signal path, off by default; its controls are on the main page too.
     PluginSpec s{"NG Pedals", MPC_FOURCC('N', 'G', 'P', 'd'), "nam-grid-pedals",
-                 {{"comp", "Comp", {{"pedal-comp", "Pedal Comp", SlotEffect::PedalComp}}, 0, true, false},
+                 {{"comp", "Comp", {{"pedal-comp", "Pedal Comp", SlotEffect::PedalComp}}, 0, true, false, nullptr, false,
+                   {U(uPedalCompPickup)}},
                   {"drive", "Drive", voices, screamer, false, true, "Voice"}},
                  {}};
     s.programs = {

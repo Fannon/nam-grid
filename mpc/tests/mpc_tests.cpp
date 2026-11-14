@@ -407,6 +407,76 @@ void TestAmpState()
   CHECK(Extra(c.Chunk())["sections"]["amp"]["values"]["EQ Bass"].get<double>() == 12.);
 }
 
+// NG Amp: other drives, Lite by default, mono processing, DC blocker and Normalize.
+void SetEnv(const char* name, const std::string& value)
+{
+#if defined(_WIN32)
+  _putenv_s(name, value.c_str());
+#else
+  if (value.empty()) unsetenv(name); else setenv(name, value.c_str(), 1);
+#endif
+}
+double Rms(const std::vector<float>& x, size_t from)
+{
+  double sum = 0.;
+  for (size_t i = from; i < x.size(); ++i) sum += double(x[i]) * x[i];
+  return std::sqrt(sum / double(x.size() - from));
+}
+void TestAmpDrivesAndLevels(const std::string& library)
+{
+  // A "NAM Grid" library on another drive appears after the plugin drive's folders.
+  const auto drive = FolderOf(FolderOf(library)) + "/MPC_SD";
+  std::string capture;
+  CHECK(ReadWholeFile(library + "/Captures/A/a1.nam", capture));
+  WriteFile(drive + "/NAM Grid/Captures/Amps/sd1.nam", capture);
+  SetEnv("NAM_GRID_MPC_DRIVES", drive);
+  {
+    Instance a(mpc_plugins::AmpSpec());
+    a.Set("rescan", 1.f);
+    CHECK(WaitFor([&] { return a.Get("rescan") < .5f; }));
+    // Folders: user A, AA, B, Broken, then MPC_SD: Amps, then Factory.
+    a.Set("amp_folder", 4.f / 5.f);
+    CHECK(WaitFor([&] { return a.Display("amp_file") == "sd1"; }));
+    CHECK(a.Display("amp_folder") == "MPC_SD: Amps");
+    const auto file = Extra(a.Chunk())["sections"]["amp"]["file"];
+    CHECK(file["root"] == "drive:MPC_SD" && file["path"] == "Amps/sd1.nam");
+  }
+  SetEnv("NAM_GRID_MPC_DRIVES", "");
+
+  // The factory capture: slimmable (Quality shows, starting at Lite) with loudness metadata.
+  // folder: the Folder value; signal(i) -> (left, right).
+  const auto run = [&](float folder, bool normalize, const std::function<std::pair<float, float>(size_t)>& signal) {
+    Instance a(mpc_plugins::AmpSpec());
+    a.Set("amp_folder", folder);
+    WaitFor([&] { return a.Display("amp_file") == "riffsmith-clean" || a.Display("amp_file") == "Load failed"; });
+    a.Set("normalize", normalize ? 1.f : 0.f);
+    Settle();
+    std::vector<float> l(44100 * 2), r(44100 * 2);
+    for (size_t i = 0; i < l.size(); ++i) std::tie(l[i], r[i]) = signal(i);
+    a.Process(l, r);
+    return std::make_tuple(l, r, a.Name("amp_o1"), a.Display("amp_o1"));
+  };
+  const auto tone = [](size_t i) { const float x = static_cast<float>(.2 * std::sin(.03 * double(i))); return std::make_pair(x, x); };
+  // Folders: A, AA, B, Broken (a capture that fails to load), Factory.
+  const auto [plain, plainR, quality, qualityValue] = run(1.f, false, tone);
+  const auto [norm, normR, q2, q2Value] = run(1.f, true, tone);
+  CHECK(quality == "Quality" && qualityValue == "Lite");
+  // Normalize lifts this capture (loudness -19.1 dB) to -18 dB: exactly the level difference.
+  const double gain = 20. * std::log10(Rms(norm, 44100) / Rms(plain, 44100));
+  CHECK(std::abs(gain - (kNormalizedLoudness - -19.137987390292942)) < .01);
+  // The DC blocker removes the capture's small offset: silence in, silence out.
+  const auto [idle, idleR, q3, q3Value] = run(1.f, false, [](size_t) { return std::make_pair(0.f, 0.f); });
+  double mean = 0.;
+  for (size_t i = 44100; i < idle.size(); ++i) mean += idle[i];
+  mean /= double(idle.size() - 44100);
+  CHECK(std::abs(mean) < 1.e-6);
+  // Mono: with no capture playing, a stereo input still leaves as one channel on both sides.
+  const auto [dryL, dryR, q4, q4Value] = run(.75f, false, [](size_t i) {
+    return std::make_pair(static_cast<float>(.2 * std::sin(.03 * double(i))), static_cast<float>(.2 * std::sin(.05 * double(i))));
+  });
+  CHECK(dryL == dryR && Rms(dryL, 44100) > .01);
+}
+
 // ----- NAM Grid Pedals ------------------------------------------------------------------
 void TestPedals()
 {
@@ -573,6 +643,7 @@ int main(int argc, char** argv)
   TestAmpGates();
   TestAmpLibrary(library);
   TestAmpState();
+  TestAmpDrivesAndLevels(library);
   TestPedals();
   TestDelay();
   TestCosmicEcho();

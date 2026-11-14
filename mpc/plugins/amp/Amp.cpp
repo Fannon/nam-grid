@@ -24,7 +24,8 @@ inline const mpc_grid::PluginSpec& AmpSpec()
          {U(uAIGateReduction), U(uAIGateSensitivity), U(uAIGateAttackProtection), U(uAIGateMix),
           U(uNoiseGateThreshold), U(uNoiseGateRelease)}}},
        0},
-      {"amp", "Amp", {{"capture", "Capture", SlotEffect::NAM, FileKind::Capture}}},
+      // A 5 Hz DC blocker follows the capture.
+      {"amp", "Amp", {{"capture", "Capture", SlotEffect::NAM, FileKind::Capture}}, 0, false, true, nullptr, true},
       // The cabinet is off by default (many captures include one). Knob columns as on the
       // AMP page: levels and cuts, then mix and pre-delay.
       {"cab", "Cab",
@@ -33,6 +34,7 @@ inline const mpc_grid::PluginSpec& AmpSpec()
        0, true, false},
     },
     {}, // Programs would replace the chosen capture; the MPC's own presets keep it.
+    true, // Mono: NAM captures are mono, so the gate and cabinet run once, not per channel.
   };
   return spec;
 }

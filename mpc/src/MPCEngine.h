@@ -35,6 +35,7 @@
 #include <array>
 #include <atomic>
 #include <functional>
+#include <limits>
 #include <chrono>
 #include <cstdlib>
 #include <memory>
@@ -57,6 +58,7 @@ struct SectionSpec
   bool switchable = false; // Has an On parameter.
   bool defaultOn = true;
   const char* typeName = nullptr; // Screen name of the Type menu (default: the section name).
+  bool dcBlock = false; // A 5 Hz DC blocker after the section (NAM captures can have a DC offset).
 };
 struct ProgramSpec
 {
@@ -71,7 +73,12 @@ struct PluginSpec
   const char* stateFormat; // Permanent.
   std::vector<SectionSpec> sections;
   std::vector<ProgramSpec> programs; // None: the MPC shows one "Default" program.
+  // Process in mono: the input is summed, every section runs on one channel and the result
+  // goes to both outputs. For guitar rigs around a (mono) NAM capture: halves gate and cabinet
+  // work for no audible difference with a mono source.
+  bool mono = false;
 };
+inline constexpr double kNormalizedLoudness = -18.; // dB, the target of the Normalize switch.
 
 inline constexpr int kStateSchema = 1;
 inline const char* ControlKey(int control)
@@ -83,6 +90,8 @@ inline SlotValues ChoiceDefaults(const Choice& choice)
 {
   auto values = SlotDefaultValues(choice.effect);
   values[standardControls + uNoiseLearn] = 0.;
+  // Slimmable (A2) captures start at Lite on the MPC: Full is heavy for its CPUs.
+  if (choice.effect == SlotEffect::NAM && choice.files == FileKind::Capture) values[kSlotFullQuality] = 0.;
   if (choice.styleControl >= 0) values[choice.styleControl] = choice.style;
   return values;
 }
@@ -157,6 +166,11 @@ public:
     bool files = false;
     for (const auto& section : spec.sections) files = files || SectionFiles(section) != FileKind::None;
     if (files) mRescanParam = addParam(mpc::boolParam("rescan", "Rescan", false));
+    bool captures = false;
+    for (const auto& section : spec.sections)
+      captures = captures || SectionFiles(section) == FileKind::Capture;
+    // Levels every capture to the same loudness from its metadata (where the capture has it).
+    if (captures) mNormalizeParam = addParam(mpc::boolParam("normalize", "Normalize", true));
     for (size_t s = 0; s < spec.sections.size(); ++s)
     {
       const auto& sectionSpec = spec.sections[s];
@@ -281,6 +295,8 @@ public:
     // Report the capture resampling delay; the MPC reads it when it prepares the insert.
     if (effect_) effect_->initialDelay = latency;
     mOutGain = -1.;
+    mDcState.assign(mSections.size(), {0., 0.});
+    mDcCoefficient = std::exp(-2. * 3.141592653589793 * 5. / mRate);
     mPrepared.store(true);
     mNamesDirty.store(true);
   }
@@ -308,6 +324,9 @@ public:
         field = grid_modulation::FieldValue<T>(section.values[control].load(std::memory_order_relaxed));
       });
       c.enabled = section.onParam < 0 || getBool(section.onParam);
+      if (mNormalizeParam >= 0 && getBool(mNormalizeParam) && Current(section).effect == SlotEffect::NAM)
+        if (const double loudness = section.loudness.load(); std::isfinite(loudness))
+          c.trimDB += kNormalizedLoudness - loudness;
       c.utility.tempo = tempo;
       c.utility.constantDry = false;
       c.utility.trails = false;
@@ -320,14 +339,30 @@ public:
       // Read the whole chunk before writing it: the MPC processes in place.
       for (int i = 0; i < n; ++i)
       {
-        mLeft[i] = inL[start + i];
+        mLeft[i] = mSpec.mono ? .5 * (inL[start + i] + inR[start + i]) : inL[start + i];
         mRight[i] = inR[start + i];
       }
-      for (auto& section : mSections)
+      for (size_t s = 0; s < mSections.size(); ++s)
       {
+        auto& section = mSections[s];
         const auto& c = section.controls;
-        section.stage.Process(mLeft.data(), n, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, mRight.data());
+        double* right = mSpec.mono ? nullptr : mRight.data();
+        section.stage.Process(mLeft.data(), n, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, right);
+        if (section.spec->dcBlock)
+        {
+          auto& state = mDcState[s];
+          for (int i = 0; i < n; ++i)
+          {
+            const double x = mLeft[i];
+            state[1] = x - state[0] + mDcCoefficient * state[1];
+            state[0] = x;
+            mLeft[i] = state[1];
+          }
+          if (!mSpec.mono) // Stereo plugins: the capture's output is mono, the same on both sides.
+            std::copy_n(mLeft.data(), n, mRight.data());
+        }
       }
+      if (mSpec.mono) std::copy_n(mLeft.data(), n, mRight.data());
       const double outStep = (outTarget - mOutGain) / n;
       for (int i = 0; i < n; ++i)
       {
@@ -534,6 +569,7 @@ private:
     std::array<std::atomic<int>, kOptions> options{};
     std::atomic<bool> slimmable{false}, rebuild{true}, folderDirty{false}, fileDirty{false}, noiseReset{false};
     std::atomic<double> folderNorm{0.}, fileNorm{0.};
+    std::atomic<double> loudness{std::numeric_limits<double>::quiet_NaN()}; // The loaded capture's, in dB.
     // Each module's last settings in this section, by the index of its first choice, so a
     // Type change and back (or a None voice in between) returns to them. Preallocated.
     std::vector<SlotValues> remembered;
@@ -796,6 +832,11 @@ private:
       roots.push_back({"user", env});
     else
       roots.push_back({"user", DriveLibraryFolder(plugin)});
+    // Then a "NAM Grid" library on any other drive (SD card, USB, NVMe), labelled with its name.
+    const auto own = PluginDrive(plugin);
+    for (const auto& drive : OtherDrives())
+      if (drive != own && !drive.empty())
+        roots.push_back({"drive:" + DriveName(drive), drive + "/NAM Grid"});
     roots.push_back({"factory", plugin.empty() ? std::string() : plugin + "/Content"});
     return roots;
   }
@@ -925,7 +966,9 @@ private:
       config.path.clear();
       prepared = PrepareSlot(config, mRate, mBlock);
     }
-    const bool slimmable = prepared.dsp->Info().slimmable;
+    const auto info = prepared.dsp->Info();
+    const bool slimmable = info.slimmable;
+    section.loudness.store(info.hasLoudness ? info.loudness : std::numeric_limits<double>::quiet_NaN());
     {
       std::lock_guard<std::mutex> lock(mControlMutex);
       section.noiseEpoch = ++mNextNoiseEpoch;
@@ -989,7 +1032,9 @@ private:
   const PluginSpec& mSpec;
   std::vector<Section> mSections;
   std::vector<ParamRole> mRoles;
-  int mOutputParam = 0, mRescanParam = -1;
+  int mOutputParam = 0, mRescanParam = -1, mNormalizeParam = -1;
+  std::vector<std::array<double, 2>> mDcState; // Per section: the DC blocker's input and output memory.
+  double mDcCoefficient = .9993;
   std::vector<double> mLeft, mRight;
   double mRate = 44100., mOutGain = -1.;
   int mBlock = 128;

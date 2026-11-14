@@ -8,7 +8,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - **Seven plugins for standalone Akai MPCs** (MPC OS 3.10.1 or later, 64-bit models such as MPC One G2, Live III and XL), using the same DSP as the desktop plugin. Pedals, Amp, Delay and Cosmic Echo fill a track's four inserts as a guitar rig; Lo-Fi, Mod and Console suit any track or bus:
   - **NG Pedals:** one Voice menu with None, Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice, with optional Pedal Comp in front.
-  - **NG Amp:** Noise Gate, Smart Gate or AI Gate, a NAM capture and a cabinet IR. Captures and IRs go into a **NAM Grid** folder on the MPC's drive, chosen by Folder and File.
+  - **NG Amp:** Noise Gate, Smart Gate or AI Gate, a NAM capture and a cabinet IR, in mono. Captures and IRs go into a **NAM Grid** folder on any of the MPC's drives, chosen by Folder and File. Captures start at Lite quality, and **Normalize** levels them to the same loudness.
   - **NG Delay:** the digital, analog, tape, multi-head, diffused, reverse and dual delays behind one Type menu, synced to the MPC's tempo.
   - **NG Cosmic:** every Cosmic Echo style.
   - **NG Lo-Fi:** LoFi Tape Machine, Airwindows Tape and Bitcrusher.

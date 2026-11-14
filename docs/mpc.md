@@ -39,7 +39,7 @@ NG Amp looks for files in a **NAM Grid** folder at the top of the drive that hol
     IRs/        your cabinet impulse responses (.wav), in folders
 ```
 
-Your files keep their place when you update the plugin. A clean factory capture is included, so the Amp plays straight away. Organise files into folders: **Folder** picks a folder and starts at its first file, and **File** steps through that folder. A favourites folder such as `_Top10` sorts first. Files copied while the Amp is loaded appear when you next turn **Folder**.
+A **NAM Grid** folder on any other drive (SD card, USB drive) is found too; its folders show the drive's name, such as `MPC_SD: Amps`. Your files keep their place when you update the plugin. A clean factory capture is included, so the Amp plays straight away. Organise files into folders: **Folder** picks a folder and starts at its first file, and **File** steps through that folder. A favourites folder such as `_Top10` sorts first. Files copied while the Amp is loaded appear when you next turn **Folder**.
 
 A project remembers each file by its folder and name, so adding files never changes which capture a project uses. If you move or rename a file, the File display shows **Missing:** and the Amp plays dry until the file is back.
 
@@ -56,7 +56,7 @@ Knobs show the name of the control they hold; places a module does not use are e
 
 ### NG Amp
 
-- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File and **Quality**, which switches slimmable (A2) captures between Full and Lite; **GATE / CAB** chooses the gate, holds its main control (Threshold, Sensitivity or Reduction) and switches the cabinet on.
+- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File, **Quality**, which switches slimmable (A2) captures between Lite (the default on the MPC) and Full, and **Normalize**, which levels every capture to −18 dB from its loudness metadata so captures can be compared at the same volume (on by default); **GATE / CAB** chooses the gate, holds its main control (Threshold, Sensitivity or Reduction) and switches the cabinet on.
 - **GATE:** **Off** (the default), **Noise Gate**, **Smart Gate** or **AI Gate**, with the chosen gate's controls: the gate itself in the first column, its final gate and Mix in the second. For Smart Gate, mute the strings, switch **Learn** on for one to three seconds, then off. The learned noise is saved with the project and kept while you try another gate.
 - **CAB:** the cabinet IR, off by default because many captures include a cabinet. **LEVELS** has Input, Output and the cuts, as on the AMP page; **MIX** has Mix, Pre-delay and **Length** (Cabinet or Long IR); **IR** has Cab On, Folder and File.
 
@@ -83,7 +83,8 @@ Each plugin has built-in programs; your own presets are saved with the MPC's pre
 
 NAM captures use the most CPU. Watch the MPC's CPU meter while you build a rig:
 
-- One capture per track is the safe start. Lite quality and smaller capture sizes (Lite, Feather, Nano) use less.
+- One capture per track is the safe start. Captures start at Lite quality; Full and larger capture sizes use more.
+- NG Amp works in mono, like the capture: it sums a stereo input, so its gate and cabinet run once rather than per channel, and sends the result to both sides.
 - Captures recorded at 48 kHz are converted to the MPC's 44.1 kHz, which costs some CPU and adds a fraction of a millisecond of delay.
 - Pedal Drive, Pedal Distortion and Cosmic Echo cost more than the gates, delays, Lo-Fi, Mod and Console modules.
 - A section that is off uses almost no CPU once its fade has finished.
@@ -113,5 +114,6 @@ The first build installs the zig cross compiler into the SDK's `.sdk-tools/` (ne
 - The build lays out each page from `pages.json` (a section's standard page, or explicit columns and headings) in four Q-Link columns. [`mpc/skins.py`](../mpc/skins.py) runs the SDK's generator with a panel and heading per column and focus rectangles that fit the panels. The SDK infers parameter kinds by probing display text, so each plugin describes its menus and its module-dependent controls in a manifest the build merges into `params.json`.
 - A worker thread scans the library, loads captures and IRs and publishes prepared modules through `NAMStage`'s lock-free exchange. The audio thread only reads atomics.
 - Projects save each section's module key, every control as a named value, the file reference and the Smart Gate profile as JSON in the plugin chunk. Unknown modules from newer versions load as the section's default; missing values take the module's starting settings.
+- NG Amp processes in mono (`PluginSpec::mono`) and has a 5 Hz DC blocker after the capture (`SectionSpec::dcBlock`). The library also scans `NAM Grid` on `/media/*` and `/nvme` (`NAM_GRID_MPC_DRIVES` overrides the list for tests); references from those drives are saved as `drive:<name>`. The cabinet convolver's multiply-accumulate is already vectorised with NEON by clang on arm64.
 - `plugin.json` has no `file32`, so 32-bit MPCs ignore the plugins; the build accepts the SDK validator's error about it.
 - The libraries are linked with `-z nodelete`, because zig's shared-library startup does not run static destructors when the host unloads the plugin. On Linux, file access avoids libc++ `std::filesystem` stat calls, which fail in 32-bit builds for files with large inode numbers.

@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <system_error>
@@ -59,6 +60,55 @@ inline bool HasExtension(const std::string& name, const char* extension)
 {
   const std::string ext = extension;
   return name.size() > ext.size() && Lower(name.substr(name.size() - ext.size())) == ext;
+}
+
+// <drive> for a plugin folder at <drive>/VST2 Plugins/<plugin folder> (UTF-8 paths), or "".
+inline std::string PluginDrive(std::string pluginFolder)
+{
+  while (!pluginFolder.empty() && (pluginFolder.back() == '/' || pluginFolder.back() == '\\')) pluginFolder.pop_back();
+  const auto pluginSlash = pluginFolder.find_last_of("/\\");
+  if (pluginSlash == std::string::npos) return {};
+  const auto parent = pluginFolder.substr(0, pluginSlash);
+  const auto parentSlash = parent.find_last_of("/\\");
+  const auto parentName = parentSlash == std::string::npos ? parent : parent.substr(parentSlash + 1);
+  if (Lower(parentName) != "vst2 plugins" || parentSlash == std::string::npos) return {};
+  return parent.substr(0, parentSlash);
+}
+// The other drives that may hold a "NAM Grid" library: $NAM_GRID_MPC_DRIVES ('|'-separated
+// mount points) when set, else every folder in /media and /nvme on Linux (the MPC mounts its
+// SD cards, USB drives and NVMe there). Sorted by path.
+inline std::vector<std::string> OtherDrives()
+{
+  std::vector<std::string> drives;
+  if (const char* env = std::getenv("NAM_GRID_MPC_DRIVES"); env)
+  {
+    std::string list = env;
+    for (size_t start = 0; start <= list.size();)
+    {
+      const auto end = list.find('|', start);
+      const auto item = list.substr(start, end == std::string::npos ? std::string::npos : end - start);
+      if (!item.empty()) drives.push_back(item);
+      if (end == std::string::npos) break;
+      start = end + 1;
+    }
+    return drives;
+  }
+#if defined(__linux__)
+  if (DIR* dir = opendir("/media"))
+  {
+    while (const auto* entry = readdir64(dir))
+      if (entry->d_name[0] != '.') drives.push_back(std::string("/media/") + entry->d_name);
+    closedir(dir);
+  }
+  drives.push_back("/nvme");
+  std::sort(drives.begin(), drives.end());
+#endif
+  return drives;
+}
+inline std::string DriveName(const std::string& drive)
+{
+  const auto slash = drive.find_last_of("/\\");
+  return slash == std::string::npos ? drive : drive.substr(slash + 1);
 }
 
 // <drive>/NAM Grid for a plugin folder at <drive>/VST2 Plugins/<plugin folder> (UTF-8 paths).
@@ -148,6 +198,15 @@ struct LibraryFolder
 };
 inline std::string FolderDisplay(const std::string& root, const std::string& folder)
 {
+  // Libraries on other drives are labelled with the drive: "MPC_SD: Amps".
+  if (root.rfind("drive:", 0) == 0)
+  {
+    const auto drive = root.substr(6);
+    if (folder.empty()) return drive;
+    const auto last = folder.find_last_of('/');
+    const auto before = last == std::string::npos ? std::string::npos : folder.find_last_of('/', last - 1);
+    return drive + ": " + (before == std::string::npos ? folder : folder.substr(before + 1));
+  }
   if (folder.empty()) return root == "factory" ? "Factory" : "Main";
   // The last two levels fit the MPC screen and keep same-named subfolders apart.
   const auto last = folder.find_last_of('/');

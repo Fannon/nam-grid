@@ -19,6 +19,7 @@ the SDK's 64-bit target and flags, then reuses the SDK's skin generator and vali
 import argparse
 import concurrent.futures
 import glob
+import hashlib
 import importlib.util
 import json
 import os
@@ -132,8 +133,17 @@ def run(argv, env=None, timeout=None):
 
 
 def object_path(target, source):
-    rel = os.path.relpath(source, ROOT).replace(os.sep, "_").replace(":", "_")
-    return os.path.join(BUILD, "obj", target, rel + ".o")
+    """A stable object name per source: its path in the repository, or, for a source elsewhere
+    (another Windows drive makes relpath fail), its file name and a hash of its absolute path."""
+    source = os.path.abspath(source)
+    try:
+        rel = os.path.relpath(source, ROOT)
+    except ValueError:
+        rel = None
+    if rel is None or rel == ".." or rel.startswith(".." + os.sep):
+        digest = hashlib.sha1(os.path.normcase(source).encode("utf-8")).hexdigest()[:12]
+        rel = "external_%s_%s" % (digest, os.path.basename(source))
+    return os.path.join(BUILD, "obj", target, rel.replace(os.sep, "_").replace(":", "_") + ".o")
 
 
 def up_to_date(obj, dep):

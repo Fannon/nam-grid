@@ -177,6 +177,24 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
   assert(std::abs(inputDB() - 7.) < .01);
   clickValue(); key('9'); key(VK_ESCAPE);
   assert(std::abs(inputDB() - 7.) < .01 && forwarded == 0);
+  // A host may take key messages off the queue and never dispatch them: Bitwig does once
+  // it believes a modifier is held, e.g. after Alt+Tab away from the plugin window. The
+  // focused editor must still receive its typing.
+  {
+    clickValue();
+    assert(GetFocus() == editor);
+    BYTE previous[256]{}, neutral[256]{};
+    assert(GetKeyboardState(previous) && SetKeyboardState(neutral));
+    const LPARAM scan = static_cast<LPARAM>(MapVirtualKey('2', MAPVK_VK_TO_VSC)) << 16;
+    assert(PostMessage(editor, WM_KEYDOWN, '2', scan | 1));
+    assert(PostMessage(editor, WM_KEYUP, '2', scan | 0xC0000001));
+    MSG message;
+    while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
+      if (message.message < WM_KEYFIRST || message.message > WM_KEYLAST) DispatchMessage(&message);
+    assert(SetKeyboardState(previous));
+    key(VK_RETURN);
+    assert(std::abs(inputDB() - 2.) < .01);
+  }
   // Keep the existing reopen checks' expected value.
   clickValue();
   for (const wchar_t c : std::wstring(L"-3.5"))

@@ -26,6 +26,10 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - **Smart Gate tracking:** **Follow** in the module header adjusts to a steady rise in the learned noise, up to 6 dB. It waits for a stable match and limits adaptation around attacks, decays and strongly tonal noise. Allow a few seconds of idle noise; a different noise character still needs Learn again. Newly added Smart Gates start at Follow; existing projects, rig presets and older module presets stay **Fixed** and retain their sound. Choose Fixed if quiet playing loses detail. No latency is added.
 - **Clearer gate readouts:** all four gates shade the measured drop from input to output in their history. Smart Gate, Noise Gate (AI) and Digital Black Gate show **closed** instead of 120 dB when they silence the output, and Digital Black Gate's descriptions are clearer.
 
+### Fixes
+
+- **Typing in Bitwig after switching windows (Windows):** search and name fields no longer go dead after you Alt+Tab away from the plugin window and come back. Bitwig could keep treating Alt as held and withhold every key from the plugin until Alt was pressed in its main window; NAM Grid now takes the keys its own fields need. Keys NAM Grid does not use still reach the host for its shortcuts.
+
 ## [0.6.0] - 2026-11-09
 
 A wider editor, clean lows under Distortion and much richer IR details in the browser. Existing projects, presets and automation keep loading. Smart Gate is the only audible change to existing rigs, described below.

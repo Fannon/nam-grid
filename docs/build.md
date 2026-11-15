@@ -150,6 +150,11 @@ Do not reset those submodules after setup without applying the patches again.
 The `iplug2-text-entry-keyboard.patch` patch gives drawn text entry keyboard ownership:
 Windows entry raises/focuses the plugin window, releases mouse capture, and consumes
 both key presses and releases while editing, including keys that do not change text.
+On Windows a thread message hook, installed while an editor window is open, handles key
+messages for the editor and its native text field as they are retrieved, because a host
+loop can remove them without dispatching: Bitwig withholds every key once it believes a
+modifier is held, which lasts after Alt+Tab away from a plugin window. Keys the UI does
+not use stay in the queue for the host.
 The native editor host checks foreground ownership and counts keys forwarded to its
 host window. These checks cover CLAP and VST3; real DAWs can also intercept keys
 before delivering them to a plugin and require separate acceptance testing.

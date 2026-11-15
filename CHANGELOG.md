@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Website:** a simpler introduction, direct downloads for each platform, and full-size screenshots.
+
 ## [0.7.0] - 2026-11-15
 
 ### New modules and sounds

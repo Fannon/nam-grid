@@ -1,10 +1,12 @@
-import { h } from 'vue'
+import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
-import HomeShot from './HomeShot.vue'
+import HomePage from './HomePage.vue'
 import './custom.css'
 
 export default {
   extends: DefaultTheme,
-  // The rig screenshot is the strongest first impression, so it sits directly under the hero.
-  Layout: () => h(DefaultTheme.Layout, null, { 'home-hero-after': () => h(HomeShot) }),
-}
+  enhanceApp({ app }) {
+    // Keep VitePress's public homepage components inside one native main landmark.
+    app.component('landing-page', HomePage)
+  },
+} satisfies Theme

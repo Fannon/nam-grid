@@ -1,46 +1,45 @@
 ---
-layout: home
+layout: landing-page
+sidebar: false
+pageClass: landing-page
 
 hero:
   name: NAM Grid
-  text: Your whole guitar rig. In a 4×4 grid.
-  tagline: Pair Neural Amp Modeler captures and cabinet IRs with <a href="./modules/">60+ FX Modules</a>, then route them your way. Free and open source, for Windows, macOS and Linux, in CLAP and VST3.
+  text: A guitar rig plugin for Neural Amp Modeler captures, cabinet impulse responses and <a href="./modules/">built-in effects</a>.
+  tagline: Free and open source. CLAP and VST3 for Windows, macOS and Linux.
   actions:
     - theme: brand
       text: Download NAM Grid
-      link: https://github.com/Fannon/nam-grid/releases/latest
+      link: '#download'
     - theme: alt
-      text: Get started
+      text: Getting started
       link: /getting-started
-    - theme: alt
-      text: Explore the modules
-      link: /modules/
 
 features:
-  - title: Route it your way
-    details: Sixteen slots across Pre, lanes A and B, and Post. Run the lanes in sequence or in parallel. Put any capture, cabinet or effect in any slot, and blend the lanes.
+  - title: Two lanes, in series or parallel
+    details: "Sixteen slots in four rows: Pre, lanes A and B, and Post. Run A and B one after the other, or side by side with a blend knob between them. Any slot can hold a capture, a cabinet IR or an effect."
     link: /grid
-    linkText: See the signal flow
-  - title: Audition while you play
-    details: Browse captures, cabinet IRs, effects and rigs while you play. Nothing changes until you apply your choice.
+    linkText: Grid & routing
+  - title: Browser with audio preview
+    details: Try a capture, cabinet IR or effect in the slot while you play. Apply to keep it, or cancel to restore the previous choice.
     link: /browser
-    linkText: Browse your library
-  - title: 60+ FX Modules
-    details: Gates, compressors, EQs, guitar and bass drives, modulation, pitch, delays and reverbs. No extra plugins needed.
+    linkText: Library browser
+  - title: 60+ built-in effects
+    details: Gates, compressors, EQs, guitar and bass drives, modulation, pitch, delays and reverbs.
     link: /modules/
-    linkText: Browse the modules
-  - title: See what you hear
-    details: Every module has a display, from EQ curves to echo patterns, and level meters for fair before-and-after comparisons.
+    linkText: Module guide
+  - title: A display on every module
+    details: Inspect EQ curves, echo repeats, capture and IR responses. Input and output meters help you match levels when comparing an effect with its bypassed sound.
     link: /ui#displays-and-meters
-    linkText: Read the displays
-  - title: Made for playing live
-    details: A tuner, an LFO, envelope follower, step sequencer and four macros, plus three scenes to switch sounds with one click.
+    linkText: Displays and meters
+  - title: Modulation, scenes and a tuner
+    details: Modulate controls with LFOs, envelope followers, step sequencers and four macros. Store three scenes per rig and switch between them with one click.
     link: /performance
     linkText: Modulation & scenes
-  - title: Yours to keep
-    details: Free and open source, with a clean capture and starter rigs included. No account or activation required.
-    link: https://github.com/Fannon/nam-grid
-    linkText: View the source
+  - title: Rig presets
+    details: Save the complete grid and its settings as a rig preset. NAM captures and cabinet IRs stay as separate files.
+    link: /presets
+    linkText: Saving and loading rigs
 ---
 
 <script setup>
@@ -52,46 +51,50 @@ import control from './screenshots/control.png'
 import tuner from './screenshots/tuner.png'
 
 const shots = [
-  { src: nam, title: 'NAM capture', text: 'The measured input/output curve of the loaded capture' },
-  { src: ir, title: 'Cabinet IR', text: 'The frequency response of the loaded impulse response' },
-  { src: delay, title: 'Tape Echo', text: 'Echo pattern, tone and level of every repeat' },
-  { src: browser, title: 'Module browser', text: 'Audition effects in a slot while you browse' },
+  { src: nam, title: 'NAM capture', text: 'Input/output curve of the loaded capture' },
+  { src: ir, title: 'Cabinet IR', text: 'Frequency response of the loaded impulse response' },
+  { src: delay, title: 'Tape Echo', text: 'Timing, tone and level of each repeat' },
+  { src: browser, title: 'Module browser', text: 'Try effects in a slot before you apply one' },
   { src: control, title: 'Modulation', text: 'Sources, macros and the modulation matrix' },
   { src: tuner, title: 'Tuner', text: 'Cents, reference pitch and pitch history' },
 ]
 </script>
 
-::: warning Beta release
-NAM Grid is a beta (0.x) release. Preset and automation stability are goals, but we reserve the option to improve sound quality or performance in ways that may change the sonic results of existing projects and presets.
-:::
+## Download
 
-## Pick your platform
-
-Each release has one archive per platform, with both **CLAP and VST3** inside.
+Each ZIP contains both CLAP and VST3. Choose your platform, then follow the [installation instructions](getting-started.md).
 
 | Platform | Download |
 | --- | --- |
-| Windows x64 | `nam-grid-windows-x64.zip` |
-| macOS Apple Silicon | `nam-grid-macos-arm64.zip` |
-| Linux x64 | `nam-grid-linux-x64.zip` |
+| Windows x64 | [Download for Windows](https://github.com/Fannon/nam-grid/releases/latest/download/nam-grid-windows-x64.zip) |
+| macOS Apple Silicon | [Download for macOS](https://github.com/Fannon/nam-grid/releases/latest/download/nam-grid-macos-arm64.zip) |
+| Linux x64 | [Download for Linux](https://github.com/Fannon/nam-grid/releases/latest/download/nam-grid-linux-x64.zip) |
 
-[Download the latest release](https://github.com/Fannon/nam-grid/releases/latest) · [Requirements and installation](getting-started.md)
+[Release notes](release-notes.md) · [All releases on GitHub](https://github.com/Fannon/nam-grid/releases)
 
-Tested in Bitwig Studio on Windows and macOS, with both CLAP and VST3. The Linux build has not been tested in a real DAW environment. If something does not work in your DAW, please [report it](troubleshooting.md#report-a-problem).
+Both formats have been tested in Bitwig Studio and REAPER on Windows. macOS and Linux pass automated tests; DAW checks for the current release are still pending. If something does not work in your DAW, please [report it](troubleshooting.md#report-a-problem).
 
-You can play right away: NAM Grid includes the **RiffSmith Clean** amp-and-cab capture and the **Clean Default** rig. When you want more, [TONE3000](https://www.tone3000.com/) hosts a large collection of free NAM captures and cabinet IRs to add to your [library](browser.md).
+::: warning Beta
+NAM Grid is in beta (version 0.x). Projects, automation and presets saved with version 0.1.0 or later keep loading. Improvements to a module's sound or CPU use can change how an existing rig sounds; the [release notes](release-notes.md) describe these changes.
+:::
 
-## See it in action
+## Sounds to start with
+
+NAM Grid includes the **RiffSmith Clean** amp-and-cabinet capture and the **Clean Default** rig, so you can play right away. [TONE3000](https://www.tone3000.com/) has a large collection of free NAM captures and cabinet IRs; add the folders you download to your [library](browser.md#library-folders).
+
+<span id="see-it-in-action"></span>
+
+## Screenshots
 
 <div class="shot-gallery">
   <figure v-for="shot in shots" :key="shot.title">
-    <a :href="shot.src" target="_blank" rel="noopener"><img :src="shot.src" :alt="shot.title + ': ' + shot.text" loading="lazy" /></a>
+    <a :href="shot.src" :aria-label="'View ' + shot.title + ' screenshot at full size'"><img :src="shot.src" :alt="shot.title + ': ' + shot.text" width="1080" height="720" loading="lazy" decoding="async" /></a>
     <figcaption><strong>{{ shot.title }}</strong><span>{{ shot.text }}</span></figcaption>
   </figure>
 </div>
 
-## Built on open source
+## Credits
 
-NAM Grid brings together [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) by Steven Atkinson, the [iPlug2](https://github.com/iPlug2/iPlug2) plugin framework, and effects adapted from Airwindows, the Faust reverb library, Signalsmith Audio, Mutable Instruments and others. See the [acknowledgments](https://github.com/Fannon/nam-grid#acknowledgments) for every project it builds on.
+NAM Grid is built on [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) by Steven Atkinson and the [iPlug2](https://github.com/iPlug2/iPlug2) plugin framework. Many effects are adapted from Airwindows, the Faust reverb library, Signalsmith Audio, Mutable Instruments and other projects; the [acknowledgments](https://github.com/Fannon/nam-grid#acknowledgments) list all of them.
 
-Found a bug or have an idea? [Open an issue](https://github.com/Fannon/nam-grid/issues) or read [troubleshooting](troubleshooting.md) first.
+Report bugs and suggest features in [GitHub issues](https://github.com/Fannon/nam-grid/issues). [Troubleshooting](troubleshooting.md) covers common problems.

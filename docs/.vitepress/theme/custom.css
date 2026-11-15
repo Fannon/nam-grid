@@ -146,6 +146,10 @@
 }
 
 /* Hero: a quiet signal-grid backdrop rather than a generic documentation banner. */
+.landing-page .VPLocalNav {
+  display: none;
+}
+
 /* VitePress leaves 96-128 px under the home page; the footer band follows the content closely.
    Its own rules are scoped, hence the .Layout prefix. */
 .Layout .VPHome {
@@ -188,43 +192,74 @@
   position: relative;
 }
 
-.VPHomeHero .name,
-.VPHomeHero .text {
-  letter-spacing: -0.045em;
+.VPHomeHero .main {
+  min-width: 0;
+  width: 100%;
+  text-align: center;
 }
 
-.VPHomeHero .name {
-  color: var(--vp-c-brand-1);
-  font-size: 18px;
-  line-height: 1.4;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.dark .VPHomeHero {
+  --vp-button-brand-text: #09231c;
+  --vp-button-brand-hover-text: #09231c;
+  --vp-button-brand-active-text: #09231c;
 }
 
-.VPHomeHero .text {
-  max-width: 680px;
+/* Hero heading (HomeHero.vue): logo and name as the title, a plain sentence below. The slot
+   content sits outside VPHero's scoped styles, so it is styled here in full. */
+.nam-hero-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+  color: var(--vp-c-text-1);
+  font-size: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
   font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
 }
 
-.VPHomeHero .tagline {
-  max-width: 620px;
+.nam-hero-title img {
+  flex: none;
+  width: clamp(2.75rem, 2.25rem + 2vw, 3.75rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.nam-hero-text {
+  max-width: 42rem;
+  margin: 1.25rem auto 0;
+  color: var(--vp-c-text-1);
+  font-size: clamp(1.25rem, 1rem + 0.75vw, 1.625rem);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+}
+
+.nam-hero-text a {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.nam-hero-text a:hover {
+  color: var(--vp-c-brand-2);
+}
+
+.nam-hero-tagline {
+  max-width: 40rem;
+  margin: 0.875rem auto 0;
+  color: var(--vp-c-text-2);
+  font-size: 1.0625rem;
   line-height: 1.65;
 }
 
-@media (min-width: 960px) {
-  .VPHomeHero .main {
-    width: 100%;
-  }
-
-  .VPHomeHero .text {
-    max-width: 1100px;
-    font-size: clamp(40px, 4vw, 56px);
-    line-height: 1.15;
-  }
-
-  .VPHomeHero .tagline {
-    max-width: 900px;
-  }
+/* Leave room before the buttons; VitePress spaces them for its own heading. */
+.VPHomeHero .actions {
+  justify-content: center;
+  padding-top: 28px;
 }
 
 .VPHomeHero .action {
@@ -257,10 +292,10 @@
   padding-top: 10px;
 }
 
-/* Landing-page plugin frame, rendered under the hero (outside .vp-doc) with the hero's gutters. */
+/* Keep the screenshot centered within the same gutters as the hero and feature grid. */
 .home-shot {
-  max-width: 1152px;
-  margin: 0 auto;
+  max-width: 1280px;
+  margin: 8px auto 20px;
   padding: 0 24px;
 }
 
@@ -276,55 +311,39 @@
   }
 }
 
-.plugin-window {
-  margin: 8px auto 20px;
-  max-width: 1000px;
-  overflow: hidden;
+.home-shot a {
+  display: block;
+  max-width: 1080px;
+  margin-inline: auto;
+  border-radius: var(--nam-radius);
+}
+
+.home-shot a:focus-visible,
+.vp-doc .shot-gallery a:focus-visible {
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 5px;
+}
+
+.home-shot img {
+  display: block;
+  width: 100%;
+  max-width: 1080px;
+  height: auto;
   border: 1px solid var(--vp-c-divider);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #000;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
 }
 
-.dark .plugin-window {
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(113, 199, 178, 0.035);
+.dark .home-shot img {
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
 }
 
-.plugin-window-bar {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 11px 14px;
-  border-bottom: 1px solid #293133;
-  background: #121618;
-}
-
-.plugin-window-bar span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #46514d;
-}
-
-.plugin-window-bar span:first-child {
-  background: var(--nam-accent);
-}
-
-.plugin-window-bar em {
-  margin-left: 7px;
-  color: #b2bdb8;
-  font-size: 12px;
-  font-style: normal;
-  letter-spacing: 0.02em;
-}
-
-.plugin-window img {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
+.home-shot figcaption {
+  margin-top: 12px;
+  color: var(--vp-c-text-2);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 /* Home page screenshot gallery: framed shots with captions, two columns from tablet width so the
@@ -466,14 +485,6 @@
 .VPDocFooter .edit-info,
 .last-updated {
   display: none;
-}
-
-@media (max-width: 767px) {
-  .plugin-window-bar em {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

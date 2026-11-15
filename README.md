@@ -4,7 +4,7 @@
 
 An open-source guitar rig in one **CLAP / VST3 plugin**. Combine
 [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerPlugin) captures,
-cabinet impulse responses and built-in effects, then blend two parallel chains
+cabinet impulse responses and built-in effects, then route the lanes in sequence or blend them in parallel
 for anything from a simple amp sound to layered ambient textures.
 
 > **Beta release:** NAM Grid is a beta (0.x) release. Preset and automation stability are goals, but we reserve the option to improve sound quality or performance in ways that may change the sonic results of existing projects and presets.
@@ -36,7 +36,7 @@ changes and tested the results, supported by an extensive automated test suite.
 ## Why NAM Grid
 
 - **[A free grid instead of a fixed chain](https://fannon.github.io/nam-grid/grid):** 16 slots in four rows
-  (Pre, two parallel lanes A and B, Post). Any slot takes any module, so you can run
+  (Pre, lanes A and B, Post). New rigs run A then B; switch to parallel to blend them. Any slot takes any module, so you can run
   several NAM captures, cabinet IRs or the same effect more than once, and blend the
   two lanes with **A/B**.
 - **[60+ FX Modules](https://fannon.github.io/nam-grid/modules/):** gates, compressors and outboard-style

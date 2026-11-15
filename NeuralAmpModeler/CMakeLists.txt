@@ -368,7 +368,8 @@ if(TARGET nam-grid-clap)
 endif()
 # The full DSP suite includes long tail renders and the click sweep at two rates.
 # Hosted Windows runners need more than a minute to complete this coverage.
-set_tests_properties(stages PROPERTIES TIMEOUT 120)
+# The complete gate and pedal matrices exceed two minutes on hosted runners.
+set_tests_properties(stages PROPERTIES TIMEOUT 600)
 # Every test that loads the plugin gets a private settings and default-folder home, so no test
 # reads or rewrites the developer's own settings.json or Documents/NAM Grid.
 get_property(nam_grid_tests DIRECTORY PROPERTY TESTS)

@@ -146,6 +146,10 @@
 }
 
 /* Hero: a quiet signal-grid backdrop rather than a generic documentation banner. */
+.landing-page .VPLocalNav {
+  display: none;
+}
+
 /* VitePress leaves 96-128 px under the home page; the footer band follows the content closely.
    Its own rules are scoped, hence the .Layout prefix. */
 .Layout .VPHome {
@@ -188,15 +192,29 @@
   position: relative;
 }
 
+.VPHomeHero .main {
+  min-width: 0;
+  width: 100%;
+  text-align: center;
+}
+
+.dark .VPHomeHero {
+  --vp-button-brand-text: #09231c;
+  --vp-button-brand-hover-text: #09231c;
+  --vp-button-brand-active-text: #09231c;
+}
+
 /* Hero heading (HomeHero.vue): logo and name as the title, a plain sentence below. The slot
    content sits outside VPHero's scoped styles, so it is styled here in full. */
 .nam-hero-title {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin: 0;
   color: var(--vp-c-text-1);
-  font-size: 40px;
+  font-size: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.035em;
@@ -204,15 +222,16 @@
 
 .nam-hero-title img {
   flex: none;
-  width: 48px;
-  height: 48px;
+  width: clamp(2.75rem, 2.25rem + 2vw, 3.75rem);
+  height: auto;
+  aspect-ratio: 1;
 }
 
 .nam-hero-text {
-  max-width: 720px;
-  margin: 20px 0 0;
+  max-width: 42rem;
+  margin: 1.25rem auto 0;
   color: var(--vp-c-text-1);
-  font-size: 22px;
+  font-size: clamp(1.25rem, 1rem + 0.75vw, 1.625rem);
   font-weight: 500;
   line-height: 1.4;
   letter-spacing: -0.015em;
@@ -230,30 +249,16 @@
 }
 
 .nam-hero-tagline {
-  max-width: 640px;
-  margin: 14px 0 0;
+  max-width: 40rem;
+  margin: 0.875rem auto 0;
   color: var(--vp-c-text-2);
-  font-size: 17px;
+  font-size: 1.0625rem;
   line-height: 1.65;
-}
-
-@media (min-width: 640px) {
-  .nam-hero-title {
-    font-size: 56px;
-  }
-
-  .nam-hero-title img {
-    width: 60px;
-    height: 60px;
-  }
-
-  .nam-hero-text {
-    font-size: 26px;
-  }
 }
 
 /* Leave room before the buttons; VitePress spaces them for its own heading. */
 .VPHomeHero .actions {
+  justify-content: center;
   padding-top: 28px;
 }
 
@@ -287,8 +292,7 @@
   padding-top: 10px;
 }
 
-/* Landing-page screenshot under the hero (outside .vp-doc). It shares the hero and feature
-   column, so the three start on the same left edge, and stays at most its native width. */
+/* Keep the screenshot centered within the same gutters as the hero and feature grid. */
 .home-shot {
   max-width: 1280px;
   margin: 8px auto 20px;
@@ -305,6 +309,19 @@
   .home-shot {
     padding: 0 64px;
   }
+}
+
+.home-shot a {
+  display: block;
+  max-width: 1080px;
+  margin-inline: auto;
+  border-radius: var(--nam-radius);
+}
+
+.home-shot a:focus-visible,
+.vp-doc .shot-gallery a:focus-visible {
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 5px;
 }
 
 .home-shot img {
@@ -324,8 +341,9 @@
 
 .home-shot figcaption {
   margin-top: 12px;
-  color: var(--vp-c-text-3);
-  font-size: 13px;
+  color: var(--vp-c-text-2);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 /* Home page screenshot gallery: framed shots with captions, two columns from tablet width so the

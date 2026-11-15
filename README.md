@@ -11,7 +11,7 @@ for anything from a simple amp sound to layered ambient textures.
 
 **[Download NAM Grid](https://github.com/Fannon/nam-grid/releases/latest)** ·
 **[Read the manual](https://fannon.github.io/nam-grid/)** · [Getting started](https://fannon.github.io/nam-grid/getting-started) ·
-[See it in action](https://fannon.github.io/nam-grid/#see-it-in-action)
+[Screenshots](https://fannon.github.io/nam-grid/#screenshots)
 
 ![NAM Grid with a clean amp-and-cab capture, Tube Boost, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
 
@@ -65,8 +65,9 @@ both CLAP and VST3. Copy the plugin into your DAW's plugin folder, rescan, and i
 **NAM Grid** on an audio track. NAM Grid comes with a clean amp-and-cab capture and
 two starter rigs, so you can play right away.
 
-Tested in Bitwig Studio on Windows and macOS, with both CLAP and VST3. The Linux build
-has not been tested in a real DAW environment. If something does not work in your DAW,
+Both CLAP and VST3 have been tested in Bitwig Studio and REAPER on Windows. macOS and
+Linux pass automated tests; DAW checks for the current release are still pending.
+If something does not work in your DAW,
 please [open an issue](https://github.com/Fannon/nam-grid/issues).
 
 [Getting started](https://fannon.github.io/nam-grid/getting-started) has the plugin folders for each system, the

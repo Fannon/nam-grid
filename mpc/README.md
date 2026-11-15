@@ -1,6 +1,6 @@
 # NAM Grid for Akai MPC
 
-The MPC standalone plugins (Amp, Pedals, Delay, Cosmic Echo, Lo-Fi, Mod, Console), built with the
+The MPC standalone plugins (Amp, Pedals, Delay, Cosmic Echo, Lo-Fi, Mod), built with the
 [inMusic MPC plugin SDK](https://github.com/inmusic-software/mpc-plugin-builder-sdk)
 (`../mpc-plugin-sdk`). Installation, library folders, pages and limits are in
 [docs/mpc.md](../docs/mpc.md); build and test details in

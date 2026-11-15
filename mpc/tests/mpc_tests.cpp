@@ -7,7 +7,6 @@
 #include "../plugins/pedals/Pedals.cpp"
 #include "../plugins/lofi/LoFi.cpp"
 #include "../plugins/mod/Mod.cpp"
-#include "../plugins/console/Console.cpp"
 #include "Contract.h"
 
 #include <cassert>
@@ -210,8 +209,7 @@ const std::vector<const PluginSpec*>& Specs()
 {
   static const std::vector<const PluginSpec*> specs{&mpc_plugins::AmpSpec(), &mpc_plugins::PedalsSpec(),
                                                     &mpc_plugins::DelaySpec(), &mpc_plugins::CosmicEchoSpec(),
-                                                    &mpc_plugins::LoFiSpec(), &mpc_plugins::ModSpec(),
-                                                    &mpc_plugins::ConsoleSpec()};
+                                                    &mpc_plugins::LoFiSpec(), &mpc_plugins::ModSpec()};
   return specs;
 }
 
@@ -801,7 +799,7 @@ void TestCosmicEcho()
   CHECK(a.Call(effGetProgramNameIndexed, 0, 0, name) == 1 && std::string(name) == "Aurora Hall");
   CHECK(a.e->numPrograms == effect_modes::cosmicCount);
 }
-// Lo-Fi, Mod and Console: one section with a Type menu each.
+// Lo-Fi and Mod: one section with a Type menu each.
 void TestTypePlugin(const PluginSpec& spec, const std::string& section, const std::vector<std::string>& firstKnobs)
 {
   Instance a(spec);
@@ -837,15 +835,12 @@ void TestNewPlugins()
 {
   TestTypePlugin(mpc_plugins::LoFiSpec(), "lofi", {"Speed", "Drive", "Bits"});
   TestTypePlugin(mpc_plugins::ModSpec(), "mod", {"Brightness", "Rate", "Slow rate", "Rate"});
-  TestTypePlugin(mpc_plugins::ConsoleSpec(), "console", {"Input", "Input", "Compress"});
   Instance mod(mpc_plugins::ModSpec());
   mod.Choose("mod_type", "Uni-Vibe");
   const auto sync = mod.Find("mod", "Tempo sync");
   CHECK(!sync.empty() && !mod.Find("mod", "Vibrato mode").empty());
   mod.Set(sync, 1.f);
   CHECK(mod.Name("mod_k1") == "Division");
-  Instance console(mpc_plugins::ConsoleSpec());
-  CHECK(console.Name("console_o1") == "Desk" && console.Display("console_o1") == "Dark");
 }
 } // namespace
 

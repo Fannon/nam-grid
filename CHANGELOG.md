@@ -16,14 +16,13 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ### NAM Grid for Akai MPC (experimental)
 
-- **Seven plugins for standalone Akai MPCs** (MPC OS 3.10.1 or later, 64-bit models such as MPC One G2, Live III and XL), using the same DSP as the desktop plugin. Pedals, Amp, Delay and Cosmic Echo fill a track's four inserts as a guitar rig; Lo-Fi, Mod and Console suit any track or bus:
+- **Six plugins for standalone Akai MPCs** (MPC OS 3.10.1 or later, 64-bit models such as MPC One G2, Live III and XL), using the same DSP as the desktop plugin. Pedals, Amp, Delay and Cosmic Echo fill a track's four inserts as a guitar rig; Lo-Fi and Mod suit any track or bus:
   - **NG Pedals:** one Voice menu with None, Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice, with optional Pedal Comp in front.
   - **NG Amp:** Noise Gate, Smart Gate or AI Gate, a NAM capture and a cabinet IR, in mono. Captures and IRs go into a **NAM Grid** folder on any of the MPC's drives, chosen by Folder and File. Captures start at Lite quality, and **Normalize** levels them to the same loudness.
   - **NG Delay:** the digital, analog, tape, multi-head, diffused, reverse and dual delays behind one Type menu, synced to the MPC's tempo.
   - **NG Cosmic:** every Cosmic Echo style.
   - **NG Lo-Fi:** LoFi Tape Machine, Airwindows Tape and Bitcrusher.
   - **NG Mod:** Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo.
-  - **NG Console:** Console Colour, Outboard Channel and Butter Comp.
 
   Their names start with **NG** to fit the MPC's effect displays. Each page is four columns of four controls, one Q-Link bank each, in the desktop editor's look, with green/red toggles; options keep fixed places when you switch modules. They are separate from the desktop plugin. See [NAM Grid on Akai MPC](docs/mpc.md).
 

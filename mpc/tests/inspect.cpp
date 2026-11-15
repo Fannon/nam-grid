@@ -5,7 +5,6 @@
 #include "../plugins/cosmic-echo/CosmicEcho.cpp"
 #include "../plugins/lofi/LoFi.cpp"
 #include "../plugins/mod/Mod.cpp"
-#include "../plugins/console/Console.cpp"
 #include "Contract.h"
 #include <iostream>
 
@@ -98,8 +97,7 @@ int main(int argc, char** argv)
   if (!gallery && (argc != 2 || std::string(argv[1]) != "--describe")) return 2;
   nlohmann::json output;
   for (const auto* spec : {&mpc_plugins::AmpSpec(), &mpc_plugins::PedalsSpec(), &mpc_plugins::DelaySpec(),
-                           &mpc_plugins::CosmicEchoSpec(), &mpc_plugins::LoFiSpec(), &mpc_plugins::ModSpec(),
-                           &mpc_plugins::ConsoleSpec()})
+                           &mpc_plugins::CosmicEchoSpec(), &mpc_plugins::LoFiSpec(), &mpc_plugins::ModSpec()})
   {
     auto* e = mpc_grid::CreateEffect(*spec, &InspectHost);
     auto& plugin = *static_cast<mpc_grid::GridPlugin*>(mpc::detail::self(e));

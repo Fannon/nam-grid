@@ -2,7 +2,7 @@
 
 > **Experimental:** the MPC plugins are new. Save your project before you add them, and see [Known limits](#known-limits).
 
-Seven plugins bring NAM Grid to standalone Akai MPCs. Their names start with **NG** (NAM Grid) to fit the MPC's effect displays. They use the same DSP as the desktop plugin, one job each, so the MPC's own insert chain does the routing:
+Six plugins bring NAM Grid to standalone Akai MPCs. Their names start with **NG** (NAM Grid) to fit the MPC's effect displays. They use the same DSP as the desktop plugin, one job each, so the MPC's own insert chain does the routing:
 
 | Plugin | What it does |
 | --- | --- |
@@ -12,9 +12,8 @@ Seven plugins bring NAM Grid to standalone Akai MPCs. Their names start with **N
 | **NG Cosmic** | Cosmic Echo's ambient echoes and reverbs, one style at a time. |
 | **NG Lo-Fi** | LoFi Tape Machine, Airwindows Tape and Bitcrusher. |
 | **NG Mod** | Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo. |
-| **NG Console** | Console Colour, Outboard Channel and Butter Comp for buses and finished mixes. |
 
-A full guitar rig uses a track's four insert slots: **Pedals → Amp → Delay → Cosmic Echo**. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi, Mod and Console suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
+A full guitar rig uses a track's four insert slots: **Pedals → Amp → Delay → Cosmic Echo**. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi and Mod suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
 
 They run on the 64-bit MPCs (MPC One G2, MPC Live III, MPC XL and later). The 32-bit MPCs do not list them: their CPUs are too slow for NAM captures.
 
@@ -81,11 +80,11 @@ The Amp's Low cut at its minimum and High cut at its maximum show **Off**, becau
 
 **Style** chooses the space. Styles share the knob settings, so you can compare them directly.
 
-### NG Lo-Fi, Mod and Console
+### NG Lo-Fi and Mod
 
-**Type** chooses the module; each starts from its own starting settings, and returns to your last settings when you come back to it. The options hold each module's switches: Juno Chorus **Mode**, Uni-Vibe **Vibrato mode**, **Tempo sync** for Uni-Vibe and Harmonic Tremolo (following the MPC's tempo), and the Console Colour **Desk**.
+**Type** chooses the module; each starts from its own starting settings, and returns to your last settings when you come back to it. The options hold each module's switches: Juno Chorus **Mode**, Uni-Vibe **Vibrato mode** and **Tempo sync** for Uni-Vibe and Harmonic Tremolo (following the MPC's tempo).
 
-Each plugin has built-in programs; your own presets are saved with the MPC's preset menu. The [module guide](modules/README.md) describes every control: [Noise Gate (AI)](modules/gate.md#noise-gate-ai), [Noise Gate (Smart)](modules/noise-gate-smart.md), [Pedal Comp](modules/dynamics.md#pedal-comp), [Pedal Drive](modules/pedal-drive.md), [Pedal Distortion](modules/distortion.md#pedal-distortion), [Delay](modules/delay.md), [Cosmic Echo](modules/cosmic-echo.md), [LoFi Tape Machine](modules/lofi-tape.md), [Modulation](modules/modulation.md), [Airwindows Tape](modules/distortion.md#airwindows-tape), [Bitcrusher](modules/distortion.md#bitcrusher), [Console Colour](modules/distortion.md#console-colour), [Outboard Channel](modules/dynamics.md#outboard-channel) and [Butter Comp](modules/dynamics.md#butter-comp). Values and ranges are the same as on the desktop.
+Each plugin has built-in programs; your own presets are saved with the MPC's preset menu. The [module guide](modules/README.md) describes every control: [Noise Gate (AI)](modules/gate.md#noise-gate-ai), [Noise Gate (Smart)](modules/noise-gate-smart.md), [Pedal Comp](modules/dynamics.md#pedal-comp), [Pedal Drive](modules/pedal-drive.md), [Pedal Distortion](modules/distortion.md#pedal-distortion), [Delay](modules/delay.md), [Cosmic Echo](modules/cosmic-echo.md), [LoFi Tape Machine](modules/lofi-tape.md), [Modulation](modules/modulation.md), [Airwindows Tape](modules/distortion.md#airwindows-tape) and [Bitcrusher](modules/distortion.md#bitcrusher). Values and ranges are the same as on the desktop.
 
 ## CPU
 
@@ -94,7 +93,7 @@ NAM captures use the most CPU. Watch the MPC's CPU meter while you build a rig:
 - One capture per track is the safe start. Captures start at Lite quality; Full and larger capture sizes use more.
 - NG Amp works in mono, like the capture: it sums a stereo input, so its gate and cabinet run once rather than per channel, and sends the result to both sides.
 - Captures recorded at 48 kHz are converted to the MPC's 44.1 kHz, which costs some CPU and adds a fraction of a millisecond of delay.
-- Pedal Drive, Pedal Distortion and Cosmic Echo cost more than the gates, delays, Lo-Fi, Mod and Console modules.
+- Pedal Drive, Pedal Distortion and Cosmic Echo cost more than the gates, delays, Lo-Fi and Mod modules.
 - A section that is off uses almost no CPU once its fade has finished.
 
 ## Known limits

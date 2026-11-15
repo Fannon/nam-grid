@@ -65,6 +65,8 @@ The header's **Tracking** selector starts at **Follow** for a newly added Smart 
 
 ## Noise Gate (AI)
 
+![Noise Gate (AI) editor](../screenshots/modules/noise-gate-ai.png)
+
 An experimental gate with no threshold or Learn step. A small neural network estimates noise reduction in each frequency band. It can follow changing hum, buzz and hiss automatically, but quiet picking and sustained decays can be attenuated. Smart Gate remains the recommended choice for gentle note preservation.
 
 | Control | Range | Start | What it does |

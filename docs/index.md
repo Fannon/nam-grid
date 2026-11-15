@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: Route it your way
-    details: Sixteen slots across Pre, two parallel lanes and Post. Put any capture, cabinet or effect in any slot, and blend the lanes.
+    details: Sixteen slots across Pre, lanes A and B, and Post. Run the lanes in sequence or in parallel. Put any capture, cabinet or effect in any slot, and blend the lanes.
     link: /grid
     linkText: See the signal flow
   - title: Audition while you play

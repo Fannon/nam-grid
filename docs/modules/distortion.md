@@ -90,6 +90,8 @@ latency and how the local split interacts with the grid.
 
 ## Pedal Distortion
 
+![Pedal Distortion editor](../screenshots/modules/pedal-distortion.png)
+
 Distortion pedals with more gain than Pedal Drive's overdrives and a real tone section after the clipping. Choose **Style** in the header; each voice has its own gain range, input coupling, clipping stages and post-clip voicing. **Bass**, **Mid** and **Treble** then shape the result, like the EQ on a distortion pedal. These are original voices informed by classic pedal families and voiced against measurements of NAM pedal captures, not calibrated replicas.
 
 | Style | Inspired by | Sound and use |

@@ -77,3 +77,185 @@ index a016f9d..f372310 100644
    IControl* mInTextEntry = nullptr;
    IControl* mInPopupMenu = nullptr;
    void* mPlatformContext = nullptr;
+diff --git a/IGraphics/Platforms/IGraphicsWin.cpp b/IGraphics/Platforms/IGraphicsWin.cpp
+index 2fdf5b060..9713fd929 100755
+--- a/IGraphics/Platforms/IGraphicsWin.cpp
++++ b/IGraphics/Platforms/IGraphicsWin.cpp
+@@ -212,6 +212,115 @@ void IGraphicsWin::OnDisplayTimer(int vBlankCount)
+   return;
+ }
+ 
++// A host's message loop can take key messages off the queue and never dispatch them.
++// Bitwig does so for every key once it believes a modifier is held, which lasts after
++// Alt+Tab away from a plugin window until Alt is pressed in its main window. While a
++// plugin window is open, a thread hook therefore handles the key messages addressed to
++// it (or to its native text field) as they are retrieved. Keys the UI does not use stay
++// in the queue unchanged, so the host still sees them for its own shortcuts.
++static thread_local HHOOK sKeyHook = nullptr;
++static thread_local int sKeyHookRefs = 0;
++static thread_local MSG sOfferedKey = {};
++
++static bool DispatchKey(IGraphics* pGraphics, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
++{
++  POINT p;
++  GetCursorPos(&p);
++  ScreenToClient(hWnd, &p);
++
++  BYTE keyboardState[256] = {};
++  GetKeyboardState(keyboardState);
++  const int keyboardScanCode = (lParam >> 16) & 0x00ff;
++  WORD character = 0;
++  const int len = ToAscii(static_cast<UINT>(wParam), keyboardScanCode, keyboardState, &character, 0);
++  // TODO: should get unicode?
++  bool handle = false;
++
++  // send when len is 0 because wParam might be something like VK_LEFT or VK_HOME, etc.
++  if (len == 0 || len == 1)
++  {
++    char str[2];
++    str[0] = static_cast<char>(character);
++    str[1] = '\0';
++
++    IKeyPress keyPress{ str, static_cast<int>(wParam),
++                        static_cast<bool>(GetKeyState(VK_SHIFT) & 0x8000),
++                        static_cast<bool>(GetKeyState(VK_CONTROL) & 0x8000),
++                        static_cast<bool>(GetKeyState(VK_MENU) & 0x8000) };
++
++    const float scale = pGraphics->GetTotalScale();
++
++    if (msg == WM_KEYDOWN)
++      handle = pGraphics->OnKeyDown(p.x / scale, p.y / scale, keyPress);
++    else
++      handle = pGraphics->OnKeyUp(p.x / scale, p.y / scale, keyPress);
++  }
++
++  return handle;
++}
++
++// Other plugins built on this framework register the same class name from their own module.
++static bool IsOwnPlugWnd(HWND hWnd)
++{
++  static HMODULE module = nullptr;
++  if (!module)
++    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR) &IsOwnPlugWnd, &module);
++
++  wchar_t name[32] = {};
++  return hWnd && GetClassNameW(hWnd, name, 32) && !wcscmp(name, wndClassName)
++         && (HMODULE) GetClassLongPtrW(hWnd, GCLP_HMODULE) == module;
++}
++
++static LRESULT CALLBACK KeyHookProc(int code, WPARAM wParam, LPARAM lParam)
++{
++  MSG* pMsg = (MSG*) lParam;
++
++  if (code == HC_ACTION && wParam == PM_REMOVE)
++  {
++    sOfferedKey = {};
++
++    if (pMsg->message >= WM_KEYFIRST && pMsg->message <= WM_KEYLAST)
++    {
++      if ((pMsg->message == WM_KEYDOWN || pMsg->message == WM_KEYUP) && IsOwnPlugWnd(pMsg->hwnd))
++      {
++        IGraphics* pGraphics = (IGraphicsWin*) GetWindowLongPtrW(pMsg->hwnd, GWLP_USERDATA);
++
++        if (pGraphics && DispatchKey(pGraphics, pMsg->hwnd, pMsg->message, pMsg->wParam, pMsg->lParam))
++          pMsg->message = WM_NULL;
++        else
++          sOfferedKey = *pMsg; // WndProc must not offer it to the UI a second time
++      }
++      else if (IsOwnPlugWnd(GetParent(pMsg->hwnd)))
++      {
++        // The native text field: deliver its typing here, as the host may not.
++        if (pMsg->message == WM_KEYDOWN)
++          TranslateMessage(pMsg);
++        DispatchMessageW(pMsg);
++        pMsg->message = WM_NULL;
++      }
++    }
++  }
++
++  return CallNextHookEx(nullptr, code, wParam, lParam);
++}
++
++static void AddKeyHook()
++{
++  if (sKeyHookRefs++ == 0)
++    sKeyHook = SetWindowsHookExW(WH_GETMESSAGE, KeyHookProc, nullptr, GetCurrentThreadId());
++}
++
++static void ReleaseKeyHook()
++{
++  if (sKeyHookRefs > 0 && --sKeyHookRefs == 0)
++  {
++    if (sKeyHook)
++      UnhookWindowsHookEx(sKeyHook);
++    sKeyHook = nullptr;
++    sOfferedKey = {};
++  }
++}
++
+ // static
+ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+ {
+@@ -486,37 +595,11 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
+     case WM_KEYDOWN:
+     case WM_KEYUP:
+     {
+-      POINT p;
+-      GetCursorPos(&p);
+-      ScreenToClient(hWnd, &p);
+-
+-      BYTE keyboardState[256] = {};
+-      GetKeyboardState(keyboardState);
+-      const int keyboardScanCode = (lParam >> 16) & 0x00ff;
+-      WORD character = 0;
+-      const int len = ToAscii(wParam, keyboardScanCode, keyboardState, &character, 0);
+-      // TODO: should get unicode?
+-      bool handle = false;
+-
+-      // send when len is 0 because wParam might be something like VK_LEFT or VK_HOME, etc.
+-      if (len == 0 || len == 1)
+-      {
+-        char str[2];
+-        str[0] = static_cast<char>(character);
+-        str[1] = '\0';
+-          
+-        IKeyPress keyPress{ str, static_cast<int>(wParam),
+-                            static_cast<bool>(GetKeyState(VK_SHIFT) & 0x8000),
+-                            static_cast<bool>(GetKeyState(VK_CONTROL) & 0x8000),
+-                            static_cast<bool>(GetKeyState(VK_MENU) & 0x8000) };
+-
+-        const float scale = pGraphics->GetTotalScale();
+-
+-        if (msg == WM_KEYDOWN)
+-          handle = pGraphics->OnKeyDown(p.x / scale, p.y / scale, keyPress);
+-        else
+-          handle = pGraphics->OnKeyUp(p.x / scale, p.y / scale, keyPress);
+-      }
++      // A key the hook already offered to the UI arrives here only when it was not used.
++      const bool offered = sOfferedKey.hwnd == hWnd && sOfferedKey.message == msg && sOfferedKey.wParam == wParam
++                           && sOfferedKey.lParam == lParam && sOfferedKey.time == static_cast<DWORD>(GetMessageTime());
++      sOfferedKey = {};
++      const bool handle = !offered && DispatchKey(pGraphics, hWnd, msg, wParam, lParam);
+ 
+       if (!handle)
+       {
+@@ -1058,6 +1141,9 @@ void* IGraphicsWin::OpenWindow(void* pParent)
+ 
+   mPlugWnd = CreateWindowW(wndClassName, L"IPlug", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, x, y, w, h, mParentWnd, 0, mHInstance, this);
+ 
++  if (mPlugWnd)
++    AddKeyHook();
++
+   HDC dc = GetDC(mPlugWnd);
+   SetPlatformContext(dc);
+   ReleaseDC(mPlugWnd, dc);
+@@ -1182,6 +1268,8 @@ void IGraphicsWin::CloseWindow()
+ {
+   if (mPlugWnd)
+   {
++    ReleaseKeyHook();
++
+     if (mVSYNCEnabled)
+       StopVBlankThread();
+     else

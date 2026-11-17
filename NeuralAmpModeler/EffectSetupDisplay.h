@@ -1,5 +1,6 @@
 #pragma once
 #include "EffectPreview.h"
+#include "ExpandedDelayDisplay.h"
 
 namespace grid_ui
 {
@@ -80,49 +81,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   c.tapeHeads = static_cast<int>(value(uTapeHeads));
   if (IsExpandedDelay(effect))
   {
-    const int control = ExpandedDelayModeControl(effect);
-    const int mode = std::clamp(static_cast<int>(value(control)), 0, static_cast<int>(EffectChoices(control).size()) - 1);
-    const double ms = c.sync ? 1000. * grid_tempo::Seconds(c.tempo, c.division) : c.delay[0];
-    const bool pattern = effect == SlotEffect::PatternDelay;
-    const bool space = effect == SlotEffect::SpaceTapeEcho;
-    const bool grains = effect == SlotEffect::GranularDelay || (effect == SlotEffect::PitchDelay && mode == 1);
-    caption(EffectChoices(control)[mode]);
-    PlotGrid(g, plot);
-    if (grains)
-    {
-      const double grain = effect == SlotEffect::GranularDelay ? value(uGrainLength) * (1.25 - .0075 * value(uGrainDensity)) : 60.;
-      const double spread = effect == SlotEffect::GranularDelay ? .01 * value(uGrainScatter) * std::min(ms, 420.) : 0.;
-      const double horizon = ms + grain + spread;
-      for (int i = 0; i < 3; ++i)
-      {
-        const double start = std::max(0., ms - .5 * (grain + spread) + i * (.25 * grain + .5 * spread));
-        for (int j = 1; j <= 24; ++j)
-        {
-          const double a = (j - 1.) / 24., b = j / 24.;
-          line((start + a * grain) / horizon, .3 * (1. - std::cos(2. * grid_fx::pi * a)),
-               (start + b * grain) / horizon, .3 * (1. - std::cos(2. * grid_fx::pi * b)), color.WithOpacity(.6f));
-        }
-      }
-      text.SetFormatted(80, "0–%.0f ms | grain timing sketch", horizon);
-      PlotDetail(g,plot,"Overlapping windows show how fragments can overlap around Time. The actual start depends on playback direction, pitch and scatter.");
-    }
-    else
-    {
-      for (int tap = 0; tap < (pattern ? 4 : space ? 3 : 1); ++tap)
-      {
-        if (space && !(spaceHeads[mode] & (1u << tap))) continue;
-        const double fraction = pattern ? .01 * value(uTapTime1 + tap) : space ? HeadFraction(mode, tap) : 1.;
-        const double x = fraction * .88;
-        const double level = pattern ? .009 * value(uTapLevel1 + tap) : .85;
-        const double pan = pattern ? value(uTapPan1 + tap) * .0001 * value(uEchoWidth) : 0.;
-        line(x - .005, 0., x - .005, level * (1. - std::max(0., pan)), color, 2.f);
-        if (pattern) line(x + .005, 0., x + .005, level * (1. - std::max(0., -pan)), ampColor, 2.f);
-      }
-      text.SetFormatted(80, "Time %.0f ms | tap positions", ms);
-      PlotDetail(g,plot,pattern ? "Left and right stems show each tap's timing, level and pan before feedback or normalization."
-                                : "Nominal first pass; the sketch omits feedback, modulation and wet filter delay.");
-    }
-    foot(text.Get());
+    DrawExpandedDelaySetup(g, effect, plot, color, value, c, rate);
     return true;
   }
   if (IsDelay(effect) && effect != SlotEffect::ReverseDelay)

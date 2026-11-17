@@ -123,15 +123,15 @@ inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const cha
   g.DrawText(Text(13.f, muted, EAlign::Far), right, IRECT(split, grid_layout::plotFooterTop, p.R, grid_layout::plotFooterBottom));
 }
 template<class Function>
-void PlotCurve(IGraphics& g, const IRECT& p, Function f, double low, double high, IColor ink, float width = 1.5f)
+void PlotCurve(IGraphics& g, const IRECT& p, Function f, double low, double high, IColor ink, float width = 1.5f, int segments = 384)
 {
   const auto y = [&](double v) { return p.B - p.H() * static_cast<float>(std::clamp((v-low)/(high-low), 0., 1.)); };
   g.PathClear();
   g.PathMoveTo(p.L, y(f(0.)));
-  for (int i=1; i<=384; ++i)
+  for (int i = 1; i <= segments; ++i)
   {
-    const double current=f(i/384.);
-    g.PathLineTo(p.L + p.W() * i / 384.f, y(current));
+    const double x = static_cast<double>(i) / segments;
+    g.PathLineTo(p.L + p.W() * static_cast<float>(x), y(f(x)));
   }
   // One stroke avoids antialiased caps/seams between adjacent short segments.
   g.PathStroke(IPattern(ink), width);

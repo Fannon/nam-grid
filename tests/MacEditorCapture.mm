@@ -99,6 +99,22 @@ void MacEditorMouse(MacEditor* editor, int x, int y, bool click)
   }
 }
 
+void MacEditorDrag(MacEditor* editor, int x, int y, int endX, int endY)
+{
+  @autoreleasepool
+  {
+    const auto event = [&](NSEventType type, int px, int py) {
+      const NSPoint location = [editor->view convertPoint:NSMakePoint(px, py) toView:nil];
+      return [NSEvent mouseEventWithType:type location:location modifierFlags:0
+                               timestamp:[NSProcessInfo processInfo].systemUptime
+                            windowNumber:editor->window.windowNumber context:nil eventNumber:0 clickCount:1 pressure:1];
+    };
+    [editor->view mouseDown:event(NSEventTypeLeftMouseDown, x, y)];
+    [editor->view mouseDragged:event(NSEventTypeLeftMouseDragged, endX, endY)];
+    [editor->view mouseUp:event(NSEventTypeLeftMouseUp, endX, endY)];
+  }
+}
+
 void MacEditorSelectMenuItem(MacEditor* editor, int x, int y, const char* title, int checked)
 {
   __block bool delivered = false;

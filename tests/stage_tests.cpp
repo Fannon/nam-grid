@@ -92,6 +92,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "SmoothControlsTests.h"
 #include "ClickTests.h"
 #include "ExpandedDelayTests.h"
+#include "ExpandedDelayPreviewTests.h"
 #include "MixLawTests.h"
 #include "DelayTimeChangeTests.h"
 #include "ChorusVoicesTests.h"
@@ -171,6 +172,7 @@ try
     {"mix-law", TestMixLaw},
     {"delay-time-change", TestDelayTimeChange},
     {"expanded-delays", TestExpandedDelays},
+    {"expanded-delay-preview", TestExpandedDelayPreview},
     {"chorus-voices", TestChorusVoices},
     {"spring-tank", TestSpringTank},
     {"trails", TestTrails},
@@ -353,6 +355,7 @@ try
   run("mix-law", TestMixLaw);
   run("delay-time-change", TestDelayTimeChange);
   run("expanded-delays", TestExpandedDelays);
+  run("expanded-delay-preview", TestExpandedDelayPreview);
   run("chorus-voices", TestChorusVoices);
   run("spring-tank", TestSpringTank);
   run("trails", TestTrails);

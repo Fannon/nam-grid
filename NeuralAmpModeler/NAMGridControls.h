@@ -1144,6 +1144,219 @@ private:
   float mStartY = 0.f;
   double mStartThreshold = 0.;
 };
+// The handles edit the same parameters as the three control pages. The
+// overlay owns only UI selection and groups each changed dial into one host gesture.
+class PatternTapHandles : public IControl
+{
+public:
+  PatternTapHandles(int slot, const std::array<IControl*, kUtilityControls>& knobs)
+  : IControl(ControlArea()), mSlot(slot), mKnobs(knobs)
+  {
+    SetTooltip("Drag a tap left/right for time and up/down for level. Choose a tap by number to edit its pan below. Double-click a handle to reset.");
+  }
+  ~PatternTapHandles() override { EndGesture(); }
+
+  void Show(bool visible)
+  {
+    if (!visible && !IsHidden()) EndGesture();
+    if (IsHidden() == visible) Hide(!visible);
+  }
+
+  bool IsHit(float x, float y) const override
+  {
+    return Plug().GetShowVisualizations() && Plug().GetSelectedSlot() == mSlot
+        && Plug().GetSlotEffect(mSlot) == SlotEffect::PatternDelay && mRECT.Contains(x, y);
+  }
+
+  void Draw(IGraphics& g) override
+  {
+    using namespace grid_ui;
+    if (mDrag != Drag::None && !g.ControlIsCaptured(this)) EndGesture();
+    const auto chart = pattern_view::Taps(pattern_view::Plot());
+    const auto drawTap = [&](int tap) {
+      const auto [x, y] = Position(tap, chart);
+      const bool active = tap == mSelected;
+      if (active) g.FillCircle(delayColor.WithOpacity(.18f), x, y, 11.f);
+      g.FillCircle(surface, x, y, 7.5f);
+      g.DrawCircle(active ? delayColor : border, x, y, 7.5f, nullptr, 1.25f);
+      WDL_String label;
+      label.SetFormatted(8, "%d", tap + 1);
+      g.DrawText(Text(10.f, text, EAlign::Center), label.Get(), IRECT(x - 8.f, y - 8.f, x + 8.f, y + 8.f));
+    };
+    for (int tap = 0; tap < 4; ++tap)
+    {
+      if (tap != mSelected) drawTap(tap);
+      const auto button = SelectArea(tap);
+      WDL_String label;
+      label.SetFormatted(8, "%d", tap + 1);
+      g.FillRoundRect(tap == mSelected ? delayColor.WithOpacity(.16f) : surface, button, 3.f);
+      g.DrawRoundRect(tap == mSelected ? delayColor : border, button, 3.f);
+      g.DrawText(Text(12.f, text, EAlign::Center), label.Get(), button);
+    }
+    drawTap(mSelected);
+    const auto pan = PanArea();
+    const double value = Value(uTapPan1 + mSelected);
+    const float x = pattern_view::X(pan, .005 * (value + 100.));
+    const auto row = pattern_view::Controls(pattern_view::Plot());
+    WDL_String details;
+    const double time = Value(uTempoSync) >= .5 ? 1000. * grid_tempo::Seconds(PLUG()->GetTempo(), static_cast<int>(Value(uTempoDivision)))
+                                               : Value(uDelayTime);
+    details.SetFormatted(48, "%.0f ms  ·  %.0f%%", time * .01 * Value(uTapTime1 + mSelected),
+                         Value(uTapLevel1 + mSelected));
+    g.DrawText(Text(12.f, muted), details.Get(), IRECT(row.L + 120.f, row.T, pan.L - 38.f, row.B));
+    g.DrawText(Text(11.f, muted, EAlign::Center), "L", IRECT(pan.L - 21.f, pan.T, pan.L - 7.f, pan.B));
+    g.DrawText(Text(11.f, muted, EAlign::Center), "R", IRECT(pan.R + 7.f, pan.T, pan.R + 21.f, pan.B));
+    g.DrawLine(border, pan.L, pan.MH(), pan.R, pan.MH(), nullptr, 1.4f);
+    g.DrawLine(muted, pan.MW(), pan.MH() - 4.f, pan.MW(), pan.MH() + 4.f);
+    g.FillCircle(delayColor, x, pan.MH(), 4.5f);
+  }
+
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  {
+    if (mod.R || mDrag != Drag::None) return;
+    for (int tap = 0; tap < 4; ++tap)
+      if (SelectArea(tap).Contains(x, y))
+      {
+        mSelected = tap;
+        SetDirty(false);
+        return;
+      }
+    if (PanArea().GetPadded(6.f).Contains(x, y))
+    {
+      mTouch = mod.touchID;
+      mDrag = Drag::Pan;
+      SetPan(x);
+      return;
+    }
+    if (const int tap = HitTap(x, y); tap >= 0)
+    {
+      mSelected = tap;
+      mTouch = mod.touchID;
+      mDrag = Drag::TimeAndLevel;
+      mStartX = x; mStartY = y;
+      mTime = Value(uTapTime1 + tap); mLevel = Value(uTapLevel1 + tap);
+      SetDirty(false);
+    }
+  }
+
+  void OnMouseDrag(float x, float y, float, float, const IMouseMod& mod) override
+  {
+    if (mod.touchID != mTouch || mod.R) return;
+    if (mDrag == Drag::Pan) SetPan(x);
+    if (mDrag == Drag::TimeAndLevel)
+    {
+      const auto area = grid_ui::pattern_view::Taps(grid_ui::pattern_view::Plot());
+      Set(uTapTime1 + mSelected, mTime + 100. * (x - mStartX) / area.W(), mGestures[0]);
+      Set(uTapLevel1 + mSelected, mLevel - 100. * (y - mStartY) / area.H(), mGestures[1]);
+    }
+  }
+
+  void OnMouseUp(float, float, const IMouseMod& mod) override
+  { if (mod.touchID == mTouch) EndGesture(); }
+
+  void OnTouchCancelled(float, float, const IMouseMod& mod) override
+  { if (mod.touchID == mTouch) EndGesture(); }
+
+  void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
+  {
+    if (mod.R) return;
+    EndGesture();
+    if (PanArea().GetPadded(6.f).Contains(x, y))
+      Reset(uTapPan1 + mSelected, mGestures[0]);
+    else if (const int tap = HitTap(x, y); tap >= 0)
+    {
+      mSelected = tap;
+      Reset(uTapTime1 + tap, mGestures[0]);
+      Reset(uTapLevel1 + tap, mGestures[1]);
+    }
+    EndGesture();
+  }
+
+private:
+  enum class Drag { None, Pan, TimeAndLevel };
+
+  static IRECT ControlArea()
+  {
+    const auto plot = grid_ui::pattern_view::Plot();
+    return {plot.L, plot.T, plot.R, grid_ui::pattern_view::Controls(plot).B};
+  }
+  static IRECT SelectArea(int tap)
+  {
+    const auto row = grid_ui::pattern_view::Controls(grid_ui::pattern_view::Plot());
+    const float x = row.L + tap * 29.f;
+    return {x, row.T + 1.f, x + 25.f, row.B - 1.f};
+  }
+  static IRECT PanArea()
+  {
+    const auto row = grid_ui::pattern_view::Controls(grid_ui::pattern_view::Plot());
+    return {row.MW() + 30.f, row.T, row.R - 24.f, row.B};
+  }
+
+  PLUG_CLASS_NAME& Plug() const { return *static_cast<PLUG_CLASS_NAME*>(const_cast<PatternTapHandles*>(this)->GetDelegate()); }
+  double Value(int p) const { return Plug().GetParam(SlotUtilityParam(mSlot, p))->Value(); }
+  std::pair<float, float> Position(int tap, const IRECT& area) const
+  {
+    using namespace grid_ui::pattern_view;
+    return {X(area, .01 * Value(uTapTime1 + tap)), Y(area, .01 * Value(uTapLevel1 + tap))};
+  }
+  int HitTap(float x, float y) const
+  {
+    const auto area = grid_ui::pattern_view::Taps(grid_ui::pattern_view::Plot());
+    int closest = -1;
+    float distance = 13.f * 13.f;
+    // The selected tap wins ties, with the numbered buttons available when taps coincide.
+    for (int i = 0; i < 4; ++i)
+    {
+      const int tap = (mSelected + i) % 4;
+      const auto [tx, ty] = Position(tap, area);
+      const float squared = (x - tx) * (x - tx) + (y - ty) * (y - ty);
+      if (squared < distance) { distance = squared; closest = tap; }
+    }
+    return closest;
+  }
+
+  void Set(int p, double physical, int& gesture)
+  {
+    auto* knob = mKnobs[p];
+    const int id = knob->GetParamIdx();
+    const auto* parameter = knob->GetParam();
+    const double constrained = parameter->Constrain(physical);
+    if (constrained == parameter->Value()) return;
+    if (gesture < 0)
+    {
+      gesture = id;
+      GetDelegate()->BeginInformHostOfParamChangeFromUI(id);
+    }
+    knob->SetValue(parameter->ToNormalized(constrained));
+    knob->SetDirty(true); // Same parameter and host notification as a drag on the knob.
+    SetDirty(false);
+  }
+  void Reset(int p, int& gesture) { Set(p, mKnobs[p]->GetParam()->GetDefault(), gesture); }
+  void SetPan(float x)
+  {
+    const auto area = PanArea();
+    Set(uTapPan1 + mSelected, -100. + 200. * (x - area.L) / area.W(), mGestures[0]);
+  }
+  void EndGesture()
+  {
+    for (auto& id : mGestures)
+      if (id >= 0)
+      {
+        GetDelegate()->EndInformHostOfParamChangeFromUI(id);
+        id = -1;
+      }
+    mDrag = Drag::None;
+  }
+
+  int mSlot, mSelected = 0;
+  const std::array<IControl*, kUtilityControls>& mKnobs;
+  Drag mDrag = Drag::None;
+  ITouchID mTouch = 0;
+  std::array<int, 2> mGestures{-1, -1};
+  float mStartX = 0.f, mStartY = 0.f;
+  double mTime = 0., mLevel = 0.;
+};
+
 inline void DrawSignalMonitorView(IGraphics& g, const IRECT& plot, IColor color, double rate, double now,
   const signal_monitor::Meter& mMonitor, const signal_monitor::History& mMonitorHistory,
   const signal_monitor::SpectrumView& mMonitorSpectrum, double mMonitorTime, double mSpectrumTime)
@@ -1558,6 +1771,7 @@ public:
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
     const bool visualization = HasVisualization() && PLUG()->GetShowVisualizations();
     if (mPlotHelp->IsHidden() == visualization) mPlotHelp->Hide(!visualization);
+    mPatternTapHandles->Show(visualization && effect == SlotEffect::PatternDelay);
     mPlotHelp->Begin();
     if (visualization)
     {
@@ -1771,6 +1985,9 @@ public:
     }
     mBandHandles = new MultibandHandles(static_cast<int>(mSlot));
     mEditor->AddChildControl(mBandHandles);
+    mPatternTapHandles = new PatternTapHandles(static_cast<int>(mSlot), mUtilityKnobs);
+    mEditor->AddChildControl(mPatternTapHandles);
+    mPatternTapHandles->Hide(true);
     SetTooltip("Click the ID row to select; click the name button to browse. Drag onto another tile to swap; "
                "Shift-drag replaces, Alt-drag duplicates. Right-click for Clear / Copy / Move / Swap. Top-right toggle switches bypass.");
     Refresh();
@@ -3075,6 +3292,7 @@ private:
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     LayoutHeader(*GetUI(), false);
     mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen() || PLUG()->IsSignalMonitorOpen());
+    mPatternTapHandles->Show(!mEditor->IsHidden() && effect == SlotEffect::PatternDelay && PLUG()->GetShowVisualizations());
     if (selected)
     {
       const bool empty = nam && path.empty();
@@ -3402,6 +3620,7 @@ private:
   grid_ui::Editor* mEditor = nullptr;
   grid_ui::PlotHelp* mPlotHelp = nullptr;
   MultibandHandles* mBandHandles = nullptr;
+  PatternTapHandles* mPatternTapHandles = nullptr;
   grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};

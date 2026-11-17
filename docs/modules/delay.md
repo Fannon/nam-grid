@@ -270,6 +270,7 @@ In the header:
 
 The seven delays below share **Tempo sync**, **Division**, **Trails** and the
 rig’s **Keep dry level** setting. Their presets are available in the module header.
+The displays preview the settings and the meters show live signal levels.
 
 ## Space Tape Echo
 
@@ -292,6 +293,8 @@ or a darker two-tap **Oil Can** voice. The starting pair is Heads 1 + 3. The
 enabled heads feed the tape together. Try **Three-head dub** for rhythmic
 feedback, or **Slap and spring** for a short echo and more spring.
 
+**Display:** Head arrivals and feedback in cyan, with a purple spring decay guide. The title estimates the full-speed tape head’s maximum pitch motion.
+
 ## Bucket Brigade
 
 Companded analog repeats with bandwidth that narrows at slower clock speeds.
@@ -311,6 +314,8 @@ Companded analog repeats with bandwidth that narrows at slower clock speeds.
 brighter **Clear**, and grittier **Driven**. Chorus is the starting mode.
 Try **Compact slap** for short, soft support or **Chorused dotted eighth**
 for a moving rhythmic echo.
+
+**Display:** The filter response on the first and third repeats. The cutoff changes with Time. The footer shows modulation rate and approximate pitch motion.
 
 ## Pitch Delay
 
@@ -333,6 +338,8 @@ Forward shifting adds up to roughly 50 ms to the shifted voice, and reversed
 fragments spread around the nominal delay. Dry starts immediately.
 Try **Octave halo** for subtle shimmer or **Climbing fifths** for a stronger effect.
 
+**Display:** A ladder of possible pitches on four nominal repeats. Dot size shows relative weight. Stereo Octaves uses cyan for left and amber for right.
+
 ## Feedback FX Delay
 
 A filter, phaser, tremolo or ring modulator changes each repeat before it feeds back.
@@ -354,6 +361,8 @@ sets the non-ring modulation rate in cycles per beat, independently of the
 echo division. Ring switches Rate to **Carrier** (10–2000 Hz, starts at
 110 Hz) and removes Resonance. Try **Swept dotted echoes** or **Slow phaser
 trail** to hear how the sound changes on successive passes.
+
+**Display:** Three response curves show where Sweep or Phaser is headed. Tremolo shows both channels’ gain over two cycles. Ring shows how quickly the feedback multiplier changes and where it can invert.
 
 ## Pattern Delay
 
@@ -380,6 +389,8 @@ taps back through each other, building echo density. **Drum** uses summed
 feedback with darker, slightly unstable coloration. Try **Drum echo**,
 **Accelerating taps** and **Four-line halo**.
 
+**Display:** Drag a numbered tap left or right to change its time and up or down to change its level. Choose a tap by number and drag its pan track towards L or R. Double-click a tap or the pan track to reset it. The lower plot estimates later repeats as you adjust feedback and routing.
+
 ## Vintage Digital Delay
 
 Rack-style modulation, clean repeats, ducking or reduced-resolution feedback.
@@ -404,6 +415,8 @@ starts at 150 ms). Crushed uses **Bits** (4–16, starts at 12) and
 **Sample rate** (1000–48000 Hz, starts at 24000 Hz).
 Try **Modulated rack lead**, **Ducked quarter notes** or **Crushed echoes**.
 
+**Display:** Rack and Crushed show sample steps and quantization. Ducked shows how repeats return after an example note. Clean compares the first and third pass through the tone filters.
+
 ## Granular Delay
 
 Overlapping fragments that spread, reverse or stutter around the echo time.
@@ -425,3 +438,5 @@ open **Pitch**, where **Interval** shifts fragments by −12 to +12
 semitones (starts at 0). **Time** sets the nominal echo position.
 The fragment windows, pitch and scatter determine the actual timing.
 Try **Scattered chords**, **Reverse shards** and **Broken repeats**.
+
+**Display:** Overlapping windows show grain size and scatter. Arrows show the playback direction. In Glitch, amber illustrates a repeated fragment.

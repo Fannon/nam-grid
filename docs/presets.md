@@ -123,13 +123,20 @@ staging, with normal playing peaking around -9 dBFS.
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
 | Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Singing lead, Raw garage grit |
-| Digital Delay | Clear quarter-note lead, Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support, Clear eighth-note rhythm, Triplet ping-pong, Ducked dotted eighth, Half-note space |
+| Digital Delay | Clear quarter-note lead, Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support, Clear eighth-note rhythm, Half-note space |
 | Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes, Warm quarter notes, Soft eighth-note pulse, Dark dotted lead, Modulated half-note bed |
 | Tape Echo | Tape slapback, Worn tape repeats, Rock lead echo, Clean dotted tape, Warm quarter-note tape, Eighth-note tape bounce, Dotted-quarter tape drift, Half-note tape haze |
 | Multi-head Tape | Rolling three heads, Stereo cascade, All-head wash, Sparse stereo heads, Eighth and quarter heads, Dotted and quarter heads, Synced rolling heads, Half-note head cloud |
 | Reverse Delay | Reverse half notes, Reversed solo, Short reverse texture, Eighth-note reverse flicker, Quarter-note reverse bloom, Dotted-quarter reverse wash |
 | Dual Delay | Quarter and dotted eighth, Wide ping-pong, Tight stereo double, Eighth and dotted eighth, Quarter and eighth, Quarter and triplet, Synced dotted ping-pong, Half and dotted quarter |
 | Diffused Delay | Echo into cloud, Soft echo clusters, Gentle pad echoes, Soft dotted-eighth rhythm, Quarter-note echo halo, Triplet echo clusters, Dotted-quarter dream, Half-note cloud |
+| Space Tape Echo | Slap and spring, Three-head dub, Clean long head, Oil can wash, Short and long heads, Worn twin-head trail |
+| Bucket Brigade | Compact slap, Chorused dotted eighth, Vibrato trails, Clear analog lead, Driven repeats, Short chorus double |
+| Pitch Delay | Octave halo, Climbing fifths, Backwards octave, Wide octaves, Descending fourths, Detuned double |
+| Feedback FX Delay | Swept dotted echoes, Slow phaser trail, Pulsing quarter notes, Metallic fragments, Tremolo slap, Low ring flutter |
+| Pattern Delay | Even stereo heads, Accelerating taps, Spreading swell, Four-line halo, Drum echo, Dotted-eighth reply |
+| Vintage Digital Delay | Modulated rack lead, Clean eighth notes, Ducked quarter notes, Crushed echoes, Rack slapback, Telephone repeats |
+| Granular Delay | Scattered chords, Reverse shards, Broken repeats, Subtle grain double, Half-note reverse swells, Low-octave stutter |
 | Room | Live room, Small amp room |
 | Dense Plate | Short bright plate, Singing lead plate, Warm rhythm plate |
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |

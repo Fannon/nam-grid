@@ -38,6 +38,13 @@ then adjust Mix in the rig. These recipes assume an insert after the amp.
 | Reverse Delay | Short reverse texture | A short capture window and modest mix under your dry attack; Reverse half notes gives longer reversed phrases. |
 | Dual Delay | Tight stereo double | Two short taps with no feedback, for light width; Quarter and dotted eighth gives an interlocking rhythm instead. |
 | Diffused Delay | Gentle pad echoes | Moderate feedback and diffusion soften sustained notes; Echo into cloud is the longer, more diffuse alternative. |
+| Space Tape Echo | Short and long heads | Light spring behind triplet and quarter-note taps; try Worn twin-head trail for darker, less stable repeats. |
+| Bucket Brigade | Short chorus double | Modulated doubling with almost no feedback; Compact slap leaves more room between the dry note and its repeat. |
+| Pitch Delay | Descending fourths | Dotted-eighth echoes step down in fourths with each shifted pass. |
+| Feedback FX Delay | Tremolo slap | A short repeat with amp-like volume modulation. |
+| Pattern Delay | Dotted-eighth reply | A left dotted-eighth tap and a quieter quarter-note answer on the right. |
+| Vintage Digital Delay | Telephone repeats | A pronounced low cut and high cut give the dotted-eighth repeats a narrow band of mids. |
+| Granular Delay | Half-note reverse swells | Long reversed fragments follow the phrase at about half-note intervals; Subtle grain double adds a short texture. |
 
 The banks also include beat-synced choices for rhythm, leads and ambient parts.
 Shared divisions are intentional: choose a delay type for its character, then a
@@ -45,7 +52,7 @@ recipe for the part. These are starting settings, not exact artist or pedal mode
 
 | Module | More synced choices | Character and use |
 | --- | --- | --- |
-| Digital Delay | Clear eighth-note rhythm; Triplet ping-pong; Ducked dotted eighth; Half-note space | Clear articulation, alternating stereo echoes and ducking for busy lead phrases. These recipes use Crossfade for tempo jumps. |
+| Digital Delay | Clear eighth-note rhythm; Quarter-note ping-pong; Half-note space | Clear articulation and alternating stereo echoes, from short rhythms to longer trails. These recipes use Crossfade for tempo jumps. |
 | Analog Echo | Warm quarter notes; Soft eighth-note pulse; Dark dotted lead; Modulated half-note bed | Worn, progressively darker repeats; restrained motion for rhythms and more movement for sustained chords. |
 | Tape Echo | Warm quarter-note tape; Eighth-note tape bounce; Dotted-quarter tape drift; Half-note tape haze | Saturation and wobble, from short rhythmic bounces to long drifting trails. |
 | Multi-head Tape | Eighth and quarter heads; Dotted and quarter heads; Synced rolling heads; Half-note head cloud | Multiple taps per cycle, with sparse pairs, syncopated patterns or a dense all-head trail. |

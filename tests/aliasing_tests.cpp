@@ -31,11 +31,13 @@ Interpretation Classify(E effect)
     case E::NAM: return Interpretation::Model;
     case E::Bitcrusher: case E::RingMod: case E::Octaver: case E::Doubler:
     case E::FrequencyShifter: case E::Freeze: case E::Stutter: case E::LoFiTape:
-    case E::PitchShift: case E::ShimmerReverb: return Interpretation::Creative;
+    case E::PitchShift: case E::ShimmerReverb: case E::PitchDelay: case E::FeedbackFXDelay:
+    case E::VintageDigital: case E::GranularDelay: return Interpretation::Creative;
     case E::NoiseGate: case E::NoisePrint: case E::AIGate: case E::SmoothComp: case E::PunchComp:
     case E::DigitalBlack: case E::ButterComp: case E::PedalComp: case E::SynthFilter: case E::AutoSwell:
     case E::DigitalDelay: case E::AnalogDelay: case E::TapeDelay: case E::MultiHeadDelay:
     case E::ReverseDelay: case E::DualDelay: case E::DiffusedDelay:
+    case E::SpaceTapeEcho: case E::BucketBrigade: case E::PatternDelay:
     case E::RoomReverb: case E::PlateReverb: case E::CloudReverb: case E::HallReverb:
     case E::SpringReverb: case E::AirPlate: case E::AirHall: case E::GalacticSpace:
     case E::CosmicEcho: case E::Chorus: case E::JunoChorus: case E::Flanger:
@@ -84,6 +86,12 @@ void Stress(Controls& c, E effect)
   if (effect == E::LoFiTape) u.extra.lofiDrive = 18.;
   // Wet-only maximum upshift exposes resampling aliases that a dry blend can hide.
   if (effect == E::PitchShift) u.pitchShift = {24., 50., 16000., 0., 100.};
+  if (IsExpandedDelay(effect))
+  {
+    u.delay[0] = 85.; u.delay[1] = 74.; u.delay[2] = 12000.; u.delay[3] = 82.; u.delay[4] = 100.;
+    u.expandedDelay[uEchoShiftBlend - uSpaceHeads] = 100.;
+    u.expandedDelay[uEchoInterval - uSpaceHeads] = 12.;
+  }
   if (effect == E::Rotary) u.rotary[4] = 18.;
   if (effect == E::SpringReverb) u.spring[1] = 12.;
   if (effect == E::AnalogDelay || effect == E::TapeDelay || effect == E::MultiHeadDelay)

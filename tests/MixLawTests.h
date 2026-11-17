@@ -6,7 +6,8 @@ void TestMixLaw()
 {
   using E = SlotEffect;
   constexpr std::array effects{E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay,
-    E::ReverseDelay, E::DualDelay, E::DiffusedDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
+    E::ReverseDelay, E::DualDelay, E::DiffusedDelay,
+    E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::VintageDigital, E::GranularDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
     E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho};
   for (double rate : {48000., 96000.})
     for (auto effect : effects)
@@ -36,7 +37,7 @@ void TestMixLaw()
             return audio;
           };
           // Only modules with a whole-signal Output trim apply this gain.
-          const bool trimmed = effect == E::DigitalDelay || effect == E::AnalogDelay || effect == E::TapeDelay
+          const bool trimmed = IsExpandedDelay(effect) || effect == E::DigitalDelay || effect == E::AnalogDelay || effect == E::TapeDelay
             || effect == E::MultiHeadDelay || effect == E::ReverseDelay || effect == E::DualDelay
             || effect == E::DiffusedDelay || effect == E::SpringReverb || effect == E::AirPlate
             || effect == E::AirHall || effect == E::GalacticSpace;

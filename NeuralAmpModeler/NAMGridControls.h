@@ -1712,6 +1712,14 @@ public:
     mAutoWah->SetTooltip("Assign Env 1 to Wah Position at +25%, so playing sweeps the wah. Shape the envelope on the "
                          "Modulation page; turn the assignment off there (or right-click Position) to park it again.");
     mEditor->AddChildControl(mAutoWah);
+    mDelayPageButton = new grid_ui::Button(IRECT(grid_layout::parameterLeft, grid_layout::optionsTop,
+      grid_layout::parameterLeft + 122, grid_layout::optionsBottom), [this](IControl*) {
+        const int pages = PLUG()->GetSlotEffect(mSlot) == SlotEffect::PatternDelay ? 3 : 2;
+        mDelayPage = (mDelayPage + 1) % pages;
+        Refresh();
+      }, "Main");
+    mDelayPageButton->SetTooltip("Switch between the main delay controls and detailed settings.");
+    mEditor->AddChildControl(mDelayPageButton);
     mEnabled = new grid_ui::EnableButton(IRECT(0, grid_layout::moduleHeaderTop, 28, grid_layout::moduleHeaderBottom), SlotActiveParam(mSlot));
     mEditor->AddChildControl(mEnabled);
     // Levels live in the visualization footer, so the dials keep the full editor width.
@@ -3055,6 +3063,7 @@ private:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     if (effect != mPlotEffect || path != mPlotPath)
     {
+      mDelayPage = 0;
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mCleanHistory = {}; mReductionHistory = {};
       mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear();
       mReductionWrite = 0; mReductionNow = 0.f;
@@ -3078,6 +3087,13 @@ private:
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
       mAutoWah->Hide(effect != SlotEffect::Wah);
+      const bool delayPages = effect == SlotEffect::VintageDigital || effect == SlotEffect::PatternDelay
+                           || effect == SlotEffect::GranularDelay;
+      mDelayPageButton->Hide(!delayPages);
+      const char* page = mDelayPage == 0 ? "Main" : effect == SlotEffect::GranularDelay ? "Pitch"
+                       : effect == SlotEffect::VintageDigital ? "Ducking / Crush"
+                       : mDelayPage == 1 ? "Timing / Level" : "Pan";
+      mDelayPageButton->SetLabelStr(page);
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -3089,9 +3105,18 @@ private:
                                   : !ir);
       const auto flag = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Bool(); };
       const bool sync = flag(uTempoSync), notch = flag(uEQMode), vibrato = flag(uVibeMode), shelf = flag(uParamLowMode);
+      const int delayMode = IsExpandedDelay(effect)
+        ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, ExpandedDelayModeControl(effect)))->Int() : -1;
       for (int i = 0; i < kUtilityControls; ++i)
       {
-        const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf) && !effect_presentation::DisplayControl(i);
+        const bool header = effect_presentation::HeaderControl(i);
+        const bool ring = effect == SlotEffect::FeedbackFXDelay && delayMode == 3;
+        const bool carrier = ring && i == uEchoRingRate;
+        const bool relevant = !(ring && (i == uEchoRate || i == uEchoRateSync || i == uEchoResonance));
+        const int detail = effect_presentation::DetailPage(effect, i);
+        const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf)
+                          && !effect_presentation::DisplayControl(i) && relevant
+                          && (carrier || header || detail == mDelayPage);
         mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle
@@ -3104,7 +3129,8 @@ private:
             mUtilityKnobs[i]->SetTargetAndDrawRECTs(bounds);
         }
         else
-          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::Position(effect, i)));
+          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(carrier ? effect_presentation::Position(effect, uEchoRate)
+              : detail ? effect_presentation::TablePosition(effect, i) : effect_presentation::Position(effect, i)));
         if (auto* knob = dynamic_cast<grid_ui::Knob*>(mUtilityKnobs[i]))
           if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i, mode)) != 0)
             knob->SetLabelStr(effect_presentation::Label(effect, i, mode));
@@ -3381,6 +3407,8 @@ private:
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
   grid_ui::Button* mAutoWah = nullptr;
+  grid_ui::Button* mDelayPageButton = nullptr;
+  int mDelayPage = 0;
   grid_ui::Button* mPresetButton = nullptr;
   static constexpr int kPresetTag = -2000; // Module preset menu items: -2000 - index.
   static constexpr int kSavePresetTag = -2900, kShowPresetsTag = -2901;

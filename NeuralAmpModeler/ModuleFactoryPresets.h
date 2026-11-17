@@ -482,6 +482,68 @@ inline const Preset frequencyShifter[]{
     {U(uShiftMix), 30.}}},
 };
 
+inline const Preset spaceTapeEcho[]{
+  {"Slap and spring", {{U(uSpaceHeads), 0}, {U(uDelayTime), 280}, {U(uDelayFeedback), 17}, {U(uEchoSpring), 36}}},
+  {"Three-head dub", {{U(uSpaceHeads), 6}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uDelayFeedback), 54},
+    {U(uDelayMotion), 12}, {U(uDelayCharacter), 35}, {U(uEchoSpring), 24}, {U(uDelayMix), 31}}},
+  {"Clean long head", {{U(uSpaceHeads), 2}, {U(uDelayTone), 9000}, {U(uDelayMotion), 8}, {U(uDelayCharacter), 5}, {U(uEchoSpring), 0}}},
+  {"Oil can wash", {{U(uSpaceHeads), 7}, {U(uDelayTime), 220}, {U(uDelayFeedback), 51}, {U(uDelayMotion), 62},
+    {U(uEchoSpring), 34}, {U(uDelayMix), 30}}},
+};
+inline const Preset bucketBrigade[]{
+  {"Compact slap", {{U(uBBDVoice), 0}, {U(uDelayTime), 123}, {U(uDelayMotion), 0}, {U(uDelayFeedback), 18}, {U(uDelayMix), 18}}},
+  {"Chorused dotted eighth", {{U(uBBDVoice), 1}, {U(uTempoSync), 1}, {U(uTempoDivision), 4}, {U(uDelayMotion), 38}}},
+  {"Vibrato trails", {{U(uBBDVoice), 2}, {U(uDelayTime), 455}, {U(uEchoRate), .95}, {U(uDelayFeedback), 48}, {U(uDelayMotion), 23}}},
+  {"Clear analog lead", {{U(uBBDVoice), 3}, {U(uDelayTime), 292}, {U(uDelayMotion), 7}, {U(uDelayTone), 8200}}},
+  {"Driven repeats", {{U(uBBDVoice), 4}, {U(uDelayTime), 360}, {U(uDelayFeedback), 54}, {U(uDelayCharacter), 65}}},
+};
+inline const Preset pitchDelay[]{
+  {"Octave halo", {{U(uPitchDelayMode), 0}, {U(uEchoInterval), 12}, {U(uEchoShiftBlend), 24},
+    {U(uEchoDetune), 6}, {U(uDelayFeedback), 55}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}}},
+  {"Climbing fifths", {{U(uEchoInterval), 7}, {U(uEchoShiftBlend), 80}, {U(uDelayTime), 320}, {U(uDelayFeedback), 44}}},
+  {"Backwards octave", {{U(uPitchDelayMode), 1}, {U(uEchoInterval), -12}, {U(uEchoShiftBlend), 75},
+    {U(uDelayTime), 540}, {U(uDelayMix), 33}}},
+  {"Wide octaves", {{U(uPitchDelayMode), 2}, {U(uEchoInterval), 12}, {U(uEchoShiftBlend), 46}, {U(uEchoDetune), 8}, {U(uDelayTone), 5400}}},
+};
+inline const Preset feedbackFXDelay[]{
+  {"Swept dotted echoes", {{U(uFeedbackFX), 0}, {U(uTempoSync), 1}, {U(uTempoDivision), 4},
+    {U(uEchoRateSync), 1}, {U(uEchoRate), .25}, {U(uEchoDepth), 65}}},
+  {"Slow phaser trail", {{U(uFeedbackFX), 1}, {U(uEchoRate), .26}, {U(uEchoDepth), 72},
+    {U(uEchoResonance), 50}, {U(uDelayFeedback), 54}}},
+  {"Pulsing quarter notes", {{U(uFeedbackFX), 2}, {U(uTempoSync), 1}, {U(uTempoDivision), 5},
+    {U(uEchoRateSync), 1}, {U(uEchoRate), 2}, {U(uEchoDepth), 80}, {U(uDelayFeedback), 57}}},
+  {"Metallic fragments", {{U(uFeedbackFX), 3}, {U(uEchoRingRate), 140}, {U(uEchoDepth), 64}, {U(uDelayTone), 5700}}},
+};
+inline const Preset patternDelay[]{
+  {"Even stereo heads", {{U(uPatternFeedback), 0}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uTapLevel2), 60}}},
+  {"Accelerating taps", {{U(uPatternFeedback), 0}, {U(uTapTime1), 28}, {U(uTapTime2), 63},
+    {U(uTapTime3), 86}, {U(uTapTime4), 100}, {U(uTapLevel1), 58}}},
+  {"Spreading swell", {{U(uPatternFeedback), 1}, {U(uDelayTime), 700}, {U(uTapTime1), 27},
+    {U(uTapTime2), 49}, {U(uTapTime3), 78}, {U(uDelayFeedback), 68}}},
+  {"Four-line halo", {{U(uPatternFeedback), 2}, {U(uDelayTime), 650}, {U(uTapTime1), 28},
+    {U(uTapTime2), 43}, {U(uTapTime3), 69}, {U(uDelayFeedback), 76}, {U(uDelayMix), 35}}},
+  {"Drum echo", {{U(uPatternFeedback), 3}, {U(uDelayTime), 295}, {U(uDelayTone), 4800},
+    {U(uTapLevel2), 0}, {U(uDelayFeedback), 53}, {U(uEchoWidth), 35}}},
+};
+inline const Preset vintageDigital[]{
+  {"Modulated rack lead", {{U(uVintageDelayVoice), 0}, {U(uEchoRate), .55},
+    {U(uEchoDepth), 37}, {U(uDelayTime), 325}, {U(uDelayFeedback), 30}}},
+  {"Clean eighth notes", {{U(uVintageDelayVoice), 1}, {U(uTempoSync), 1}, {U(uTempoDivision), 3},
+    {U(uEchoDepth), 0}, {U(uDelayTone), 12000}, {U(uEchoLowCut), 35}}},
+  {"Ducked quarter notes", {{U(uVintageDelayVoice), 2}, {U(uTempoSync), 1}, {U(uTempoDivision), 5},
+    {U(uEchoDucking), 66}, {U(uEchoSensitivity), 60}, {U(uDuckRelease), 230}}},
+  {"Crushed echoes", {{U(uVintageDelayVoice), 3}, {U(uEchoBits), 8}, {U(uEchoSampleRate), 8200},
+    {U(uEchoDepth), 8}, {U(uDelayFeedback), 47}, {U(uDelayMix), 30}}},
+};
+inline const Preset granularDelay[]{
+  {"Scattered chords", {{U(uGrainDelayMode), 0}, {U(uGrainLength), 105}, {U(uGrainScatter), 60},
+    {U(uGrainDensity), 78}, {U(uDelayFeedback), 48}}},
+  {"Reverse shards", {{U(uGrainDelayMode), 1}, {U(uGrainLength), 150}, {U(uEchoInterval), 7},
+    {U(uDelayTime), 530}, {U(uDelayMix), 35}}},
+  {"Broken repeats", {{U(uGrainDelayMode), 2}, {U(uGrainLength), 58},
+    {U(uGrainScatter), 78}, {U(uDelayFeedback), 52}, {U(uDelayMix), 35}}},
+};
+
 inline std::span<const Preset> For(SlotEffect effect)
 {
   switch (effect)
@@ -495,6 +557,13 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::PunchComp: return punchComp;
     case SlotEffect::ButterComp: return butterComp;
     case SlotEffect::Limiter: return limiter;
+    case SlotEffect::SpaceTapeEcho: return spaceTapeEcho;
+    case SlotEffect::BucketBrigade: return bucketBrigade;
+    case SlotEffect::PitchDelay: return pitchDelay;
+    case SlotEffect::FeedbackFXDelay: return feedbackFXDelay;
+    case SlotEffect::PatternDelay: return patternDelay;
+    case SlotEffect::VintageDigital: return vintageDigital;
+    case SlotEffect::GranularDelay: return granularDelay;
     case SlotEffect::DigitalDelay: return digitalDelay;
     case SlotEffect::ToneEQ: return toneEQ;
     case SlotEffect::CutEQ: return cutEQ;

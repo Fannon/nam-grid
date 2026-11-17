@@ -10,6 +10,19 @@ NAM Grid itself is MIT licensed; see LICENSE in the source repository at
 https://github.com/Fannon/nam-grid.
 
 
+Expanded delay design references
+--------------------------------
+
+The new delays are original MIT-licensed NAM Grid code. Space Tape Echo uses
+the Airwindows Spiral transfer already licensed below and the shared NAM Grid
+minimum-phase oversampler and spring. The bucket-brigade compander follows the
+general structure in Raffel and Smith, Practical Modeling of Bucket-Brigade
+Device Circuits (DAFx, 2010). The four-pole pitch filter uses Andrew Simper's TPT
+state-variable equations. Manufacturer manuals for classic tape and BBD echoes
+and for creative delay effects informed the feature design. See
+docs/module-implementation.md for implementation details and references.
+
+
 Pedal Drive design references
 -----------------------------
 

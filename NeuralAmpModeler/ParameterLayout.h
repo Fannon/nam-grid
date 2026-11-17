@@ -73,7 +73,7 @@ struct Segment
 // {0, 1}: Smart Gate Tracking (schema 28); {0, 1}: Smart Gate Protect attack (schema 29);
 // {0, 4}: Noise Gate (AI) (schema 30); {0, 9}: Pedal Distortion (schema 31).
 // Reserved schema 21 adds no controls.
-inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}, {0, 8}, {0, 6}, {0, 1}, {0, 11}, {0, 9}, {0, 5}, {1, 0}, {3, 0}, {0, 1}, {0, 1}, {0, 1}, {0, 1}, {0, 4}, {0, 9}};
+inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}, {0, 8}, {0, 6}, {0, 1}, {0, 11}, {0, 9}, {0, 5}, {1, 0}, {3, 0}, {0, 1}, {0, 1}, {0, 1}, {0, 1}, {0, 4}, {0, 9}, {0, 37}};
 inline constexpr Segment released[]{{83, 216}}; // The 0.1.0 baseline layout
 
 constexpr int GlobalID(std::span<const Segment> table, int index)

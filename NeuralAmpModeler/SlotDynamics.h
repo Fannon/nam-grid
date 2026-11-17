@@ -76,7 +76,14 @@ enum class SlotEffect
   PitchShift = 64,
   AIGate = 65,
   PedalDistortion = 66,
-  Last = PedalDistortion,
+  SpaceTapeEcho = 67,
+  BucketBrigade = 68,
+  PitchDelay = 69,
+  FeedbackFXDelay = 70,
+  PatternDelay = 71,
+  VintageDigital = 72,
+  GranularDelay = 73,
+  Last = GranularDelay,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -99,6 +106,13 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::Boost: return "Boost";
     case SlotEffect::SynthFilter: return "Filter";
     case SlotEffect::AutoSwell: return "Auto Swell";
+    case SlotEffect::SpaceTapeEcho: return "Space Tape Echo";
+    case SlotEffect::BucketBrigade: return "Bucket Brigade";
+    case SlotEffect::PitchDelay: return "Pitch Delay";
+    case SlotEffect::FeedbackFXDelay: return "Feedback FX Delay";
+    case SlotEffect::PatternDelay: return "Pattern Delay";
+    case SlotEffect::VintageDigital: return "Vintage Digital Delay";
+    case SlotEffect::GranularDelay: return "Granular Delay";
     case SlotEffect::DigitalDelay: return "Digital Delay";
     case SlotEffect::AnalogDelay: return "Analog Echo";
     case SlotEffect::TapeDelay: return "Tape Echo";

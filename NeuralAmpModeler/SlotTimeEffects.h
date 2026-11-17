@@ -16,7 +16,8 @@ namespace grid_fx
 constexpr double pi = 3.14159265358979323846;
 inline double Flush(double x)
 { return std::abs(x) < 1.e-30 ? 0. : x; }
-class DelayLine
+template <typename Sample>
+class BasicDelayLine
 {
 public:
   void Reset(int capacity)
@@ -42,21 +43,24 @@ public:
     const double fraction = delay - static_cast<double>(integer);
     const auto a = mIndex >= whole ? mIndex - whole : mData.size() - (whole - mIndex);
     const auto b = a == 0 ? mData.size() - 1 : a - 1;
-    return mData[a] + fraction * (mData[b] - mData[a]);
+    const double first = mData[a], second = mData[b];
+    return first + fraction * (second - first);
   }
   void Push(double x)
   {
-    mData[mIndex] = Flush(x);
+    mData[mIndex] = static_cast<Sample>(Flush(x));
     if (++mIndex == mData.size())
       mIndex = 0;
   }
   double MaxDelay() const { return mMaxDelay; }
 
 private:
-  std::vector<double> mData;
+  std::vector<Sample> mData;
   size_t mIndex = 0;
   double mMaxDelay = 0.; // Cached: size_t -> double is not a single x64 conversion.
 };
+using DelayLine = BasicDelayLine<double>;
+
 template <size_t N>
 class SmoothControls
 {

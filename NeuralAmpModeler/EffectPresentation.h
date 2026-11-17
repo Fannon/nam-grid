@@ -35,17 +35,33 @@ inline const char* ChoiceDescription(int p, int mode)
 // on the right (Digital Delay's Time change sits left of Tempo sync). The knob grid
 // holds only the automatable musical controls.
 inline bool HeaderControl(int p)
-{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uNoiseLearn || IsAlgorithmMode(p); }
+{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uNoiseLearn || p == uEchoRateSync || IsAlgorithmMode(p); }
 // Saved, automatable controls edited by dragging in the module display rather than with a
 // knob. They take no place in the knob grid and are documented as prose.
 inline bool DisplayControl(int p)
 { return p == uMultibandLowSplit || p == uMultibandHighSplit || p == uMultibandThreshold; }
+// These parameters have their own editor page or replace another dial in a mode.
+inline int DetailPage(SlotEffect e, int p)
+{
+  if (e == SlotEffect::PatternDelay)
+  {
+    if (p >= uTapTime1 && p <= uTapLevel4) return 1;
+    if (p >= uTapPan1 && p <= uTapPan4) return 2;
+  }
+  if (e == SlotEffect::VintageDigital
+      && (p == uEchoDucking || p == uEchoSensitivity || p == uDuckRelease || p == uEchoBits || p == uEchoSampleRate))
+    return 1;
+  if (e == SlotEffect::FeedbackFXDelay && p == uEchoRingRate) return 1;
+  if (e == SlotEffect::GranularDelay && p == uEchoInterval) return 1;
+  return 0;
+}
 // Header options share one row. Keep their horizontal bounds available to
 // both the editor and headless layout checks, including effect-specific moves.
 struct HeaderArea { float left, right; };
 inline HeaderArea HeaderBounds(SlotEffect e, int p)
 {
   using namespace grid_layout;
+  if (p == uEchoRateSync) return {tempoLeft - 112.f, tempoLeft - 8.f};
   if (p == uDelayTimeChange) return {tempoLeft - 160.f, tempoLeft - 10.f};
   // Spring's Tank selector owns the right side; keep Stereo wet accessible
   // on the free left side instead of placing both controls on top of each other.
@@ -98,6 +114,13 @@ inline int TablePosition(SlotEffect e, int p)
   static constexpr int OctaverOrder[]{uOctDry, uOctSub, uOctSub2, uOctTone, uOctTrackingFilter, uOctOutput};
   static constexpr int DoublerOrder[]{uDoubleDetune, uDoubleDelay, uDoubleSpread, uDoubleHumanize, uDoubleHighCut, uDoubleOutput, uDoubleMix};
   static constexpr int DigitalDelayOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uDelayCharacter, uDuckRelease, uDelayOutput, uDelayMix};
+  static constexpr int SpaceTapeOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uDelayCharacter, uDelayOutput, uDelayMotion, uEchoSpring, uDelayMix};
+  static constexpr int BBDOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uDelayCharacter, uDelayOutput, uEchoRate, uDelayMotion, uDelayMix};
+  static constexpr int PitchDelayOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uEchoInterval, uDelayOutput, uEchoDetune, uEchoShiftBlend, uDelayMix};
+  static constexpr int FeedbackFXOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uEchoRate, uDelayOutput, uEchoDepth, uEchoResonance, uDelayMix};
+  static constexpr int PatternDelayOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uEchoWidth, uDelayOutput, uDelayMix};
+  static constexpr int VintageDelayOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uEchoRate, uDelayOutput, uEchoDepth, uEchoLowCut, uDelayMix};
+  static constexpr int GranularDelayOrder[]{uDelayTime, uDelayFeedback, uDelayTone, uGrainLength, uDelayOutput, uGrainScatter, uGrainDensity, uDelayMix};
   static constexpr int ReverseDelayOrder[]{uDelayTime, uReverseFeedback, uDelayTone, uDelayOutput, uDelayMix};
   static constexpr int RoomReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbMix};
   static constexpr int PlateReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbDuck, uReverbMix};
@@ -136,6 +159,17 @@ inline int TablePosition(SlotEffect e, int p)
     case SlotEffect::Octaver: order = OctaverOrder; break;
     case SlotEffect::Doubler: order = DoublerOrder; break;
     case SlotEffect::DigitalDelay: order = DigitalDelayOrder; break;
+    case SlotEffect::SpaceTapeEcho: order = SpaceTapeOrder; break;
+    case SlotEffect::BucketBrigade: order = BBDOrder; break;
+    case SlotEffect::PitchDelay: order = PitchDelayOrder; break;
+    case SlotEffect::FeedbackFXDelay: order = FeedbackFXOrder; break;
+    case SlotEffect::PatternDelay: order = PatternDelayOrder; break;
+    case SlotEffect::VintageDigital:
+      if (p == uDuckRelease) return 2;
+      order = VintageDelayOrder; break;
+    case SlotEffect::GranularDelay:
+      if (p == uEchoInterval) return 0; // Detail page, independent of the main dial grid.
+      order = GranularDelayOrder; break;
     case SlotEffect::ReverseDelay: order = ReverseDelayOrder; break;
     case SlotEffect::RoomReverb: order = RoomReverbOrder; break;
     case SlotEffect::PlateReverb: order = PlateReverbOrder; break;
@@ -179,7 +213,7 @@ inline int Position(SlotEffect e, int p)
 {
   auto used = FixedPlaces(e);
   for (int q = 0; q < kUtilityControls; ++q)
-    if (!HeaderControl(q) && !DisplayControl(q))
+    if (!HeaderControl(q) && !DisplayControl(q) && DetailPage(e, q) == 0)
       for (bool sync : {false, true})
         for (bool alternate : {false, true})
           if (Visible(e, q, sync, alternate, alternate, alternate)) used[TablePosition(e, q)] = true;
@@ -206,6 +240,7 @@ inline const char* Label(SlotEffect e, int p, int mode = 0)
     return graphic_eq::kLabels[graphic_eq::Voicing(mode)][p - uGraphicBand1];
   if (e == SlotEffect::PedalDrive && p == uPedalCharacter)
     return effect_modes::pedalCharacterNames[std::clamp(mode, 0, effect_modes::pedalCount - 1)];
+  if (p == uDelayCharacter && e == SlotEffect::BucketBrigade) return "Drive";
   if (p == uDelayCharacter)
     return e == SlotEffect::DigitalDelay ? "Ducking" : e == SlotEffect::AnalogDelay ? "Age" : "Saturation";
   if (p == uModCharacter)
@@ -384,7 +419,41 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSwellRise: return "Fade-in time after the input crosses threshold; longer settings soften the pick attack.";
     case uSwellThreshold: return "Input level that triggers a swell. Set below quiet notes but above background noise.";
     case uSwellRelease: return "How quickly the swell closes after the input falls below threshold.";
-    case uDelayTime: return e == SlotEffect::MultiHeadDelay ? "Time of the last playback head. Other selected heads occur at one quarter, one half and three quarters of this interval."
+    case uSpaceHeads: return "Three evenly spaced tape heads. Oil Can uses closer pairs of dark, wobbling repeats.";
+    case uBBDVoice: return "Compact is dark; Chorus and Vibrato animate repeats; Clear opens the bandwidth; Driven adds grit.";
+    case uPitchDelayMode: return "Forward shifts the repeats. Reverse plays shifted slices backwards. Stereo Octaves shifts the sides in opposite directions.";
+    case uFeedbackFX: return "Sweep, Phaser, Tremolo and Ring change the repeats each time they circulate.";
+    case uPatternFeedback: return "Repeat returns tap 4. Swell and Drum return the audible tap mix. Matrix scatters between four independent loops.";
+    case uVintageDelayVoice: return "Rack models early converters; Clean opens up the repeats; Ducked leaves space while you play; Crushed exposes the converters.";
+    case uGrainDelayMode: return "Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment.";
+    case uEchoSpring: return "Level of the spring reverb fed from your playing in parallel with the tape. Zero removes the spring from the mix.";
+    case uEchoRate: return "Speed of echo modulation. With Rate sync on in Feedback FX Delay, this is cycles per beat.";
+    case uEchoDepth: return "How strongly the selected effect changes the echoes.";
+    case uEchoResonance: return "Emphasis of Sweep or depth of the phase notches in Phaser.";
+    case uEchoRateSync: return "Tie modulation speed to host tempo. Rate sets cycles per beat. The echo time has its own sync switch.";
+    case uEchoInterval: return "Shift grain playback by this many semitones. Each feedback pass can add another shift.";
+    case uEchoDetune: return "Depth of slow pitch motion on the repeats, with opposite motion in the two channels.";
+    case uEchoShiftBlend: return "Blend the shifted voice with the ordinary echo, both in the repeats and in feedback.";
+    case uEchoWidth: return "Scale the four tap pan settings. Zero keeps the original stereo placement.";
+    case uEchoLowCut: return "Remove low frequencies from the repeats and their feedback, leaving the direct guitar untouched.";
+    case uEchoDucking: return "Maximum reduction of repeat level while you play in Ducked mode.";
+    case uEchoSensitivity: return "How quickly quiet playing reaches full ducking in Ducked mode.";
+    case uEchoBits: return "Converter resolution in Crushed mode. Low values make the repeats audibly stair-stepped.";
+    case uEchoSampleRate: return "Converter sample rate in Crushed mode. Lower settings reduce repeat bandwidth.";
+    case uEchoRingRate: return "Oscillator frequency for Ring mode, in hertz.";
+    case uGrainLength: return "Sets the upper length of each fragment. Density can shorten the grains and launch them more often.";
+    case uGrainScatter: return "Range of random grain start times. In Glitch mode it also increases the chance and length of a latch.";
+    case uGrainDensity: return "Shorten overlapping grains for faster changes and denser textures.";
+    case uTapTime1: case uTapTime2: case uTapTime3: case uTapTime4:
+      return "Tap time as a percentage of the main Time or Division. Tap 4 sets loop timing in Repeat mode.";
+    case uTapLevel1: case uTapLevel2: case uTapLevel3: case uTapLevel4:
+      return "Contribution from this tap. The output normalizes the active taps together.";
+    case uTapPan1: case uTapPan2: case uTapPan3: case uTapPan4:
+      return "Bias this tap left or right without moving the dry guitar. Width scales the pan amount.";
+    case uDelayTime: return e == SlotEffect::SpaceTapeEcho ? "Tape speed sets the last head interval. The other tape heads are at one and two thirds of that time."
+                         : e == SlotEffect::PatternDelay ? "Base interval for the four editable taps. Each tap sets a percentage of this time."
+                         : e == SlotEffect::GranularDelay ? "Nominal time into the history. Grain length, scatter and direction spread the repeats around it."
+                         : e == SlotEffect::MultiHeadDelay ? "Time of the last playback head. Other selected heads occur at one quarter, one half and three quarters of this interval."
                          : e == SlotEffect::ReverseDelay ? "Length of each reversed capture window; not a conventional first-echo delay."
                          : e == SlotEffect::DualDelay ? "Time of the left tap. The right tap is this value multiplied by Time ratio."
                                                       : "Time to the first repeat. Changing it while repeats sound bends their pitch, like tape.";
@@ -552,6 +621,13 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::GalacticSpace: return "Airwindows Galactic3: huge stereo space; Replace controls how new notes enter the wash.";
     case SlotEffect::CosmicEcho: return "Valhalla Supermassive-inspired; Warp spreads echoes into a wash, Density then thickens it.";
     case SlotEffect::MultiHeadDelay: return "Eight tape-head patterns; Time sets the last head.";
+    case SlotEffect::SpaceTapeEcho: return "Three-head tape echo and a spring fed in parallel, with a murky Oil Can mode.";
+    case SlotEffect::BucketBrigade: return "Clock-dependent bandwidth, companding and five BBD voices, from dark slapback to modulated echoes.";
+    case SlotEffect::PitchDelay: return "Blend normal and pitched echoes. Feedback builds new intervals on successive repeats.";
+    case SlotEffect::FeedbackFXDelay: return "Send each repeat back through a filter, phaser, tremolo or ring modulator.";
+    case SlotEffect::PatternDelay: return "Four taps with editable timing, level and pan. Repeat, Swell, Matrix and Drum route the taps differently.";
+    case SlotEffect::VintageDigital: return "Rack-style repeats, pristine or ducked echoes, and adjustable digital degradation.";
+    case SlotEffect::GranularDelay: return "Overlapping fragments spread, reverse or stutter around the echo time.";
     case SlotEffect::DiffusedDelay: return "Repeats smear into stereo clouds as Diffusion rises.";
     case SlotEffect::SpringReverb: return "Dwell excites the spring; Drip adds splash, Damping tames treble.";
     case SlotEffect::ShimmerReverb: return "Pitch and Amount build rising/falling tails; Freeze sustains them.";

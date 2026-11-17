@@ -37,6 +37,23 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   Echo adds two-pole darkening and soft feedback saturation; Tape Echo adds saturation and
   wow/flutter; Digital Delay's Ducking lowers repeats beneath playing. Multi-head Tape feeds
   back only from the last head. Diffused Delay sends repeats through rotating allpasses.
+- **Expanded delays** ([ExpandedDelay.h](../NeuralAmpModeler/ExpandedDelay.h)) share
+  sample-based control smoothing, fractional delay lines and a bounded feedback return.
+  Space Tape Echo uses the Airwindows Spiral transfer from LoFi Tape Machine at 4×
+  with the minimum-phase FIR and the classic Spring tank in parallel. Its three tap
+  positions and parallel routing follow the [RE-201 manual](https://cdn.roland.com/assets/media/pdf/RE-201_OM.pdf).
+  Bucket Brigade has clock-dependent bandwidth and independent record/playback
+  envelopes with 2× oversampled saturation, following the compander structure described by
+  [Raffel and Smith](https://dafx10.iem.at/papers/RaffelSmith_DAFx10_P42.pdf).
+  Pitch Delay uses the waveform-matched shifter for forward playback. Reversed and
+  granular modes use causal, overlapping Hann windows and a four-pole low-pass
+  before upward playback. Pattern Delay uses normalized summed returns or an
+  orthogonal four-line Householder matrix. Vintage Digital rounds toward zero
+  in its reduced-resolution modes so sub-LSB signals cannot circulate indefinitely.
+  The new long delay buffers store 32-bit samples and interpolate in double
+  precision. All histories are prepared before processing. Dry audio is immediate. Material
+  changes in tap timing crossfade in the digital modes. Tape and BBD glide, and
+  granular changes take effect as new windows start.
 - **Reverbs:** Room and Hall use Signalsmith-derived multistage diffusion and Householder
   networks with exact per-band decay; Dense Plate uses the Mutable Instruments Clouds
   Dattorro/Griesinger tank; Cloud is a rotating stereo allpass loop. Decay is nominal RT60,

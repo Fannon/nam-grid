@@ -30,6 +30,22 @@ void TestExpandedDelayPreview()
   assert(shortTrain.repeats[1].level == .5 && shortTrain.repeats[1].treble < shortTrain.repeats[0].treble);
   assert(longTrain.repeats[0].treble < shortTrain.repeats[0].treble);
   assert(BBDRepeatTrain(3, 300., 2000., .5, 1., 48000., 2.).cutoff == 2000.); // High cut caps Clear.
+  // Granular: without scatter, forward grains return the note around Time; more density
+  // gives more, shorter fragments; feedback adds later passes; Glitch marks latched repeats.
+  const auto plain = GrainFragments(0, 400., 80., .5, 0., 0., 0., 2.);
+  assert(plain.firstPass >= 2 && plain.first >= .35 && plain.last <= .7 && std::abs(plain.hop - .5 * plain.length) < 1.e-12);
+  const auto dense = GrainFragments(0, 400., 80., 1., 0., 0., 0., 2.);
+  assert(dense.firstPass > plain.firstPass && dense.length < plain.length);
+  const auto repeated = GrainFragments(0, 400., 80., .5, 0., 0., .6, 2.);
+  bool second = false;
+  for (int i = 0; i < repeated.count; ++i) second |= repeated.fragments[i].pass == 2 && repeated.fragments[i].start > .7;
+  assert(second);
+  const auto glitch = GrainFragments(2, 400., 60., .5, 1., 0., .4, 3.);
+  bool latched = false;
+  for (int i = 0; i < glitch.count; ++i) latched |= glitch.fragments[i].latched;
+  assert(latched);
+  const auto longGrains = GrainFragments(1, 4000., 1000., 0., 1., 12., .6, 10.);
+  assert(longGrains.count <= static_cast<int>(longGrains.fragments.size()) && longGrains.length == 1.25);
 
   const auto pitch = PitchVoices(.5, .5);
   assert(pitch[1].weights[0] == .125 && pitch[1].weights[1] == .25 && pitch[1].weights[2] == .125);

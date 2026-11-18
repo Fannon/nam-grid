@@ -77,6 +77,7 @@ inline Trace TapeRepeats(int mode, double feedback, double time, double horizon)
   for (int head = 0; head < 3; ++head)
     if (spaceHeads[mode] & (1u << head))
       heads[count++] = DelayBin(time * HeadFraction(head), horizon);
+  if (count == 0) return wet; // Spring only.
   const double headGain = 1. / std::sqrt(static_cast<double>(count));
   send[0] = 1.;
   for (int bin = 1; bin < bins; ++bin)
@@ -115,6 +116,73 @@ inline BBDRepeats BBDRepeatTrain(int mode, double ms, double highCut, double fee
 }
 
 inline double Decibels(double gain) { return 20. * std::log10(std::max(gain, 1.e-6)); }
+
+// Granular Delay: where one played note comes back. Follows the module's grain
+// schedule (two Hann grains, a new one every half length, the same random sequence,
+// Glitch latches and pitch), then feeds each returned fragment back for later passes.
+struct GrainFragment { double start = 0., end = 0., level = 0.; int pass = 0; bool latched = false; };
+struct GrainPicture
+{
+  std::array<GrainFragment, 96> fragments{};
+  int count = 0, firstPass = 0;
+  double first = 0., last = 0., hop = 0., length = 0.;
+};
+inline GrainPicture GrainFragments(int mode, double timeMs, double grainMs, double density, double scatter,
+                                   double interval, double feedback, double horizon, double note = .2)
+{
+  GrainPicture picture;
+  const double time = timeMs * .001, speed = std::exp2(interval / 12.);
+  const bool reverse = mode == 1, glitch = mode == 2;
+  picture.length = std::max(.001, grainMs * .001 * (1.25 - .75 * density));
+  picture.hop = .5 * picture.length;
+  const double length = picture.length, step = reverse ? 1. + speed : 1. - speed;
+  const double earliest = reverse ? 0. : std::max(0., -step * length), jitter = scatter * std::min(time, .42);
+  const double slope = 1. - step; // Source seconds per output second: +speed or -speed.
+  uint32_t seed = 0xc283ee81u;
+  const auto random = [&] { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return seed * (1. / 4294967295.); };
+  std::array<GrainFragment, 97> sources{};
+  sources[0] = {0., note, 1., 0, false};
+  int sourceCount = 1, latch = 0;
+  double captured = 0.;
+  picture.first = horizon;
+  for (double launch = 0.; launch < horizon && picture.count < static_cast<int>(picture.fragments.size()); launch += picture.hop)
+  {
+    double age = std::max(earliest, time + (random() - .5) * jitter - step * length * .5);
+    bool latched = false;
+    if (glitch)
+    {
+      if (latch == 0 && random() < .2 + .65 * scatter) { captured = launch - age; latch = 2 + static_cast<int>(5. * scatter); }
+      if (latch > 0) { age = std::max(earliest, launch - captured); --latch; latched = true; }
+    }
+    if (reverse || scatter > 0.) random(); // The stereo offset draw keeps the sequence aligned.
+    const double origin = launch - age; // Source time read at the grain's start.
+    for (int i = 0; i < sourceCount && picture.count < static_cast<int>(picture.fragments.size()); ++i)
+    {
+      const auto source = sources[i];
+      if (source.pass >= 3 || source.start >= launch) continue;
+      double a = (source.start - origin) / slope, b = (source.end - origin) / slope;
+      if (a > b) std::swap(a, b);
+      a = std::clamp(a, 0., length); b = std::clamp(b, 0., length);
+      if (b - a < 1.e-4) continue;
+      // Loudest Hann weight inside the overlap.
+      const double centre = std::clamp(.5 * length, a, b);
+      const double window = .5 - .5 * std::cos(2. * 3.14159265358979323846 * centre / length);
+      const double level = source.level * (source.pass == 0 ? 1. : feedback) * window;
+      if (level < .02) continue;
+      const GrainFragment fragment{launch + a, launch + b, level, source.pass + 1, latched};
+      picture.fragments[picture.count++] = fragment;
+      if (sourceCount < static_cast<int>(sources.size())) sources[sourceCount++] = fragment;
+      if (fragment.pass == 1)
+      {
+        ++picture.firstPass;
+        picture.first = std::min(picture.first, fragment.start);
+        picture.last = std::max(picture.last, fragment.end);
+      }
+    }
+  }
+  return picture;
+}
+
 
 struct PitchPass
 {

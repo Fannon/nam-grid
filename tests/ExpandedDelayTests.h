@@ -142,5 +142,52 @@ void TestExpandedDelays()
     Option(c, uEchoSpring, 100.);
     assert(run(.3, false) < 1.e-9);
   }
-  std::cout << "Expanded delays: tap timing, parallel spring, spring parking, octave regeneration, bounded tails and partition identity passed\n";
+  {
+    // Spring only plays no tape heads: silent without the spring, and no echo at the heads with it.
+    const double rate = 48000.;
+    const int count = static_cast<int>(rate * .6);
+    Audio impulse{std::vector<double>(count), std::vector<double>(count)};
+    impulse[0][0] = impulse[1][0] = .25;
+    UtilityControls c;
+    c.delay = {300., 60., 10000., 0., 100.};
+    c.delayMotion = 0.;
+    Option(c, uSpaceHeads, 7.);
+    Option(c, uEchoSpring, 0.);
+    const auto silent = Render(E::SpaceTapeEcho, c, rate, 64, impulse);
+    assert(Peak(silent[0], rate, 0., .6) == 0. && Peak(silent[1], rate, 0., .6) == 0.);
+    Option(c, uEchoSpring, 100.);
+    assert(Peak(Render(E::SpaceTapeEcho, c, rate, 64, impulse)[0], rate, .047, .099) > .005);
+    // The longest grains, reversed and an octave up at a long Time, stay inside the
+    // history and bounded, independently of callback partitioning.
+    UtilityControls grains;
+    grains.delay = {4000., 60., 9000., 0., 100.};
+    for (const auto& [p, v] : {std::pair{uGrainLength, 1000.}, {uGrainDensity, 0.}, {uGrainScatter, 100.}, {uEchoInterval, 12.}})
+      Option(grains, p, v);
+    const int longCount = static_cast<int>(rate * 9.);
+    Audio phrase{std::vector<double>(longCount), std::vector<double>(longCount)};
+    for (int i = 0; i < static_cast<int>(rate * .5); ++i)
+      phrase[0][i] = phrase[1][i] = .3 * std::sin(2. * grid_fx::pi * 330. * i / rate);
+    for (const int mode : {1, 2})
+    {
+      Option(grains, uGrainDelayMode, mode);
+      const auto a = Render(E::GranularDelay, grains, rate, 61, phrase), b = Render(E::GranularDelay, grains, rate, 512, phrase);
+      assert(a == b && Peak(a[0], rate, 3., 6.) > .001);
+      for (const auto& channel : a) for (const double sample : channel) assert(std::isfinite(sample) && std::abs(sample) < 1.2);
+    }
+    // Tape saturation never folds back: a louder note never records a quieter echo.
+    Option(c, uSpaceHeads, 0.);
+    Option(c, uEchoSpring, 0.);
+    c.delay = {300., 0., 12000., 100., 100.};
+    double previous = 0.;
+    for (const double level : {.1, .2, .3, .5, .7, .9})
+    {
+      Audio note{std::vector<double>(count), std::vector<double>(count)};
+      for (int i = 0; i < static_cast<int>(rate * .05); ++i)
+        note[0][i] = note[1][i] = level * std::sin(2. * grid_fx::pi * 220. * i / rate);
+      const double echo = Peak(Render(E::SpaceTapeEcho, c, rate, 64, note)[0], rate, .1, .2); // Head 1 at 100 ms.
+      assert(echo >= previous - 1.e-4);
+      previous = echo;
+    }
+  }
+  std::cout << "Expanded delays: tap timing, parallel spring, spring parking, Spring only, monotonic tape saturation, octave regeneration, bounded tails and partition identity passed\n";
 }

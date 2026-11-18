@@ -96,13 +96,36 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
           return spring * std::clamp(t / .06, 0., 1.) * std::exp(-6.907755 * std::max(0., t - .05) / 1.55);
         }, 0., 1., reverbColor.WithOpacity(.7f));
       DrawDelayTrace(g, plot, [&](int i) { return echoes[i]; }, color);
+      // The three playback heads at one, two and three thirds of Time: a guide line and a
+      // numbered badge each, filled when the Mode plays that head.
+      WDL_String heads;
+      for (int head = 0; head < 3; ++head)
+      {
+        const double seconds = ms * .001 * HeadFraction(head);
+        const bool active = (spaceHeads[mode] & (1u << head)) != 0;
+        const float x = plot.L + (plot.W() - 2.f) * static_cast<float>(seconds / horizon);
+        if (x > plot.R - 8.f) continue;
+        g.DrawDottedLine(active ? color.WithOpacity(.45f) : border.WithOpacity(.6f), x, plot.T + 18.f, x, plot.B);
+        g.FillCircle(active ? color : surface, x, plot.T + 9.f, 7.f);
+        g.DrawCircle(active ? color : border, x, plot.T + 9.f, 7.f, nullptr, 1.25f);
+        WDL_String label;
+        label.SetFormatted(4, "%d", head + 1);
+        g.DrawText(Text(10.f, active ? surface : muted, EAlign::Center), label.Get(), IRECT(x - 8.f, plot.T + 1.f, x + 8.f, plot.T + 17.f));
+        if (active) heads.AppendFormatted(24, "%s%.0f", heads.GetLength() ? " / " : "", seconds * 1000.);
+      }
       // Upper bound from both transport derivatives; the real phases can also cancel.
       const double motion = .01 * value(uDelayMotion);
       const double wow = .43 * std::clamp(std::sqrt(420. / ms), .55, 2.5);
       const double pitchBound = effect_preview::SweepCents(motion * (.0028 + .00038 * (6.7 / .43) * 1.2), wow);
-      title.SetFormatted(90, "%s  |  Tape motion up to %.0f ct", name, pitchBound);
-      footer.SetFormatted(85, "0–%.0f ms  |  Tape / spring decay sketch", horizon * 1000.);
-      PlotDetail(g,plot,"Cyan shows nominal head arrivals and summed feedback. Purple shows a separate spring decay guide at the current Spring level. Tape speed changes the motion rate; earlier heads move less.");
+      if (spaceHeads[mode] == 0)
+        title.SetFormatted(90, "%s  |  Spring %.0f%%, no tape heads", name, 100. * spring);
+      else
+        title.SetFormatted(90, "%s  |  Tape motion up to %.0f ct", name, pitchBound);
+      if (heads.GetLength())
+        footer.SetFormatted(96, "Heads at %s ms  |  0–%.0f ms", heads.Get(), horizon * 1000.);
+      else
+        footer.SetFormatted(96, "Spring decay sketch  |  0–%.0f ms", horizon * 1000.);
+      PlotDetail(g,plot,"Numbered badges mark the three tape heads at one, two and three thirds of Time; filled heads play. Cyan shows their arrivals and summed feedback. Purple sketches the spring decay at the current Spring level. Tape speed changes the motion rate; earlier heads move less.");
       break;
     }
     case SlotEffect::BucketBrigade:
@@ -202,28 +225,36 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
     }
     case SlotEffect::GranularDelay:
     {
-      const double grain = value(uGrainLength) * (1.25 - .0075 * value(uGrainDensity));
-      const double scatter = .01 * value(uGrainScatter) * std::min(ms, 420.);
-      const double interval = value(uEchoInterval);
-      const double duration = 2.5 * grain + scatter;
-      const auto x = [&](double time) { return plot.L + plot.W() * static_cast<float>(time / duration); };
+      // One 200 ms note through the grain schedule: grey is the note, cyan the fragments
+      // of it that return, fading for each later feedback pass; amber marks Glitch repeats.
+      const double interval = value(uEchoInterval), scatter = .01 * value(uGrainScatter);
+      const double length = value(uGrainLength) * (1.25 - .0075 * value(uGrainDensity));
+      const double horizon = effect_preview::TimeHorizon(std::min(9., 2.2 * ms * .001 + 2. * length * .001 + .2));
+      const auto picture = GrainFragments(mode, ms, value(uGrainLength), .01 * value(uGrainDensity), scatter,
+                                          interval, feedback, horizon);
+      const auto x = [&](double seconds) { return plot.L + plot.W() * static_cast<float>(std::clamp(seconds / horizon, 0., 1.)); };
+      const float top = plot.T + 6.f, base = plot.B - 2.f;
       PlotGrid(g, plot);
-      for (int i = 0; i < 4; ++i)
-      {
-        const bool latched = mode == 2 && i >= 1;
-        const double start = i * grain * .5 + (latched ? .5 : (i % 3) * .5) * scatter;
-        const IRECT window(x(start), plot.T + 9.f, x(start + grain), plot.B - 21.f);
-        const auto ink = latched ? ampColor : color;
-        PlotCurve(g, window, [](double phase) { return .5 - .5 * std::cos(2. * grid_fx::pi * phase); }, 0., 1., ink.WithOpacity(.75f), 1.5f, 48);
-        const float at = window.MW(), y = plot.B - 10.f;
-        const float direction = mode == 1 ? -1.f : 1.f;
-        g.DrawLine(ink, at - 7.f * direction, y, at + 7.f * direction, y, nullptr, 1.4f);
-        g.DrawLine(ink, at + 7.f * direction, y, at + 3.f * direction, y - 3.f, nullptr, 1.4f);
-        g.DrawLine(ink, at + 7.f * direction, y, at + 3.f * direction, y + 3.f, nullptr, 1.4f);
-      }
-      title.SetFormatted(90, "%s  |  Grain %.0f ms, pitch %+.0f st", name, grain, interval);
-      footer.SetFormatted(90, "Grain sketch near %.0f ms  |  %.0f ms scatter span", ms, scatter);
-      PlotDetail(g,plot,"Example overlap windows around the nominal Time. Arrowheads show playback direction. In Glitch, amber illustrates a fragment repeating while the latch is held.");
+      g.FillRect(muted.WithOpacity(.22f), IRECT(x(0.), top + .35f * (base - top), x(.2), base));
+      g.DrawText(Text(10.f, muted, EAlign::Near), "note", IRECT(x(0.) + 3.f, top + .35f * (base - top) - 14.f, x(.2) + 40.f, top + .35f * (base - top)));
+      for (int pass = 3; pass >= 1; --pass)
+        for (int i = 0; i < picture.count; ++i)
+        {
+          const auto& f = picture.fragments[i];
+          if (f.pass != pass) continue;
+          const float height = (base - top) * static_cast<float>(std::clamp(f.level, 0., 1.));
+          const IRECT bump(x(f.start), base - height, std::max(x(f.end), x(f.start) + 2.f), base);
+          const auto ink = (f.latched ? ampColor : color).WithOpacity(pass == 1 ? .9f : pass == 2 ? .5f : .28f);
+          PlotCurve(g, bump, [](double phase) { return .5 - .5 * std::cos(2. * grid_fx::pi * phase); }, 0., 1., ink, 1.4f, 24);
+        }
+      if (picture.firstPass > 0)
+        title.SetFormatted(90, "%s  |  Note returns as %d fragment%s, %.0f–%.0f ms", name, picture.firstPass,
+                           picture.firstPass == 1 ? "" : "s", picture.first * 1000., picture.last * 1000.);
+      else
+        title.SetFormatted(90, "%s  |  No fragment of a 200 ms note within %.1f s", name, horizon);
+      footer.SetFormatted(96, "New grain every %.0f ms  |  %.0f ms long, 2 overlap  |  %+.0f st per pass  |  0–%.1f s",
+                          picture.hop * 1000., picture.length * 1000., interval, horizon);
+      PlotDetail(g,plot,"Grey is a 200 ms note. Cyan bumps are the fragments of it that come back, following the module's grain schedule, scatter and direction; fainter bumps are later feedback passes, which shift pitch again. Amber marks fragments a Glitch latch repeats.");
       break;
     }
     default: return;

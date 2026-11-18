@@ -445,7 +445,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uSwellRise: return "Fade-in time after the input crosses threshold; longer settings soften the pick attack.";
     case uSwellThreshold: return "Input level that triggers a swell. Set below quiet notes but above background noise.";
     case uSwellRelease: return "How quickly the swell closes after the input falls below threshold.";
-    case uSpaceHeads: return "Which of the three evenly spaced tape heads play. All enabled heads feed back.";
+    case uSpaceHeads: return "Which of the three evenly spaced tape heads play; all enabled heads feed back. Spring only plays the spring reverb without echoes.";
     case uBBDVoice: return "Compact is dark; Chorus and Vibrato animate repeats; Clear opens the bandwidth; Driven adds grit.";
     case uPitchDelayMode: return "Forward shifts the repeats. Reverse plays shifted slices backwards. Stereo Octaves shifts the sides in opposite directions.";
     case uFeedbackFX: return "Sweep, Phaser, Tremolo and Ring change the repeats each time they circulate.";

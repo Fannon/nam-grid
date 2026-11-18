@@ -378,7 +378,7 @@ inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
 inline constexpr const char* kDelayTimeChanges[]{"Glide", "Crossfade"};
 inline constexpr const char* kNoiseTrackingModes[]{"Fixed", "Follow"};
 inline constexpr const char* kGraphicVoicings[]{"Guitar", "Bass", "Full range"};
-inline constexpr const char* kSpaceHeads[]{"Head 1", "Head 2", "Head 3", "Heads 1 + 2", "Heads 1 + 3", "Heads 2 + 3", "All heads"};
+inline constexpr const char* kSpaceHeads[]{"Head 1", "Head 2", "Head 3", "Heads 1 + 2", "Heads 1 + 3", "Heads 2 + 3", "All heads", "Spring only"};
 inline constexpr const char* kBBDVoice[]{"Compact", "Chorus", "Vibrato", "Clear", "Driven"};
 inline constexpr const char* kPitchDelayMode[]{"Forward", "Reverse", "Stereo Octaves"};
 inline constexpr const char* kFeedbackFX[]{"Sweep", "Phaser", "Tremolo", "Ring"};
@@ -465,7 +465,7 @@ inline constexpr AlgorithmIdentity chorusVoices[]{{0, "one"}, {1, "three"}};
 inline constexpr AlgorithmIdentity springTank[]{{0, "classic"}, {1, "dispersive"}};
 inline constexpr AlgorithmIdentity noiseTracking[]{{0, "fixed"}, {1, "follow"}};
 inline constexpr AlgorithmIdentity graphicVoicing[]{{0, "guitar"}, {1, "bass"}, {2, "full-range"}};
-inline constexpr AlgorithmIdentity spaceHeads[]{{0, "head-1"}, {1, "head-2"}, {2, "head-3"}, {3, "heads-1-2"}, {4, "heads-1-3"}, {5, "heads-2-3"}, {6, "all-heads"}};
+inline constexpr AlgorithmIdentity spaceHeads[]{{0, "head-1"}, {1, "head-2"}, {2, "head-3"}, {3, "heads-1-2"}, {4, "heads-1-3"}, {5, "heads-2-3"}, {6, "all-heads"}, {7, "spring-only"}};
 inline constexpr AlgorithmIdentity bBDVoice[]{{0, "compact"}, {1, "chorus"}, {2, "vibrato"}, {3, "clear"}, {4, "driven"}};
 inline constexpr AlgorithmIdentity pitchDelayMode[]{{0, "forward"}, {1, "reverse"}, {2, "stereo-octaves"}};
 inline constexpr AlgorithmIdentity feedbackFX[]{{0, "sweep"}, {1, "phaser"}, {2, "tremolo"}, {3, "ring"}};
@@ -862,7 +862,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pedal Dist Treble", "Treble", 0, -12, 12, .1, "dB", 3, false, 1., 31},
    {"Pedal Dist Level", "Level", 0, -24, 12, .1, "dB", 4, false, 1., 31},
    {"Pedal Dist Mix", "Mix", 100, 0, 100, .1, "%", 7, false, 1., 31},
-   {"Space Echo Heads", "Mode", 4, 0, 6, 1, "", 0, false, 1., 32},
+   {"Space Echo Heads", "Mode", 4, 0, 7, 1, "", 0, false, 1., 32},
    {"BBD Voice", "Mode", 1, 0, 4, 1, "", 0, false, 1., 32},
    {"Pitch Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
    {"Delay Feedback FX", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
@@ -878,7 +878,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Delay Shift Blend", "Shift blend", 35, 0, 100, 0.1, "%", 6, false, 1., 32},
    {"Delay Width", "Width", 80, 0, 100, 0.1, "%", 3, false, 1., 32},
    {"Delay Carrier", "Carrier", 110, 10, 2000, 0.1, "Hz", 3, true, 1., 32},
-   {"Granular Grain", "Grain", 80, 12, 250, 1, "ms", 3, true, 1., 32},
+   {"Granular Grain", "Grain", 80, 12, 1000, 1, "ms", 3, true, 1., 32},
    {"Granular Scatter", "Scatter", 35, 0, 100, 0.1, "%", 5, false, 1., 32},
    {"Granular Density", "Density", 50, 0, 100, 0.1, "%", 6, false, 1., 32},
    {"Pattern Tap 1 Time", "Tap 1 time", 25, 5, 100, 0.1, "%", 0, false, 1., 32},
@@ -926,7 +926,8 @@ inline constexpr int ExpandedDelayModeControl(SlotEffect effect)
 {
   return uSpaceHeads + static_cast<int>(effect) - static_cast<int>(SlotEffect::SpaceTapeEcho);
 }
-inline constexpr std::array<unsigned, 7> spaceHeads{1, 2, 4, 3, 5, 6, 7};
+// Head masks per Mode; Spring only plays no heads.
+inline constexpr std::array<unsigned, 8> spaceHeads{1, 2, 4, 3, 5, 6, 7, 0};
 inline constexpr double HeadFraction(int head) { return (head + 1.) / 3.; }
 inline constexpr bool IsExpandedDelay(SlotEffect e)
 { return e >= SlotEffect::SpaceTapeEcho && e <= SlotEffect::GranularDelay; }

@@ -292,7 +292,7 @@ Three tape heads with a spring reverb fed in parallel.
 | **Time** | 5–4000 ms | 420 ms | Tape speed sets the last head interval. The other tape heads are at one and two thirds of that time. |
 | **Feedback** | 0–82% | 32% | Amount returned for another repeat. The return is balanced by the number of enabled heads. |
 | **High cut** | 800–12000 Hz | 5500 Hz | High-cut frequency of the repeats. Slower tape speeds also darken them. |
-| **Saturation** | 0–100% | 22% | Soft tape saturation on repeats. Modulation controls the wow and flutter separately. |
+| **Saturation** | 0–100% | 22% | Drive into the tape. Louder playing compresses smoothly towards a lower ceiling; Modulation controls the wow and flutter separately. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 25% | Wow and flutter on the repeats. Their speed follows the tape speed. |
 | **Spring** | 0–100% | 20% | Level of the spring reverb fed from your playing in parallel with the tape. At zero the spring rings out, then stops using CPU. |
@@ -300,13 +300,13 @@ Three tape heads with a spring reverb fed in parallel.
 
 In the header:
 
-- **Mode** (Head 1, Head 2, Head 3, Heads 1 + 2, Heads 1 + 3, Heads 2 + 3, All heads; starts at Heads 1 + 3) Which heads sound. The enabled heads all feed back.
+- **Mode** (Head 1, Head 2, Head 3, Heads 1 + 2, Heads 1 + 3, Heads 2 + 3, All heads, Spring only; starts at Heads 1 + 3) Which heads sound. The enabled heads all feed back. **Spring only** plays the spring reverb without echoes, like the RE-201's reverb-only setting.
 - **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values. With a quarter-note division, the heads play eighth-note triplets.
 
 Try **Three-head dub** for rhythmic feedback, or **Slap and spring** for a
 short echo with more spring.
 
-**Display:** Head arrivals and feedback in cyan, with a purple spring decay guide. The title estimates the full-speed tape head's maximum pitch motion.
+**Display:** Numbered badges mark the three heads at one, two and three thirds of Time, filled when the Mode plays them; the footer lists their times. Head arrivals and feedback are cyan, with a purple spring decay guide. The title estimates the full-speed tape head's maximum pitch motion.
 
 ## Bucket Brigade
 
@@ -424,7 +424,7 @@ Overlapping fragments that spread, reverse or stutter around the echo time.
 | **Time** | 5–4000 ms | 420 ms | Nominal time into the history. Grain length, scatter and direction spread the repeats around it. |
 | **Feedback** | 0–82% | 35% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
 | **High cut** | 800–12000 Hz | 7000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
-| **Grain** | 12–250 ms | 80 ms | Sets the upper length of each fragment. Density can shorten the grains and launch them more often. |
+| **Grain** | 12–1000 ms | 80 ms | Sets the upper length of each fragment. Density can shorten the grains and launch them more often. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Scatter** | 0–100% | 35% | Range of random grain start times. In Glitch mode it also increases the chance and length of a latch. |
 | **Density** | 0–100% | 50% | Shorten overlapping grains for faster changes and denser textures. |
@@ -440,4 +440,4 @@ The page button at the left of the options row switches between **Main** and
 playback. Each feedback pass can add another shift. Try **Scattered chords**,
 **Reverse shards** and **Broken repeats**.
 
-**Display:** Overlapping windows show grain size and scatter. Arrows show the playback direction. In Glitch, amber illustrates a repeated fragment.
+**Display:** Where a played note comes back. A grey 200 ms note is followed by the fragments of it that return, using the module's own grain schedule, scatter, direction and pitch; fainter fragments are later feedback passes, and amber marks Glitch repeats. The title counts the fragments of the first pass and when they arrive; the footer gives how often a new grain starts, its length and the pitch step per pass.

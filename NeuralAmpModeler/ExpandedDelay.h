@@ -9,6 +9,8 @@
 namespace expanded_delay
 {
 inline double Blend(double from, double to, double amount) { return from + amount * (to - from); }
+// Spiral, sin(x|x|)/|x|, peaks here (0.851) and then falls until Airwindows' own clamp.
+inline constexpr double kSpiralPeak = 1.0796115888910367;
 inline double LowPass(double x, double& state, double pole)
 { return state = grid_fx::Flush(x + pole * (state - x)); }
 inline double Pole(double hz, double rate)
@@ -72,8 +74,10 @@ private:
 };
 
 // Two overlapping Hann grains. Positions are latched at launch so automation
-// cannot step a currently audible read head. Grain starts are deterministic and
-// independent of callback partitioning. Every read is from past samples.
+// cannot step a currently audible read head. Both grains advance at the rate of
+// the latest launch, half a cycle apart, so their windows stay complementary when
+// Grain or Density change. Grain starts are deterministic and independent of
+// callback partitioning. Every read is from past samples.
 class Slices
 {
 public:
@@ -90,16 +94,16 @@ public:
     {
       if (!mStarted)
       {
-        Launch(mGrains[0], delay, length, speed, scatter, reverse, glitch);
+        Launch(mGrains[0], source.MaxDelay(), delay, length, speed, scatter, reverse, glitch);
         mGrains[0].phase = .5;
-        Launch(mGrains[1], delay, length, speed, scatter, reverse, glitch);
+        Launch(mGrains[1], source.MaxDelay(), delay, length, speed, scatter, reverse, glitch);
         mStarted = true;
       }
       if (mGrains[0].phase >= 1. || mGrains[1].phase >= 1.)
       {
         const int expired = mGrains[0].phase >= 1. ? 0 : 1;
         mGrains[1 - expired].phase = .5;
-        Launch(mGrains[expired], delay, length, speed, scatter, reverse, glitch);
+        Launch(mGrains[expired], source.MaxDelay(), delay, length, speed, scatter, reverse, glitch);
       }
     }
     const double phase = mGrains[0].phase;
@@ -112,7 +116,7 @@ public:
     for (auto& grain : mGrains)
     {
       grain.age += grain.step;
-      grain.phase += grain.increment;
+      grain.phase += mIncrement;
     }
     mPosition += 1.;
   }
@@ -124,9 +128,9 @@ private:
   }
   struct Grain
   {
-    double age = 1., offset = 0., step = 0., phase = 0., increment = 1.;
+    double age = 1., offset = 0., step = 0., phase = 0.;
   };
-  void Launch(Grain& grain, double delay, double length, double speed, double scatter, bool reverse, bool glitch)
+  void Launch(Grain& grain, double limit, double delay, double length, double speed, double scatter, bool reverse, bool glitch)
   {
     const double frames = std::max(8., std::round(length * mRate * .001));
     // Normal forward playback at zero scatter reads the ordinary delay tap.
@@ -147,11 +151,15 @@ private:
         --mLatch;
       }
     }
-    grain = {age, reverse || scatter > 0. ? (Random() - .5) * jitter * .24 : 0., step, 0., 1. / frames};
-    grain.offset = std::max(2. + earliest - age, grain.offset);
+    grain = {age, reverse || scatter > 0. ? (Random() - .5) * jitter * .24 : 0., step, 0.};
+    mIncrement = 1. / frames;
+    // Keep the whole grain, both channels included, inside the line: long reverse or
+    // slowed grains and drifting Glitch latches would otherwise read clamped audio.
+    grain.age = std::min(grain.age, limit - 2. - std::max(0., step) * frames - std::abs(grain.offset));
+    grain.offset = std::max(2. + earliest - grain.age, grain.offset);
   }
   std::array<Grain, 2> mGrains{};
-  double mRate = 48000., mPosition = 0., mCaptured = 0.;
+  double mRate = 48000., mPosition = 0., mCaptured = 0., mIncrement = 1.;
   uint32_t mSeed = 0xc283ee81u;
   int mLatch = 0;
   bool mStarted = false;
@@ -203,9 +211,9 @@ public:
     mEffect = effect;
     mRate = rate;
     const int count = effect == SlotEffect::PatternDelay ? 4 : 1;
-    // Host sync reaches eight seconds. Grains can read older audio than Time,
-    // up to 1.5 s during a long reverse grain or a latched glitch.
-    const double seconds = effect == SlotEffect::GranularDelay || effect == SlotEffect::PitchDelay ? 10. : 8.025;
+    // Host sync reaches eight seconds. Grains can read older audio than Time: about
+    // 2 s for a long, pitched reverse grain. Slices clamps every read to the line.
+    const double seconds = effect == SlotEffect::GranularDelay ? 11. : effect == SlotEffect::PitchDelay ? 10. : 8.025;
     for (auto& channel : mChannel)
     {
       channel = {};
@@ -345,7 +353,8 @@ public:
       }
       mCounter = (mCounter + 1) % 16;
       const Stereo dry{left[i], right ? right[i] : left[i]};
-      const double headGain = tape ? 1. / std::sqrt(static_cast<double>(std::popcount(spaceHeads[mMode]))) : 1.;
+      const int heads = tape ? std::popcount(spaceHeads[mMode]) : 1;
+      const double headGain = heads > 0 ? 1. / std::sqrt(static_cast<double>(heads)) : 0.;
       // Normalize the tape return by the sum of the enabled head gains.
       const double feedback = .01 * v[1] * live * mModeGain * headGain;
       Stereo wet{};
@@ -427,7 +436,11 @@ public:
           if (tape)
           {
             const double drive = 1. + .037 * v[3];
-            send = channel.tape.Tick(send, [drive](double x) { return AirwindowsTape::Spiral(x * drive) / drive; });
+            // Clamp at the curve's peak, where its slope is zero: louder playing then
+            // saturates smoothly instead of folding back to quieter echoes.
+            send = channel.tape.Tick(send, [drive](double x) {
+              return AirwindowsTape::Spiral(std::clamp(x * drive, -kSpiralPeak, kSpiralPeak)) / drive;
+            });
           }
           if (analog)
           {

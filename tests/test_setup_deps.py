@@ -87,3 +87,31 @@ class PatchStackTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AsioSdkTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        setup_deps.CACHE = self.root / "cache"
+        setup_deps.CACHE.mkdir()
+        archive = self.root / "ASIO-SDK.zip"
+        import zipfile, hashlib
+        with zipfile.ZipFile(archive, "w") as contents:
+            contents.writestr("ASIOSDK/common/asio.h", "// asio")
+        self.url = archive.as_uri()
+        self.sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_verified_archive_is_unpacked_and_reused(self):
+        destination = setup_deps.prepare_asio_sdk(self.url, self.sha256)
+        self.assertTrue((destination / "ASIOSDK" / "common" / "asio.h").is_file())
+        # A second run trusts the stamp and does not download again.
+        self.assertEqual(setup_deps.prepare_asio_sdk("file:///missing.zip", self.sha256), destination)
+
+    def test_mismatched_archive_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            setup_deps.prepare_asio_sdk(self.url, "0" * 64)
+        self.assertFalse((setup_deps.CACHE / "ASIO_SDK").exists())

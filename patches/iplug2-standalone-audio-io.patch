@@ -1,0 +1,524 @@
+diff --git a/IPlug/APP/IPlugAPP.cpp b/IPlug/APP/IPlugAPP.cpp
+index 92377b0dd..61a8f39fc 100644
+--- a/IPlug/APP/IPlugAPP.cpp
++++ b/IPlug/APP/IPlugAPP.cpp
+@@ -128,8 +128,8 @@ void IPlugAPP::AppProcess(double** inputs, double** outputs, int nFrames)
+ {
+   SetChannelConnections(ERoute::kInput, 0, MaxNChannels(ERoute::kInput), !IsInstrument()); //TODO: go elsewhere - enable inputs
+   SetChannelConnections(ERoute::kOutput, 0, MaxNChannels(ERoute::kOutput), true); //TODO: go elsewhere
+-  AttachBuffers(ERoute::kInput, 0, NChannelsConnected(ERoute::kInput), inputs, GetBlockSize());
+-  AttachBuffers(ERoute::kOutput, 0, NChannelsConnected(ERoute::kOutput), outputs, GetBlockSize());
++  AttachBuffers(ERoute::kInput, 0, NChannelsConnected(ERoute::kInput), inputs, nFrames);
++  AttachBuffers(ERoute::kOutput, 0, NChannelsConnected(ERoute::kOutput), outputs, nFrames);
+   
+   if (mMidiMsgsFromCallback.ElementsAvailable())
+   {
+@@ -167,6 +167,6 @@ void IPlugAPP::AppProcess(double** inputs, double** outputs, int nFrames)
+   //Do not handle Sysex messages here - SendSysexMsgFromUI overridden
+ 
+   ENTER_PARAMS_MUTEX
+-  ProcessBuffers(0.0, GetBlockSize());
++  ProcessBuffers(0.0, nFrames);
+   LEAVE_PARAMS_MUTEX
+ }
+diff --git a/IPlug/APP/IPlugAPP_dialog.cpp b/IPlug/APP/IPlugAPP_dialog.cpp
+index 9919d55b4..e30e60dac 100644
+--- a/IPlug/APP/IPlugAPP_dialog.cpp
++++ b/IPlug/APP/IPlugAPP_dialog.cpp
+@@ -12,6 +12,7 @@
+ #include "config.h"
+ #include "resource.h"
+ 
++#include <algorithm>
+ #include <ctime>
+ 
+ #ifdef OS_WIN
+@@ -74,19 +75,17 @@ void IPlugAPPHost::PopulateAudioInputList(HWND hwndDlg, RtAudio::DeviceInfo* inf
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_L,CB_RESETCONTENT,0,0);
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_R,CB_RESETCONTENT,0,0);
+ 
+-  int i;
+-
+-  for (i=0; i<info->inputChannels -1; i++)
++  // Either side may use any device channel, including the same one.
++  for (unsigned int i = 0; i < info->inputChannels; i++)
+   {
+     buf.SetFormatted(20, "%i", i+1);
+     SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_L,CB_ADDSTRING,0,(LPARAM)buf.Get());
+     SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_R,CB_ADDSTRING,0,(LPARAM)buf.Get());
+   }
+ 
+-  // TEMP
+-  buf.SetFormatted(20, "%i", i+1);
+-  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_R,CB_ADDSTRING,0,(LPARAM)buf.Get());
+-
++  const uint32_t maxChan = std::max(info->inputChannels, 1u);
++  mState.mAudioInChanL = std::clamp<uint32_t>(mState.mAudioInChanL, 1, maxChan);
++  mState.mAudioInChanR = std::clamp<uint32_t>(mState.mAudioInChanR, 1, maxChan);
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_L,CB_SETCURSEL, mState.mAudioInChanL - 1, 0);
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_R,CB_SETCURSEL, mState.mAudioInChanR - 1, 0);
+ }
+@@ -98,19 +97,17 @@ void IPlugAPPHost::PopulateAudioOutputList(HWND hwndDlg, RtAudio::DeviceInfo* in
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_L,CB_RESETCONTENT,0,0);
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_RESETCONTENT,0,0);
+ 
+-  int i;
+-
+-  for (i=0; i<info->outputChannels -1; i++)
++  // Either side may use any device channel, including the same one.
++  for (unsigned int i = 0; i < info->outputChannels; i++)
+   {
+     buf.SetFormatted(20, "%i", i+1);
+     SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_L,CB_ADDSTRING,0,(LPARAM)buf.Get());
+     SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_ADDSTRING,0,(LPARAM)buf.Get());
+   }
+ 
+-  // TEMP
+-  buf.SetFormatted(20, "%i", i+1);
+-  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_ADDSTRING,0,(LPARAM)buf.Get());
+-
++  const uint32_t maxChan = std::max(info->outputChannels, 1u);
++  mState.mAudioOutChanL = std::clamp<uint32_t>(mState.mAudioOutChanL, 1, maxChan);
++  mState.mAudioOutChanR = std::clamp<uint32_t>(mState.mAudioOutChanR, 1, maxChan);
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_L,CB_SETCURSEL, mState.mAudioOutChanL - 1, 0);
+   SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_SETCURSEL, mState.mAudioOutChanR - 1, 0);
+ }
+@@ -194,7 +191,9 @@ void IPlugAPPHost::PopulateAudioDialogs(HWND hwndDlg)
+ //    SendDlgItemMessage(hwndDlg,IDC_CB_MONO_INPUT,BM_SETCHECK, BST_UNCHECKED,0);
+ //  }
+ 
+-//  Populate buffer size combobox
++//  Populate buffer size combobox. This runs again after every driver or device change,
++//  so clear the list first: appended duplicates indexed past kBufferSizeOptions.
++  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_BUF_SIZE,CB_RESETCONTENT,0,0);
+   for (int i = 0; i< kNumBufferSizeOptions; i++)
+   {
+     SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_BUF_SIZE,CB_ADDSTRING,0,(LPARAM)kBufferSizeOptions[i].c_str());
+@@ -386,7 +385,7 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+ 
+             // Reset IO
+             mState.mAudioInChanL = 1;
+-            mState.mAudioInChanR = 2;
++            mState.mAudioInChanR = APP_DEFAULT_INPUT_CHAN_R;
+ 
+             _this->PopulateDriverSpecificControls(hwndDlg);
+           }
+@@ -410,36 +409,24 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+           if (HIWORD(wParam) == CBN_SELCHANGE)
+           {
+             mState.mAudioInChanL = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_IN_L, CB_GETCURSEL, 0, 0) + 1;
+-
+-            //TEMP
+-            mState.mAudioInChanR = mState.mAudioInChanL + 1;
+-            SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_R,CB_SETCURSEL, mState.mAudioInChanR - 1, 0);
+-            //
+           }
+           break;
+ 
+         case IDC_COMBO_AUDIO_IN_R:
+           if (HIWORD(wParam) == CBN_SELCHANGE)
+-            SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_IN_R,CB_SETCURSEL, mState.mAudioInChanR - 1, 0);  // TEMP
+-                mState.mAudioInChanR = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_IN_R, CB_GETCURSEL, 0, 0);
++            mState.mAudioInChanR = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_IN_R, CB_GETCURSEL, 0, 0) + 1;
+           break;
+ 
+         case IDC_COMBO_AUDIO_OUT_L:
+           if (HIWORD(wParam) == CBN_SELCHANGE)
+           {
+             mState.mAudioOutChanL = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_OUT_L, CB_GETCURSEL, 0, 0) + 1;
+-
+-            //TEMP
+-            mState.mAudioOutChanR = mState.mAudioOutChanL + 1;
+-            SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_SETCURSEL, mState.mAudioOutChanR - 1, 0);
+-            //
+           }
+           break;
+ 
+         case IDC_COMBO_AUDIO_OUT_R:
+           if (HIWORD(wParam) == CBN_SELCHANGE)
+-            SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_SETCURSEL, mState.mAudioOutChanR - 1, 0);  // TEMP
+-                mState.mAudioOutChanR = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_OUT_R, CB_GETCURSEL, 0, 0);
++            mState.mAudioOutChanR = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_OUT_R, CB_GETCURSEL, 0, 0) + 1;
+           break;
+ 
+ //        case IDC_CB_MONO_INPUT:
+@@ -453,7 +440,8 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+           if (HIWORD(wParam) == CBN_SELCHANGE)
+           {
+             int iovsidx = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_BUF_SIZE, CB_GETCURSEL, 0, 0);
+-            mState.mBufferSize = atoi(kBufferSizeOptions[iovsidx].c_str());
++            if (iovsidx >= 0 && iovsidx < kNumBufferSizeOptions)
++              mState.mBufferSize = atoi(kBufferSizeOptions[iovsidx].c_str());
+           }
+           break;
+         case IDC_COMBO_AUDIO_SR:
+diff --git a/IPlug/APP/IPlugAPP_host.cpp b/IPlug/APP/IPlugAPP_host.cpp
+index 9a356d6af..4db040945 100644
+--- a/IPlug/APP/IPlugAPP_host.cpp
++++ b/IPlug/APP/IPlugAPP_host.cpp
+@@ -9,6 +9,7 @@
+ */
+ 
+ #include "IPlugAPP_host.h"
++#include <algorithm>
+ 
+ #ifdef OS_WIN
+ #include <sys/stat.h>
+@@ -38,6 +39,7 @@ IPlugAPPHost::~IPlugAPPHost()
+   mExiting = true;
+   
+   CloseAudio();
++  SaveSessionState();
+   
+   if (mMidiIn)
+     mMidiIn->cancelCallback();
+@@ -68,6 +70,7 @@ bool IPlugAPPHost::Init()
+   SelectMIDIDevice(ERoute::kOutput, mState.mMidiOutDev.Get());
+   
+   mIPlug->OnParamReset(kReset);
++  LoadSessionState();
+   mIPlug->OnActivate(true);
+   
+   return true;
+@@ -114,7 +117,7 @@ bool IPlugAPPHost::InitState()
+ 
+       //audio
+       mState.mAudioInChanL = GetPrivateProfileInt("audio", "in1", 1, mINIPath.Get()); // 1 is first audio input
+-      mState.mAudioInChanR = GetPrivateProfileInt("audio", "in2", 2, mINIPath.Get());
++      mState.mAudioInChanR = GetPrivateProfileInt("audio", "in2", APP_DEFAULT_INPUT_CHAN_R, mINIPath.Get());
+       mState.mAudioOutChanL = GetPrivateProfileInt("audio", "out1", 1, mINIPath.Get()); // 1 is first audio output
+       mState.mAudioOutChanR = GetPrivateProfileInt("audio", "out2", 2, mINIPath.Get());
+       //mState.mAudioInIsMono = GetPrivateProfileInt("audio", "monoinput", 0, mINIPath.Get());
+@@ -587,13 +590,32 @@ bool IPlugAPPHost::InitAudio(uint32_t inID, uint32_t outID, uint32_t sr, uint32_
+   CloseAudio();
+ 
+   RtAudio::StreamParameters iParams, oParams;
+-  iParams.deviceId = inID;
+-  iParams.nChannels = GetPlug()->MaxNChannels(ERoute::kInput); // TODO: flexible channel count
+-  iParams.firstChannel = 0; // TODO: flexible channel count
+-
+-  oParams.deviceId = outID;
+-  oParams.nChannels = GetPlug()->MaxNChannels(ERoute::kOutput); // TODO: flexible channel count
+-  oParams.firstChannel = 0; // TODO: flexible channel count
++  const int nPlugIns = GetPlug()->MaxNChannels(ERoute::kInput);
++  const int nPlugOuts = GetPlug()->MaxNChannels(ERoute::kOutput);
++
++  // Open the contiguous span of device channels that covers the chosen L/R channels, then map
++  // each plug-in channel into that span. L and R may name the same device channel.
++  auto mapChannels = [](RtAudio::StreamParameters& params, uint32_t id, int nPlugChans, uint32_t chanL, uint32_t chanR,
++                        uint32_t deviceChans, std::vector<uint32_t>& map) {
++    std::vector<uint32_t> selected;
++    for (int c = 0; c < (deviceChans ? nPlugChans : 0); c++)
++    {
++      const uint32_t chan = c == 0 ? chanL : c == 1 ? chanR : chanL + c;
++      selected.push_back(std::clamp<uint32_t>(chan, 1, deviceChans) - 1);
++    }
++    const uint32_t first = selected.empty() ? 0 : *std::min_element(selected.begin(), selected.end());
++    const uint32_t last = selected.empty() ? 0 : *std::max_element(selected.begin(), selected.end());
++    params.deviceId = id;
++    params.firstChannel = first;
++    params.nChannels = selected.empty() ? 0 : last - first + 1;
++    map.clear();
++    for (auto chan : selected)
++      map.push_back(chan - first);
++  };
++  mapChannels(iParams, inID, nPlugIns, mState.mAudioInChanL, mState.mAudioInChanR,
++              mDAC->getDeviceInfo(inID).inputChannels, mInputMap);
++  mapChannels(oParams, outID, nPlugOuts, mState.mAudioOutChanL, mState.mAudioOutChanR,
++              mDAC->getDeviceInfo(outID).outputChannels, mOutputMap);
+ 
+   mBufferSize = iovs; // mBufferSize may get changed by stream
+ 
+@@ -604,7 +626,19 @@ bool IPlugAPPHost::InitAudio(uint32_t inID, uint32_t outID, uint32_t sr, uint32_
+   options.flags = RTAUDIO_NONINTERLEAVED;
+   // options.streamName = BUNDLE_NAME; // JACK stream name, not used on other streams
+ 
+-  mBufIndex = 0;
++  mStreamInChans = iParams.nChannels;
++  mStreamOutChans = oParams.nChannels;
++  mPlugBuffers.assign(static_cast<size_t>(nPlugIns + nPlugOuts) * APP_SIGNAL_VECTOR_SIZE, 0.);
++  mPlugInputs.clear();
++  mPlugOutputs.clear();
++  for (int c = 0; c < nPlugIns; c++)
++    mPlugInputs.push_back(mPlugBuffers.data() + c * APP_SIGNAL_VECTOR_SIZE);
++  for (int c = 0; c < nPlugOuts; c++)
++    mPlugOutputs.push_back(mPlugBuffers.data() + (nPlugIns + c) * APP_SIGNAL_VECTOR_SIZE);
++  mOutputGain.assign(mOutputMap.size(), 1.);
++  for (size_t c = 0; c < mOutputMap.size(); c++)
++    mOutputGain[c] = 1. / std::count(mOutputMap.begin(), mOutputMap.end(), mOutputMap[c]);
++
+   mSamplesElapsed = 0;
+   mSampleRate = static_cast<double>(sr);
+   mVecWait = 0;
+@@ -623,16 +657,6 @@ bool IPlugAPPHost::InitAudio(uint32_t inID, uint32_t outID, uint32_t sr, uint32_
+     return false;
+   }
+ 
+-  for (int i = 0; i < iParams.nChannels; i++)
+-  {
+-    mInputBufPtrs.Add(nullptr); //will be set in callback
+-  }
+-    
+-  for (int i = 0; i < oParams.nChannels; i++)
+-  {
+-    mOutputBufPtrs.Add(nullptr); //will be set in callback
+-  }
+-    
+   if (mDAC->startStream() != RTAUDIO_NO_ERROR)
+   {
+     DBGMSG("Error starting stream: %s\n", mDAC->getErrorText().c_str());
+@@ -702,60 +726,56 @@ int IPlugAPPHost::AudioCallback(void* pOutputBuffer, void* pInputBuffer, uint32_
+ {
+   IPlugAPPHost* _this = (IPlugAPPHost*) pUserData;
+ 
+-  int nins = _this->GetPlug()->MaxNChannels(ERoute::kInput);
+-  int nouts = _this->GetPlug()->MaxNChannels(ERoute::kOutput);
+-  
++  const uint32_t nStreamIns = _this->mStreamInChans;
++  const uint32_t nStreamOuts = _this->mStreamOutChans;
++
+   double* pInputBufferD = static_cast<double*>(pInputBuffer);
+   double* pOutputBufferD = static_cast<double*>(pOutputBuffer);
+ 
+   bool startWait = _this->mVecWait >= APP_N_VECTOR_WAIT; // wait APP_N_VECTOR_WAIT * iovs before processing audio, to avoid clicks
+   bool doFade = _this->mVecWait == APP_N_VECTOR_WAIT || _this->mAudioEnding;
+-  
++
++  memset(pOutputBufferD, 0, nFrames * nStreamOuts * sizeof(double));
++
+   if (startWait && !_this->mAudioDone)
+   {
+-    if (doFade)
+-      ApplyFades(pInputBufferD, nins, nFrames, _this->mAudioEnding);
+-    
+-    for (int i = 0; i < nFrames; i++)
++    if (doFade && pInputBufferD)
++      ApplyFades(pInputBufferD, nStreamIns, nFrames, _this->mAudioEnding);
++
++    // Devices may deliver any buffer size; process it in blocks of at most APP_SIGNAL_VECTOR_SIZE.
++    for (uint32_t pos = 0; pos < nFrames; pos += APP_SIGNAL_VECTOR_SIZE)
+     {
+-      _this->mBufIndex %= APP_SIGNAL_VECTOR_SIZE;
++      const uint32_t n = std::min<uint32_t>(APP_SIGNAL_VECTOR_SIZE, nFrames - pos);
+ 
+-      if (_this->mBufIndex == 0)
++      for (size_t c = 0; c < _this->mPlugInputs.size(); c++)
+       {
+-        for (int c = 0; c < nins; c++)
+-        {
+-          _this->mInputBufPtrs.Set(c, (pInputBufferD + (c * nFrames)) + i);
+-        }
+-        
+-        for (int c = 0; c < nouts; c++)
+-        {
+-          _this->mOutputBufPtrs.Set(c, (pOutputBufferD + (c * nFrames)) + i);
+-        }
+-        
+-        _this->mIPlug->AppProcess(_this->mInputBufPtrs.GetList(), _this->mOutputBufPtrs.GetList(), APP_SIGNAL_VECTOR_SIZE);
+-
+-        _this->mSamplesElapsed += APP_SIGNAL_VECTOR_SIZE;
++        double* pPlugIn = _this->mPlugInputs[c];
++        if (pInputBufferD && c < _this->mInputMap.size())
++          memcpy(pPlugIn, pInputBufferD + _this->mInputMap[c] * nFrames + pos, n * sizeof(double));
++        else
++          memset(pPlugIn, 0, n * sizeof(double));
+       }
+-      
+-      for (int c = 0; c < nouts; c++)
++
++      _this->mIPlug->AppProcess(_this->mPlugInputs.data(), _this->mPlugOutputs.data(), n);
++      _this->mSamplesElapsed += n;
++
++      for (size_t c = 0; c < _this->mOutputMap.size(); c++)
+       {
+-        pOutputBufferD[c * nFrames + i] *= APP_MULT;
++        const double* pPlugOut = _this->mPlugOutputs[c];
++        double* pOut = pOutputBufferD + _this->mOutputMap[c] * nFrames + pos;
++        const double gain = _this->mOutputGain[c] * APP_MULT;
++        for (uint32_t i = 0; i < n; i++)
++          pOut[i] += pPlugOut[i] * gain;
+       }
+-
+-      _this->mBufIndex++;
+     }
+-    
++
+     if (doFade)
+-      ApplyFades(pOutputBufferD, nouts, nFrames, _this->mAudioEnding);
+-    
++      ApplyFades(pOutputBufferD, nStreamOuts, nFrames, _this->mAudioEnding);
++
+     if (_this->mAudioEnding)
+       _this->mAudioDone = true;
+   }
+-  else
+-  {
+-    memset(pOutputBufferD, 0, nFrames * nouts * sizeof(double));
+-  }
+-  
++
+   _this->mVecWait = std::min(_this->mVecWait + 1, uint32_t(APP_N_VECTOR_WAIT + 1));
+ 
+   return 0;
+@@ -799,3 +819,66 @@ void IPlugAPPHost::ErrorCallback(RtAudioErrorType type, const std::string &error
+   std::cerr << "\nerrorCallback: " << errorText << "\n\n";
+ }
+ 
++#if APP_RESTORE_STATE
++static WDL_String SessionStatePath(const WDL_String& iniPath)
++{
++  WDL_String path(iniPath.Get());
++  path.remove_filepart(true);
++  path.Append("session.state");
++  return path;
++}
++#endif
++
++void IPlugAPPHost::LoadSessionState()
++{
++#if APP_RESTORE_STATE
++  if (IsScreenshotMode() || !mINIPath.GetLength())
++    return;
++
++  FILE* pFile = fopenUTF8(SessionStatePath(mINIPath).Get(), "rb");
++  if (!pFile)
++    return;
++
++  IByteChunk chunk;
++  fseek(pFile, 0, SEEK_END);
++  const long size = ftell(pFile);
++  fseek(pFile, 0, SEEK_SET);
++  const bool read = size > 0 && chunk.Resize(static_cast<int>(size)) == size
++                    && fread(chunk.GetData(), 1, size, pFile) == static_cast<size_t>(size);
++  fclose(pFile);
++
++  if (read && mIPlug->UnserializeState(chunk, 0) >= 0)
++    mIPlug->OnRestoreState();
++#endif
++}
++
++void IPlugAPPHost::SaveSessionState()
++{
++#if APP_RESTORE_STATE
++  if (IsScreenshotMode() || !mINIPath.GetLength())
++    return;
++
++  IByteChunk chunk;
++  if (!mIPlug->SerializeState(chunk) || chunk.Size() <= 0)
++    return;
++
++  // Write a temporary file first so that a failed write keeps the previous session.
++  const WDL_String path = SessionStatePath(mINIPath);
++  WDL_String tempPath(path.Get());
++  tempPath.Append(".tmp");
++  FILE* pFile = fopenUTF8(tempPath.Get(), "wb");
++  if (!pFile)
++    return;
++
++  const bool written = fwrite(chunk.GetData(), 1, chunk.Size(), pFile) == static_cast<size_t>(chunk.Size());
++  if (fclose(pFile) != 0 || !written)
++    return;
++
++#ifdef OS_WIN
++  DeleteFileUTF8(path.Get());
++  MoveFileUTF8(tempPath.Get(), path.Get());
++#else
++  rename(tempPath.Get(), path.Get());
++#endif
++#endif
++}
+diff --git a/IPlug/APP/IPlugAPP_host.h b/IPlug/APP/IPlugAPP_host.h
+index e6712a4c1..de91d08bb 100644
+--- a/IPlug/APP/IPlugAPP_host.h
++++ b/IPlug/APP/IPlugAPP_host.h
+@@ -65,6 +65,17 @@
+ 
+ #define OFF_TEXT "off"
+ 
++// The device input that feeds the plug-in's right input by default. A mono instrument app
++// can set this to 1 so that a single input feeds both sides of a stereo plug-in.
++#ifndef APP_DEFAULT_INPUT_CHAN_R
++  #define APP_DEFAULT_INPUT_CHAN_R 2
++#endif
++
++// Save the plug-in state beside the settings file on exit and restore it on the next launch.
++#ifndef APP_RESTORE_STATE
++  #define APP_RESTORE_STATE 0
++#endif
++
+ extern HWND gHWND;
+ extern HINSTANCE gHINSTANCE;
+ 
+@@ -113,7 +124,7 @@ public:
+     , mMidiOutChan(0)
+     
+     , mAudioInChanL(1)
+-    , mAudioInChanR(2)
++    , mAudioInChanR(APP_DEFAULT_INPUT_CHAN_R)
+     , mAudioOutChanL(1)
+     , mAudioOutChanR(2)
+     {
+@@ -191,6 +202,11 @@ public:
+   ~IPlugAPPHost();
+   
+   bool OpenWindow(HWND pParent);
++
++  /** Restore the state saved by SaveSessionState(), if APP_RESTORE_STATE is enabled */
++  void LoadSessionState();
++  /** Save the plug-in state for the next launch, if APP_RESTORE_STATE is enabled */
++  void SaveSessionState();
+   void CloseWindow();
+ 
+   bool Init();
+@@ -250,7 +266,6 @@ private:
+   uint32_t mSamplesElapsed = 0;
+   uint32_t mVecWait = 0;
+   uint32_t mBufferSize = 512;
+-  uint32_t mBufIndex = 0; // index for signal vector, loops from 0 to mSigVS
+   bool mExiting = false;
+   bool mAudioEnding = false;
+   bool mAudioDone = false;
+@@ -269,8 +284,17 @@ private:
+   std::vector<std::string> mMidiInputDevNames;
+   std::vector<std::string> mMidiOutputDevNames;
+   
+-  WDL_PtrList<double> mInputBufPtrs;
+-  WDL_PtrList<double> mOutputBufPtrs;
++  /** Plug-in I/O buffers of APP_SIGNAL_VECTOR_SIZE frames, allocated before the stream opens */
++  std::vector<double> mPlugBuffers;
++  std::vector<double*> mPlugInputs;
++  std::vector<double*> mPlugOutputs;
++  /** Stream channel read by each plug-in input, and written by each plug-in output */
++  std::vector<uint32_t> mInputMap;
++  std::vector<uint32_t> mOutputMap;
++  /** Output gain: plug-in outputs that share a device channel are averaged */
++  std::vector<double> mOutputGain;
++  uint32_t mStreamInChans = 0;
++  uint32_t mStreamOutChans = 0;
+   
+   friend class IPlugAPP;
+ };
+diff --git a/IPlug/APP/IPlugAPP_main.cpp b/IPlug/APP/IPlugAPP_main.cpp
+index ca035176a..15c9b75c9 100644
+--- a/IPlug/APP/IPlugAPP_main.cpp
++++ b/IPlug/APP/IPlugAPP_main.cpp
+@@ -200,6 +200,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
+ 
+     CreateDialog(gHINSTANCE, MAKEINTRESOURCE(IDD_DIALOG_MAIN), GetDesktopWindow(), IPlugAPPHost::MainDlgProc);
+ 
++#ifdef IDI_ICON1
++    // Dialogs have no class icon; give the window the app icon for its title bar and the taskbar.
++    if (gHWND)
++    {
++      auto loadIcon = [](int metricX, int metricY) {
++        return (LPARAM) LoadImage(gHINSTANCE, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON,
++                                  GetSystemMetrics(metricX), GetSystemMetrics(metricY), 0);
++      };
++      SendMessage(gHWND, WM_SETICON, ICON_BIG, loadIcon(SM_CXICON, SM_CYICON));
++      SendMessage(gHWND, WM_SETICON, ICON_SMALL, loadIcon(SM_CXSMICON, SM_CYSMICON));
++    }
++#endif
++
+ #if !defined _DEBUG || defined NO_IGRAPHICS
+     HMENU menu = GetMenu(gHWND);
+     RemoveMenu(menu, 1, MF_BYPOSITION);

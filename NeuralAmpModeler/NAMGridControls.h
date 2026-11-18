@@ -355,7 +355,7 @@ private:
   grid_modulation::Ring mLastRing;
 };
 // Small vector icons share the browser glyph's 16 px footprint and stroke weight.
-enum class Icon { None, Browse, Settings, Tuner, Modulation, New, Save, Folder, Close };
+enum class Icon { None, Browse, Settings, Tuner, Modulation, New, Save, Folder, Close, Audio };
 inline void DrawIcon(IGraphics& g, Icon icon, float x, float y, IColor ink)
 {
   const auto line = [&](float l, float t, float r, float b) { g.DrawLine(ink, x + l, y + t, x + r, y + b, nullptr, 1.3f); };
@@ -397,6 +397,16 @@ inline void DrawIcon(IGraphics& g, Icon icon, float x, float y, IColor ink)
       break;
     case Icon::Close:
       line(-4, -4, 4, 4); line(-4, 4, 4, -4);
+      break;
+    case Icon::Audio: // a speaker with two sound waves
+      line(-8, -3, -5, -3); line(-5, -3, -1, -7); line(-1, -7, -1, 7); line(-1, 7, -5, 3); line(-5, 3, -8, 3);
+      line(-8, 3, -8, -3);
+      for (const float radius : {4.f, 7.5f})
+        for (int i = 0; i < 6; ++i)
+        {
+          const float a0 = (i / 6.f - .5f) * 1.6f, a1 = ((i + 1) / 6.f - .5f) * 1.6f;
+          line(1.f + radius * std::cos(a0), radius * std::sin(a0), 1.f + radius * std::cos(a1), radius * std::sin(a1));
+        }
       break;
     default: break;
   }

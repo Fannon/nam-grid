@@ -41,6 +41,16 @@
 #define PLUG_MAX_WIDTH PLUG_WIDTH * 4
 #define PLUG_MAX_HEIGHT PLUG_HEIGHT * 4
 
+// Standalone app (APP target). The host processes device buffers in blocks of at most
+// APP_SIGNAL_VECTOR_SIZE frames; it adds no buffering latency. A guitar on device input 1
+// feeds both plug-in inputs by default, so mono rigs keep full level.
+#define APP_N_VECTOR_WAIT 0
+#define APP_MULT 1
+#define APP_COPY_AUV3 0
+#define APP_SIGNAL_VECTOR_SIZE 64
+#define APP_DEFAULT_INPUT_CHAN_R 1
+#define APP_RESTORE_STATE 1 // reopen the last rig on the next launch
+
 #define VST3_SUBCATEGORY "Fx"
 
 #define ROBOTO_FN "Roboto-Regular.ttf"

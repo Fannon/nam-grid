@@ -16,11 +16,17 @@ inline constexpr int inCenterX = (4 + sidebarRight) / 2, inputMeterLeft = inCent
 inline constexpr int sideCenterX = (returnRight + width) / 2, outputMeterLeft = sideCenterX - 38;
 inline constexpr float cardCornerRadius = 4.f;
 // Header: one 28 px row. Scenes and the rig preset on the left, the preset file actions in the
-// middle, and the views (Modulation, Tuner, the Settings icon) pinned to the right edge.
+// middle, and the views (Modulation, Tuner, the Settings icon) pinned to the right edge. The
+// standalone app adds its Audio settings icon left of Settings.
 inline constexpr int headerTop = 14, headerBottom = 42, headerY = (headerTop + headerBottom) / 2;
 inline constexpr int sceneLeft = 165, sceneWidth = 28, scenePitch = 32;
 inline constexpr int settingsRight = width - headerTop, settingsLeft = settingsRight - 28;
+#ifdef APP_API
+inline constexpr int audioRight = settingsLeft - 6, audioLeft = audioRight - 28;
+inline constexpr int tunerRight = audioLeft - 6, tunerLeft = tunerRight - 76;
+#else
 inline constexpr int tunerRight = settingsLeft - 6, tunerLeft = tunerRight - 76;
+#endif
 inline constexpr int modulationRight = tunerLeft - 6, modulationLeft = modulationRight - 110;
 // The rig preset name takes the remaining width; its file actions keep a group gap before the views.
 inline constexpr int presetLeft = 269, presetRight = modulationLeft - 164;

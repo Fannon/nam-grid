@@ -6,8 +6,9 @@ namespace grid_ui
 namespace pattern_view
 {
 inline IRECT Plot()
-{ return {grid_layout::visualizationLeft + 12, grid_layout::plotTop, grid_layout::visualizationRight - 12, grid_layout::plotBottom}; }
-inline IRECT Taps(const IRECT& plot) { return {plot.L + 14.f, plot.T + 12.f, plot.R - 14.f, plot.B - 66.f}; }
+{ return {grid_layout::visualizationLeft + 12, grid_layout::plotTop, grid_layout::visualizationRight - 12, grid_layout::chartBottom}; }
+// The taps leave room for time labels below their axis, above the controls row.
+inline IRECT Taps(const IRECT& plot) { return {plot.L + 14.f, plot.T + 12.f, plot.R - 14.f, plot.B - 74.f}; }
 inline IRECT Controls(const IRECT& plot) { return {plot.L, plot.B - 58.f, plot.R, plot.B - 35.f}; }
 inline IRECT Returns(const IRECT& plot) { return {plot.L, plot.B - 29.f, plot.R, plot.B}; }
 inline float X(const IRECT& area, double time) { return area.L + area.W() * static_cast<float>(time); }
@@ -94,13 +95,9 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const std::array<IColor, 3> headColors{IColor(255, 96, 224, 186), delayColor, IColor(255, 124, 166, 255)};
       const int playing = std::popcount(spaceHeads[mode]);
       const double spring = .01 * value(uEchoSpring);
-      // With heads playing, the badges and marks replace the footer, so the chart takes its
-      // row too, stopping where the marks' labels still clear the level meters.
-      const IRECT tall(plot.L, plot.T, plot.R, grid_layout::plotFooterBottom - 6.f);
-      const auto timeX = [&](const IRECT& r) { return [&r, horizon](double t) { return r.L + (r.W() - 2.f) * static_cast<float>(t / horizon); }; };
-      const IRECT chart = playing > 0 && TimeMarkCount(tall, timeX(tall)) > 0 ? tall : plot;
+      const IRECT chart = plot; // The full-height chart: its footer text joins the hover help.
       PlotGrid(g, chart);
-      const int marks = PlotTimeMarks(g, chart, timeX(chart));
+      const int marks = PlotTimeMarks(g, chart, [&](double t) { return chart.L + (chart.W() - 2.f) * static_cast<float>(t / horizon); });
       if (spring > 0.)
         PlotCurve(g, chart, [&](double x) {
           const double t = x * horizon;

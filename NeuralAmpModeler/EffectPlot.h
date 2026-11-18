@@ -85,7 +85,14 @@ public:
     }
     return IContainerBase::IsDirty();
   }
-  void Begin() { mDetail.clear(); mRegionCount = 0; mFrequency = false; mTimeCount = 0; mLabelCount = 0; }
+  void Begin() { mDetail.clear(); mLegend.clear(); mRegionCount = 0; mFrequency = false; mTimeCount = 0; mLabelCount = 0; }
+  // Footer text of a chart that uses the footer row, shown in the hover help instead.
+  void Legend(const char* text)
+  {
+    if (!*text) return;
+    if (!mLegend.empty()) mLegend += " | ";
+    mLegend += text;
+  }
   // Time-mark labels, drawn above the chart content.
   void TimeLabel(const IRECT& box, const char* text)
   {
@@ -109,8 +116,9 @@ public:
   }
   void End(IGraphics& g)
   {
-    bool changed = mDetail != GetTooltip();
-    if (changed) SetTooltip(mDetail.c_str());
+    const std::string tooltip = mLegend.empty() ? mDetail : mDetail.empty() ? mLegend : mDetail + "\n" + mLegend;
+    bool changed = tooltip != GetTooltip();
+    if (changed) SetTooltip(tooltip.c_str());
     for (size_t i = 0; i < mRegions.size(); ++i)
     {
       auto& region = mRegions[i];
@@ -140,7 +148,7 @@ private:
   struct Region { RegionControl* control = nullptr; IRECT bounds; std::string text; };
   std::array<Region, 4> mRegions{};
   size_t mRegionCount = 0;
-  std::string mDetail;
+  std::string mDetail, mLegend;
   IRECT mFrequencyBounds;
   double mLow = 20., mHigh = 20000.;
   bool mFrequency = false, mLogarithmic = true, mHovered = false;
@@ -171,8 +179,14 @@ inline void PlotRegionDetail(IGraphics& g, const IRECT& bounds, const char* deta
 {
   if (auto* help = CurrentPlotHelp(g)) help->RegionDetail(bounds, detail);
 }
+// A chart that reaches into the footer row has no footer: its text joins the hover help.
 inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const char* right = "")
 {
+  if (p.B > grid_layout::plotBottom + .5f)
+  {
+    if (auto* help = CurrentPlotHelp(g)) { help->Legend(left); help->Legend(right); }
+    return;
+  }
   const float split = *right ? p.R - 92.f : p.R;
   g.DrawText(Text(13.f, muted), left, IRECT(p.L, grid_layout::plotFooterTop, split, grid_layout::plotFooterBottom));
   g.DrawText(Text(13.f, muted, EAlign::Far), right, IRECT(split, grid_layout::plotFooterTop, p.R, grid_layout::plotFooterBottom));
@@ -222,8 +236,8 @@ TimeColumns InvertTime(const IRECT& p, X& x)
 // labelled at the bottom. `x` maps seconds to a pixel, linearly or not, in either direction:
 // histories count back from now at the right edge. A mark is drawn only inside the plot and
 // at least 44 px from time zero and from the previous mark, so labels never crowd. Labels
-// straddle the bottom axis, `drop` pixels below the chart, clear of the footer text; pass 0
-// where other text sits directly under the chart. The axis also gets the hover time readout.
+// sit centred below the x-axis, so a chart leaves timeLabelGap + timeLabelHeight pixels
+// under it. The axis also gets the hover time readout.
 // Returns how many marks were drawn; with none, the plot still needs its time span in words.
 inline constexpr float kTimeLabelWidth = 38.f;
 // The marks that fit, in order: visit(seconds, pixel). Returns how many there are.
@@ -256,7 +270,7 @@ int ForEachTimeMark(const IRECT& p, X& x, Visit&& visit)
 template<class X>
 int TimeMarkCount(const IRECT& p, X&& x) { return ForEachTimeMark(p, x, [](double, float) {}); }
 template<class X>
-int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true, float drop = 5.f)
+int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true)
 {
   auto* help = cursor ? CurrentPlotHelp(g) : nullptr;
   if (help) help->Time(p, InvertTime(p, x));
@@ -266,8 +280,8 @@ int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true, float
     WDL_String text;
     if (seconds < 1.) text.SetFormatted(16, "%.0f ms", seconds * 1000.);
     else text.SetFormatted(16, "%.0f s", seconds);
-    const float top = p.B - 12.f + drop;
-    const IRECT box(at - .5f * label, top, at + .5f * label, top + 12.f);
+    const float top = p.B + grid_layout::timeLabelGap;
+    const IRECT box(at - .5f * label, top, at + .5f * label, top + grid_layout::timeLabelHeight);
     if (help) help->TimeLabel(box, text.Get());
     else DrawTimeLabel(g, box, text.Get());
   });

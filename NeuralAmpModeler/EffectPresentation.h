@@ -51,6 +51,22 @@ inline int DetailPage(SlotEffect e, int p)
   if (e == SlotEffect::GranularDelay && p == uEchoInterval) return 1;
   return 0;
 }
+// The dynamics and meter displays keep their footer scales (none has time marks), and
+// Multiband's handles assume the standard chart. Every other display uses the footer row,
+// with time labels below its axis, and moves its footer text into the hover help.
+inline bool KeepsFooter(SlotEffect e)
+{
+  switch (e)
+  {
+    case SlotEffect::Multiband:
+    case SlotEffect::NoiseGate: case SlotEffect::NoisePrint: case SlotEffect::AIGate:
+    case SlotEffect::SmoothComp: case SlotEffect::PunchComp: case SlotEffect::ButterComp: case SlotEffect::PedalComp:
+    case SlotEffect::Limiter: case SlotEffect::DigitalBlack: case SlotEffect::ConsoleColour:
+    case SlotEffect::OutboardChannel: case SlotEffect::Utility:
+      return true;
+    default: return false;
+  }
+}
 inline int DetailPages(SlotEffect e)
 { return e == SlotEffect::PatternDelay ? 3 : e == SlotEffect::GranularDelay ? 2 : 1; }
 inline const char* PageLabel(SlotEffect e, int page)

@@ -13,19 +13,18 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
 {
   const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,effect_modes::cosmicCount-1);
   const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
-  // No subtitles: the hover help explains both views and their scales, so the charts take
-  // that room, reaching into the footer row whenever the delay lines carry time marks.
+  // No subtitles: the hover help explains both views and their scales. The gap between the
+  // charts holds the upper chart's time labels.
   const double longest=*std::max_element(plan.seconds.begin(),plan.seconds.begin()+plan.count);
   const double horizon=effect_preview::TimeHorizon(longest*1.03);
   const auto split=[&](float bottom, IRECT& top, IRECT& below) {
     const float middle=plot.T+std::round((bottom-plot.T)*.58f);
     top=IRECT(plot.L,plot.T,plot.R,middle);
-    below=IRECT(plot.L,middle+14.f,plot.R,bottom);
+    below=IRECT(plot.L,middle+18.f,plot.R,bottom);
   };
   const auto lineX=[&](const IRECT& r) { return [&r,horizon](double t) { return r.L+r.W()*static_cast<float>(t/horizon); }; };
   IRECT response, lines;
-  split(grid_layout::plotFooterBottom-6.f,response,lines);
-  if(!TimeMarkCount(lines,lineX(lines))) split(plot.B,response,lines);
+  split(plot.B,response,lines);
   WDL_String text;
   PlotTitle(g,plot,delayColor,"Measured echo response / delay lines");
   PlotDetail(g,plot,"Measured response above; delay-line network below. Hover each view for details.");

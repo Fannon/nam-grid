@@ -82,8 +82,10 @@ Previous/next stays within the current effect category or capture/IR folder. Add
 
 Displays help answer practical questions: Is the compressor working? How dark are the repeats? Where is the EQ cutting? Some show live audio; others sketch the current settings. Their labels identify which is which.
 
-Hover over a graph for its explanation and colour legend. Captions show live
-measurements and useful derived information; axis ranges stay visible.
+Hover over a graph for its explanation, colour legend and axis ranges. Captions
+show live measurements and useful derived information. Displays whose footer would
+only repeat a legend or scale leave it to the hover help and use that row for the
+chart; footers with live values, such as decay times and dynamics scales, stay.
 
 Frequency charts, including the Signal Monitor spectrum, show a vertical line
 at the pointer and a label such as **698.5 Hz | F5**. The frequency follows that

@@ -19,7 +19,11 @@ namespace grid_ui
 {
 const IColor background = COLOR_BLACK;
 const IColor surface(255, 23, 26, 30), border(255, 78, 85, 95), muted(255, 183, 190, 200);
-const IColor accent(255, 113, 199, 178), text(255, 232, 235, 239);
+// The accent marks selection and interaction outside modules. It is a neutral near-white so it
+// never reads as a module's colour; hues belong to the module palette below.
+const IColor accent(255, 240, 243, 247), text(255, 232, 235, 239);
+// In tune: the tuner's green for within +/-3 cents.
+const IColor tuneColor(255, 113, 199, 178);
 const IColor editorBackground(255, 14, 16, 19);
 // Stable semantic palette. Future effects already have reserved colors.
 const IColor ampColor(255, 238, 164, 90), cabColor(255, 109, 174, 255), pedalColor(255, 135, 216, 107);
@@ -2143,7 +2147,7 @@ private:
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    const IRECT plot(grid_layout::visualizationLeft + 12,grid_layout::plotTop,bounds.R - 12,grid_layout::plotBottom);
+    const IRECT plot(grid_layout::visualizationLeft + 12,grid_layout::plotTop,bounds.R - 12,grid_layout::chartBottom);
     PlotTitle(g,plot,Tone(SlotEffect::LoFiTape,{}).first,status);
     PlotDetail(g,plot,"Measured head motion | +/-60 cents");
     // Newest at the right: marks count back from now.
@@ -2381,9 +2385,10 @@ private:
       return;
     }
     const IRECT box(grid_layout::visualizationLeft, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom);
-    const IRECT plot(grid_layout::visualizationLeft + 12, grid_layout::plotTop, box.R - 12, grid_layout::plotBottom);
-    VisualizationBackground(g, box);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
+    const IRECT plot(grid_layout::visualizationLeft + 12, grid_layout::plotTop, box.R - 12,
+                     effect_presentation::KeepsFooter(effect) ? grid_layout::plotBottom : grid_layout::chartBottom);
+    VisualizationBackground(g, box);
     const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
     const auto levels = [&](float floorDB, const IRECT& area) {
       for (int i = 0; i <= 3; ++i)
@@ -3925,6 +3930,18 @@ private:
 };
 
 
+// Hover help for the tuner's pitch history, which has no header or legend of its own.
+class TunerHistoryHelp : public IControl
+{
+public:
+  explicit TunerHistoryHelp(const IRECT& bounds) : IControl(bounds)
+  {
+    SetIgnoreMouse(false);
+    SetTooltip("Pitch history: the last 6 seconds, now at the right edge, within ±25 cents. "
+               "Green = within ±3 cents; larger offsets pin to the edge.");
+  }
+  void Draw(IGraphics&) override {}
+};
 class NAMGridTunerControl : public IContainerBase
 {
   // Left section: the note readout, then Mute output and Reference in a column; the tuning
@@ -3936,9 +3953,12 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui;
-    AddChildControl(new Button(IRECT(grid_layout::width - 104, 488, grid_layout::width - 24, 512), [this](IControl*) {
+    // Close sits in the left section, above Mute output, so the history can use the full height.
+    AddChildControl(new Button(IRECT(kLeftR - 80, 488, kLeftR, 512), [this](IControl*) {
       DisableTunerFromUI(GetUI());
     }, "Close", Icon::Close));
+    AddChildControl(new TunerHistoryHelp(IRECT(kHistoryL, grid_layout::visualizationTop,
+                                               grid_layout::visualizationRight, grid_layout::visualizationBottom)));
     // Right column of the left section: Mute output on top, Reference below at module knob size.
     AddChildControl(new Toggle(IRECT(kColumnL, 520, kLeftR, 546), kTunerMute, "Mute output"))
       ->SetTooltip("Silence the output while tuning. Turning the tuner off always restores sound.");
@@ -3968,7 +3988,7 @@ public:
     const double frequency = PLUG()->TunerFrequency();
     const auto pitch = grid_tuner::ToPitch(frequency, reference);
     const auto pitchColor = [](double cents) {
-      return std::abs(cents) <= 3. ? accent : std::abs(cents) <= 10. ? IColor(255, 238, 187, 97) : IColor(255, 235, 135, 119);
+      return std::abs(cents) <= 3. ? tuneColor : std::abs(cents) <= 10. ? IColor(255, 238, 187, 97) : IColor(255, 235, 135, 119);
     };
     if (pitch.valid)
     {
@@ -3984,7 +4004,7 @@ public:
     // Tuning bar across the whole left section: ±50 cents, the ±3 cent window shaded green.
     const IRECT bar(kLeftL, 664, kLeftR, 684);
     const auto barX = [&](double cents) { return bar.MW() + bar.W() * .5f * static_cast<float>(std::clamp(cents, -50., 50.) / 50.); };
-    g.FillRect(accent.WithOpacity(.15f), IRECT(barX(-3.), bar.T + 4, barX(3.), bar.B - 4));
+    g.FillRect(tuneColor.WithOpacity(.15f), IRECT(barX(-3.), bar.T + 4, barX(3.), bar.B - 4));
     g.DrawLine(border, bar.L, bar.MH(), bar.R, bar.MH());
     for (int cents : {-50, -25, -10, 10, 25, 50})
       g.DrawLine(border, barX(cents), bar.MH() - 4, barX(cents), bar.MH() + 4);
@@ -3995,14 +4015,15 @@ public:
       g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 3, bar.T + 3, x + 3, bar.B - 3), 1.5f);
     }
 
-    const IRECT panel(kHistoryL, 520, grid_layout::visualizationRight, grid_layout::visualizationBottom), plot(kHistoryL + 38, 538, panel.R - 12, panel.B - 42);
+    // Full height: the cent ticks and the time marks, counted back from now at the right,
+    // label the axes, so neither a header nor a legend is needed.
+    const IRECT panel(kHistoryL, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom),
+                plot(kHistoryL + 38, panel.T + 12, panel.R - 12, panel.B - 12 - grid_layout::timeLabelGap - grid_layout::timeLabelHeight);
     VisualizationBackground(g, panel);
-    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(kHistoryL, grid_layout::moduleHeaderTop, kHistoryL + 150, grid_layout::moduleHeaderTop + 28));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(kHistoryL + 150, grid_layout::moduleHeaderTop + 4, grid_layout::width - 118, grid_layout::moduleHeaderTop + 28));
     // Zoomed to ±25 cents, so the last few cents of tuning are visible; larger offsets pin to the edge.
     constexpr double range = 25.;
     const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -range, range) / range); };
-    g.FillRect(accent.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
+    g.FillRect(tuneColor.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
     for (int cents : {-25, -10, 0, 10, 25})
     {
       const float y = yFor(cents);
@@ -4029,8 +4050,6 @@ public:
       else g.FillCircle(color, x, y, 1.5f);
       previous = current; previousTime = point.milliseconds; previousX = x; previousY = y;
     }
-    g.DrawText(Text(13.f, muted), "6 s ago", IRECT(plot.L, panel.B - 20, plot.L + 100, panel.B));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, panel.B - 20, plot.R, panel.B));
     g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents.", IRECT(24, panel.B - 20, kLeftR, panel.B + 3));
   }
 };

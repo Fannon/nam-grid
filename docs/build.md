@@ -42,7 +42,7 @@ reproducible source of these changes.
 | --- | --- | --- | --- |
 | `NeuralAmpModelerCore` | [sdatkinson/NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) `v0.6.0` | `nam-core-a2-planar`: planar NEON A2 kernels from [Core PR #313](https://github.com/sdatkinson/NeuralAmpModelerCore/pull/313) | PR #313 is released |
 | `AudioDSPTools` | [sdatkinson/AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) `v0.1.2` | `audio-dsp-001` WAV decoding safety and polarity, `002` resampler warm-up, `003` GCC build, `004` stereo IR loading | `v0.2.0` covers `004` with a different stereo API ([#28](https://github.com/sdatkinson/AudioDSPTools/pull/28)) and the alias half of `003` ([#26](https://github.com/sdatkinson/AudioDSPTools/pull/26)); `001`/`002` are local |
-| `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract`, `iplug2-clap-latency-reporting` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
+| `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract`, `iplug2-clap-latency-reporting` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, `iplug2-standalone-audio-io` (standalone host: any device buffer size, working channel pickers, session restore), and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
 | `eigen` | [libeigen/eigen](https://gitlab.com/libeigen/eigen) `ed8cda3` | None | |
 
 Core's own nested `Dependencies/eigen` and `Dependencies/AudioDSPTools` are not used;
@@ -192,6 +192,33 @@ Automatic deployment is disabled. Point your DAW at `build/<platform>/release/ou
 evaluation, or copy the artifact to a separate test location, then rescan plugins.
 Use `-DNAM_FORMATS=CLAP` to build only CLAP. Requested formats fail configuration if
 their SDKs are absent.
+
+## Standalone app
+
+`bash build.sh --app` also builds an experimental Windows standalone app,
+`nam-grid.exe`, in the same `out/` folder (CMake: add `APP` to `NAM_FORMATS`). It
+uses iPlug2's standalone host with RtAudio, so it plays through ASIO or DirectSound
+without a DAW. Pull-request CI uploads it as the `standalone-app-windows-x64`
+artifact; it is not part of the plugin release archive.
+
+- **File > Audio Settings** (Ctrl+,) chooses the driver, device, sample rate and
+  buffer size. ASIO uses one device for input and output; **Driver Panel...** opens
+  the driver's own control panel while audio runs.
+- **Input L** and **Input R** default to device input 1 on both sides, so a guitar
+  on input 1 feeds a mono rig at full level. Choose different inputs for a stereo
+  source. Outputs that share a device channel are averaged.
+- The host processes device buffers in blocks of at most 64 frames and adds no
+  latency beyond the driver's buffer.
+- The app reopens the last rig on launch. It keeps the audio settings and that
+  session in `%LOCALAPPDATA%\nam-grid\` (`settings.ini`, `session.state`); the
+  library and `settings.json` are shared with the plugins.
+- `nam-grid.exe --no-io` starts without audio, and `--screenshot <file.png>`
+  saves the editor and exits.
+
+The ASIO host files come with RtAudio from the Steinberg ASIO SDK and fall under
+its license; check it before distributing the app. The macOS standalone target
+also needs an `Info.plist` and menu resources that this repository does not have
+yet.
 
 ## CI and releases
 

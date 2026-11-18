@@ -7,13 +7,14 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash build.sh [--setup] [--test] [--jobs N]
+Usage: bash build.sh [--setup] [--test] [--app] [--jobs N]
 
 Build Release CLAP and VST3 plugins. Dependencies are prepared on the first
 run; use --setup again after pulling dependency or patch changes.
 
   --setup     Refresh pinned submodules, SDKs and dependency patches
   --test      Build and run CTest and Python tests as well
+  --app       Also build the experimental Windows standalone app (nam-grid.exe)
   --jobs N    Compile up to N files in parallel (default: 3)
   -h, --help  Show this help
 
@@ -28,11 +29,13 @@ EOF
 
 setup=0
 tests=0
+app=0
 jobs=3
 while (( $# )); do
   case "$1" in
     --setup) setup=1; shift ;;
     --test) tests=1; shift ;;
+    --app) app=1; shift ;;
     --jobs)
       if [[ ${2:-} =~ ^[1-9][0-9]*$ ]]; then
         jobs=$2; shift 2
@@ -52,6 +55,9 @@ case "$(uname -s)" in
   *) echo 'Error: supported platforms are Windows (Git Bash), macOS and Linux.' >&2; exit 1 ;;
 esac
 build_dir="build/$platform/release"
+if [[ $app == 1 && $platform != windows ]]; then
+  echo 'Error: the standalone app (--app) is only set up for Windows.' >&2; exit 2
+fi
 
 # The CMake installer may not have been on PATH when this terminal was opened.
 if [[ $platform == windows ]] && ! command -v cmake >/dev/null 2>&1; then
@@ -119,8 +125,13 @@ if [[ ! -f "$build_dir/CMakeCache.txt" ]]; then
   fi
 fi
 # Apple's Bash 3.2 treats an empty array as unset under nounset.
-cmake -S . -B "$build_dir" ${generator[@]+"${generator[@]}"} -DCMAKE_BUILD_TYPE=Release '-DNAM_FORMATS=CLAP;VST3'
+formats='CLAP;VST3'
 targets=(nam-grid-clap nam-grid-vst3)
+if [[ $app == 1 ]]; then
+  formats+=';APP'
+  targets+=(nam-grid-app)
+fi
+cmake -S . -B "$build_dir" ${generator[@]+"${generator[@]}"} -DCMAKE_BUILD_TYPE=Release "-DNAM_FORMATS=$formats"
 if [[ $tests == 1 ]]; then
   targets+=(nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract
     nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests
@@ -139,3 +150,6 @@ if [[ $tests == 1 ]]; then
   "$python_cmd" -m unittest discover -s tests -p 'test_*.py'
 fi
 printf '\nBuild complete. CLAP and VST3 plugins: %s/out/\n' "$build_dir"
+if [[ $app == 1 ]]; then
+  printf 'Standalone app: %s/out/nam-grid.exe\n' "$build_dir"
+fi

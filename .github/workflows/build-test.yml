@@ -74,7 +74,7 @@ jobs:
       # environment lets sccache wrap cl.exe.
       - uses: ilammy/msvc-dev-cmd@v1.13.0
         if: runner.os == 'Windows'
-      - run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release "-DNAM_FORMATS=CLAP;VST3;APP"
         if: runner.os == 'Windows'
       - run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release
         if: runner.os == 'macOS'
@@ -84,6 +84,25 @@ jobs:
           CC: gcc-12
           CXX: g++-12
       - run: cmake --build build/ci --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
+      # Experimental standalone app: built and uploaded on its own, not part of the
+      # plugin release archive (see docs/build.md#standalone-app). Archive it before
+      # the software OpenGL DLLs are copied next to every executable.
+      - name: Build and archive the standalone app
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cmake --build build/ci --config Release --target nam-grid-app --parallel 3
+          mkdir -p build/ci/standalone
+          cp build/ci/out/nam-grid.exe build/ci/out/ThirdPartyNotices.txt build/ci/standalone/
+          cp -r build/ci/out/notices build/ci/standalone/
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          # Outside the release download pattern (nam-grid-*).
+          name: standalone-app-${{ matrix.platform }}
+          path: build/ci/standalone/
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 14 }}
       - name: Fetch main for the permanent ID check
         # test_parameter_ids.py checks that a branch only appends parameter, module and
         # schema IDs after main's. Without main it checks the tree alone.

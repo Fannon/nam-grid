@@ -1071,3 +1071,45 @@ on:
 The single-precision exponential approximation uses the polynomial
 coefficients of the Cephes Mathematical Library (Stephen L. Moshier). No
 third-party source file or runtime dependency is included.
+
+
+Standalone app: RtAudio, RtMidi and ASIO
+----------------------------------------
+
+The experimental Windows standalone app (nam-grid.exe) is not part of the plugin
+downloads. It adds iPlug2's standalone host, as modified in
+patches/iplug2-standalone-audio-io.patch, and the following components.
+
+RtAudio: a set of realtime audio i/o C++ classes
+Copyright (c) 2001-2023 Gary P. Scavone
+
+RtMidi: realtime MIDI i/o C++ classes
+Copyright (c) 2003-2019 Gary P. Scavone
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+Any person wishing to distribute modifications to the Software is asked to send
+the modifications to the original developer so that they can be incorporated
+into the canonical version. This is, however, not a binding provision of this
+license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+ASIO is a trademark and software of Steinberg Media Technologies GmbH. The
+standalone app uses the ASIO host interface files that RtAudio distributes from
+the Steinberg ASIO SDK (Steinberg Audio Stream I/O API, (c) 1996 Steinberg Soft-
+und Hardware GmbH), subject to the Steinberg ASIO SDK license.

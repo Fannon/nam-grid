@@ -109,7 +109,9 @@ Tests cover all modes' automation, block independence, allocations, dry signal, 
 
 ## Velvet Chamber, Solstice Hall and Mooncourt
 
-These original NAM Grid voicings share a tapped stereo reflection pair, three serial stereo input allpasses and an eight-line feedback delay network. The first two lines provide a near reflection, an opposite-channel side reflection and a far wall. Reflections and diffused excitation reach the output in different proportions. Velvet Chamber has short walls and a strong diffused return. Solstice Hall attenuates both early returns and uses the longest tank. Mooncourt puts a stronger, later wall in front of a medium-length tank.
+These original NAM Grid voicings share a tapped stereo reflection pair, three serial stereo input allpasses and an eight-line feedback delay network. The first two lines provide a near reflection, an opposite-channel side reflection and a far wall. Reflections and diffused excitation reach the output in different proportions. Velvet Chamber has short walls and a strong diffused return. Solstice Hall attenuates both early returns and uses the longest tank. Mooncourt has the latest walls, the longest diffusers and twice the decay time at a given Feedback.
+
+Time sets the size of these spaces. The walls and the decay follow the square root of Time, normalized to 100 ms. The diffusers and tail lines follow its 0.35 power, so long settings keep a dense tail instead of separating into echoes. Tail loop gain is raised to the ratio of the two scales, divided by each space's decay scale, so decay grows with the wall scale even though the lines grow more slowly.
 
 Warp separates the left and right walls and spreads the tank lengths. Density raises input diffusion and the angle of the orthogonal late-field rotations. Modulation moves the diffusers and tail delays while the wall taps stay stationary at settled Time and Warp. The input and loop filters apply the 80 Hz low cut and adjustable High cut. Draining takes allpass and feedback gains to zero. All sixteen lines reuse the prepared bank.
 

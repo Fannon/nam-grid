@@ -22,7 +22,7 @@ The first six styles are directly inspired by the algorithms of [Valhalla Superm
 | **Photon Plate** | Faster onset and denser early reflections from a multi-tap, cross-coupled digital plate tank |
 | **Velvet Chamber** | A short, soft cluster around the pick, with a dense stereo tail |
 | **Solstice Hall** | A quieter onset and a broad, gently moving tail that leaves space for the attack |
-| **Mooncourt** | A distinct far-wall reflection followed by a more open wash |
+| **Mooncourt** | The largest space: a distant first reflection, then a long, slowly blooming tail |
 
 Changing the style fades out the old tail before the new style comes in.
 
@@ -73,7 +73,7 @@ All three process at the host sample rate with damping inside the feedback paths
 
 ## Chamber, hall and gallery
 
-Try **Velvet tracking room**, **Solstice afterglow** and **Across the mooncourt** on the same phrase. Listen to the space between the pick and the first reflection, then mute the strings to hear the late decay. Time moves the walls and scales the tail delays. Warp widens the spacing between the stereo reflections. Density softens their entry into the tail. For a cleaner chamber or hall, reduce Modulation to zero and open High cut. For a darker vintage sound, lower High cut and add a little Modulation.
+Try **Velvet tracking room**, **Solstice afterglow** and **Across the mooncourt** on the same phrase. Listen to the space between the pick and the first reflection, then mute the strings to hear the late decay. Time sets the size of the room: it moves the walls and lengthens the decay, while the tail stays dense even at long settings. Warp widens the spacing between the stereo reflections. Density softens their entry into the tail. For a cleaner chamber or hall, reduce Modulation to zero and open High cut. For a darker vintage sound, lower High cut and add a little Modulation.
 
 ## Factory presets
 
@@ -95,7 +95,7 @@ The selection combines useful playing roles with each style's different response
 | Photon lead plate | Photon Plate | Fast, dense ambience behind lead playing |
 | Velvet tracking room | Velvet Chamber | Close reflections around muted notes and picked chords |
 | Solstice afterglow | Solstice Hall | A slower, wider tail behind sustained lead lines |
-| Across the mooncourt | Mooncourt | Play a short chord and leave a gap for the far wall to answer |
+| Across the mooncourt | Mooncourt | A large, slowly blooming space behind sustained chords and swells |
 | Soft ambient bed | Gemini | Moderate, gently moving sustain for picked chords |
 | Clustered echoes | Aurora Hall | Separate reflections around picked lines |
 | Pointillist echoes | Virgo | Sparse reflections that darken as they repeat |

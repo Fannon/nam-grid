@@ -174,7 +174,7 @@ inline constexpr std::array<const char*, cosmicCount> cosmicNames{
 inline constexpr std::array<const char*, cosmicCount> cosmicTopology{
   "16-line diffusion", "8-stage stereo bloom", "Filtered feedback echoes",
   "4-stage matrix bloom", "Global feedback tank", "4-line sparse echoes", "8-loop diffused hall", "Stereo echo ladder", "Coupled short/long tanks", "Multi-tap figure-eight plate",
-  "Close diffused chamber", "Slow-building hall", "Distant reflection gallery"};
+  "Close diffused chamber", "Diffused hall", "Large slow-blooming space"};
 inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Gemini: dense, smooth ambience from sixteen scattering delays. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
   "Sagittarius: eight stereo allpasses create slow buildup; Feedback changes attack and decay. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
@@ -188,5 +188,5 @@ inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Photon Plate: input diffusion feeds a cross-coupled figure-eight tank with seven output taps per channel. Try Time 100 ms, high Density and low Modulation for a quick, dense digital plate; Warp changes the tank asymmetry. Style changes fade and clear the old tail.",
   "Velvet Chamber brings soft, close reflections around the pick. Use short Time and high Density for a compact room. Style changes fade and clear the old tail.",
   "Solstice Hall leaves room for the attack, then opens into a broad stereo tail. Raise Modulation for movement on sustained chords. Style changes fade and clear the old tail.",
-  "Mooncourt returns a distinct far-wall reflection before the tail fills in. Lower Density to bring out the individual reflections. Style changes fade and clear the old tail."};
+  "Mooncourt is the largest space: a distant first reflection, then a long tail that blooms slowly. Keep Time moderate and use Feedback for length. Style changes fade and clear the old tail."};
 } // namespace effect_modes

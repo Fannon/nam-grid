@@ -9,7 +9,7 @@ void TestCosmicSpaceArrivals()
   constexpr double rate = 48000.;
   using Style = effect_modes::CosmicStyle;
   struct Arrival { Style style; double minMs, maxMs; };
-  for (const auto room : {Arrival{Style::VelvetChamber, 4., 8.}, Arrival{Style::SolsticeHall, 12., 18.}, Arrival{Style::Mooncourt, 30., 38.}})
+  for (const auto room : {Arrival{Style::VelvetChamber, 4., 8.}, Arrival{Style::SolsticeHall, 12., 18.}, Arrival{Style::Mooncourt, 20., 28.}})
   {
     grid_cosmic::Core core;
     core.Reset(rate);
@@ -32,6 +32,44 @@ void TestCosmicSpaceArrivals()
     if (room.style==Style::VelvetChamber) assert(earlyEnergy>.08*totalEnergy);
     if (room.style==Style::SolsticeHall) assert(earlyEnergy<.08*totalEnergy);
   }
+
+  // Long Time settings enlarge the space without separating its tail into echoes.
+  const auto render = [](Style style, double time, double feedback) {
+    grid_cosmic::Core core;
+    core.Reset(rate);
+    core.Configure({time,65.,feedback,80.,7000.,0.,100.}, static_cast<int>(style), false);
+    std::vector<double> left(8*48000);
+    for (int i=0; i<static_cast<int>(left.size()); ++i) left[i] = core.Tick({i==0 ? 1. : 0., i==0 ? 1. : 0.})[0];
+    return left;
+  };
+  for (const auto style : {Style::VelvetChamber, Style::SolsticeHall, Style::Mooncourt})
+  {
+    const auto left = render(style, 600., 75.);
+    int onset = 0;
+    while (std::abs(left[onset])<1.e-6) ++onset;
+    // Normalized echo density: the share of samples above the local RMS, relative to Gaussian noise.
+    constexpr int window = 960;
+    int dense = -1;
+    for (int centre=onset+window/2; centre<onset+24000 && dense<0; centre+=96)
+    {
+      double sum = 0.;
+      for (int i=centre-window/2; i<centre+window/2; ++i) sum += left[i]*left[i];
+      const double sigma = std::sqrt(sum/window);
+      int above = 0;
+      for (int i=centre-window/2; i<centre+window/2; ++i) above += std::abs(left[i])>sigma;
+      if (above/static_cast<double>(window)/.3173>=.8) dense = centre-onset;
+    }
+    if (dense<0 || dense>.35*rate) std::cerr<<"Cosmic space style="<<static_cast<int>(style)<<" dense after "<<dense<<" samples"<<std::endl;
+    assert(dense>=0 && dense<=.35*rate);
+  }
+  // Mooncourt is the large space: more of its energy remains after the first second.
+  const auto lateShare = [&](Style style) {
+    const auto left = render(style, 150., 80.);
+    double late = 0., total = 0.;
+    for (int i=0; i<static_cast<int>(left.size()); ++i) { total += left[i]*left[i]; if (i>=48000) late += left[i]*left[i]; }
+    return late/total;
+  };
+  assert(lateShare(Style::Mooncourt)>1.5*lateShare(Style::SolsticeHall));
 }
 
 void TestCosmicEcho()

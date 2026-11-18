@@ -4,11 +4,12 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Pitch Delay:** Changing Interval to or from unison fades smoothly, and switching modes after a note has faded no longer brings it back. Detune now moves reversed echoes in stereo, including at full Shift blend. Feedback FX Delay shows Resonance only in Sweep and Phaser.
 - **Six new delays:** Space Tape Echo pairs three tape heads with spring reverb or plays the spring alone; its repeats thin out like worn tape, the pitch swoops as the motor follows Time, and high Feedback runs away into self-oscillation. Bucket Brigade covers dark, clear, driven and modulated analog repeats. Pitch Delay adds rising, falling and reversed echoes, Feedback FX Delay sweeps or modulates the repeats, and Pattern Delay gives you four taps with editable timing, level and pan. Granular Delay scatters, reverses or stutters fragments. Each has factory presets and works with tempo sync and Trails.
 - **Digital Delay:** new **Voice** (Clean, Rack, Lo-fi) puts a 12-bit or 8-bit converter in the feedback loop, so each repeat grows grainier, and new **Modulation** adds stereo rack-style chorus to the repeats. Existing rigs load with Clean and no modulation and sound exactly as before. Host automation of a Digital Delay slot's Delay Modulation, which used to do nothing, now moves the modulation. Switching between Rack and Lo-fi crossfades sounding repeats over 10 ms. Duck release and Output swap places in the editor.
 - **Delay displays:** see how tape heads and spring overlap, pitches build, and feedback shapes the repeats. Drag the taps in Pattern Delay to set time and level, and choose a tap to set its pan. Digital Delay's display names the Voice and shows its modulation depth. Space Tape Echo marks which tape heads play, Bucket Brigade shows its repeats darkening over time, and Granular Delay shows how many fragments of a note come back and when, including echoes that begin during the first grain.
 - **Delay presets:** every module in the Delay menu now has four to ten factory presets. Try **Descending fourths** for falling echoes, **Lo-fi echoes** for crumbling digital repeats, or **Quarter-note reverse swells** for tempo-synced granular textures. Diffused Delay's **Oil can echo** replaces **Soft echo clusters** with short, dark, wobbling repeats. Digital Delay drops two near-duplicate presets, **Triplet ping-pong** and **Ducked dotted eighth**. Rigs that used any of these keep their settings.
-- **Time marks:** delay, reverb, modulation and other time-based displays mark 100 ms to 8 s with faint dotted lines, and show the exact time under the pointer.
+- **Time marks:** delay, reverb, modulation and other time-based displays mark 10 ms to 8 s with faint dotted lines, and show the exact time under the pointer.
 - **Website:** a simpler introduction, direct downloads for each platform, and full-size screenshots.
 
 ## [0.7.0] - 2026-11-15
@@ -45,7 +46,7 @@ A wider editor, clean lows under Distortion and much richer IR details in the br
 
 ### Sound
 
-- **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob, from Off up to 1 kHz, routes the lows around the distortion and High cut and adds them back clean. Try 150–300 Hz, or start from the new **Clean lows, warm grit** preset. It starts Off, so existing rigs retain their sound, and it adds no latency.
+- **Distortion Low preserve:** keep bass weight clean while adding grit above it. One frequency knob, from Off up to 1 kHz, routes the lows around the distortion and High cut and adds them back clean. Try 150â€“300 Hz, or start from the new **Clean lows, warm grit** preset. It starts Off, so existing rigs retain their sound, and it adds no latency.
 - **Smart Gate keeps more pick attack:** bands clearly above the learned noise floor now open faster, so short picked notes come through more intact. Abrupt noise bursts can pass more easily too. This changes how existing Smart Gate rigs respond to attacks.
 - **Smart Gate final gate:** the optional gate now listens to the cleaned signal after noise reduction and Mix, so leftover raw noise no longer holds it open. A new **Gate release** knob sets its closing time, starting at 40 ms, separate from the spectral Release. Existing rigs with the final gate enabled can close sooner and use this new release time. The display adds an amber trace of the cleaned signal, so you can set the threshold against what the gate actually hears. The final gate remains Off by default, and nothing adds latency.
 
@@ -82,7 +83,7 @@ Existing released projects, presets and automation keep loading. New rigs start 
 
 ### Routing and sound changes
 
-- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre → A → B → Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing; further clicks switch mode while keeping it open. Parallel adds independent left/right balances for A and B, with B controls below A. The amber/blue icon and grid wires follow the mode. The signal path stays visible above the compact crossover, M/S buttons mute or solo directly on each branch, and live stereo meters work in both modes. S unmutes its lane and clears the other solo; M clears its lane's solo. Sequential hides parallel controls. Trails and Keep dry level move to Settings and remain saved per rig. Existing projects and saved presets keep their routing and sound.
+- **Sequential or parallel lanes:** new rigs and the bundled Clean Default preset now start with Pre â†’ A â†’ B â†’ Post, without an empty lane's dry return. This makes new Clean Default rigs fully processed rather than blending in the empty lane. One flow button opens Routing; further clicks switch mode while keeping it open. Parallel adds independent left/right balances for A and B, with B controls below A. The amber/blue icon and grid wires follow the mode. The signal path stays visible above the compact crossover, M/S buttons mute or solo directly on each branch, and live stereo meters work in both modes. S unmutes its lane and clears the other solo; M clears its lane's solo. Sequential hides parallel controls. Trails and Keep dry level move to Settings and remain saved per rig. Existing projects and saved presets keep their routing and sound.
 - **Frequency split:** one Routing button cycles Off, Gentle (6 dB/oct) and Steep (24 dB/oct), combining enable and slope. The Linkwitz-Riley steep split sends far less low end to a driven lane B. Existing presets and automation keep their settings; turning off preserves the stored slope. The steep split keeps a flat overall level, but its phase turns a full circle around the crossover, so it combines differently with a capture in the other lane; switching slopes crossfades.
 - **Frequency Shifter tails fade:** at high Feedback the shifter could ring for a very long time, and downward shifts piled up into a low drone and a DC offset. Repeats now always decay, and they lose their lowest frequencies, so 100% Feedback still sustains long enough to build shifting walls of echoes but fades away instead of sticking. This changes how existing rigs sound at high Feedback; the control range and its meaning are unchanged.
 - Fix a low bass burst when switching the lane split from Gentle back to Steep after silence. The inactive steep filters now discard their old audio once the switch fade completes.
@@ -125,10 +126,10 @@ Existing projects, presets and automation keep loading. New modes and routing op
 ### New modules and sounds
 
 - **Pedal Comp:** a guitar sustain compressor calibrated against a Ross-type pedal, for electric and acoustic guitar. Sustain evens out your playing near bypass loudness; Attack, Body / Pick, Pickup, Blend and Level fine-tune the response. The Acoustic pickup setting suits piezo pickups and strumming. It adds no latency.
-- **Spring Reverb — Dispersive tank:** a new spring character with a chirp and drip on picked notes. Drip sets its strength. It uses about four times the CPU of Classic; existing rigs keep Classic.
-- **Chorus — 3 voices:** a lusher chorus with three moving delays at the same overall level. Existing rigs keep 1 voice.
-- **Juno Chorus — I+II vintage:** a fast, shallow mode with centered wet sound, based on Juno-60 measurements. Existing modes retain their sound.
-- **Digital Delay — Time change: Crossfade:** switches delay times, including tempo-sync jumps, without a pitch chirp. Gentle time modulation still glides. New and existing rigs start on Glide.
+- **Spring Reverb â€” Dispersive tank:** a new spring character with a chirp and drip on picked notes. Drip sets its strength. It uses about four times the CPU of Classic; existing rigs keep Classic.
+- **Chorus â€” 3 voices:** a lusher chorus with three moving delays at the same overall level. Existing rigs keep 1 voice.
+- **Juno Chorus â€” I+II vintage:** a fast, shallow mode with centered wet sound, based on Juno-60 measurements. Existing modes retain their sound.
+- **Digital Delay â€” Time change: Crossfade:** switches delay times, including tempo-sync jumps, without a pitch chirp. Gentle time modulation still glides. New and existing rigs start on Glide.
 - **Newer NAM captures:** support for Sequential models (several models chained in one file) and WaveNets with a dilated head, through NAM Core 0.6.0.
 
 ### Rig building and performance controls
@@ -144,12 +145,12 @@ Existing projects, presets and automation keep loading. New modes and routing op
 
 These corrections can change the sound of saved rigs. Controls, ranges and reported latency stay the same.
 
-- **Butter Comp** now responds at guitar levels and compresses more at the same setting; previously it barely reacted below about 70%. The default gently glues typical notes by about 1 dB, and 100% by 5–8 dB, while staying near bypass loudness.
-- **Frequency Shifter** now produces the selected sideband correctly. At ±100% Sideband the shifted sound is clearer and about 3 dB louder, and high Feedback sustains longer. Sideband 0 keeps its ring-modulator sound.
-- **Cloud** decay times now match their settings: short tails are shorter, and long tails sustain longer and slightly brighter. The mids of long tails ring 20–30% longer than before, as the editor's decay display shows.
+- **Butter Comp** now responds at guitar levels and compresses more at the same setting; previously it barely reacted below about 70%. The default gently glues typical notes by about 1 dB, and 100% by 5â€“8 dB, while staying near bypass loudness.
+- **Frequency Shifter** now produces the selected sideband correctly. At Â±100% Sideband the shifted sound is clearer and about 3 dB louder, and high Feedback sustains longer. Sideband 0 keeps its ring-modulator sound.
+- **Cloud** decay times now match their settings: short tails are shorter, and long tails sustain longer and slightly brighter. The mids of long tails ring 20â€“30% longer than before, as the editor's decay display shows.
 - **Dense Plate** has shorter, less dense tails at short Decay settings, particularly at large Size. Reflection levels can also change.
 - **Shimmer** pitch and Freeze transitions can sound slightly slower. Settled pitch and the mono pitch-shifter path are unchanged.
-- **NAM captures using FiLM conditioning** now sound as trained. Affected captures can sound different; tested standard WaveNet, A2, LSTM and bundled captures retain their output at 48 kHz. Some resampled captures at 44.1 kHz differ below −110 dBFS.
+- **NAM captures using FiLM conditioning** now sound as trained. Affected captures can sound different; tested standard WaveNet, A2, LSTM and bundled captures retain their output at 48 kHz. Some resampled captures at 44.1 kHz differ below âˆ’110 dBFS.
 
 ### Lower CPU and smaller plugins
 
@@ -191,7 +192,7 @@ These corrections can change the sound of saved rigs. Controls, ranges and repor
 ### Sound quality
 
 - Distortion, Tube Boost, Airwindows Tape and Console Colour reduce aliasing with minimum-phase oversampling; Distortion also adds antiderivative antialiasing. Distortion and Tube Boost run at 4x at 44.1/48 kHz and 2x at 88.2/96 kHz; Tape and Console Colour use 2x below 88.2 kHz. All retain zero added reported latency.
-- These improvements can change existing rigs: attacks, high-frequency phase and partial-Mix blends may differ. The oversampled wet paths stay flat to about 18 kHz, rolling off by about 2.3 dB at 20 kHz at 48 kHz. Tape's head bump moves up at 2x: Bump at 50% adds roughly 0.5–0.8 dB at 20–160 Hz at typical levels, with larger sub-bass changes at low input levels.
+- These improvements can change existing rigs: attacks, high-frequency phase and partial-Mix blends may differ. The oversampled wet paths stay flat to about 18 kHz, rolling off by about 2.3 dB at 20 kHz at 48 kHz. Tape's head bump moves up at 2x: Bump at 50% adds roughly 0.5â€“0.8 dB at 20â€“160 Hz at typical levels, with larger sub-bass changes at low input levels.
 - Tube Boost, Tape and Console Colour align the partial-Mix dry path with the oversampling filters to avoid deep cancellation. Crossing Mix zero uses a 20 ms fade; settled Mix 0% passes the exact dry sample. Tube Boost retains its high cut and DC blocker.
 - Pedal Drive's Rodent voice reduces high-frequency foldover with antialiased input saturation and an integrated slew/clip stage at its existing 4x rate. Other pedal voices retain their processing.
 
@@ -200,7 +201,7 @@ These corrections can change the sound of saved rigs. Controls, ranges and repor
 - Long IR spreads late-tail processing across audio callbacks, reducing periodic CPU spikes while preserving the response, its onset and zero added latency. At small buffer sizes this can trade slightly higher average CPU use for more predictable processing.
 - Lower CPU use with the editor closed by suspending meter and spectrum collection. Audio, effect histories, tuner detection and noise learning continue normally. The open editor also reuses its spectrum window and avoids unnecessary spectrum analysis for Utility's stereo scope.
 - Lower processing overhead across EQ, Boost, Utility, gates, compressors and Frequency Shifter by reusing settled control calculations and simplifying filter and delay-buffer loops. Distortion and Pedal Drive gain vectorized oversampling on x64; Tape avoids duplicate mono processing. These optimizations preserve their processing quality and latency.
-- Modulated rigs avoid unnecessary small-block NAM processing before the first affected input stage. Macro-only rigs batch more of each buffer while retaining their first short control update. Dynamic modulation stays near 0.33–0.36 ms across sample rates: 16 samples at 44.1/48 kHz, 32 at 88.2/96 kHz. Smoothing times are preserved, though fast modulation and control transitions can differ slightly, especially when adjusting Tape in macro-only rigs.
+- Modulated rigs avoid unnecessary small-block NAM processing before the first affected input stage. Macro-only rigs batch more of each buffer while retaining their first short control update. Dynamic modulation stays near 0.33â€“0.36 ms across sample rates: 16 samples at 44.1/48 kHz, 32 at 88.2/96 kHz. Smoothing times are preserved, though fast modulation and control transitions can differ slightly, especially when adjusting Tape in macro-only rigs.
 
 ### Editing and displays
 
@@ -285,7 +286,7 @@ Our first release! NAM Grid is a 16-slot guitar rig in one CLAP / VST3 plugin.
 
 ### Notes
 
-- If you tried an earlier preview build, please remove those old plugin files and rescan your DAW. 0.1.0 is a fresh start — rigs and projects from here on keep working in future updates.
-- The Mac build isn't signed yet, so macOS will ask you to confirm it once — see the README.
+- If you tried an earlier preview build, please remove those old plugin files and rescan your DAW. 0.1.0 is a fresh start â€” rigs and projects from here on keep working in future updates.
+- The Mac build isn't signed yet, so macOS will ask you to confirm it once â€” see the README.
 - Linux is still an early preview; start with a moderate buffer size.
 - No Audio Unit, AAX or standalone app in this release.

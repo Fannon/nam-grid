@@ -237,6 +237,9 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     const double gain = std::pow(10., value(uOctOutput) / 20.);
     const double pole = std::exp(-2. * grid_fx::pi * std::min(value(uOctTone), .45 * rate) / rate);
     const int samples = static_cast<int>(rate * 4. / 110.);
+    // Four cycles of a 110 Hz note, after the 22 px lane labels.
+    const IRECT lanes(plot.L + 22.f, plot.T, plot.R, plot.B);
+    const int marks = PlotTimeMarks(g, lanes, [&](double t) { return lanes.L + lanes.W() * static_cast<float>(t * 110. / 4.); });
     for (int layer = 0; layer < 3; ++layer)
     {
       const double level = value(uOctDry + layer) * .01 * gain;
@@ -257,7 +260,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
         previousY = y;
       }
     }
-    PlotFooter(g,plot,"Lane height = layer gain (0 - 2x)","36 ms");
+    PlotFooter(g,plot,"Lane height = layer gain (0 - 2x)",marks ? "" : "36 ms");
     return true;
   }
   if (effect == SlotEffect::Doubler)

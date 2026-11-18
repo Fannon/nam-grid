@@ -98,7 +98,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       DrawDelayTrace(g, plot, [&](int i) { return echoes[i]; }, color);
       // Upper bound from both transport derivatives; the real phases can also cancel.
       const double motion = .01 * value(uDelayMotion);
-      const double wow = .43 * std::clamp(std::sqrt(420. / ms), .55, 2.5) * (mode == 7 ? 2.7 : 1.);
+      const double wow = .43 * std::clamp(std::sqrt(420. / ms), .55, 2.5);
       const double pitchBound = effect_preview::SweepCents(motion * (.0028 + .00038 * (6.7 / .43) * 1.2), wow);
       title.SetFormatted(90, "%s  |  Tape motion up to %.0f ct", name, pitchBound);
       footer.SetFormatted(85, "0–%.0f ms  |  Tape / spring decay sketch", horizon * 1000.);
@@ -188,65 +188,6 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         footer.SetFormatted(88, "Two cycles, %.1f ms  |  %s", 2000. / effectRate, mode == 3 ? "Gain can invert" : "Cyan L / amber R");
         PlotDetail(g,plot,mode == 3 ? "The carrier multiplies each repeat. Negative gain flips polarity. A higher carrier frequency moves the sidebands farther from the played note."
                                   : "Left and right echo gains pulse in opposite directions. Depth sets the size of the pulse.");
-      }
-      break;
-    }
-    case SlotEffect::VintageDigital:
-    {
-      PlotGrid(g, plot);
-      if (mode == 2)
-      {
-        constexpr double noteLength = .08, peak = .25;
-        const double release = .001 * value(uDuckRelease), duration = noteLength + 4. * release;
-        const auto envelope = [&](double x) {
-          const double t = x * duration;
-          if (t < noteLength) return peak * (1. - std::exp(-t / .003));
-          return peak * (1. - std::exp(-noteLength / .003)) * std::exp(-(t - noteLength) / release);
-        };
-        g.FillRect(muted.WithOpacity(.10f), IRECT(plot.L, plot.T, plot.L + plot.W() * static_cast<float>(noteLength / duration), plot.B));
-        PlotCurve(g, plot, [&](double x) { return DuckGain(envelope(x), .01 * value(uEchoDucking), value(uEchoSensitivity)); },
-                  0., 1.08, color);
-        title.SetFormatted(90, "Ducked  |  Release %.0f ms", value(uDuckRelease));
-        footer.SetFormatted(90, "Example −12 dBFS note  |  0–%.0f ms", duration * 1000.);
-        PlotDetail(g,plot,"The shaded area is a held example note. The curve shows how much echo remains while the note is held and how it returns after release.");
-      }
-      else if (mode == 0 || mode == 3)
-      {
-        const double sampleRate = std::min(rate, mode == 0 ? 24000. : value(uEchoSampleRate));
-        const double bits = mode == 0 ? 12. : value(uEchoBits);
-        const double levels = std::exp2(bits - 1.);
-        constexpr double duration = .004, amplitude = .23, frequency = 440.;
-        const auto input = [&](double t) { return amplitude * std::sin(2. * grid_fx::pi * frequency * t); };
-        const auto y = [&](double v) { return plot.MH() - .44f * plot.H() * static_cast<float>(v / amplitude); };
-        const auto x = [&](double t) { return plot.L + plot.W() * static_cast<float>(t / duration); };
-        PlotCurve(g, plot, [&](double f) { return input(f * duration); }, -amplitude / .88, amplitude / .88, muted.WithOpacity(.45f));
-        double previous = 0.;
-        for (int i = 0; i < static_cast<int>(std::ceil(duration * sampleRate)); ++i)
-        {
-          const double t = i / sampleRate, held = std::trunc(input(t) * levels) / levels;
-          g.DrawLine(color, x(t), y(held), x(std::min(duration, (i + 1) / sampleRate)), y(held));
-          if (i != 0) g.DrawLine(color, x(t), y(previous), x(t), y(held));
-          previous = held;
-        }
-        title.SetFormatted(90, "%s  |  %.0f bit at %.1f kHz", name, bits, sampleRate * .001);
-        footer.Set("Converter sketch  |  440 Hz input, first 4 ms");
-        PlotDetail(g,plot,"Gray is the example input. Cyan shows the sample hold and quantized values before smoothing and tone filters. These changes happen on every feedback pass.");
-      }
-      else
-      {
-        const double upper = std::min(20000., .45 * rate);
-        frequencyGrid(upper);
-        const double low = value(uEchoLowCut);
-        for (int pass : {3, 1})
-          PlotCurve(g, plot, [&](double x) {
-            const double hz = 20. * std::pow(upper / 20., x);
-            const auto z = std::polar(1., -2. * grid_fx::pi * hz / rate);
-            const double gain = std::abs(OnePole(tone, rate, z) * (1. - OnePole(low, rate, z)));
-            return pass * Decibels(gain);
-          }, -48., 0., pass == 1 ? color : ampColor.WithOpacity(.75f), 1.5f, 128);
-        title.SetFormatted(90, "Clean  |  %.0f–%.0f Hz cuts", low, tone);
-        footer.Set("−48 / 0 dB  |  Cyan first pass, amber third");
-        PlotDetail(g,plot,"The band cuts shape the repeats. Amber shows three trips through the filters so you can see how feedback thins the low and high frequencies.");
       }
       break;
     }

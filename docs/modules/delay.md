@@ -8,19 +8,18 @@ Settings' **Keep dry level** toggle applies to every delay and reverb in the rig
 
 | Module | In short |
 | --- | --- |
-| [Digital Delay](#digital-delay) | Clean repeats; Ducking leaves room for notes, then reveals echoes. |
+| [Digital Delay](#digital-delay) | Clean or rack-style repeats; Ducking leaves room for notes, then reveals echoes. |
 | [Analog Echo](#analog-echo) | Age darkens and saturates repeats; Modulation adds pitch drift. |
 | [Tape Echo](#tape-echo) | Saturated repeats; Modulation adds tape-like pitch wobble. |
 | [Multi-head Tape](#multi-head-tape) | Eight tape-head patterns; Time sets the last head. |
 | [Reverse Delay](#reverse-delay) | Plays each window backwards; Time sets its length. |
 | [Dual Delay](#dual-delay) | Two delays; Time ratio sets the second rhythm. |
 | [Diffused Delay](#diffused-delay) | Repeats smear into stereo clouds as Diffusion rises. |
-| [Space Tape Echo](#space-tape-echo) | Three tape heads with a parallel spring and a darker Oil Can voice. |
+| [Space Tape Echo](#space-tape-echo) | Three tape heads with a spring reverb fed in parallel. |
 | [Bucket Brigade](#bucket-brigade) | Companded analog repeats with bandwidth that narrows at slower clock speeds. |
 | [Pitch Delay](#pitch-delay) | Blend ordinary echoes with repeats that climb or fall in musical intervals. |
 | [Feedback FX Delay](#feedback-fx-delay) | A filter, phaser, tremolo or ring modulator changes each repeat before it feeds back. |
 | [Pattern Delay](#pattern-delay) | Four timed and panned echo taps with selectable feedback routing. |
-| [Vintage Digital Delay](#vintage-digital-delay) | Rack-style modulation, clean repeats, ducking or reduced-resolution feedback. |
 | [Granular Delay](#granular-delay) | Overlapping fragments that spread, reverse or stutter around the echo time. |
 
 ## Factory starting points
@@ -31,19 +30,18 @@ then adjust Mix in the rig. These recipes assume an insert after the amp.
 
 | Module | Useful starting point | Why choose it |
 | --- | --- | --- |
-| Digital Delay | Clear quarter-note lead; Quiet ducked support | Choose a clear, unducked quarter-note echo or quiet support that recovers in the gaps. All synced Digital Delay recipes use Crossfade for tempo jumps. |
+| Digital Delay | Clear quarter-note lead; Quiet ducked support | Choose a clear, unducked quarter-note echo or quiet support that recovers in the gaps. All synced Digital Delay recipes use Crossfade for tempo jumps. Modulated rack lead and Lo-fi echoes use the converter voices. |
 | Analog Echo | Warm lead repeats; Bright dotted echoes | Choose soft, dark lead support or a clearer dotted-eighth rhythm with restrained modulation. |
 | Tape Echo | Rock lead echo; Clean dotted tape | A quiet, short lead repeat or a brighter synced rhythm with light saturation and wobble. |
 | Multi-head Tape | Sparse stereo heads | Half-time on the left and full-time on the right; fewer taps than the rolling and cascade patterns. |
 | Reverse Delay | Short reverse texture | A short capture window and modest mix under your dry attack; Reverse half notes gives longer reversed phrases. |
 | Dual Delay | Tight stereo double | Two short taps with no feedback, for light width; Quarter and dotted eighth gives an interlocking rhythm instead. |
-| Diffused Delay | Gentle pad echoes | Moderate feedback and diffusion soften sustained notes; Echo into cloud is the longer, more diffuse alternative. |
+| Diffused Delay | Gentle pad echoes | Moderate feedback and diffusion soften sustained notes; Echo into cloud is the longer, more diffuse alternative. Oil can echo gives short, dark, wobbling repeats in the manner of oil-can echo units. |
 | Space Tape Echo | Short and long heads | Light spring behind triplet and quarter-note taps; try Worn twin-head trail for darker, less stable repeats. |
 | Bucket Brigade | Short chorus double | Modulated doubling with almost no feedback; Compact slap leaves more room between the dry note and its repeat. |
 | Pitch Delay | Descending fourths | Dotted-eighth echoes step down in fourths with each shifted pass. |
 | Feedback FX Delay | Tremolo slap | A short repeat with amp-like volume modulation. |
 | Pattern Delay | Dotted-eighth reply | A left dotted-eighth tap and a quieter quarter-note answer on the right. |
-| Vintage Digital Delay | Telephone repeats | A pronounced low cut and high cut give the dotted-eighth repeats a narrow band of mids. |
 | Granular Delay | Half-note reverse swells | Long reversed fragments follow the phrase at about half-note intervals; Subtle grain double adds a short texture. |
 
 The banks also include beat-synced choices for rhythm, leads and ambient parts.
@@ -117,7 +115,7 @@ reproduce Volante's independent head-feedback switches.
 
 ![Digital Delay editor](../screenshots/modules/digital-delay.png)
 
-Clean repeats with a high cut. Ducking lowers the repeats while you play and brings them back in the gaps.
+Clean or rack-style repeats with a high cut. Ducking lowers the repeats while you play and brings them back in the gaps; Modulation and Voice add the movement and grain of early digital rack delays.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -125,8 +123,9 @@ Clean repeats with a high cut. Ducking lowers the repeats while you play and bri
 | **Feedback** | 0–82% | 30% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
 | **High cut** | 800–12000 Hz | 10000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
 | **Ducking** | 0–100% | 0% | Ducks repeats while you play; echoes recover in the gaps. |
-| **Duck release** | 10–1000 ms | 150 ms | Time for ducked echoes to recover in gaps; 150 ms retains the original recovery. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Modulation** | 0–100% | 0% | Slow pitch movement of the repeats, opposite in the two channels, like a rack chorus-echo. Zero is stable. |
+| **Duck release** | 10–1000 ms | 150 ms | Time for ducked echoes to recover in gaps; 150 ms retains the original recovery. |
 | **Mix** | 0–100% | 20% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
@@ -134,8 +133,11 @@ In the header:
 - **Time change** (Glide / Crossfade; starts on Glide) is saved per slot, without host automation. Glide keeps the tape-style pitch bend when Time moves. Crossfade blends the old and new taps over 30 ms when the target changes by more than 1 ms in one control update, including tempo-sync and Division jumps. Changes of 1 ms or less per update still glide, preserving gentle modulation; faster or deeper modulation can crossfade. Both stereo channels and feedback use the same blend. If another jump arrives during a fade, it waits until that fade ends, then fades to the latest target. New inserts and older saved rigs both start on Glide.
 - **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values. See [tempo sync](README.md#tempo-sync).
 - **Ping-pong** (off / on; starts off) Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.
+- **Voice** (Clean, Rack, Lo-fi; starts at Clean) puts a converter in the feedback loop. Rack samples at 12 bits and 24 kHz, Lo-fi at 8 bits and 12 kHz, so each repeat loses a little more detail. Changing Voice fades over 10 ms.
 
-**Display:** The repeats on a dB scale. A thin line inside each stem shows how much survives above 5 kHz; ticks show the ducked level.
+Rigs saved before Voice and Modulation existed load with Clean and no modulation, so they sound as before.
+
+**Display:** The repeats on a dB scale. A thin line inside each stem shows how much survives above 5 kHz, including the Voice's converter; ticks show the ducked level. The title names the Voice and the modulation depth.
 
 ## Analog Echo
 
@@ -275,7 +277,7 @@ In the header:
 
 **Display:** The repeats with their diffusion clusters.
 
-The seven delays below have no Ping-pong switch: their stereo comes from the
+The six delays below have no Ping-pong switch: their stereo comes from the
 heads, voices, pitch modes or taps instead. Each one offers **Tempo sync** and
 **Division** in the header, follows Settings' **Trails** and **Keep dry level**,
 and has factory presets in the module header. Changing the **Mode** briefly dips
@@ -283,7 +285,7 @@ the repeats and their feedback while the dry signal continues.
 
 ## Space Tape Echo
 
-Three tape heads with a spring reverb fed in parallel, plus a darker Oil Can voice.
+Three tape heads with a spring reverb fed in parallel.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
@@ -293,12 +295,12 @@ Three tape heads with a spring reverb fed in parallel, plus a darker Oil Can voi
 | **Saturation** | 0–100% | 22% | Soft tape saturation on repeats. Modulation controls the wow and flutter separately. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 25% | Wow and flutter on the repeats. Their speed follows the tape speed. |
-| **Spring** | 0–100% | 20% | Level of the spring reverb fed from your playing in parallel with the tape. Zero removes the spring from the mix. |
+| **Spring** | 0–100% | 20% | Level of the spring reverb fed from your playing in parallel with the tape. At zero the spring rings out, then stops using CPU. |
 | **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
-- **Mode** (Head 1, Head 2, Head 3, Heads 1 + 2, Heads 1 + 3, Heads 2 + 3, All heads, Oil Can; starts at Heads 1 + 3) Which heads sound. The enabled heads all feed back. **Oil Can** plays two closer, darker taps at about 56% and 100% of Time, with faster wobble.
+- **Mode** (Head 1, Head 2, Head 3, Heads 1 + 2, Heads 1 + 3, Heads 2 + 3, All heads; starts at Heads 1 + 3) Which heads sound. The enabled heads all feed back.
 - **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values. With a quarter-note division, the heads play eighth-note triplets.
 
 Try **Three-head dub** for rhythmic feedback, or **Slap and spring** for a
@@ -412,39 +414,6 @@ Level** and **Pan**:
 Try **Drum echo**, **Accelerating taps** and **Four-line halo**.
 
 **Display:** Drag a numbered tap left or right to change its time and up or down to change its level. Choose a tap by number and drag its pan track towards L or R. Double-click a tap or the pan track to reset it. The lower plot estimates later repeats as you adjust feedback and routing.
-
-## Vintage Digital Delay
-
-Rack-style modulated repeats, clean or ducked echoes, and adjustable converter degradation.
-
-| Control | Range | Start | What it does |
-| --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 400 ms | Time to the first repeat. Small changes glide; larger jumps crossfade to the new time. |
-| **Feedback** | 0–82% | 35% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
-| **High cut** | 800–12000 Hz | 9000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
-| **Rate** | 0.05–20 Hz | 0.8 Hz | Speed of the pitch modulation on the repeats. |
-| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
-| **Depth** | 0–100% | 30% | How far the modulation moves the repeats' pitch. Zero is stable. |
-| **Low cut** | 20–2000 Hz | 100 Hz | Remove low frequencies from the repeats and their feedback, leaving the direct guitar untouched. |
-| **Mix** | 0–100% | 23% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
-
-In the header:
-
-- **Mode** (Rack, Clean, Ducked, Crushed; starts at Rack) Rack uses a fixed 12-bit, 24 kHz converter. Clean keeps full resolution. Ducked lowers the repeats while you play. Crushed makes the converter adjustable.
-- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
-
-The page button at the left of the options row switches between **Main** and
-**Ducking / Crush**:
-
-- **Ducking** (0–100%, starts at 35%) Maximum reduction of the repeats while you play in Ducked mode.
-- **Sensitivity** (0–100%, starts at 50%) How softly you can play and still reach full ducking.
-- **Duck release** (10–1000 ms, starts at 150 ms) Time for ducked echoes to recover in gaps.
-- **Bits** (4–16 bit, starts at 12) Converter resolution in Crushed mode.
-- **Sample rate** (1000–48000 Hz, starts at 24000 Hz) Converter sample rate in Crushed mode.
-
-Try **Modulated rack lead**, **Ducked quarter notes** or **Crushed echoes**.
-
-**Display:** Rack and Crushed show sample steps and quantization. Ducked shows how repeats return after an example note. Clean compares the first and third pass through the tone filters.
 
 ## Granular Delay
 

@@ -7,7 +7,7 @@ void TestMixLaw()
   using E = SlotEffect;
   constexpr std::array effects{E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay,
     E::ReverseDelay, E::DualDelay, E::DiffusedDelay,
-    E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::VintageDigital, E::GranularDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
+    E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::GranularDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
     E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho};
   for (double rate : {48000., 96000.})
     for (auto effect : effects)

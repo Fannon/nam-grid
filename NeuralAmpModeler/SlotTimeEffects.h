@@ -189,6 +189,8 @@ public:
     mFade = 1.;
     mFadeStep = 1. / std::max(1., kFadeSeconds * rate);
     mJump = mHasTime = false;
+    mVoice = 0; mVoiceMix = mCapture = 0.; mVoiceStep = 1. / std::max(1., .01 * rate);
+    ClearConverter();
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
                SlotDelay* right = nullptr, double* rightSamples = nullptr, bool draining = false)
@@ -215,6 +217,12 @@ public:
     mHasTime = true;
     mExtras.Target({controls.delayMotion, controls.delayOutput}, uDelayMotion);
     mPing.Target({right && controls.pingPong ? 1. : 0.}, uDelayPingPong);
+    // Digital Delay's Voice samples, holds and quantizes each repeat inside the loop, so
+    // later repeats degrade further. Clean skips the converter, keeping its exact output.
+    const int voice = effect == SlotEffect::DigitalDelay
+      ? std::clamp(static_cast<int>(controls.DelayOption(uDigitalDelayVoice)), 0, 2) : 0;
+    if (voice > 0 && voice != mVoice) ConfigureVoice(voice);
+    if (voice > 0) mVoice = voice;
     const double dcCoefficient = std::exp(-2. * grid_fx::pi * 70. / mRate);
     const double envelopeAttack = std::exp(-1. / (.003 * mRate));
     for (int i = 0; i < frames; ++i)
@@ -249,12 +257,19 @@ public:
       mPhase += .67 / mRate;
       if (mPhase >= 1.)
         mPhase -= 1.;
+      // Digital Delay modulates the two channels in opposite directions, like a rack chorus-echo.
       const double flutter =
         effect == SlotEffect::DigitalDelay
-          ? 0.
+          ? extra[0] * .01 * mRate * .0017 * std::sin(2. * grid_fx::pi * mPhase)
           : extra[0] * .01 * mRate * (effect == SlotEffect::TapeDelay ? .0015 : .0008)
               * (std::sin(2. * grid_fx::pi * mPhase)
                  + (effect == SlotEffect::TapeDelay ? .15 * std::sin(2. * grid_fx::pi * mPhase * 7.) : 0.));
+      const bool converter = voice > 0 || mVoiceMix > 0.;
+      if (converter) [[unlikely]]
+      {
+        mVoiceMix = voice > 0 ? std::min(1., mVoiceMix + mVoiceStep) : std::max(0., mVoiceMix - mVoiceStep);
+        mCapture += mCaptureStep;
+      }
       const double x[2]{samples[i], right ? rightSamples[i] : 0.};
       double wet[2]{};
       SlotDelay* channels[2]{this, right};
@@ -263,13 +278,16 @@ public:
       for (int ch = 0; ch < count; ++ch)
       {
         auto& tank = *channels[ch];
-        double read = tank.mLine.Read(c[0] * .001 * mRate + flutter);
+        const double move = ch == 1 && effect == SlotEffect::DigitalDelay ? -flutter : flutter;
+        double read = tank.mLine.Read(c[0] * .001 * mRate + move);
         // The feedback path takes the same blend, so repeats switch without a chirp too.
         if (fade < 1.) [[unlikely]]
         {
-          const double old = tank.mLine.Read(mFrom * .001 * mRate + flutter);
+          const double old = tank.mLine.Read(mFrom * .001 * mRate + move);
           read = old + fade * (read - old);
         }
+        if (converter) [[unlikely]]
+          read += mVoiceMix * (tank.Convert(read, mCapture >= 1., *this) - read);
         tank.mLP = grid_fx::Flush(read + mDamping * (tank.mLP - read));
         tank.mLP2 = grid_fx::Flush(tank.mLP + mDamping * (tank.mLP2 - tank.mLP));
         wet[ch] = effect == SlotEffect::AnalogDelay ? tank.mLP2 : tank.mLP;
@@ -277,6 +295,15 @@ public:
         {
           const double drive = 1. + 3. * character;
           wet[ch] = std::tanh(wet[ch] * drive) / drive;
+        }
+      }
+      if (converter) [[unlikely]]
+      {
+        if (mCapture >= 1.) mCapture -= 1.;
+        if (voice == 0 && mVoiceMix == 0.)
+        {
+          mVoice = 0;
+          for (int ch = 0; ch < count; ++ch) channels[ch]->ClearConverter();
         }
       }
       const double send[2]{(1. - ping) * x[0] + ping * .5 * (x[0] + x[1]), (1. - ping) * x[1]};
@@ -298,6 +325,28 @@ public:
 
 private:
   static constexpr double kJumpMs = 1., kFadeSeconds = .03;
+  // Rack: 12 bits at 24 kHz. Lo-fi: 8 bits at 12 kHz. Gentle one-pole filters band-limit
+  // around the hold; truncation toward zero keeps sub-LSB signals from circulating.
+  void ConfigureVoice(int voice)
+  {
+    const double rate = voice == 1 ? 24000. : 12000.;
+    mCaptureStep = std::min(rate / mRate, 1.);
+    mConvertIn = std::exp(-2. * grid_fx::pi * std::min(.36 * rate, .45 * mRate) / mRate);
+    mConvertOut = std::exp(-2. * grid_fx::pi * std::min(.45 * rate, .45 * mRate) / mRate);
+    mLevels = voice == 1 ? 2048. : 128.;
+  }
+  double Convert(double x, bool capture, const SlotDelay& voice)
+  {
+    for (auto& state : mConvertState) x = state = grid_fx::Flush(x + voice.mConvertIn * (state - x));
+    if (capture) mHeld = std::trunc(x * voice.mLevels) / voice.mLevels;
+    mHeldOne = grid_fx::Flush(mHeld + voice.mConvertOut * (mHeldOne - mHeld));
+    return mHeldTwo = grid_fx::Flush(mHeldOne + voice.mConvertOut * (mHeldTwo - mHeldOne));
+  }
+  void ClearConverter() { mConvertState = {}; mHeld = mHeldOne = mHeldTwo = 0.; }
+  std::array<double, 3> mConvertState{};
+  double mHeld = 0., mHeldOne = 0., mHeldTwo = 0.;
+  double mCapture = 0., mCaptureStep = 1., mConvertIn = 0., mConvertOut = 0., mLevels = 2048., mVoiceMix = 0., mVoiceStep = 1.;
+  int mVoice = 0;
   grid_fx::MixLaw mMixLaw;
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;

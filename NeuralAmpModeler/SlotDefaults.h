@@ -61,8 +61,6 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       delay(375., 38., 7500., 0., 0., 26.); break;
     case SlotEffect::PatternDelay:
       delay(500., 33., 8000., 0., 0., 28.); break;
-    case SlotEffect::VintageDigital:
-      delay(400., 35., 9000., 0., 0., 23.); break;
     case SlotEffect::GranularDelay:
       delay(420., 35., 7000., 0., 0., 29.); set(uEchoInterval, 0.); break;
     case SlotEffect::DigitalDelay:

@@ -1911,6 +1911,17 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
       }
       if (recognized != scene.size()) return -1;
     }
+    // Before schema 32, Digital Delay ignored the shared Modulation control. Older rigs
+    // and their scenes keep unmodulated repeats, whatever value that control held.
+    if (schema < kEffectParameters[uDigitalDelayVoice].introducedIn)
+      for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+        if (config["SlotEffects"][slot].get<int>() == static_cast<int>(SlotEffect::DigitalDelay))
+        {
+          const auto name = GridSlotName(slot) + " " + kEffectParameters[uDelayMotion].name;
+          config[name] = 0.;
+          for (auto& scene : config["PerformanceScenes"])
+            if (scene.contains(name)) scene[name] = 0.;
+        }
     _UnserializeApplyConfig(config);
     return pos;
   }

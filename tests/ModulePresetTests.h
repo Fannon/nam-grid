@@ -51,7 +51,8 @@ void TestModulePresetCoverage()
     assert(!calibrated || presets.empty());
     // A sanity ceiling, not a design target: no module needs more than sixteen factory recipes.
     assert(presets.size() <= 16u);
-    if (IsDelay(effect)) assert(presets.size() >= 4u && presets.size() <= 8u);
+    // Digital Delay also carries the Rack and Lo-fi voice recipes.
+    if (IsDelay(effect)) assert(presets.size() >= 4u && presets.size() <= (effect == SlotEffect::DigitalDelay ? 10u : 8u));
     for (const auto& preset : presets)
     {
       std::vector<int> seen;

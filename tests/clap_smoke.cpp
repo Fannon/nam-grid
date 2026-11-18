@@ -20,6 +20,7 @@
 #include "EffectModeClapTests.h"
 #include "PedalDriveClapTests.h"
 #include "PedalCompClapTests.h"
+#include "DigitalDelayClapTests.h"
 #include "ModulePresetClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
@@ -819,6 +820,7 @@ int main(int argc, char** argv)
   syncState["Pre 1 Delay Mix"] = 100.;
   syncState["Pre 1 Delay Feedback"] = 0.;
   syncState["Pre 1 Delay Character"] = 0.;
+  syncState["Pre 1 Delay Modulation"] = 0.; // Digital Delay's insertion default: stable timing.
   load(syncState);
   assert(save().config() == syncState);
   assert(plugin->activate(plugin, 48000., 1, 512));
@@ -1230,6 +1232,7 @@ int main(int argc, char** argv)
   TestEffectModeClap(plugin, cleared, save, load);
   TestPedalDriveClap(plugin, cleared, save, load);
   TestPedalCompClap(plugin, cleared, save, load);
+  TestDigitalDelayUpgradeClap(cleared, save, load);
   TestModulePresetRecall(cleared, save, load, settingsBackup.home);
   TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);

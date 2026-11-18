@@ -232,10 +232,9 @@ public:
     mControls.Reset(rate); mOptions.Reset(rate); mExtras.Reset(rate);
     mMix.Reset(rate); mDrain.Reset(rate);
     mMode = -1; mModeGain = 1.; mCounter = 0;
-    mPhase = mFlutter = mCapturePhase = mEnv = 0.;
+    mPhase = mFlutter = 0.;
     for (auto& tap : mTaps) tap.Reset(rate);
     mDC = expanded_delay::Pole(28., rate);
-    mAttack = std::exp(-1. / (.003 * rate));
     mCompAttack = std::exp(-1. / (.0015 * rate));
     mCompRelease = std::exp(-1. / (.08 * rate));
   }
@@ -247,7 +246,7 @@ public:
     if (c.sync) values[0] = 1000. * grid_tempo::Seconds(c.tempo, c.division);
     mControls.Target(values, uDelayTime, c.sync);
     mOptions.Target(c.expandedDelay, uSpaceHeads);
-    mExtras.Target({c.delayMotion, c.delayOutput, c.extra.duckRelease}, {uDelayMotion, uDelayOutput, uDuckRelease});
+    mExtras.Target({c.delayMotion, c.delayOutput}, {uDelayMotion, uDelayOutput});
     const int modeControl = ExpandedDelayModeControl(mEffect);
     const int targetMode = std::clamp(static_cast<int>(c.DelayOption(modeControl)), 0,
                                       static_cast<int>(EffectChoices(modeControl).size()) - 1);
@@ -256,7 +255,6 @@ public:
     const bool analog = mEffect == SlotEffect::BucketBrigade;
     const bool pitch = mEffect == SlotEffect::PitchDelay;
     const bool granular = mEffect == SlotEffect::GranularDelay;
-    const bool vintage = mEffect == SlotEffect::VintageDigital;
     const bool fx = mEffect == SlotEffect::FeedbackFXDelay;
     const bool pattern = mEffect == SlotEffect::PatternDelay;
     const int channels = right ? 2 : 1;
@@ -313,9 +311,9 @@ public:
       double motionRate = option(uEchoRate);
       if (fx && mMode != 3 && c.DelayOption(uEchoRateSync) >= .5) motionRate *= grid_tempo::Tempo(c.tempo) / 60.;
       if (analog && mMode == 2) motionRate *= 4.;
-      if (tape) motionRate = .43 * std::clamp(std::sqrt(420. / v[0]), .55, 2.5) * (mMode == 7 ? 2.7 : 1.);
+      if (tape) motionRate = .43 * std::clamp(std::sqrt(420. / v[0]), .55, 2.5);
       if (fx && mMode == 3) motionRate = option(uEchoRingRate);
-      if (tape || analog || pitch || fx || vintage || (pattern && mMode == 3))
+      if (tape || analog || pitch || fx || (pattern && mMode == 3))
       {
         mPhase += motionRate / mRate;
         mPhase -= std::floor(mPhase);
@@ -325,11 +323,10 @@ public:
         mFlutter += 6.7 * motionRate / (.43 * mRate);
         mFlutter -= std::floor(mFlutter);
       }
-      const bool crushed = vintage && (mMode == 0 || mMode == 3);
       if (mCounter == 0)
       {
         double tone = v[2];
-        if (tape) tone *= mMode == 7 ? .60 : std::clamp(std::sqrt(420. / v[0]), .55, 1.45);
+        if (tape) tone *= std::clamp(std::sqrt(420. / v[0]), .55, 1.45);
         if (analog)
         {
           constexpr std::array<double, 5> widths{.70, 1., .96, 1.5, .84};
@@ -337,19 +334,13 @@ public:
         }
         if (pattern && mMode == 3) tone *= .8;
         mTone = Pole(tone, mRate);
-        mLowCut = Pole(vintage ? option(uEchoLowCut) : tape ? 70. : 42., mRate);
+        mLowCut = Pole(tape ? 70. : 42., mRate);
         mRatio = std::exp2(option(uEchoInterval) / 12.);
         if (pitch || granular)
         {
           const double cutoff = std::min(tone, .39 * mRate / std::max(1., pitch && mMode == 2 ? std::max(mRatio, 1. / mRatio) : mRatio));
           for (int ch = 0; ch < channels; ++ch) mChannel[ch].pitchFilter.Configure(cutoff, mRate);
         }
-        const double sampleRate = mMode == 0 ? 24000. : option(uEchoSampleRate);
-        mCaptureIncrement = std::min(sampleRate / mRate, 1.);
-        mCrushInput = Pole(.36 * sampleRate, mRate);
-        mCrushOutput = Pole(.45 * sampleRate, mRate);
-        mLevels = std::exp2((mMode == 0 ? 12. : std::round(option(uEchoBits))) - 1.);
-        if (vintage) mRelease = std::exp(-1000. / (extra[2] * mRate));
         if (fx && mMode < 2) ConfigureSweep();
       }
       mCounter = (mCounter + 1) % 16;
@@ -366,8 +357,7 @@ public:
       else
       {
         Stereo direct{}, shifted{};
-        if (crushed) mCapturePhase += mCaptureIncrement;
-        const double wave = tape || analog || pitch || fx || vintage ? std::sin(2. * grid_fx::pi * mPhase) : 0.;
+        const double wave = tape || analog || pitch || fx ? std::sin(2. * grid_fx::pi * mPhase) : 0.;
         for (int ch = 0; ch < channels; ++ch)
         {
           auto& channel = mChannel[ch];
@@ -380,7 +370,7 @@ public:
 
             for (int head = 0; head < 3; ++head)
               if (mask & (1u << head))
-                direct[ch] += headGain * channel.line[0].Read((time + move) * HeadFraction(mMode, head));
+                direct[ch] += headGain * channel.line[0].Read((time + move) * HeadFraction(head));
           }
           else if (granular)
           {
@@ -391,7 +381,6 @@ public:
           {
             const double stereo = ch ? -1. : 1.;
             const double movement = analog ? extra[0] * .01 * (mMode == 0 ? .00035 : .0024) * wave
-              : vintage ? option(uEchoDepth) * .01 * .0017 * wave * stereo
               : pitch ? option(uEchoDetune) * .00013 * wave * stereo : 0.;
             direct[ch] = analog ? channel.line[0].Read(time + mRate * movement)
                                 : mTaps[0].Read(channel.line[0], mRate * movement);
@@ -430,15 +419,9 @@ public:
             echo *= std::max(.045, envelope);
           }
           if (fx) echo = FeedbackEffect(echo, channel, ch, wave, option);
-          if (crushed)
-          {
-            for (auto& s : channel.crushIn) echo = LowPass(echo, s, mCrushInput);
-            if (mCapturePhase >= 1.) channel.held = std::trunc(echo * mLevels) / mLevels;
-            echo = LowPass(LowPass(channel.held, channel.crushOne, mCrushOutput), channel.crushTwo, mCrushOutput);
-          }
           echo = LowPass(echo, channel.tone, mTone);
           const double loop = echo - LowPass(echo, channel.low, mLowCut);
-          wet[ch] = vintage ? loop : echo;
+          wet[ch] = echo;
           double send = dry[ch] + feedback * Limit(loop);
           if (tape || analog) send -= LowPass(send, channel.dc, mDC);
           if (tape)
@@ -455,18 +438,6 @@ public:
           }
           if (granular || (pitch && mMode == 1)) send = channel.pitchFilter.Tick(send);
           channel.line[0].Push(send);
-        }
-        if (crushed && mCapturePhase >= 1.) mCapturePhase -= 1.;
-      }
-      if (vintage)
-      {
-        const double peak = std::max(std::abs(dry[0]), std::abs(dry[1]));
-        const double env = LowPass(peak, mEnv, peak > mEnv ? mAttack : mRelease);
-        if (mMode == 2)
-        {
-          const double sensitivity = .2 + .20 * option(uEchoSensitivity);
-          const double duck = 1. - option(uEchoDucking) * .01 * std::min(1., env * sensitivity);
-          for (auto& sample : wet) sample *= duck;
         }
       }
       const double mix = v[4] * .01;
@@ -491,9 +462,8 @@ private:
     grid_oversampling::FIR<2, 32> bbd;
     expanded_delay::PitchLowPass pitchFilter;
     std::array<double, 4> tapTone{}, tapBass{}, phaser{};
-    std::array<double, 3> crushIn{};
     double tone = 0., low = 0., dc = 0., inBand = 0., compress = 0., expand = 0.;
-    double sweepLow = 0., sweepHigh = 0., held = 0., crushOne = 0., crushTwo = 0.;
+    double sweepLow = 0., sweepHigh = 0.;
   };
   const UtilityControls mSpringControls = [] {
     UtilityControls controls;
@@ -593,17 +563,17 @@ private:
   pitch_shift::Grains mPitch, mRightPitch;
   expanded_delay::Slices mSlices;
   grid_fx::SmoothControls<5> mControls;
-  grid_fx::SmoothControls<uTapPan4 - uSpaceHeads + 1> mOptions;
-  grid_fx::SmoothControls<3> mExtras;
+  grid_fx::SmoothControls<uDigitalDelayVoice - uSpaceHeads + 1> mOptions;
+  grid_fx::SmoothControls<2> mExtras;
   grid_fx::MixLaw mMix;
   grid_fx::DrainRamp mDrain;
   grid_fx::Memo mOutput;
   Stereo mSweepLow{}, mSweepHigh{}, mAllpass{};
   double mRate = 48000., mModeGain = 1., mTone = 0., mLowCut = 0., mDC = 0.;
   std::array<expanded_delay::TapChange, 4> mTaps;
-  double mAttack = 0., mRelease = 0., mEnv = 0., mCompAttack = 0., mCompRelease = 0.;
-  double mPhase = 0., mFlutter = 0., mCapturePhase = 0., mCaptureIncrement = 1., mCrushInput = 0., mCrushOutput = 0.;
-  double mRatio = 1., mLevels = 2048., mDrumMotion = 0.;
+  double mCompAttack = 0., mCompRelease = 0.;
+  double mPhase = 0., mFlutter = 0.;
+  double mRatio = 1., mDrumMotion = 0.;
   int mMode = -1, mCounter = 0;
   int64_t mSpringIdle = 0, mSpringDrain = 0;
 };

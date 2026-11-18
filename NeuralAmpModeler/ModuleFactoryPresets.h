@@ -230,6 +230,11 @@ inline const Preset digitalDelay[]{
     {U(uDelayFeedback), 28.}, {U(uDelayTone), 6500.}, {U(uDelayCharacter), 70.}, {U(uDuckRelease), 220.}, {U(uDelayMix), 12.}}},
   {"Clear eighth-note rhythm", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 3.0}, {U(uDelayTimeChange), 1.0}, {U(uDelayFeedback), 22.0}, {U(uDelayTone), 10000.0}, {U(uDelayCharacter), 0.0}, {U(uDelayMix), 24.0}}},
   {"Half-note space", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 7.0}, {U(uDelayTimeChange), 1.0}, {U(uDelayPingPong), 1.0}, {U(uDelayFeedback), 48.0}, {U(uDelayTone), 6500.0}, {U(uDelayCharacter), 25.0}, {U(uDelayMix), 25.0}, {U(uDuckRelease), 280.0}}},
+  // Converter voices: modulated 12-bit rack repeats, and 8-bit repeats that coarsen on each pass.
+  {"Modulated rack lead", {{U(uDigitalDelayVoice), 1.}, {U(uDelayTime), 325.}, {U(uDelayFeedback), 30.},
+    {U(uDelayTone), 7500.}, {U(uDelayMotion), 35.}, {U(uDelayMix), 25.}}},
+  {"Lo-fi echoes", {{U(uDigitalDelayVoice), 2.}, {U(uDelayTime), 380.}, {U(uDelayFeedback), 47.},
+    {U(uDelayMotion), 8.}, {U(uDelayMix), 30.}}},
 };
 inline const Preset analogDelay[]{
   {"Warm lead repeats", {{U(uDelayTime), 420.}, {U(uDelayFeedback), 35.}, {U(uDelayTone), 3200.}, {U(uDelayCharacter), 40.}, {U(uDelayMix), 30.}}},
@@ -288,7 +293,9 @@ inline const Preset dualDelay[]{
 };
 inline const Preset diffusedDelay[]{
   {"Echo into cloud", {{U(uDelayTime), 650.}, {U(uDelayFeedback), 60.}, {U(uDelayDiffusion), 85.}, {U(uDelayTone), 4500.}, {U(uDelayMotion), 25.}, {U(uDelayMix), 32.}}},
-  {"Soft echo clusters", {{U(uDelayTime), 320.}, {U(uDelayFeedback), 30.}, {U(uDelayDiffusion), 40.}, {U(uDelayMix), 22.}}},
+  // Oil-can echo units: short, dark repeats smeared by the oil and a wobbling disc.
+  {"Oil can echo", {{U(uDelayTime), 180.}, {U(uDelayFeedback), 50.}, {U(uDelayDiffusion), 45.}, {U(uDelayTone), 2600.},
+    {U(uDelayMotion), 55.}, {U(uDelayMix), 30.}}},
   {"Gentle pad echoes", {{U(uDelayTime), 550.}, {U(uDelayFeedback), 37.}, {U(uDelayDiffusion), 68.},
     {U(uDelayTone), 4500.}, {U(uDelayMotion), 15.}, {U(uDelayMix), 22.}}},
   {"Soft dotted-eighth rhythm", {{U(uTempoSync), 1.0}, {U(uTempoDivision), 4.0}, {U(uDelayFeedback), 32.0}, {U(uDelayDiffusion), 28.0}, {U(uDelayTone), 7000.0}, {U(uDelayMotion), 6.0}, {U(uDelayMix), 25.0}}},
@@ -485,8 +492,8 @@ inline const Preset spaceTapeEcho[]{
   {"Three-head dub", {{U(uSpaceHeads), 6}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uDelayFeedback), 54},
     {U(uDelayMotion), 12}, {U(uDelayCharacter), 35}, {U(uEchoSpring), 24}, {U(uDelayMix), 31}}},
   {"Clean long head", {{U(uSpaceHeads), 2}, {U(uDelayTone), 9000}, {U(uDelayMotion), 8}, {U(uDelayCharacter), 5}, {U(uEchoSpring), 0}}},
-  {"Oil can wash", {{U(uSpaceHeads), 7}, {U(uDelayTime), 220}, {U(uDelayFeedback), 51}, {U(uDelayMotion), 62},
-    {U(uEchoSpring), 34}, {U(uDelayMix), 30}}},
+  {"Dark spring wash", {{U(uSpaceHeads), 6}, {U(uDelayTime), 260}, {U(uDelayFeedback), 50}, {U(uDelayTone), 3200},
+    {U(uDelayMotion), 45}, {U(uDelayCharacter), 40}, {U(uEchoSpring), 40}, {U(uDelayMix), 30}}},
   {"Short and long heads", {{U(uSpaceHeads), 4}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uDelayFeedback), 25},
     {U(uDelayTone), 7200}, {U(uDelayMotion), 8}, {U(uDelayCharacter), 12}, {U(uEchoSpring), 8}, {U(uDelayMix), 23}}},
   {"Worn twin-head trail", {{U(uSpaceHeads), 5}, {U(uTempoSync), 1}, {U(uTempoDivision), 6}, {U(uDelayFeedback), 57},
@@ -540,20 +547,6 @@ inline const Preset patternDelay[]{
     {U(uTapLevel1), 0}, {U(uTapLevel2), 0}, {U(uTapTime3), 75}, {U(uTapPan3), -70},
     {U(uTapTime4), 100}, {U(uTapLevel4), 65}, {U(uTapPan4), 70}, {U(uDelayMix), 24}}},
 };
-inline const Preset vintageDigital[]{
-  {"Modulated rack lead", {{U(uVintageDelayVoice), 0}, {U(uEchoRate), .55},
-    {U(uEchoDepth), 37}, {U(uDelayTime), 325}, {U(uDelayFeedback), 30}}},
-  {"Clean eighth notes", {{U(uVintageDelayVoice), 1}, {U(uTempoSync), 1}, {U(uTempoDivision), 3},
-    {U(uEchoDepth), 0}, {U(uDelayTone), 12000}, {U(uEchoLowCut), 35}}},
-  {"Ducked quarter notes", {{U(uVintageDelayVoice), 2}, {U(uTempoSync), 1}, {U(uTempoDivision), 5},
-    {U(uEchoDucking), 66}, {U(uEchoSensitivity), 60}, {U(uDuckRelease), 230}}},
-  {"Crushed echoes", {{U(uVintageDelayVoice), 3}, {U(uEchoBits), 8}, {U(uEchoSampleRate), 8200},
-    {U(uEchoDepth), 8}, {U(uDelayFeedback), 47}, {U(uDelayMix), 30}}},
-  {"Rack slapback", {{U(uVintageDelayVoice), 0}, {U(uDelayTime), 112}, {U(uDelayFeedback), 0},
-    {U(uEchoDepth), 4}, {U(uEchoLowCut), 130}, {U(uDelayTone), 7200}, {U(uDelayMix), 27}}},
-  {"Telephone repeats", {{U(uVintageDelayVoice), 1}, {U(uTempoSync), 1}, {U(uTempoDivision), 4},
-    {U(uDelayFeedback), 42}, {U(uEchoDepth), 0}, {U(uEchoLowCut), 780}, {U(uDelayTone), 2700}, {U(uDelayMix), 32}}},
-};
 inline const Preset granularDelay[]{
   {"Scattered chords", {{U(uGrainDelayMode), 0}, {U(uGrainLength), 105}, {U(uGrainScatter), 60},
     {U(uGrainDensity), 78}, {U(uDelayFeedback), 48}}},
@@ -587,7 +580,6 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::PitchDelay: return pitchDelay;
     case SlotEffect::FeedbackFXDelay: return feedbackFXDelay;
     case SlotEffect::PatternDelay: return patternDelay;
-    case SlotEffect::VintageDigital: return vintageDigital;
     case SlotEffect::GranularDelay: return granularDelay;
     case SlotEffect::DigitalDelay: return digitalDelay;
     case SlotEffect::ToneEQ: return toneEQ;

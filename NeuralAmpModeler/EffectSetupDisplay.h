@@ -79,6 +79,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
   c.pingPong = value(uDelayPingPong) >= .5;
   if (effect == SlotEffect::MultiHeadDelay || effect == SlotEffect::DiffusedDelay) c.pingPong = false;
   c.tapeHeads = static_cast<int>(value(uTapeHeads));
+  c.expandedDelay[uDigitalDelayVoice - uSpaceHeads] = value(uDigitalDelayVoice);
   if (IsExpandedDelay(effect))
   {
     DrawExpandedDelaySetup(g, effect, plot, color, value, c, rate);
@@ -96,15 +97,15 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     const double cents=effect==SlotEffect::DiffusedDelay ? effect_preview::SweepCents(motion*.01*.0007,.31)
                       : effect==SlotEffect::AnalogDelay ? effect_preview::SweepCents(motion*.01*.0008,.67)
                       : effect==SlotEffect::TapeDelay ? effect_preview::SweepCents(motion*.01*.0015,.67,2.05)
+                      : effect==SlotEffect::DigitalDelay ? effect_preview::SweepCents(motion*.01*.0017,.67)
                       : heads ? effect_preview::SweepCents(motion*.01*.001,.67,2.05) : 0.;
     // Digital Delay ducks only the wet output: 1 / (1 + 12 x Ducking x envelope).
     const double duck=effect==SlotEffect::DigitalDelay ? 1./(1.+12.*c.delay[3]*.01*.25) : 1.;
-    if(cents>.01)
-    {
-      text.SetFormatted(80,"%s | modulation +/-%.1f ct",stereo ? "Stereo repeats" : "Wet repeats",cents);
-      caption(text.Get());
-    }
-    else caption(stereo ? "Stereo repeats" : "Wet repeats");
+    const int voice=effect_preview::DigitalVoice(effect,c);
+    text.Set(stereo ? "Stereo repeats" : "Wet repeats");
+    if(voice>0) text.AppendFormatted(24," | %s voice",EffectChoices(uDigitalDelayVoice)[voice]);
+    if(cents>.01) text.AppendFormatted(40," | modulation +/-%.1f ct",cents);
+    caption(text.Get());
     PlotDetail(g,plot,"Cyan: left/shared repeats; amber: right. Thin lines show energy above 5 kHz; diffusion fills out the echoes. White ticks show ducked wet level at -12 dBFS input.");
     const IRECT chart=plot;
     const auto amplitudeY=[&](double amplitude) {

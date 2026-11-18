@@ -35,7 +35,11 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   implementations: fractional delay with bounded filtered feedback (0–82%), 5–4000 ms with a
   quadratic dial and 800–12000 Hz High cut. Time changes are smoothed and bend pitch. Analog
   Echo adds two-pole darkening and soft feedback saturation; Tape Echo adds saturation and
-  wow/flutter; Digital Delay's Ducking lowers repeats beneath playing. Multi-head Tape feeds
+  wow/flutter; Digital Delay's Ducking lowers repeats beneath playing. Its Modulation moves
+  the two channels in opposite directions at 0.67 Hz. Its Rack and Lo-fi voices pass each
+  repeat through one-pole band limits, a sample hold (24 or 12 kHz) and truncation toward
+  zero (12 or 8 bits) inside the loop, so sub-LSB signals cannot circulate indefinitely.
+  Clean skips the converter, and voice changes fade over 10 ms. Multi-head Tape feeds
   back only from the last head. Diffused Delay sends repeats through rotating allpasses.
 - **Expanded delays** ([ExpandedDelay.h](../NeuralAmpModeler/ExpandedDelay.h)) share
   sample-based control smoothing, fractional delay lines and a bounded feedback return.
@@ -50,8 +54,7 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   Pitch Delay uses the waveform-matched shifter for forward playback. Reversed and
   granular modes use causal, overlapping Hann windows and a four-pole low-pass
   before upward playback. Pattern Delay uses normalized summed returns or an
-  orthogonal four-line Householder matrix. Vintage Digital rounds toward zero
-  in its reduced-resolution modes so sub-LSB signals cannot circulate indefinitely.
+  orthogonal four-line Householder matrix.
   The new long delay buffers store 32-bit samples and interpolate in double
   precision. All histories are prepared before processing. Dry audio is immediate. Material
   changes in tap timing crossfade in the digital modes. Tape and BBD glide, and

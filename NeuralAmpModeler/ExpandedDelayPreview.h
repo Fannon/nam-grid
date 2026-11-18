@@ -76,7 +76,7 @@ inline Trace TapeRepeats(int mode, double feedback, double time, double horizon)
   int count = 0;
   for (int head = 0; head < 3; ++head)
     if (spaceHeads[mode] & (1u << head))
-      heads[count++] = DelayBin(time * HeadFraction(mode, head), horizon);
+      heads[count++] = DelayBin(time * HeadFraction(head), horizon);
   const double headGain = 1. / std::sqrt(static_cast<double>(count));
   send[0] = 1.;
   for (int bin = 1; bin < bins; ++bin)
@@ -142,6 +142,4 @@ inline double FilterEffect(int mode, double frequency, double rate, double cente
   return std::abs((1. - blend) + blend * phase * phase * phase * phase);
 }
 
-inline double DuckGain(double envelope, double amount, double sensitivity)
-{ return 1. - amount * std::min(1., envelope * (.2 + .20 * sensitivity)); }
 } // namespace delay_preview

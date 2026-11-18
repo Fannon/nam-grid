@@ -30,5 +30,4 @@ void TestExpandedDelayPreview()
   assert(onlyShifted[2].weights[0] == 0. && onlyShifted[2].weights[3] == .25);
   assert(FilterEffect(0, 400., 48000., 550., 0., .9) == 1.);
   assert(FilterEffect(1, 400., 48000., 550., 0., .9) == 1.);
-  assert(DuckGain(.25, .5, 50.) == .5 && DuckGain(0., .5, 50.) == 1.);
 }

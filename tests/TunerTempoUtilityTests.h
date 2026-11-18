@@ -251,6 +251,7 @@ void TestTunerTempoUtility()
       c.tempo = bpm;
       c.division = division;
       c.delay = {37., 0., 5000., 0., 100.};
+      c.delayMotion = 0.; // Digital Delay's insertion default: stable timing.
       const int expected = static_cast<int>(std::floor(grid_tempo::Seconds(bpm, division) * rate));
       int first = -1, block = 0;
       for (int pos = 0; pos < expected + 512;)

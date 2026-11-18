@@ -32,7 +32,7 @@ Interpretation Classify(E effect)
     case E::Bitcrusher: case E::RingMod: case E::Octaver: case E::Doubler:
     case E::FrequencyShifter: case E::Freeze: case E::Stutter: case E::LoFiTape:
     case E::PitchShift: case E::ShimmerReverb: case E::PitchDelay: case E::FeedbackFXDelay:
-    case E::VintageDigital: case E::GranularDelay: return Interpretation::Creative;
+    case E::GranularDelay: return Interpretation::Creative;
     case E::NoiseGate: case E::NoisePrint: case E::AIGate: case E::SmoothComp: case E::PunchComp:
     case E::DigitalBlack: case E::ButterComp: case E::PedalComp: case E::SynthFilter: case E::AutoSwell:
     case E::DigitalDelay: case E::AnalogDelay: case E::TapeDelay: case E::MultiHeadDelay:

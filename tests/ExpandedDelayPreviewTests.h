@@ -23,6 +23,13 @@ void TestExpandedDelayPreview()
   const int head = DelayBin(.1, 1.);
   assert(single[head] == 1. && single[2 * head] == .5);
   assert(BBDBandwidth(1, 500., 10000.) < BBDBandwidth(1, 100., 10000.));
+  // Repeats decay with Feedback, lose treble on every pass, and are darker at longer Times.
+  const auto shortTrain = BBDRepeatTrain(1, 150., 12000., .5, 1., 48000., 2.);
+  const auto longTrain = BBDRepeatTrain(1, 600., 12000., .5, 1., 48000., 2.);
+  assert(shortTrain.count == 12 && longTrain.count == 3 && std::abs(longTrain.repeats[2].seconds - 1.8) < 1.e-12);
+  assert(shortTrain.repeats[1].level == .5 && shortTrain.repeats[1].treble < shortTrain.repeats[0].treble);
+  assert(longTrain.repeats[0].treble < shortTrain.repeats[0].treble);
+  assert(BBDRepeatTrain(3, 300., 2000., .5, 1., 48000., 2.).cutoff == 2000.); // High cut caps Clear.
 
   const auto pitch = PitchVoices(.5, .5);
   assert(pitch[1].weights[0] == .125 && pitch[1].weights[1] == .25 && pitch[1].weights[2] == .125);

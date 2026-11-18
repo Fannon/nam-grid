@@ -135,7 +135,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Pitch Delay | Octave halo, Climbing fifths, Backwards octave, Wide octaves, Descending fourths, Detuned double |
 | Feedback FX Delay | Swept dotted echoes, Slow phaser trail, Pulsing quarter notes, Metallic fragments, Tremolo slap, Low ring flutter |
 | Pattern Delay | Even stereo heads, Accelerating taps, Spreading swell, Four-line halo, Drum echo, Dotted-eighth reply |
-| Granular Delay | Scattered chords, Reverse shards, Broken repeats, Subtle grain double, Half-note reverse swells, Low-octave stutter |
+| Granular Delay | Scattered chords, Reverse shards, Broken repeats, Subtle grain double, Quarter-note reverse swells, Low-octave stutter |
 | Room | Live room, Small amp room |
 | Dense Plate | Short bright plate, Singing lead plate, Warm rhythm plate |
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |

@@ -107,19 +107,28 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
     }
     case SlotEffect::BucketBrigade:
     {
-      const double cutoff = BBDBandwidth(mode, ms, tone);
-      const double upper = std::min(20000., .45 * rate);
-      frequencyGrid(upper);
-      for (int pass : {3, 1})
-        PlotCurve(g, plot, [&](double x) {
-          const double frequency = 20. * std::pow(upper / 20., x);
-          return Decibels(effect_preview::LowPass(frequency, cutoff, rate, 2 * pass, .45));
-        }, -48., 0., pass == 1 ? color : ampColor.WithOpacity(.75f), 1.5f, 128);
+      // Repeats over time on Analog Echo's dB scale; the thin line is what survives above 2 kHz.
+      const double horizon = effect_preview::TimeHorizon(4. * ms * .001);
+      const double gain = std::pow(10., value(uDelayOutput) / 20.) * .01 * value(uDelayMix);
+      const auto train = BBDRepeatTrain(mode, ms, tone, feedback, gain, rate, horizon);
+      const auto y = [&](double amplitude) {
+        return plot.B - plot.H() * static_cast<float>(std::clamp((Decibels(amplitude) + 60.) / 72., 0., 1.));
+      };
+      PlotGrid(g, plot);
+      for (int i = 0; i < train.count; ++i)
+      {
+        const auto& repeat = train.repeats[i];
+        const float x = std::clamp(plot.L + plot.W() * static_cast<float>(repeat.seconds / horizon), plot.L + 2.f, plot.R - 2.f);
+        g.DrawLine(color.WithOpacity(.5f), x, plot.B, x, y(repeat.level), nullptr, 4.f);
+        g.DrawLine(color, x, plot.B, x, y(repeat.level * repeat.treble), nullptr, 1.5f);
+      }
+      g.DrawLine(border, plot.L, plot.B, plot.R, plot.B);
       const double hz = value(uEchoRate) * (mode == 2 ? 4. : 1.);
       const double cents = effect_preview::SweepCents(.01 * value(uDelayMotion) * (mode == 0 ? .00035 : .0024), hz);
-      title.SetFormatted(90, "%s  |  Cutoff %.0f Hz", name, cutoff);
-      footer.SetFormatted(90, "−48 / 0 dB  |  Motion %.2f Hz, up to %.0f ct", hz, cents);
-      PlotDetail(g,plot,"Cyan is the filter response on one pass. Amber shows three trips through the same filters, normalized to show tone independently of Feedback. The preview omits companding and saturation.");
+      title.SetFormatted(90, "%s  |  %.0f ms: %.1f kHz bandwidth%s", name, ms, train.cutoff * .001,
+                         train.cutoff >= tone ? " (High cut)" : "");
+      footer.SetFormatted(96, "Thin line: above 2 kHz  |  Motion %.2f Hz, up to %.0f ct  |  0–%.1f s", hz, cents, horizon);
+      PlotDetail(g,plot,"Stems show the repeats on a -60 to +12 dB scale. The thin line inside each stem is the share above 2 kHz: longer Times lower the bandwidth, and every repeat loses more treble. Companding and saturation are left out.");
       break;
     }
     case SlotEffect::PitchDelay:

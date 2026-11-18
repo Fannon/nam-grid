@@ -94,6 +94,26 @@ inline double BBDBandwidth(int mode, double ms, double highCut)
   return std::min(highCut, 4300. * std::clamp(std::sqrt(330. / ms), .38, 1.65) * widths[mode]);
 }
 
+// Bucket Brigade repeats over time. Each pass runs through the clock-limited band twice
+// (input and output filters), so the share above 2 kHz shrinks with every repeat and
+// with longer Times. Companding and saturation are left out.
+struct BBDRepeat { double seconds = 0., level = 0., treble = 0.; };
+struct BBDRepeats { std::array<BBDRepeat, 12> repeats{}; int count = 0; double cutoff = 0.; };
+inline BBDRepeats BBDRepeatTrain(int mode, double ms, double highCut, double feedback, double gain, double rate, double horizon)
+{
+  BBDRepeats result;
+  result.cutoff = BBDBandwidth(mode, ms, highCut);
+  const double treble = effect_preview::LowPass(2000., result.cutoff, rate, 2, .45);
+  double level = gain, remaining = treble;
+  for (int pass = 1; pass <= 12 && level > 1.e-5 && pass * ms * .001 <= horizon; ++pass)
+  {
+    result.repeats[result.count++] = {pass * ms * .001, level, remaining};
+    level *= feedback;
+    remaining *= treble;
+  }
+  return result;
+}
+
 inline double Decibels(double gain) { return 20. * std::log10(std::max(gain, 1.e-6)); }
 
 struct PitchPass

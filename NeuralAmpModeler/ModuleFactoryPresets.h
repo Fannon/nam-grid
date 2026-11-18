@@ -556,7 +556,7 @@ inline const Preset granularDelay[]{
     {U(uGrainScatter), 78}, {U(uDelayFeedback), 52}, {U(uDelayMix), 35}}},
   {"Subtle grain double", {{U(uGrainDelayMode), 0}, {U(uDelayTime), 82}, {U(uGrainLength), 36},
     {U(uGrainDensity), 76}, {U(uGrainScatter), 22}, {U(uDelayFeedback), 8}, {U(uDelayTone), 9000}, {U(uDelayMix), 18}}},
-  {"Half-note reverse swells", {{U(uGrainDelayMode), 1}, {U(uTempoSync), 1}, {U(uTempoDivision), 7}, {U(uGrainLength), 225},
+  {"Quarter-note reverse swells", {{U(uGrainDelayMode), 1}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uGrainLength), 225},
     {U(uGrainDensity), 28}, {U(uGrainScatter), 14}, {U(uDelayFeedback), 43}, {U(uDelayTone), 5200}, {U(uDelayMix), 31}}},
   {"Low-octave stutter", {{U(uGrainDelayMode), 2}, {U(uTempoSync), 1}, {U(uTempoDivision), 3}, {U(uEchoInterval), -12},
     {U(uGrainLength), 62}, {U(uGrainDensity), 68}, {U(uGrainScatter), 85}, {U(uDelayFeedback), 38}, {U(uDelayMix), 32}}},

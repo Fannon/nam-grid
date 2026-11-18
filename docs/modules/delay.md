@@ -42,7 +42,7 @@ then adjust Mix in the rig. These recipes assume an insert after the amp.
 | Pitch Delay | Descending fourths | Dotted-eighth echoes step down in fourths with each shifted pass. |
 | Feedback FX Delay | Tremolo slap | A short repeat with amp-like volume modulation. |
 | Pattern Delay | Dotted-eighth reply | A left dotted-eighth tap and a quieter quarter-note answer on the right. |
-| Granular Delay | Half-note reverse swells | Long reversed fragments follow the phrase at about half-note intervals; Subtle grain double adds a short texture. |
+| Granular Delay | Quarter-note reverse swells | Long reversed fragments follow the phrase at quarter-note intervals; Subtle grain double adds a short texture. |
 
 The banks also include beat-synced choices for rhythm, leads and ambient parts.
 Shared divisions are intentional: choose a delay type for its character, then a
@@ -331,7 +331,7 @@ In the header:
 Try **Compact slap** for short, soft support or **Chorused dotted eighth**
 for a moving rhythmic echo.
 
-**Display:** The filter response on the first and third repeats. The cutoff changes with Time. The footer shows modulation rate and approximate pitch motion.
+**Display:** The repeats on a dB scale, as in Analog Echo. The thin line inside each stem shows how much survives above 2 kHz: it shrinks with every repeat and at longer Times. The title shows the bandwidth at the current Time, and the footer the modulation rate and approximate pitch motion.
 
 ## Pitch Delay
 

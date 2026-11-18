@@ -460,8 +460,9 @@ def assemble(plugin):
 def run_host_test(sim, plugin, seconds, target="native", runner=()):
     wav = os.path.join(plugin.work, "test%s.wav" % ("" if target == "native" else "-" + target))
     log("[%s] host_sim test %s (%g s, 128-frame blocks)" % (target, plugin.name, seconds))
+    transient = ["--transient-toggle", "Learn"] if plugin.id == "amp" else []
     p = subprocess.run(list(runner) + [sim, plugin.library(target), "test", "--seconds", str(seconds), "--wav", wav,
-                       "--playing"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=plugin_env(plugin),
+                       "--playing"] + transient, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=plugin_env(plugin),
                        timeout=3600)
     lines = [line for line in p.stdout.decode("utf-8", errors="replace").rstrip().splitlines()
              if "has an empty name" not in line]

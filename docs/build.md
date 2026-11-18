@@ -44,7 +44,7 @@ reproducible source of these changes.
 | `AudioDSPTools` | [sdatkinson/AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) `v0.1.2` | `audio-dsp-001` WAV decoding safety and polarity, `002` resampler warm-up, `003` GCC build, `004` stereo IR loading | `v0.2.0` covers `004` with a different stereo API ([#28](https://github.com/sdatkinson/AudioDSPTools/pull/28)) and the alias half of `003` ([#26](https://github.com/sdatkinson/AudioDSPTools/pull/26)); `001`/`002` are local |
 | `iPlug2` | [iPlug2/iPlug2](https://github.com/iPlug2/iPlug2) `d54f690` | `iplug2-clap-enum-metadata`, `iplug2-clap-host-contract`, `iplug2-clap-latency-reporting` (CLAP adapter fixes), `iplug2-text-entry-keyboard`, and on Linux only `iplug2-linux-support` from [iPlug2 PR #1336](https://github.com/iPlug2/iPlug2/pull/1336) | Each fix is upstream |
 | `eigen` | [libeigen/eigen](https://gitlab.com/libeigen/eigen) `ed8cda3` | None | |
-| `mpc-plugin-sdk` | [inmusic-software/mpc-plugin-builder-sdk](https://github.com/inmusic-software/mpc-plugin-builder-sdk) `febd2ca` (no release tags yet) | None | |
+| `mpc-plugin-sdk` | [inmusic-software/mpc-plugin-builder-sdk](https://github.com/inmusic-software/mpc-plugin-builder-sdk) `febd2ca` (no release tags yet) | `mpc-sdk-transient-toggle-test.patch` | The test host checks that Smart Gate Learn resets to Off on recall. |
 
 Core's own nested `Dependencies/eigen` and `Dependencies/AudioDSPTools` are not used;
 the build includes the top-level `eigen` and `AudioDSPTools`.
@@ -301,7 +301,9 @@ not under `/mnt/c`.
 
 The [MPC plugins](mpc.md) are separate VST2-ABI plugins for Akai MPC standalones, built
 with the `mpc-plugin-sdk` submodule's framework and tools rather than CMake. Each folder
-under `mpc/plugins/` is one plugin; `--plugin amp` limits a build to some of them:
+under `mpc/plugins/` is one plugin. After initializing the submodules, run
+`python scripts/setup-deps.py` to apply the pinned dependency patches. Use
+`--plugin amp` to build just NG Amp.
 
 ```sh
 python mpc/build.py                     # native libraries, arm64, skins, SDK validation

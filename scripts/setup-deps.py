@@ -45,8 +45,11 @@ def apply_dependency_patches():
     CACHE.mkdir(parents=True, exist_ok=True)
     for dependency, pattern in (("NeuralAmpModelerCore", "nam-core-*.patch"),
                                 ("AudioDSPTools", "audio-dsp-*.patch"),
-                                ("iPlug2", "iplug2-*.patch")):
+                                ("iPlug2", "iplug2-*.patch"),
+                                ("mpc-plugin-sdk", "mpc-sdk-*.patch")):
         directory = ROOT / dependency
+        if dependency == "mpc-plugin-sdk" and not (directory / ".git").exists():
+            continue  # Desktop-only checkouts can omit the MPC SDK.
         # Platform ports leave the Windows and macOS sources unchanged.
         patches = [patch for patch in sorted((ROOT / "patches").glob(pattern))
                    if not patch.name.startswith("iplug2-linux-") or sys.platform.startswith("linux")]

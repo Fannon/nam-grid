@@ -473,8 +473,11 @@ void TestAmpGates()
   CHECK(Extra(a.Chunk())["sections"]["gate"]["noise"] == learned["noise"]);
   // And it survives a project reload.
   Instance b(mpc_plugins::AmpSpec());
+  a.Set("gate_o2", 1.f); // A project can be saved while Learn is active.
   CHECK(b.Load(a.Chunk()));
   CHECK(b.Display("gate_type") == "Smart Gate");
+  CHECK(b.Display("gate_o2") == "Off");
+  a.Set("gate_o2", 0.f);
   CHECK(Extra(b.Chunk())["sections"]["gate"]["noise"] == learned["noise"]);
   // A second project loaded into a used instance must replace the old audio snapshot too.
   a.Process(l2, r2);

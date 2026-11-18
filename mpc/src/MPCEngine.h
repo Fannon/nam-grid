@@ -190,7 +190,7 @@ public:
         std::vector<std::string> names;
         for (const auto& c : sectionSpec.choices) names.push_back(c.name);
         section.legacyTypeParam = section.typeParam;
-        section.typeParam = add(mpc::choiceParam((id + "model").c_str(), (name + " Model").c_str(),
+        section.typeParam = add(mpc::choiceParam((id + "model").c_str(), (name + "Model").c_str(),
                                                   names, sectionSpec.defaultChoice), Role::Type);
       }
     };

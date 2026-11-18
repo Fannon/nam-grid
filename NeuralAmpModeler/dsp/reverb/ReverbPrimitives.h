@@ -103,7 +103,6 @@ public:
   Stereo Samples(double size) const
   { return {std::max(1., std::round(mRate * mSeconds[0] * size)), std::max(1., std::round(mRate * mSeconds[1] * size))}; }
   bool Clipped() const { return mDelay[0].Clipped() || mDelay[1].Clipped(); }
-  double TotalSeconds() const { return mSeconds[0] + mSeconds[1]; }
 private:
   std::array<MovingDelay, 2> mDelay;
   Stereo mSeconds{};

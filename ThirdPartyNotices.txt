@@ -823,8 +823,10 @@ SOFTWARE.
 Roboto font
 -----------
 
-The editor embeds Roboto Regular, version 1.100141 (2013), unmodified, as
-distributed with the iPlug2 examples. Its embedded notice reads: "Font data
+The editor embeds Roboto Regular, version 1.100141 (2013), as distributed with
+the iPlug2 examples. NAM Grid modified the font by removing its TrueType hinting
+instructions and glyph names; outlines, metrics and kerning are unchanged. Its
+embedded notice reads: "Font data
 copyright Google 2012. Roboto is a trademark of Google." It is licensed under the
 Apache License, Version 2.0, reproduced below. No upstream Roboto distribution
 includes a NOTICE file.

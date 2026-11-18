@@ -43,7 +43,6 @@ public:
     delete mActive;
     mActive = nullptr;
   }
-  T* PendingStopped() const { return mPending.load(); }
 
 private:
   std::atomic<T*> mPending{nullptr}, mRetired{nullptr};

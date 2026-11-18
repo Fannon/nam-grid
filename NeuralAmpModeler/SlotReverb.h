@@ -6,9 +6,6 @@
 class SlotReverb
 {
 public:
-  static constexpr double SpaceScale(SlotEffect effect)
-  { return effect == SlotEffect::RoomReverb ? .55 : effect == SlotEffect::HallReverb ? 1.1 : 1.; }
-  static constexpr double kMaximumSize = 2.2;
   void Reset(double rate, SlotEffect effect = SlotEffect::RoomReverb)
   {
     mMixLaw.Reset(rate);

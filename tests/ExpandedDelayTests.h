@@ -11,7 +11,8 @@ using Audio = std::array<std::vector<double>, 2>;
 inline void Option(UtilityControls& controls, int parameter, double value)
 { controls.expandedDelay[parameter - uSpaceHeads] = value; }
 
-inline Audio Render(E effect, UtilityControls controls, double rate, int block, const Audio& source)
+inline Audio Render(E effect, UtilityControls controls, double rate, int block, const Audio& source,
+                    void (*automate)(UtilityControls&, int) = nullptr)
 {
   SlotExpandedDelay delay;
   delay.Reset(rate, block, effect);
@@ -19,7 +20,10 @@ inline Audio Render(E effect, UtilityControls controls, double rate, int block, 
   const int before = allocations, destroyed = deletions;
   tracking = true;
   for (int first = 0, frames = static_cast<int>(source[0].size()); first < frames; first += block)
+  {
+    if (automate) automate(controls, first);
     delay.Process(result[0].data() + first, result[1].data() + first, std::min(block, frames - first), controls, false);
+  }
   tracking = false;
   assert(allocations == before && deletions == destroyed);
   return result;
@@ -50,6 +54,40 @@ inline double Band(const std::vector<double>& signal, double rate, double start,
 void TestExpandedDelays()
 {
   using namespace expanded_delay_test;
+  {
+    constexpr int rate = 48000;
+    Audio tone{std::vector<double>(120000), std::vector<double>(120000)};
+    for (int i = 0; i < 30000; ++i)
+      tone[0][i] = tone[1][i] = .25 * std::sin(2. * grid_fx::pi * 111. * i / rate);
+    UtilityControls c;
+    c.delay = {50., 0., 12000., 0., 100.};
+    Option(c, uEchoShiftBlend, 100.);
+    Option(c, uEchoInterval, 0.);
+    const auto automated = Render(E::PitchDelay, c, rate, 64, tone, [](UtilityControls& controls, int frame) {
+      if (frame == 24000) Option(controls, uEchoInterval, 1.);
+    });
+    for (int i = 24000; i < 25000; ++i)
+      assert(std::abs(automated[0][i] - automated[0][i - 1]) < .015);
+
+    Option(c, uEchoInterval, 12.);
+    const auto resumed = Render(E::PitchDelay, c, rate, 64, tone, [](UtilityControls& controls, int frame) {
+      if (frame == 24000) Option(controls, uPitchDelayMode, 1.);
+      if (frame == 96000) Option(controls, uPitchDelayMode, 0.);
+    });
+    for (const auto& channel : resumed) assert(Peak(channel, rate, 1.9, 2.25) < 1.e-9);
+
+    Option(c, uPitchDelayMode, 1.);
+    const auto reverse = Render(E::PitchDelay, c, rate, 64, tone);
+    Option(c, uEchoDetune, 25.);
+    const auto detuned = Render(E::PitchDelay, c, rate, 64, tone);
+    double difference = 0., stereo = 0.;
+    for (int i = 4800; i < 24000; ++i)
+    {
+      difference = std::max(difference, std::abs(detuned[0][i] - reverse[0][i]));
+      stereo = std::max(stereo, std::abs(detuned[0][i] - detuned[1][i]));
+    }
+    assert(difference > .01 && stereo > .01);
+  }
   for (const double rate : {44100., 48000., 96000.})
   {
     const int count = static_cast<int>(rate * 1.25);
@@ -190,6 +228,32 @@ void TestExpandedDelays()
       assert(Peak(runaway[0], rate, 3.4, 4.) > .05 && Peak(runaway[0], rate, 0., 4.) < .9);
       tape.delay[1] = 60.;
       assert(Peak(Render(E::SpaceTapeEcho, tape, rate, 64, pluck)[0], rate, 3.4, 4.) < .01);
+    }
+    // A stereo quadrature tone encodes read direction. A slowing tape must
+    // keep advancing even across a jump to several seconds of delay.
+    {
+      UtilityControls tape;
+      tape.delay = {140., 0., 12000., 0., 100.};
+      tape.delayMotion = 100.;
+      Option(tape, uSpaceHeads, 2.);
+      Option(tape, uEchoSpring, 0.);
+      const int frames = static_cast<int>(rate), jump = frames / 2;
+      Audio tone{std::vector<double>(frames), std::vector<double>(frames)};
+      for (int i = 0; i < frames; ++i)
+      {
+        const double phase = 2. * grid_fx::pi * 440. * i / rate;
+        tone[0][i] = .05 * std::cos(phase);
+        tone[1][i] = .05 * std::sin(phase);
+      }
+      SlotExpandedDelay motor;
+      motor.Reset(rate, 64, E::SpaceTapeEcho);
+      for (int first = 0; first < frames; first += 64)
+      {
+        if (first >= jump) tape.delay[0] = 4000.;
+        motor.Process(tone[0].data()+first, tone[1].data()+first, std::min(64, frames-first), tape, false);
+      }
+      for (int i = jump + 128; i < frames; ++i)
+        assert(tone[0][i-1] * tone[1][i] - tone[1][i-1] * tone[0][i] > 0.);
     }
     // The transport follows a Time jump like a motor: well after the old 20 ms glide, a steady
     // tone still comes back pitch-shifted. Bass also drops on the first repeat.

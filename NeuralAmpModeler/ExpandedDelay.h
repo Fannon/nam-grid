@@ -207,7 +207,7 @@ public:
     mSlices.Reset(rate);
     mControls.Reset(rate); mOptions.Reset(rate); mExtras.Reset(rate);
     mMix.Reset(rate); mDrain.Reset(rate);
-    mMode = -1; mModeGain = 1.; mCounter = 0;
+    mMode = -1; mModeGain = 1.; mCounter = 0; mPitchHold = 0;
     mPhase = mFlutter = 0.;
     mTapeMs = -1.;
     mMotor = std::exp(-1. / (.25 * rate));
@@ -280,8 +280,12 @@ public:
         if (pitch && targetMode != 1)
         {
           // The stereo and independent shifters ran on different histories in the old mode.
+          // Cleared, they restart with a step once audio reaches their read heads, so the
+          // shifted voice stays silent until their histories are full and then fades in.
           mPitch.Clear();
           mRightPitch.Clear();
+          mPitchGain = 0.;
+          mPitchHold = static_cast<int>(std::ceil(.085 * mRate));
         }
         mMode = targetMode;
         mSlices.Reset(mRate);
@@ -389,7 +393,8 @@ public:
         {
           // Keep the shifter current even at unison or zero blend. Its history and the
           // direct tap have different phases, so fade between them as Interval leaves or reaches zero.
-          mPitchGain += std::clamp(pitchTarget - mPitchGain, -transition, transition);
+          if (mPitchHold > 0) --mPitchHold;
+          else mPitchGain += std::clamp(pitchTarget - mPitchGain, -transition, transition);
           const double a = mChannel[0].pitchFilter.Tick(direct[0]);
           const double b = right ? mChannel[1].pitchFilter.Tick(direct[1]) : 0.;
           if (mMode == 2)
@@ -577,6 +582,6 @@ private:
   double mCompAttack = 0., mCompRelease = 0.;
   double mPhase = 0., mFlutter = 0.;
   double mPitchGain = 0., mRatio = 1., mDrumMotion = 0., mTapeMs = -1., mMotor = 0.;
-  int mMode = -1, mCounter = 0;
+  int mMode = -1, mCounter = 0, mPitchHold = 0;
   int64_t mSpringIdle = 0, mSpringDrain = 0;
 };

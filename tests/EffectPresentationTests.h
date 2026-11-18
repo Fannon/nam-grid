@@ -8,6 +8,8 @@
 
 void TestEffectPresentation()
 {
+  for (int mode = 0; mode < 4; ++mode)
+    assert(effect_presentation::ModeVisible(SlotEffect::FeedbackFXDelay, uEchoResonance, mode) == (mode < 2));
   for (int p = 0; p < kUtilityControls; ++p)
   {
     const auto choices = EffectChoices(p);

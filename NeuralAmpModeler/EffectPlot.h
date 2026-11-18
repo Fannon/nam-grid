@@ -224,22 +224,37 @@ TimeColumns InvertTime(const IRECT& p, X& x)
 // straddle the bottom axis, `drop` pixels below the chart, clear of the footer text; pass 0
 // where other text sits directly under the chart. The axis also gets the hover time readout.
 // Returns how many marks were drawn; with none, the plot still needs its time span in words.
+inline constexpr float kTimeLabelWidth = 38.f;
+// The marks that fit, in order: visit(seconds, pixel). Returns how many there are.
+template<class X, class Visit>
+int ForEachTimeMark(const IRECT& p, X& x, Visit&& visit)
+{
+  constexpr double marks[]{.1, .2, .4, 1., 2., 4., 8.};
+  constexpr float spacing = 44.f;
+  float previous = static_cast<float>(x(0.));
+  int count = 0;
+  for (const double seconds : marks)
+  {
+    const float at = static_cast<float>(x(seconds));
+    // Centred labels need half their width inside the chart.
+    if (at > p.R - .5f * kTimeLabelWidth || at < p.L + .5f * kTimeLabelWidth) break;
+    if (std::abs(at - previous) < spacing) continue;
+    visit(seconds, at);
+    previous = at;
+    ++count;
+  }
+  return count;
+}
+// How many marks PlotTimeMarks would draw, for layouts that depend on them.
+template<class X>
+int TimeMarkCount(const IRECT& p, X&& x) { return ForEachTimeMark(p, x, [](double, float) {}); }
 template<class X>
 int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true, float drop = 5.f)
 {
   auto* help = cursor ? CurrentPlotHelp(g) : nullptr;
   if (help) help->Time(p, InvertTime(p, x));
-  constexpr double marks[]{.1, .2, .4, 1., 2., 4., 8.};
-  constexpr float spacing = 44.f, label = 38.f;
-  const float origin = static_cast<float>(x(0.));
-  float previous = origin;
-  int drawn = 0;
-  for (const double seconds : marks)
-  {
-    const float at = static_cast<float>(x(seconds));
-    // Centred labels need half their width inside the chart.
-    if (at > p.R - .5f * label || at < p.L + .5f * label) break;
-    if (std::abs(at - previous) < spacing) continue;
+  constexpr float label = kTimeLabelWidth;
+  return ForEachTimeMark(p, x, [&](double seconds, float at) {
     g.DrawDottedLine(muted.WithOpacity(.35f), at, p.T, at, p.B);
     WDL_String text;
     if (seconds < 1.) text.SetFormatted(16, "%.0f ms", seconds * 1000.);
@@ -248,10 +263,7 @@ int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true, float
     const IRECT box(at - .5f * label, top, at + .5f * label, top + 12.f);
     if (help) help->TimeLabel(box, text.Get());
     else DrawTimeLabel(g, box, text.Get());
-    previous = at;
-    ++drawn;
-  }
-  return drawn;
+  });
 }
 inline void PlotFrequencyAxis(IGraphics& g, const IRECT& p, double upper, const char* scale)
 {

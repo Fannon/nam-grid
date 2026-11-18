@@ -89,7 +89,7 @@ public:
   }
   void Read(const Line& source, double delay,
              double length, double speed, double scatter, bool reverse,
-             bool glitch, int channel, double& result)
+             bool glitch, int channel, double& result, double modulation = 0.)
   {
     if (channel == 0)
     {
@@ -109,8 +109,8 @@ public:
     }
     const double phase = mGrains[0].phase;
     const double window = .5 - .5 * std::cos(2. * grid_fx::pi * phase);
-    result = Blend(source.Read(mGrains[1].age + (channel ? mGrains[1].offset : 0.)),
-                   source.Read(mGrains[0].age + (channel ? mGrains[0].offset : 0.)), window);
+    result = Blend(source.Read(mGrains[1].age + modulation + (channel ? mGrains[1].offset : 0.)),
+                   source.Read(mGrains[0].age + modulation + (channel ? mGrains[0].offset : 0.)), window);
   }
   void Advance()
   {
@@ -228,7 +228,12 @@ public:
     const int modeControl = ExpandedDelayModeControl(mEffect);
     const int targetMode = std::clamp(static_cast<int>(c.DelayOption(modeControl)), 0,
                                       static_cast<int>(EffectChoices(modeControl).size()) - 1);
-    if (mMode < 0) mMode = targetMode;
+    const double pitchTarget = c.DelayOption(uEchoInterval) == 0. ? 0. : 1.;
+    if (mMode < 0)
+    {
+      mMode = targetMode;
+      mPitchGain = pitchTarget;
+    }
     const bool tape = mEffect == SlotEffect::SpaceTapeEcho;
     const bool analog = mEffect == SlotEffect::BucketBrigade;
     const bool pitch = mEffect == SlotEffect::PitchDelay;
@@ -272,6 +277,12 @@ public:
       mModeGain = mMode == targetMode ? std::min(1., mModeGain + transition) : std::max(0., mModeGain - transition);
       if (mModeGain == 0. && mMode != targetMode)
       {
+        if (pitch && targetMode != 1)
+        {
+          // The stereo and independent shifters ran on different histories in the old mode.
+          mPitch.Clear();
+          mRightPitch.Clear();
+        }
         mMode = targetMode;
         mSlices.Reset(mRate);
         mCounter = 0;
@@ -367,15 +378,18 @@ public:
             const double stereo = ch ? -1. : 1.;
             const double movement = analog ? extra[0] * .01 * (mMode == 0 ? .00035 : .0024) * wave
               : pitch ? option(uEchoDetune) * .00013 * wave * stereo : 0.;
+            if (pitch && mMode == 1)
+              mSlices.Read(channel.line[0], time, 60., mRatio, 0., true, false, ch, shifted[ch], mRate * movement);
             direct[ch] = analog ? channel.line[0].Read(time + mRate * movement)
                                 : mTaps[0].Read(channel.line[0], mRate * movement);
           }
-          if (pitch && mMode == 1)
-            mSlices.Read(channel.line[0], time, 60., mRatio, 0., true, false, ch, shifted[ch]);
         }
         if (granular || (pitch && mMode == 1)) mSlices.Advance();
-        if (pitch && mMode != 1 && (option(uEchoShiftBlend) > 1.e-10 || mRatio == 1.))
+        if (pitch && mMode != 1)
         {
+          // Keep the shifter current even at unison or zero blend. Its history and the
+          // direct tap have different phases, so fade between them as Interval leaves or reaches zero.
+          mPitchGain += std::clamp(pitchTarget - mPitchGain, -transition, transition);
           const double a = mChannel[0].pitchFilter.Tick(direct[0]);
           const double b = right ? mChannel[1].pitchFilter.Tick(direct[1]) : 0.;
           if (mMode == 2)
@@ -394,8 +408,8 @@ public:
           {
             // A zero interval in forward playback is direct, with optional
             // detune. At other intervals keep a distinct unshifted voice.
-            if (mMode != 1 && mRatio == 1.) shifted[ch] = echo;
-            echo = Blend(echo, shifted[ch], option(uEchoShiftBlend) * .01);
+            const double gain = mMode == 1 ? 1. : mPitchGain;
+            echo = Blend(echo, shifted[ch], option(uEchoShiftBlend) * .01 * gain);
           }
           if (analog)
           {
@@ -562,7 +576,7 @@ private:
   std::array<expanded_delay::TapChange, 4> mTaps;
   double mCompAttack = 0., mCompRelease = 0.;
   double mPhase = 0., mFlutter = 0.;
-  double mRatio = 1., mDrumMotion = 0., mTapeMs = -1., mMotor = 0.;
+  double mPitchGain = 0., mRatio = 1., mDrumMotion = 0., mTapeMs = -1., mMotor = 0.;
   int mMode = -1, mCounter = 0;
   int64_t mSpringIdle = 0, mSpringDrain = 0;
 };

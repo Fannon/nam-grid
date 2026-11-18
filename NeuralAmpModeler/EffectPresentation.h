@@ -69,7 +69,8 @@ inline bool ModeVisible(SlotEffect e, int p, int mode)
   if (e != SlotEffect::FeedbackFXDelay) return true;
   const bool ring = mode == 3;
   if (p == uEchoRingRate) return ring;
-  if (p == uEchoRate || p == uEchoRateSync || p == uEchoResonance) return !ring;
+  if (p == uEchoResonance) return mode < 2;
+  if (p == uEchoRate || p == uEchoRateSync) return !ring;
   return true;
 }
 // Controls packed into the main dial grid (not header, display, detail page or mode substitute).

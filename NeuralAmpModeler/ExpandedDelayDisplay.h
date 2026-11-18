@@ -94,10 +94,15 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const std::array<IColor, 3> headColors{IColor(255, 96, 224, 186), delayColor, IColor(255, 124, 166, 255)};
       const int playing = std::popcount(spaceHeads[mode]);
       const double spring = .01 * value(uEchoSpring);
-      PlotGrid(g, plot);
-      const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.L + (plot.W() - 2.f) * static_cast<float>(t / horizon); });
+      // With heads playing, the badges and marks replace the footer, so the chart takes its
+      // row too, stopping where the marks' labels still clear the level meters.
+      const IRECT tall(plot.L, plot.T, plot.R, grid_layout::plotFooterBottom - 6.f);
+      const auto timeX = [&](const IRECT& r) { return [&r, horizon](double t) { return r.L + (r.W() - 2.f) * static_cast<float>(t / horizon); }; };
+      const IRECT chart = playing > 0 && TimeMarkCount(tall, timeX(tall)) > 0 ? tall : plot;
+      PlotGrid(g, chart);
+      const int marks = PlotTimeMarks(g, chart, timeX(chart));
       if (spring > 0.)
-        PlotCurve(g, plot, [&](double x) {
+        PlotCurve(g, chart, [&](double x) {
           const double t = x * horizon;
           return spring * std::clamp(t / .06, 0., 1.) * std::exp(-6.907755 * std::max(0., t - .05) / 1.55);
         }, 0., 1., reverbColor.WithOpacity(.7f));
@@ -107,12 +112,12 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         if (spaceHeads[mode] & (1u << head))
         {
           offsets[head] = playing > 1 ? 3.f * (static_cast<float>(drawn++) - .5f * (playing - 1)) : 0.f;
-          DrawDelayTrace(g, plot, [&](int i) { return echoes[head][i]; }, headColors[head], offsets[head]);
+          DrawDelayTrace(g, chart, [&](int i) { return echoes[head][i]; }, headColors[head], offsets[head]);
         }
       // A badge sits exactly over its head's first stem: the same bin and offset as the trace.
       const auto headX = [&](int head) {
         const int bin = DelayBin(ms * .001 * HeadFraction(head), horizon);
-        return plot.L + (plot.W() - 2.f) * static_cast<float>(bin) / (bins - 1.f) + offsets[head];
+        return chart.L + (chart.W() - 2.f) * static_cast<float>(bin) / (bins - 1.f) + offsets[head];
       };
       // The three playback heads at one, two and three thirds of Time: a numbered badge
       // each, filled when the Mode plays that head.
@@ -122,13 +127,13 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         const double seconds = ms * .001 * HeadFraction(head);
         const bool active = (spaceHeads[mode] & (1u << head)) != 0;
         const float x = headX(head);
-        if (x > plot.R - 8.f) continue;
+        if (x > chart.R - 8.f) continue;
         // Each badge sits over its head's first arrival. Silent heads keep a hollow badge.
-        g.FillCircle(active ? headColors[head] : surface, x, plot.T + 9.f, 7.f);
-        g.DrawCircle(active ? headColors[head] : border, x, plot.T + 9.f, 7.f, nullptr, 1.25f);
+        g.FillCircle(active ? headColors[head] : surface, x, chart.T + 9.f, 7.f);
+        g.DrawCircle(active ? headColors[head] : border, x, chart.T + 9.f, 7.f, nullptr, 1.25f);
         WDL_String label;
         label.SetFormatted(4, "%d", head + 1);
-        g.DrawText(Text(10.f, active ? surface : muted, EAlign::Center), label.Get(), IRECT(x - 8.f, plot.T + 1.f, x + 8.f, plot.T + 17.f));
+        g.DrawText(Text(10.f, active ? surface : muted, EAlign::Center), label.Get(), IRECT(x - 8.f, chart.T + 1.f, x + 8.f, chart.T + 17.f));
         if (active) heads.AppendFormatted(24, "%s%.0f", heads.GetLength() ? " / " : "", seconds * 1000.);
       }
       // Upper bound from both transport derivatives; the real phases can also cancel.
@@ -221,12 +226,18 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       {
         const double upper = std::min(20000., .45 * rate), resonance = .01 * value(uEchoResonance);
         frequencyGrid(upper);
+        const auto response = [&](double center, double x) {
+          return Decibels(FilterEffect(mode, 20. * std::pow(upper / 20., x), rate, center, depth, resonance));
+        };
+        // The scale follows the deepest point, so a shallow sweep still fills the chart.
+        double deepest = 0.;
         for (double center : {420., 1680., 6720.})
-          PlotCurve(g, plot, [&](double x) {
-            const double hz = 20. * std::pow(upper / 20., x);
-            return Decibels(FilterEffect(mode, hz, rate, center, depth, resonance));
-          }, -36., 6., center == 1680. ? color : color.WithOpacity(.4f), 1.5f, 128);
-        footer.Set("−36 / +6 dB  |  Three sweep positions");
+          for (int i = 0; i <= 128; ++i) deepest = std::min(deepest, response(center, i / 128.));
+        const double floor = std::clamp(6. * std::floor((deepest - 3.) / 6.), -36., -6.);
+        for (double center : {420., 1680., 6720.})
+          PlotCurve(g, plot, [&](double x) { return response(center, x); },
+                    floor, 6., center == 1680. ? color : color.WithOpacity(.4f), 1.5f, 128);
+        footer.SetFormatted(64, "%.0f / +6 dB  |  Three sweep positions", floor);
         PlotDetail(g,plot,"Frequency response of the effect inside the loop at three positions of a sweep. Each echo passes through the current filter again.");
       }
       else

@@ -162,14 +162,19 @@ enum class CosmicStyle
   Pulsar = 7,
   Nebula = 8,
   PhotonPlate = 9,
+  VelvetChamber = 10,
+  SolsticeHall = 11,
+  Mooncourt = 12,
   Count
 };
 inline constexpr int cosmicCount = static_cast<int>(CosmicStyle::Count);
 inline constexpr std::array<const char*, cosmicCount> cosmicNames{
-  "Gemini", "Sagittarius", "Virgo", "Centaurus", "Great Annihilator", "Lyra", "Aurora Hall", "Pulsar Echo", "Binary Bloom", "Photon Plate"};
+  "Gemini", "Sagittarius", "Virgo", "Centaurus", "Great Annihilator", "Lyra", "Aurora Hall", "Pulsar Echo", "Binary Bloom", "Photon Plate",
+  "Velvet Chamber", "Solstice Hall", "Mooncourt"};
 inline constexpr std::array<const char*, cosmicCount> cosmicTopology{
   "16-line diffusion", "8-stage stereo bloom", "Filtered feedback echoes",
-  "4-stage matrix bloom", "Global feedback tank", "4-line sparse echoes", "8-loop diffused hall", "Stereo echo ladder", "Coupled short/long tanks", "Multi-tap figure-eight plate"};
+  "4-stage matrix bloom", "Global feedback tank", "4-line sparse echoes", "8-loop diffused hall", "Stereo echo ladder", "Coupled short/long tanks", "Multi-tap figure-eight plate",
+  "Close diffused chamber", "Slow-building hall", "Distant reflection gallery"};
 inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Gemini: dense, smooth ambience from sixteen scattering delays. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
   "Sagittarius: eight stereo allpasses create slow buildup; Feedback changes attack and decay. Valhalla Supermassive-inspired Faust model. Style changes fade and clear the old tail.",
@@ -180,5 +185,8 @@ inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Aurora Hall: clustered echoes become a diffused guitar hall as Density rises. High cut damps each repeat; raise Feedback for long washes. Try Time 100-250 ms for a hall. Style changes fade and clear the old tail.",
   "Pulsar Echo: four serial stereo echoes with cross-channel regeneration. Low Density keeps the pulse pattern clear; high Density diffuses and rotates each stage. Time sets the scale of the whole pattern. Style changes fade and clear the old tail.",
   "Binary Bloom: coupled short and long delay tanks create an initial space and a broader, slower tail. Density controls scattering and transfer into the long tank. Try sustained chords and swells. Style changes fade and clear the old tail.",
-  "Photon Plate: input diffusion feeds a cross-coupled figure-eight tank with seven output taps per channel. Try Time 100 ms, high Density and low Modulation for a quick, dense digital plate; Warp changes the tank asymmetry. Style changes fade and clear the old tail."};
+  "Photon Plate: input diffusion feeds a cross-coupled figure-eight tank with seven output taps per channel. Try Time 100 ms, high Density and low Modulation for a quick, dense digital plate; Warp changes the tank asymmetry. Style changes fade and clear the old tail.",
+  "Velvet Chamber brings soft, close reflections around the pick. Use short Time and high Density for a compact room.",
+  "Solstice Hall leaves room for the attack, then opens into a broad stereo tail. Raise Modulation for movement on sustained chords.",
+  "Mooncourt returns a distinct far-wall reflection before the tail fills in. Lower Density to bring out the individual reflections."};
 } // namespace effect_modes

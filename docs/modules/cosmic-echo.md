@@ -1,8 +1,8 @@
 # Cosmic Echo
 
-Ten selectable ambient echo and reverb styles, from rhythmic repeats to vast washes. Find **Cosmic Echo** in the Reverb category.
+Choose from rhythmic repeats, compact studio spaces and long ambient washes. Find **Cosmic Echo** in the Reverb category.
 
-The first six styles are directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). Those styles are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical. **Aurora Hall**, **Pulsar Echo**, **Binary Bloom** and **Photon Plate** are original NAM Grid designs with different diffusion and feedback arrangements.
+The first six styles are directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). Those styles are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical. The styles from **Aurora Hall** onward are original NAM Grid designs.
 
 ![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
@@ -20,6 +20,9 @@ The first six styles are directly inspired by the algorithms of [Valhalla Superm
 | **Pulsar Echo** | Four-tap stereo echo groups that rotate and diffuse as Density rises |
 | **Binary Bloom** | Coupled short and long spaces for broader, slowly developing ambient tails |
 | **Photon Plate** | Faster onset and denser early reflections from a multi-tap, cross-coupled digital plate tank |
+| **Velvet Chamber** | A short, soft cluster around the pick, with a dense stereo tail |
+| **Solstice Hall** | A quieter onset and a broad, gently moving tail that leaves space for the attack |
+| **Mooncourt** | A distinct far-wall reflection followed by a more open wash |
 
 Changing the style fades out the old tail before the new style comes in.
 
@@ -68,6 +71,10 @@ For a clearer Pulsar pattern, try **Time 600 ms, Warp 0%, Feedback 45%, Density 
 
 All three process at the host sample rate with damping inside the feedback paths. Start with Modulation low when comparing their underlying echo patterns. Raise Time and Feedback gradually for long tails. Like the other modes, changing Style fades and clears the sounding tail.
 
+## Chamber, hall and gallery
+
+Try **Velvet tracking room**, **Solstice afterglow** and **Across the mooncourt** on the same phrase. Listen to the space between the pick and the first reflection, then mute the strings to hear the late decay. Time moves the walls and scales the tail delays. Warp widens the spacing between the stereo reflections. Density softens their entry into the tail. For a cleaner chamber or hall, reduce Modulation to zero and open High cut. For a darker vintage sound, lower High cut and add a little Modulation.
+
 ## Factory presets
 
 Open **Presets** in the module editor to apply a complete starting point. These
@@ -86,6 +93,9 @@ The selection combines useful playing roles with each style's different response
 | --- | --- | --- |
 | Compact Gemini room | Gemini | Short, lightly mixed space for rhythm parts |
 | Photon lead plate | Photon Plate | Fast, dense ambience behind lead playing |
+| Velvet tracking room | Velvet Chamber | Close reflections around muted notes and picked chords |
+| Solstice afterglow | Solstice Hall | A slower, wider tail behind sustained lead lines |
+| Across the mooncourt | Mooncourt | Play a short chord and leave a gap for the far wall to answer |
 | Soft ambient bed | Gemini | Moderate, gently moving sustain for picked chords |
 | Clustered echoes | Aurora Hall | Separate reflections around picked lines |
 | Pointillist echoes | Virgo | Sparse reflections that darken as they repeat |

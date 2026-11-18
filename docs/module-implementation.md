@@ -341,6 +341,7 @@ stopped. The two components are shown separately, before Mix.
 | Pulsar Echo | Four serial stereo delay/diffuser stages, four output taps, end-only cross feedback |
 | Binary Bloom | Two coupled eight-line FDNs with different time scales and per-line decay normalization |
 | Photon Plate | Stereo input diffusion, cross-coupled allpass/delay tank, seven passive output taps per channel |
+| Velvet Chamber, Solstice Hall, Mooncourt | Stereo wall reflections feed three stereo allpasses and eight damped scattering delays. Wall timing, early level, diffusion and tank length distinguish the spaces. |
 
 In the first six styles, Warp, Density, Feedback and modulation keep the source model's per-topology interactions. Time
 uses a quadratic dial; Time/Warp automation moves allpass-interpolated reads and can bend the

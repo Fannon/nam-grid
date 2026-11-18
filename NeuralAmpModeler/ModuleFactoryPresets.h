@@ -373,6 +373,9 @@ inline const Preset space[]{
 // is not implemented here; these are independent Gemini/Aurora recipes.
 inline const Preset cosmic[]{
   {"Compact Gemini room", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 80.}, {U(uCosmicWarp), 65.}, {U(uCosmicFeedback), 38.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 7500.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 14.}}},
+  {"Velvet tracking room", {{U(uCosmicStyle), 10.}, {U(uCosmicTime), 100.}, {U(uCosmicWarp), 60.}, {U(uCosmicFeedback), 70.}, {U(uCosmicDensity), 85.}, {U(uCosmicTone), 6200.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 17.}}},
+  {"Solstice afterglow", {{U(uCosmicStyle), 11.}, {U(uCosmicTime), 145.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 76.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 7800.}, {U(uCosmicMotion), 23.}, {U(uCosmicMix), 22.}}},
+  {"Across the mooncourt", {{U(uCosmicStyle), 12.}, {U(uCosmicTime), 125.}, {U(uCosmicWarp), 65.}, {U(uCosmicFeedback), 69.}, {U(uCosmicDensity), 40.}, {U(uCosmicTone), 7000.}, {U(uCosmicMotion), 7.}, {U(uCosmicMix), 22.}}},
   {"Photon lead plate", {{U(uCosmicStyle), 9.}, {U(uCosmicTime), 100.}, {U(uCosmicWarp), 70.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 10.}, {U(uCosmicMix), 18.}}},
   {"Soft ambient bed", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 80.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 15.}, {U(uCosmicMix), 22.}}},
   {"Clustered echoes", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 15.}, {U(uCosmicDensity), 10.}, {U(uCosmicTone), 6500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 20.}}},

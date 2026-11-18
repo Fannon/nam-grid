@@ -34,6 +34,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   if (style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate)) text.Set("Eight input-diffuser lines (blue) feed two cross-coupled tank halves (orange). Each half contains two allpasses and two main delays. Seven output taps per channel observe the tank; markers show full line lengths.");
   else if (style==static_cast<int>(effect_modes::CosmicStyle::Pulsar)) text.Set("Four stereo echo stages (blue) and their short diffusers (orange). The full pattern passes through all stages; feedback crosses stereo channels at the end. Markers show individual line lengths.");
   else if (style==static_cast<int>(effect_modes::CosmicStyle::Nebula)) text.Set("Eight long-tank lines (blue) and eight short-tank lines (orange). Density scatters energy and couples the tanks. Markers show line lengths, not a measured decay time.");
+  else if (grid_cosmic::IsReflectionSpace(style)) text.Set("Blue marks the stereo reflection pair and six input diffusers. Orange marks the eight recirculating tail delays. The first reflections are tapped partway along the blue pair.");
   else if (modern) text.Set("Eight main delays and eight short diffusers at their base times. Blue marks main loops; orange marks diffusers. Density adds scattering and diffusion; halos show Modulation.");
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+7.f,plot.R,grid_layout::plotFooterBottom),text.Get());
@@ -77,7 +78,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
     const auto ink=group ? ampColor : delayColor;
     const double lineMotion=modern ? std::min(motion,.01*std::max(0.,plan.seconds[i]-1./rate)) : motion;
     const float spread=std::clamp(static_cast<float>(lines.W()*lineMotion/horizon),0.f,12.f);
-    if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
+    if(spread>0. && !(grid_cosmic::IsReflectionSpace(style) && i<2)) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
     g.DrawLine(ink,x,lines.B,x,lines.B-height,nullptr,2.f);
     if(i && density>.01)
     {

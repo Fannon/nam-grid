@@ -99,16 +99,19 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
           const double t = x * horizon;
           return spring * std::clamp(t / .06, 0., 1.) * std::exp(-6.907755 * std::max(0., t - .05) / 1.55);
         }, 0., 1., reverbColor.WithOpacity(.7f));
-      const auto headX = [&](int head) {
-        return plot.L + (plot.W() - 2.f) * static_cast<float>(ms * .001 * HeadFraction(head) / horizon);
-      };
       // Each head draws its own repeats in its colour; coinciding arrivals sit side by side.
+      std::array<float, 3> offsets{};
       for (int head = 0, drawn = 0; head < 3; ++head)
         if (spaceHeads[mode] & (1u << head))
         {
-          const float offset = playing > 1 ? 3.f * (static_cast<float>(drawn++) - .5f * (playing - 1)) : 0.f;
-          DrawDelayTrace(g, plot, [&](int i) { return echoes[head][i]; }, headColors[head], offset);
+          offsets[head] = playing > 1 ? 3.f * (static_cast<float>(drawn++) - .5f * (playing - 1)) : 0.f;
+          DrawDelayTrace(g, plot, [&](int i) { return echoes[head][i]; }, headColors[head], offsets[head]);
         }
+      // A badge sits exactly over its head's first stem: the same bin and offset as the trace.
+      const auto headX = [&](int head) {
+        const int bin = DelayBin(ms * .001 * HeadFraction(head), horizon);
+        return plot.L + (plot.W() - 2.f) * static_cast<float>(bin) / (bins - 1.f) + offsets[head];
+      };
       // The three playback heads at one, two and three thirds of Time: a numbered badge
       // each, filled when the Mode plays that head.
       WDL_String heads;

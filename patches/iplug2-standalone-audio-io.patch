@@ -22,7 +22,7 @@ index 92377b0dd..61a8f39fc 100644
    LEAVE_PARAMS_MUTEX
  }
 diff --git a/IPlug/APP/IPlugAPP_dialog.cpp b/IPlug/APP/IPlugAPP_dialog.cpp
-index 9919d55b4..9683acb96 100644
+index 9919d55b4..e30e60dac 100644
 --- a/IPlug/APP/IPlugAPP_dialog.cpp
 +++ b/IPlug/APP/IPlugAPP_dialog.cpp
 @@ -12,6 +12,7 @@
@@ -83,7 +83,18 @@ index 9919d55b4..9683acb96 100644
    SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_L,CB_SETCURSEL, mState.mAudioOutChanL - 1, 0);
    SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_OUT_R,CB_SETCURSEL, mState.mAudioOutChanR - 1, 0);
  }
-@@ -386,7 +383,7 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+@@ -194,7 +191,9 @@ void IPlugAPPHost::PopulateAudioDialogs(HWND hwndDlg)
+ //    SendDlgItemMessage(hwndDlg,IDC_CB_MONO_INPUT,BM_SETCHECK, BST_UNCHECKED,0);
+ //  }
+ 
+-//  Populate buffer size combobox
++//  Populate buffer size combobox. This runs again after every driver or device change,
++//  so clear the list first: appended duplicates indexed past kBufferSizeOptions.
++  SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_BUF_SIZE,CB_RESETCONTENT,0,0);
+   for (int i = 0; i< kNumBufferSizeOptions; i++)
+   {
+     SendDlgItemMessage(hwndDlg,IDC_COMBO_AUDIO_BUF_SIZE,CB_ADDSTRING,0,(LPARAM)kBufferSizeOptions[i].c_str());
+@@ -386,7 +385,7 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
  
              // Reset IO
              mState.mAudioInChanL = 1;
@@ -92,7 +103,7 @@ index 9919d55b4..9683acb96 100644
  
              _this->PopulateDriverSpecificControls(hwndDlg);
            }
-@@ -410,36 +407,24 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+@@ -410,36 +409,24 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
            if (HIWORD(wParam) == CBN_SELCHANGE)
            {
              mState.mAudioInChanL = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_IN_L, CB_GETCURSEL, 0, 0) + 1;
@@ -131,6 +142,16 @@ index 9919d55b4..9683acb96 100644
            break;
  
  //        case IDC_CB_MONO_INPUT:
+@@ -453,7 +440,8 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+           if (HIWORD(wParam) == CBN_SELCHANGE)
+           {
+             int iovsidx = (int) SendDlgItemMessage(hwndDlg, IDC_COMBO_AUDIO_BUF_SIZE, CB_GETCURSEL, 0, 0);
+-            mState.mBufferSize = atoi(kBufferSizeOptions[iovsidx].c_str());
++            if (iovsidx >= 0 && iovsidx < kNumBufferSizeOptions)
++              mState.mBufferSize = atoi(kBufferSizeOptions[iovsidx].c_str());
+           }
+           break;
+         case IDC_COMBO_AUDIO_SR:
 diff --git a/IPlug/APP/IPlugAPP_host.cpp b/IPlug/APP/IPlugAPP_host.cpp
 index 9a356d6af..4db040945 100644
 --- a/IPlug/APP/IPlugAPP_host.cpp

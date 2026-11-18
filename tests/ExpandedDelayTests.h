@@ -106,7 +106,7 @@ void TestExpandedDelays()
         assert(a == b);
         for (const auto& channel : a) for (const auto sample : channel) assert(std::isfinite(sample) && std::abs(sample) < 1.2);
         if (effect != E::FeedbackFXDelay || mode != 3) assert(Peak(a[0], rate, .025, .6) > .002);
-        assert(Peak(a[0], rate, 1.05, 1.24) < .15);
+        if (effect != E::SpaceTapeEcho) assert(Peak(a[0], rate, 1.05, 1.24) < .15); // Space Tape runs away by design.
       }
     }
   }
@@ -173,6 +173,53 @@ void TestExpandedDelays()
       const auto a = Render(E::GranularDelay, grains, rate, 61, phrase), b = Render(E::GranularDelay, grains, rate, 512, phrase);
       assert(a == b && Peak(a[0], rate, 3., 6.) > .001);
       for (const auto& channel : a) for (const double sample : channel) assert(std::isfinite(sample) && std::abs(sample) < 1.2);
+    }
+    // Space Tape Echo: at 82% Feedback the repeats sustain (self-oscillation) yet stay
+    // bounded by the tape; at 60% they still die away.
+    {
+      UtilityControls tape;
+      tape.delay = {200., 82., 6000., 20., 100.};
+      tape.delayMotion = 0.;
+      Option(tape, uSpaceHeads, 2.);
+      Option(tape, uEchoSpring, 0.);
+      const int seconds = static_cast<int>(rate * 4.);
+      Audio pluck{std::vector<double>(seconds), std::vector<double>(seconds)};
+      for (int i = 0; i < static_cast<int>(rate * .03); ++i)
+        pluck[0][i] = pluck[1][i] = .3 * std::sin(2. * grid_fx::pi * 440. * i / rate);
+      const auto runaway = Render(E::SpaceTapeEcho, tape, rate, 64, pluck);
+      assert(Peak(runaway[0], rate, 3.4, 4.) > .05 && Peak(runaway[0], rate, 0., 4.) < .9);
+      tape.delay[1] = 60.;
+      assert(Peak(Render(E::SpaceTapeEcho, tape, rate, 64, pluck)[0], rate, 3.4, 4.) < .01);
+    }
+    // The transport follows a Time jump like a motor: well after the old 20 ms glide, a steady
+    // tone still comes back pitch-shifted. Bass also drops on the first repeat.
+    {
+      UtilityControls tape;
+      tape.delay = {300., 0., 12000., 0., 100.};
+      tape.delayMotion = 0.;
+      Option(tape, uSpaceHeads, 2.);
+      Option(tape, uEchoSpring, 0.);
+      SlotExpandedDelay delay;
+      delay.Reset(rate, 64, E::SpaceTapeEcho);
+      const int frames = static_cast<int>(rate * 1.6), jump = static_cast<int>(rate * 1.);
+      Audio tone{std::vector<double>(frames), std::vector<double>(frames)};
+      for (int i = 0; i < frames; ++i) tone[0][i] = tone[1][i] = .1 * std::sin(2. * grid_fx::pi * 1000. * i / rate);
+      for (int first = 0; first < frames; first += 64)
+      {
+        if (first >= jump) tape.delay[0] = 600.;
+        delay.Process(tone[0].data() + first, tone[1].data() + first, std::min(64, frames - first), tape, false);
+      }
+      const double steady = Band(tone[0], rate, .6, .9, 1000.), gliding = Band(tone[0], rate, 1.15, 1.45, 1000.);
+      assert(gliding < .3 * steady);
+      const auto echo = [&](double frequency) {
+        Audio note{std::vector<double>(count), std::vector<double>(count)};
+        for (int i = 0; i < static_cast<int>(rate * .2); ++i)
+          note[0][i] = note[1][i] = .1 * std::sin(2. * grid_fx::pi * frequency * i / rate);
+        UtilityControls quiet = tape;
+        quiet.delay[0] = 300.;
+        return Peak(Render(E::SpaceTapeEcho, quiet, rate, 64, note)[0], rate, .4, .5) / .1;
+      };
+      assert(echo(60.) < .7 && echo(1000.) > .85);
     }
     // Tape saturation never folds back: a louder note never records a quieter echo.
     Option(c, uSpaceHeads, 0.);

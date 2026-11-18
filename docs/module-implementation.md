@@ -44,7 +44,11 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
 - **Expanded delays** ([ExpandedDelay.h](../NeuralAmpModeler/ExpandedDelay.h)) share
   sample-based control smoothing, fractional delay lines and a bounded feedback return.
   Space Tape Echo uses the Airwindows Spiral transfer from LoFi Tape Machine at 4×
-  with the minimum-phase FIR and the classic Spring tank in parallel. At Spring 0% the tank
+  with the minimum-phase FIR and the classic Spring tank in parallel. The record stage clamps
+  at Spiral's peak, so it saturates without folding back. The transport follows Time through a
+  250 ms one-pole, like a motor; tape speed sets tone, wow rate and a loop low cut (110 Hz at
+  420 ms) that also thins the first repeat. Feedback is unchanged up to 60% and then rises to a
+  loop gain of 1.25 at 82%, so the Spiral ceiling bounds self-oscillation. At Spring 0% the tank
   stops listening, rings out in silence for 4 s and then parks, so it costs no CPU and
   resumes from a silent tank. Its three tap
   positions and parallel routing follow the [RE-201 manual](https://cdn.roland.com/assets/media/pdf/RE-201_OM.pdf).

@@ -241,6 +241,8 @@ public:
     mMix.Reset(rate); mDrain.Reset(rate);
     mMode = -1; mModeGain = 1.; mCounter = 0;
     mPhase = mFlutter = 0.;
+    mTapeMs = -1.;
+    mMotor = std::exp(-1. / (.25 * rate));
     for (auto& tap : mTaps) tap.Reset(rate);
     mDC = expanded_delay::Pole(28., rate);
     mCompAttack = std::exp(-1. / (.0015 * rate));
@@ -306,7 +308,12 @@ public:
         mSlices.Reset(mRate);
         mCounter = 0;
       }
-      const double time = v[0] * .001 * mRate;
+      // The tape transport follows Time like a motor, settling over about a second, so
+      // turning Time swoops the pitch of the repeats. Speed also sets tone, wobble and bass.
+      if (tape)
+        mTapeMs = mTapeMs < 0. ? v[0] : v[0] + mMotor * (mTapeMs - v[0]);
+      const double ms = tape ? mTapeMs : v[0];
+      const double time = ms * .001 * mRate;
       if (!tape && !analog && !granular)
       {
         const double target = std::clamp(values[0], 5., c.sync ? 8000. : 4000.) * .001 * mRate;
@@ -319,7 +326,7 @@ public:
       double motionRate = option(uEchoRate);
       if (fx && mMode != 3 && c.DelayOption(uEchoRateSync) >= .5) motionRate *= grid_tempo::Tempo(c.tempo) / 60.;
       if (analog && mMode == 2) motionRate *= 4.;
-      if (tape) motionRate = .43 * std::clamp(std::sqrt(420. / v[0]), .55, 2.5);
+      if (tape) motionRate = .43 * std::clamp(std::sqrt(420. / ms), .55, 2.5);
       if (fx && mMode == 3) motionRate = option(uEchoRingRate);
       if (tape || analog || pitch || fx || (pattern && mMode == 3))
       {
@@ -334,7 +341,7 @@ public:
       if (mCounter == 0)
       {
         double tone = v[2];
-        if (tape) tone *= std::clamp(std::sqrt(420. / v[0]), .55, 1.45);
+        if (tape) tone *= std::clamp(std::sqrt(420. / ms), .55, 1.45);
         if (analog)
         {
           constexpr std::array<double, 5> widths{.70, 1., .96, 1.5, .84};
@@ -342,7 +349,8 @@ public:
         }
         if (pattern && mMode == 3) tone *= .8;
         mTone = Pole(tone, mRate);
-        mLowCut = Pole(tape ? 70. : 42., mRate);
+        // Tape heads lose bass, more so at slower speeds: every repeat comes back thinner.
+        mLowCut = Pole(tape ? 110. * std::clamp(std::sqrt(420. / ms), .7, 1.4) : 42., mRate);
         mRatio = std::exp2(option(uEchoInterval) / 12.);
         if (pitch || granular)
         {
@@ -356,7 +364,7 @@ public:
       const int heads = tape ? std::popcount(spaceHeads[mMode]) : 1;
       const double headGain = heads > 0 ? 1. / std::sqrt(static_cast<double>(heads)) : 0.;
       // Normalize the tape return by the sum of the enabled head gains.
-      const double feedback = .01 * v[1] * live * mModeGain * headGain;
+      const double feedback = (tape ? SpaceTapeFeedback(v[1]) : .01 * v[1]) * live * mModeGain * headGain;
       Stereo wet{};
       if (pattern)
       {
@@ -430,7 +438,7 @@ public:
           if (fx) echo = FeedbackEffect(echo, channel, ch, wave, option);
           echo = LowPass(echo, channel.tone, mTone);
           const double loop = echo - LowPass(echo, channel.low, mLowCut);
-          wet[ch] = echo;
+          wet[ch] = tape ? loop : echo;
           double send = dry[ch] + feedback * Limit(loop);
           if (tape || analog) send -= LowPass(send, channel.dc, mDC);
           if (tape)
@@ -586,7 +594,7 @@ private:
   std::array<expanded_delay::TapChange, 4> mTaps;
   double mCompAttack = 0., mCompRelease = 0.;
   double mPhase = 0., mFlutter = 0.;
-  double mRatio = 1., mDrumMotion = 0.;
+  double mRatio = 1., mDrumMotion = 0., mTapeMs = -1., mMotor = 0.;
   int mMode = -1, mCounter = 0;
   int64_t mSpringIdle = 0, mSpringDrain = 0;
 };

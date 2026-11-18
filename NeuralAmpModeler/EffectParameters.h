@@ -929,6 +929,14 @@ inline constexpr int ExpandedDelayModeControl(SlotEffect effect)
 // Head masks per Mode; Spring only plays no heads.
 inline constexpr std::array<unsigned, 8> spaceHeads{1, 2, 4, 3, 5, 6, 7, 0};
 inline constexpr double HeadFraction(int head) { return (head + 1.) / 3.; }
+// Space Tape Echo's loop gain for Feedback in percent: unchanged up to 60%, then rising
+// smoothly (matching slope) to 1.25 at 82%, so the top of the range self-oscillates like
+// an RE-201's Intensity. The tape stage's saturation bounds the runaway.
+inline constexpr double SpaceTapeFeedback(double percent)
+{
+  const double f = .01 * percent, over = f > .6 ? f - .6 : 0.;
+  return f + (.43 / (.22 * .22)) * over * over;
+}
 inline constexpr bool IsExpandedDelay(SlotEffect e)
 { return e >= SlotEffect::SpaceTapeEcho && e <= SlotEffect::GranularDelay; }
 

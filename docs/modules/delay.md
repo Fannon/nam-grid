@@ -289,9 +289,9 @@ Three tape heads with a spring reverb fed in parallel.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 420 ms | Tape speed sets the last head interval. The other tape heads are at one and two thirds of that time. |
-| **Feedback** | 0–82% | 32% | Amount returned for another repeat. The return is balanced by the number of enabled heads. |
-| **High cut** | 800–12000 Hz | 5500 Hz | High-cut frequency of the repeats. Slower tape speeds also darken them. |
+| **Time** | 5–4000 ms | 420 ms | Tape speed sets the last head interval; the other heads are at one and two thirds of it. The motor takes about a second to settle, so turning Time swoops the pitch. |
+| **Feedback** | 0–82% | 32% | Amount returned for another repeat, balanced by the number of enabled heads. Above about 75% the repeats build into self-oscillation, held in check by the tape. |
+| **High cut** | 800–12000 Hz | 5500 Hz | High-cut frequency of the repeats. Slower tape speeds also darken them, and every repeat loses some bass, as on worn tape heads. |
 | **Saturation** | 0–100% | 22% | Drive into the tape. Louder playing compresses smoothly towards a lower ceiling; Modulation controls the wow and flutter separately. |
 | **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Modulation** | 0–100% | 25% | Wow and flutter on the repeats. Their speed follows the tape speed. |
@@ -303,8 +303,9 @@ In the header:
 - **Mode** (Head 1, Head 2, Head 3, Heads 1 + 2, Heads 1 + 3, Heads 2 + 3, All heads, Spring only; starts at Heads 1 + 3) Which heads sound. The enabled heads all feed back. **Spring only** plays the spring reverb without echoes, like the RE-201's reverb-only setting.
 - **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values. With a quarter-note division, the heads play eighth-note triplets.
 
-Try **Three-head dub** for rhythmic feedback, or **Slap and spring** for a
-short echo with more spring.
+Try **Three-head dub** for rhythmic feedback, **Slap and spring** for a
+short echo with more spring, or **Runaway dub** for repeats that keep
+building until you lower Feedback.
 
 **Display:** Numbered badges mark the three heads at one, two and three thirds of Time, filled when the Mode plays them; the footer lists their times. Head arrivals and feedback are cyan, with a purple spring decay guide. The title estimates the full-speed tape head's maximum pitch motion.
 

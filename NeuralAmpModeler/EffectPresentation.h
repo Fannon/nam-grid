@@ -473,7 +473,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
       return "Contribution from this tap. The output normalizes the active taps together.";
     case uTapPan1: case uTapPan2: case uTapPan3: case uTapPan4:
       return "Bias this tap left or right without moving the dry guitar. Width scales the pan amount.";
-    case uDelayTime: return e == SlotEffect::SpaceTapeEcho ? "Tape speed sets the last head interval. The other tape heads are at one and two thirds of that time."
+    case uDelayTime: return e == SlotEffect::SpaceTapeEcho ? "Tape speed sets the last head interval; the other heads are at one and two thirds of it. The motor takes about a second to settle, so turning Time swoops the pitch."
                          : e == SlotEffect::PatternDelay ? "Base interval for the four editable taps. Each tap sets a percentage of this time."
                          : e == SlotEffect::GranularDelay ? "Nominal time into the history. Grain length, scatter and direction spread the repeats around it."
                          : e == SlotEffect::PitchDelay || e == SlotEffect::FeedbackFXDelay
@@ -482,7 +482,8 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
                          : e == SlotEffect::ReverseDelay ? "Length of each reversed capture window; not a conventional first-echo delay."
                          : e == SlotEffect::DualDelay ? "Time of the left tap. The right tap is this value multiplied by Time ratio."
                                                       : "Time to the first repeat. Changing it while repeats sound bends their pitch, like tape.";
-    case uDelayFeedback: return "Amount returned for another repeat. Higher settings make more repeats and longer tails.";
+    case uDelayFeedback: return e == SlotEffect::SpaceTapeEcho ? "Amount returned for another repeat. Above about 75% the repeats build into self-oscillation, held in check by the tape."
+                                                               : "Amount returned for another repeat. Higher settings make more repeats and longer tails.";
     case uDelayTone: return "High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar.";
     case uDelayCharacter: return e == SlotEffect::DigitalDelay ? "Ducks repeats while you play; echoes recover in the gaps."
                                   : e == SlotEffect::AnalogDelay ? "More darkening and soft saturation on each repeat."

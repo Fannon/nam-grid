@@ -494,6 +494,9 @@ inline const Preset spaceTapeEcho[]{
   {"Clean long head", {{U(uSpaceHeads), 2}, {U(uDelayTone), 9000}, {U(uDelayMotion), 8}, {U(uDelayCharacter), 5}, {U(uEchoSpring), 0}}},
   {"Dark spring wash", {{U(uSpaceHeads), 6}, {U(uDelayTime), 260}, {U(uDelayFeedback), 50}, {U(uDelayTone), 3200},
     {U(uDelayMotion), 45}, {U(uDelayCharacter), 40}, {U(uEchoSpring), 40}, {U(uDelayMix), 30}}},
+  // Just past the self-oscillation point: repeats keep building; lower Feedback to let them fall.
+  {"Runaway dub", {{U(uSpaceHeads), 4}, {U(uDelayTime), 380}, {U(uDelayFeedback), 78}, {U(uDelayTone), 3800},
+    {U(uDelayMotion), 30}, {U(uDelayCharacter), 45}, {U(uEchoSpring), 25}, {U(uDelayMix), 28}}},
   {"Short and long heads", {{U(uSpaceHeads), 4}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uDelayFeedback), 25},
     {U(uDelayTone), 7200}, {U(uDelayMotion), 8}, {U(uDelayCharacter), 12}, {U(uEchoSpring), 8}, {U(uDelayMix), 23}}},
   {"Worn twin-head trail", {{U(uSpaceHeads), 5}, {U(uTempoSync), 1}, {U(uTempoDivision), 6}, {U(uDelayFeedback), 57},

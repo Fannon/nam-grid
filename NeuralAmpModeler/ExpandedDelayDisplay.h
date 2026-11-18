@@ -87,7 +87,8 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
     case SlotEffect::SpaceTapeEcho:
     {
       const double horizon = effect_preview::TimeHorizon(std::max(2.5 * ms * .001, value(uEchoSpring) > 0. ? .22 : .01));
-      const auto echoes = TapeRepeats(mode, feedback, ms * .001, horizon);
+      const double loopGain = SpaceTapeFeedback(value(uDelayFeedback));
+      const auto echoes = TapeRepeats(mode, loopGain, ms * .001, horizon);
       const double spring = .01 * value(uEchoSpring);
       PlotGrid(g, plot);
       if (spring > 0.)
@@ -119,6 +120,8 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const double pitchBound = effect_preview::SweepCents(motion * (.0028 + .00038 * (6.7 / .43) * 1.2), wow);
       if (spaceHeads[mode] == 0)
         title.SetFormatted(90, "%s  |  Spring %.0f%%, no tape heads", name, 100. * spring);
+      else if (loopGain >= 1.)
+        title.SetFormatted(90, "%s  |  Runaway: repeats build until the tape saturates", name);
       else
         title.SetFormatted(90, "%s  |  Tape motion up to %.0f ct", name, pitchBound);
       if (heads.GetLength())

@@ -130,7 +130,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Reverse Delay | Reverse half notes, Reversed solo, Short reverse texture, Eighth-note reverse flicker, Quarter-note reverse bloom, Dotted-quarter reverse wash |
 | Dual Delay | Quarter and dotted eighth, Wide ping-pong, Tight stereo double, Eighth and dotted eighth, Quarter and eighth, Quarter and triplet, Synced dotted ping-pong, Half and dotted quarter |
 | Diffused Delay | Echo into cloud, Oil can echo, Gentle pad echoes, Soft dotted-eighth rhythm, Quarter-note echo halo, Triplet echo clusters, Dotted-quarter dream, Half-note cloud |
-| Space Tape Echo | Slap and spring, Three-head dub, Clean long head, Dark spring wash, Short and long heads, Worn twin-head trail |
+| Space Tape Echo | Slap and spring, Three-head dub, Clean long head, Dark spring wash, Runaway dub, Short and long heads, Worn twin-head trail |
 | Bucket Brigade | Compact slap, Chorused dotted eighth, Vibrato trails, Clear analog lead, Driven repeats, Short chorus double |
 | Pitch Delay | Octave halo, Climbing fifths, Backwards octave, Wide octaves, Descending fourths, Detuned double |
 | Feedback FX Delay | Swept dotted echoes, Slow phaser trail, Pulsing quarter notes, Metallic fragments, Tremolo slap, Low ring flutter |

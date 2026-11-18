@@ -60,6 +60,7 @@ struct SectionSpec
   const char* typeName = nullptr; // Screen name of the Type menu (default: the section name).
   bool dcBlock = false; // A 5 Hz DC blocker after the section (NAM captures can have a DC offset).
   std::vector<int> optionOrder; // Permanent host option assignments. Append; never infer from menu popularity.
+  int legacyTypes = 0; // Keep the original Type parameter alongside an expanded Model selector.
 };
 struct ProgramSpec
 {
@@ -78,10 +79,12 @@ struct PluginSpec
   // goes to both outputs. For guitar rigs around a (mono) NAM capture: halves gate and cabinet
   // work for no audible difference with a mono source.
   bool mono = false;
+  std::vector<size_t> signalOrder; // Empty uses section order. Host IDs always follow declaration order.
+  size_t sectionsBeforeDisplays = SIZE_MAX; // Preserve indices of previously shipped display parameters.
 };
 inline constexpr double kNormalizedLoudness = -18.; // dB, the target of the Normalize switch.
 
-inline constexpr int kStateSchema = 1;
+inline constexpr int kStateSchema = 2;
 inline const char* ControlKey(int control)
 {
   return IsUtility(control) ? kEffectParameters[UtilityControl(control)].name : parameter_layout::slotControlNames[control];
@@ -142,8 +145,7 @@ public:
       captures = captures || SectionFiles(section) == FileKind::Capture;
     // Levels every capture to the same loudness from its metadata (where the capture has it).
     if (captures) mNormalizeParam = addParam(mpc::boolParam("normalize", "Normalize", true));
-    for (size_t s = 0; s < spec.sections.size(); ++s)
-    {
+    const auto addSection = [&](size_t s) {
       const auto& sectionSpec = spec.sections[s];
       auto& section = mSections[s];
       section.spec = &sectionSpec;
@@ -160,6 +162,7 @@ public:
       {
         std::vector<std::string> names;
         for (const auto& c : sectionSpec.choices) names.push_back(c.name);
+        if (sectionSpec.legacyTypes) names.resize(sectionSpec.legacyTypes);
         section.typeParam = add(mpc::choiceParam((id + "type").c_str(), (name + "Type").c_str(), names, sectionSpec.defaultChoice), Role::Type);
       }
       if (sectionSpec.switchable)
@@ -171,19 +174,32 @@ public:
       }
       section.optionOrder = SectionOptionOrder(sectionSpec);
       const int knobs = SectionKnobCount(sectionSpec), options = static_cast<int>(section.optionOrder.size());
-      for (int o = 0; o < options; ++o)
+      const auto addOption = [&](int o) {
         section.optionParams.push_back(add(mpc::floatParam((id + "o" + std::to_string(o + 1)).c_str(),
                                                            (name + "Opt " + std::to_string(o + 1)).c_str(), 0.f, 1.f, 0.f, "", 3),
                                            Role::Option, o));
+      };
+      for (int o = 0; o < std::min(options, 4); ++o) addOption(o);
       for (int k = 0; k < knobs; ++k)
         section.knobParams.push_back(add(mpc::floatParam((id + "k" + std::to_string(k + 1)).c_str(),
                                                          (name + "Knob " + std::to_string(k + 1)).c_str(), 0.f, 1.f, .5f, "", 3),
                                          Role::Knob, k));
-    }
+      for (int o = 4; o < options; ++o) addOption(o);
+      if (sectionSpec.legacyTypes)
+      {
+        std::vector<std::string> names;
+        for (const auto& c : sectionSpec.choices) names.push_back(c.name);
+        section.legacyTypeParam = section.typeParam;
+        section.typeParam = add(mpc::choiceParam((id + "model").c_str(), (name + " Model").c_str(),
+                                                  names, sectionSpec.defaultChoice), Role::Type);
+      }
+    };
+    const size_t original = std::min(spec.sectionsBeforeDisplays, mSections.size());
+    for (size_t s = 0; s < original; ++s) addSection(s);
     mRoles.resize(numParams(), {-1, Role::Global, 0});
     // Read-only display carriers append after every existing control. They have no audio
     // meaning and never receive Q-Link assignments or automation.
-    for (size_t s = 0; s < mSections.size(); ++s)
+    for (size_t s = 0; s < original; ++s)
       if (SectionFiles(*mSections[s].spec) != FileKind::None)
         for (int line = 0; line < kFileDetails; ++line)
         {
@@ -201,6 +217,11 @@ public:
       mNormalizeInfoParam = addParam(p);
       mRoles.push_back({-1, Role::Global, 0});
     }
+    for (size_t s = original; s < mSections.size(); ++s) addSection(s);
+    mSignalOrder = spec.signalOrder;
+    if (mSignalOrder.empty())
+      for (size_t s = 0; s < mSections.size(); ++s) mSignalOrder.push_back(s);
+    mLoadedParams.resize(numParams());
     for (size_t s = 0; s < mSections.size(); ++s)
     {
       auto& section = mSections[s];
@@ -240,7 +261,9 @@ public:
     const auto& choice = Current(section);
     switch (role.role)
     {
-      case Role::Type: return section.spec->typeName ? section.spec->typeName : section.spec->name;
+      case Role::Type:
+        if (section.legacyTypeParam >= 0 && index == section.typeParam) return "Model";
+        return section.spec->typeName ? section.spec->typeName : section.spec->name;
       case Role::On: return std::string(section.spec->name) + " On";
       case Role::Folder: return choice.files == FileKind::None ? "" : "Folder";
       case Role::File: return choice.files == FileKind::Capture ? "Capture" : choice.files == FileKind::IR ? "IR" : "";
@@ -252,6 +275,7 @@ public:
   }
   void BeginStateLoad()
   {
+    std::fill(mLoadedParams.begin(), mLoadedParams.end(), 0);
     mExtraApplied = false;
     mLoadingState.store(true);
   }
@@ -369,7 +393,7 @@ public:
         mLeft[i] = mSpec.mono ? .5 * (inL[start + i] + inR[start + i]) : inL[start + i];
         mRight[i] = inR[start + i];
       }
-      for (size_t s = 0; s < mSections.size(); ++s)
+      for (const size_t s : mSignalOrder)
       {
         auto& section = mSections[s];
         const auto& c = section.controls;
@@ -404,7 +428,11 @@ public:
 
   void parameterChanged(int index, float plainValue) override
   {
-    if (mLoadingState.load()) return; // loadExtraState() applies the saved state as a whole.
+    if (mLoadingState.load())
+    {
+      mLoadedParams[index] = 1;
+      return;
+    }
     if (index == mNormalizeParam) { mNamesDirty.store(true); return; }
     if (index == mRescanParam)
     {
@@ -604,8 +632,7 @@ public:
       section.fileDirty.store(false);
       if (Current(section).files != FileKind::None) section.loadStatus = "Loading...";
       section.rebuild.store(true);
-      if (section.typeParam >= 0)
-        values_[section.typeParam]->store(param(section.typeParam).toNormalised(static_cast<float>(choice)));
+      SyncTypeParameters(section, choice);
       RefreshLayout(static_cast<int>(s));
       RefreshFileViewsLocked(static_cast<int>(s));
     }
@@ -658,7 +685,7 @@ private:
   struct Section
   {
     const SectionSpec* spec = nullptr;
-    int typeParam = -1, onParam = -1, folderParam = -1, fileParam = -1;
+    int typeParam = -1, legacyTypeParam = -1, onParam = -1, folderParam = -1, fileParam = -1;
     std::vector<int> optionParams, knobParams;
     std::vector<int> optionOrder; // Fixed option places (SectionOptionOrder).
     std::atomic<int> choice{0};
@@ -706,6 +733,14 @@ private:
     return -1;
   }
 
+  void SyncTypeParameters(const Section& section, int choice)
+  {
+    if (section.typeParam >= 0)
+      values_[section.typeParam]->store(param(section.typeParam).toNormalised(static_cast<float>(choice)));
+    if (section.legacyTypeParam >= 0 && choice < section.spec->legacyTypes)
+      values_[section.legacyTypeParam]->store(param(section.legacyTypeParam).toNormalised(static_cast<float>(choice)));
+  }
+
   static int FirstChoiceOf(const Section& section, SlotEffect effect, FileKind files)
   {
     const auto& choices = section.spec->choices;
@@ -720,6 +755,7 @@ private:
   {
     auto& section = mSections[s];
     choiceIndex = std::clamp(choiceIndex, 0, static_cast<int>(section.spec->choices.size()) - 1);
+    SyncTypeParameters(section, choiceIndex);
     if (choiceIndex == section.choice.load()) return;
     const auto& previous = Current(section);
     const auto& next = section.spec->choices[choiceIndex];
@@ -784,16 +820,19 @@ private:
     for (size_t s = 0; s < mSections.size(); ++s)
     {
       auto& section = mSections[s];
-      const int choice = section.typeParam >= 0 ? getInt(section.typeParam) : 0;
+      int choice = section.spec->defaultChoice;
+      if (section.typeParam >= 0 && mLoadedParams[section.typeParam]) choice = getInt(section.typeParam);
+      else if (section.legacyTypeParam >= 0 && mLoadedParams[section.legacyTypeParam]) choice = getInt(section.legacyTypeParam);
+      SyncTypeParameters(section, choice);
       section.choice.store(std::clamp(choice, 0, static_cast<int>(section.spec->choices.size()) - 1));
       std::fill(section.rememberedValid.begin(), section.rememberedValid.end(), 0);
       StoreValues(section, ChoiceDefaults(Current(section)));
       RefreshLayout(static_cast<int>(s));
       for (size_t o = 0; o < section.optionParams.size(); ++o)
-        if (const int c = section.options[o].load(); c >= 0) section.values[c].store(FromNormalized(c, incoming[section.optionParams[o]]));
+        if (const int c = section.options[o].load(); c >= 0 && mLoadedParams[section.optionParams[o]]) section.values[c].store(FromNormalized(c, incoming[section.optionParams[o]]));
       RefreshLayout(static_cast<int>(s));
       for (size_t k = 0; k < section.knobParams.size(); ++k)
-        if (const int c = section.knobs[k].load(); c >= 0) section.values[c].store(FromNormalized(c, incoming[section.knobParams[k]]));
+        if (const int c = section.knobs[k].load(); c >= 0 && mLoadedParams[section.knobParams[k]]) section.values[c].store(FromNormalized(c, incoming[section.knobParams[k]]));
       RefreshLayout(static_cast<int>(s));
       if (section.folderParam >= 0)
       {
@@ -820,6 +859,8 @@ private:
         const auto& choice = section.spec->choices[choiceIndex];
         const auto defaults = ChoiceDefaults(choice);
         const auto layout = MakeLayout(choice, defaults, false, &section.optionOrder);
+        if (section.legacyTypeParam >= 0)
+          values[section.legacyTypeParam] = static_cast<float>(choiceIndex < section.spec->legacyTypes ? choiceIndex : section.spec->defaultChoice);
         if (section.typeParam >= 0) values[section.typeParam] = static_cast<float>(choiceIndex);
         if (section.onParam >= 0)
         {
@@ -1187,6 +1228,8 @@ private:
   const PluginSpec& mSpec;
   std::vector<Section> mSections;
   std::vector<ParamRole> mRoles;
+  std::vector<size_t> mSignalOrder;
+  std::vector<char> mLoadedParams;
   int mOutputParam = 0, mRescanParam = -1, mNormalizeParam = -1, mNormalizeInfoParam = -1;
   std::vector<std::array<double, 2>> mDcState; // Per section: the DC blocker's input and output memory.
   double mDcCoefficient = .9993;
@@ -1223,6 +1266,16 @@ inline VstIntPtr Dispatcher(AEffect* e, VstInt32 opcode, VstInt32 index, VstIntP
       mpc::copyString(properties->shortLabel, sizeof(properties->shortLabel), name.c_str());
       return result;
     }
+  }
+  // The expanded selector follows the original automated knobs in host order. Apply a
+  // program as one snapshot so its knobs are interpreted for the selected delay.
+  if (plugin && opcode == effSetProgram && value >= 0 && static_cast<size_t>(value) < plugin->Spec().programs.size()
+      && plugin->Spec().sections.front().legacyTypes)
+  {
+    plugin->BeginStateLoad();
+    const auto result = mpc::detail::dispatcher(e, opcode, index, value, ptr, opt);
+    plugin->EndStateLoad(true);
+    return result;
   }
   if (plugin != nullptr && opcode == effSetChunk)
   {

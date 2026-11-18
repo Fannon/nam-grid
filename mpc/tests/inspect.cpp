@@ -114,9 +114,10 @@ int main(int argc, char** argv)
       for (const auto& section : spec->sections)
       {
         if (section.choices.size() < 2) continue;
+        const auto selector = std::string(section.id) + (section.legacyTypes ? "_model" : "_type");
         for (size_t c = 0; c < section.choices.size(); ++c)
         {
-          InspectSet(plugin, std::string(section.id) + "_type", static_cast<float>(c) / (section.choices.size() - 1));
+          InspectSet(plugin, selector, static_cast<float>(c) / (section.choices.size() - 1));
           states.push_back(InspectSnapshot(plugin, std::string(section.id) + "-" + std::to_string(c), section.id));
           for (int i = 0; i < plugin.numParams(); ++i)
             if (plugin.param(i).id.rfind(std::string(section.id) + "_o", 0) == 0 && plugin.ParameterName(i) == "Tempo sync")
@@ -126,7 +127,7 @@ int main(int argc, char** argv)
               plugin.setNormalised(i, 0.f);
             }
         }
-        InspectSet(plugin, std::string(section.id) + "_type", static_cast<float>(section.defaultChoice) / (section.choices.size() - 1));
+        InspectSet(plugin, selector, static_cast<float>(section.defaultChoice) / (section.choices.size() - 1));
       }
       if (std::string(spec->stateFormat) == "nam-grid-amp") InspectLibrary(plugin, states);
       e->dispatcher(e, effMainsChanged, 0, 0, nullptr, 0.f);

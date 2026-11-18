@@ -25,7 +25,7 @@ using parameter_layout::standardControls;
 
 inline constexpr int kSlots = 4;
 inline constexpr int kKnobs = 8;
-inline constexpr int kOptions = 4;
+inline constexpr int kOptions = 25;
 
 enum class FileKind
 {
@@ -177,18 +177,28 @@ inline Layout BaseLayout(const Choice& choice, const SlotValues& values, bool sl
     layout.knobs.fill(-1);
     for (size_t k = 0; k < choice.knobOrder.size() && k < kKnobs; ++k) layout.knobs[k] = choice.knobOrder[k];
   }
+  const int feedbackMode = static_cast<int>(values[U(uFeedbackFX)]);
   int option = 0;
   for (int p = 0; p < kUtilityControls; ++p)
   {
     if (standardControls + p == choice.styleControl) continue; // Chosen by the Type menu.
     if (!effect_presentation::Visible(e, p, sync, notch, vibrato, shelf) || effect_presentation::DisplayControl(p)) continue;
-    if (effect_presentation::HeaderControl(p))
+    if (!effect_presentation::ModeVisible(e, p, feedbackMode)) continue;
+    if (effect_presentation::HeaderControl(p) || effect_presentation::DetailPage(e, p) > 0)
     {
       if (option < kOptions) layout.options[option++] = standardControls + p;
       continue;
     }
     if (!choice.knobOrder.empty()) continue;
-    const int place = effect_presentation::Position(e, p);
+    int place = effect_presentation::EditorPosition(e, p);
+    // The MPC's original seven Digital knobs retain their automation. Modulation takes the spare place.
+    if (e == SlotEffect::DigitalDelay)
+    {
+      if (p == uDuckRelease) place = 4;
+      if (p == uDelayOutput) place = 5;
+      if (p == uDelayMix) place = 6;
+      if (p == uDelayMotion) place = 7;
+    }
     if (place >= 0 && place < kKnobs && layout.knobs[place] < 0) layout.knobs[place] = standardControls + p;
   }
   return layout;
@@ -295,7 +305,7 @@ inline std::string FormatValue(int control, double value)
 // Controls whose change alters the knob layout (and so the knob names).
 inline bool ChangesLayout(int control)
 {
-  return control == standardControls + uTempoSync || control == standardControls + uEQMode
+  return control == U(uFeedbackFX) || control == standardControls + uTempoSync || control == standardControls + uEQMode
          || control == standardControls + uVibeMode || control == standardControls + uParamLowMode
          || control == standardControls + uPedalStyle || control == standardControls + uGraphicVoicing;
 }

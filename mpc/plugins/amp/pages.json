@@ -24,6 +24,7 @@
         [
           "Gate Type",
           "Gate Knob 1",
+          "Pedal Type",
           "Cab On"
         ]
       ],
@@ -31,13 +32,17 @@
         "LEVELS",
         "TONE",
         "CAPTURE",
-        "GATE / CAB"
+        "RIG"
       ]
     },
     {
       "name": "GATE",
       "section": "Gate",
       "empty": {"param": "Gate Type", "choice": 0, "title": "Gate is off", "text": "Choose a gate in Setup."}
+    },
+    {
+      "name": "PEDAL",
+      "section": "Pedal"
     },
     {
       "name": "CAB",

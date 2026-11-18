@@ -7,13 +7,13 @@ Six plugins bring NAM Grid to standalone Akai MPCs. Their names start with **NG*
 | Plugin | What it does |
 | --- | --- |
 | **NG Pedals** | One pedal (Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice) with optional compression. |
-| **NG Amp** | A noise gate (standard, Smart or AI), a NAM capture and a cabinet IR. |
-| **NG Delay** | Digital, analog, tape, multi-head, diffused, reverse and dual delays. |
+| **NG Amp** | Gate → Pedal Comp or Pedal Drive → NAM capture → cabinet IR. Only the capture starts enabled. |
+| **NG Delay** | Digital, Analog, Tape, Multi-Head, Diffused, Reverse, Dual, Space Tape Echo, Bucket Brigade, Pitch Delay, Feedback FX, Pattern and Granular. |
 | **NG Cosmic** | Cosmic Echo's ambient echoes and reverbs, one style at a time. |
 | **NG Lo-Fi** | LoFi Tape Machine, Airwindows Tape and Bitcrusher. |
 | **NG Mod** | Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo. |
 
-A full guitar rig uses a track's four insert slots: **Pedals → Amp → Delay → Cosmic Echo**. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi and Mod suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
+A full guitar rig uses a track's four insert slots: **Pedals â†’ Amp â†’ Delay â†’ Cosmic Echo**. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi and Mod suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
 
 They run on the 64-bit MPCs (MPC One G2, MPC Live III, MPC XL and later). The 32-bit MPCs do not list them: their CPUs are too slow for NAM captures.
 
@@ -62,8 +62,9 @@ The Amp's Low cut at its minimum and High cut at its maximum show **Off**, becau
 
 ### NG Amp
 
-- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File, **Quality**, which switches slimmable (A2) captures between Lite (the default on the MPC) and Full, and **Normalize**, which levels every capture to −18 dB from its loudness metadata so captures can be compared at the same volume (on by default); **GATE / CAB** chooses the gate, holds its main control (Threshold, Sensitivity or Reduction) and switches the cabinet on.
+- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File, **Quality**, which switches slimmable (A2) captures between Lite (the default on the MPC) and Full, and **Normalize**, which levels every capture to âˆ’18 dB from its loudness metadata so captures can be compared at the same volume (on by default); **RIG** chooses the gate and pedal, holds the gate’s main control and switches the cabinet on.
 - **GATE:** **Off** (the default), **Noise Gate**, **Smart Gate** or **AI Gate**, with the chosen gate's controls: the gate itself in the first column, its final gate and Mix in the second. For Smart Gate, mute the strings, switch **Learn** on for one to three seconds, then off. The learned noise is saved with the project and kept while you try another gate.
+- **PEDAL** selects Off, Pedal Comp or a Pedal Drive voice. This single stage follows the gate and feeds the capture. Older projects load with the pedal off.
 - **CAB:** the cabinet IR, off by default because many captures include a cabinet. **LEVELS** has Input, Output and the cuts, as on the AMP page; **MIX** has Mix, Pre-delay and **Length** (Cabinet or Long IR); **IR** has Cab On, Folder and File.
 - **LIBRARY:** full file names, folders, loading/error status and normalization availability. A file may be ready while its cabinet section is switched off.
 
@@ -74,7 +75,9 @@ The Amp's Low cut at its minimum and High cut at its maximum show **Off**, becau
 
 ### NG Delay
 
-**Type** chooses the delay; each starts from its own starting settings, and returns to your last settings when you come back to it. **Tempo sync** follows the MPC's tempo and turns Time into **Division**.
+Choose a **Model** on DELAY. **Tempo sync** follows the MPC's tempo and turns Time into **Division**. Space Tape Echo includes the three tape heads and spring reverb. NG Cosmic remains a separate insert for layering its ambient echo and reverb after a delay.
+
+Open **MODES** for tape head combinations, BBD voices, pitch, feedback and grain modes. **TAPS** sets time, level and pan independently for each of Pattern Delay’s four taps. Digital Delay keeps its original Q-Link assignments, with modulation on the eighth knob and Clean, Rack or Lo-fi in Voice. The original seven-way Type parameter still responds to saved host automation.
 
 ### NG Cosmic
 
@@ -91,7 +94,7 @@ Each plugin has built-in programs; your own presets are saved with the MPC's pre
 NAM captures use the most CPU. Watch the MPC's CPU meter while you build a rig:
 
 - One capture per track is the safe start. Captures start at Lite quality; Full and larger capture sizes use more.
-- NG Amp works in mono, like the capture: it sums a stereo input, so its gate and cabinet run once rather than per channel, and sends the result to both sides.
+- NG Amp works in mono, like the capture: it sums a stereo input, so its gate, pedal and cabinet run once rather than per channel, and sends the result to both sides.
 - Captures recorded at 48 kHz are converted to the MPC's 44.1 kHz, which costs some CPU and adds a fraction of a millisecond of delay.
 - Pedal Drive, Pedal Distortion and Cosmic Echo cost more than the gates, delays, Lo-Fi and Mod modules.
 - A section that is off uses almost no CPU once its fade has finished.
@@ -105,7 +108,7 @@ NAM captures use the most CPU. Watch the MPC's CPU meter while you build a rig:
 For performance reports, include the MPC model, OS version, audio buffer size, the exact
 plugin chain, capture name and Lite/Full setting, gate type, cabinet setting, and whether
 the input was silent or playing. Compare NG Amp alone with the complete
-Pedals → Amp → Delay → Cosmic chain, then compare Lite and Full at the same settings.
+Pedals â†’ Amp â†’ Delay â†’ Cosmic chain, then compare Lite and Full at the same settings.
 Record the MPC's CPU reading and any audible dropouts. Emulated CPU readings do not
 predict how many instances the MPC can run.
 

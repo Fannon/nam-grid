@@ -230,7 +230,7 @@ void TestLayouts()
         {
           auto values = ChoiceDefaults(choice);
           values[standardControls + uTempoSync] = sync ? 1. : 0.;
-          const auto layout = MakeLayout(choice, values, true);
+          const auto layout = MakeLayout(choice, values, true, &section.optionOrder);
           std::set<int> mapped;
           for (int c : layout.knobs)
             if (c >= 0) CHECK(mapped.insert(c).second);
@@ -240,6 +240,7 @@ void TestLayouts()
           if (choice.effect != SlotEffect::NAM)
             for (int p = 0; p < kUtilityControls; ++p)
               if (effect_presentation::Visible(choice.effect, p, sync) && !effect_presentation::DisplayControl(p)
+                  && effect_presentation::ModeVisible(choice.effect, p, static_cast<int>(values[U(uFeedbackFX)]))
                   && standardControls + p != choice.styleControl && !mapped.count(standardControls + p))
               {
                 std::fprintf(stderr, "%s / %s: %s is not mapped\n", spec->name, choice.name, kEffectParameters[p].name);
@@ -509,6 +510,13 @@ void TestAmpLibrary(const std::string& library)
 {
   // Captures: A/a1, A/a2, B/b1 (user), then riffsmith-clean (factory). IRs: cab, Room/room.
   Instance a(mpc_plugins::AmpSpec());
+  CHECK(a.Display("pedal_type") == "Off" && a.Display("gate_type") == "Off" && a.Get("cab_on") == 0.f);
+  a.Choose("pedal_type", "Screamer");
+  Instance restored(mpc_plugins::AmpSpec());
+  CHECK(restored.Load(a.Chunk()) && restored.Display("pedal_type") == "Screamer");
+  a.Choose("pedal_type", "Pedal Comp");
+  CHECK(!a.Name("pedal_o1").empty());
+  a.Choose("pedal_type", "Off");
   CHECK(a.Name("amp_folder") == "Folder" && a.Name("amp_file") == "Capture");
   CHECK(a.Display("amp_folder") == "A" && a.Display("amp_file") == "a1");
   CHECK(a.Name("amp_k1") == "Input" && a.Name("amp_k5") == "Output");
@@ -780,7 +788,23 @@ void TestDelay()
   char name[64]{};
   CHECK(a.Call(effGetProgramNameIndexed, 2, 0, name) == 1 && std::string(name) == "Tape");
   a.Call(effSetProgram, 0, 2);
-  CHECK(a.Display("delay_type") == "Tape");
+  CHECK(a.Display("delay_type") == "Tape" && a.Display("delay_model") == "Tape");
+  a.Choose("delay_model", "Space Tape Echo");
+  CHECK(Extra(a.Chunk())["sections"]["delay"]["module"] == "space-tape-echo");
+  a.Choose("delay_model", "Pattern");
+  a.Set("delay_o25", .84f);
+  Instance restored(mpc_plugins::DelaySpec());
+  CHECK(restored.Load(a.Chunk()));
+  CHECK(restored.Display("delay_model") == "Pattern" && std::abs(restored.Get("delay_o25") - .84f) < 1.e-6f);
+  a.Call(effSetProgram, 0, 11); // Reload Pattern after editing its last tap.
+  CHECK(a.Display("delay_model") == "Pattern");
+  CHECK(std::abs(a.Get("delay_o25") - ToNormalized(U(uTapPan4), SlotDefaultValues(SlotEffect::PatternDelay)[U(uTapPan4)])) < 1.e-6);
+  a.Choose("delay_model", "Feedback FX");
+  a.Set("delay_o9", 1.f);
+  CHECK(a.Name("delay_k4") == ControlLabel(mpc_plugins::DelaySpec().sections[0].choices[10], U(uEchoRingRate), {}));
+  CHECK(a.Name("delay_o12").empty());
+  a.Set("delay_type", 1.f);
+  CHECK(a.Display("delay_model") == "Dual");
   std::vector<float> l(8192, 0.f), r(8192, 0.f);
   l[0] = r[0] = 1.f;
   a.Process(l, r);

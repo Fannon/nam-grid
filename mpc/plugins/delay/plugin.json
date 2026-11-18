@@ -9,7 +9,7 @@
   "numInputs": 2,
   "numOutputs": 2,
   "file64": "VST/nam-grid-delay-arm64.so",
-  "description": "NAM Grid Delay: Digital, analog, tape, multi-head, diffused, reverse and dual delays.",
+  "description": "Thirteen tempo-synced delay models, including Space Tape Echo, Pitch, Pattern and Granular Delay.",
   "url": "https://github.com/Fannon/nam-grid",
   "license": "MIT"
 }

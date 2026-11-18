@@ -3,7 +3,98 @@
   "pages": [
     {
       "name": "DELAY",
-      "section": "Delay"
+      "columns": [
+        [
+          "Delay Knob 1",
+          "Delay Knob 2",
+          "Delay Knob 3",
+          "Delay Knob 4"
+        ],
+        [
+          "Delay Knob 5",
+          "Delay Knob 6",
+          "Delay Knob 7",
+          "Delay Knob 8"
+        ],
+        [
+          "Delay Model",
+          "Delay Opt 1",
+          "Delay Opt 2",
+          "Delay Opt 3"
+        ],
+        [
+          "Delay Opt 4",
+          "Delay Opt 5",
+          "Delay Opt 12",
+          "Delay Opt 13"
+        ]
+      ],
+      "headings": [
+        "@Delay Model",
+        "",
+        "SETUP",
+        "OPTIONS"
+      ]
+    },
+    {
+      "name": "MODES",
+      "columns": [
+        [
+          "Delay Model"
+        ],
+        [
+          "Delay Opt 6",
+          "Delay Opt 7",
+          "Delay Opt 8"
+        ],
+        [
+          "Delay Opt 9",
+          "Delay Opt 10",
+          "Delay Opt 11"
+        ],
+        [
+          "Delay Opt 12",
+          "Delay Opt 13"
+        ]
+      ],
+      "headings": [
+        "MODEL",
+        "VOICE",
+        "MODE",
+        "OPTIONS"
+      ]
+    },
+    {
+      "name": "TAPS",
+      "columns": [
+        [
+          "Delay Model"
+        ],
+        [
+          "Delay Opt 14",
+          "Delay Opt 15",
+          "Delay Opt 16",
+          "Delay Opt 17"
+        ],
+        [
+          "Delay Opt 18",
+          "Delay Opt 19",
+          "Delay Opt 20",
+          "Delay Opt 21"
+        ],
+        [
+          "Delay Opt 22",
+          "Delay Opt 23",
+          "Delay Opt 24",
+          "Delay Opt 25"
+        ]
+      ],
+      "headings": [
+        "MODEL",
+        "TIMING",
+        "LEVEL",
+        "PAN"
+      ]
     }
   ]
 }

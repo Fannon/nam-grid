@@ -9,7 +9,7 @@
   "numInputs": 2,
   "numOutputs": 2,
   "file64": "VST/nam-grid-amp-arm64.so",
-  "description": "NAM Grid Amp: Noise gate (standard, Smart or AI), NAM capture and cabinet IR.",
+  "description": "Gate, Pedal Comp or Pedal Drive, NAM capture and optional cabinet IR.",
   "url": "https://github.com/Fannon/nam-grid",
   "license": "MIT"
 }

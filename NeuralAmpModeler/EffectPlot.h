@@ -266,9 +266,6 @@ int ForEachTimeMark(const IRECT& p, X& x, Visit&& visit)
   }
   return count;
 }
-// How many marks PlotTimeMarks would draw, for layouts that depend on them.
-template<class X>
-int TimeMarkCount(const IRECT& p, X&& x) { return ForEachTimeMark(p, x, [](double, float) {}); }
 template<class X>
 int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true)
 {

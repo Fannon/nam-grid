@@ -186,7 +186,7 @@ inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Pulsar Echo: four serial stereo echoes with cross-channel regeneration. Low Density keeps the pulse pattern clear; high Density diffuses and rotates each stage. Time sets the scale of the whole pattern. Style changes fade and clear the old tail.",
   "Binary Bloom: coupled short and long delay tanks create an initial space and a broader, slower tail. Density controls scattering and transfer into the long tank. Try sustained chords and swells. Style changes fade and clear the old tail.",
   "Photon Plate: input diffusion feeds a cross-coupled figure-eight tank with seven output taps per channel. Try Time 100 ms, high Density and low Modulation for a quick, dense digital plate; Warp changes the tank asymmetry. Style changes fade and clear the old tail.",
-  "Velvet Chamber brings soft, close reflections around the pick. Use short Time and high Density for a compact room.",
-  "Solstice Hall leaves room for the attack, then opens into a broad stereo tail. Raise Modulation for movement on sustained chords.",
-  "Mooncourt returns a distinct far-wall reflection before the tail fills in. Lower Density to bring out the individual reflections."};
+  "Velvet Chamber brings soft, close reflections around the pick. Use short Time and high Density for a compact room. Style changes fade and clear the old tail.",
+  "Solstice Hall leaves room for the attack, then opens into a broad stereo tail. Raise Modulation for movement on sustained chords. Style changes fade and clear the old tail.",
+  "Mooncourt returns a distinct far-wall reflection before the tail fills in. Lower Density to bring out the individual reflections. Style changes fade and clear the old tail."};
 } // namespace effect_modes

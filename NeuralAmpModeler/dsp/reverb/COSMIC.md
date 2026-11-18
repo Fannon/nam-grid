@@ -113,4 +113,4 @@ These original NAM Grid voicings share a tapped stereo reflection pair, three se
 
 Warp separates the left and right walls and spreads the tank lengths. Density raises input diffusion and the angle of the orthogonal late-field rotations. Modulation moves the diffusers and tail delays while the wall taps stay stationary at settled Time and Warp. The input and loop filters apply the 80 Hz low cut and adjustable High cut. Draining takes allpass and feedback gains to zero. All sixteen lines reuse the prepared bank.
 
-Voicing targets draw on Valhalla DSP's descriptions of [VintageVerb](https://valhalladsp.com/shop/reverb/valhalla-vintage-verb/), [Palace](https://valhalladsp.com/2023/01/25/valhallavintageverb-updated-to-3-0-0-new-reverb-mode-palace/) and the [FutureVerb Chamber and Hall](https://valhalladsp.com/2025/10/03/valhallafutureverb-the-reverb-modes/). The topology, timing ratios and mix coefficients here are NAM Grid designs.
+The voicings aim for the general character of studio chamber, concert hall and large-room reverbs. The topology, timing ratios and mix coefficients are NAM Grid designs, not models of any particular unit or plugin.

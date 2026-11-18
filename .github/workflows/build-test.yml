@@ -94,7 +94,8 @@ jobs:
           cmake --build build/ci --config Release --target nam-grid-app --parallel 3
           mkdir -p build/ci/standalone
           cp build/ci/out/nam-grid.exe build/ci/out/ThirdPartyNotices.txt build/ci/standalone/
-          cp -r build/ci/out/notices build/ci/standalone/
+          # notices/ (third-party licenses) and standalone/ (GPL, ASIO SDK license, source).
+          cp -r build/ci/out/notices build/ci/out/standalone build/ci/standalone/
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:

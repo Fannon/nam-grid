@@ -109,7 +109,9 @@ required).
 
 ## License and credits
 
-Licensed under [MIT](LICENSE). Adapted algorithms, dependencies and the
+Licensed under [MIT](LICENSE). The experimental Windows standalone app is distributed
+under GPL-3.0-or-later because it includes Steinberg's ASIO SDK under its GPLv3 option;
+see [the build guide](docs/build.md#standalone-app). Adapted algorithms, dependencies and the
 [Roboto](https://github.com/googlefonts/roboto) font (Apache 2.0) retain their own notices; see [ThirdPartyNotices.txt](ThirdPartyNotices.txt)
 and the accompanying notice files in distributed builds.
 

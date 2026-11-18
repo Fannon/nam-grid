@@ -25,8 +25,10 @@ plugin in saved projects; they must never change after a release.
 - Recursive submodules pinned in this repository: iPlug2, NAM Core,
   AudioDSPTools and Eigen.
 - SDKs downloaded by `scripts/setup-deps.py`: CLAP 1.2.10 at `a47f6ba`, helpers at
-  `29389e4`, and MIT-licensed VST3 3.8.1 at `3cdf9ca`. No WebView, JUCE, or prebuilt
-  graphics libraries are needed for this build.
+  `29389e4`, and MIT-licensed VST3 3.8.1 at `3cdf9ca`. On Windows it also downloads
+  the Steinberg ASIO SDK 2.3.4 (pinned by SHA-256) into `build/deps/ASIO_SDK` for the
+  [standalone app](#standalone-app). No WebView, JUCE, or prebuilt graphics libraries
+  are needed for this build.
 
 ### Upstream pins and patches
 
@@ -218,10 +220,19 @@ artifact; it is not part of the plugin release archive.
 - The app icon, `NeuralAmpModeler/resources/nam-grid.ico`, is rendered from
   `docs/public/logo.svg`; run `python scripts/make-app-icon.py` after changing the logo.
 
-The ASIO host files come with RtAudio from the Steinberg ASIO SDK and fall under
-its license; check it before distributing the app. The macOS standalone target
-also needs an `Info.plist` and menu resources that this repository does not have
-yet.
+**License.** The repository and the plugins are MIT licensed; `nam-grid.exe` is
+distributed under GPL-3.0-or-later. Its ASIO host code comes from the Steinberg ASIO
+SDK 2.3.4, which Steinberg dual-licenses under its proprietary agreement or GPL
+version 3; NAM Grid uses the GPL option, so the app as a whole is covered by GPL
+version 3. CMake therefore compiles the SDK's `asio.cpp`, `asiodrivers.cpp` and
+`asiolist.cpp` (and puts its headers first) instead of the older copies RtAudio
+bundles. The build writes the app's license files to `out/standalone/`: the GPL text,
+Steinberg's SDK license and `README.txt`, which says where the corresponding source
+is. Ship that folder, `ThirdPartyNotices.txt` and `notices/` with every copy of the
+app, and keep the matching source tag and the pinned SDK download available.
+
+The macOS standalone target also needs an `Info.plist` and menu resources that this
+repository does not have yet.
 
 ## CI and releases
 

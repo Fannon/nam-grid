@@ -346,6 +346,30 @@ foreach(format IN LISTS NAM_FORMATS)
     endif()
   endif()
 endforeach()
+if(TARGET nam-grid-app)
+  # The standalone app compiles RtAudio's ASIO host against Steinberg's ASIO SDK 2.3.4, used
+  # under its GPLv3 option, instead of the older SDK files RtAudio bundles. The app is therefore
+  # distributed under the GPL; see docs/build.md#standalone-app. scripts/setup-deps.py fetches it.
+  set(NAM_ASIO_SDK_DIR "${PROJECT_SOURCE_DIR}/build/deps/ASIO_SDK/ASIOSDK" CACHE PATH
+    "Steinberg ASIO SDK 2.3.4 for the standalone app")
+  if(NOT EXISTS "${NAM_ASIO_SDK_DIR}/common/asio.h")
+    message(FATAL_ERROR "ASIO SDK missing at ${NAM_ASIO_SDK_DIR}. Run: python scripts/setup-deps.py")
+  endif()
+  get_target_property(app_sources iPlug2::APP INTERFACE_SOURCES)
+  list(FILTER app_sources EXCLUDE REGEX "/RTAudio/include/(asio|asiodrivers|asiolist)\\.cpp$")
+  list(APPEND app_sources "${NAM_ASIO_SDK_DIR}/common/asio.cpp" "${NAM_ASIO_SDK_DIR}/host/asiodrivers.cpp"
+    "${NAM_ASIO_SDK_DIR}/host/pc/asiolist.cpp")
+  set_property(TARGET iPlug2::APP PROPERTY INTERFACE_SOURCES ${app_sources})
+  # SDK headers first; RtAudio/include then only supplies its 32-bit thiscall helper.
+  get_target_property(app_includes iPlug2::APP INTERFACE_INCLUDE_DIRECTORIES)
+  set_property(TARGET iPlug2::APP PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${NAM_ASIO_SDK_DIR}/common"
+    "${NAM_ASIO_SDK_DIR}/host" "${NAM_ASIO_SDK_DIR}/host/pc" ${app_includes})
+  # The app's own license files, kept out of notices/ so the plugin archive does not carry them.
+  set(standalone_notices "${CMAKE_BINARY_DIR}/out/standalone")
+  configure_file(resources/standalone/README.txt "${standalone_notices}/README.txt" COPYONLY)
+  configure_file(resources/standalone/GPL-3.0.txt "${standalone_notices}/GPL-3.0.txt" COPYONLY)
+  configure_file("${NAM_ASIO_SDK_DIR}/LICENSE.txt" "${standalone_notices}/ASIO_SDK-LICENSE.txt" COPYONLY)
+endif()
 if(TARGET nam-grid-clap)
   add_test(NAME clap-smoke COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}")
   add_test(NAME library-startup COMMAND nam-clap-smoke "$<TARGET_FILE:nam-grid-clap>" "${CMAKE_SOURCE_DIR}" --library-startup-only)

@@ -44,13 +44,13 @@ inline void DrawTimeCursor(IGraphics& g, const IRECT& bounds, const TimeColumns&
   g.FillRoundRect(surface, box, 3.f); g.DrawRoundRect(accent, box, 3.f);
   g.DrawText(Text(12.f, text, EAlign::Center), label.Get(), box);
 }
-// A time mark's label, small with a dark backing so curves drawn later never hide it.
-inline void DrawTimeLabel(IGraphics& g, const IRECT& box, const char* label, bool forward)
+// A time mark's label, centred on its line, small with a dark backing so curves drawn
+// later never hide it.
+inline void DrawTimeLabel(IGraphics& g, const IRECT& box, const char* label)
 {
-  const float width = std::min(box.W(), 6.f + 5.6f * static_cast<float>(std::strlen(label)));
-  const IRECT back = forward ? IRECT(box.L - 2.f, box.T, box.L + width, box.B) : IRECT(box.R - width, box.T, box.R + 2.f, box.B);
-  g.FillRoundRect(surface.WithOpacity(.85f), back, 2.f);
-  g.DrawText(Text(10.f, muted, forward ? EAlign::Near : EAlign::Far), label, box);
+  const float half = .5f * std::min(box.W(), 6.f + 5.6f * static_cast<float>(std::strlen(label)));
+  g.FillRoundRect(surface.WithOpacity(.85f), IRECT(box.MW() - half, box.T, box.MW() + half, box.B), 2.f);
+  g.DrawText(Text(10.f, muted, EAlign::Center), label, box);
 }
 // Every FX preview reserves the same title, chart and footer rows.
 // Muted = reference/dry, module colour = processed, amber = second channel/GR.
@@ -70,7 +70,7 @@ public:
   void Draw(IGraphics& g) override
   {
     if (mFrequency) DrawFrequencyCursor(g, mFrequencyBounds, mLow, mHigh, mLogarithmic);
-    for (int i = 0; i < mLabelCount; ++i) DrawTimeLabel(g, mLabels[i].box, mLabels[i].text, mLabels[i].forward);
+    for (int i = 0; i < mLabelCount; ++i) DrawTimeLabel(g, mLabels[i].box, mLabels[i].text);
     for (int i = 0; i < mTimeCount; ++i) DrawTimeCursor(g, mTimes[i].bounds, mTimes[i].seconds);
   }
   bool IsDirty() override
@@ -87,11 +87,11 @@ public:
   }
   void Begin() { mDetail.clear(); mRegionCount = 0; mFrequency = false; mTimeCount = 0; mLabelCount = 0; }
   // Time-mark labels, drawn above the chart content.
-  void TimeLabel(const IRECT& box, const char* text, bool forward)
+  void TimeLabel(const IRECT& box, const char* text)
   {
     if (mLabelCount >= static_cast<int>(mLabels.size())) return;
     auto& label = mLabels[mLabelCount++];
-    label.box = box; label.forward = forward;
+    label.box = box;
     std::snprintf(label.text, sizeof(label.text), "%s", text);
   }
   // Time axes for the hover readout; Cosmic Echo has two.
@@ -147,7 +147,7 @@ private:
   struct TimeAxis { IRECT bounds; TimeColumns seconds{}; };
   std::array<TimeAxis, 2> mTimes{};
   int mTimeCount = 0;
-  struct Label { IRECT box; char text[16]{}; bool forward = true; };
+  struct Label { IRECT box; char text[16]{}; };
   std::array<Label, 14> mLabels{};
   int mLabelCount = 0;
   float mHoverX = -1.f;
@@ -220,11 +220,12 @@ TimeColumns InvertTime(const IRECT& p, X& x)
 // Faint dotted reference lines at 100, 200 and 400 ms and 1, 2, 4 and 8 s on a time axis,
 // labelled at the bottom. `x` maps seconds to a pixel, linearly or not, in either direction:
 // histories count back from now at the right edge. A mark is drawn only inside the plot and
-// at least 44 px from time zero and from the previous mark, so labels never crowd. The axis
-// also gets the hover time readout. Returns how many marks were drawn; with none, the plot
-// still needs its time span in words.
+// at least 44 px from time zero and from the previous mark, so labels never crowd. Labels
+// straddle the bottom axis, `drop` pixels below the chart, clear of the footer text; pass 0
+// where other text sits directly under the chart. The axis also gets the hover time readout.
+// Returns how many marks were drawn; with none, the plot still needs its time span in words.
 template<class X>
-int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true)
+int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true, float drop = 5.f)
 {
   auto* help = cursor ? CurrentPlotHelp(g) : nullptr;
   if (help) help->Time(p, InvertTime(p, x));
@@ -236,16 +237,17 @@ int PlotTimeMarks(IGraphics& g, const IRECT& p, X&& x, bool cursor = true)
   for (const double seconds : marks)
   {
     const float at = static_cast<float>(x(seconds));
-    const bool forward = at >= origin;
-    if (forward ? at > p.R - label : at < p.L + label) break;
+    // Centred labels need half their width inside the chart.
+    if (at > p.R - .5f * label || at < p.L + .5f * label) break;
     if (std::abs(at - previous) < spacing) continue;
     g.DrawDottedLine(muted.WithOpacity(.35f), at, p.T, at, p.B);
     WDL_String text;
     if (seconds < 1.) text.SetFormatted(16, "%.0f ms", seconds * 1000.);
     else text.SetFormatted(16, "%.0f s", seconds);
-    const IRECT box = forward ? IRECT(at + 3.f, p.B - 12.f, at + 3.f + label, p.B) : IRECT(at - 3.f - label, p.B - 12.f, at - 3.f, p.B);
-    if (help) help->TimeLabel(box, text.Get(), forward);
-    else DrawTimeLabel(g, box, text.Get(), forward);
+    const float top = p.B - 12.f + drop;
+    const IRECT box(at - .5f * label, top, at + .5f * label, top + 12.f);
+    if (help) help->TimeLabel(box, text.Get());
+    else DrawTimeLabel(g, box, text.Get());
     previous = at;
     ++drawn;
   }

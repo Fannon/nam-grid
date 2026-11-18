@@ -28,7 +28,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+14.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
-  const int responseMarks=measured.valid ? PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); }) : 0;
+  const int responseMarks=measured.valid ? PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); },true,0.f) : 0;
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
   {

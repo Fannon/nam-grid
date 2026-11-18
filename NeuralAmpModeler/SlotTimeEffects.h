@@ -189,8 +189,10 @@ public:
     mFade = 1.;
     mFadeStep = 1. / std::max(1., kFadeSeconds * rate);
     mJump = mHasTime = false;
-    mVoice = 0; mVoiceMix = mCapture = 0.; mVoiceStep = 1. / std::max(1., .01 * rate);
-    ClearConverter();
+    mVoiceMix = {}; mCapture = {}; mVoiceStep = 1. / std::max(1., .01 * rate);
+    mConverters = {};
+    mConverters[0].Configure(rate, 24000., 2048.);
+    mConverters[1].Configure(rate, 12000., 128.);
   }
   void Process(double* samples, int frames, SlotEffect effect, const UtilityControls& controls,
                SlotDelay* right = nullptr, double* rightSamples = nullptr, bool draining = false)
@@ -221,8 +223,6 @@ public:
     // later repeats degrade further. Clean skips the converter, keeping its exact output.
     const int voice = effect == SlotEffect::DigitalDelay
       ? std::clamp(static_cast<int>(controls.DelayOption(uDigitalDelayVoice)), 0, 2) : 0;
-    if (voice > 0 && voice != mVoice) ConfigureVoice(voice);
-    if (voice > 0) mVoice = voice;
     const double dcCoefficient = std::exp(-2. * grid_fx::pi * 70. / mRate);
     const double envelopeAttack = std::exp(-1. / (.003 * mRate));
     for (int i = 0; i < frames; ++i)
@@ -264,12 +264,27 @@ public:
           : extra[0] * .01 * mRate * (effect == SlotEffect::TapeDelay ? .0015 : .0008)
               * (std::sin(2. * grid_fx::pi * mPhase)
                  + (effect == SlotEffect::TapeDelay ? .15 * std::sin(2. * grid_fx::pi * mPhase * 7.) : 0.));
-      const bool converter = voice > 0 || mVoiceMix > 0.;
+      const bool converter = voice || mVoiceMix[0] > 0. || mVoiceMix[1] > 0.;
+      bool capture[2]{};
       if (converter) [[unlikely]]
-      {
-        mVoiceMix = voice > 0 ? std::min(1., mVoiceMix + mVoiceStep) : std::max(0., mVoiceMix - mVoiceStep);
-        mCapture += mCaptureStep;
-      }
+        for (int v = 0; v < 2; ++v)
+        {
+          const double previous = mVoiceMix[v];
+          mVoiceMix[v] = voice == v + 1 ? std::min(1., mVoiceMix[v] + mVoiceStep)
+                                        : std::max(0., mVoiceMix[v] - mVoiceStep);
+          if (mVoiceMix[v] > 0.)
+          {
+            mCapture[v] += mConverters[v].step;
+            capture[v] = mCapture[v] >= 1.;
+            if (capture[v]) mCapture[v] -= 1.;
+          }
+          else if (previous > 0.)
+          {
+            mConverters[v].Clear();
+            if (right) right->mConverters[v].Clear();
+            mCapture[v] = 0.;
+          }
+        }
       const double x[2]{samples[i], right ? rightSamples[i] : 0.};
       double wet[2]{};
       SlotDelay* channels[2]{this, right};
@@ -287,7 +302,12 @@ public:
           read = old + fade * (read - old);
         }
         if (converter) [[unlikely]]
-          read += mVoiceMix * (tank.Convert(read, mCapture >= 1., *this) - read);
+        {
+          const double input = read;
+          for (int v = 0; v < 2; ++v)
+            if (mVoiceMix[v] > 0.)
+              read += mVoiceMix[v] * (tank.mConverters[v].Tick(input, capture[v]) - input);
+        }
         tank.mLP = grid_fx::Flush(read + mDamping * (tank.mLP - read));
         tank.mLP2 = grid_fx::Flush(tank.mLP + mDamping * (tank.mLP2 - tank.mLP));
         wet[ch] = effect == SlotEffect::AnalogDelay ? tank.mLP2 : tank.mLP;
@@ -295,15 +315,6 @@ public:
         {
           const double drive = 1. + 3. * character;
           wet[ch] = std::tanh(wet[ch] * drive) / drive;
-        }
-      }
-      if (converter) [[unlikely]]
-      {
-        if (mCapture >= 1.) mCapture -= 1.;
-        if (voice == 0 && mVoiceMix == 0.)
-        {
-          mVoice = 0;
-          for (int ch = 0; ch < count; ++ch) channels[ch]->ClearConverter();
         }
       }
       const double send[2]{(1. - ping) * x[0] + ping * .5 * (x[0] + x[1]), (1. - ping) * x[1]};
@@ -327,26 +338,30 @@ private:
   static constexpr double kJumpMs = 1., kFadeSeconds = .03;
   // Rack: 12 bits at 24 kHz. Lo-fi: 8 bits at 12 kHz. Gentle one-pole filters band-limit
   // around the hold; truncation toward zero keeps sub-LSB signals from circulating.
-  void ConfigureVoice(int voice)
+  struct Converter
   {
-    const double rate = voice == 1 ? 24000. : 12000.;
-    mCaptureStep = std::min(rate / mRate, 1.);
-    mConvertIn = std::exp(-2. * grid_fx::pi * std::min(.36 * rate, .45 * mRate) / mRate);
-    mConvertOut = std::exp(-2. * grid_fx::pi * std::min(.45 * rate, .45 * mRate) / mRate);
-    mLevels = voice == 1 ? 2048. : 128.;
-  }
-  double Convert(double x, bool capture, const SlotDelay& voice)
-  {
-    for (auto& state : mConvertState) x = state = grid_fx::Flush(x + voice.mConvertIn * (state - x));
-    if (capture) mHeld = std::trunc(x * voice.mLevels) / voice.mLevels;
-    mHeldOne = grid_fx::Flush(mHeld + voice.mConvertOut * (mHeldOne - mHeld));
-    return mHeldTwo = grid_fx::Flush(mHeldOne + voice.mConvertOut * (mHeldTwo - mHeldOne));
-  }
-  void ClearConverter() { mConvertState = {}; mHeld = mHeldOne = mHeldTwo = 0.; }
-  std::array<double, 3> mConvertState{};
-  double mHeld = 0., mHeldOne = 0., mHeldTwo = 0.;
-  double mCapture = 0., mCaptureStep = 1., mConvertIn = 0., mConvertOut = 0., mLevels = 2048., mVoiceMix = 0., mVoiceStep = 1.;
-  int mVoice = 0;
+    double step = 1., inPole = 0., outPole = 0., levels = 1.;
+    std::array<double, 3> state{};
+    double held = 0., one = 0., two = 0.;
+    void Configure(double rate, double clock, double quantization)
+    {
+      step = std::min(clock / rate, 1.);
+      inPole = std::exp(-2. * grid_fx::pi * std::min(.36 * clock, .45 * rate) / rate);
+      outPole = std::exp(-2. * grid_fx::pi * std::min(.45 * clock, .45 * rate) / rate);
+      levels = quantization;
+    }
+    double Tick(double x, bool capture)
+    {
+      for (auto& y : state) x = y = grid_fx::Flush(x + inPole * (y - x));
+      if (capture) held = std::trunc(x * levels) / levels;
+      one = grid_fx::Flush(held + outPole * (one - held));
+      return two = grid_fx::Flush(one + outPole * (two - one));
+    }
+    void Clear() { state = {}; held = one = two = 0.; }
+  };
+  std::array<Converter, 2> mConverters{};
+  std::array<double, 2> mCapture{}, mVoiceMix{};
+  double mVoiceStep = 1.;
   grid_fx::MixLaw mMixLaw;
   grid_fx::DelayLine mLine;
   grid_fx::SmoothControls<5> mControls;

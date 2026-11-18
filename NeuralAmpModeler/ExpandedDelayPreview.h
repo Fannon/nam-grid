@@ -1,5 +1,6 @@
 #pragma once
 #include <bit>
+#include "DelayGrainLaunch.h"
 #include "EffectPreview.h"
 
 // Small, settled-control models for the editor. These describe one repeat
@@ -143,48 +144,46 @@ struct GrainPicture
   double first = 0., last = 0., hop = 0., length = 0.;
 };
 inline GrainPicture GrainFragments(int mode, double timeMs, double grainMs, double density, double scatter,
-                                   double interval, double feedback, double horizon, double note = .2)
+                                   double interval, double feedback, double horizon, double rate = 48000.)
 {
   GrainPicture picture;
   const double time = timeMs * .001, speed = std::exp2(interval / 12.);
   const bool reverse = mode == 1, glitch = mode == 2;
-  picture.length = std::max(.001, grainMs * .001 * (1.25 - .75 * density));
+  const double duration = grainMs * (1.25 - .75 * density);
+  const double frames = expanded_delay::GrainLauncher::Frames(duration, rate);
+  picture.length = frames / rate;
   picture.hop = .5 * picture.length;
-  const double length = picture.length, step = reverse ? 1. + speed : 1. - speed;
-  const double earliest = reverse ? 0. : std::max(0., -step * length), jitter = scatter * std::min(time, .42);
-  const double slope = 1. - step; // Source seconds per output second: +speed or -speed.
-  uint32_t seed = 0xc283ee81u;
-  const auto random = [&] { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return seed * (1. / 4294967295.); };
+  const double length = picture.length, slope = reverse ? -speed : speed;
+  expanded_delay::GrainLauncher launcher;
   std::array<GrainFragment, 97> sources{};
-  sources[0] = {0., note, 1., 0, false};
-  int sourceCount = 1, latch = 0;
-  double captured = 0.;
+  sources[0] = {0., .2, 1., 0, false};
+  int sourceCount = 1;
   picture.first = horizon;
-  for (double launch = 0.; launch < horizon && picture.count < static_cast<int>(picture.fragments.size()); launch += picture.hop)
+  // At startup both heads launch at frame zero. The first starts midway through its Hann window.
+  for (int index = 0; picture.count < static_cast<int>(picture.fragments.size()); ++index)
   {
-    double age = std::max(earliest, time + (random() - .5) * jitter - step * length * .5);
-    bool latched = false;
-    if (glitch)
-    {
-      if (latch == 0 && random() < .2 + .65 * scatter) { captured = launch - age; latch = 2 + static_cast<int>(5. * scatter); }
-      if (latch > 0) { age = std::max(earliest, launch - captured); --latch; latched = true; }
-    }
-    if (reverse || scatter > 0.) random(); // The stereo offset draw keeps the sequence aligned.
-    const double origin = launch - age; // Source time read at the grain's start.
+    const double position = std::max(0, index - 1) * std::ceil(.5 * frames);
+    const double launch = position / rate;
+    if (launch >= horizon) break;
+    const auto grain = launcher.Launch(rate, position, std::ceil(11. * rate) + 1., time * rate,
+                                       duration, speed, scatter, reverse, glitch);
+    const double origin = launch - grain.age / rate;
+    const double elapsed = index == 0 ? picture.hop : 0.;
+    const double remaining = std::min(length - elapsed, horizon - launch);
     for (int i = 0; i < sourceCount && picture.count < static_cast<int>(picture.fragments.size()); ++i)
     {
       const auto source = sources[i];
-      if (source.pass >= 3 || source.start >= launch) continue;
+      if (source.pass >= 3) continue;
       double a = (source.start - origin) / slope, b = (source.end - origin) / slope;
       if (a > b) std::swap(a, b);
-      a = std::clamp(a, 0., length); b = std::clamp(b, 0., length);
+      a = std::clamp(a, 0., remaining); b = std::clamp(b, 0., remaining);
       if (b - a < 1.e-4) continue;
       // Loudest Hann weight inside the overlap.
-      const double centre = std::clamp(.5 * length, a, b);
+      const double centre = std::clamp(.5 * length, elapsed + a, elapsed + b);
       const double window = .5 - .5 * std::cos(2. * 3.14159265358979323846 * centre / length);
       const double level = source.level * (source.pass == 0 ? 1. : feedback) * window;
       if (level < .02) continue;
-      const GrainFragment fragment{launch + a, launch + b, level, source.pass + 1, latched};
+      const GrainFragment fragment{launch + a, launch + b, level, source.pass + 1, grain.latched};
       picture.fragments[picture.count++] = fragment;
       if (sourceCount < static_cast<int>(sources.size())) sources[sourceCount++] = fragment;
       if (fragment.pass == 1)

@@ -67,5 +67,19 @@ void TestDigitalDelayVoice()
         for (const double sample : channel) assert(std::isfinite(sample) && std::abs(sample) < .25);
     }
   }
+  for (const auto& [from, to] : {std::pair{1, 2}, std::pair{2, 1}})
+  {
+    constexpr double rate = 48000.;
+    constexpr int start = 5760; // 120 ms, on a block and converter clock boundary.
+    const auto oldVoice = Render(rate, from, 0., .2, 4800.);
+    const auto newVoice = Render(rate, to, 0., .2, 4800.);
+    const auto switched = Render(rate, from, 0., .2, 4800., to);
+    for (int i = 48; i <= 576; ++i)
+    {
+      const double weight = std::min(1., i / 480.);
+      const double expected = std::lerp(oldVoice[0][start + i], newVoice[0][start + i], weight);
+      assert(std::abs(switched[0][start + i] - expected) < .002);
+    }
+  }
   std::cout << "Digital Delay voice: truncation, converter bandwidth, opposite modulation and voice changes passed\n";
 }

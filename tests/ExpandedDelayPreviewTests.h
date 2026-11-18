@@ -40,6 +40,21 @@ void TestExpandedDelayPreview()
   assert(BBDRepeatTrain(3, 300., 2000., .5, 1., 48000., 2.).cutoff == 2000.); // High cut caps Clear.
   // Granular: without scatter, forward grains return the note around Time; more density
   // gives more, shorter fragments; feedback adds later passes; Glitch marks latched repeats.
+  for (const double scatter : {0., .8})
+  {
+    constexpr double rate = 48000.;
+    expanded_delay_test::Audio note{std::vector<double>(2400, .25), std::vector<double>(2400, .25)};
+    UtilityControls controls;
+    controls.delay = {10., 0., 12000., 0., 100.};
+    expanded_delay_test::Option(controls, uGrainLength, 200.);
+    expanded_delay_test::Option(controls, uGrainDensity, 0.);
+    expanded_delay_test::Option(controls, uGrainScatter, scatter * 100.);
+    expanded_delay_test::Option(controls, uEchoInterval, 0.);
+    const auto audio = expanded_delay_test::Render(SlotEffect::GranularDelay, controls, rate, 64, note);
+    const auto first = std::find_if(audio[0].begin(), audio[0].end(), [](double x) { return x > 1.e-9; });
+    const auto preview = GrainFragments(0, 10., 200., 0., scatter, 0., 0., .3);
+    assert(first != audio[0].end() && std::abs(preview.first * rate - (first - audio[0].begin())) < 3.);
+  }
   const auto plain = GrainFragments(0, 400., 80., .5, 0., 0., 0., 2.);
   assert(plain.firstPass >= 2 && plain.first >= .35 && plain.last <= .7 && std::abs(plain.hop - .5 * plain.length) < 1.e-12);
   const auto dense = GrainFragments(0, 400., 80., 1., 0., 0., 0., 2.);

@@ -249,7 +249,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const double length = value(uGrainLength) * (1.25 - .0075 * value(uGrainDensity));
       const double horizon = effect_preview::TimeHorizon(std::min(9., 2.2 * ms * .001 + 2. * length * .001 + .2));
       const auto picture = GrainFragments(mode, ms, value(uGrainLength), .01 * value(uGrainDensity), scatter,
-                                          interval, feedback, horizon);
+                                          interval, feedback, horizon, rate);
       const auto x = [&](double seconds) { return plot.L + plot.W() * static_cast<float>(std::clamp(seconds / horizon, 0., 1.)); };
       const float top = plot.T + 6.f, base = plot.B - 2.f;
       PlotGrid(g, plot);

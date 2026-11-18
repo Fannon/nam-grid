@@ -307,7 +307,7 @@ Try **Three-head dub** for rhythmic feedback, **Slap and spring** for a
 short echo with more spring, or **Runaway dub** for repeats that keep
 building until you lower Feedback.
 
-**Display:** Numbered badges mark the three heads at one, two and three thirds of Time, filled when the Mode plays them; the footer lists their times. Head arrivals and feedback are cyan, with a purple spring decay guide. The title estimates the full-speed tape head's maximum pitch motion.
+**Display:** Numbered badges mark the three heads at one, two and three thirds of Time: head 1 teal, head 2 cyan, head 3 blue, and hollow when the Mode leaves them silent. Each repeat is drawn in the colour of the head that plays it, so with Head 1 alone its repeats at two and three thirds of Time stay teal. The footer lists the playing heads' times, and a purple guide sketches the spring decay. The title estimates the full-speed tape head's maximum pitch motion.
 
 ## Bucket Brigade
 

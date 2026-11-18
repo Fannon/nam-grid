@@ -88,7 +88,10 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
     {
       const double horizon = effect_preview::TimeHorizon(std::max(2.5 * ms * .001, value(uEchoSpring) > 0. ? .22 : .01));
       const double loopGain = SpaceTapeFeedback(value(uDelayFeedback));
-      const auto echoes = TapeRepeats(mode, loopGain, ms * .001, horizon);
+      const auto echoes = TapeRepeatsByHead(mode, loopGain, ms * .001, horizon);
+      // Neighbouring shades of the delay colour, clear of the purple spring guide.
+      const std::array<IColor, 3> headColors{IColor(255, 96, 224, 186), delayColor, IColor(255, 124, 166, 255)};
+      const int playing = std::popcount(spaceHeads[mode]);
       const double spring = .01 * value(uEchoSpring);
       PlotGrid(g, plot);
       if (spring > 0.)
@@ -96,19 +99,28 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
           const double t = x * horizon;
           return spring * std::clamp(t / .06, 0., 1.) * std::exp(-6.907755 * std::max(0., t - .05) / 1.55);
         }, 0., 1., reverbColor.WithOpacity(.7f));
-      DrawDelayTrace(g, plot, [&](int i) { return echoes[i]; }, color);
-      // The three playback heads at one, two and three thirds of Time: a guide line and a
-      // numbered badge each, filled when the Mode plays that head.
+      const auto headX = [&](int head) {
+        return plot.L + (plot.W() - 2.f) * static_cast<float>(ms * .001 * HeadFraction(head) / horizon);
+      };
+      // Each head draws its own repeats in its colour; coinciding arrivals sit side by side.
+      for (int head = 0, drawn = 0; head < 3; ++head)
+        if (spaceHeads[mode] & (1u << head))
+        {
+          const float offset = playing > 1 ? 3.f * (static_cast<float>(drawn++) - .5f * (playing - 1)) : 0.f;
+          DrawDelayTrace(g, plot, [&](int i) { return echoes[head][i]; }, headColors[head], offset);
+        }
+      // The three playback heads at one, two and three thirds of Time: a numbered badge
+      // each, filled when the Mode plays that head.
       WDL_String heads;
       for (int head = 0; head < 3; ++head)
       {
         const double seconds = ms * .001 * HeadFraction(head);
         const bool active = (spaceHeads[mode] & (1u << head)) != 0;
-        const float x = plot.L + (plot.W() - 2.f) * static_cast<float>(seconds / horizon);
+        const float x = headX(head);
         if (x > plot.R - 8.f) continue;
-        g.DrawDottedLine(active ? color.WithOpacity(.45f) : border.WithOpacity(.6f), x, plot.T + 18.f, x, plot.B);
-        g.FillCircle(active ? color : surface, x, plot.T + 9.f, 7.f);
-        g.DrawCircle(active ? color : border, x, plot.T + 9.f, 7.f, nullptr, 1.25f);
+        // Each badge sits over its head's first arrival. Silent heads keep a hollow badge.
+        g.FillCircle(active ? headColors[head] : surface, x, plot.T + 9.f, 7.f);
+        g.DrawCircle(active ? headColors[head] : border, x, plot.T + 9.f, 7.f, nullptr, 1.25f);
         WDL_String label;
         label.SetFormatted(4, "%d", head + 1);
         g.DrawText(Text(10.f, active ? surface : muted, EAlign::Center), label.Get(), IRECT(x - 8.f, plot.T + 1.f, x + 8.f, plot.T + 17.f));
@@ -128,7 +140,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         footer.SetFormatted(96, "Heads at %s ms  |  0–%.0f ms", heads.Get(), horizon * 1000.);
       else
         footer.SetFormatted(96, "Spring decay sketch  |  0–%.0f ms", horizon * 1000.);
-      PlotDetail(g,plot,"Numbered badges mark the three tape heads at one, two and three thirds of Time; filled heads play. Cyan shows their arrivals and summed feedback. Purple sketches the spring decay at the current Spring level. Tape speed changes the motion rate; earlier heads move less.");
+      PlotDetail(g,plot,"Badges mark the three tape heads at one, two and three thirds of Time: head 1 teal, head 2 cyan, head 3 blue, hollow when silent. Each stem has the colour of the head that plays it, so a head's own repeats can land where another head sits. Purple sketches the spring decay. Tape speed changes the motion rate; earlier heads move less.");
       break;
     }
     case SlotEffect::BucketBrigade:

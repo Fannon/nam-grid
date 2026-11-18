@@ -22,6 +22,14 @@ void TestExpandedDelayPreview()
   const auto single = TapeRepeats(0, .5, .3, 1.);
   const int head = DelayBin(.1, 1.);
   assert(single[head] == 1. && single[2 * head] == .5);
+  // Head 1 alone: every arrival, its feedback at two and three thirds included, is head 1's.
+  const auto split = TapeRepeatsByHead(0, .5, .3, 1.);
+  for (int i = 0; i < bins; ++i) assert(split[1][i] == 0. && split[2][i] == 0. && split[0][i] == single[i]);
+  // All heads: head 2's own arrival and head 1's first repeat, near the same time,
+  // are each attributed to the head that plays them.
+  const auto all = TapeRepeatsByHead(6, .5, .3, 1.);
+  const int headOne = DelayBin(.1, 1.), headTwo = DelayBin(.2, 1.);
+  assert(all[1][headTwo] > 0. && all[0][2 * headOne] > 0. && all[1][headOne] == 0. && all[2][headTwo] == 0.);
   assert(BBDBandwidth(1, 500., 10000.) < BBDBandwidth(1, 100., 10000.));
   // Repeats decay with Feedback, lose treble on every pass, and are darker at longer Times.
   const auto shortTrain = BBDRepeatTrain(1, 150., 12000., .5, 1., 48000., 2.);

@@ -1,4 +1,5 @@
 #pragma once
+#include <bit>
 #include "EffectPreview.h"
 
 // Small, settled-control models for the editor. These describe one repeat
@@ -69,23 +70,37 @@ inline std::array<Trace, 2> PatternReturns(const std::array<Tap, 4>& taps, int m
   return output;
 }
 
-inline Trace TapeRepeats(int mode, double feedback, double time, double horizon)
+// Space Tape Echo's arrivals split by the head that plays them. Every enabled head
+// also plays the earlier heads' feedback, so one head's repeats can land where
+// another head sits.
+inline std::array<Trace, 3> TapeRepeatsByHead(int mode, double feedback, double time, double horizon)
 {
-  Trace send{}, wet{};
-  std::array<int, 3> heads{};
-  int count = 0;
-  for (int head = 0; head < 3; ++head)
-    if (spaceHeads[mode] & (1u << head))
-      heads[count++] = DelayBin(time * HeadFraction(head), horizon);
+  std::array<Trace, 3> wet{};
+  Trace send{}, total{};
+  std::array<int, 3> delay{};
+  for (int head = 0; head < 3; ++head) delay[head] = DelayBin(time * HeadFraction(head), horizon);
+  const int count = std::popcount(spaceHeads[mode]);
   if (count == 0) return wet; // Spring only.
   const double headGain = 1. / std::sqrt(static_cast<double>(count));
   send[0] = 1.;
   for (int bin = 1; bin < bins; ++bin)
   {
-    for (int h = 0; h < count; ++h)
-      if (bin >= heads[h]) wet[bin] += headGain * send[bin - heads[h]];
-    send[bin] = feedback * headGain * wet[bin];
+    for (int head = 0; head < 3; ++head)
+      if ((spaceHeads[mode] & (1u << head)) && bin >= delay[head])
+      {
+        const double arrival = headGain * send[bin - delay[head]];
+        wet[head][bin] += arrival;
+        total[bin] += arrival;
+      }
+    send[bin] = feedback * headGain * total[bin];
   }
+  return wet;
+}
+inline Trace TapeRepeats(int mode, double feedback, double time, double horizon)
+{
+  const auto heads = TapeRepeatsByHead(mode, feedback, time, horizon);
+  Trace wet{};
+  for (int bin = 0; bin < bins; ++bin) wet[bin] = heads[0][bin] + heads[1][bin] + heads[2][bin];
   return wet;
 }
 

@@ -92,7 +92,7 @@ the nearest equal-tempered pitch at A4 = 440 Hz. Move outside the chart to clear
 the readout. Hovering leaves knob values and saved rigs unchanged.
 
 Time-based displays, such as delay repeats, reverb decays, modulation and
-slice patterns, mark 10, 20, 40, 100, 200 and 400 ms and 1, 2, 4 and 8 s with faint dotted
+slice patterns, mark 10, 20, 40, 100, 200 and 400 ms and 1, 2, 4, 10, 20 and 40 s with faint dotted
 lines. Only marks that fit the chart's time span are drawn, and marks too close
 together are skipped. Reverb decays use a logarithmic time axis, and the LoFi
 Tape and tuner histories count back from now. Hover over these charts for the

@@ -148,7 +148,7 @@ private:
   std::array<TimeAxis, 2> mTimes{};
   int mTimeCount = 0;
   struct Label { IRECT box; char text[16]{}; };
-  std::array<Label, 20> mLabels{};
+  std::array<Label, 24> mLabels{};
   int mLabelCount = 0;
   float mHoverX = -1.f;
 };
@@ -217,7 +217,8 @@ TimeColumns InvertTime(const IRECT& p, X& x)
   }
   return seconds;
 }
-// Faint dotted reference lines at 10, 20, 40, 100, 200 and 400 ms and 1, 2, 4 and 8 s on a time axis,
+// Faint dotted reference lines at 10, 20 and 40 ms, 100, 200 and 400 ms, 1, 2 and 4 s and 10, 20 and
+// 40 s on a time axis,
 // labelled at the bottom. `x` maps seconds to a pixel, linearly or not, in either direction:
 // histories count back from now at the right edge. A mark is drawn only inside the plot and
 // at least 44 px from time zero and from the previous mark, so labels never crowd. Labels
@@ -229,7 +230,7 @@ inline constexpr float kTimeLabelWidth = 38.f;
 template<class X, class Visit>
 int ForEachTimeMark(const IRECT& p, X& x, Visit&& visit)
 {
-  constexpr double marks[]{.01, .02, .04, .1, .2, .4, 1., 2., 4., 8.};
+  constexpr double marks[]{.01, .02, .04, .1, .2, .4, 1., 2., 4., 10., 20., 40.};
   constexpr float spacing = 44.f;
   const float origin = static_cast<float>(x(0.));
   float previous = origin;

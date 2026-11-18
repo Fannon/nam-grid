@@ -40,7 +40,9 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
 - **Expanded delays** ([ExpandedDelay.h](../NeuralAmpModeler/ExpandedDelay.h)) share
   sample-based control smoothing, fractional delay lines and a bounded feedback return.
   Space Tape Echo uses the Airwindows Spiral transfer from LoFi Tape Machine at 4×
-  with the minimum-phase FIR and the classic Spring tank in parallel. Its three tap
+  with the minimum-phase FIR and the classic Spring tank in parallel. At Spring 0% the tank
+  stops listening, rings out in silence for 4 s and then parks, so it costs no CPU and
+  resumes from a silent tank. Its three tap
   positions and parallel routing follow the [RE-201 manual](https://cdn.roland.com/assets/media/pdf/RE-201_OM.pdf).
   Bucket Brigade has clock-dependent bandwidth and independent record/playback
   envelopes with 2× oversampled saturation, following the compander structure described by

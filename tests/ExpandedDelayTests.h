@@ -110,5 +110,37 @@ void TestExpandedDelays()
       }
     }
   }
-  std::cout << "Expanded delays: tap timing, parallel spring, octave regeneration, bounded tails and partition identity passed\n";
+  {
+    // Spring at 0% parks the parallel tank after it rings out. Raised again, it
+    // must start from silence rather than replay the tail it held when parked.
+    const double rate = 48000.;
+    const int block = 64;
+    UtilityControls c;
+    c.delay = {4000., 0., 10000., 0., 100.}; // Tape heads arrive after each measured window.
+    c.delayMotion = 0.;
+    Option(c, uEchoSpring, 0.);
+    SlotExpandedDelay delay;
+    delay.Reset(rate, block, E::SpaceTapeEcho);
+    Audio buffer{std::vector<double>(block), std::vector<double>(block)};
+    const auto run = [&](double seconds, bool impulse) {
+      double peak = 0.;
+      for (int n = 0; n < static_cast<int>(seconds * rate / block); ++n)
+      {
+        for (auto& channel : buffer) std::fill(channel.begin(), channel.end(), 0.);
+        if (impulse && n == 0) buffer[0][0] = buffer[1][0] = .25;
+        delay.Process(buffer[0].data(), buffer[1].data(), block, c, false);
+        for (const auto& channel : buffer) for (const double sample : channel) peak = std::max(peak, std::abs(sample));
+      }
+      return peak;
+    };
+    assert(run(.5, true) == 0. && !delay.SpringRunning()); // A Spring inserted at 0% never runs.
+    Option(c, uEchoSpring, 100.);
+    assert(run(.5, true) > .005 && delay.SpringRunning());
+    Option(c, uEchoSpring, 0.);
+    run(4.5, false);
+    assert(!delay.SpringRunning());
+    Option(c, uEchoSpring, 100.);
+    assert(run(.3, false) < 1.e-9);
+  }
+  std::cout << "Expanded delays: tap timing, parallel spring, spring parking, octave regeneration, bounded tails and partition identity passed\n";
 }

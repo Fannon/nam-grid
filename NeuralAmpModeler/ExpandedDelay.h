@@ -220,6 +220,9 @@ public:
       mSpringInput[0].assign(block, 0.);
       mSpringInput[1].assign(block, 0.);
     }
+    // A fresh tank is silent, so a Spring that starts at 0% never runs.
+    mSpringDrain = static_cast<int64_t>(4. * rate);
+    mSpringIdle = mSpringDrain;
     if (effect == SlotEffect::PitchDelay)
     {
       mPitch.Reset(rate);
@@ -257,12 +260,26 @@ public:
     const bool fx = mEffect == SlotEffect::FeedbackFXDelay;
     const bool pattern = mEffect == SlotEffect::PatternDelay;
     const int channels = right ? 2 : 1;
-    if (tape)
+    // Reuse the classic spring as a wet-only parallel path. Its input comes
+    // from the original playing, independently of echo head selection. At 0%
+    // the spring stops listening, rings out in silence (over -150 dB at its
+    // 1.55 s decay), then parks. Raised again, it resumes from a silent tank.
+    const bool listening = tape && c.DelayOption(uEchoSpring) > 0.;
+    if (listening) mSpringIdle = 0;
+    const bool spring = tape && mSpringIdle < mSpringDrain;
+    if (spring)
     {
-      // Reuse the classic spring as a wet-only parallel path. Its input comes
-      // from the original playing, independently of echo head selection.
-      std::copy_n(left, frames, mSpringInput[0].data());
-      if (right) std::copy_n(right, frames, mSpringInput[1].data());
+      if (listening)
+      {
+        std::copy_n(left, frames, mSpringInput[0].data());
+        if (right) std::copy_n(right, frames, mSpringInput[1].data());
+      }
+      else
+      {
+        std::fill_n(mSpringInput[0].data(), frames, 0.);
+        if (right) std::fill_n(mSpringInput[1].data(), frames, 0.);
+        mSpringIdle += frames;
+      }
       mSpring.Process(mSpringInput[0].data(), right ? mSpringInput[1].data() : nullptr, frames, mSpringControls);
     }
     for (int i = 0; i < frames; ++i)
@@ -457,11 +474,14 @@ public:
       for (int ch = 0; ch < channels; ++ch)
       {
         double sample = wet[ch] * mModeGain;
-        if (tape) sample += option(uEchoSpring) * .01 * mSpringInput[ch][i];
+        if (spring) sample += option(uEchoSpring) * .01 * mSpringInput[ch][i];
         (ch ? right[i] : left[i]) = mMix.Apply((dry[ch] + mix * (sample - dry[ch])) * output, dry[ch], mix, output);
       }
     }
   }
+
+  // Test hook: whether the parallel spring still processes audio.
+  bool SpringRunning() const { return mSpringIdle < mSpringDrain; }
 
 private:
   struct Channel
@@ -585,4 +605,5 @@ private:
   double mPhase = 0., mFlutter = 0., mCapturePhase = 0., mCaptureIncrement = 1., mCrushInput = 0., mCrushOutput = 0.;
   double mRatio = 1., mLevels = 2048., mDrumMotion = 0.;
   int mMode = -1, mCounter = 0;
+  int64_t mSpringIdle = 0, mSpringDrain = 0;
 };

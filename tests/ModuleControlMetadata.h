@@ -63,7 +63,7 @@ inline json ModuleControlMetadata(const clap_plugin* plugin, const clap_plugin_p
     for (int p = 0; p < kUtilityControls; ++p)
     {
       // Header choices and display controls are documented as prose; tables cover the knob grid.
-      if (p == uTempoDivision || effect_presentation::HeaderControl(p) || effect_presentation::DisplayControl(p) || effect_presentation::DetailPage(effect, p)) continue;
+      if (p == uTempoDivision || !effect_presentation::MainGrid(effect, p)) continue;
       bool visible = false;
       for (bool sync : {false, true})
         for (bool alternate : {false, true})

@@ -2756,9 +2756,25 @@ int main(int argc, char** argv)
     effectControls["SlotEffects"][0] = id;
     load(effectControls);
     selectTile(170, 120);
+    int page = 0; // A newly selected module opens on its main page.
     for (int p = 0; p < kUtilityControls; ++p)
       if (UsesUtility(effect, p) && !effect_presentation::DisplayControl(p)) // Display drags: tested below.
       {
+        // A mode substitute (Ring's Carrier) is visible only in its mode.
+        if (effect_presentation::ReplacedControl(effect, p) >= 0)
+        {
+          const int modeControl = ExpandedDelayModeControl(effect);
+          int mode = 0;
+          while (!effect_presentation::ModeVisible(effect, p, mode)) ++mode;
+          auto modeState = save().config();
+          modeState[std::string("Pre 1 ") + kEffectParameters[modeControl].name] = static_cast<double>(mode);
+          load(modeState);
+          selectTile(170, 120);
+        }
+        // Detail controls sit behind the page button; header options stay on every page.
+        if (!effect_presentation::HeaderControl(p))
+          for (; page != effect_presentation::DetailPage(effect, p); page = (page + 1) % effect_presentation::DetailPages(effect))
+            click(static_cast<int>(grid_layout::parameterLeft) + 61, grid_layout::optionsY);
         // Shelf gain is conditional: expose it before testing its gesture.
         if (effect == SlotEffect::ParametricEQ && p == uParamShelfGain)
         {
@@ -2774,7 +2790,7 @@ int main(int argc, char** argv)
           algorithmAutomation.clear();
         }
         // Drag down at an upper limit (Tape Mix defaults to 100%).
-        const int position = effect_presentation::Position(effect, p);
+        const int position = effect_presentation::EditorPosition(effect, p);
         const int x = grid_layout::KnobX(position);
         if (!EffectChoices(p).empty())
         {

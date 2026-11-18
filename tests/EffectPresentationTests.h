@@ -53,7 +53,7 @@ void TestEffectPresentation()
                 }
               continue;
             }
-            if (effect_presentation::DisplayControl(p) || effect_presentation::DetailPage(effect, p)) continue; // Dragged in the display.
+            if (!effect_presentation::MainGrid(effect, p)) continue; // Display drags, detail pages and mode substitutes.
             const int position = effect_presentation::Position(effect, p);
             if (position < 0 || position >= 8 || occupied[position])
               std::cerr << "Control overlap: effect=" << static_cast<int>(effect) << " parameter="

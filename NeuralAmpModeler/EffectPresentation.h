@@ -51,10 +51,34 @@ inline int DetailPage(SlotEffect e, int p)
   if (e == SlotEffect::VintageDigital
       && (p == uEchoDucking || p == uEchoSensitivity || p == uDuckRelease || p == uEchoBits || p == uEchoSampleRate))
     return 1;
-  if (e == SlotEffect::FeedbackFXDelay && p == uEchoRingRate) return 1;
   if (e == SlotEffect::GranularDelay && p == uEchoInterval) return 1;
   return 0;
 }
+inline int DetailPages(SlotEffect e)
+{ return e == SlotEffect::PatternDelay ? 3 : e == SlotEffect::VintageDigital || e == SlotEffect::GranularDelay ? 2 : 1; }
+inline const char* PageLabel(SlotEffect e, int page)
+{
+  if (page == 0) return "Main";
+  if (e == SlotEffect::GranularDelay) return "Pitch";
+  if (e == SlotEffect::VintageDigital) return "Ducking / Crush";
+  return page == 1 ? "Timing / Level" : "Pan";
+}
+// A control that takes another dial's place while its mode is selected, or -1.
+// Feedback FX Delay's Ring mode replaces Rate with Carrier.
+inline int ReplacedControl(SlotEffect e, int p)
+{ return e == SlotEffect::FeedbackFXDelay && p == uEchoRingRate ? uEchoRate : -1; }
+// Controls that the selected algorithm mode does not use.
+inline bool ModeVisible(SlotEffect e, int p, int mode)
+{
+  if (e != SlotEffect::FeedbackFXDelay) return true;
+  const bool ring = mode == 3;
+  if (p == uEchoRingRate) return ring;
+  if (p == uEchoRate || p == uEchoRateSync || p == uEchoResonance) return !ring;
+  return true;
+}
+// Controls packed into the main dial grid (not header, display, detail page or mode substitute).
+inline bool MainGrid(SlotEffect e, int p)
+{ return !HeaderControl(p) && !DisplayControl(p) && DetailPage(e, p) == 0 && ReplacedControl(e, p) < 0; }
 // Header options share one row. Keep their horizontal bounds available to
 // both the editor and headless layout checks, including effect-specific moves.
 struct HeaderArea { float left, right; };
@@ -213,7 +237,7 @@ inline int Position(SlotEffect e, int p)
 {
   auto used = FixedPlaces(e);
   for (int q = 0; q < kUtilityControls; ++q)
-    if (!HeaderControl(q) && !DisplayControl(q) && DetailPage(e, q) == 0)
+    if (MainGrid(e, q))
       for (bool sync : {false, true})
         for (bool alternate : {false, true})
           if (Visible(e, q, sync, alternate, alternate, alternate)) used[TablePosition(e, q)] = true;
@@ -221,6 +245,13 @@ inline int Position(SlotEffect e, int p)
   const auto placesBefore = [&](int from) { return static_cast<int>(std::count(used.begin() + from, used.begin() + own, true)); };
   if (std::count(used.begin(), used.end(), true) <= 4) return placesBefore(0);
   return own < 4 ? own : kOutputPosition + placesBefore(kOutputPosition);
+}
+// Dial place in the editor. Detail-page controls use their own table place on that
+// page; a mode substitute takes the place of the control it replaces.
+inline int EditorPosition(SlotEffect e, int p)
+{
+  if (const int replaced = ReplacedControl(e, p); replaced >= 0) return Position(e, replaced);
+  return DetailPage(e, p) ? TablePosition(e, p) : Position(e, p);
 }
 inline const char* Label(SlotEffect e, int p, int mode = 0)
 {
@@ -427,17 +458,21 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uVintageDelayVoice: return "Rack models early converters; Clean opens up the repeats; Ducked leaves space while you play; Crushed exposes the converters.";
     case uGrainDelayMode: return "Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment.";
     case uEchoSpring: return "Level of the spring reverb fed from your playing in parallel with the tape. Zero removes the spring from the mix.";
-    case uEchoRate: return "Speed of echo modulation. With Rate sync on in Feedback FX Delay, this is cycles per beat.";
-    case uEchoDepth: return "How strongly the selected effect changes the echoes.";
+    case uEchoRate: return e == SlotEffect::FeedbackFXDelay ? "Speed of the feedback effect. With Rate sync on, this is cycles per beat."
+                         : e == SlotEffect::BucketBrigade ? "Base speed of pitch modulation. Vibrato multiplies it by four."
+                                                          : "Speed of the pitch modulation on the repeats.";
+    case uEchoDepth: return e == SlotEffect::VintageDigital ? "How far the modulation moves the repeats' pitch. Zero is stable."
+                                                            : "How strongly the selected effect changes the echoes.";
     case uEchoResonance: return "Emphasis of Sweep or depth of the phase notches in Phaser.";
     case uEchoRateSync: return "Tie modulation speed to host tempo. Rate sets cycles per beat. The echo time has its own sync switch.";
-    case uEchoInterval: return "Shift grain playback by this many semitones. Each feedback pass can add another shift.";
+    case uEchoInterval: return e == SlotEffect::GranularDelay ? "Shift grain playback by this many semitones. Each feedback pass can add another shift."
+                                                              : "How far each shifted pass moves, in semitones. Feedback builds the next interval on the last.";
     case uEchoDetune: return "Depth of slow pitch motion on the repeats, with opposite motion in the two channels.";
     case uEchoShiftBlend: return "Blend the shifted voice with the ordinary echo, both in the repeats and in feedback.";
     case uEchoWidth: return "Scale the four tap pan settings. Zero keeps the original stereo placement.";
     case uEchoLowCut: return "Remove low frequencies from the repeats and their feedback, leaving the direct guitar untouched.";
     case uEchoDucking: return "Maximum reduction of repeat level while you play in Ducked mode.";
-    case uEchoSensitivity: return "How quickly quiet playing reaches full ducking in Ducked mode.";
+    case uEchoSensitivity: return "How softly you can play and still reach full ducking in Ducked mode.";
     case uEchoBits: return "Converter resolution in Crushed mode. Low values make the repeats audibly stair-stepped.";
     case uEchoSampleRate: return "Converter sample rate in Crushed mode. Lower settings reduce repeat bandwidth.";
     case uEchoRingRate: return "Oscillator frequency for Ring mode, in hertz.";
@@ -453,6 +488,8 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDelayTime: return e == SlotEffect::SpaceTapeEcho ? "Tape speed sets the last head interval. The other tape heads are at one and two thirds of that time."
                          : e == SlotEffect::PatternDelay ? "Base interval for the four editable taps. Each tap sets a percentage of this time."
                          : e == SlotEffect::GranularDelay ? "Nominal time into the history. Grain length, scatter and direction spread the repeats around it."
+                         : e == SlotEffect::PitchDelay || e == SlotEffect::FeedbackFXDelay || e == SlotEffect::VintageDigital
+                           ? "Time to the first repeat. Small changes glide; larger jumps crossfade to the new time."
                          : e == SlotEffect::MultiHeadDelay ? "Time of the last playback head. Other selected heads occur at one quarter, one half and three quarters of this interval."
                          : e == SlotEffect::ReverseDelay ? "Length of each reversed capture window; not a conventional first-echo delay."
                          : e == SlotEffect::DualDelay ? "Time of the left tap. The right tap is this value multiplied by Time ratio."
@@ -461,6 +498,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uDelayTone: return "High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar.";
     case uDelayCharacter: return e == SlotEffect::DigitalDelay ? "Ducks repeats while you play; echoes recover in the gaps."
                                   : e == SlotEffect::AnalogDelay ? "More darkening and soft saturation on each repeat."
+                                  : e == SlotEffect::BucketBrigade ? "Saturation in the bucket-brigade path; higher settings compress and roughen the repeats."
                                                                 : "Soft saturation on repeats. Modulation controls the tape wobble separately.";
     case uDelayMotion: return "Pitch movement of repeats. Zero is stable; higher values add chorus-like wobble.";
     case uDualRatio: return "Right delay time divided by left time. 0.75 gives a dotted-eighth partner to a quarter-note left delay.";

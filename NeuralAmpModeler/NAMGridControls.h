@@ -1928,8 +1928,7 @@ public:
     mEditor->AddChildControl(mAutoWah);
     mDelayPageButton = new grid_ui::Button(IRECT(grid_layout::parameterLeft, grid_layout::optionsTop,
       grid_layout::parameterLeft + 122, grid_layout::optionsBottom), [this](IControl*) {
-        const int pages = PLUG()->GetSlotEffect(mSlot) == SlotEffect::PatternDelay ? 3 : 2;
-        mDelayPage = (mDelayPage + 1) % pages;
+        mDelayPage = (mDelayPage + 1) % effect_presentation::DetailPages(PLUG()->GetSlotEffect(mSlot));
         Refresh();
       }, "Main");
     mDelayPageButton->SetTooltip("Switch between the main delay controls and detailed settings.");
@@ -3305,13 +3304,8 @@ private:
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
       mAutoWah->Hide(effect != SlotEffect::Wah);
-      const bool delayPages = effect == SlotEffect::VintageDigital || effect == SlotEffect::PatternDelay
-                           || effect == SlotEffect::GranularDelay;
-      mDelayPageButton->Hide(!delayPages);
-      const char* page = mDelayPage == 0 ? "Main" : effect == SlotEffect::GranularDelay ? "Pitch"
-                       : effect == SlotEffect::VintageDigital ? "Ducking / Crush"
-                       : mDelayPage == 1 ? "Timing / Level" : "Pan";
-      mDelayPageButton->SetLabelStr(page);
+      mDelayPageButton->Hide(effect_presentation::DetailPages(effect) < 2);
+      mDelayPageButton->SetLabelStr(effect_presentation::PageLabel(effect, mDelayPage));
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -3327,14 +3321,11 @@ private:
         ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, ExpandedDelayModeControl(effect)))->Int() : -1;
       for (int i = 0; i < kUtilityControls; ++i)
       {
-        const bool header = effect_presentation::HeaderControl(i);
-        const bool ring = effect == SlotEffect::FeedbackFXDelay && delayMode == 3;
-        const bool carrier = ring && i == uEchoRingRate;
-        const bool relevant = !(ring && (i == uEchoRate || i == uEchoRateSync || i == uEchoResonance));
-        const int detail = effect_presentation::DetailPage(effect, i);
+        const bool onPage = effect_presentation::HeaderControl(i) || effect_presentation::ReplacedControl(effect, i) >= 0
+                         || effect_presentation::DetailPage(effect, i) == mDelayPage;
         const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf)
-                          && !effect_presentation::DisplayControl(i) && relevant
-                          && (carrier || header || detail == mDelayPage);
+                          && !effect_presentation::DisplayControl(i) && onPage
+                          && effect_presentation::ModeVisible(effect, i, delayMode);
         mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle
@@ -3347,8 +3338,7 @@ private:
             mUtilityKnobs[i]->SetTargetAndDrawRECTs(bounds);
         }
         else
-          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(carrier ? effect_presentation::Position(effect, uEchoRate)
-              : detail ? effect_presentation::TablePosition(effect, i) : effect_presentation::Position(effect, i)));
+          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::EditorPosition(effect, i)));
         if (auto* knob = dynamic_cast<grid_ui::Knob*>(mUtilityKnobs[i]))
           if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i, mode)) != 0)
             knob->SetLabelStr(effect_presentation::Label(effect, i, mode));

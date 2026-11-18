@@ -5,9 +5,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ## [Unreleased]
 
 - **Seven new delays:** Space Tape Echo pairs three tape heads with spring reverb and includes an Oil Can voice. Bucket Brigade covers dark, clear, driven and modulated analog repeats. Pitch Delay adds rising, falling and reversed echoes, Feedback FX Delay sweeps or modulates the repeats, and Pattern Delay gives you four taps with editable timing, level and pan. Vintage Digital Delay covers rack, clean, ducked and crushed repeats, while Granular Delay scatters, reverses or stutters fragments. Each has factory presets and works with tempo sync and Trails. Existing delay settings and sounds are preserved.
-
 - **Delay displays:** see how tape heads and spring overlap, pitches build, and feedback shapes the repeats. Drag the taps in Pattern Delay to set time and level, and choose a tap to set its pan.
-- **Delay presets:** every module in the Delay menu now has four to eight factory presets. Try **Descending fourths** for falling echoes, **Telephone repeats** for a narrow-band digital delay, or **Half-note reverse swells** for tempo-synced granular textures.
+- **Delay presets:** every module in the Delay menu now has four to eight factory presets. Try **Descending fourths** for falling echoes, **Telephone repeats** for a narrow-band digital delay, or **Half-note reverse swells** for tempo-synced granular textures. Digital Delay drops two near-duplicate presets, **Triplet ping-pong** and **Ducked dotted eighth**; rigs that used them keep their settings.
 - **Website:** a simpler introduction, direct downloads for each platform, and full-size screenshots.
 
 ## [0.7.0] - 2026-11-15

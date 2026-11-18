@@ -1,6 +1,6 @@
 # Delay
 
-Echoes from clean digital to tape and diffused.
+Echoes from clean digital to tape, analog, pitched, patterned and granular.
 
 Settings' **Trails** toggle lets every bypassed delay and reverb ring out: new playing stops reaching it, and its tail continues over the dry signal. It is off by default; see [rig behaviour in Settings](../ui.md#rig-behaviour).
 
@@ -15,13 +15,13 @@ Settings' **Keep dry level** toggle applies to every delay and reverb in the rig
 | [Reverse Delay](#reverse-delay) | Plays each window backwards; Time sets its length. |
 | [Dual Delay](#dual-delay) | Two delays; Time ratio sets the second rhythm. |
 | [Diffused Delay](#diffused-delay) | Repeats smear into stereo clouds as Diffusion rises. |
-| [Granular Delay](#granular-delay) | Overlapping fragments that spread, reverse or stutter around the echo time. |
-| [Vintage Digital Delay](#vintage-digital-delay) | Rack-style modulation, clean repeats, ducking or reduced-resolution feedback. |
-| [Pattern Delay](#pattern-delay) | Four timed and panned echo taps with selectable feedback routing. |
-| [Feedback FX Delay](#feedback-fx-delay) | A filter, phaser, tremolo or ring modulator changes each repeat before it feeds back. |
-| [Pitch Delay](#pitch-delay) | Blend ordinary echoes with repeats that climb or fall in musical intervals. |
+| [Space Tape Echo](#space-tape-echo) | Three tape heads with a parallel spring and a darker Oil Can voice. |
 | [Bucket Brigade](#bucket-brigade) | Companded analog repeats with bandwidth that narrows at slower clock speeds. |
-| [Space Tape Echo](#space-tape-echo) | Three tape heads with parallel spring reverb. |
+| [Pitch Delay](#pitch-delay) | Blend ordinary echoes with repeats that climb or fall in musical intervals. |
+| [Feedback FX Delay](#feedback-fx-delay) | A filter, phaser, tremolo or ring modulator changes each repeat before it feeds back. |
+| [Pattern Delay](#pattern-delay) | Four timed and panned echo taps with selectable feedback routing. |
+| [Vintage Digital Delay](#vintage-digital-delay) | Rack-style modulation, clean repeats, ducking or reduced-resolution feedback. |
+| [Granular Delay](#granular-delay) | Overlapping fragments that spread, reverse or stutter around the echo time. |
 
 ## Factory starting points
 
@@ -275,50 +275,57 @@ In the header:
 
 **Display:** The repeats with their diffusion clusters.
 
-The seven delays below share **Tempo sync**, **Division**, **Trails** and the
-rig’s **Keep dry level** setting. Their presets are available in the module header.
-The displays preview the settings and the meters show live signal levels.
+The seven delays below have no Ping-pong switch: their stereo comes from the
+heads, voices, pitch modes or taps instead. Each one offers **Tempo sync** and
+**Division** in the header, follows Settings' **Trails** and **Keep dry level**,
+and has factory presets in the module header. Changing the **Mode** briefly dips
+the repeats and their feedback while the dry signal continues.
 
 ## Space Tape Echo
 
-Three tape heads with parallel spring reverb.
+Three tape heads with a spring reverb fed in parallel, plus a darker Oil Can voice.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 420 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 32% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 5500 Hz | Reduce treble in the repeats. |
-| **Saturation** | 0–100% | 22% | Push the tape recorder into soft compression. |
-| **Modulation** | 0–100% | 25% | Control shared wow and flutter. |
-| **Spring** | 0–100% | 20% | Add a spring fed from the playing in parallel with the echo. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 25% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Time** | 5–4000 ms | 420 ms | Tape speed sets the last head interval. The other tape heads are at one and two thirds of that time. |
+| **Feedback** | 0–82% | 32% | Amount returned for another repeat. The return is balanced by the number of enabled heads. |
+| **High cut** | 800–12000 Hz | 5500 Hz | High-cut frequency of the repeats. Slower tape speeds also darken them. |
+| **Saturation** | 0–100% | 22% | Soft tape saturation on repeats. Modulation controls the wow and flutter separately. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Modulation** | 0–100% | 25% | Wow and flutter on the repeats. Their speed follows the tape speed. |
+| **Spring** | 0–100% | 20% | Level of the spring reverb fed from your playing in parallel with the tape. Zero removes the spring from the mix. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-**Time** sets the last head. The three tape heads play at one third, two
-thirds and full Time. The **Mode** selector picks one head, a pair, all three,
-or a darker two-tap **Oil Can** voice. The starting pair is Heads 1 + 3. The
-enabled heads feed the tape together. Try **Three-head dub** for rhythmic
-feedback, or **Slap and spring** for a short echo and more spring.
+In the header:
 
-**Display:** Head arrivals and feedback in cyan, with a purple spring decay guide. The title estimates the full-speed tape head’s maximum pitch motion.
+- **Mode** (Head 1, Head 2, Head 3, Heads 1 + 2, Heads 1 + 3, Heads 2 + 3, All heads, Oil Can; starts at Heads 1 + 3) Which heads sound. The enabled heads all feed back. **Oil Can** plays two closer, darker taps at about 56% and 100% of Time, with faster wobble.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values. With a quarter-note division, the heads play eighth-note triplets.
+
+Try **Three-head dub** for rhythmic feedback, or **Slap and spring** for a
+short echo with more spring.
+
+**Display:** Head arrivals and feedback in cyan, with a purple spring decay guide. The title estimates the full-speed tape head's maximum pitch motion.
 
 ## Bucket Brigade
 
-Companded analog repeats with bandwidth that narrows at slower clock speeds.
+Companded analog repeats whose bandwidth narrows as Time gets longer, like a slower BBD clock.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 300 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 35% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 5500 Hz | Reduce treble in the repeats. |
-| **Drive** | 0–100% | 22% | Increase saturation in the bucket-brigade path. |
+| **Time** | 5–4000 ms | 300 ms | Time to the first repeat. Changing it while repeats sound bends their pitch, like tape. |
+| **Feedback** | 0–82% | 35% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
+| **High cut** | 800–12000 Hz | 5500 Hz | Upper limit for the repeats. Longer Times and darker voices can set a lower limit. |
+| **Drive** | 0–100% | 22% | Saturation in the bucket-brigade path; higher settings compress and roughen the repeats. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
 | **Rate** | 0.05–20 Hz | 0.8 Hz | Base speed of pitch modulation. Vibrato multiplies it by four. |
-| **Modulation** | 0–100% | 26% | Pitch movement on the repeats. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 24% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Modulation** | 0–100% | 26% | Pitch movement of repeats. Compact keeps it very light. |
+| **Mix** | 0–100% | 24% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-**Mode** offers dark **Compact**, modulated **Chorus** and **Vibrato**,
-brighter **Clear**, and grittier **Driven**. Chorus is the starting mode.
+In the header:
+
+- **Mode** (Compact, Chorus, Vibrato, Clear, Driven; starts at Chorus) Compact is dark and steady; Chorus and Vibrato animate the repeats; Clear opens the bandwidth; Driven adds grit.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
+
 Try **Compact slap** for short, soft support or **Chorused dotted eighth**
 for a moving rhythmic echo.
 
@@ -330,19 +337,22 @@ Blend ordinary echoes with repeats that climb or fall in musical intervals.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 420 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 35% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 7500 Hz | Reduce treble in the repeats. |
-| **Interval** | -12 to +12 st | 12 st | How far each shifted pass moves. |
-| **Detune** | 0–25 cent | 0 cent | Slow pitch motion in opposite directions in stereo. The scale sets the approximate depth. |
-| **Shift blend** | 0–100% | 35% | Blend the shifted voice into the repeats and the feedback loop. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 25% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Time** | 5–4000 ms | 420 ms | Time to the first repeat. Small changes glide; larger jumps crossfade to the new time. |
+| **Feedback** | 0–82% | 35% | Amount returned for another repeat. Each shifted pass moves the pitch again. |
+| **High cut** | 800–12000 Hz | 7500 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
+| **Interval** | -12 to +12 st | 12 st | How far each shifted pass moves, in semitones. Feedback builds the next interval on the last. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Detune** | 0–25 cent | 0 cent | Depth of slow pitch motion on the repeats, with opposite motion in the two channels. |
+| **Shift blend** | 0–100% | 35% | Blend the shifted voice with the ordinary echo, both in the repeats and in feedback. |
+| **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-**Mode** starts in **Forward**. **Reverse** plays shifted fragments
-backwards. **Stereo Octaves** applies opposite intervals to left and right.
+In the header:
+
+- **Mode** (Forward, Reverse, Stereo Octaves; starts at Forward) Forward shifts the repeats. Reverse plays shifted fragments backwards. Stereo Octaves shifts left by Interval and right by the opposite interval.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
+
 Forward shifting adds up to roughly 50 ms to the shifted voice, and reversed
-fragments spread around the nominal delay. Dry starts immediately.
+fragments spread around the nominal delay. The dry signal is never delayed.
 Try **Octave halo** for subtle shimmer or **Climbing fifths** for a stronger effect.
 
 **Display:** A ladder of possible pitches on four nominal repeats. Dot size shows relative weight. Stereo Octaves uses cyan for left and amber for right.
@@ -353,23 +363,26 @@ A filter, phaser, tremolo or ring modulator changes each repeat before it feeds 
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 375 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 38% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 7500 Hz | Reduce treble in the repeats. |
-| **Rate** | 0.05–20 Hz | 0.8 Hz | Modulation speed, or cycles per beat with Rate sync enabled. |
-| **Depth** | 0–100% | 30% | How much the selected effect changes repeats. |
-| **Resonance** | 0–100% | 25% | Sweep peak emphasis or blend into the phaser notches. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 26% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Time** | 5–4000 ms | 375 ms | Time to the first repeat. Small changes glide; larger jumps crossfade to the new time. |
+| **Feedback** | 0–82% | 38% | Amount returned for another repeat. Each pass goes through the effect again. |
+| **High cut** | 800–12000 Hz | 7500 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
+| **Rate** | 0.05–20 Hz | 0.8 Hz | Speed of the feedback effect. With Rate sync on, this is cycles per beat. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Depth** | 0–100% | 30% | How strongly the selected effect changes the echoes. |
+| **Resonance** | 0–100% | 25% | Emphasis of Sweep or depth of the phase notches in Phaser. |
+| **Mix** | 0–100% | 26% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-The header starts at **Sweep**. Choose **Phaser** for moving notches,
-**Tremolo** for pulsing repeats, or **Ring** for metallic tones. **Rate sync**
-sets the non-ring modulation rate in cycles per beat, independently of the
-echo division. Ring switches Rate to **Carrier** (10–2000 Hz, starts at
-110 Hz) and removes Resonance. Try **Swept dotted echoes** or **Slow phaser
-trail** to hear how the sound changes on successive passes.
+In the header:
 
-**Display:** Three response curves show where Sweep or Phaser is headed. Tremolo shows both channels’ gain over two cycles. Ring shows how quickly the feedback multiplier changes and where it can invert.
+- **Mode** (Sweep, Phaser, Tremolo, Ring; starts at Sweep) Sweep moves a band-pass filter, Phaser moves notches, Tremolo pulses the repeats in stereo, and Ring multiplies them by an oscillator for metallic tones.
+- **Rate sync** (off / on; starts off) Tie the effect's Rate to host tempo, in cycles per beat, independently of the echo's own Tempo sync.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
+
+In Ring mode, **Carrier** (10–2000 Hz, starts at 110 Hz) takes the place of
+Rate, and Rate sync and Resonance are hidden. Try **Swept dotted echoes** or
+**Slow phaser trail** to hear how the sound changes on successive passes.
+
+**Display:** Three response curves show where Sweep or Phaser is headed. Tremolo shows both channels' gain over two cycles. Ring shows how quickly the feedback multiplier changes and where it can invert.
 
 ## Pattern Delay
 
@@ -377,49 +390,58 @@ Four timed and panned echo taps with selectable feedback routing.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 500 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 33% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 8000 Hz | Reduce treble in the repeats. |
-| **Width** | 0–100% | 80% | Scale tap panning. At zero the taps preserve the input stereo image. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 28% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Time** | 5–4000 ms | 500 ms | Base interval for the four editable taps. Each tap sets a percentage of this time. |
+| **Feedback** | 0–82% | 33% | Amount returned for another repeat. Mode chooses which taps feed back. |
+| **High cut** | 800–12000 Hz | 8000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
+| **Width** | 0–100% | 80% | Scale the four tap pan settings. Zero keeps the original stereo placement. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Mix** | 0–100% | 28% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-Click **Main** to cycle through **Timing / Level** and **Pan**. Tap times
-are 5–100% of the main Time (start: 25%, 50%, 75%, 100%). Each tap has a
-0–100% level (all start at 100%) and a pan from −100% left to 100% right
-(start: −80%, 80%, −50%, 50%). Pan biases each wet tap in stereo and is
-ignored in mono.
+In the header:
 
-**Repeat** feeds back from tap 4, even when it is muted. **Swell** feeds
-back a normalized mix of the audible taps. **Matrix** sends the four
-taps back through each other, building echo density. **Drum** uses summed
-feedback with darker, slightly unstable coloration. Try **Drum echo**,
-**Accelerating taps** and **Four-line halo**.
+- **Mode** (Repeat, Swell, Matrix, Drum; starts at Repeat) Repeat feeds back from tap 4, even when it is muted. Swell feeds back a normalized mix of the audible taps. Matrix sends the four taps back through each other, building echo density. Drum uses the summed return with darker, slightly unstable coloration.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
+
+The page button at the left of the options row cycles **Main**, **Timing /
+Level** and **Pan**:
+
+- **Tap 1–4 time** (5–100% of Time; start 25%, 50%, 75%, 100%).
+- **Tap 1–4 level** (0–100%; all start at 100%). The output normalizes the active taps together.
+- **Tap 1–4 pan** (−100% left to 100% right; start −80%, 80%, −50%, 50%) Bias each wet tap left or right, scaled by Width. The dry guitar does not move, and pan is ignored in mono.
+
+Try **Drum echo**, **Accelerating taps** and **Four-line halo**.
 
 **Display:** Drag a numbered tap left or right to change its time and up or down to change its level. Choose a tap by number and drag its pan track towards L or R. Double-click a tap or the pan track to reset it. The lower plot estimates later repeats as you adjust feedback and routing.
 
 ## Vintage Digital Delay
 
-Rack-style modulation, clean repeats, ducking or reduced-resolution feedback.
+Rack-style modulated repeats, clean or ducked echoes, and adjustable converter degradation.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 400 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 35% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 9000 Hz | Reduce treble in the repeats. |
-| **Rate** | 0.05–20 Hz | 0.8 Hz | Sets the speed of echo modulation. |
-| **Depth** | 0–100% | 30% | Sets how far echo modulation moves the read heads. |
-| **Low cut** | 20–2000 Hz | 100 Hz | Thin out the low end of repeats and feedback. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 23% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Time** | 5–4000 ms | 400 ms | Time to the first repeat. Small changes glide; larger jumps crossfade to the new time. |
+| **Feedback** | 0–82% | 35% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
+| **High cut** | 800–12000 Hz | 9000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
+| **Rate** | 0.05–20 Hz | 0.8 Hz | Speed of the pitch modulation on the repeats. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Depth** | 0–100% | 30% | How far the modulation moves the repeats' pitch. Zero is stable. |
+| **Low cut** | 20–2000 Hz | 100 Hz | Remove low frequencies from the repeats and their feedback, leaving the direct guitar untouched. |
+| **Mix** | 0–100% | 23% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-**Rack** starts with a 12-bit, 24 kHz converter voice. **Clean** keeps
-full resolution. **Ducked** makes room for incoming notes, and **Crushed**
-makes the converter resolution adjustable. Click **Main** to open
-**Ducking / Crush**. Ducked uses **Ducking** (0–100%, starts at 35%),
-**Sensitivity** (0–100%, starts at 50%) and **Duck release** (10–1000 ms,
-starts at 150 ms). Crushed uses **Bits** (4–16, starts at 12) and
-**Sample rate** (1000–48000 Hz, starts at 24000 Hz).
+In the header:
+
+- **Mode** (Rack, Clean, Ducked, Crushed; starts at Rack) Rack uses a fixed 12-bit, 24 kHz converter. Clean keeps full resolution. Ducked lowers the repeats while you play. Crushed makes the converter adjustable.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
+
+The page button at the left of the options row switches between **Main** and
+**Ducking / Crush**:
+
+- **Ducking** (0–100%, starts at 35%) Maximum reduction of the repeats while you play in Ducked mode.
+- **Sensitivity** (0–100%, starts at 50%) How softly you can play and still reach full ducking.
+- **Duck release** (10–1000 ms, starts at 150 ms) Time for ducked echoes to recover in gaps.
+- **Bits** (4–16 bit, starts at 12) Converter resolution in Crushed mode.
+- **Sample rate** (1000–48000 Hz, starts at 24000 Hz) Converter sample rate in Crushed mode.
+
 Try **Modulated rack lead**, **Ducked quarter notes** or **Crushed echoes**.
 
 **Display:** Rack and Crushed show sample steps and quantization. Ducked shows how repeats return after an example note. Clean compares the first and third pass through the tone filters.
@@ -430,20 +452,23 @@ Overlapping fragments that spread, reverse or stutter around the echo time.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 420 ms | Set the nominal time between echoes, or the reference time for taps. |
-| **Feedback** | 0–82% | 35% | Return more of the echo for longer tails. |
-| **High cut** | 800–12000 Hz | 7000 Hz | Reduce treble in the repeats. |
-| **Grain** | 12–250 ms | 80 ms | Base length of a fragment. |
-| **Scatter** | 0–100% | 35% | Spread starts around Time. In Glitch it also increases the probability and duration of a latch. |
-| **Density** | 0–100% | 50% | Shorten the grain windows and launch more fragments per second. |
-| **Output** | -18 to +6 dB | 0 dB | Trim the whole signal. |
-| **Mix** | 0–100% | 29% | Set the dry/wet balance or wet level with Keep dry level on. |
+| **Time** | 5–4000 ms | 420 ms | Nominal time into the history. Grain length, scatter and direction spread the repeats around it. |
+| **Feedback** | 0–82% | 35% | Amount returned for another repeat. Higher settings make more repeats and longer tails. |
+| **High cut** | 800–12000 Hz | 7000 Hz | High-cut frequency of the repeats. Lower values darken echoes without dulling the dry guitar. |
+| **Grain** | 12–250 ms | 80 ms | Sets the upper length of each fragment. Density can shorten the grains and launch them more often. |
+| **Output** | -18 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Scatter** | 0–100% | 35% | Range of random grain start times. In Glitch mode it also increases the chance and length of a latch. |
+| **Density** | 0–100% | 50% | Shorten overlapping grains for faster changes and denser textures. |
+| **Mix** | 0–100% | 29% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-**Mode** starts in **Scatter**. Choose **Reverse** for backwards
-fragments or **Glitch** for short repeated fragments. Click **Main** to
-open **Pitch**, where **Interval** shifts fragments by −12 to +12
-semitones (starts at 0). **Time** sets the nominal echo position.
-The fragment windows, pitch and scatter determine the actual timing.
-Try **Scattered chords**, **Reverse shards** and **Broken repeats**.
+In the header:
+
+- **Mode** (Scatter, Reverse, Glitch; starts at Scatter) Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment.
+- **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
+
+The page button at the left of the options row switches between **Main** and
+**Pitch**, where **Interval** (−12 to +12 st, starts at 0) shifts grain
+playback. Each feedback pass can add another shift. Try **Scattered chords**,
+**Reverse shards** and **Broken repeats**.
 
 **Display:** Overlapping windows show grain size and scatter. Arrows show the playback direction. In Glitch, amber illustrates a repeated fragment.

@@ -15,6 +15,12 @@ public:
     mRate = rate; for (auto& line : mLine) line.Reset(static_cast<int>(.08 * rate) + 8);
     mDelay = .025 * rate; mNext = mDelay; mFade = 1.;
   }
+  void Clear()
+  {
+    for (auto& line : mLine) line.Clear();
+    mDelay = mNext = .025 * mRate;
+    mFade = 1.;
+  }
   std::array<double, 2> Tick(double l, double r, double ratio, bool stereo)
   {
     mLine[0].Push(l); if (stereo) mLine[1].Push(r);

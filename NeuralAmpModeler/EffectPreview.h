@@ -65,6 +65,8 @@ inline double TimeHorizon(double seconds)
 // passes through the network show how they blur, on the same stable 1/2/5 steps.
 inline double CosmicProbeSeconds(double timeMs)
 { return TimeHorizon(std::clamp(timeMs * .004, .25, 10.)); }
+inline int DigitalVoice(SlotEffect effect, const UtilityControls& c)
+{ return effect == SlotEffect::DigitalDelay ? std::clamp(static_cast<int>(c.DelayOption(uDigitalDelayVoice)), 0, 2) : 0; }
 inline Echoes Delay(SlotEffect effect, const UtilityControls& c, double rate)
 {
   Echoes result;
@@ -76,7 +78,13 @@ inline Echoes Delay(SlotEffect effect, const UtilityControls& c, double rate)
   const double feedback = std::clamp(c.delay[1] * .01, 0., .82);
   const double age = effect == SlotEffect::AnalogDelay ? 1. - .6 * c.delay[3] * .01 : 1.;
   const bool wideCutoff=dual || effect==SlotEffect::MultiHeadDelay || effect==SlotEffect::DiffusedDelay;
-  const double brightness = LowPass(5000., c.delay[2] * age, rate, effect == SlotEffect::AnalogDelay ? 2 : 1,wideCutoff ? .45 : .4);
+  double brightness = LowPass(5000., c.delay[2] * age, rate, effect == SlotEffect::AnalogDelay ? 2 : 1,wideCutoff ? .45 : .4);
+  // Digital Delay's Rack and Lo-fi voices band-limit every pass around their converter.
+  if (const int voice = DigitalVoice(effect, c); voice > 0)
+  {
+    const double converter = voice == 1 ? 24000. : 12000.;
+    brightness *= LowPass(5000., .36 * converter, rate, 3, .45) * LowPass(5000., .45 * converter, rate, 2, .45);
+  }
   const double balance = std::clamp(c.dual[1] * .01, 0., 1.);
   const double left = dual ? std::min(1., 2. * (1. - balance)) : 1.;
   const double right = dual ? std::min(1., 2. * balance) : 1.;

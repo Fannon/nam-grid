@@ -11,6 +11,7 @@ MacEditor* OpenMacEditor(const clap_plugin* plugin, const clap_plugin_gui* gui, 
 // Runs the main run loop briefly so the editor's display timer draws and presents frames.
 void PumpMacEditor();
 void MacEditorMouse(MacEditor* editor, int x, int y, bool click);
+void MacEditorDrag(MacEditor* editor, int x, int y, int endX, int endY);
 void MacEditorSelectMenuItem(MacEditor* editor, int x, int y, const char* title, int checked = -1);
 void MacEditorKey(MacEditor* editor, unsigned short keyCode, const char* characters, bool command = false);
 bool MacEditorHasSheet(MacEditor* editor);

@@ -27,7 +27,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   };
   const auto timeLabel = [&](double seconds, const char* scale = "Modulation over time") {
     WDL_String text; text.SetFormatted(32, seconds < .1 ? "%.1f ms" : "%.1f s", seconds < .1 ? seconds * 1000. : seconds);
-    PlotFooter(g,plot,scale,text.Get());
+    const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.L + plot.W() * static_cast<float>(t / seconds); });
+    PlotFooter(g,plot,scale,marks ? "" : text.Get());
   };
   WDL_String text;
   grid();
@@ -72,6 +73,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
       const float y = rampPlot.B - rampPlot.H() * static_cast<float>(hz / top);
       for (float x = rampPlot.L; x < rampPlot.R; x += 8.f) g.DrawLine(border, x, y, std::min(x + 4.f, rampPlot.R), y);
     }
+    PlotTimeMarks(g, rampPlot, [&](double t) { return rampPlot.L + rampPlot.W() * static_cast<float>(t / (5. * ramp)); });
+    PlotTimeMarks(g, am, [&](double t) { return am.L + am.W() * static_cast<float>(t / 2.); });
     PlotCurve(g, rampPlot, [&](double x) { return speed + (from - speed) * std::exp(-x * 5.); }, 0., top, color);
     g.DrawText(Text(11.f, muted), "speed", IRECT(rampPlot.L + 2.f, rampPlot.T, rampPlot.R, rampPlot.T + 12.f));
     for (bool right : {true, false})

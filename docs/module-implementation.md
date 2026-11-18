@@ -35,8 +35,37 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   implementations: fractional delay with bounded filtered feedback (0–82%), 5–4000 ms with a
   quadratic dial and 800–12000 Hz High cut. Time changes are smoothed and bend pitch. Analog
   Echo adds two-pole darkening and soft feedback saturation; Tape Echo adds saturation and
-  wow/flutter; Digital Delay's Ducking lowers repeats beneath playing. Multi-head Tape feeds
+  wow/flutter; Digital Delay's Ducking lowers repeats beneath playing. Its Modulation moves
+  the two channels in opposite directions at 0.67 Hz. Its Rack and Lo-fi voices pass each
+  repeat through one-pole band limits, a sample hold (24 or 12 kHz) and truncation toward
+  zero (12 or 8 bits) inside the loop, so sub-LSB signals cannot circulate indefinitely.
+  Clean skips the converter, and voice changes fade over 10 ms. Multi-head Tape feeds
   back only from the last head. Diffused Delay sends repeats through rotating allpasses.
+- **Expanded delays** ([ExpandedDelay.h](../NeuralAmpModeler/ExpandedDelay.h)) share
+  sample-based control smoothing, fractional delay lines and a bounded feedback return.
+  Space Tape Echo uses the Airwindows Spiral transfer from LoFi Tape Machine at 4×
+  with the minimum-phase FIR and the classic Spring tank in parallel. The record stage clamps
+  at Spiral's peak, so it saturates without folding back. Time follows the measured RE-201 motor time constants
+  (1.89 s for a longer delay, 1.07 s for a shorter one). Large slowdowns and modulation
+  moves keep every head moving forward. Both channels share periodic wow/flutter and a
+  smooth, repeatable low-frequency drift (see [Downing and Terjesen, section 3](https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/projects/2016/Downing_Terjesen_paper.pdf)).
+  Tape speed sets tone, wow rate and a loop low cut (110 Hz at
+  420 ms) that also thins the first repeat. Feedback is unchanged up to 60% and then rises to a
+  loop gain of 1.25 at 82%, so the Spiral ceiling bounds self-oscillation. At Spring 0% the tank
+  stops listening, rings out in silence for 4 s and then parks, so it costs no CPU and
+  resumes from a silent tank. Its three tap
+  positions and parallel routing follow the [RE-201 manual](https://cdn.roland.com/assets/media/pdf/RE-201_OM.pdf).
+  Bucket Brigade has clock-dependent bandwidth and independent record/playback
+  envelopes with 2× oversampled saturation, following the compander structure described by
+  [Raffel and Smith](https://dafx10.iem.at/papers/RaffelSmith_DAFx10_P42.pdf).
+  Pitch Delay uses the waveform-matched shifter for forward playback. Reversed and
+  granular modes use causal, overlapping Hann windows and a four-pole low-pass
+  before upward playback. Pattern Delay uses normalized summed returns or an
+  orthogonal four-line Householder matrix.
+  The new long delay buffers store 32-bit samples and interpolate in double
+  precision. All histories are prepared before processing. Dry audio is immediate. Material
+  changes in tap timing crossfade in the digital modes. Tape and BBD glide, and
+  granular changes take effect as new windows start.
 - **Reverbs:** Room and Hall use Signalsmith-derived multistage diffusion and Householder
   networks with exact per-band decay; Dense Plate uses the Mutable Instruments Clouds
   Dattorro/Griesinger tank; Cloud is a rotating stereo allpass loop. Decay is nominal RT60,

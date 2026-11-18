@@ -19,7 +19,11 @@ namespace grid_ui
 {
 const IColor background = COLOR_BLACK;
 const IColor surface(255, 23, 26, 30), border(255, 78, 85, 95), muted(255, 183, 190, 200);
-const IColor accent(255, 113, 199, 178), text(255, 232, 235, 239);
+// The accent marks selection and interaction outside modules. It is a neutral near-white so it
+// never reads as a module's colour; hues belong to the module palette below.
+const IColor accent(255, 240, 243, 247), text(255, 232, 235, 239);
+// In tune: the tuner's green for within +/-3 cents.
+const IColor tuneColor(255, 113, 199, 178);
 const IColor editorBackground(255, 14, 16, 19);
 // Stable semantic palette. Future effects already have reserved colors.
 const IColor ampColor(255, 238, 164, 90), cabColor(255, 109, 174, 255), pedalColor(255, 135, 216, 107);
@@ -1144,6 +1148,219 @@ private:
   float mStartY = 0.f;
   double mStartThreshold = 0.;
 };
+// The handles edit the same parameters as the three control pages. The
+// overlay owns only UI selection and groups each changed dial into one host gesture.
+class PatternTapHandles : public IControl
+{
+public:
+  PatternTapHandles(int slot, const std::array<IControl*, kUtilityControls>& knobs)
+  : IControl(ControlArea()), mSlot(slot), mKnobs(knobs)
+  {
+    SetTooltip("Drag a tap left/right for time and up/down for level. Choose a tap by number to edit its pan below. Double-click a handle to reset.");
+  }
+  ~PatternTapHandles() override { EndGesture(); }
+
+  void Show(bool visible)
+  {
+    if (!visible && !IsHidden()) EndGesture();
+    if (IsHidden() == visible) Hide(!visible);
+  }
+
+  bool IsHit(float x, float y) const override
+  {
+    return Plug().GetShowVisualizations() && Plug().GetSelectedSlot() == mSlot
+        && Plug().GetSlotEffect(mSlot) == SlotEffect::PatternDelay && mRECT.Contains(x, y);
+  }
+
+  void Draw(IGraphics& g) override
+  {
+    using namespace grid_ui;
+    if (mDrag != Drag::None && !g.ControlIsCaptured(this)) EndGesture();
+    const auto chart = pattern_view::Taps(pattern_view::Plot());
+    const auto drawTap = [&](int tap) {
+      const auto [x, y] = Position(tap, chart);
+      const bool active = tap == mSelected;
+      if (active) g.FillCircle(delayColor.WithOpacity(.18f), x, y, 11.f);
+      g.FillCircle(surface, x, y, 7.5f);
+      g.DrawCircle(active ? delayColor : border, x, y, 7.5f, nullptr, 1.25f);
+      WDL_String label;
+      label.SetFormatted(8, "%d", tap + 1);
+      g.DrawText(Text(10.f, text, EAlign::Center), label.Get(), IRECT(x - 8.f, y - 8.f, x + 8.f, y + 8.f));
+    };
+    for (int tap = 0; tap < 4; ++tap)
+    {
+      if (tap != mSelected) drawTap(tap);
+      const auto button = SelectArea(tap);
+      WDL_String label;
+      label.SetFormatted(8, "%d", tap + 1);
+      g.FillRoundRect(tap == mSelected ? delayColor.WithOpacity(.16f) : surface, button, 3.f);
+      g.DrawRoundRect(tap == mSelected ? delayColor : border, button, 3.f);
+      g.DrawText(Text(12.f, text, EAlign::Center), label.Get(), button);
+    }
+    drawTap(mSelected);
+    const auto pan = PanArea();
+    const double value = Value(uTapPan1 + mSelected);
+    const float x = pattern_view::X(pan, .005 * (value + 100.));
+    const auto row = pattern_view::Controls(pattern_view::Plot());
+    WDL_String details;
+    const double time = Value(uTempoSync) >= .5 ? 1000. * grid_tempo::Seconds(PLUG()->GetTempo(), static_cast<int>(Value(uTempoDivision)))
+                                               : Value(uDelayTime);
+    details.SetFormatted(48, "%.0f ms  ·  %.0f%%", time * .01 * Value(uTapTime1 + mSelected),
+                         Value(uTapLevel1 + mSelected));
+    g.DrawText(Text(12.f, muted), details.Get(), IRECT(row.L + 120.f, row.T, pan.L - 38.f, row.B));
+    g.DrawText(Text(11.f, muted, EAlign::Center), "L", IRECT(pan.L - 21.f, pan.T, pan.L - 7.f, pan.B));
+    g.DrawText(Text(11.f, muted, EAlign::Center), "R", IRECT(pan.R + 7.f, pan.T, pan.R + 21.f, pan.B));
+    g.DrawLine(border, pan.L, pan.MH(), pan.R, pan.MH(), nullptr, 1.4f);
+    g.DrawLine(muted, pan.MW(), pan.MH() - 4.f, pan.MW(), pan.MH() + 4.f);
+    g.FillCircle(delayColor, x, pan.MH(), 4.5f);
+  }
+
+  void OnMouseDown(float x, float y, const IMouseMod& mod) override
+  {
+    if (mod.R || mDrag != Drag::None) return;
+    for (int tap = 0; tap < 4; ++tap)
+      if (SelectArea(tap).Contains(x, y))
+      {
+        mSelected = tap;
+        SetDirty(false);
+        return;
+      }
+    if (PanArea().GetPadded(6.f).Contains(x, y))
+    {
+      mTouch = mod.touchID;
+      mDrag = Drag::Pan;
+      SetPan(x);
+      return;
+    }
+    if (const int tap = HitTap(x, y); tap >= 0)
+    {
+      mSelected = tap;
+      mTouch = mod.touchID;
+      mDrag = Drag::TimeAndLevel;
+      mStartX = x; mStartY = y;
+      mTime = Value(uTapTime1 + tap); mLevel = Value(uTapLevel1 + tap);
+      SetDirty(false);
+    }
+  }
+
+  void OnMouseDrag(float x, float y, float, float, const IMouseMod& mod) override
+  {
+    if (mod.touchID != mTouch || mod.R) return;
+    if (mDrag == Drag::Pan) SetPan(x);
+    if (mDrag == Drag::TimeAndLevel)
+    {
+      const auto area = grid_ui::pattern_view::Taps(grid_ui::pattern_view::Plot());
+      Set(uTapTime1 + mSelected, mTime + 100. * (x - mStartX) / area.W(), mGestures[0]);
+      Set(uTapLevel1 + mSelected, mLevel - 100. * (y - mStartY) / area.H(), mGestures[1]);
+    }
+  }
+
+  void OnMouseUp(float, float, const IMouseMod& mod) override
+  { if (mod.touchID == mTouch) EndGesture(); }
+
+  void OnTouchCancelled(float, float, const IMouseMod& mod) override
+  { if (mod.touchID == mTouch) EndGesture(); }
+
+  void OnMouseDblClick(float x, float y, const IMouseMod& mod) override
+  {
+    if (mod.R) return;
+    EndGesture();
+    if (PanArea().GetPadded(6.f).Contains(x, y))
+      Reset(uTapPan1 + mSelected, mGestures[0]);
+    else if (const int tap = HitTap(x, y); tap >= 0)
+    {
+      mSelected = tap;
+      Reset(uTapTime1 + tap, mGestures[0]);
+      Reset(uTapLevel1 + tap, mGestures[1]);
+    }
+    EndGesture();
+  }
+
+private:
+  enum class Drag { None, Pan, TimeAndLevel };
+
+  static IRECT ControlArea()
+  {
+    const auto plot = grid_ui::pattern_view::Plot();
+    return {plot.L, plot.T, plot.R, grid_ui::pattern_view::Controls(plot).B};
+  }
+  static IRECT SelectArea(int tap)
+  {
+    const auto row = grid_ui::pattern_view::Controls(grid_ui::pattern_view::Plot());
+    const float x = row.L + tap * 29.f;
+    return {x, row.T + 1.f, x + 25.f, row.B - 1.f};
+  }
+  static IRECT PanArea()
+  {
+    const auto row = grid_ui::pattern_view::Controls(grid_ui::pattern_view::Plot());
+    return {row.MW() + 30.f, row.T, row.R - 24.f, row.B};
+  }
+
+  PLUG_CLASS_NAME& Plug() const { return *static_cast<PLUG_CLASS_NAME*>(const_cast<PatternTapHandles*>(this)->GetDelegate()); }
+  double Value(int p) const { return Plug().GetParam(SlotUtilityParam(mSlot, p))->Value(); }
+  std::pair<float, float> Position(int tap, const IRECT& area) const
+  {
+    using namespace grid_ui::pattern_view;
+    return {X(area, .01 * Value(uTapTime1 + tap)), Y(area, .01 * Value(uTapLevel1 + tap))};
+  }
+  int HitTap(float x, float y) const
+  {
+    const auto area = grid_ui::pattern_view::Taps(grid_ui::pattern_view::Plot());
+    int closest = -1;
+    float distance = 13.f * 13.f;
+    // The selected tap wins ties, with the numbered buttons available when taps coincide.
+    for (int i = 0; i < 4; ++i)
+    {
+      const int tap = (mSelected + i) % 4;
+      const auto [tx, ty] = Position(tap, area);
+      const float squared = (x - tx) * (x - tx) + (y - ty) * (y - ty);
+      if (squared < distance) { distance = squared; closest = tap; }
+    }
+    return closest;
+  }
+
+  void Set(int p, double physical, int& gesture)
+  {
+    auto* knob = mKnobs[p];
+    const int id = knob->GetParamIdx();
+    const auto* parameter = knob->GetParam();
+    const double constrained = parameter->Constrain(physical);
+    if (constrained == parameter->Value()) return;
+    if (gesture < 0)
+    {
+      gesture = id;
+      GetDelegate()->BeginInformHostOfParamChangeFromUI(id);
+    }
+    knob->SetValue(parameter->ToNormalized(constrained));
+    knob->SetDirty(true); // Same parameter and host notification as a drag on the knob.
+    SetDirty(false);
+  }
+  void Reset(int p, int& gesture) { Set(p, mKnobs[p]->GetParam()->GetDefault(), gesture); }
+  void SetPan(float x)
+  {
+    const auto area = PanArea();
+    Set(uTapPan1 + mSelected, -100. + 200. * (x - area.L) / area.W(), mGestures[0]);
+  }
+  void EndGesture()
+  {
+    for (auto& id : mGestures)
+      if (id >= 0)
+      {
+        GetDelegate()->EndInformHostOfParamChangeFromUI(id);
+        id = -1;
+      }
+    mDrag = Drag::None;
+  }
+
+  int mSlot, mSelected = 0;
+  const std::array<IControl*, kUtilityControls>& mKnobs;
+  Drag mDrag = Drag::None;
+  ITouchID mTouch = 0;
+  std::array<int, 2> mGestures{-1, -1};
+  float mStartX = 0.f, mStartY = 0.f;
+  double mTime = 0., mLevel = 0.;
+};
+
 inline void DrawSignalMonitorView(IGraphics& g, const IRECT& plot, IColor color, double rate, double now,
   const signal_monitor::Meter& mMonitor, const signal_monitor::History& mMonitorHistory,
   const signal_monitor::SpectrumView& mMonitorSpectrum, double mMonitorTime, double mSpectrumTime)
@@ -1558,6 +1775,7 @@ public:
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
     const bool visualization = HasVisualization() && PLUG()->GetShowVisualizations();
     if (mPlotHelp->IsHidden() == visualization) mPlotHelp->Hide(!visualization);
+    mPatternTapHandles->Show(visualization && effect == SlotEffect::PatternDelay);
     mPlotHelp->Begin();
     if (visualization)
     {
@@ -1712,6 +1930,13 @@ public:
     mAutoWah->SetTooltip("Assign Env 1 to Wah Position at +25%, so playing sweeps the wah. Shape the envelope on the "
                          "Modulation page; turn the assignment off there (or right-click Position) to park it again.");
     mEditor->AddChildControl(mAutoWah);
+    mDelayPageButton = new grid_ui::Button(IRECT(grid_layout::parameterLeft, grid_layout::optionsTop,
+      grid_layout::parameterLeft + 122, grid_layout::optionsBottom), [this](IControl*) {
+        mDelayPage = (mDelayPage + 1) % effect_presentation::DetailPages(PLUG()->GetSlotEffect(mSlot));
+        Refresh();
+      }, "Main");
+    mDelayPageButton->SetTooltip("Switch between the main delay controls and detailed settings.");
+    mEditor->AddChildControl(mDelayPageButton);
     mEnabled = new grid_ui::EnableButton(IRECT(0, grid_layout::moduleHeaderTop, 28, grid_layout::moduleHeaderBottom), SlotActiveParam(mSlot));
     mEditor->AddChildControl(mEnabled);
     // Levels live in the visualization footer, so the dials keep the full editor width.
@@ -1763,6 +1988,9 @@ public:
     }
     mBandHandles = new MultibandHandles(static_cast<int>(mSlot));
     mEditor->AddChildControl(mBandHandles);
+    mPatternTapHandles = new PatternTapHandles(static_cast<int>(mSlot), mUtilityKnobs);
+    mEditor->AddChildControl(mPatternTapHandles);
+    mPatternTapHandles->Hide(true);
     SetTooltip("Click the ID row to select; click the name button to browse. Drag onto another tile to swap; "
                "Shift-drag replaces, Alt-drag duplicates. Right-click for Clear / Copy / Move / Swap. Top-right toggle switches bypass.");
     Refresh();
@@ -1919,10 +2147,12 @@ private:
     const float opacity = enabled ? static_cast<float>(.3 + .7 * mix) : .25f;
     const auto& history = mMeter.lofi;
     const char* status = !enabled ? "BYPASSED" : mix == 0. ? "DRY" : history.sequence == 0 ? "AWAITING AUDIO" : "PITCH MOTION";
-    const IRECT plot(grid_layout::visualizationLeft + 12,grid_layout::plotTop,bounds.R - 12,grid_layout::plotBottom);
+    const IRECT plot(grid_layout::visualizationLeft + 12,grid_layout::plotTop,bounds.R - 12,grid_layout::chartBottom);
     PlotTitle(g,plot,Tone(SlotEffect::LoFiTape,{}).first,status);
     PlotDetail(g,plot,"Measured head motion | +/-60 cents");
-    PlotFooter(g,plot,"Speed also changes bandwidth","2.56 s");
+    // Newest at the right: marks count back from now.
+    const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.R - plot.W() * static_cast<float>(t / 2.56); });
+    PlotFooter(g,plot,"Speed also changes bandwidth",marks ? "" : "2.56 s");
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
       g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(plot.L, center - 38, plot.R - 140, center - 21));
       const float start = plot.L, end = plot.R, height = 14.f;
@@ -2155,9 +2385,10 @@ private:
       return;
     }
     const IRECT box(grid_layout::visualizationLeft, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom);
-    const IRECT plot(grid_layout::visualizationLeft + 12, grid_layout::plotTop, box.R - 12, grid_layout::plotBottom);
-    VisualizationBackground(g, box);
     const auto effect = PLUG()->GetSlotEffect(mSlot);
+    const IRECT plot(grid_layout::visualizationLeft + 12, grid_layout::plotTop, box.R - 12,
+                     effect_presentation::KeepsFooter(effect) ? grid_layout::plotBottom : grid_layout::chartBottom);
+    VisualizationBackground(g, box);
     const auto color = Tone(effect, PLUG()->GetSlotGear(mSlot)).first;
     const auto levels = [&](float floorDB, const IRECT& area) {
       for (int i = 0; i <= 3; ++i)
@@ -2233,11 +2464,12 @@ private:
       caption.SetFormatted(64, "Dynamic EQ | cut %.1f dB", mReductionNow);
       PlotTitle(g, plot, color, caption.Get());
       PlotDetail(g, plot, "Faint: cut at full Range | bright: live cut");
-      WDL_String scale; scale.SetFormatted(32, "Curve %.0f / 0 dB", low);
+      // 3 dB of headroom keeps the resting 0 dB curve off the top border.
+      WDL_String scale; scale.SetFormatted(32, "Curve %.0f / +3 dB", low);
       PlotFrequencyAxis(g, plot, upper, scale.Get());
       DrawSignalSpectrum(g, plot);
-      PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 0., color.WithOpacity(.35f), 1.f);
-      PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 0., color);
+      PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 3., color.WithOpacity(.35f), 1.f);
+      PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 3., color);
     }
     else if (effect == SlotEffect::Multiband)
       DrawMultiband(g, plot, color);
@@ -2475,6 +2707,7 @@ private:
       const float riseEnd = sketch.L + sketch.W() * static_cast<float>(rise / total);
       const float holdEnd = std::max(riseEnd + 2.f, sketch.L + sketch.W() * static_cast<float>((rise + hold) / total));
       PlotGrid(g, sketch);
+      PlotTimeMarks(g, sketch, [&](double t) { return sketch.L + sketch.W() * static_cast<float>(t * 1000. / total); });
       g.FillRect(color.WithOpacity(.14f), IRECT(riseEnd, sketch.T, holdEnd, sketch.B));
       PlotCurve(g, sketch, [&](double x) {
         const double t = x * total;
@@ -3055,6 +3288,7 @@ private:
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     if (effect != mPlotEffect || path != mPlotPath)
     {
+      mDelayPage = 0;
       mPlotEffect = effect; mPlotPath = path; mInputHistory = {}; mOutputHistory = {}; mCleanHistory = {}; mReductionHistory = {};
       mMeter.lofi = {}; mSpectrumTime = 0.; mLevels.Clear();
       mReductionWrite = 0; mReductionNow = 0.f;
@@ -3066,6 +3300,7 @@ private:
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     LayoutHeader(*GetUI(), false);
     mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen() || PLUG()->IsSignalMonitorOpen());
+    mPatternTapHandles->Show(!mEditor->IsHidden() && effect == SlotEffect::PatternDelay && PLUG()->GetShowVisualizations());
     if (selected)
     {
       const bool empty = nam && path.empty();
@@ -3078,6 +3313,8 @@ private:
       mQualityButton->Hide(!PLUG()->CanToggleSlotQuality(mSlot));
       mQualityButton->SetLabelStr(GetDelegate()->GetParam(SlotFullParam(mSlot))->Bool() ? "Quality: A2" : "Quality: A2 Lite");
       mAutoWah->Hide(effect != SlotEffect::Wah);
+      mDelayPageButton->Hide(effect_presentation::DetailPages(effect) < 2);
+      mDelayPageButton->SetLabelStr(effect_presentation::PageLabel(effect, mDelayPage));
       for (auto* knob : mNAMKnobs)
         knob->Hide(!nam || path.empty());
       for (int i = 0; i < 6; ++i)
@@ -3089,9 +3326,15 @@ private:
                                   : !ir);
       const auto flag = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Bool(); };
       const bool sync = flag(uTempoSync), notch = flag(uEQMode), vibrato = flag(uVibeMode), shelf = flag(uParamLowMode);
+      const int delayMode = IsExpandedDelay(effect)
+        ? GetDelegate()->GetParam(SlotUtilityParam(mSlot, ExpandedDelayModeControl(effect)))->Int() : -1;
       for (int i = 0; i < kUtilityControls; ++i)
       {
-        const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf) && !effect_presentation::DisplayControl(i);
+        const bool onPage = effect_presentation::HeaderControl(i) || effect_presentation::ReplacedControl(effect, i) >= 0
+                         || effect_presentation::DetailPage(effect, i) == mDelayPage;
+        const bool visible = effect_presentation::Visible(effect, i, sync, notch, vibrato, shelf)
+                          && !effect_presentation::DisplayControl(i) && onPage
+                          && effect_presentation::ModeVisible(effect, i, delayMode);
         mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle
@@ -3104,7 +3347,7 @@ private:
             mUtilityKnobs[i]->SetTargetAndDrawRECTs(bounds);
         }
         else
-          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::Position(effect, i)));
+          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::EditorPosition(effect, i)));
         if (auto* knob = dynamic_cast<grid_ui::Knob*>(mUtilityKnobs[i]))
           if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i, mode)) != 0)
             knob->SetLabelStr(effect_presentation::Label(effect, i, mode));
@@ -3376,11 +3619,14 @@ private:
   grid_ui::Editor* mEditor = nullptr;
   grid_ui::PlotHelp* mPlotHelp = nullptr;
   MultibandHandles* mBandHandles = nullptr;
+  PatternTapHandles* mPatternTapHandles = nullptr;
   grid_ui::ModuleButton* mModelButton = nullptr;
   grid_ui::BrowserButton* mBrowserButton = nullptr;
   std::array<grid_ui::Button*, 2> mStepButtons{};
   grid_ui::Button* mQualityButton = nullptr;
   grid_ui::Button* mAutoWah = nullptr;
+  grid_ui::Button* mDelayPageButton = nullptr;
+  int mDelayPage = 0;
   grid_ui::Button* mPresetButton = nullptr;
   static constexpr int kPresetTag = -2000; // Module preset menu items: -2000 - index.
   static constexpr int kSavePresetTag = -2900, kShowPresetsTag = -2901;
@@ -3684,6 +3930,18 @@ private:
 };
 
 
+// Hover help for the tuner's pitch history, which has no header or legend of its own.
+class TunerHistoryHelp : public IControl
+{
+public:
+  explicit TunerHistoryHelp(const IRECT& bounds) : IControl(bounds)
+  {
+    SetIgnoreMouse(false);
+    SetTooltip("Pitch history: the last 6 seconds, now at the right edge, within ±25 cents. "
+               "Green = within ±3 cents; larger offsets pin to the edge.");
+  }
+  void Draw(IGraphics&) override {}
+};
 class NAMGridTunerControl : public IContainerBase
 {
   // Left section: the note readout, then Mute output and Reference in a column; the tuning
@@ -3695,9 +3953,12 @@ public:
   void OnAttached() override
   {
     using namespace grid_ui;
-    AddChildControl(new Button(IRECT(grid_layout::width - 104, 488, grid_layout::width - 24, 512), [this](IControl*) {
+    // Close sits in the left section, above Mute output, so the history can use the full height.
+    AddChildControl(new Button(IRECT(kLeftR - 80, 488, kLeftR, 512), [this](IControl*) {
       DisableTunerFromUI(GetUI());
     }, "Close", Icon::Close));
+    AddChildControl(new TunerHistoryHelp(IRECT(kHistoryL, grid_layout::visualizationTop,
+                                               grid_layout::visualizationRight, grid_layout::visualizationBottom)));
     // Right column of the left section: Mute output on top, Reference below at module knob size.
     AddChildControl(new Toggle(IRECT(kColumnL, 520, kLeftR, 546), kTunerMute, "Mute output"))
       ->SetTooltip("Silence the output while tuning. Turning the tuner off always restores sound.");
@@ -3727,7 +3988,7 @@ public:
     const double frequency = PLUG()->TunerFrequency();
     const auto pitch = grid_tuner::ToPitch(frequency, reference);
     const auto pitchColor = [](double cents) {
-      return std::abs(cents) <= 3. ? accent : std::abs(cents) <= 10. ? IColor(255, 238, 187, 97) : IColor(255, 235, 135, 119);
+      return std::abs(cents) <= 3. ? tuneColor : std::abs(cents) <= 10. ? IColor(255, 238, 187, 97) : IColor(255, 235, 135, 119);
     };
     if (pitch.valid)
     {
@@ -3743,7 +4004,7 @@ public:
     // Tuning bar across the whole left section: ±50 cents, the ±3 cent window shaded green.
     const IRECT bar(kLeftL, 664, kLeftR, 684);
     const auto barX = [&](double cents) { return bar.MW() + bar.W() * .5f * static_cast<float>(std::clamp(cents, -50., 50.) / 50.); };
-    g.FillRect(accent.WithOpacity(.15f), IRECT(barX(-3.), bar.T + 4, barX(3.), bar.B - 4));
+    g.FillRect(tuneColor.WithOpacity(.15f), IRECT(barX(-3.), bar.T + 4, barX(3.), bar.B - 4));
     g.DrawLine(border, bar.L, bar.MH(), bar.R, bar.MH());
     for (int cents : {-50, -25, -10, 10, 25, 50})
       g.DrawLine(border, barX(cents), bar.MH() - 4, barX(cents), bar.MH() + 4);
@@ -3754,14 +4015,15 @@ public:
       g.FillRoundRect(pitchColor(pitch.cents), IRECT(x - 3, bar.T + 3, x + 3, bar.B - 3), 1.5f);
     }
 
-    const IRECT panel(kHistoryL, 520, grid_layout::visualizationRight, grid_layout::visualizationBottom), plot(kHistoryL + 38, 538, panel.R - 12, panel.B - 42);
+    // Full height: the cent ticks and the time marks, counted back from now at the right,
+    // label the axes, so neither a header nor a legend is needed.
+    const IRECT panel(kHistoryL, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom),
+                plot(kHistoryL + 38, panel.T + 12, panel.R - 12, panel.B - 12 - grid_layout::timeLabelGap - grid_layout::timeLabelHeight);
     VisualizationBackground(g, panel);
-    g.DrawText(Text(13.f, accent), "Pitch history", IRECT(kHistoryL, grid_layout::moduleHeaderTop, kHistoryL + 150, grid_layout::moduleHeaderTop + 28));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "±25 cents · 6 seconds", IRECT(kHistoryL + 150, grid_layout::moduleHeaderTop + 4, grid_layout::width - 118, grid_layout::moduleHeaderTop + 28));
     // Zoomed to ±25 cents, so the last few cents of tuning are visible; larger offsets pin to the edge.
     constexpr double range = 25.;
     const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -range, range) / range); };
-    g.FillRect(accent.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
+    g.FillRect(tuneColor.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
     for (int cents : {-25, -10, 0, 10, 25})
     {
       const float y = yFor(cents);
@@ -3769,6 +4031,8 @@ public:
       WDL_String tick; tick.SetFormatted(16, cents ? "%+d" : "%d", cents);
       g.DrawText(Text(13.f, muted, EAlign::Far), tick.Get(), IRECT(panel.L + 2, y - 8, plot.L - 7, y + 8));
     }
+    // The tuner page has no plot help layer, so its history gets marks without the hover readout.
+    grid_ui::PlotTimeMarks(g, plot, [&](double t) { return plot.R - plot.W() * static_cast<float>(t * 1000. / grid_tuner::historyDurationMs); }, false);
     const auto now = grid_tuner::Tuner::Now();
     grid_tuner::Pitch previous{};
     float previousX = 0, previousY = 0;
@@ -3786,8 +4050,6 @@ public:
       else g.FillCircle(color, x, y, 1.5f);
       previous = current; previousTime = point.milliseconds; previousX = x; previousY = y;
     }
-    g.DrawText(Text(13.f, muted), "6 s ago", IRECT(plot.L, panel.B - 20, plot.L + 100, panel.B));
-    g.DrawText(Text(13.f, muted, EAlign::Far), "Now", IRECT(plot.R - 80, panel.B - 20, plot.R, panel.B));
     g.DrawText(Text(13.f, muted), "Play one string. Green = within ±3 cents.", IRECT(24, panel.B - 20, kLeftR, panel.B + 3));
   }
 };

@@ -464,6 +464,37 @@ static int Run(int argc, char** argv)
       }
 #endif
       shot("modules/" + slug, 476);
+      if (filter == "pattern-delay")
+      {
+        const auto saved = [&] {
+          Stream bytes; clap_ostream output{&bytes, Stream::write};
+          assert(state->save(plugin, &output));
+          return bytes.config();
+        };
+        const auto before = saved();
+        constexpr int left = grid_layout::visualizationLeft + 12, right = grid_layout::visualizationRight - 12;
+        constexpr int tapX = left + 14 + (right - left - 28) / 4, tapY = grid_layout::plotTop + 12;
+#ifdef _WIN32
+        SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(tapX, tapY));
+        SendMessage(editor, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(tapX + 50, tapY + 26));
+        SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(tapX + 50, tapY + 26));
+#else
+        MacEditorDrag(editor, tapX, tapY, tapX + 50, tapY + 26);
+#endif
+        constexpr int panY = grid_layout::plotBottom - 46;
+        click(right - 34, panY);
+        const auto after = saved();
+        const auto key = [&](int p) { return std::string("A 4 ") + kEffectParameters[p].name; };
+        assert(after.at(key(uTapTime1)).get<double>() > before.at(key(uTapTime1)).get<double>());
+        assert(after.at(key(uTapLevel1)).get<double>() < before.at(key(uTapLevel1)).get<double>());
+        assert(after.at(key(uTapPan1)).get<double>() > 60.);
+        for (int tap = 1; tap < 4; ++tap)
+          for (int base : {uTapTime1, uTapLevel1, uTapPan1})
+            assert(after.at(key(base + tap)) == before.at(key(base + tap)));
+        shot("pattern-delay-edited", 476);
+        std::cout << "Pattern Delay time, level and pan edits reached the selected tap's saved parameters\n";
+      }
+
     }
   // The README main image: the bundled Clean Default rig with A1's capture selected.
   if (filter.empty() && !pagesOnly)

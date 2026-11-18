@@ -121,10 +121,11 @@ Below it, the network sketch shows the base timing of the style's **4 or 16 dela
 lines**, with the count available on hover. Warp changes their spacing, Density connects
 the lines, and the faint halos show modulation depth. At Warp 0, several lines can
 share the same position. Colours distinguish network groups; these are not direct
-left/right output taps. Each graph has its own labelled time span: the upper graph
+left/right output taps. Each graph has its own time marks: the upper graph
 includes repeats and diffusion, while the lower sketch focuses on the line lengths.
-Hover each graph for its own explanation: the upper graph describes the measured
-response, and the lower sketch gives the current line count and network legend.
+Hover each graph for its own explanation and scale: the upper graph describes the
+measured response (0 to -48 dB), and the lower sketch gives the current line count
+and network legend.
 
 For Aurora Hall, the network sketch separates the eight main delays (blue) from the eight short diffusers (orange). A loop includes both delays; a marker is not the arrival time of a complete reflection. Modulation depth is limited relative to each line length to keep the short diffusers from sweeping through zero.
 

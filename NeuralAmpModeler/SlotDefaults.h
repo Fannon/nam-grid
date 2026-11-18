@@ -51,6 +51,18 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       set(uFilterResonance, .71); break;
     case SlotEffect::AutoSwell:
       set(uSwellRise, 350.); set(uSwellThreshold, -48.); set(uSwellRelease, 150.); break;
+    case SlotEffect::SpaceTapeEcho:
+      delay(420., 32., 5500., 22., 25., 25.); break;
+    case SlotEffect::BucketBrigade:
+      delay(300., 35., 5500., 22., 26., 24.); break;
+    case SlotEffect::PitchDelay:
+      delay(420., 35., 7500., 0., 0., 25.); break;
+    case SlotEffect::FeedbackFXDelay:
+      delay(375., 38., 7500., 0., 0., 26.); break;
+    case SlotEffect::PatternDelay:
+      delay(500., 33., 8000., 0., 0., 28.); break;
+    case SlotEffect::GranularDelay:
+      delay(420., 35., 7000., 0., 0., 29.); set(uEchoInterval, 0.); break;
     case SlotEffect::DigitalDelay:
       delay(400., 30., 10000., 0., 0., 20.); break;
     case SlotEffect::AnalogDelay:

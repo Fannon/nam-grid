@@ -13,12 +13,22 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
 {
   const int style=std::clamp(static_cast<int>(value(uCosmicStyle)),0,effect_modes::cosmicCount-1);
   const auto plan=effect_preview::Cosmic(value(uCosmicTime),value(uCosmicWarp),style,rate);
-  const IRECT response(plot.L,plot.T,plot.R,plot.T+std::round(plot.H()*.56f));
-  const IRECT lines(plot.L,response.B+17.f,plot.R,plot.B);
+  // No subtitles: the hover help explains both views and their scales. The gap between the
+  // charts holds the upper chart's time labels.
+  const double longest=*std::max_element(plan.seconds.begin(),plan.seconds.begin()+plan.count);
+  const double horizon=effect_preview::TimeHorizon(longest*1.03);
+  const auto split=[&](float bottom, IRECT& top, IRECT& below) {
+    const float middle=plot.T+std::round((bottom-plot.T)*.58f);
+    top=IRECT(plot.L,plot.T,plot.R,middle);
+    below=IRECT(plot.L,middle+18.f,plot.R,bottom);
+  };
+  const auto lineX=[&](const IRECT& r) { return [&r,horizon](double t) { return r.L+r.W()*static_cast<float>(t/horizon); }; };
+  IRECT response, lines;
+  split(plot.B,response,lines);
   WDL_String text;
   PlotTitle(g,plot,delayColor,"Measured echo response / delay lines");
   PlotDetail(g,plot,"Measured response above; delay-line network below. Hover each view for details.");
-  PlotRegionDetail(g,IRECT(plot.L,plot.T,plot.R,response.B+14.f),
+  PlotRegionDetail(g,IRECT(plot.L,plot.T,plot.R,response.B+7.f),
     "Measured wet impulse, relative to its strongest peak (0 to -48 dB). Warp spreads echoes; Density fills the tail.");
   const bool modern=style>=static_cast<int>(effect_modes::CosmicStyle::AuroraHall);
   if (style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate)) text.Set("Eight input-diffuser lines (blue) feed two cross-coupled tank halves (orange). Each half contains two allpasses and two main delays. Seven output taps per channel observe the tank; markers show full line lengths.");
@@ -26,8 +36,9 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   else if (style==static_cast<int>(effect_modes::CosmicStyle::Nebula)) text.Set("Eight long-tank lines (blue) and eight short-tank lines (orange). Density scatters energy and couples the tanks. Markers show line lengths, not a measured decay time.");
   else if (modern) text.Set("Eight main delays and eight short diffusers at their base times. Blue marks main loops; orange marks diffusers. Density adds scattering and diffusion; halos show Modulation.");
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
-  PlotRegionDetail(g,IRECT(plot.L,response.B+14.f,plot.R,grid_layout::plotFooterBottom),text.Get());
+  PlotRegionDetail(g,IRECT(plot.L,response.B+7.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
+  const int responseMarks=measured.valid ? PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); }) : 0;
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
   {
@@ -49,15 +60,14 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
     g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(response.L,response.T,response.R,response.T+20));
   if(measured.seconds<1.) text.SetFormatted(32,"%.0f ms",measured.seconds*1000.);
   else text.SetFormatted(32,"%.1f s",measured.seconds);
-  g.DrawText(Text(11.f,muted),"Measured impulse | 0 to -48 dB",IRECT(plot.L,response.B+1.f,plot.R-75.f,response.B+14.f));
-  if(measured.valid)
-    g.DrawText(Text(11.f,muted,EAlign::Far),text.Get(),IRECT(plot.R-75.f,response.B+1.f,plot.R,response.B+14.f));
+  if(measured.valid && !responseMarks)
+    g.DrawText(Text(11.f,muted,EAlign::Far),text.Get(),IRECT(response.R-80.f,response.T+2.f,response.R-4.f,response.T+15.f));
 
   // Restore the original network sketch underneath the measured response. Its
   // shorter time axis shows base line lengths, not every repeat in the wet tail.
-  const double longest=*std::max_element(plan.seconds.begin(),plan.seconds.begin()+plan.count);
-  const double horizon=effect_preview::TimeHorizon(longest*1.03), density=value(uCosmicDensity)*.01;
+  const double density=value(uCosmicDensity)*.01;
   const double motion=(500./48000.)*std::pow(value(uCosmicMotion)*.01,2.);
+  const int lineMarks=PlotTimeMarks(g,lines,lineX(lines));
   g.DrawLine(border,lines.L,lines.B,lines.R,lines.B);
   for(int i=0;i<plan.count;++i)
   {
@@ -75,9 +85,10 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
       g.DrawLine(delayColor.WithOpacity(static_cast<float>(density*.3)),previous,lines.B-height,x,lines.B-height*.55f);
     }
   }
-  // Colours identify network groups; they are not direct left/right output taps.
+  // Colours identify network groups; they are not direct left/right output taps. Without
+  // marks the chart keeps the footer row for its span.
   text.SetFormatted(32,"%.0f ms",horizon*1000.);
-  PlotFooter(g,plot,"Network sketch | colours = line groups",text.Get());
+  if(!lineMarks) PlotFooter(g,plot,"",text.Get());
 }
 
 template<class Value>
@@ -113,6 +124,8 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const auto timeX=[&](double t) {
     return field.L+field.W()*static_cast<float>(std::log1p(std::max(0.,t)/.025)/std::log1p(horizon/.025));
   };
+  // Native tanks show relative time, so only the timed reverbs get marks.
+  const int marks=native ? 0 : PlotTimeMarks(g,field,timeX);
   const double earlySpan=native ? .04*size : .055*size*(effect==SlotEffect::HallReverb ? 2. : 1.);
   const double lateStart=std::min(horizon*.45,onset+earlySpan*.7);
   const double tailScale=native ? .2+.8*sustain : 1.;
@@ -195,7 +208,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   else if(shimmer) text.Set("Decay + pitch layers | log time");
   else text.SetFormatted(80,"Low %.1f s | high %.1f s",lowDecay,highDecay);
   WDL_String end;
-  if(!native) end.SetFormatted(32,"%.1f s (log)",horizon);
+  if(!native) { if(marks) end.Set("log time"); else end.SetFormatted(32,"%.1f s (log)",horizon); }
   else end.Set("Relative");
   PlotFooter(g,plot,text.Get(),end.Get());
 }

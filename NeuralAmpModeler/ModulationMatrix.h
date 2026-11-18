@@ -144,6 +144,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uBlackHold, t.blackHold);
   family(uPedalStyle, t.pedal);
   family(uPDistStyle, t.pedalDistortion);
+  family(uSpaceHeads, t.expandedDelay);
   u(uToneMidFrequency, e.midFrequency);
   u(uEQOutput, t.extra.eqOutput);
   u(uBoostMidGain, t.extra.boostMidGain);

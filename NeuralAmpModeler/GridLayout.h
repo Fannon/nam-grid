@@ -45,6 +45,10 @@ inline constexpr int plotTop = 510;
 inline constexpr int plotMetersTop = visualizationBottom - 18, plotMetersBottom = visualizationBottom - 2;
 inline constexpr int plotFooterTop = plotMetersTop - 20, plotFooterBottom = plotMetersTop - 2;
 inline constexpr int plotBottom = plotFooterTop - 4;
+// Charts without a footer use its row too, ending where time labels below the axis clear the meters.
+inline constexpr int chartBottom = plotFooterBottom - 16;
+// Time labels sit this far below a chart's axis.
+inline constexpr int timeLabelGap = 2, timeLabelHeight = 12;
 // Module editor rows: the header (slot ID, badges, module name and its actions), the
 // module's options on the right, then two rows of knobs. The description is the name's hover help.
 inline constexpr int moduleHeaderTop = 488, moduleHeaderBottom = 512;

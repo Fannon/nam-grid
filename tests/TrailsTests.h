@@ -59,7 +59,8 @@ void TestTrails()
   using namespace trails_test;
   using E = SlotEffect;
   constexpr std::array effects{E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay,
-    E::ReverseDelay, E::DualDelay, E::DiffusedDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
+    E::ReverseDelay, E::DualDelay, E::DiffusedDelay,
+    E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::GranularDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
     E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho};
   int listed = 0;
   for (int e = 0; e <= static_cast<int>(E::Last); ++e)

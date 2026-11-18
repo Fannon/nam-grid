@@ -8,6 +8,8 @@
 
 void TestEffectPresentation()
 {
+  for (int mode = 0; mode < 4; ++mode)
+    assert(effect_presentation::ModeVisible(SlotEffect::FeedbackFXDelay, uEchoResonance, mode) == (mode < 2));
   for (int p = 0; p < kUtilityControls; ++p)
   {
     const auto choices = EffectChoices(p);
@@ -53,7 +55,7 @@ void TestEffectPresentation()
                 }
               continue;
             }
-            if (effect_presentation::DisplayControl(p)) continue; // Dragged in the display.
+            if (!effect_presentation::MainGrid(effect, p)) continue; // Display drags, detail pages and mode substitutes.
             const int position = effect_presentation::Position(effect, p);
             if (position < 0 || position >= 8 || occupied[position])
               std::cerr << "Control overlap: effect=" << static_cast<int>(effect) << " parameter="

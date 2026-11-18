@@ -101,6 +101,7 @@ void TestStereoGuitarEffects()
     UtilityControls c;
     c.pingPong = true;
     c.delay = {40., 50., 12000., 0., 100.};
+    c.delayMotion = 0.; // Digital Delay's insertion default: stable timing.
     const int delay = static_cast<int>(rate * .04), length = delay * 4;
     std::vector<double> l(length), r(length);
     l[0] = r[0] = 1.;

@@ -336,6 +336,38 @@ enum UtilityParam
   uPDistTreble = 319,
   uPDistLevel = 320,
   uPDistMix = 321,
+  uSpaceHeads = 322,
+  uBBDVoice = 323,
+  uPitchDelayMode = 324,
+  uFeedbackFX = 325,
+  uPatternFeedback = 326,
+  uGrainDelayMode = 327,
+  uEchoSpring = 328,
+  uEchoRate = 329,
+  uEchoDepth = 330,
+  uEchoResonance = 331,
+  uEchoRateSync = 332,
+  uEchoInterval = 333,
+  uEchoDetune = 334,
+  uEchoShiftBlend = 335,
+  uEchoWidth = 336,
+  uEchoRingRate = 337,
+  uGrainLength = 338,
+  uGrainScatter = 339,
+  uGrainDensity = 340,
+  uTapTime1 = 341,
+  uTapTime2 = 342,
+  uTapTime3 = 343,
+  uTapTime4 = 344,
+  uTapLevel1 = 345,
+  uTapLevel2 = 346,
+  uTapLevel3 = 347,
+  uTapLevel4 = 348,
+  uTapPan1 = 349,
+  uTapPan2 = 350,
+  uTapPan3 = 351,
+  uTapPan4 = 352,
+  uDigitalDelayVoice = 353,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -346,6 +378,13 @@ inline constexpr const char* kIRLengths[]{"Cabinet", "Long IR"};
 inline constexpr const char* kDelayTimeChanges[]{"Glide", "Crossfade"};
 inline constexpr const char* kNoiseTrackingModes[]{"Fixed", "Follow"};
 inline constexpr const char* kGraphicVoicings[]{"Guitar", "Bass", "Full range"};
+inline constexpr const char* kSpaceHeads[]{"Head 1", "Head 2", "Head 3", "Heads 1 + 2", "Heads 1 + 3", "Heads 2 + 3", "All heads", "Spring only"};
+inline constexpr const char* kBBDVoice[]{"Compact", "Chorus", "Vibrato", "Clear", "Driven"};
+inline constexpr const char* kPitchDelayMode[]{"Forward", "Reverse", "Stereo Octaves"};
+inline constexpr const char* kFeedbackFX[]{"Sweep", "Phaser", "Tremolo", "Ring"};
+inline constexpr const char* kPatternFeedback[]{"Repeat", "Swell", "Matrix", "Drum"};
+inline constexpr const char* kDigitalDelayVoice[]{"Clean", "Rack", "Lo-fi"};
+inline constexpr const char* kGrainDelayMode[]{"Scatter", "Reverse", "Glitch"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
@@ -361,6 +400,13 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uDistStyle: return effect_modes::distortionNames;
     case uPedalStyle: return effect_modes::pedalNames;
     case uPDistStyle: return effect_modes::pedalDistortionNames;
+    case uSpaceHeads: return kSpaceHeads;
+    case uBBDVoice: return kBBDVoice;
+    case uPitchDelayMode: return kPitchDelayMode;
+    case uFeedbackFX: return kFeedbackFX;
+    case uPatternFeedback: return kPatternFeedback;
+    case uGrainDelayMode: return kGrainDelayMode;
+    case uDigitalDelayVoice: return kDigitalDelayVoice;
     case uGateMode: return effect_modes::gateNames;
     case uFilterMode: return effect_modes::filterNames;
     case uTapeHeads: return effect_modes::tapeHeadNames;
@@ -419,6 +465,13 @@ inline constexpr AlgorithmIdentity chorusVoices[]{{0, "one"}, {1, "three"}};
 inline constexpr AlgorithmIdentity springTank[]{{0, "classic"}, {1, "dispersive"}};
 inline constexpr AlgorithmIdentity noiseTracking[]{{0, "fixed"}, {1, "follow"}};
 inline constexpr AlgorithmIdentity graphicVoicing[]{{0, "guitar"}, {1, "bass"}, {2, "full-range"}};
+inline constexpr AlgorithmIdentity spaceHeads[]{{0, "head-1"}, {1, "head-2"}, {2, "head-3"}, {3, "heads-1-2"}, {4, "heads-1-3"}, {5, "heads-2-3"}, {6, "all-heads"}, {7, "spring-only"}};
+inline constexpr AlgorithmIdentity bBDVoice[]{{0, "compact"}, {1, "chorus"}, {2, "vibrato"}, {3, "clear"}, {4, "driven"}};
+inline constexpr AlgorithmIdentity pitchDelayMode[]{{0, "forward"}, {1, "reverse"}, {2, "stereo-octaves"}};
+inline constexpr AlgorithmIdentity feedbackFX[]{{0, "sweep"}, {1, "phaser"}, {2, "tremolo"}, {3, "ring"}};
+inline constexpr AlgorithmIdentity patternFeedback[]{{0, "repeat"}, {1, "swell"}, {2, "matrix"}, {3, "drum"}};
+inline constexpr AlgorithmIdentity digitalDelayVoice[]{{0, "clean"}, {1, "rack"}, {2, "lo-fi"}};
+inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {
@@ -432,6 +485,13 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uDistStyle: return distortion;
     case uPedalStyle: return pedal;
     case uPDistStyle: return pedalDistortion;
+    case uSpaceHeads: return spaceHeads;
+    case uBBDVoice: return bBDVoice;
+    case uPitchDelayMode: return pitchDelayMode;
+    case uFeedbackFX: return feedbackFX;
+    case uPatternFeedback: return patternFeedback;
+    case uGrainDelayMode: return grainDelayMode;
+    case uDigitalDelayVoice: return digitalDelayVoice;
     case uJunoMode: return juno;
     case uGateMode: return gate;
     case uFilterMode: return filter;
@@ -461,7 +521,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 31; // 31 Pedal Distortion; 30 Noise Gate (AI); 29 Smart Gate attack protection.
+inline constexpr int kEffectStateSchema = 32; // 32 additional delays, Digital Delay voice and modulation; 31 Pedal Distortion; 30 Noise Gate (AI).
 
 struct EffectParameter
 {
@@ -801,7 +861,39 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pedal Dist Mid Freq", "Mid freq", 800, 200, 5000, 1, "Hz", 6, true, 1., 31},
    {"Pedal Dist Treble", "Treble", 0, -12, 12, .1, "dB", 3, false, 1., 31},
    {"Pedal Dist Level", "Level", 0, -24, 12, .1, "dB", 4, false, 1., 31},
-   {"Pedal Dist Mix", "Mix", 100, 0, 100, .1, "%", 7, false, 1., 31}}};
+   {"Pedal Dist Mix", "Mix", 100, 0, 100, .1, "%", 7, false, 1., 31},
+   {"Space Echo Heads", "Mode", 4, 0, 7, 1, "", 0, false, 1., 32},
+   {"BBD Voice", "Mode", 1, 0, 4, 1, "", 0, false, 1., 32},
+   {"Pitch Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
+   {"Delay Feedback FX", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
+   {"Pattern Delay Mode", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
+   {"Granular Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
+   {"Delay Spring", "Spring", 20, 0, 100, 0.1, "%", 5, false, 1., 32},
+   {"Delay Rate", "Rate", 0.8, 0.05, 20, 0.01, "Hz", 3, true, 1., 32},
+   {"Delay Depth", "Depth", 30, 0, 100, 0.1, "%", 5, false, 1., 32},
+   {"Delay Resonance", "Resonance", 25, 0, 100, 0.1, "%", 6, false, 1., 32},
+   {"Delay Rate Sync", "Rate sync", 0, 0, 1, 1, "", 0, false, 1., 32},
+   {"Delay Interval", "Interval", 12, -12, 12, 1, "st", 3, false, 1., 32},
+   {"Delay Detune", "Detune", 0, 0, 25, 0.1, "cent", 5, false, 1., 32},
+   {"Delay Shift Blend", "Shift blend", 35, 0, 100, 0.1, "%", 6, false, 1., 32},
+   {"Delay Width", "Width", 80, 0, 100, 0.1, "%", 3, false, 1., 32},
+   {"Delay Carrier", "Carrier", 110, 10, 2000, 0.1, "Hz", 3, true, 1., 32},
+   {"Granular Grain", "Grain", 80, 12, 1000, 1, "ms", 3, true, 1., 32},
+   {"Granular Scatter", "Scatter", 35, 0, 100, 0.1, "%", 5, false, 1., 32},
+   {"Granular Density", "Density", 50, 0, 100, 0.1, "%", 6, false, 1., 32},
+   {"Pattern Tap 1 Time", "Tap 1 time", 25, 5, 100, 0.1, "%", 0, false, 1., 32},
+   {"Pattern Tap 2 Time", "Tap 2 time", 50, 5, 100, 0.1, "%", 1, false, 1., 32},
+   {"Pattern Tap 3 Time", "Tap 3 time", 75, 5, 100, 0.1, "%", 2, false, 1., 32},
+   {"Pattern Tap 4 Time", "Tap 4 time", 100, 5, 100, 0.1, "%", 3, false, 1., 32},
+   {"Pattern Tap 1 Level", "Tap 1 level", 100, 0, 100, 0.1, "%", 4, false, 1., 32},
+   {"Pattern Tap 2 Level", "Tap 2 level", 100, 0, 100, 0.1, "%", 5, false, 1., 32},
+   {"Pattern Tap 3 Level", "Tap 3 level", 100, 0, 100, 0.1, "%", 6, false, 1., 32},
+   {"Pattern Tap 4 Level", "Tap 4 level", 100, 0, 100, 0.1, "%", 7, false, 1., 32},
+   {"Pattern Tap 1 Pan", "Tap 1 pan", -80, -100, 100, 0.1, "%", 0, false, 1., 32},
+   {"Pattern Tap 2 Pan", "Tap 2 pan", 80, -100, 100, 0.1, "%", 1, false, 1., 32},
+   {"Pattern Tap 3 Pan", "Tap 3 pan", -50, -100, 100, 0.1, "%", 2, false, 1., 32},
+   {"Pattern Tap 4 Pan", "Tap 4 pan", 50, -100, 100, 0.1, "%", 3, false, 1., 32},
+   {"Digital Delay Voice", "Voice", 0, 0, 2, 1, "", 0, false, 1., 32}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -830,8 +922,27 @@ static_assert([] {
   }
   return true;
 }(), "Every utility parameter needs a valid descriptor and one of the seven editor positions");
+inline constexpr int ExpandedDelayModeControl(SlotEffect effect)
+{
+  return uSpaceHeads + static_cast<int>(effect) - static_cast<int>(SlotEffect::SpaceTapeEcho);
+}
+// Head masks per Mode; Spring only plays no heads.
+inline constexpr std::array<unsigned, 8> spaceHeads{1, 2, 4, 3, 5, 6, 7, 0};
+inline constexpr double HeadFraction(int head) { return (head + 1.) / 3.; }
+// Space Tape Echo's loop gain for Feedback in percent: unchanged up to 60%, then rising
+// smoothly (matching slope) to 1.25 at 82%, so the top of the range self-oscillates like
+// an RE-201's Intensity. The tape stage's saturation bounds the runaway.
+inline constexpr double SpaceTapeFeedback(double percent)
+{
+  const double f = .01 * percent, over = f > .6 ? f - .6 : 0.;
+  return f + (.43 / (.22 * .22)) * over * over;
+}
+inline constexpr bool IsExpandedDelay(SlotEffect e)
+{ return e >= SlotEffect::SpaceTapeEcho && e <= SlotEffect::GranularDelay; }
+
 inline bool IsDelay(SlotEffect e)
 {
+  if (IsExpandedDelay(e)) return true;
   switch (e)
   {
     case SlotEffect::DigitalDelay: case SlotEffect::AnalogDelay: case SlotEffect::TapeDelay:
@@ -866,6 +977,7 @@ inline bool IsModulation(SlotEffect e)
 // built-ins use separate Prepared channel instances; enum order is immaterial.
 inline bool UsesCoupledStereo(SlotEffect e)
 {
+  if (IsExpandedDelay(e)) return true;
   switch (e)
   {
     case SlotEffect::Rotary: case SlotEffect::Limiter: case SlotEffect::Octaver:
@@ -886,6 +998,28 @@ inline bool UsesCoupledStereo(SlotEffect e)
 }
 inline bool UsesUtility(SlotEffect e, int p)
 {
+  if (IsExpandedDelay(e))
+  {
+    if (p == uDelayTime || p == uDelayFeedback || p == uDelayTone || p == uDelayMix || p == uDelayOutput)
+      return true;
+    switch (e)
+    {
+      case SlotEffect::SpaceTapeEcho:
+        return p == uSpaceHeads || p == uDelayCharacter || p == uDelayMotion || p == uEchoSpring;
+      case SlotEffect::BucketBrigade:
+        return p == uBBDVoice || p == uDelayCharacter || p == uDelayMotion || p == uEchoRate;
+      case SlotEffect::PitchDelay:
+        return p == uPitchDelayMode || p == uEchoInterval || p == uEchoDetune || p == uEchoShiftBlend;
+      case SlotEffect::FeedbackFXDelay:
+        return p == uFeedbackFX || p == uEchoRate || p == uEchoDepth || p == uEchoResonance
+          || p == uEchoRateSync || p == uEchoRingRate;
+      case SlotEffect::PatternDelay:
+        return p == uPatternFeedback || p == uEchoWidth || (p >= uTapTime1 && p <= uTapPan4);
+      case SlotEffect::GranularDelay:
+        return p == uGrainDelayMode || p == uGrainLength || p == uGrainScatter || p == uGrainDensity || p == uEchoInterval;
+      default: return false;
+    }
+  }
   if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
   if (p >= uPDistStyle && p <= uPDistMix) return e == SlotEffect::PedalDistortion;
   // Noise Gate (AI) shares Smart Gate's final gate.
@@ -927,7 +1061,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uOctTrackingFilter: return e == SlotEffect::Octaver;
       case uDoubleHumanize: return e == SlotEffect::Doubler;
       case uDoubleHighCut: return e == SlotEffect::Doubler;
-      case uDuckRelease: return e == SlotEffect::DigitalDelay;
+      case uDuckRelease: case uDigitalDelayVoice: return e == SlotEffect::DigitalDelay;
       case uReverseFeedback: return e == SlotEffect::ReverseDelay;
       case uReverbDuck: return e == SlotEffect::PlateReverb || e == SlotEffect::CloudReverb || e == SlotEffect::HallReverb;
       case uSpringPredelay: return e == SlotEffect::SpringReverb;
@@ -1005,8 +1139,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (e == SlotEffect::AutoSwell)
     return p >= uSwellRise && p <= uSwellRelease;
   if (IsDelay(e))
-    return (p >= uDelayTime && p <= uDelayMix) || p == uDelayOutput
-           || (p == uDelayMotion && e != SlotEffect::DigitalDelay);
+    return (p >= uDelayTime && p <= uDelayMix) || p == uDelayOutput || p == uDelayMotion;
   if (IsReverb(e))
     return (p >= uReverbDecay && p <= uReverbMix) || p == uReverbMotion || p == uReverbHighPass;
   if (IsModulation(e))
@@ -1062,6 +1195,12 @@ struct UtilityControls
   int filterMode = 0;
   double rise = 250., threshold = -42., release = 120.;
   std::array<double, 5> delay{350., 35., 5000., 20., 25.};
+  std::array<double, uDigitalDelayVoice - uSpaceHeads + 1> expandedDelay = [] {
+    std::array<double, uDigitalDelayVoice - uSpaceHeads + 1> values{};
+    for (size_t i = 0; i < values.size(); ++i) values[i] = kEffectParameters[uSpaceHeads + i].initial;
+    return values;
+  }();
+  double DelayOption(int p) const { return expandedDelay[p - uSpaceHeads]; }
   std::array<double, 5> reverb{2., 100., 5500., 15., 20.};
   std::array<double, 5> modulation{.8, 50., 20., 0., 50.};
   std::array<double, 4> tape{0., 50., 100., 0.};

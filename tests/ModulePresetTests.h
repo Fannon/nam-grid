@@ -47,10 +47,13 @@ void TestModulePresetCoverage()
     const bool calibrated = effect == SlotEffect::NoiseGate || effect == SlotEffect::NoisePrint
                             || effect == SlotEffect::AIGate
                             || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
-    assert(!calibrated || For(effect).empty());
+    const auto presets = For(effect);
+    assert(!calibrated || presets.empty());
     // A sanity ceiling, not a design target: no module needs more than sixteen factory recipes.
-    assert(For(effect).size() <= 16u);
-    for (const auto& preset : For(effect))
+    assert(presets.size() <= 16u);
+    // Digital Delay also carries the Rack and Lo-fi voice recipes.
+    if (IsDelay(effect)) assert(presets.size() >= 4u && presets.size() <= (effect == SlotEffect::DigitalDelay ? 10u : 8u));
+    for (const auto& preset : presets)
     {
       std::vector<int> seen;
       for (const auto& v : preset.values)

@@ -20,6 +20,7 @@
 #include "EffectModeClapTests.h"
 #include "PedalDriveClapTests.h"
 #include "PedalCompClapTests.h"
+#include "DigitalDelayClapTests.h"
 #include "ModulePresetClapTests.h"
 #include "PresetGainClapTests.h"
 #include "CachedControlsClapTests.h"
@@ -819,6 +820,7 @@ int main(int argc, char** argv)
   syncState["Pre 1 Delay Mix"] = 100.;
   syncState["Pre 1 Delay Feedback"] = 0.;
   syncState["Pre 1 Delay Character"] = 0.;
+  syncState["Pre 1 Delay Modulation"] = 0.; // Digital Delay's insertion default: stable timing.
   load(syncState);
   assert(save().config() == syncState);
   assert(plugin->activate(plugin, 48000., 1, 512));
@@ -1230,6 +1232,7 @@ int main(int argc, char** argv)
   TestEffectModeClap(plugin, cleared, save, load);
   TestPedalDriveClap(plugin, cleared, save, load);
   TestPedalCompClap(plugin, cleared, save, load);
+  TestDigitalDelayUpgradeClap(cleared, save, load);
   TestModulePresetRecall(cleared, save, load, settingsBackup.home);
   TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);
@@ -2756,9 +2759,25 @@ int main(int argc, char** argv)
     effectControls["SlotEffects"][0] = id;
     load(effectControls);
     selectTile(170, 120);
+    int page = 0; // A newly selected module opens on its main page.
     for (int p = 0; p < kUtilityControls; ++p)
       if (UsesUtility(effect, p) && !effect_presentation::DisplayControl(p)) // Display drags: tested below.
       {
+        // A mode substitute (Ring's Carrier) is visible only in its mode.
+        if (effect_presentation::ReplacedControl(effect, p) >= 0)
+        {
+          const int modeControl = ExpandedDelayModeControl(effect);
+          int mode = 0;
+          while (!effect_presentation::ModeVisible(effect, p, mode)) ++mode;
+          auto modeState = save().config();
+          modeState[std::string("Pre 1 ") + kEffectParameters[modeControl].name] = static_cast<double>(mode);
+          load(modeState);
+          selectTile(170, 120);
+        }
+        // Detail controls sit behind the page button; header options stay on every page.
+        if (!effect_presentation::HeaderControl(p))
+          for (; page != effect_presentation::DetailPage(effect, p); page = (page + 1) % effect_presentation::DetailPages(effect))
+            click(static_cast<int>(grid_layout::parameterLeft) + 61, grid_layout::optionsY);
         // Shelf gain is conditional: expose it before testing its gesture.
         if (effect == SlotEffect::ParametricEQ && p == uParamShelfGain)
         {
@@ -2774,7 +2793,7 @@ int main(int argc, char** argv)
           algorithmAutomation.clear();
         }
         // Drag down at an upper limit (Tape Mix defaults to 100%).
-        const int position = effect_presentation::Position(effect, p);
+        const int position = effect_presentation::EditorPosition(effect, p);
         const int x = grid_layout::KnobX(position);
         if (!EffectChoices(p).empty())
         {

@@ -82,14 +82,23 @@ Previous/next stays within the current effect category or capture/IR folder. Add
 
 Displays help answer practical questions: Is the compressor working? How dark are the repeats? Where is the EQ cutting? Some show live audio; others sketch the current settings. Their labels identify which is which.
 
-Hover over a graph for its explanation and colour legend. Captions show live
-measurements and useful derived information; axis ranges stay visible.
+Hover over a graph for its explanation, colour legend and axis ranges. Captions
+show live measurements and useful derived information. Displays whose footer would
+only repeat a legend or scale leave it to the hover help and use that row for the
+chart; footers with live values, such as decay times and dynamics scales, stay.
 
 Frequency charts, including the Signal Monitor spectrum, show a vertical line
 at the pointer and a label such as **698.5 Hz | F5**. The frequency follows that
 chart's axis, including partial-width and linear-frequency plots. The note names
 the nearest equal-tempered pitch at A4 = 440 Hz. Move outside the chart to clear
 the readout. Hovering leaves knob values and saved rigs unchanged.
+
+Time-based displays, such as delay repeats, reverb decays, modulation and
+slice patterns, mark 10, 20, 40, 100, 200 and 400 ms and 1, 2, 4, 10, 20 and 40 s with faint dotted
+lines. Only marks that fit the chart's time span are drawn, and marks too close
+together are skipped. Reverb decays use a logarithmic time axis, and the LoFi
+Tape and tuner histories count back from now. Hover over these charts for the
+exact time at the pointer, in the same way as frequency charts.
 
 Compressor and limiter gain-reduction displays use a 0–16 dB scale, giving typical
 2–4 dB compression more room while allowing heavier reduction. Outboard Channel
@@ -129,7 +138,7 @@ Both are off by default.
 
 ![Rig behaviour switches in Settings: Trails and Keep dry level, saved with the rig](screenshots/rig-behaviour.png)
 
-- **Trails:** bypassed delays and reverbs ring out instead of stopping. After the 5 ms bypass fade, new playing no longer reaches them, while their repeats or reverb tail continue over the dry signal. Off by default; saved with the rig and recalled by scenes. Re-enabling a ringing module adds new playing to its tail. Turning Trails off fades a ringing tail over 5 ms, and replacing the module drops it with the usual switch fade. A tail ends once it stays below -100 dB: for 2 s with reverbs, and with delays for their longest possible gap between repeats (9 s for most). It also ends within 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo. A tail still ringing fades during the final second of that limit, within the time reported to the host. A ringing module uses as much CPU as an active one, and it then drains silently as before. Freeze, Stutter and the modulation effects keep their normal bypass.
+- **Trails:** bypassed delays and reverbs ring out instead of stopping. After the 5 ms bypass fade, new playing no longer reaches them, while their repeats or reverb tail continue over the dry signal. Off by default; saved with the rig and recalled by scenes. Re-enabling a ringing module adds new playing to its tail. Turning Trails off fades a ringing tail over 5 ms, and replacing the module drops it with the usual switch fade. A tail ends once it stays below -100 dB: for 2 s with reverbs, and with delays for their longest possible gap between repeats (9 s for most, 11 s for Space Tape Echo through Granular Delay and 17 s for Dual Delay). It also ends within 30 s for delays and Shimmer, 45 s for Room, Dense Plate, Cloud, Hall and Spring, or 60 s for Airwindows reverbs and Cosmic Echo. A tail still ringing fades during the final second of that limit, within the time reported to the host. A ringing module uses as much CPU as an active one, and it then drains silently as before. Freeze, Stutter and the modulation effects keep their normal bypass.
 
 **Keep dry level** changes the Mix law of delays and reverbs:
 

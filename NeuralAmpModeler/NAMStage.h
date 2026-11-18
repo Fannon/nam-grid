@@ -13,6 +13,7 @@
 #include "SlotOutboard.h"
 #include "SlotAirDynamics.h"
 #include "SlotCreativeDelays.h"
+#include "ExpandedDelay.h"
 #include "SlotCosmicEcho.h"
 #include "StereoUtility.h"
 #include "SlotGuitarEffects.h"
@@ -123,6 +124,7 @@ public:
     SlotPitchShift pitchShift;
     SlotMultiHeadDelay multiHead;
     SlotDiffusedDelay diffused;
+    std::unique_ptr<SlotExpandedDelay> expandedDelay;
     SlotCosmicEcho cosmic;
     SlotModulation modulation;
     SlotTape tape;
@@ -194,6 +196,11 @@ public:
         if (effect == SlotEffect::LoFiTape) lofi.Reset(rate);
         if (effect == SlotEffect::MultiHeadDelay) multiHead.Reset(rate);
         if (effect == SlotEffect::DiffusedDelay) diffused.Reset(rate);
+        if (IsExpandedDelay(effect))
+        {
+          if (!expandedDelay) expandedDelay = std::make_unique<SlotExpandedDelay>();
+          expandedDelay->Reset(rate, block, effect);
+        }
         if (effect == SlotEffect::CosmicEcho) cosmic.Reset(rate);
         if (IsOutboard(effect)) outboard.Reset(rate, effect);
         if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
@@ -233,6 +240,7 @@ public:
       delayIndex = 0;
       drainLimit = static_cast<int64_t>(rate
                                         * (effect == SlotEffect::DualDelay ? 17.
+                                           : IsExpandedDelay(effect) ? 11.
                                            : IsDelay(effect) ? 9.
                                            // Sagittarius can chain eight full-length delays. Include modulation,
                                            // fixed offsets and filter settling before suspending a bypassed tank.
@@ -540,6 +548,7 @@ public:
             else if (p->effect == SlotEffect::LoFiTape) p->lofi.Process(out, r, frames, utility, draining);
             else if (p->effect == SlotEffect::MultiHeadDelay) p->multiHead.Process(out, r, frames, utility, draining);
             else if (p->effect == SlotEffect::DiffusedDelay) p->diffused.Process(out, r, frames, utility, draining);
+            else if (p->expandedDelay) p->expandedDelay->Process(out, r, frames, utility, draining);
             else if (p->effect == SlotEffect::CosmicEcho) p->cosmic.Process(out, r, frames, utility, draining);
             else if (IsAirDynamics(p->effect))
             {

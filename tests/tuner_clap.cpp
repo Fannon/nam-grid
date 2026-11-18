@@ -92,7 +92,9 @@ int main(int argc, char** argv)
     && tunerEvents[1]==CLAP_EVENT_PARAM_VALUE && tunerEvents[2]==CLAP_EVENT_PARAM_GESTURE_END);
   automate(tuner.id,1.);pumpFor(50);
   tunerEvents.clear();
-  SendMessage(editor,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(grid_layout::width-64,500));SendMessage(editor,WM_LBUTTONUP,0,MAKELPARAM(grid_layout::width-64,500));pumpFor(50);
+  // Close sits at the right of the tuner's left section, above Mute output.
+  constexpr int closeX = grid_layout::visualizationLeft - 60;
+  SendMessage(editor,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(closeX,500));SendMessage(editor,WM_LBUTTONUP,0,MAKELPARAM(closeX,500));pumpFor(50);
   params->flush(plugin,&empty,&sent);
   assert(save().config()["Tuner"]==0.);
   assert(tunerEvents.size()==3 && tunerEvents.front()==CLAP_EVENT_PARAM_GESTURE_BEGIN && tunerEvents.back()==CLAP_EVENT_PARAM_GESTURE_END);

@@ -45,8 +45,11 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
   sample-based control smoothing, fractional delay lines and a bounded feedback return.
   Space Tape Echo uses the Airwindows Spiral transfer from LoFi Tape Machine at 4×
   with the minimum-phase FIR and the classic Spring tank in parallel. The record stage clamps
-  at Spiral's peak, so it saturates without folding back. The transport follows Time through a
-  250 ms one-pole, like a motor; tape speed sets tone, wow rate and a loop low cut (110 Hz at
+  at Spiral's peak, so it saturates without folding back. Time follows the measured RE-201 motor time constants
+  (1.89 s for a longer delay, 1.07 s for a shorter one). Large slowdowns and modulation
+  moves keep every head moving forward. Both channels share periodic wow/flutter and a
+  smooth, repeatable low-frequency drift (see [Downing and Terjesen, section 3](https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/projects/2016/Downing_Terjesen_paper.pdf)).
+  Tape speed sets tone, wow rate and a loop low cut (110 Hz at
   420 ms) that also thins the first repeat. Feedback is unchanged up to 60% and then rises to a
   loop gain of 1.25 at 82%, so the Spiral ceiling bounds self-oscillation. At Spring 0% the tank
   stops listening, rings out in silence for 4 s and then parks, so it costs no CPU and

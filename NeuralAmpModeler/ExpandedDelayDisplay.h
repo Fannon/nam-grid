@@ -1,5 +1,6 @@
 #pragma once
 #include "ExpandedDelayPreview.h"
+#include "SpaceTapeTransport.h"
 
 namespace grid_ui
 {
@@ -133,10 +134,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         g.DrawText(Text(10.f, active ? surface : muted, EAlign::Center), label.Get(), IRECT(x - 8.f, chart.T + 1.f, x + 8.f, chart.T + 17.f));
         if (active) heads.AppendFormatted(24, "%s%.0f", heads.GetLength() ? " / " : "", seconds * 1000.);
       }
-      // Upper bound from both transport derivatives; the real phases can also cancel.
-      const double motion = .01 * value(uDelayMotion);
-      const double wow = .43 * std::clamp(std::sqrt(420. / ms), .55, 2.5);
-      const double pitchBound = effect_preview::SweepCents(motion * (.0028 + .00038 * (6.7 / .43) * 1.2), wow);
+      const double pitchBound = expanded_delay::TapeTransport::MotionCents(ms, .01 * value(uDelayMotion));
       if (spaceHeads[mode] == 0)
         title.SetFormatted(90, "%s  |  Spring %.0f%%, no tape heads", name, 100. * spring);
       else if (loopGain >= 1.)

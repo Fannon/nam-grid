@@ -289,7 +289,7 @@ Three tape heads with a spring reverb fed in parallel.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Time** | 5–4000 ms | 420 ms | Tape speed sets the last head interval; the other heads are at one and two thirds of it. The motor takes about a second to settle, so turning Time swoops the pitch. |
+| **Time** | 5–4000 ms | 420 ms | Tape speed sets the last head interval; the other heads are at one and two thirds of it. Lengthening Time slows the motor more gradually than shortening it speeds it up. The pitch swoops as the tape keeps moving forward. |
 | **Feedback** | 0–82% | 32% | Amount returned for another repeat, balanced by the number of enabled heads. Above about 75% the repeats build into self-oscillation, held in check by the tape. |
 | **High cut** | 800–12000 Hz | 5500 Hz | High-cut frequency of the repeats. Slower tape speeds also darken them, and every repeat loses some bass, as on worn tape heads. |
 | **Saturation** | 0–100% | 22% | Drive into the tape. Louder playing compresses smoothly towards a lower ceiling; Modulation controls the wow and flutter separately. |

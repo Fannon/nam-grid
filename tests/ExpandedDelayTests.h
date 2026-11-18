@@ -55,6 +55,27 @@ void TestExpandedDelays()
 {
   using namespace expanded_delay_test;
   {
+    constexpr double rate = 4000.;
+    expanded_delay::TapeTransport transport;
+    for (const double start : {300., 600.})
+    {
+      const double end = 900. - start;
+      transport.Reset(rate);
+      transport.Tick(start, 0.);
+      const int frames = static_cast<int>((end > start ? 1.89 : 1.07) * rate);
+      for (int i = 0; i < frames; ++i) transport.Tick(end, 0.);
+      assert(std::abs((transport.TimeMs() - end) / (start - end) - std::exp(-1.)) < .0001);
+      assert(transport.Tap() == transport.TimeMs() * .001 * rate);
+    }
+    // At 420 ms the periodic components complete whole cycles in 100 seconds.
+    // An additional displacement here comes from the slow transport drift.
+    transport.Reset(rate);
+    transport.Tick(420., 1.);
+    const double first = transport.Tap();
+    for (int i = 0; i < 100 * rate; ++i) transport.Tick(420., 1.);
+    assert(std::abs(transport.Tap() - first) > .0001 * rate);
+  }
+  {
     constexpr int rate = 48000;
     Audio tone{std::vector<double>(120000), std::vector<double>(120000)};
     for (int i = 0; i < 30000; ++i)

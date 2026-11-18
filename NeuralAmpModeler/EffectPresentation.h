@@ -490,7 +490,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
       return "Contribution from this tap. The output normalizes the active taps together.";
     case uTapPan1: case uTapPan2: case uTapPan3: case uTapPan4:
       return "Bias this tap left or right without moving the dry guitar. Width scales the pan amount.";
-    case uDelayTime: return e == SlotEffect::SpaceTapeEcho ? "Tape speed sets the last head interval; the other heads are at one and two thirds of it. The motor takes about a second to settle, so turning Time swoops the pitch."
+    case uDelayTime: return e == SlotEffect::SpaceTapeEcho ? "Tape speed sets the last head interval; the other heads are at one and two thirds of it. Lengthening Time slows the motor more gradually than shortening it speeds it up. The pitch swoops as the tape keeps moving forward."
                          : e == SlotEffect::PatternDelay ? "Base interval for the four editable taps. Each tap sets a percentage of this time."
                          : e == SlotEffect::GranularDelay ? "Nominal time into the history. Grain length, scatter and direction spread the repeats around it."
                          : e == SlotEffect::PitchDelay || e == SlotEffect::FeedbackFXDelay

@@ -2146,7 +2146,9 @@ private:
     const IRECT plot(grid_layout::visualizationLeft + 12,grid_layout::plotTop,bounds.R - 12,grid_layout::plotBottom);
     PlotTitle(g,plot,Tone(SlotEffect::LoFiTape,{}).first,status);
     PlotDetail(g,plot,"Measured head motion | +/-60 cents");
-    PlotFooter(g,plot,"Speed also changes bandwidth","2.56 s");
+    // Newest at the right: marks count back from now.
+    const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.R - plot.W() * static_cast<float>(t / 2.56); });
+    PlotFooter(g,plot,"Speed also changes bandwidth",marks ? "" : "2.56 s");
     const auto trace = [&](const char* name, const auto& values, const IColor& color, float center) {
       g.DrawText(Text(13.f, color.WithOpacity(opacity)), name, IRECT(plot.L, center - 38, plot.R - 140, center - 21));
       const float start = plot.L, end = plot.R, height = 14.f;
@@ -4006,6 +4008,8 @@ public:
       WDL_String tick; tick.SetFormatted(16, cents ? "%+d" : "%d", cents);
       g.DrawText(Text(13.f, muted, EAlign::Far), tick.Get(), IRECT(panel.L + 2, y - 8, plot.L - 7, y + 8));
     }
+    // The tuner page has no plot help layer, so its history gets marks without the hover readout.
+    grid_ui::PlotTimeMarks(g, plot, [&](double t) { return plot.R - plot.W() * static_cast<float>(t * 1000. / grid_tuner::historyDurationMs); }, false);
     const auto now = grid_tuner::Tuner::Now();
     grid_tuner::Pitch previous{};
     float previousX = 0, previousY = 0;

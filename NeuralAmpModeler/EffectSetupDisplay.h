@@ -112,6 +112,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       return chart.B-chart.H()*static_cast<float>(std::clamp((20.*std::log10(std::max(1.e-9,amplitude))+60.)/72.,0.,1.));
     };
     PlotGrid(g,chart);
+    const int marks=PlotTimeMarks(g,chart,[&](double t) { return chart.L+chart.W()*static_cast<float>(t/echoes.horizon); });
     const auto stem = [&](double x, double height, double treble, IColor ink, float offset) {
       const float px = std::clamp(chart.L+chart.W()*static_cast<float>(x)+offset,chart.L+2.f,chart.R-2.f);
       g.DrawLine(ink.WithOpacity(.5f),px,chart.B,px,amplitudeY(height),nullptr,4.f);
@@ -148,7 +149,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     g.DrawLine(border,chart.L,chart.B,chart.R,chart.B);
     if(echoes.horizon<1.) text.SetFormatted(32,"%.0f ms",echoes.horizon*1000.);
     else text.SetFormatted(32,"%.1f s",echoes.horizon);
-    PlotFooter(g,plot,duck<.999 ? "Tick: ducked | -60 to +12 dB" : "Thin line: above 5 kHz | -60 to +12 dB",text.Get());
+    PlotFooter(g,plot,duck<.999 ? "Tick: ducked | -60 to +12 dB" : "Thin line: above 5 kHz | -60 to +12 dB",marks ? "" : text.Get());
     return true;
   }
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
@@ -170,6 +171,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       // Each window is captured, then played backwards during the next one:
       // what you hear lags what you play by one to two windows.
       PlotDetail(g,plot,"Top: input | below: plays reversed one window later");
+      const int marks=PlotTimeMarks(g,plot,[&](double t) { return plot.L+plot.W()*static_cast<float>(t/(4.*period)); });
       const char* names[]{"A","B","C","D"};
       const float width = plot.W() / 4.f, top = plot.T + 6.f, mid = plot.MH(), bottom = plot.B - 6.f;
       for (int i = 0; i < 4; ++i)
@@ -189,13 +191,14 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       }
       text.SetFormatted(64,"%.0f ms",4.*period*1000.);
       WDL_String note; note.Set("Upper: input | lower: reversed output");
-      PlotFooter(g,plot,note.Get(),text.Get());
+      PlotFooter(g,plot,note.Get(),marks ? "" : text.Get());
       return true;
     }
     // Stutter replays one slice for four windows before grabbing a new one.
     const int windows = freeze ? 3 : 4;
     PlotDetail(g,plot,freeze ? "Dry stays full; Fade in/out shape the held layer; traces show seam blend" : value(uStutterHold) >= .5 ? "Held slice | Gate + dry blend" : "Gate + dry blend | new slice every 4");
     PlotGrid(g,plot);
+    const int marks=PlotTimeMarks(g,plot,[&](double t) { return plot.L+plot.W()*static_cast<float>(t/(windows*period)); });
     curve([&](double x) {
       const double phase = std::fmod(x * windows, 1.);
       const double envelope = std::clamp(std::min(phase / std::max(.001, overlap), (duty - phase) / std::max(.001, overlap)), 0., 1.);
@@ -221,7 +224,7 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     WDL_String note;
     if(freeze) note.Set("Dry + held | seam blend");
     else note.Set("0 - 100% gain");
-    PlotFooter(g,plot,note.Get(),text.Get());
+    PlotFooter(g,plot,note.Get(),marks ? "" : text.Get());
     return true;
   }
   if (effect == SlotEffect::Octaver)

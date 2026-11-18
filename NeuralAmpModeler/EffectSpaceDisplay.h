@@ -28,6 +28,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+14.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
+  const int responseMarks=measured.valid ? PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); }) : 0;
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
   {
@@ -50,7 +51,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   if(measured.seconds<1.) text.SetFormatted(32,"%.0f ms",measured.seconds*1000.);
   else text.SetFormatted(32,"%.1f s",measured.seconds);
   g.DrawText(Text(11.f,muted),"Measured impulse | 0 to -48 dB",IRECT(plot.L,response.B+1.f,plot.R-75.f,response.B+14.f));
-  if(measured.valid)
+  if(measured.valid && !responseMarks)
     g.DrawText(Text(11.f,muted,EAlign::Far),text.Get(),IRECT(plot.R-75.f,response.B+1.f,plot.R,response.B+14.f));
 
   // Restore the original network sketch underneath the measured response. Its
@@ -58,6 +59,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   const double longest=*std::max_element(plan.seconds.begin(),plan.seconds.begin()+plan.count);
   const double horizon=effect_preview::TimeHorizon(longest*1.03), density=value(uCosmicDensity)*.01;
   const double motion=(500./48000.)*std::pow(value(uCosmicMotion)*.01,2.);
+  const int lineMarks=PlotTimeMarks(g,lines,[&](double t) { return lines.L+lines.W()*static_cast<float>(t/horizon); });
   g.DrawLine(border,lines.L,lines.B,lines.R,lines.B);
   for(int i=0;i<plan.count;++i)
   {
@@ -77,7 +79,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   }
   // Colours identify network groups; they are not direct left/right output taps.
   text.SetFormatted(32,"%.0f ms",horizon*1000.);
-  PlotFooter(g,plot,"Network sketch | colours = line groups",text.Get());
+  PlotFooter(g,plot,"Network sketch | colours = line groups",lineMarks ? "" : text.Get());
 }
 
 template<class Value>
@@ -113,6 +115,8 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const auto timeX=[&](double t) {
     return field.L+field.W()*static_cast<float>(std::log1p(std::max(0.,t)/.025)/std::log1p(horizon/.025));
   };
+  // Native tanks show relative time, so only the timed reverbs get marks.
+  const int marks=native ? 0 : PlotTimeMarks(g,field,timeX);
   const double earlySpan=native ? .04*size : .055*size*(effect==SlotEffect::HallReverb ? 2. : 1.);
   const double lateStart=std::min(horizon*.45,onset+earlySpan*.7);
   const double tailScale=native ? .2+.8*sustain : 1.;
@@ -195,7 +199,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   else if(shimmer) text.Set("Decay + pitch layers | log time");
   else text.SetFormatted(80,"Low %.1f s | high %.1f s",lowDecay,highDecay);
   WDL_String end;
-  if(!native) end.SetFormatted(32,"%.1f s (log)",horizon);
+  if(!native) { if(marks) end.Set("log time"); else end.SetFormatted(32,"%.1f s (log)",horizon); }
   else end.Set("Relative");
   PlotFooter(g,plot,text.Get(),end.Get());
 }

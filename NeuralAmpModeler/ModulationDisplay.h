@@ -27,7 +27,8 @@ bool DrawModulationSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, ICo
   };
   const auto timeLabel = [&](double seconds, const char* scale = "Modulation over time") {
     WDL_String text; text.SetFormatted(32, seconds < .1 ? "%.1f ms" : "%.1f s", seconds < .1 ? seconds * 1000. : seconds);
-    PlotFooter(g,plot,scale,text.Get());
+    const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.L + plot.W() * static_cast<float>(t / seconds); });
+    PlotFooter(g,plot,scale,marks ? "" : text.Get());
   };
   WDL_String text;
   grid();

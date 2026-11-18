@@ -91,6 +91,13 @@ chart's axis, including partial-width and linear-frequency plots. The note names
 the nearest equal-tempered pitch at A4 = 440 Hz. Move outside the chart to clear
 the readout. Hovering leaves knob values and saved rigs unchanged.
 
+Time-based displays, such as delay repeats, reverb decays, modulation and
+slice patterns, mark 100, 200 and 400 ms and 1, 2, 4 and 8 s with faint dotted
+lines. Only marks that fit the chart's time span are drawn, and marks too close
+together are skipped. Reverb decays use a logarithmic time axis, and the LoFi
+Tape and tuner histories count back from now. Hover over these charts for the
+exact time at the pointer, in the same way as frequency charts.
+
 Compressor and limiter gain-reduction displays use a 0–16 dB scale, giving typical
 2–4 dB compression more room while allowing heavier reduction. Outboard Channel
 and Butter Comp histories mark 2, 4, 8 and 12 dB. The numeric GR readout continues

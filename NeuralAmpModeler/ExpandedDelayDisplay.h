@@ -60,6 +60,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const double width = .01 * value(uEchoWidth);
       PlotGrid(g, area);
       PlotGrid(g, returns);
+      PlotTimeMarks(g, area, [&](double t) { return pattern_view::X(area, t / (ms * .001)); });
       for (int i = 1; i <= 4; ++i)
       {
         const auto x = pattern_view::X(area, .25 * i);
@@ -94,6 +95,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const int playing = std::popcount(spaceHeads[mode]);
       const double spring = .01 * value(uEchoSpring);
       PlotGrid(g, plot);
+      const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.L + (plot.W() - 2.f) * static_cast<float>(t / horizon); });
       if (spring > 0.)
         PlotCurve(g, plot, [&](double x) {
           const double t = x * horizon;
@@ -139,10 +141,9 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         title.SetFormatted(90, "%s  |  Runaway: repeats build until the tape saturates", name);
       else
         title.SetFormatted(90, "%s  |  Tape motion up to %.0f ct", name, pitchBound);
-      if (heads.GetLength())
-        footer.SetFormatted(96, "Heads at %s ms  |  0–%.0f ms", heads.Get(), horizon * 1000.);
-      else
-        footer.SetFormatted(96, "Spring decay sketch  |  0–%.0f ms", horizon * 1000.);
+      // The badges place the heads and the marks give the scale; spell the span out only without marks.
+      if (!heads.GetLength()) footer.Set("Spring decay sketch");
+      if (!marks) footer.AppendFormatted(32, "%s0–%.0f ms", footer.GetLength() ? "  |  " : "", horizon * 1000.);
       PlotDetail(g,plot,"Badges mark the three tape heads at one, two and three thirds of Time: head 1 teal, head 2 cyan, head 3 blue, hollow when silent. Each stem has the colour of the head that plays it, so a head's own repeats can land where another head sits. Purple sketches the spring decay. Tape speed changes the motion rate; earlier heads move less.");
       break;
     }
@@ -156,6 +157,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
         return plot.B - plot.H() * static_cast<float>(std::clamp((Decibels(amplitude) + 60.) / 72., 0., 1.));
       };
       PlotGrid(g, plot);
+      const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.L + plot.W() * static_cast<float>(t / horizon); });
       for (int i = 0; i < train.count; ++i)
       {
         const auto& repeat = train.repeats[i];
@@ -168,7 +170,8 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const double cents = effect_preview::SweepCents(.01 * value(uDelayMotion) * (mode == 0 ? .00035 : .0024), hz);
       title.SetFormatted(90, "%s  |  %.0f ms: %.1f kHz bandwidth%s", name, ms, train.cutoff * .001,
                          train.cutoff >= tone ? " (High cut)" : "");
-      footer.SetFormatted(96, "Thin line: above 2 kHz  |  Motion %.2f Hz, up to %.0f ct  |  0–%.1f s", hz, cents, horizon);
+      footer.SetFormatted(96, "Thin line: above 2 kHz  |  Motion %.2f Hz, up to %.0f ct", hz, cents);
+      if (!marks) footer.AppendFormatted(24, "  |  0–%.1f s", horizon);
       PlotDetail(g,plot,"Stems show the repeats on a -60 to +12 dB scale. The thin line inside each stem is the share above 2 kHz: longer Times lower the bandwidth, and every repeat loses more treble. Companding and saturation are left out.");
       break;
     }
@@ -229,6 +232,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       else
       {
         PlotGrid(g, plot);
+        PlotTimeMarks(g, plot, [&](double t) { return plot.L + plot.W() * static_cast<float>(t * effectRate / 2.); });
         const double floor = mode == 3 ? -1. : 0.;
         const auto wave = [&](double x) { return std::sin(4. * grid_fx::pi * x); };
         PlotCurve(g, plot, [&](double x) { return mode == 3 ? 1. - depth + depth * wave(x) : 1. - depth * (.5 + .5 * wave(x)); },
@@ -253,6 +257,7 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
       const auto x = [&](double seconds) { return plot.L + plot.W() * static_cast<float>(std::clamp(seconds / horizon, 0., 1.)); };
       const float top = plot.T + 6.f, base = plot.B - 2.f;
       PlotGrid(g, plot);
+      const int marks = PlotTimeMarks(g, plot, [&](double t) { return plot.L + plot.W() * static_cast<float>(t / horizon); });
       g.FillRect(muted.WithOpacity(.22f), IRECT(x(0.), top + .35f * (base - top), x(.2), base));
       g.DrawText(Text(10.f, muted, EAlign::Near), "note", IRECT(x(0.) + 3.f, top + .35f * (base - top) - 14.f, x(.2) + 40.f, top + .35f * (base - top)));
       for (int pass = 3; pass >= 1; --pass)
@@ -270,8 +275,9 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
                            picture.firstPass == 1 ? "" : "s", picture.first * 1000., picture.last * 1000.);
       else
         title.SetFormatted(90, "%s  |  No fragment of a 200 ms note within %.1f s", name, horizon);
-      footer.SetFormatted(96, "New grain every %.0f ms  |  %.0f ms long, 2 overlap  |  %+.0f st per pass  |  0–%.1f s",
-                          picture.hop * 1000., picture.length * 1000., interval, horizon);
+      footer.SetFormatted(96, "New grain every %.0f ms  |  %.0f ms long, 2 overlap  |  %+.0f st per pass",
+                          picture.hop * 1000., picture.length * 1000., interval);
+      if (!marks) footer.AppendFormatted(24, "  |  0–%.1f s", horizon);
       PlotDetail(g,plot,"Grey is a 200 ms note. Cyan bumps are the fragments of it that come back, following the module's grain schedule, scatter and direction; fainter bumps are later feedback passes, which shift pitch again. Amber marks fragments a Glitch latch repeats.");
       break;
     }

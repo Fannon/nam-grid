@@ -2,6 +2,7 @@
 #define IDR_ACCELERATOR1                40000
 #define IDD_DIALOG_MAIN                 40001
 #define IDD_DIALOG_PREF                 40002
+#define IDI_ICON1                       40003
 #define IDR_MENU1                       40004
 #define ID_ABOUT                        40005
 #define ID_PREFERENCES                  40006

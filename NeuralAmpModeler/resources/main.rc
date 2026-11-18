@@ -47,6 +47,9 @@ END
 ROBOTO_FN TTF ROBOTO_FN
 
 #ifdef APP_API
+// The first icon is the app icon (scripts/make-app-icon.py renders it from docs/public/logo.svg).
+IDI_ICON1 ICON "nam-grid.ico"
+
 IDD_DIALOG_PREF DIALOG 0, 0, 223, 309
 STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Audio Settings"
@@ -99,9 +102,19 @@ IDR_MENU1 MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "&Audio Settings...	Ctrl+,",  ID_PREFERENCES
+        MENUITEM "&Audio Settings...\tCtrl+,",  ID_PREFERENCES
         MENUITEM SEPARATOR
         MENUITEM "&Quit",                       ID_QUIT
+    END
+    // Release builds remove the second menu, as in iPlug2's own templates.
+    POPUP "&Debug"
+    BEGIN
+        MENUITEM "&Live Edit Mode\tCtrl+E",     ID_LIVE_EDIT
+        MENUITEM "&Show Control Bounds\tCtrl+B", ID_SHOW_BOUNDS
+        MENUITEM "&Show Drawn Area\tCtrl+D",    ID_SHOW_DRAWN
+        MENUITEM "&Show FPS\tCtrl+F",           ID_SHOW_FPS
+        MENUITEM SEPARATOR
+        MENUITEM "&Save Screenshot\tCtrl+Shift+S", ID_SCREENSHOT
     END
     POPUP "&Help"
     BEGIN

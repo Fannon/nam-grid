@@ -214,6 +214,8 @@ artifact; it is not part of the plugin release archive.
   library and `settings.json` are shared with the plugins.
 - `nam-grid.exe --no-io` starts without audio, and `--screenshot <file.png>`
   saves the editor and exits.
+- The app icon, `NeuralAmpModeler/resources/nam-grid.ico`, is rendered from
+  `docs/public/logo.svg`; run `python scripts/make-app-icon.py` after changing the logo.
 
 The ASIO host files come with RtAudio from the Steinberg ASIO SDK and fall under
 its license; check it before distributing the app. The macOS standalone target

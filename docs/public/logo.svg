@@ -2,7 +2,7 @@
   <title>NAM Grid</title>
   <!-- The grid's four rows (Pre, lanes A and B, Post) as a rig in module category colours; grey
        cells are empty slots. The plugin header draws the same pattern (grid_ui::Logo in
-       NAMGridControls.h); keep both in step. -->
+       NAMGridControls.h); keep both in step, and run scripts/make-app-icon.py for the app icon. -->
   <g>
     <rect x="2" y="2" width="13" height="13" rx="3" fill="#EEA45A"/>
     <rect x="18" y="2" width="13" height="13" rx="3" fill="#6DAEFF"/>

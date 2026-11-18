@@ -498,3 +498,27 @@ index e6712a4c1..de91d08bb 100644
    
    friend class IPlugAPP;
  };
+diff --git a/IPlug/APP/IPlugAPP_main.cpp b/IPlug/APP/IPlugAPP_main.cpp
+index ca035176a..15c9b75c9 100644
+--- a/IPlug/APP/IPlugAPP_main.cpp
++++ b/IPlug/APP/IPlugAPP_main.cpp
+@@ -200,6 +200,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
+ 
+     CreateDialog(gHINSTANCE, MAKEINTRESOURCE(IDD_DIALOG_MAIN), GetDesktopWindow(), IPlugAPPHost::MainDlgProc);
+ 
++#ifdef IDI_ICON1
++    // Dialogs have no class icon; give the window the app icon for its title bar and the taskbar.
++    if (gHWND)
++    {
++      auto loadIcon = [](int metricX, int metricY) {
++        return (LPARAM) LoadImage(gHINSTANCE, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON,
++                                  GetSystemMetrics(metricX), GetSystemMetrics(metricY), 0);
++      };
++      SendMessage(gHWND, WM_SETICON, ICON_BIG, loadIcon(SM_CXICON, SM_CYICON));
++      SendMessage(gHWND, WM_SETICON, ICON_SMALL, loadIcon(SM_CXSMICON, SM_CYSMICON));
++    }
++#endif
++
+ #if !defined _DEBUG || defined NO_IGRAPHICS
+     HMENU menu = GetMenu(gHWND);
+     RemoveMenu(menu, 1, MF_BYPOSITION);

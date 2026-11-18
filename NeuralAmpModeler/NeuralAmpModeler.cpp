@@ -28,6 +28,10 @@
 #include "RigPreset.h"
 #include "RigPresetControls.h"
 #include "UserPaths.h"
+#if defined(APP_API) && defined(OS_WIN)
+  #include "resource.h" // ID_PREFERENCES: the standalone host's audio settings command
+extern HWND gHWND; // the standalone app's main window (iPlug2 IPlugAPP_main.cpp)
+#endif
 
 using namespace iplug;
 using namespace igraphics;
@@ -280,6 +284,13 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
         caller->GetUI()->GetControlWithTag(kCtrlTagSettingsBox)->Hide(false);
       },
       "Settings", grid_ui::Icon::Settings, true))->SetTooltip("Settings: library folders, scanning, visualizations and preset switching.");
+#if defined(APP_API) && defined(OS_WIN)
+    // Posted, so the host's modal dialog opens after this click has been handled.
+    ui->AttachControl(new grid_ui::Button(header(audioLeft, audioRight), [](IControl*) {
+      PostMessage(gHWND, WM_COMMAND, ID_PREFERENCES, 0);
+    }, "Audio", grid_ui::Icon::Audio, true))->SetTooltip(
+      "Audio settings (Ctrl+,): driver (ASIO or DirectSound), device, sample rate, buffer size and input/output channels.");
+#endif
     ui->AttachControl(new grid_ui::Toggle(header(tunerLeft, tunerRight), kTunerActive, "Tuner", true, grid_ui::Icon::Tuner), kCtrlTagTunerButton)
       ->SetTooltip("Show the tuner in place of the module editor; click again or select a slot to leave it. "
                    "Automatable; mutes the output while on unless Mute output is off.");

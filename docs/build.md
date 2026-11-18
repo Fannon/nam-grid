@@ -201,7 +201,8 @@ uses iPlug2's standalone host with RtAudio, so it plays through ASIO or DirectSo
 without a DAW. Pull-request CI uploads it as the `standalone-app-windows-x64`
 artifact; it is not part of the plugin release archive.
 
-- **File > Audio Settings** (Ctrl+,) chooses the driver, device, sample rate and
+- The speaker button left of **Settings** in the editor header (or Ctrl+,) opens the
+  audio settings; the app has no menu bar. They choose the driver, device, sample rate and
   buffer size. ASIO uses one device for input and output; **Driver Panel...** opens
   the driver's own control panel while audio runs.
 - **Input L** and **Input R** default to device input 1 on both sides, so a guitar

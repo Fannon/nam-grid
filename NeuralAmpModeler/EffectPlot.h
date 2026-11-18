@@ -231,13 +231,19 @@ int ForEachTimeMark(const IRECT& p, X& x, Visit&& visit)
 {
   constexpr double marks[]{.1, .2, .4, 1., 2., 4., 8.};
   constexpr float spacing = 44.f;
-  float previous = static_cast<float>(x(0.));
+  const float origin = static_cast<float>(x(0.));
+  float previous = origin;
   int count = 0;
   for (const double seconds : marks)
   {
     const float at = static_cast<float>(x(seconds));
-    // Centred labels need half their width inside the chart.
-    if (at > p.R - .5f * kTimeLabelWidth || at < p.L + .5f * kTimeLabelWidth) break;
+    // Centred labels need half their width inside the chart. Near time zero a mark is
+    // skipped, since later ones may still fit; past the far edge the rest cannot.
+    if (at > p.R - .5f * kTimeLabelWidth || at < p.L + .5f * kTimeLabelWidth)
+    {
+      if (std::abs(at - origin) > .5f * p.W()) break;
+      continue;
+    }
     if (std::abs(at - previous) < spacing) continue;
     visit(seconds, at);
     previous = at;

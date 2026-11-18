@@ -80,6 +80,6 @@ Move every partial by the same number of hertz for metallic, shifting, and conti
 | **Spread** | 0–100% | 0% | Carrier phase difference between channels; widens the shifted texture. |
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
 
-**Display:** How each pass through the feedback moves the partials.
+**Display:** How each pass through the feedback moves the partials. The columns cover only the passes that remain audible, so low Feedback spreads fewer passes across the chart.
 
 At 100% Feedback the repeats nearly sustain but always fade, so a long delay builds a wall of shifting echoes and then dies away instead of ringing forever. Repeats also lose the lowest frequencies, which keeps repeated downward shifts from piling up into a low drone or a DC offset; the first, directly shifted pass keeps its low end.

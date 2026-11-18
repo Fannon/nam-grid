@@ -2459,11 +2459,12 @@ private:
       caption.SetFormatted(64, "Dynamic EQ | cut %.1f dB", mReductionNow);
       PlotTitle(g, plot, color, caption.Get());
       PlotDetail(g, plot, "Faint: cut at full Range | bright: live cut");
-      WDL_String scale; scale.SetFormatted(32, "Curve %.0f / 0 dB", low);
+      // 3 dB of headroom keeps the resting 0 dB curve off the top border.
+      WDL_String scale; scale.SetFormatted(32, "Curve %.0f / +3 dB", low);
       PlotFrequencyAxis(g, plot, upper, scale.Get());
       DrawSignalSpectrum(g, plot);
-      PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 0., color.WithOpacity(.35f), 1.f);
-      PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 0., color);
+      PlotCurve(g, plot, bell(value(uDynamicEQRange)), low, 3., color.WithOpacity(.35f), 1.f);
+      PlotCurve(g, plot, bell(mReductionNow / std::max(.01, mix)), low, 3., color);
     }
     else if (effect == SlotEffect::Multiband)
       DrawMultiband(g, plot, color);
@@ -2701,6 +2702,7 @@ private:
       const float riseEnd = sketch.L + sketch.W() * static_cast<float>(rise / total);
       const float holdEnd = std::max(riseEnd + 2.f, sketch.L + sketch.W() * static_cast<float>((rise + hold) / total));
       PlotGrid(g, sketch);
+      PlotTimeMarks(g, sketch, [&](double t) { return sketch.L + sketch.W() * static_cast<float>(t * 1000. / total); });
       g.FillRect(color.WithOpacity(.14f), IRECT(riseEnd, sketch.T, holdEnd, sketch.B));
       PlotCurve(g, sketch, [&](double x) {
         const double t = x * total;

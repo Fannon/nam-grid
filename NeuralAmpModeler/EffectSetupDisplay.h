@@ -287,28 +287,41 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     constexpr int passes = 8;
     const double cascadeUpper = std::max(1200., 880. + passes * std::abs(shift));
     PlotDetail(g,plot,"Columns are successive feedback passes; height is frequency and brightness is level. Colour shifts up, amber shifts down; each pass follows Delay and High cut."); PlotGrid(g,plot);
-    const auto columnX = [&](int pass) { return (pass + .5) / (passes + 1.); };
+    // Trace every pass first, then lay the columns out for the passes that are audible,
+    // so low Feedback does not leave most of the chart empty.
+    struct Step { int pass, sign; double from, to, amplitude; };
+    std::array<Step, 4 * 2 * passes> steps{};
+    int count = 0, shown = 1;
     for (int partial = 1; partial <= 4; ++partial)
-    {
-      const double dryHz = 220. * partial;
-      line(columnX(0) - .03, dryHz / cascadeUpper, columnX(0) + .03, dryHz / cascadeUpper, muted.WithOpacity(static_cast<float>(.3 + .7 * (1. - mix))), 2.f);
       for (int sign : {1, -1})
       {
         const double weight = std::abs(shift) < 1.e-6 ? (sign > 0 ? 1. : 0.) : .5 * (1. + sign * side);
-        double hz = dryHz, amplitude = mix;
+        double hz = 220. * partial, amplitude = mix;
         for (int pass = 1; pass <= passes && weight > 0.; ++pass)
         {
           const double next = std::abs(hz + sign * shift);
           amplitude *= weight * effect_preview::LowPass(next, value(uShiftTone), rate, 1, .45) * (pass > 1 ? feedback : 1.);
           if (amplitude < .01 || next > cascadeUpper) break;
-          line(columnX(pass - 1), hz / cascadeUpper, columnX(pass), next / cascadeUpper,
-               (sign > 0 ? color : ampColor).WithOpacity(static_cast<float>(std::min(1., .15 + amplitude))), 1.f);
+          steps[count++] = {pass, sign, hz, next, amplitude};
+          shown = std::max(shown, pass);
           hz = next;
         }
       }
+    const auto columnX = [&](int pass) { return (pass + .5) / (shown + 1.); };
+    for (int partial = 1; partial <= 4; ++partial)
+    {
+      const double dryHz = 220. * partial;
+      line(columnX(0) - .03, dryHz / cascadeUpper, columnX(0) + .03, dryHz / cascadeUpper, muted.WithOpacity(static_cast<float>(.3 + .7 * (1. - mix))), 2.f);
+    }
+    for (int i = 0; i < count; ++i)
+    {
+      const auto& step = steps[i];
+      line(columnX(step.pass - 1), step.from / cascadeUpper, columnX(step.pass), step.to / cascadeUpper,
+           (step.sign > 0 ? color : ampColor).WithOpacity(static_cast<float>(std::min(1., .15 + step.amplitude))), 1.f);
     }
     text.SetFormatted(32,"0 - %.1fk Hz",cascadeUpper/1000.);
-    PlotFooter(g,plot,"Passes 0-8 | up colour, down amber",text.Get()); return true;
+    WDL_String legend; legend.SetFormatted(48,"Passes 0-%d | up colour, down amber",shown);
+    PlotFooter(g,plot,legend.Get(),text.Get()); return true;
   }
   return false;
 }

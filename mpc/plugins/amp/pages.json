@@ -23,7 +23,7 @@
         ],
         [
           "Gate Type",
-          "Gate Knob 1",
+          "Comp On",
           "Pedal Type",
           "Cab On"
         ]
@@ -41,7 +41,11 @@
       "empty": {"param": "Gate Type", "choice": 0, "title": "Gate is off", "text": "Choose a gate in Setup."}
     },
     {
-      "name": "PEDAL",
+      "name": "COMP",
+      "section": "Comp"
+    },
+    {
+      "name": "DRIVE",
       "section": "Pedal"
     },
     {

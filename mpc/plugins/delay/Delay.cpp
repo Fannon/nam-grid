@@ -23,7 +23,7 @@ inline const mpc_grid::PluginSpec& DelaySpec()
        {"feedback-fx-delay", "Feedback FX", SlotEffect::FeedbackFXDelay},
        {"pattern-delay", "Pattern", SlotEffect::PatternDelay},
        {"granular-delay", "Granular", SlotEffect::GranularDelay}},
-      1, false, true, "Type", false, {U(uTempoSync), U(uDelayPingPong), U(uDelayTimeChange), U(uTapeHeads),
+      1, false, true, "Model", false, {U(uTempoSync), U(uDelayPingPong), U(uDelayTimeChange), U(uTapeHeads),
         U(uDigitalDelayVoice), U(uSpaceHeads), U(uBBDVoice), U(uPitchDelayMode), U(uFeedbackFX), U(uPatternFeedback),
         U(uGrainDelayMode), U(uEchoRateSync), U(uEchoInterval), U(uTapTime1), U(uTapTime2), U(uTapTime3), U(uTapTime4),
         U(uTapLevel1), U(uTapLevel2), U(uTapLevel3), U(uTapLevel4), U(uTapPan1), U(uTapPan2), U(uTapPan3), U(uTapPan4)}, 7}},

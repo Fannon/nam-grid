@@ -7,13 +7,13 @@ Six plugins bring NAM Grid to standalone Akai MPCs. Their names start with **NG*
 | Plugin | What it does |
 | --- | --- |
 | **NG Pedals** | One pedal (Clean Boost, Tube Boost and every Pedal Drive and Pedal Distortion voice) with optional compression. |
-| **NG Amp** | Gate → Pedal Comp or Pedal Drive → NAM capture → cabinet IR. Only the capture starts enabled. |
+| **NG Amp** | Gate → Pedal Comp → Pedal Drive → NAM capture → cabinet IR. Only the capture starts enabled. |
 | **NG Delay** | Digital, Analog, Tape, Multi-Head, Diffused, Reverse, Dual, Space Tape Echo, Bucket Brigade, Pitch Delay, Feedback FX, Pattern and Granular. |
 | **NG Cosmic** | Cosmic Echo's ambient echoes and reverbs, one style at a time. |
 | **NG Lo-Fi** | LoFi Tape Machine, Airwindows Tape and Bitcrusher. |
 | **NG Mod** | Juno Chorus, Uni-Vibe, Rotary and Harmonic Tremolo. |
 
-A full guitar rig uses a track's four insert slots: **Pedals â†’ Amp â†’ Delay â†’ Cosmic Echo**. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi and Mod suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
+A guitar rig with compression and drive fits in three inserts: **NG Amp → NG Delay → NG Cosmic**. The fourth slot can add modulation, a second pedal or another effect. Each plugin is also useful alone, for example Cosmic Echo on a synth track. Lo-Fi and Mod suit any track, return or submix. They are separate from the desktop plugin; desktop `.ngrid` rigs do not load in them.
 
 They run on the 64-bit MPCs (MPC One G2, MPC Live III, MPC XL and later). The 32-bit MPCs do not list them: their CPUs are too slow for NAM captures.
 
@@ -62,9 +62,10 @@ The Amp's Low cut at its minimum and High cut at its maximum show **Off**, becau
 
 ### NG Amp
 
-- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File, **Quality**, which switches slimmable (A2) captures between Lite (the default on the MPC) and Full, and **Normalize**, which levels every capture to âˆ’18 dB from its loudness metadata so captures can be compared at the same volume (on by default); **RIG** chooses the gate and pedal, holds the gate’s main control and switches the cabinet on.
+- **AMP** (the first page): **LEVELS** has Input, Output, Low cut and High cut; **TONE** has Bass, Mid and Treble; **CAPTURE** has Folder, File, **Quality**, which switches slimmable (A2) captures between Lite (the default on the MPC) and Full, and **Normalize**, which levels every capture to −18 dB from its loudness metadata so captures can be compared at the same volume (on by default); **RIG** chooses the gate and drive and switches the compressor and cabinet on or off.
 - **GATE:** **Off** (the default), **Noise Gate**, **Smart Gate** or **AI Gate**, with the chosen gate's controls: the gate itself in the first column, its final gate and Mix in the second. For Smart Gate, mute the strings, switch **Learn** on for one to three seconds, then off. The learned noise is saved with the project and kept while you try another gate.
-- **PEDAL** selects Off, Pedal Comp or a Pedal Drive voice. This single stage follows the gate and feeds the capture. Older projects load with the pedal off.
+- **COMP** follows the gate and starts off. Its first Q-Link bank has Level, Sustain, Attack and Blend. For clean boost, set Sustain to zero and raise Level. Body / Pick and Pickup shape the detector when compressing.
+- **DRIVE** selects Off or a Pedal Drive voice. It follows COMP, so both can feed the capture together.
 - **CAB:** the cabinet IR, off by default because many captures include a cabinet. **LEVELS** has Input, Output and the cuts, as on the AMP page; **MIX** has Mix, Pre-delay and **Length** (Cabinet or Long IR); **IR** has Cab On, Folder and File.
 - **LIBRARY:** full file names, folders, loading/error status and normalization availability. A file may be ready while its cabinet section is switched off.
 
@@ -81,34 +82,34 @@ Open **MODES** for tape head combinations, BBD voices, pitch, feedback and grain
 
 ### NG Cosmic
 
-**Style** chooses the space. Styles share the knob settings, so you can compare them directly.
+**Style** chooses the space. Styles share the knob settings, so you can compare them directly. Programs load complete desktop Cosmic Echo recipes. Try Velvet tracking room, Solstice afterglow and Flooded nave for the chamber, hall and cathedral.
 
 ### NG Lo-Fi and Mod
 
 **Type** chooses the module; each starts from its own starting settings, and returns to your last settings when you come back to it. The options hold each module's switches: Juno Chorus **Mode**, Uni-Vibe **Vibrato mode** and **Tempo sync** for Uni-Vibe and Harmonic Tremolo (following the MPC's tempo).
 
-Each plugin has built-in programs; your own presets are saved with the MPC's preset menu. The [module guide](modules/README.md) describes every control: [Noise Gate (AI)](modules/gate.md#noise-gate-ai), [Noise Gate (Smart)](modules/noise-gate-smart.md), [Pedal Comp](modules/dynamics.md#pedal-comp), [Pedal Drive](modules/pedal-drive.md), [Pedal Distortion](modules/distortion.md#pedal-distortion), [Delay](modules/delay.md), [Cosmic Echo](modules/cosmic-echo.md), [LoFi Tape Machine](modules/lofi-tape.md), [Modulation](modules/modulation.md), [Airwindows Tape](modules/distortion.md#airwindows-tape) and [Bitcrusher](modules/distortion.md#bitcrusher). Values and ranges are the same as on the desktop.
+NG Amp keeps the chosen capture when you edit the rig. The other plugins have built-in programs. Save your own presets with the MPC's preset menu. The [module guide](modules/README.md) describes every control: [Noise Gate (AI)](modules/gate.md#noise-gate-ai), [Noise Gate (Smart)](modules/noise-gate-smart.md), [Pedal Comp](modules/dynamics.md#pedal-comp), [Pedal Drive](modules/pedal-drive.md), [Pedal Distortion](modules/distortion.md#pedal-distortion), [Delay](modules/delay.md), [Cosmic Echo](modules/cosmic-echo.md), [LoFi Tape Machine](modules/lofi-tape.md), [Modulation](modules/modulation.md), [Airwindows Tape](modules/distortion.md#airwindows-tape) and [Bitcrusher](modules/distortion.md#bitcrusher). Values and ranges are the same as on the desktop.
 
 ## CPU
 
 NAM captures use the most CPU. Watch the MPC's CPU meter while you build a rig:
 
 - One capture per track is the safe start. Captures start at Lite quality; Full and larger capture sizes use more.
-- NG Amp works in mono, like the capture: it sums a stereo input, so its gate, pedal and cabinet run once rather than per channel, and sends the result to both sides.
+- NG Amp works in mono, like the capture: it sums a stereo input, so its gate, comp, drive and cabinet run once rather than per channel, and sends the result to both sides.
 - Captures recorded at 48 kHz are converted to the MPC's 44.1 kHz, which costs some CPU and adds a fraction of a millisecond of delay.
 - Pedal Drive, Pedal Distortion and Cosmic Echo cost more than the gates, delays, Lo-Fi and Mod modules.
 - A section that is off uses almost no CPU once its fade has finished.
 
 ## Known limits
 
-- The desktop's parallel lanes, modulation, scenes, tuner, displays, module presets and library browser are not available.
+- The desktop's parallel lanes, modulation, scenes, tuner, displays, user module preset files and library browser are not available.
 - Bypassed delays and reverbs stop at once; trails are off.
 - The plugins have had little testing on MPC hardware so far. Report problems with the MPC model and OS version.
 
 For performance reports, include the MPC model, OS version, audio buffer size, the exact
 plugin chain, capture name and Lite/Full setting, gate type, cabinet setting, and whether
 the input was silent or playing. Compare NG Amp alone with the complete
-Pedals â†’ Amp â†’ Delay â†’ Cosmic chain, then compare Lite and Full at the same settings.
+Pedals → Amp → Delay → Cosmic chain, then compare Lite and Full at the same settings.
 Record the MPC's CPU reading and any audible dropouts. Emulated CPU readings do not
 predict how many instances the MPC can run.
 

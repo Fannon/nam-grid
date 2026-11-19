@@ -26,6 +26,7 @@
 #include "mpc_plugin.h"
 
 #include "MPCLayout.h"
+#include "ModuleFactoryPresets.h"
 #include "MPCLibrary.h"
 #include "SlotControlMap.h"
 #include "SlotOperations.h"
@@ -61,12 +62,14 @@ struct SectionSpec
   bool dcBlock = false; // A 5 Hz DC blocker after the section (NAM captures can have a DC offset).
   std::vector<int> optionOrder; // Permanent host option assignments. Append; never infer from menu popularity.
   int legacyTypes = 0; // Keep the original Type parameter alongside an expanded Model selector.
+  bool cleanBoostAtZeroSustain = false; // Amp Comp keeps Level active with no compression at zero.
 };
 struct ProgramSpec
 {
   const char* name;
   std::vector<int> choices; // Per section.
   std::vector<int> on;      // Per section: 1 on, 0 off, -1 the section's default.
+  std::vector<const module_presets::Preset*> recipes; // Optional factory recipe per section.
 };
 struct PluginSpec
 {
@@ -262,7 +265,7 @@ public:
     switch (role.role)
     {
       case Role::Type:
-        if (section.legacyTypeParam >= 0 && index == section.typeParam) return "Model";
+        if (index == section.legacyTypeParam) return "Type";
         return section.spec->typeName ? section.spec->typeName : section.spec->name;
       case Role::On: return std::string(section.spec->name) + " On";
       case Role::Folder: return choice.files == FileKind::None ? "" : "Folder";
@@ -378,6 +381,13 @@ public:
       if (mNormalizeParam >= 0 && getBool(mNormalizeParam) && Current(section).effect == SlotEffect::NAM)
         if (const double loudness = section.loudness.load(); std::isfinite(loudness))
           c.trimDB += kNormalizedLoudness - loudness;
+      if (section.spec->cleanBoostAtZeroSustain)
+      {
+        // Fade in the wet blend over the first percent of Sustain. Level follows
+        // the blend in Pedal Comp, so the zero endpoint is a clean level pedal.
+        auto& comp = c.utility.pedalComp;
+        comp[3] *= std::clamp(comp[0], 0., 1.);
+      }
       c.utility.tempo = tempo;
       c.utility.constantDry = false;
       c.utility.trails = false;
@@ -857,7 +867,9 @@ private:
         const auto& section = mSections[s];
         const int choiceIndex = s < program.choices.size() ? program.choices[s] : section.spec->defaultChoice;
         const auto& choice = section.spec->choices[choiceIndex];
-        const auto defaults = ChoiceDefaults(choice);
+        auto defaults = ChoiceDefaults(choice);
+        if (s < program.recipes.size() && program.recipes[s])
+          for (const auto& control : program.recipes[s]->values) defaults[control.control] = control.value;
         const auto layout = MakeLayout(choice, defaults, false, &section.optionOrder);
         if (section.legacyTypeParam >= 0)
           values[section.legacyTypeParam] = static_cast<float>(choiceIndex < section.spec->legacyTypes ? choiceIndex : section.spec->defaultChoice);
@@ -1268,7 +1280,7 @@ inline VstIntPtr Dispatcher(AEffect* e, VstInt32 opcode, VstInt32 index, VstIntP
     }
   }
   // The expanded selector follows the original automated knobs in host order. Apply a
-  // program as one snapshot so its knobs are interpreted for the selected delay.
+  // program as one snapshot so its knobs are interpreted for the selected module or style.
   if (plugin && opcode == effSetProgram && value >= 0 && static_cast<size_t>(value) < plugin->Spec().programs.size()
       && plugin->Spec().sections.front().legacyTypes)
   {

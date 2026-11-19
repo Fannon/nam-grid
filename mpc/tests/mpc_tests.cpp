@@ -431,6 +431,36 @@ void TestLibraryDetails(const std::string& library)
 }
 
 // ----- NAM Grid Amp --------------------------------------------------------------------
+// Compare the zero-Sustain stage with a clean input gain ahead of the nonlinear drive.
+void TestAmpCleanBoost()
+{
+  const auto render = [](bool comp, double sustain, double inputGain) {
+    Instance amp(mpc_plugins::AmpSpec());
+    amp.Choose("pedal_type", "Screamer");
+    amp.Set("comp_on", comp ? 1.f : 0.f);
+    amp.Set("comp_k1", static_cast<float>(ToNormalized(U(uPedalCompLevel), 6.)));
+    amp.Set("comp_k2", static_cast<float>(ToNormalized(U(uPedalCompSustain), sustain)));
+    amp.Set("comp_k4", 1.f);
+    CHECK(WaitFor([&] { return amp.Display("amp_file") == "a1"; }));
+    Settle();
+    std::vector<float> left(44100), right(left.size());
+    for (size_t i = 0; i < left.size(); ++i)
+      left[i] = right[i] = static_cast<float>(inputGain * (.25 + .2 * std::cos(.0007*i)) * std::sin(.05*i));
+    amp.Process(left, right);
+    return left;
+  };
+  const auto louderInput = render(false, 0., std::pow(10., .3));
+  const auto boost = render(true, 0., 1.);
+  const auto compressed = render(true, 90., 1.);
+  double boostError = 0., compressionDifference = 0.;
+  for (size_t i = 22050; i < boost.size(); ++i)
+  {
+    boostError = std::max(boostError, std::abs(double(boost[i]) - louderInput[i]));
+    compressionDifference = std::max(compressionDifference, std::abs(double(boost[i]) - compressed[i]));
+  }
+  CHECK(boostError < 1.e-4 && compressionDifference > 1.e-3);
+}
+
 void TestAmpGates()
 {
   Instance a(mpc_plugins::AmpSpec());
@@ -514,11 +544,15 @@ void TestAmpLibrary(const std::string& library)
   // Captures: A/a1, A/a2, B/b1 (user), then riffsmith-clean (factory). IRs: cab, Room/room.
   Instance a(mpc_plugins::AmpSpec());
   CHECK(a.Display("pedal_type") == "Off" && a.Display("gate_type") == "Off" && a.Get("cab_on") == 0.f);
+  CHECK(a.Get("comp_on") == 0.f);
+  CHECK(a.Name("comp_k1") == "Level" && a.Name("comp_k2") == "Sustain");
+  CHECK(a.Name("comp_k3") == "Attack" && a.Name("comp_k4") == "Blend");
+  a.Set("comp_on", 1.f);
   a.Choose("pedal_type", "Screamer");
   Instance restored(mpc_plugins::AmpSpec());
   CHECK(restored.Load(a.Chunk()) && restored.Display("pedal_type") == "Screamer");
-  a.Choose("pedal_type", "Pedal Comp");
-  CHECK(!a.Name("pedal_o1").empty());
+  CHECK(restored.Get("comp_on") == 1.f);
+  a.Set("comp_on", 0.f);
   a.Choose("pedal_type", "Off");
   CHECK(a.Name("amp_folder") == "Folder" && a.Name("amp_file") == "Capture");
   CHECK(a.Display("amp_folder") == "A" && a.Display("amp_file") == "a1");
@@ -817,14 +851,24 @@ void TestDelay()
 void TestCosmicEcho()
 {
   Instance a(mpc_plugins::CosmicEchoSpec());
-  CHECK(a.Name("echo_type") == "Style" && a.Display("echo_type") == "Aurora Hall");
+  CHECK(a.Name("echo_model") == "Style" && a.Display("echo_type") == "Aurora Hall");
   CHECK(a.Name("echo_k7") == "Mix" && a.Display("echo_k7") == "20.0 %");
   a.Choose("echo_type", "Gemini");
   CHECK(a.Display("echo_k7") == "20.0 %"); // Styles share the settings.
   CHECK(Extra(a.Chunk())["sections"]["echo"]["values"]["Cosmic Style"].get<double>() == 0.);
   char name[64]{};
   CHECK(a.Call(effGetProgramNameIndexed, 0, 0, name) == 1 && std::string(name) == "Aurora Hall");
-  CHECK(a.e->numPrograms == effect_modes::cosmicCount);
+  CHECK(a.e->numPrograms == 1 + static_cast<int>(module_presets::For(SlotEffect::CosmicEcho).size()));
+  int program = 1;
+  for (const auto& recipe : module_presets::For(SlotEffect::CosmicEcho))
+  {
+    a.Call(effSetProgram, 0, program++);
+    const auto values = Extra(a.Chunk())["sections"]["echo"]["values"];
+    for (const auto& control : recipe.values)
+      CHECK(std::abs(values.at(ControlKey(control.control)).get<double>() - control.value) < .01);
+  }
+  a.Choose("echo_model", "Sunken Cathedral");
+  CHECK(a.Display("echo_model") == "Sunken Cathedral");
 }
 // Lo-Fi and Mod: one section with a Type menu each.
 void TestTypePlugin(const PluginSpec& spec, const std::string& section, const std::vector<std::string>& firstKnobs)
@@ -899,6 +943,7 @@ int main(int argc, char** argv)
 #endif
   TestLayouts();
   TestCompatibility(argc >= 3 ? argv[2] : "mpc/tests/fixtures");
+  TestAmpCleanBoost();
   TestAmpGates();
   TestAmpParameterState();
   TestAmpLibrary(library);

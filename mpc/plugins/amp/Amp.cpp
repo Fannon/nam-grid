@@ -1,4 +1,4 @@
-// NAM Grid Amp for MPC (shown as NG Amp): Gate -> Pedal -> NAM capture -> cabinet IR.
+// NAM Grid Amp for MPC (shown as NG Amp): Gate -> Comp -> Pedal Drive -> NAM capture -> cabinet IR.
 // The gate is Off (default), the standard Noise Gate, Noise Gate (Smart) or Noise Gate (AI); a Smart
 // Gate's learned profile is kept when another gate is tried in between. Captures and IRs
 // come from <drive>/NAM Grid/Captures and /IRs, chosen by Folder and File.
@@ -10,7 +10,7 @@ inline const mpc_grid::PluginSpec& AmpSpec()
 {
   using namespace mpc_grid;
   static const PluginSpec spec = [] {
-    std::vector<Choice> pedals{{"off", "Off", SlotEffect::NAM}, {"pedal-comp", "Pedal Comp", SlotEffect::PedalComp}};
+    std::vector<Choice> pedals{{"off", "Off", SlotEffect::NAM}};
     for (int i = 0; i < effect_modes::pedalCount; ++i)
       pedals.push_back({"pedal-drive", effect_modes::pedalNames[i], SlotEffect::PedalDrive,
                         FileKind::None, U(uPedalStyle), i});
@@ -38,11 +38,15 @@ inline const mpc_grid::PluginSpec& AmpSpec()
          {{"cabinet-ir", "Cabinet IR", SlotEffect::CabinetIR, FileKind::IR, -1, 0,
            {U(uIRInput), parameter_layout::kSlotIRLevel, U(uIRLowCut), U(uIRHighCut), U(uIRMix), U(uIRPredelay)}}},
          0, true, false, nullptr, false, {U(uIRLength)}},
-        {"pedal", "Pedal", std::move(pedals), 0, false, true, "Pedal", false, {U(uPedalCompPickup)}},
+        {"pedal", "Pedal", std::move(pedals), 0, false, true, "Drive"},
+        {"comp", "Comp",
+         {{"pedal-comp", "Pedal Comp", SlotEffect::PedalComp, FileKind::None, -1, 0,
+           {U(uPedalCompLevel), U(uPedalCompSustain), U(uPedalCompAttack), U(uPedalCompBlend), U(uPedalCompFocus)}}},
+         0, true, false, nullptr, false, {U(uPedalCompPickup)}, 0, true},
       },
       {}, // Programs would replace the chosen capture; the MPC's own presets keep it.
       true, // Mono: NAM captures are mono, so the gate and cabinet run once, not per channel.
-      {0, 3, 1, 2}, // Gate, pedal, capture, cabinet.
+      {0, 4, 3, 1, 2}, // Gate, comp, drive, capture, cabinet.
       3, // Gate, Amp, Cab and library display parameters keep their host indices.
     };
   }();

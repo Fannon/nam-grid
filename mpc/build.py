@@ -340,7 +340,8 @@ def section_columns(section, names, show_output):
     Each column is a Q-Link group."""
     knobs = ["%s Knob %d" % (section, k) for k in range(1, 9)]
     second = knobs[4:]
-    setup = [n for n in ("%s Type" % section, "%s On" % section, "%s Folder" % section, "%s File" % section) if n in names]
+    selector = section + (" Model" if section + " Model" in names else " Type")
+    setup = [n for n in (selector, "%s On" % section, "%s Folder" % section, "%s File" % section) if n in names]
     options = ["%s Opt %d" % (section, o) for o in range(1, 5) if "%s Opt %d" % (section, o) in names]
     output = ["Output"] if show_output else []
     # The plugin-wide Output joins Mix in the second knob column when a knob place is free.
@@ -354,8 +355,8 @@ def section_columns(section, names, show_output):
         raise SystemExit("ERROR: the %s page has no room for %s" % (section, rest))
     columns = [knobs[:4], second, setup, rest]
     # The first heading names the module, voice or style the section is playing.
-    first = "@%s Type" % section if "%s Type" % section in names else section.upper()
-    third = "SETUP" if "%s Type" % section in names else "FILE" if "%s Folder" % section in names else "OPTIONS"
+    first = "@" + selector if selector in names else section.upper()
+    third = "SETUP" if selector in names else "FILE" if "%s Folder" % section in names else "OPTIONS"
     headings = [first, "", third, "OPTIONS" if any(" Opt " in n for n in rest) else "OUTPUT"]
     return columns, headings
 

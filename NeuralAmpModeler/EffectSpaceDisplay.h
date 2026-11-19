@@ -5,7 +5,7 @@
 namespace grid_ui
 {
 // Cosmic Echo's measured wet response to one impulse (ImpulseProbe), on a dB scale
-// over a fixed time window, above the base delay-line sketch. Separate spikes are
+// over a 2 or 10 second window, above the base delay-line sketch. Separate spikes are
 // distinct echoes; Warp spreads them, Density and Feedback blur them into a smooth
 // wash. Until the current measurement arrives, the previous one is shown dimmed.
 template<class Value>
@@ -39,7 +39,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+7.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
-  const int responseMarks=measured.valid ? PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); }) : 0;
+  if(measured.valid) PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); });
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
   {
@@ -47,7 +47,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
     for(const float peak : measured.peak) loudest=std::max(loudest,peak);
     const auto y=[&](float peak) {
       const double db=20.*std::log10(std::max(1.e-9,static_cast<double>(peak/std::max(loudest,1.e-9f))));
-      return response.B-response.H()*static_cast<float>(std::clamp((db+48.)/48.,0.,1.));
+      return response.B-response.H()*static_cast<float>(std::clamp(1.-db/ImpulseProbe::floorDb,0.,1.));
     };
     const float width=response.W()/ImpulseProbe::bins, opacity=current ? 1.f : .35f;
     for(int i=0;i<ImpulseProbe::bins;++i)
@@ -59,10 +59,12 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   }
   if(!current)
     g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(response.L,response.T,response.R,response.T+20));
-  if(measured.seconds<1.) text.SetFormatted(32,"%.0f ms",measured.seconds*1000.);
-  else text.SetFormatted(32,"%.1f s",measured.seconds);
-  if(measured.valid && !responseMarks)
-    g.DrawText(Text(11.f,muted,EAlign::Far),text.Get(),IRECT(response.R-80.f,response.T+2.f,response.R-4.f,response.T+15.f));
+  if(measured.valid)
+  {
+    text.SetFormatted(16,"%.0f s",measured.seconds);
+    const float top=response.B+grid_layout::timeLabelGap;
+    DrawTimeLabel(g,IRECT(response.R-kTimeLabelWidth,top,response.R,top+grid_layout::timeLabelHeight),text.Get());
+  }
 
   // Restore the original network sketch underneath the measured response. Its
   // shorter time axis shows base line lengths, not every repeat in the wet tail.

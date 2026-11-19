@@ -372,24 +372,26 @@ inline const Preset space[]{
 // character of the author's own The Beauty / Dark Pleiades presets. Pleiades
 // is not implemented here; these are independent Gemini/Aurora recipes.
 inline const Preset cosmic[]{
-  {"Compact Gemini room", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 80.}, {U(uCosmicWarp), 65.}, {U(uCosmicFeedback), 38.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 7500.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 14.}}},
   {"Velvet tracking room", {{U(uCosmicStyle), 10.}, {U(uCosmicTime), 100.}, {U(uCosmicWarp), 60.}, {U(uCosmicFeedback), 70.}, {U(uCosmicDensity), 85.}, {U(uCosmicTone), 6200.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 17.}}},
+  {"Tile room", {{U(uCosmicStyle), 10.}, {U(uCosmicTime), 45.}, {U(uCosmicWarp), 83.}, {U(uCosmicFeedback), 30.}, {U(uCosmicDensity), 75.}, {U(uCosmicTone), 11000.}, {U(uCosmicMotion), 0.}, {U(uCosmicMix), 18.}}},
   {"Solstice afterglow", {{U(uCosmicStyle), 11.}, {U(uCosmicTime), 145.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 76.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 7800.}, {U(uCosmicMotion), 23.}, {U(uCosmicMix), 22.}}},
-  {"Across the mooncourt", {{U(uCosmicStyle), 12.}, {U(uCosmicTime), 200.}, {U(uCosmicWarp), 70.}, {U(uCosmicFeedback), 78.}, {U(uCosmicDensity), 80.}, {U(uCosmicTone), 6500.}, {U(uCosmicMotion), 18.}, {U(uCosmicMix), 20.}}},
+  {"Flooded nave", {{U(uCosmicStyle), 12.}, {U(uCosmicTime), 309.}, {U(uCosmicWarp), 86.}, {U(uCosmicFeedback), 65.3}, {U(uCosmicDensity), 67.5}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 16.9}, {U(uCosmicMix), 39.4}}},
+  {"Distant stone", {{U(uCosmicStyle), 12.}, {U(uCosmicTime), 580.}, {U(uCosmicWarp), 85.}, {U(uCosmicFeedback), 20.}, {U(uCosmicDensity), 68.}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 0.}, {U(uCosmicMix), 19.}}},
+  {"Compact Gemini room", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 80.}, {U(uCosmicWarp), 65.}, {U(uCosmicFeedback), 38.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 7500.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 14.}}},
   {"Photon lead plate", {{U(uCosmicStyle), 9.}, {U(uCosmicTime), 100.}, {U(uCosmicWarp), 70.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 10.}, {U(uCosmicMix), 18.}}},
-  {"Soft ambient bed", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 80.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 15.}, {U(uCosmicMix), 22.}}},
+  // Imported verbatim from the author's Aurora Hall Medium user preset.
+  {"Aurora Hall Medium", {{U(uCosmicStyle), 6.0}, {U(uCosmicTime), 223.79993441233353}, {U(uCosmicWarp), 92.53975891179422}, {U(uCosmicFeedback), 53.12700236474072}, {U(uCosmicDensity), 50.26504676358348}, {U(uCosmicTone), 5820.088880230463}, {U(uCosmicMotion), 16.963387498747824}, {U(uCosmicMix), 18.899712527662025}}},
   {"Clustered echoes", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 15.}, {U(uCosmicDensity), 10.}, {U(uCosmicTone), 6500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 20.}}},
   {"Pointillist echoes", {{U(uCosmicStyle), 2.}, {U(uCosmicTime), 280.}, {U(uCosmicWarp), 12.}, {U(uCosmicFeedback), 48.}, {U(uCosmicDensity), 20.}, {U(uCosmicTone), 4500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 24.}}},
   {"Clear distant repeats", {{U(uCosmicStyle), 5.}, {U(uCosmicTime), 600.}, {U(uCosmicWarp), 0.}, {U(uCosmicFeedback), 45.}, {U(uCosmicDensity), 0.}, {U(uCosmicTone), 7000.}, {U(uCosmicMotion), 0.}, {U(uCosmicMix), 22.}}},
   {"Stereo echo groups", {{U(uCosmicStyle), 7.}, {U(uCosmicTime), 500.}, {U(uCosmicWarp), 0.}, {U(uCosmicDensity), 15.}, {U(uCosmicTone), 6500.}, {U(uCosmicMotion), 5.}, {U(uCosmicMix), 25.}}},
+  {"Diffusing echo trail", {{U(uCosmicStyle), 4.}, {U(uCosmicTime), 250.}, {U(uCosmicWarp), 35.}, {U(uCosmicFeedback), 35.}, {U(uCosmicDensity), 60.}, {U(uCosmicTone), 6000.}, {U(uCosmicMotion), 10.}, {U(uCosmicMix), 22.}}},
+  {"Soft ambient bed", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 80.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 15.}, {U(uCosmicMix), 22.}}},
   {"Enveloping swells", {{U(uCosmicStyle), 3.}, {U(uCosmicTime), 450.}, {U(uCosmicWarp), 72.}, {U(uCosmicFeedback), 72.}, {U(uCosmicDensity), 95.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
   {"Slow swell", {{U(uCosmicStyle), 1.}, {U(uCosmicTime), 400.}, {U(uCosmicMix), 25.}}},
-  {"Diffusing echo trail", {{U(uCosmicStyle), 4.}, {U(uCosmicTime), 250.}, {U(uCosmicWarp), 35.}, {U(uCosmicFeedback), 35.}, {U(uCosmicDensity), 60.}, {U(uCosmicTone), 6000.}, {U(uCosmicMotion), 10.}, {U(uCosmicMix), 22.}}},
+  {"Chord bloom", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 700.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 90.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
   {"Velvet constellation", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 950.}, {U(uCosmicWarp), 82.}, {U(uCosmicFeedback), 77.}, {U(uCosmicDensity), 98.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 45.}, {U(uCosmicMix), 35.}}},
   {"Dark orbit", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 500.}, {U(uCosmicWarp), 78.}, {U(uCosmicFeedback), 91.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 2800.}, {U(uCosmicMotion), 50.}, {U(uCosmicMix), 32.}}},
-  {"Chord bloom", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 700.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 90.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
-  // Imported verbatim from the author's Aurora Hall Medium user preset.
-  {"Aurora Hall Medium", {{U(uCosmicStyle), 6.0}, {U(uCosmicTime), 223.79993441233353}, {U(uCosmicWarp), 92.53975891179422}, {U(uCosmicFeedback), 53.12700236474072}, {U(uCosmicDensity), 50.26504676358348}, {U(uCosmicTone), 5820.088880230463}, {U(uCosmicMotion), 16.963387498747824}, {U(uCosmicMix), 18.899712527662025}}},
 };
 
 inline const Preset chorus[]{

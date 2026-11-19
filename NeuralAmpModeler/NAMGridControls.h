@@ -2598,7 +2598,6 @@ private:
       c.cosmicStyle=static_cast<int>(value(uCosmicStyle));
       c.cosmic={value(uCosmicTime),value(uCosmicWarp),value(uCosmicFeedback),value(uCosmicDensity),value(uCosmicTone),
                 value(uCosmicMotion),100.}; // Wet only: the dry attack would hide the response.
-      request.seconds=effect_preview::CosmicProbeSeconds(c.cosmic[0]);
       request.key=ImpulseProbe::Key(request.effect,{c.cosmic[0],c.cosmic[1],c.cosmic[2],c.cosmic[3],c.cosmic[4],c.cosmic[5],
                                                     static_cast<double>(c.cosmicStyle)});
       auto& probe=PLUG()->GetImpulseProbe();

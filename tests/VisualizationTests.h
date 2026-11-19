@@ -99,20 +99,47 @@ void TestMeasuredVisualizations()
     request.effect = SlotEffect::CosmicEcho;
     request.controls.cosmicStyle = static_cast<int>(effect_modes::CosmicStyle::Centaurus);
     request.controls.cosmic = {120., warp, 60., density, 12000., 0., 100.};
-    request.seconds = effect_preview::CosmicProbeSeconds(120.);
     const auto result = ImpulseProbe::Measure(request);
-    assert(result.valid && result.seconds == request.seconds);
+    assert(result.valid);
     const auto again = ImpulseProbe::Measure(request);
-    assert(again.peak == result.peak); // Deterministic, so a cached result stays valid.
+    assert(again.seconds == result.seconds && again.peak == result.peak); // Deterministic, so a cached result stays valid.
     const float loudest = *std::max_element(result.peak.begin(), result.peak.end());
     assert(loudest > 0.f);
     // Time bins within 20 dB of the loudest: how much of the window the response fills.
     return std::count_if(result.peak.begin(), result.peak.end(), [&](float peak) { return peak > .1f * loudest; });
   };
-  assert(filled(0., 0.) < 10 && filled(0., 100.) < 10);
-  assert(filled(50., 0.) > 4 * filled(0., 0.));
-  assert(filled(50., 100.) > 2 * filled(50., 0.));
+  // Compare the fraction of the displayed width filled above -20 dB.
+  // The aligned echoes occupy little of the graph on either time scale.
+  const auto sparse = filled(0., 0.);
+  const auto spread = filled(50., 0.);
+  assert(sparse < ImpulseProbe::bins/12 && filled(0., 100.) < ImpulseProbe::bins/12);
+  assert(spread > 4*sparse);
+  assert(filled(50., 100.) > spread + ImpulseProbe::bins/10);
   assert(ImpulseProbe::Key(SlotEffect::CosmicEcho, {1., 2.}) != ImpulseProbe::Key(SlotEffect::CosmicEcho, {2., 1.}));
+
+  // At the same Time, a sustaining cathedral needs the long view while a
+  // short decay leaves the attack visible at the default resolution.
+  ImpulseProbe::Request cathedral;
+  cathedral.effect = SlotEffect::CosmicEcho;
+  cathedral.controls.cosmicStyle = static_cast<int>(effect_modes::CosmicStyle::Mooncourt);
+  cathedral.controls.cosmic = {309., 86., 65.3, 67.5, 9000., 16.9, 100.};
+  const auto longTail = ImpulseProbe::Measure(cathedral);
+  assert(longTail.valid && longTail.seconds == 10.);
+  const float peak = *std::max_element(longTail.peak.begin(), longTail.peak.end());
+  assert(*std::max_element(longTail.peak.begin() + ImpulseProbe::bins/5, longTail.peak.end()) > .004f*peak);
+  cathedral.controls.cosmic[2] = 5.;
+  const auto shortTail = ImpulseProbe::Measure(cathedral);
+  assert(shortTail.valid && shortTail.seconds == 2.);
+
+  // A silent first two seconds can hide a single distant repeat.
+  ImpulseProbe::Request echo;
+  echo.effect = SlotEffect::CosmicEcho;
+  echo.controls.cosmicStyle = static_cast<int>(effect_modes::CosmicStyle::Virgo);
+  echo.controls.cosmic = {3000., 0., 0., 0., 9000., 0., 100.};
+  const auto delayed = ImpulseProbe::Measure(echo);
+  assert(delayed.valid && delayed.seconds == 10.);
+  const auto loudest = std::max_element(delayed.peak.begin(), delayed.peak.end());
+  assert(*loudest > 0.f && std::abs(std::distance(delayed.peak.begin(), loudest) - 72) <= 1);
 
   // Gain is the RMS change; a clipped sine has a lower crest factor than a clean one.
   const auto compare = [](double gain, double clip) {

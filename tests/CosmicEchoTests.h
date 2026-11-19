@@ -46,7 +46,8 @@ void TestCosmicSpaceArrivals()
   {
     const auto left = render(style, 600., 75.);
     int onset = 0;
-    while (std::abs(left[onset])<1.e-6) ++onset;
+    while (onset<24000 && std::abs(left[onset])<1.e-6) ++onset;
+    assert(onset<24000);
     // Normalized echo density: the share of samples above the local RMS, relative to Gaussian noise.
     constexpr int window = 960;
     int dense = -1;

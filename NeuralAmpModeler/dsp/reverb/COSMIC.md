@@ -107,9 +107,9 @@ Density maps the input coefficient to 0.35–0.75 and the two tank coefficients 
 
 Tests cover all modes' automation, block independence, allocations, dry signal, timing, extremes, style clearing and stationary spectra at four rates. Additional checks verify this plate has meaningful energy before 20 ms at its 100 ms recipe and that maximum-density/maximum-Time histories cannot return after bypass. Musical plate character still requires listening; early density alone is not a perceptual quality score.
 
-## Velvet Chamber, Solstice Hall and Mooncourt
+## Velvet Chamber, Solstice Hall and Sunken Cathedral
 
-These original NAM Grid voicings share a tapped stereo reflection pair, three serial stereo input allpasses and an eight-line feedback delay network. The first two lines provide a near reflection, an opposite-channel side reflection and a far wall. Reflections and diffused excitation reach the output in different proportions. Velvet Chamber has short walls and a strong diffused return. Solstice Hall attenuates both early returns and uses the longest tank. Mooncourt has the latest walls, the longest diffusers and twice the decay time at a given Feedback.
+These original NAM Grid voicings share a tapped stereo reflection pair, three serial stereo input allpasses and an eight-line feedback delay network. The first two lines provide a near reflection, an opposite-channel side reflection and a far wall. Reflections and diffused excitation reach the output in different proportions. Velvet Chamber has short walls and a strong diffused return. Solstice Hall attenuates both early returns and uses the longest tank. Sunken Cathedral has the latest walls, the longest diffusers and a doubled decay scale to sustain its shorter tank lines.
 
 Time sets the size of these spaces. The walls and the decay follow the square root of Time, normalized to 100 ms. The diffusers and tail lines follow its 0.35 power, so long settings keep a dense tail instead of separating into echoes. Tail loop gain is raised to the ratio of the two scales, divided by each space's decay scale, so decay grows with the wall scale even though the lines grow more slowly.
 

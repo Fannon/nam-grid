@@ -61,10 +61,6 @@ inline double TimeHorizon(double seconds)
   for(double step : {1.,2.,5.,10.}) if(step*decade>=seconds) return step*decade;
   return 10.*decade;
 }
-// Window of Cosmic Echo's measured impulse: about four delay-line times, so several
-// passes through the network show how they blur, on the same stable 1/2/5 steps.
-inline double CosmicProbeSeconds(double timeMs)
-{ return TimeHorizon(std::clamp(timeMs * .004, .25, 10.)); }
 inline int DigitalVoice(SlotEffect effect, const UtilityControls& c)
 { return effect == SlotEffect::DigitalDelay ? std::clamp(static_cast<int>(c.DelayOption(uDigitalDelayVoice)), 0, 2) : 0; }
 inline Echoes Delay(SlotEffect effect, const UtilityControls& c, double rate)

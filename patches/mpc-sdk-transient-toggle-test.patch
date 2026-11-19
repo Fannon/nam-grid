@@ -1,0 +1,35 @@
+--- a/tools/host-sim/host_sim.cpp
++++ b/tools/host-sim/host_sim.cpp
+@@ -1077,2 +1077,3 @@
+ {
++    std::string transientToggle; // Named action that must be Off after loading state.
+     double seconds = 2.0;
+@@ -1239,2 +1240,3 @@
+             std::vector<uint8_t> saved((const uint8_t*)chunkPtr, (const uint8_t*)chunkPtr + n);
++            std::vector<bool> transient((size_t)numParams);
+             std::vector<float> savedVals((size_t)numParams);
+@@ -1242,2 +1244,4 @@
+             for (int i = 0; i < numParams; ++i) { savedVals[(size_t)i] = getParam(e, i); savedText[(size_t)i] = getStr(e, effGetParamDisplay, i); }
++            for (int i = 0; i < numParams; ++i)
++                transient[(size_t)i] = !opt.transientToggle.empty() && getStr(e, effGetParamName, i) == opt.transientToggle;
+             rep.info("state chunk is %ld bytes", (long)n);
+@@ -1255,2 +1259,11 @@
+                 float now = getParam(e, i);
++                if (transient[(size_t)i])
++                {
++                    if (now != 0.0f || getStr(e, effGetParamDisplay, i) != "Off" || getStr(e, effGetParamName, i) != opt.transientToggle)
++                    {
++                        ++bad;
++                        rep.fail("transient toggle %s did not restore to Off", opt.transientToggle.c_str());
++                    }
++                    continue;
++                }
+                 if (std::fabs(now - savedVals[(size_t)i]) <= 1e-4f) continue;
+@@ -1396,2 +1409,3 @@
+         "      --playing       report the transport as playing\n"
++        "      --transient-toggle NAME  require this toggle to reset to Off on state recall\n"
+         "      --seed N        seed for the random parameter tests (default 1234)\n"
+@@ -1427,2 +1441,3 @@
+         else if (a == "--wav") opt.wav = next("--wav");
++        else if (a == "--transient-toggle") opt.transientToggle = next("--transient-toggle");
+         else if (a == "--seed") opt.seed = (unsigned)std::strtoul(next("--seed"), nullptr, 10);

@@ -25,7 +25,8 @@ struct PreparedSlot
 };
 
 // Control thread only. Prepare every affected resource before changing any slot.
-inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
+// `preloaded` replaces loading config.path for a NAM slot (the MPC build reads files itself).
+inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block, std::unique_ptr<nam::DSP> preloaded = {})
 {
   if (!IsValidSlotEffect(config.effect))
     throw std::runtime_error("Invalid slot effect");
@@ -33,7 +34,7 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
   p->effect = config.effect;
   if (!config.path.empty() && config.effect == SlotEffect::NAM)
   {
-    auto model = nam::get_dsp(std::filesystem::u8path(config.path));
+    auto model = preloaded ? std::move(preloaded) : nam::get_dsp(std::filesystem::u8path(config.path));
     if (model->NumInputChannels() != 1 || model->NumOutputChannels() != 1)
       throw std::runtime_error("NAM slots require a mono input and output model");
     p->model = std::make_unique<ResamplingNAM>(std::move(model), rate);

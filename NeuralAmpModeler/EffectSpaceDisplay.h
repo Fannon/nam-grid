@@ -5,7 +5,7 @@
 namespace grid_ui
 {
 // Cosmic Echo's measured wet response to one impulse (ImpulseProbe), on a dB scale
-// over a fixed time window, above the base delay-line sketch. Separate spikes are
+// over a 2 or 10 second window, above the base delay-line sketch. Separate spikes are
 // distinct echoes; Warp spreads them, Density and Feedback blur them into a smooth
 // wash. Until the current measurement arrives, the previous one is shown dimmed.
 template<class Value>
@@ -34,11 +34,12 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   if (style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate)) text.Set("Eight input-diffuser lines (blue) feed two cross-coupled tank halves (orange). Each half contains two allpasses and two main delays. Seven output taps per channel observe the tank; markers show full line lengths.");
   else if (style==static_cast<int>(effect_modes::CosmicStyle::Pulsar)) text.Set("Four stereo echo stages (blue) and their short diffusers (orange). The full pattern passes through all stages; feedback crosses stereo channels at the end. Markers show individual line lengths.");
   else if (style==static_cast<int>(effect_modes::CosmicStyle::Nebula)) text.Set("Eight long-tank lines (blue) and eight short-tank lines (orange). Density scatters energy and couples the tanks. Markers show line lengths, not a measured decay time.");
+  else if (grid_cosmic::IsReflectionSpace(style)) text.Set("Blue marks the stereo reflection pair and six input diffusers. Orange marks the eight recirculating tail delays. The first reflections are tapped partway along the blue pair.");
   else if (modern) text.Set("Eight main delays and eight short diffusers at their base times. Blue marks main loops; orange marks diffusers. Density adds scattering and diffusion; halos show Modulation.");
   else text.SetFormatted(320,"%d delay lines at their base times. Connections show Density; halos show Modulation. Colours identify network groups; coincident lines share a mark.",plan.count);
   PlotRegionDetail(g,IRECT(plot.L,response.B+7.f,plot.R,grid_layout::plotFooterBottom),text.Get());
   PlotGrid(g,response);
-  const int responseMarks=measured.valid ? PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); }) : 0;
+  if(measured.valid) PlotTimeMarks(g,response,[&](double t) { return response.L+response.W()*static_cast<float>(t/measured.seconds); });
   g.DrawLine(border,response.L,response.B,response.R,response.B);
   if(measured.valid)
   {
@@ -46,7 +47,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
     for(const float peak : measured.peak) loudest=std::max(loudest,peak);
     const auto y=[&](float peak) {
       const double db=20.*std::log10(std::max(1.e-9,static_cast<double>(peak/std::max(loudest,1.e-9f))));
-      return response.B-response.H()*static_cast<float>(std::clamp((db+48.)/48.,0.,1.));
+      return response.B-response.H()*static_cast<float>(std::clamp(1.-db/ImpulseProbe::floorDb,0.,1.));
     };
     const float width=response.W()/ImpulseProbe::bins, opacity=current ? 1.f : .35f;
     for(int i=0;i<ImpulseProbe::bins;++i)
@@ -58,10 +59,12 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
   }
   if(!current)
     g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(response.L,response.T,response.R,response.T+20));
-  if(measured.seconds<1.) text.SetFormatted(32,"%.0f ms",measured.seconds*1000.);
-  else text.SetFormatted(32,"%.1f s",measured.seconds);
-  if(measured.valid && !responseMarks)
-    g.DrawText(Text(11.f,muted,EAlign::Far),text.Get(),IRECT(response.R-80.f,response.T+2.f,response.R-4.f,response.T+15.f));
+  if(measured.valid)
+  {
+    text.SetFormatted(16,"%.0f s",measured.seconds);
+    const float top=response.B+grid_layout::timeLabelGap;
+    DrawTimeLabel(g,IRECT(response.R-kTimeLabelWidth,top,response.R,top+grid_layout::timeLabelHeight),text.Get());
+  }
 
   // Restore the original network sketch underneath the measured response. Its
   // shorter time axis shows base line lengths, not every repeat in the wet tail.
@@ -77,7 +80,7 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
     const auto ink=group ? ampColor : delayColor;
     const double lineMotion=modern ? std::min(motion,.01*std::max(0.,plan.seconds[i]-1./rate)) : motion;
     const float spread=std::clamp(static_cast<float>(lines.W()*lineMotion/horizon),0.f,12.f);
-    if(spread>0.) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
+    if(spread>0. && !(grid_cosmic::IsReflectionSpace(style) && i<2)) g.FillRect(ink.WithOpacity(.12f),IRECT(std::max(lines.L,x-spread),lines.B-height,std::min(lines.R,x+spread),lines.B));
     g.DrawLine(ink,x,lines.B,x,lines.B-height,nullptr,2.f);
     if(i && density>.01)
     {

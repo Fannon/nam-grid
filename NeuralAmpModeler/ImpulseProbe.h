@@ -21,11 +21,12 @@ class ImpulseProbe
 public:
   static constexpr int bins = 240;
   static constexpr double rate = 24000.; // Effects scale with the rate; half the work of 48 kHz.
+  static constexpr int shortSeconds = 2, longSeconds = 10;
+  static constexpr int floorDb = -48; // Lower edge of the response plot.
   struct Request
   {
     SlotEffect effect = SlotEffect::NAM;
     UtilityControls controls;
-    double seconds = 1.;
     uint64_t key = 0;
   };
   struct Result
@@ -67,7 +68,6 @@ public:
   static Result Measure(const Request& request, const std::atomic<bool>* abort = nullptr)
   {
     Result result;
-    result.seconds = request.seconds;
     result.key = request.key;
     constexpr int block = 256;
     SlotConfig config;
@@ -77,7 +77,13 @@ public:
     NAMStage stage;
     stage.Publish(std::move(prepared.dsp));
     stage.ResetStopped(rate, block);
-    const int frames = std::max(bins, static_cast<int>(request.seconds * rate));
+    // Keep the short view's resolution throughout. Later sparse echoes can
+    // follow silence, so inspect the entire long window before choosing a scale.
+    constexpr int frames = static_cast<int>(longSeconds * rate);
+    constexpr int samplesPerBin = static_cast<int>(shortSeconds * rate) / bins;
+    constexpr int binsPerLongBin = longSeconds / shortSeconds;
+    static_assert(samplesPerBin * bins * binsPerLongBin == frames);
+    std::array<float, bins * binsPerLongBin> peaks{};
     std::array<double, block> l{}, r{};
     for (int position = 0; position < frames; position += block)
     {
@@ -88,10 +94,26 @@ public:
       stage.Process(l.data(), n, true, 0., 0., {}, {}, request.controls, r.data());
       for (int i = 0; i < n; ++i)
       {
-        const int bin = std::min(bins - 1, static_cast<int>(static_cast<int64_t>(position + i) * bins / frames));
+        const int bin = (position + i) / samplesPerBin;
         const double level = std::max(std::abs(l[i]), std::abs(r[i]));
-        if (std::isfinite(level)) result.peak[bin] = std::max(result.peak[bin], static_cast<float>(level));
+        if (std::isfinite(level)) peaks[bin] = std::max(peaks[bin], static_cast<float>(level));
       }
+    }
+    const float loudest = *std::max_element(peaks.begin(), peaks.end());
+    const float late = *std::max_element(peaks.begin() + bins, peaks.end());
+    if (late > loudest * std::pow(10.f, floorDb / 20.f))
+    {
+      result.seconds = longSeconds;
+      for (int i = 0; i < bins; ++i)
+      {
+        const auto start = peaks.begin() + i * binsPerLongBin;
+        result.peak[i] = *std::max_element(start, start + binsPerLongBin);
+      }
+    }
+    else
+    {
+      result.seconds = shortSeconds;
+      std::copy_n(peaks.begin(), bins, result.peak.begin());
     }
     result.valid = true;
     return result;

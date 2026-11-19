@@ -14,11 +14,50 @@ namespace grid_cosmic
 inline double Ratio(double warp)
 { warp = std::clamp(warp, 0., 1.); return 1. - warp*warp*warp/std::sqrt(8.); }
 using Style = effect_modes::CosmicStyle;
+// Original reflection spaces. The timing ratios are fractions of Time. The first
+// stereo pair carries the wall reflections, three stereo allpasses spread the
+// excitation, and the remaining eight lines form the late field. See COSMIC.md.
+struct ReflectionSpace
+{
+  double wallTime, diffuserScale, tankScale;
+  double earlyLevel, diffusedLevel, diffusionFloor;
+  double decayScale; // Multiplies decay time at a given Feedback.
+};
+inline constexpr ReflectionSpace reflectionSpaces[]{
+  {.14, .55, .46, .32, .43, .46, 1.}, // Velvet Chamber
+  {.32, 1.3, .96, .12, .13, .36, 1.}, // Solstice Hall
+  {.55, 1.6, .75, .22, .16, .45, 2.}  // Mooncourt
+};
+inline bool IsReflectionSpace(int style)
+{
+  return style >= static_cast<int>(Style::VelvetChamber) && style <= static_cast<int>(Style::Mooncourt);
+}
+inline const ReflectionSpace& SpaceVoicing(int style)
+{
+  return reflectionSpaces[style-static_cast<int>(Style::VelvetChamber)];
+}
+// Time sets a reflection space's size. Walls and decay follow the square root of
+// Time; diffusers and tail lines grow more slowly, so long settings keep a dense
+// tail instead of separating into echoes. Both scales equal Time at 100 ms.
+inline double SpaceWallMs(double milliseconds) { return 100.*std::sqrt(std::max(milliseconds, 1.)*.01); }
+inline double SpaceLineMs(double milliseconds) { return 100.*std::pow(std::max(milliseconds, 1.)*.01, .35); }
 inline bool IsFourLine(int style) { return style == static_cast<int>(Style::Virgo) || style == static_cast<int>(Style::Lyra); }
 inline int LineCount(int style) { return IsFourLine(style) ? 4 : 16; }
 inline int Exponent(int style, int line) { return IsFourLine(style) ? 4*line : line; }
 inline double BaseSamples(double milliseconds, double warp, int style, int line, double rate)
 {
+  if (IsReflectionSpace(style))
+  {
+    const auto& space = SpaceVoicing(style);
+    constexpr double diffusers[]{.031, .043, .067, .079, .113, .127};
+    constexpr double loops[]{.37, .43, .51, .59, .67, .73, .83, .97};
+    const double w = std::clamp(warp, 0., 1.);
+    double ratio, scale = SpaceLineMs(milliseconds);
+    if (line < 2) { ratio = space.wallTime * (1. + line*(.07+.21*w)); scale = SpaceWallMs(milliseconds); }
+    else if (line < 8) ratio = space.diffuserScale * diffusers[line-2];
+    else ratio = space.tankScale * (.35*(1.-w) + (.65+.35*w)*loops[line-8]);
+    return (.001*scale*ratio + .0007)*rate;
+  }
   if (style == static_cast<int>(Style::AuroraHall))
   {
     // A little unequal spacing remains at Warp 0, allowing Density to work
@@ -144,6 +183,18 @@ public:
     if (style == static_cast<int>(Style::PhotonPlate))
       mPlateDiffusion=draining ? std::array<double,3>{}
                      : std::array<double,3>{live*(.35+.4*mDensity),-live*(.3+.4*mDensity),live*(.2+.3*mDensity)};
+    if (IsReflectionSpace(style))
+    {
+      const auto& space = SpaceVoicing(style);
+      mSpaceDiffusion = (draining ? 0. : live)*(space.diffusionFloor + (.76-space.diffusionFloor)*mDensity);
+      // Shorter tail lines recirculate more often; this keeps decay proportional to the wall
+      // scale, then lengthens it for the larger spaces.
+      mSpaceGain = std::pow(mGain, SpaceLineMs(values[0])/(SpaceWallMs(values[0])*space.decayScale));
+      // Keep some late-field scattering even when the first reflections are discrete.
+      const double scatter = grid_fx::pi*(.12+.13*mDensity);
+      mCos = std::cos(scatter);
+      mSin = std::sin(scatter);
+    }
     mLowPass = std::exp(-2.*grid_fx::pi*std::min(.45*mRate, values[4])/mRate);
     mMotion = (500./48000.)*mRate*std::pow(values[5]*.01, 2.);
     for (int i = 0; i < LineCount(style); ++i)
@@ -326,6 +377,8 @@ public:
       out[0]=.35*tap(9,.17)+.25*tap(9,.61)-.25*tap(10,.43)+.2*tap(11,.73)-.25*tap(13,.29)-.2*tap(14,.59)+.2*tap(15,.37);
       out[1]=.35*tap(13,.13)+.25*tap(13,.67)-.25*tap(14,.31)+.2*tap(15,.83)-.25*tap(9,.41)-.2*tap(10,.23)+.2*tap(11,.53);
     }
+    else if (IsReflectionSpace(mStyle))
+      out = TickReflectionSpace(input, SpaceVoicing(mStyle));
     else // Virgo: cuts inside feedback, output after the matrix.
     {
       Quad x{};
@@ -340,6 +393,39 @@ public:
     return out;
   }
 private:
+  Stereo TickReflectionSpace(const Stereo& input, const ReflectionSpace& space)
+  {
+    Stereo nearWall{}, farWall{}, side{};
+    for (int ch=0; ch<2; ++ch)
+    {
+      // Fixed observation points keep the first wall reflections pitch-stable.
+      // Filtering the source also shapes reflections that never enter the tail.
+      farWall[ch] = mLines[ch].Tick(Damp(input[ch], 8+ch), mBase[ch]);
+      nearWall[ch] = mLines[ch].ReadTap(.43*mBase[ch]);
+      side[ch] = mLines[ch].ReadTap(.73*mBase[ch]);
+    }
+    Stereo out{}, excitation{};
+    for (int ch=0; ch<2; ++ch)
+    {
+      const double walls = .62*nearWall[ch] - .34*side[1-ch] + .46*farWall[ch];
+      excitation[ch] = .72*farWall[ch] + .28*side[1-ch];
+      for (int stage=0; stage<3; ++stage)
+        excitation[ch] = Diffuse(stage, ch, 2+2*stage+ch, excitation[ch], mSpaceDiffusion);
+      out[ch] = space.earlyLevel*walls + space.diffusedLevel*excitation[ch];
+    }
+
+    std::array<double,8> field{};
+    std::copy_n(mFeedback.begin(), field.size(), field.begin());
+    RotateEight(field);
+    for (int i=0; i<8; ++i)
+    {
+      const double send = (i&2) ? -.5 : .5;
+      const double loop = mLines[8+i].Tick(send*excitation[i%2] + mSpaceGain*field[i], Delay(8+i));
+      mFeedback[i] = Damp(loop, i);
+      out[i%2] += ((i&4) ? -.5 : .5)*mFeedback[i];
+    }
+    return out;
+  }
   void RotateEight(std::array<double,8>& field) const
   {
     for (int bit=1; bit<8; bit*=2)
@@ -397,6 +483,7 @@ private:
   Stereo mDryPrevious{}, mLfoPrevious{}, mLfoValue{};
   std::array<double, 16> mFilterInput{}, mFilterHigh{}, mFilterLow{};
   double mRate=48000., mGlobalGain=0., mGain=0., mInjection=1., mAllpass=0., mFeedthrough=0., mCos=1., mSin=0.;
+  double mSpaceDiffusion=0., mSpaceGain=0.;
   double mLowPass=0., mHighPass=0., mMotion=0., mLfoA=0., mLfoB=0., mDensity=0.;
   uint32_t mPhase=0, mPhaseStep=0;
   int mStyle=0, mFinishIndex=0;

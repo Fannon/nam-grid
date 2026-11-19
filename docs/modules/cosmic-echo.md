@@ -1,8 +1,8 @@
 # Cosmic Echo
 
-Ten selectable ambient echo and reverb styles, from rhythmic repeats to vast washes. Find **Cosmic Echo** in the Reverb category.
+Choose from rhythmic repeats, compact studio spaces and long ambient washes. Find **Cosmic Echo** in the Reverb category.
 
-The first six styles are directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). Those styles are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical. **Aurora Hall**, **Pulsar Echo**, **Binary Bloom** and **Photon Plate** are original NAM Grid designs with different diffusion and feedback arrangements.
+The first six styles are directly inspired by the algorithms of [Valhalla Supermassive](https://valhalladsp.com/shop/reverb/valhalla-supermassive/), a free plugin by Valhalla DSP that is well worth trying on its own. It is adapted from David Braun's independent, MIT-licensed [Faust reconstruction](https://faustlibraries.grame.fr/libs/reverbs/#revalhallasupermassive). Those styles are six modes of that model, not every mode of the commercial plugin, and they do not claim to sound identical. The styles from **Aurora Hall** onward are original NAM Grid designs.
 
 ![Cosmic Echo editor](../screenshots/modules/cosmic-echo.png)
 
@@ -20,6 +20,9 @@ The first six styles are directly inspired by the algorithms of [Valhalla Superm
 | **Pulsar Echo** | Four-tap stereo echo groups that rotate and diffuse as Density rises |
 | **Binary Bloom** | Coupled short and long spaces for broader, slowly developing ambient tails |
 | **Photon Plate** | Faster onset and denser early reflections from a multi-tap, cross-coupled digital plate tank |
+| **Velvet Chamber** | A short, soft cluster around the pick, with a dense stereo tail |
+| **Solstice Hall** | A quieter onset and a broad, gently moving tail that leaves space for the attack |
+| **Sunken Cathedral** | The largest space: a distant first reflection, then a long, slowly blooming tail |
 
 Changing the style fades out the old tail before the new style comes in.
 
@@ -68,6 +71,10 @@ For a clearer Pulsar pattern, try **Time 600 ms, Warp 0%, Feedback 45%, Density 
 
 All three process at the host sample rate with damping inside the feedback paths. Start with Modulation low when comparing their underlying echo patterns. Raise Time and Feedback gradually for long tails. Like the other modes, changing Style fades and clears the sounding tail.
 
+## Chamber, hall and cathedral
+
+Try **Velvet tracking room**, **Solstice afterglow** and **Flooded nave** on the same phrase. Listen to the space between the pick and the first reflection, then mute the strings to hear the late decay. Time sets the size of the room: it moves the walls and lengthens the decay, while the tail stays dense even at long settings. Warp widens the spacing between the stereo reflections. Density softens their entry into the tail. For a cleaner chamber or hall, reduce Modulation to zero and open High cut. For a darker vintage sound, lower High cut and add a little Modulation.
+
 ## Factory presets
 
 Open **Presets** in the module editor to apply a complete starting point. These
@@ -75,8 +82,7 @@ recipes also restore controls omitted from the recipe to insertion defaults, so
 switching from a long wash to a short echo clears the previous sound's settings.
 Adjust Mix for your rig; the recipes assume an insert after the amp.
 
-Start with **Compact Gemini room** for a short space or **Photon lead plate**
-for a fast, dense lead reverb. **Soft ambient bed** adds moderate sustain for
+The menu starts with chambers, halls and cathedral spaces, followed by echo patterns, swells and washes. Try **Tile room** for a short space or **Photon lead plate** for a fast, dense lead reverb. **Soft ambient bed** adds moderate sustain for
 picked chords. **Clear distant repeats** is the simple echo starting point.
 The other recipes explore more movement, slower swells and long ambient tails.
 The selection combines useful playing roles with each style's different response.
@@ -84,20 +90,25 @@ The selection combines useful playing roles with each style's different response
 
 | Preset | Style | Playing idea |
 | --- | --- | --- |
+| Velvet tracking room | Velvet Chamber | Close reflections around muted notes and picked chords |
+| Tile room | Velvet Chamber | A bright, tight room for palm mutes and clipped funk chords |
+| Solstice afterglow | Solstice Hall | A slower, wider tail behind sustained lead lines |
+| Flooded nave | Sunken Cathedral | A prominent, bright cathedral wash for ringing chords and swells |
+| Distant stone | Sunken Cathedral | A distant wall answers the pick, then clears for the next phrase |
 | Compact Gemini room | Gemini | Short, lightly mixed space for rhythm parts |
 | Photon lead plate | Photon Plate | Fast, dense ambience behind lead playing |
-| Soft ambient bed | Gemini | Moderate, gently moving sustain for picked chords |
+| Aurora Hall Medium | Aurora Hall | High-Warp hall ambience at a restrained mix, imported from the author's user preset |
 | Clustered echoes | Aurora Hall | Separate reflections around picked lines |
 | Pointillist echoes | Virgo | Sparse reflections that darken as they repeat |
 | Clear distant repeats | Lyra | Sparse repeats with no pitch modulation |
 | Stereo echo groups | Pulsar Echo | Repeating four-tap groups around a riff |
+| Diffusing echo trail | Great Annihilator | Echoes that spread into a moderate reverb tail |
+| Soft ambient bed | Gemini | Moderate, gently moving sustain for picked chords |
 | Enveloping swells | Centaurus | Earlier, softer build-up around held phrases |
 | Slow swell | Sagittarius | Leave gaps for the slow attack to develop |
-| Diffusing echo trail | Great Annihilator | Echoes that spread into a moderate reverb tail |
+| Chord bloom | Binary Bloom | Broad, developing tails behind held chords |
 | Velvet constellation | Gemini | Dense, modulated space for slow arpeggios |
 | Dark orbit | Aurora Hall | Dark, sustained wash under volume swells |
-| Chord bloom | Binary Bloom | Broad, developing tails behind held chords |
-| Aurora Hall Medium | Aurora Hall | High-Warp hall ambience at a restrained mix, imported from the author's user preset |
 
 Similar tail lengths do not mean the same response. Compare **Pointillist echoes**
 (Virgo's feedback damping) with **Clear distant repeats** (Lyra's clearer echoes).
@@ -115,7 +126,7 @@ controls do not map directly onto Cosmic Echo.
 
 ## The display
 
-The display shows the measured response of the current settings to a single click, on a dB scale. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.
+The display shows the measured response of the current settings to a single click, on a dB scale. The upper graph normally shows 2 seconds. It switches to 10 seconds when a reflection or tail after 2 seconds rises above the graph's −48 dB floor. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.
 
 Below it, the network sketch shows the base timing of the style's **4 or 16 delay
 lines**, with the count available on hover. Warp changes their spacing, Density connects

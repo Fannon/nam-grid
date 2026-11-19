@@ -13,7 +13,9 @@ inline const char* ChoiceDescription(int p, int mode)
 {
   static constexpr const char* cosmic[]{
     "Dense, smooth ambience", "Slow, swelling echoes", "Dark, sparse repeats",
-    "Swelling reverb bloom", "Long, evolving tails", "Clear, sparse repeats", "Echoes to a diffused guitar hall", "Pulsing stereo echoes", "Two-scale ambient wash", "Quick, dense multi-tap plate"};
+    "Swelling reverb bloom", "Long, evolving tails", "Clear, sparse repeats", "Echoes to a diffused guitar hall", "Pulsing stereo echoes", "Two-scale ambient wash", "Quick, dense multi-tap plate",
+    "Close, soft studio chamber", "Smooth, wide hall", "Vast, slowly blooming space"};
+  static_assert(std::size(cosmic) == effect_modes::cosmicCount, "Describe every Cosmic Echo style.");
   static constexpr const char* distortion[]{
     "Smooth, rounded drive", "Sharper, brighter drive", "Dense, compressed sustain",
     "Changing harmonic patterns", "Uneven clipping, even harmonics", "Octave-like buzz",
@@ -423,11 +425,11 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uConsoleTreble: case uConsoleMid: case uConsoleBass: return "Native nonlinear band density, labelled with its nominal -6 to +6 dB mapping. Adds harmonics; measured gain depends on input level.";
     case uConsoleTrebleFreq: case uConsoleBassFreq: return "Native EQ frequency coefficient scale. This is not a measured shelf corner; the broad bands can overlap.";
     case uCosmicStyle: return effect_modes::cosmicHelp[std::clamp(mode, 0, effect_modes::cosmicCount-1)];
-    case uCosmicTime: return "Delay-line time scale, from 20 ms to eight seconds. The dial gives more space to long intervals. Warp spreads shorter lines below this value; Sagittarius can build up over several intervals.";
-    case uCosmicWarp: return "Spread the delay-line lengths: zero clusters them for echoes, higher values create uneven spacing and more reverb-like texture. Aurora Hall retains some spacing at zero.";
+    case uCosmicTime: return "Delay-line time scale, from 20 ms to eight seconds. The dial gives more space to long intervals. Warp spreads shorter lines below this value; Sagittarius can build up over several intervals. In Velvet Chamber, Solstice Hall and Sunken Cathedral, Time sets the room size and long settings keep a dense tail.";
+    case uCosmicWarp: return "Spread the delay-line lengths: zero clusters them for echoes, higher values create uneven spacing and more reverb-like texture. Aurora Hall retains some spacing at zero. In Velvet Chamber, Solstice Hall and Sunken Cathedral, Warp separates the left and right walls and spreads the tail lengths.";
     case uCosmicFeedback: return "Longer repeats and sustain. In Sagittarius and Centaurus, Feedback also changes how quickly the sound builds up. This is not a decay time in seconds.";
-    case uCosmicDensity: return "Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp. Aurora Hall also adds diffusion inside each loop.";
-    case uCosmicTone: return "Wet treble cutoff. Virgo, Aurora Hall, Pulsar Echo, Binary Bloom and Photon Plate damp feedback, darkening successive echoes. The other styles filter their output.";
+    case uCosmicDensity: return "Rotate signals between the delay lines. Low values leave distinct echoes; high values build a denser stereo field. Interacts with Warp. Aurora Hall also adds diffusion inside each loop. In Velvet Chamber, Solstice Hall and Sunken Cathedral, Density blurs the wall reflections as they enter the tail.";
+    case uCosmicTone: return "Wet treble cutoff. Gemini, Sagittarius, Centaurus, Great Annihilator and Lyra filter their output. The other styles damp feedback, darkening successive echoes.";
     case uCosmicMotion: return "Depth of the shared 0.3 Hz stereo modulation. More adds pitch movement and chorus. Stereo width is full and the wet low cut is fixed at 80 Hz.";
     case uCosmicMix: return "Blend the ambient echo/reverb with the original stereo signal. Zero preserves the exact dry sound.";
     case uTapeHeads: return effect_modes::tapeHeadHelp[std::clamp(mode, 0, static_cast<int>(effect_modes::tapeHeadHelp.size())-1)];

@@ -1,7 +1,7 @@
 #pragma once
 #include "dsp/reverb/CosmicReverb.h"
 
-// One bounded buffer bank for all six styles. A style change fades the wet
+// One bounded buffer bank for all styles. A style change fades the wet
 // signal down, clears histories in O(1) per line, then fades the new style up.
 // Dry stereo is unaffected; no core allocation/deletion occurs during automation.
 class SlotCosmicEcho

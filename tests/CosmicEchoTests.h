@@ -2,6 +2,77 @@
 #include "SlotCosmicEcho.h"
 #include "EffectPreview.h"
 
+void TestCosmicSpaceArrivals()
+{
+  // At the same room scale, the three spaces should place a transient at
+  // different distances, then sustain a stereo field after the walls arrive.
+  constexpr double rate = 48000.;
+  using Style = effect_modes::CosmicStyle;
+  struct Arrival { Style style; double minMs, maxMs; };
+  for (const auto room : {Arrival{Style::VelvetChamber, 4., 8.}, Arrival{Style::SolsticeHall, 12., 18.}, Arrival{Style::Mooncourt, 20., 28.}})
+  {
+    grid_cosmic::Core core;
+    core.Reset(rate);
+    core.Configure({100.,65.,75.,80.,7000.,0.,100.}, static_cast<int>(room.style), false);
+    int first = -1;
+    std::array<double,2> late{};
+    double earlyEnergy = 0., totalEnergy = 0.;
+    for (int i=0; i<48000; ++i)
+    {
+      const auto wet = core.Tick({i==0 ? 1. : 0., 0.});
+      const double energy = wet[0]*wet[0] + wet[1]*wet[1];
+      if (first<0 && energy>1.e-12) first = i;
+      if (i<960) earlyEnergy += energy;
+      if (i>=4800) for (int ch=0; ch<2; ++ch) late[ch] += wet[ch]*wet[ch];
+      totalEnergy += energy;
+    }
+    const double onsetMs = first*1000./rate;
+    assert(onsetMs>=room.minMs && onsetMs<=room.maxMs);
+    assert(late[0]>1.e-4 && late[1]>1.e-4);
+    if (room.style==Style::VelvetChamber) assert(earlyEnergy>.08*totalEnergy);
+    if (room.style==Style::SolsticeHall) assert(earlyEnergy<.08*totalEnergy);
+  }
+
+  // Long Time settings enlarge the space without separating its tail into echoes.
+  const auto render = [](Style style, double time, double feedback) {
+    grid_cosmic::Core core;
+    core.Reset(rate);
+    core.Configure({time,65.,feedback,80.,7000.,0.,100.}, static_cast<int>(style), false);
+    std::vector<double> left(8*48000);
+    for (int i=0; i<static_cast<int>(left.size()); ++i) left[i] = core.Tick({i==0 ? 1. : 0., i==0 ? 1. : 0.})[0];
+    return left;
+  };
+  for (const auto style : {Style::VelvetChamber, Style::SolsticeHall, Style::Mooncourt})
+  {
+    const auto left = render(style, 600., 75.);
+    int onset = 0;
+    while (onset<24000 && std::abs(left[onset])<1.e-6) ++onset;
+    assert(onset<24000);
+    // Normalized echo density: the share of samples above the local RMS, relative to Gaussian noise.
+    constexpr int window = 960;
+    int dense = -1;
+    for (int centre=onset+window/2; centre<onset+24000 && dense<0; centre+=96)
+    {
+      double sum = 0.;
+      for (int i=centre-window/2; i<centre+window/2; ++i) sum += left[i]*left[i];
+      const double sigma = std::sqrt(sum/window);
+      int above = 0;
+      for (int i=centre-window/2; i<centre+window/2; ++i) above += std::abs(left[i])>sigma;
+      if (above/static_cast<double>(window)/.3173>=.8) dense = centre-onset;
+    }
+    if (dense<0 || dense>.35*rate) std::cerr<<"Cosmic space style="<<static_cast<int>(style)<<" dense after "<<dense<<" samples"<<std::endl;
+    assert(dense>=0 && dense<=.35*rate);
+  }
+  // Mooncourt is the large space: more of its energy remains after the first second.
+  const auto lateShare = [&](Style style) {
+    const auto left = render(style, 150., 80.);
+    double late = 0., total = 0.;
+    for (int i=0; i<static_cast<int>(left.size()); ++i) { total += left[i]*left[i]; if (i>=48000) late += left[i]*left[i]; }
+    return late/total;
+  };
+  assert(lateShare(Style::Mooncourt)>1.5*lateShare(Style::SolsticeHall));
+}
+
 void TestCosmicEcho()
 {
   for (double rate : {44100., 48000., 96000., 192000.})
@@ -80,10 +151,12 @@ void TestCosmicEcho()
     }
     if (style==static_cast<int>(effect_modes::CosmicStyle::PhotonPlate))
       expected=static_cast<int>(std::round((plan.seconds[9]*rate-1.)*.17));
+    if (grid_cosmic::IsReflectionSpace(style))
+      expected=static_cast<int>(std::floor(.43*(plan.seconds[0]*rate-1.)))-1;
     const int onsetTolerance=style>=static_cast<int>(effect_modes::CosmicStyle::AuroraHall) ? 3 : 1; // Serial fractional reads.
     if (std::abs(first-expected)>onsetTolerance) std::cerr<<"Cosmic style="<<style<<" arrival="<<first<<" expected="<<expected<<'\n';
     assert(first>=0 && std::abs(first-expected)<=onsetTolerance);
-    if(style!=static_cast<int>(effect_modes::CosmicStyle::PhotonPlate))
+    if(style<static_cast<int>(effect_modes::CosmicStyle::PhotonPlate))
       for (double x:right) assert(x==0.);
     assert(plan.count==grid_cosmic::LineCount(style));
     const auto spread=effect_preview::Cosmic(40.,100.,style,rate);
@@ -91,6 +164,11 @@ void TestCosmicEcho()
     {
       assert(spread.seconds[0]==plan.seconds[0]);
       assert(spread.seconds[13]!=plan.seconds[13]); // Warp changes tank asymmetry.
+    }
+    else if (grid_cosmic::IsReflectionSpace(style))
+    {
+      assert(spread.seconds[0]==plan.seconds[0] && spread.seconds[1]>plan.seconds[1]);
+      assert(spread.seconds[8]<plan.seconds[8]); // Higher Warp spreads the tank lengths.
     }
     else assert(spread.seconds[0]==plan.seconds[0] && spread.seconds[spread.count-1]<spread.seconds[0]*.2);
 
@@ -134,6 +212,7 @@ void TestCosmicEcho()
     for (int i=0; i<96000; ++i) difference+=std::pow(impulses[a][i]-impulses[b][i],2.);
     assert(difference>.01);
   }
+  TestCosmicSpaceArrivals();
   // Aurora Hall must supply a real sparse-to-dense transition, including at Warp 0,
   // without the mid-Density energy hole caused by crossfading a diffuser.
   const auto hall = [](double density, double feedback, double rate, double warp) {
@@ -288,10 +367,11 @@ void TestCosmicBypassDrain()
   };
   for (auto style : {effect_modes::CosmicStyle::Sagittarius,effect_modes::CosmicStyle::AuroraHall,
                      effect_modes::CosmicStyle::Pulsar,effect_modes::CosmicStyle::Nebula,
-                     effect_modes::CosmicStyle::PhotonPlate})
+                     effect_modes::CosmicStyle::PhotonPlate, effect_modes::CosmicStyle::VelvetChamber,
+                     effect_modes::CosmicStyle::SolsticeHall, effect_modes::CosmicStyle::Mooncourt})
   {
     assert(render(false,style)>1.e-6); // The tank really contains a pending impulse.
     assert(render(true,style)<1.e-24); // No stale impulse after 70 seconds bypassed.
-    if(style==effect_modes::CosmicStyle::PhotonPlate) assert(render(true,style,100.)<1.e-24);
+    if(style>=effect_modes::CosmicStyle::PhotonPlate) assert(render(true,style,100.)<1.e-24);
   }
 }

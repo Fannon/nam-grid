@@ -61,7 +61,7 @@ void TestTrails()
   constexpr std::array effects{E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay,
     E::ReverseDelay, E::DualDelay, E::DiffusedDelay,
     E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::GranularDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
-    E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho};
+    E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho, E::Granulator};
   int listed = 0;
   for (int e = 0; e <= static_cast<int>(E::Last); ++e)
     listed += IsTrailEffect(static_cast<E>(e));

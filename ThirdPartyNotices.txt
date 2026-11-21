@@ -717,6 +717,27 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+Granulator
+----------
+
+Algorithm reference: the granular mode of Mutable Instruments Clouds
+(pichenettes/eurorack, clouds/dsp; Copyright 2014 Emilie Gillet, MIT), as
+packaged in Matthias Puech's Parasites firmware (MIT) and the Overcast MPC
+plugin (Copyright 2026 Padbangers, MIT), with per-grain randomness after
+Mutable Instruments Beads (Copyright Emilie Gillet, MIT). Mode and control
+ideas after Lightlike's Grainbloom MPC plugin (MIT) and the Hologram
+Electronics Microcosm pedal (inspiration only; no code or data). NAM Grid's
+Granulator is an independent implementation; no Clouds, Beads, Parasites,
+Overcast or Grainbloom source is included. Its plate reverb is the
+Clouds-derived PlateTank listed under the reverb adaptations above.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
 Airwindows reverb and outboard adaptations
 (kPlate140, kGuitarHall2, Galactic3, CStrip2, BussColors4, ButterComp2,
 DigitalBlack, CStrip's gate section)

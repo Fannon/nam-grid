@@ -8,6 +8,13 @@
 // take their labels directly from the host/state parameter descriptors.
 namespace effect_presentation
 {
+// Granulator modes whose grains start at an even rate (see grid_granular::Voice).
+inline bool grid_granular_regular(int mode)
+{
+  using M = effect_modes::GranulatorMode;
+  const auto m = static_cast<M>(mode);
+  return m == M::Mosaic || m == M::Blocks || m == M::Interrupt || m == M::Arp;
+}
 inline bool ChoiceDropdown(int p) { return EffectChoices(p).size() >= 3; }
 inline const char* ChoiceDescription(int p, int mode)
 {
@@ -28,6 +35,7 @@ inline const char* ChoiceDescription(int p, int mode)
     case uDistStyle: descriptions = distortion; break;
     case uPedalStyle: descriptions = effect_modes::pedalHelp; break;
     case uPDistStyle: descriptions = effect_modes::pedalDistortionHelp; break;
+    case uGranulatorMode: descriptions = effect_modes::granulatorSummary; break;
     case uJunoMode: descriptions = juno; break;
     default: break;
   }
@@ -37,7 +45,10 @@ inline const char* ChoiceDescription(int p, int mode)
 // on the right (Digital Delay's Time change sits left of Tempo sync). The knob grid
 // holds only the automatable musical controls.
 inline bool HeaderControl(int p)
-{ return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uNoiseLearn || p == uEchoRateSync || IsAlgorithmMode(p); }
+{
+  return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uNoiseLearn || p == uEchoRateSync
+         || p == uGranulatorFreeze || IsAlgorithmMode(p);
+}
 // Saved, automatable controls edited by dragging in the module display rather than with a
 // knob. They take no place in the knob grid and are documented as prose.
 inline bool DisplayControl(int p)
@@ -107,7 +118,7 @@ inline HeaderArea HeaderBounds(SlotEffect e, int p)
   if (p == uDigitalDelayVoice) return {modeLeft + 80.f, parameterRight};
   // Spring's Tank selector owns the right side; keep Stereo wet accessible
   // on the free left side instead of placing both controls on top of each other.
-  if (p == uTempoSync || p == uEQMode || p == uNoiseLearn || (e == SlotEffect::SpringReverb && p == uReverbStereo))
+  if (p == uTempoSync || p == uEQMode || p == uNoiseLearn || p == uGranulatorFreeze || (e == SlotEffect::SpringReverb && p == uReverbStereo))
     return {tempoLeft, tempoLeft + 110.f};
   return {modeLeft, parameterRight};
 }
@@ -171,6 +182,8 @@ inline int TablePosition(SlotEffect e, int p)
   static constexpr int SpringReverbOrder[]{uSpringDecay, uSpringDwell, uSpringDrip, uReverbTone, uSpringPredelay, uSpringOutput, uSpringMix};
   static constexpr int FreezeOrder[]{uFreezeHold, uFreezeWindow, uFreezeFade, uFreezeTone, uFreezeAttack, uFreezeRelease, uFreezeMix};
   static constexpr int StutterOrder[]{uStutterTime, uStutterHold, uStutterDuty, uStutterFade, uStutterMix};
+  static constexpr int GranulatorOrder[]{uGranulatorPosition, uGranulatorSize, uGranulatorActivity, uGranulatorShape,
+                                         uGranulatorFilter, uGranulatorRepeats, uGranulatorSpace, uGranulatorMix};
   static constexpr int LoFiTapeOrder[]{uLoFiSpeed, uLoFiDrive, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiOutput, uLoFiMix};
   static constexpr int UtilityOrder[]{uUtilityBalance, uUtilityStereo, uUtilityInvertL, uUtilityInvertR, uUtilityDelay, uUtilitySkew, uUtilityLevel};
   static constexpr int AutoSwellOrder[]{uSwellRise, uSwellThreshold, uSwellRelease, uSwellCurve, uSwellHold, uSwellMix};
@@ -217,6 +230,7 @@ inline int TablePosition(SlotEffect e, int p)
     case SlotEffect::SpringReverb: order = SpringReverbOrder; break;
     case SlotEffect::Freeze: order = FreezeOrder; break;
     case SlotEffect::Stutter: order = StutterOrder; break;
+    case SlotEffect::Granulator: order = GranulatorOrder; break;
     case SlotEffect::LoFiTape: order = LoFiTapeOrder; break;
     case SlotEffect::Utility: order = UtilityOrder; break;
     case SlotEffect::AutoSwell: order = AutoSwellOrder; break;
@@ -483,6 +497,19 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uEchoShiftBlend: return "Blend the shifted voice with the ordinary echo, both in the repeats and in feedback.";
     case uEchoWidth: return "Scale the four tap pan settings. Zero keeps the original stereo placement.";
     case uEchoRingRate: return "Oscillator frequency for Ring mode, in hertz.";
+    case uGranulatorMode: return effect_modes::granulatorHelp[std::clamp(mode, 0, effect_modes::granulatorCount - 1)];
+    case uGranulatorPosition: return "Where grains start in the last four seconds of your playing. 0% reads what you just played; higher settings reach further back. With Freeze on, move it to explore the held audio.";
+    case uGranulatorSize: return "Length of each grain. Short grains buzz and stutter; long ones smear notes together. Haze, Tunnel and Reverse lengthen it further.";
+    case uGranulatorActivity:
+      return mode >= 0 && grid_granular_regular(mode)
+               ? "How often grains start, from sparse repeats to several overlapping. In this mode they start at an even rate."
+               : "How many grains play, from sparse, separate grains to a dense cloud. In this mode they start at random times.";
+    case uGranulatorShape: return "Grain envelope: 0% starts each grain hard and lets it fade, 50% is smooth, 100% swells in and stops, like a reversed note.";
+    case uGranulatorFilter: return "Tone of the grains. Left darkens them with a low-pass down to 200 Hz, right thins them with a high-pass up to 4 kHz; center is open. Repeats records the filtered sound, so it compounds.";
+    case uGranulatorRepeats: return "Record the grains back into the buffer, so the texture builds on itself. High settings sustain long; the loop never runs away.";
+    case uGranulatorSpace: return "Plate reverb on the grains, longer and louder as you turn it up. The dry guitar stays dry.";
+    case uGranulatorMix: return "Blend between your guitar and the grains. 100% plays only the grains.";
+    case uGranulatorFreeze: return "Stop recording and keep making grains from the last four seconds. Release to record again. Freeze is not saved with rigs or scenes.";
     case uGrainLength: return "Sets the upper length of each fragment. Density can shorten the grains and launch them more often.";
     case uGrainScatter: return "Range of random grain start times. In Glitch mode it also increases the chance and length of a latch.";
     case uGrainDensity: return "Shorten overlapping grains for faster changes and denser textures.";
@@ -674,6 +701,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::FeedbackFXDelay: return "Send each repeat back through a filter, phaser, tremolo or ring modulator.";
     case SlotEffect::PatternDelay: return "Four taps with editable timing, level and pan. Repeat, Swell, Matrix and Drum route the taps differently.";
     case SlotEffect::GranularDelay: return "Overlapping fragments spread, reverse or stutter around the echo time.";
+    case SlotEffect::Granulator: return "Grain textures from the last four seconds: Mode picks clouds, shimmer, drones, reverse, glitch or arpeggios; Activity, Shape and Filter play them.";
     case SlotEffect::DiffusedDelay: return "Repeats smear into stereo clouds as Diffusion rises.";
     case SlotEffect::SpringReverb: return "Dwell excites the spring; Drip adds splash, Damping tames treble.";
     case SlotEffect::ShimmerReverb: return "Pitch and Amount build rising/falling tails; Freeze sustains them.";

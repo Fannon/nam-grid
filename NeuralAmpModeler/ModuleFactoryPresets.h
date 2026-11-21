@@ -569,6 +569,30 @@ inline const Preset granularDelay[]{
   {"Low-octave stutter", {{U(uGrainDelayMode), 2}, {U(uTempoSync), 1}, {U(uTempoDivision), 3}, {U(uEchoInterval), -12},
     {U(uGrainLength), 62}, {U(uGrainDensity), 68}, {U(uGrainScatter), 85}, {U(uDelayFeedback), 38}, {U(uDelayMix), 32}}},
 };
+// Granulator presets: one starting point per mode, voiced on picked notes and chords.
+// Mode values follow effect_modes::GranulatorMode.
+inline const Preset granulator[]{
+  {"Grain cloud", {{U(uGranulatorMode), 0}, {U(uGranulatorActivity), 60}, {U(uGranulatorSize), 160},
+    {U(uGranulatorSpace), 30}, {U(uGranulatorMix), 40}}},
+  {"Ambient haze", {{U(uGranulatorMode), 1}, {U(uGranulatorActivity), 75}, {U(uGranulatorSize), 320},
+    {U(uGranulatorShape), 65}, {U(uGranulatorRepeats), 45}, {U(uGranulatorSpace), 60}, {U(uGranulatorMix), 45}}},
+  {"Octave shimmer", {{U(uGranulatorMode), 2}, {U(uGranulatorActivity), 65}, {U(uGranulatorSize), 240},
+    {U(uGranulatorShape), 70}, {U(uGranulatorFilter), 15}, {U(uGranulatorRepeats), 40}, {U(uGranulatorSpace), 55}, {U(uGranulatorMix), 35}}},
+  {"Low drone tunnel", {{U(uGranulatorMode), 3}, {U(uGranulatorActivity), 70}, {U(uGranulatorSize), 400},
+    {U(uGranulatorShape), 60}, {U(uGranulatorRepeats), 55}, {U(uGranulatorSpace), 45}, {U(uGranulatorMix), 40}}},
+  {"Phrase mosaic", {{U(uGranulatorMode), 4}, {U(uGranulatorPosition), 25}, {U(uGranulatorActivity), 45},
+    {U(uGranulatorSize), 220}, {U(uGranulatorRepeats), 25}, {U(uGranulatorSpace), 35}, {U(uGranulatorMix), 45}}},
+  {"Reverse swells", {{U(uGranulatorMode), 5}, {U(uGranulatorActivity), 40}, {U(uGranulatorSize), 380},
+    {U(uGranulatorShape), 80}, {U(uGranulatorRepeats), 30}, {U(uGranulatorSpace), 40}, {U(uGranulatorMix), 45}}},
+  {"Rhythmic blocks", {{U(uGranulatorMode), 6}, {U(uGranulatorPosition), 0}, {U(uGranulatorActivity), 55},
+    {U(uGranulatorSize), 120}, {U(uGranulatorShape), 15}, {U(uGranulatorSpace), 15}, {U(uGranulatorMix), 45}}},
+  {"Glitch interrupt", {{U(uGranulatorMode), 7}, {U(uGranulatorActivity), 60}, {U(uGranulatorSize), 90},
+    {U(uGranulatorShape), 25}, {U(uGranulatorFilter), 10}, {U(uGranulatorSpace), 20}, {U(uGranulatorMix), 50}}},
+  {"Fifths arpeggio", {{U(uGranulatorMode), 8}, {U(uGranulatorPosition), 0}, {U(uGranulatorActivity), 50},
+    {U(uGranulatorSize), 140}, {U(uGranulatorShape), 30}, {U(uGranulatorRepeats), 30}, {U(uGranulatorSpace), 35}, {U(uGranulatorMix), 40}}},
+  {"Dark frozen bed", {{U(uGranulatorMode), 1}, {U(uGranulatorActivity), 85}, {U(uGranulatorSize), 500},
+    {U(uGranulatorShape), 55}, {U(uGranulatorFilter), -45}, {U(uGranulatorRepeats), 60}, {U(uGranulatorSpace), 70}, {U(uGranulatorMix), 50}}},
+};
 
 inline std::span<const Preset> For(SlotEffect effect)
 {
@@ -627,6 +651,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::Octaver: return octaver;
     case SlotEffect::Doubler: return doubler;
     case SlotEffect::Stutter: return stutter;
+    case SlotEffect::Granulator: return granulator;
     case SlotEffect::Bitcrusher: return crusher;
     case SlotEffect::TubeBoost: return tube;
     case SlotEffect::Distortion: return distortion;

@@ -69,7 +69,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {modulationColor, modulationColor, "Pitch"};
   if (effect == SlotEffect::PitchShift || effect == SlotEffect::Octaver || effect == SlotEffect::Doubler)
     return {modulationColor, modulationColor, "Pitch"};
-  if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::LoFiTape)
+  if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::LoFiTape || effect == SlotEffect::Granulator)
     return {creativeColor, creativeColor, "Creative"};
   if (effect == SlotEffect::Bitcrusher)
     return {boostColor, boostColor, "Texture"};
@@ -324,7 +324,8 @@ public:
   {
     g.DrawArc(border, cx, cy, radius, -135.f, 135.f, &mBlend, 2.f);
     const int control = parameter_layout::UtilityControl(GetParamIdx());
-    const bool centered = control == uPedalCharacter || control == uPedalCompFocus || control == uPDistTight;
+    const bool centered = control == uPedalCharacter || control == uPedalCompFocus || control == uPDistTight
+                          || control == uGranulatorFilter;
     g.DrawArc(muted, cx, cy, radius, centered ? std::min(0.f, angle) : -135.f,
               centered ? std::max(0.f, angle) : angle, &mBlend, 2.f);
     // Modulation ring: the reach of every row on this knob, plus a dot at the live value.
@@ -1757,6 +1758,8 @@ public:
               GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPedalStyle))->Int())
           : effect == SlotEffect::PedalDistortion ? effect_presentation::Help(effect, uPDistStyle,
               GetDelegate()->GetParam(SlotUtilityParam(mSlot, uPDistStyle))->Int())
+          : effect == SlotEffect::Granulator ? effect_presentation::Help(effect, uGranulatorMode,
+              GetDelegate()->GetParam(SlotUtilityParam(mSlot, uGranulatorMode))->Int())
                                          : effect_presentation::Sound(effect));
     const auto tooltip = empty ? std::string("Choose a module.") : hint + " Click to choose or replace the module.";
     if (tooltip != mModelButton->GetTooltip())
@@ -3337,7 +3340,8 @@ private:
         mUtilityKnobs[i]->Hide(!visible || (nam && path.empty()));
         if (!visible) continue;
         const int mode = GetDelegate()->GetParam(SlotUtilityParam(mSlot, effect == SlotEffect::PedalDrive ? uPedalStyle
-                                                                        : effect == SlotEffect::GraphicEQ ? uGraphicVoicing : i))->Int();
+                                                                        : effect == SlotEffect::GraphicEQ ? uGraphicVoicing
+                                                                        : effect == SlotEffect::Granulator ? uGranulatorMode : i))->Int();
         mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, mode));
         if (effect_presentation::HeaderControl(i))
         {

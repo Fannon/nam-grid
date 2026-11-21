@@ -152,6 +152,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop, Stereo auto-pan; Seasick warble, Delayed lead vibrato; Vibrato mode swirl, Fast chorus churn; Slow chorale, Fast tremolo |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass, Two-octave blend; Wide loose double; Sixteenth-note chops; Broken small sampler, 12-bit sampler |
 | Frequency Shifter | Barberpole sweep, Spiraling echoes |
+| Granulator | Grain cloud, Ambient haze, Octave shimmer, Low drone tunnel, Phrase mosaic, Reverse swells, Rhythmic blocks, Glitch interrupt, Fifths arpeggio, Dark frozen bed |
 | LoFi Tape Machine | Subtle drift, Worn cassette, Damaged tape (the [guide's starting points](modules/lofi-tape.md#starting-points); the last two include tape hiss) |
 
 User presets only:

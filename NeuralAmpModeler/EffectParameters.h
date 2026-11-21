@@ -368,6 +368,16 @@ enum UtilityParam
   uTapPan3 = 351,
   uTapPan4 = 352,
   uDigitalDelayVoice = 353,
+  uGranulatorMode = 354,
+  uGranulatorPosition = 355,
+  uGranulatorSize = 356,
+  uGranulatorActivity = 357,
+  uGranulatorShape = 358,
+  uGranulatorFilter = 359,
+  uGranulatorRepeats = 360,
+  uGranulatorSpace = 361,
+  uGranulatorMix = 362,
+  uGranulatorFreeze = 363,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -406,6 +416,7 @@ inline constexpr std::span<const char* const> EffectChoices(int control)
     case uFeedbackFX: return kFeedbackFX;
     case uPatternFeedback: return kPatternFeedback;
     case uGrainDelayMode: return kGrainDelayMode;
+    case uGranulatorMode: return effect_modes::granulatorNames;
     case uDigitalDelayVoice: return kDigitalDelayVoice;
     case uGateMode: return effect_modes::gateNames;
     case uFilterMode: return effect_modes::filterNames;
@@ -473,6 +484,8 @@ inline constexpr AlgorithmIdentity feedbackFX[]{{0, "sweep"}, {1, "phaser"}, {2,
 inline constexpr AlgorithmIdentity patternFeedback[]{{0, "repeat"}, {1, "swell"}, {2, "matrix"}, {3, "drum"}};
 inline constexpr AlgorithmIdentity digitalDelayVoice[]{{0, "clean"}, {1, "rack"}, {2, "lo-fi"}};
 inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}};
+inline constexpr AlgorithmIdentity granulator[]{
+  {0, "cloud"}, {1, "haze"}, {2, "shimmer"}, {3, "tunnel"}, {4, "mosaic"}, {5, "reverse"}, {6, "blocks"}, {7, "interrupt"}, {8, "arp"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {
@@ -492,6 +505,7 @@ inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int cont
     case uFeedbackFX: return feedbackFX;
     case uPatternFeedback: return patternFeedback;
     case uGrainDelayMode: return grainDelayMode;
+    case uGranulatorMode: return granulator;
     case uDigitalDelayVoice: return digitalDelayVoice;
     case uJunoMode: return juno;
     case uGateMode: return gate;
@@ -522,7 +536,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 32; // 32 additional delays, Digital Delay voice and modulation; 31 Pedal Distortion; 30 Noise Gate (AI).
+inline constexpr int kEffectStateSchema = 33; // 33 Granulator; 32 additional delays, Digital Delay voice and modulation; 31 Pedal Distortion; 30 Noise Gate (AI).
 
 struct EffectParameter
 {
@@ -894,7 +908,18 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pattern Tap 2 Pan", "Tap 2 pan", 80, -100, 100, 0.1, "%", 1, false, 1., 32},
    {"Pattern Tap 3 Pan", "Tap 3 pan", -50, -100, 100, 0.1, "%", 2, false, 1., 32},
    {"Pattern Tap 4 Pan", "Tap 4 pan", 50, -100, 100, 0.1, "%", 3, false, 1., 32},
-   {"Digital Delay Voice", "Voice", 0, 0, 2, 1, "", 0, false, 1., 32}}};
+   {"Digital Delay Voice", "Voice", 0, 0, 2, 1, "", 0, false, 1., 32},
+   // Granulator: Mode sets the grains' timing, pitch and motion; the knobs play it.
+   {"Granulator Mode", "Mode", 0, 0, effect_modes::granulatorCount - 1, 1, "", 0, false, 1., 33},
+   {"Granulator Position", "Position", 15, 0, 100, .1, "%", 0, false, 1., 33},
+   {"Granulator Size", "Size", 180, 10, 1000, 1, "ms", 1, true, 1., 33},
+   {"Granulator Activity", "Activity", 50, 0, 100, .1, "%", 2, false, 1., 33},
+   {"Granulator Shape", "Shape", 50, 0, 100, .1, "%", 3, false, 1., 33},
+   {"Granulator Filter", "Filter", 0, -100, 100, .1, "%", 4, false, 1., 33},
+   {"Granulator Repeats", "Repeats", 20, 0, 100, .1, "%", 5, false, 1., 33},
+   {"Granulator Space", "Space", 30, 0, 100, .1, "%", 6, false, 1., 33},
+   {"Granulator Mix", "Mix", 40, 0, 100, .1, "%", 7, false, 1., 33},
+   {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -964,7 +989,7 @@ inline bool IsReverb(SlotEffect e)
 // Delays and reverbs whose tail rings out after bypass when the rig's Trails is on.
 // Freeze and Stutter hold captured audio instead and keep their own bypass.
 inline bool IsTrailEffect(SlotEffect e)
-{ return IsDelay(e) || IsReverb(e) || e == SlotEffect::ShimmerReverb || e == SlotEffect::CosmicEcho; }
+{ return IsDelay(e) || IsReverb(e) || e == SlotEffect::ShimmerReverb || e == SlotEffect::CosmicEcho || e == SlotEffect::Granulator; }
 inline bool IsModulation(SlotEffect e)
 {
   switch (e)
@@ -993,7 +1018,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
     case SlotEffect::OutboardChannel: case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DynamicEQ: case SlotEffect::TransientShaper: case SlotEffect::Multiband: case SlotEffect::GraphicEQ:
     case SlotEffect::PitchShift:
-    case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: return true;
+    case SlotEffect::DigitalBlack: case SlotEffect::PedalComp: case SlotEffect::Granulator: return true;
     default: return false;
   }
 }
@@ -1023,6 +1048,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   }
   if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
   if (p >= uPDistStyle && p <= uPDistMix) return e == SlotEffect::PedalDistortion;
+  if (p >= uGranulatorMode && p <= uGranulatorFreeze) return e == SlotEffect::Granulator;
   // Noise Gate (AI) shares Smart Gate's final gate.
   if (p == uNoiseGateThreshold || p == uNoiseGateRelease) return e == SlotEffect::NoisePrint || e == SlotEffect::AIGate;
   if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
@@ -1253,6 +1279,14 @@ struct UtilityControls
   // Pedal Comp Sustain, Attack (0 Fast, 1 Slow), Focus (Body -100 to Pick +100), Blend and Level, in ID order.
   std::array<double, 5> pedalComp{40., 1., 0., 70., 0.};
   int pedalCompPickup = 1; // Humbucker: the 0 dB reference sensitivity.
+  // Granulator Position through Mix, in ID order; Freeze is transient performance state.
+  std::array<double, uGranulatorMix - uGranulatorPosition + 1> granulator = [] {
+    std::array<double, uGranulatorMix - uGranulatorPosition + 1> values{};
+    for (size_t i = 0; i < values.size(); ++i) values[i] = kEffectParameters[uGranulatorPosition + i].initial;
+    return values;
+  }();
+  int granulatorMode = 0;
+  bool granulatorFreeze = false;
   std::array<double, 8> dynamicEQ{800, 1, -24, 6, 5, 120, 0, 100};
   std::array<double, 6> transientShaper{0, 0, 100, 50, 0, 100};
   // Multiband Depth, Downward, Upward, Time, Low, Mid, High, Output; then the display's

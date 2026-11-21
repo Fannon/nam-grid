@@ -22,7 +22,7 @@ inline const ModuleGroup kModuleGroups[]{
              E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::GranularDelay}},
   {"Reverb", {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::HallReverb, E::SpringReverb, E::ShimmerReverb,
                E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho}},
-  {"Creative", {E::Freeze, E::Stutter, E::LoFiTape}},
+  {"Creative", {E::Freeze, E::Stutter, E::Granulator, E::LoFiTape}},
   {"Utility / Volume", {E::Utility, E::AutoSwell}}
 };
 inline const ModuleGroup* ModuleGroupFor(SlotEffect effect)

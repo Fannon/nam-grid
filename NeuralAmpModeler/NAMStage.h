@@ -15,6 +15,7 @@
 #include "SlotCreativeDelays.h"
 #include "ExpandedDelay.h"
 #include "SlotCosmicEcho.h"
+#include "SlotGranulator.h"
 #include "StereoUtility.h"
 #include "SlotGuitarEffects.h"
 #include "RoadmapEffects.h"
@@ -126,6 +127,7 @@ public:
     SlotDiffusedDelay diffused;
     std::unique_ptr<SlotExpandedDelay> expandedDelay;
     SlotCosmicEcho cosmic;
+    std::unique_ptr<SlotGranulator> granulator; // 4 s stereo buffer, only for Granulator slots.
     SlotModulation modulation;
     SlotTape tape;
     SlotLoFiTape lofi;
@@ -202,6 +204,11 @@ public:
           expandedDelay->Reset(rate, block, effect);
         }
         if (effect == SlotEffect::CosmicEcho) cosmic.Reset(rate);
+        if (effect == SlotEffect::Granulator)
+        {
+          if (!granulator) granulator = std::make_unique<SlotGranulator>();
+          granulator->Reset(rate);
+        }
         if (IsOutboard(effect)) outboard.Reset(rate, effect);
         if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
         if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
@@ -246,6 +253,9 @@ public:
                                            // fixed offsets and filter settling before suspending a bypassed tank.
                                            : effect == SlotEffect::CosmicEcho ? 8.*(kEffectParameters[uCosmicTime].maximum*.001+.02)+1.
                                            : IsReverb(effect) ? 60.
+                                           // Silence refills the 4 s buffer, the last grains end and the
+                                           // plate's longest decay (8 s) settles.
+                                           : effect == SlotEffect::Granulator ? 15.
                                            : effect == SlotEffect::ShimmerReverb ? 30.
                                            : effect == SlotEffect::FrequencyShifter ? 9.
                                            : effect == SlotEffect::Doubler ? .1
@@ -550,6 +560,7 @@ public:
             else if (p->effect == SlotEffect::DiffusedDelay) p->diffused.Process(out, r, frames, utility, draining);
             else if (p->expandedDelay) p->expandedDelay->Process(out, r, frames, utility, draining);
             else if (p->effect == SlotEffect::CosmicEcho) p->cosmic.Process(out, r, frames, utility, draining);
+            else if (p->granulator) p->granulator->Process(out, r, frames, utility, draining);
             else if (IsAirDynamics(p->effect))
             {
               p->airDynamics.Process(out, r, frames, utility);

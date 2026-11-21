@@ -82,7 +82,8 @@ enum class SlotEffect
   FeedbackFXDelay = 70,
   PatternDelay = 71,
   GranularDelay = 72,
-  Last = GranularDelay,
+  Granulator = 73,
+  Last = Granulator,
 };
 inline const char* SlotEffectName(SlotEffect effect)
 {
@@ -111,6 +112,7 @@ inline const char* SlotEffectName(SlotEffect effect)
     case SlotEffect::FeedbackFXDelay: return "Feedback FX Delay";
     case SlotEffect::PatternDelay: return "Pattern Delay";
     case SlotEffect::GranularDelay: return "Granular Delay";
+    case SlotEffect::Granulator: return "Granulator";
     case SlotEffect::DigitalDelay: return "Digital Delay";
     case SlotEffect::AnalogDelay: return "Analog Echo";
     case SlotEffect::TapeDelay: return "Tape Echo";

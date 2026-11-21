@@ -352,6 +352,7 @@ private:
   int mActiveScene = -1;
   bool mRoutingOpen = false;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.
+  // Stutter slots in bits 0-15, Granulator slots (Freeze) in bits 16-31.
   std::atomic<uint32_t> mFreezeMask{0}, mStutterMask{0};
   std::array<nlohmann::json, 3> mPerformanceScenes{nlohmann::json::object(), nlohmann::json::object(), nlohmann::json::object()};
   std::array<std::string, 4> mMacroNames{"Macro 1", "Macro 2", "Macro 3", "Macro 4"};

@@ -84,6 +84,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "VisualizationTests.h"
 #include "ReverbDelayCandidatesTests.h"
 #include "CosmicEchoTests.h"
+#include "GranulatorTests.h"
 #include "MultiHeadStereoTests.h"
 #include "OutboardTests.h"
 #include "MeteringTests.h"
@@ -167,6 +168,7 @@ try
     {"reverb-delay-candidates", TestReverbDelayCandidates},
     {"cosmic-echo", TestCosmicEcho},
     {"cosmic-bypass-drain", TestCosmicBypassDrain},
+    {"granulator", TestGranulator},
     {"multi-head-stereo", TestMultiHeadStereo},
     {"outboard", TestOutboard},
     {"air-dynamics", TestAirDynamics},
@@ -351,6 +353,7 @@ try
   run("reverb-delay-candidates", TestReverbDelayCandidates);
   run("cosmic-echo", TestCosmicEcho);
   run("cosmic-bypass-drain", TestCosmicBypassDrain);
+  run("granulator", TestGranulator);
   run("multi-head-stereo", TestMultiHeadStereo);
   run("outboard", TestOutboard);
   run("air-dynamics", TestAirDynamics);

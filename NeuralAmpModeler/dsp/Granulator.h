@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include "../EffectModes.h"
+#include "GranularReadFilter.h"
 #include "reverb/ReverbCores.h"
 
 // Granular texture processor with playing modes. The grain engine follows the granular
@@ -21,6 +22,7 @@ using Stereo = std::array<double, 2>;
 using Mode = effect_modes::GranulatorMode;
 inline constexpr double kBufferSeconds = 4.;
 inline constexpr int kMaxGrains = 32;
+inline constexpr int kBurstGrains = 3;
 inline constexpr double kMaxLoop = .95; // Repeats gain at 100%; the loop gain is its square.
 inline constexpr int kGuard = 8;        // Samples kept between grain reads and the record head.
 
@@ -91,6 +93,8 @@ inline Voicing Voice(int mode)
     case Mode::Arp:
       v.regular = true; v.minOverlap = .3; v.maxOverlap = 2.5; v.scatter = .02;
       v.intervals = {0., 7., 12., 19., 24., 19., 12., 7.}; v.intervalCount = 8; v.sequence = true; v.spread = .7; break;
+    case Mode::PickBurst:
+      v.regular = true; v.maxOverlap = 3.; v.spread = .45; break;
     case Mode::Count: break;
   }
   return v;
@@ -142,14 +146,68 @@ inline double GrainFrames(double milliseconds, double ratio, double rate, double
   return std::clamp(milliseconds * .001 * rate, 16., limit);
 }
 
-// Decides when a grain starts. Shared by the processor and the editor's display.
+// A pick restarts the three pulses. Grains already sounding keep their envelopes.
+class BurstClock
+{
+public:
+  bool Tick(bool attack, double increment)
+  {
+    if (attack) { mRemaining = kBurstGrains; mPhase = 1.; }
+    if (!mRemaining) return false;
+    const bool due = mPhase >= 1.;
+    if (due) { --mRemaining; mPhase -= 1.; }
+    mPhase += increment;
+    return due;
+  }
+private:
+  int mRemaining = 0;
+  double mPhase = 0.;
+};
+
+// Detect attacks against the recent input level, including while recording is frozen.
+class PickDetector
+{
+public:
+  void Reset(double rate)
+  {
+    mRelease = std::exp(-1. / (.015 * rate));
+    mAverage = 1. - std::exp(-1. / (.04 * rate));
+    mHold = static_cast<int>(.075 * rate);
+    Clear();
+  }
+  void Clear(bool settling = false) { mPeak = mLevel = 0.; mCooldown = settling ? mHold : 0; mArmed = !settling; }
+  bool Tick(double input)
+  {
+    mPeak = grid_fx::Flush(std::max(input, mPeak * mRelease));
+    mLevel = grid_fx::Flush(mLevel + mAverage * (mPeak - mLevel));
+    if (mCooldown > 0) --mCooldown;
+    if (mPeak < 1.2 * mLevel + .0005) mArmed = true;
+    if (!mArmed || mCooldown || mPeak <= 1.8 * mLevel + .002) return false;
+    mArmed = false; mCooldown = mHold;
+    return true;
+  }
+private:
+  double mPeak = 0., mLevel = 0., mRelease = 0., mAverage = 0.;
+  int mHold = 0, mCooldown = 0;
+  bool mArmed = true;
+};
+
 class Scheduler
 {
 public:
-  void Reset(uint32_t seed) { mRandom.Seed(seed); mPhase = 0.; }
+  void Reset(uint32_t seed) { mRandom.Seed(seed); mPhase = 0.; mClockPhase = 1.; }
   // True when a grain should start this sample. Call Started() when one was launched.
-  bool Tick(double overlap, bool regular, double frames, int active)
+  bool Tick(double overlap, bool regular, double frames, int active, double clockIncrement)
   {
+    if (clockIncrement > 0.)
+    {
+      const bool due = mClockPhase >= 1.;
+      if (due) mClockPhase -= 1.;
+      mClockPhase += clockIncrement;
+      mPhase = 0.;
+      return due;
+    }
+    mClockPhase = 1.;
     if (overlap <= 0.) { mPhase = 0.; return false; }
     if (regular)
     {
@@ -163,7 +221,7 @@ public:
   Random& Dice() { return mRandom; }
 private:
   Random mRandom;
-  double mPhase = 0.;
+  double mPhase = 0., mClockPhase = 1.;
 };
 // One grain's decisions. Shared by the processor and the editor's display.
 struct GrainChoice
@@ -191,6 +249,14 @@ struct Settings
 {
   int mode = 0;
   double position = .15, size = 180., activity = .5, shape = .5, filter = 0., repeats = .2, space = .3;
+  double periodSeconds = 0.; // Zero selects the mode's free-running scheduler.
+  bool IsBurst() const { return mode == static_cast<int>(Mode::PickBurst); }
+  double BurstPeriod() const
+  {
+    const double slow = 1. - std::clamp(activity, 0., 1.);
+    return periodSeconds > 0. ? periodSeconds : .04 + .36 * slow * slow;
+  }
+  double ClockIncrement(double rate) const { return periodSeconds > 0. ? 1. / std::max(1., periodSeconds * rate) : 0.; }
 };
 
 // Editor sketch: the grains the scheduler would start over `seconds`, from a fixed seed.
@@ -200,12 +266,30 @@ struct PreviewGrain
   double start = 0., length = 0., pan = .5, pitch = 0.;
   bool reverse = false;
 };
+// One gesture relative to its first grain. The editor can draw even a whole-note
+// cycle at slow tempo without running the sample clock for a minute of audio.
+inline std::vector<PreviewGrain> PreviewPhrase(const Settings& s)
+{
+  const auto v = Voice(s.mode);
+  const double gap = s.IsBurst() ? s.BurstPeriod() : s.periodSeconds > 0. ? s.periodSeconds
+                                      : s.size * .001 / Overlap(v, s.activity);
+  std::vector<PreviewGrain> grains;
+  for (int i = 0; i < (s.IsBurst() ? kBurstGrains : v.intervalCount); ++i)
+  {
+    const double pitch = s.IsBurst() ? 0. : v.intervals[i];
+    constexpr double rate = 48000.;
+    const double length = GrainFrames(s.size, std::exp2(pitch / 12.), rate, kBufferSeconds * rate + 4. * kGuard);
+    grains.push_back({i * gap, length / rate, .5, pitch, false});
+  }
+  return grains;
+}
 inline std::vector<PreviewGrain> PreviewCloud(const Settings& s, double seconds)
 {
   constexpr double rate = 4000.;
   const auto voicing = Voice(s.mode);
   const double overlap = Overlap(voicing, s.activity), buffer = kBufferSeconds * rate + 4. * kGuard;
   const double hint = GrainFrames(s.size * voicing.sizeScale, 1., rate, buffer);
+  const double clockIncrement = s.ClockIncrement(rate);
   std::vector<PreviewGrain> grains;
   std::vector<double> ends;
   Scheduler scheduler;
@@ -215,8 +299,8 @@ inline std::vector<PreviewGrain> PreviewCloud(const Settings& s, double seconds)
   for (int t = 0; t < total; ++t)
   {
     std::erase_if(ends, [&](double end) { return end <= t; });
-    if (!scheduler.Tick(overlap, voicing.regular, hint, static_cast<int>(ends.size()))
-        || ends.size() >= static_cast<size_t>(kMaxGrains))
+    const bool due = scheduler.Tick(overlap, voicing.regular, hint, static_cast<int>(ends.size()), clockIncrement);
+    if (!due || ends.size() >= static_cast<size_t>(kMaxGrains))
       continue;
     scheduler.Started();
     const auto c = Choose(voicing, scheduler.Dice(), step);
@@ -246,12 +330,17 @@ public:
   {
     mRate = std::max(1., rate);
     mFrames = static_cast<int>(std::ceil(kBufferSeconds * mRate)) + 4 * kGuard;
-    for (auto& channel : mBuffer) channel.assign(static_cast<size_t>(mFrames), 0.f);
+    static const ReadFilter readFilter;
+    mReadFilter = &readFilter;
+    for (auto& channel : mBuffer) channel.assign(static_cast<size_t>(mFrames) + ReadFilter::taps - 1, 0.f);
     mWrite = 0;
     mGrains = {};
     mActive = 0;
     mStep = 0;
     mScheduler.Reset(0x6a09e667u);
+    mProcessed = false;
+    mDetector.Reset(mRate);
+    mBurst = {};
     mGain = {1., 1.};
     mGainCoefficient = std::exp(-1. / (.03 * mRate));
     mMixCoefficient = std::exp(-1. / (.01 * mRate));
@@ -265,9 +354,12 @@ public:
   // Called every few samples from smoothed controls; Tick reads the cached values.
   void Configure(const Settings& s)
   {
+    if (s.IsBurst() && !mSettings.IsBurst()) { mDetector.Clear(mProcessed); mBurst = {}; }
     mSettings = s;
     mVoicing = Voice(s.mode);
     mOverlap = Overlap(mVoicing, s.activity);
+    mHintFrames = GrainFrames(s.size * mVoicing.sizeScale, 1., mRate, mFrames);
+    mClockIncrement = s.IsBurst() ? 1. / (s.BurstPeriod() * mRate) : s.ClockIncrement(mRate);
     mDecorrelation = Decorrelation(mVoicing);
     mPeak = Peak(s.shape);
     const double f = std::clamp(s.repeats, 0., 1.);
@@ -291,6 +383,7 @@ public:
   // One stereo frame. `stereo` false reads and writes the left buffer only (mono in, mono out).
   Stereo Tick(Stereo in, bool stereo, bool frozen, double live)
   {
+    mProcessed = true;
     const int channels = stereo ? 2 : 1;
     // Repeats: high-passed against DC build-up, then soft-limited with the input.
     const double g = mFeedbackGain * live;
@@ -301,11 +394,15 @@ public:
         double x = in[ch];
         if (g > 0.) x += g * (Saturate(x + g * mFeedback[ch]) - x);
         mBuffer[ch][static_cast<size_t>(mWrite)] = static_cast<float>(grid_fx::Flush(x));
+        // Mirror the start of the ring so even a wrapped FIR read is contiguous.
+        if (mWrite < ReadFilter::taps - 1) mBuffer[ch][mFrames + mWrite] = mBuffer[ch][mWrite];
       }
       if (++mWrite == mFrames) mWrite = 0;
     }
-    const double hint = GrainFrames(mSettings.size * mVoicing.sizeScale, 1., mRate, mFrames);
-    if (mScheduler.Tick(mOverlap, mVoicing.regular, hint, mActive))
+    const bool due = mSettings.IsBurst()
+      ? mBurst.Tick(mDetector.Tick(std::max(std::abs(in[0]), stereo ? std::abs(in[1]) : 0.)), mClockIncrement)
+      : mScheduler.Tick(mOverlap, mVoicing.regular, mHintFrames, mActive, mClockIncrement);
+    if (due)
       if (Start()) mScheduler.Started();
     Stereo wet{}, sum{};
     int active = 0;
@@ -314,16 +411,31 @@ public:
       if (!grain.active) continue;
       ++active;
       const double w = Window(grain.phase, grain.peak);
-      const double left = Read(0, grain.position);
+      Stereo sample{};
+      if (grain.band)
+      {
+        const int center = static_cast<int>(grain.position);
+        const int phase = static_cast<int>((grain.position - center) * ReadFilter::phases + .5);
+        const auto& kernel = (*grain.band)[phase];
+        int first = center - (ReadFilter::taps / 2 - 1);
+        if (first < 0) first += mFrames;
+        for (int ch = 0; ch < channels; ++ch)
+          sample[ch] = ReadFilter::Read(mBuffer[ch].data() + first, kernel);
+      }
+      else
+      {
+        sample[0] = Read(0, grain.position);
+        if (stereo) sample[1] = Read(1, grain.position);
+      }
       if (stereo)
       {
-        wet[0] += w * grain.gain[0] * left; wet[1] += w * grain.gain[1] * Read(1, grain.position);
+        wet[0] += w * grain.gain[0] * sample[0]; wet[1] += w * grain.gain[1] * sample[1];
         sum[0] += w * grain.gain[0]; sum[1] += w * grain.gain[1];
       }
       else
       {
         const double gain = w * .5 * (grain.gain[0] + grain.gain[1]);
-        wet[0] += gain * left; sum[0] += gain;
+        wet[0] += gain * sample[0]; sum[0] += gain;
       }
       grain.position += grain.step;
       if (grain.position >= mFrames) grain.position -= mFrames;
@@ -386,6 +498,7 @@ private:
   {
     double position = 0., step = 1., phase = 0., phaseStep = 0., peak = .5;
     Stereo gain{};
+    const ReadFilter::Band* band = nullptr;
     bool active = false;
   };
   // Rational tanh approximation with unity slope at zero, limited to +/-1.
@@ -425,11 +538,14 @@ private:
     // Evenly spaced pitched grains read evenly spaced positions and partly cancel. A
     // random offset of up to a quarter grain, growing over the first semitone, keeps them
     // apart; unpitched grains read the same audio in phase and need none.
-    const double jitter = .25 * frames * std::min(1., std::abs(c.pitch));
-    const double available = std::max(0., mFrames - 4. * kGuard - played - frames - jitter);
+    free->band = mReadFilter->ForPitch(c.pitch);
+    const int margin = free->band ? ReadFilter::taps / 2 : 0;
+    const double room = std::max(0., mFrames - 4. * kGuard - 2. * margin - played - frames);
+    const double jitter = std::min(room, .25 * frames * std::min(1., std::abs(c.pitch)));
+    const double available = room - jitter;
     const double offset = std::clamp(mSettings.position, 0., 1.) * available, remaining = available - offset;
     const double extra = std::min(remaining, mVoicing.scatter * mRate + mVoicing.reach * remaining) * c.reachU;
-    double start = mWrite - (offset + extra + jitter * c.jitterU + played + kGuard);
+    double start = mWrite - (offset + extra + jitter * c.jitterU + played + kGuard + margin);
     while (start < 0.) start += mFrames;
     free->gain = c.pan < .5 ? Stereo{1., 2. * c.pan} : Stereo{2. * (1. - c.pan), 1.};
     // A reversed grain reads the same span from its newest end, moving away from the head.
@@ -445,10 +561,13 @@ private:
   }
   inline static constexpr double kDiffusion[2][4]{{.0040, .0057, .0084, .0139}, {.0047, .0064, .0072, .0120}};
   std::array<std::vector<float>, 2> mBuffer;
+  const ReadFilter* mReadFilter = nullptr;
   std::array<Grain, kMaxGrains> mGrains{};
   std::array<std::array<grid_reverb::Allpass, 4>, 2> mDiffuser;
   grid_reverb::PlateTank mReverb;
   Scheduler mScheduler;
+  PickDetector mDetector;
+  BurstClock mBurst;
   Settings mSettings;
   Voicing mVoicing;
   Stereo mFeedback{}, mGain{1., 1.};
@@ -456,8 +575,9 @@ private:
   std::array<std::array<double, 2>, 2> mLowPass{}, mHighPass{};
   double mRate = 48000., mGainCoefficient = 0., mMixCoefficient = 0., mFeedbackGain = 0., mFeedbackCoefficient = 1.;
   double mOverlap = 0., mDecorrelation = 0., mPeak = .5, mSpace = 0., mSpaceMix = 0., mDiffusion = 0.;
+  double mHintFrames = 0., mClockIncrement = 0.;
   double mLowPassHz = 20000., mHighPassHz = 20., mLowPassG = 0., mHighPassG = 0.;
   int mFrames = 1, mWrite = 0, mActive = 0, mStep = 0;
-  bool mFirst = true;
+  bool mFirst = true, mProcessed = false;
 };
 } // namespace grid_granular

@@ -5,7 +5,7 @@
 namespace grid_ui
 {
 // Cosmic Echo's measured wet response to one impulse (ImpulseProbe), on a dB scale
-// over a 2 or 10 second window, above the base delay-line sketch. Separate spikes are
+// over a 2, 4 or 10 second window, above the base delay-line sketch. Separate spikes are
 // distinct echoes; Warp spreads them, Density and Feedback blur them into a smooth
 // wash. Until the current measurement arrives, the previous one is shown dimmed.
 template<class Value>

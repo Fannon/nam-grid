@@ -437,6 +437,7 @@ int main(int argc, char** argv)
         legacy.erase(key);
         for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
         if (p == uGranulatorActivity) changed[key] = 80.;
+        if (p == uGranulatorMode) changed[key] = static_cast<int>(effect_modes::GranulatorMode::PickBurst);
       }
     assert(load(changed));
     assert(load(legacy));

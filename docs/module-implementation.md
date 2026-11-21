@@ -370,6 +370,16 @@ wrapped by `SlotGranulator.h`.
   fewer than `overlap` grains play in random modes), and `Choose` makes each grain's
   pitch, length, reach, direction and pan. `PreviewCloud` runs both at a reduced rate,
   so the display shows the processor's own behavior.
+- **Tempo sync** uses a host division for the spacing between grain launches.
+  The scheduler retains fractional phase across samples and tempo changes and
+  starts a fresh pulse when sync engages in continuously running modes. Phase is local to the slot. Size and the
+  mode's pitch, direction and scatter still apply to each launch.
+- **Pick Burst** detects a rising pick against the recent dry-input level across both
+  channels. A pick starts or restarts three grain launches. A short lockout and a
+  lower re-arm threshold keep sustain from continuously retriggering the burst.
+  Freeze holds the read source while the detector keeps listening to live input.
+  Rate sets the free spacing and a host division sets synced spacing. The editor
+  shows one example burst relative to the pick and one complete pitch cycle for Arp.
 - **Buffer and placement:** four seconds of stereo float history at the host rate,
   allocated in `Reset` (a `unique_ptr` in the prepared slot, so other modules pay
   nothing). As in Clouds, a grain at ratio `r` reads `size * r` samples while the record
@@ -378,6 +388,12 @@ wrapped by `SlotGranulator.h`.
   reversed grain reads the same span from its newest end, moving away from the head.
   Pitched grains add a random offset of up to a quarter grain: without it, even pitched
   grains read evenly spaced positions and partly cancel, up to 12 dB quieter.
+- Grains transposed up a fifth or more read the recorded history through a
+  40-tap, Blackman-windowed sinc interpolator. The cutoff scales with the
+  interval so high input harmonics roll off before faster playback folds them
+  into the output. The four shared filter tables are prepared during reset.
+  Each pitched grain reserves room on both sides of its read position for the
+  filter. Unison, lightly detuned and downward grains use cubic interpolation.
 - **Window:** Shape moves the peak of a two-sided Hann window from 3% (percussive)
   through 50% to 97% (swell). Four allpasses per channel add the mode's diffusion.
 - **Level:** each channel divides by its smoothed window sum raised to an exponent:

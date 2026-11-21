@@ -485,7 +485,8 @@ inline constexpr AlgorithmIdentity patternFeedback[]{{0, "repeat"}, {1, "swell"}
 inline constexpr AlgorithmIdentity digitalDelayVoice[]{{0, "clean"}, {1, "rack"}, {2, "lo-fi"}};
 inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}};
 inline constexpr AlgorithmIdentity granulator[]{
-  {0, "cloud"}, {1, "haze"}, {2, "shimmer"}, {3, "tunnel"}, {4, "mosaic"}, {5, "reverse"}, {6, "blocks"}, {7, "interrupt"}, {8, "arp"}};
+  {0, "cloud"}, {1, "haze"}, {2, "shimmer"}, {3, "tunnel"}, {4, "mosaic"}, {5, "reverse"}, {6, "blocks"}, {7, "interrupt"}, {8, "arp"},
+  {9, "pick-burst"}};
 } // namespace algorithm_identities
 inline constexpr std::span<const AlgorithmIdentity> AlgorithmIdentities(int control)
 {

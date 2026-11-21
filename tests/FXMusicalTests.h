@@ -72,7 +72,8 @@ void TestFXVisualizationMath()
   assert(effect_preview::TailDB(1.,2.)==-30.);
   assert(effect_preview::TimeHorizon(1.6)==2.);
   assert(effect_preview::TimeHorizon(1.7)==2.);
-  assert(effect_preview::TimeHorizon(2.01)==5.);
+  assert(effect_preview::TimeHorizon(2.01)==4.);
+  assert(effect_preview::TimeHorizon(4.01)==5.);
   UtilityControls c; c.wah={0.,2.,0.,100.,0.};
   const double heel=effect_preview::WahCenter(c,48000.);
   c.wah[0]=100.; assert(effect_preview::WahCenter(c,48000.)>heel*6.7);

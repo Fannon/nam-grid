@@ -66,7 +66,7 @@ void TestModulePresetCoverage()
       }
       const auto applied = Apply(effect, preset, SlotDefaultValues(effect));
       // Browsing factory recipes must never trigger a live capture/learn/latch.
-      for (int p : {uFreezeHold, uShimmerFreeze, uStutterHold, uNoiseLearn})
+      for (int p : {uFreezeHold, uShimmerFreeze, uGranulatorFreeze, uStutterHold, uNoiseLearn})
         assert(applied[U(p)] == 0.);
       std::vector<Value> saved;
       assert(Parse(ToJson(effect, applied), effect, saved).empty());

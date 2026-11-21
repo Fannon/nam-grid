@@ -77,11 +77,139 @@ inline Patch Wet(Mode mode)
   Patch p; p.mode = mode;
   return p.Set(uGranulatorRepeats, 0.).Set(uGranulatorSpace, 0.).Set(uGranulatorMix, 100.);
 }
+// Clock isolated Arp grains. A tone at 0.7 * rate after transposition folds onto
+// the same output frequency as the reference at 0.3 * rate.
+inline void TestUpwardBandwidth()
+{
+  for (double rate : {44100., 48000., 96000.})
+    for (int step = 1; step <= 4; ++step)
+    {
+      constexpr double intervals[]{0., 7., 12., 19., 24.};
+      const double ratio = std::exp2(intervals[step] / 12.);
+      const auto level = [&](double outputFraction) {
+        grid_granular::Engine engine;
+        engine.Reset(rate);
+        grid_granular::Settings settings;
+        settings.mode = static_cast<int>(Mode::Arp);
+        settings.size = 60.; settings.position = 0.; settings.repeats = settings.space = 0.;
+        settings.periodSeconds = .125;
+        engine.Configure(settings);
+        // Second cycle: enough history for even the fastest grain.
+        const int onset = static_cast<int>((8 + step) * settings.periodSeconds * rate);
+        const int begin = onset + static_cast<int>(.02 * rate), end = onset + static_cast<int>(.04 * rate);
+        double sum = 0.;
+        for (int i = 0; i < end; ++i)
+        {
+          const double input = .3 * std::sin(2. * grid_fx::pi * outputFraction / ratio * i);
+          const auto wet = engine.Tick({input, input}, true, false, 1.);
+          if (i >= begin) sum += wet[0] * wet[0] + wet[1] * wet[1];
+        }
+        return std::sqrt(sum / (2. * (end - begin)));
+      };
+      const double pass = level(.3), folded = level(.7);
+      assert(pass > .02 && folded < .01 * pass);
+    }
+}
 } // namespace granulator_test
 
 void TestGranulator()
 {
   using namespace granulator_test;
+  for (double hz : {31., 41., 62.})
+  {
+    grid_granular::PickDetector detector;
+    detector.Reset(48000.);
+    int picks = 0;
+    for (int i = 0; i < 24000; ++i)
+    {
+      const double t = i / 48000.;
+      const double pluck = .3 * std::min(1., t / .06) * std::exp(-4. * t) * std::sin(2. * grid_fx::pi * hz * t);
+      picks += detector.Tick(std::abs(pluck));
+    }
+    assert(picks == 1);
+  }
+  {
+    grid_granular::Engine engine;
+    engine.Reset(48000.);
+    grid_granular::Settings s;
+    s.size = 20.;
+    s.mode = static_cast<int>(Mode::Blocks);
+    engine.Configure(s);
+    engine.Tick({.2, .2}, true, false, 1.);
+    s.mode = static_cast<int>(Mode::PickBurst);
+    engine.Configure(s);
+    for (int i = 0; i < 16000; ++i)
+    {
+      const double note = .2 * std::cos(2. * grid_fx::pi * 110. * i / 48000.);
+      engine.Tick({note, note}, true, false, 1.);
+      assert(engine.Active() == 0);
+    }
+  }
+  // Dry right-channel attacks play a three-grain response while the source is frozen.
+  // A held note launches nothing further. A fresh pick restarts the burst clock.
+  {
+    grid_granular::Engine engine;
+    constexpr int rate = 48000;
+    engine.Reset(rate);
+    grid_granular::Settings s;
+    s.mode = static_cast<int>(Mode::PickBurst);
+    s.position = s.repeats = s.space = 0.;
+    s.size = 20.; s.periodSeconds = .1;
+    engine.Configure(s);
+    std::vector<int> starts;
+    int previous = 0;
+    double frozenEnergy = 0.;
+    for (int i = 0; i < rate * 2; ++i)
+    {
+      const bool frozen = i >= rate / 2;
+      const double tone = .25 * std::cos(2. * grid_fx::pi * 220. * i / rate);
+      const double right = (i >= 36000 && i < 38200) || i >= 42000 ? tone : 0.;
+      const auto wet = engine.Tick({frozen ? 0. : tone, right}, true, frozen, 1.);
+      const int active = engine.Active();
+      if (frozen && active > previous) starts.push_back(i);
+      if (frozen) frozenEnergy += wet[0] * wet[0];
+      previous = active;
+    }
+    constexpr int expected[]{36000, 40800, 42000, 46800, 51600};
+    assert(starts.size() == std::size(expected) && frozenEnergy > 1.);
+    for (size_t i = 0; i < starts.size(); ++i) assert(std::abs(starts[i] - expected[i]) <= 2);
+    for (const double period : {0., .1, 8.})
+    {
+      s.periodSeconds = period;
+      const auto burst = grid_granular::PreviewPhrase(s);
+      assert(burst.size() == 3 && burst[0].start == 0.);
+      assert(burst[2].start == 2. * (period > 0. ? period : .13));
+    }
+  }
+  TestUpwardBandwidth();
+  // Eighth-note grain onsets follow the host clock independently of Size and Activity.
+  for (const auto mode : {Mode::Blocks, Mode::Arp, Mode::Haze})
+    for (const double size : {20., 70.})
+    {
+      SlotGranulator slot;
+      constexpr double rate = 44100.;
+      slot.Reset(rate);
+      UtilityControls c;
+      c.sync = true; c.tempo = 137.; c.division = 3;
+      c.granulatorMode = static_cast<int>(mode);
+      c.granulator[uGranulatorSize - uGranulatorPosition] = size;
+      c.granulator[uGranulatorActivity - uGranulatorPosition] = size;
+      const double period = rate * grid_tempo::Seconds(c.tempo, c.division);
+      int previous = 0, starts = 0;
+      for (int i = 0; i < 5.5 * period; ++i)
+      {
+        double sample = 0.;
+        slot.Process(&sample, nullptr, 1, c);
+        const int active = slot.ActiveGrains();
+        if (active > previous)
+        {
+          assert(std::abs(i - starts * period) <= 1.);
+          ++starts;
+        }
+        previous = active;
+      }
+      assert(starts == 6);
+    }
   const auto note = [](double rate) { return [rate](int i, int ch) { return Note(i, rate, ch); }; };
   const auto sine = [](double hz) { return [hz](int i, int) { return .3 * std::sin(2. * grid_fx::pi * hz * i / 48000.); }; };
   // Mix 0 passes the input through exactly, in every mode, mono and stereo.
@@ -110,7 +238,8 @@ void TestGranulator()
           const auto wet = Run(p, 6., rate, note(rate));
           const double level = 20. * std::log10(wet.Rms(2., 6., rate) / input.Rms(2., 6., rate));
           const double peak = wet.Peak() / input.Peak();
-          const bool dense = grid_granular::Overlap(grid_granular::Voice(m), activity * .01) >= 3.;
+          // Pick Burst falls silent after three grains even at its fastest rate.
+          const bool dense = mode != Mode::PickBurst && grid_granular::Overlap(grid_granular::Voice(m), activity * .01) >= 3.;
           const bool ok = level < 2. && peak < 2. && (dense ? level > -5.5 : level > -22.);
           if (!ok)
             std::cerr << "Granulator level: " << effect_modes::granulatorNames[m] << " rate " << rate << " activity "
@@ -170,7 +299,8 @@ void TestGranulator()
     auto p = Wet(Mode::Haze); p.Set(uGranulatorRepeats, 100.).Set(uGranulatorSpace, 100.);
     const int stop = 48000 * 2, enable = 48000 * 18;
     const auto out = Run(p, 20., 48000., [&](int i, int ch) { return i < stop ? Note(i, 48000., ch) : 0.; }, true,
-                         [](int) { return true; }, [&](int i) { return i >= stop && i < enable; });
+                         [&](int i) { return i >= stop - 4800; }, [&](int i) { return i >= stop && i < enable; });
+    assert(out.Rms(1.8, 2., 48000.) > .001);
     assert(out.Rms(18., 20., 48000.) < 1.e-6);
   }
   // Full Repeats and Space on loud input stay bounded and die away without input, in every mode.
@@ -179,7 +309,11 @@ void TestGranulator()
     auto p = Wet(static_cast<Mode>(m)); p.Set(uGranulatorPosition, 5.).Set(uGranulatorActivity, 100.)
                                           .Set(uGranulatorRepeats, 100.).Set(uGranulatorSpace, 100.);
     grid_granular::Random noise;
-    const auto out = Run(p, 40., 48000., [&](int i, int) { return i < 48000 * 2 ? 4. * (noise.Uniform() - .5) : 0.; });
+    // Give the pick-triggered processor a second attack once there is audio at Position.
+    const auto out = Run(p, 40., 48000., [&](int i, int) {
+      const bool gap = p.mode == Mode::PickBurst && i >= 40000 && i < 52000;
+      return i < 48000 * 2 && !gap ? 4. * (noise.Uniform() - .5) : 0.;
+    });
     const bool ok = std::isfinite(out.Peak()) && out.Peak() < 4. && out.Rms(35., 40., 48000.) < .1 * out.Rms(2., 4., 48000.);
     if (!ok)
       std::cerr << "Granulator repeats: " << effect_modes::granulatorNames[m] << " peak " << out.Peak() << " tail "
@@ -206,6 +340,10 @@ void TestGranulator()
     grid_granular::Settings arp = blocks; arp.mode = static_cast<int>(Mode::Arp);
     const auto steps = grid_granular::PreviewCloud(arp, 2.);
     constexpr double sequence[]{0., 7., 12., 19., 24., 19., 12., 7.};
+    arp.periodSeconds = 8.;
+    const auto phrase = grid_granular::PreviewPhrase(arp);
+    assert(phrase.size() == std::size(sequence));
+    for (size_t i = 0; i < phrase.size(); ++i) assert(phrase[i].pitch == sequence[i] && phrase[i].start == 8. * i);
     assert(steps.size() > 8);
     for (size_t i = 0; i < steps.size(); ++i) assert(steps[i].pitch == sequence[i % 8]);
     grid_granular::Settings reverse; reverse.mode = static_cast<int>(Mode::Reverse);

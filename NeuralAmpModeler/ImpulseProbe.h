@@ -100,20 +100,15 @@ public:
       }
     }
     const float loudest = *std::max_element(peaks.begin(), peaks.end());
-    const float late = *std::max_element(peaks.begin() + bins, peaks.end());
-    if (late > loudest * std::pow(10.f, floorDb / 20.f))
+    const float threshold = loudest * std::pow(10.f, floorDb / 20.f);
+    const auto last = std::find_if(peaks.rbegin(), peaks.rend(), [threshold](float level) { return level > threshold; });
+    const auto occupied = std::distance(peaks.begin(), last.base());
+    const int group = occupied <= bins ? 1 : occupied <= 2 * bins ? 2 : binsPerLongBin;
+    result.seconds = shortSeconds * group;
+    for (int i = 0; i < bins; ++i)
     {
-      result.seconds = longSeconds;
-      for (int i = 0; i < bins; ++i)
-      {
-        const auto start = peaks.begin() + i * binsPerLongBin;
-        result.peak[i] = *std::max_element(start, start + binsPerLongBin);
-      }
-    }
-    else
-    {
-      result.seconds = shortSeconds;
-      std::copy_n(peaks.begin(), bins, result.peak.begin());
+      const auto start = peaks.begin() + i * group;
+      result.peak[i] = *std::max_element(start, start + group);
     }
     result.valid = true;
     return result;

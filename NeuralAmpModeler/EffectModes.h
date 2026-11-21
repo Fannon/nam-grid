@@ -189,4 +189,26 @@ inline constexpr std::array<const char*, cosmicCount> cosmicHelp{
   "Velvet Chamber brings soft, close reflections around the pick. Use short Time and high Density for a compact room. Style changes fade and clear the old tail.",
   "Solstice Hall leaves room for the attack, then opens into a broad stereo tail. Raise Modulation for movement on sustained chords. Style changes fade and clear the old tail.",
   "Sunken Cathedral is the largest space: a distant first reflection, then a long tail that blooms slowly. Keep Time moderate and use Feedback for length. Style changes fade and clear the old tail."};
+// Granulator modes: saved values, permanent; append new modes at the end.
+enum class GranulatorMode
+{
+  Cloud, Haze, Shimmer, Tunnel, Mosaic, Reverse, Blocks, Interrupt, Arp, PickBurst = 9, Count
+};
+inline constexpr int granulatorCount = static_cast<int>(GranulatorMode::Count);
+inline constexpr std::array<const char*, granulatorCount> granulatorNames{
+  "Cloud", "Haze", "Shimmer", "Tunnel", "Mosaic", "Reverse", "Blocks", "Interrupt", "Arp", "Pick Burst"};
+inline constexpr std::array<const char*, granulatorCount> granulatorSummary{
+  "Classic random grain cloud", "Dense, drifting wash", "Octave-up halo", "Octave-down drone", "Half, normal and double speed",
+  "Backward swells", "Rhythmic repeats", "Glitching jumps", "Fifths and octaves sequence", "Three grains per pick"};
+inline constexpr std::array<const char*, granulatorCount> granulatorHelp{
+  "Cloud: grains at random times from where Position points, lightly scattered and detuned, in the style of Mutable Instruments Clouds. Raise Density until they join into a cloud.",
+  "Haze: many long, drifting grains from all over the buffer, with occasional octaves, diffused into a wash. Try high Density and Space for ambient pads.",
+  "Shimmer: grains one and two octaves up over the unpitched ones, smooth and wide. Shape near 100% swells each grain in; Repeats builds the halo.",
+  "Tunnel: long grains an octave down blended with the original pitch, dark and diffused, for a drone under your playing.",
+  "Mosaic: fragments at half, normal and double speed, some reversed, layered into a shifting pattern of your phrase.",
+  "Reverse: every grain plays backwards, so notes swell in. Long Size and some Repeats give reverse-delay washes.",
+  "Blocks: evenly timed slices of recent audio. Raise Rate for faster repeats and lower Shape for sharper attacks.",
+  "Interrupt: evenly timed fragments jump around the last second and sometimes reverse or change octave, a controlled glitch.",
+  "Arp: a repeating pattern of fifths and octaves. Rate or the tempo division sets the step spacing.",
+  "Pick Burst: launch three grains from Position on each fresh pick attack. Freeze a chord and pick a rhythm to play it."};
 } // namespace effect_modes

@@ -8,7 +8,7 @@ void TestMixLaw()
   constexpr std::array effects{E::DigitalDelay, E::AnalogDelay, E::TapeDelay, E::MultiHeadDelay,
     E::ReverseDelay, E::DualDelay, E::DiffusedDelay,
     E::SpaceTapeEcho, E::BucketBrigade, E::PitchDelay, E::FeedbackFXDelay, E::PatternDelay, E::GranularDelay, E::RoomReverb, E::PlateReverb, E::CloudReverb,
-    E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho};
+    E::HallReverb, E::SpringReverb, E::ShimmerReverb, E::AirPlate, E::AirHall, E::GalacticSpace, E::CosmicEcho, E::Granulator};
   for (double rate : {48000., 96000.})
     for (auto effect : effects)
       for (bool stereo : {false, true})
@@ -26,7 +26,7 @@ void TestMixLaw()
             auto& c = controls.utility;
             c.constantDry = constantDry;
             c.delay[4] = c.reverb[4] = c.spring[3] = c.shimmer[0] = c.airPlate[4]
-              = c.airHall[5] = c.space[5] = c.cosmic[6] = mix;
+              = c.airHall[5] = c.space[5] = c.cosmic[6] = c.granulator[7] = mix;
             c.delayOutput = c.spring[4] = c.airPlate[6] = c.airHall[6] = c.space[6] = output;
             std::array<std::vector<double>, 2> audio{std::vector<double>(8192), std::vector<double>(8192)};
             for (int i = 0; i < 8192; ++i)

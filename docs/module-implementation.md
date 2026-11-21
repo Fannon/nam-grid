@@ -351,6 +351,71 @@ See the [Faust reference](https://faustlibraries.grame.fr/libs/reverbs/#revalhal
 
 Aurora Hall is an original NAM Grid design: Density controls an orthogonal eight-way scattering network and the allpass coefficients inside the loops. Warp spreads clustered main delays; short diffusers retain irregular spacing. Loop filters damp successive repeats. All delays scale with sample rate and process every host sample. No Airwindows source or undersampling is used. The existing sixteen-line bank supplies eight main delays and eight diffusers. See [Aurora Hall settings](modules/cosmic-echo.md#aurora-hall-echoes-and-washes).
 
+## Granulator
+
+The grain engine follows the granular mode of Mutable Instruments Clouds (MIT), as
+packaged in the Parasites firmware and the Overcast MPC plugin, with per-grain randomness
+in the spirit of Beads. The modes and the shared Activity / Shape / Filter / Repeats /
+Space controls are inspired by the Hologram Microcosm pedal and the Grainbloom MPC plugin
+(MIT). No code from any of them is included. The implementation is `dsp/Granulator.h`,
+wrapped by `SlotGranulator.h`.
+
+- **Modes are voicings.** `Voice(mode)` returns a fixed table: even or random timing, the
+  overlap range Activity sweeps, a Size multiplier, scatter (seconds) and reach (share of
+  the buffer), random size, drift, reverse chance, intervals with a chance or a sequence,
+  pan spread, diffusion and internal low and high cuts. The knobs mean the same in every
+  mode, so a mode change only changes what new grains do. Intervals are octaves and fifths.
+- **Shared decisions:** `Scheduler` decides when a grain starts (a phase counter every
+  `size / overlap` samples in even modes; a per-sample chance of `overlap / size` while
+  fewer than `overlap` grains play in random modes), and `Choose` makes each grain's
+  pitch, length, reach, direction and pan. `PreviewCloud` runs both at a reduced rate,
+  so the display shows the processor's own behavior.
+- **Tempo sync** uses a host division for the spacing between grain launches.
+  The scheduler retains fractional phase across samples and tempo changes and
+  starts a fresh pulse when sync engages in continuously running modes. Phase is local to the slot. Size and the
+  mode's pitch, direction and scatter still apply to each launch.
+- **Pick Burst** detects a rising pick against the recent dry-input level across both
+  channels. A pick starts or restarts three grain launches. A short lockout and a
+  lower re-arm threshold keep sustain from continuously retriggering the burst.
+  Freeze holds the read source while the detector keeps listening to live input.
+  Rate sets the free spacing and a host division sets synced spacing. The editor
+  shows one example burst relative to the pick and one complete pitch cycle for Arp.
+- **Buffer and placement:** four seconds of stereo float history at the host rate,
+  allocated in `Reset` (a `unique_ptr` in the prepared slot, so other modules pay
+  nothing). As in Clouds, a grain at ratio `r` reads `size * r` samples while the record
+  head moves `size` further; Position, scatter and reach spread the start over what
+  remains, so reads never cross the head. Long grains shorten at high pitch to fit. A
+  reversed grain reads the same span from its newest end, moving away from the head.
+  Pitched grains add a random offset of up to a quarter grain: without it, even pitched
+  grains read evenly spaced positions and partly cancel, up to 12 dB quieter.
+- Grains transposed up a fifth or more read the recorded history through a
+  40-tap, Blackman-windowed sinc interpolator. The cutoff scales with the
+  interval so high input harmonics roll off before faster playback folds them
+  into the output. The four shared filter tables are prepared during reset.
+  Each pitched grain reserves room on both sides of its read position for the
+  filter. Unison, lightly detuned and downward grains use cubic interpolation.
+- **Window:** Shape moves the peak of a two-sided Hann window from 3% (percussive)
+  through 50% to 97% (swell). Four allpasses per channel add the mode's diffusion.
+- **Level:** each channel divides by its smoothed window sum raised to an exponent:
+  1 when grains read the same audio in phase, falling to 1/2 as the mode decorrelates
+  them (scatter, drift, intervals, reverse, random size). Overlapping grains stay
+  within about 5 dB of the input in every mode; sparse settings are quieter because of
+  the silence between grains.
+- **Filter, Repeats, Space:** Filter is a two-pole TPT low- or high-pass on the grain
+  sum, combined with the mode's own cuts and glided in octaves. Repeats passes the
+  filtered sum through two one-pole high-passes (20–120 Hz) into the recording via a
+  rational soft limiter; its gain at 100% is 0.95, a loop gain of 0.9, so tails decay.
+  Space is the Clouds-derived `PlateTank`, fed with the grains only. The diffuser and the
+  plate always run, and their blend amounts glide per sample, so changing Mode, Shape or
+  Space does not click.
+- **Freeze, bypass and Trails:** Freeze stops recording. It is transient performance
+  state like Freeze Hold: rigs and scenes store it as off, and while it is held the
+  plugin reports an infinite tail. A draining slot records silence even when frozen, so
+  a re-enabled slot never plays the old buffer. Drain covers the buffer, the last grain
+  and the plate's 8 s decay. Trails let the grains play out.
+- **Determinism:** a fixed-seed xorshift generator reseeded in `Reset`; a settled rig
+  renders identically for the same input. No latency is added.
+
 ## Capture effects
 
 Freeze's Capture is the source window. It repeats every Capture minus the effective

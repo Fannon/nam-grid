@@ -1613,6 +1613,7 @@ nlohmann::json NeuralAmpModeler::_CurrentRig() const
   {
     rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
     rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+    rig[GetParam(SlotUtilityParam(slot, uGranulatorFreeze))->GetName()] = 0.;
     rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
   }
   return rig;
@@ -1649,6 +1650,7 @@ void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, co
   {
     rig[GetParam(SlotUtilityParam(slot, uFreezeHold))->GetName()] = 0.;
     rig[GetParam(SlotUtilityParam(slot, uShimmerFreeze))->GetName()] = 0.;
+    rig[GetParam(SlotUtilityParam(slot, uGranulatorFreeze))->GetName()] = 0.;
     rig[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.;
   }
   IByteChunk chunk;
@@ -2270,6 +2272,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   for (size_t i = 0; i < mSlotEffects.size(); ++i)
   {
     if (mSlotEffects[i] == SlotEffect::Stutter) stutterMask |= 1u << i;
+    if (mSlotEffects[i] == SlotEffect::Granulator) stutterMask |= 1u << (i + FixedNAMGrid::kSlots);
     if (mSlotEffects[i] == SlotEffect::Freeze) freezeMask |= 1u << i;
     if (mSlotEffects[i] == SlotEffect::ShimmerReverb) freezeMask |= 1u << (i + FixedNAMGrid::kSlots);
   }
@@ -2281,6 +2284,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
     rowTails[i / 4] += mSlotEffects[i] == SlotEffect::DualDelay ? 1200.
                       : IsDelay(mSlotEffects[i]) ? 560. : IsAirReverb(mSlotEffects[i]) ? 60. : IsReverb(mSlotEffects[i]) ? 45.
                       : mSlotEffects[i] == SlotEffect::CosmicEcho ? 60. : mSlotEffects[i] == SlotEffect::ShimmerReverb ? 30.
+                      : mSlotEffects[i] == SlotEffect::Granulator ? 30.
                       : mSlotEffects[i] == SlotEffect::FrequencyShifter ? 560.
                       : mSlotEffects[i] == SlotEffect::PitchShift ? .1
                       : mSlotEffects[i] == SlotEffect::CabinetIR ? mPreparedIRTail[i]
@@ -2430,7 +2434,8 @@ void NeuralAmpModeler::_UpdateTailSize()
     holding |=
       (((mask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uFreezeHold))->Bool())
        || ((mask & (1u << (slot + FixedNAMGrid::kSlots))) && GetParam(SlotUtilityParam(slot, uShimmerFreeze))->Bool())
-       || ((stutterMask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uStutterHold))->Bool()))
+       || ((stutterMask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uStutterHold))->Bool())
+       || ((stutterMask & (1u << (slot + FixedNAMGrid::kSlots))) && GetParam(SlotUtilityParam(slot, uGranulatorFreeze))->Bool()))
       && GetParam(SlotActiveParam(slot))->Bool();
   const int tail = holding
                      ? kTailInfinite

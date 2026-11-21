@@ -193,6 +193,9 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uGraphicVoicing, t.graphicVoicing);
   family(uPedalCompSustain, t.pedalComp);
   u(uPedalCompPickup, t.pedalCompPickup);
+  u(uGranulatorMode, t.granulatorMode);
+  family(uGranulatorPosition, t.granulator);
+  u(uGranulatorFreeze, t.granulatorFreeze);
   u(uChorusVoices, t.extra.chorusVoices);
   u(uSpringTank, t.extra.springTank);
 

@@ -126,7 +126,7 @@ controls do not map directly onto Cosmic Echo.
 
 ## The display
 
-The display shows the measured response of the current settings to a single click, on a dB scale. The upper graph normally shows 2 seconds. It switches to 10 seconds when a reflection or tail after 2 seconds rises above the graph's −48 dB floor. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.
+The display shows the measured response of the current settings to a single click, on a dB scale. The upper graph normally shows 2 seconds. It expands to 4 or 10 seconds to include the last reflection or tail above the graph's −48 dB floor. Separate spikes are distinct echoes; Warp spreads them into a wash, and Density then fills it in. It is measured again whenever a setting changes, so it shows what you will hear rather than an estimate.
 
 Below it, the network sketch shows the base timing of the style's **4 or 16 delay
 lines**, with the count available on hover. Warp changes their spacing, Density connects

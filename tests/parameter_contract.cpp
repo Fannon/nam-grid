@@ -111,6 +111,13 @@ static_assert(SlotUtilityParam(0, uPDistStyle) == 5393);
 static_assert(SlotUtilityParam(15, uPDistMix) == 5536);
 static_assert(kEffectParameters[uPDistStyle].introducedIn == 31 && kEffectParameters[uPDistMix].introducedIn == 31);
 static_assert(IsAlgorithmMode(uPDistStyle));
+// Granulator (schema 33) appends one module and ten slot controls after every previous ID.
+static_assert(static_cast<int>(SlotEffect::Granulator) == 73);
+static_assert(SlotUtilityParam(0, uGranulatorMode) == 6049);
+static_assert(SlotUtilityParam(15, uGranulatorFreeze) == 6208);
+static_assert(kEffectParameters[uGranulatorMode].introducedIn == 33
+              && kEffectParameters[uGranulatorFreeze].introducedIn == 33);
+static_assert(IsAlgorithmMode(uGranulatorMode) && !IsAlgorithmMode(uGranulatorFreeze));
 
 int main(int argc, char** argv)
 {
@@ -418,6 +425,24 @@ int main(int argc, char** argv)
     assert(load(legacy));
     assert(save() == base);
   }
+  // Schema 32 predates the Granulator: its controls restore their declared defaults.
+  {
+    auto legacy = base;
+    legacy["schema"] = 32;
+    auto changed = base;
+    for (int slot = 0; slot < 16; ++slot)
+      for (int p = uGranulatorMode; p <= uGranulatorFreeze; ++p)
+      {
+        const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
+        legacy.erase(key);
+        for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+        if (p == uGranulatorActivity) changed[key] = 80.;
+        if (p == uGranulatorMode) changed[key] = static_cast<int>(effect_modes::GranulatorMode::PickBurst);
+      }
+    assert(load(changed));
+    assert(load(legacy));
+    assert(save() == base);
+  }
   // Future controls must explicitly declare their introduction version so this
   // original baseline preset gains defaults without losing any existing values.
   auto historical = base;
@@ -459,7 +484,8 @@ int main(int argc, char** argv)
       schema7.erase(key);
       for (auto& scene : schema7["PerformanceScenes"]) scene.erase(key);
       extendedControls[key] = kEffectParameters[p].maximum;
-      extendedControls["PerformanceScenes"][0][key] = kEffectParameters[p].maximum;
+      // Held audio (Granulator Freeze) is transient and never scene state.
+      if (p != uGranulatorFreeze) extendedControls["PerformanceScenes"][0][key] = kEffectParameters[p].maximum;
     }
   assert(load(schema7)); assert(save() == base);
   assert(load(extendedControls)); assert(save() == extendedControls);

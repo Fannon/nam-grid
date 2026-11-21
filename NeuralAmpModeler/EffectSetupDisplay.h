@@ -1,6 +1,7 @@
 #pragma once
 #include "EffectPreview.h"
 #include "ExpandedDelayDisplay.h"
+#include "dsp/Granulator.h"
 
 namespace grid_ui
 {
@@ -150,6 +151,90 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     if(echoes.horizon<1.) text.SetFormatted(32,"%.0f ms",echoes.horizon*1000.);
     else text.SetFormatted(32,"%.1f s",echoes.horizon);
     PlotFooter(g,plot,duck<.999 ? "Tick: ducked | -60 to +12 dB" : "Thin line: above 5 kHz | -60 to +12 dB",marks ? "" : text.Get());
+    return true;
+  }
+  if (effect == SlotEffect::Granulator)
+  {
+    namespace gg = grid_granular;
+    const int mode = std::clamp(static_cast<int>(value(uGranulatorMode)), 0, effect_modes::granulatorCount - 1);
+    const gg::Settings settings{mode, value(uGranulatorPosition) * .01, value(uGranulatorSize), value(uGranulatorActivity) * .01,
+                                value(uGranulatorShape) * .01, value(uGranulatorFilter) * .01, value(uGranulatorRepeats) * .01,
+                                value(uGranulatorSpace) * .01, c.sync ? grid_tempo::Seconds(tempo, c.division) : 0.};
+    const auto voicing = gg::Voice(mode);
+    const bool frozen = value(uGranulatorFreeze) >= .5;
+    const bool arp = voicing.sequence, burst = settings.IsBurst();
+    if (burst)
+      text.SetFormatted(96, "%sPick Burst | 3 grains per pick | %.0f ms apart", frozen ? "Frozen | " : "", settings.BurstPeriod() * 1000.);
+    else if (c.sync)
+      text.SetFormatted(96, "%s%s | one grain per %s", frozen ? "Frozen | " : "", effect_modes::granulatorNames[mode],
+                        grid_tempo::names[std::clamp(c.division, 0, static_cast<int>(grid_tempo::names.size()) - 1)]);
+    else
+      text.SetFormatted(96, "%s%s | %s, about %.1f at once", frozen ? "Frozen | " : "", effect_modes::granulatorNames[mode],
+                        voicing.regular ? "even" : "random", gg::Overlap(voicing, settings.activity));
+    caption(text.Get());
+    PlotDetail(g, plot, burst ? "The envelopes show the response to one example pick at the left edge. Pick again to restart the burst."
+                         : arp ? "One eight-step cycle. Higher rows play higher intervals. Each envelope shows the grain length and shape."
+                         : "Top: the four-second buffer, newest at right. Below: grain timing, with left pan up and right pan down. Cool colors mark unison and lower pitches, warmer colors mark higher intervals. A notch marks reverse playback.");
+    // The buffer, newest audio at the right, and the span new grains read.
+    const IRECT strip(plot.L, plot.T + 2.f, plot.R, plot.T + 16.f);
+    g.FillRect(border.WithOpacity(.3f), strip);
+    const auto span = gg::ReadSpan(settings);
+    const auto ago = [&](double seconds) {
+      return strip.R - strip.W() * static_cast<float>(std::clamp(seconds / gg::kBufferSeconds, 0., 1.));
+    };
+    g.FillRect(color.WithOpacity(.2f), IRECT(ago(span[2]), strip.T, ago(span[1]), strip.B));
+    g.FillRect(color.WithOpacity(frozen ? .85f : .55f), IRECT(ago(span[1]), strip.T, std::max(ago(span[0]), ago(span[1]) + 2.f), strip.B));
+    g.DrawRect(frozen ? color : muted.WithOpacity(.6f), strip);
+    PlotRegionDetail(g, strip, "Buffer: the last four seconds, now at the right. The bar is the audio grains read at Position; "
+                               "the faint part is how far back the mode scatters them.");
+    // A sketch of the grains, from the processor's own scheduler and per-grain choices.
+    const IRECT cloud(plot.L, strip.B + 6.f, plot.R, plot.B);
+    PlotGrid(g, cloud);
+    const bool phrase = arp || burst;
+    double seconds = std::clamp(settings.size * voicing.sizeScale * .006, 1., 4.);
+    const auto grains = phrase ? gg::PreviewPhrase(settings) : gg::PreviewCloud(settings, seconds);
+    if (phrase) seconds = grains.back().start + std::max(grains.back().length, grains[1].start);
+    const auto x = [&](double t) { return cloud.L + cloud.W() * static_cast<float>(t / seconds); };
+    if (voicing.diffusion > 0.)
+      g.FillRect(color.WithOpacity(static_cast<float>(.1 * voicing.diffusion)), cloud);
+    const double peak = gg::Peak(settings.shape);
+    const float height = cloud.H() * (arp ? .18f : .26f);
+    for (size_t i = 0; i < grains.size() && i < 400; ++i)
+    {
+      const auto& grain = grains[i];
+      // Warmth follows pitch. A notch at the right edge marks reverse playback.
+      const IColor ink = grain.pitch >= 18. ? IColor(255, 250, 168, 107)
+                       : grain.pitch >= 10. ? IColor(255, 238, 203, 115)
+                       : grain.pitch >= 1. ? IColor(255, 157, 213, 150)
+                       : grain.pitch <= -1. ? IColor(255, 164, 161, 229)
+                       : IColor::LinearInterpolateBetween(IColor(255, 113, 156, 242), IColor(255, 106, 223, 173),
+                                                         static_cast<float>(grain.pan));
+      const double row = arp ? 1. - grain.pitch / 24. : grain.pan;
+      const float centre = cloud.T + height * .5f + (cloud.H() - height) * static_cast<float>(row);
+      // Reversed grains play their envelope from the far end of what they read.
+      const auto shape = [&](double phase) { return .5f * height * static_cast<float>(gg::Window(std::min(phase, .999), peak)); };
+      g.PathClear();
+      g.PathMoveTo(x(grain.start), centre);
+      for (int k = 1; k <= 24; ++k)
+        g.PathLineTo(std::min(cloud.R, x(grain.start + grain.length * k / 24.)), centre - shape(k / 24.));
+      for (int k = 24; k >= 0; --k)
+        g.PathLineTo(std::min(cloud.R, x(grain.start + grain.length * k / 24.)), centre + shape(k / 24.));
+      g.PathClose();
+      g.PathFill(IPattern(ink.WithOpacity(std::abs(grain.pitch) >= 1. ? .42f : .30f)));
+      g.PathStroke(IPattern(ink.WithOpacity(.75f)), 1.f);
+      const float width = std::min(cloud.R, x(grain.start + grain.length)) - x(grain.start);
+      if (grain.reverse && width >= 8.f)
+        g.DrawLine(ink, x(grain.start) + width - 4.f, centre - 3.f, x(grain.start) + width - 7.f, centre);
+      if (std::abs(grain.pitch) >= 1. && width >= 22.f)
+      {
+        text.SetFormatted(8, "%+.0f", grain.pitch);
+        g.DrawText(Text(11.f, ink, EAlign::Center), text.Get(), IRECT(x(grain.start), centre - 7.f, x(grain.start) + width, centre + 7.f));
+      }
+    }
+    const int marks = PlotTimeMarks(g, cloud, x);
+    text.SetFormatted(32, "%.1f s", seconds);
+    PlotFooter(g, plot, burst ? "One pick | three grains" : arp ? "Eight steps | higher pitch up" : "Grains over time | L up, R down",
+               marks ? "" : text.Get());
     return true;
   }
   if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)

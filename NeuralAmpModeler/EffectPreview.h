@@ -58,6 +58,7 @@ inline double TimeHorizon(double seconds)
   // Stable 1/2/5 windows let Time/Decay move marks instead of continuously
   // zooming the same picture to fill the panel after every small dial change.
   const double decade=std::pow(10.,std::floor(std::log10(std::max(.001,seconds))));
+  if (seconds > 2. && seconds <= 4.) return 4.;
   for(double step : {1.,2.,5.,10.}) if(step*decade>=seconds) return step*decade;
   return 10.*decade;
 }

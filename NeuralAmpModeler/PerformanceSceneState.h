@@ -13,7 +13,8 @@ inline bool IsParameter(int index)
   // Quality is instance preparation; held audio and noise learning are transient.
   for (size_t slot = 0; slot < parameter_layout::slots; ++slot)
     if (index == SlotFullParam(slot) || index == SlotUtilityParam(slot, uFreezeHold)
-        || index == SlotUtilityParam(slot, uShimmerFreeze) || index == SlotUtilityParam(slot, uNoiseLearn))
+        || index == SlotUtilityParam(slot, uShimmerFreeze) || index == SlotUtilityParam(slot, uGranulatorFreeze)
+        || index == SlotUtilityParam(slot, uNoiseLearn))
       return false;
   return index >= 0 && index < kNumParams;
 }

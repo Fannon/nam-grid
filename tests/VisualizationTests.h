@@ -124,9 +124,9 @@ void TestMeasuredVisualizations()
   cathedral.controls.cosmicStyle = static_cast<int>(effect_modes::CosmicStyle::Mooncourt);
   cathedral.controls.cosmic = {309., 86., 65.3, 67.5, 9000., 16.9, 100.};
   const auto longTail = ImpulseProbe::Measure(cathedral);
-  assert(longTail.valid && longTail.seconds == 10.);
+  assert(longTail.valid && longTail.seconds == 4.);
   const float peak = *std::max_element(longTail.peak.begin(), longTail.peak.end());
-  assert(*std::max_element(longTail.peak.begin() + ImpulseProbe::bins/5, longTail.peak.end()) > .004f*peak);
+  assert(*std::max_element(longTail.peak.begin() + ImpulseProbe::bins/2, longTail.peak.end()) > .004f*peak);
   cathedral.controls.cosmic[2] = 5.;
   const auto shortTail = ImpulseProbe::Measure(cathedral);
   assert(shortTail.valid && shortTail.seconds == 2.);
@@ -137,9 +137,13 @@ void TestMeasuredVisualizations()
   echo.controls.cosmicStyle = static_cast<int>(effect_modes::CosmicStyle::Virgo);
   echo.controls.cosmic = {3000., 0., 0., 0., 9000., 0., 100.};
   const auto delayed = ImpulseProbe::Measure(echo);
-  assert(delayed.valid && delayed.seconds == 10.);
+  assert(delayed.valid && delayed.seconds == 4.);
   const auto loudest = std::max_element(delayed.peak.begin(), delayed.peak.end());
-  assert(*loudest > 0.f && std::abs(std::distance(delayed.peak.begin(), loudest) - 72) <= 1);
+  assert(*loudest > 0.f && std::abs(std::distance(delayed.peak.begin(), loudest) - 180) <= 1);
+  echo.controls.cosmic[0] = 6000.;
+  const auto distant = ImpulseProbe::Measure(echo);
+  assert(distant.valid && distant.seconds == 10.);
+  assert(distant.peak[144] > 0.f || distant.peak[143] > 0.f);
 
   // Gain is the RMS change; a clipped sine has a lower crest factor than a clean one.
   const auto compare = [](double gain, double clip) {

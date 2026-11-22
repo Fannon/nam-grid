@@ -635,7 +635,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both. I+II vintage is fast, shallow and centered.";
     case uJunoBrightness: return "Treble retained in the wet voices; lower values soften the chorus.";
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
-    case uShimmerAmount: return "Share of the tail shifted by Pitch on each pass; more stacks more layers. The tail never outlasts Decay; high settings fade it sooner.";
+    case uShimmerAmount: return "Share of the tail shifted on each pass. At high Amount and low Density, the shifted notes come forward before the full cascade builds.";
     case uShimmerFreeze: return "Sustain the tank and stop feeding new notes; release to return to the normal decay.";
     case uShimmerDensity: return "How densely the reverb blends its echoes. Lower keeps each pitch step clear and distinct, so a strong shimmer stays defined instead of washing out; 100% is the smooth wash.";
     case uShimmerBloom: return "Fades each note into the reverb, over up to about 1.4 s. The dry attack stays immediate; sustained and legato notes keep the full reverb.";

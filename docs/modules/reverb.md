@@ -170,7 +170,7 @@ In the header:
 
 - **Freeze** (Off / On; starts Off) Sustain the tank and stop feeding new notes; release to return to the normal decay.
 
-For a strong but defined shimmer, raise Amount and lower Density to about 40-60%, with a moderate Decay and Mix.
+Try **Bright octave stack** for a clear octave over the dry note. At high Amount, lowering Density brings the shifted layers forward before the full cascade builds. Short Decay gives a brief octave response. Longer Decay lets the layers overlap.
 
 **Display:** The decay with the pitch steps each pass adds. With Bloom up, the start of the fill rises over the swell, and the footer gives the swell time.
 

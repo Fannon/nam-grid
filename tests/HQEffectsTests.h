@@ -348,11 +348,11 @@ void TestHQEffects()
   // layers keep sounding. Removing all line mixing instead let the shifted lines climb
   // out of hearing within a second.
   {
-    const auto impulseDensity = [&](double density) {
+    const auto impulseDensity = [&](double density, double amount) {
       grid_hq::Shimmer shimmer;
       shimmer.Reset(rate);
       UtilityControls c;
-      c.shimmer = {100., 6., 7400., 12., 100., 10., 0.};
+      c.shimmer = {100., 6., 7400., 12., amount, 10., 0.};
       c.shimmerDensity = density;
       std::vector<double> l(static_cast<size_t>(1.2 * rate)), r(l.size());
       l[0] = r[0] = .1;
@@ -368,7 +368,10 @@ void TestHQEffects()
       }
       return sum / windows;
     };
-    assert(impulseDensity(100.) > .9 && impulseDensity(0.) < .8);
+    assert(impulseDensity(100., 35.) > .9 && impulseDensity(0., 35.) < .8);
+    // Taking some wet output directly from the shifters fills gaps at high
+    // Amount, but Density 0 should still have fewer echoes than Density 100.
+    assert(impulseDensity(0., 100.) + .1 < impulseDensity(100., 100.));
     // Octave layer against the played note in the tail of a 220 Hz tone, 1-3 s.
     const auto octave = [&](double density) {
       grid_hq::Shimmer shimmer;
@@ -394,6 +397,26 @@ void TestHQEffects()
       return 10. * std::log10(layer / fundamental);
     };
     assert(octave(0.) > -6.);
+  }
+  // Strong, sparse shimmer should expose its first octave while the
+  // input note is sounding, even with a short Decay.
+  {
+    grid_hq::Shimmer shimmer;
+    shimmer.Reset(rate);
+    UtilityControls c;
+    c.shimmer = {100., 1.4, 4800., 12., 100., 6., 0.};
+    c.shimmerDensity = 7.8;
+    std::vector<double> l(static_cast<size_t>(.5 * rate)), r(l.size());
+    for (size_t i = 0; i < l.size(); ++i)
+    {
+      const double t = i / rate;
+      const double gain = .15 * std::min(1., t / .005);
+      l[i] = r[i] = gain * std::sin(2. * grid_fx::pi * 220. * t);
+    }
+    shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+    for (const auto* channel : {&l, &r})
+      assert(hq_test::BandPower(*channel, static_cast<size_t>(.15 * rate), 440., rate)
+             > 2. * hq_test::BandPower(*channel, static_cast<size_t>(.15 * rate), 220., rate));
   }
   // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
   {

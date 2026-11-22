@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Shimmer Reverb** brings the pitched notes forward at high Amount and low Density, so the octave is easier to hear even at short Decay settings.
+
 - **Shimmer Reverb** gains a **Bloom** control. Turn it up to fade each note into the reverb, so the octaves swell in behind it; the display shows the swell. Try **Slow octave bloom** on keys or sustained guitar. Cloud adds **Percussion mist** for short hits and **Wide synth bed** for pads.
 - The signal monitor has a continuous RMS fill, and the pedal waveforms and reverb tails draw smooth outlines at fractional zoom.
 - New factory presets include **Warm tank slap** for a short, dark spring behind the pick, **Low fifth swell** for descending shimmer, and **Parallel chainsaw** for mixing bite into a dry rhythm part.

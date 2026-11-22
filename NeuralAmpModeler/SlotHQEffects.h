@@ -350,7 +350,7 @@ public:
           tank.aliasG = g / (1. + g);
           // Each pitched pass is darkened below Damping, so higher layers taper off
           // instead of piling up into a glassy top, as in classic studio shimmers.
-          const double shiftCorner = std::clamp(.4 * (v[2] + mFreeze * (12000. - v[2])), 800., 6000.);
+          const double shiftCorner = std::clamp(.3 * (v[2] + mFreeze * (12000. - v[2])), 800., 6000.);
           tank.shiftPole = std::exp(-2. * grid_fx::pi * shiftCorner / mRate);
         }
         mDensity = densityTarget + mTauSmoothing * (mDensity - densityTarget);
@@ -406,9 +406,9 @@ public:
   }
 
 private:
-  // Output scaling puts the wet level about 6 dB above Room and Hall, where a classic
-  // studio shimmer sits at the same decay, so a moderate Mix gives a clear shimmer.
-  static constexpr double kOutput = 3.6, kMaxShare = .5;
+  // Output scaling puts the wet level about 3 dB above Room and Hall, so a moderate Mix
+  // gives a clear shimmer. Matching a studio shimmer's level (+6 dB) was too much wet.
+  static constexpr double kOutput = 2.55, kMaxShare = .5;
   // Bloom stretches the input diffusers at most this far: their longest stage stays
   // short enough to blur into the tail rather than repeat.
   static constexpr double kMaxDiffusionScale = 4.;
@@ -513,12 +513,12 @@ private:
           continue;
         }
         const double dry = taps[kShifted[k]];
-        // Each shifted line runs slightly flat, by 20 to 50 cents at an octave (about
-        // 35 cents on average, as measured on a classic studio shimmer), so the layers
-        // spread into a chorused octave rather than reinforcing the played harmonics
-        // exactly. Smaller intervals detune proportionally less. Lines summed with
-        // opposite signs differ least, so the first octave still comes through early.
-        static constexpr double kDetune[4]{-.5, -.3, -.4, -.2};
+        // The four shifted lines spread 5 cents either side of the interval, so the
+        // layers chorus slightly while staying in tune. A flat 20-50 cent voicing, as
+        // measured on a studio shimmer, sounded out of tune. Smaller intervals spread
+        // proportionally less; lines summed with opposite signs differ least, so the
+        // first octave still comes through early.
+        static constexpr double kDetune[4]{-.05, -.03, .03, .05};
         const double detuned = pitch + kDetune[k] * detuneScale;
         const double raw = shifter[k / 2].ProcessSample(x, k % 2, detuned);
         shiftLow[k] = grid_fx::Flush(raw + shiftPole * (shiftLow[k] - raw));

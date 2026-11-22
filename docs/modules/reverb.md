@@ -160,13 +160,13 @@ A reverb whose tail climbs or falls in pitch with each pass, in the style of cla
 | **Decay** | 0.5–20 s | 5 s | Tail decay time below the Damping frequency. Higher values let notes overlap into a larger ambient wash. |
 | **Damping** | 800–12000 Hz | 6000 Hz | Above this frequency the tail decays about three times faster than Decay, as in Hall. Lower settings make the tail and its upper layers darker. |
 | **Pitch** | -24 to +24 st | 12 st | Semitone interval on each pitched reverb pass. Positive climbs, negative falls. |
-| **Bloom** | 0–100% | 0% | Spreads the wet reflections over a longer interval. Turn it up to make a synth chord swell or soften the onset of a percussion hit. The dry attack stays immediate. |
+| **Bloom** | 0–100% | 0% | Fades each note into the reverb, over up to about 1.4 s. Turn it up to make a chord swell into the shimmer or soften the onset of a percussion hit. The dry attack stays immediate; sustained and legato notes keep the full reverb. |
 | **Amount** | 0–100% | 25% | Share of the tail shifted by Pitch on each pass. Low settings add a halo an octave up; high settings stack several layers. The tail never rings longer than Decay, so even 100% never runs away; high settings move the tail up into the Damping range, where it fades sooner. |
 | **Modulation** | 0–100% | 30% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Freeze** | Off / On | Off | Sustain the tank and stop feeding new notes; release to return to the normal decay. |
 | **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
-**Display:** The decay with the pitch steps each pass adds.
+**Display:** The decay with the pitch steps each pass adds. With Bloom up, the start of the fill rises over the swell, and the footer gives the swell time.
 
 ## Airwindows Plate
 

@@ -270,6 +270,21 @@ public:
     const double bloom = std::clamp(percent * .01, 0., 1.);
     return 1. + (kMaxDiffusionScale - 1.) * bloom * bloom;
   }
+  // Time constant of the swell on the tank input, in seconds; zero at Bloom 0. The
+  // two-pole rise reaches 90% after about 3.9 time constants (1.4 s at 100%).
+  static double SwellSeconds(double percent)
+  {
+    const double bloom = std::clamp(percent * .01, 0., 1.);
+    return kMaxSwell * bloom * bloom;
+  }
+  // Swell gain t seconds after a pick from silence: the display's onset shape.
+  static double SwellGain(double percent, double t)
+  {
+    const double tau = SwellSeconds(percent);
+    if (tau <= 0.) return 1.;
+    const double x = std::max(0., t) / tau;
+    return 1. - (1. + x) * std::exp(-x);
+  }
   void Reset(double rate)
   {
     mMixLaw.Reset(rate);
@@ -284,6 +299,10 @@ public:
     mShare = mShareTarget = 0.;
     mShareSmoothing = std::exp(-1. / (.02 * mRate));
     mDrain.Reset(mRate);
+    mPeak = 0.; mSwell = {}; mSwellTau = -1.;
+    mPeakRelease = std::exp(-1. / (.05 * mRate));
+    mTauSmoothing = std::exp(-32. / (.02 * mRate));
+    mRise = 1.; mMakeup = 1.;
   }
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
@@ -291,6 +310,13 @@ public:
     // Stretch only the input diffusers. The feedback tank keeps its calibrated
     // decay and the dry path remains immediate. MovingDelay crossfades automation.
     const double diffusionScale = DiffusionScale(c.shimmerBloom);
+    // Bloom also swells the tank input after each pick, as on swell reverbs: two
+    // cascaded followers rise slowly toward the input's peak level but fall with it
+    // at once, so their ratio to the peak fades a new note into the reverb and stays
+    // at 1 while notes sustain or decay. Spreading the diffusers further instead
+    // turned the swell into separate, audible repeats.
+    const double tauTarget = SwellSeconds(c.shimmerBloom);
+    if (mSwellTau < 0.) mSwellTau = tauTarget; // Reset starts at the setting; the first sample's control block sets the swell coefficients.
     const double freezeTarget = (!draining && c.shimmer[6] >= .5) ? 1. : 0.;
     const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
     for (int i = 0; i < n; ++i)
@@ -323,6 +349,16 @@ public:
         }
         // Freeze holds the tail without adding new pitch layers.
         mShareTarget = ShiftShare(v[4] * .01) * live;
+        mSwellTau = tauTarget + mTauSmoothing * (mSwellTau - tauTarget);
+        if (tauTarget == 0. && mSwellTau < 1.e-6) mSwellTau = 0.;
+        if (mSwellTau > 0.)
+        {
+          mRise = 1. - std::exp(-1. / (mSwellTau * mRate));
+          // The swell holds back each note's attack, where a guitar note has most of
+          // its energy; this makeup leaves a picked note about 4 dB below and a
+          // sustained one about 2 dB above Bloom 0.
+          mMakeup = std::pow(1. + mSwellTau / .02, .3);
+        }
       }
       mCounter %= 32;
       mShare = mShareTarget + mShareSmoothing * (mShare - mShareTarget);
@@ -331,8 +367,19 @@ public:
       const double share = mShare * mDrain.Tick(draining);
       mInputLow[0] = grid_fx::Flush(dryL + coefficient * (mInputLow[0] - dryL));
       mInputLow[1] = grid_fx::Flush(dryR + coefficient * (mInputLow[1] - dryR));
-      const double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze);
-      const double inputR = (.25 * (dryL - mInputLow[0]) + .75 * (dryR - mInputLow[1])) * (1. - mFreeze);
+      double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze);
+      double inputR = (.25 * (dryL - mInputLow[0]) + .75 * (dryR - mInputLow[1])) * (1. - mFreeze);
+      mPeak = grid_fx::Flush(std::max(std::max(std::abs(dryL), std::abs(dryR)), mPeak * mPeakRelease));
+      if (mSwellTau > 0.)
+      {
+        mSwell[0] = mPeak > mSwell[0] ? mSwell[0] + mRise * (mPeak - mSwell[0]) : mPeak;
+        mSwell[1] = mSwell[0] > mSwell[1] ? mSwell[1] + mRise * (mSwell[0] - mSwell[1]) : mSwell[0];
+        const double gain = mMakeup * (mPeak > 1.e-12 ? mSwell[1] / mPeak : 1.);
+        inputL *= gain;
+        inputR *= gain;
+      }
+      else // Open, so raising Bloom during a note does not cut the tank input.
+        mSwell = {mPeak, mPeak};
       const double wetL = kOutput * mTank[0].Process(inputL, share, v[3], diffusionScale);
       const double wetR = kOutput * mTank[1].Process(inputR, share, v[3], diffusionScale);
       const double mix = v[0] * .01;
@@ -345,7 +392,10 @@ public:
 private:
   // Output scaling puts the wet level with Room and Hall.
   static constexpr double kOutput = 1.8, kMaxShare = .5;
-  static constexpr double kMaxDiffusionScale = 28.;
+  // Bloom stretches the input diffusers at most this far: their longest stage stays
+  // short enough to blur into the tail rather than repeat.
+  static constexpr double kMaxDiffusionScale = 4.;
+  static constexpr double kMaxSwell = .35;
   // Treble above Damping decays at this share of Decay (the Hall and Room ratio).
   static constexpr double kHighDecayRatio = .35;
   grid_fx::MixLaw mMixLaw;
@@ -456,6 +506,8 @@ private:
   grid_fx::SmoothControls<7> mControls;
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mInputLow[2]{}, mFreeze = 0., mShare = 0., mShareTarget = 0., mShareSmoothing = 0.;
+  double mPeak = 0., mPeakRelease = 0., mSwellTau = -1., mTauSmoothing = 0., mRise = 1., mMakeup = 1.;
+  std::array<double, 2> mSwell{};
   int mCounter = 0;
 };
 

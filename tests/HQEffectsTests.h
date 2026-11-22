@@ -1,4 +1,5 @@
 #pragma once
+#include <numeric>
 #include <cmath>
 #include <vector>
 #include "SlotHQEffects.h"
@@ -290,26 +291,57 @@ void TestHQEffects()
       const double measured = hq_test::BandDecay(l, 500., rate);
       assert(measured > .88 * decay && measured < 1.12 * decay);
     }
-  // Bloom redistributes wet energy behind the attack. Simply turning down the
-  // initial reflections would also pass the early-energy check alone.
+  // Bloom swells each note into the tank instead of spreading the input diffusers into
+  // separate repeats, which the released stretch produced at high settings.
   {
-    const auto response = [&](double bloom) {
+    UtilityControls c;
+    c.shimmer = {100., 14., 7400., 12., 50., 55., 0.};
+    // Echo density of the impulse response, 0.1-1 s: about 1 for a dense tail. The
+    // 28x diffuser stretch measured about 0.6 at Bloom 92-100.
+    const auto density = [&](double bloom) {
       grid_hq::Shimmer shimmer;
       shimmer.Reset(rate);
-      UtilityControls c;
-      c.shimmer = {100., 5., 6000., 12., 25., 30., 0.};
-      c.shimmerBloom = bloom;
-      std::vector<double> l(static_cast<size_t>(6. * rate)), r(l.size());
+      auto u = c; u.shimmerBloom = bloom;
+      std::vector<double> l(static_cast<size_t>(1.2 * rate)), r(l.size());
       l[0] = r[0] = .1;
-      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
-      std::array<double, 2> energy{};
-      for (size_t i = 0; i < l.size(); ++i)
-        energy[i < .2 * rate ? 0 : 1] += l[i] * l[i] + r[i] * r[i];
-      return energy;
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), u);
+      double sum = 0.; int windows = 0;
+      for (double t = .1; t < 1.; t += .05, ++windows)
+      {
+        const size_t a = static_cast<size_t>(t * rate), b = static_cast<size_t>((t + .05) * rate);
+        double e = 0.; for (size_t i = a; i < b; ++i) e += l[i] * l[i];
+        const double sd = std::sqrt(e / (b - a)); int outside = 0;
+        for (size_t i = a; i < b; ++i) outside += std::abs(l[i]) > sd;
+        sum += outside / double(b - a) / .3173;
+      }
+      return sum / windows;
     };
-    const auto close = response(0.), bloom = response(100.);
-    assert(bloom[0] < .15 * close[0]);
-    assert(bloom[1] > close[1]);
+    assert(density(92.) > .9 && density(100.) > .9);
+    // A sharply picked note: wet energy in 100 ms windows, and over three seconds.
+    const auto note = [&](double bloom) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      auto u = c; u.shimmerBloom = bloom;
+      std::vector<double> l(static_cast<size_t>(3. * rate)), r(l.size());
+      for (size_t i = 0; i < l.size(); ++i)
+      {
+        const double t = i / rate; double x = 0.;
+        for (int k = 1; k <= 12; ++k) x += std::sin(2. * grid_fx::pi * 196. * k * t) / k * std::exp(-t * (1.5 + .6 * k));
+        l[i] = r[i] = .15 * x;
+      }
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), u);
+      std::vector<double> window(30);
+      for (size_t i = 0; i < l.size(); ++i) window[i * 10 / static_cast<size_t>(rate)] += l[i] * l[i] + r[i] * r[i];
+      return window;
+    };
+    const auto close = note(0.), bloom = note(100.);
+    const auto total = [](const std::vector<double>& w) { return std::accumulate(w.begin(), w.end(), 0.); };
+    // The wet starts from near silence and swells for half a second or more ...
+    assert(bloom[0] + bloom[1] < 1.e-3 * (close[0] + close[1]));
+    assert(std::max_element(bloom.begin(), bloom.end()) - bloom.begin() >= 4);
+    for (int w = 1; w < 4; ++w) assert(bloom[w] > bloom[w - 1]);
+    // ... and its level stays near Bloom 0's.
+    assert(std::abs(10. * std::log10(total(bloom) / total(close))) < 5.);
   }
   // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
   {

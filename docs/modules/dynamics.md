@@ -128,6 +128,8 @@ A channel strip after Airwindows CStrip2: low and high cuts into a compressor an
 
 **Display:** The cuts over the output spectrum and gain-reduction history on a 0–16 dB scale. The title shows the live gain reduction; hover over the graph for its explanation.
 
+**Presets:** Tight rhythm bus trims boom and fizz from a high-gain rhythm and evens out palm mutes. Clean parallel glue levels clean parts while the dry blend keeps each pick attack. Pushed lead compresses and saturates harder for a forward, sustaining solo. Each stays close to bypass loudness. Its Input assumes guitar level after an amp and cab; turn Input down for hot signals, or up for quiet ones.
+
 ## Transient Shaper
 
 ![Transient Shaper editor](../screenshots/modules/transient-shaper.png)

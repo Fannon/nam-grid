@@ -114,6 +114,7 @@ staging, with normal playing peaking around -9 dBFS.
 | --- | --- |
 | Pedal Comp | Parallel keys, Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
 | Smooth / Punch Compressor, Butter Comp, Peak Limiter | Clean guitar leveling, Even bass notes; Tight picking, Parallel punch; Thick parallel; Louder, controlled |
+| Outboard Channel | Tight rhythm bus, Clean parallel glue, Pushed lead |
 | Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup, Telephone band; Low-mid mud cut, Harshness cut |
 | Multiband Dynamics | Pad detail, Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes restore Threshold and band splits |
 | Transient Shaper | Shorten the room, Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
@@ -163,7 +164,7 @@ User presets only:
 - **Utility:** balance, polarity, channel choice and alignment depend on the rig.
 
 The on-demand [Signal Monitor](modules/utility-volume.md#signal-monitor) has no sound settings or presets.
-- **Outboard Channel, Console Colour, Console EQ, Ring Modulator, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
+- **Console Colour, Console EQ, Ring Modulator, Freeze / Hold:** the insertion default is the usual starting point, or the setting depends on the key, the mix or a live trigger.
 
 Synced recipes select both Tempo sync and Division. Unsynced recipes restore
 free time/rate; switching recipes cannot accidentally inherit sync, feedback,

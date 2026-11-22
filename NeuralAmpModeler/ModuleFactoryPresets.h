@@ -66,6 +66,18 @@ inline const Preset punchComp[]{
 inline const Preset butterComp[]{
   {"Thick parallel", {{U(uButterCompress), 100.}, {U(uButterOutput), 0.}, {U(uButterMix), 50.}}},
 };
+// Outboard Channel sits after the amp and cab. Its Compress works relative to full scale,
+// so Input lifts guitar-level signals into it; Output is measured to stay within 0.5 dB
+// of bypass on a matching distorted rhythm, clean phrase or lead line. Cuts are relative:
+// Low cut 8/10/13% is about 45/70/120 Hz; High cut 85/75% about 9/5.5 kHz.
+inline const Preset outboardChannel[]{
+  {"Tight rhythm bus", {{U(uStripInput), 3.}, {U(uStripLowCut), 10.}, {U(uStripHighCut), 85.}, {U(uStripCompress), 45.},
+    {U(uStripSpeed), 35.}, {U(uStripSaturate), 20.}, {U(uStripOutput), 0.}}},
+  {"Clean parallel glue", {{U(uStripInput), 6.}, {U(uStripLowCut), 8.}, {U(uStripCompress), 60.}, {U(uStripSpeed), 60.},
+    {U(uStripSaturate), 10.}, {U(uStripOutput), -.5}, {U(uStripMix), 65.}}},
+  {"Pushed lead", {{U(uStripInput), 3.}, {U(uStripLowCut), 13.}, {U(uStripHighCut), 75.}, {U(uStripCompress), 52.},
+    {U(uStripSpeed), 20.}, {U(uStripSaturate), 35.}, {U(uStripOutput), 2.}}},
+};
 inline const Preset limiter[]{
   {"Louder, controlled",
    {{U(uLimiterInput), 6.}, {U(uLimiterCeiling), -1.}, {U(uLimiterRelease), 100.}, {U(uLimiterClip), 30.}}},
@@ -664,6 +676,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::SmoothComp: return smoothComp;
     case SlotEffect::PunchComp: return punchComp;
     case SlotEffect::ButterComp: return butterComp;
+    case SlotEffect::OutboardChannel: return outboardChannel;
     case SlotEffect::Limiter: return limiter;
     case SlotEffect::SpaceTapeEcho: return spaceTapeEcho;
     case SlotEffect::BucketBrigade: return bucketBrigade;

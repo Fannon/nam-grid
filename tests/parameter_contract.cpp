@@ -118,15 +118,19 @@ static_assert(SlotUtilityParam(15, uGranulatorFreeze) == 6208);
 static_assert(kEffectParameters[uGranulatorMode].introducedIn == 33
               && kEffectParameters[uGranulatorFreeze].introducedIn == 33);
 static_assert(IsAlgorithmMode(uGranulatorMode) && !IsAlgorithmMode(uGranulatorFreeze));
-// Filter envelope controls and Ring LFO (schema 34) append seven slot controls after every previous ID.
-static_assert(SlotUtilityParam(0, uFilterSensitivity) == 6209);
-static_assert(SlotUtilityParam(15, uRingSweep) == 6320);
-static_assert(kEffectParameters[uFilterSensitivity].introducedIn == 34 && kEffectParameters[uRingSweep].introducedIn == 34);
-// Volume Pedal (schema 34) appends one module and six slot controls to the same segment.
+// Shimmer Bloom (schema 34) appends one slot control after every previous ID.
+static_assert(SlotUtilityParam(0, uShimmerBloom) == 6209);
+static_assert(SlotUtilityParam(15, uShimmerBloom) == 6224);
+static_assert(kEffectParameters[uShimmerBloom].introducedIn == 34);
+// Filter envelope controls, Ring LFO and Volume Pedal (schema 35) append one module and
+// thirteen slot controls after every previous ID.
+static_assert(SlotUtilityParam(0, uFilterSensitivity) == 6225);
+static_assert(SlotUtilityParam(15, uRingSweep) == 6336);
+static_assert(kEffectParameters[uFilterSensitivity].introducedIn == 35 && kEffectParameters[uRingSweep].introducedIn == 35);
 static_assert(static_cast<int>(SlotEffect::VolumePedal) == 74);
-static_assert(SlotUtilityParam(0, uVolumePosition) == 6321);
-static_assert(SlotUtilityParam(15, uVolumeCC) == 6416);
-static_assert(kEffectParameters[uVolumePosition].introducedIn == 34 && kEffectParameters[uVolumeCC].introducedIn == 34);
+static_assert(SlotUtilityParam(0, uVolumePosition) == 6337);
+static_assert(SlotUtilityParam(15, uVolumeCC) == 6432);
+static_assert(kEffectParameters[uVolumePosition].introducedIn == 35 && kEffectParameters[uVolumeCC].introducedIn == 35);
 
 int main(int argc, char** argv)
 {
@@ -452,14 +456,16 @@ int main(int argc, char** argv)
     assert(load(legacy));
     assert(save() == base);
   }
-  // Schema 33 predates the filter envelope controls, Ring LFO and Volume Pedal: they restore
-  // the defaults that keep the released Filter and Ring Modulator sound.
+  // Older schemas lack the newest controls, which restore the defaults that keep the
+  // released Shimmer, Filter and Ring Modulator sound: schema 33 predates Shimmer Bloom,
+  // schema 34 the filter envelope controls, Ring LFO and Volume Pedal.
+  for (const auto [schema, first] : {std::pair{33, static_cast<int>(uShimmerBloom)}, std::pair{34, static_cast<int>(uFilterSensitivity)}})
   {
     auto legacy = base;
-    legacy["schema"] = 33;
+    legacy["schema"] = schema;
     auto changed = base;
     for (int slot = 0; slot < 16; ++slot)
-      for (int p = uFilterSensitivity; p <= uVolumeCC; ++p)
+      for (int p = first; p <= uVolumeCC; ++p)
       {
         const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
         legacy.erase(key);

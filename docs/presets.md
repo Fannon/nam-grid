@@ -112,18 +112,18 @@ staging, with normal playing peaking around -9 dBFS.
 
 | Modules | Factory starting points |
 | --- | --- |
-| Pedal Comp | Parallel keys, Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
+| Pedal Comp | Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming, Parallel keys |
 | Smooth / Punch Compressor, Butter Comp, Peak Limiter | Clean guitar leveling, Even bass notes; Tight picking, Parallel punch; Thick parallel; Louder, controlled |
 | Outboard Channel | Tight rhythm bus, Clean parallel glue, Pushed lead |
 | Console EQ | Warm, Bright and open, Fat, Smooth top, Lean for the mix |
 | Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup, Telephone band; Low-mid mud cut, Harshness cut |
-| Multiband Dynamics | Pad detail, Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes restore Threshold and band splits |
-| Transient Shaper | Shorten the room, Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
-| Graphic EQ | Warm keys, Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
-| Dynamic EQ | Resonant synth tamer, Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
+| Multiband Dynamics | Gentle glue, Over the top, Fast and tight, Clean sparkle, Pad detail; factory recipes restore Threshold and band splits |
+| Transient Shaper | Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain, Shorten the room |
+| Graphic EQ | Lead mid boost, Tight into amp, Bass clarity, Acoustic air, Warm keys; each selects its voicing |
+| Dynamic EQ | Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control, Resonant synth tamer |
 | Filter, Wah, Auto Swell | Touch wah, Bass envelope, Funk quack, Slow vowel, Down sweep; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
 | Volume Pedal | Rhythm to lead boost, Slow swells, Linear pedal |
-| Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Parallel drum grit, Clean lows, warm grit, Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
+| Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Clean lows, warm grit, Hard rhythm, Octave-up fuzz, Sputtering gated fuzz, Parallel drum grit |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows, Pick edge |
 | Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Raw garage grit, Singing lead, Parallel chainsaw |
 | Digital Delay | Clear quarter-note lead, Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support, Clear eighth-note rhythm, Half-note space, Modulated rack lead, Lo-fi echoes |
@@ -142,7 +142,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Room | Live room, Small amp room, Bright ambience, Big live room |
 | Dense Plate | Long silver plate, Short bright plate, Singing lead plate, Warm rhythm plate |
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |
-| Cloud | Percussion mist, Wide synth bed, Chord afterglow, Long ducked cloud, Light moving halo |
+| Cloud | Chord afterglow, Long ducked cloud, Light moving halo, Percussion mist, Wide synth bed |
 | Spring Reverb | Warm tank slap, Small amp spring, Surf drip, Short bright splash |
 | Shimmer Reverb | Slow octave bloom, Octave on the pick, Low fifth swell, Dark octave-down pad, Gentle octave halo, Rising fifth cloud |
 | Airwindows Plate | Compact guitar plate, Long dark plate, Clear lead plate |
@@ -151,7 +151,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Galactic Space | Slow dark space, Wide bright wash, Gentle stereo orbit |
 | Cosmic Echo | Echoes, swells, dense spaces and plate ambience across its styles; see the [factory preset guide](modules/cosmic-echo.md#factory-presets) |
 | Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus, Deep watery chorus; Wide two voices, Mode II sweep, Fast vintage shimmer; Slow jet sweep, Light comb motion, Parked metallic comb; Slow vintage phase, Deep stereo phase, Resonant vintage phase |
-| Harmonic Tremolo | Slow stereo pad, Brown-panel amp, Slow swirl, Synced throb, Subtle shimmer |
+| Harmonic Tremolo | Brown-panel amp, Slow swirl, Synced throb, Subtle shimmer, Slow stereo pad |
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop, Stereo auto-pan; Seasick warble, Delayed lead vibrato, Vintage amp vibrato, Slow tape drift; Vibrato mode swirl, Fast chorus churn; Slow chorale, Fast tremolo, Overdriven cabinet, Drum rotor only |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass, Two-octave blend; Wide loose double, Tight rhythm double, Thick lead double; Sixteenth-note chops, Eighth-note gate, Triplet chop; Broken small sampler, 12-bit sampler |
 | Pitch Shift | Fifth underneath, Shifted fifth only, Octave above, Octave below, Subtle detuned blend |

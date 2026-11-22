@@ -378,6 +378,7 @@ enum UtilityParam
   uGranulatorSpace = 361,
   uGranulatorMix = 362,
   uGranulatorFreeze = 363,
+  uShimmerBloom = 364,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -537,7 +538,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 33; // 33 Granulator; 32 additional delays, Digital Delay voice and modulation; 31 Pedal Distortion; 30 Noise Gate (AI).
+inline constexpr int kEffectStateSchema = 34; // 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
 
 struct EffectParameter
 {
@@ -920,7 +921,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Granulator Repeats", "Repeats", 20, 0, 100, .1, "%", 5, false, 1., 33},
    {"Granulator Space", "Space", 30, 0, 100, .1, "%", 6, false, 1., 33},
    {"Granulator Mix", "Mix", 40, 0, 100, .1, "%", 7, false, 1., 33},
-   {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33}}};
+   {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33},
+   {"Shimmer Bloom", "Bloom", 0, 0, 100, .1, "%", 7, false, 1., 34}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -1093,6 +1095,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uReverseFeedback: return e == SlotEffect::ReverseDelay;
       case uReverbDuck: return e == SlotEffect::PlateReverb || e == SlotEffect::CloudReverb || e == SlotEffect::HallReverb;
       case uSpringPredelay: return e == SlotEffect::SpringReverb;
+      case uShimmerBloom: return e == SlotEffect::ShimmerReverb;
       case uFreezeAttack: return e == SlotEffect::Freeze;
       case uFreezeRelease: return e == SlotEffect::Freeze;
       case uStutterHold: return e == SlotEffect::Stutter;
@@ -1254,6 +1257,7 @@ struct UtilityControls
   std::array<double, 2> dual{1.5, 50.};
   std::array<double, 3> juno{1., 50., 100.};
   std::array<double, 7> shimmer{35., 3.5, 5000., 12., 35., 25., 0.};
+  double shimmerBloom = 0.;
   std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
   double distortionLowPreserve = 0.;

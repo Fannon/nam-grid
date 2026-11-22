@@ -1469,16 +1469,50 @@ inline void DrawSignalMonitorView(IGraphics& g, const IRECT& plot, IColor color,
     }
     const float zero=MeterY(history,1.),columnWidth=history.W()/History::columns;
     g.DrawLine(muted.WithOpacity(.5f),history.L,zero,history.R,zero);
-    const size_t shown=std::min(History::columns,mMonitorHistory.count+1);
-    float previousY=0.f;
+    const size_t partial = mMonitorHistory.frames > 0. ? 1 : 0;
+    const size_t shown = std::min(History::columns, mMonitorHistory.count + partial);
+    const auto columnAt = [&](size_t age) {
+      return age < partial ? mMonitorHistory.Current() : mMonitorHistory.Ago(age - partial);
+    };
+    // Fill the stepped envelope once. Separate translucent bars leave seams at fractional zoom.
+    g.PathClear();
+    g.PathMoveTo(history.R, history.B);
+    for (size_t age = 0; age < shown; ++age)
+    {
+      const float x = history.R - columnWidth * age;
+      const float y = std::max(zero, MeterY(history, columnAt(age).rms));
+      g.PathLineTo(x, y);
+      g.PathLineTo(x - columnWidth, y);
+    }
+    g.PathLineTo(history.R - shown * columnWidth, history.B);
+    g.PathClose();
+    g.PathFill(IPattern(color.WithOpacity(.35f)));
+    g.PathClear();
+    float previousY = history.B;
+    bool clipped = false;
     for (size_t age=0;age<shown;++age)
     {
-      const auto column=age?mMonitorHistory.Ago(age-1):mMonitorHistory.Current();
-      const float x1=history.R-columnWidth*age,x0=x1-columnWidth;
-      if (column.rms>0.f) g.FillRect(color.WithOpacity(.35f),IRECT(x0,std::max(zero,MeterY(history,column.rms)),x1,history.B));
+      const auto column=columnAt(age);
+      const float x=history.R-columnWidth*(age+.5f);
       const float y=column.peak>0.f?MeterY(history,column.peak):history.B;
-      if (age) g.DrawLine(column.peak>=1.f?COLOR_RED:color,x0+.5f*columnWidth,y,x1+.5f*columnWidth,previousY,nullptr,1.2f);
+      if (!age) g.PathMoveTo(x,y);
+      else
+      {
+        if ((column.peak>=1.f) != clipped)
+        {
+          g.PathStroke(IPattern(clipped?COLOR_RED:color),1.2f);
+          g.PathMoveTo(x+columnWidth,previousY);
+        }
+        g.PathLineTo(x,y);
+      }
+      clipped=column.peak>=1.f;
       previousY=y;
+    }
+    g.PathStroke(IPattern(clipped?COLOR_RED:color),1.2f);
+    for (size_t age=0;age<shown;++age)
+    {
+      const auto column=columnAt(age);
+      const float x1=history.R-columnWidth*age,x0=x1-columnWidth;
       if (column.peak>=1.f) g.FillRect(COLOR_RED,IRECT(x0-.5f,history.T-6.f,x1+.5f,history.T-1.f));
       if (column.resumed) g.DrawLine(muted.WithOpacity(.5f),x0,history.T,x0,history.B);
     }
@@ -1703,7 +1737,7 @@ public:
         dotX -= 9.f;
       }
     const auto label = empty          ? std::string("+ Add module")
-                       : path.empty() ? std::string(SlotEffectName(effect))
+                       : path.empty() ? std::string(SlotEffectDisplayName(effect))
                                       : nam_library::PathText(std::filesystem::u8path(path).stem());
     const auto button = NameButton();
     g.FillRoundRect(mNameHover ? IColor(255, 44, 48, 55) : background.WithOpacity(.35f), button, 3.f);
@@ -2279,15 +2313,11 @@ private:
     const float scale = std::max(loud.peak, quiet.peak);
     const IRECT scope(shape.L, shape.T + 18.f, shape.R, shape.B);
     g.DrawText(Text(11.f, muted), "Shape at -6 and -18 dBFS", IRECT(shape.L, shape.T, shape.R, shape.T + 14));
-    const auto at = [&](int i) { return scope.L + scope.W() * i / static_cast<float>(samples - 1); };
     const auto yAt = [&](float v) { return scope.MH() - std::clamp(v / scale, -1.f, 1.f) * scope.H() * .5f; };
     g.DrawLine(border.WithOpacity(.6f), scope.L, scope.MH(), scope.R, scope.MH());
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(muted.WithOpacity(.28f), at(i - 1), yAt(loud.input[i - 1]), at(i), yAt(loud.input[i]));
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color, at(i - 1), yAt(loud.shaped[i - 1]), at(i), yAt(loud.shaped[i]), nullptr, 2.f);
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color.WithOpacity(.45f), at(i - 1), yAt(quiet.shaped[i - 1]), at(i), yAt(quiet.shaped[i]), nullptr, 1.5f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.input[i]); }, muted.WithOpacity(.28f), 1.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.shaped[i]); }, color, 2.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(quiet.shaped[i]); }, color.WithOpacity(.45f), 1.5f);
 
     // Right: Body, High cut, the Low keep band, then Mix and Output, at small signal.
     // Body, the 5 Hz DC blocker and High cut run at the 4x oversampled rate in SlotPedalDrive;
@@ -2381,15 +2411,11 @@ private:
     const float inputScale = .25f;
     const IRECT scope(shape.L, shape.T + 18.f, shape.R, shape.B);
     g.DrawText(Text(11.f, muted), "Shape at -12 and -30 dBFS", IRECT(shape.L, shape.T, shape.R, shape.T + 14));
-    const auto at = [&](int i) { return scope.L + scope.W() * i / static_cast<float>(samples - 1); };
     const auto yAt = [&](float v, float s) { return scope.MH() - std::clamp(v / s, -1.f, 1.f) * scope.H() * .5f; };
     g.DrawLine(border.WithOpacity(.6f), scope.L, scope.MH(), scope.R, scope.MH());
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(muted.WithOpacity(.28f), at(i - 1), yAt(loud.input[i - 1], inputScale), at(i), yAt(loud.input[i], inputScale));
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color, at(i - 1), yAt(loud.shaped[i - 1], scale), at(i), yAt(loud.shaped[i], scale), nullptr, 2.f);
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color.WithOpacity(.45f), at(i - 1), yAt(quiet.shaped[i - 1], scale), at(i), yAt(quiet.shaped[i], scale), nullptr, 1.5f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.input[i], inputScale); }, muted.WithOpacity(.28f), 1.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.shaped[i], scale); }, color, 2.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(quiet.shaped[i], scale); }, color.WithOpacity(.45f), 1.5f);
 
     const double mix = value(uPDistMix) * .01, level = std::pow(10., value(uPDistLevel) * .05);
     const auto magnitude = [&](double f) {
@@ -3422,7 +3448,7 @@ private:
       for (int i = 0; i < 3; ++i)
         mEQKnobs[i]->SetRECT(grid_ui::ControlBounds(nam ? i + 1 : i));
     }
-    const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectName(effect))
+    const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectDisplayName(effect))
                                           : nam_library::PathText(std::filesystem::u8path(path).stem());
     mModelButton->SetLabelStr(moduleLabel.c_str());
     mModelButton->SetModeStr(grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot)).c_str());
@@ -3564,7 +3590,7 @@ private:
         {
           auto label = GridSlotName(slot) + ": ";
           const auto path = PLUG()->GetSlotPath(slot);
-          label += path.empty() ? PLUG()->IsSlotLoaded(slot) ? SlotEffectName(PLUG()->GetSlotEffect(slot)) : "Empty"
+          label += path.empty() ? PLUG()->IsSlotLoaded(slot) ? SlotEffectDisplayName(PLUG()->GetSlotEffect(slot)) : "Empty"
                                 : nam_library::PathText(std::filesystem::u8path(path).stem());
           destinations->AddItem(new IPopupMenu::Item(label.c_str(), 0, -1000 - mode * 16 - static_cast<int>(slot)));
         }

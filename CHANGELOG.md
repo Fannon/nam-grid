@@ -4,6 +4,12 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Shimmer Reverb** gains a **Bloom** control. Turn it up to spread the reflections behind a note and let the octaves swell in. Try **Slow octave bloom** on keys or sustained guitar. Cloud adds **Percussion mist** for short hits and **Wide synth bed** for pads.
+
+- The signal monitor has a continuous RMS fill, and the pedal waveforms and reverb tails draw smooth outlines at fractional zoom.
+- New factory presets include **Warm tank slap** for a short, dark spring behind the pick, **Low fifth swell** for descending shimmer, and **Parallel chainsaw** for mixing bite into a dry rhythm part.
+- More starting points for synths and percussion include **Parallel keys** in Pedal Comp, **Shorten the room** in Transient Shaper, and **Fifth underneath** in Pitch Shift.
+
 - **Shimmer reverb, rebuilt (audible change):** the pitch shift now sits inside the reverb tail, as in classic studio shimmers, so octaves stack and climb for as long as the tail lasts instead of staying faint. Amount is now the share of the tail that is shifted on each pass: the default 25% gives a clear octave halo, and higher settings build a full cascade without running away at any Pitch or Decay. The shifter no longer flutters or loses certain notes, and the wet level now sits with Room and Hall, about 5 dB louder than before. Decay now matches the tail you hear: long settings used to stop short (a 12 s Decay with dark Damping rang for about 8 s), and Damping now darkens the treble relative to Decay, as in Hall, so long tails stay brighter. Existing rigs keep their settings but shimmer noticeably more; lower Amount or Mix to return to a subtler sound. The Shimmer reverb now uses about twice the CPU.
 - **Dense Plate is dense from the start (audible change):** it now takes its output from several points across the plate, as in Dattorro's classic design, so the wash fills in within about 40 ms instead of starting with 100 ms of separate reflections. Decay, tone, width and level are unchanged.
 - **Cloud reverb is louder (audible change):** its wash was about 6 dB quieter than Plate and Hall at the same Mix. It now sits with them; existing rigs using Cloud will hear more reverb at the same Mix.

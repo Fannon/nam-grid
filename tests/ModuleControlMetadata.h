@@ -23,7 +23,7 @@ inline json ModuleControlMetadata(const clap_plugin* plugin, const clap_plugin_p
   {
     const auto effect = static_cast<SlotEffect>(id);
     if (!IsValidSlotEffect(effect)) continue;
-    auto& controls = modules[SlotEffectName(effect)] = json::array();
+    auto& controls = modules[SlotEffectDisplayName(effect)] = json::array();
     const auto defaults = SlotDefaultValues(effect);
     const auto shared = [&](int control, const char* label) {
       clap_param_info info{};

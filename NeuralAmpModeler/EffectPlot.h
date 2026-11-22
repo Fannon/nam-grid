@@ -191,6 +191,15 @@ inline void PlotFooter(IGraphics& g, const IRECT& p, const char* left, const cha
   g.DrawText(Text(13.f, muted), left, IRECT(p.L, grid_layout::plotFooterTop, split, grid_layout::plotFooterBottom));
   g.DrawText(Text(13.f, muted, EAlign::Far), right, IRECT(split, grid_layout::plotFooterTop, p.R, grid_layout::plotFooterBottom));
 }
+template<class Y>
+void PlotSamples(IGraphics& g, const IRECT& scope, int count, Y y, IColor ink, float width)
+{
+  g.PathClear();
+  g.PathMoveTo(scope.L, y(0));
+  for (int i = 1; i < count; ++i)
+    g.PathLineTo(scope.L + scope.W() * i / static_cast<float>(count - 1), y(i));
+  g.PathStroke(IPattern(ink), width);
+}
 template<class Function>
 void PlotCurve(IGraphics& g, const IRECT& p, Function f, double low, double high, IColor ink, float width = 1.5f, int segments = 384)
 {

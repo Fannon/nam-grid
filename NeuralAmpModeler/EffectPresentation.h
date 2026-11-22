@@ -613,6 +613,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
     case uShimmerAmount: return "Share of the tail shifted by Pitch on each pass; more stacks more layers. The tail never outlasts Decay; high settings fade it sooner.";
     case uShimmerFreeze: return "Sustain the tank and stop feeding new notes; release to return to the normal decay.";
+    case uShimmerBloom: return "Spread the wet attack over time. Low settings keep reflections close; high settings turn short notes into swells.";
     case uShiftFrequency: return "Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.";
     case uShiftFeedback: return "Return shifted audio into the delay for progressively changing repeats.";
     case uShiftDelay: return "Time between shifted feedback passes; short settings smear, long settings make distinct echoes.";

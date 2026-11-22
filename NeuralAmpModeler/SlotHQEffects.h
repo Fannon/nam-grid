@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include "SlotTimeEffects.h"
+#include "dsp/reverb/ReverbPrimitives.h"
 
 // Original high-quality grid effects. The algorithms are informed by the MIT
 // Shimwash (shimmer reverb), Junologue Chorus (Juno BBD ensemble) and Ruminant
@@ -264,6 +265,11 @@ public:
   // Share of each shifted line's recirculation that is pitch-shifted, for
   // Amount 0-1. Exposed for the display.
   static double ShiftShare(double amount) { return kMaxShare * std::clamp(amount, 0., 1.); }
+  static double DiffusionScale(double percent)
+  {
+    const double bloom = std::clamp(percent * .01, 0., 1.);
+    return 1. + (kMaxDiffusionScale - 1.) * bloom * bloom;
+  }
   void Reset(double rate)
   {
     mMixLaw.Reset(rate);
@@ -282,6 +288,9 @@ public:
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
     mControls.Target(c.shimmer, uShimmerMix);
+    // Stretch only the input diffusers. The feedback tank keeps its calibrated
+    // decay and the dry path remains immediate. MovingDelay crossfades automation.
+    const double diffusionScale = DiffusionScale(c.shimmerBloom);
     const double freezeTarget = (!draining && c.shimmer[6] >= .5) ? 1. : 0.;
     const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
     for (int i = 0; i < n; ++i)
@@ -324,8 +333,8 @@ public:
       mInputLow[1] = grid_fx::Flush(dryR + coefficient * (mInputLow[1] - dryR));
       const double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze);
       const double inputR = (.25 * (dryL - mInputLow[0]) + .75 * (dryR - mInputLow[1])) * (1. - mFreeze);
-      const double wetL = kOutput * mTank[0].Process(inputL, share, v[3]);
-      const double wetR = kOutput * mTank[1].Process(inputR, share, v[3]);
+      const double wetL = kOutput * mTank[0].Process(inputL, share, v[3], diffusionScale);
+      const double wetR = kOutput * mTank[1].Process(inputR, share, v[3], diffusionScale);
       const double mix = v[0] * .01;
       l[i] = mMixLaw.Apply(dryL + mix * (wetL - dryL), dryL, mix, 1.);
       if (r)
@@ -336,6 +345,7 @@ public:
 private:
   // Output scaling puts the wet level with Room and Hall.
   static constexpr double kOutput = 1.8, kMaxShare = .5;
+  static constexpr double kMaxDiffusionScale = 28.;
   // Treble above Damping decays at this share of Decay (the Hall and Room ratio).
   static constexpr double kHighDecayRatio = .35;
   grid_fx::MixLaw mMixLaw;
@@ -343,7 +353,7 @@ private:
   {
     static constexpr std::array<int, 4> kShifted{0, 3, 5, 6};
     std::array<grid_fx::DelayLine, 8> line;
-    std::array<grid_fx::DelayLine, 4> diffuser;
+    std::array<grid_reverb::Allpass, 4> diffuser;
     std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{};
     std::array<double, 4> diffuserDelay{};
     std::array<PitchShifter, 2> shifter;
@@ -366,7 +376,7 @@ private:
       for (int j = 0; j < 4; ++j)
       {
         diffuserDelay[j] = diffusion[j] * scale;
-        diffuser[j].Reset(static_cast<int>(mRate * diffuserDelay[j]) + 8);
+        diffuser[j].Reset(mRate, diffuserDelay[j] * kMaxDiffusionScale);
       }
       // Staggered grain phases decorrelate the four shifted lines.
       shifter[0].Reset(mRate, .1, .5, .02);
@@ -379,15 +389,10 @@ private:
       counter = 0;
       powerSmoothing = std::exp(-1. / (.05 * mRate));
     }
-    double Process(double input, double share, double semitones)
+    double Process(double input, double share, double semitones, double diffusionScale)
     {
       for (int j = 0; j < 4; ++j)
-      {
-        const double delayed = diffuser[j].Read(mRate * diffuserDelay[j]);
-        const double y = delayed - .6 * input;
-        diffuser[j].Push(input + .6 * y);
-        input = y;
-      }
+        input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, .6);
       std::array<double, 8> taps{};
       double wet = 0.;
       for (int j = 0; j < 8; ++j)

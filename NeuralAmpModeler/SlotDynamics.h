@@ -165,6 +165,11 @@ inline const char* SlotEffectName(SlotEffect effect)
   }
   return "Unknown";
 }
+inline const char* SlotEffectDisplayName(SlotEffect effect)
+{
+  // SlotEffectName also keys released preset directories and compatibility fixtures.
+  return effect == SlotEffect::ShimmerReverb ? "Shimmer Reverb" : SlotEffectName(effect);
+}
 inline bool IsValidSlotEffect(SlotEffect effect)
 { return effect >= SlotEffect::NAM && effect <= SlotEffect::Last && effect != SlotEffect::Reserved63; }
 struct DynamicsControls

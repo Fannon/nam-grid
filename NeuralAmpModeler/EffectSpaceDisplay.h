@@ -117,7 +117,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   else if(spring) text.Set("Reflections / decay");
   else text.Set("Decay by frequency");
   PlotTitle(g,plot,color,text.Get());
-  if(shimmer) text.Set("The decay envelope and successive pitch layers share a logarithmic time axis. Freezing holds the tail without adding new pitch layers.");
+  if(shimmer) text.Set("Bloom spreads the early reflections. The fill sketches the wet envelope over time. The bars at right show pitch intervals in semitones. Freeze holds the tail.");
   else if(spring) text.Set("Reflections feed the spring's decay; Drip and Dwell change their shape.");
   else if(native) text.Set("Relative tank | dots: HF | amber: early");
   if(native || spring || shimmer) PlotDetail(g,plot,text.Get());
@@ -129,7 +129,8 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   };
   // Native tanks show relative time, so only the timed reverbs get marks.
   const int marks=native ? 0 : PlotTimeMarks(g,field,timeX);
-  const double earlySpan=native ? .04*size : .055*size*(effect==SlotEffect::HallReverb ? 2. : 1.);
+  const double earlySpan=shimmer ? .0338 * grid_hq::Shimmer::DiffusionScale(value(uShimmerBloom))
+                                 : native ? .04*size : .055*size*(effect==SlotEffect::HallReverb ? 2. : 1.);
   const double lateStart=std::min(horizon*.45,onset+earlySpan*.7);
   const double tailScale=native ? .2+.8*sustain : 1.;
   // Algorithmic reverbs: nominal decay guides per band. Room/Hall shelve
@@ -146,20 +147,21 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     else text.SetFormatted(80,"Fill: mid | gray: 5 kHz decays in %.1f s",highDecay);
     PlotDetail(g,plot,text.Get());
   }
-  float previousLow=0.f,previousHigh=0.f,previousX=0.f; bool first=true;
   // The sketch describes the wet tank's shape at full scale; typical low wet
   // settings would otherwise hide its decay.
   const double lateHeight=.8;
-  for(int i=0;i<64;++i)
+  constexpr int points=65;
+  const IRECT late(timeX(lateStart),field.T,field.R,field.B);
+  std::array<float,points> top{},low{},high{};
+  const auto tailX=[&](int i) { return late.L+late.W()*i/(points-1); };
+  for(int i=0;i<points;++i)
   {
-    const double t=horizon*std::expm1(std::log1p(horizon/.025)*i/64.)/std::expm1(std::log1p(horizon/.025));
-    if(t<lateStart) continue;
+    const float x=tailX(i);
+    const double t=.025*std::expm1(std::log1p(horizon/.025)*(x-field.L)/field.W());
     const double progress=(t-lateStart)/std::max(.01,horizon-lateStart);
     const double envelope=frozen ? 1. : native ? std::max(0.,1.-progress/tailScale)
         : std::clamp((60.+effect_preview::TailDB(t-lateStart,decay))/60.,0.,1.);
-    const float x=timeX(t),y=field.B-field.H()*static_cast<float>((native || frozen ? lateHeight : .9)*envelope);
-    g.FillRect(color.WithOpacity(.16f),IRECT(x,y,std::min(field.R,x+field.W()/64.f+1.f),field.B));
-    g.FillCircle(color.WithOpacity(.75f),x,y,.8f);
+    const float y=top[i]=field.B-field.H()*static_cast<float>((native || frozen ? lateHeight : .9)*envelope);
     // Movement/dispersion belongs to the tank, not the unmodulated early path.
     if(motion>.01 && i%4==0)
       g.FillCircle(color.WithOpacity(.2f),std::clamp(x+static_cast<float>(motion*3.*std::sin(i)),field.L,field.R),y,2.f);
@@ -168,18 +170,20 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
       const auto band=[&](double seconds) {
         return field.B-field.H()*static_cast<float>(.9*std::clamp((60.+effect_preview::TailDB(t-lateStart,seconds))/60.,0.,1.));
       };
-      const float low=band(lowDecay),high=band(highDecay);
-      if(!first)
-      {
-        if(fdn) g.DrawLine(ampColor.WithOpacity(.8f),previousX,previousLow,x,low,nullptr,1.2f);
-        g.DrawLine(muted,previousX,previousHigh,x,high,nullptr,1.2f);
-      }
-      previousLow=low; previousHigh=high; previousX=x; first=false;
+      low[i]=band(lowDecay);
+      high[i]=band(highDecay);
       continue;
     }
     const float dark=frozen ? y : field.B-field.H()*static_cast<float>(std::min(double((field.B-y)/field.H()),lateHeight*std::max(0.,1.-progress/std::max(.1,tailScale*brightness))));
     if(i%3==0) g.FillCircle(muted,x,dark,.8f);
   }
+  g.PathClear();
+  g.PathMoveTo(late.L,field.B);
+  for(int i=0;i<points;++i) g.PathLineTo(tailX(i),top[i]);
+  g.PathLineTo(late.R,field.B); g.PathClose(); g.PathFill(IPattern(color.WithOpacity(.16f)));
+  PlotSamples(g,late,points,[&](int i){ return top[i]; },color.WithOpacity(.75f),1.2f);
+  if(fdn) PlotSamples(g,late,points,[&](int i){ return low[i]; },ampColor.WithOpacity(.8f),1.2f);
+  if(banded) PlotSamples(g,late,points,[&](int i){ return high[i]; },muted,1.2f);
   const double position=hall ? value(uAirHallPosition)*.01 : .5;
   for(int i=0;i<9 && !frozen;++i)
   {

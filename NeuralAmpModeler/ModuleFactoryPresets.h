@@ -30,6 +30,8 @@ using parameter_layout::kSlotCompMakeup;
 // Pedal Comp's Sustain range is calibrated against a Ross-type pedal. Pickup stays as the
 // player set it unless a preset is for a particular instrument.
 inline const Preset pedalComp[]{
+  {"Parallel keys", {{U(uPedalCompSustain), 48.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), 12.},
+    {U(uPedalCompBlend), 38.}}},
   {"Light always-on",
    {{U(uPedalCompSustain), 30.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompFocus), 20.}, {U(uPedalCompBlend), 50.}}},
   // Fast attack on the pick and a fully compressed signal: the country "cluck".
@@ -73,6 +75,8 @@ inline const Preset limiter[]{
 // balance the shaping on guitar and bass. Gentle note sustain blends a modest tail
 // lift under the dry attack; boosts still need headroom.
 inline const Preset transientShaper[]{
+  {"Shorten the room", {{U(uTransientShaperAttack), 0.}, {U(uTransientShaperSustain), -6.}, {U(uTransientShaperRecovery), 85.},
+    {U(uTransientShaperMix), 75.}}},
   {"Defined picking", {{U(uTransientShaperAttack), 5.}, {U(uTransientShaperSustain), -2.}, {U(uTransientShaperRecovery), 150.},
     {U(uTransientShaperOutput), -.5}}},
   {"Soft acoustic", {{U(uTransientShaperAttack), -6.}, {U(uTransientShaperSustain), 1.}, {U(uTransientShaperRecovery), 150.}}},
@@ -85,6 +89,8 @@ inline const Preset transientShaper[]{
 // 1 dB on a guitar DI and a bass DI peaking near -6 dBFS; a hotter amp output comes out
 // 2-3 dB quieter on the heavier presets until Threshold is raised.
 inline const Preset multiband[]{
+  {"Pad detail", {{U(uMultibandDepth), 34.}, {U(uMultibandDownward), 18.}, {U(uMultibandUpward), 32.},
+    {U(uMultibandTime), 225.}, {U(uMultibandOutput), 1.}}},
   {"Gentle glue", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 30.}, {U(uMultibandUpward), 0.},
     {U(uMultibandTime), 150.}, {U(uMultibandOutput), 5.}}},
   {"Over the top", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 100.}, {U(uMultibandUpward), 100.},
@@ -115,6 +121,8 @@ inline const Preset cutEQ[]{
 // louder for solos and Tight into amp drives the next stage; the others match loudness
 // within about 0.3 dB on a guitar or bass DI.
 inline const Preset graphicEQ[]{
+  {"Warm keys", {{U(uGraphicVoicing), 2.}, {U(uGraphicBand2), 1.5}, {U(uGraphicBand5), -1.},
+    {U(uGraphicBand6), -2.}, {U(uGraphicBand7), -3.}}},
   {"Lead mid boost", {{U(uGraphicVoicing), 0.}, {U(uGraphicBand1), -3.}, {U(uGraphicBand2), 0.}, {U(uGraphicBand3), 3.},
     {U(uGraphicBand4), 6.}, {U(uGraphicBand5), 3.}, {U(uGraphicBand6), 0.}, {U(uGraphicBand7), -2.}, {U(uGraphicLevel), -1.}}},
   {"Tight into amp", {{U(uGraphicVoicing), 0.}, {U(uGraphicBand1), -9.}, {U(uGraphicBand2), -4.}, {U(uGraphicBand3), 0.},
@@ -132,6 +140,8 @@ inline const Preset parametricEQ[]{
 // band is cut on about a quarter to a third of played audio and rests between peaks: guitar DI
 // peaking near -6 dBFS, the bundled clean capture's output, and a bass DI peaking near -6 dBFS.
 inline const Preset dynamicEQ[]{
+  {"Resonant synth tamer", {{U(uDynamicEQFrequency), 1800.}, {U(uDynamicEQQ), 2.2}, {U(uDynamicEQThreshold), -30.},
+    {U(uDynamicEQRange), 4.}, {U(uDynamicEQAttack), 3.}, {U(uDynamicEQRelease), 100.}}},
   {"Palm-mute control (after amp)", {{U(uDynamicEQFrequency), 140.}, {U(uDynamicEQQ), .9}, {U(uDynamicEQThreshold), -19.},
     {U(uDynamicEQRange), 6.}, {U(uDynamicEQAttack), 8.}, {U(uDynamicEQRelease), 140.}}},
   {"Tight into amp", {{U(uDynamicEQFrequency), 120.}, {U(uDynamicEQQ), .8}, {U(uDynamicEQThreshold), -27.},
@@ -163,6 +173,8 @@ inline const Preset tube[]{
     {U(uTubeHighCut), 7000.}, {U(uTubeOutput), -16.}}},
 };
 inline const Preset distortion[]{
+  {"Parallel drum grit", {{U(uDistStyle), 1.}, {U(uDistDrive), 18.}, {U(uDistTone), 6500.},
+    {U(uDistMix), 22.}, {U(uDistOutput), -4.}}},
   {"Clean lows, warm grit", {{U(uDistStyle), 0.}, {U(uDistDrive), 9.}, {U(uDistTone), 6000.},
     {U(uDistLowPreserve), 220.}, {U(uDistOutput), -6.}, {U(uDistMix), 60.}}},
   {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 24.}, {U(uDistTone), 4500.}, {U(uDistOutput), -20.}}},
@@ -181,6 +193,8 @@ inline const Preset pedalDrive[]{
   {"Sustaining fuzz", {{U(uPedalStyle), 4.}, {U(uPedalDrive), 18.}, {U(uPedalTone), 3500.}, {U(uPedalOutput), -21.}}},
   {"Bass drive, clean lows",
    {{U(uPedalStyle), 2.}, {U(uPedalDrive), 15.}, {U(uPedalLowKeep), 100.}, {U(uPedalSplit), 180.}, {U(uPedalOutput), -16.}}},
+  {"Pick edge", {{U(uPedalStyle), 8.}, {U(uPedalDrive), 8.}, {U(uPedalTone), 7500.},
+    {U(uPedalMix), 55.}, {U(uPedalOutput), -3.}}},
 };
 // Levels leave a guitar DI about 1.5 dB above bypass RMS; the clipped signal's lower crest
 // factor already sounds louder. Metal settings follow common scooped, tightened rhythm setups.
@@ -194,6 +208,8 @@ inline const Preset pedalDistortion[]{
   // Hot-rodded lead box: more gain, the mid hump pushed up, and a smooth top.
   {"Singing lead", {{U(uPDistStyle), 3.}, {U(uPDistGain), 65.}, {U(uPDistMid), 3.}, {U(uPDistMidFrequency), 1200.},
     {U(uPDistTreble), -2.}, {U(uPDistLevel), -3.5}}},
+  {"Parallel chainsaw", {{U(uPDistStyle), 5.}, {U(uPDistGain), 60.}, {U(uPDistTight), 45.},
+    {U(uPDistMix), 32.}, {U(uPDistTreble), -3.}, {U(uPDistLevel), -1.}}},
 };
 
 // Delay levels: one loud repeat for slapback, two to four repeats for rhythmic and lead echoes.
@@ -311,6 +327,8 @@ inline const Preset room[]{
   {"Small amp room", {{U(uReverbDecay), .45}, {U(uReverbSize), 55.}, {U(uReverbPredelay), 3.}, {U(uReverbMix), 10.}}},
 };
 inline const Preset plate[]{
+  {"Long silver plate", {{U(uReverbDecay), 4.8}, {U(uReverbPredelay), 55.}, {U(uReverbHighPass), 250.},
+    {U(uReverbTone), 7200.}, {U(uReverbMotion), 18.}, {U(uReverbMix), 24.}}},
   {"Short bright plate", {{U(uReverbDecay), 1.1}, {U(uReverbTone), 8000.}, {U(uReverbPredelay), 10.}, {U(uReverbMix), 14.}}},
   {"Singing lead plate", {{U(uReverbDecay), 2.8}, {U(uReverbPredelay), 35.}, {U(uReverbHighPass), 180.}, {U(uReverbDuck), 25.}, {U(uReverbMix), 22.}}},
   {"Warm rhythm plate", {{U(uReverbDecay), .8}, {U(uReverbSize), 85.}, {U(uReverbTone), 3800.}, {U(uReverbPredelay), 8.}, {U(uReverbMotion), 5.}, {U(uReverbHighPass), 180.}, {U(uReverbMix), 13.}}},
@@ -322,16 +340,30 @@ inline const Preset hall[]{
   {"Small recital hall", {{U(uReverbDecay), 1.6}, {U(uReverbSize), 85.}, {U(uReverbTone), 7000.}, {U(uReverbPredelay), 18.}, {U(uReverbMotion), 8.}, {U(uReverbMix), 16.}}},
 };
 inline const Preset cloud[]{
+  {"Percussion mist", {{U(uReverbDecay), 1.25}, {U(uReverbSize), 75.}, {U(uReverbPredelay), 26.},
+    {U(uReverbHighPass), 320.}, {U(uReverbTone), 7200.}, {U(uReverbMotion), 8.}, {U(uReverbMix), 19.}}},
+  {"Wide synth bed", {{U(uReverbDecay), 7.}, {U(uReverbSize), 155.}, {U(uReverbPredelay), 12.},
+    {U(uReverbHighPass), 190.}, {U(uReverbTone), 5000.}, {U(uReverbMotion), 48.}, {U(uReverbMix), 38.}}},
+  {"Chord afterglow", {{U(uReverbDecay), 5.}, {U(uReverbPredelay), 65.}, {U(uReverbHighPass), 260.},
+    {U(uReverbTone), 3400.}, {U(uReverbDuck), 38.}, {U(uReverbMix), 24.}}},
   {"Long ducked cloud", {{U(uReverbDecay), 12.}, {U(uReverbSize), 180.}, {U(uReverbPredelay), 50.}, {U(uReverbHighPass), 220.}, {U(uReverbDuck), 55.}, {U(uReverbMix), 35.}}},
   {"Light moving halo", {{U(uReverbDecay), 3.}, {U(uReverbSize), 110.}, {U(uReverbTone), 7000.}, {U(uReverbPredelay), 20.}, {U(uReverbMotion), 25.}, {U(uReverbHighPass), 200.}, {U(uReverbMix), 20.}}},
 };
 inline const Preset spring[]{
+  {"Warm tank slap", {{U(uSpringPredelay), 82.}, {U(uSpringDecay), .55}, {U(uSpringDwell), 2.},
+    {U(uReverbTone), 3200.}, {U(uSpringDrip), 18.}, {U(uSpringMix), 19.}}},
   {"Small amp spring", {{U(uSpringDecay), 1.2}, {U(uSpringDwell), 1.5}, {U(uSpringDrip), 35.}, {U(uSpringMix), 14.}}},
   // The Dispersive tank's chirp provides the surf "drip"; Dwell drives the tank harder.
   {"Surf drip", {{U(uSpringTank), 1.}, {U(uSpringDecay), 2.5}, {U(uSpringDwell), 7.}, {U(uSpringDrip), 90.}, {U(uReverbTone), 6500.}, {U(uSpringMix), 35.}}},
   {"Short bright splash", {{U(uSpringTank), 1.}, {U(uSpringDecay), .7}, {U(uSpringDwell), 3.}, {U(uSpringDrip), 75.}, {U(uReverbTone), 7000.}, {U(uSpringMix), 22.}}},
 };
 inline const Preset shimmer[]{
+  {"Slow octave bloom", {{U(uShimmerBloom), 92.}, {U(uShimmerDecay), 14.}, {U(uShimmerTone), 7400.},
+    {U(uShimmerAmount), 50.}, {U(uShimmerMod), 55.}, {U(uShimmerMix), 48.}}},
+  {"Octave on the pick", {{U(uShimmerDecay), 1.4}, {U(uShimmerAmount), 45.}, {U(uShimmerMod), 6.},
+    {U(uShimmerTone), 4800.}, {U(uShimmerMix), 18.}}},
+  {"Low fifth swell", {{U(uShimmerPitch), -7.}, {U(uShimmerDecay), 6.}, {U(uShimmerAmount), 38.},
+    {U(uShimmerMod), 14.}, {U(uShimmerTone), 4000.}, {U(uShimmerMix), 26.}}},
   {"Dark octave-down pad", {{U(uShimmerDecay), 8.}, {U(uShimmerPitch), -12.}, {U(uShimmerTone), 3500.},
     {U(uShimmerAmount), 30.}, {U(uShimmerMix), 30.}}},
   {"Gentle octave halo", {{U(uShimmerDecay), 4.}, {U(uShimmerPitch), 12.}, {U(uShimmerTone), 6500.}, {U(uShimmerAmount), 15.}, {U(uShimmerMod), 20.}, {U(uShimmerMix), 20.}}},
@@ -430,6 +462,8 @@ inline const Preset tremolo[]{
 // Early-1960s split-band amp tremolos filter bands near 150 and 650 Hz at about 5-7 Hz;
 // one split near their geometric middle gives the same bass/treble alternation.
 inline const Preset harmonicTremolo[]{
+  {"Slow stereo pad", {{U(uModRate), 0.32}, {U(uModDepth), 46.}, {U(uModSpread), 85.},
+    {U(uHarmonicCrossover), 740.}, {U(uModMix), 75.}}},
   {"Brown-panel amp", {{U(uModRate), 5.5}, {U(uModDepth), 60.}, {U(uModCharacter), 15.}, {U(uHarmonicCrossover), 400.}}},
   {"Slow swirl", {{U(uModRate), 1.8}, {U(uModDepth), 75.}, {U(uModCharacter), 0.}, {U(uHarmonicCrossover), 900.}, {U(uModSpread), 50.}}},
   {"Synced throb", {{U(uTempoSync), 1.}, {U(uTempoDivision), 3.}, {U(uModDepth), 85.}, {U(uModCharacter), 60.}, {U(uHarmonicCrossover), 500.}}},
@@ -452,6 +486,8 @@ inline const Preset rotary[]{
 
 // Insertion already supplies a modest fifth harmony. These add distinct roles.
 inline const Preset pitchShift[]{
+  {"Fifth underneath", {{U(uPitchInterval), -7.}, {U(uPitchTone), 4200.}, {U(uPitchMix), 26.},
+    }},
   {"Shifted fifth only", {{U(uPitchInterval), 7.}, {U(uPitchTone), 10000.}, {U(uPitchMix), 100.}}},
   {"Octave above", {{U(uPitchInterval), 12.}, {U(uPitchTone), 9000.}, {U(uPitchMix), 22.}}},
   {"Octave below", {{U(uPitchInterval), -12.}, {U(uPitchTone), 7000.}, {U(uPitchMix), 30.}}},

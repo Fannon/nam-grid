@@ -193,7 +193,7 @@ public:
       for (const auto effect : group.effects)
       {
         nam_library::Capture item;
-        item.path = std::filesystem::u8path(group.name) / SlotEffectName(effect);
+        item.path = std::filesystem::u8path(group.name) / SlotEffectDisplayName(effect);
         item.relative = item.path;
         item.kind = nam_library::FileKind::Module;
         item.module = static_cast<int>(effect);
@@ -300,7 +300,7 @@ public:
       if (const auto* group = nam_library::ModuleGroupFor(effect))
       {
         view.folder = std::filesystem::u8path(group->name);
-        view.selected = nam_library::PathText(view.folder / SlotEffectName(effect));
+        view.selected = nam_library::PathText(view.folder / SlotEffectDisplayName(effect));
       }
     }
     else if (kind != nam_library::FileKind::RigPreset) view.selected = PLUG()->GetSlotPath(mSlot);

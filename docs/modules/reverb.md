@@ -13,7 +13,7 @@ Settings' **Keep dry level** toggle applies to every delay and reverb in the rig
 | [Cloud](#cloud) | Long moving wash; Damping and Low cut keep the tail clear. |
 | [Hall](#hall) | Wide reflection spacing and a long tail; Pre-delay adds separation. |
 | [Spring Reverb](#spring-reverb) | Dwell excites the spring; Drip adds splash, Damping tames treble. |
-| [Shimmer](#shimmer) | Pitch and Amount build rising/falling tails; Freeze sustains them. |
+| [Shimmer Reverb](#shimmer-reverb) | Pitch and Amount build rising/falling tails; Freeze sustains them. |
 | [Airwindows Plate](#airwindows-plate) | Airwindows kPlate140: dense plate character; Sustain sets the length. |
 | [Airwindows Guitar Hall](#airwindows-guitar-hall) | Airwindows kGuitarHall2: colored hall with selectable early-reflection positions. |
 | [Galactic Space](#galactic-space) | Airwindows Galactic3: huge stereo space; Replace controls how new notes enter the wash. |
@@ -149,7 +149,7 @@ In the header:
 
 **Display:** The spring decay; Drip and Dwell shape the reflections.
 
-## Shimmer
+## Shimmer Reverb
 
 ![Shimmer editor](../screenshots/modules/shimmer.png)
 
@@ -160,6 +160,7 @@ A reverb whose tail climbs or falls in pitch with each pass, in the style of cla
 | **Decay** | 0.5–20 s | 5 s | Tail decay time below the Damping frequency. Higher values let notes overlap into a larger ambient wash. |
 | **Damping** | 800–12000 Hz | 6000 Hz | Above this frequency the tail decays about three times faster than Decay, as in Hall. Lower settings make the tail and its upper layers darker. |
 | **Pitch** | -24 to +24 st | 12 st | Semitone interval on each pitched reverb pass. Positive climbs, negative falls. |
+| **Bloom** | 0–100% | 0% | Spreads the wet reflections over a longer interval. Turn it up to make a synth chord swell or soften the onset of a percussion hit. The dry attack stays immediate. |
 | **Amount** | 0–100% | 25% | Share of the tail shifted by Pitch on each pass. Low settings add a halo an octave up; high settings stack several layers. The tail never rings longer than Decay, so even 100% never runs away; high settings move the tail up into the Damping range, where it fades sooner. |
 | **Modulation** | 0–100% | 30% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Freeze** | Off / On | Off | Sustain the tank and stop feeding new notes; release to return to the normal decay. |

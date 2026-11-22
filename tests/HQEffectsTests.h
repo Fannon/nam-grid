@@ -290,6 +290,27 @@ void TestHQEffects()
       const double measured = hq_test::BandDecay(l, 500., rate);
       assert(measured > .88 * decay && measured < 1.12 * decay);
     }
+  // Bloom redistributes wet energy behind the attack. Simply turning down the
+  // initial reflections would also pass the early-energy check alone.
+  {
+    const auto response = [&](double bloom) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., 5., 6000., 12., 25., 30., 0.};
+      c.shimmerBloom = bloom;
+      std::vector<double> l(static_cast<size_t>(6. * rate)), r(l.size());
+      l[0] = r[0] = .1;
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      std::array<double, 2> energy{};
+      for (size_t i = 0; i < l.size(); ++i)
+        energy[i < .2 * rate ? 0 : 1] += l[i] * l[i] + r[i] * r[i];
+      return energy;
+    };
+    const auto close = response(0.), bloom = response(100.);
+    assert(bloom[0] < .15 * close[0]);
+    assert(bloom[1] > close[1]);
+  }
   // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
   {
     grid_hq::Shimmer shimmer;

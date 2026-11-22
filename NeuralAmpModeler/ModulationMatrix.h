@@ -206,6 +206,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uFilterMix, t.extra.filterMix);
   u(uRingLfoRate, t.extra.ringLfoRate);
   u(uRingSweep, t.extra.ringSweep);
+  u(uRingOutput, t.extra.ringOutput);
   family(uVolumePosition, t.extra.volumePedal);
 
 }

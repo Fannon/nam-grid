@@ -244,7 +244,7 @@ inline const Preset pedalDistortion[]{
   {"Singing lead", {{U(uPDistStyle), 3.}, {U(uPDistGain), 65.}, {U(uPDistMid), 3.}, {U(uPDistMidFrequency), 1200.},
     {U(uPDistTreble), -2.}, {U(uPDistLevel), -3.5}}},
   {"Parallel chainsaw", {{U(uPDistStyle), 5.}, {U(uPDistGain), 60.}, {U(uPDistTight), 45.},
-    {U(uPDistMix), 32.}, {U(uPDistTreble), -3.}, {U(uPDistLevel), -1.}}},
+    {U(uPDistMix), 32.}, {U(uPDistTreble), -3.}, {U(uPDistLevel), -3.}}},
 };
 
 // Delay levels: one loud repeat for slapback, two to four repeats for rhythmic and lead echoes.
@@ -399,7 +399,7 @@ inline const Preset spring[]{
 };
 inline const Preset shimmer[]{
   {"Slow octave bloom", {{U(uShimmerBloom), 92.}, {U(uShimmerDecay), 14.}, {U(uShimmerTone), 7400.},
-    {U(uShimmerAmount), 50.}, {U(uShimmerMod), 55.}, {U(uShimmerMix), 48.}}},
+    {U(uShimmerAmount), 50.}, {U(uShimmerMod), 55.}, {U(uShimmerMix), 32.}}},
   {"Octave on the pick", {{U(uShimmerDecay), 1.4}, {U(uShimmerAmount), 45.}, {U(uShimmerMod), 6.},
     {U(uShimmerTone), 4800.}, {U(uShimmerMix), 18.}}},
   {"Low fifth swell", {{U(uShimmerPitch), -7.}, {U(uShimmerDecay), 6.}, {U(uShimmerAmount), 38.},
@@ -559,14 +559,15 @@ inline const Preset stutter[]{
 };
 // Ring Modulator: Depth 50% with the Square carrier switches the gain between 0 and 1, a hard
 // tremolo; carriers below about 50 Hz roughen the note, higher ones turn chords into bells.
+// Output makes up the level the sidebands lose, matching bypass.
 inline const Preset ringMod[]{
-  {"Square chopper", {{U(uRingShape), 2.}, {U(uRingFrequency), 6.}, {U(uRingDepth), 50.}, {U(uRingTone), 20000.}, {U(uRingMix), 100.}}},
-  {"Robot growl", {{U(uRingFrequency), 30.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 55.}}},
-  {"Metallic bells", {{U(uRingFrequency), 660.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 35.}}},
+  {"Square chopper", {{U(uRingShape), 2.}, {U(uRingFrequency), 6.}, {U(uRingDepth), 50.}, {U(uRingTone), 20000.}, {U(uRingMix), 100.}, {U(uRingOutput), 3.}}},
+  {"Robot growl", {{U(uRingFrequency), 30.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 55.}, {U(uRingOutput), 4.5}}},
+  {"Metallic bells", {{U(uRingFrequency), 660.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 35.}, {U(uRingOutput), 3.}}},
   // The LFO sweeps the carrier up and down: the swooping, sci-fi ring modulator sound.
-  {"Sci-fi sweep", {{U(uRingFrequency), 300.}, {U(uRingLfoRate), .6}, {U(uRingSweep), 60.}, {U(uRingTone), 6000.}, {U(uRingMix), 50.}}},
+  {"Sci-fi sweep", {{U(uRingFrequency), 300.}, {U(uRingLfoRate), .6}, {U(uRingSweep), 60.}, {U(uRingTone), 6000.}, {U(uRingMix), 50.}, {U(uRingOutput), 4.5}}},
   {"Synced warble", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uRingFrequency), 180.}, {U(uRingSweep), 35.},
-    {U(uRingTone), 5000.}, {U(uRingMix), 45.}}},
+    {U(uRingTone), 5000.}, {U(uRingMix), 45.}, {U(uRingOutput), 4.}}},
 };
 inline const Preset crusher[]{
   {"Broken small sampler", {{U(uCrushBits), 6.}, {U(uCrushRate), 6000.}, {U(uCrushTone), 3500.}, {U(uCrushMix), 65.}, {U(uCrushOutput), -2.}}},

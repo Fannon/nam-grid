@@ -392,6 +392,7 @@ enum UtilityParam
   uVolumeToe = 375,
   uVolumeSmoothing = 376,
   uVolumeCC = 377,
+  uRingOutput = 378,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -551,7 +552,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 35; // 35 Filter envelope controls, Ring LFO and Volume Pedal; 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
+inline constexpr int kEffectStateSchema = 35; // 35 Filter envelope controls, Ring LFO and Output, Volume Pedal; 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
 
 struct EffectParameter
 {
@@ -948,7 +949,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Volume Pedal Heel", "Heel level", -60, -60, 0, 0.1, "dB", 0, false, 1., 35},
    {"Volume Pedal Toe", "Toe level", 0, -24, 12, 0.1, "dB", 0, false, 1., 35},
    {"Volume Pedal Smoothing", "Smoothing", 20, 1, 500, 1, "ms", 0, true, 1., 35},
-   {"Volume Pedal MIDI CC", "MIDI CC", 11, 0, 127, 1, "", 0, false, 1., 35}}};
+   {"Volume Pedal MIDI CC", "MIDI CC", 11, 0, 127, 1, "", 0, false, 1., 35},
+   {"Ring Output", "Output", 0, -24, 24, 0.1, "dB", 0, false, 1., 35}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -1079,7 +1081,7 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (p >= uPDistStyle && p <= uPDistMix) return e == SlotEffect::PedalDistortion;
   if (p >= uGranulatorMode && p <= uGranulatorFreeze) return e == SlotEffect::Granulator;
   if (p >= uFilterSensitivity && p <= uFilterMix) return e == SlotEffect::SynthFilter;
-  if (p == uRingLfoRate || p == uRingSweep) return e == SlotEffect::RingMod;
+  if (p == uRingLfoRate || p == uRingSweep || p == uRingOutput) return e == SlotEffect::RingMod;
   if (p >= uVolumePosition && p <= uVolumeCC) return e == SlotEffect::VolumePedal;
   // Noise Gate (AI) shares Smart Gate's final gate.
   if (p == uNoiseGateThreshold || p == uNoiseGateRelease) return e == SlotEffect::NoisePrint || e == SlotEffect::AIGate;
@@ -1247,7 +1249,7 @@ struct ModuleExtensions
   double harmonicCrossover = 500;
   // Synth Filter detector and output, Ring LFO; their defaults keep the released sound.
   double filterSensitivity = 0, filterDecay = 80, filterDown = 0, filterOutput = 0, filterMix = 100;
-  double ringLfoRate = 1, ringSweep = 0;
+  double ringLfoRate = 1, ringSweep = 0, ringOutput = 0;
   // Volume Pedal Position through MIDI CC, in ID order.
   std::array<double, 6> volumePedal{100, 0, -60, 0, 20, 11};
 };

@@ -233,6 +233,7 @@ Multiplies the guitar with a sine carrier for metallic, inharmonic sidebands.
 | **High cut** | 200–20000 Hz | 6000 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
 | **LFO rate** | 0.05–10 Hz | 1 Hz | Speed of the LFO that sweeps the carrier frequency. |
 | **Sweep** | 0–100% | 0% | How far the LFO sweeps the carrier, up to two octaves either side of Frequency. Zero holds the carrier steady. |
+| **Output** | -24–24 dB | 0 dB | Final level. Ring modulation thins the guitar; match bypass volume here. |
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
 
 In the header:
@@ -242,4 +243,4 @@ In the header:
 
 **Display:** The partials of a 110 Hz note and the sidebands the carrier creates.
 
-**Presets:** Square chopper (a hard 6 Hz on/off tremolo: the Square carrier at 50% Depth), Robot growl (a 30 Hz carrier that roughens each note), Metallic bells (a 660 Hz carrier that turns chords into bell tones), Sci-fi sweep (the LFO swoops the carrier) and Synced warble (a quarter-note sweep).
+**Presets:** Square chopper (a hard 6 Hz on/off tremolo: the Square carrier at 50% Depth), Robot growl (a 30 Hz carrier that roughens each note), Metallic bells (a 660 Hz carrier that turns chords into bell tones), Sci-fi sweep (the LFO swoops the carrier) and Synced warble (a quarter-note sweep). Each raises Output to match bypass.

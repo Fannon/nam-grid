@@ -166,7 +166,7 @@ inline int TablePosition(SlotEffect e, int p)
   static constexpr int VibratoOrder[]{uModRate, uModDepth, uModCharacter, uVibratoRise};
   static constexpr int RotaryOrder[]{uRotarySlow, uRotaryFast, uRotarySpeed, uRotaryAccel, uRotaryDrive, uRotarySpread, uRotaryBalance, uRotaryMix};
   static constexpr int UniVibeOrder[]{uModRate, uModDepth, uModCharacter, uVibeSpread, uModMix};
-  static constexpr int RingModOrder[]{uRingFrequency, uRingDepth, uRingTone, uRingLfoRate, uRingSweep, uRingMix};
+  static constexpr int RingModOrder[]{uRingFrequency, uRingDepth, uRingTone, uRingLfoRate, uRingSweep, uRingOutput, uRingMix};
   static constexpr int SynthFilterOrder[]{uFilterCutoff, uFilterResonance, uFilterEnvelope, uFilterSensitivity,
                                           uFilterDecay, uFilterOutput, uFilterMix};
   static constexpr int OctaverOrder[]{uOctDry, uOctSub, uOctSub2, uOctTone, uOctTrackingFilter, uOctOutput};
@@ -628,6 +628,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uVolumeSmoothing: return "Glide between positions. Hides the steps of a MIDI pedal; longer values give slower swells.";
     case uVolumeCC: return "MIDI controller that moves the pedal, on any channel (11 is Expression, 7 Volume, 4 Foot). Off ignores MIDI.";
     case uRingLfoRate: return "Speed of the LFO that sweeps the carrier frequency.";
+    case uRingOutput: return "Final level. Ring modulation thins the guitar; match bypass volume here.";
     case uRingSweep: return "How far the LFO sweeps the carrier, up to two octaves either side of Frequency. Zero holds the carrier steady.";
     case uEQMode: return "Notch rejects a narrow band without a Gain control; bell boosts or cuts using Gain.";
     case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both. I+II vintage is fast, shallow and centered.";

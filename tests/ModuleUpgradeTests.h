@@ -119,6 +119,17 @@ void TestRingCarrierLfo()
     return 0.;
   };
   assert(std::abs(at(1.1) / at(1.6) - 1.) < .05 && std::abs(at(1.225) / at(1.1) - 1.) > .3);
+  // Output scales the whole ring path after Mix; 0 dB leaves it untouched.
+  const auto render = [&](UtilityControls u) {
+    grid_roadmap::Texture ring; ring.Reset(rate);
+    std::vector<double> x(4800);
+    for (size_t i = 0; i < x.size(); ++i) x[i] = .3 * std::sin(2. * grid_fx::pi * 220. * i / rate);
+    ring.Process(x.data(), static_cast<int>(x.size()), SlotEffect::RingMod, u);
+    return x;
+  };
+  auto quieter = c; quieter.extra.ringOutput = -6.;
+  const auto plain = render(c), trimmed = render(quieter);
+  for (size_t i = 0; i < plain.size(); ++i) assert(std::abs(trimmed[i] - plain[i] * std::pow(10., -.3)) < 1.e-12);
 }
 
 void TestVolumePedal()

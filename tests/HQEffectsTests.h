@@ -471,7 +471,8 @@ void TestHQEffects()
       assert(hq_test::BandPower(*channel, static_cast<size_t>(.15 * rate), 440., rate)
              > 2. * hq_test::BandPower(*channel, static_cast<size_t>(.15 * rate), 220., rate));
   }
-  // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
+  // Wet level: about 6 dB above Room and Hall, as a studio shimmer at the same decay
+  // (IR energy .28-.8 at default settings; Room and Hall sit at .07-.2).
   {
     grid_hq::Shimmer shimmer;
     shimmer.Reset(rate);
@@ -482,7 +483,7 @@ void TestHQEffects()
     shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
     double energy = 0.;
     for (size_t i = 0; i < l.size(); ++i) energy += l[i] * l[i] + r[i] * r[i];
-    assert(energy > .07 && energy < .2);
+    assert(energy > .28 && energy < .8);
   }
   // Any Pitch at full Amount and the longest Decay stays bounded and dies away: the
   // shifted share replaces part of the recirculation instead of adding to it. Small
@@ -509,7 +510,9 @@ void TestHQEffects()
       if (i >= static_cast<size_t>(14. * 44100.)) late += l[i] * l[i];
     }
     // 20 s Decay loses 36 dB over 12 s; allow the shimmer to hold it 16 dB longer.
-    assert(peak < 1. && late < early * 1.e-2);
+    // Fully wet at these settings the tail peaks near twice the 0.5 input; 4x would
+    // mean runaway feedback.
+    assert(peak < 2. && late < early * 1.e-2);
   }
   // Extreme settings stay finite at every supported rate and during a long tail.
   for (double hostRate : {44100., 48000., 96000., 192000.})

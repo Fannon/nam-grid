@@ -406,8 +406,9 @@ public:
   }
 
 private:
-  // Output scaling puts the wet level with Room and Hall.
-  static constexpr double kOutput = 1.8, kMaxShare = .5;
+  // Output scaling puts the wet level about 6 dB above Room and Hall, where a classic
+  // studio shimmer sits at the same decay, so a moderate Mix gives a clear shimmer.
+  static constexpr double kOutput = 3.6, kMaxShare = .5;
   // Bloom stretches the input diffusers at most this far: their longest stage stays
   // short enough to blur into the tail rather than repeat.
   static constexpr double kMaxDiffusionScale = 4.;

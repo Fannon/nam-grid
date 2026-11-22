@@ -398,14 +398,15 @@ void TestHQEffects()
     };
     assert(octave(0.) > -6.);
   }
-  // Strong, sparse shimmer should expose its first octave while the
-  // input note is sounding, even with a short Decay.
+  // At high Amount the first octave should come through the wet
+  // signal with sparse reflections or a smooth, high-Density tail.
+  for (const double density : {7.8, 100.})
   {
     grid_hq::Shimmer shimmer;
     shimmer.Reset(rate);
     UtilityControls c;
-    c.shimmer = {100., 1.4, 4800., 12., 100., 6., 0.};
-    c.shimmerDensity = 7.8;
+    c.shimmer = {100., density < 10. ? 1.4 : 5., 7400., 12., 100., 12., 0.};
+    c.shimmerDensity = density;
     std::vector<double> l(static_cast<size_t>(.5 * rate)), r(l.size());
     for (size_t i = 0; i < l.size(); ++i)
     {

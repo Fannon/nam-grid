@@ -163,14 +163,14 @@ A reverb whose tail climbs or falls in pitch with each pass, in the style of cla
 | **Bloom** | 0–100% | 0% | Fades each note into the reverb, over up to about 1.4 s. Turn it up to make a chord swell into the shimmer or soften the onset of a percussion hit. The dry attack stays immediate; sustained and legato notes keep the full reverb. |
 | **Amount** | 0–100% | 25% | Share of the tail shifted by Pitch on each pass. Low settings add a halo an octave up; high settings stack several layers. The tail never rings longer than Decay, so even 100% never runs away; high settings move the tail up into the Damping range, where it fades sooner. |
 | **Modulation** | 0–100% | 30% | Movement of the reverb delay lines; adds a gently shifting tail. |
-| **Density** | 0–100% | 100% | How densely the reverb blends its echoes. Lower keeps each pitch step clear and distinct, so a strong shimmer stays defined instead of washing out; 100% is the smooth wash. |
+| **Density** | 0–100% | 100% | How densely the reverb blends its echoes. Low settings leave distinct reflections and 100% makes a smooth wash. |
 | **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
 
 In the header:
 
 - **Freeze** (Off / On; starts Off) Sustain the tank and stop feeding new notes; release to return to the normal decay.
 
-Try **Bright octave stack** for a clear octave over the dry note. At high Amount, lowering Density brings the shifted layers forward before the full cascade builds. Short Decay gives a brief octave response. Longer Decay lets the layers overlap.
+Try **Bright octave stack** for a prominent octave in a dense tail. Raise Amount to bring the pitched layers forward, then set Density for the space you want behind them. Turn on **Keep dry level** in Settings to bring up the shimmer while holding the dry level steady.
 
 **Display:** The decay with the pitch steps each pass adds. With Bloom up, the start of the fill rises over the swell, and the footer gives the swell time.
 

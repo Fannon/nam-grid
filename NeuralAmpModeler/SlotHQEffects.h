@@ -355,7 +355,6 @@ public:
         for (auto& tank : mTank)
         {
           tank.fullMix = mDensity >= 1.;
-          tank.octaveClarity = 1. - mDensity * mDensity;
           tank.diffusion = .6 * (.25 + .75 * mDensity);
           tank.mixC = std::cos(angle);
           tank.mixS = std::sin(angle);
@@ -430,7 +429,6 @@ private:
     // Density: input diffuser coefficient and the butterfly rotation (cos, sin).
     double diffusion = .6, mixC = .7071067811865476, mixS = .7071067811865476;
     bool fullMix = true;
-    double octaveClarity = 0.;
     void Reset(double rate, double scale, double grainOffset)
     {
       mRate = std::max(1., rate);
@@ -478,11 +476,10 @@ private:
       }
       // The shifters keep their history at zero share, so Amount changes glide in.
       const double pitch = semitones * live;
-      // At high Amount and low Density, let the listener hear the shifted
-      // lines directly instead of waiting for them to return through the tank.
-      // This readout uses the existing shifters and leaves the loop gain alone.
-      const double pitchBlend = fullMix ? 0. : .65 * octaveClarity * std::clamp((share - .2) / .3, 0., 1.)
-                                              * std::min(1., std::abs(pitch) / 7.);
+      // At high Amount, bring the shifted lines forward in the wet output.
+      // Density still determines how the tank recirculates and blends its echoes.
+      const double pitchBlend = .65 * std::clamp((share - .2) / .3, 0., 1.)
+                                * std::min(1., std::abs(pitch) / 7.);
       double pitchedWet = 0.;
       ++counter;
       for (int k = 0; k < 4; ++k)

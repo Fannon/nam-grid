@@ -130,6 +130,12 @@ inline bool Tempo(SlotEffect e)
   return IsDelay(e) || IsModulation(e) || e == SlotEffect::UniVibe || e == SlotEffect::Stutter || e == SlotEffect::Granulator
          || e == SlotEffect::RingMod;
 }
+// Selector changes can update the card caption, and these switches control which
+// knobs are visible. The remaining slot values only affect what's drawn.
+inline bool ChangesSlotLayout(int p)
+{
+  return IsAlgorithmMode(p) || p == uTempoSync || p == uEQMode || p == uVibeMode || p == uParamLowMode;
+}
 inline bool Visible(SlotEffect e, int p, bool sync = false, bool notch = false, bool vibrato = false, bool shelf = false)
 {
   if (p == uTempoSync) return Tempo(e);
@@ -635,9 +641,9 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both. I+II vintage is fast, shallow and centered.";
     case uJunoBrightness: return "Treble retained in the wet voices; lower values soften the chorus.";
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
-    case uShimmerAmount: return "Share of the tail shifted on each pass. At high Amount and low Density, the shifted notes come forward before the full cascade builds.";
+    case uShimmerAmount: return "Share of the tail shifted on each pass. Higher settings also bring the pitched layers forward in the wet signal.";
     case uShimmerFreeze: return "Sustain the tank and stop feeding new notes; release to return to the normal decay.";
-    case uShimmerDensity: return "How densely the reverb blends its echoes. Lower keeps each pitch step clear and distinct, so a strong shimmer stays defined instead of washing out; 100% is the smooth wash.";
+    case uShimmerDensity: return "How densely the reverb blends its echoes. Low settings leave distinct reflections; 100% makes a smooth wash.";
     case uShimmerBloom: return "Fades each note into the reverb, over up to about 1.4 s. The dry attack stays immediate; sustained and legato notes keep the full reverb.";
     case uShiftFrequency: return "Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.";
     case uShiftFeedback: return "Return shifted audio into the delay for progressively changing repeats.";

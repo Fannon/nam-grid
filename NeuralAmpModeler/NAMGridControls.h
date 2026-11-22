@@ -1864,6 +1864,10 @@ public:
     }
     mPlotHelp->End(g);
   }
+  void RedrawEditor()
+  {
+    if (mEditor && !mEditor->IsHidden()) mEditor->SetDirty(false);
+  }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
   // The occupied card's ID switch, from the current slot rather than the last Draw, so a
   // click right after a rig or module change (before the next paint) still reaches it.

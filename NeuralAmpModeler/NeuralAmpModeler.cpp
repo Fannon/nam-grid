@@ -1967,9 +1967,6 @@ void NeuralAmpModeler::OnUIOpen()
   const auto guard = _LockControls();
   _SendAllParamValuesToUI();
   _UpdateLibraryControls();
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
-  _UpdateControlsFromModel();
   mEditorOpen.store(true, std::memory_order_relaxed);
 }
 
@@ -2114,9 +2111,6 @@ void NeuralAmpModeler::SetRoutingOpen(bool open)
   if (!ui) return;
   ui->GetControlWithTag(kCtrlTagRouting)->Hide(!open);
   _RefreshParamDependentUI(false);
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot))->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
-  ui->SetAllControlsDirty();
 }
 
 void NeuralAmpModeler::OnParamChange(int paramIdx)
@@ -2130,10 +2124,44 @@ void NeuralAmpModeler::OnParamChange(int paramIdx)
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 {
+  const int slot = SlotControlOwner(paramIdx);
   if (source == EParamSource::kUI && IsStateOnlyParam(paramIdx)
-      && (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot)))
+      && (!mPreviewOriginal || slot != static_cast<int>(mPreviewSlot)))
     _NotifyHostStateChanged(); // Algorithm and matrix selections are saved state, not automation gestures.
-  _RefreshParamDependentUI(paramIdx == kTunerActive);
+  auto* ui = GetUI();
+  if (!ui) return;
+
+  if (slot >= 0)
+  {
+    if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + slot))
+    {
+      const int utility = parameter_layout::UtilityControl(paramIdx);
+      if (effect_presentation::ChangesSlotLayout(utility) || paramIdx == SlotFullParam(slot))
+      {
+        control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
+        // The modulation page also shows mode-dependent destination labels.
+        if (auto* performance = ui->GetControlWithTag(kCtrlTagPerformance); performance && !performance->IsHidden())
+          performance->SetDirty(false);
+      }
+      else
+      {
+        if (paramIdx == SlotActiveParam(slot)) control->SetDirty(false);
+        control->As<NAMGridSlotControl>()->RedrawEditor();
+      }
+    }
+    return;
+  }
+  if (paramIdx == kTunerActive || paramIdx == PerformanceParam(grid_performance::LaneMode)
+      || paramIdx == PerformanceParam(grid_performance::Crossover))
+    _RefreshParamDependentUI(paramIdx == kTunerActive);
+  else if (paramIdx == kTunerReference || paramIdx == kTunerMute)
+    _UpdateTunerControls();
+  else if (PerformanceIndex(paramIdx) >= 0)
+  {
+    // Source displays and matrix labels can depend on more than their bound parameter.
+    if (auto* performance = ui->GetControlWithTag(kCtrlTagPerformance); performance && !performance->IsHidden())
+      performance->SetDirty(false);
+  }
 }
 
 void NeuralAmpModeler::_RefreshParamDependentUI(bool tunerChanged)

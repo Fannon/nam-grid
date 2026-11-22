@@ -201,7 +201,7 @@ An automatable wah sweep: a resonant band-pass with body. Map Position to an exp
 | **Position** | 0–100% | 50% | Heel-to-toe sweep. Automate it or map it to an expression controller in the host. |
 | **Resonance** | 1–6 Q | 3 Q | Higher Q makes a narrower, more pronounced wah peak. |
 | **Register** | 0–100% | 50% | Raises both heel and toe endpoints; it changes the register, not the sweep width. |
-| **Output** | -12 to +12 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Output** | -12 to +12 dB | 5.5 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** The wah peak over the live output spectrum.

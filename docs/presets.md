@@ -173,5 +173,10 @@ Synced recipes select both Tempo sync and Division. Unsynced recipes restore
 free time/rate; switching recipes cannot accidentally inherit sync, feedback,
 mode, hold or output edits from the previous sound. Mix assumes ordinary insert
 use. Set Mix for your routing, especially with **Keep dry level** or on a send.
+Recipes play at about the loudness of the module's insertion default, so
+switching between them compares tone rather than volume. Boost recipes, Peak
+Limiter's **Louder, controlled** and Volume Pedal's **Rhythm to lead boost**
+deliberately add level. Drives and compressors get quieter on hard strumming
+than on light picking, so their recipes are matched between the two.
 Mono Octaver expects single notes. The Uni-Vibe vibrato recipe explicitly sets
 its hidden Mix to 100% so only the phase-shifted signal is heard.

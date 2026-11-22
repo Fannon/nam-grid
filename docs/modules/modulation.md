@@ -233,7 +233,7 @@ Multiplies the guitar with a sine carrier for metallic, inharmonic sidebands.
 | **High cut** | 200–20000 Hz | 6000 Hz | High-cut frequency of the processed signal. Lower values tame brightness and harshness. |
 | **LFO rate** | 0.05–10 Hz | 1 Hz | Speed of the LFO that sweeps the carrier frequency. |
 | **Sweep** | 0–100% | 0% | How far the LFO sweeps the carrier, up to two octaves either side of Frequency. Zero holds the carrier steady. |
-| **Output** | -24–24 dB | 0 dB | Final level. Ring modulation thins the guitar; match bypass volume here. |
+| **Output** | -24 to +24 dB | 3 dB | Final level. Ring modulation thins the guitar; match bypass volume here. |
 | **Mix** | 0–100% | 30% | Balance between dry sound and effect. |
 
 In the header:

@@ -25,6 +25,9 @@ using parameter_layout::kSlotCompMakeup;
 // whose insertion default already is its usual starting point may have none. Settings follow published pedal-manual starting points, documented player settings and
 // professional plugin presets, translated to these controls and checked with offline audio. Names
 // describe the result. Values use NAM Grid units; unlisted controls use insertion defaults.
+// Output or Level keeps each recipe within about 1 dB (K-weighted) of the insertion default
+// on clean picking and a strummed rhythm DI; saturating recipes split the difference, no
+// more than 1.5 dB louder on the picking. Boosts and level-switch recipes are exceptions.
 // These arrays and their order are NOT persistent identities; only applied values are saved.
 
 // Pedal Comp's Sustain range is calibrated against a Ross-type pedal. Pickup stays as the
@@ -34,12 +37,12 @@ inline const Preset pedalComp[]{
    {{U(uPedalCompSustain), 30.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompFocus), 20.}, {U(uPedalCompBlend), 50.}}},
   // Fast attack on the pick and a fully compressed signal: the country "cluck".
   {"Snappy clean picking",
-   {{U(uPedalCompSustain), 60.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompFocus), -30.}, {U(uPedalCompBlend), 100.}}},
+   {{U(uPedalCompSustain), 60.}, {U(uPedalCompAttack), 0.}, {U(uPedalCompFocus), -30.}, {U(uPedalCompBlend), 100.}, {U(uPedalCompLevel), 3.}}},
   {"Long lead notes",
    {{U(uPedalCompSustain), 75.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), -20.}, {U(uPedalCompBlend), 60.}}},
   {"Acoustic strumming",
    {{U(uPedalCompPickup), 2.}, {U(uPedalCompSustain), 35.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), 30.},
-    {U(uPedalCompBlend), 85.}}},
+    {U(uPedalCompBlend), 85.}, {U(uPedalCompLevel), -1.5}}},
   {"Parallel keys", {{U(uPedalCompSustain), 48.}, {U(uPedalCompAttack), 1.}, {U(uPedalCompFocus), 12.},
     {U(uPedalCompBlend), 38.}}},
 };
@@ -48,19 +51,19 @@ inline const Preset pedalComp[]{
 // bypass loudness.
 inline const Preset smoothComp[]{
   {"Clean guitar leveling",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 150.}, {kSlotCompMakeup, 4.5}, {U(uCompAttack), 8.},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 150.}, {kSlotCompMakeup, 6.}, {U(uCompAttack), 8.},
     {U(uSmoothRatio), 3.5}}},
   {"Even bass notes",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 4.5}, {U(uCompAttack), 15.},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 200.}, {kSlotCompMakeup, 6.}, {U(uCompAttack), 15.},
     {U(uSmoothRatio), 4.}}},
 };
 inline const Preset punchComp[]{
   {"Tight picking",
-   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 4.}, {U(uPunchAttack), 2.},
+   {{kSlotCompThreshold, -22.}, {kSlotCompRelease, 40.}, {kSlotCompMakeup, 5.5}, {U(uPunchAttack), 2.},
     {U(uPunchRatio), 3.6}, {U(uCompMix), 100.}}},
   // Heavy compression blended under the dry signal ("New York" compression).
   {"Parallel punch",
-   {{kSlotCompThreshold, -28.}, {kSlotCompRelease, 100.}, {kSlotCompMakeup, 6.}, {U(uPunchAttack), 20.},
+   {{kSlotCompThreshold, -28.}, {kSlotCompRelease, 100.}, {kSlotCompMakeup, 7.}, {U(uPunchAttack), 20.},
     {U(uPunchRatio), 6.}, {U(uCompMix), 50.}}},
 };
 inline const Preset butterComp[]{
@@ -102,12 +105,12 @@ inline const Preset transientShaper[]{
 // 2-3 dB quieter on the heavier presets until Threshold is raised.
 inline const Preset multiband[]{
   {"Gentle glue", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 30.}, {U(uMultibandUpward), 0.},
-    {U(uMultibandTime), 150.}, {U(uMultibandOutput), 5.}}},
+    {U(uMultibandTime), 150.}, {U(uMultibandOutput), 6.5}}},
   {"Over the top", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 100.}, {U(uMultibandUpward), 100.},
-    {U(uMultibandTime), 100.}, {U(uMultibandOutput), 7.}}},
+    {U(uMultibandTime), 100.}, {U(uMultibandOutput), 10.}}},
 
   {"Fast and tight", {{U(uMultibandDepth), 100.}, {U(uMultibandDownward), 60.}, {U(uMultibandUpward), 0.},
-    {U(uMultibandTime), 50.}, {U(uMultibandLow), -1.}, {U(uMultibandHigh), 1.}, {U(uMultibandOutput), 7.},
+    {U(uMultibandTime), 50.}, {U(uMultibandLow), -1.}, {U(uMultibandHigh), 1.}, {U(uMultibandOutput), 9.},
     {U(uMultibandLowSplit), 120.}, {U(uMultibandHighSplit), 3000.}}},
   {"Clean sparkle", {{U(uMultibandDepth), 50.}, {U(uMultibandDownward), 20.}, {U(uMultibandUpward), 70.},
     {U(uMultibandTime), 120.}, {U(uMultibandHigh), 2.}, {U(uMultibandOutput), 1.5}}},
@@ -119,7 +122,7 @@ inline const Preset toneEQ[]{
   {"Scooped mids",
    {{parameter_layout::kSlotEQBass, 3.}, {parameter_layout::kSlotEQMid, -4.}, {U(uToneMidFrequency), 500.},
     {parameter_layout::kSlotEQTreble, 2.}}},
-  {"Mid-forward lead", {{parameter_layout::kSlotEQBass, -1.5}, {parameter_layout::kSlotEQMid, 3.}, {U(uEQOutput), -2.}}},
+  {"Mid-forward lead", {{parameter_layout::kSlotEQBass, -1.5}, {parameter_layout::kSlotEQMid, 3.}, {U(uEQOutput), -.5}}},
   {"Dark jazz clean", {{parameter_layout::kSlotEQBass, 1.5}, {parameter_layout::kSlotEQTreble, -5.}}},
 };
 // Console EQ's broad first-order bands colour like a desk channel: boosts add harmonics on
@@ -150,7 +153,7 @@ inline const Preset graphicEQ[]{
   {"Lead mid boost", {{U(uGraphicVoicing), 0.}, {U(uGraphicBand1), -3.}, {U(uGraphicBand2), 0.}, {U(uGraphicBand3), 3.},
     {U(uGraphicBand4), 6.}, {U(uGraphicBand5), 3.}, {U(uGraphicBand6), 0.}, {U(uGraphicBand7), -2.}, {U(uGraphicLevel), -1.}}},
   {"Tight into amp", {{U(uGraphicVoicing), 0.}, {U(uGraphicBand1), -9.}, {U(uGraphicBand2), -4.}, {U(uGraphicBand3), 0.},
-    {U(uGraphicBand4), 2.}, {U(uGraphicBand5), 3.}, {U(uGraphicBand6), 1.}, {U(uGraphicBand7), -1.}, {U(uGraphicLevel), 4.}}},
+    {U(uGraphicBand4), 2.}, {U(uGraphicBand5), 3.}, {U(uGraphicBand6), 1.}, {U(uGraphicBand7), -1.}, {U(uGraphicLevel), 2.5}}},
   {"Bass clarity", {{U(uGraphicVoicing), 1.}, {U(uGraphicBand1), 2.}, {U(uGraphicBand2), 1.}, {U(uGraphicBand3), -2.},
     {U(uGraphicBand4), -3.}, {U(uGraphicBand5), 2.}, {U(uGraphicBand6), 3.}, {U(uGraphicBand7), 0.}, {U(uGraphicLevel), 1.}}},
   {"Acoustic air", {{U(uGraphicVoicing), 2.}, {U(uGraphicBand1), -3.}, {U(uGraphicBand2), -2.}, {U(uGraphicBand3), -1.},
@@ -194,7 +197,7 @@ inline const Preset filter[]{
 inline const Preset wah[]{
   {"Cocked wah, throaty", {{U(uWahPosition), 30.}, {U(uWahResonance), 2.5}, {U(uWahRange), 40.}, {U(uWahOutput), 3.}}},
   {"Cocked wah, lead bite",
-   {{U(uWahPosition), 70.}, {U(uWahResonance), 3.5}, {U(uWahRange), 60.}, {U(uWahMix), 70.}, {U(uWahOutput), 3.}}},
+   {{U(uWahPosition), 70.}, {U(uWahResonance), 3.5}, {U(uWahRange), 60.}, {U(uWahMix), 70.}, {U(uWahOutput), 5.}}},
 };
 
 inline const Preset boost[]{
@@ -203,19 +206,19 @@ inline const Preset boost[]{
   {"Mid push", {{U(uBoostGain), 4.}, {U(uBoostMidGain), 5.}, {parameter_layout::kSlotEQHighPass, 60.}}},
 };
 inline const Preset tube[]{
-  {"Warm tube edge", {{U(uTubeDrive), 9.}, {U(uTubeBias), 20.}, {U(uTubeHighCut), 10000.}, {U(uTubeOutput), -7.}}},
+  {"Warm tube edge", {{U(uTubeDrive), 9.}, {U(uTubeBias), 20.}, {U(uTubeHighCut), 10000.}, {U(uTubeOutput), -5.5}}},
   {"Hot preamp grit", {{U(uTubeDrive), 18.}, {U(uTubeBias), 40.}, {parameter_layout::kSlotEQHighPass, 80.},
-    {U(uTubeHighCut), 7000.}, {U(uTubeOutput), -16.}}},
+    {U(uTubeHighCut), 7000.}, {U(uTubeOutput), -10.5}}},
 };
 inline const Preset distortion[]{
   {"Clean lows, warm grit", {{U(uDistStyle), 0.}, {U(uDistDrive), 9.}, {U(uDistTone), 6000.},
-    {U(uDistLowPreserve), 220.}, {U(uDistOutput), -6.}, {U(uDistMix), 60.}}},
-  {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 24.}, {U(uDistTone), 4500.}, {U(uDistOutput), -20.}}},
+    {U(uDistLowPreserve), 220.}, {U(uDistOutput), -1.5}, {U(uDistMix), 60.}}},
+  {"Hard rhythm", {{U(uDistStyle), 1.}, {U(uDistDrive), 24.}, {U(uDistTone), 4500.}, {U(uDistOutput), -15.5}}},
   // Rectification adds the octave-up character of octave fuzz pedals.
-  {"Octave-up fuzz", {{U(uDistStyle), 5.}, {U(uDistDrive), 12.}, {U(uDistTone), 5000.}, {U(uDistOutput), -4.}}},
+  {"Octave-up fuzz", {{U(uDistStyle), 5.}, {U(uDistDrive), 12.}, {U(uDistTone), 5000.}, {U(uDistOutput), -2.5}}},
   // Strong bias starves the fuzz so decays break up and gate.
   {"Sputtering gated fuzz", {{U(uDistStyle), 2.}, {U(uDistDrive), 20.}, {U(uDistTone), 4000.}, {U(uDistBias), 70.},
-    {U(uDistOutput), -18.}}},
+    {U(uDistOutput), -15.}}},
   {"Parallel drum grit", {{U(uDistStyle), 1.}, {U(uDistDrive), 18.}, {U(uDistTone), 6500.},
     {U(uDistMix), 22.}, {U(uDistOutput), -4.}}},
 };
@@ -223,11 +226,11 @@ inline const Preset distortion[]{
 inline const Preset pedalDrive[]{
   // Drive low, Level high: a mid-focused push that tightens a driven amp.
   {"Screamer boost", {{U(uPedalStyle), 0.}, {U(uPedalDrive), 1.}, {U(uPedalTone), 6000.}, {U(uPedalOutput), 5.}}},
-  {"Blues breakup", {{U(uPedalStyle), 7.}, {U(uPedalDrive), 14.}, {U(uPedalOutput), -7.5}}},
-  {"Rodent distortion", {{U(uPedalStyle), 1.}, {U(uPedalDrive), 15.}, {U(uPedalTone), 4500.}, {U(uPedalOutput), -17.}}},
-  {"Sustaining fuzz", {{U(uPedalStyle), 4.}, {U(uPedalDrive), 18.}, {U(uPedalTone), 3500.}, {U(uPedalOutput), -21.}}},
+  {"Blues breakup", {{U(uPedalStyle), 7.}, {U(uPedalDrive), 14.}, {U(uPedalOutput), -9.5}}},
+  {"Rodent distortion", {{U(uPedalStyle), 1.}, {U(uPedalDrive), 15.}, {U(uPedalTone), 4500.}, {U(uPedalOutput), -15.}}},
+  {"Sustaining fuzz", {{U(uPedalStyle), 4.}, {U(uPedalDrive), 18.}, {U(uPedalTone), 3500.}, {U(uPedalOutput), -18.5}}},
   {"Bass drive, clean lows",
-   {{U(uPedalStyle), 2.}, {U(uPedalDrive), 15.}, {U(uPedalLowKeep), 100.}, {U(uPedalSplit), 180.}, {U(uPedalOutput), -16.}}},
+   {{U(uPedalStyle), 2.}, {U(uPedalDrive), 15.}, {U(uPedalLowKeep), 100.}, {U(uPedalSplit), 180.}, {U(uPedalOutput), -13.5}}},
   {"Pick edge", {{U(uPedalStyle), 8.}, {U(uPedalDrive), 8.}, {U(uPedalTone), 7500.},
     {U(uPedalMix), 55.}, {U(uPedalOutput), -3.}}},
 };
@@ -235,14 +238,14 @@ inline const Preset pedalDrive[]{
 // factor already sounds louder. Metal settings follow common scooped, tightened rhythm setups.
 inline const Preset pedalDistortion[]{
   {"Classic rock distortion", {{U(uPDistStyle), 0.}, {U(uPDistGain), 45.}, {U(uPDistTreble), -2.}, {U(uPDistLevel), -1.}}},
-  {"British crunch", {{U(uPDistStyle), 2.}, {U(uPDistGain), 40.}, {U(uPDistBass), 1.}, {U(uPDistLevel), -1.}}},
+  {"British crunch", {{U(uPDistStyle), 2.}, {U(uPDistGain), 40.}, {U(uPDistBass), 1.}, {U(uPDistLevel), .5}}},
   {"Scooped metal rhythm", {{U(uPDistStyle), 4.}, {U(uPDistGain), 70.}, {U(uPDistTight), 40.}, {U(uPDistBass), 4.},
     {U(uPDistMid), -6.}, {U(uPDistMidFrequency), 700.}, {U(uPDistLevel), -1.5}}},
   // Raw distortion with gain well above the default; Level trims the rise in loudness.
   {"Raw garage grit", {{U(uPDistStyle), 1.}, {U(uPDistGain), 70.}, {U(uPDistTreble), -1.}, {U(uPDistLevel), -3.}}},
   // Hot-rodded lead box: more gain, the mid hump pushed up, and a smooth top.
   {"Singing lead", {{U(uPDistStyle), 3.}, {U(uPDistGain), 65.}, {U(uPDistMid), 3.}, {U(uPDistMidFrequency), 1200.},
-    {U(uPDistTreble), -2.}, {U(uPDistLevel), -3.5}}},
+    {U(uPDistTreble), -2.}, {U(uPDistLevel), -2.}}},
   {"Parallel chainsaw", {{U(uPDistStyle), 5.}, {U(uPDistGain), 60.}, {U(uPDistTight), 45.},
     {U(uPDistMix), 32.}, {U(uPDistTreble), -3.}, {U(uPDistLevel), -3.}}},
 };
@@ -542,7 +545,7 @@ inline const Preset pitchShift[]{
 };
 inline const Preset octaver[]{
   {"Octave-down blend", {{U(uOctDry), 100.}, {U(uOctSub), 85.}, {U(uOctSub2), 0.}, {U(uOctTone), 800.}, {U(uOctOutput), -3.}}},
-  {"Synth bass", {{U(uOctDry), 0.}, {U(uOctSub), 100.}, {U(uOctSub2), 0.}, {U(uOctTone), 600.}, {U(uOctOutput), -4.}}},
+  {"Synth bass", {{U(uOctDry), 0.}, {U(uOctSub), 100.}, {U(uOctSub2), 0.}, {U(uOctTone), 600.}, {U(uOctOutput), -.5}}},
   // Dry, one and two octaves down together, as on two-octave pedals.
   {"Two-octave blend", {{U(uOctDry), 100.}, {U(uOctSub), 60.}, {U(uOctSub2), 45.}, {U(uOctTone), 1000.}, {U(uOctOutput), -2.}}},
 };
@@ -570,7 +573,7 @@ inline const Preset ringMod[]{
     {U(uRingTone), 5000.}, {U(uRingMix), 45.}, {U(uRingOutput), 4.}}},
 };
 inline const Preset crusher[]{
-  {"Broken small sampler", {{U(uCrushBits), 6.}, {U(uCrushRate), 6000.}, {U(uCrushTone), 3500.}, {U(uCrushMix), 65.}, {U(uCrushOutput), -2.}}},
+  {"Broken small sampler", {{U(uCrushBits), 6.}, {U(uCrushRate), 6000.}, {U(uCrushTone), 3500.}, {U(uCrushMix), 65.}}},
   // 12 bits at 26.04 kHz, the format of classic 1980s sampling drum machines.
   {"12-bit sampler", {{U(uCrushBits), 12.}, {U(uCrushRate), 26040.}, {U(uCrushTone), 12000.}, {U(uCrushMix), 100.}}},
 };

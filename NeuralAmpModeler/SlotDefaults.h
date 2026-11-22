@@ -40,7 +40,7 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       // Fixed, so projects and module presets from before Tracking keep their sound.
       set(uNoiseTrackingMode, 1.); break;
     case SlotEffect::SmoothComp:
-      v[6] = -24.; v[7] = 150.; v[8] = 3.; set(uCompAttack, 10.); break;
+      v[6] = -24.; v[7] = 150.; v[8] = 6.; set(uCompAttack, 10.); break;
     case SlotEffect::PunchComp:
       v[6] = -18.; v[7] = 100.; v[8] = 2.; set(uPunchAttack, 25.); set(uCompMix, 80.); break;
     case SlotEffect::CutEQ:
@@ -114,9 +114,9 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::Rotary:
       set(uRotaryDrive, 1.5); set(uRotaryMix, 100.); break;
     case SlotEffect::RingMod:
-      set(uRingFrequency, 110.); set(uRingTone, 6000.); set(uRingMix, 30.); break;
+      set(uRingFrequency, 110.); set(uRingTone, 6000.); set(uRingMix, 30.); set(uRingOutput, 3.); break;
     case SlotEffect::Doubler:
-      set(uDoubleDetune, 6.); set(uDoubleDelay, 15.); set(uDoubleMix, 25.); break;
+      set(uDoubleDetune, 6.); set(uDoubleDelay, 15.); set(uDoubleMix, 25.); set(uDoubleOutput, 2.); break;
     case SlotEffect::FrequencyShifter:
       set(uShiftFrequency, 2.); set(uShiftFeedback, 10.); set(uShiftDelay, 20.);
       set(uShiftMix, 30.); break;
@@ -130,11 +130,14 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
       set(uTapeBump, 25.); break;
     case SlotEffect::LoFiTape:
       set(uLoFiWow, 50.); set(uLoFiFlutter, 28.); set(uLoFiNoise, 0.); set(uLoFiWear, 0.); break;
+    // The wah peak passes a narrow band; Output brings the parked wah back to bypass level.
+    case SlotEffect::Wah:
+      set(uWahOutput, 5.5); break;
     case SlotEffect::OutboardChannel:
       set(uStripCompress, 20.); set(uStripOutput, 0.); break;
     // Neutral EQ/utility, modest octave blend and unlatched Freeze retain the descriptor defaults.
     case SlotEffect::NAM: case SlotEffect::CabinetIR: case SlotEffect::ToneEQ:
-    case SlotEffect::ParametricEQ: case SlotEffect::Wah: case SlotEffect::Utility: case SlotEffect::Limiter:
+    case SlotEffect::ParametricEQ: case SlotEffect::Utility: case SlotEffect::Limiter:
     case SlotEffect::Octaver: case SlotEffect::Freeze: case SlotEffect::Stutter:
     case SlotEffect::AirPlate: case SlotEffect::AirHall:
     case SlotEffect::GalacticSpace:

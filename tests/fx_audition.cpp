@@ -180,6 +180,16 @@ int main(int argc,char** argv)
       const auto effect=static_cast<SlotEffect>(id);
       if (onlyModule && std::strcmp(onlyModule,SlotEffectName(effect))!=0) continue;
       int index=0;
+      // The module at its insertion defaults: the level reference for its presets.
+      if (!guitar.empty() && !module_presets::For(effect).empty() && !onlyPreset)
+      {
+        auto rig=chain; const int slot=followsAmp(effect) ? 12 : 0;
+        rig["SlotEffects"][slot]=id;
+        const auto defaults=SlotDefaultValues(effect);
+        for (int c=0; c<static_cast<int>(defaults.size()); ++c)
+          rig[GridSlotName(slot)+" "+module_presets::ControlName(c)]=defaults[c];
+        WriteWave(destination/(std::to_string(id)+"-default-guitar.wav"),render(rig,false,1.,&guitar).first,rate);
+      }
       for (const auto& preset : module_presets::For(effect))
       {
         const auto values=module_presets::Apply(effect,preset,SlotDefaultValues(effect));

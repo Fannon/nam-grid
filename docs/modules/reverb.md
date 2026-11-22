@@ -160,7 +160,7 @@ A reverb whose tail climbs or falls in pitch with each pass, in the style of cla
 | **Decay** | 0.5–20 s | 5 s | Tail decay time. Higher values let notes overlap into a larger ambient wash. |
 | **Damping** | 800–12000 Hz | 6000 Hz | Treble damping in the reverb. Lower settings make the tail darker than the dry signal. |
 | **Pitch** | -24 to +24 st | 12 st | Semitone interval on each pitched reverb pass. Positive climbs, negative falls. |
-| **Amount** | 0–100% | 25% | Share of the tail shifted by Pitch on each pass. Low settings add a halo an octave up; high settings stack several layers. The tail still decays at Decay, so even 100% never runs away. |
+| **Amount** | 0–100% | 25% | Share of the tail shifted by Pitch on each pass. Low settings add a halo an octave up; high settings stack several layers. The tail never rings longer than Decay, so even 100% never runs away; high settings move the tail up into the Damping range, where it fades sooner. |
 | **Modulation** | 0–100% | 30% | Movement of the reverb delay lines; adds a gently shifting tail. |
 | **Freeze** | Off / On | Off | Sustain the tank and stop feeding new notes; release to return to the normal decay. |
 | **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |

@@ -610,7 +610,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both. I+II vintage is fast, shallow and centered.";
     case uJunoBrightness: return "Treble retained in the wet voices; lower values soften the chorus.";
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
-    case uShimmerAmount: return "Share of the tail shifted by Pitch on each pass; more stacks more layers. The tail still decays at Decay.";
+    case uShimmerAmount: return "Share of the tail shifted by Pitch on each pass; more stacks more layers. The tail never outlasts Decay; high settings fade it sooner.";
     case uShimmerFreeze: return "Sustain the tank and stop feeding new notes; release to return to the normal decay.";
     case uShiftFrequency: return "Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.";
     case uShiftFeedback: return "Return shifted audio into the delay for progressively changing repeats.";

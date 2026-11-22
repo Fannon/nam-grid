@@ -433,12 +433,13 @@ Overlapping fragments that spread, reverse or stutter around the echo time.
 
 In the header:
 
-- **Mode** (Scatter, Reverse, Glitch; starts at Scatter) Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment.
+- **Mode** (Scatter, Reverse, Glitch, Shimmer; starts at Scatter) Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment. Shimmer adds an octave above every repeat; fed back, each layer climbs another octave, and the returning repeats are diffused a little more on every pass, so the first echo stays clear and later ones melt into a wash. Feedback sets how far the shimmer climbs and High cut how bright it gets.
 - **Tempo sync** locks Time to your DAW tempo; **Division** then sets it in note values.
 
 The page button at the left of the options row switches between **Main** and
 **Pitch**, where **Interval** (−12 to +12 st, starts at 0) shifts grain
-playback. Each feedback pass can add another shift. Try **Scattered chords**,
-**Reverse shards** and **Broken repeats**.
+playback. Each feedback pass can add another shift; in Shimmer mode it adds to
+the octave layer. Try **Scattered chords**, **Reverse shards**, **Broken repeats**
+and **Shimmer trails**.
 
 **Display:** Where a played note comes back. A grey 200 ms note is followed by the fragments of it that return, using the module's own grain schedule, scatter, direction and pitch; fainter fragments are later feedback passes, and amber marks Glitch repeats. The title counts the fragments of the first pass and when they arrive; the footer gives how often a new grain starts, its length and the pitch step per pass.

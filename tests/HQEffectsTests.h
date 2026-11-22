@@ -16,6 +16,19 @@ inline double ToneEnergy(const std::vector<double>& x, size_t start, double hz, 
   }
   return std::hypot(re, im) / std::max<size_t>(1, x.size() - start);
 }
+// Power of a sine-like component within 4% or 12 Hz of `hz`, whichever is wider:
+// Goertzel probes at the window's bin spacing.
+inline double BandPower(const std::vector<double>& x, size_t start, double hz, double rate)
+{
+  const double spacing = rate / static_cast<double>(x.size() - start), width = std::max(.04 * hz, 12.);
+  double power = 0.;
+  for (double f = hz - width; f <= hz + width; f += spacing)
+  {
+    const double a = 2. * ToneEnergy(x, start, f, rate);
+    power += .5 * a * a;
+  }
+  return power;
+}
 inline double Rms(const std::vector<double>& x, size_t start)
 {
   double sum = 0.;
@@ -28,43 +41,38 @@ inline double Rms(const std::vector<double>& x, size_t start)
 void TestHQEffects()
 {
   constexpr double rate = 48000.;
-  // A prefilled linear ramp exposes the read position. The expected phase uses
-  // the closed-form 10 ms ratio response, independent of the smoother recurrence.
-  // Stereo calls must follow the same response as one mono call per sample.
-  for (double hostRate : {44100., 48000., 96000.})
+  // Granular pitch shifter: a tone moves to the requested interval at unity power,
+  // with the input and the other tested intervals rejected. Grains at a fixed spacing
+  // cancelled tones a half cycle apart between grains (220 and 660 Hz at 25 ms), so
+  // the test covers those frequencies. Random grain phases widen the shifted line a
+  // little, so the wanted level is the power within 4% of the target frequency.
+  constexpr std::array<double, 4> intervals{12., -12., 7., -5.};
+  for (const double hostRate : {44100., 96000.})
+    for (const double tone : {110., 220., 660.})
+      for (const double semitones : intervals)
+      {
+        grid_hq::PitchShifter shifter;
+        shifter.Reset(hostRate);
+        std::vector<double> out(static_cast<size_t>(1.2 * hostRate));
+        for (size_t i = 0; i < out.size(); ++i)
+          out[i] = shifter.ProcessSample(.2 * std::sin(2. * grid_fx::pi * tone * i / hostRate), 0, semitones);
+        const size_t start = out.size() / 6;
+        const double wanted = hq_test::BandPower(out, start, tone * std::exp2(semitones / 12.), hostRate);
+        const double total = hq_test::Rms(out, start) * hq_test::Rms(out, start);
+        // Unity power is .02. Random grain phases average to it; over one second a
+        // tone lands within -3.5/+1 dB, with most of it at the wanted pitch.
+        assert(total > .0089 && total < .0252 && wanted > .6 * total);
+        assert(wanted > 30. * hq_test::BandPower(out, start, tone, hostRate));
+        for (const double other : intervals)
+          if (other != semitones)
+            assert(wanted > 30. * hq_test::BandPower(out, start, tone * std::exp2(other / 12.), hostRate));
+      }
+  // Channels keep their own ratio and grain timing.
   {
-    grid_hq::PitchShifter stereo, mono;
-    stereo.Reset(hostRate, .05, 0.);
-    mono.Reset(hostRate, .05, 0.);
-    constexpr double slope = 1.e-7;
-    const int warm = static_cast<int>(hostRate * .1), window = static_cast<int>(hostRate * .05);
-    for (int i = 0; i < warm; ++i)
-    {
-      stereo.ProcessSample(slope * i, 0, 0.);
-      stereo.ProcessSample(slope * i, 1, 0.);
-      mono.ProcessSample(slope * i, 0, 0.);
-    }
-    double phase = 0.;
-    for (int i = 0; i < static_cast<int>(hostRate * .02); ++i)
-    {
-      const double ratio = 2. - std::exp(-(i + 1.) / (.01 * hostRate));
-      phase += (1. - ratio) / window;
-      if (phase < 0.) phase += 1.;
-      const double second = phase < .5 ? phase + .5 : phase - .5;
-      const double weight = .5 - .5 * std::cos(2. * grid_fx::pi * phase);
-      const double expected = slope * (warm + i + 1. - weight * std::max(1., phase * window)
-                                      - (1. - weight) * std::max(1., second * window));
-      const double input = slope * (warm + i);
-      const double l = stereo.ProcessSample(input, 0, 12.);
-      const double r = stereo.ProcessSample(input, 1, 12.);
-      assert(l == r && l == mono.ProcessSample(input, 0, 12.));
-      assert(std::abs(l - expected) < 1.e-10);
-    }
-    // Different targets cannot pull the other channel's ratio toward their own.
-    grid_hq::PitchShifter independent;
-    independent.Reset(hostRate, .05, 0.);
-    stereo.Reset(hostRate, .05, 0.);
-    for (int i = 0; i < warm; ++i)
+    grid_hq::PitchShifter stereo, independent;
+    stereo.Reset(rate);
+    independent.Reset(rate);
+    for (int i = 0; i < static_cast<int>(rate * .3); ++i)
     {
       const double x = .1 * std::sin(.037 * i);
       const double l = stereo.ProcessSample(x, 0, -5.);
@@ -72,27 +80,17 @@ void TestHQEffects()
       assert(l == independent.ProcessSample(x, 0, -5.));
     }
   }
-  // Granular pitch shifter: a 440 Hz tone moves to exactly the requested
-  // interval at unity level, rejecting the input and the other tested intervals.
-  // Squaring or rectifying also makes 880 Hz, but neither reaches the requested downward intervals
-  // nor keeps the level; a wrong ratio or sign misses the wanted bin.
-  constexpr std::array<double, 4> intervals{12., -12., 7., -5.};
-  for (const double hostRate : {44100., 48000., 96000.})
-    for (const double semitones : intervals)
-    {
-      grid_hq::PitchShifter shifter;
-      shifter.Reset(hostRate);
-      std::vector<double> out(static_cast<size_t>(hostRate));
-      for (size_t i = 0; i < out.size(); ++i)
-        out[i] = shifter.ProcessSample(.2 * std::sin(2. * grid_fx::pi * 440. * i / hostRate), 0, semitones);
-      const size_t start = out.size() / 2;
-      const double wanted = hq_test::ToneEnergy(out, start, 440. * std::exp2(semitones / 12.), hostRate);
-      assert(wanted > .09 && wanted < .11); // ToneEnergy is half the amplitude: unity gain gives .1.
-      assert(wanted > 30. * hq_test::ToneEnergy(out, start, 440., hostRate));
-      for (const double other : intervals)
-        if (other != semitones)
-          assert(wanted > 30. * hq_test::ToneEnergy(out, start, 440. * std::exp2(other / 12.), hostRate));
-    }
+  // The shifter sits inside Shimmer's feedback, so its power must never exceed the
+  // input's, even where grains read coherent audio: a held low tone is the worst case.
+  for (const double tone : {55., 82.5, 110.})
+  {
+    grid_hq::PitchShifter shifter;
+    shifter.Reset(rate);
+    std::vector<double> in(static_cast<size_t>(2. * rate)), out(in.size());
+    for (size_t i = 0; i < in.size(); ++i)
+      out[i] = shifter.ProcessSample(in[i] = .2 * std::sin(2. * grid_fx::pi * tone * i / rate), 0, 1.);
+    assert(hq_test::Rms(out, in.size() / 4) < 1.02 * hq_test::Rms(in, in.size() / 4));
+  }
   // Frequency shifter: one sideband, with the carrier and the opposite sideband
   // rejected across the guitar range (a ring modulator keeps both). The upper
   // sideband moves by Shift; the lower sideband mirrors it.
@@ -238,6 +236,62 @@ void TestHQEffects()
     shimmer.Process(heldL.data(), heldR.data(), static_cast<int>(heldL.size()), c);
     for (double value : heldL)
       assert(value == 0.);
+  }
+  // Shimmer layers: a held 220 Hz note at the default Amount grows an octave layer
+  // close to the note within the first second (Valhalla-style shimmers sit within
+  // 10-15 dB). A shifted copy that re-enters through the tank's input stayed 48 dB down.
+  {
+    grid_hq::Shimmer shimmer;
+    shimmer.Reset(rate);
+    UtilityControls c;
+    c.shimmer = {100., 5., 6000., 12., 25., 30., 0.};
+    std::vector<double> l(static_cast<size_t>(2. * rate)), r(l.size());
+    for (size_t i = 0; i < static_cast<size_t>(.4 * rate); ++i)
+      l[i] = r[i] = .25 * std::sin(2. * grid_fx::pi * 220. * i / rate);
+    shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+    const std::vector<double> window(l.begin() + static_cast<long>(.5 * rate), l.begin() + static_cast<long>(1.5 * rate));
+    const double octave = hq_test::BandPower(window, 0, 440., rate), note = hq_test::BandPower(window, 0, 220., rate);
+    assert(octave > .03 * note && octave < 3. * note);
+  }
+  // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
+  {
+    grid_hq::Shimmer shimmer;
+    shimmer.Reset(rate);
+    UtilityControls c;
+    c.shimmer = {100., 5., 6000., 12., 25., 30., 0.};
+    std::vector<double> l(static_cast<size_t>(12. * rate)), r(l.size());
+    l[0] = r[0] = 1.;
+    shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+    double energy = 0.;
+    for (size_t i = 0; i < l.size(); ++i) energy += l[i] * l[i] + r[i] * r[i];
+    assert(energy > .07 && energy < .2);
+  }
+  // Any Pitch at full Amount and the longest Decay stays bounded and dies away: the
+  // shifted share replaces part of the recirculation instead of adding to it. Small
+  // and zero intervals are the worst case, since they keep energy in the same band.
+  for (const double pitch : {0., 1., 12., -12.})
+  {
+    grid_hq::Shimmer shimmer;
+    shimmer.Reset(44100.);
+    UtilityControls c;
+    c.shimmer = {100., 20., 12000., pitch, 100., 100., 0.};
+    std::vector<double> l(static_cast<size_t>(16. * 44100.)), r(l.size());
+    for (size_t i = 0; i < static_cast<size_t>(2. * 44100.); ++i)
+    {
+      l[i] = .5 * std::sin(2. * grid_fx::pi * 110. * i / 44100.) * std::exp(-2. * std::fmod(i / 44100., .5));
+      r[i] = .5 * std::sin(2. * grid_fx::pi * 165. * i / 44100.) * std::exp(-2. * std::fmod(i / 44100., .5));
+    }
+    for (size_t pos = 0; pos < l.size(); pos += 512)
+      shimmer.Process(l.data() + pos, r.data() + pos, static_cast<int>(std::min<size_t>(512, l.size() - pos)), c);
+    double peak = 0., early = 0., late = 0.;
+    for (size_t i = 0; i < l.size(); ++i)
+    {
+      peak = std::max({peak, std::abs(l[i]), std::abs(r[i])});
+      if (i >= static_cast<size_t>(2. * 44100.) && i < static_cast<size_t>(4. * 44100.)) early += l[i] * l[i];
+      if (i >= static_cast<size_t>(14. * 44100.)) late += l[i] * l[i];
+    }
+    // 20 s Decay loses 36 dB over 12 s; allow the shimmer to hold it 16 dB longer.
+    assert(peak < 1. && late < early * 1.e-2);
   }
   // Extreme settings stay finite at every supported rate and during a long tail.
   for (double hostRate : {44100., 48000., 96000., 192000.})

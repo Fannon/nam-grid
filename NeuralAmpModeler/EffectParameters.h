@@ -394,7 +394,7 @@ inline constexpr const char* kPitchDelayMode[]{"Forward", "Reverse", "Stereo Oct
 inline constexpr const char* kFeedbackFX[]{"Sweep", "Phaser", "Tremolo", "Ring"};
 inline constexpr const char* kPatternFeedback[]{"Repeat", "Swell", "Matrix", "Drum"};
 inline constexpr const char* kDigitalDelayVoice[]{"Clean", "Rack", "Lo-fi"};
-inline constexpr const char* kGrainDelayMode[]{"Scatter", "Reverse", "Glitch"};
+inline constexpr const char* kGrainDelayMode[]{"Scatter", "Reverse", "Glitch", "Shimmer"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
@@ -483,7 +483,7 @@ inline constexpr AlgorithmIdentity pitchDelayMode[]{{0, "forward"}, {1, "reverse
 inline constexpr AlgorithmIdentity feedbackFX[]{{0, "sweep"}, {1, "phaser"}, {2, "tremolo"}, {3, "ring"}};
 inline constexpr AlgorithmIdentity patternFeedback[]{{0, "repeat"}, {1, "swell"}, {2, "matrix"}, {3, "drum"}};
 inline constexpr AlgorithmIdentity digitalDelayVoice[]{{0, "clean"}, {1, "rack"}, {2, "lo-fi"}};
-inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}};
+inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}, {3, "shimmer"}};
 inline constexpr AlgorithmIdentity granulator[]{
   {0, "cloud"}, {1, "haze"}, {2, "shimmer"}, {3, "tunnel"}, {4, "mosaic"}, {5, "reverse"}, {6, "blocks"}, {7, "interrupt"}, {8, "arp"},
   {9, "pick-burst"}};
@@ -883,7 +883,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pitch Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
    {"Delay Feedback FX", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
    {"Pattern Delay Mode", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
-   {"Granular Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
+   {"Granular Delay Mode", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
    {"Delay Spring", "Spring", 20, 0, 100, 0.1, "%", 5, false, 1., 32},
    {"Delay Rate", "Rate", 0.8, 0.05, 20, 0.01, "Hz", 3, true, 1., 32},
    {"Delay Depth", "Depth", 30, 0, 100, 0.1, "%", 5, false, 1., 32},

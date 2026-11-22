@@ -223,7 +223,8 @@ public:
       const double t = LongSeconds(ch, mSize) + .0012 * mMotion * std::sin(mPhase + ch * 1.5707963267948966);
       const double delayed = mLongGain[ch] * mLong[ch].Read(std::round(mRate * t)); mLong[ch].Push(wet[ch]);
       mFeedback[ch] = LowPass(delayed, mLow[ch], mCoefficient);
-      wet[ch] = .65 * mFeedback[ch] + .15 * early[ch];
+      // Output scaled so the wash sits with Plate and Hall (+5.6 dB from 0.7.x).
+      wet[ch] = kOutput * (.65 * mFeedback[ch] + .15 * early[ch]);
     }
     mPhase += 2. * grid_fx::pi * .19 / mRate;
     if (mPhase >= 2. * grid_fx::pi) mPhase -= 2. * grid_fx::pi;
@@ -236,6 +237,7 @@ public:
     return mLong[0].Clipped() || mLong[1].Clipped();
   }
 private:
+  static constexpr double kOutput = 1.9;
   std::array<StereoAllpass, 4> mEarly;
   std::array<StereoAllpass, 10> mLate;
   static constexpr double LongSeconds(int ch, double size) { return (.037 + ch * .013) * size; }

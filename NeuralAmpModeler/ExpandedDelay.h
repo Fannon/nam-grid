@@ -205,10 +205,21 @@ public:
       mPitch.Reset(rate);
       mRightPitch.Reset(rate);
     }
+    if (effect == SlotEffect::GranularDelay)
+    {
+      mPitch.Reset(rate);
+      for (int ch = 0; ch < 2; ++ch)
+      {
+        mChannel[ch].octaveFilter.Configure(std::min(10000., .21 * rate), rate);
+        for (int stage = 0; stage < 4; ++stage)
+          mChannel[ch].diffuser[stage].Reset(static_cast<int>(std::ceil(rate * kShimmerDiffusion[ch][stage])) + 2);
+      }
+    }
     mSlices.Reset(rate);
     mControls.Reset(rate); mOptions.Reset(rate); mExtras.Reset(rate);
     mMix.Reset(rate); mDrain.Reset(rate);
     mMode = -1; mModeGain = 1.; mCounter = 0; mPitchHold = 0;
+    mLayerGain = 1.; mLayerHold = 0;
     mPhase = 0.;
     if (effect == SlotEffect::SpaceTapeEcho) mTransport.Reset(rate);
     for (auto& tap : mTaps) tap.Reset(rate);
@@ -287,6 +298,17 @@ public:
           mPitchGain = 0.;
           mPitchHold = static_cast<int>(std::ceil(.085 * mRate));
         }
+        if (granular && targetMode == kGrainShimmer)
+        {
+          // Start the octave layer and the loop diffusion from silence. The shifter
+          // output steps in once its history reaches the read head, so hold the layer
+          // until then and fade it in.
+          mPitch.Clear();
+          for (auto& channel : mChannel)
+            for (auto& stage : channel.diffuser) stage.Clear();
+          mLayerGain = 0.;
+          mLayerHold = static_cast<int>(std::ceil(.05 * mRate));
+        }
         mMode = targetMode;
         mSlices.Reset(mRate);
         mCounter = 0;
@@ -328,7 +350,10 @@ public:
         mRatio = std::exp2(option(uEchoInterval) / 12.);
         if (pitch || granular)
         {
-          const double cutoff = std::min(tone, .39 * mRate / std::max(1., pitch && mMode == 2 ? std::max(mRatio, 1. / mRatio) : mRatio));
+          // Shimmer reads the line at Interval and an octave above that.
+          const double fastest = pitch && mMode == 2 ? std::max(mRatio, 1. / mRatio)
+                                 : granular && mMode == kGrainShimmer ? 2. * mRatio : mRatio;
+          const double cutoff = std::min(tone, .39 * mRate / std::max(1., fastest));
           for (int ch = 0; ch < channels; ++ch) mChannel[ch].pitchFilter.Configure(cutoff, mRate);
         }
         if (fx && mMode < 2) ConfigureSweep();
@@ -377,6 +402,19 @@ public:
           }
         }
         if (granular || (pitch && mMode == 1)) mSlices.Advance();
+        if (granular && mMode == kGrainShimmer)
+        {
+          // Each echo carries an octave layer at equal power. Fed back, the layer
+          // is shifted again on every pass, so the repeats climb in octaves.
+          // Band-limit what the shifter doubles: earlier octave layers in the line would
+          // otherwise fold back above Nyquist.
+          const double a = mChannel[0].octaveFilter.Tick(direct[0]);
+          const double b = right ? mChannel[1].octaveFilter.Tick(direct[1]) : 0.;
+          const auto octave = mPitch.Tick(a, b, 2., right != nullptr);
+          if (mLayerHold > 0) --mLayerHold;
+          else mLayerGain = std::min(1., mLayerGain + 1. / (.03 * mRate));
+          for (int ch = 0; ch < channels; ++ch) direct[ch] = (1. - .22 * mLayerGain) * direct[ch] + .56 * mLayerGain * octave[ch];
+        }
         if (pitch && mMode != 1)
         {
           // Keep the shifter current even at unison or zero blend. Its history and the
@@ -432,6 +470,21 @@ public:
             const double drive = .7 + .013 * v[3] + (mMode == 4 ? .8 : 0.);
             send = channel.bbd.Tick(compressed, [drive](double x) { return std::tanh(drive * x) / drive; });
           }
+          if (granular && mMode == kGrainShimmer)
+          {
+            // Diffuse only what returns: the first repeat stays clear and every
+            // later pass smears further into a wash. Bounded allpasses keep the level.
+            double returned = send - dry[ch];
+            for (int stage = 0; stage < 4; ++stage)
+            {
+              auto& line = channel.diffuser[stage];
+              const double delayed = line.Read(mRate * kShimmerDiffusion[ch][stage]);
+              const double y = delayed - .55 * returned;
+              line.Push(returned + .55 * y);
+              returned = y;
+            }
+            send = dry[ch] + returned;
+          }
           if (granular || (pitch && mMode == 1)) send = channel.pitchFilter.Tick(send);
           channel.line[0].Push(send);
         }
@@ -457,6 +510,8 @@ private:
     grid_oversampling::FIR<4, 32> tape;
     grid_oversampling::FIR<2, 32> bbd;
     expanded_delay::PitchLowPass pitchFilter;
+    std::array<grid_fx::DelayLine, 4> diffuser;
+    expanded_delay::PitchLowPass octaveFilter;
     std::array<double, 4> tapTone{}, tapBass{}, phaser{};
     double tone = 0., low = 0., dc = 0., inBand = 0., compress = 0., expand = 0.;
     double sweepLow = 0., sweepHigh = 0.;
@@ -552,6 +607,9 @@ private:
     return wet;
   }
 
+  // Granular Delay's Shimmer mode and its loop diffusion, in seconds per stage and channel.
+  static constexpr int kGrainShimmer = 3;
+  inline static constexpr double kShimmerDiffusion[2][4]{{.0047, .0073, .0113, .0171}, {.0053, .0079, .0107, .0163}};
   SlotEffect mEffect = SlotEffect::SpaceTapeEcho;
   std::array<Channel, 2> mChannel;
   SlotSpring mSpring;
@@ -570,7 +628,7 @@ private:
   double mCompAttack = 0., mCompRelease = 0.;
   expanded_delay::TapeTransport mTransport;
   double mPhase = 0.;
-  double mPitchGain = 0., mRatio = 1., mDrumMotion = 0.;
-  int mMode = -1, mCounter = 0, mPitchHold = 0;
+  double mPitchGain = 0., mRatio = 1., mDrumMotion = 0., mLayerGain = 1.;
+  int mMode = -1, mCounter = 0, mPitchHold = 0, mLayerHold = 0;
   int64_t mSpringIdle = 0, mSpringDrain = 0;
 };

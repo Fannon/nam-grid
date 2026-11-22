@@ -97,6 +97,24 @@ inline void Reverbs()
     }
 }
 
+// The tanks share Decay, Size and Damping, so at equal settings their wet levels should
+// sit together: Cloud's long wash measured 6 dB below Hall at 100% wet.
+inline void ReverbLevels()
+{
+  const auto energy = [](SlotEffect effect) {
+    SlotReverb reverb; reverb.Reset(48000., effect);
+    UtilityControls c; c.reverb = {3., 100., 6000., 0., 100.}; c.reverbMotion = 0.; c.reverbHighPass = 0.;
+    std::vector<double> left(static_cast<size_t>(48000. * 6.)), right(left.size()); left[0] = right[0] = 1.;
+    reverb.Process(left.data(), right.data(), static_cast<int>(left.size()), c);
+    double sum = 0.;
+    for (size_t i = 0; i < left.size(); ++i) sum += left[i] * left[i] + right[i] * right[i];
+    return sum;
+  };
+  const double hall = energy(SlotEffect::HallReverb), plate = energy(SlotEffect::PlateReverb), cloud = energy(SlotEffect::CloudReverb);
+  const double low = std::min(hall, plate), high = std::max(hall, plate);
+  assert(cloud > .5 * low && cloud < 2. * high); // Within 3 dB of the Plate-Hall range.
+}
+
 inline double TankDecay(SlotEffect effect, double rate, double size, double decay)
 {
   SlotReverb reverb; reverb.Reset(rate, effect);
@@ -212,6 +230,7 @@ inline void TestDSPBehavior()
   dsp_behavior_test::Modulation();
   dsp_behavior_test::Reverbs();
   dsp_behavior_test::TankCalibration();
+  dsp_behavior_test::ReverbLevels();
   dsp_behavior_test::Octaver();
   dsp_behavior_test::Doubler();
   dsp_behavior_test::Stutter();

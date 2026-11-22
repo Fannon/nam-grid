@@ -568,6 +568,10 @@ inline const Preset granularDelay[]{
     {U(uGrainDensity), 28}, {U(uGrainScatter), 14}, {U(uDelayFeedback), 43}, {U(uDelayTone), 5200}, {U(uDelayMix), 31}}},
   {"Low-octave stutter", {{U(uGrainDelayMode), 2}, {U(uTempoSync), 1}, {U(uTempoDivision), 3}, {U(uEchoInterval), -12},
     {U(uGrainLength), 62}, {U(uGrainDensity), 68}, {U(uGrainScatter), 85}, {U(uDelayFeedback), 38}, {U(uDelayMix), 32}}},
+  {"Shimmer trails", {{U(uGrainDelayMode), 3}, {U(uDelayTime), 460}, {U(uGrainLength), 180}, {U(uGrainDensity), 40},
+    {U(uGrainScatter), 25}, {U(uDelayFeedback), 62}, {U(uDelayTone), 6500}, {U(uDelayMix), 32}}},
+  {"Quarter-note shimmer wash", {{U(uGrainDelayMode), 3}, {U(uTempoSync), 1}, {U(uTempoDivision), 5}, {U(uGrainLength), 260},
+    {U(uGrainDensity), 30}, {U(uGrainScatter), 12}, {U(uDelayFeedback), 72}, {U(uDelayTone), 5200}, {U(uDelayMix), 30}}},
 };
 // Granulator presets: one starting point per mode, voiced on picked notes and chords.
 // Mode values follow effect_modes::GranulatorMode.

@@ -190,9 +190,10 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   g.DrawLine(border,field.L,field.B,field.R,field.B);
   if(shimmer && !frozen && value(uShimmerAmount)>0. && std::abs(value(uShimmerPitch))>.1)
   {
-    // Every pass through the tank is shifted by Pitch again and fed back at
-    // Amount x .55: layers stack at Pitch, 2x Pitch, ... each quieter.
-    const double pitch=value(uShimmerPitch),gain=value(uShimmerAmount)*.01*.55;
+    // Every pass shifts part of the tail by Pitch again (grid_hq::Shimmer::ShiftShare):
+    // layers stack at Pitch, 2x Pitch, ... Measured on a held note, each layer peaks
+    // at about 1.5 x Amount of the one below, up to equal level at high Amount.
+    const double pitch=value(uShimmerPitch),gain=std::min(1.,1.5*value(uShimmerAmount)*.01);
     const float left=field.R-58.f,right=field.R-30.f,center=field.MH();
     const auto semitoneY=[&](double semitones) { return center-field.H()*.48f*static_cast<float>(std::clamp(semitones/48.,-1.,1.)); };
     g.DrawLine(muted,left,center,right,center,nullptr,1.5f);

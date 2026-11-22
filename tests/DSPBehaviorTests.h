@@ -115,6 +115,29 @@ inline void ReverbLevels()
   assert(cloud > .5 * low && cloud < 2. * high); // Within 3 dB of the Plate-Hall range.
 }
 
+// Dense Plate builds a dense tail within a few tens of milliseconds, as a plate should.
+// Two output taps deep in the loop left about 100 ms of sparse reflections first.
+// Normalized echo density (Abel and Huang): 1 for Gaussian noise, near 0 for sparse echoes.
+inline void PlateDensity()
+{
+  SlotReverb reverb; reverb.Reset(48000., SlotEffect::PlateReverb);
+  UtilityControls c; c.reverb = {2.4, 100., 6500., 0., 100.}; c.reverbMotion = 0.; c.reverbHighPass = 0.;
+  std::vector<double> left(48000), right(left.size()); left[0] = right[0] = 1.;
+  reverb.Process(left.data(), right.data(), static_cast<int>(left.size()), c);
+  const auto density = [&](double start) {
+    const int a = static_cast<int>(start * 48000.), n = 960;
+    double mean = 0., variance = 0.;
+    for (int i = 0; i < n; ++i) mean += left[a + i];
+    mean /= n;
+    for (int i = 0; i < n; ++i) variance += (left[a + i] - mean) * (left[a + i] - mean);
+    const double sd = std::sqrt(variance / n);
+    int outside = 0;
+    for (int i = 0; i < n; ++i) outside += std::abs(left[a + i] - mean) > sd;
+    return outside / static_cast<double>(n) / .3173;
+  };
+  assert(density(.04) > .6 && density(.06) > .6);
+}
+
 inline double TankDecay(SlotEffect effect, double rate, double size, double decay)
 {
   SlotReverb reverb; reverb.Reset(rate, effect);
@@ -231,6 +254,7 @@ inline void TestDSPBehavior()
   dsp_behavior_test::Reverbs();
   dsp_behavior_test::TankCalibration();
   dsp_behavior_test::ReverbLevels();
+  dsp_behavior_test::PlateDensity();
   dsp_behavior_test::Octaver();
   dsp_behavior_test::Doubler();
   dsp_behavior_test::Stutter();

@@ -549,7 +549,8 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
       : "Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.";
     case uReverbDecay: case uSpringDecay: case uShimmerDecay: return "Tail decay time. Higher values let notes overlap into a larger ambient wash.";
     case uReverbSize: return "Tank scale and reflection spacing. Larger settings sound more open; Decay controls how long they last.";
-    case uReverbTone: case uShimmerTone: return "Treble damping in the reverb. Lower settings make the tail darker than the dry signal.";
+    case uShimmerTone: return "Above this frequency the tail decays about three times faster than Decay. Lower settings darken the tail and its upper layers.";
+    case uReverbTone: return "Treble damping in the reverb. Lower settings make the tail darker than the dry signal.";
     case uReverbPredelay: return "Gap before the reverb starts; separates the pick attack from the tail.";
     case uReverbMotion: case uShimmerMod: return "Movement of the reverb delay lines; adds a gently shifting tail.";
     case uReverbHighPass: return "Remove bass from the reverb send to keep the tail from getting boomy.";

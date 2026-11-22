@@ -302,6 +302,10 @@ public:
           {
             const double normal = std::pow(10., -3. * tank.length[j] / std::max(.25, v[1]));
             tank.feedback[j] = std::min(.9995, normal + mFreeze * (.9995 - normal));
+            // Damping shelves the treble relative to Decay, as in Hall and Room: above
+            // it the tail decays at kHighDecayRatio of Decay, at any Decay. A fixed
+            // low-pass per pass instead capped long tails, most of all in the mids.
+            tank.highRatio[j] = std::pow(tank.feedback[j], 1. / kHighDecayRatio - 1.);
           }
           tank.damping = std::exp(-2. * grid_fx::pi * std::min(.45 * mRate, v[2] + mFreeze * (12000. - v[2])) / mRate);
           tank.modDepth = v[5] * .01 * .000625 * mRate;
@@ -332,13 +336,15 @@ public:
 private:
   // Output scaling puts the wet level with Room and Hall.
   static constexpr double kOutput = 1.8, kMaxShare = .5;
+  // Treble above Damping decays at this share of Decay (the Hall and Room ratio).
+  static constexpr double kHighDecayRatio = .35;
   grid_fx::MixLaw mMixLaw;
   struct Tank
   {
     static constexpr std::array<int, 4> kShifted{0, 3, 5, 6};
     std::array<grid_fx::DelayLine, 8> line;
     std::array<grid_fx::DelayLine, 4> diffuser;
-    std::array<double, 8> length{}, damp{}, feedback{}, phase{};
+    std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{};
     std::array<double, 4> diffuserDelay{};
     std::array<PitchShifter, 2> shifter;
     std::array<std::array<double, 2>, 4> alias{}, crossPower{};
@@ -392,7 +398,7 @@ private:
         const double motion = modDepth * std::sin(2. * grid_fx::pi * phase[j]);
         const double tap = line[j].Read(mRate * length[j] + motion);
         damp[j] = grid_fx::Flush(tap + damping * (damp[j] - tap));
-        taps[j] = damp[j] * feedback[j];
+        taps[j] = (highRatio[j] * tap + (1. - highRatio[j]) * damp[j]) * feedback[j];
         wet += (j % 2 ? -1. : 1.) * tap * .125;
       }
       // The shifters keep their history at zero share, so Amount changes glide in.

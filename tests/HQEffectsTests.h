@@ -29,6 +29,27 @@ inline double BandPower(const std::vector<double>& x, size_t start, double hz, d
   }
   return power;
 }
+// Decay time in the octave around `hz`: a band-pass, then a -5 to -25 dB Schroeder fit.
+inline double BandDecay(const std::vector<double>& x, double hz, double rate)
+{
+  const double w = 2. * grid_fx::pi * hz / rate, alpha = std::sin(w) * std::sinh(std::log(2.) / 2. * w / std::sin(w));
+  const double a0 = 1. + alpha, b0 = alpha / a0, a1 = -2. * std::cos(w) / a0, a2 = (1. - alpha) / a0;
+  std::vector<double> energy(x.size());
+  double x1 = 0., x2 = 0., y1 = 0., y2 = 0.;
+  for (size_t i = 0; i < x.size(); ++i)
+  {
+    const double y = b0 * (x[i] - x2) - a1 * y1 - a2 * y2;
+    x2 = x1; x1 = x[i]; y2 = y1; y1 = y; energy[i] = y * y;
+  }
+  for (size_t i = energy.size() - 1; i-- > 0;) energy[i] += energy[i + 1];
+  double sx = 0., sy = 0., sxx = 0., sxy = 0., n = 0.;
+  for (size_t i = 0; i < energy.size(); ++i)
+  {
+    const double db = 10. * std::log10(energy[i] / energy[0] + 1.e-30);
+    if (db <= -5. && db >= -25.) { const double t = i / rate; sx += t; sy += db; sxx += t * t; sxy += t * db; ++n; }
+  }
+  return -60. / ((n * sxy - sx * sy) / (n * sxx - sx * sx));
+}
 inline double Rms(const std::vector<double>& x, size_t start)
 {
   double sum = 0.;
@@ -253,6 +274,22 @@ void TestHQEffects()
     const double octave = hq_test::BandPower(window, 0, 440., rate), note = hq_test::BandPower(window, 0, 220., rate);
     assert(octave > .03 * note && octave < 3. * note);
   }
+  // Decay sets the mid-band tail at any Decay and Damping; Damping shelves the treble
+  // relative to it. A fixed low-pass on every pass cut a 12 s tail at 3 kHz Damping
+  // to 8 s at 500 Hz.
+  for (const double damping : {3000., 12000.})
+    for (const double decay : {2., 12.})
+    {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., decay, damping, 12., 0., 30., 0.};
+      std::vector<double> l(static_cast<size_t>((decay * .7 + .5) * rate)), r(l.size());
+      l[0] = r[0] = .1;
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      const double measured = hq_test::BandDecay(l, 500., rate);
+      assert(measured > .88 * decay && measured < 1.12 * decay);
+    }
   // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
   {
     grid_hq::Shimmer shimmer;

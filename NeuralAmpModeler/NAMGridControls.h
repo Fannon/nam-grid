@@ -1716,14 +1716,13 @@ public:
       IRECT idText; g.MeasureText(Text(16.f), slotName.c_str(), idText);
       g.DrawText(Text(16.f, idColor), slotName.c_str(),
                  IRECT(mCardBounds.L + 12, mCardBounds.T + 6, mCardBounds.L + 14 + idText.W(), mCardBounds.T + 26));
-      mIdSwitch = IRECT();
       badgesLeft = mCardBounds.L + 22 + idText.W();
     }
     else
     {
-      mIdSwitch = IRECT(mCardBounds.L + 7, mCardBounds.T + 5, mCardBounds.L + 7 + SlotIdSwitchWidth(g, slotName.c_str(), 15.f), mCardBounds.T + 27);
-      DrawSlotIdSwitch(g, mIdSwitch, slotName.c_str(), 15.f, tone.first, enabled, mIdHover, selected);
-      badgesLeft = mIdSwitch.R + 7;
+      const IRECT idSwitch(mCardBounds.L + 7, mCardBounds.T + 5, mCardBounds.L + 7 + SlotIdSwitchWidth(g, slotName.c_str(), 15.f), mCardBounds.T + 27);
+      DrawSlotIdSwitch(g, idSwitch, slotName.c_str(), 15.f, tone.first, enabled, mIdHover, selected);
+      badgesLeft = idSwitch.R + 7;
       CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
                      IRECT(badgesLeft, mCardBounds.T + 7, mCardBounds.R - 24, mCardBounds.T + 25), 12.f, false,
                      !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : nullptr, enabled ? 1.f : .4f);
@@ -1862,6 +1861,16 @@ public:
     mPlotHelp->End(g);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
+  // The occupied card's ID switch, from the current slot rather than the last Draw, so a
+  // click right after a rig or module change (before the next paint) still reaches it.
+  IRECT IdSwitch()
+  {
+    auto* ui = GetUI();
+    if (!ui || !Occupied(mSlot)) return IRECT();
+    auto id = GridSlotName(mSlot);
+    id.erase(std::remove(id.begin(), id.end(), ' '), id.end());
+    return IRECT(mCardBounds.L + 7, mCardBounds.T + 5, mCardBounds.L + 7 + grid_ui::SlotIdSwitchWidth(*ui, id.c_str(), 15.f), mCardBounds.T + 27);
+  }
 
   // The header row (ID and bypass) only selects. The name and badges below open the
   // browser on release, unless the press became a drag to another tile.
@@ -1871,7 +1880,7 @@ public:
     mPressX = x; mPressY = y; mDragging = mPressBrowse = mPressDrag = false;
     if (mod.R)
       ShowEditMenu();
-    else if (Occupied(mSlot) && mIdSwitch.GetPadded(3.f).Contains(x, y))
+    else if (IdSwitch().GetPadded(3.f).Contains(x, y))
     {
       auto* param = GetDelegate()->GetParam(SlotActiveParam(mSlot));
       const double value = param->Bool() ? 0. : 1.;
@@ -1891,7 +1900,7 @@ public:
   {
     const bool hover = NameButton().Contains(x, y);
     if (hover != mNameHover) { mNameHover = hover; SetDirty(false); }
-    const bool idHover = Occupied(mSlot) && mIdSwitch.GetPadded(3.f).Contains(x, y);
+    const bool idHover = IdSwitch().GetPadded(3.f).Contains(x, y);
     if (idHover != mIdHover) { mIdHover = idHover; SetDirty(false); }
     IControl::OnMouseOver(x, y, mod);
   }
@@ -3677,7 +3686,6 @@ private:
   }
   IRECT NameButton() const { return IRECT(mCardBounds.L + 8, mCardBounds.T + 30, mCardBounds.R - 8, mCardBounds.B - 7); }
   bool mNameHover = false, mIdHover = false;
-  IRECT mIdSwitch; // The occupied card's ID switch, from the last Draw.
   // One drag at a time per editor; the owning UI keeps other plugin instances unaffected.
   struct Drop { const IGraphics* ui = nullptr; int source = -1, target = -1; SlotEditMode mode = SlotEditMode::Swap; bool occupied = false; };
   static Drop sDrop;

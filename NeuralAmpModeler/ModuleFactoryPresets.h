@@ -122,21 +122,19 @@ inline const Preset toneEQ[]{
   {"Mid-forward lead", {{parameter_layout::kSlotEQBass, -1.5}, {parameter_layout::kSlotEQMid, 3.}, {U(uEQOutput), -2.}}},
   {"Dark jazz clean", {{parameter_layout::kSlotEQBass, 1.5}, {parameter_layout::kSlotEQTreble, -5.}}},
 };
-// Console EQ's broad, overlapping bands colour like a desk channel, and boosts add harmonics.
-// Quiet-signal changes run about 1.3-1.8 times the knob value, so these use small moves. Bass
-// shapes the guitar's lows only with Bass freq raised to a few kHz. Output matches bypass
-// loudness after an amp.
+// Console EQ's broad first-order bands colour like a desk channel: boosts add harmonics on
+// louder notes, so small moves suit it. Output matches bypass loudness after an amp.
 inline const Preset consoleEQ[]{
-  {"Warm", {{U(uConsoleTreble), -2.}, {U(uConsoleBass), 2.}, {U(uConsoleBassFreq), 4000.}, {U(uEQOutput), -1.5}}},
-  {"Bright and open", {{U(uConsoleTreble), 2.5}, {U(uConsoleTrebleFreq), 6000.}, {U(uConsoleBass), -1.},
-    {U(uConsoleBassFreq), 3000.}, {U(uConsoleLowCut), 8.}, {U(uEQOutput), 1.}}},
-  {"Fat", {{U(uConsoleBass), 3.}, {U(uConsoleBassFreq), 6000.}, {U(uConsoleMid), .5}, {U(uConsoleLowCut), 6.},
+  {"Warm", {{U(uConsoleTreble), -3.}, {U(uConsoleTrebleFreq), 3000.}, {U(uConsoleBass), 2.5}, {U(uEQOutput), -2.}}},
+  {"Bright and open", {{U(uConsoleTreble), 3.}, {U(uConsoleTrebleFreq), 3500.}, {U(uConsoleBass), -1.5},
+    {U(uConsoleLowCut), 8.}, {U(uEQOutput), 1.5}}},
+  {"Fat", {{U(uConsoleBass), 4.}, {U(uConsoleBassFreq), 400.}, {U(uConsoleMid), 1.}, {U(uConsoleLowCut), 6.},
     {U(uEQOutput), -3.}}},
   // High-gain fizz sits above about 5 kHz; a lower Treble freq also tames pick harshness.
-  {"Smooth top", {{U(uConsoleTreble), -3.}, {U(uConsoleTrebleFreq), 3000.}, {U(uConsoleHighCut), 95.}}},
+  {"Smooth top", {{U(uConsoleTreble), -4.}, {U(uConsoleTrebleFreq), 3000.}, {U(uConsoleHighCut), 95.}}},
   // Less low end and a little presence so a guitar sits in a band mix.
-  {"Lean for the mix", {{U(uConsoleBass), -3.}, {U(uConsoleBassFreq), 5000.}, {U(uConsoleTreble), 1.}, {U(uConsoleLowCut), 10.},
-    {U(uEQOutput), 3.}}},
+  {"Lean for the mix", {{U(uConsoleBass), -4.}, {U(uConsoleBassFreq), 500.}, {U(uConsoleTreble), 1.5}, {U(uConsoleLowCut), 10.},
+    {U(uEQOutput), 4.}}},
 };
 inline const Preset cutEQ[]{
   {"Tight high gain", {{parameter_layout::kSlotEQHighPass, 110.}, {parameter_layout::kSlotEQLowPass, 7000.}}},
@@ -182,8 +180,15 @@ inline const Preset dynamicEQ[]{
 inline const Preset filter[]{
   {"Touch wah", {{U(uFilterCutoff), 500.}, {U(uFilterResonance), 2.}, {U(uFilterEnvelope), 2.}}},
   {"Bass envelope", {{U(uFilterCutoff), 200.}, {U(uFilterResonance), 2.5}, {U(uFilterEnvelope), 3.5}}},
-  // A sharp resonant peak sweeping about three octaves: a vocal quack on funk strumming.
-  {"Funk quack", {{U(uFilterCutoff), 350.}, {U(uFilterResonance), 3.6}, {U(uFilterEnvelope), 2.8}}},
+  // Band-pass quack for clean funk strumming. Lower Sensitivity follows the picking instead
+  // of opening fully on every note; Output restores the level band-pass removes.
+  {"Funk quack", {{U(uFilterMode), 2.}, {U(uFilterCutoff), 400.}, {U(uFilterResonance), 3.}, {U(uFilterEnvelope), 2.5},
+    {U(uFilterSensitivity), -6.}, {U(uFilterOutput), 2.5}}},
+  // A long Decay closes each note slowly, like a held "wow".
+  {"Slow vowel", {{U(uFilterCutoff), 300.}, {U(uFilterResonance), 3.}, {U(uFilterEnvelope), 3.}, {U(uFilterDecay), 400.}}},
+  // Bright at rest; each attack darkens the note and it opens again as it fades.
+  {"Down sweep", {{U(uFilterCutoff), 3000.}, {U(uFilterResonance), 2.5}, {U(uFilterEnvelope), 3.}, {U(uFilterDown), 1.},
+    {U(uFilterDecay), 150.}, {U(uFilterOutput), -1.5}}},
 };
 // A parked ("cocked") wah used as a fixed tone filter.
 inline const Preset wah[]{
@@ -559,6 +564,10 @@ inline const Preset ringMod[]{
   {"Square chopper", {{U(uRingShape), 2.}, {U(uRingFrequency), 6.}, {U(uRingDepth), 50.}, {U(uRingTone), 20000.}, {U(uRingMix), 100.}}},
   {"Robot growl", {{U(uRingFrequency), 30.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 55.}}},
   {"Metallic bells", {{U(uRingFrequency), 660.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 35.}}},
+  // The LFO sweeps the carrier up and down: the swooping, sci-fi ring modulator sound.
+  {"Sci-fi sweep", {{U(uRingFrequency), 300.}, {U(uRingLfoRate), .6}, {U(uRingSweep), 60.}, {U(uRingTone), 6000.}, {U(uRingMix), 50.}}},
+  {"Synced warble", {{U(uTempoSync), 1.}, {U(uTempoDivision), 5.}, {U(uRingFrequency), 180.}, {U(uRingSweep), 35.},
+    {U(uRingTone), 5000.}, {U(uRingMix), 45.}}},
 };
 inline const Preset crusher[]{
   {"Broken small sampler", {{U(uCrushBits), 6.}, {U(uCrushRate), 6000.}, {U(uCrushTone), 3500.}, {U(uCrushMix), 65.}, {U(uCrushOutput), -2.}}},

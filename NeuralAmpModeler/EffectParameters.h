@@ -379,6 +379,13 @@ enum UtilityParam
   uGranulatorMix = 362,
   uGranulatorFreeze = 363,
   uShimmerBloom = 364,
+  uFilterSensitivity = 365,
+  uFilterDecay = 366,
+  uFilterDown = 367,
+  uFilterOutput = 368,
+  uFilterMix = 369,
+  uRingLfoRate = 370,
+  uRingSweep = 371,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -538,7 +545,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 34; // 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
+inline constexpr int kEffectStateSchema = 35; // 35 Filter envelope controls and Ring LFO; 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
 
 struct EffectParameter
 {
@@ -922,7 +929,14 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Granulator Space", "Space", 30, 0, 100, .1, "%", 6, false, 1., 33},
    {"Granulator Mix", "Mix", 40, 0, 100, .1, "%", 7, false, 1., 33},
    {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33},
-   {"Shimmer Bloom", "Bloom", 0, 0, 100, .1, "%", 7, false, 1., 34}}};
+   {"Shimmer Bloom", "Bloom", 0, 0, 100, .1, "%", 7, false, 1., 34},
+   {"Filter Sensitivity", "Sensitivity", 0, -24, 24, 0.1, "dB", 0, false, 1., 35},
+   {"Filter Decay", "Decay", 80, 20, 2000, 1, "ms", 0, true, 1., 35},
+   {"Filter Down Sweep", "Down sweep", 0, 0, 1, 1, "", 0, false, 1., 35},
+   {"Filter Output", "Output", 0, -24, 24, 0.1, "dB", 0, false, 1., 35},
+   {"Filter Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 35},
+   {"Ring LFO Rate", "LFO rate", 1, 0.05, 10, 0.01, "Hz", 0, true, 1., 35},
+   {"Ring LFO Sweep", "Sweep", 0, 0, 100, 0.1, "%", 0, false, 1., 35}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -1052,6 +1066,8 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
   if (p >= uPDistStyle && p <= uPDistMix) return e == SlotEffect::PedalDistortion;
   if (p >= uGranulatorMode && p <= uGranulatorFreeze) return e == SlotEffect::Granulator;
+  if (p >= uFilterSensitivity && p <= uFilterMix) return e == SlotEffect::SynthFilter;
+  if (p == uRingLfoRate || p == uRingSweep) return e == SlotEffect::RingMod;
   // Noise Gate (AI) shares Smart Gate's final gate.
   if (p == uNoiseGateThreshold || p == uNoiseGateRelease) return e == SlotEffect::NoisePrint || e == SlotEffect::AIGate;
   if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
@@ -1216,6 +1232,9 @@ struct ModuleExtensions
   double chorusVoices = 0; // 0 one voice per channel (released behavior), 1 three voices.
   double springTank = 0; // 0 Classic (released behavior), 1 Dispersive.
   double harmonicCrossover = 500;
+  // Synth Filter detector and output, Ring LFO; their defaults keep the released sound.
+  double filterSensitivity = 0, filterDecay = 80, filterDown = 0, filterOutput = 0, filterMix = 100;
+  double ringLfoRate = 1, ringSweep = 0;
 };
 struct UtilityControls
 {

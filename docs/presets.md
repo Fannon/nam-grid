@@ -121,7 +121,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Transient Shaper | Shorten the room, Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
 | Graphic EQ | Warm keys, Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
 | Dynamic EQ | Resonant synth tamer, Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
-| Filter, Wah, Auto Swell | Touch wah, Bass envelope, Funk quack; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
+| Filter, Wah, Auto Swell | Touch wah, Bass envelope, Funk quack, Slow vowel, Down sweep; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Parallel drum grit, Clean lows, warm grit, Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows, Pick edge |
 | Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Raw garage grit, Singing lead, Parallel chainsaw |
@@ -154,7 +154,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop, Stereo auto-pan; Seasick warble, Delayed lead vibrato, Vintage amp vibrato, Slow tape drift; Vibrato mode swirl, Fast chorus churn; Slow chorale, Fast tremolo, Overdriven cabinet, Drum rotor only |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass, Two-octave blend; Wide loose double, Tight rhythm double, Thick lead double; Sixteenth-note chops, Eighth-note gate, Triplet chop; Broken small sampler, 12-bit sampler |
 | Pitch Shift | Fifth underneath, Shifted fifth only, Octave above, Octave below, Subtle detuned blend |
-| Ring Modulator | Square chopper, Robot growl, Metallic bells |
+| Ring Modulator | Square chopper, Robot growl, Metallic bells, Sci-fi sweep, Synced warble |
 | Frequency Shifter | Barberpole sweep, Spiraling echoes |
 | Granulator | Grain cloud, Ambient haze, Octave shimmer, Low drone tunnel, Phrase mosaic, Reverse swells, Rhythmic blocks, Glitch interrupt, Fifths arpeggio, Dark frozen bed, Pick triplet, Frozen chord keys, Close double, Reverse pickup, Half-time staircase, Broken sixteenths |
 | LoFi Tape Machine | Subtle drift, Worn cassette, Damaged tape (the [guide's starting points](modules/lofi-tape.md#starting-points); the last two include tape hiss) |

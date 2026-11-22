@@ -101,6 +101,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "SpringTankTests.h"
 #include "TrailsTests.h"
 #include "DSPBehaviorTests.h"
+#include "ModuleUpgradeTests.h"
 
 int main(int argc, char** argv)
 try
@@ -181,6 +182,9 @@ try
     {"spring-tank", TestSpringTank},
     {"trails", TestTrails},
     {"clicks", TestClicks},
+    {"console-eq-calibration", TestConsoleEQCalibration},
+    {"envelope-filter-controls", TestEnvelopeFilterControls},
+    {"ring-carrier-lfo", TestRingCarrierLfo},
   };
   if (argc == 2 && std::string(argv[1]) == "--list")
   {
@@ -366,6 +370,9 @@ try
   run("spring-tank", TestSpringTank);
   run("trails", TestTrails);
   run("clicks", TestClicks);
+  run("console-eq-calibration", TestConsoleEQCalibration);
+  run("envelope-filter-controls", TestEnvelopeFilterControls);
+  run("ring-carrier-lfo", TestRingCarrierLfo);
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

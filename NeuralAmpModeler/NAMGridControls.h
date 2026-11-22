@@ -2857,11 +2857,12 @@ private:
       const auto resonance = [&](int channel) {
         return mMeter.filterQ[channel] > 0.f ? double(mMeter.filterQ[channel]) : value(uFilterResonance);
       };
-      const std::array<double, 23> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
+      const std::array<double, 25> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
                                      eqValue(3), eqValue(4), eqValue(5), value(uFrequency), value(uGain), value(uQ), value(uEQMode),
                                      filter ? cutoff(0) : 0., filter ? resonance(0) : 0.,
                                      filter ? cutoff(1) : 0., filter ? resonance(1) : 0., filter ? value(uFilterMode) : 0.,
-      value(uParamLowQ), value(uParamHighQ), value(uParamShelfGain), value(uParamLowMode), value(uToneMidFrequency), value(uEQOutput)};
+      value(uParamLowQ), value(uParamHighQ), value(uParamShelfGain), value(uParamLowMode), value(uToneMidFrequency), value(uEQOutput),
+      filter ? value(uFilterOutput) : 0., filter ? value(uFilterMix) : 100.};
       if (key != mEQKey)
       {
         mEQKey = key;
@@ -2873,6 +2874,7 @@ private:
         utility.paramLowQ = key[17]; utility.paramHighQ = key[18];
         utility.paramShelfGain = key[19]; utility.paramLowMode = static_cast<int>(key[20]);
         eq.midFrequency = key[21]; utility.extra.eqOutput = key[22];
+        utility.extra.filterOutput = key[23]; utility.extra.filterMix = key[24];
         const grid_eq_response::Response response(rate, effect, eq, utility);
         utility.cutoff = key[14]; utility.resonance = key[15];
         const grid_eq_response::Response rightResponse(rate, effect, eq, utility);
@@ -2892,7 +2894,8 @@ private:
       else caption.Set("EQ response");
       PlotTitle(g,plot,color,caption.Get());
       WDL_String detail;
-      if (filter) detail.Set("Shaded: envelope range, full at -12 dBFS");
+      const double sweep = (value(uFilterDown) >= .5 ? -1. : 1.) * value(uFilterEnvelope);
+      if (filter) detail.SetFormatted(80, "Shaded: envelope range, full at %.0f dBFS peaks", -12. - value(uFilterSensitivity));
       else if (effect == SlotEffect::ParametricEQ && value(uEQMode) < .5)
         detail.SetFormatted(80, "Bell width %.2f oct | end-band Q applied",
           2. / std::log(2.) * std::asinh(1. / (2. * std::clamp(value(uQ), .1, 20.))));
@@ -2944,14 +2947,14 @@ private:
       curve(1, color, 1.5f);
       if(filter)
       {
-        // Cutoff x 2^(Envelope x min(1, 4 x input peak)): the full shift needs
-        // -12 dBFS peaks, so quieter playing uses only part of this range.
+        // Cutoff x 2^(+/-Envelope x min(1, 4 x Sensitivity x input peak)): at 0 dB the full
+        // shift needs -12 dBFS peaks, so quieter playing uses only part of this range.
         const double rest=std::clamp(value(uFilterCutoff),20.,std::min(upper,.4*rate));
-        const double full=std::clamp(value(uFilterCutoff)*std::exp2(value(uFilterEnvelope)),20.,std::min(upper,.4*rate));
-        g.FillRect(ampColor.WithOpacity(.08f),IRECT(frequencyX(rest),plot.T,frequencyX(full),plot.B));
+        const double full=std::clamp(value(uFilterCutoff)*std::exp2(sweep),20.,std::min(upper,.4*rate));
+        g.FillRect(ampColor.WithOpacity(.08f),IRECT(frequencyX(std::min(rest,full)),plot.T,frequencyX(std::max(rest,full)),plot.B));
       }
       if(filter)
-        for(double hz : {value(uFilterCutoff),value(uFilterCutoff)*std::exp2(value(uFilterEnvelope))})
+        for(double hz : {value(uFilterCutoff),value(uFilterCutoff)*std::exp2(sweep)})
         {
           hz=std::clamp(hz,20.,std::min(upper,.4*rate));
           const float x=plot.L+plot.W()*static_cast<float>(std::log(hz/20.)/span);
@@ -3725,7 +3728,7 @@ private:
   std::array<float, 96> mResponse{};
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
   std::array<double, 9> mResponseKey{-1.};
-  std::array<double, 23> mEQKey{};
+  std::array<double, 25> mEQKey{};
   std::array<std::array<float, 3>, 386> mEQCurve{};
   std::array<float, signal_monitor::spectrumPoints> mSpectrum{};
   double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.

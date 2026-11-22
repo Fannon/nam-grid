@@ -118,6 +118,10 @@ static_assert(SlotUtilityParam(15, uGranulatorFreeze) == 6208);
 static_assert(kEffectParameters[uGranulatorMode].introducedIn == 33
               && kEffectParameters[uGranulatorFreeze].introducedIn == 33);
 static_assert(IsAlgorithmMode(uGranulatorMode) && !IsAlgorithmMode(uGranulatorFreeze));
+// Filter envelope controls and Ring LFO (schema 34) append seven slot controls after every previous ID.
+static_assert(SlotUtilityParam(0, uFilterSensitivity) == 6209);
+static_assert(SlotUtilityParam(15, uRingSweep) == 6320);
+static_assert(kEffectParameters[uFilterSensitivity].introducedIn == 34 && kEffectParameters[uRingSweep].introducedIn == 34);
 
 int main(int argc, char** argv)
 {
@@ -438,6 +442,24 @@ int main(int argc, char** argv)
         for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
         if (p == uGranulatorActivity) changed[key] = 80.;
         if (p == uGranulatorMode) changed[key] = static_cast<int>(effect_modes::GranulatorMode::PickBurst);
+      }
+    assert(load(changed));
+    assert(load(legacy));
+    assert(save() == base);
+  }
+  // Schema 33 predates the filter envelope controls and Ring LFO: they restore the
+  // defaults that keep the released Filter and Ring Modulator sound.
+  {
+    auto legacy = base;
+    legacy["schema"] = 33;
+    auto changed = base;
+    for (int slot = 0; slot < 16; ++slot)
+      for (int p = uFilterSensitivity; p <= uRingSweep; ++p)
+      {
+        const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
+        legacy.erase(key);
+        for (auto& scene : legacy["PerformanceScenes"]) scene.erase(key);
+        changed[key] = kEffectParameters[p].maximum;
       }
     assert(load(changed));
     assert(load(legacy));

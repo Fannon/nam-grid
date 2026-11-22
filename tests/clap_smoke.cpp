@@ -42,8 +42,8 @@ constexpr int kTunerX = (grid_layout::tunerLeft + grid_layout::tunerRight) / 2;
 constexpr int kSettingsX = (grid_layout::settingsLeft + grid_layout::settingsRight) / 2;
 // Settings, Modulation and the library browser close at the top right.
 constexpr int kCloseX = grid_layout::pageCloseX;
-// The grid card's bypass circle, and the routing view's M/S buttons right of each lane's centred node.
-constexpr int kToggleX = grid_layout::cardLeft + grid_layout::cardWidth - 12;
+// The grid card's slot ID, which is its bypass switch, and the routing view's M/S buttons right of each lane's centred node.
+constexpr int kToggleX = grid_layout::cardLeft + 20;
 constexpr int kRoutingCenterX = (grid_layout::visualizationLeft + grid_layout::visualizationRight) / 2;
 constexpr int kLaneMuteX = kRoutingCenterX + 75, kLaneSoloX = kRoutingCenterX + 98;
 // Delete is the first footer action under the rig preset browser's details panel.
@@ -1317,7 +1317,7 @@ int main(int argc, char** argv)
   const auto toggleHeader = [&] {
     double before = 0., after = 0.;
     assert(params->get_value(plugin, SlotActiveParam(0), &before));
-    for (int x = 72; x < 280; x += 6)
+    for (int x = 10; x < 280; x += 6)
     {
       SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, grid_layout::enabledY));
       SendMessage(editor, WM_LBUTTONUP, 0, MAKELPARAM(x, grid_layout::enabledY));
@@ -2028,7 +2028,7 @@ int main(int argc, char** argv)
     for (const auto& group : nam_library::kModuleGroups)
       for (const auto effect : group.effects)
       {
-        const std::string name = SlotEffectName(effect);
+        const std::string name = SlotEffectDisplayName(effect); // The menu shows display names.
         const std::wstring wideName(name.begin(), name.end());
         win_edit_menu::SelectNamedItem(editor, 220, grid_layout::moduleButtonY, wideName.c_str()); pumpFor(30);
         const auto inserted = save().config();
@@ -2865,7 +2865,7 @@ int main(int argc, char** argv)
     assert(raised["Pre 1 Multiband Threshold"].get<double>() > before["Pre 1 Multiband Threshold"].get<double>());
     assert(raised["Pre 1 Multiband Low Split"] == moved["Pre 1 Multiband Low Split"]);
   }
-  // The larger top-right grid toggle changes bypass without replacing the module.
+  // The grid card's slot ID changes bypass without replacing the module.
   {
     const auto before = save().config();
     click(kToggleX, grid_layout::cardTop + 12);
@@ -3069,7 +3069,7 @@ int main(int argc, char** argv)
   dragAt(grid_layout::KnobX(2), grid_layout::KnobGestureY(2)); // Selected IN2 compressor makeup.
   assert(save().config()["Pre 2 Comp Makeup"] != effectUI["Pre 2 Comp Makeup"]);
   assert(save().config()["Pre 2 NAM Output"] == effectUI["Pre 2 NAM Output"]);
-  // Card dot bypass and editor-header circle must share the same automated parameter.
+  // The card's and the editor header's slot-ID switches must share the same automated parameter.
   click(kToggleX + grid_layout::columnPitch, grid_layout::cardTop + 16);
   assert(save().config()["Pre 2 Enabled"] == 0.);
   click(kToggleX + grid_layout::columnPitch, grid_layout::cardTop + 16);

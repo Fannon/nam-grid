@@ -59,6 +59,7 @@ struct Voicing
   double spread = .6;                        // Random pan width.
   double diffusion = 0.;                     // Allpass wash on the grain sum.
   double lowCut = 20., highCut = 20000.;
+  double spaceRepeats = 0.;                  // Share of the Space plate that Repeats records.
 };
 inline Voicing Voice(int mode)
 {
@@ -72,9 +73,11 @@ inline Voicing Voice(int mode)
       v.drift = 14.; v.reverse = .1; v.harmony = .15; v.intervals = {12., -12.}; v.intervalCount = 2;
       v.spread = .9; v.diffusion = .6; v.lowCut = 60.; v.highCut = 9000.; break;
     case Mode::Shimmer:
-      v.minOverlap = 1.; v.maxOverlap = 20.; v.sizeScale = 1.2; v.scatter = .12; v.sizeRandom = .3; v.drift = 3.;
-      v.harmony = .55; v.intervals = {12., 12., 24.}; v.intervalCount = 3;
-      v.spread = .8; v.diffusion = .35; v.lowCut = 150.; break;
+      // Octave grains only: Repeats records the plate as well, so each pass through
+      // the buffer shifts the tail up again and the layers climb through the space.
+      v.minOverlap = 2.; v.maxOverlap = 20.; v.sizeScale = 1.6; v.scatter = .1; v.sizeRandom = .25; v.drift = 4.;
+      v.harmony = .6; v.intervals = {12.}; v.intervalCount = 1;
+      v.spread = .85; v.diffusion = .45; v.lowCut = 150.; v.highCut = 8000.; v.spaceRepeats = 1.; break;
     case Mode::Tunnel:
       v.minOverlap = 2.; v.maxOverlap = 20.; v.sizeScale = 2.; v.scatter = .2; v.sizeRandom = .3; v.drift = 6.;
       v.harmony = .7; v.intervals = {-12.}; v.intervalCount = 1;
@@ -378,7 +381,7 @@ public:
     const double r = std::clamp(s.space, 0., 1.);
     mSpace = r;
     mReverb.Configure(1., .8 + 7.2 * r * r, 6500. + 3000. * f, .5);
-    if (mFirst) { mDiffusion = mVoicing.diffusion; mSpaceMix = r; mFirst = false; }
+    if (mFirst) { mDiffusion = mVoicing.diffusion; mSpaceMix = r; mSpaceRepeats = mVoicing.spaceRepeats; mFirst = false; }
   }
   // One stereo frame. `stereo` false reads and writes the left buffer only (mono in, mono out).
   Stereo Tick(Stereo in, bool stereo, bool frozen, double live)
@@ -477,8 +480,16 @@ public:
         x -= low;
       }
       wet[ch] = x;
+    }
+    // The plate always runs, so its tail rings out when Space is turned down.
+    const auto tail = mReverb.Tick({.35 * wet[0], .35 * wet[1]});
+    const double r = mSpaceMix = mSpace + mMixCoefficient * (mSpaceMix - mSpace);
+    const Stereo out{wet[0] * (1. - .3 * r) + 1.6 * r * tail[0], wet[1] * (1. - .3 * r) + 1.6 * r * tail[1]};
+    mSpaceRepeats = mVoicing.spaceRepeats + mMixCoefficient * (mSpaceRepeats - mVoicing.spaceRepeats);
+    for (int ch = 0; ch < 2; ++ch)
+    {
       // Repeats path: two more one-pole high-passes (20-120 Hz with Repeats).
-      double y = x;
+      double y = wet[ch] + mSpaceRepeats * (out[ch] - wet[ch]);
       for (int stage = 0; stage < 2; ++stage)
       {
         const double z = mFeedbackCoefficient * (mFeedbackHP[ch][stage][0] + y - mFeedbackHP[ch][stage][1]);
@@ -486,10 +497,7 @@ public:
       }
       mFeedback[ch] = y;
     }
-    // The plate always runs, so its tail rings out when Space is turned down.
-    const auto tail = mReverb.Tick({.35 * wet[0], .35 * wet[1]});
-    const double r = mSpaceMix = mSpace + mMixCoefficient * (mSpaceMix - mSpace);
-    return {wet[0] * (1. - .3 * r) + 1.6 * r * tail[0], wet[1] * (1. - .3 * r) + 1.6 * r * tail[1]};
+    return out;
   }
   int Active() const { return mActive; }
 
@@ -574,7 +582,7 @@ private:
   std::array<std::array<std::array<double, 2>, 2>, 2> mFeedbackHP{};
   std::array<std::array<double, 2>, 2> mLowPass{}, mHighPass{};
   double mRate = 48000., mGainCoefficient = 0., mMixCoefficient = 0., mFeedbackGain = 0., mFeedbackCoefficient = 1.;
-  double mOverlap = 0., mDecorrelation = 0., mPeak = .5, mSpace = 0., mSpaceMix = 0., mDiffusion = 0.;
+  double mOverlap = 0., mDecorrelation = 0., mPeak = .5, mSpace = 0., mSpaceMix = 0., mDiffusion = 0., mSpaceRepeats = 0.;
   double mHintFrames = 0., mClockIncrement = 0.;
   double mLowPassHz = 20000., mHighPassHz = 20., mLowPassG = 0., mHighPassG = 0.;
   int mFrames = 1, mWrite = 0, mActive = 0, mStep = 0;

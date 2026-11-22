@@ -123,6 +123,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   family(uDualRatio, t.dual);
   family(uJunoMode, t.juno);
   family(uShimmerMix, t.shimmer);
+  u(uShimmerBloom, t.shimmerBloom);
   family(uShiftFrequency, t.shift);
   family(uDistStyle, t.distortion);
   u(uDistLowPreserve, t.distortionLowPreserve);

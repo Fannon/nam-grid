@@ -238,7 +238,7 @@ inline std::string SlotModuleName(const PLUG_CLASS_NAME& plug, int slot)
   const auto path = plug.GetSlotPath(slot);
   const auto effect = plug.GetSlotEffect(slot);
   if (!path.empty()) return nam_library::PathText(std::filesystem::u8path(path).stem());
-  return effect == SlotEffect::NAM ? "Empty" : SlotEffectName(effect);
+  return effect == SlotEffect::NAM ? "Empty" : SlotEffectDisplayName(effect);
 }
 // The module's own knob labels, as the slot editor shows them now.
 inline std::vector<grid_modulation::Destination> SlotDestinations(const PLUG_CLASS_NAME& plug, int slot)

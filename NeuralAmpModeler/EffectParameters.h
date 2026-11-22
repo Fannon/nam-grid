@@ -378,6 +378,7 @@ enum UtilityParam
   uGranulatorSpace = 361,
   uGranulatorMix = 362,
   uGranulatorFreeze = 363,
+  uShimmerBloom = 364,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -394,7 +395,7 @@ inline constexpr const char* kPitchDelayMode[]{"Forward", "Reverse", "Stereo Oct
 inline constexpr const char* kFeedbackFX[]{"Sweep", "Phaser", "Tremolo", "Ring"};
 inline constexpr const char* kPatternFeedback[]{"Repeat", "Swell", "Matrix", "Drum"};
 inline constexpr const char* kDigitalDelayVoice[]{"Clean", "Rack", "Lo-fi"};
-inline constexpr const char* kGrainDelayMode[]{"Scatter", "Reverse", "Glitch"};
+inline constexpr const char* kGrainDelayMode[]{"Scatter", "Reverse", "Glitch", "Shimmer"};
 inline constexpr std::span<const char* const> EffectChoices(int control)
 {
   switch (control)
@@ -483,7 +484,7 @@ inline constexpr AlgorithmIdentity pitchDelayMode[]{{0, "forward"}, {1, "reverse
 inline constexpr AlgorithmIdentity feedbackFX[]{{0, "sweep"}, {1, "phaser"}, {2, "tremolo"}, {3, "ring"}};
 inline constexpr AlgorithmIdentity patternFeedback[]{{0, "repeat"}, {1, "swell"}, {2, "matrix"}, {3, "drum"}};
 inline constexpr AlgorithmIdentity digitalDelayVoice[]{{0, "clean"}, {1, "rack"}, {2, "lo-fi"}};
-inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}};
+inline constexpr AlgorithmIdentity grainDelayMode[]{{0, "scatter"}, {1, "reverse"}, {2, "glitch"}, {3, "shimmer"}};
 inline constexpr AlgorithmIdentity granulator[]{
   {0, "cloud"}, {1, "haze"}, {2, "shimmer"}, {3, "tunnel"}, {4, "mosaic"}, {5, "reverse"}, {6, "blocks"}, {7, "interrupt"}, {8, "arp"},
   {9, "pick-burst"}};
@@ -537,7 +538,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 33; // 33 Granulator; 32 additional delays, Digital Delay voice and modulation; 31 Pedal Distortion; 30 Noise Gate (AI).
+inline constexpr int kEffectStateSchema = 34; // 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
 
 struct EffectParameter
 {
@@ -883,7 +884,7 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Pitch Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
    {"Delay Feedback FX", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
    {"Pattern Delay Mode", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
-   {"Granular Delay Mode", "Mode", 0, 0, 2, 1, "", 0, false, 1., 32},
+   {"Granular Delay Mode", "Mode", 0, 0, 3, 1, "", 0, false, 1., 32},
    {"Delay Spring", "Spring", 20, 0, 100, 0.1, "%", 5, false, 1., 32},
    {"Delay Rate", "Rate", 0.8, 0.05, 20, 0.01, "Hz", 3, true, 1., 32},
    {"Delay Depth", "Depth", 30, 0, 100, 0.1, "%", 5, false, 1., 32},
@@ -920,7 +921,8 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Granulator Repeats", "Repeats", 20, 0, 100, .1, "%", 5, false, 1., 33},
    {"Granulator Space", "Space", 30, 0, 100, .1, "%", 6, false, 1., 33},
    {"Granulator Mix", "Mix", 40, 0, 100, .1, "%", 7, false, 1., 33},
-   {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33}}};
+   {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33},
+   {"Shimmer Bloom", "Bloom", 0, 0, 100, .1, "%", 7, false, 1., 34}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -1093,6 +1095,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uReverseFeedback: return e == SlotEffect::ReverseDelay;
       case uReverbDuck: return e == SlotEffect::PlateReverb || e == SlotEffect::CloudReverb || e == SlotEffect::HallReverb;
       case uSpringPredelay: return e == SlotEffect::SpringReverb;
+      case uShimmerBloom: return e == SlotEffect::ShimmerReverb;
       case uFreezeAttack: return e == SlotEffect::Freeze;
       case uFreezeRelease: return e == SlotEffect::Freeze;
       case uStutterHold: return e == SlotEffect::Stutter;
@@ -1254,6 +1257,7 @@ struct UtilityControls
   std::array<double, 2> dual{1.5, 50.};
   std::array<double, 3> juno{1., 50., 100.};
   std::array<double, 7> shimmer{35., 3.5, 5000., 12., 35., 25., 0.};
+  double shimmerBloom = 0.;
   std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
   double distortionLowPreserve = 0.;

@@ -198,12 +198,12 @@ inline constexpr int granulatorCount = static_cast<int>(GranulatorMode::Count);
 inline constexpr std::array<const char*, granulatorCount> granulatorNames{
   "Cloud", "Haze", "Shimmer", "Tunnel", "Mosaic", "Reverse", "Blocks", "Interrupt", "Arp", "Pick Burst"};
 inline constexpr std::array<const char*, granulatorCount> granulatorSummary{
-  "Classic random grain cloud", "Dense, drifting wash", "Octave-up halo", "Octave-down drone", "Half, normal and double speed",
+  "Classic random grain cloud", "Dense, drifting wash", "Octaves climbing through Space", "Octave-down drone", "Half, normal and double speed",
   "Backward swells", "Rhythmic repeats", "Glitching jumps", "Fifths and octaves sequence", "Three grains per pick"};
 inline constexpr std::array<const char*, granulatorCount> granulatorHelp{
   "Cloud: grains at random times from where Position points, lightly scattered and detuned, in the style of Mutable Instruments Clouds. Raise Density until they join into a cloud.",
   "Haze: many long, drifting grains from all over the buffer, with occasional octaves, diffused into a wash. Try high Density and Space for ambient pads.",
-  "Shimmer: grains one and two octaves up over the unpitched ones, smooth and wide. Shape near 100% swells each grain in; Repeats builds the halo.",
+  "Shimmer: long grains an octave up over the unpitched ones. Repeats records the Space plate too, so every pass climbs another octave through the reverb. Raise Repeats and Space for a rising wash.",
   "Tunnel: long grains an octave down blended with the original pitch, dark and diffused, for a drone under your playing.",
   "Mosaic: fragments at half, normal and double speed, some reversed, layered into a shifting pattern of your phrase.",
   "Reverse: every grain plays backwards, so notes swell in. Long Size and some Repeats give reverse-delay washes.",

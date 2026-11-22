@@ -34,6 +34,8 @@ public:
     return value;
   }
   void Push(double value) { mLine.Push(value); }
+  // An extra read-only output tap; it leaves the crossfaded read position alone.
+  double Tap(double samples) const { return mLine.Read(samples); }
   bool Clipped() const { return mClipped; }
 private:
   grid_fx::DelayLine mLine;
@@ -57,6 +59,8 @@ public:
     mDelay.Push(input + gain * out); return out;
   }
   bool Clipped() const { return mDelay.Clipped(); }
+  // Output tap inside the allpass delay, as in Dattorro's plate.
+  double Tap(double samples) const { return mDelay.Tap(samples); }
 private:
   MovingDelay mDelay;
 };

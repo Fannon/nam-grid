@@ -226,12 +226,34 @@ void TestExpandedDelays()
     Audio phrase{std::vector<double>(longCount), std::vector<double>(longCount)};
     for (int i = 0; i < static_cast<int>(rate * .5); ++i)
       phrase[0][i] = phrase[1][i] = .3 * std::sin(2. * grid_fx::pi * 330. * i / rate);
-    for (const int mode : {1, 2})
+    for (const int mode : {1, 2, 3})
     {
       Option(grains, uGrainDelayMode, mode);
       const auto a = Render(E::GranularDelay, grains, rate, 61, phrase), b = Render(E::GranularDelay, grains, rate, 512, phrase);
       assert(a == b && Peak(a[0], rate, 3., 6.) > .001);
       for (const auto& channel : a) for (const double sample : channel) assert(std::isfinite(sample) && std::abs(sample) < 1.2);
+    }
+    // Granular Delay Shimmer: every repeat carries an octave layer that is shifted
+    // again on each pass, so a 220 Hz note climbs to 880 Hz within a few repeats.
+    // Scatter at Interval 0 keeps the note's pitch.
+    {
+      UtilityControls shimmer;
+      shimmer.delay = {420., 60., 7000., 0., 100.};
+      Option(shimmer, uEchoInterval, 0.); // The shared parameter starts at Pitch Delay's +12.
+      // Scattered starts smear the phase that a narrow-band probe relies on.
+      Option(shimmer, uGrainScatter, 0.);
+      const int count = static_cast<int>(rate * 3.);
+      Audio note{std::vector<double>(count), std::vector<double>(count)};
+      for (int i = 0; i < static_cast<int>(rate * .4); ++i)
+        note[0][i] = note[1][i] = .25 * std::sin(2. * grid_fx::pi * 220. * i / rate);
+      // Band levels of the first two repeats (0.4-1.3 s) relative to the note's pitch.
+      const auto climb = [&](int mode, double hz) {
+        Option(shimmer, uGrainDelayMode, mode);
+        const auto out = Render(E::GranularDelay, shimmer, rate, 128, note);
+        return Band(out[0], rate, .4, 1.3, hz) / Band(out[0], rate, .4, 1.3, 220.);
+      };
+      assert(climb(3, 440.) > .4 && climb(3, 880.) > .1);
+      assert(climb(0, 440.) < .05 && climb(0, 880.) < .05);
     }
     // Space Tape Echo: at 82% Feedback the repeats sustain (self-oscillation) yet stay
     // bounded by the tape; at 60% they still die away.

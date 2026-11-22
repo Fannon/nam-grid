@@ -738,25 +738,52 @@ private:
   Icon mIcon;
 };
 
-// The same parameter and circle language as the grid card, outside the dial grid.
+// A slot ID that doubles as its enable switch: filled in the module's hue while the
+// module runs, outlined and dimmed while it is bypassed. The grid card and the module
+// header share it, so the ID itself is the one bypass control.
+inline void DrawSlotIdSwitch(IGraphics& g, const IRECT& pill, const char* id, float size, IColor color,
+                             bool enabled, bool hover, bool selected = false)
+{
+  const float radius = .5f * pill.H();
+  if (enabled)
+  {
+    g.FillRoundRect(color.WithOpacity(hover ? .3f : selected ? .24f : .18f), pill, radius);
+    g.DrawRoundRect(color.WithOpacity(hover ? 1.f : .75f), pill, radius, nullptr, 1.2f);
+  }
+  else
+  {
+    if (hover) g.FillRoundRect(color.WithOpacity(.08f), pill, radius);
+    g.DrawRoundRect(hover ? muted : border, pill, radius, nullptr, 1.2f);
+  }
+  const auto ink = enabled ? (selected || hover ? Brighten(color, .3f) : color) : hover ? muted : IColor::LinearInterpolateBetween(border, muted, .5f);
+  g.DrawText(Text(size, ink, EAlign::Center), id, pill);
+}
+// Width of the switch around an ID drawn at `size`.
+inline float SlotIdSwitchWidth(IGraphics& g, const char* id, float size)
+{
+  IRECT text; g.MeasureText(Text(size), id, text);
+  return text.W() + .9f * size;
+}
+
+// The module header's enable switch: the slot ID, as on the grid card.
 class EnableButton : public IVToggleControl
 {
 public:
   EnableButton(const IRECT& bounds, int parameter)
   : IVToggleControl(bounds, parameter, "Enabled", Style(), "OFF", "ON")
   {
-    SetTooltip("Enable or bypass this module. Matches the grid-node circle; automatable by your DAW.");
+    SetTooltip("Click the slot ID to enable or bypass this module, as on its grid card; automatable by your DAW.");
   }
   bool IsHit(float x, float y) const override { return mRECT.Contains(x, y); }
   void Draw(IGraphics& g) override
   {
     const int slot = SlotControlOwner(GetParamIdx());
     const auto color = Tone(PLUG()->GetSlotEffect(slot), PLUG()->GetSlotGear(slot)).first;
-    const bool enabled = GetValue() >= .5;
-    if (mMouseIsOver) g.FillCircle(color.WithOpacity(.12f), mRECT.MW(), mRECT.MH(), 11.f);
-    g.DrawCircle(enabled ? color.WithOpacity(.7f) : border, mRECT.MW(), mRECT.MH(), 7.f, nullptr, 1.2f);
-    if (enabled) g.FillCircle(color, mRECT.MW(), mRECT.MH(), 4.5f);
+    auto id = GridSlotName(static_cast<size_t>(slot));
+    id.erase(std::remove(id.begin(), id.end(), ' '), id.end());
+    DrawSlotIdSwitch(g, mRECT.GetVPadded(-1.f), id.c_str(), kHeaderIdSize, color, GetValue() >= .5, mMouseIsOver);
   }
+  static constexpr float kHeaderIdSize = 18.f;
 };
 
 inline void DisableTunerFromUI(IGraphics* ui)
@@ -1442,16 +1469,50 @@ inline void DrawSignalMonitorView(IGraphics& g, const IRECT& plot, IColor color,
     }
     const float zero=MeterY(history,1.),columnWidth=history.W()/History::columns;
     g.DrawLine(muted.WithOpacity(.5f),history.L,zero,history.R,zero);
-    const size_t shown=std::min(History::columns,mMonitorHistory.count+1);
-    float previousY=0.f;
+    const size_t partial = mMonitorHistory.frames > 0. ? 1 : 0;
+    const size_t shown = std::min(History::columns, mMonitorHistory.count + partial);
+    const auto columnAt = [&](size_t age) {
+      return age < partial ? mMonitorHistory.Current() : mMonitorHistory.Ago(age - partial);
+    };
+    // Fill the stepped envelope once. Separate translucent bars leave seams at fractional zoom.
+    g.PathClear();
+    g.PathMoveTo(history.R, history.B);
+    for (size_t age = 0; age < shown; ++age)
+    {
+      const float x = history.R - columnWidth * age;
+      const float y = std::max(zero, MeterY(history, columnAt(age).rms));
+      g.PathLineTo(x, y);
+      g.PathLineTo(x - columnWidth, y);
+    }
+    g.PathLineTo(history.R - shown * columnWidth, history.B);
+    g.PathClose();
+    g.PathFill(IPattern(color.WithOpacity(.35f)));
+    g.PathClear();
+    float previousY = history.B;
+    bool clipped = false;
     for (size_t age=0;age<shown;++age)
     {
-      const auto column=age?mMonitorHistory.Ago(age-1):mMonitorHistory.Current();
-      const float x1=history.R-columnWidth*age,x0=x1-columnWidth;
-      if (column.rms>0.f) g.FillRect(color.WithOpacity(.35f),IRECT(x0,std::max(zero,MeterY(history,column.rms)),x1,history.B));
+      const auto column=columnAt(age);
+      const float x=history.R-columnWidth*(age+.5f);
       const float y=column.peak>0.f?MeterY(history,column.peak):history.B;
-      if (age) g.DrawLine(column.peak>=1.f?COLOR_RED:color,x0+.5f*columnWidth,y,x1+.5f*columnWidth,previousY,nullptr,1.2f);
+      if (!age) g.PathMoveTo(x,y);
+      else
+      {
+        if ((column.peak>=1.f) != clipped)
+        {
+          g.PathStroke(IPattern(clipped?COLOR_RED:color),1.2f);
+          g.PathMoveTo(x+columnWidth,previousY);
+        }
+        g.PathLineTo(x,y);
+      }
+      clipped=column.peak>=1.f;
       previousY=y;
+    }
+    g.PathStroke(IPattern(clipped?COLOR_RED:color),1.2f);
+    for (size_t age=0;age<shown;++age)
+    {
+      const auto column=columnAt(age);
+      const float x1=history.R-columnWidth*age,x0=x1-columnWidth;
       if (column.peak>=1.f) g.FillRect(COLOR_RED,IRECT(x0-.5f,history.T-6.f,x1+.5f,history.T-1.f));
       if (column.resumed) g.DrawLine(muted.WithOpacity(.5f),x0,history.T,x0,history.B);
     }
@@ -1647,33 +1708,35 @@ public:
     const auto idColor = !occupied ? muted
                          : !enabled ? IColor::LinearInterpolateBetween(border, tone.first, .15f)
                          : selected ? Brighten(tone.first, .3f) : tone.first;
-    // Header row: ID with its category badges, and bypass. It selects and drags; the name
-    // button below is the only part that opens the browser.
-    IRECT idText; g.MeasureText(Text(16.f), slotName.c_str(), idText);
-    g.DrawText(Text(16.f, idColor), slotName.c_str(),
-               IRECT(mCardBounds.L + 12, mCardBounds.T + 6, mCardBounds.L + 14 + idText.W(), mCardBounds.T + 26));
-    if (!empty)
+    // Header row: the ID, which is also the bypass switch, with its category badges. The
+    // rest of the row selects and drags; the name button below opens the browser.
+    float badgesLeft;
+    if (empty)
+    {
+      IRECT idText; g.MeasureText(Text(16.f), slotName.c_str(), idText);
+      g.DrawText(Text(16.f, idColor), slotName.c_str(),
+                 IRECT(mCardBounds.L + 12, mCardBounds.T + 6, mCardBounds.L + 14 + idText.W(), mCardBounds.T + 26));
+      badgesLeft = mCardBounds.L + 22 + idText.W();
+    }
+    else
+    {
+      const IRECT idSwitch(mCardBounds.L + 7, mCardBounds.T + 5, mCardBounds.L + 7 + SlotIdSwitchWidth(g, slotName.c_str(), 15.f), mCardBounds.T + 27);
+      DrawSlotIdSwitch(g, idSwitch, slotName.c_str(), 15.f, tone.first, enabled, mIdHover, selected);
+      badgesLeft = idSwitch.R + 7;
       CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
-                     IRECT(mCardBounds.L + 22 + idText.W(), mCardBounds.T + 7, mCardBounds.R - 28, mCardBounds.T + 25), 12.f, false,
+                     IRECT(badgesLeft, mCardBounds.T + 7, mCardBounds.R - 24, mCardBounds.T + 25), 12.f, false,
                      !path.empty() && !PLUG()->IsSlotLoaded(mSlot) ? "Missing file" : nullptr, enabled ? 1.f : .4f);
-    // One dot per source modulating this card, left of the bypass switch.
-    float dotX = mCardBounds.R - (empty ? 14.f : 30.f);
+    }
+    // One dot per source modulating this card, at the top right.
+    float dotX = mCardBounds.R - 14.f;
     for (int source = grid_performance::SourceLFO; source < grid_performance::SourceCount; ++source)
       if (ModulationSources() & (1u << source))
       {
         g.FillCircle(SourceColor(source), dotX, mCardBounds.T + 12.f, 3.f);
         dotX -= 9.f;
       }
-    if (!empty)
-    {
-      // Equal 12 px inset from the top and right, with a larger 32 px hit target.
-      const float toggleX=mCardBounds.R-12.f, toggleY=mCardBounds.T+12.f;
-      g.DrawCircle(enabled ? tone.first.WithOpacity(.7f) : border, toggleX, toggleY, 7.f, nullptr, 1.2f);
-      if (enabled) g.FillCircle(tone.first, toggleX, toggleY, 4.5f);
-      else g.DrawLine(muted.WithOpacity(.65f),toggleX-3.f,toggleY,toggleX+3.f,toggleY,nullptr,1.5f);
-    }
     const auto label = empty          ? std::string("+ Add module")
-                       : path.empty() ? std::string(SlotEffectName(effect))
+                       : path.empty() ? std::string(SlotEffectDisplayName(effect))
                                       : nam_library::PathText(std::filesystem::u8path(path).stem());
     const auto button = NameButton();
     g.FillRoundRect(mNameHover ? IColor(255, 44, 48, 55) : background.WithOpacity(.35f), button, 3.f);
@@ -1716,19 +1779,26 @@ public:
     const auto path = PLUG()->GetSlotPath(mSlot);
     const bool empty = path.empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
-    const auto idFont = Text(20.f, tone.first);
-    IRECT idText; g.MeasureText(idFont, slotName.c_str(), idText);
-    const float idRight = grid_layout::parameterLeft + idText.W();
-    if (draw) g.DrawText(idFont, slotName.c_str(), IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, idRight + 2.f, grid_layout::moduleHeaderBottom));
-    // The badges follow the ID at its own width, so long IDs such as Post4 never crowd them.
-    float nameLeft = idRight + 12.f;
-    if (!empty)
+    // An occupied slot's ID is its enable switch; the badges follow it at its own width,
+    // so long IDs such as Post4 never crowd them.
+    float nameLeft;
+    if (empty)
     {
-      const float badgesRight = CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
-        IRECT(idRight + 10.f, grid_layout::moduleHeaderTop, 260, grid_layout::moduleHeaderBottom), 13.f, false, nullptr, 1.f, draw);
-      const IRECT enabledBounds(badgesRight + 8.f, grid_layout::moduleHeaderTop, badgesRight + 36.f, grid_layout::moduleHeaderBottom);
+      const auto idFont = Text(20.f, tone.first);
+      IRECT idText; g.MeasureText(idFont, slotName.c_str(), idText);
+      const float idRight = grid_layout::parameterLeft + idText.W();
+      if (draw) g.DrawText(idFont, slotName.c_str(), IRECT(grid_layout::parameterLeft, grid_layout::moduleHeaderTop, idRight + 2.f, grid_layout::moduleHeaderBottom));
+      nameLeft = idRight + 12.f;
+    }
+    else
+    {
+      const float idLeft = grid_layout::parameterLeft - 4.f;
+      const IRECT enabledBounds(idLeft, grid_layout::moduleHeaderTop,
+                                idLeft + SlotIdSwitchWidth(g, slotName.c_str(), EnableButton::kHeaderIdSize), grid_layout::moduleHeaderBottom);
       if (mEnabled->GetRECT() != enabledBounds) mEnabled->SetTargetAndDrawRECTs(enabledBounds);
-      nameLeft = enabledBounds.R + 8.f;
+      const float badgesRight = CategoryBadges(g, effect, PLUG()->GetSlotGear(mSlot),
+        IRECT(enabledBounds.R + 8.f, grid_layout::moduleHeaderTop, 260, grid_layout::moduleHeaderBottom), 13.f, false, nullptr, 1.f, draw);
+      nameLeft = badgesRight + 12.f;
     }
     // Built-in modules show their preset menu between the name and the browse button.
     // Its caption names the factory or user preset the controls still match.
@@ -1791,6 +1861,16 @@ public:
     mPlotHelp->End(g);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
+  // The occupied card's ID switch, from the current slot rather than the last Draw, so a
+  // click right after a rig or module change (before the next paint) still reaches it.
+  IRECT IdSwitch()
+  {
+    auto* ui = GetUI();
+    if (!ui || !Occupied(mSlot)) return IRECT();
+    auto id = GridSlotName(mSlot);
+    id.erase(std::remove(id.begin(), id.end(), ' '), id.end());
+    return IRECT(mCardBounds.L + 7, mCardBounds.T + 5, mCardBounds.L + 7 + grid_ui::SlotIdSwitchWidth(*ui, id.c_str(), 15.f), mCardBounds.T + 27);
+  }
 
   // The header row (ID and bypass) only selects. The name and badges below open the
   // browser on release, unless the press became a drag to another tile.
@@ -1800,7 +1880,7 @@ public:
     mPressX = x; mPressY = y; mDragging = mPressBrowse = mPressDrag = false;
     if (mod.R)
       ShowEditMenu();
-    else if (Occupied(mSlot) && x > mCardBounds.R - 32 && y < mCardBounds.T + 32)
+    else if (IdSwitch().GetPadded(3.f).Contains(x, y))
     {
       auto* param = GetDelegate()->GetParam(SlotActiveParam(mSlot));
       const double value = param->Bool() ? 0. : 1.;
@@ -1820,11 +1900,13 @@ public:
   {
     const bool hover = NameButton().Contains(x, y);
     if (hover != mNameHover) { mNameHover = hover; SetDirty(false); }
+    const bool idHover = IdSwitch().GetPadded(3.f).Contains(x, y);
+    if (idHover != mIdHover) { mIdHover = idHover; SetDirty(false); }
     IControl::OnMouseOver(x, y, mod);
   }
   void OnMouseOut() override
   {
-    if (mNameHover) { mNameHover = false; SetDirty(false); }
+    if (mNameHover || mIdHover) { mNameHover = mIdHover = false; SetDirty(false); }
     IControl::OnMouseOut();
   }
   void OnMouseDrag(float x, float y, float, float, const IMouseMod& mod) override
@@ -1995,7 +2077,7 @@ public:
     mEditor->AddChildControl(mPatternTapHandles);
     mPatternTapHandles->Hide(true);
     SetTooltip("Click the ID row to select; click the name button to browse. Drag onto another tile to swap; "
-               "Shift-drag replaces, Alt-drag duplicates. Right-click for Clear / Copy / Move / Swap. Top-right toggle switches bypass.");
+               "Shift-drag replaces, Alt-drag duplicates. Right-click for Clear / Copy / Move / Swap. Click the slot ID to bypass or enable.");
     Refresh();
   }
 
@@ -2240,15 +2322,11 @@ private:
     const float scale = std::max(loud.peak, quiet.peak);
     const IRECT scope(shape.L, shape.T + 18.f, shape.R, shape.B);
     g.DrawText(Text(11.f, muted), "Shape at -6 and -18 dBFS", IRECT(shape.L, shape.T, shape.R, shape.T + 14));
-    const auto at = [&](int i) { return scope.L + scope.W() * i / static_cast<float>(samples - 1); };
     const auto yAt = [&](float v) { return scope.MH() - std::clamp(v / scale, -1.f, 1.f) * scope.H() * .5f; };
     g.DrawLine(border.WithOpacity(.6f), scope.L, scope.MH(), scope.R, scope.MH());
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(muted.WithOpacity(.28f), at(i - 1), yAt(loud.input[i - 1]), at(i), yAt(loud.input[i]));
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color, at(i - 1), yAt(loud.shaped[i - 1]), at(i), yAt(loud.shaped[i]), nullptr, 2.f);
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color.WithOpacity(.45f), at(i - 1), yAt(quiet.shaped[i - 1]), at(i), yAt(quiet.shaped[i]), nullptr, 1.5f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.input[i]); }, muted.WithOpacity(.28f), 1.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.shaped[i]); }, color, 2.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(quiet.shaped[i]); }, color.WithOpacity(.45f), 1.5f);
 
     // Right: Body, High cut, the Low keep band, then Mix and Output, at small signal.
     // Body, the 5 Hz DC blocker and High cut run at the 4x oversampled rate in SlotPedalDrive;
@@ -2342,15 +2420,11 @@ private:
     const float inputScale = .25f;
     const IRECT scope(shape.L, shape.T + 18.f, shape.R, shape.B);
     g.DrawText(Text(11.f, muted), "Shape at -12 and -30 dBFS", IRECT(shape.L, shape.T, shape.R, shape.T + 14));
-    const auto at = [&](int i) { return scope.L + scope.W() * i / static_cast<float>(samples - 1); };
     const auto yAt = [&](float v, float s) { return scope.MH() - std::clamp(v / s, -1.f, 1.f) * scope.H() * .5f; };
     g.DrawLine(border.WithOpacity(.6f), scope.L, scope.MH(), scope.R, scope.MH());
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(muted.WithOpacity(.28f), at(i - 1), yAt(loud.input[i - 1], inputScale), at(i), yAt(loud.input[i], inputScale));
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color, at(i - 1), yAt(loud.shaped[i - 1], scale), at(i), yAt(loud.shaped[i], scale), nullptr, 2.f);
-    for (int i = 1; i < samples; ++i)
-      g.DrawLine(color.WithOpacity(.45f), at(i - 1), yAt(quiet.shaped[i - 1], scale), at(i), yAt(quiet.shaped[i], scale), nullptr, 1.5f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.input[i], inputScale); }, muted.WithOpacity(.28f), 1.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(loud.shaped[i], scale); }, color, 2.f);
+    PlotSamples(g, scope, samples, [&](int i) { return yAt(quiet.shaped[i], scale); }, color.WithOpacity(.45f), 1.5f);
 
     const double mix = value(uPDistMix) * .01, level = std::pow(10., value(uPDistLevel) * .05);
     const auto magnitude = [&](double f) {
@@ -3383,7 +3457,7 @@ private:
       for (int i = 0; i < 3; ++i)
         mEQKnobs[i]->SetRECT(grid_ui::ControlBounds(nam ? i + 1 : i));
     }
-    const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectName(effect))
+    const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectDisplayName(effect))
                                           : nam_library::PathText(std::filesystem::u8path(path).stem());
     mModelButton->SetLabelStr(moduleLabel.c_str());
     mModelButton->SetModeStr(grid_ui::SlotModeName(*PLUG(), static_cast<int>(mSlot)).c_str());
@@ -3525,7 +3599,7 @@ private:
         {
           auto label = GridSlotName(slot) + ": ";
           const auto path = PLUG()->GetSlotPath(slot);
-          label += path.empty() ? PLUG()->IsSlotLoaded(slot) ? SlotEffectName(PLUG()->GetSlotEffect(slot)) : "Empty"
+          label += path.empty() ? PLUG()->IsSlotLoaded(slot) ? SlotEffectDisplayName(PLUG()->GetSlotEffect(slot)) : "Empty"
                                 : nam_library::PathText(std::filesystem::u8path(path).stem());
           destinations->AddItem(new IPopupMenu::Item(label.c_str(), 0, -1000 - mode * 16 - static_cast<int>(slot)));
         }
@@ -3611,7 +3685,7 @@ private:
                IRECT(mCardBounds.L, mCardBounds.T + 44, mCardBounds.R, mCardBounds.T + 62));
   }
   IRECT NameButton() const { return IRECT(mCardBounds.L + 8, mCardBounds.T + 30, mCardBounds.R - 8, mCardBounds.B - 7); }
-  bool mNameHover = false;
+  bool mNameHover = false, mIdHover = false;
   // One drag at a time per editor; the owning UI keeps other plugin instances unaffected.
   struct Drop { const IGraphics* ui = nullptr; int source = -1, target = -1; SlotEditMode mode = SlotEditMode::Swap; bool occupied = false; };
   static Drop sDrop;

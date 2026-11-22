@@ -133,9 +133,10 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         mLongGain[ch] = std::pow(.001, kLong[ch] * loss);
-        mTapGain[ch][0] = std::pow(.001, kLong[ch] * loss * .31);
-        mTapGain[ch][1] = std::pow(.001, kLong[ch] * loss * .71);
+        for (size_t t = 0; t < kOwnLong.size(); ++t) mOwnGain[ch][t] = std::pow(.001, kLong[ch] * loss * kOwnLong[t]);
+        for (size_t t = 0; t < kOtherLong.size(); ++t) mOtherGain[ch][t] = std::pow(.001, kLong[ch] * loss * kOtherLong[t]);
       }
+      for (int i = 0; i < 4; ++i) mInnerGain[i] = std::pow(.001, kTank[i] * loss * kInner[i % 2]);
     }
   }
   Stereo Tick(Stereo in)
@@ -153,8 +154,21 @@ public:
       const double wobble = mMotion * .0005 * mRate * std::sin(mPhase + ch * 1.5707963267948966);
       x = mTank[ch*2].Tick(x, mRate * kTank[ch*2] * mSize + wobble, -.7, mTankGain[ch*2]);
       x = mTank[ch*2+1].Tick(x, mRate * kTank[ch*2+1] * mSize, .5, mTankGain[ch*2+1]);
-      out[ch] = .65 * mTapGain[ch][0] * mLong[ch].Read(mRate * kLong[ch] * mSize * .31)
-                - .4 * mTapGain[1-ch][1] * mLong[1-ch].Read(mRate * kLong[1-ch] * mSize * .71) + .15 * x;
+      // Dattorro-style output: taps spread over both branches' long delays and second
+      // allpasses, so the plate is dense within a few tens of milliseconds instead of
+      // a few sparse reflections for the first 100 ms. Each tap loses the decay of the
+      // time its audio has spent in the tank.
+      const int other = 1 - ch;
+      const double samples = mRate * mSize;
+      double y = .15 * x;
+      for (size_t t = 0; t < kOwnLong.size(); ++t)
+        y += kOwnWeight[t] * mOwnGain[ch][t] * mLong[ch].Read(samples * kLong[ch] * kOwnLong[t]);
+      for (size_t t = 0; t < kOtherLong.size(); ++t)
+        y += kOtherWeight[t] * mOtherGain[other][t] * mLong[other].Read(samples * kLong[other] * kOtherLong[t]);
+      y += .5 * mInnerGain[ch * 2 + 1] * mTank[ch * 2 + 1].Tap(samples * kTank[ch * 2 + 1] * kInner[1]);
+      y -= .5 * mInnerGain[other * 2 + 1] * mTank[other * 2 + 1].Tap(samples * kTank[other * 2 + 1] * kInner[1] * .7);
+      y -= .5 * mInnerGain[other * 2] * mTank[other * 2].Tap(samples * kTank[other * 2] * kInner[0]);
+      out[ch] = kOutput * y;
       mLong[ch].Push(x);
     }
     mPhase += 2. * grid_fx::pi * .3 / mRate;
@@ -167,12 +181,20 @@ private:
   inline static constexpr std::array<double, 4> kInput{113./32000., 162./32000., 241./32000., 399./32000.};
   inline static constexpr std::array<double, 4> kTank{1653./32000., 2038./32000., 1913./32000., 1663./32000.};
   inline static constexpr Stereo kLong{3411./32000., 4782./32000.};
+  // Output taps as fractions of each delay, with their weights. The original two
+  // long-delay taps (.31 own at .65, .71 other at -.4) remain.
+  inline static constexpr std::array<double, 3> kOwnLong{.08, .31, .56}, kOwnWeight{.5, .65, -.5};
+  inline static constexpr std::array<double, 2> kOtherLong{.21, .71}, kOtherWeight{-.5, -.4};
+  inline static constexpr std::array<double, 2> kInner{.37, .62};
+  // Scales the denser output back to the wet level of the two-tap version.
+  static constexpr double kOutput = .53;
   std::array<Allpass, 4> mInput, mTank;
   std::array<grid_fx::DelayLine, 2> mLong;
   Stereo mLow{}, mFeedback{};
-  std::array<double, 4> mTankGain{}, mInputGain{};
+  std::array<double, 4> mTankGain{}, mInputGain{}, mInnerGain{};
   Stereo mLongGain{};
-  std::array<Stereo, 2> mTapGain{};
+  std::array<std::array<double, 3>, 2> mOwnGain{};
+  std::array<std::array<double, 2>, 2> mOtherGain{};
   double mRate = 48000., mSize = 1., mCoefficient = 0., mMotion = 0., mPhase = 0., mLoss = -1.;
 };
 
@@ -223,7 +245,8 @@ public:
       const double t = LongSeconds(ch, mSize) + .0012 * mMotion * std::sin(mPhase + ch * 1.5707963267948966);
       const double delayed = mLongGain[ch] * mLong[ch].Read(std::round(mRate * t)); mLong[ch].Push(wet[ch]);
       mFeedback[ch] = LowPass(delayed, mLow[ch], mCoefficient);
-      wet[ch] = .65 * mFeedback[ch] + .15 * early[ch];
+      // Output scaled so the wash sits with Plate and Hall (+5.6 dB from 0.7.x).
+      wet[ch] = kOutput * (.65 * mFeedback[ch] + .15 * early[ch]);
     }
     mPhase += 2. * grid_fx::pi * .19 / mRate;
     if (mPhase >= 2. * grid_fx::pi) mPhase -= 2. * grid_fx::pi;
@@ -236,6 +259,7 @@ public:
     return mLong[0].Clipped() || mLong[1].Clipped();
   }
 private:
+  static constexpr double kOutput = 1.9;
   std::array<StereoAllpass, 4> mEarly;
   std::array<StereoAllpass, 10> mLate;
   static constexpr double LongSeconds(int ch, double size) { return (.037 + ch * .013) * size; }

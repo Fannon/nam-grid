@@ -281,8 +281,12 @@ void DrawExpandedDelaySetup(IGraphics& g, SlotEffect effect, const IRECT& plot, 
                            picture.firstPass == 1 ? "" : "s", picture.first * 1000., picture.last * 1000.);
       else
         title.SetFormatted(90, "%s  |  No fragment of a 200 ms note within %.1f s", name, horizon);
-      footer.SetFormatted(96, "New grain every %.0f ms  |  %.0f ms long, 2 overlap  |  %+.0f st per pass",
-                          picture.hop * 1000., picture.length * 1000., interval);
+      if (mode == 3)
+        footer.SetFormatted(96, "New grain every %.0f ms  |  %.0f ms long, 2 overlap  |  %+.0f st and octave layer per pass",
+                            picture.hop * 1000., picture.length * 1000., interval);
+      else
+        footer.SetFormatted(96, "New grain every %.0f ms  |  %.0f ms long, 2 overlap  |  %+.0f st per pass",
+                            picture.hop * 1000., picture.length * 1000., interval);
       if (!marks) footer.AppendFormatted(24, "  |  0–%.1f s", horizon);
       PlotDetail(g,plot,"Grey is a 200 ms note. Cyan bumps are the fragments of it that come back, following the module's grain schedule, scatter and direction; fainter bumps are later feedback passes, which shift pitch again. Amber marks fragments a Glitch latch repeats.");
       break;

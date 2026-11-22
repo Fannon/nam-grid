@@ -112,17 +112,17 @@ staging, with normal playing peaking around -9 dBFS.
 
 | Modules | Factory starting points |
 | --- | --- |
-| Pedal Comp | Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
+| Pedal Comp | Parallel keys, Light always-on, Snappy clean picking, Long lead notes, Acoustic strumming |
 | Smooth / Punch Compressor, Butter Comp, Peak Limiter | Clean guitar leveling, Even bass notes; Tight picking, Parallel punch; Thick parallel; Louder, controlled |
 | Guitar EQ, Cut EQ, Parametric EQ | Scooped mids, Mid-forward lead, Dark jazz clean; Tight high gain, Bass cleanup, Telephone band; Low-mid mud cut, Harshness cut |
-| Multiband Dynamics | Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes restore Threshold and band splits |
-| Transient Shaper | Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
-| Graphic EQ | Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
-| Dynamic EQ | Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
+| Multiband Dynamics | Pad detail, Gentle glue, Over the top, Fast and tight, Clean sparkle; factory recipes restore Threshold and band splits |
+| Transient Shaper | Shorten the room, Defined picking, Soft acoustic, Tight palm mutes, Gentle note sustain |
+| Graphic EQ | Warm keys, Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
+| Dynamic EQ | Resonant synth tamer, Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
 | Filter, Wah, Auto Swell | Touch wah, Bass envelope; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
-| Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
-| Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows |
-| Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Singing lead, Raw garage grit |
+| Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Parallel drum grit, Clean lows, warm grit, Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
+| Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows, Pick edge |
+| Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Raw garage grit, Singing lead, Parallel chainsaw |
 | Digital Delay | Clear quarter-note lead, Slapback, Dotted eighth, Ducked lead, Quarter-note ping-pong, Quiet ducked support, Clear eighth-note rhythm, Half-note space, Modulated rack lead, Lo-fi echoes |
 | Analog Echo | Warm lead repeats, Dark modulated wash, Dark slapback, Bright dotted echoes, Warm quarter notes, Soft eighth-note pulse, Dark dotted lead, Modulated half-note bed |
 | Tape Echo | Tape slapback, Worn tape repeats, Rock lead echo, Clean dotted tape, Warm quarter-note tape, Eighth-note tape bounce, Dotted-quarter tape drift, Half-note tape haze |
@@ -135,22 +135,23 @@ staging, with normal playing peaking around -9 dBFS.
 | Pitch Delay | Octave halo, Climbing fifths, Backwards octave, Wide octaves, Descending fourths, Detuned double |
 | Feedback FX Delay | Swept dotted echoes, Slow phaser trail, Pulsing quarter notes, Metallic fragments, Tremolo slap, Low ring flutter |
 | Pattern Delay | Even stereo heads, Accelerating taps, Spreading swell, Four-line halo, Drum echo, Dotted-eighth reply |
-| Granular Delay | Scattered chords, Reverse shards, Broken repeats, Subtle grain double, Quarter-note reverse swells, Low-octave stutter |
+| Granular Delay | Scattered chords, Reverse shards, Broken repeats, Subtle grain double, Quarter-note reverse swells, Low-octave stutter, Shimmer trails, Quarter-note shimmer wash |
 | Room | Live room, Small amp room |
-| Dense Plate | Short bright plate, Singing lead plate, Warm rhythm plate |
+| Dense Plate | Long silver plate, Short bright plate, Singing lead plate, Warm rhythm plate |
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |
-| Cloud | Long ducked cloud, Light moving halo |
-| Spring Reverb | Small amp spring, Surf drip, Short bright splash |
-| Shimmer | Dark octave-down pad, Gentle octave halo, Rising fifth cloud |
+| Cloud | Percussion mist, Wide synth bed, Chord afterglow, Long ducked cloud, Light moving halo |
+| Spring Reverb | Warm tank slap, Small amp spring, Surf drip, Short bright splash |
+| Shimmer Reverb | Slow octave bloom, Octave on the pick, Low fifth swell, Dark octave-down pad, Gentle octave halo, Rising fifth cloud |
 | Airwindows Plate | Compact guitar plate, Long dark plate, Clear lead plate |
 | Airwindows Guitar Hall | Close guitar hall, Distant dark hall |
 | Airwindows Tape | Light tape rounding, Thick parallel tape |
 | Galactic Space | Slow dark space, Wide bright wash, Gentle stereo orbit |
 | Cosmic Echo | Echoes, swells, dense spaces and plate ambience across its styles; see the [factory preset guide](modules/cosmic-echo.md#factory-presets) |
 | Chorus, Juno Chorus, Flanger, Phaser | Subtle clean width, Lush 80s chorus, Deep watery chorus; Wide two voices, Mode II sweep, Fast vintage shimmer; Slow jet sweep, Light comb motion, Parked metallic comb; Slow vintage phase, Deep stereo phase, Resonant vintage phase |
-| Harmonic Tremolo | Brown-panel amp, Slow swirl, Synced throb, Subtle shimmer |
+| Harmonic Tremolo | Slow stereo pad, Brown-panel amp, Slow swirl, Synced throb, Subtle shimmer |
 | Auto Tremolo, Vibrato, Uni-Vibe, Rotary | Amp tremolo, Hard eighth-note chop, Stereo auto-pan; Seasick warble, Delayed lead vibrato; Vibrato mode swirl, Fast chorus churn; Slow chorale, Fast tremolo |
 | Mono Octaver, Stereo Doubler, Stutter, Bitcrusher | Octave-down blend, Synth bass, Two-octave blend; Wide loose double; Sixteenth-note chops; Broken small sampler, 12-bit sampler |
+| Pitch Shift | Fifth underneath, Shifted fifth only, Octave above, Octave below, Subtle detuned blend |
 | Frequency Shifter | Barberpole sweep, Spiraling echoes |
 | Granulator | Grain cloud, Ambient haze, Octave shimmer, Low drone tunnel, Phrase mosaic, Reverse swells, Rhythmic blocks, Glitch interrupt, Fifths arpeggio, Dark frozen bed, Pick triplet, Frozen chord keys, Close double, Reverse pickup, Half-time staircase, Broken sixteenths |
 | LoFi Tape Machine | Subtle drift, Worn cassette, Damaged tape (the [guide's starting points](modules/lofi-tape.md#starting-points); the last two include tape hiss) |

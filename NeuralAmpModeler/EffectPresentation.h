@@ -487,7 +487,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uFeedbackFX: return "Sweep, Phaser, Tremolo and Ring change the repeats each time they circulate.";
     case uPatternFeedback: return "Repeat returns tap 4. Swell and Drum return the audible tap mix. Matrix scatters between four independent loops.";
     case uDigitalDelayVoice: return "Converter in the feedback loop. Rack samples at 12 bits and 24 kHz; Lo-fi at 8 bits and 12 kHz. Each repeat degrades further.";
-    case uGrainDelayMode: return "Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment.";
+    case uGrainDelayMode: return "Scatter varies where grains start. Reverse plays grains backwards. Glitch periodically repeats a small fragment. Shimmer adds an octave to every repeat, so the echoes climb and blur into a wash.";
     case uEchoSpring: return "Level of the spring reverb fed from your playing in parallel with the tape. Zero removes the spring from the mix.";
     case uEchoRate: return e == SlotEffect::FeedbackFXDelay ? "Speed of the feedback effect. With Rate sync on, this is cycles per beat."
                                                           : "Base speed of pitch modulation. Vibrato multiplies it by four.";
@@ -549,7 +549,8 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
       : "Feed the mono sum into the left tap and alternate repeats between left and right. Dry stereo stays unchanged.";
     case uReverbDecay: case uSpringDecay: case uShimmerDecay: return "Tail decay time. Higher values let notes overlap into a larger ambient wash.";
     case uReverbSize: return "Tank scale and reflection spacing. Larger settings sound more open; Decay controls how long they last.";
-    case uReverbTone: case uShimmerTone: return "Treble damping in the reverb. Lower settings make the tail darker than the dry signal.";
+    case uShimmerTone: return "Above this frequency the tail decays about three times faster than Decay. Lower settings darken the tail and its upper layers.";
+    case uReverbTone: return "Treble damping in the reverb. Lower settings make the tail darker than the dry signal.";
     case uReverbPredelay: return "Gap before the reverb starts; separates the pick attack from the tail.";
     case uReverbMotion: case uShimmerMod: return "Movement of the reverb delay lines; adds a gently shifting tail.";
     case uReverbHighPass: return "Remove bass from the reverb send to keep the tail from getting boomy.";
@@ -610,8 +611,9 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uJunoMode: return "I is the slower voice, II the faster voice, I+II combines both. I+II vintage is fast, shallow and centered.";
     case uJunoBrightness: return "Treble retained in the wet voices; lower values soften the chorus.";
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
-    case uShimmerAmount: return "Pitched feedback into the reverb; more creates a stronger, longer shimmer.";
+    case uShimmerAmount: return "Share of the tail shifted by Pitch on each pass; more stacks more layers. The tail never outlasts Decay; high settings fade it sooner.";
     case uShimmerFreeze: return "Sustain the tank and stop feeding new notes; release to return to the normal decay.";
+    case uShimmerBloom: return "Spread the wet attack over time. Low settings keep reflections close; high settings turn short notes into swells.";
     case uShiftFrequency: return "Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.";
     case uShiftFeedback: return "Return shifted audio into the delay for progressively changing repeats.";
     case uShiftDelay: return "Time between shifted feedback passes; short settings smear, long settings make distinct echoes.";

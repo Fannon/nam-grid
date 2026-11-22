@@ -247,6 +247,7 @@ int main(int argc,char** argv)
     std::vector<std::pair<SlotEffect,int>> candidates;
     if (!cosmicOnly && !headsOnly)
       for (auto effect : {SlotEffect::RoomReverb,SlotEffect::PlateReverb,SlotEffect::CloudReverb,SlotEffect::HallReverb,
+                         SlotEffect::SpringReverb,SlotEffect::ShimmerReverb,
                          SlotEffect::MultiHeadDelay,SlotEffect::DiffusedDelay,SlotEffect::AirPlate,SlotEffect::AirHall,SlotEffect::GalacticSpace})
         candidates.emplace_back(effect,-1);
     if (!headsOnly)
@@ -276,7 +277,7 @@ int main(int argc,char** argv)
       rig_preset::Write(destination/(label+".ngrid"),rig);
       auto [mixed,cpu]=render(config,false); WriteWave(destination/(label+"-pluck.wav"),mixed,rate);
       double peak=0.; for(const auto& channel:mixed) for(double value:channel) peak=std::max(peak,std::abs(value));
-      for(int p:{uDelayMix,uReverbMix,uAirPlateMix,uAirHallMix,uSpaceMix,uCosmicMix})
+      for(int p:{uDelayMix,uReverbMix,uSpringMix,uShimmerMix,uAirPlateMix,uAirHallMix,uSpaceMix,uCosmicMix})
         config[std::string("Pre 1 ")+kEffectParameters[p].name]=100.;
       auto [wet,unused]=render(config,true); WriteWave(destination/(label+"-wet-impulse.wav"),wet,rate);
       double energy=0.; for(const auto& channel:wet) for(double value:channel) energy+=value*value;

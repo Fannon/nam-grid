@@ -61,7 +61,7 @@ Records the last four seconds of your playing and replays it as short, overlappi
 | --- | --- | --- |
 | **Cloud** | Random | Classic Clouds-style grain cloud, lightly scattered and detuned. Raise Density until the grains join into a cloud. |
 | **Haze** | Random | Many long, drifting grains from all over the buffer with occasional octaves, diffused into a wash. Ambient pads. |
-| **Shimmer** | Random | Grains one and two octaves up over the original pitch, smooth and wide. Shape near 100% swells each grain in. |
+| **Shimmer** | Random | Long grains an octave up over the original pitch. Repeats records the Space plate as well, so every pass climbs another octave through the reverb. Raise Repeats and Space for a rising wash. |
 | **Tunnel** | Random | Long grains an octave down with the original pitch, dark and diffused: a drone under your playing. |
 | **Mosaic** | Even | Fragments at half, normal and double speed, some reversed, layered into a shifting pattern of your phrase. |
 | **Reverse** | Random | Every grain plays backwards, so notes swell in. Long Size and some Repeats give reverse-delay washes. |

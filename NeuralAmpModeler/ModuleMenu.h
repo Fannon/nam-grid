@@ -30,7 +30,7 @@ inline void FillModuleMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& l
     for (const auto type : types)
     {
       group->AddItem(
-        new IPopupMenu::Item(SlotEffectName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
+        new IPopupMenu::Item(SlotEffectDisplayName(type), type == effect ? IPopupMenu::Item::kChecked : 0,
                              -20 - static_cast<int>(type)));
     }
     menu.AddItem(title, group, next++);

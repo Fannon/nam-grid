@@ -159,6 +159,8 @@ Airwindows-style console EQ with broad, overlapping bands and extra harmonic col
 
 **Display:** The quiet-signal response over the live output spectrum. Louder notes add harmonics the curve cannot show.
 
+**Presets:** Warm, Bright and open, Fat, Smooth top (tames high-gain fizz) and Lean for the mix (less low end, a little presence). Each sets Output to stay close to bypass loudness after an amp. The bands move further than their knob values suggest, so small moves go a long way; Bass reaches the guitar's low end only with Bass freq raised to a few kHz.
+
 ## Filter
 
 ![Filter editor](../screenshots/modules/filter.png)

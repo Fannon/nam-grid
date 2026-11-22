@@ -122,6 +122,22 @@ inline const Preset toneEQ[]{
   {"Mid-forward lead", {{parameter_layout::kSlotEQBass, -1.5}, {parameter_layout::kSlotEQMid, 3.}, {U(uEQOutput), -2.}}},
   {"Dark jazz clean", {{parameter_layout::kSlotEQBass, 1.5}, {parameter_layout::kSlotEQTreble, -5.}}},
 };
+// Console EQ's broad, overlapping bands colour like a desk channel, and boosts add harmonics.
+// Quiet-signal changes run about 1.3-1.8 times the knob value, so these use small moves. Bass
+// shapes the guitar's lows only with Bass freq raised to a few kHz. Output matches bypass
+// loudness after an amp.
+inline const Preset consoleEQ[]{
+  {"Warm", {{U(uConsoleTreble), -2.}, {U(uConsoleBass), 2.}, {U(uConsoleBassFreq), 4000.}, {U(uEQOutput), -1.5}}},
+  {"Bright and open", {{U(uConsoleTreble), 2.5}, {U(uConsoleTrebleFreq), 6000.}, {U(uConsoleBass), -1.},
+    {U(uConsoleBassFreq), 3000.}, {U(uConsoleLowCut), 8.}, {U(uEQOutput), 1.}}},
+  {"Fat", {{U(uConsoleBass), 3.}, {U(uConsoleBassFreq), 6000.}, {U(uConsoleMid), .5}, {U(uConsoleLowCut), 6.},
+    {U(uEQOutput), -3.}}},
+  // High-gain fizz sits above about 5 kHz; a lower Treble freq also tames pick harshness.
+  {"Smooth top", {{U(uConsoleTreble), -3.}, {U(uConsoleTrebleFreq), 3000.}, {U(uConsoleHighCut), 95.}}},
+  // Less low end and a little presence so a guitar sits in a band mix.
+  {"Lean for the mix", {{U(uConsoleBass), -3.}, {U(uConsoleBassFreq), 5000.}, {U(uConsoleTreble), 1.}, {U(uConsoleLowCut), 10.},
+    {U(uEQOutput), 3.}}},
+};
 inline const Preset cutEQ[]{
   {"Tight high gain", {{parameter_layout::kSlotEQHighPass, 110.}, {parameter_layout::kSlotEQLowPass, 7000.}}},
   {"Bass cleanup", {{parameter_layout::kSlotEQHighPass, 35.}, {parameter_layout::kSlotEQLowPass, 12000.}}},
@@ -166,6 +182,8 @@ inline const Preset dynamicEQ[]{
 inline const Preset filter[]{
   {"Touch wah", {{U(uFilterCutoff), 500.}, {U(uFilterResonance), 2.}, {U(uFilterEnvelope), 2.}}},
   {"Bass envelope", {{U(uFilterCutoff), 200.}, {U(uFilterResonance), 2.5}, {U(uFilterEnvelope), 3.5}}},
+  // A sharp resonant peak sweeping about three octaves: a vocal quack on funk strumming.
+  {"Funk quack", {{U(uFilterCutoff), 350.}, {U(uFilterResonance), 3.6}, {U(uFilterEnvelope), 2.8}}},
 };
 // A parked ("cocked") wah used as a fixed tone filter.
 inline const Preset wah[]{
@@ -337,6 +355,11 @@ inline const Preset room[]{
   {"Live room", {{U(uReverbDecay), 1.2}, {U(uReverbSize), 100.}, {U(uReverbPredelay), 12.}, {U(uReverbMix), 18.}}},
   // Short, tight ambience for dry captures and DI-like close sounds.
   {"Small amp room", {{U(uReverbDecay), .45}, {U(uReverbSize), 55.}, {U(uReverbPredelay), 3.}, {U(uReverbMix), 10.}}},
+  // Early reflections without an audible tail: width and depth for dry rhythm parts.
+  {"Bright ambience", {{U(uReverbDecay), .5}, {U(uReverbSize), 70.}, {U(uReverbTone), 11000.}, {U(uReverbPredelay), 0.},
+    {U(uReverbHighPass), 250.}, {U(uReverbMix), 20.}}},
+  {"Big live room", {{U(uReverbDecay), 1.8}, {U(uReverbSize), 160.}, {U(uReverbTone), 4500.}, {U(uReverbPredelay), 18.},
+    {U(uReverbMotion), 15.}, {U(uReverbMix), 18.}}},
 };
 inline const Preset plate[]{
   {"Long silver plate", {{U(uReverbDecay), 4.8}, {U(uReverbPredelay), 55.}, {U(uReverbHighPass), 250.},
@@ -485,6 +508,9 @@ inline const Preset vibrato[]{
   {"Seasick warble", {{U(uModRate), .8}, {U(uModDepth), 45.}}},
   // Vibrato that develops over each phrase, like a held finger vibrato.
   {"Delayed lead vibrato", {{U(uModRate), 5.5}, {U(uModDepth), 18.}, {U(uVibratoRise), 700.}}},
+  // Pitch-vibrato amps of the late 1950s ran near 6 Hz with an uneven, warm sweep.
+  {"Vintage amp vibrato", {{U(uModRate), 6.}, {U(uModDepth), 25.}, {U(uModCharacter), 40.}}},
+  {"Slow tape drift", {{U(uModRate), .35}, {U(uModDepth), 20.}, {U(uModCharacter), 80.}}},
 };
 inline const Preset vibe[]{
   {"Vibrato mode swirl", {{U(uVibeMode), 1.}, {U(uModRate), 4.5}, {U(uModDepth), 40.}, {U(uModCharacter), 50.}, {U(uModMix), 100.}}},
@@ -494,6 +520,11 @@ inline const Preset vibe[]{
 inline const Preset rotary[]{
   {"Slow chorale", {{U(uRotarySpeed), 0.}, {U(uRotarySlow), .8}, {U(uRotaryDrive), 1.}, {U(uRotarySpread), 60.}}},
   {"Fast tremolo", {{U(uRotarySpeed), 1.}, {U(uRotaryFast), 6.7}, {U(uRotaryDrive), 3.}, {U(uRotaryAccel), 1.5}}},
+  {"Overdriven cabinet", {{U(uRotarySpeed), 1.}, {U(uRotaryFast), 6.}, {U(uRotaryDrive), 10.}, {U(uRotaryAccel), 1.2},
+    {U(uRotarySpread), 90.}}},
+  // Guitar rotary cabinets turn only a drum rotor; the drum runs at 73% of Fast rate, so about 6 Hz.
+  {"Drum rotor only", {{U(uRotarySpeed), 1.}, {U(uRotaryFast), 8.5}, {U(uRotaryDrive), 3.}, {U(uRotaryBalance), -100.},
+    {U(uRotarySpread), 70.}}},
 };
 
 // Insertion already supplies a modest fifth harmony. These add distinct roles.
@@ -512,10 +543,22 @@ inline const Preset octaver[]{
   {"Two-octave blend", {{U(uOctDry), 100.}, {U(uOctSub), 60.}, {U(uOctSub2), 45.}, {U(uOctTone), 1000.}, {U(uOctOutput), -2.}}},
 };
 inline const Preset doubler[]{
-  {"Wide loose double", {{U(uDoubleDetune), 10.}, {U(uDoubleDelay), 22.}, {U(uDoubleHumanize), 40.}, {U(uDoubleHighCut), 7000.}, {U(uDoubleMix), 32.}}},
+  {"Wide loose double", {{U(uDoubleDetune), 10.}, {U(uDoubleDelay), 22.}, {U(uDoubleHumanize), 40.}, {U(uDoubleHighCut), 7000.}, {U(uDoubleMix), 32.}, {U(uDoubleOutput), 2.5}}},
+  {"Tight rhythm double", {{U(uDoubleDetune), 4.}, {U(uDoubleDelay), 9.}, {U(uDoubleHumanize), 20.}, {U(uDoubleMix), 30.}, {U(uDoubleOutput), 3.}}},
+  {"Thick lead double", {{U(uDoubleDetune), 15.}, {U(uDoubleDelay), 18.}, {U(uDoubleHumanize), 60.}, {U(uDoubleHighCut), 9000.},
+    {U(uDoubleMix), 40.}, {U(uDoubleOutput), 3.}}},
 };
 inline const Preset stutter[]{
   {"Sixteenth-note chops", {{U(uTempoSync), 1.}, {U(uTempoDivision), 1.}, {U(uStutterDuty), 40.}, {U(uStutterFade), 3.}, {U(uStutterMix), 75.}}},
+  {"Eighth-note gate", {{U(uTempoSync), 1.}, {U(uTempoDivision), 3.}, {U(uStutterDuty), 50.}, {U(uStutterFade), 2.}, {U(uStutterMix), 100.}}},
+  {"Triplet chop", {{U(uTempoSync), 1.}, {U(uTempoDivision), 2.}, {U(uStutterDuty), 65.}, {U(uStutterFade), 3.}, {U(uStutterMix), 100.}}},
+};
+// Ring Modulator: Depth 50% with the Square carrier switches the gain between 0 and 1, a hard
+// tremolo; carriers below about 50 Hz roughen the note, higher ones turn chords into bells.
+inline const Preset ringMod[]{
+  {"Square chopper", {{U(uRingShape), 2.}, {U(uRingFrequency), 6.}, {U(uRingDepth), 50.}, {U(uRingTone), 20000.}, {U(uRingMix), 100.}}},
+  {"Robot growl", {{U(uRingFrequency), 30.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 55.}}},
+  {"Metallic bells", {{U(uRingFrequency), 660.}, {U(uRingDepth), 100.}, {U(uRingTone), 5000.}, {U(uRingMix), 35.}}},
 };
 inline const Preset crusher[]{
   {"Broken small sampler", {{U(uCrushBits), 6.}, {U(uCrushRate), 6000.}, {U(uCrushTone), 3500.}, {U(uCrushMix), 65.}, {U(uCrushOutput), -2.}}},
@@ -722,6 +765,8 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::Octaver: return octaver;
     case SlotEffect::Doubler: return doubler;
     case SlotEffect::Stutter: return stutter;
+    case SlotEffect::RingMod: return ringMod;
+    case SlotEffect::ConsoleEQ: return consoleEQ;
     case SlotEffect::Granulator: return granulator;
     case SlotEffect::Bitcrusher: return crusher;
     case SlotEffect::TubeBoost: return tube;

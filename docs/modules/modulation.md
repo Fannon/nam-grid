@@ -236,3 +236,5 @@ Multiplies the guitar with a sine carrier for metallic, inharmonic sidebands.
 **Carrier** in the header selects Sine, Triangle or softened Square (starts at Sine).
 
 **Display:** The partials of a 110 Hz note and the sidebands the carrier creates.
+
+**Presets:** Square chopper (a hard 6 Hz on/off tremolo: the Square carrier at 50% Depth), Robot growl (a 30 Hz carrier that roughens each note) and Metallic bells (a 660 Hz carrier that turns chords into bell tones).

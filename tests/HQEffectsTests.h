@@ -344,6 +344,58 @@ void TestHQEffects()
     // ... and its level stays near Bloom 0's.
     assert(std::abs(10. * std::log10(total(bloom) / total(close))) < 5.);
   }
+  // Strong shimmer: no DC builds up in the loop, the higher octaves taper off rather than
+  // piling up, and the shifted layers sit slightly flat of the exact interval.
+  {
+    const auto tail = [&](double amount, double density, bool pluck) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., 14., 7400., 12., amount, 25., 0.};
+      c.shimmerDensity = density;
+      std::vector<double> l(static_cast<size_t>(7. * rate)), r(l.size());
+      for (size_t i = 0; i < static_cast<size_t>((pluck ? 2. : .6) * rate); ++i)
+      {
+        const double t = i / rate;
+        if (pluck)
+        {
+          double x = 0.;
+          for (int k = 1; k <= 8; ++k) x += std::sin(2. * grid_fx::pi * 110. * k * t) / k * std::exp(-t * (1.5 + .6 * k));
+          l[i] = r[i] = .15 * x;
+        }
+        else
+          l[i] = r[i] = .1 * std::min(1., std::min(t, .6 - t) / .005) * std::sin(2. * grid_fx::pi * 440. * t);
+      }
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      return l;
+    };
+    // Energy of a Hann-windowed segment [a, b) s between lo and hi Hz, in 1 Hz steps.
+    const auto energy = [&](const std::vector<double>& x, double a, double b, double lo, double hi, double* centroid = nullptr) {
+      const size_t i0 = static_cast<size_t>(a * rate), n = static_cast<size_t>((b - a) * rate);
+      double total = 0., weighted = 0.;
+      for (double hz = lo; hz <= hi; hz += 1.)
+      {
+        std::complex<double> sum = 0., w = std::polar(1., -2. * grid_fx::pi * hz / rate), z = 1.;
+        for (size_t i = 0; i < n; ++i, z *= w)
+          sum += x[i0 + i] * (.5 - .5 * std::cos(2. * grid_fx::pi * i / (n - 1))) * z;
+        total += std::norm(sum);
+        weighted += std::norm(sum) * 1200. * std::log2(hz / 880.);
+      }
+      if (centroid) *centroid = weighted / total;
+      return total;
+    };
+    const auto plucked = tail(100., 40., true);
+    double mean = 0., power = 0.;
+    for (size_t i = static_cast<size_t>(rate); i < static_cast<size_t>(4. * rate); ++i) { mean += plucked[i]; power += plucked[i] * plucked[i]; }
+    const double samples = 3. * rate;
+    assert(std::abs(mean / samples) < .01 * std::sqrt(power / samples));
+    const auto tone = tail(100., 40., false);
+    const double first = energy(tone, 2., 3.5, 845., 915.), fourth = energy(tone, 2., 3.5, 6760., 7320.);
+    assert(fourth < first * std::pow(10., -.3));
+    double cents = 0.;
+    energy(tail(60., 100., false), 1., 3., 760., 1000., &cents);
+    assert(cents < -15. && cents > -55.);
+  }
   // Density: lower settings thin the tank into clearer, distinct echoes while the octave
   // layers keep sounding. Removing all line mixing instead let the shifted lines climb
   // out of hearing within a second.

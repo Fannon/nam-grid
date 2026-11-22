@@ -348,6 +348,10 @@ public:
           tank.modDepth = v[5] * .01 * .000625 * mRate;
           tank.live = live;
           tank.aliasG = g / (1. + g);
+          // Each pitched pass is darkened below Damping, so higher layers taper off
+          // instead of piling up into a glassy top, as in classic studio shimmers.
+          const double shiftCorner = std::clamp(.4 * (v[2] + mFreeze * (12000. - v[2])), 800., 6000.);
+          tank.shiftPole = std::exp(-2. * grid_fx::pi * shiftCorner / mRate);
         }
         mDensity = densityTarget + mTauSmoothing * (mDensity - densityTarget);
         if (std::abs(mDensity - densityTarget) < 1.e-6) mDensity = densityTarget;
@@ -419,7 +423,10 @@ private:
     static constexpr std::array<int, 4> kShifted{0, 3, 5, 6};
     std::array<grid_fx::DelayLine, 8> line;
     std::array<grid_reverb::Allpass, 4> diffuser;
-    std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{};
+    std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{}, loopLow{};
+    std::array<double, 4> shiftLow{};
+    // Loop DC blocker, and the one-pole that darkens every pitched pass.
+    double dcCut = 0., shiftPole = 0.;
     std::array<double, 4> diffuserDelay{};
     std::array<PitchShifter, 2> shifter;
     std::array<std::array<double, 2>, 4> alias{}, crossPower{};
@@ -452,6 +459,9 @@ private:
       shifter[0].Stagger(grainOffset + .125);
       shifter[1].Stagger(grainOffset + .375);
       alias = {};
+      loopLow = {};
+      shiftLow = {};
+      dcCut = 1. - std::exp(-2. * grid_fx::pi * 5. / mRate);
       crossPower = {};
       crossGain = {1., 1., 1., 1.};
       counter = 0;
@@ -471,7 +481,11 @@ private:
         const double motion = modDepth * std::sin(2. * grid_fx::pi * phase[j]);
         const double tap = line[j].Read(mRate * length[j] + motion);
         damp[j] = grid_fx::Flush(tap + damping * (damp[j] - tap));
-        taps[j] = (highRatio[j] * tap + (1. - highRatio[j]) * damp[j]) * feedback[j];
+        double shelved = highRatio[j] * tap + (1. - highRatio[j]) * damp[j];
+        // The grains add a little DC on every pitched pass; without a blocker in the
+        // loop it built up to a fifth of the tail's level. 5 Hz keeps low notes' decay.
+        loopLow[j] = grid_fx::Flush(loopLow[j] + dcCut * (shelved - loopLow[j]));
+        taps[j] = (shelved - loopLow[j]) * feedback[j];
         wet += (j % 2 ? -1. : 1.) * tap * .125;
       }
       // The shifters keep their history at zero share, so Amount changes glide in.
@@ -481,6 +495,7 @@ private:
       const double pitchBlend = .65 * std::clamp((share - .2) / .3, 0., 1.)
                                 * std::min(1., std::abs(pitch) / 7.);
       double pitchedWet = 0.;
+      const double detuneScale = pitch == 0. ? 0. : std::min(1., std::abs(pitch) / 12.);
       ++counter;
       for (int k = 0; k < 4; ++k)
       {
@@ -497,7 +512,16 @@ private:
           continue;
         }
         const double dry = taps[kShifted[k]];
-        const double shifted = shifter[k / 2].ProcessSample(x, k % 2, pitch);
+        // Each shifted line runs slightly flat, by 20 to 50 cents at an octave (about
+        // 35 cents on average, as measured on a classic studio shimmer), so the layers
+        // spread into a chorused octave rather than reinforcing the played harmonics
+        // exactly. Smaller intervals detune proportionally less. Lines summed with
+        // opposite signs differ least, so the first octave still comes through early.
+        static constexpr double kDetune[4]{-.5, -.3, -.4, -.2};
+        const double detuned = pitch + kDetune[k] * detuneScale;
+        const double raw = shifter[k / 2].ProcessSample(x, k % 2, detuned);
+        shiftLow[k] = grid_fx::Flush(raw + shiftPole * (shiftLow[k] - raw));
+        const double shifted = shiftLow[k];
         if (pitchBlend > 0.) pitchedWet += (k % 2 ? -.25 : .25) * shifted;
         // A linear crossfade of two unrelated signals loses up to 3 dB per pass, which
         // would shorten the tail as Amount rises. Restore the line's power, but never

@@ -5,6 +5,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 ## [Unreleased]
 
 - **Shimmer Reverb** brings the pitched notes forward at high Amount, including in a dense reverb wash.
+- **Shimmer Reverb sounds more like a studio shimmer:** each octave now runs slightly flat and spreads into a chorused layer, and higher octaves fade progressively instead of piling up into a glassy top, so strong settings sound fuller and less harsh. Damping sets how quickly the upper layers fade. Strong settings no longer build up an inaudible offset that could click when Mix changes or the module is bypassed.
 - Turning module knobs and running automation redraws the affected module with less editor work.
 
 - **Shimmer Reverb** gains a **Bloom** control. Turn it up to fade each note into the reverb, so the octaves swell in behind it; the display shows the swell. Try **Slow octave bloom** on keys or sustained guitar. Cloud adds **Percussion mist** for short hits and **Wide synth bed** for pads.

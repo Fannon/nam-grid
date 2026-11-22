@@ -299,7 +299,7 @@ public:
     mShare = mShareTarget = 0.;
     mShareSmoothing = std::exp(-1. / (.02 * mRate));
     mDrain.Reset(mRate);
-    mPeak = 0.; mSwell = {}; mSwellTau = -1.;
+    mPeak = 0.; mSwell = {}; mSwellTau = -1.; mDensity = -1.;
     mPeakRelease = std::exp(-1. / (.05 * mRate));
     mTauSmoothing = std::exp(-32. / (.02 * mRate));
     mRise = 1.; mMakeup = 1.;
@@ -316,6 +316,8 @@ public:
     // at 1 while notes sustain or decay. Spreading the diffusers further instead
     // turned the swell into separate, audible repeats.
     const double tauTarget = SwellSeconds(c.shimmerBloom);
+    const double densityTarget = std::clamp(c.shimmerDensity * .01, 0., 1.);
+    if (mDensity < 0.) mDensity = densityTarget;
     if (mSwellTau < 0.) mSwellTau = tauTarget; // Reset starts at the setting; the first sample's control block sets the swell coefficients.
     const double freezeTarget = (!draining && c.shimmer[6] >= .5) ? 1. : 0.;
     const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
@@ -346,6 +348,16 @@ public:
           tank.modDepth = v[5] * .01 * .000625 * mRate;
           tank.live = live;
           tank.aliasG = g / (1. + g);
+        }
+        mDensity = densityTarget + mTauSmoothing * (mDensity - densityTarget);
+        if (std::abs(mDensity - densityTarget) < 1.e-6) mDensity = densityTarget;
+        const double angle = kQuarterPi * DensityMix(mDensity);
+        for (auto& tank : mTank)
+        {
+          tank.fullMix = mDensity >= 1.;
+          tank.diffusion = .6 * (.25 + .75 * mDensity);
+          tank.mixC = std::cos(angle);
+          tank.mixS = std::sin(angle);
         }
         // Freeze holds the tail without adding new pitch layers.
         mShareTarget = ShiftShare(v[4] * .01) * live;
@@ -395,7 +407,10 @@ private:
   // Bloom stretches the input diffusers at most this far: their longest stage stays
   // short enough to blur into the tail rather than repeat.
   static constexpr double kMaxDiffusionScale = 4.;
-  static constexpr double kMaxSwell = .35;
+  static constexpr double kMaxSwell = .35, kQuarterPi = .7853981633974483;
+  // Share of the full Hadamard rotation at a Density of 0-1. Echo density changes
+  // mostly near no mixing, so the square spreads it over the knob.
+  static double DensityMix(double density) { const double d = std::clamp(density, 0., 1.); return d * d; }
   // Treble above Damping decays at this share of Decay (the Hall and Room ratio).
   static constexpr double kHighDecayRatio = .35;
   grid_fx::MixLaw mMixLaw;
@@ -411,6 +426,9 @@ private:
     std::array<double, 4> crossGain{1., 1., 1., 1.};
     uint32_t counter = 0;
     double damping = 0., modDepth = 0., live = 1., aliasG = 1., powerSmoothing = 0., mRate = 48000.;
+    // Density: input diffuser coefficient and the butterfly rotation (cos, sin).
+    double diffusion = .6, mixC = .7071067811865476, mixS = .7071067811865476;
+    bool fullMix = true;
     void Reset(double rate, double scale, double grainOffset)
     {
       mRate = std::max(1., rate);
@@ -442,7 +460,7 @@ private:
     double Process(double input, double share, double semitones, double diffusionScale)
     {
       for (int j = 0; j < 4; ++j)
-        input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, .6);
+        input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, diffusion);
       std::array<double, 8> taps{};
       double wet = 0.;
       for (int j = 0; j < 8; ++j)
@@ -489,16 +507,38 @@ private:
         }
         taps[kShifted[k]] = y * crossGain[k];
       }
-      for (int span = 1; span < 8; span *= 2)
-        for (int base = 0; base < 8; base += span * 2)
-          for (int j = 0; j < span; ++j)
-          {
-            const double a = taps[base + j], b = taps[base + j + span];
-            taps[base + j] = a + b;
-            taps[base + j + span] = a - b;
-          }
-      for (int j = 0; j < 8; ++j)
-        line[j].Push(taps[j] * .3535533905932738 + input * (j % 3 == 0 ? -.2 : .2));
+      if (fullMix)
+      {
+        for (int span = 1; span < 8; span *= 2)
+          for (int base = 0; base < 8; base += span * 2)
+            for (int j = 0; j < span; ++j)
+            {
+              const double a = taps[base + j], b = taps[base + j + span];
+              taps[base + j] = a + b;
+              taps[base + j + span] = a - b;
+            }
+        for (int j = 0; j < 8; ++j)
+          line[j].Push(taps[j] * .3535533905932738 + input * (j % 3 == 0 ? -.2 : .2));
+      }
+      else
+      {
+        // Lower Density turns each butterfly from the Hadamard mix toward no mixing.
+        // Every stage stays orthonormal, so the tank keeps its decay; a shifted line
+        // keeps more of its own recirculation and climbs in clear steps.
+        for (int span = 1; span < 8; span *= 2)
+          for (int base = 0; base < 8; base += span * 2)
+            for (int j = 0; j < span; ++j)
+            {
+              const double a = taps[base + j], b = taps[base + j + span];
+              // The first stage pairs every shifted line with an unshifted one and stays
+              // fully mixed, so the cascade keeps being fed; the wider stages fade out.
+              const double cs = span == 1 ? .7071067811865476 : mixC, sn = span == 1 ? .7071067811865476 : mixS;
+              taps[base + j] = cs * a + sn * b;
+              taps[base + j + span] = sn * a - cs * b;
+            }
+        for (int j = 0; j < 8; ++j)
+          line[j].Push(taps[j] + input * (j % 3 == 0 ? -.2 : .2));
+      }
       return wet * 1.8;
     }
   };
@@ -506,7 +546,7 @@ private:
   grid_fx::SmoothControls<7> mControls;
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mInputLow[2]{}, mFreeze = 0., mShare = 0., mShareTarget = 0., mShareSmoothing = 0.;
-  double mPeak = 0., mPeakRelease = 0., mSwellTau = -1., mTauSmoothing = 0., mRise = 1., mMakeup = 1.;
+  double mPeak = 0., mPeakRelease = 0., mSwellTau = -1., mTauSmoothing = 0., mRise = 1., mMakeup = 1., mDensity = -1.;
   std::array<double, 2> mSwell{};
   int mCounter = 0;
 };

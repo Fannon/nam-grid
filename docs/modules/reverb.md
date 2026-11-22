@@ -163,8 +163,14 @@ A reverb whose tail climbs or falls in pitch with each pass, in the style of cla
 | **Bloom** | 0–100% | 0% | Fades each note into the reverb, over up to about 1.4 s. Turn it up to make a chord swell into the shimmer or soften the onset of a percussion hit. The dry attack stays immediate; sustained and legato notes keep the full reverb. |
 | **Amount** | 0–100% | 25% | Share of the tail shifted by Pitch on each pass. Low settings add a halo an octave up; high settings stack several layers. The tail never rings longer than Decay, so even 100% never runs away; high settings move the tail up into the Damping range, where it fades sooner. |
 | **Modulation** | 0–100% | 30% | Movement of the reverb delay lines; adds a gently shifting tail. |
-| **Freeze** | Off / On | Off | Sustain the tank and stop feeding new notes; release to return to the normal decay. |
+| **Density** | 0–100% | 100% | How densely the reverb blends its echoes. Lower keeps each pitch step clear and distinct, so a strong shimmer stays defined instead of washing out; 100% is the smooth wash. |
 | **Mix** | 0–100% | 25% | Dry/wet balance, or wet level with Settings' **Keep dry level** on. |
+
+In the header:
+
+- **Freeze** (Off / On; starts Off) Sustain the tank and stop feeding new notes; release to return to the normal decay.
+
+For a strong but defined shimmer, raise Amount and lower Density to about 40-60%, with a moderate Decay and Mix.
 
 **Display:** The decay with the pitch steps each pass adds. With Bloom up, the start of the fill rises over the swell, and the footer gives the swell time.
 

@@ -144,7 +144,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Hall | Big dark hall, Ducked lead hall, Small recital hall |
 | Cloud | Chord afterglow, Long ducked cloud, Light moving halo, Percussion mist, Wide synth bed |
 | Spring Reverb | Warm tank slap, Small amp spring, Surf drip, Short bright splash |
-| Shimmer Reverb | Slow octave bloom, Octave on the pick, Low fifth swell, Dark octave-down pad, Gentle octave halo, Rising fifth cloud |
+| Shimmer Reverb | Slow octave bloom, Octave on the pick, Bright octave stack, Crystal staircase, Low fifth swell, Dark octave-down pad, Gentle octave halo, Rising fifth cloud |
 | Airwindows Plate | Compact guitar plate, Long dark plate, Clear lead plate |
 | Airwindows Guitar Hall | Close guitar hall, Distant dark hall |
 | Airwindows Tape | Light tape rounding, Thick parallel tape |

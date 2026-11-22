@@ -1,5 +1,6 @@
 #pragma once
 #include <numeric>
+#include <complex>
 #include <cmath>
 #include <vector>
 #include "SlotHQEffects.h"
@@ -342,6 +343,57 @@ void TestHQEffects()
     for (int w = 1; w < 4; ++w) assert(bloom[w] > bloom[w - 1]);
     // ... and its level stays near Bloom 0's.
     assert(std::abs(10. * std::log10(total(bloom) / total(close))) < 5.);
+  }
+  // Density: lower settings thin the tank into clearer, distinct echoes while the octave
+  // layers keep sounding. Removing all line mixing instead let the shifted lines climb
+  // out of hearing within a second.
+  {
+    const auto impulseDensity = [&](double density) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., 6., 7400., 12., 100., 10., 0.};
+      c.shimmerDensity = density;
+      std::vector<double> l(static_cast<size_t>(1.2 * rate)), r(l.size());
+      l[0] = r[0] = .1;
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      double sum = 0.; int windows = 0;
+      for (double t = .1; t < 1.; t += .05, ++windows)
+      {
+        const size_t a = static_cast<size_t>(t * rate), b = static_cast<size_t>((t + .05) * rate);
+        double e = 0.; for (size_t i = a; i < b; ++i) e += l[i] * l[i];
+        const double sd = std::sqrt(e / (b - a)); int outside = 0;
+        for (size_t i = a; i < b; ++i) outside += std::abs(l[i]) > sd;
+        sum += outside / double(b - a) / .3173;
+      }
+      return sum / windows;
+    };
+    assert(impulseDensity(100.) > .9 && impulseDensity(0.) < .8);
+    // Octave layer against the played note in the tail of a 220 Hz tone, 1-3 s.
+    const auto octave = [&](double density) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., 6., 7400., 12., 100., 10., 0.};
+      c.shimmerDensity = density;
+      std::vector<double> l(static_cast<size_t>(3. * rate)), r(l.size());
+      for (size_t i = 0; i < static_cast<size_t>(.5 * rate); ++i)
+      {
+        const double t = i / rate;
+        l[i] = r[i] = .1 * std::min(1., std::min(t, .5 - t) / .005) * std::sin(2. * grid_fx::pi * 220. * t);
+      }
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      const auto band = [&](double hz) {
+        std::complex<double> sum = 0.;
+        for (size_t i = static_cast<size_t>(rate); i < l.size(); ++i)
+          sum += l[i] * std::polar(1., -2. * grid_fx::pi * hz * i / rate);
+        return std::norm(sum);
+      };
+      double fundamental = 0., layer = 0.;
+      for (double d = -4.; d <= 4.; d += 1.) { fundamental += band(220. + d); layer += band(440. + d); }
+      return 10. * std::log10(layer / fundamental);
+    };
+    assert(octave(0.) > -6.);
   }
   // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
   {

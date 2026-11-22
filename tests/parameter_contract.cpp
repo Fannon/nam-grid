@@ -123,7 +123,7 @@ static_assert(SlotUtilityParam(0, uShimmerBloom) == 6209);
 static_assert(SlotUtilityParam(15, uShimmerBloom) == 6224);
 static_assert(kEffectParameters[uShimmerBloom].introducedIn == 34);
 // Filter envelope controls, Ring LFO and Volume Pedal (schema 35) append one module and
-// fourteen slot controls after every previous ID.
+// fifteen slot controls after every previous ID.
 static_assert(SlotUtilityParam(0, uFilterSensitivity) == 6225);
 static_assert(SlotUtilityParam(15, uRingSweep) == 6336);
 static_assert(kEffectParameters[uFilterSensitivity].introducedIn == 35 && kEffectParameters[uRingSweep].introducedIn == 35);
@@ -134,6 +134,9 @@ static_assert(kEffectParameters[uVolumePosition].introducedIn == 35 && kEffectPa
 // Ring Output joins the schema 35 segment after Volume Pedal.
 static_assert(SlotUtilityParam(0, uRingOutput) == 6433 && SlotUtilityParam(15, uRingOutput) == 6448);
 static_assert(kEffectParameters[uRingOutput].introducedIn == 35);
+// Shimmer Density follows Ring Output in the same segment.
+static_assert(SlotUtilityParam(0, uShimmerDensity) == 6449 && SlotUtilityParam(15, uShimmerDensity) == 6464);
+static_assert(kEffectParameters[uShimmerDensity].introducedIn == 35);
 
 int main(int argc, char** argv)
 {
@@ -468,7 +471,7 @@ int main(int argc, char** argv)
     legacy["schema"] = schema;
     auto changed = base;
     for (int slot = 0; slot < 16; ++slot)
-      for (int p = first; p <= uRingOutput; ++p)
+      for (int p = first; p <= uShimmerDensity; ++p)
       {
         const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
         legacy.erase(key);

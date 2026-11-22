@@ -404,7 +404,13 @@ inline const Preset shimmer[]{
   {"Slow octave bloom", {{U(uShimmerBloom), 92.}, {U(uShimmerDecay), 14.}, {U(uShimmerTone), 7400.},
     {U(uShimmerAmount), 50.}, {U(uShimmerMod), 55.}, {U(uShimmerMix), 32.}}},
   {"Octave on the pick", {{U(uShimmerDecay), 1.4}, {U(uShimmerAmount), 45.}, {U(uShimmerMod), 6.},
-    {U(uShimmerTone), 4800.}, {U(uShimmerMix), 18.}}},
+    {U(uShimmerTone), 4800.}, {U(uShimmerDensity), 65.}, {U(uShimmerMix), 18.}}},
+  // Lower Density keeps a strong shimmer defined: the octaves stay clear of the wash.
+  {"Bright octave stack", {{U(uShimmerDecay), 5.}, {U(uShimmerTone), 9000.}, {U(uShimmerAmount), 85.},
+    {U(uShimmerMod), 12.}, {U(uShimmerDensity), 45.}, {U(uShimmerBloom), 30.}, {U(uShimmerMix), 24.}}},
+  // Little mixing between the lines: distinct octave steps climbing behind each note.
+  {"Crystal staircase", {{U(uShimmerDecay), 4.}, {U(uShimmerTone), 10000.}, {U(uShimmerAmount), 70.},
+    {U(uShimmerMod), 5.}, {U(uShimmerDensity), 10.}, {U(uShimmerMix), 24.}}},
   {"Low fifth swell", {{U(uShimmerPitch), -7.}, {U(uShimmerDecay), 6.}, {U(uShimmerAmount), 38.},
     {U(uShimmerMod), 14.}, {U(uShimmerTone), 4000.}, {U(uShimmerMix), 26.}}},
   {"Dark octave-down pad", {{U(uShimmerDecay), 8.}, {U(uShimmerPitch), -12.}, {U(uShimmerTone), 3500.},

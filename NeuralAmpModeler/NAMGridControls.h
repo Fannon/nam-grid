@@ -206,6 +206,10 @@ public:
   , mDestination(grid_modulation::DestinationOf(parameter))
   {
   }
+  // The title belongs to the knob: hovering it shows the control's explanation, and
+  // dragging from it turns the knob (iPlug2 only hit-tests the dial and value).
+  bool IsHit(float x, float y) const override
+  { return IVKnobControl::IsHit(x, y) || (!IsDisabled() && GetLabelBounds().Contains(x, y)); }
   // A text cursor makes the existing editable value below the knob discoverable.
   void OnMouseOver(float x, float y, const IMouseMod& mod) override
   {
@@ -2028,6 +2032,8 @@ public:
     mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true, mSlot);
     // Gain staging stays in the left column: Input on top, Output below it.
     mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(4), SlotTrimParam(mSlot), "Output", true, mSlot);
+    mNAMKnobs[0]->SetTooltip("Level into the capture; higher values drive it harder.");
+    mNAMKnobs[1]->SetTooltip("Level after the capture and its EQ. Match bypass loudness when comparing captures.");
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
     const char* labels[] = {"Threshold", "Release", "Reduction", "Threshold", "Release", "Makeup"};
@@ -2047,7 +2053,15 @@ public:
     {
       mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? effect_presentation::kOutputPosition : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
       mEditor->AddChildControl(mEQKnobs[i]);
-      if (i == 6) mEQKnobs[i]->SetTooltip("Wet level after convolution, Pre-delay and cuts. Leaves the dry signal unchanged; match IR loudness before adjusting Mix.");
+      static constexpr const char* eqHelp[] = {
+        "150 Hz shelf: more or less low-end weight.",
+        "Broad 800 Hz bell: pushes the guitar forward or scoops it.",
+        "3 kHz shelf: more brightness or a smoother top.",
+        "Removes rumble and boom below this frequency; 0 is off.",
+        "Removes fizz above this frequency; 20000 is open.",
+        "3.5 kHz shelf for bite or smoothness.",
+        "Wet level after convolution, Pre-delay and cuts. Leaves the dry signal unchanged; match IR loudness before adjusting Mix."};
+      mEQKnobs[i]->SetTooltip(eqHelp[i]);
     }
     for (int i = 0; i < kUtilityControls; ++i)
     {

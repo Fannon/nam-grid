@@ -47,7 +47,7 @@ inline const char* ChoiceDescription(int p, int mode)
 inline bool HeaderControl(int p)
 {
   return p == uTempoSync || p == uDelayPingPong || p == uReverbStereo || p == uNoiseLearn || p == uEchoRateSync
-         || p == uGranulatorFreeze || p == uFilterDown || IsAlgorithmMode(p);
+         || p == uGranulatorFreeze || p == uFilterDown || p == uShimmerFreeze || p == uFreezeHold || IsAlgorithmMode(p);
 }
 // Saved, automatable controls edited by dragging in the module display rather than with a
 // knob. They take no place in the knob grid and are documented as prose.
@@ -118,7 +118,8 @@ inline HeaderArea HeaderBounds(SlotEffect e, int p)
   if (p == uDigitalDelayVoice) return {modeLeft + 80.f, parameterRight};
   // Spring's Tank selector owns the right side; keep Stereo wet accessible
   // on the free left side instead of placing both controls on top of each other.
-  if (p == uTempoSync || p == uEQMode || p == uNoiseLearn || p == uFilterDown || (e == SlotEffect::SpringReverb && p == uReverbStereo))
+  if (p == uTempoSync || p == uEQMode || p == uNoiseLearn || p == uFilterDown || p == uShimmerFreeze || p == uFreezeHold
+      || (e == SlotEffect::SpringReverb && p == uReverbStereo))
     return {tempoLeft, tempoLeft + 110.f};
   return {modeLeft, parameterRight};
 }
@@ -185,7 +186,7 @@ inline int TablePosition(SlotEffect e, int p)
   static constexpr int HallReverbOrder[]{uReverbDecay, uReverbSize, uReverbTone, uReverbPredelay, uReverbMotion, uReverbHighPass, uReverbDuck, uReverbMix};
   static constexpr int AirPlateOrder[]{uAirPlateInput, uAirPlateSustain, uAirPlateResolution, uAirPlatePredelay, uAirPlateLowCut, uAirPlateOutput, uAirPlateMix};
   static constexpr int SpringReverbOrder[]{uSpringDecay, uSpringDwell, uSpringDrip, uReverbTone, uSpringPredelay, uSpringOutput, uSpringMix};
-  static constexpr int FreezeOrder[]{uFreezeHold, uFreezeWindow, uFreezeFade, uFreezeTone, uFreezeAttack, uFreezeRelease, uFreezeMix};
+  static constexpr int FreezeOrder[]{uFreezeWindow, uFreezeFade, uFreezeTone, uFreezeAttack, uFreezeRelease, uFreezeMix};
   static constexpr int StutterOrder[]{uStutterTime, uStutterHold, uStutterDuty, uStutterFade, uStutterMix};
   static constexpr int GranulatorOrder[]{uGranulatorPosition, uGranulatorSize, uGranulatorActivity, uGranulatorShape,
                                          uGranulatorFilter, uGranulatorRepeats, uGranulatorSpace, uGranulatorMix};
@@ -636,6 +637,7 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uShimmerPitch: return "Semitone interval on each pitched reverb pass. Positive climbs, negative falls.";
     case uShimmerAmount: return "Share of the tail shifted by Pitch on each pass; more stacks more layers. The tail never outlasts Decay; high settings fade it sooner.";
     case uShimmerFreeze: return "Sustain the tank and stop feeding new notes; release to return to the normal decay.";
+    case uShimmerDensity: return "How densely the reverb blends its echoes. Lower keeps each pitch step clear and distinct, so a strong shimmer stays defined instead of washing out; 100% is the smooth wash.";
     case uShimmerBloom: return "Fades each note into the reverb, over up to about 1.4 s. The dry attack stays immediate; sustained and legato notes keep the full reverb.";
     case uShiftFrequency: return "Fixed hertz offset per pass; unlike a pitch shifter, every partial moves by the same number of hertz.";
     case uShiftFeedback: return "Return shifted audio into the delay for progressively changing repeats.";

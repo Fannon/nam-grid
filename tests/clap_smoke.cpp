@@ -2028,7 +2028,7 @@ int main(int argc, char** argv)
     for (const auto& group : nam_library::kModuleGroups)
       for (const auto effect : group.effects)
       {
-        const std::string name = SlotEffectName(effect);
+        const std::string name = SlotEffectDisplayName(effect); // The menu shows display names.
         const std::wstring wideName(name.begin(), name.end());
         win_edit_menu::SelectNamedItem(editor, 220, grid_layout::moduleButtonY, wideName.c_str()); pumpFor(30);
         const auto inserted = save().config();

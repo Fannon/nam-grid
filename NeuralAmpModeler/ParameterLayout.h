@@ -74,9 +74,9 @@ struct Segment
 // {0, 4}: Noise Gate (AI) (schema 30); {0, 9}: Pedal Distortion (schema 31);
 // {0, 32}: six delays and Digital Delay Voice (schema 32).
 // {0, 10}: Granulator (schema 33); {0, 1}: Shimmer Bloom (schema 34);
-// {0, 7}: Filter envelope controls and Ring LFO (schema 35).
+// {0, 13}: Filter envelope controls, Ring LFO and Volume Pedal (schema 35).
 // Reserved schema 21 adds no controls.
-inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}, {0, 8}, {0, 6}, {0, 1}, {0, 11}, {0, 9}, {0, 5}, {1, 0}, {3, 0}, {0, 1}, {0, 1}, {0, 1}, {0, 1}, {0, 4}, {0, 9}, {0, 32}, {0, 10}, {0, 1}, {0, 7}};
+inline constexpr Segment segments[]{{83, 217}, {0, 9}, {0, 4}, {24, 0}, {0, 6}, {0, 37}, {1, 0}, {1, 0}, {0, 1}, {0, 6}, {0, 1}, {0, 1}, {0, 8}, {0, 6}, {0, 1}, {0, 11}, {0, 9}, {0, 5}, {1, 0}, {3, 0}, {0, 1}, {0, 1}, {0, 1}, {0, 1}, {0, 4}, {0, 9}, {0, 32}, {0, 10}, {0, 1}, {0, 13}};
 inline constexpr Segment released[]{{83, 216}}; // The 0.1.0 baseline layout
 
 constexpr int GlobalID(std::span<const Segment> table, int index)

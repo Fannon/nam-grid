@@ -6,6 +6,7 @@ Stereo utilities, volume swells and transparent signal inspection.
 | --- | --- |
 | [Utility](#utility) | Balance, Width and polarity reshape stereo; Fine delay aligns paths. |
 | [Auto Swell](#auto-swell) | Threshold triggers the fade-in; Release closes the next gap. |
+| [Volume Pedal](#volume-pedal) | Position or a MIDI expression pedal sets the volume; Curve shapes the travel between Heel and Toe. |
 
 ## Utility
 
@@ -47,6 +48,25 @@ A volume swell that removes the pick attack and fades each phrase in. Pause belo
 | **Mix** | 0–100% | 100% | Blend the swollen signal with dry guitar to retain some pick attack. |
 
 **Display:** The swell envelope, and the input against the output.
+
+## Volume Pedal
+
+A volume pedal you play with Position, host automation or a MIDI expression pedal.
+
+| Control | Range | Start | What it does |
+| --- | --- | --- | --- |
+| **Position** | 0–100% | 100% | Pedal position from heel (0%) to toe (100%). A MIDI pedal on the selected CC takes over until you move Position again. |
+| **Curve** | -100–100% | 0% | Shape of the travel. 0% is an audio taper, -12 dB at half travel; negative values rise sooner (-50% is linear), positive values hold back longer. |
+| **Heel level** | -60 to 0 dB | -60 dB | Level with the pedal fully back; -60 dB mutes. Raise it to switch between a rhythm and a lead level. |
+| **Toe level** | -24 to +12 dB | 0 dB | Level with the pedal fully forward. |
+| **Smoothing** | 1–500 ms | 20 ms | Glide between positions. It hides the 128 steps of a MIDI pedal; longer values give slower swells. |
+| **MIDI CC** | 0–127 | 11 | Controller that moves the pedal, on any MIDI channel: 11 is Expression, 7 Volume, 4 Foot controller. 0 is Off. |
+
+**MIDI:** In CLAP the pedal reads the CC directly: the latest pedal or Position move wins, and the pedal's position is not written to Position, so the project keeps the Position you set. In VST3 the host turns the CC into Position changes, which it can record as automation; there, each CC drives the first Volume Pedal set to it. Route the MIDI controller to the plugin's track in your host. Without MIDI, map Position to an expression pedal through host automation.
+
+**Display:** The level along the pedal's travel, with the live position.
+
+**Presets:** Rhythm to lead boost (heel at rhythm level, toe 4 dB louder), Slow swells (a later rise and a long glide) and Linear pedal, for controllers whose pedal already has a volume taper.
 
 ## Signal Monitor
 

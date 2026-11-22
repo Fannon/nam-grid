@@ -50,6 +50,7 @@ struct SlotMeterData
   int frames = 0;
   LoFiTapeHistory lofi;
   std::array<float, 2> filterCutoff{}, filterQ{};
+  float pedalPosition = -1.f, pedalGain = 0.f; // Volume Pedal: live position (0..1) and gain.
   // Multiband Dynamics: each band's largest dynamic gain (dB) and detected level (dBFS).
   std::array<float, 3> bandGain{}, bandLevel{-120.f, -120.f, -120.f};
 };
@@ -112,6 +113,7 @@ public:
     SlotPedalDistortion pedalDistortion;
     SlotEnvelopeFilter filter;
     SlotAutoSwell swell;
+    SlotVolumePedal volumePedal;
     SlotDelay echo;
     SlotReverb reverb;
     SlotAirReverb airReverb;
@@ -181,6 +183,8 @@ public:
         filter.Reset(rate);
       if (effect == SlotEffect::AutoSwell)
         swell.Reset(rate);
+      if (effect == SlotEffect::VolumePedal)
+        volumePedal.Reset(rate);
       if (IsDelay(effect) && !UsesCoupledStereo(effect))
         echo.Reset(rate);
       if (!rightChannel)
@@ -661,6 +665,11 @@ public:
           mMeter.filterCutoff[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedCutoff()) : mMeter.filterCutoff[0];
           mMeter.filterQ[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedResonance()) : mMeter.filterQ[0];
         }
+        if (mMonitoring && p->effect == SlotEffect::VolumePedal)
+        {
+          mMeter.pedalPosition = static_cast<float>(p->volumePedal.Position());
+          mMeter.pedalGain = static_cast<float>(p->volumePedal.CurrentGain());
+        }
         if (utility.trails && IsTrailEffect(p->effect))
         {
           if (enabled)
@@ -771,6 +780,8 @@ private:
         p->filter.Process(out, frames, utility);
       else if (p->effect == SlotEffect::AutoSwell)
         p->swell.Process(out, frames, utility);
+      else if (p->effect == SlotEffect::VolumePedal)
+        p->volumePedal.Process(out, frames, utility);
       else if (p->effect == SlotEffect::UniVibe)
         p->vibe.Process(out, frames, utility, p->rightChannel);
       else if (p->effect == SlotEffect::Bitcrusher || p->effect == SlotEffect::RingMod)

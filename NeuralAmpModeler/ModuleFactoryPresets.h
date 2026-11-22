@@ -584,6 +584,15 @@ inline const Preset swell[]{
   {"Slow chord bloom", {{U(uSwellRise), 800.}, {U(uSwellRelease), 300.}, {U(uSwellCurve), 1.5}, {U(uSwellHold), 100.}}},
   {"Long ambient fade", {{U(uSwellRise), 1600.}, {U(uSwellRelease), 600.}, {U(uSwellCurve), 2.}, {U(uSwellHold), 150.}}},
 };
+// Volume Pedal: insertion is a muting swell pedal with an audio taper on CC 11.
+inline const Preset volumePedal[]{
+  // Heel at rhythm level, toe 4 dB louder for solos; Curve -100 spreads the boost over the travel.
+  {"Rhythm to lead boost", {{U(uVolumeHeel), 0.}, {U(uVolumeToe), 4.}, {U(uVolumeCurve), -100.}, {U(uVolumeSmoothing), 30.}}},
+  // A later rise and long glide for violin-like swells.
+  {"Slow swells", {{U(uVolumeCurve), 40.}, {U(uVolumeSmoothing), 150.}}},
+  // Linear amplitude, for controllers whose pedal already has a volume taper.
+  {"Linear pedal", {{U(uVolumeCurve), -50.}}},
+};
 // A small shift against a short delay makes notches that keep moving one way (barberpole);
 // a larger shift inside long feedback moves each repeat further from the played pitch.
 inline const Preset frequencyShifter[]{
@@ -743,6 +752,7 @@ inline std::span<const Preset> For(SlotEffect effect)
     case SlotEffect::Boost: return boost;
     case SlotEffect::SynthFilter: return filter;
     case SlotEffect::AutoSwell: return swell;
+    case SlotEffect::VolumePedal: return volumePedal;
     case SlotEffect::AnalogDelay: return analogDelay;
     case SlotEffect::TapeDelay: return tapeDelay;
     case SlotEffect::MultiHeadDelay: return multiHead;

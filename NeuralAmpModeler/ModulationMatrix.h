@@ -206,6 +206,7 @@ void VisitSlotControls(C& c, Visit&& visit)
   u(uFilterMix, t.extra.filterMix);
   u(uRingLfoRate, t.extra.ringLfoRate);
   u(uRingSweep, t.extra.ringSweep);
+  family(uVolumePosition, t.extra.volumePedal);
 
 }
 // Host parameter value -> snapshot field, matching IParam::Bool() and Int().

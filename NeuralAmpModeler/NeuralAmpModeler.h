@@ -162,6 +162,11 @@ public:
   void OnParamChange(int paramIdx) override;
   // Note-ons retrigger the LFO and sequencer when their Retrigger is MIDI note.
   void ProcessMidiMsg(const iplug::IMidiMsg& msg) override;
+#ifdef VST3_API
+  Steinberg::tresult PLUGIN_API getMidiControllerAssignment(Steinberg::int32 busIndex, Steinberg::int16 channel,
+                                                            Steinberg::Vst::CtrlNumber midiCCNumber,
+                                                            Steinberg::Vst::ParamID& tag) override;
+#endif
   void OnParamChangeUI(int paramIdx, iplug::EParamSource source) override;
   // Keep the existing parameter handles for editor/state compatibility, but do
   // not emit automation gestures or values for expandable selectors (IsStateOnlyParam).
@@ -349,6 +354,17 @@ private:
   static constexpr int kMaxNotesPerBlock = 128;
   std::array<int, kMaxNotesPerBlock> mNoteFrames{};
   int mNoteCount = 0;
+  // Latest MIDI controller values (-1 before the first) and this block's changes, audio context.
+  std::array<int, 128> mMidiCCValue = [] { std::array<int, 128> v; v.fill(-1); return v; }();
+  std::array<bool, 128> mMidiCCChanged{};
+  // Per slot: Position last seen, and whether the Volume Pedal currently follows its CC.
+  std::array<double, FixedNAMGrid::kSlots> mPedalKnob = [] {
+    std::array<double, FixedNAMGrid::kSlots> v; v.fill(-1.); return v; }();
+  std::array<bool, FixedNAMGrid::kSlots> mPedalFromMidi{};
+  std::array<int, FixedNAMGrid::kSlots> mPedalCCs = [] {
+    std::array<int, FixedNAMGrid::kSlots> v; v.fill(-1); return v; }();
+  // First Volume Pedal slot set to `cc` (1..127), or -1. Control/UI thread.
+  int _VolumePedalSlotForCC(int cc) const;
   int mActiveScene = -1;
   bool mRoutingOpen = false;
   // Low 16 bits: Freeze slots; high 16 bits: Shimmer slots. One control/audio snapshot.

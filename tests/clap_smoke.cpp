@@ -23,6 +23,7 @@
 #include "DigitalDelayClapTests.h"
 #include "ModulePresetClapTests.h"
 #include "PresetGainClapTests.h"
+#include "VolumePedalClapTests.h"
 #include "CachedControlsClapTests.h"
 #include "PerformanceSceneClapTests.h"
 #include <cstdlib>
@@ -1236,6 +1237,7 @@ int main(int argc, char** argv)
   TestModulePresetRecall(cleared, save, load, settingsBackup.home);
   TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);
+  TestVolumePedalMidiClap(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   TestPerformanceSceneState(plugin, cleared, save, load, loadRaw, settingsBackup.home);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)

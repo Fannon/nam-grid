@@ -122,6 +122,11 @@ static_assert(IsAlgorithmMode(uGranulatorMode) && !IsAlgorithmMode(uGranulatorFr
 static_assert(SlotUtilityParam(0, uFilterSensitivity) == 6209);
 static_assert(SlotUtilityParam(15, uRingSweep) == 6320);
 static_assert(kEffectParameters[uFilterSensitivity].introducedIn == 34 && kEffectParameters[uRingSweep].introducedIn == 34);
+// Volume Pedal (schema 34) appends one module and six slot controls to the same segment.
+static_assert(static_cast<int>(SlotEffect::VolumePedal) == 74);
+static_assert(SlotUtilityParam(0, uVolumePosition) == 6321);
+static_assert(SlotUtilityParam(15, uVolumeCC) == 6416);
+static_assert(kEffectParameters[uVolumePosition].introducedIn == 34 && kEffectParameters[uVolumeCC].introducedIn == 34);
 
 int main(int argc, char** argv)
 {
@@ -447,14 +452,14 @@ int main(int argc, char** argv)
     assert(load(legacy));
     assert(save() == base);
   }
-  // Schema 33 predates the filter envelope controls and Ring LFO: they restore the
-  // defaults that keep the released Filter and Ring Modulator sound.
+  // Schema 33 predates the filter envelope controls, Ring LFO and Volume Pedal: they restore
+  // the defaults that keep the released Filter and Ring Modulator sound.
   {
     auto legacy = base;
     legacy["schema"] = 33;
     auto changed = base;
     for (int slot = 0; slot < 16; ++slot)
-      for (int p = uFilterSensitivity; p <= uRingSweep; ++p)
+      for (int p = uFilterSensitivity; p <= uVolumeCC; ++p)
       {
         const auto key = GridSlotName(slot) + " " + kEffectParameters[p].name;
         legacy.erase(key);

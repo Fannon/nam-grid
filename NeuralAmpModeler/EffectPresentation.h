@@ -192,6 +192,7 @@ inline int TablePosition(SlotEffect e, int p)
   static constexpr int LoFiTapeOrder[]{uLoFiSpeed, uLoFiDrive, uLoFiWow, uLoFiFlutter, uLoFiNoise, uLoFiWear, uLoFiOutput, uLoFiMix};
   static constexpr int UtilityOrder[]{uUtilityBalance, uUtilityStereo, uUtilityInvertL, uUtilityInvertR, uUtilityDelay, uUtilitySkew, uUtilityLevel};
   static constexpr int AutoSwellOrder[]{uSwellRise, uSwellThreshold, uSwellRelease, uSwellCurve, uSwellHold, uSwellMix};
+  static constexpr int VolumePedalOrder[]{uVolumePosition, uVolumeCurve, uVolumeHeel, uVolumeToe, uVolumeSmoothing, uVolumeCC};
   switch (e)
   {
     case SlotEffect::ToneEQ: order = ToneEQOrder; break;
@@ -240,6 +241,7 @@ inline int TablePosition(SlotEffect e, int p)
     case SlotEffect::LoFiTape: order = LoFiTapeOrder; break;
     case SlotEffect::Utility: order = UtilityOrder; break;
     case SlotEffect::AutoSwell: order = AutoSwellOrder; break;
+    case SlotEffect::VolumePedal: order = VolumePedalOrder; break;
     default: break;
   }
   for (size_t i = 0; i < order.size(); ++i)
@@ -619,6 +621,12 @@ inline const char* Help(SlotEffect e, int p, int mode = -1)
     case uCrushTone: case uRingTone: case uShiftTone: case uDistTone: return "High-cut frequency of the processed signal. Lower values tame brightness and harshness.";
     case uRingFrequency: return "Carrier frequency; adds sum/difference sidebands and metallic, often inharmonic tones.";
     case uRingDepth: return "Move from the original amplitude toward full bipolar ring modulation.";
+    case uVolumePosition: return "Pedal position from heel (0%) to toe (100%). A MIDI pedal on the selected CC takes over until you move this again.";
+    case uVolumeCurve: return "Shape of the travel. 0 is an audio taper (-12 dB at half travel); negative values rise sooner, positive later.";
+    case uVolumeHeel: return "Level with the pedal fully back; -60 dB mutes. Raise it for a lead or rhythm level switch.";
+    case uVolumeToe: return "Level with the pedal fully forward.";
+    case uVolumeSmoothing: return "Glide between positions. Hides the steps of a MIDI pedal; longer values give slower swells.";
+    case uVolumeCC: return "MIDI controller that moves the pedal, on any channel (11 is Expression, 7 Volume, 4 Foot). Off ignores MIDI.";
     case uRingLfoRate: return "Speed of the LFO that sweeps the carrier frequency.";
     case uRingSweep: return "How far the LFO sweeps the carrier, up to two octaves either side of Frequency. Zero holds the carrier steady.";
     case uEQMode: return "Notch rejects a narrow band without a Gain control; bell boosts or cuts using Gain.";
@@ -702,6 +710,7 @@ inline const char* Sound(SlotEffect e)
     case SlotEffect::Tape: return "Drive adds tape saturation; Bump adds low-end body.";
     case SlotEffect::LoFiTape: return "Speed sets tone; Wow/Flutter move pitch, Wear adds dropouts.";
     case SlotEffect::AutoSwell: return "Threshold triggers the fade-in; Release closes the next gap.";
+    case SlotEffect::VolumePedal: return "Position or a MIDI expression pedal sets the volume; Curve shapes the travel between Heel and Toe.";
     case SlotEffect::DigitalDelay: return "Clean or rack-style repeats; Ducking leaves room for notes, then reveals echoes.";
     case SlotEffect::AnalogDelay: return "Age darkens and saturates repeats; Modulation adds pitch drift.";
     case SlotEffect::TapeDelay: return "Saturated repeats; Modulation adds tape-like pitch wobble.";

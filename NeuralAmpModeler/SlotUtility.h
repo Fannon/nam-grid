@@ -385,6 +385,47 @@ private:
   double mAppliedCut = 2500., mAppliedQ = .7;
 };
 
+// A volume pedal: Position (or the slot's MIDI CC) sweeps the gain from Heel level to Toe
+// level along a power curve in amplitude. Curve 0 is an audio taper (position squared, so
+// -12 dB at half travel); -100 rises fast (square root) and +100 holds back (8th power).
+// Heel level -60 dB mutes. Smoothing hides the 128 steps of a MIDI pedal.
+class SlotVolumePedal
+{
+public:
+  void Reset(double rate) { mRate = rate; mFirst = true; mSmoothingMs = -1.; mPosition = 1.; }
+  static double Gain(double position, const std::array<double, 6>& v)
+  {
+    const double k = std::exp2(1. + 2. * std::clamp(v[1], -100., 100.) * .01);
+    const double heel = v[2] <= -60. ? 0. : std::pow(10., std::clamp(v[2], -60., 0.) / 20.);
+    const double toe = std::pow(10., std::clamp(v[3], -24., 12.) / 20.);
+    return heel + (toe - heel) * std::pow(std::clamp(position, 0., 1.), k);
+  }
+  void Process(double* x, int frames, const UtilityControls& c)
+  {
+    const auto& v = c.extra.volumePedal;
+    mPosition = c.midiPedal >= 0. ? std::min(1., c.midiPedal) : std::clamp(v[0], 0., 100.) * .01;
+    const double target = Gain(mPosition, v);
+    if (v[4] != mSmoothingMs)
+    {
+      mSmoothingMs = v[4];
+      mSmooth = std::exp(-1. / (.001 * std::clamp(v[4], 1., 500.) * mRate));
+    }
+    if (mFirst) { mGain = target; mFirst = false; }
+    for (int i = 0; i < frames; ++i)
+    {
+      mGain = target + mSmooth * (mGain - target);
+      if (std::abs(mGain - target) < 1.e-9) mGain = target;
+      x[i] *= mGain;
+    }
+  }
+  double Position() const { return mPosition; }
+  double CurrentGain() const { return mGain; }
+
+private:
+  double mRate = 48000., mSmooth = 0., mSmoothingMs = -1., mGain = 1., mPosition = 1.;
+  bool mFirst = true;
+};
+
 class SlotAutoSwell
 {
 public:

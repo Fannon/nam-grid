@@ -122,6 +122,7 @@ staging, with normal playing peaking around -9 dBFS.
 | Graphic EQ | Warm keys, Lead mid boost, Tight into amp, Bass clarity, Acoustic air; each selects its voicing |
 | Dynamic EQ | Resonant synth tamer, Palm-mute control (after amp), Tight into amp, Harsh pick tamer (after amp), Bass boom control |
 | Filter, Wah, Auto Swell | Touch wah, Bass envelope, Funk quack, Slow vowel, Down sweep; Cocked wah, throaty and lead bite; Slow chord bloom, Long ambient fade |
+| Volume Pedal | Rhythm to lead boost, Slow swells, Linear pedal |
 | Boost, Tube Boost, Distortion | Tight amp push, Warm push, Mid push; Warm tube edge, Hot preamp grit; Parallel drum grit, Clean lows, warm grit, Hard rhythm, Octave-up fuzz, Sputtering gated fuzz |
 | Pedal Drive | Screamer boost, Blues breakup, Rodent distortion, Sustaining fuzz, Bass drive, clean lows, Pick edge |
 | Pedal Distortion | Classic rock distortion, British crunch, Scooped metal rhythm, Raw garage grit, Singing lead, Parallel chainsaw |

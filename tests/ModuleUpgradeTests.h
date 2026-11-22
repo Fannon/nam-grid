@@ -120,3 +120,29 @@ void TestRingCarrierLfo()
   };
   assert(std::abs(at(1.1) / at(1.6) - 1.) < .05 && std::abs(at(1.225) / at(1.1) - 1.) > .3);
 }
+
+void TestVolumePedal()
+{
+  constexpr double rate = 48000.;
+  std::array<double, 6> v{100., 0., -60., 0., 20., 11.};
+  // Audio taper by default: position squared, so -12 dB at half travel; heel mutes.
+  assert(SlotVolumePedal::Gain(1., v) == 1. && SlotVolumePedal::Gain(0., v) == 0.);
+  assert(std::abs(20. * std::log10(SlotVolumePedal::Gain(.5, v)) + 12.04) < .01);
+  auto linear = v; linear[1] = -50.;
+  assert(std::abs(SlotVolumePedal::Gain(.5, linear) - .5) < 1.e-12);
+  auto range = v; range[2] = -6.; range[3] = 6.;
+  assert(std::abs(20. * std::log10(SlotVolumePedal::Gain(0., range)) + 6.) < 1.e-9);
+  assert(std::abs(20. * std::log10(SlotVolumePedal::Gain(1., range)) - 6.) < 1.e-9);
+  // The insertion default passes audio exactly; a MIDI position overrides Position
+  // and glides there with Smoothing as its time constant.
+  SlotVolumePedal pedal; pedal.Reset(rate);
+  UtilityControls c; c.extra.volumePedal = v;
+  std::vector<double> x(4800, .5);
+  pedal.Process(x.data(), static_cast<int>(x.size()), c);
+  for (double s : x) assert(s == .5);
+  c.midiPedal = 0.;
+  std::fill(x.begin(), x.end(), 1.);
+  pedal.Process(x.data(), static_cast<int>(x.size()), c);
+  assert(std::abs(x[959] - std::exp(-1.)) < .01); // 20 ms = 960 samples.
+  assert(std::abs(x.back() - std::exp(-5.)) < .001 && pedal.Position() == 0.);
+}

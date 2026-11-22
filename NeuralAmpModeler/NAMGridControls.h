@@ -73,7 +73,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {creativeColor, creativeColor, "Creative"};
   if (effect == SlotEffect::Bitcrusher)
     return {boostColor, boostColor, "Texture"};
-  if (effect == SlotEffect::AutoSwell)
+  if (effect == SlotEffect::AutoSwell || effect == SlotEffect::VolumePedal)
     return {volumeColor, volumeColor, "Volume"};
   if (effect == SlotEffect::Tape)
     return {boostColor, boostColor, "Tape"};
@@ -2768,6 +2768,35 @@ private:
         for (float x = history.L; x < history.R; x += 8.f)
           g.DrawLine(ampColor, x, y, std::min(x + 4.f, history.R), y, nullptr, 1.5f);
       }
+    }
+    else if (effect == SlotEffect::VolumePedal)
+    {
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      std::array<double, 6> v{};
+      for (int i = 0; i < 6; ++i) v[i] = value(uVolumePosition + i);
+      PlotTitle(g, plot, color, "Pedal curve | level vs position");
+      const int cc = static_cast<int>(std::lround(v[5]));
+      WDL_String text;
+      if (cc > 0) text.SetFormatted(96, "Heel left, toe right | dot: live position, MIDI CC %d or Position", cc);
+      else text.Set("Heel left, toe right | dot: live position");
+      PlotDetail(g, plot, text.Get());
+      PlotGrid(g, plot);
+      constexpr double low = -60., high = 12.;
+      const auto level = [&](double x) {
+        return std::clamp(20. * std::log10(std::max(1.e-6, SlotVolumePedal::Gain(x, v))), low, high);
+      };
+      const auto y = [&](double db) { return plot.B - plot.H() * static_cast<float>((db - low) / (high - low)); };
+      g.DrawLine(border.WithOpacity(.9f), plot.L, y(0.), plot.R, y(0.));
+      PlotCurve(g, plot, level, low, high, color);
+      const double live = mMeter.pedalPosition >= 0.f ? mMeter.pedalPosition : v[0] * .01;
+      const double liveDB = mMeter.pedalPosition >= 0.f
+                              ? std::clamp(20. * std::log10(std::max(1.e-6, double(mMeter.pedalGain))), low, high) : level(live);
+      const float px = plot.L + plot.W() * static_cast<float>(live);
+      g.DrawLine(ampColor.WithOpacity(.5f), px, plot.T, px, plot.B);
+      g.FillCircle(ampColor, px, y(liveDB), 4.f);
+      text.SetFormatted(64, "%.0f%% | %s", live * 100., liveDB <= low ? "muted" : "");
+      if (liveDB > low) text.SetFormatted(64, "%.0f%% | %+.1f dB", live * 100., liveDB);
+      PlotFooter(g, plot, "+12 / -60 dB", text.Get());
     }
     else if (effect == SlotEffect::AutoSwell)
     {

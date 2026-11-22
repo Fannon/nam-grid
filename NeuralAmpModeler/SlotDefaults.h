@@ -140,7 +140,7 @@ inline SlotValues SlotDefaultValues(SlotEffect effect)
     case SlotEffect::GalacticSpace:
     case SlotEffect::ConsoleColour: case SlotEffect::ConsoleEQ: case SlotEffect::ButterComp:
     case SlotEffect::DigitalBlack: case SlotEffect::PedalDrive: case SlotEffect::PedalComp:
-    case SlotEffect::PedalDistortion: case SlotEffect::Granulator: break;
+    case SlotEffect::PedalDistortion: case SlotEffect::Granulator: case SlotEffect::VolumePedal: break;
   }
   return v;
 }

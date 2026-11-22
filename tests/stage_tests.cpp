@@ -185,6 +185,7 @@ try
     {"console-eq-calibration", TestConsoleEQCalibration},
     {"envelope-filter-controls", TestEnvelopeFilterControls},
     {"ring-carrier-lfo", TestRingCarrierLfo},
+    {"volume-pedal", TestVolumePedal},
   };
   if (argc == 2 && std::string(argv[1]) == "--list")
   {
@@ -373,6 +374,7 @@ try
   run("console-eq-calibration", TestConsoleEQCalibration);
   run("envelope-filter-controls", TestEnvelopeFilterControls);
   run("ring-carrier-lfo", TestRingCarrierLfo);
+  run("volume-pedal", TestVolumePedal);
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

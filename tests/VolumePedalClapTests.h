@@ -51,11 +51,11 @@ void TestVolumePedalMidiClap(const clap_plugin* plugin, json cleared, Load load)
     midi.data[2] = static_cast<uint8_t>(value);
     return midi;
   };
-  const auto positionEvent = [&](const char* text) {
+  const auto controlEvent = [&](int control, const char* text) {
     clap_event_param_value change{};
     change.header.size = sizeof(change); change.header.type = CLAP_EVENT_PARAM_VALUE;
     change.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
-    change.param_id = static_cast<clap_id>(SlotUtilityParam(0, uVolumePosition));
+    change.param_id = static_cast<clap_id>(SlotUtilityParam(0, control));
     assert(params->text_to_value(plugin, change.param_id, text, &change.value));
     change.note_id = -1; change.port_index = change.channel = change.key = -1;
     return change;
@@ -68,11 +68,19 @@ void TestVolumePedalMidiClap(const clap_plugin* plugin, json cleared, Load load)
   assert(std::abs(render({&half.header}) - expected) < .05);
   assert(std::abs(render({&other.header}) - expected) < .05); // Another CC is ignored.
   // Moving Position takes over from the pedal, until the next CC.
-  auto knob = positionEvent("100");
-  auto knobLow = positionEvent("50");
+  auto knob = controlEvent(uVolumePosition, "100");
+  auto knobLow = controlEvent(uVolumePosition, "50");
   assert(std::abs(render({&knobLow.header}) - 20. * std::log10(.25)) < .05);
   assert(render({&heel.header}) < -50.); // The rig after the pedal adds a faint floor of its own.
   assert(std::abs(render({&knob.header}) - 0.) < .01);
+  // Reassigning the CC releases its old MIDI position. A value already seen
+  // on the new controller only takes over when that controller moves again.
+  assert(std::abs(render({&other.header})) < .01);
+  assert(std::abs(render({&half.header}) - expected) < .05);
+  auto reassign = controlEvent(uVolumeCC, "7");
+  assert(std::abs(render({&reassign.header})) < .01);
+  assert(std::abs(render({&half.header})) < .01);
+  assert(render({&other.header}) < -50.);
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
   // MIDI CC Off ignores controllers.
   config[std::string("Pre 1 ") + kEffectParameters[uVolumeCC].name] = 0.;

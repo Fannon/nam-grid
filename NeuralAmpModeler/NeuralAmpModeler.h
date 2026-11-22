@@ -357,10 +357,10 @@ private:
   // Latest MIDI controller values (-1 before the first) and this block's changes, audio context.
   std::array<int, 128> mMidiCCValue = [] { std::array<int, 128> v; v.fill(-1); return v; }();
   std::array<bool, 128> mMidiCCChanged{};
-  // Per slot: Position last seen, and whether the Volume Pedal currently follows its CC.
+  // Per slot: Position last seen, and the active MIDI CC (0 means follow Position).
   std::array<double, FixedNAMGrid::kSlots> mPedalKnob = [] {
     std::array<double, FixedNAMGrid::kSlots> v; v.fill(-1.); return v; }();
-  std::array<bool, FixedNAMGrid::kSlots> mPedalFromMidi{};
+  std::array<int, FixedNAMGrid::kSlots> mPedalActiveCC{};
   std::array<int, FixedNAMGrid::kSlots> mPedalCCs = [] {
     std::array<int, FixedNAMGrid::kSlots> v; v.fill(-1); return v; }();
   // First Volume Pedal slot set to `cc` (1..127), or -1. Control/UI thread.

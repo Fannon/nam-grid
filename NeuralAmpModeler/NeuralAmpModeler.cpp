@@ -462,11 +462,15 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     auto& utility = controls[slot].utility;
     const int cc = static_cast<int>(std::lround(utility.extra.volumePedal[5]));
     const double position = utility.extra.volumePedal[0];
-    if (position != mPedalKnob[slot]) { mPedalKnob[slot] = position; mPedalFromMidi[slot] = false; }
-    const bool assigned = cc >= 1 && cc < static_cast<int>(mMidiCCValue.size());
-    if (!assigned) mPedalFromMidi[slot] = false;
-    else if (mMidiCCChanged[cc]) mPedalFromMidi[slot] = true;
-    utility.midiPedal = mPedalFromMidi[slot] && mMidiCCValue[cc] >= 0 ? mMidiCCValue[cc] / 127. : -1.;
+    auto& activeCC = mPedalActiveCC[slot];
+    if (position != mPedalKnob[slot] || cc != activeCC)
+    {
+      mPedalKnob[slot] = position;
+      activeCC = 0;
+    }
+    if (cc >= 1 && cc < static_cast<int>(mMidiCCValue.size()) && mMidiCCChanged[cc])
+      activeCC = cc;
+    utility.midiPedal = activeCC ? mMidiCCValue[activeCC] / 127. : -1.;
     controls[slot].utility.constantDry = mHeldPerformance[grid_performance::MixLaw] >= .5;
     controls[slot].utility.trails = mHeldPerformance[grid_performance::Trails] >= .5;
   }

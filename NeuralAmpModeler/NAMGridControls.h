@@ -3825,7 +3825,7 @@ public:
         if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot install factory content", error.c_str());
       });
     }, "Install factory content..."))->SetTooltip(
-      "Choose a library folder for the bundled clean capture, Empty, Clean Default and drive examples. Creates NAM Captures and Presets subfolders and indexes them; existing files are preserved.");
+      "Choose a library folder for Empty and the drive example rigs. Add your own captures to the NAM Captures folder. Creates NAM Captures and Presets subfolders and indexes them; existing files are preserved.");
     AddChildControl(new Button(IRECT(kRight - 244, 14, kRight - 92, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library", Icon::Browse));

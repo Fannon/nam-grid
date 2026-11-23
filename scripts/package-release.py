@@ -13,8 +13,8 @@ from pathlib import Path
 PLATFORMS = ("windows-x64", "macos-arm64", "linux-x64")
 CONTENTS = ("nam-grid.clap", "nam-grid.vst3", "ThirdPartyNotices.txt", "notices")
 NOTICES = ("NeuralAmpModelerPlugin", "iPlug2", "Roboto font", "Apache License", "Version 2.0, January 2004",
-           "Denormal helper (Aether)", "Airwindows", "FFTConvolver", "RiffSmith Clean")
-LICENSES = ("CLAP_SDK-LICENSE.txt", "CLAP_HELPERS-LICENSE.txt", "VST3_SDK-LICENSE.txt", "RiffSmith-LICENSE.txt")
+           "Denormal helper (Aether)", "Airwindows", "FFTConvolver")
+LICENSES = ("CLAP_SDK-LICENSE.txt", "CLAP_HELPERS-LICENSE.txt", "VST3_SDK-LICENSE.txt")
 
 
 def package(build_dir: Path, platform: str, output_dir: Path) -> Path:

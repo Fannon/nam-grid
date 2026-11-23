@@ -1,6 +1,5 @@
 #include "PerformanceSceneState.h"
 #include "NoisePrintState.h"
-#include "DefaultContent.h"
 #include "DrivePresets.h"
 #include "FactoryContent.h"
 #include "ModulePresets.h"
@@ -205,9 +204,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   mEmptyRig = _CurrentRig(); // A fresh instance is the empty grid New returns to.
   factory_content::Install(prepared.newNamFolder, prepared.newPresetFolder, mEmptyRig, drive_presets::Make(mEmptyRig));
   const auto content = user_paths::ContentFolder();
-  mFactoryLibraryFiles = {nam_library::PathText(content / "NAM Captures" / default_content::kCleanCaptureName),
-                          nam_library::PathText(content / "Presets" / "Empty.ngrid"),
-                          nam_library::PathText(content / "Presets" / default_content::kCleanPresetName)};
+  mFactoryLibraryFiles = {nam_library::PathText(content / "Presets" / "Empty.ngrid")};
   // Only names are needed here; avoid copying the complete parameter bank for every recipe.
   for (const auto& example : drive_presets::Make(nlohmann::json::object()))
     mFactoryLibraryFiles.push_back(nam_library::PathText(content / "Presets" / "Drive Examples"

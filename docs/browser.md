@@ -164,9 +164,9 @@ Until you choose your own folders, NAM Grid uses these in your Documents folder:
 
 | Folder | Contains |
 | --- | --- |
-| `NAM Grid/NAM Captures` | The bundled **RiffSmith Clean** capture |
+| `NAM Grid/NAM Captures` | A place for your own `.nam` files |
 | `NAM Grid/IRs` | A place for your cabinet `.wav` files |
-| `NAM Grid/Presets` | The **Empty** and **Clean Default** rigs |
+| `NAM Grid/Presets` | The **Empty** rig and **Drive Examples** |
 
 Your folder choices belong to you, not to a rig or DAW project, so loading a preset never replaces them. If you remove every folder from a list, NAM Grid remembers that and does not recreate the defaults.
 

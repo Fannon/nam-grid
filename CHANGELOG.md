@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Bring your own NAM captures. Fresh installs include Empty and the Drive Examples, and keep the capture folder ready for your files. Previously installed captures and rigs stay in your library.
+
 - **Shimmer Reverb** gains a **Bloom** control. Turn it up to spread the reflections behind a note and let the octaves swell in. Try **Slow octave bloom** on keys or sustained guitar. Cloud adds **Percussion mist** for short hits and **Wide synth bed** for pads.
 
 - The signal monitor has a continuous RMS fill, and the pedal waveforms and reverb tails draw smooth outlines at fractional zoom.

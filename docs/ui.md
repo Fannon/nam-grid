@@ -2,7 +2,7 @@
 
 Build your rig in the grid, then use the panel below it to shape the selected module. The main controls stay visible while you browse sounds, so you can compare tones without losing your place.
 
-![NAM Grid editor with the Clean Default rig and its amp capture selected](screenshots/grid.png)
+![NAM Grid editor with an example rig and its amp capture selected](screenshots/grid.png)
 
 ## Find your way around
 

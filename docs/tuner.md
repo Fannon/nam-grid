@@ -7,7 +7,7 @@ Click **Tuner** in the header to tune without leaving your rig. The tuner replac
 - **Mute output** is on by default. Turn it off to hear the processed rig while tuning.
 - Tune toward **0 cents**. The center band marks ±3 cents.
 - **Reference** sets concert pitch from 430 to 450 Hz; 440 Hz is the usual starting point.
-- The six-second history helps you see whether a note drifts sharp or flat after the attack. It fades with age and breaks at silence or a new note.
+- The six-second history helps you see whether a note drifts sharp or flat after the attack. The right-hand graph zooms to ±15 cents and fades with age. Brief pitch glitches and dropouts are smoothed. The trace breaks at silence or a new note.
 
 Click **Tuner** again, select a module, close the tuner, or press Escape to return. Output is restored smoothly.
 

@@ -15,7 +15,7 @@
 // all detection runs on the worker, never in the host's processing callback.
 namespace grid_tuner
 {
-inline constexpr int window = 1536;
+inline constexpr int window = 1536, hopSize = 256;
 static_assert(std::atomic<double>::is_always_lock_free && std::atomic<size_t>::is_always_lock_free);
 inline double Detect(const double* samples, double rate)
 {
@@ -85,6 +85,43 @@ inline double Detect(const double* samples, double rate)
   }
   return 0.;
 }
+
+// Smooth within a note in pitch space. Confirm large changes across two
+// overlapping windows so a brief harmonic at the attack cannot take over.
+class PitchTracker
+{
+public:
+  double Update(double frequency, double seconds)
+  {
+    if (frequency <= 0.)
+    {
+      mCandidate = 0.;
+      mSilence += seconds;
+      if (mSilence >= .065) mFrequency = 0.;
+      return mFrequency;
+    }
+    mSilence = 0.;
+    if (mFrequency <= 0.) return mFrequency = frequency;
+
+    const double change = std::log2(frequency / mFrequency);
+    if (std::abs(change) > 45. / 1200.)
+    {
+      if (mCandidate > 0. && std::abs(std::log2(frequency / mCandidate)) <= 25. / 1200.)
+      {
+        mCandidate = 0.;
+        return mFrequency = frequency;
+      }
+      mCandidate = frequency;
+      return mFrequency;
+    }
+    mCandidate = 0.;
+    const double weight = -std::expm1(-seconds / .06);
+    return mFrequency *= std::exp2(weight * change);
+  }
+
+private:
+  double mFrequency = 0., mCandidate = 0., mSilence = 0.;
+};
 
 class Tuner
 {
@@ -177,6 +214,7 @@ private:
   void Run()
   {
     std::array<double, window> ring{}, ordered{};
+    PitchTracker tracker;
     int index = 0, size = 0, hop = 0;
     unsigned generation = 0, epoch = 0;
     while (!mStop.load())
@@ -204,17 +242,18 @@ private:
         {
           generation = sample.generation;
           epoch = sample.epoch;
+          tracker = {};
           size = hop = index = 0;
         }
         ring[index] = sample.value;
         index = (index + 1) % window;
         size = std::min(window, size + 1);
-        if (++hop >= 256 && size == window)
+        if (++hop >= hopSize && size == window)
         {
           hop = 0;
           for (int i = 0; i < window; ++i)
             ordered[i] = ring[(index + i) % window];
-          const double frequency = Detect(ordered.data(), sample.rate);
+          const double frequency = tracker.Update(Detect(ordered.data(), sample.rate), hopSize / sample.rate);
           if (Enabled() && generation == mGeneration.load())
           {
             const auto now = Ticks();

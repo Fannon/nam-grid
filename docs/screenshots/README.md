@@ -1,7 +1,7 @@
 # README screenshots
 
-The main image, `grid.png`, shows the bundled **Clean Default** rig: Noise Gate,
-Punch Compressor and a bypassed Tube Boost in Pre; the bundled `riffsmith-clean`
+The main image, `grid.png`, shows the **Clean Default** test rig: Noise Gate,
+Punch Compressor and a bypassed Tube Boost in Pre; the `riffsmith-clean` test
 amp-and-cab capture with bypassed Auto Tremolo and LoFi Tape Machine in lane A; and
 Dual Delay, Cosmic Echo and Outboard Channel in Post. A1 is selected, showing the
 capture's controls and measured input/output display. The gallery tool loads the rig
@@ -27,7 +27,7 @@ The generated gallery uses a demo library containing:
 
 | File | View |
 | --- | --- |
-| `grid.png` | The bundled Clean Default rig with its A1 capture selected |
+| `grid.png` | The Clean Default test rig with its A1 capture selected |
 | `nam.png` | Pre 3 NAM capture with its measured input/output curve |
 | `ir.png` | Pre 4 cabinet IR frequency response |
 | `delay.png` | A2 Tape Echo |

@@ -95,14 +95,11 @@ int main(int argc, char** argv)
     const auto empty = rig_preset::Read(settingsBackup.home / "Presets" / "Empty.ngrid");
     for (int slot = 0; slot < 16; ++slot)
       assert(empty["SlotEffects"][slot] == static_cast<int>(SlotEffect::NAM) && empty["SlotPaths"][slot] == "");
-    // The bundled capture lands in NAM Captures, and Clean Default points at that copy.
-    const auto capture = settingsBackup.home / "NAM Captures" / "riffsmith-clean.nam";
-    assert(std::filesystem::is_regular_file(capture));
-    assert(nam_library::ContentHash(capture) == nam_library::ContentHash(
-      std::filesystem::path(argv[2]) / "NeuralAmpModeler/resources/defaults/riffsmith-clean.nam"));
-    const auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
-    assert(clean["PresetName"] == "Clean Default" && clean["SlotPaths"][4] == nam_library::PathText(capture));
-    assert(clean["SlotHashes"][4] == nam_library::ContentHash(capture));
+    const auto captures = settingsBackup.home / "NAM Captures";
+    assert(std::filesystem::is_directory(captures));
+    assert(std::none_of(std::filesystem::directory_iterator(captures), std::filesystem::directory_iterator{},
+                        [](const auto& entry) { return entry.path().extension() == ".nam"; }));
+    assert(!std::filesystem::exists(settingsBackup.home / "Presets" / "Clean Default.ngrid"));
     // Fresh installs include all drive examples, without capture dependencies.
     for (const auto& example : drive_presets::Make(empty))
     {
@@ -111,9 +108,8 @@ int main(int argc, char** argv)
       assert(rig_preset::Read(file) == example);
     }
     // Bundled rigs ship without stored scenes: a stale scene would change modules on recall.
-    for (const auto& rig : {empty, clean})
-      for (const auto& scene : rig["PerformanceScenes"])
-        assert(scene.empty());
+    for (const auto& scene : empty["PerformanceScenes"])
+      assert(scene.empty());
     // The first scan must include installed defaults, without a manual rescan.
     const auto indexFile = settingsBackup.home / "cache" / "library-index.json";
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -121,13 +117,12 @@ int main(int argc, char** argv)
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     assert(std::filesystem::exists(indexFile));
     const auto index = nam_library::ReadIndex(indexFile);
-    for (const auto& file : {capture, settingsBackup.home / "Presets" / "Empty.ngrid",
-                             settingsBackup.home / "Presets" / "Clean Default.ngrid"})
-      assert(std::any_of(index.begin(), index.end(), [&](const auto& entry) {
-        return std::filesystem::equivalent(entry.second.capture.path, file);
-      }));
+    const auto emptyFile = settingsBackup.home / "Presets" / "Empty.ngrid";
+    assert(std::any_of(index.begin(), index.end(), [&](const auto& entry) {
+      return std::filesystem::equivalent(entry.second.capture.path, emptyFile);
+    }));
     first->destroy(first);
-    std::cout << "First start: settings folder, default library folders, bundled capture, presets and first index passed\n";
+    std::cout << "First start: settings folder, empty capture folders, starter presets and first index passed\n";
     if (argc == 4 && std::strcmp(argv[3], "--library-startup-only") == 0)
     {
       TestLibraryStartup(factory, host, settingsBackup);
@@ -212,8 +207,10 @@ int main(int argc, char** argv)
   load(base);
   assert(!base.contains("NamFolders") && !base.contains("IrFolders") && !base.contains("PresetFolders"));
   {
-    // The bundled Clean Default rig loads as saved, with its capture from the default folder.
-    auto clean = rig_preset::Read(settingsBackup.home / "Presets" / "Clean Default.ngrid");
+    // Previously installed starter rigs still load with their original capture.
+    const auto fixture = std::filesystem::path(argv[2]) / "tests/fixtures/gallery";
+    auto clean = rig_preset::Read(fixture / "Clean Default.ngrid");
+    clean["SlotPaths"][4] = nam_library::PathText(fixture / "riffsmith-clean.nam");
     clean["Tuner"] = 0.; clean["Tuner Reference"] = 440.; clean["Tuner Mute"] = 1.;
     assert(loadRaw(clean));
     const auto loaded = save().config();

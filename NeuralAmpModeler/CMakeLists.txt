@@ -103,23 +103,10 @@ file(GLOB NAM_CORE_SOURCES CONFIGURE_DEPENDS
 file(GLOB NAM_RESOURCES CONFIGURE_DEPENDS "resources/fonts/*.ttf")
 list(APPEND NAM_RESOURCES "${PROJECT_SOURCE_DIR}/ThirdPartyNotices.txt")
 configure_file("${PROJECT_SOURCE_DIR}/ThirdPartyNotices.txt" "${CMAKE_BINARY_DIR}/out/ThirdPartyNotices.txt" COPYONLY)
-# The bundled default content (DefaultContent.h): one capture and the preset that uses it,
-# embedded so a fresh install can write them into its new library folders.
-set(NAM_DEFAULT_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/riffsmith-clean.nam")
-set(NAM_DEFAULT_PRESET "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/Clean Default.ngrid")
-set(NAM_DEFAULT_CONTENT "${CMAKE_BINARY_DIR}/generated/DefaultContent.cpp")
-add_custom_command(OUTPUT "${NAM_DEFAULT_CONTENT}"
-  COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/embed-default-content.py"
-    --capture "${NAM_DEFAULT_CAPTURE}" --preset "${NAM_DEFAULT_PRESET}" --output "${NAM_DEFAULT_CONTENT}"
-  DEPENDS "${NAM_DEFAULT_CAPTURE}" "${NAM_DEFAULT_PRESET}" "${PROJECT_SOURCE_DIR}/scripts/embed-default-content.py"
-  COMMENT "Compressing and embedding the default NAM capture and preset" VERBATIM)
-# Exercise the same decoder NanoVG already supplies to every plugin format.
-add_executable(nam-default-content-tests ../tests/default_content_tests.cpp "${NAM_DEFAULT_CONTENT}"
-  ../iPlug2/Dependencies/IGraphics/NanoVG/src/nanovg.c)
-target_include_directories(nam-default-content-tests PRIVATE .
-  ../iPlug2/Dependencies/IGraphics/NanoVG/src ../NeuralAmpModelerCore/Dependencies/nlohmann)
+add_executable(nam-default-content-tests ../tests/default_content_tests.cpp)
+target_include_directories(nam-default-content-tests PRIVATE . ../NeuralAmpModelerCore/Dependencies/nlohmann)
 target_compile_features(nam-default-content-tests PRIVATE cxx_std_20)
-add_test(NAME default-content COMMAND nam-default-content-tests "${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults")
+add_test(NAME default-content COMMAND nam-default-content-tests)
 set(NAM_PLATFORM_SOURCES)
 if(UNIX AND NOT APPLE)
   set(NAM_EMBEDDED_FONT "${CMAKE_BINARY_DIR}/generated/EmbeddedFont.cpp")
@@ -131,9 +118,6 @@ if(UNIX AND NOT APPLE)
     COMMENT "Embedding the editor font" VERBATIM)
   list(APPEND NAM_PLATFORM_SOURCES "${NAM_EMBEDDED_FONT}")
 endif()
-set(riffsmith_notice "${CMAKE_BINARY_DIR}/out/notices/RiffSmith-LICENSE.txt")
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/resources/defaults/riffsmith-LICENSE.txt" "${riffsmith_notice}" COPYONLY)
-list(APPEND NAM_RESOURCES "${riffsmith_notice}")
 foreach(dependency CLAP_SDK CLAP_HELPERS VST3_SDK)
   if(dependency STREQUAL "VST3_SDK")
     set(license_name LICENSE.txt)
@@ -302,7 +286,7 @@ endif()
 iplug_add_plugin(nam-grid
   FORMATS ${NAM_FORMATS}
   SOURCES NeuralAmpModeler.cpp NeuralAmpModeler.h CaptureLibrary.cpp ../iPlug2/WDL/sha.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
-    "${NAM_DEFAULT_CONTENT}" ${NAM_PLATFORM_SOURCES}
+    ${NAM_PLATFORM_SOURCES}
     ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/ImpulseResponse.cpp
     ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp ../AudioDSPTools/dsp/wav.cpp
   RESOURCES ${NAM_RESOURCES}

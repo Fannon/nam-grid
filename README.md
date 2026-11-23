@@ -15,10 +15,8 @@ for anything from a simple amp sound to layered ambient textures.
 
 ![NAM Grid with a clean amp-and-cab capture, Tube Boost, supporting effects, and the amp capture editor](docs/screenshots/grid.png)
 
-*The Clean Default rig that comes with the plugin: a gate, compression, a clean
-amp-and-cab capture and ambient effects, with the capture selected. Find more
-captures and IRs for your own rigs on
-[TONE3000](https://www.tone3000.com), which hosts free NAM captures and IRs.*
+*An example rig with a clean amp-and-cab capture selected. Bring your own NAM captures
+and cabinet IRs. [TONE3000](https://www.tone3000.com) hosts free NAM captures and IRs.*
 
 ## About this project
 

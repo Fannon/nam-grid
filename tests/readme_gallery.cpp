@@ -122,8 +122,8 @@ static int Run(int argc, char** argv)
     std::ofstream(amp1) << model.dump();
   }
   WriteExampleCabinet(cab);
-  // The bundled default capture and Clean Default rig (resources/defaults) for the main image.
-  const auto defaults = repository / "NeuralAmpModeler" / "resources" / "defaults";
+  // The test capture and Clean Default fixture for the main image.
+  const auto defaults = repository / "tests" / "fixtures" / "gallery";
   const auto cleanCapture = captures / "riffsmith-clean.nam";
   std::filesystem::copy_file(defaults / "riffsmith-clean.nam", cleanCapture, std::filesystem::copy_options::overwrite_existing);
 
@@ -496,7 +496,7 @@ static int Run(int argc, char** argv)
       }
 
     }
-  // The README main image: the bundled Clean Default rig with A1's capture selected.
+  // The README main image uses the Clean Default fixture with A1's capture selected.
   if (filter.empty() && !pagesOnly)
   {
     auto clean = rig_preset::Read(defaults / "Clean Default.ngrid");

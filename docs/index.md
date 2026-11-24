@@ -80,7 +80,7 @@ NAM Grid is in beta (version 0.x). Projects, automation and presets saved with v
 
 ## Sounds to start with
 
-NAM Grid includes the **RiffSmith Clean** amp-and-cabinet capture and the **Clean Default** rig, so you can play right away. [TONE3000](https://www.tone3000.com/) has a large collection of free NAM captures and cabinet IRs; add the folders you download to your [library](browser.md#library-folders).
+Bring your own NAM captures and cabinet IRs. Add their folders to your [library](browser.md#library-folders). [TONE3000](https://www.tone3000.com/) is one place to find captures and IRs.
 
 <span id="see-it-in-action"></span>
 

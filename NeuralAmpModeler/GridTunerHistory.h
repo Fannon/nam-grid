@@ -13,6 +13,7 @@ namespace grid_tuner
 {
 inline constexpr int historyLength = 384;
 inline constexpr long long historyDurationMs = 6000;
+inline constexpr int historyCentsRange = 15;
 struct HistoryPoint
 {
   double frequency = 0.;

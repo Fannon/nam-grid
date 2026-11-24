@@ -1,5 +1,4 @@
 #pragma once
-#include "DefaultContent.h"
 #include "RigPreset.h"
 #include <string>
 #include <vector>
@@ -20,19 +19,7 @@ inline std::string Install(const std::filesystem::path& namFolder, const std::fi
       errors += error.what();
     }
   };
-  const auto capture = namFolder.empty() ? namFolder : namFolder / default_content::kCleanCaptureName;
-  if (!capture.empty()) attempt([&] {
-    std::filesystem::create_directories(namFolder);
-    if (!std::filesystem::exists(capture))
-    {
-      const auto bytes = default_content::CleanCapture();
-      std::ofstream output;
-      output.exceptions(std::ios::failbit | std::ios::badbit);
-      output.open(capture, std::ios::binary);
-      output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-      output.close();
-    }
-  });
+  if (!namFolder.empty()) attempt([&] { std::filesystem::create_directories(namFolder); });
   if (presetFolder.empty()) return errors;
   attempt([&] { std::filesystem::create_directories(presetFolder); });
   attempt([&] {
@@ -52,23 +39,6 @@ inline std::string Install(const std::filesystem::path& namFolder, const std::fi
       rig["PresetName"] = "Empty";
       rig_preset::Write(file, rig);
     }
-  });
-  attempt([&] {
-    const auto file = presetFolder / default_content::kCleanPresetName;
-    if (capture.empty() || !std::filesystem::is_regular_file(capture) || std::filesystem::exists(file)) return;
-    const auto bytes = default_content::CleanPreset();
-    auto document = nlohmann::json::parse(bytes.begin(), bytes.end());
-    auto& rig = document.at("rig");
-    for (auto& path : rig.at("SlotPaths"))
-    {
-      const auto name = path.get<std::string>();
-      if (!name.empty() && !std::filesystem::u8path(name).has_parent_path())
-      {
-        const auto installed = (namFolder / std::filesystem::u8path(name)).u8string();
-        path = std::string(reinterpret_cast<const char*>(installed.data()), installed.size());
-      }
-    }
-    rig_preset::Write(file, rig);
   });
   return errors;
 }

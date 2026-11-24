@@ -11,12 +11,11 @@ Click the preset name in the header to open the [preset browser](browser.md). Se
 - **Shift-click** or **Alt-click Save** overwrites the loaded preset. Right-clicking also offers **Save over** and **Save as...**.
 - Edits after loading or saving are not written automatically.
 
-**Empty** and **Clean Default** are included in the default `Documents/NAM Grid/Presets` folder. Add other preset folders in **Settings**.
-
-Fresh installs also include a **Drive Examples** subfolder with a starting rig for each
-Pedal Drive style, Flat/Tight/Warm clean boosts and two split-band bass rigs.
+The default `Documents/NAM Grid/Presets` folder contains **Empty** and a **Drive Examples**
+subfolder with a starting rig for each Pedal Drive style, Flat/Tight/Warm clean boosts,
+and two split-band bass rigs. Add other preset folders in **Settings**.
 Choose **Settings > Install factory content...**, then select a library folder,
-to add the bundled clean capture, Empty, Clean Default and the drive examples.
+to add Empty and the drive examples.
 NAM Grid creates **NAM Captures** and **Presets** subfolders, adds them to their
 library lists and indexes them. Existing files, including edited presets, are
 preserved; missing factory files are restored. The **+ NAM / IR / Preset folder**

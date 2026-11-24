@@ -7,6 +7,9 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - **Shimmer Reverb** brings the pitched notes forward at high Amount, including in a dense reverb wash.
 - **Shimmer Reverb sounds more like a studio shimmer:** each octave now spreads slightly around its pitch into a gently chorused layer, and higher octaves fade progressively instead of piling up into a glassy top, so strong settings sound fuller and less harsh. Damping sets how quickly the upper layers fade. Strong settings no longer build up an inaudible offset that could click when Mix changes or the module is bypassed.
 - Turning module knobs and running automation redraws the affected module with less editor work.
+- Bring your own NAM captures. Fresh installs include Empty and the Drive Examples, and keep the capture folder ready for your files. Previously installed captures and rigs stay in your library.
+
+- **Shimmer Reverb** gains a **Bloom** control. Turn it up to spread the reflections behind a note and let the octaves swell in. Try **Slow octave bloom** on keys or sustained guitar. Cloud adds **Percussion mist** for short hits and **Wide synth bed** for pads.
 
 - **Shimmer Reverb** gains a **Bloom** control. Turn it up to fade each note into the reverb, so the octaves swell in behind it; the display shows the swell. Try **Slow octave bloom** on keys or sustained guitar. Cloud adds **Percussion mist** for short hits and **Wide synth bed** for pads.
 - The signal monitor has a continuous RMS fill, and the pedal waveforms and reverb tails draw smooth outlines at fractional zoom.
@@ -33,6 +36,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - **Delay displays:** see how tape heads and spring overlap, pitches build, and feedback shapes the repeats. Drag the taps in Pattern Delay to set time and level, and choose a tap to set its pan. Digital Delay's display names the Voice and shows its modulation depth. Space Tape Echo marks which tape heads play, Bucket Brigade shows its repeats darkening over time, and Granular Delay shows how many fragments of a note come back and when, including echoes that begin during the first grain.
 - **Delay presets:** every module in the Delay menu now has four to ten factory presets. Try **Descending fourths** for falling echoes, **Lo-fi echoes** for crumbling digital repeats, or **Quarter-note reverse swells** for tempo-synced granular textures. Diffused Delay's **Oil can echo** replaces **Soft echo clusters** with short, dark, wobbling repeats. Digital Delay drops two near-duplicate presets, **Triplet ping-pong** and **Ducked dotted eighth**. Rigs that used any of these keep their settings.
 - **Time marks:** delay, reverb, modulation and other time-based displays mark 10 ms to 40 s with faint dotted lines, and show the exact time under the pointer. Displays whose footer only repeated a legend or scale move it to the hover help and give the row to the chart. The tuner's pitch history fills the full display height, with Close beside the tuner controls.
+- The tuner steadies its reading through brief pitch jumps and dropouts. The history graph zooms to ±15 cents for easier fine tuning.
 - **Highlight colour:** selections and active buttons outside modules, such as Settings, the browser, macros and the header toggles, use a neutral white instead of green, so colour always identifies a module. The tuner keeps green for in tune.
 - **Website:** a simpler introduction, direct downloads for each platform, and full-size screenshots.
 

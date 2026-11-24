@@ -411,7 +411,7 @@ try
   std::filesystem::path report;
   std::vector<std::pair<int, double>> overrides;
   std::string overrideDescription;
-  std::filesystem::path capture = std::filesystem::path(argv[1]) / "NeuralAmpModeler/resources/defaults/riffsmith-clean.nam";
+  std::filesystem::path capture = std::filesystem::path(argv[1]) / "tests/fixtures/gallery/riffsmith-clean.nam";
   for (int i = 2; i < argc; ++i)
   {
     const std::string option = argv[i];

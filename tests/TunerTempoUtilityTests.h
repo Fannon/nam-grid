@@ -5,6 +5,25 @@
 void TestTunerTempoUtility()
 {
   // Timestamped history wraps, expires and excludes a previous enable generation.
+  {
+    grid_tuner::PitchTracker tracker;
+    constexpr double hop = 256. / 12000.;
+    constexpr double lowE = 82.406889;
+    const double sharp = lowE * std::exp2(12. / 1200.);
+    assert(tracker.Update(lowE, hop) == lowE);
+    assert(tracker.Update(lowE * 2., hop) == lowE);
+    assert(tracker.Update(0., hop) == lowE);
+    assert(tracker.Update(lowE, hop) == lowE);
+    const double nudged = tracker.Update(sharp, hop);
+    assert(nudged > lowE && nudged < sharp);
+    for (int i = 0; i < 16; ++i) tracker.Update(sharp, hop);
+    assert(std::abs(1200. * std::log2(tracker.Update(sharp, hop) / sharp)) < .1);
+    assert(tracker.Update(110., hop) != 110.);
+    assert(tracker.Update(110., hop) == 110.);
+    for (int i = 0; i < 4; ++i) tracker.Update(0., hop);
+    assert(tracker.Update(0., hop) == 0.);
+    assert(tracker.Update(lowE, hop) == lowE);
+  }
   grid_tuner::History history;
   const double sharpA = 440. * std::pow(2., 20. / 1200.);
   const auto pitch = grid_tuner::ToPitch(sharpA, 440.);

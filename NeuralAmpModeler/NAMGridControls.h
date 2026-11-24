@@ -3875,7 +3875,7 @@ public:
         if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot install factory content", error.c_str());
       });
     }, "Install factory content..."))->SetTooltip(
-      "Choose a library folder for the bundled clean capture, Empty, Clean Default and drive examples. Creates NAM Captures and Presets subfolders and indexes them; existing files are preserved.");
+      "Choose a library folder for Empty and the drive example rigs. Add your own captures to the NAM Captures folder. Creates NAM Captures and Presets subfolders and indexes them; existing files are preserved.");
     AddChildControl(new Button(IRECT(kRight - 244, 14, kRight - 92, 42), [this](IControl*) {
       PLUG()->OpenLibraryBrowser(nam_library::BrowserContext::Library, nam_library::FileKind::NAM);
     }, "Browse library", Icon::Browse));
@@ -4064,8 +4064,10 @@ public:
   explicit TunerHistoryHelp(const IRECT& bounds) : IControl(bounds)
   {
     SetIgnoreMouse(false);
-    SetTooltip("Pitch history: the last 6 seconds, now at the right edge, within ±25 cents. "
-               "Green = within ±3 cents; larger offsets pin to the edge.");
+    WDL_String tip;
+    tip.SetFormatted(160, "Pitch history shows the last 6 seconds within ±%d cents. Green marks ±3 cents. Larger offsets pin to the edge.",
+                     grid_tuner::historyCentsRange);
+    SetTooltip(tip.Get());
   }
   void Draw(IGraphics&) override {}
 };
@@ -4147,11 +4149,10 @@ public:
     const IRECT panel(kHistoryL, grid_layout::visualizationTop, grid_layout::visualizationRight, grid_layout::visualizationBottom),
                 plot(kHistoryL + 38, panel.T + 12, panel.R - 12, panel.B - 12 - grid_layout::timeLabelGap - grid_layout::timeLabelHeight);
     VisualizationBackground(g, panel);
-    // Zoomed to ±25 cents, so the last few cents of tuning are visible; larger offsets pin to the edge.
-    constexpr double range = 25.;
+    constexpr double range = grid_tuner::historyCentsRange;
     const auto yFor = [&](double cents) { return plot.MH() - plot.H() * .5f * static_cast<float>(std::clamp(cents, -range, range) / range); };
     g.FillRect(tuneColor.WithOpacity(.08f), IRECT(plot.L, yFor(3.), plot.R, yFor(-3.)));
-    for (int cents : {-25, -10, 0, 10, 25})
+    for (int cents : {-grid_tuner::historyCentsRange, -5, 0, 5, grid_tuner::historyCentsRange})
     {
       const float y = yFor(cents);
       g.DrawLine(cents == 0 ? muted.WithOpacity(.6f) : border.WithOpacity(.45f), plot.L, y, plot.R, y);

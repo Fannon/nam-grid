@@ -54,15 +54,9 @@ To update, replace the plugin files with the new version. Your rigs, projects an
 
 ## Make your first sound
 
-A new NAM Grid starts with an empty grid. On first start it also creates a library in your Documents folder, `Documents/NAM Grid`, with one clean amp-and-cab capture (**RiffSmith Clean**) and two rigs, **Empty** and **Clean Default**.
+A new NAM Grid starts with an empty grid. Bring your own `.nam` captures and cabinet IRs. On first start, NAM Grid creates **NAM Captures**, **IRs**, and **Presets** folders in `Documents/NAM Grid`. The **Empty** and **Drive Examples** rigs are ready to use with your captures or with the built-in effects alone.
 
-1. Click the preset name in the header to open the rig browser.
-2. Select **Clean Default** and choose **Load**.
-3. Play. Turn **IN** (left of the grid) to set how hard you drive the rig, and **OUT** for your listening volume.
-
-![The Clean Default rig in the NAM Grid editor](screenshots/grid.png)
-
-Clean Default shows a typical layout: a noise gate and compressor in Pre, the amp capture in lane A, and a delay, an ambient echo and a console channel in Post. Click any module to see and change its controls below the grid.
+![Example rig in the NAM Grid editor](screenshots/grid.png)
 
 ## Build your own rig
 

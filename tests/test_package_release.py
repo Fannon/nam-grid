@@ -37,7 +37,7 @@ class PackageTests(unittest.TestCase):
             with zipfile.ZipFile(archive) as contents:
                 names = contents.namelist()
                 self.assertFalse(any(name.startswith("resources") for name in names))
-                for required in ("nam-grid.clap", "ThirdPartyNotices.txt", "notices/RiffSmith-LICENSE.txt",
+                for required in ("nam-grid.clap", "ThirdPartyNotices.txt",
                                  "nam-grid.vst3/Contents/x86_64-linux/nam-grid.so"):
                     self.assertIn(required, names)
                 if os.name != "nt":  # Windows file modes have no executable bit to keep.

@@ -58,6 +58,8 @@ In the header:
 
 ## Granulator
 
+![Granulator editor](../screenshots/modules/granulator.png)
+
 Records the last four seconds of your playing and replays it as short, overlapping grains. **Mode** picks what the grains do; every mode is played with the same few knobs, so a sound is quick to dial in. The grain engine follows Mutable Instruments Clouds and its successor Beads; the modes and the Activity, Shape, Filter, Repeats and Space controls are inspired by the Hologram Microcosm pedal and the Grainbloom MPC plugin. Pitched modes use only octaves and fifths, so they suit any key.
 
 | Mode | Timing with sync off | Sound and use |

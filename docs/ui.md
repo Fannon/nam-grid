@@ -127,7 +127,7 @@ The gear icon in the header opens **Settings**, which manages your capture, IR a
 - **Preset switch** chooses how rigs change while you play; see [rig presets](presets.md#switching-while-you-play).
 - **Startup rescan** rescans your folders whenever NAM Grid starts.
 - **Settings folder** opens the folder that stores these choices; see [where settings are stored](troubleshooting.md#where-are-my-settings-stored).
-- **Install factory content...** adds the bundled clean capture and factory rig presets to a chosen library folder, preserving existing files. See [rig presets](presets.md).
+- **Install factory content...** adds Empty and the Drive Examples to a chosen library folder, creates a folder for your NAM captures and preserves existing files. See [rig presets](presets.md).
 - The footer buttons open this documentation, the source code and the issue tracker.
 
 ### Rig behaviour

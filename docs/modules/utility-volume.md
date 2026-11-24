@@ -51,6 +51,8 @@ A volume swell that removes the pick attack and fades each phrase in. Pause belo
 
 ## Volume Pedal
 
+![Volume Pedal editor](../screenshots/modules/volume-pedal.png)
+
 A volume pedal you play with Position, host automation or a MIDI expression pedal.
 
 | Control | Range | Start | What it does |

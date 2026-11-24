@@ -285,6 +285,8 @@ the repeats and their feedback while the dry signal continues.
 
 ## Space Tape Echo
 
+![Space Tape Echo editor](../screenshots/modules/space-tape-echo.png)
+
 Three tape heads with a spring reverb fed in parallel.
 
 | Control | Range | Start | What it does |
@@ -311,6 +313,8 @@ building until you lower Feedback.
 
 ## Bucket Brigade
 
+![Bucket Brigade editor](../screenshots/modules/bucket-brigade.png)
+
 Companded analog repeats whose bandwidth narrows as Time gets longer, like a slower BBD clock.
 
 | Control | Range | Start | What it does |
@@ -335,6 +339,8 @@ for a moving rhythmic echo.
 **Display:** The repeats on a dB scale, as in Analog Echo. The thin line inside each stem shows how much survives above 2 kHz: it shrinks with every repeat and at longer Times. The title shows the bandwidth at the current Time, and the footer the modulation rate and approximate pitch motion.
 
 ## Pitch Delay
+
+![Pitch Delay editor](../screenshots/modules/pitch-delay.png)
 
 Blend ordinary echoes with repeats that climb or fall in musical intervals.
 
@@ -362,6 +368,8 @@ Try **Octave halo** for subtle shimmer or **Climbing fifths** for a stronger eff
 
 ## Feedback FX Delay
 
+![Feedback FX Delay editor](../screenshots/modules/feedback-fx-delay.png)
+
 A filter, phaser, tremolo or ring modulator changes each repeat before it feeds back.
 
 | Control | Range | Start | What it does |
@@ -388,6 +396,8 @@ Rate, and Rate sync is hidden. Resonance appears only in Sweep and Phaser. Try *
 **Display:** Three response curves show where Sweep or Phaser is headed; the scale follows the deepest notch, so shallow settings stay visible. Tremolo shows both channels' gain over two cycles. Ring shows how quickly the feedback multiplier changes and where it can invert.
 
 ## Pattern Delay
+
+![Pattern Delay editor](../screenshots/modules/pattern-delay.png)
 
 Four timed and panned echo taps with selectable feedback routing.
 
@@ -417,6 +427,8 @@ Try **Drum echo**, **Accelerating taps** and **Four-line halo**.
 **Display:** Drag a numbered tap left or right to change its time and up or down to change its level. Choose a tap by number and drag its pan track towards L or R. Double-click a tap or the pan track to reset it. The lower plot estimates later repeats as you adjust feedback and routing.
 
 ## Granular Delay
+
+![Granular Delay editor](../screenshots/modules/granular-delay.png)
 
 Overlapping fragments that spread, reverse or stutter around the echo time.
 

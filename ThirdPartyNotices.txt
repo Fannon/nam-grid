@@ -1,9 +1,9 @@
 Third-Party Notices
 ===================
 
-NAM Grid is distributed as CLAP and VST3 plugins for Windows and macOS. It is
-based on the Neural Amp Modeler plugin and includes the open-source software,
-adapted algorithms, font and NAM capture listed below. Keep this file and the accompanying
+NAM Grid is distributed as CLAP and VST3 plugins for Windows, macOS and Linux.
+It is based on the Neural Amp Modeler plugin and includes the open-source software,
+adapted algorithms and font listed below. Keep this file and the accompanying
 notices/ folder with every copy of the plugins.
 
 NAM Grid itself is MIT licensed; see LICENSE in the source repository at

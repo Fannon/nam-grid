@@ -26,7 +26,7 @@ The example uses Ninja; Visual Studio builds place the executable in the
 additional `NeuralAmpModeler/Release/` subdirectory. Use the corresponding
 `build/macos/release` or `build/linux/release` path without
 `.exe` on those platforms. `--module 41` restricts an audit to one persistent
-module ID. `--capture path/to/model.nam` replaces the bundled clean NAM capture;
+module ID. `--capture path/to/model.nam` replaces the clean NAM test fixture;
 NAM measurements describe that capture, not all trained models. Repeat
 `--control "Limiter Input" 12 --control "Limiter Clip" 0`, for example, with
 `--module 29` to isolate a particular control path. Overrides apply after the

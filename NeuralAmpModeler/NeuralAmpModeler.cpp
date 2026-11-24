@@ -108,7 +108,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
           (name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit, 0, "", IParam::ShapeExp());
       else
         param->InitDouble((name + " " + p.name).c_str(), p.initial, p.minimum, p.maximum, p.step, p.unit);
-      if (i == uNoiseGateThreshold || i == uDistLowPreserve)
+      if (i == uNoiseGateThreshold || i == uDistLowPreserve || i == uVolumeCC)
         param->SetDisplayText(p.minimum, "Off");
     }
     GetParam(SlotFullParam(slot))->InitBool((name + " Full Quality").c_str(), true);
@@ -454,6 +454,20 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     });
     // Host tempo can change without a parameter notification.
     controls[slot].utility.tempo = tempo;
+    // A Volume Pedal follows its MIDI CC from the first message until Position itself
+    // changes, then Position until the next message: the last pedal or knob move wins.
+    auto& utility = controls[slot].utility;
+    const int cc = static_cast<int>(std::lround(utility.extra.volumePedal[5]));
+    const double position = utility.extra.volumePedal[0];
+    auto& activeCC = mPedalActiveCC[slot];
+    if (position != mPedalKnob[slot] || cc != activeCC)
+    {
+      mPedalKnob[slot] = position;
+      activeCC = 0;
+    }
+    if (cc >= 1 && cc < static_cast<int>(mMidiCCValue.size()) && mMidiCCChanged[cc])
+      activeCC = cc;
+    utility.midiPedal = activeCC ? mMidiCCValue[activeCC] / 127. : -1.;
     controls[slot].utility.constantDry = mHeldPerformance[grid_performance::MixLaw] >= .5;
     controls[slot].utility.trails = mHeldPerformance[grid_performance::Trails] >= .5;
   }
@@ -577,6 +591,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       mRigTransition.Finish(); // The outgoing grid is not touched again.
   }
   mNoteCount = 0; // Notes act within their own block only.
+  mMidiCCChanged.fill(false);
   if (metering) mMeterFrames += nFrames;
   const int meterInterval = std::max(1, static_cast<int>(sampleRate / 30.));
   const bool sendMeters = mMeterFrames >= meterInterval;
@@ -637,6 +652,7 @@ void NeuralAmpModeler::OnReset()
   mAudioControls.InvalidateAll();
   mModulation.Reset(sampleRate);
   mNoteCount = 0;
+  mMidiCCChanged.fill(false);
   mMasterGain = GetParam(kOutputLevel)->DBToAmp();
   mGlobalInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
   mMasterCoefficient = std::exp(-1. / (.005 * sampleRate));
@@ -1402,6 +1418,19 @@ void NeuralAmpModeler::OnIdle()
 {
   const auto guard = _LockControls();
   _UpdateLatency();
+  // Tell VST3 hosts when the Volume Pedal CC mapping changes.
+  std::array<int, FixedNAMGrid::kSlots> pedalCCs{};
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    pedalCCs[slot] = mSlotEffects[slot] == SlotEffect::VolumePedal
+                       ? static_cast<int>(std::lround(GetParam(SlotUtilityParam(slot, uVolumeCC))->Value())) : -1;
+  if (pedalCCs != mPedalCCs)
+  {
+    mPedalCCs = pedalCCs;
+#ifdef VST3_API
+    Steinberg::FUnknownPtr<Steinberg::Vst::IComponentHandler> handler(GetComponentHandler());
+    if (handler) handler->restartComponent(Steinberg::Vst::kMidiCCAssignmentChanged);
+#endif
+  }
   _UpdateTunerControls();
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     if (mSlotEffects[slot] == SlotEffect::CabinetIR
@@ -1935,9 +1964,6 @@ void NeuralAmpModeler::OnUIOpen()
   const auto guard = _LockControls();
   _SendAllParamValuesToUI();
   _UpdateLibraryControls();
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
-  _UpdateControlsFromModel();
   mEditorOpen.store(true, std::memory_order_relaxed);
 }
 
@@ -2005,7 +2031,38 @@ void NeuralAmpModeler::ProcessMidiMsg(const IMidiMsg& msg)
   // a parameter flush), so this list belongs to the processing context, like ProcessBlock.
   if (msg.StatusMsg() == IMidiMsg::kNoteOn && msg.Velocity() > 0 && mNoteCount < kMaxNotesPerBlock)
     mNoteFrames[mNoteCount++] = std::max(0, msg.mOffset);
+  // Controller values on any channel drive Volume Pedals set to that CC (CLAP and
+  // standalone; VST3 hosts map CCs to Position through getMidiControllerAssignment).
+  if (msg.StatusMsg() == IMidiMsg::kControlChange && msg.mData1 >= 0 && msg.mData1 < 128)
+  {
+    mMidiCCValue[msg.mData1] = std::clamp(static_cast<int>(msg.mData2), 0, 127);
+    mMidiCCChanged[msg.mData1] = true;
+  }
 }
+
+int NeuralAmpModeler::_VolumePedalSlotForCC(int cc) const
+{
+  if (cc < 1 || cc > 127) return -1;
+  const auto guard = _LockControls();
+  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    if (mSlotEffects[slot] == SlotEffect::VolumePedal
+        && static_cast<int>(std::lround(GetParam(SlotUtilityParam(slot, uVolumeCC))->Value())) == cc)
+      return static_cast<int>(slot);
+  return -1;
+}
+
+#ifdef VST3_API
+// VST3 delivers controllers only through this mapping: the host turns the CC into
+// changes of the first matching Volume Pedal's Position.
+Steinberg::tresult PLUGIN_API NeuralAmpModeler::getMidiControllerAssignment(Steinberg::int32 busIndex, Steinberg::int16,
+                                                                           Steinberg::Vst::CtrlNumber cc, Steinberg::Vst::ParamID& tag)
+{
+  const int slot = busIndex == 0 ? _VolumePedalSlotForCC(cc) : -1;
+  if (slot < 0) return Steinberg::kResultFalse;
+  tag = static_cast<Steinberg::Vst::ParamID>(SlotUtilityParam(slot, uVolumePosition));
+  return Steinberg::kResultTrue;
+}
+#endif
 
 void NeuralAmpModeler::ShowSignalMonitor(int point)
 {
@@ -2051,9 +2108,6 @@ void NeuralAmpModeler::SetRoutingOpen(bool open)
   if (!ui) return;
   ui->GetControlWithTag(kCtrlTagRouting)->Hide(!open);
   _RefreshParamDependentUI(false);
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    ui->GetControlWithTag(kCtrlTagGridSlotBase + static_cast<int>(slot))->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
-  ui->SetAllControlsDirty();
 }
 
 void NeuralAmpModeler::OnParamChange(int paramIdx)
@@ -2067,10 +2121,44 @@ void NeuralAmpModeler::OnParamChange(int paramIdx)
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 {
+  const int slot = SlotControlOwner(paramIdx);
   if (source == EParamSource::kUI && IsStateOnlyParam(paramIdx)
-      && (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot)))
+      && (!mPreviewOriginal || slot != static_cast<int>(mPreviewSlot)))
     _NotifyHostStateChanged(); // Algorithm and matrix selections are saved state, not automation gestures.
-  _RefreshParamDependentUI(paramIdx == kTunerActive);
+  auto* ui = GetUI();
+  if (!ui) return;
+
+  if (slot >= 0)
+  {
+    if (auto* control = ui->GetControlWithTag(kCtrlTagGridSlotBase + slot))
+    {
+      const int utility = parameter_layout::UtilityControl(paramIdx);
+      if (effect_presentation::ChangesSlotLayout(utility) || paramIdx == SlotFullParam(slot))
+      {
+        control->OnMsgFromDelegate(kMsgTagLoadedModel, 0, nullptr);
+        // The modulation page also shows mode-dependent destination labels.
+        if (auto* performance = ui->GetControlWithTag(kCtrlTagPerformance); performance && !performance->IsHidden())
+          performance->SetDirty(false);
+      }
+      else
+      {
+        if (paramIdx == SlotActiveParam(slot)) control->SetDirty(false);
+        control->As<NAMGridSlotControl>()->RedrawEditor();
+      }
+    }
+    return;
+  }
+  if (paramIdx == kTunerActive || paramIdx == PerformanceParam(grid_performance::LaneMode)
+      || paramIdx == PerformanceParam(grid_performance::Crossover))
+    _RefreshParamDependentUI(paramIdx == kTunerActive);
+  else if (paramIdx == kTunerReference || paramIdx == kTunerMute)
+    _UpdateTunerControls();
+  else if (PerformanceIndex(paramIdx) >= 0)
+  {
+    // Source displays and matrix labels can depend on more than their bound parameter.
+    if (auto* performance = ui->GetControlWithTag(kCtrlTagPerformance); performance && !performance->IsHidden())
+      performance->SetDirty(false);
+  }
 }
 
 void NeuralAmpModeler::_RefreshParamDependentUI(bool tunerChanged)

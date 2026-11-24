@@ -74,11 +74,17 @@ public:
     mNotchOn = utility.eqMode >= .5;
     mBandPass.SetParams(Params(mRate, filterHz, filterQ, 0.));
     mFilterMode = std::clamp(utility.filterMode, 0, 2);
+    mFilterOutput = std::pow(10., std::clamp(utility.extra.filterOutput, -24., 24.) / 20.);
+    mFilterMix = std::clamp(utility.extra.filterMix, 0., 100.) * .01;
+    mBandGain = std::max(1., filterQ);
   }
   double Magnitude(double hz) const
   {
     if (mEffect == SlotEffect::SynthFilter)
-      return std::abs(mFilterMode == 1 ? mHP.At(hz, mRate) : mFilterMode == 2 ? mBandPass.At(hz, mRate) : mLP.At(hz, mRate));
+    {
+      const auto wet = mFilterMode == 1 ? mHP.At(hz, mRate) : mFilterMode == 2 ? mBandGain * mBandPass.At(hz, mRate) : mLP.At(hz, mRate);
+      return mFilterOutput * std::abs(1. - mFilterMix + mFilterMix * wet);
+    }
     if (mEffect == SlotEffect::ToneEQ)
       return mOutput * std::abs(mBass.At(hz, mRate) * mMid.At(hz, mRate) * mTreble.At(hz, mRate));
     auto result = mTreble.At(hz, mRate);
@@ -93,6 +99,7 @@ private:
   SlotEffect mEffect;
   bool mHPOn, mLPOn, mNotchOn, mLowShelfOn = false;
   int mFilterMode = 0;
+  double mFilterOutput = 1., mFilterMix = 1., mBandGain = 1.;
   Biquad<recursive_linear_filter::LowShelf> mBass, mLowShelf;
   Biquad<recursive_linear_filter::Peaking> mMid, mBell;
   Biquad<recursive_linear_filter::HighShelf> mTreble;

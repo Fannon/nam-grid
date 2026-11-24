@@ -379,6 +379,21 @@ enum UtilityParam
   uGranulatorMix = 362,
   uGranulatorFreeze = 363,
   uShimmerBloom = 364,
+  uFilterSensitivity = 365,
+  uFilterDecay = 366,
+  uFilterDown = 367,
+  uFilterOutput = 368,
+  uFilterMix = 369,
+  uRingLfoRate = 370,
+  uRingSweep = 371,
+  uVolumePosition = 372,
+  uVolumeCurve = 373,
+  uVolumeHeel = 374,
+  uVolumeToe = 375,
+  uVolumeSmoothing = 376,
+  uVolumeCC = 377,
+  uRingOutput = 378,
+  uShimmerDensity = 379,
   kUtilityControls,
 };
 inline constexpr const char* kParamLowModes[]{"Cut", "Shelf"};
@@ -538,7 +553,7 @@ inline constexpr bool IsAlgorithmMode(int control)
 // when adding saved fields, and set `introducedIn` on each new control so older
 // states gain that control's default. Never lower or reuse a schema number.
 inline constexpr int kInitialEffectStateSchema = 1;
-inline constexpr int kEffectStateSchema = 34; // 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
+inline constexpr int kEffectStateSchema = 35; // 35 Filter envelope controls, Ring LFO and Output, Volume Pedal, Shimmer Density; 34 Shimmer Bloom; 33 Granulator; 32 additional delays, Digital Delay voice and modulation.
 
 struct EffectParameter
 {
@@ -922,7 +937,22 @@ inline constexpr std::array<EffectParameter, kUtilityControls> kEffectParameters
    {"Granulator Space", "Space", 30, 0, 100, .1, "%", 6, false, 1., 33},
    {"Granulator Mix", "Mix", 40, 0, 100, .1, "%", 7, false, 1., 33},
    {"Granulator Freeze", "Freeze", 0, 0, 1, 1, "", 0, false, 1., 33},
-   {"Shimmer Bloom", "Bloom", 0, 0, 100, .1, "%", 7, false, 1., 34}}};
+   {"Shimmer Bloom", "Bloom", 0, 0, 100, .1, "%", 7, false, 1., 34},
+   {"Filter Sensitivity", "Sensitivity", 0, -24, 24, 0.1, "dB", 0, false, 1., 35},
+   {"Filter Decay", "Decay", 80, 20, 2000, 1, "ms", 0, true, 1., 35},
+   {"Filter Down Sweep", "Down sweep", 0, 0, 1, 1, "", 0, false, 1., 35},
+   {"Filter Output", "Output", 0, -24, 24, 0.1, "dB", 0, false, 1., 35},
+   {"Filter Mix", "Mix", 100, 0, 100, 0.1, "%", 0, false, 1., 35},
+   {"Ring LFO Rate", "LFO rate", 1, 0.05, 10, 0.01, "Hz", 0, true, 1., 35},
+   {"Ring LFO Sweep", "Sweep", 0, 0, 100, 0.1, "%", 0, false, 1., 35},
+   {"Volume Pedal Position", "Position", 100, 0, 100, 0.1, "%", 0, false, 1., 35},
+   {"Volume Pedal Curve", "Curve", 0, -100, 100, 0.1, "%", 0, false, 1., 35},
+   {"Volume Pedal Heel", "Heel level", -60, -60, 0, 0.1, "dB", 0, false, 1., 35},
+   {"Volume Pedal Toe", "Toe level", 0, -24, 12, 0.1, "dB", 0, false, 1., 35},
+   {"Volume Pedal Smoothing", "Smoothing", 20, 1, 500, 1, "ms", 0, true, 1., 35},
+   {"Volume Pedal MIDI CC", "MIDI CC", 11, 0, 127, 1, "", 0, false, 1., 35},
+   {"Ring Output", "Output", 0, -24, 24, 0.1, "dB", 0, false, 1., 35},
+   {"Shimmer Density", "Density", 100, 0, 100, .1, "%", 5, false, 1., 35}}};
 static_assert([] {
   for (int i = 0; i < kUtilityControls; ++i)
   {
@@ -1052,6 +1082,9 @@ inline bool UsesUtility(SlotEffect e, int p)
   if (p >= uAIGateReduction && p <= uAIGateAttackProtection) return e == SlotEffect::AIGate;
   if (p >= uPDistStyle && p <= uPDistMix) return e == SlotEffect::PedalDistortion;
   if (p >= uGranulatorMode && p <= uGranulatorFreeze) return e == SlotEffect::Granulator;
+  if (p >= uFilterSensitivity && p <= uFilterMix) return e == SlotEffect::SynthFilter;
+  if (p == uRingLfoRate || p == uRingSweep || p == uRingOutput) return e == SlotEffect::RingMod;
+  if (p >= uVolumePosition && p <= uVolumeCC) return e == SlotEffect::VolumePedal;
   // Noise Gate (AI) shares Smart Gate's final gate.
   if (p == uNoiseGateThreshold || p == uNoiseGateRelease) return e == SlotEffect::NoisePrint || e == SlotEffect::AIGate;
   if (p == uNoiseGateRelease || p == uNoiseTrackingMode || p == uNoiseProtectAttack) return e == SlotEffect::NoisePrint;
@@ -1095,7 +1128,7 @@ inline bool UsesUtility(SlotEffect e, int p)
       case uReverseFeedback: return e == SlotEffect::ReverseDelay;
       case uReverbDuck: return e == SlotEffect::PlateReverb || e == SlotEffect::CloudReverb || e == SlotEffect::HallReverb;
       case uSpringPredelay: return e == SlotEffect::SpringReverb;
-      case uShimmerBloom: return e == SlotEffect::ShimmerReverb;
+      case uShimmerBloom: case uShimmerDensity: return e == SlotEffect::ShimmerReverb;
       case uFreezeAttack: return e == SlotEffect::Freeze;
       case uFreezeRelease: return e == SlotEffect::Freeze;
       case uStutterHold: return e == SlotEffect::Stutter;
@@ -1216,12 +1249,20 @@ struct ModuleExtensions
   double chorusVoices = 0; // 0 one voice per channel (released behavior), 1 three voices.
   double springTank = 0; // 0 Classic (released behavior), 1 Dispersive.
   double harmonicCrossover = 500;
+  // Synth Filter detector and output, Ring LFO; their defaults keep the released sound.
+  double filterSensitivity = 0, filterDecay = 80, filterDown = 0, filterOutput = 0, filterMix = 100;
+  double ringLfoRate = 1, ringSweep = 0, ringOutput = 0;
+  // Volume Pedal Position through MIDI CC, in ID order.
+  std::array<double, 6> volumePedal{100, 0, -60, 0, 20, 11};
 };
 struct UtilityControls
 {
   double frequency = 800., gain = 0., q = .7, boost = 6., tilt = 0.;
   double paramLowQ = .7071067811865476, paramHighQ = .7071067811865476, paramShelfGain = 0.;
   int paramLowMode = 0;
+  // Live pedal position (0..1) from the slot's MIDI CC, or -1 to follow Position.
+  // Set per block by the plugin; not a saved control.
+  double midiPedal = -1.;
   double cutoff = 2500., resonance = .7, envelope = 0.;
   int filterMode = 0;
   double rise = 250., threshold = -42., release = 120.;
@@ -1257,7 +1298,7 @@ struct UtilityControls
   std::array<double, 2> dual{1.5, 50.};
   std::array<double, 3> juno{1., 50., 100.};
   std::array<double, 7> shimmer{35., 3.5, 5000., 12., 35., 25., 0.};
-  double shimmerBloom = 0.;
+  double shimmerBloom = 0., shimmerDensity = 100.;
   std::array<double, 7> shift{0., 35., 120., 100., 8000., 0., 50.};
   std::array<double, 6> distortion{0., 12., 8000., 0., 100., -6.};
   double distortionLowPreserve = 0.;

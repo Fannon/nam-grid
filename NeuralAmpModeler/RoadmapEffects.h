@@ -451,12 +451,23 @@ private:
 class Texture
 {
 public:
-  void Reset(double rate) { mRate = rate; mPhase = mHeld = mLow = 0.; mCarrierWeights = {1., 0., 0.}; mFirstCarrier = true; mCrush.Reset(rate); mRing.Reset(rate); }
+  void Reset(double rate)
+  {
+    mRate = rate; mPhase = mHeld = mLow = 0.; mCarrierWeights = {1., 0., 0.}; mFirstCarrier = true; mCrush.Reset(rate); mRing.Reset(rate);
+    mLfoPhase = 0.; mSweep = 0.; mLfoRate = 1.; mRingOut = 1.; mFirstLfo = true; mSmooth = std::exp(-1. / (.02 * rate));
+  }
   void Process(double* x, int n, SlotEffect effect, const UtilityControls& c)
   {
     const int shape = std::clamp(static_cast<int>(c.extra.ringShape), 0, 2);
     if (mFirstCarrier) { mCarrierWeights = {}; mCarrierWeights[shape] = 1.; mFirstCarrier = false; }
     mCrush.Target(c.crusher, uCrushBits); mRing.Target(c.ring, uRingFrequency);
+    // The carrier LFO sweeps Frequency up to two octaves either way (Sweep 100%), in the
+    // manner of a Moog MF-102; Sweep 0 keeps the released fixed carrier exactly.
+    const double lfoRate = c.sync ? 1. / grid_tempo::Seconds(c.tempo, c.division) : std::clamp(c.extra.ringLfoRate, .05, 10.);
+    const double sweep = 2. * std::clamp(c.extra.ringSweep, 0., 100.) * .01;
+    // Ring Output trims the ring path after Mix; 0 dB multiplies by exactly 1.
+    const double ringOut = std::pow(10., std::clamp(c.extra.ringOutput, -24., 24.) / 20.);
+    if (mFirstLfo) { mLfoRate = lfoRate; mSweep = sweep; mRingOut = ringOut; mFirstLfo = false; }
     for (int i = 0; i < n; ++i)
     {
       const auto& crush = mCrush.Tick(); const auto& ring = mRing.Tick();
@@ -474,7 +485,16 @@ public:
       }
       else
       {
-        mPhase = std::fmod(mPhase + ring[0] / mRate, 1.);
+        mLfoRate = lfoRate + mSmooth * (mLfoRate - lfoRate);
+        mSweep = sweep + mSmooth * (mSweep - sweep);
+        if (std::abs(mSweep) < 1.e-9 && sweep == 0.) mSweep = 0.;
+        double carrierHz = ring[0];
+        if (mSweep != 0.)
+        {
+          mLfoPhase = std::fmod(mLfoPhase + mLfoRate / mRate, 1.);
+          carrierHz = std::min(.45 * mRate, carrierHz * std::exp2(mSweep * std::sin(2. * grid_fx::pi * mLfoPhase)));
+        }
+        mPhase = std::fmod(mPhase + carrierHz / mRate, 1.);
         const double sine = std::sin(2. * grid_fx::pi * mPhase);
         const std::array<double, 3> carrier{sine, 2. / grid_fx::pi * std::asin(sine), std::tanh(4. * sine) / std::tanh(4.)};
         double wave = 0.;
@@ -485,15 +505,18 @@ public:
         }
         wet = Low(x[i] * (1. - ring[1] * .01 + ring[1] * .01 * wave),
                   mLow, Pole(mTone, ring[2], mRate)); mix = ring[3] * .01;
+        mRingOut = ringOut + mSmooth * (mRingOut - ringOut);
+        if (std::abs(mRingOut - ringOut) < 1.e-12) mRingOut = ringOut;
       }
-      x[i] = (x[i] + mix * (wet - x[i])) * (crusher ? Gain(mGain, crush[4]) : 1.);
+      x[i] = (x[i] + mix * (wet - x[i])) * (crusher ? Gain(mGain, crush[4]) : mRingOut);
     }
   }
 private:
   grid_fx::SmoothControls<5> mCrush;
   grid_fx::SmoothControls<4> mRing;
   std::array<double, 3> mCarrierWeights{1., 0., 0.};
-  bool mFirstCarrier = true;
+  bool mFirstCarrier = true, mFirstLfo = true;
+  double mLfoPhase = 0., mSweep = 0., mLfoRate = 1., mRingOut = 1., mSmooth = 0.;
   grid_fx::Memo mTone, mGain;
   double mRate = 48000., mPhase = 0., mHeld = 0., mLow = 0.;
 };

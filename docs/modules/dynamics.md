@@ -55,7 +55,7 @@ Starts with gentle 2.5:1 compression and a soft 9 dB knee for leveling and susta
 | --- | --- | --- | --- |
 | **Threshold** | -48 to 0 dB | -24 dB | Level above which compression starts. |
 | **Release** | 40–600 ms | 150 ms | How quickly compression lets go after a loud note. |
-| **Makeup** | 0–18 dB | 3 dB | Level compensation after compression; compare with bypass at similar loudness. |
+| **Makeup** | 0–18 dB | 6 dB | Level compensation after compression; compare with bypass at similar loudness. |
 | **Attack** | 0.5–50 ms | 10 ms | How quickly compression catches a note. Slower attack lets more pick transient through. |
 | **Ratio** | 1–20:1 | 2.5:1 | Compression ratio above the fixed 9 dB knee; 2.5:1 retains the original Smooth response. |
 | **Detector cut** | 0–500 Hz | 0 Hz | Removes bass only from the compressor detector, preserving audible lows; zero is off. |
@@ -127,6 +127,8 @@ A channel strip after Airwindows CStrip2: low and high cuts into a compressor an
 | **Mix** | 0–100% | 100% | Parallel blend of dry and compressed sound. |
 
 **Display:** The cuts over the output spectrum and gain-reduction history on a 0–16 dB scale. The title shows the live gain reduction; hover over the graph for its explanation.
+
+**Presets:** Tight rhythm bus trims boom and fizz from a high-gain rhythm and evens out palm mutes. Clean parallel glue levels clean parts while the dry blend keeps each pick attack. Pushed lead compresses and saturates harder for a forward, sustaining solo. Each stays close to bypass loudness. Its Input assumes guitar level after an amp and cab; turn Input down for hot signals, or up for quiet ones.
 
 ## Transient Shaper
 

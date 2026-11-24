@@ -34,7 +34,7 @@ Interpretation Classify(E effect)
     case E::PitchShift: case E::ShimmerReverb: case E::PitchDelay: case E::FeedbackFXDelay:
     case E::GranularDelay: case E::Granulator: return Interpretation::Creative;
     case E::NoiseGate: case E::NoisePrint: case E::AIGate: case E::SmoothComp: case E::PunchComp:
-    case E::DigitalBlack: case E::ButterComp: case E::PedalComp: case E::SynthFilter: case E::AutoSwell:
+    case E::DigitalBlack: case E::ButterComp: case E::PedalComp: case E::SynthFilter: case E::AutoSwell: case E::VolumePedal:
     case E::DigitalDelay: case E::AnalogDelay: case E::TapeDelay: case E::MultiHeadDelay:
     case E::ReverseDelay: case E::DualDelay: case E::DiffusedDelay:
     case E::SpaceTapeEcho: case E::BucketBrigade: case E::PatternDelay:

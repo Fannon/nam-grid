@@ -73,7 +73,7 @@ inline NodeTone Tone(SlotEffect effect, nam_library::Gear gear)
     return {creativeColor, creativeColor, "Creative"};
   if (effect == SlotEffect::Bitcrusher)
     return {boostColor, boostColor, "Texture"};
-  if (effect == SlotEffect::AutoSwell)
+  if (effect == SlotEffect::AutoSwell || effect == SlotEffect::VolumePedal)
     return {volumeColor, volumeColor, "Volume"};
   if (effect == SlotEffect::Tape)
     return {boostColor, boostColor, "Tape"};
@@ -206,6 +206,10 @@ public:
   , mDestination(grid_modulation::DestinationOf(parameter))
   {
   }
+  // The title belongs to the knob: hovering it shows the control's explanation, and
+  // dragging from it turns the knob (iPlug2 only hit-tests the dial and value).
+  bool IsHit(float x, float y) const override
+  { return IVKnobControl::IsHit(x, y) || (!IsDisabled() && GetLabelBounds().Contains(x, y)); }
   // A text cursor makes the existing editable value below the knob discoverable.
   void OnMouseOver(float x, float y, const IMouseMod& mod) override
   {
@@ -1860,6 +1864,10 @@ public:
     }
     mPlotHelp->End(g);
   }
+  void RedrawEditor()
+  {
+    if (mEditor && !mEditor->IsHidden()) mEditor->SetDirty(false);
+  }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
   // The occupied card's ID switch, from the current slot rather than the last Draw, so a
   // click right after a rig or module change (before the next paint) still reaches it.
@@ -2028,6 +2036,8 @@ public:
     mNAMKnobs[0] = new grid_ui::Knob(grid_ui::ControlBounds(0), SlotInputParam(mSlot), "Input", true, mSlot);
     // Gain staging stays in the left column: Input on top, Output below it.
     mNAMKnobs[1] = new grid_ui::Knob(grid_ui::ControlBounds(4), SlotTrimParam(mSlot), "Output", true, mSlot);
+    mNAMKnobs[0]->SetTooltip("Level into the capture; higher values drive it harder.");
+    mNAMKnobs[1]->SetTooltip("Level after the capture and its EQ. Match bypass loudness when comparing captures.");
     for (auto* knob : mNAMKnobs)
       mEditor->AddChildControl(knob);
     const char* labels[] = {"Threshold", "Release", "Reduction", "Threshold", "Release", "Makeup"};
@@ -2047,7 +2057,15 @@ public:
     {
       mEQKnobs[i] = new grid_ui::Knob(grid_ui::ControlBounds(i == 6 ? effect_presentation::kOutputPosition : i % 3), SlotEQParam(mSlot, i), eqLabels[i], true, mSlot);
       mEditor->AddChildControl(mEQKnobs[i]);
-      if (i == 6) mEQKnobs[i]->SetTooltip("Wet level after convolution, Pre-delay and cuts. Leaves the dry signal unchanged; match IR loudness before adjusting Mix.");
+      static constexpr const char* eqHelp[] = {
+        "150 Hz shelf: more or less low-end weight.",
+        "Broad 800 Hz bell: pushes the guitar forward or scoops it.",
+        "3 kHz shelf: more brightness or a smoother top.",
+        "Removes rumble and boom below this frequency; 0 is off.",
+        "Removes fizz above this frequency; 20000 is open.",
+        "3.5 kHz shelf for bite or smoothness.",
+        "Wet level after convolution, Pre-delay and cuts. Leaves the dry signal unchanged; match IR loudness before adjusting Mix."};
+      mEQKnobs[i]->SetTooltip(eqHelp[i]);
     }
     for (int i = 0; i < kUtilityControls; ++i)
     {
@@ -2769,6 +2787,35 @@ private:
           g.DrawLine(ampColor, x, y, std::min(x + 4.f, history.R), y, nullptr, 1.5f);
       }
     }
+    else if (effect == SlotEffect::VolumePedal)
+    {
+      const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
+      std::array<double, 6> v{};
+      for (int i = 0; i < 6; ++i) v[i] = value(uVolumePosition + i);
+      PlotTitle(g, plot, color, "Pedal curve | level vs position");
+      const int cc = static_cast<int>(std::lround(v[5]));
+      WDL_String text;
+      if (cc > 0) text.SetFormatted(96, "Heel left, toe right | dot: live position, MIDI CC %d or Position", cc);
+      else text.Set("Heel left, toe right | dot: live position");
+      PlotDetail(g, plot, text.Get());
+      PlotGrid(g, plot);
+      constexpr double low = -60., high = 12.;
+      const auto level = [&](double x) {
+        return std::clamp(20. * std::log10(std::max(1.e-6, SlotVolumePedal::Gain(x, v))), low, high);
+      };
+      const auto y = [&](double db) { return plot.B - plot.H() * static_cast<float>((db - low) / (high - low)); };
+      g.DrawLine(border.WithOpacity(.9f), plot.L, y(0.), plot.R, y(0.));
+      PlotCurve(g, plot, level, low, high, color);
+      const double live = mMeter.pedalPosition >= 0.f ? mMeter.pedalPosition : v[0] * .01;
+      const double liveDB = mMeter.pedalPosition >= 0.f
+                              ? std::clamp(20. * std::log10(std::max(1.e-6, double(mMeter.pedalGain))), low, high) : level(live);
+      const float px = plot.L + plot.W() * static_cast<float>(live);
+      g.DrawLine(ampColor.WithOpacity(.5f), px, plot.T, px, plot.B);
+      g.FillCircle(ampColor, px, y(liveDB), 4.f);
+      text.SetFormatted(64, "%.0f%% | %s", live * 100., liveDB <= low ? "muted" : "");
+      if (liveDB > low) text.SetFormatted(64, "%.0f%% | %+.1f dB", live * 100., liveDB);
+      PlotFooter(g, plot, "+12 / -60 dB", text.Get());
+    }
     else if (effect == SlotEffect::AutoSwell)
     {
       const auto value = [&](int p) { return GetDelegate()->GetParam(SlotUtilityParam(mSlot, p))->Value(); };
@@ -2857,11 +2904,12 @@ private:
       const auto resonance = [&](int channel) {
         return mMeter.filterQ[channel] > 0.f ? double(mMeter.filterQ[channel]) : value(uFilterResonance);
       };
-      const std::array<double, 23> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
+      const std::array<double, 25> key{static_cast<double>(effect), rate, eqValue(0), eqValue(1), eqValue(2),
                                      eqValue(3), eqValue(4), eqValue(5), value(uFrequency), value(uGain), value(uQ), value(uEQMode),
                                      filter ? cutoff(0) : 0., filter ? resonance(0) : 0.,
                                      filter ? cutoff(1) : 0., filter ? resonance(1) : 0., filter ? value(uFilterMode) : 0.,
-      value(uParamLowQ), value(uParamHighQ), value(uParamShelfGain), value(uParamLowMode), value(uToneMidFrequency), value(uEQOutput)};
+      value(uParamLowQ), value(uParamHighQ), value(uParamShelfGain), value(uParamLowMode), value(uToneMidFrequency), value(uEQOutput),
+      filter ? value(uFilterOutput) : 0., filter ? value(uFilterMix) : 100.};
       if (key != mEQKey)
       {
         mEQKey = key;
@@ -2873,6 +2921,7 @@ private:
         utility.paramLowQ = key[17]; utility.paramHighQ = key[18];
         utility.paramShelfGain = key[19]; utility.paramLowMode = static_cast<int>(key[20]);
         eq.midFrequency = key[21]; utility.extra.eqOutput = key[22];
+        utility.extra.filterOutput = key[23]; utility.extra.filterMix = key[24];
         const grid_eq_response::Response response(rate, effect, eq, utility);
         utility.cutoff = key[14]; utility.resonance = key[15];
         const grid_eq_response::Response rightResponse(rate, effect, eq, utility);
@@ -2892,7 +2941,8 @@ private:
       else caption.Set("EQ response");
       PlotTitle(g,plot,color,caption.Get());
       WDL_String detail;
-      if (filter) detail.Set("Shaded: envelope range, full at -12 dBFS");
+      const double sweep = (value(uFilterDown) >= .5 ? -1. : 1.) * value(uFilterEnvelope);
+      if (filter) detail.SetFormatted(80, "Shaded: envelope range, full at %.0f dBFS peaks", -12. - value(uFilterSensitivity));
       else if (effect == SlotEffect::ParametricEQ && value(uEQMode) < .5)
         detail.SetFormatted(80, "Bell width %.2f oct | end-band Q applied",
           2. / std::log(2.) * std::asinh(1. / (2. * std::clamp(value(uQ), .1, 20.))));
@@ -2944,14 +2994,14 @@ private:
       curve(1, color, 1.5f);
       if(filter)
       {
-        // Cutoff x 2^(Envelope x min(1, 4 x input peak)): the full shift needs
-        // -12 dBFS peaks, so quieter playing uses only part of this range.
+        // Cutoff x 2^(+/-Envelope x min(1, 4 x Sensitivity x input peak)): at 0 dB the full
+        // shift needs -12 dBFS peaks, so quieter playing uses only part of this range.
         const double rest=std::clamp(value(uFilterCutoff),20.,std::min(upper,.4*rate));
-        const double full=std::clamp(value(uFilterCutoff)*std::exp2(value(uFilterEnvelope)),20.,std::min(upper,.4*rate));
-        g.FillRect(ampColor.WithOpacity(.08f),IRECT(frequencyX(rest),plot.T,frequencyX(full),plot.B));
+        const double full=std::clamp(value(uFilterCutoff)*std::exp2(sweep),20.,std::min(upper,.4*rate));
+        g.FillRect(ampColor.WithOpacity(.08f),IRECT(frequencyX(std::min(rest,full)),plot.T,frequencyX(std::max(rest,full)),plot.B));
       }
       if(filter)
-        for(double hz : {value(uFilterCutoff),value(uFilterCutoff)*std::exp2(value(uFilterEnvelope))})
+        for(double hz : {value(uFilterCutoff),value(uFilterCutoff)*std::exp2(sweep)})
         {
           hz=std::clamp(hz,20.,std::min(upper,.4*rate));
           const float x=plot.L+plot.W()*static_cast<float>(std::log(hz/20.)/span);
@@ -3725,7 +3775,7 @@ private:
   std::array<float, 96> mResponse{};
   std::array<float, grid_eq_signal::scopeSize> mScopeLeft{}, mScopeRight{};
   std::array<double, 9> mResponseKey{-1.};
-  std::array<double, 23> mEQKey{};
+  std::array<double, 25> mEQKey{};
   std::array<std::array<float, 3>, 386> mEQCurve{};
   std::array<float, signal_monitor::spectrumPoints> mSpectrum{};
   double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.

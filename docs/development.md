@@ -101,8 +101,11 @@ Modulation matrix rows ([GridPerformance.h](../NeuralAmpModeler/GridPerformance.
 [ModulationMatrix.h](../NeuralAmpModeler/ModulationMatrix.h)) follow the algorithm-selector
 rule: Source, Slot, Destination and Via, the LFO Shape, the envelope's Listen at and the Retrigger
 modes are saved state without automation flags (`IsStateOnlyParam`), so their lists
-can grow; Depth is automatable. MIDI input exists only to retrigger modulation; CMake
-sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy parameters. Destinations store
+can grow; Depth is automatable. MIDI note-ons retrigger modulation, and controller messages drive Volume Pedals set to that CC
+(`ProcessMidiMsg`, audio context: each block passes the CC position to the slot as
+`UtilityControls::midiPedal`). CMake sets `VST3_NUM_CC_CHANS=0` so VST3 adds no MIDI-CC proxy
+parameters; instead `getMidiControllerAssignment` maps a pedal's CC onto that slot's Position, and
+`OnIdle` signals `kMidiCCAssignmentChanged` when the mapping changes. Destinations store
 slot-control indices. `grid_modulation::VisitSlotControls` maps every slot control to
 its audio-snapshot field for both the host refresh and the matrix, so a new snapshot
 field must be added there; the stage tests check that each control is mapped exactly once.

@@ -23,6 +23,7 @@
 #include "DigitalDelayClapTests.h"
 #include "ModulePresetClapTests.h"
 #include "PresetGainClapTests.h"
+#include "VolumePedalClapTests.h"
 #include "CachedControlsClapTests.h"
 #include "PerformanceSceneClapTests.h"
 #include <cstdlib>
@@ -1233,6 +1234,7 @@ int main(int argc, char** argv)
   TestModulePresetRecall(cleared, save, load, settingsBackup.home);
   TestModulePresetValueDomains(plugin);
   TestGlobalInputGain(plugin, cleared, load);
+  TestVolumePedalMidiClap(plugin, cleared, load);
   TestCachedControlsClap(plugin, cleared, load, fixtures);
   TestPerformanceSceneState(plugin, cleared, save, load, loadRaw, settingsBackup.home);
   if (const char* headless = std::getenv("NAM_GRID_HEADLESS_SMOKE"); headless && std::strcmp(headless, "1") == 0)
@@ -1646,7 +1648,7 @@ int main(int argc, char** argv)
       pumpFor(50);
       auto chosen = save().config();
       assert(chosen["Pre 1 Pedal Comp Sustain"] == 60. && chosen["Pre 1 Pedal Comp Attack"] == 0.);
-      assert(chosen["Pre 1 Pedal Comp Focus"] == -30. && chosen["Pre 1 Pedal Comp Level"] == 0.);
+      assert(chosen["Pre 1 Pedal Comp Focus"] == -30. && chosen["Pre 1 Pedal Comp Level"] == 3.);
       assert(chosen["Pre 1 Pedal Comp Blend"] == 100.);
       assert(chosen["Pre 1 Pedal Comp Pickup"] == 1. && chosen["Pre 1 Enabled"] == 0. && chosen["Pre 2 Boost Gain"] == 5.);
       win_edit_menu::SelectNamedItem(editor, presetX, grid_layout::moduleButtonY, L"Acoustic strumming");

@@ -2,6 +2,7 @@
 #include "SlotTimeEffects.h"
 #include "dsp/MinimumPhaseOversampling.h"
 #include "dsp/airwindows/outboard/CStrip2.h"
+#include "dsp/ConsoleBands.h"
 #include "dsp/airwindows/outboard/ButterComp2.h"
 #include "dsp/airwindows/outboard/BussColors4.h"
 #include <memory>
@@ -39,6 +40,7 @@ public:
     {
       mStrip = std::make_unique<airwindows_outboard::CStrip2::Core>();
       mStrip->Reset(mRate);
+      mBands.Reset();
     }
     if (effect == SlotEffect::ButterComp)
     {
@@ -90,8 +92,11 @@ public:
         if (mStrip)
         {
           if (mEffect == SlotEffect::ConsoleEQ)
-            mStrip->Set({(v[0] + 6.) / 12., (v[1] + 6.) / 12., (v[2] + 6.) / 12., std::sqrt((v[3] - 1000.) / 15000.),
-                         std::sqrt((v[4] - 300.) / 15700.), v[5] * .01, v[6] * .01, 0., 0., 1. / 3.});
+          {
+            // CStrip2 keeps only its native cuts here; console_eq::Bands replaces its EQ.
+            mStrip->Set({.5, .5, .5, .5, .5, v[5] * .01, v[6] * .01, 0., 0., 1. / 3.});
+            mBands.Set(mRate, v[0], v[1], v[2], v[3], v[4], 32);
+          }
           else
             mStrip->Set({.5, .5, .5, .5, .5, v[1] * .01, v[0] * .01, v[2] * .01, v[3] * .01, (1. + v[4] * .01) / 3.});
         }
@@ -112,6 +117,12 @@ public:
         const bool flat = mEffect == SlotEffect::ConsoleEQ && std::abs(v[0]) + std::abs(v[1]) + std::abs(v[2]) < 1.e-8
                           && v[5] >= 100. - 1.e-8 && v[6] < 1.e-8;
         mStrip->Tick(wetL, wetR);
+        if (mEffect == SlotEffect::ConsoleEQ)
+        {
+          mBands.Advance();
+          wetL = mBands.Tick(wetL, 0);
+          wetR = mBands.Tick(wetR, 1);
+        }
         if (flat)
         {
           wetL = dryL;
@@ -201,6 +212,7 @@ private:
     mMinimumGain = std::min(mMinimumGain, gain);
   }
   std::unique_ptr<airwindows_outboard::CStrip2::Core> mStrip;
+  console_eq::Bands mBands;
   std::unique_ptr<airwindows_outboard::ButterComp2::Core> mButter;
   std::unique_ptr<airwindows_outboard::BussColors4::Core> mColour;
   grid_fx::SmoothControls<7> mControls;

@@ -270,6 +270,21 @@ public:
     const double bloom = std::clamp(percent * .01, 0., 1.);
     return 1. + (kMaxDiffusionScale - 1.) * bloom * bloom;
   }
+  // Time constant of the swell on the tank input, in seconds; zero at Bloom 0. The
+  // two-pole rise reaches 90% after about 3.9 time constants (1.4 s at 100%).
+  static double SwellSeconds(double percent)
+  {
+    const double bloom = std::clamp(percent * .01, 0., 1.);
+    return kMaxSwell * bloom * bloom;
+  }
+  // Swell gain t seconds after a pick from silence: the display's onset shape.
+  static double SwellGain(double percent, double t)
+  {
+    const double tau = SwellSeconds(percent);
+    if (tau <= 0.) return 1.;
+    const double x = std::max(0., t) / tau;
+    return 1. - (1. + x) * std::exp(-x);
+  }
   void Reset(double rate)
   {
     mMixLaw.Reset(rate);
@@ -284,6 +299,10 @@ public:
     mShare = mShareTarget = 0.;
     mShareSmoothing = std::exp(-1. / (.02 * mRate));
     mDrain.Reset(mRate);
+    mPeak = 0.; mSwell = {}; mSwellTau = -1.; mDensity = -1.;
+    mPeakRelease = std::exp(-1. / (.05 * mRate));
+    mTauSmoothing = std::exp(-32. / (.02 * mRate));
+    mRise = 1.; mMakeup = 1.;
   }
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
@@ -291,6 +310,15 @@ public:
     // Stretch only the input diffusers. The feedback tank keeps its calibrated
     // decay and the dry path remains immediate. MovingDelay crossfades automation.
     const double diffusionScale = DiffusionScale(c.shimmerBloom);
+    // Bloom also swells the tank input after each pick, as on swell reverbs: two
+    // cascaded followers rise slowly toward the input's peak level but fall with it
+    // at once, so their ratio to the peak fades a new note into the reverb and stays
+    // at 1 while notes sustain or decay. Spreading the diffusers further instead
+    // turned the swell into separate, audible repeats.
+    const double tauTarget = SwellSeconds(c.shimmerBloom);
+    const double densityTarget = std::clamp(c.shimmerDensity * .01, 0., 1.);
+    if (mDensity < 0.) mDensity = densityTarget;
+    if (mSwellTau < 0.) mSwellTau = tauTarget; // Reset starts at the setting; the first sample's control block sets the swell coefficients.
     const double freezeTarget = (!draining && c.shimmer[6] >= .5) ? 1. : 0.;
     const double coefficient = std::exp(-2. * grid_fx::pi * 100. / mRate);
     for (int i = 0; i < n; ++i)
@@ -320,9 +348,33 @@ public:
           tank.modDepth = v[5] * .01 * .000625 * mRate;
           tank.live = live;
           tank.aliasG = g / (1. + g);
+          // Each pitched pass is darkened below Damping, so higher layers taper off
+          // instead of piling up into a glassy top, as in classic studio shimmers.
+          const double shiftCorner = std::clamp(.3 * (v[2] + mFreeze * (12000. - v[2])), 800., 6000.);
+          tank.shiftPole = std::exp(-2. * grid_fx::pi * shiftCorner / mRate);
+        }
+        mDensity = densityTarget + mTauSmoothing * (mDensity - densityTarget);
+        if (std::abs(mDensity - densityTarget) < 1.e-6) mDensity = densityTarget;
+        const double angle = kQuarterPi * DensityMix(mDensity);
+        for (auto& tank : mTank)
+        {
+          tank.fullMix = mDensity >= 1.;
+          tank.diffusion = .6 * (.25 + .75 * mDensity);
+          tank.mixC = std::cos(angle);
+          tank.mixS = std::sin(angle);
         }
         // Freeze holds the tail without adding new pitch layers.
         mShareTarget = ShiftShare(v[4] * .01) * live;
+        mSwellTau = tauTarget + mTauSmoothing * (mSwellTau - tauTarget);
+        if (tauTarget == 0. && mSwellTau < 1.e-6) mSwellTau = 0.;
+        if (mSwellTau > 0.)
+        {
+          mRise = 1. - std::exp(-1. / (mSwellTau * mRate));
+          // The swell holds back each note's attack, where a guitar note has most of
+          // its energy; this makeup leaves a picked note about 4 dB below and a
+          // sustained one about 2 dB above Bloom 0.
+          mMakeup = std::pow(1. + mSwellTau / .02, .3);
+        }
       }
       mCounter %= 32;
       mShare = mShareTarget + mShareSmoothing * (mShare - mShareTarget);
@@ -331,8 +383,19 @@ public:
       const double share = mShare * mDrain.Tick(draining);
       mInputLow[0] = grid_fx::Flush(dryL + coefficient * (mInputLow[0] - dryL));
       mInputLow[1] = grid_fx::Flush(dryR + coefficient * (mInputLow[1] - dryR));
-      const double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze);
-      const double inputR = (.25 * (dryL - mInputLow[0]) + .75 * (dryR - mInputLow[1])) * (1. - mFreeze);
+      double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze);
+      double inputR = (.25 * (dryL - mInputLow[0]) + .75 * (dryR - mInputLow[1])) * (1. - mFreeze);
+      mPeak = grid_fx::Flush(std::max(std::max(std::abs(dryL), std::abs(dryR)), mPeak * mPeakRelease));
+      if (mSwellTau > 0.)
+      {
+        mSwell[0] = mPeak > mSwell[0] ? mSwell[0] + mRise * (mPeak - mSwell[0]) : mPeak;
+        mSwell[1] = mSwell[0] > mSwell[1] ? mSwell[1] + mRise * (mSwell[0] - mSwell[1]) : mSwell[0];
+        const double gain = mMakeup * (mPeak > 1.e-12 ? mSwell[1] / mPeak : 1.);
+        inputL *= gain;
+        inputR *= gain;
+      }
+      else // Open, so raising Bloom during a note does not cut the tank input.
+        mSwell = {mPeak, mPeak};
       const double wetL = kOutput * mTank[0].Process(inputL, share, v[3], diffusionScale);
       const double wetR = kOutput * mTank[1].Process(inputR, share, v[3], diffusionScale);
       const double mix = v[0] * .01;
@@ -343,9 +406,16 @@ public:
   }
 
 private:
-  // Output scaling puts the wet level with Room and Hall.
-  static constexpr double kOutput = 1.8, kMaxShare = .5;
-  static constexpr double kMaxDiffusionScale = 28.;
+  // Output scaling puts the wet level about 3 dB above Room and Hall, so a moderate Mix
+  // gives a clear shimmer. Matching a studio shimmer's level (+6 dB) was too much wet.
+  static constexpr double kOutput = 2.55, kMaxShare = .5;
+  // Bloom stretches the input diffusers at most this far: their longest stage stays
+  // short enough to blur into the tail rather than repeat.
+  static constexpr double kMaxDiffusionScale = 4.;
+  static constexpr double kMaxSwell = .35, kQuarterPi = .7853981633974483;
+  // Share of the full Hadamard rotation at a Density of 0-1. Echo density changes
+  // mostly near no mixing, so the square spreads it over the knob.
+  static double DensityMix(double density) { const double d = std::clamp(density, 0., 1.); return d * d; }
   // Treble above Damping decays at this share of Decay (the Hall and Room ratio).
   static constexpr double kHighDecayRatio = .35;
   grid_fx::MixLaw mMixLaw;
@@ -354,13 +424,19 @@ private:
     static constexpr std::array<int, 4> kShifted{0, 3, 5, 6};
     std::array<grid_fx::DelayLine, 8> line;
     std::array<grid_reverb::Allpass, 4> diffuser;
-    std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{};
+    std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{}, loopLow{};
+    std::array<double, 4> shiftLow{};
+    // Loop DC blocker, and the one-pole that darkens every pitched pass.
+    double dcCut = 0., shiftPole = 0.;
     std::array<double, 4> diffuserDelay{};
     std::array<PitchShifter, 2> shifter;
     std::array<std::array<double, 2>, 4> alias{}, crossPower{};
     std::array<double, 4> crossGain{1., 1., 1., 1.};
     uint32_t counter = 0;
     double damping = 0., modDepth = 0., live = 1., aliasG = 1., powerSmoothing = 0., mRate = 48000.;
+    // Density: input diffuser coefficient and the butterfly rotation (cos, sin).
+    double diffusion = .6, mixC = .7071067811865476, mixS = .7071067811865476;
+    bool fullMix = true;
     void Reset(double rate, double scale, double grainOffset)
     {
       mRate = std::max(1., rate);
@@ -384,6 +460,9 @@ private:
       shifter[0].Stagger(grainOffset + .125);
       shifter[1].Stagger(grainOffset + .375);
       alias = {};
+      loopLow = {};
+      shiftLow = {};
+      dcCut = 1. - std::exp(-2. * grid_fx::pi * 5. / mRate);
       crossPower = {};
       crossGain = {1., 1., 1., 1.};
       counter = 0;
@@ -392,7 +471,7 @@ private:
     double Process(double input, double share, double semitones, double diffusionScale)
     {
       for (int j = 0; j < 4; ++j)
-        input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, .6);
+        input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, diffusion);
       std::array<double, 8> taps{};
       double wet = 0.;
       for (int j = 0; j < 8; ++j)
@@ -403,11 +482,21 @@ private:
         const double motion = modDepth * std::sin(2. * grid_fx::pi * phase[j]);
         const double tap = line[j].Read(mRate * length[j] + motion);
         damp[j] = grid_fx::Flush(tap + damping * (damp[j] - tap));
-        taps[j] = (highRatio[j] * tap + (1. - highRatio[j]) * damp[j]) * feedback[j];
+        double shelved = highRatio[j] * tap + (1. - highRatio[j]) * damp[j];
+        // The grains add a little DC on every pitched pass; without a blocker in the
+        // loop it built up to a fifth of the tail's level. 5 Hz keeps low notes' decay.
+        loopLow[j] = grid_fx::Flush(loopLow[j] + dcCut * (shelved - loopLow[j]));
+        taps[j] = (shelved - loopLow[j]) * feedback[j];
         wet += (j % 2 ? -1. : 1.) * tap * .125;
       }
       // The shifters keep their history at zero share, so Amount changes glide in.
       const double pitch = semitones * live;
+      // At high Amount, bring the shifted lines forward in the wet output.
+      // Density still determines how the tank recirculates and blends its echoes.
+      const double pitchBlend = .65 * std::clamp((share - .2) / .3, 0., 1.)
+                                * std::min(1., std::abs(pitch) / 7.);
+      double pitchedWet = 0.;
+      const double detuneScale = pitch == 0. ? 0. : std::min(1., std::abs(pitch) / 12.);
       ++counter;
       for (int k = 0; k < 4; ++k)
       {
@@ -424,7 +513,17 @@ private:
           continue;
         }
         const double dry = taps[kShifted[k]];
-        const double shifted = shifter[k / 2].ProcessSample(x, k % 2, pitch);
+        // The four shifted lines spread 5 cents either side of the interval, so the
+        // layers chorus slightly while staying in tune. A flat 20-50 cent voicing, as
+        // measured on a studio shimmer, sounded out of tune. Smaller intervals spread
+        // proportionally less; lines summed with opposite signs differ least, so the
+        // first octave still comes through early.
+        static constexpr double kDetune[4]{-.05, -.03, .03, .05};
+        const double detuned = pitch + kDetune[k] * detuneScale;
+        const double raw = shifter[k / 2].ProcessSample(x, k % 2, detuned);
+        shiftLow[k] = grid_fx::Flush(raw + shiftPole * (shiftLow[k] - raw));
+        const double shifted = shiftLow[k];
+        if (pitchBlend > 0.) pitchedWet += (k % 2 ? -.25 : .25) * shifted;
         // A linear crossfade of two unrelated signals loses up to 3 dB per pass, which
         // would shorten the tail as Amount rises. Restore the line's power, but never
         // beyond it, so the shifted lines still decay at the Decay rate.
@@ -439,16 +538,39 @@ private:
         }
         taps[kShifted[k]] = y * crossGain[k];
       }
-      for (int span = 1; span < 8; span *= 2)
-        for (int base = 0; base < 8; base += span * 2)
-          for (int j = 0; j < span; ++j)
-          {
-            const double a = taps[base + j], b = taps[base + j + span];
-            taps[base + j] = a + b;
-            taps[base + j + span] = a - b;
-          }
-      for (int j = 0; j < 8; ++j)
-        line[j].Push(taps[j] * .3535533905932738 + input * (j % 3 == 0 ? -.2 : .2));
+      if (fullMix)
+      {
+        for (int span = 1; span < 8; span *= 2)
+          for (int base = 0; base < 8; base += span * 2)
+            for (int j = 0; j < span; ++j)
+            {
+              const double a = taps[base + j], b = taps[base + j + span];
+              taps[base + j] = a + b;
+              taps[base + j + span] = a - b;
+            }
+        for (int j = 0; j < 8; ++j)
+          line[j].Push(taps[j] * .3535533905932738 + input * (j % 3 == 0 ? -.2 : .2));
+      }
+      else
+      {
+        // Lower Density turns each butterfly from the Hadamard mix toward no mixing.
+        // Every stage stays orthonormal, so the tank keeps its decay; a shifted line
+        // keeps more of its own recirculation and climbs in clear steps.
+        for (int span = 1; span < 8; span *= 2)
+          for (int base = 0; base < 8; base += span * 2)
+            for (int j = 0; j < span; ++j)
+            {
+              const double a = taps[base + j], b = taps[base + j + span];
+              // The first stage pairs every shifted line with an unshifted one and stays
+              // fully mixed, so the cascade keeps being fed; the wider stages fade out.
+              const double cs = span == 1 ? .7071067811865476 : mixC, sn = span == 1 ? .7071067811865476 : mixS;
+              taps[base + j] = cs * a + sn * b;
+              taps[base + j + span] = sn * a - cs * b;
+            }
+        for (int j = 0; j < 8; ++j)
+          line[j].Push(taps[j] + input * (j % 3 == 0 ? -.2 : .2));
+      }
+      if (pitchBlend > 0.) wet += pitchBlend * (pitchedWet - wet);
       return wet * 1.8;
     }
   };
@@ -456,6 +578,8 @@ private:
   grid_fx::SmoothControls<7> mControls;
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mInputLow[2]{}, mFreeze = 0., mShare = 0., mShareTarget = 0., mShareSmoothing = 0.;
+  double mPeak = 0., mPeakRelease = 0., mSwellTau = -1., mTauSmoothing = 0., mRise = 1., mMakeup = 1., mDensity = -1.;
+  std::array<double, 2> mSwell{};
   int mCounter = 0;
 };
 

@@ -59,7 +59,7 @@ Opposite pitch detuning and short delays on the left and right suggest a second 
 | **Spread** | 0–100% | 100% | Spread of detuned voices; zero centers the wet pair, 100 keeps them on opposite sides. |
 | **Humanize** | 0–100% | 0% | Adds slow, independent timing and pitch variation to the double; zero retains fixed offsets. |
 | **High cut** | 1000–20000 Hz | 20000 Hz | Softens only the doubled voices; maximum bypasses this added filter. |
-| **Output** | -24 to +6 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Output** | -24 to +6 dB | 2 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 25% | Balance between dry sound and effect. |
 
 **Display:** Pitch up and down against the stereo spread.

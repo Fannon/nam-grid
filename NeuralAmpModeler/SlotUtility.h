@@ -307,8 +307,9 @@ public:
     mRate = rate;
     mSmooth = std::exp(-1. / (.005 * rate));
     mAttack = std::exp(-1. / (.003 * rate));
-    mRelease = std::exp(-1. / (.08 * rate));
+    mRelease = std::exp(-1. / (.08 * rate)); mDecayMs = 80.;
     mEnv = 0.;
+    mOutput = mMix = 1.; mFirstLevel = true;
     mCut = 2500.;
     mQ = .7;
     mDepth = 0.;
@@ -325,14 +326,24 @@ public:
     {
       mWeights = {}; mWeights[mode] = 1.; mFirstMode = false;
     }
+    // Sensitivity scales the detector only; 0 dB keeps the released response, which
+    // sweeps fully from -12 dBFS peaks. Decay is the release time constant.
+    const double decay = std::clamp(c.extra.filterDecay, 20., 2000.);
+    if (decay != mDecayMs) { mDecayMs = decay; mRelease = std::exp(-1. / (.001 * decay * mRate)); }
+    const double sensitivity = 4. * std::pow(10., std::clamp(c.extra.filterSensitivity, -24., 24.) / 20.);
+    const double direction = c.extra.filterDown >= .5 ? -1. : 1.;
+    const double output = std::pow(10., std::clamp(c.extra.filterOutput, -24., 24.) / 20.);
+    const double mix = std::clamp(c.extra.filterMix, 0., 100.) * .01;
+    if (mFirstLevel) { mOutput = output; mMix = mix; mFirstLevel = false; }
     for (int i = 0; i < frames; ++i)
     {
-      const double peak = std::abs(samples[i]);
+      const double dry = samples[i], peak = std::abs(dry);
       mEnv = peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak);
       if (std::abs(mEnv) < 1.e-30) mEnv = 0.;
-      mDepth = std::clamp(c.envelope, 0., 4.) + mSmooth * (mDepth - std::clamp(c.envelope, 0., 4.));
-      const double hz =
-        std::min(.4 * mRate, std::clamp(c.cutoff, 40., 12000.) * std::exp2(mDepth * std::min(1., mEnv * 4.)));
+      const double depth = direction * std::clamp(c.envelope, 0., 4.);
+      mDepth = depth + mSmooth * (mDepth - depth);
+      const double hz = std::clamp(std::clamp(c.cutoff, 40., 12000.) * std::exp2(mDepth * std::min(1., mEnv * sensitivity)),
+                                   20., .4 * mRate);
       mCut = hz + mSmooth * (mCut - hz);
       mQ = std::clamp(c.resonance, .5, 4.) + mSmooth * (mQ - std::clamp(c.resonance, .5, 4.));
       if (mCount++ % 16 == 0)
@@ -344,7 +355,12 @@ public:
         const double target = j == mode ? 1. : 0.;
         mWeights[j] = std::abs(mWeights[j] - target) < 1.e-12 ? target : target + mSmooth * (mWeights[j] - target);
       }
-      samples[i] = low + mWeights[1] * (high - low) + mWeights[2] * (band - low);
+      // Band-pass keeps a unity-gain peak up to Q 1 and gains Q above it, like an SVF's
+      // band output, so resonant settings are not far quieter than the other modes.
+      const double wet = low + mWeights[1] * (high - low) + mWeights[2] * (band * std::max(1., mAppliedQ) - low);
+      mOutput = output + mSmooth * (mOutput - output);
+      mMix = mix + mSmooth * (mMix - mix);
+      samples[i] = (mMix == 1. ? wet : dry + mMix * (wet - dry)) * mOutput;
     }
   }
   double AppliedCutoff() const { return mAppliedCut; }
@@ -363,8 +379,51 @@ private:
   std::array<double, 3> mWeights{1., 0., 0.};
   bool mFirstMode = true;
   double mRate = 48000., mSmooth = 0., mAttack = 0., mRelease = 0., mEnv = 0., mCut = 2500., mQ = .7, mDepth = 0.;
+  double mDecayMs = 80., mOutput = 1., mMix = 1.;
+  bool mFirstLevel = true;
   int mCount = 0;
   double mAppliedCut = 2500., mAppliedQ = .7;
+};
+
+// A volume pedal: Position (or the slot's MIDI CC) sweeps the gain from Heel level to Toe
+// level along a power curve in amplitude. Curve 0 is an audio taper (position squared, so
+// -12 dB at half travel); -100 rises fast (square root) and +100 holds back (8th power).
+// Heel level -60 dB mutes. Smoothing hides the 128 steps of a MIDI pedal.
+class SlotVolumePedal
+{
+public:
+  void Reset(double rate) { mRate = rate; mFirst = true; mSmoothingMs = -1.; mPosition = 1.; }
+  static double Gain(double position, const std::array<double, 6>& v)
+  {
+    const double k = std::exp2(1. + 2. * std::clamp(v[1], -100., 100.) * .01);
+    const double heel = v[2] <= -60. ? 0. : std::pow(10., std::clamp(v[2], -60., 0.) / 20.);
+    const double toe = std::pow(10., std::clamp(v[3], -24., 12.) / 20.);
+    return heel + (toe - heel) * std::pow(std::clamp(position, 0., 1.), k);
+  }
+  void Process(double* x, int frames, const UtilityControls& c)
+  {
+    const auto& v = c.extra.volumePedal;
+    mPosition = c.midiPedal >= 0. ? std::min(1., c.midiPedal) : std::clamp(v[0], 0., 100.) * .01;
+    const double target = Gain(mPosition, v);
+    if (v[4] != mSmoothingMs)
+    {
+      mSmoothingMs = v[4];
+      mSmooth = std::exp(-1. / (.001 * std::clamp(v[4], 1., 500.) * mRate));
+    }
+    if (mFirst) { mGain = target; mFirst = false; }
+    for (int i = 0; i < frames; ++i)
+    {
+      mGain = target + mSmooth * (mGain - target);
+      if (std::abs(mGain - target) < 1.e-9) mGain = target;
+      x[i] *= mGain;
+    }
+  }
+  double Position() const { return mPosition; }
+  double CurrentGain() const { return mGain; }
+
+private:
+  double mRate = 48000., mSmooth = 0., mSmoothingMs = -1., mGain = 1., mPosition = 1.;
+  bool mFirst = true;
 };
 
 class SlotAutoSwell

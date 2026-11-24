@@ -1,4 +1,6 @@
 #pragma once
+#include <numeric>
+#include <complex>
 #include <cmath>
 #include <vector>
 #include "SlotHQEffects.h"
@@ -290,28 +292,188 @@ void TestHQEffects()
       const double measured = hq_test::BandDecay(l, 500., rate);
       assert(measured > .88 * decay && measured < 1.12 * decay);
     }
-  // Bloom redistributes wet energy behind the attack. Simply turning down the
-  // initial reflections would also pass the early-energy check alone.
+  // Bloom swells each note into the tank instead of spreading the input diffusers into
+  // separate repeats, which the released stretch produced at high settings.
   {
-    const auto response = [&](double bloom) {
+    UtilityControls c;
+    c.shimmer = {100., 14., 7400., 12., 50., 55., 0.};
+    // Echo density of the impulse response, 0.1-1 s: about 1 for a dense tail. The
+    // 28x diffuser stretch measured about 0.6 at Bloom 92-100.
+    const auto density = [&](double bloom) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      auto u = c; u.shimmerBloom = bloom;
+      std::vector<double> l(static_cast<size_t>(1.2 * rate)), r(l.size());
+      l[0] = r[0] = .1;
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), u);
+      double sum = 0.; int windows = 0;
+      for (double t = .1; t < 1.; t += .05, ++windows)
+      {
+        const size_t a = static_cast<size_t>(t * rate), b = static_cast<size_t>((t + .05) * rate);
+        double e = 0.; for (size_t i = a; i < b; ++i) e += l[i] * l[i];
+        const double sd = std::sqrt(e / (b - a)); int outside = 0;
+        for (size_t i = a; i < b; ++i) outside += std::abs(l[i]) > sd;
+        sum += outside / double(b - a) / .3173;
+      }
+      return sum / windows;
+    };
+    assert(density(92.) > .9 && density(100.) > .9);
+    // A sharply picked note: wet energy in 100 ms windows, and over three seconds.
+    const auto note = [&](double bloom) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      auto u = c; u.shimmerBloom = bloom;
+      std::vector<double> l(static_cast<size_t>(3. * rate)), r(l.size());
+      for (size_t i = 0; i < l.size(); ++i)
+      {
+        const double t = i / rate; double x = 0.;
+        for (int k = 1; k <= 12; ++k) x += std::sin(2. * grid_fx::pi * 196. * k * t) / k * std::exp(-t * (1.5 + .6 * k));
+        l[i] = r[i] = .15 * x;
+      }
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), u);
+      std::vector<double> window(30);
+      for (size_t i = 0; i < l.size(); ++i) window[i * 10 / static_cast<size_t>(rate)] += l[i] * l[i] + r[i] * r[i];
+      return window;
+    };
+    const auto close = note(0.), bloom = note(100.);
+    const auto total = [](const std::vector<double>& w) { return std::accumulate(w.begin(), w.end(), 0.); };
+    // The wet starts from near silence and swells for half a second or more ...
+    assert(bloom[0] + bloom[1] < 1.e-3 * (close[0] + close[1]));
+    assert(std::max_element(bloom.begin(), bloom.end()) - bloom.begin() >= 4);
+    for (int w = 1; w < 4; ++w) assert(bloom[w] > bloom[w - 1]);
+    // ... and its level stays near Bloom 0's.
+    assert(std::abs(10. * std::log10(total(bloom) / total(close))) < 5.);
+  }
+  // Strong shimmer: no DC builds up in the loop, the higher octaves taper off rather than
+  // piling up, and the shifted layers stay centred on the interval.
+  {
+    const auto tail = [&](double amount, double density, bool pluck) {
       grid_hq::Shimmer shimmer;
       shimmer.Reset(rate);
       UtilityControls c;
-      c.shimmer = {100., 5., 6000., 12., 25., 30., 0.};
-      c.shimmerBloom = bloom;
-      std::vector<double> l(static_cast<size_t>(6. * rate)), r(l.size());
+      c.shimmer = {100., 14., 7400., 12., amount, 25., 0.};
+      c.shimmerDensity = density;
+      std::vector<double> l(static_cast<size_t>(7. * rate)), r(l.size());
+      for (size_t i = 0; i < static_cast<size_t>((pluck ? 2. : .6) * rate); ++i)
+      {
+        const double t = i / rate;
+        if (pluck)
+        {
+          double x = 0.;
+          for (int k = 1; k <= 8; ++k) x += std::sin(2. * grid_fx::pi * 110. * k * t) / k * std::exp(-t * (1.5 + .6 * k));
+          l[i] = r[i] = .15 * x;
+        }
+        else
+          l[i] = r[i] = .1 * std::min(1., std::min(t, .6 - t) / .005) * std::sin(2. * grid_fx::pi * 440. * t);
+      }
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      return l;
+    };
+    // Energy of a Hann-windowed segment [a, b) s between lo and hi Hz, in 1 Hz steps.
+    const auto energy = [&](const std::vector<double>& x, double a, double b, double lo, double hi, double* centroid = nullptr) {
+      const size_t i0 = static_cast<size_t>(a * rate), n = static_cast<size_t>((b - a) * rate);
+      double total = 0., weighted = 0.;
+      for (double hz = lo; hz <= hi; hz += 1.)
+      {
+        std::complex<double> sum = 0., w = std::polar(1., -2. * grid_fx::pi * hz / rate), z = 1.;
+        for (size_t i = 0; i < n; ++i, z *= w)
+          sum += x[i0 + i] * (.5 - .5 * std::cos(2. * grid_fx::pi * i / (n - 1))) * z;
+        total += std::norm(sum);
+        weighted += std::norm(sum) * 1200. * std::log2(hz / 880.);
+      }
+      if (centroid) *centroid = weighted / total;
+      return total;
+    };
+    const auto plucked = tail(100., 40., true);
+    double mean = 0., power = 0.;
+    for (size_t i = static_cast<size_t>(rate); i < static_cast<size_t>(4. * rate); ++i) { mean += plucked[i]; power += plucked[i] * plucked[i]; }
+    const double samples = 3. * rate;
+    assert(std::abs(mean / samples) < .01 * std::sqrt(power / samples));
+    const auto tone = tail(100., 40., false);
+    // Bands of +-6% hold each layer with the lines' small detune summed over passes.
+    const double first = energy(tone, 2., 3.5, 827., 933.), fourth = energy(tone, 2., 3.5, 6618., 7462.);
+    assert(fourth < first * std::pow(10., -.3));
+    double cents = 0.;
+    energy(tail(60., 100., false), 1., 3., 760., 1000., &cents);
+    assert(std::abs(cents) < 8.);
+  }
+  // Density: lower settings thin the tank into clearer, distinct echoes while the octave
+  // layers keep sounding. Removing all line mixing instead let the shifted lines climb
+  // out of hearing within a second.
+  {
+    const auto impulseDensity = [&](double density, double amount) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., 6., 7400., 12., amount, 10., 0.};
+      c.shimmerDensity = density;
+      std::vector<double> l(static_cast<size_t>(1.2 * rate)), r(l.size());
       l[0] = r[0] = .1;
       shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
-      std::array<double, 2> energy{};
-      for (size_t i = 0; i < l.size(); ++i)
-        energy[i < .2 * rate ? 0 : 1] += l[i] * l[i] + r[i] * r[i];
-      return energy;
+      double sum = 0.; int windows = 0;
+      for (double t = .1; t < 1.; t += .05, ++windows)
+      {
+        const size_t a = static_cast<size_t>(t * rate), b = static_cast<size_t>((t + .05) * rate);
+        double e = 0.; for (size_t i = a; i < b; ++i) e += l[i] * l[i];
+        const double sd = std::sqrt(e / (b - a)); int outside = 0;
+        for (size_t i = a; i < b; ++i) outside += std::abs(l[i]) > sd;
+        sum += outside / double(b - a) / .3173;
+      }
+      return sum / windows;
     };
-    const auto close = response(0.), bloom = response(100.);
-    assert(bloom[0] < .15 * close[0]);
-    assert(bloom[1] > close[1]);
+    assert(impulseDensity(100., 35.) > .9 && impulseDensity(0., 35.) < .8);
+    // Taking some wet output directly from the shifters fills gaps at high
+    // Amount, but Density 0 should still have fewer echoes than Density 100.
+    assert(impulseDensity(0., 100.) + .1 < impulseDensity(100., 100.));
+    // Octave layer against the played note in the tail of a 220 Hz tone, 1-3 s.
+    const auto octave = [&](double density) {
+      grid_hq::Shimmer shimmer;
+      shimmer.Reset(rate);
+      UtilityControls c;
+      c.shimmer = {100., 6., 7400., 12., 100., 10., 0.};
+      c.shimmerDensity = density;
+      std::vector<double> l(static_cast<size_t>(3. * rate)), r(l.size());
+      for (size_t i = 0; i < static_cast<size_t>(.5 * rate); ++i)
+      {
+        const double t = i / rate;
+        l[i] = r[i] = .1 * std::min(1., std::min(t, .5 - t) / .005) * std::sin(2. * grid_fx::pi * 220. * t);
+      }
+      shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+      const auto band = [&](double hz) {
+        std::complex<double> sum = 0.;
+        for (size_t i = static_cast<size_t>(rate); i < l.size(); ++i)
+          sum += l[i] * std::polar(1., -2. * grid_fx::pi * hz * i / rate);
+        return std::norm(sum);
+      };
+      double fundamental = 0., layer = 0.;
+      for (double d = -4.; d <= 4.; d += 1.) { fundamental += band(220. + d); layer += band(440. + d); }
+      return 10. * std::log10(layer / fundamental);
+    };
+    assert(octave(0.) > -6.);
   }
-  // Wet level: the tank sits with Room and Hall (IR energy .07-.2 at default settings).
+  // At high Amount the first octave should come through the wet
+  // signal with sparse reflections or a smooth, high-Density tail.
+  for (const double density : {7.8, 100.})
+  {
+    grid_hq::Shimmer shimmer;
+    shimmer.Reset(rate);
+    UtilityControls c;
+    c.shimmer = {100., density < 10. ? 1.4 : 5., 7400., 12., 100., 12., 0.};
+    c.shimmerDensity = density;
+    std::vector<double> l(static_cast<size_t>(.5 * rate)), r(l.size());
+    for (size_t i = 0; i < l.size(); ++i)
+    {
+      const double t = i / rate;
+      const double gain = .15 * std::min(1., t / .005);
+      l[i] = r[i] = gain * std::sin(2. * grid_fx::pi * 220. * t);
+    }
+    shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
+    for (const auto* channel : {&l, &r})
+      assert(hq_test::BandPower(*channel, static_cast<size_t>(.15 * rate), 440., rate)
+             > 2. * hq_test::BandPower(*channel, static_cast<size_t>(.15 * rate), 220., rate));
+  }
+  // Wet level: about 3 dB above Room and Hall (IR energy .14-.4 at default settings;
+  // Room and Hall sit at .07-.2).
   {
     grid_hq::Shimmer shimmer;
     shimmer.Reset(rate);
@@ -322,7 +484,7 @@ void TestHQEffects()
     shimmer.Process(l.data(), r.data(), static_cast<int>(l.size()), c);
     double energy = 0.;
     for (size_t i = 0; i < l.size(); ++i) energy += l[i] * l[i] + r[i] * r[i];
-    assert(energy > .07 && energy < .2);
+    assert(energy > .14 && energy < .4);
   }
   // Any Pitch at full Amount and the longest Decay stays bounded and dies away: the
   // shifted share replaces part of the recirculation instead of adding to it. Small

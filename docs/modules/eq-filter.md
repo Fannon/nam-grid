@@ -144,38 +144,47 @@ The cut follows a 4:1 ratio above Threshold, up to Range. Thresholds are absolut
 
 ![Console EQ editor](../screenshots/modules/console-eq.png)
 
-Airwindows-style console EQ with broad, overlapping bands and extra harmonic colour on louder notes. Its cuts use relative amounts rather than frequencies.
+A console-style EQ with broad bands and extra harmonic colour on louder notes, after Airwindows CStrip2. Bass and Treble are gentle first-order shelves and Mid is everything between them. Its cuts use relative amounts rather than frequencies.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
 | **Output** | -24–12 dB | 0 dB | Final EQ level for matching bypass loudness after boosts and cuts. |
-| **Treble** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
-| **Mid** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
-| **Bass** | -6 to +6 dB | 0 dB | Boost or cut the band. It also adds harmonics, so the actual change depends on how hard you play. |
-| **Treble freq** | 1000–16000 Hz | 4750 Hz | Moves the band. An approximate frequency; the broad bands overlap. |
-| **Bass freq** | 300–16000 Hz | 300 Hz | Moves the band. An approximate frequency; the broad bands overlap. |
+| **Treble** | -6 to +6 dB | 0 dB | Boost or cut above Treble freq. Boosts add harmonics on louder notes. |
+| **Mid** | -6 to +6 dB | 0 dB | Boost or cut between the two corners, most around their middle. |
+| **Bass** | -6 to +6 dB | 0 dB | Boost or cut below Bass freq. Boosts add harmonics on louder notes. |
+| **Treble freq** | 1000–16000 Hz | 4750 Hz | Corner of the treble shelf; around 3 kHz reaches pick presence after an amp. |
+| **Bass freq** | 300–16000 Hz | 300 Hz | Corner of the bass shelf; it also moves Mid's lower edge. |
 | **Low cut** | 0–100% | 0% | Removes low end; 0% is off. A relative amount, not a frequency. |
 | **High cut** | 0–100% | 100% | Removes highs; 100% is open, lower is darker. A relative amount, not a frequency. |
 
 **Display:** The quiet-signal response over the live output spectrum. Louder notes add harmonics the curve cannot show.
 
+**Presets:** Warm, Bright and open, Fat, Smooth top (tames high-gain fizz) and Lean for the mix (less low end, a little presence). Each sets Output to stay close to bypass loudness after an amp.
+
 ## Filter
 
 ![Filter editor](../screenshots/modules/filter.png)
 
-A resonant low-pass, high-pass or band-pass filter. Envelope opens the cutoff up to four octaves as you play harder.
+A resonant low-pass, high-pass or band-pass envelope filter. Envelope sweeps the cutoff up (or down) as much as four octaves as you play harder; Sensitivity sets how hard that is, and Decay how slowly it falls back.
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
 | **Cutoff** | 40–12000 Hz | 2500 Hz | Resting filter frequency. Envelope opens it upward; resonance emphasizes its edge. |
 | **Resonance** | 0.5–4 | 0.71 | Emphasis around the cutoff. Higher values create a more vocal, peaky response. |
-| **Envelope** | 0–4 oct | 0 oct | Maximum upward sweep in octaves as you play harder. Zero makes the filter static. |
+| **Envelope** | 0–4 oct | 0 oct | Maximum sweep in octaves as you play harder. Zero makes the filter static. |
+| **Sensitivity** | -24 to +24 dB | 0 dB | How hard you must play to sweep fully: at 0 dB, peaks at -12 dBFS. Raise it for a DI or soft picking, lower it after a loud amp so the sweep follows your dynamics. |
+| **Decay** | 20–2000 ms | 80 ms | How long the sweep takes to fall back after each note. Longer values close each note slowly. |
+| **Output** | -24 to +24 dB | 0 dB | Final level. Band-pass and high-pass remove much of the guitar; match bypass volume here. |
+| **Mix** | 0–100% | 100% | Balance between dry sound and filter; a partial mix keeps the dry low end and attack. |
 
 In the header:
 
-- **Mode** (Low-pass, High-pass, Band-pass; starts at Low-pass) Low-pass darkens, high-pass thins, band-pass isolates a vocal band.
+- **Mode** (Low-pass, High-pass, Band-pass; starts at Low-pass) Low-pass darkens, high-pass thins, band-pass isolates a vocal band. Above Resonance 1, band-pass gains as much as its resonance, like an analog state-variable filter, so it is not far quieter than the other modes.
+- **Down sweep** (Off / On; starts Off) Sweeps the cutoff down from its resting frequency instead of up: bright at rest, darker on each attack.
 
-**Display:** The filter response over the live output spectrum; the shaded range shows the envelope's reach at -12 dBFS.
+**Display:** The filter response, including Output and Mix, over the live output spectrum; the shaded range shows the envelope's reach and the peak level that reaches it fully.
+
+**Presets:** Touch wah, Bass envelope, Funk quack (band-pass, for clean strumming), Slow vowel (a long Decay) and Down sweep.
 
 **Tips:**
 
@@ -192,7 +201,7 @@ An automatable wah sweep: a resonant band-pass with body. Map Position to an exp
 | **Position** | 0–100% | 50% | Heel-to-toe sweep. Automate it or map it to an expression controller in the host. |
 | **Resonance** | 1–6 Q | 3 Q | Higher Q makes a narrower, more pronounced wah peak. |
 | **Register** | 0–100% | 50% | Raises both heel and toe endpoints; it changes the register, not the sweep width. |
-| **Output** | -12 to +12 dB | 0 dB | Final level. Match bypass volume when comparing tones. |
+| **Output** | -12 to +12 dB | 5.5 dB | Final level. Match bypass volume when comparing tones. |
 | **Mix** | 0–100% | 100% | Balance between dry sound and effect. |
 
 **Display:** The wah peak over the live output spectrum.

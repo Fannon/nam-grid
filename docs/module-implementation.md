@@ -162,6 +162,10 @@ bypasses saturation exactly; the full tape core, head bump and softening remain 
 - **EQs and Filter** use the MIT AudioDSPTools coefficients and a scalar implementation of the
   [RBJ/W3C equations](https://www.w3.org/TR/audio-eq-cookbook/). Dynamics were written
   independently, using AudioDSPTools and LEAF as MIT algorithm references.
+- **Volume Pedal** ([SlotUtility.h](../NeuralAmpModeler/SlotUtility.h)) is an original gain
+  stage: gain = heel + (toe - heel) x position^k in amplitude, with k = 2^(1 + 2 Curve) (0.5 to 8;
+  2 is an audio taper), Heel -60 dB as a mute and one-pole Smoothing of the gain. Its position
+  comes from Position or the slot's MIDI CC (see [MIDI input](development.md#saved-state)).
 - **Spring Reverb** has three dispersive tanks with driven excitation, after
   [Gamper, Parker and Välimäki](https://research.aalto.fi/en/publications/automated-calibration-of-a-parametric-spring-reverb-model/)
   and the [DAFx overview](https://dafx.de/paper-archive/details/omUNRAXkKDeEOxMkIyPwQg);

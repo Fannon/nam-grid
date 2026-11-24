@@ -19,13 +19,16 @@ Captures a window of your playing and loops it underneath while you keep playing
 
 | Control | Range | Start | What it does |
 | --- | --- | --- | --- |
-| **Hold** | Off / On | Off | Capture a fresh window and sustain it. Release to stop the held layer; dry guitar remains audible. |
 | **Capture** | 50–2000 ms | 500 ms | Length of the held capture; short windows are more tonal, long windows retain more phrase texture. |
 | **Crossfade** | 1–100 ms | 20 ms | Overlap at the loop seam; smooths joins and shortens the repeat period by the overlap length. |
 | **High cut** | 200–16000 Hz | 6000 Hz | High-cut frequency of the held layer; lower values soften repeated attacks. |
 | **Fade in** | 1–2000 ms | 5 ms | Fade-in time for the held layer, independent of the loop-seam Crossfade. |
 | **Fade out** | 1–4000 ms | 5 ms | Fade-out time when Hold is released; the dry guitar continues unchanged. |
 | **Held level** | 0–100% | 35% | Add the held layer to the dry signal. This is an additive level, not a dry/wet crossfade. |
+
+In the header:
+
+- **Hold** (Off / On; starts Off) Capture a fresh window and sustain it. Release to stop the held layer; dry guitar remains audible.
 
 **Display:** The captured loop and its crossfaded seam.
 

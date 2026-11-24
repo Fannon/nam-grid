@@ -117,7 +117,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   else if(spring) text.Set("Reflections / decay");
   else text.Set("Decay by frequency");
   PlotTitle(g,plot,color,text.Get());
-  if(shimmer) text.Set("Bloom spreads the early reflections. The fill sketches the wet envelope over time. The bars at right show pitch intervals in semitones. Freeze holds the tail.");
+  if(shimmer) text.Set("Bloom fades each note into the reverb: the fill rises over the swell. The fill sketches the wet envelope over time; the bars at right show pitch intervals in semitones. Freeze holds the tail.");
   else if(spring) text.Set("Reflections feed the spring's decay; Drip and Dwell change their shape.");
   else if(native) text.Set("Relative tank | dots: HF | amber: early");
   if(native || spring || shimmer) PlotDetail(g,plot,text.Get());
@@ -129,6 +129,9 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   };
   // Native tanks show relative time, so only the timed reverbs get marks.
   const int marks=native ? 0 : PlotTimeMarks(g,field,timeX);
+  // Bloom's swell after a pick from silence (grid_hq::Shimmer::SwellGain), in dB.
+  const double bloom=shimmer && !frozen ? value(uShimmerBloom) : 0.;
+  const auto swellDB=[&](double t) { return bloom>0. ? 20.*std::log10(std::max(1.e-3,grid_hq::Shimmer::SwellGain(bloom,t-onset))) : 0.; };
   const double earlySpan=shimmer ? .0338 * grid_hq::Shimmer::DiffusionScale(value(uShimmerBloom))
                                  : native ? .04*size : .055*size*(effect==SlotEffect::HallReverb ? 2. : 1.);
   const double lateStart=std::min(horizon*.45,onset+earlySpan*.7);
@@ -160,7 +163,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     const double t=.025*std::expm1(std::log1p(horizon/.025)*(x-field.L)/field.W());
     const double progress=(t-lateStart)/std::max(.01,horizon-lateStart);
     const double envelope=frozen ? 1. : native ? std::max(0.,1.-progress/tailScale)
-        : std::clamp((60.+effect_preview::TailDB(t-lateStart,decay))/60.,0.,1.);
+        : std::clamp((60.+effect_preview::TailDB(t-lateStart,decay)+swellDB(t))/60.,0.,1.);
     const float y=top[i]=field.B-field.H()*static_cast<float>((native || frozen ? lateHeight : .9)*envelope);
     // Movement/dispersion belongs to the tank, not the unmodulated early path.
     if(motion>.01 && i%4==0)
@@ -188,7 +191,8 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   for(int i=0;i<9 && !frozen;++i)
   {
     const double t=std::min(horizon,onset+earlySpan*(hall ? .25+1.5*position : 1.)*(.15+i*.1));
-    const float x=timeX(t),height=field.H()*static_cast<float>(early*(.8-.055*i));
+    const double swell=std::clamp(1.+swellDB(t)/60.,0.,1.);
+    const float x=timeX(t),height=field.H()*static_cast<float>(early*(.8-.055*i)*swell);
     g.DrawLine(ampColor.WithOpacity(.85f),x,field.B,x,field.B-height,nullptr,1.5f);
   }
   g.DrawLine(border,field.L,field.B,field.R,field.B);
@@ -213,6 +217,7 @@ void DrawSpaceSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   }
   if(native) text.Set("Relative tank | amber: early reflections");
   else if(spring) text.Set("Reflections + decay | log time");
+  else if(shimmer && bloom>0.) text.SetFormatted(80,"Swell %.1f s | decay + pitch layers",3.9*grid_hq::Shimmer::SwellSeconds(bloom));
   else if(shimmer) text.Set("Decay + pitch layers | log time");
   else text.SetFormatted(80,"Low %.1f s | high %.1f s",lowDecay,highDecay);
   WDL_String end;

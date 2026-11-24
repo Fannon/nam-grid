@@ -29,17 +29,21 @@ uses `1 - (1 - p²)^(44100 / hostRate)` to preserve pole time constants, with bo
 endpoints exact. Rotation remains sample-clocked, so this is compensation rather
 than a claim of identical transfer functions at every rate. No RBJ replacement.
 
-**Console EQ's frequency numbers are coefficient scales.** Preserve the DSP
-ranges: Treble 1000–16000 Hz and Bass 300–16000 Hz. Their inverse mappings are
-`sqrt((f - 1000) / 15000)` and `sqrt((f - 300) / 15700)`. They do not describe
-measured shelf corners. The band controls retain the DSP's nominal ±6 dB range;
-their sine/cosine shaping makes the actual gain level-dependent. Flat with cuts
-open is exactly dry, including digital silence. Bass defaults to 300 rather
-than upstream's surprising 4225 coefficient scale, so the first Bass adjustment
-works in the useful lower part of its native range. Treble retains upstream's
-4750 scale. The display measures the strip's quiet-signal response from an impulse
-through its own DSP and draws it over the live output spectrum; louder input adds band
-density that this linear curve leaves out.
+**Console EQ keeps CStrip2's cuts and band curves, not its band split.** Upstream's
+band filters sit far below their labels (about a tenth of the Bass scale) and its
+sine blend roughly doubles every change on quiet signals, so the knobs did not say
+what they did. Console EQ therefore runs CStrip2 only for its Capacitor cuts and
+feeds [`console_eq::Bands`](../NeuralAmpModeler/dsp/ConsoleBands.h): bilinear
+one-pole low and high bands at Bass freq and Treble freq, with Mid as the rest, so
+the bands sum back to the input. Each band keeps upstream's density curve (sine
+blend for boosts, starved cosine blend for cuts, blend equal to the drive change),
+with the drive solved so the knob's decibels are the quiet-signal change. Louder
+notes still saturate boosted bands and thin cut ones. The saved ranges are
+unchanged: Treble freq 1000–16000 Hz and Bass freq 300–16000 Hz, both now the
+band corner. Flat with cuts open is exactly dry, including digital silence. The
+display measures the quiet-signal response from an impulse through the module's
+own DSP and draws it over the live output spectrum; louder input adds band density
+that this linear curve leaves out.
 
 **Outboard Channel retains the native unity-to-Spiral section.** EQ is flat;
 Capacitor precedes the native compressor. Saturate maps to `J = (1 + s) / 3`,
@@ -96,7 +100,7 @@ polarity, and linking would add distortion. Existing rigs compress more at the s
 | --- | --- | --- |
 | Outboard Channel | Low cut 0%; High cut 100%; Compress 20%; Comp speed 25%; Saturate 15%; Output 0 dB; Mix 100% | Measured cut response over the output spectrum and detector gain-reduction history |
 | Console Colour | Dark desk; Input and Output 0 dB; Mix 100% | Desk name and live stereo peak IN/OUT histories |
-| Console EQ | Bands 0; Treble scale 4750 Hz; Bass scale 300 Hz; High cut 100%; Low cut 0% | Measured quiet-signal response over the live output spectrum |
+| Console EQ | Bands 0 dB; Treble corner 4750 Hz; Bass corner 300 Hz; High cut 100%; Low cut 0% | Measured quiet-signal response over the live output spectrum |
 | Butter Comp | Compress 35%; Output −1 dB; Mix 100% | Detector gain-reduction history beside live peak IN/OUT histories |
 
 Compressor percentages are intensity/speed, not threshold, ratio, or milliseconds.
@@ -108,7 +112,7 @@ represented by a static waveshaper curve.
 
 Continuous controls smooth over 20 ms. Core coefficients update every 32 samples
 using a persistent sample counter; host block partitioning does not affect that
-clock. CStrip2 additionally interpolates its Mid density, High Cut coefficient and
+clock. CStrip2 additionally interpolates its Mid density (unused by Console EQ), High Cut coefficient and
 Saturate drive across those 32 samples. Dependent blend values and bypass branches
 follow the interpolated coefficients, including crossings through neutral. The
 first settings apply immediately; unchanged settings keep the original arithmetic.

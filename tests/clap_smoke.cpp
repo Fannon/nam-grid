@@ -519,6 +519,15 @@ int main(int argc, char** argv)
     assert(!loadRaw(malformedEffect));
     assert(save().config() == base);
   }
+  {
+    auto deepText = base.dump();
+    deepText.insert(deepText.size() - 1, std::string(",\"extra\":") + std::string(140, '[') + "0" + std::string(140, ']'));
+    Stream deep;
+    deep.string("###nam-grid###");
+    deep.string(deepText);
+    assert(!loadBytes(deep));
+    assert(save().config() == base);
+  }
   // Missing/invalid paths remain available for relinking, while their DSP is cleared.
   auto missing = base;
   missing["SlotPaths"][0] = (fixtures / "missing.nam").string();
@@ -728,6 +737,94 @@ int main(int argc, char** argv)
     activate();
     assert(latency->get(plugin) > 0);
     assert(host.latencyReports == 1 && host.misplacedLatencyReports == 0);
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    host.restart = false;
+    load(cleared);
+  }
+  // Item 3a: Hosts without CLAP_EXT_LATENCY never request restarts, so slots must adopt immediately.
+  {
+    Host noLatencyHost;
+    noLatencyHost.advertiseLatency = false;
+    auto* noLatPlugin = factory->create_plugin(factory, &noLatencyHost.host, descriptor->id);
+    assert(noLatPlugin && noLatPlugin->init(noLatPlugin));
+    auto* noLatState = static_cast<const clap_plugin_state*>(noLatPlugin->get_extension(noLatPlugin, CLAP_EXT_STATE));
+    auto loadNoLat = [&](json cfg) {
+      cfg["SlotHashes"] = json::array();
+      for (int i = 0; i < 16; ++i)
+      {
+        const int effect = cfg["SlotEffects"][i].get<int>();
+        const auto path = cfg["SlotPaths"][i].get<std::string>();
+        cfg["SlotHashes"].push_back(
+          (effect == static_cast<int>(SlotEffect::NAM) || effect == static_cast<int>(SlotEffect::CabinetIR)) && !path.empty()
+            && std::filesystem::is_regular_file(std::filesystem::u8path(path))
+            ? nam_library::ContentHash(std::filesystem::u8path(path)) : "");
+      }
+      Stream s;
+      s.string("###nam-grid###");
+      s.string(cfg.dump());
+      clap_istream in{&s, Stream::read};
+      assert(noLatState->load(noLatPlugin, &in));
+    };
+    auto clearedSeq = cleared;
+    clearedSeq["Lane Mode"] = grid_performance::Sequential;
+    clearedSeq["Input"] = 0.;
+    clearedSeq["Output"] = 0.;
+    loadNoLat(clearedSeq);
+    assert(noLatPlugin->activate(noLatPlugin, 44100., 1, 512));
+    assert(noLatPlugin->start_processing(noLatPlugin));
+    auto resampled = clearedSeq;
+    resampled["SlotPaths"][0] = path1.string();
+    loadNoLat(resampled);
+    double maxDiff = 0.;
+    process.frames_count = 512;
+    for (int b = 0; b < 20; ++b)
+    {
+      for (int i = 0; i < 512; ++i)
+        input[0][i] = input[1][i] = .2 * std::sin((b * 512 + i) * .04);
+      assert(noLatPlugin->process(noLatPlugin, &process) != CLAP_PROCESS_ERROR);
+      if (b == 19)
+        for (int i = 0; i < 512; ++i)
+          maxDiff = std::max(maxDiff, std::abs(output[0][i] - input[0][i]));
+    }
+    assert(maxDiff > 1e-2);
+    noLatPlugin->stop_processing(noLatPlugin);
+    noLatPlugin->deactivate(noLatPlugin);
+    noLatPlugin->destroy(noLatPlugin);
+  }
+  // Item 3b: Matching-latency replacement before host restart clears mWaitForReset and adopts immediately.
+  {
+    auto clearedSeq = cleared;
+    clearedSeq["Lane Mode"] = grid_performance::Sequential;
+    auto resampled1 = clearedSeq;
+    resampled1["SlotPaths"][0] = path1.string();
+    auto utilAtten = clearedSeq;
+    utilAtten["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
+    utilAtten[std::string("Pre 1 ") + kEffectParameters[uUtilityLevel].name] = -12.;
+
+    auto measureRms = [&] {
+      process.frames_count = 512;
+      double energy = 0.;
+      for (int b = 0; b < 20; ++b)
+      {
+        for (int i = 0; i < 512; ++i)
+          input[0][i] = input[1][i] = .2 * std::sin((b * 512 + i) * .04);
+        assert(plugin->process(plugin, &process) != CLAP_PROCESS_ERROR);
+        if (b == 19)
+          for (int i = 0; i < 512; ++i)
+            energy += output[0][i] * output[0][i];
+      }
+      return std::sqrt(energy / 512.);
+    };
+    load(clearedSeq);
+    assert(plugin->activate(plugin, 44100., 1, 512));
+    assert(plugin->start_processing(plugin));
+    const double rmsBefore = measureRms();
+    // Load resampled NAM (arms mWaitForReset), then before restart switch to -12 dB Utility (matching 0 latency).
+    load(resampled1);
+    load(utilAtten);
+    const double rmsAfter = measureRms();
+    assert(rmsBefore > 0.05 && rmsAfter < rmsBefore * 0.35);
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
     host.restart = false;

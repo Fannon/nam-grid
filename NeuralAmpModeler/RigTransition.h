@@ -67,12 +67,12 @@ public:
   // switch; Started() then reports the first block of that switch.
   Phase Begin()
   {
-    const int phase = mPhase.load(std::memory_order_acquire);
+    int phase = mPhase.load(std::memory_order_acquire);
     mStarted = false;
     if (phase == kHoldRequested)
     {
-      mPhase.store(kHolding, std::memory_order_release);
-      return kHolding;
+      if (mPhase.compare_exchange_strong(phase, kHolding, std::memory_order_acq_rel, std::memory_order_acquire))
+        return kHolding;
     }
     if (phase == kReady)
     {

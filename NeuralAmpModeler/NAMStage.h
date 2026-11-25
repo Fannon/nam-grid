@@ -341,18 +341,27 @@ public:
   noise_print::Profile GetNoiseProfile(uint64_t epoch, const noise_print::Profile& fallback) const
   { return mNoiseSnapshot.Read(epoch, fallback); }
   uint64_t NoiseSequence() const { return mNoiseSnapshot.Sequence(); }
-  void Publish(std::unique_ptr<Prepared> item, bool waitForReset = false)
+  void Publish(std::unique_ptr<Prepared> item, bool canWaitForReset = false)
   {
-    if (waitForReset)
-      mWaitForReset.store(true);
-    mExchange.Publish(std::move(item));
+    const int nextLatency = item ? item->latency : 0;
+    if (canWaitForReset && nextLatency != mActiveLatency.load(std::memory_order_acquire))
+    {
+      mWaitForReset.store(true, std::memory_order_release);
+      mExchange.Publish(std::move(item));
+    }
+    else
+    {
+      mExchange.Publish(std::move(item));
+      mWaitForReset.store(false, std::memory_order_release);
+    }
   }
   void Collect() { mExchange.Collect(); }
   // Frees the processor while audio cannot use this stage (host stopped or inactive grid).
   void ClearStopped()
   {
     mExchange.ClearStopped();
-    mWaitForReset.store(false);
+    mActiveLatency.store(0, std::memory_order_release);
+    mWaitForReset.store(false, std::memory_order_release);
     mFirst = true;
     mMeter = {};
   }
@@ -361,9 +370,11 @@ public:
     Collect();
     mExchange.Adopt();
     Collect();
-    if (auto* p = mExchange.Active())
+    auto* p = mExchange.Active();
+    if (p)
       p->Reset(rate, block);
-    mWaitForReset.store(false);
+    mActiveLatency.store(p ? p->latency : 0, std::memory_order_release);
+    mWaitForReset.store(false, std::memory_order_release);
     mStep = 1. / std::max(1., rate * .005); // 5 ms linear ramps
     mSwitchGain = 1.;
     mMix = 0.;
@@ -410,9 +421,12 @@ public:
                   const DynamicsControls& dynamics = {}, const EQControls& eq = {}, const UtilityControls& utility = {},
                   double* rightSamples = nullptr)
   {
-    const bool switching = mExchange.HasPending() && !mWaitForReset.load();
+    const bool switching = mExchange.HasPending() && !mWaitForReset.load(std::memory_order_acquire);
     if (switching && mSwitchGain <= 0. && mExchange.Adopt())
     {
+      const auto* adopted = mExchange.Active();
+      mActiveLatency.store(adopted ? adopted->latency : 0, std::memory_order_release);
+      mFirst = true;
       mFeed = 0.; // The new processor's histories start silent: fade its input in.
       mTrail = 0.; // A replaced module's tail leaves with its switch fade.
     }
@@ -805,6 +819,7 @@ private:
   { return current < target ? std::min(target, current + step) : std::max(target, current - step); }
   noise_print::Snapshot mNoiseSnapshot;
   RealtimeExchange<Prepared> mExchange;
+  std::atomic<int> mActiveLatency{0};
   std::atomic<bool> mWaitForReset{false};
   double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mFeed = 1., mTrail = 0., mStep = 1. / 240.;
   bool mFirst = true;

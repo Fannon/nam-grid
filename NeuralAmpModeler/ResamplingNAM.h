@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include "IPlugConstants.h"
 // AudioDSPTools' upstream adapter uses an unqualified default argument.
 #ifndef DEFAULT_BLOCK_SIZE
@@ -20,9 +21,12 @@ inline double GetNAMSampleRate(const std::unique_ptr<nam::DSP>& model)
   // Some models are from when we didn't have sample rate in the model.
   // For those, this wraps with the assumption that they're 48k models, which is probably true.
   const double assumedSampleRate = 48000.0;
+  if (!model)
+    return assumedSampleRate;
   const double reportedEncapsulatedSampleRate = model->GetExpectedSampleRate();
   const double encapsulatedSampleRate =
-    reportedEncapsulatedSampleRate <= 0.0 ? assumedSampleRate : reportedEncapsulatedSampleRate;
+    (!std::isfinite(reportedEncapsulatedSampleRate) || reportedEncapsulatedSampleRate <= 0.0)
+      ? assumedSampleRate : reportedEncapsulatedSampleRate;
   return encapsulatedSampleRate;
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cmath>
 #include <type_traits>
 #include "../AudioDSPTools/dsp/RecursiveLinearFilter.h"
 
@@ -48,6 +49,12 @@ public:
     y += this->mInputCoefficients[2] * mX[1];
     y += this->mOutputCoefficients[1] * mY[0];
     y += this->mOutputCoefficients[2] * mY[1];
+    if (!std::isfinite(y))
+    {
+      mX = {};
+      mY = {};
+      return 0.;
+    }
     mX[1] = mX[0];
     mX[0] = x;
     mY[1] = mY[0];

@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 // Airwindows Tape, Copyright (c) 2018 Chris Johnson, MIT (see LICENSE).
@@ -22,15 +23,22 @@ public:
     return sin(input * fabs(input)) / ((fabs(input) == 0.0) ? 1 : fabs(input));
   }
   AirwindowsTape() { ConfigureFilters(); Set(0., 50.); mSnapApplied = true; }
-  void Reset(double rate) { *this = AirwindowsTape{}; mRate = rate; ConfigureFilters(); Set(0., 50.); mSnapApplied = true; }
+  void Reset(double rate)
+  {
+    *this = AirwindowsTape{};
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    ConfigureFilters();
+    Set(0., 50.);
+    mSnapApplied = true;
+  }
   void Set(double driveDB, double bump)
   {
     A = static_cast<float>(driveDB / 24. + .5); B = static_cast<float>(bump * .01);
     mInputGain = pow(10.0, ((A - 0.5) * 24.0) / 20.0);
     mBumpGain = B * 0.1;
     double scale = 1.0; scale /= 44100.0; scale *= mRate;
-    mHeadFrequency = 0.12 / scale;
-    mRollAmount = (1.0 - 0.618033988749894848204586) / scale;
+    mHeadFrequency = std::min(0.5, 0.12 / scale);
+    mRollAmount = std::min(0.999999, (1.0 - 0.618033988749894848204586) / scale);
     if (mSnapApplied) // The first settings after a reset apply without a ramp.
     {
       mAppliedInputGain = mInputGain; mAppliedBumpGain = mBumpGain; mSnapApplied = false;
@@ -485,7 +493,7 @@ private:
     double overallscale = 1.;
     overallscale /= 44100.;
     overallscale *= getSampleRate();
-    biquadAL[0] = biquadBL[0] = biquadAR[0] = biquadBR[0] = 0.0072 / overallscale;
+    biquadAL[0] = biquadBL[0] = biquadAR[0] = biquadBR[0] = std::min(0.49, 0.0072 / overallscale);
     biquadAL[1] = biquadBL[1] = biquadAR[1] = biquadBR[1] = 0.0009;
     double K = tan(3.14159265358979323846 * biquadBR[0]);
     double norm = 1.0 / (1.0 + K / biquadBR[1] + K * K);
@@ -493,7 +501,7 @@ private:
     biquadAL[4] = biquadBL[4] = biquadAR[4] = biquadBR[4] = -biquadBR[2];
     biquadAL[5] = biquadBL[5] = biquadAR[5] = biquadBR[5] = 2.0 * (K * K - 1.0) * norm;
     biquadAL[6] = biquadBL[6] = biquadAR[6] = biquadBR[6] = (1.0 - K / biquadBR[1] + K * K) * norm;
-    biquadCL[0] = biquadDL[0] = biquadCR[0] = biquadDR[0] = 0.032 / overallscale;
+    biquadCL[0] = biquadDL[0] = biquadCR[0] = biquadDR[0] = std::min(0.49, 0.032 / overallscale);
     biquadCL[1] = biquadDL[1] = biquadCR[1] = biquadDR[1] = 0.0007;
     K = tan(3.14159265358979323846 * biquadDR[0]);
     norm = 1.0 / (1.0 + K / biquadDR[1] + K * K);

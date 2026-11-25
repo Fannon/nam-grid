@@ -331,8 +331,8 @@ public:
       if (!hold) mHeld = false;
       const double targetGain = freeze && !mHeld ? 0. : 1.;
       mWetGain += std::clamp(targetGain - mWetGain, -1. / ((freeze ? extra[2] * .001 : .005) * mRate), 1. / ((freeze ? extra[1] * .001 : .005) * mRate));
-      const size_t fade = std::min(std::max(size_t{1}, mLength / 4),
-                                  static_cast<size_t>(mRate * .001 * (freeze ? f[2] : reverse ? 5. : s[2])));
+      const size_t fade = std::max(size_t{1}, std::min(mLength / 4,
+                                  static_cast<size_t>(mRate * .001 * (freeze ? f[2] : reverse ? 5. : s[2]))));
       const auto read = [&](int ch, size_t p) {
         // Same indices as modulo: callers pass p < mLength, and mStart, p < size.
         if (const size_t period = std::max(size_t{1}, mLength); p >= period) p %= period;

@@ -18,6 +18,8 @@ namespace grid_hq
 {
 inline double SoftLimit(double x)
 {
+  if (!(x > -3.)) return x < 0. ? -1. : 0.;
+  if (x >= 3.) return 1.;
   const double x2 = x * x;
   return x * (27. + x2) / (27. + 9. * x2);
 }

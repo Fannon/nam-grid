@@ -374,7 +374,9 @@ public:
   void Apply(Controls& animated, double& blend, Routing& routing, const Targets& targets, int count) const
   {
     const auto move = [](const iplug::IParam* shape, double value, double offset) {
-      return shape ? shape->FromNormalized(std::clamp(shape->ToNormalized(value) + offset, 0., 1.)) : value;
+      return shape && std::isfinite(offset)
+        ? shape->FromNormalized(std::clamp(shape->ToNormalized(value) + offset, 0., 1.))
+        : value;
     };
     for (int i = 0; i < count; ++i)
     {
@@ -382,7 +384,7 @@ public:
       if (t.slot < gridSlot)
         WriteControl(animated[t.slot], t.control, move(mSlot[t.control], ReadControl(animated[t.slot], t.control), t.offset));
       else if (t.control == GridBlend)
-        blend = std::clamp(blend + t.offset, 0., 1.);
+        blend = std::isfinite(t.offset) ? std::clamp(blend + t.offset, 0., 1.) : std::clamp(blend, 0., 1.);
       else if (t.control == GridLaneA)
         routing.gainA = move(mGrid[GridLaneA], routing.gainA, t.offset);
       else if (t.control == GridLaneB)

@@ -16,25 +16,31 @@ public:
   }
   void Reset(double rate)
   {
-    mStep = 1. / std::max(1., rate * .005);
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mStep = 1. / std::max(1., mRate * .005);
     mFirst = true;
-    mRate = rate; mDelay = mSkew = 0.; mIndex = 0; mMode = {1., 0., 0., 0.};
-    for (auto& history : mHistory) history.assign(static_cast<size_t>(std::ceil(rate * .041)) + 2, 0.);
+    mDelay = mSkew = 0.; mIndex = 0; mMode = {1., 0., 0., 0.};
+    for (auto& history : mHistory) history.assign(static_cast<size_t>(std::ceil(mRate * .041)) + 2, 0.);
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
   {
-    const double gain = std::pow(10., std::clamp(c.level, -60., 12.) * .05);
-    const double balance = std::clamp(c.balance * .01, -1., 1.);
+    if (mHistory[0].empty() || mHistory[1].empty()) return;
+    const auto clampNaN = [](double v, double lo, double hi) { return !(v >= lo) ? lo : (v > hi ? hi : v); };
+    const double gain = std::pow(10., clampNaN(c.level, -60., 12.) * .05);
+    const double balance = clampNaN(c.balance * .01, -1., 1.);
     const std::array<double, 3> target{gain * (1. - std::max(0., balance)) * (c.invertL ? -1. : 1.),
                                        gain * (1. + std::min(0., balance)) * (c.invertR ? -1. : 1.),
-                                       1. + std::clamp(c.stereo * .01, -1., 1.)};
+                                       1. + clampNaN(c.stereo * .01, -1., 1.)};
+    const int mode = std::clamp(static_cast<int>(clampNaN(c.extra.utilityMode, 0., 3.)), 0, 3);
+    const double skew = clampNaN(c.extra.utilitySkew, -20., 20.) * .001 * mRate;
+    const double delay = clampNaN(c.fineDelay, 0., 20.) * .001 * mRate;
     if (mFirst)
     {
       mValue = mTarget = target;
       mIncrement = {};
-      mDelay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
-      mSkew = std::clamp(c.extra.utilitySkew, -20., 20.) * .001 * mRate;
-      mMode = {}; mMode[std::clamp(static_cast<int>(c.extra.utilityMode), 0, 3)] = 1.;
+      mDelay = delay;
+      mSkew = skew;
+      mMode = {}; mMode[mode] = 1.;
       mFirst = false;
     }
     // Each new target starts a 5 ms linear ramp from the current value: a fixed slope
@@ -46,9 +52,6 @@ public:
         mTarget[j] = target[j];
         mIncrement[j] = std::abs(target[j] - mValue[j]) * mStep;
       }
-    const int mode = std::clamp(static_cast<int>(c.extra.utilityMode), 0, 3);
-    const double skew = std::clamp(c.extra.utilitySkew, -20., 20.) * .001 * mRate;
-    const double delay = std::clamp(c.fineDelay, 0., 20.) * .001 * mRate;
     for (int i = 0; i < frames; ++i)
     {
       for (int j = 0; j < 3; ++j)
@@ -58,9 +61,11 @@ public:
       mSkew += std::clamp(skew - mSkew, -.25, .25);
       mDelay += std::clamp(delay - mDelay, -.25, .25);
       mHistory[0][mIndex] = l; mHistory[1][mIndex] = r;
-      const auto read = [&](int ch, double delay) {
-        const size_t whole = static_cast<size_t>(delay);
-        const double fraction = delay - whole;
+      const auto read = [&](int ch, double d) {
+        const double maxDelay = static_cast<double>(mHistory[ch].size() - 2);
+        d = clampNaN(d, 0., maxDelay);
+        const size_t whole = static_cast<size_t>(d);
+        const double fraction = d - whole;
         const size_t a = mIndex >= whole ? mIndex - whole : mHistory[ch].size() - (whole - mIndex);
         const size_t b = a == 0 ? mHistory[ch].size() - 1 : a - 1;
         return mHistory[ch][a] + fraction * (mHistory[ch][b] - mHistory[ch][a]);

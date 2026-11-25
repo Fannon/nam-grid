@@ -146,17 +146,17 @@ class SlotBoost
 public:
   void Reset(double rate)
   {
-    mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mSmooth = std::exp(-1. / (.005 * mRate));
     mGain = 1.;
     mTilt = 0.;
     mCount = 0;
-    mRate = rate;
     mLow.Reset();
     mHigh.Reset();
     mMid.Reset(); mMidGain = 0.;
     Update();
     mCoefficientsDirty = false;
-    mCut.Reset(rate);
+    mCut.Reset(mRate);
     mCut.Process(nullptr, 0, true, {});
   }
   void Process(double* samples, int frames, const UtilityControls& c, const EQControls& eq)
@@ -164,14 +164,15 @@ public:
     EQControls cuts;
     cuts.highPass = eq.highPass;
     mCut.Process(samples, frames, true, cuts);
-    const double gain = std::pow(10., std::clamp(c.boost, 0., 18.) * .05);
-    const double tilt = std::clamp(c.tilt, -6., 6.);
+    const double gain = std::pow(10., (std::isfinite(c.boost) ? std::clamp(c.boost, 0., 18.) : 0.) * .05);
+    const double tilt = std::isfinite(c.tilt) ? std::clamp(c.tilt, -6., 6.) : 0.;
+    const double midGain = std::isfinite(c.extra.boostMidGain) ? std::clamp(c.extra.boostMidGain, -12., 12.) : 0.;
     for (int i = 0; i < frames; ++i)
     {
       mGain = gain + mSmooth * (mGain - gain);
       const double previousTilt = mTilt, previousMidGain = mMidGain;
       mTilt = tilt + mSmooth * (mTilt - tilt);
-      mMidGain = c.extra.boostMidGain + mSmooth * (mMidGain - c.extra.boostMidGain);
+      mMidGain = midGain + mSmooth * (mMidGain - midGain);
       mCoefficientsDirty |= mTilt != previousTilt || mMidGain != previousMidGain;
       if (mCount++ % 16 == 0 && mCoefficientsDirty)
       {
@@ -304,10 +305,10 @@ class SlotEnvelopeFilter
 public:
   void Reset(double rate)
   {
-    mRate = rate;
-    mSmooth = std::exp(-1. / (.005 * rate));
-    mAttack = std::exp(-1. / (.003 * rate));
-    mRelease = std::exp(-1. / (.08 * rate)); mDecayMs = 80.;
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mSmooth = std::exp(-1. / (.005 * mRate));
+    mAttack = std::exp(-1. / (.003 * mRate));
+    mRelease = std::exp(-1. / (.08 * mRate)); mDecayMs = 80.;
     mEnv = 0.;
     mOutput = mMix = 1.; mFirstLevel = true;
     mCut = 2500.;
@@ -392,7 +393,11 @@ private:
 class SlotVolumePedal
 {
 public:
-  void Reset(double rate) { mRate = rate; mFirst = true; mSmoothingMs = -1.; mPosition = 1.; }
+  void Reset(double rate)
+  {
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mFirst = true; mSmoothingMs = -1.; mPosition = 1.;
+  }
   static double Gain(double position, const std::array<double, 6>& v)
   {
     const double k = std::exp2(1. + 2. * std::clamp(v[1], -100., 100.) * .01);

@@ -60,6 +60,14 @@ def generate(name, source):
         for ch in "LR":
             body = body.replace(f"inputSample{ch} *= totalmultiplier{ch};",
                                 f"monitor{'0' if ch == 'L' else '1'} = totalmultiplier{ch};\n\t\tinputSample{ch} *= totalmultiplier{ch};")
+            for sign in ("pos", "neg"):
+                target = f"target{sign}{ch}"
+                inv = f"inv{sign}{ch}"
+                calc = f"calc{sign}{ch}"
+                body = body.replace(
+                    f"double {calc} = pow((1.0/{target}),2);",
+                    f"if (!({target} >= 1.e-12)) {target} = 1.e-12;\n\t\tconst double {inv} = 1.0 / {target};\n\t\tdouble {calc} = {inv} * {inv};",
+                )
     if name == "CStrip2":
         # Capacitor pole compensation preserves open/off exactly. Percentages
         # remain native controls, NOT a claim of a calibrated Hz cutoff.
@@ -93,6 +101,14 @@ def generate(name, source):
         for ch, idx in (("L", 0), ("R", 1)):
             body = body.replace(f"inputSample{ch} *= totalmultiplier;",
                                 f"monitor{idx} = totalmultiplier;\n\t\t\tinputSample{ch} *= totalmultiplier;")
+            for sign in ("pos", "neg"):
+                target = f"target{sign}{ch}"
+                inv = f"inv{sign}{ch}"
+                calc = f"calc{sign}"
+                body = body.replace(
+                    f"{calc} = pow((1.0/{target}),2);",
+                    f"if (!({target} >= 1.e-12)) {target} = 1.e-12;\n\t\t\tconst double {inv} = 1.0 / {target};\n\t\t\t{calc} = {inv} * {inv};",
+                )
     if name in ("ButterComp2", "CStrip2"):
         public = "double Gain(int channel) const { return channel == 0 ? monitor0 : monitor1; }"
         extra = "double monitor0 = 1., monitor1 = 1.;"

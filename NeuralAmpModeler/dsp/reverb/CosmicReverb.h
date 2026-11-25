@@ -113,7 +113,7 @@ public:
   // state, so adding plate taps cannot change the recirculating signal.
   double ReadTap(double delay) const
   {
-    delay=std::clamp(delay,1.,mMaximum);
+    delay = !(delay >= 1.) ? 1. : (delay > mMaximum ? mMaximum : delay);
     const auto whole=static_cast<size_t>(delay); const double fraction=delay-whole;
     const auto tap=[&](size_t offset) {
       if(offset>mFilled) return 0.;
@@ -124,8 +124,8 @@ public:
   void Clear() { mIndex = mFilled = 0; mPrevious = 0.; }
   double Tick(double input, double delay)
   {
-    // Same values as std::clamp and unsigned conversions; signed/value forms are cheaper on MSVC x64.
-    delay = delay < 2. ? 2. : mMaximum < delay ? mMaximum : delay;
+    // NaN-safe clamp and signed/value forms are cheaper on MSVC x64 than reference-returning std::clamp.
+    delay = !(delay >= 2.) ? 2. : (delay > mMaximum ? mMaximum : delay);
     const auto integer = static_cast<int64_t>(delay-.49999);
     const auto whole = static_cast<size_t>(integer);
     const double fraction = delay-static_cast<double>(integer), a = (1.-fraction)/(1.+fraction);

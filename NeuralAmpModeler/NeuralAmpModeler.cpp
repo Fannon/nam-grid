@@ -408,12 +408,17 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   const auto transition = mRigTransition.Begin();
   const bool holding = transition == RigTransition::kHolding;
   const bool switching = transition == RigTransition::kRunning;
+  auto& held = mHeldGlobals.Values()[0];
   if (mRigTransition.Started())
   {
     // Freeze the outgoing rig exactly as it last sounded; the new rig reads fresh controls.
-    mOutgoingControls = mLastModulated ? mAnimatedControls : mAudioControls.Values();
-    mOutgoingRouting = grid_performance::Route(mHeldPerformance);
-    mOutgoingBlend = mHeldBlend;
+    if (mLastModulated)
+      for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+        mOutgoingControls[slot] = (mLastModulatedSlots & (1u << slot)) ? mAnimatedControls[slot] : mAudioControls.Values()[slot];
+    else
+      mOutgoingControls = mAudioControls.Values();
+    mOutgoingRouting = grid_performance::Route(held.performance);
+    mOutgoingBlend = held.blend;
     mOutgoingInputGain = mGlobalInputGain;
     mOutgoingOutputGain = mMasterGain;
     mOutgoingGrid = mAudibleGrid;
@@ -423,16 +428,21 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   }
   if (!holding)
   {
-    mHeldInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
-    mHeldOutputGain = GetParam(kOutputLevel)->DBToAmp();
+    mHeldGlobals.Refresh(0, [&](auto& g) {
+      g.inputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
+      g.outputGain = GetParam(kOutputLevel)->DBToAmp();
+      for (int i = 0; i < grid_performance::Count; ++i)
+        g.performance[i] = GetParam(PerformanceParam(i))->Value();
+      g.blend = GetParam(kParallelBlend)->Value() * .01;
+    });
     if (mRigTransition.Started())
     {
-      mGlobalInputGain = mHeldInputGain;
-      mMasterGain = mHeldOutputGain;
+      mGlobalInputGain = held.inputGain;
+      mMasterGain = held.outputGain;
     }
   }
   // Preserve host stereo until a mono NAM slot explicitly collapses it.
-  _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal, mHeldInputGain);
+  _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal, held.inputGain);
   if (metering)
     mInputSender.ProcessBlock(mInputPointers, numFrames, kCtrlTagInputMeter, static_cast<int>(numChannelsInternal));
   mTuner.Enable(IsTunerActive());
@@ -456,11 +466,6 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   // Song-position sources need the host's beat timeline; iPlug2 leaves -1 without one.
   const bool playing = GetTransportIsRunning() && GetPPQPos() != -1.;
   const double blockBeats = GetPPQPos(), beatsPerFrame = tempo / (60. * sampleRate);
-  if (!holding)
-  {
-    for (int i = 0; i < grid_performance::Count; ++i) mHeldPerformance[i] = GetParam(PerformanceParam(i))->Value();
-    mHeldBlend = GetParam(kParallelBlend)->Value() * .01;
-  }
   // A held rig keeps the controls it last used; new values wait in the cache.
   for (size_t slot = 0; !holding && slot < controls.size(); ++slot)
   {
@@ -485,12 +490,12 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     if (cc >= 1 && cc < static_cast<int>(mMidiCCValue.size()) && mMidiCCChanged[cc])
       activeCC = cc;
     utility.midiPedal = activeCC ? mMidiCCValue[activeCC] / 127. : -1.;
-    controls[slot].utility.constantDry = mHeldPerformance[grid_performance::MixLaw] >= .5;
-    controls[slot].utility.trails = mHeldPerformance[grid_performance::Trails] >= .5;
+    controls[slot].utility.constantDry = held.performance[grid_performance::MixLaw] >= .5;
+    controls[slot].utility.trails = held.performance[grid_performance::Trails] >= .5;
   }
-  const auto& performance = mHeldPerformance;
+  const auto& performance = held.performance;
   const auto routing = grid_performance::Route(performance);
-  const double blend = mHeldBlend;
+  const double blend = held.blend;
   auto& grid = mGrids[mAudibleGrid];
   // The one spectrum/scope capture follows the selected slot of the audible grid.
   if (const int slot = metering ? mSpectrumSlot.load(std::memory_order_relaxed) : -1;
@@ -525,8 +530,30 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   {
     // A bounded control quantum avoids audio-rate model inference and keeps
     // modulation responsive without allocating or writing host parameters.
-    // Copy every slot once per callback; quanta restore only the slots modulation edits.
-    mAnimatedControls = controls;
+    // Copy only modulated slots once per callback; unmodulated slots point directly to controls.
+    uint16_t modulatedSlots = 0;
+    for (int row = 0; row < grid_performance::rows; ++row)
+    {
+      if (!grid_performance::RowActive(performance, row)) continue;
+      const int slot = static_cast<int>(performance[grid_performance::RowParam(row, grid_performance::RowSlot)]);
+      const int control = static_cast<int>(performance[grid_performance::RowParam(row, grid_performance::RowDestination)]);
+      if (slot >= 0 && slot < static_cast<int>(FixedNAMGrid::kSlots) && grid_modulation::Modulatable(control))
+        modulatedSlots |= static_cast<uint16_t>(1u << slot);
+    }
+    std::array<const FixedNAMGrid::Controls*, FixedNAMGrid::kSlots> slotPtrs{};
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+    {
+      if ((modulatedSlots & (1u << slot)) != 0)
+      {
+        mAnimatedControls[slot] = controls[slot];
+        slotPtrs[slot] = &mAnimatedControls[slot];
+      }
+      else
+      {
+        slotPtrs[slot] = &controls[slot];
+      }
+    }
+    mLastModulatedSlots = modulatedSlots;
     // Each follower listens at the grid input or after its own chosen slot.
     std::array<int, grid_performance::sourceInstances> taps;
     for (int instance = 0; instance < grid_performance::sourceInstances; ++instance)
@@ -548,7 +575,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       double initialBlend = blend;
       auto initialRouting = routing;
       mModulationMatrix.Apply(mAnimatedControls, initialBlend, initialRouting, targets, modulated);
-      grid.ProcessInputPrefix(mOutputPointers[0], nFrames, mAnimatedControls, inputPrefix, mModulation.Quantum(), mOutputPointers[1]);
+      grid.ProcessInputPrefixSlots(mOutputPointers[0], nFrames, slotPtrs, inputPrefix, mModulation.Quantum(), mOutputPointers[1]);
     }
     for (int offset = 0; offset < nFrames;)
     {
@@ -563,8 +590,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       double animatedBlend = blend;
       auto animatedRouting = routing;
       mModulationMatrix.Apply(mAnimatedControls, animatedBlend, animatedRouting, targets, modulated);
-      grid.Process(mOutputPointers[0] + offset, count, mAnimatedControls, animatedBlend, mOutputPointers[1] + offset,
-                   animatedRouting, inputPrefix);
+      grid.ProcessSlots(mOutputPointers[0] + offset, count, slotPtrs, animatedBlend, mOutputPointers[1] + offset,
+                        animatedRouting, inputPrefix);
       // This quantum's notes, as frames within it.
       std::array<int, kMaxNotesPerBlock> notes;
       int noteCount = 0;
@@ -606,7 +633,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     }
     for (int i = 0; i < nFrames; ++i)
     {
-      mMasterGain = mHeldOutputGain + mMasterCoefficient * (mMasterGain - mHeldOutputGain);
+      mMasterGain = held.outputGain + mMasterCoefficient * (mMasterGain - held.outputGain);
       const double in = mRigTransition.IncomingGain() * mMasterGain;
       const double out = outgoing ? mRigTransition.OutgoingGain() * mOutgoingOutputGain : 0.;
       hpfPointers[0][i] = in * hpfPointers[0][i] + (outgoing ? out * filteredOutgoing[0][i] : 0.);
@@ -639,7 +666,7 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   }
   std::feupdateenv(&fe_state);
   // Mono host outputs downmix; stereo host outputs retain independent channels.
-  _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, mHeldOutputGain, !switching);
+  _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, held.outputGain, !switching);
   if (metering)
     mOutputSender.ProcessBlock(
       outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
@@ -672,6 +699,9 @@ void NeuralAmpModeler::OnReset()
   mMaxBlockPrepared = maxBlockSize;
   mMeterFrames = 0;
   mAudioControls.InvalidateAll();
+  mHeldGlobals.InvalidateAll();
+  mLastModulated = false;
+  mLastModulatedSlots = 0;
   mModulation.Reset(sampleRate);
   mNoteCount = 0;
   mMidiCCChanged.fill(false);
@@ -2250,6 +2280,8 @@ void NeuralAmpModeler::OnParamChange(int paramIdx)
 {
   if (const int slot = SlotControlOwner(paramIdx); slot >= 0)
     mAudioControls.Invalidate(static_cast<size_t>(slot));
+  else if (paramIdx == kOutputLevel || paramIdx == kParallelBlend || PerformanceIndex(paramIdx) >= 0)
+    mHeldGlobals.Invalidate(0);
   // Enabling detection only publishes atomics; worker/DSP state stays on its owning thread.
   if (paramIdx == kTunerActive) mTuner.Enable(IsTunerActive());
   // Changed slot banks are read at audio block boundaries.
@@ -2718,8 +2750,6 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   LEAVE_PARAMS_MUTEX
   _RefreshParamDependentUI(true);
 
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    _ClearModel(slot);
   // Library folders come from this user's settings, not from the state: a project never
   // replaces them, and every instance picks up folders another instance changed.
   _ReloadLibraryFolders();

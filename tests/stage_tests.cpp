@@ -9,6 +9,8 @@
 #include <new>
 #include <thread>
 #include "NAMStage.h"
+#include "GridDCBlocker.h"
+#include "../AudioDSPTools/dsp/RecursiveLinearFilter.h"
 #include "../NeuralAmpModelerCore/NAM/get_dsp.h"
 #include "../NeuralAmpModelerCore/NAM/activations.h"
 
@@ -174,6 +176,233 @@ void TestStageAdoptionAndSampleRate()
   }
   std::cout << "Stage adoption mFirst and NAM sample-rate fallback passed\n";
 }
+
+class StubResetDSP final : public nam::DSP
+{
+public:
+  StubResetDSP(int& resets, int& prewarms, double expectedRate = 48000.)
+  : nam::DSP(1, 1, expectedRate), mResets(resets), mPrewarms(prewarms) {}
+  void Reset(const double sampleRate, const int maxBufferSize) override
+  {
+    ++mResets;
+    nam::DSP::Reset(sampleRate, maxBufferSize);
+  }
+  void prewarm() override { ++mPrewarms; }
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
+  {
+    for (int i = 0; i < num_frames; ++i)
+      output[0][i] = input[0][i];
+  }
+
+private:
+  int& mResets;
+  int& mPrewarms;
+};
+
+void TestPR4HotPathAndPrewarm()
+{
+  // 1. CabinetIR PrepareSlot + Publish + ResetStopped constructs AdaptiveIR only 2x (left + right),
+  //    rebuilds after Process() to clear tails, and rebuilds on rate/block changes.
+  {
+    const auto dir = std::filesystem::current_path() / "pr4-stage-fixtures";
+    std::filesystem::create_directories(dir);
+    const auto irFile = dir / "impulse-stereo.wav";
+    // 2-channel 16-bit 48 kHz WAV with impulse at sample 0 and delayed tap at sample 20 (creates tail).
+    std::vector<uint32_t> samples(2 * 64, 0);
+    samples[0] = 16384;  // L[0]
+    samples[1] = 16384;  // R[0]
+    samples[2 * 20] = 8192;
+    samples[2 * 20 + 1] = 8192;
+    wav_fixture::Write(irFile, 16, false, samples, 256, 256, false, 2);
+
+    SlotConfig irConfig;
+    irConfig.effect = SlotEffect::CabinetIR;
+    irConfig.path = irFile.string();
+    const uint64_t beforePrepare = AdaptiveIR::ConstructionCount();
+    auto prepared = PrepareSlot(irConfig, 48000., 512);
+    NAMStage stage;
+    stage.Publish(std::move(prepared.dsp));
+    stage.ResetStopped(48000., 512);
+    assert(AdaptiveIR::ConstructionCount() - beforePrepare == 2);
+
+    std::array<double, 16> l{}, r{};
+    l[0] = 1.;
+    r[0] = 1.;
+    EQControls eq;
+    eq.irLevel = 0.;
+    stage.Process(l.data(), 16, true, 0., 0., {}, eq, {}, r.data());
+    assert(std::abs(l[0]) > 0.1 && std::abs(r[0]) > 0.1);
+
+    const uint64_t beforeDirtyReset = AdaptiveIR::ConstructionCount();
+    stage.ResetStopped(48000., 512);
+    assert(AdaptiveIR::ConstructionCount() - beforeDirtyReset == 2);
+    l.fill(0.);
+    r.fill(0.);
+    stage.Process(l.data(), 16, true, 0., 0., {}, eq, {}, r.data());
+    for (int i = 0; i < 16; ++i)
+      assert(l[i] == 0. && r[i] == 0.);
+
+    const uint64_t beforeRateChange = AdaptiveIR::ConstructionCount();
+    stage.ResetStopped(96000., 256);
+    assert(AdaptiveIR::ConstructionCount() - beforeRateChange == 2);
+    const uint64_t beforeCleanReset = AdaptiveIR::ConstructionCount();
+    stage.ResetStopped(96000., 256);
+    assert(AdaptiveIR::ConstructionCount() == beforeCleanReset);
+    std::filesystem::remove_all(dir);
+  }
+
+  // 2. ResamplingNAM single-prewarm lifecycle across deferred constructor, ResetStopped, Process, rate/block change.
+  {
+    int resets = 0, prewarms = 0;
+    auto p = std::make_unique<NAMStage::Prepared>();
+    p->effect = SlotEffect::NAM;
+    p->model = std::make_unique<ResamplingNAM>(std::make_unique<StubResetDSP>(resets, prewarms), 48000., 512, false);
+    assert(resets == 0 && prewarms == 0);
+    p->Reset(48000., 512);
+    assert(resets == 1);
+    NAMStage stage;
+    stage.Publish(std::move(p));
+    stage.ResetStopped(48000., 512);
+    assert(resets == 1);
+    stage.ResetStopped(48000., 512);
+    assert(resets == 1);
+
+    std::array<double, 64> buf{};
+    buf.fill(0.1);
+    stage.Process(buf.data(), 64, true, 0., 0.);
+    stage.ResetStopped(48000., 512);
+    assert(resets == 2);
+    stage.ResetStopped(96000., 512);
+    assert(resets == 3);
+    stage.ResetStopped(96000., 256);
+    assert(resets == 4);
+  }
+
+  // 3. NAMStage::Prepared::IsLoaded() parity & gain memo bit-identity across 0 -> +6 -> -6 -> 0 dB.
+  {
+    const nlohmann::json unity{{"architecture", "Linear"},
+                               {"config", {{"receptive_field", 1}, {"bias", false}}},
+                               {"weights", {1.}},
+                               {"sample_rate", 48000.}};
+    {
+      NAMStage::Prepared emptyNam;
+      emptyNam.effect = SlotEffect::NAM;
+      assert(emptyNam.IsLoaded() == emptyNam.Info().loaded && !emptyNam.IsLoaded());
+
+      NAMStage::Prepared emptyIr;
+      emptyIr.effect = SlotEffect::CabinetIR;
+      assert(emptyIr.IsLoaded() == emptyIr.Info().loaded && !emptyIr.IsLoaded());
+
+      NAMStage::Prepared loadedIr;
+      loadedIr.effect = SlotEffect::CabinetIR;
+      loadedIr.ir = std::make_unique<AdaptiveIR>(AdaptiveIR::IRData{{1.f}, 48000.}, 48000., 64);
+      assert(loadedIr.IsLoaded() == loadedIr.Info().loaded && loadedIr.IsLoaded());
+
+      NAMStage::Prepared boost;
+      boost.effect = SlotEffect::Boost;
+      assert(boost.IsLoaded() == boost.Info().loaded && boost.IsLoaded());
+
+      auto loadedNam = prepare(unity, 48000.);
+      assert(loadedNam->IsLoaded() == loadedNam->Info().loaded && loadedNam->IsLoaded());
+    }
+
+    NAMStage emptyStage;
+    emptyStage.ResetStopped(48000., 64);
+    std::array<double, 64> emptyBuf{};
+    emptyBuf.fill(0.25);
+    allocations = deletions = 0;
+    tracking = true;
+    emptyStage.Process(emptyBuf.data(), 64, true, 12., -12.);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+    for (double s : emptyBuf)
+      assert(s == 0.25);
+
+    int resets = 0, prewarms = 0;
+    auto p = std::make_unique<NAMStage::Prepared>();
+    p->effect = SlotEffect::NAM;
+    p->model = std::make_unique<ResamplingNAM>(std::make_unique<StubResetDSP>(resets, prewarms), 48000., 64, true);
+    NAMStage stage;
+    stage.Publish(std::move(p));
+    stage.ResetStopped(48000., 64);
+    SlotEQ eqRef, cutsRef;
+    eqRef.Reset(48000.);
+    eqRef.Process(nullptr, 0, false, {});
+    cutsRef.Reset(48000.);
+    cutsRef.Process(nullptr, 0, true, {});
+    double refIn = 1., refOut = 1.;
+    for (const double db : {0., 6., -6., 0.})
+    {
+      std::array<double, 64> block{}, refWet{};
+      block.fill(0.5);
+      allocations = deletions = 0;
+      tracking = true;
+      stage.Process(block.data(), 64, true, db, db);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      const double inTarget = std::pow(10., db * .05);
+      const double outTarget = std::pow(10., db * .05);
+      const double inDelta = (inTarget - refIn) / 64.;
+      const double outDelta = (outTarget - refOut) / 64.;
+      for (int i = 0; i < 64; ++i)
+      {
+        refIn += inDelta;
+        refWet[i] = 0.5 * refIn;
+      }
+      eqRef.Process(refWet.data(), 64, false, {});
+      cutsRef.Process(refWet.data(), 64, true, {});
+      for (int i = 0; i < 64; ++i)
+      {
+        refOut += outDelta;
+        const double expected = refWet[i] * refOut;
+        assert(block[i] == expected);
+      }
+    }
+  }
+
+  // 4. GridDCBlocker bit-identity vs recursive_linear_filter::HighPass across rates, blocks, and NaN.
+  for (double rate : {44100., 48000., 96000., 192000.})
+  {
+    GridDCBlocker blocker;
+    allocations = deletions = 0;
+    tracking = true;
+    blocker.Prepare(rate, 2, 512);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+
+    recursive_linear_filter::HighPass refFresh;
+    refFresh.SetParams(recursive_linear_filter::HighPassParams(rate, 5.));
+    std::array<double, 512> candL{}, candR{}, refInL{}, refInR{};
+    const std::array<int, 6> blocks{1, 3, 31, 64, 127, 512};
+    for (int b = 0; b < 18; ++b)
+    {
+      const int n = blocks[b % blocks.size()];
+      for (int i = 0; i < n; ++i)
+      {
+        const double vL = 0.4 + 0.3 * std::sin((b * 512 + i) * 0.05);
+        const double vR = -0.25 + 0.2 * std::cos((b * 512 + i) * 0.03);
+        candL[i] = refInL[i] = vL;
+        candR[i] = refInR[i] = vR;
+      }
+      if (b == 7)
+        candL[0] = refInL[0] = std::numeric_limits<double>::quiet_NaN();
+      double* candPtrs[]{candL.data(), candR.data()};
+      double* refInPtrs[]{refInL.data(), refInR.data()};
+      double** refOut = refFresh.Process(refInPtrs, 2, static_cast<size_t>(n));
+      allocations = deletions = 0;
+      tracking = true;
+      double** candOut = blocker.Process(candPtrs, 2, static_cast<size_t>(n));
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      for (int i = 0; i < n; ++i)
+      {
+        assert(candOut[0][i] == refOut[0][i]);
+        assert(candOut[1][i] == refOut[1][i]);
+      }
+    }
+  }
+  std::cout << "PR4 hot-path, prewarm, AdaptiveIR reuse, and GridDCBlocker bit-identity passed\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -196,6 +425,7 @@ try
     {"audio-control-cache", TestAudioControlCache},
     {"rig-transition", TestRigTransition},
     {"stage-adoption-and-rate", TestStageAdoptionAndSampleRate},
+    {"pr4-hotpath-prewarm", TestPR4HotPathAndPrewarm},
     {"dynamics", TestDynamics},
     {"slot-features", TestSlotFeatures},
     {"ir-controls", TestIRControls},
@@ -387,6 +617,7 @@ try
   run("audio-control-cache", TestAudioControlCache);
   run("rig-transition", TestRigTransition);
   run("stage-adoption-and-rate", TestStageAdoptionAndSampleRate);
+  run("pr4-hotpath-prewarm", TestPR4HotPathAndPrewarm);
   run("dynamics", TestDynamics);
   run("slot-features", TestSlotFeatures);
   run("ir-controls", TestIRControls);

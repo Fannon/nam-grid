@@ -3,9 +3,15 @@
 #include "third_party/fftconvolver/FFTConvolver.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <stdexcept>
+
+namespace
+{
+std::atomic<uint64_t> gAdaptiveIRConstructions{0};
+}
 
 struct AdaptiveIR::Impl
 {
@@ -15,6 +21,7 @@ struct AdaptiveIR::Impl
   size_t length = 0;
   Backend backend = Backend::Direct;
   Mode mode;
+  bool dirty = false;
   std::unique_ptr<dsp::ImpulseResponse> direct;
   fftconvolver::FFTConvolver fft;
   // The first tail coefficient belongs at frame 2048. Collecting one full
@@ -89,6 +96,7 @@ struct AdaptiveIR::Impl
 AdaptiveIR::AdaptiveIR(const IRData& data, double sampleRate, int maxBlock, Mode mode)
 : mImpl(std::make_unique<Impl>(data, sampleRate, maxBlock, mode))
 {
+  gAdaptiveIRConstructions.fetch_add(1, std::memory_order_relaxed);
 }
 AdaptiveIR::~AdaptiveIR() = default;
 AdaptiveIR::IRData AdaptiveIR::GetData() const
@@ -99,10 +107,16 @@ AdaptiveIR::Backend AdaptiveIR::GetBackend() const
 { return mImpl->backend; }
 size_t AdaptiveIR::Length() const
 { return mImpl->length; }
+int AdaptiveIR::MaxBlock() const
+{ return mImpl->maxBlock; }
 int AdaptiveIR::PartitionSize() const
 { return mImpl->partition; }
 AdaptiveIR::Mode AdaptiveIR::GetMode() const
 { return mImpl->mode; }
+bool AdaptiveIR::NeedsReset(double sampleRate, int maxBlock) const
+{ return mImpl->dirty || mImpl->rate != sampleRate || mImpl->maxBlock != maxBlock; }
+uint64_t AdaptiveIR::ConstructionCount()
+{ return gAdaptiveIRConstructions.load(std::memory_order_relaxed); }
 double** AdaptiveIR::Process(double** input, size_t channels, size_t frames)
 {
   auto& state = *mImpl;
@@ -110,6 +124,7 @@ double** AdaptiveIR::Process(double** input, size_t channels, size_t frames)
   assert(frames <= static_cast<size_t>(state.maxBlock) && channels <= state.pointers.size());
   if (!frames || !channels || frames > static_cast<size_t>(state.maxBlock) || channels > state.pointers.size())
     return state.pointers.data();
+  state.dirty = true;
   if (state.backend == Backend::Direct)
   {
     auto* mono = input[0];

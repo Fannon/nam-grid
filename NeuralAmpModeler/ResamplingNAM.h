@@ -34,7 +34,8 @@ class ResamplingNAM : public nam::DSP
 {
 public:
   // Resampling wrapper around the NAM models
-  ResamplingNAM(std::unique_ptr<nam::DSP> encapsulated, const double expected_sample_rate)
+  ResamplingNAM(std::unique_ptr<nam::DSP> encapsulated, const double expected_sample_rate,
+                int maxBlockSize = 2048, bool resetNow = true)
   : nam::DSP(encapsulated->NumInputChannels(), encapsulated->NumOutputChannels(), expected_sample_rate)
   , mEncapsulated(std::move(encapsulated))
   , mResampler(GetNAMSampleRate(mEncapsulated))
@@ -65,8 +66,8 @@ public:
     // _prewarm_samples = 0;
 
     // And be ready
-    int maxBlockSize = 2048; // Conservative
-    Reset(expected_sample_rate, maxBlockSize);
+    if (resetNow)
+      Reset(expected_sample_rate, maxBlockSize);
   };
 
   ~ResamplingNAM() = default;
@@ -75,6 +76,7 @@ public:
 
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
   {
+    mFresh = false;
     if (num_frames > mMaxExternalBlockSize)
       // We can afford to be careful
       throw std::runtime_error("More frames were provided than the max expected!");
@@ -93,6 +95,8 @@ public:
 
   void Reset(const double sampleRate, const int maxBlockSize) override
   {
+    if (mFresh && mExpectedSampleRate == sampleRate && mMaxExternalBlockSize == maxBlockSize)
+      return;
     mExpectedSampleRate = sampleRate;
     mMaxExternalBlockSize = maxBlockSize;
     // The upstream adapter seeds its filter with latency samples from its scratch buffer.
@@ -114,6 +118,7 @@ public:
       NAM_SAMPLE* outputPtr = output.data();
       mEncapsulated->process(&inputPtr, &outputPtr, maxEncapsulatedBlockSize);
     }
+    mFresh = true;
   };
 
   // So that we can let the world know if we're resampling (useful for debugging)
@@ -133,6 +138,7 @@ private:
 
   // Used to check that we don't get too large a block to process.
   int mMaxExternalBlockSize = 0;
+  bool mFresh = false;
 
   // This function is defined to conform to the interface expected by the iPlug2 resampler.
   std::function<void(NAM_SAMPLE**, NAM_SAMPLE**, int)> mBlockProcessFunc;

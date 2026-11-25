@@ -290,18 +290,26 @@ public:
                                                                   : .1));
       if (ir)
       {
-        ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block, ir->GetMode());
+        if (ir->NeedsReset(rate, block))
+          ir = std::make_unique<AdaptiveIR>(ir->GetData(), rate, block, ir->GetMode());
         irWet.Reset(rate);
         drainLimit = static_cast<int64_t>(ir->Length()) + static_cast<int64_t>(rate * 1.5);
       }
       drainFrames = drainLimit; // Fresh histories already contain silence.
       if (!rightChannel)
       {
+        auto existingRightIR = right ? std::move(right->ir) : nullptr;
         right = std::make_unique<Prepared>();
         right->rightChannel = true;
         right->effect = effect;
         if (ir)
-          right->ir = std::make_unique<AdaptiveIR>(rightIRData ? *rightIRData : ir->GetData(), rate, block, ir->GetMode());
+        {
+          if (existingRightIR && !existingRightIR->NeedsReset(rate, block)
+              && existingRightIR->GetMode() == ir->GetMode())
+            right->ir = std::move(existingRightIR);
+          else
+            right->ir = std::make_unique<AdaptiveIR>(rightIRData ? *rightIRData : ir->GetData(), rate, block, ir->GetMode());
+        }
         right->Reset(rate, block);
         drainLimit = std::max(drainLimit, right->drainLimit);
         // Mono NAM has one inference; the second history is for stereo dry bypass.
@@ -316,6 +324,8 @@ public:
       trailHold = IsReverb(effect) || effect == SlotEffect::ShimmerReverb ? static_cast<int64_t>(rate * 2.) : drainLimit;
       trailFrames = quietFrames = 0;
     }
+    bool IsLoaded() const
+    { return model != nullptr || (effect == SlotEffect::CabinetIR ? ir != nullptr : effect != SlotEffect::NAM); }
     NAMModelInfo Info() const
     {
       NAMModelInfo info;
@@ -431,8 +441,8 @@ public:
       mTrail = 0.; // A replaced module's tail leaves with its switch fade.
     }
     auto* p = mExchange.Active();
-    const auto info = p ? p->Info() : NAMModelInfo{};
-    mMonitoring = mMeteringEnabled && enabled && info.loaded;
+    const bool loaded = p && p->IsLoaded();
+    mMonitoring = mMeteringEnabled && enabled && loaded;
     if (!mMonitoring) mMeter = {};
     float inputPeak = 0.f;
     if (mMonitoring)
@@ -446,25 +456,26 @@ public:
       mMeter.frames += frames;
     }
     mMeter.input = std::max(mMeter.input, inputPeak);
-    if (p && p->effect != SlotEffect::NAM)
-      inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
-    if (p && p->effect == SlotEffect::CabinetIR)
+    if (p && loaded)
     {
-      inputDB = utility.irInput;
-      trimDB = eq.irLevel + 18.; // Undo the reused convolver's fixed -18 dB; knob is actual IR gain.
-    }
-    const double irMixTarget = std::clamp(utility.irMix * .01, 0., 1.);
-    const double inTarget = std::pow(10., inputDB * .05), outTarget = std::pow(10., trimDB * .05);
-    if (mFirst)
-    {
-      mIn = inTarget;
-      mOut = outTarget;
-      mMix = enabled && info.loaded ? 1. : 0.;
-      mIRMix = irMixTarget;
-      mFirst = false;
-    }
-    if (p && info.loaded)
-    {
+      if (p->effect != SlotEffect::NAM)
+        inputDB = trimDB = 0.; // Built-ins use their dedicated controls.
+      if (p->effect == SlotEffect::CabinetIR)
+      {
+        inputDB = utility.irInput;
+        trimDB = eq.irLevel + 18.; // Undo the reused convolver's fixed -18 dB; knob is actual IR gain.
+      }
+      const double irMixTarget = std::clamp(utility.irMix * .01, 0., 1.);
+      const double inTarget = mInGainMemo(inputDB * .05, [](double x) { return std::pow(10., x); });
+      const double outTarget = mOutGainMemo(trimDB * .05, [](double x) { return std::pow(10., x); });
+      if (mFirst)
+      {
+        mIn = inTarget;
+        mOut = outTarget;
+        mMix = enabled ? 1. : 0.;
+        mIRMix = irMixTarget;
+        mFirst = false;
+      }
       const double inDelta = (inTarget - mIn) / std::max(1, frames);
       for (int i = 0; i < frames; ++i)
       {
@@ -746,6 +757,11 @@ public:
     }
     else
     {
+      if (mFirst)
+      {
+        mMix = 0.;
+        mFirst = false;
+      }
       if (!switching && mSwitchGain >= 1.)
       {
         return samples; // Empty grid slots need no per-sample work once switching has settled.
@@ -822,6 +838,7 @@ private:
   std::atomic<int> mActiveLatency{0};
   std::atomic<bool> mWaitForReset{false};
   double mMix = 0., mIRMix = 1., mIn = 1., mOut = 1., mSwitchGain = 1., mFeed = 1., mTrail = 0., mStep = 1. / 240.;
+  grid_fx::Memo mInGainMemo, mOutGainMemo;
   bool mFirst = true;
   bool mMonitoring = false, mMeteringEnabled = true;
   SlotMeterData mMeter;

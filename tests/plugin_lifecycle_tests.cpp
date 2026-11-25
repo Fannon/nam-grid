@@ -34,6 +34,7 @@ struct PluginLifecycleTestAccessor
   }
   static void SetRawSampleRate(NeuralAmpModeler& plug, double rate) { plug.SetSampleRate(rate); }
   static void SetSlotPath(NeuralAmpModeler& plug, size_t slot, const char* text) { plug.mSlotPaths[slot].Set(text); }
+  static std::string SlotHash(const NeuralAmpModeler& plug, size_t slot) { return plug.mSlotHashes[slot]; }
   static void SetPresetName(NeuralAmpModeler& plug, std::string name) { plug.mPresetName = std::move(name); }
   static nlohmann::json CurrentRig(const NeuralAmpModeler& plug) { return plug._CurrentRig(); }
   static void ApplyRig(NeuralAmpModeler& plug, nlohmann::json rig, const std::string& name, const std::string& dir)
@@ -695,8 +696,183 @@ int main(int argc, char** argv)
     clapPlugin->deactivate(clapPlugin);
   }
 
+  // --- PR 4: _UnserializeApplyConfig without _ClearModel pre-pass preserves missing paths/hashes and valid slots ---
+  std::cout << "[plugin-lifecycle] PR4 UnserializeState missing-path & LatencyDeferral\n";
+  {
+    assert(clapPlugin->activate(clapPlugin, 44100., 1, 256));
+    assert(clapPlugin->start_processing(clapPlugin));
+
+    auto twoNam = saveStream().config();
+    for (int s = 0; s < 16; ++s)
+    {
+      twoNam["SlotEffects"][s] = static_cast<int>(SlotEffect::NAM);
+      twoNam["SlotPaths"][s] = "";
+      twoNam["SlotHashes"][s] = "";
+      twoNam["NoisePrintProfiles"][s] = noise_print::Save(noise_print::Profile{});
+    }
+    twoNam["Lane Mode"] = grid_performance::Sequential;
+    twoNam["SlotEffects"][0] = static_cast<int>(SlotEffect::NAM);
+    twoNam["SlotPaths"][0] = nam_library::PathText(model1);
+    twoNam["SlotHashes"][0] = nam_library::ContentHash(model1);
+    twoNam["SlotEffects"][4] = static_cast<int>(SlotEffect::NAM);
+    twoNam["SlotPaths"][4] = nam_library::PathText(model2);
+    twoNam["SlotHashes"][4] = nam_library::ContentHash(model2);
+
+    iplug::IByteChunk twoChunk;
+    twoChunk.PutStr("###nam-grid###");
+    twoChunk.PutStr(twoNam.dump().c_str());
+    assert(loadRawChunk(twoChunk) >= 0);
+    plug->OnReset();
+    assert(plug->IsSlotLoaded(0) && plug->IsSlotLoaded(4));
+    const uint32_t singleLatency = latency->get(clapPlugin) / 2;
+    assert(singleLatency > 0 && latency->get(clapPlugin) == 2 * singleLatency);
+
+    auto missingSlot0 = twoNam;
+    const auto missingPath = nam_library::PathText(fixtures / "missing-capture.nam");
+    const std::string rememberedHash = "0123456789abcdef0123456789abcdef01234567";
+    missingSlot0["SlotPaths"][0] = missingPath;
+    missingSlot0["SlotHashes"][0] = rememberedHash;
+    iplug::IByteChunk missingChunk;
+    missingChunk.PutStr("###nam-grid###");
+    missingChunk.PutStr(missingSlot0.dump().c_str());
+    host.restart = false;
+    const uint64_t epochBefore = PluginLifecycleTestAccessor::ResetEpoch(*plug);
+    assert(loadRawChunk(missingChunk) >= 0);
+    assert(!plug->IsSlotLoaded(0));
+    assert(plug->GetSlotPath(0) == missingPath);
+    assert(PluginLifecycleTestAccessor::SlotHash(*plug, 0) == rememberedHash);
+    assert(plug->IsSlotLoaded(4));
+    assert(latency->get(clapPlugin) == singleLatency);
+    assert(PluginLifecycleTestAccessor::ResetEpoch(*plug) == epochBefore);
+
+    plug->OnReset();
+    std::array<double, 256> inL{}, inR{}, outL{}, outR{};
+    inL.fill(0.1);
+    inR.fill(0.1);
+    double* inPtrs[]{inL.data(), inR.data()};
+    double* outPtrs[]{outL.data(), outR.data()};
+    plug->ProcessBlock(inPtrs, outPtrs, 256);
+    for (double s : outL)
+      assert(std::isfinite(s));
+
+    clapPlugin->stop_processing(clapPlugin);
+    clapPlugin->deactivate(clapPlugin);
+  }
+
+  // --- PR 4: mHeldGlobals cache & selective mAnimatedControls across modulation reassignment & RigTransition ---
+  std::cout << "[plugin-lifecycle] PR4 mHeldGlobals & selective mAnimatedControls\n";
+  {
+    auto modRig = PluginLifecycleTestAccessor::CurrentRig(*plug);
+    for (int s = 0; s < 16; ++s)
+    {
+      modRig["SlotEffects"][s] = static_cast<int>(SlotEffect::NAM);
+      modRig["SlotPaths"][s] = "";
+      modRig["SlotHashes"][s] = "";
+    }
+    modRig["Input"] = 0.;
+    modRig["Output"] = 0.;
+    modRig["Lane Mode"] = grid_performance::Sequential;
+    modRig["SlotEffects"][0] = static_cast<int>(SlotEffect::Utility);
+    modRig["SlotEffects"][1] = static_cast<int>(SlotEffect::Utility);
+    modRig[std::string("Pre 1 ") + kEffectParameters[uUtilityLevel].name] = 0.;
+    modRig[std::string("Pre 2 ") + kEffectParameters[uUtilityLevel].name] = 0.;
+    modRig["Macro 1"] = 100.;
+    modRig["Mod 1 Source"] = static_cast<double>(grid_performance::SourceMacro1);
+    modRig["Mod 1 Slot"] = 0.; // Modulate slot 0 only; slot 1 stays unmodulated.
+    modRig["Mod 1 Destination"] = static_cast<double>(parameter_layout::standardControls + uUtilityLevel);
+    modRig["Mod 1 Depth"] = -50.; // Drops slot 0 by half its normalized range (~-36 dB).
+
+    PluginLifecycleTestAccessor::ApplyRig(*plug, modRig, "ModSlot0", "");
+    plug->SetPresetCrossfade(false);
+    assert(clapPlugin->activate(clapPlugin, 48000., 1, 256));
+    assert(clapPlugin->start_processing(clapPlugin));
+
+    std::array<double, 256> inL{}, inR{}, outL{}, outR{};
+    double* inPtrs[]{inL.data(), inR.data()};
+    double* outPtrs[]{outL.data(), outR.data()};
+    const auto runSine = [&](int blocks) {
+      double rms = 0.;
+      for (int b = 0; b < blocks; ++b)
+      {
+        for (int i = 0; i < 256; ++i)
+          inL[i] = inR[i] = 0.25 * std::sin((b * 256 + i) * 0.07);
+        plug->ProcessBlock(inPtrs, outPtrs, 256);
+      }
+      for (double s : outL)
+        rms += s * s;
+      return std::sqrt(rms / 256.);
+    };
+
+    // Slot 0 attenuated by Macro1; unmodulated slot 1 still responds immediately to host param changes.
+    const double rmsMod0 = runSine(8);
+    assert(rmsMod0 < 0.02);
+
+    // Clear Macro1 modulation on slot 0 -> slot 0 returns to 0 dB, and slot 1 at -12 dB updates immediately.
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::ModRow + grid_performance::RowDepth), 0.);
+    plug->SetParameterFromUI(SlotUtilityParam(1, uUtilityLevel), -12.);
+    const double rmsUnmodAtten1 = runSine(8);
+    assert(rmsUnmodAtten1 > 0.03 && rmsUnmodAtten1 < 0.06); // ~0.1768 * 10^(-12/20) ~= 0.0444
+
+    // Reassign modulation from slot 0 to slot 1 while slot 1 is at 0 dB, and verify slot 0 updates live.
+    plug->SetParameterFromUI(SlotUtilityParam(1, uUtilityLevel), 0.);
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::ModRow + grid_performance::RowSlot), 1.);
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::ModRow + grid_performance::RowDepth), -50.);
+    const double rmsMod1 = runSine(8);
+    assert(rmsMod1 < 0.02);
+
+    // Update global Input via SetParameterFromUI -> mHeldGlobals invalidates & updates immediately.
+    // Keep Macro1 = 0% with active Mod 1 on slot 0 (depth -50%) so mLastModulated == true during RigTransition.
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::Macro1), 0.);
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::ModRow + grid_performance::RowSlot), 0.);
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::ModRow + grid_performance::RowDepth), -50.);
+    plug->SetParameterFromUI(PerformanceParam(grid_performance::InputGain), 6.);
+    const double rmsBoosted = runSine(8);
+    assert(rmsBoosted > 0.30);
+
+    // RigTransition freezes outgoing mHeldGlobals & mOutgoingControls when switching to a quiet rig.
+    auto quietRig = modRig;
+    quietRig["Input"] = -24.;
+    quietRig["Output"] = -24.;
+    quietRig["Macro 1"] = 0.;
+    quietRig["Mod 1 Depth"] = 0.;
+    std::atomic<bool> stopAudio{false};
+    std::atomic<double> firstBlockPeak{-1.};
+    std::atomic<bool> sawStart{false};
+    std::thread audio([&] {
+      int pos = 0;
+      while (!stopAudio.load(std::memory_order_acquire))
+      {
+        for (int i = 0; i < 256; ++i)
+          inL[i] = inR[i] = 0.25 * std::sin((pos + i) * 0.07);
+        pos += 256;
+        plug->ProcessBlock(inPtrs, outPtrs, 256);
+        if (PluginLifecycleTestAccessor::RigStarted(*plug) && !sawStart.exchange(true))
+        {
+          double peak = 0.;
+          for (double s : outL)
+            peak = std::max(peak, std::abs(s));
+          firstBlockPeak.store(peak, std::memory_order_release);
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(200));
+      }
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(15));
+    PluginLifecycleTestAccessor::ApplyRig(*plug, quietRig, "QuietTarget", "");
+    WaitForRigIdle(*plug);
+    std::this_thread::sleep_for(std::chrono::milliseconds(15));
+    stopAudio.store(true, std::memory_order_release);
+    audio.join();
+    // Outgoing first transition block keeps +6 dB input (~0.5 peak attenuated by dip fade > 0.15).
+    assert(firstBlockPeak.load() > 0.15);
+    const double settledQuiet = runSine(8);
+    assert(settledQuiet < 0.003); // New rig settled at -24 dB in + -24 dB out.
+
+    clapPlugin->stop_processing(clapPlugin);
+    clapPlugin->deactivate(clapPlugin);
+  }
+
   clapPlugin->destroy(clapPlugin);
   clap_entry.deinit();
-  std::cout << "Plugin lifecycle tests (Items 2, 4, 5, 7, 8, 9, 10) passed\n";
+  std::cout << "Plugin lifecycle tests (Items 2, 4, 5, 7, 8, 9, 10, PR4) passed\n";
   return 0;
 }

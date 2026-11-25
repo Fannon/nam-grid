@@ -100,6 +100,14 @@ enum EMsgTags
 class GridDCBlocker : public recursive_linear_filter::HighPass
 {
 public:
+  void Prepare(double rate, size_t channels, size_t frames)
+  {
+    _PrepareBuffers(channels, frames);
+    SetParams(recursive_linear_filter::HighPassParams(rate, 5.));
+    ClearHistory();
+  }
+
+private:
   void ClearHistory()
   {
     for (auto& channel : mInputHistory)
@@ -441,7 +449,7 @@ private:
   double mSampleRatePrepared = 48000.0;
   int mMaxBlockPrepared = 2048;
   std::array<int, FixedNAMGrid::kSlots> mRequestedLatencies{};
-  GridDCBlocker mHighPass; // Final DC blocker
+  std::array<GridDCBlocker, 2> mHighPass; // Each rig retains its DC history during a switch.
   NAMSender mInputSender, mOutputSender;
   iplug::ISender<1, 128, SlotMeterData> mSlotMeterSender;
   iplug::ISender<1, 64, FixedNAMGrid::LanePeaks> mLaneMeterSender;

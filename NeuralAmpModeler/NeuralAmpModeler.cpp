@@ -31,7 +31,6 @@
 using namespace iplug;
 using namespace igraphics;
 
-const double kDCBlockerFrequency = 5.0;
 // Project/rig state: one header plus a JSON object whose "schema" is kEffectStateSchema.
 const char* const kStateHeader = "###nam-grid###";
 
@@ -592,19 +591,26 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     if (incoming)
       grid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
   }
+  // Filter each rig in its own signal domain, before applying its output gain.
+  auto** hpfPointers = incoming ? mHighPass[mAudibleGrid].Process(mOutputPointers, numChannelsInternal, numFrames)
+                                : mOutputPointers;
   if (switching)
   {
-    auto* left = mOutgoingBuffers[0].data();
-    auto* right = mOutgoingBuffers[1].data();
+    sample* outgoingPointers[]{mOutgoingBuffers[0].data(), mOutgoingBuffers[1].data()};
+    sample** filteredOutgoing = nullptr;
     if (outgoing)
-      mGrids[mOutgoingGrid].Process(left, nFrames, mOutgoingControls, mOutgoingBlend, right, mOutgoingRouting);
+    {
+      mGrids[mOutgoingGrid].Process(outgoingPointers[0], nFrames, mOutgoingControls, mOutgoingBlend,
+                                   outgoingPointers[1], mOutgoingRouting);
+      filteredOutgoing = mHighPass[mOutgoingGrid].Process(outgoingPointers, numChannelsInternal, numFrames);
+    }
     for (int i = 0; i < nFrames; ++i)
     {
       mMasterGain = mHeldOutputGain + mMasterCoefficient * (mMasterGain - mHeldOutputGain);
       const double in = mRigTransition.IncomingGain() * mMasterGain;
       const double out = outgoing ? mRigTransition.OutgoingGain() * mOutgoingOutputGain : 0.;
-      mOutputPointers[0][i] = in * mOutputPointers[0][i] + (outgoing ? out * left[i] : 0.);
-      mOutputPointers[1][i] = in * mOutputPointers[1][i] + (outgoing ? out * right[i] : 0.);
+      hpfPointers[0][i] = in * hpfPointers[0][i] + (outgoing ? out * filteredOutgoing[0][i] : 0.);
+      hpfPointers[1][i] = in * hpfPointers[1][i] + (outgoing ? out * filteredOutgoing[1][i] : 0.);
       mRigTransition.Advance();
     }
     if (mRigTransition.Done())
@@ -631,9 +637,6 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       }
     }
   }
-  // Final DC blocker (upstream NAM issue 271).
-  mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
-  sample** hpfPointers = mHighPass.Process(mOutputPointers, numChannelsInternal, numFrames);
   std::feupdateenv(&fe_state);
   // Mono host outputs downmix; stereo host outputs retain independent channels.
   _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, mHeldOutputGain, !switching);
@@ -698,15 +701,9 @@ void NeuralAmpModeler::OnReset()
   for (auto& buffer : mOutgoingBuffers)
     buffer.assign(maxBlockSize, 0.);
   for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
-  {
-    mNoiseSeen[mEditGrid][i] = mGrids[mEditGrid].stages[i].NoiseSequence();
     mRequestedLatencies[i] = mGrids[mEditGrid].stages[i].Latency();
-  }
+  mHighPass[mEditGrid].Prepare(sampleRate, kNumChannelsInternal, maxBlockSize);
   _UpdateLatency();
-  // Prime the reused output filter outside ProcessBlock.
-  mHighPass.ClearHistory();
-  mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
-  mHighPass.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
 }
 
 std::vector<std::string>* NeuralAmpModeler::_LibraryFolders(nam_library::FileKind kind)
@@ -1801,6 +1798,7 @@ void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, co
     if (switching && mResetEpoch == resetEpoch)
     {
       mGrids[mEditGrid].ResetStopped(mSampleRatePrepared, mMaxBlockPrepared); // Audio does not use this grid yet.
+      mHighPass[mEditGrid].Prepare(mSampleRatePrepared, kNumChannelsInternal, mMaxBlockPrepared);
       for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
         mNoiseSeen[mEditGrid][slot] = mGrids[mEditGrid].stages[slot].NoiseSequence();
       mInactiveGridUsed = true;

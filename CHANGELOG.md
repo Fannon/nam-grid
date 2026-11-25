@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. A newly learned Smart Gate profile is saved even if the host resets before the next update.
+
 ## [0.8.0] - 2026-11-24
 
 Six new delays, an experimental Granulator and a MIDI-controllable Volume Pedal expand the grid. Bring your own NAM captures and cabinet IRs. Existing projects, presets and automation keep loading. Some effects sound different at the same settings, as described below.

@@ -122,7 +122,7 @@ fi
 cmake -S . -B "$build_dir" ${generator[@]+"${generator[@]}"} -DCMAKE_BUILD_TYPE=Release '-DNAM_FORMATS=CLAP;VST3'
 targets=(nam-grid-clap nam-grid-vst3)
 if [[ $tests == 1 ]]; then
-  targets+=(nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract
+  targets+=(nam-stage-tests nam-aliasing-tests nam-plugin-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract
     nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests
     nam-reference-parity)
   if [[ $platform == windows ]]; then

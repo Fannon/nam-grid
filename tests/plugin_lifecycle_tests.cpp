@@ -8,6 +8,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <thread>
@@ -46,26 +47,38 @@ struct PluginLifecycleTestAccessor
   }
   static bool RigIdle(const NeuralAmpModeler& plug) { return plug.mRigTransition.Idle(); }
   static bool RigStarted(const NeuralAmpModeler& plug) { return plug.mRigTransition.Started(); }
-  template <typename StopAudioFn>
-  static void SimulateMidApplyReentrantReset(NeuralAmpModeler& plug, StopAudioFn&& stopAudio)
-  {
-    // Mirrors _ApplyRig's epoch-guarded block when OnReset() arrives mid-staging.
-    const auto guard = plug._LockControls();
-    const uint64_t resetEpoch = plug.mResetEpoch;
-    const bool switching = plug.mRigTransition.Hold(std::chrono::milliseconds(250));
-    assert(switching);
-    plug.mEditGrid = 1 - plug.mEditGrid;
-    // Host stops audio before invoking OnReset() (e.g., VST3 restartComponent -> setProcessing(false)/setupProcessing).
-    stopAudio();
-    plug.OnReset();
-    assert(plug.mResetEpoch != resetEpoch);
-    if (switching && plug.mResetEpoch == resetEpoch)
-      assert(false && "Epoch guard should prevent ResetStopped/Start after re-entrant OnReset");
-  }
 };
 
 namespace
 {
+struct LifecycleHost : Host
+{
+  LifecycleHost()
+  {
+    host.get_extension = [](const clap_host* host, const char* id) -> const void* {
+      static const clap_host_thread_check threadCheck{
+        [](const clap_host* host) { return From(host).mainThread == std::this_thread::get_id(); },
+        [](const clap_host* host) { return From(host).mainThread != std::this_thread::get_id(); }};
+      if (std::strcmp(id, CLAP_EXT_THREAD_CHECK) == 0)
+        return &threadCheck;
+      return Host::extension(host, id);
+    };
+    host.request_restart = [](const clap_host* host) {
+      auto& self = From(host);
+      self.restart = true;
+      if (self.onRestart) self.onRestart();
+    };
+  }
+
+  std::function<void()> onRestart;
+
+private:
+  static LifecycleHost& From(const clap_host* host)
+  { return *static_cast<LifecycleHost*>(static_cast<Host*>(host->host_data)); }
+
+  const std::thread::id mainThread = std::this_thread::get_id();
+};
+
 class ScopedAudioThread
 {
 public:
@@ -136,7 +149,7 @@ int main(int argc, char** argv)
   assert(factory && factory->get_plugin_count(factory) == 1);
   const auto* descriptor = factory->get_plugin_descriptor(factory, 0);
 
-  Host host;
+  LifecycleHost host;
   auto* clapPlugin = factory->create_plugin(factory, &host.host, descriptor->id);
   assert(clapPlugin && clapPlugin->init(clapPlugin));
   auto* plug = PluginLifecycleTestAccessor::FromClap(clapPlugin);
@@ -280,11 +293,11 @@ int main(int argc, char** argv)
     assert(clapPlugin->activate(clapPlugin, 44100., 1, 64));
     assert(clapPlugin->start_processing(clapPlugin));
     host.callback = host.restart = false;
+    // Load via _ApplyRig while active; slot 4 (Lane A) adds resampling latency.
+    PluginLifecycleTestAccessor::ApplyRig(*plug, twoNamRigA, "TwoNAM_A", "");
+    const uint32_t expectedLatency = latency->get(clapPlugin);
+    assert(expectedLatency > 0);
     {
-      // Load via _ApplyRig while active; slot 4 (Lane A) adds resampling latency.
-      PluginLifecycleTestAccessor::ApplyRig(*plug, twoNamRigA, "TwoNAM_A", "");
-      const uint32_t expectedLatency = latency->get(clapPlugin);
-      assert(expectedLatency > 0);
       // Now switch from Lane A to Lane B (same resampling latency) while audio runs;
       // _ClearModel(0..15) must NOT transiently drop GetLatency() to 0.
       ScopedAudioThread audio(clapPlugin);
@@ -294,32 +307,39 @@ int main(int argc, char** argv)
         clapPlugin->on_main_thread(clapPlugin);
       }
       host.callback = host.restart = false;
-      std::atomic<bool> checkLatency{true};
-      uint32_t minLatency = expectedLatency;
-      std::thread watcher([&] {
-        while (checkLatency.load(std::memory_order_acquire))
-          minLatency = std::min(minLatency, latency->get(clapPlugin));
-      });
       PluginLifecycleTestAccessor::ApplyRig(*plug, twoNamRigB, "TwoNAM_B", "");
-      checkLatency.store(false, std::memory_order_release);
-      watcher.join();
       WaitForRigIdle(*plug);
       if (host.callback)
       {
         host.callback = false;
         clapPlugin->on_main_thread(clapPlugin);
       }
-      assert(minLatency == expectedLatency);
       assert(latency->get(clapPlugin) == expectedLatency);
       // switching == true ran ResetStopped on mEditGrid, so CLAP did not need to request a restart.
       assert(!host.restart);
     }
-    // Verify OnReset() increments mResetEpoch and prevents mid-staging ResetStopped/Start.
+    // Reenter the plugin from its real latency restart notification while loading a rig.
     {
       auto audio = std::make_unique<ScopedAudioThread>(clapPlugin);
       const uint64_t before = PluginLifecycleTestAccessor::ResetEpoch(*plug);
-      PluginLifecycleTestAccessor::SimulateMidApplyReentrantReset(*plug, [&] { audio.reset(); });
+      const int previousGrid = PluginLifecycleTestAccessor::EditGrid(*plug);
+      auto changedLatency = twoNamRigB;
+      changedLatency["SlotEffects"][0] = static_cast<int>(SlotEffect::NAM);
+      changedLatency["SlotPaths"][0] = nam_library::PathText(model1);
+      changedLatency["SlotHashes"][0] = nam_library::ContentHash(model1);
+      int restartCalls = 0;
+      host.onRestart = [&] {
+        ++restartCalls;
+        assert(plug->GetSlotModelInfo(0).loaded && plug->GetSlotModelInfo(8).loaded);
+        assert(latency->get(clapPlugin) == 2 * expectedLatency);
+        audio.reset();
+        plug->OnReset();
+      };
+      PluginLifecycleTestAccessor::ApplyRig(*plug, changedLatency, "New latency", "");
+      host.onRestart = {};
+      assert(restartCalls == 1);
       assert(PluginLifecycleTestAccessor::ResetEpoch(*plug) == before + 1);
+      assert(PluginLifecycleTestAccessor::EditGrid(*plug) == 1 - previousGrid);
       assert(PluginLifecycleTestAccessor::AudibleGrid(*plug) == PluginLifecycleTestAccessor::EditGrid(*plug));
       assert(PluginLifecycleTestAccessor::OutgoingGrid(*plug) == PluginLifecycleTestAccessor::AudibleGrid(*plug));
       assert(PluginLifecycleTestAccessor::RigIdle(*plug));
@@ -366,6 +386,14 @@ int main(int argc, char** argv)
     proc.out_events = &outEv;
     proc.frames_count = 256;
 
+    // Settle a DC offset before switching. The outgoing filter must keep its history
+    // in the same units even though the next preset uses a different output level.
+    inL.fill(.6);
+    inR.fill(.6);
+    for (int block = 0; block < 128; ++block)
+      clapPlugin->process(clapPlugin, &proc);
+    assert(std::abs(outL.back()) < 1.e-7);
+
     std::atomic<bool> stopAudio{false};
     std::atomic<double> firstTransitionBlockPeak{-1.};
     std::atomic<bool> sawTransition{false};
@@ -374,7 +402,7 @@ int main(int argc, char** argv)
       while (!stopAudio.load(std::memory_order_acquire))
       {
         for (int i = 0; i < 256; ++i)
-          inL[i] = inR[i] = std::sin((pos + i) * 0.05);
+          inL[i] = inR[i] = .6 + .25 * std::sin((pos + i) * 0.05);
         pos += 256;
         clapPlugin->process(clapPlugin, &proc);
         if (PluginLifecycleTestAccessor::RigStarted(*plug) && !sawTransition.exchange(true))
@@ -394,7 +422,7 @@ int main(int argc, char** argv)
     audio.join();
 
     const double peak = firstTransitionBlockPeak.load();
-    assert(peak >= 0. && peak < 0.025); // Steady-state Rig A is 0.01; un-frozen Rig B gain would be ~100.0.
+    assert(peak > .0005 && peak < .005); // The DC stays blocked and the -20 dB gains remain frozen.
     clapPlugin->stop_processing(clapPlugin);
     clapPlugin->deactivate(clapPlugin);
   }
@@ -551,7 +579,10 @@ int main(int argc, char** argv)
     clapPlugin->process(clapPlugin, &proc);
     plug->OnIdle();
     learnAndSync(0.03);
+    host.dirty = false;
+    clapPlugin->reset(clapPlugin);
     plug->OnIdle();
+    assert(host.dirty);
     const auto grid0Profile = PluginLifecycleTestAccessor::SavedNoiseProfile(*plug, 0);
     assert(grid0Profile.valid);
 

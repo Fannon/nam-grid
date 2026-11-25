@@ -89,7 +89,9 @@ overallscale = 1.0;
 		inputposL *= inputposL;
 		targetposL *= divisor;
 		targetposL += (inputposL * remainder);
-		double calcposL = pow((1.0/targetposL),2);
+		if (!(targetposL >= 1.e-12)) targetposL = 1.e-12;
+		const double invposL = 1.0 / targetposL;
+		double calcposL = invposL * invposL;
 
 		double inputnegL = (-inputSampleL) + 1.0;
 		if (inputnegL < 0.0) inputnegL = 0.0;
@@ -98,7 +100,9 @@ overallscale = 1.0;
 		inputnegL *= inputnegL;
 		targetnegL *= divisor;
 		targetnegL += (inputnegL * remainder);
-		double calcnegL = pow((1.0/targetnegL),2);
+		if (!(targetnegL >= 1.e-12)) targetnegL = 1.e-12;
+		const double invnegL = 1.0 / targetnegL;
+		double calcnegL = invnegL * invnegL;
 		//now we have mirrored targets for comp
 		//outputpos and outputneg go from 0 to 1
 
@@ -145,7 +149,9 @@ overallscale = 1.0;
 		inputposR *= inputposR;
 		targetposR *= divisor;
 		targetposR += (inputposR * remainder);
-		double calcposR = pow((1.0/targetposR),2);
+		if (!(targetposR >= 1.e-12)) targetposR = 1.e-12;
+		const double invposR = 1.0 / targetposR;
+		double calcposR = invposR * invposR;
 
 		double inputnegR = (-inputSampleR) + 1.0;
 		if (inputnegR < 0.0) inputnegR = 0.0;
@@ -154,7 +160,9 @@ overallscale = 1.0;
 		inputnegR *= inputnegR;
 		targetnegR *= divisor;
 		targetnegR += (inputnegR * remainder);
-		double calcnegR = pow((1.0/targetnegR),2);
+		if (!(targetnegR >= 1.e-12)) targetnegR = 1.e-12;
+		const double invnegR = 1.0 / targetnegR;
+		double calcnegR = invnegR * invnegR;
 		//now we have mirrored targets for comp
 		//outputpos and outputneg go from 0 to 1
 

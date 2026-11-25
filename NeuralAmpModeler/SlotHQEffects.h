@@ -18,6 +18,8 @@ namespace grid_hq
 {
 inline double SoftLimit(double x)
 {
+  // Keep the released transfer at signal levels where its cubic is safe.
+  if (!(std::abs(x) <= 1.e100)) return x > 0. ? 1. : (x < 0. ? -1. : 0.);
   const double x2 = x * x;
   return x * (27. + x2) / (27. + 9. * x2);
 }

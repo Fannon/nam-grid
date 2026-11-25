@@ -328,7 +328,9 @@ monitor0 = monitor1 = 1.;
 			inputpos *= inputpos;
 			targetposL *= divisor;
 			targetposL += (inputpos * remainder);
-			calcpos = pow((1.0/targetposL),2);
+			if (!(targetposL >= 1.e-12)) targetposL = 1.e-12;
+			const double invposL = 1.0 / targetposL;
+			calcpos = invposL * invposL;
 
 			inputneg = (-inputSampleL * fpOld) + (nvgLA * fpNew) + 1.0;
 			nvgLA = -inputSampleL;
@@ -339,7 +341,9 @@ monitor0 = monitor1 = 1.;
 			inputneg *= inputneg;
 			targetnegL *= divisor;
 			targetnegL += (inputneg * remainder);
-			calcneg = pow((1.0/targetnegL),2);
+			if (!(targetnegL >= 1.e-12)) targetnegL = 1.e-12;
+			const double invnegL = 1.0 / targetnegL;
+			calcneg = invnegL * invnegL;
 			//now we have mirrored targets for comp
 			//outputpos and outputneg go from 0 to 1
 
@@ -395,7 +399,9 @@ monitor0 = monitor1 = 1.;
 			inputpos *= inputpos;
 			targetposR *= divisor;
 			targetposR += (inputpos * remainder);
-			calcpos = pow((1.0/targetposR),2);
+			if (!(targetposR >= 1.e-12)) targetposR = 1.e-12;
+			const double invposR = 1.0 / targetposR;
+			calcpos = invposR * invposR;
 
 			inputneg = (-inputSampleR * fpOld) + (nvgRA * fpNew) + 1.0;
 			nvgRA = -inputSampleR;
@@ -406,7 +412,9 @@ monitor0 = monitor1 = 1.;
 			inputneg *= inputneg;
 			targetnegR *= divisor;
 			targetnegR += (inputneg * remainder);
-			calcneg = pow((1.0/targetnegR),2);
+			if (!(targetnegR >= 1.e-12)) targetnegR = 1.e-12;
+			const double invnegR = 1.0 / targetnegR;
+			calcneg = invnegR * invnegR;
 			//now we have mirrored targets for comp
 			//outputpos and outputneg go from 0 to 1
 

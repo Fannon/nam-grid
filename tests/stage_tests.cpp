@@ -102,6 +102,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "TrailsTests.h"
 #include "DSPBehaviorTests.h"
 #include "ModuleUpgradeTests.h"
+#include "DSPSafetyTests.h"
 
 int main(int argc, char** argv)
 try
@@ -186,6 +187,7 @@ try
     {"envelope-filter-controls", TestEnvelopeFilterControls},
     {"ring-carrier-lfo", TestRingCarrierLfo},
     {"volume-pedal", TestVolumePedal},
+    {"dsp-safety", TestDSPSafety},
   };
   if (argc == 2 && std::string(argv[1]) == "--list")
   {

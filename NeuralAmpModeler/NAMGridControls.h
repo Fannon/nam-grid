@@ -189,11 +189,7 @@ inline std::string SourceName(const PLUG_CLASS_NAME& plugin, int source)
 }
 inline void ShowNotice(IGraphics* ui, const char* title, const char* message)
 {
-#ifdef OS_MAC
-  ui->ShowMessageBox(title, message, kMB_OK);
-#else
   ui->ShowMessageBox(message, title, kMB_OK);
-#endif
 }
 class Knob : public IVKnobControl
 {
@@ -1682,6 +1678,7 @@ public:
   {
     SetTextEntryLength(128);
   }
+  ~NAMGridSlotControl() override { mLifetime.reset(); }
 
   void Draw(IGraphics& g) override
   {
@@ -2179,7 +2176,9 @@ public:
       directory.Set(PLUG()->GetSlotPath(mSlot).c_str());
       directory.remove_filepart();
       GetUI()->PromptForFile(
-        file, directory, EFileAction::Open, "nam", [this](const WDL_String& chosen, const WDL_String&) {
+        file, directory, EFileAction::Open, "nam", [this, alive = std::weak_ptr<void>(mLifetime)](const WDL_String& chosen, const WDL_String&) {
+          const auto guard = alive.lock();
+          if (!guard) return;
           if (chosen.GetLength())
             Load(chosen.Get());
         });
@@ -2201,7 +2200,9 @@ public:
       directory.Set(PLUG()->GetSlotPath(mSlot).c_str());
       directory.remove_filepart();
       GetUI()->PromptForFile(
-        file, directory, EFileAction::Open, "wav", [this](const WDL_String& chosen, const WDL_String&) {
+        file, directory, EFileAction::Open, "wav", [this, alive = std::weak_ptr<void>(mLifetime)](const WDL_String& chosen, const WDL_String&) {
+          const auto guard = alive.lock();
+          if (!guard) return;
           if (chosen.GetLength())
             ShowError(PLUG()->LoadSlotIR(mSlot, chosen.Get()));
         });
@@ -3467,45 +3468,49 @@ private:
                                                                         : effect == SlotEffect::GraphicEQ ? uGraphicVoicing
                                                                         : effect == SlotEffect::Granulator ? uGranulatorMode : i))->Int();
         mUtilityKnobs[i]->SetTooltip(effect_presentation::Help(effect, i, mode));
+        const auto setBounds = [](IControl* control, const IRECT& bounds) {
+          if (control->GetRECT() != bounds || control->GetTargetRECT() != bounds)
+            control->SetTargetAndDrawRECTs(bounds);
+        };
         if (effect_presentation::HeaderControl(i))
-        {
-          const auto bounds = grid_ui::HeaderControlBounds(effect, i);
-          if (mUtilityKnobs[i]->GetRECT() != bounds || mUtilityKnobs[i]->GetTargetRECT() != bounds)
-            mUtilityKnobs[i]->SetTargetAndDrawRECTs(bounds);
-        }
+          setBounds(mUtilityKnobs[i], grid_ui::HeaderControlBounds(effect, i));
         else
-          mUtilityKnobs[i]->SetRECT(grid_ui::ControlBounds(effect_presentation::EditorPosition(effect, i)));
+          setBounds(mUtilityKnobs[i], grid_ui::ControlBounds(effect_presentation::EditorPosition(effect, i)));
         if (auto* knob = dynamic_cast<grid_ui::Knob*>(mUtilityKnobs[i]))
           if (std::strcmp(knob->GetLabelStr(), effect_presentation::Label(effect, i, mode)) != 0)
             knob->SetLabelStr(effect_presentation::Label(effect, i, mode));
       }
+      const auto setEQBounds = [](IControl* control, const IRECT& bounds) {
+        if (control->GetRECT() != bounds || control->GetTargetRECT() != bounds)
+          control->SetTargetAndDrawRECTs(bounds);
+      };
       if (effect == SlotEffect::ParametricEQ)
       {
         mEQKnobs[3]->Hide(false);
         mEQKnobs[4]->Hide(false);
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(4));
-        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(6));
+        setEQBounds(mEQKnobs[3], grid_ui::ControlBounds(4));
+        setEQBounds(mEQKnobs[4], grid_ui::ControlBounds(6));
       }
       else
       {
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(0));
-        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(1));
+        setEQBounds(mEQKnobs[3], grid_ui::ControlBounds(0));
+        setEQBounds(mEQKnobs[4], grid_ui::ControlBounds(1));
       }
       static_cast<grid_ui::Knob*>(mEQKnobs[3])->SetLabelStr(effect == SlotEffect::ParametricEQ && shelf ? "Low shelf" : "Low cut");
       if (nam && !path.empty())
       {
         mEQKnobs[3]->Hide(false);
         mEQKnobs[4]->Hide(false);
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(5));
-        mEQKnobs[4]->SetRECT(grid_ui::ControlBounds(6));
+        setEQBounds(mEQKnobs[3], grid_ui::ControlBounds(5));
+        setEQBounds(mEQKnobs[4], grid_ui::ControlBounds(6));
       }
       if (effect == SlotEffect::Boost || effect == SlotEffect::TubeBoost)
       {
         mEQKnobs[3]->Hide(false);
-        mEQKnobs[3]->SetRECT(grid_ui::ControlBounds(2));
+        setEQBounds(mEQKnobs[3], grid_ui::ControlBounds(2));
       }
       for (int i = 0; i < 3; ++i)
-        mEQKnobs[i]->SetRECT(grid_ui::ControlBounds(nam ? i + 1 : i));
+        setEQBounds(mEQKnobs[i], grid_ui::ControlBounds(nam ? i + 1 : i));
     }
     const auto moduleLabel = path.empty() ? nam ? std::string("+ Add module") : std::string(SlotEffectDisplayName(effect))
                                           : nam_library::PathText(std::filesystem::u8path(path).stem());
@@ -3523,7 +3528,7 @@ private:
   }
   void Load(const std::string& path)
   {
-    auto extension = std::filesystem::u8path(path).extension().string();
+    auto extension = nam_library::PathText(std::filesystem::u8path(path).extension());
     for (auto& ch : extension)
       ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     const bool ir = extension == ".wav";
@@ -3533,13 +3538,7 @@ private:
   void ShowError(const std::string& error)
   {
     if (!error.empty())
-    {
-#ifdef OS_MAC
-      GetUI()->ShowMessageBox("Slot operation failed", error.c_str(), kMB_OK);
-#else
       GetUI()->ShowMessageBox(error.c_str(), "Slot operation failed", kMB_OK);
-#endif
-    }
   }
   // Every built-in module can hold user presets; captures and IRs are files themselves.
   static bool HasModulePresets(SlotEffect effect) { return module_presets::Supported(effect); }
@@ -3814,6 +3813,7 @@ private:
   double mTick = Now(), mInputClip = 0., mOutputClip = 0.;
   IPopupMenu mMenu;
   std::shared_ptr<const nam_library::Snapshot> mMenuLibrary;
+  std::shared_ptr<void> mLifetime = std::make_shared<int>(0);
 };
 
 // Define after the enclosing class is complete so Clang can initialize Drop's defaults.
@@ -3827,6 +3827,7 @@ public:
   : IContainerBase(r)
   {
   }
+  ~NAMGridSettingsControl() override { mLifetime.reset(); }
   void Draw(IGraphics& g) override
   {
     using namespace grid_ui;
@@ -3869,10 +3870,12 @@ public:
     AddChildControl(new Button(IRECT(kRight - 80, 14, kRight, 42), [this](IControl*) { Hide(true); }, "Close", Icon::Close));
     AddChildControl(new Button(IRECT(kRight - 632, 14, kRight - 444, 42), [this](IControl*) {
       WDL_String folder;
-      GetUI()->PromptForDirectory(folder, [plugin = PLUG(), ui = GetUI()](const WDL_String&, const WDL_String& chosen) {
+      GetUI()->PromptForDirectory(folder, [this, alive = std::weak_ptr<void>(mLifetime)](const WDL_String&, const WDL_String& chosen) {
+        const auto guard = alive.lock();
+        if (!guard) return;
         if (!chosen.GetLength()) return;
-        const auto error = plugin->InstallFactoryContent(std::filesystem::u8path(chosen.Get()));
-        if (!error.empty()) grid_ui::ShowNotice(ui, "Cannot install factory content", error.c_str());
+        const auto error = PLUG()->InstallFactoryContent(std::filesystem::u8path(chosen.Get()));
+        if (!error.empty()) if (auto* ui = GetUI()) grid_ui::ShowNotice(ui, "Cannot install factory content", error.c_str());
       });
     }, "Install factory content..."))->SetTooltip(
       "Choose a library folder for Empty and the drive example rigs. Add your own captures to the NAM Captures folder. Creates NAM Captures and Presets subfolders and indexes them; existing files are preserved.");
@@ -3889,8 +3892,10 @@ public:
       const auto kind = kKinds[i];
       mAdd[i] = new Button(kAddRects[i], [this, kind](IControl*) {
         WDL_String folder;
-        GetUI()->PromptForDirectory(folder, [plugin = PLUG(), kind](const WDL_String&, const WDL_String& chosen) {
-          if (chosen.GetLength()) plugin->AddLibraryFolder(kind, chosen.Get());
+        GetUI()->PromptForDirectory(folder, [this, kind, alive = std::weak_ptr<void>(mLifetime)](const WDL_String&, const WDL_String& chosen) {
+          const auto guard = alive.lock();
+          if (!guard) return;
+          if (chosen.GetLength()) PLUG()->AddLibraryFolder(kind, chosen.Get());
         });
       }, i == 0 ? "+ NAM folder" : i == 1 ? "+ IR folder" : "+ Preset folder", Icon::None, false,
          i == 0 ? ampColor : i == 1 ? cabColor : accent);
@@ -4054,6 +4059,7 @@ private:
   grid_ui::Button* mMainMacros = nullptr;
   grid_ui::Button* mTrails = nullptr;
   grid_ui::Button* mKeepDry = nullptr;
+  std::shared_ptr<void> mLifetime = std::make_shared<int>(0);
 };
 
 

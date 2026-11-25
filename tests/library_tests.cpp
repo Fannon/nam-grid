@@ -494,5 +494,39 @@ int main(int argc, char** argv)
   assert(result && result->root == root / "missing" && !result->error.empty());
   TestLibraryBrowser(root);
   TestLibraryIgnoreFiles(root);
+  TestLibraryWorkerWriteIndexNonBlocking(root);
+  // Regression checks for ReadFavorites bounds/depth, relative parent_path() writes, and non-ASCII extension text.
+  {
+    const auto favRoot = root / "favorites-safety";
+    std::filesystem::remove_all(favRoot);
+    std::filesystem::create_directories(favRoot);
+    const auto oversized = favRoot / "oversized-favorites.json";
+    {
+      std::ofstream out(oversized, std::ios::binary);
+      const std::string header = R"({"Format":"nam-grid-favorites","Version":1,"Stars":{}})";
+      out << header << std::string((kMaxFavoritesBytes + 1) - header.size(), ' ');
+    }
+    assert(!ReadFavorites(oversized).has_value());
+    const auto deepFav = favRoot / "deep-favorites.json";
+    std::ofstream(deepFav, std::ios::binary) << std::string(140, '[') << "0" << std::string(140, ']');
+    assert(!ReadFavorites(deepFav).has_value());
+    {
+      struct CwdGuard
+      {
+        std::filesystem::path previous = std::filesystem::current_path();
+        ~CwdGuard() { std::filesystem::current_path(previous); }
+      } cwdGuard;
+      std::filesystem::current_path(favRoot);
+      assert(WriteSettings("rel-settings.json", {}));
+      assert(std::filesystem::is_regular_file(favRoot / "rel-settings.json"));
+      assert(WriteFavorites("rel-favorites.json", {}));
+      assert(std::filesystem::is_regular_file(favRoot / "rel-favorites.json"));
+      assert(WriteIndex("rel-index.json", {}));
+      assert(std::filesystem::is_regular_file(favRoot / "rel-index.json"));
+    }
+    assert(PathText(std::filesystem::u8path("C:/Amps/Gr\xc3\xbcn/Cab.wAv").extension()) == ".wAv");
+    assert(PathText(std::filesystem::u8path("foo.t\xc3\xa9st").extension()) == ".t\xc3\xa9st");
+    std::filesystem::remove_all(favRoot);
+  }
   std::cout << "Library scan, typed browser, ranked search, preset folders, metadata, selection and cancellation passed\n";
 }

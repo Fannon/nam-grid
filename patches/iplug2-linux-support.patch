@@ -488,7 +488,7 @@ diff --git a/IGraphics/Platforms/IGraphicsLinux.cpp b/IGraphics/Platforms/IGraph
 index 90ca0bff6..3440a7555 100644
 --- a/IGraphics/Platforms/IGraphicsLinux.cpp
 +++ b/IGraphics/Platforms/IGraphicsLinux.cpp
-@@ -8,4 +8,1828 @@
+@@ -8,4 +8,1851 @@
   ==============================================================================
  */
  
@@ -496,6 +496,8 @@ index 90ca0bff6..3440a7555 100644
 +#include <pthread.h>
 +#include <unistd.h>
 +#include <sys/time.h>
++#include <sys/wait.h>
++#include <cerrno>
 +#include <mutex>
 +#include <cstring>
 +#include <cstdlib>
@@ -1350,6 +1352,26 @@ index 90ca0bff6..3440a7555 100644
 +  return result;
 +}
 +
++static bool LaunchXdgOpen(const char* target)
++{
++  pid_t pid = fork();
++  if (pid < 0)
++    return false;
++  if (pid == 0)
++  {
++    pid_t child = fork();
++    if (child == 0)
++    {
++      execlp("xdg-open", "xdg-open", target, nullptr);
++      _exit(127);
++    }
++    _exit(child < 0 ? 127 : 0);
++  }
++  int status = 0;
++  while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
++  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
++}
++
 +bool IGraphicsLinux::RevealPathInExplorerOrFinder(WDL_String& path, bool select)
 +{
 +  // Open parent directory with xdg-open
@@ -1361,13 +1383,7 @@ index 90ca0bff6..3440a7555 100644
 +      *lastSlash = '\0';
 +  }
 +
-+  pid_t pid = fork();
-+  if (pid == 0)
-+  {
-+    execlp("xdg-open", "xdg-open", dir.Get(), nullptr);
-+    _exit(127);
-+  }
-+  return pid > 0;
++  return LaunchXdgOpen(dir.Get());
 +}
 +
 +void IGraphicsLinux::PromptForFile(WDL_String& fileName, WDL_String& path,
@@ -1445,6 +1461,7 @@ index 90ca0bff6..3440a7555 100644
 +  GTK3* g = LoadGTK3();
 +  if (!g)
 +  {
++    dir.Set("");
 +    if (completionHandler)
 +      completionHandler(WDL_String{}, WDL_String{});
 +    return;
@@ -1474,9 +1491,10 @@ index 90ca0bff6..3440a7555 100644
 +
 +  g->widget_destroy(dialog);
 +  GtkDrainEvents(g);
++  dir.Set(outDir.Get());
 +
 +  if (completionHandler)
-+    completionHandler(outDir, WDL_String{});
++    completionHandler(WDL_String{}, outDir);
 +}
 +
 +bool IGraphicsLinux::PromptForColor(IColor& color, const char* str,
@@ -1517,13 +1535,7 @@ index 90ca0bff6..3440a7555 100644
 +
 +bool IGraphicsLinux::OpenURL(const char* url, const char* msgWindowTitle, const char* confirmMsg, const char* errMsgOnFailure)
 +{
-+  pid_t pid = fork();
-+  if (pid == 0)
-+  {
-+    execlp("xdg-open", "xdg-open", url, nullptr);
-+    _exit(127);
-+  }
-+  return pid > 0;
++  return LaunchXdgOpen(url);
 +}
 +
 +bool IGraphicsLinux::GetTextFromClipboard(WDL_String& str)
@@ -2257,39 +2269,50 @@ index 90ca0bff6..3440a7555 100644
 +
 +void IGraphicsLinux::StartTimer()
 +{
-+  if (mHostDriven)
++  if (mHostDriven || mTimerRunning)
 +    return;  // host provides timer/fd callbacks; no internal thread needed
-+  if (pthread_create(&mTimerThread, nullptr, TimerThreadProc, this) == 0)
-+    mTimerRunning = true;
++  mTimerRunning = true;
++  if (pthread_create(&mTimerThread, nullptr, TimerThreadProc, this) != 0)
++  {
++    mTimerRunning = false;
++    mTimerThread = 0;
++  }
 +}
 +
 +void IGraphicsLinux::StopTimer()
 +{
-+  if (mTimerRunning)
++  if (mTimerRunning.exchange(false))
 +  {
-+    mTimerRunning = false;
-+    pthread_join(mTimerThread, nullptr);
-+    mTimerThread = 0;
++    if (mTimerThread)
++    {
++      if (!pthread_equal(mTimerThread, pthread_self()))
++        pthread_join(mTimerThread, nullptr);
++      else
++        pthread_detach(mTimerThread);
++      mTimerThread = 0;
++    }
 +  }
 +}
 +
 +void IGraphicsLinux::OnDisplayTimer()
 +{
-+  if (!mDisplay || !mPlugWnd)
++  // Try-lock so CloseWindow() holding GfxMutex() while joining mTimerThread
++  // never deadlocks against a timer tick waiting for GfxMutex().
++  std::unique_lock<std::recursive_mutex> lock(GetDelegate()->GfxMutex(), std::try_to_lock);
++  if (!lock.owns_lock())
 +    return;
 +
-+  // Hold the GfxMutex for the entire timer tick so that host-thread calls
-+  // (SendParameterValueFromDelegate, CloseWindow, resize, etc.) cannot
-+  // concurrently modify IGraphics state while we process events or draw.
-+  // The mutex is recursive so ProcessX11Events() -> DrawResize() can
-+  // re-enter safely.
-+  std::lock_guard<std::recursive_mutex> lock(GetDelegate()->GfxMutex());
++  if ((!mHostDriven && !mTimerRunning) || !mDisplay || !mPlugWnd)
++    return;
 +
 +  ProcessX11Events();
++  if (!mDisplay || !mPlugWnd)
++    return;
 +
 +  IRECTList rects;
 +  if (mNeedsRedraw || IsDirty(rects))
 +  {
++    SetAllControlsClean();
 +    mNeedsRedraw = false;
 +    if (!rects.Size())
 +    {
@@ -2532,18 +2555,20 @@ diff --git a/IPlug/APP/IPlugAPP_dialog.cpp b/IPlug/APP/IPlugAPP_dialog.cpp
 index 9919d55b4..df33561fb 100644
 --- a/IPlug/APP/IPlugAPP_dialog.cpp
 +++ b/IPlug/APP/IPlugAPP_dialog.cpp
-@@ -23,6 +23,10 @@ extern bool SaveWindowScreenshot(HWND hwnd, const char* path);
+@@ -23,6 +23,12 @@ extern bool SaveWindowScreenshot(HWND hwnd, const char* path);
  #elif defined OS_MAC
  #define GET_MENU() SWELL_GetCurrentMenu()
  extern "C" bool SaveWindowScreenshot(void* hwnd, const char* path);
 +#elif defined OS_LINUX
 +#include <unistd.h>
++#include <sys/wait.h>
++#include <cerrno>
 +#define GET_MENU() GetMenu(gHWND)
 +static bool SaveWindowScreenshot(HWND, const char*) { return false; }
  #endif
  
  using namespace iplug;
-@@ -33,6 +37,10 @@ using namespace igraphics;
+@@ -33,6 +39,10 @@ using namespace igraphics;
  #endif
  
  #define IDT_SCREENSHOT_TIMER 1001
@@ -2554,7 +2579,7 @@ index 9919d55b4..df33561fb 100644
  
  
  // check the input and output devices, find matching srs
-@@ -289,8 +297,16 @@ void IPlugAPPHost::PopulatePreferencesDialog(HWND hwndDlg)
+@@ -289,8 +299,16 @@ void IPlugAPPHost::PopulatePreferencesDialog(HWND hwndDlg)
    PopulateAudioDialogs(hwndDlg);
    PopulateMidiDialogs(hwndDlg);
  }
@@ -2573,7 +2598,7 @@ index 9919d55b4..df33561fb 100644
  #endif
  
  WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
-@@ -479,8 +495,14 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
+@@ -479,8 +497,22 @@ WDL_DLGRET IPlugAPPHost::PreferencesDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wPar
              {
                system("open \"/Applications/Utilities/Audio MIDI Setup.app\"");
              }
@@ -2583,14 +2608,22 @@ index 9919d55b4..df33561fb 100644
 +            {
 +              pid_t pid = fork();
 +              if (pid == 0) {
-+                execlp("xdg-open", "xdg-open", "https://alsa-project.org", nullptr);
-+                _exit(127);
++                pid_t child = fork();
++                if (child == 0) {
++                  execlp("xdg-open", "xdg-open", "https://alsa-project.org", nullptr);
++                  _exit(127);
++                }
++                _exit(child < 0 ? 127 : 0);
++              }
++              if (pid > 0) {
++                int status = 0;
++                while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 +              }
 +            }
              #endif
            }
            break;
-@@ -529,18 +551,18 @@ static void ClientResize(HWND hWnd, int width, int height)
+@@ -529,18 +561,18 @@ static void ClientResize(HWND hWnd, int width, int height)
    POINT ptDiff;
    int screenwidth, screenheight;
    int x, y;
@@ -2612,7 +2645,7 @@ index 9919d55b4..df33561fb 100644
    SetWindowPos(hWnd, 0, x, y, width + ptDiff.x, height + ptDiff.y, 0);
  }
  
-@@ -556,14 +578,27 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+@@ -556,14 +588,27 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
        gHWND = hwndDlg;
        IPlugAPP* pPlug = pAppHost->GetPlug();
  
@@ -2642,7 +2675,7 @@ index 9919d55b4..df33561fb 100644
  
        // If in screenshot mode, start timer to take screenshot after UI initializes
        if (pAppHost->IsScreenshotMode())
-@@ -573,8 +608,31 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+@@ -573,8 +618,31 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
  
        return 1;
      }
@@ -2674,7 +2707,7 @@ index 9919d55b4..df33561fb 100644
        if (wParam == IDT_SCREENSHOT_TIMER)
        {
          KillTimer(hwndDlg, IDT_SCREENSHOT_TIMER);
-@@ -590,13 +648,17 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+@@ -590,13 +658,17 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
      case WM_DESTROY:
        pAppHost->CloseWindow();
        gHWND = NULL;
@@ -2693,7 +2726,7 @@ index 9919d55b4..df33561fb 100644
  
        return 0;
      case WM_CLOSE:
-@@ -845,6 +907,13 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
+@@ -845,6 +917,13 @@ WDL_DLGRET IPlugAPPHost::MainDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
        case SIZE_RESTORED:
        case SIZE_MAXIMIZED:
        {
@@ -3720,7 +3753,7 @@ diff --git a/IPlug/IPlugTimer.cpp b/IPlug/IPlugTimer.cpp
 index eab7523d7..a4dc391c4 100644
 --- a/IPlug/IPlugTimer.cpp
 +++ b/IPlug/IPlugTimer.cpp
-@@ -143,4 +143,48 @@ void Timer_impl::TimerProc(void* userData)
+@@ -143,4 +143,52 @@ void Timer_impl::TimerProc(void* userData)
    Timer_impl* itimer = (Timer_impl*) userData;
    itimer->mTimerFunc(*itimer);
  }
@@ -3736,8 +3769,12 @@ index eab7523d7..a4dc391c4 100644
 +: mTimerFunc(func)
 +, mIntervalMs(intervalMs)
 +{
-+  if (pthread_create(&mThread, nullptr, ThreadProc, this) == 0)
-+    mRunning = true;
++  mRunning = true;
++  if (pthread_create(&mThread, nullptr, ThreadProc, this) != 0)
++  {
++    mRunning = false;
++    mThread = 0;
++  }
 +}
 +
 +Timer_impl::~Timer_impl()

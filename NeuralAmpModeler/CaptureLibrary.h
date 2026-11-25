@@ -139,6 +139,7 @@ std::string ContentHash(const std::filesystem::path& file, const std::function<b
 // favorites.json beside the user's presets rather than in a rig. Levels cycle yellow, orange,
 // red, then back to none.
 inline constexpr int kStarLevels = 3;
+inline constexpr std::uintmax_t kMaxFavoritesBytes = 8u * 1024 * 1024;
 struct Star
 {
   int level = 0;
@@ -199,7 +200,8 @@ class Worker
 public:
   // With an index file, scans reuse and refresh it; without one, every scan reads every file.
   using Scanner = std::function<decltype(ScanLibrary)>;
-  explicit Worker(std::filesystem::path indexFile = {}, Scanner scanner = ScanLibrary);
+  using IndexWriter = std::function<decltype(WriteIndex)>;
+  explicit Worker(std::filesystem::path indexFile = {}, Scanner scanner = ScanLibrary, IndexWriter indexWriter = WriteIndex);
   ~Worker();
   // Single-list requests index NAM captures and IRs together.
   void Request(const std::string& root);
@@ -228,6 +230,7 @@ private:
   IndexCache mIndex; // Worker thread only.
   bool mIndexLoaded = false;
   Scanner mScanner;
+  IndexWriter mIndexWriter;
   std::thread mThread;
 };
 } // namespace nam_library

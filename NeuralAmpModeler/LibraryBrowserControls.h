@@ -178,6 +178,7 @@ class NAMLibraryBrowserControl : public IContainerBase
 {
 public:
   explicit NAMLibraryBrowserControl(const IRECT& r) : IContainerBase(r) {}
+  ~NAMLibraryBrowserControl() override { mLifetime.reset(); }
   void OnAttached() override
   {
     using namespace grid_ui;
@@ -785,7 +786,9 @@ private:
     WDL_String file, directory;
     const bool ir = mKind == nam_library::FileKind::IR;
     GetUI()->PromptForFile(file, directory, EFileAction::Open, ir ? "wav" : "nam",
-      [this, ir, slot = mSlot](const WDL_String& chosen, const WDL_String&) {
+      [this, ir, slot = mSlot, alive = std::weak_ptr<void>(mLifetime)](const WDL_String& chosen, const WDL_String&) {
+        const auto guard = alive.lock();
+        if (!guard) return;
         if (!chosen.GetLength()) return;
         const auto error = mPreview ? PLUG()->PreviewSlot(ir ? SlotEffect::CabinetIR : SlotEffect::NAM, chosen.Get())
           : ir ? PLUG()->LoadSlotIR(slot, chosen.Get()) : PLUG()->LoadSlot(slot, chosen.Get());
@@ -1026,4 +1029,5 @@ private:
   grid_ui::Button *mFoldersButton = nullptr, *mRescan = nullptr, *mDelete = nullptr, *mSort = nullptr, *mSave = nullptr,
                   *mCancel = nullptr, *mTopCancel = nullptr, *mApply = nullptr, *mFile = nullptr;
   std::array<NAMBrowserTab*, 4> mTabs{};
+  std::shared_ptr<void> mLifetime = std::make_shared<int>(0);
 };

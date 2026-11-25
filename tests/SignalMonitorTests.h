@@ -108,6 +108,11 @@ inline void TestSignalMonitorSpectrum()
 
   // The long-term average ignores silence and needs two seconds of signal.
   SpectrumView view;
+  for (size_t i = 0; i < spectrumPoints; ++i)
+    assert(view.live[i] == spectrumFloor && view.average[i] == spectrumFloor);
+  view.Receive(quiet, true, .05);
+  for (size_t i = 0; i < spectrumPoints; ++i)
+    assert(view.live[i] == spectrumFloor && view.average[i] == spectrumFloor);
   std::array<float, spectrumPoints> loud{}; loud.fill(-20.f);
   for (int i = 0; i < 30; ++i) view.Receive(loud, true, .05);
   assert(!view.Settled() && std::abs(view.average[10] + 20.f) < 1.e-4f);
@@ -116,6 +121,10 @@ inline void TestSignalMonitorSpectrum()
   assert(view.live[10] < -60.f); // The live curve still falls.
   for (int i = 0; i < 20; ++i) view.Receive(loud, true, .1);
   assert(view.Settled());
+  view.Reset();
+  for (size_t i = 0; i < spectrumPoints; ++i)
+    assert(view.live[i] == spectrumFloor && view.average[i] == spectrumFloor);
+  assert(view.averaged == 0. && !view.Settled());
 }
 
 // Compare the independent inspection tap against the existing follower tap, at

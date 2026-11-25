@@ -1,5 +1,6 @@
 #pragma once
 #include "../NeuralAmpModeler/CaptureLibrary.h"
+#include <chrono>
 #include <set>
 
 inline void TestLibraryIgnoreFiles(const std::filesystem::path& fixtureRoot)
@@ -64,5 +65,37 @@ inline void TestLibraryIgnoreFiles(const std::filesystem::path& fixtureRoot)
   assert((names == std::set<std::string>{"clean.nam", "Keep DI.nam", "Fender DI.nam", "top-only.nam"}));
   assert(SiblingFiles(root / "Amps" / "clean.nam", false).size() == 7); // No library folder: no rules.
   std::filesystem::remove_all(root);
+
+  // Pathological `**` patterns must match in linear/polynomial time without blowing the stack.
+  {
+    const auto pathoRoot = fixtureRoot / "ignore-pathological";
+    std::filesystem::remove_all(pathoRoot);
+    std::filesystem::create_directories(pathoRoot / "Sub");
+    std::string rulesText;
+    for (int i = 0; i < 20; ++i)
+      rulesText += "**/";
+    rulesText += "nomatch.nam\n";
+    rulesText += "**/*/**/**/*/**/**/*/**/**/*/**/**/*/**/**/*/**/**/*/nomatch2.nam\n";
+    rulesText += "Packs/**/**/old/\n";
+    rulesText += "Sub/**/**\n";
+    rulesText += "**/**\n";
+    std::ofstream(pathoRoot / ".ignore", std::ios::binary) << rulesText;
+    IgnoreRules pathoRules(pathoRoot);
+    std::filesystem::path deep = pathoRoot;
+    for (int i = 0; i < 23; ++i)
+      deep /= "d" + std::to_string(i);
+    deep /= "file.nam";
+    const auto start = std::chrono::steady_clock::now();
+    assert(!pathoRules.Ignored(deep, false));
+    const auto elapsedMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    assert(elapsedMs < 100);
+    assert(pathoRules.Ignored(pathoRoot / "Packs" / "x" / "y" / "old" / "c.nam", false));
+    assert(!pathoRules.Ignored(pathoRoot / "Sub", true));
+    assert(pathoRules.Ignored(pathoRoot / "Sub" / "child.nam", false));
+    assert(!pathoRules.Ignored(pathoRoot / "normal.nam", false));
+    std::filesystem::remove_all(pathoRoot);
+  }
+
   std::cout << ".ignore files: folders, negation, anchoring, wildcards, nesting, .ignore.txt and siblings passed\n";
 }

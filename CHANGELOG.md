@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- Improved DSP recovery from invalid signal and control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay finite at low sample rates.
+
 ## [0.8.0] - 2026-11-24
 
 Six new delays, an experimental Granulator and a MIDI-controllable Volume Pedal expand the grid. Bring your own NAM captures and cabinet IRs. Existing projects, presets and automation keep loading. Some effects sound different at the same settings, as described below.

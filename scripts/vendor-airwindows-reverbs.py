@@ -30,7 +30,7 @@ def generate(name):
         for size in (6480, 3660, 1720, 680, 9700, 6000, 2320, 940, 15220, 8460, 4540, 3200, 3111):
             reset = reset.replace(f"count < {size - 1};", f"count < {size};")
     else:
-        reset = re.sub(r"\+(\s*)2;", r"+\15;", reset)
+        reset = re.sub(r"\+(\s*)2;", r"+\g<1>5;", reset)
     double = processor[processor.index(f"void {name}::processDoubleReplacing"):]
     prefix = double[double.index("double overallscale"):double.index("while (--sampleFrames")]
     coefficients = re.findall(r"\b(double|int|bool) (\w+)\s*=", prefix)

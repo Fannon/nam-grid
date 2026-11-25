@@ -305,7 +305,7 @@ class SlotEnvelopeFilter
 public:
   void Reset(double rate)
   {
-    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mRate = std::isfinite(rate) && rate > 0. ? std::clamp(rate, 1., 1'000'000.) : 48000.;
     mSmooth = std::exp(-1. / (.005 * mRate));
     mAttack = std::exp(-1. / (.003 * mRate));
     mRelease = std::exp(-1. / (.08 * mRate)); mDecayMs = 80.;
@@ -343,8 +343,9 @@ public:
       if (std::abs(mEnv) < 1.e-30) mEnv = 0.;
       const double depth = direction * std::clamp(c.envelope, 0., 4.);
       mDepth = depth + mSmooth * (mDepth - depth);
+      const double maxCutoff = .4 * mRate;
       const double hz = std::clamp(std::clamp(c.cutoff, 40., 12000.) * std::exp2(mDepth * std::min(1., mEnv * sensitivity)),
-                                   20., .4 * mRate);
+                                   std::min(20., maxCutoff), maxCutoff);
       mCut = hz + mSmooth * (mCut - hz);
       mQ = std::clamp(c.resonance, .5, 4.) + mSmooth * (mQ - std::clamp(c.resonance, .5, 4.));
       if (mCount++ % 16 == 0)

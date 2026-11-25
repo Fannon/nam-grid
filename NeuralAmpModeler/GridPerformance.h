@@ -372,7 +372,8 @@ public:
   void Advance(const double* l, const double* r, int n, const Values& v, double tempo, const int* notes = nullptr,
                int noteCount = 0, Transport transport = {})
   {
-    tempo = grid_tempo::Tempo(tempo);
+    // Keep the host timeline and each span's beat origin on the same clock.
+    if (!std::isfinite(tempo) || tempo <= 0.) tempo = 120.;
     const double lfo = v[SourceParam(LFOSync, mInstance)] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[SourceParam(LFODivision, mInstance)])) : v[SourceParam(LFORate, mInstance)];
     const double steps = v[SourceParam(StepSync, mInstance)] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[SourceParam(StepDivision, mInstance)])) : v[SourceParam(StepRate, mInstance)];
     const double attack = std::exp(-1. / (.001 * v[SourceParam(EnvAttack, mInstance)] * mRate));

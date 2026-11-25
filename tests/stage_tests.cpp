@@ -104,6 +104,78 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "ModuleUpgradeTests.h"
 #include "DSPSafetyTests.h"
 
+namespace
+{
+class StubSampleRateDSP final : public nam::DSP
+{
+public:
+  explicit StubSampleRateDSP(double expectedSampleRate) : nam::DSP(1, 1, expectedSampleRate) {}
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
+  {
+    for (int i = 0; i < num_frames; ++i)
+      output[0][i] = input[0][i];
+  }
+};
+
+void TestStageAdoptionAndSampleRate()
+{
+  // Item 6: Adopt() must set mFirst = true so a replaced module's input/output gains do not bleed.
+  {
+    const nlohmann::json unity{{"architecture", "Linear"},
+                               {"config", {{"receptive_field", 1}, {"bias", false}}},
+                               {"weights", {1.}},
+                               {"sample_rate", 48000.}};
+    const nlohmann::json avg8{{"architecture", "Linear"},
+                              {"config", {{"receptive_field", 8}, {"bias", false}}},
+                              {"weights", {0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125}},
+                              {"sample_rate", 48000.}};
+    NAMStage stage;
+    stage.Publish(prepare(unity, 48000.));
+    stage.ResetStopped(48000., 512);
+    std::array<double, 64> block{};
+    for (int b = 0; b < 4; ++b)
+    {
+      block.fill(0.01);
+      stage.Process(block.data(), 64, true, 20., 20.);
+    }
+    stage.Publish(prepare(avg8, 48000.));
+    // Step 64-frame blocks until mSwitchGain hits 0 (4 * 64 = 256 samples > 240-sample 5 ms fade).
+    for (int b = 0; b < 4; ++b)
+    {
+      block.fill(0.1);
+      stage.Process(block.data(), 64, true, 20., 20.);
+    }
+    // Adoption block (8 samples): switching stays true until block end so mSwitchGain stays 0,
+    // while mFirst = true must snap mIn/mOut/mMix to 0 dB before feeding the 8-tap NAM history.
+    block.fill(0.1);
+    stage.Process(block.data(), 8, true, 0., 0.);
+    // First audible block after adoption: sample 0 averages feed steps 2..9 * step (avg = 5.5 * step).
+    block.fill(0.1);
+    stage.Process(block.data(), 8, true, 0., 0.);
+    const double step = 1. / (48000. * .005);
+    const double expected0 = 0.1 * (5.5 * step) * step;
+    assert(std::abs(block[0] - expected0) < 1e-12);
+  }
+  // Item 9: GetNAMSampleRate must fall back to 48000.0 for NaN, +/-Inf, 0, and negative values.
+  for (double badRate : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+                         -std::numeric_limits<double>::infinity(), 0., -44100.})
+  {
+    std::unique_ptr<nam::DSP> stub = std::make_unique<StubSampleRateDSP>(badRate);
+    assert(GetNAMSampleRate(stub) == 48000.);
+    ResamplingNAM resampled(std::make_unique<StubSampleRateDSP>(badRate), 44100.);
+    assert(resampled.GetEncapsulatedSampleRate() == 48000.);
+    std::array<NAM_SAMPLE, 64> in{}, out{};
+    in.fill(0.25);
+    NAM_SAMPLE* inPtr = in.data();
+    NAM_SAMPLE* outPtr = out.data();
+    resampled.process(&inPtr, &outPtr, 64);
+    for (double sample : out)
+      assert(std::isfinite(sample));
+  }
+  std::cout << "Stage adoption mFirst and NAM sample-rate fallback passed\n";
+}
+} // namespace
+
 int main(int argc, char** argv)
 try
 {
@@ -123,6 +195,7 @@ try
     {"fixed-grid", TestFixedGrid},
     {"audio-control-cache", TestAudioControlCache},
     {"rig-transition", TestRigTransition},
+    {"stage-adoption-and-rate", TestStageAdoptionAndSampleRate},
     {"dynamics", TestDynamics},
     {"slot-features", TestSlotFeatures},
     {"ir-controls", TestIRControls},
@@ -313,6 +386,7 @@ try
   run("fixed-grid", TestFixedGrid);
   run("audio-control-cache", TestAudioControlCache);
   run("rig-transition", TestRigTransition);
+  run("stage-adoption-and-rate", TestStageAdoptionAndSampleRate);
   run("dynamics", TestDynamics);
   run("slot-features", TestSlotFeatures);
   run("ir-controls", TestIRControls);

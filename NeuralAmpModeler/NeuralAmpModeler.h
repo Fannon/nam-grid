@@ -100,6 +100,14 @@ enum EMsgTags
 class GridDCBlocker : public recursive_linear_filter::HighPass
 {
 public:
+  void Prepare(double rate, size_t channels, size_t frames)
+  {
+    _PrepareBuffers(channels, frames);
+    SetParams(recursive_linear_filter::HighPassParams(rate, 5.));
+    ClearHistory();
+  }
+
+private:
   void ClearHistory()
   {
     for (auto& channel : mInputHistory)
@@ -134,7 +142,7 @@ public:
   void CloseSignalMonitor();
   int SignalMonitorPoint() const { return mMonitorPoint.load(std::memory_order_relaxed); }
   bool IsSignalMonitorOpen() const { return SignalMonitorPoint() != -3; }
-  unsigned MonitorGeneration() const { return mMonitorGeneration; }
+  unsigned MonitorGeneration() const;
   bool IsTunerActive() const { return GetParam(kTunerActive)->Bool(); }
   // Editor only: measures built-in modules' impulse responses on a worker thread.
   ImpulseProbe& GetImpulseProbe() { return mImpulseProbe; }
@@ -145,9 +153,9 @@ public:
   void ClearPerformanceScene(size_t scene);
   bool HasPerformanceScene(size_t scene) const;
   // Last stored or recalled scene for the header buttons, or -1. Editor state only.
-  int GetActiveScene() const { return mActiveScene; }
+  int GetActiveScene() const;
   // The routing panel replaces the module editor below the grid. Editor state only.
-  bool IsRoutingOpen() const { return mRoutingOpen; }
+  bool IsRoutingOpen() const;
   void SetRoutingOpen(bool open);
   bool IsPerformanceSceneParam(int index) const;
   // Modulation matrix editing on the control/UI thread. Values are plain (not normalized).
@@ -193,23 +201,23 @@ public:
   void AddLibraryFolder(nam_library::FileKind kind, const char* folder);
   void RemoveLibraryFolder(nam_library::FileKind kind, size_t index);
   void OpenLibraryBrowser(nam_library::BrowserContext context, nam_library::FileKind kind, size_t slot = 0);
-  size_t GetSelectedSlot() const { return mSelectedSlot; }
+  size_t GetSelectedSlot() const;
   void SelectSlot(size_t slot);
   void RescanCaptureFolder(bool rescan = true);
-  bool GetRescanOnStartup() const { return mRescanOnStartup; }
-  bool GetShowVisualizations() const { return mShowVisualizations; }
-  bool GetShowMainMacros() const { return mShowMainMacros; }
+  bool GetRescanOnStartup() const;
+  bool GetShowVisualizations() const;
+  bool GetShowMainMacros() const;
   void SetShowMainMacros(bool enabled);
   std::string GetMacroName(int macro) const;
   void SetMacroName(int macro, std::string name);
   bool IsMacroAssigned(int macro) const;
   void SetShowVisualizations(bool enabled);
   // Rig preset switches crossfade both rigs, or dip (old out, then new in) to spare CPU.
-  bool GetPresetCrossfade() const { return mPresetCrossfade; }
+  bool GetPresetCrossfade() const;
   void SetPresetCrossfade(bool enabled);
   void SetRescanOnStartup(bool enabled);
   std::string GetLibraryMatchStatus() const;
-  bool IsLibraryScanning() const { return mLibraryScanning; }
+  bool IsLibraryScanning() const;
   std::string GetCaptureStatus() const;
   std::shared_ptr<const nam_library::Snapshot> GetCaptureLibrary() const;
   // Browser stars are a personal mark in favorites.json beside the user's presets; they never
@@ -224,8 +232,7 @@ public:
   void SetCaptureFilter(nam_library::Filter filter);
   std::string GetSlotPath(size_t slot) const;
   bool IsSlotLoaded(size_t slot) const;
-  NAMModelInfo GetSlotModelInfo(size_t slot) const
-  { return slot < mSlotInfo.size() ? mSlotInfo[slot] : NAMModelInfo{}; }
+  NAMModelInfo GetSlotModelInfo(size_t slot) const;
   SlotEffect GetSlotEffect(size_t slot) const;
   nam_library::Gear GetSlotGear(size_t slot) const;
   bool CanToggleSlotQuality(size_t slot) const;
@@ -269,6 +276,25 @@ public:
   void StepRigPreset(int direction);
 
 private:
+  friend struct PluginLifecycleTestAccessor;
+  struct LatencyDeferral
+  {
+    NeuralAmpModeler& plugin;
+    explicit LatencyDeferral(NeuralAmpModeler& p) : plugin(p) { ++plugin.mDeferLatencyDepth; }
+    ~LatencyDeferral()
+    {
+      if (--plugin.mDeferLatencyDepth == 0)
+      {
+        const bool forceRestart = plugin.mDeferredLatencyForceRestart;
+        plugin.mDeferredLatencyForceRestart = false;
+        plugin._UpdateLatency(forceRestart);
+      }
+    }
+    LatencyDeferral(const LatencyDeferral&) = delete;
+    LatencyDeferral& operator=(const LatencyDeferral&) = delete;
+  };
+  int _ValidateStateChunk(const iplug::IByteChunk& chunk, int startPos, nlohmann::json& config) const;
+  void _CancelSlotPreviewIfActive();
   // Allocates mInputPointers and mOutputPointers
   void _AllocateIOPointers(const size_t nChans);
   void _UpdatePresetControls();
@@ -305,7 +331,7 @@ private:
   // :param nChansIn: In from internal
   // :param nChansOut: Out to external
   void _ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames, const size_t nChansIn,
-                      const size_t nChansOut, double gain);
+                      const size_t nChansOut, double gain, bool applyMasterGain = true);
   void _UnserializeApplyConfig(nlohmann::json& config);
   // Library folders from this user's settings.json (control thread).
   void _ReloadLibraryFolders();
@@ -340,6 +366,7 @@ private:
   // Audio only: the held rig's controls, and the frozen outgoing rig during a switch.
   grid_performance::Values mHeldPerformance{};
   double mHeldBlend = .5, mHeldInputGain = 1., mHeldOutputGain = 1.;
+  double mOutgoingInputGain = 1., mOutgoingOutputGain = 1.;
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mOutgoingControls{};
   grid_performance::Routing mOutgoingRouting{};
   double mOutgoingBlend = .5;
@@ -379,8 +406,12 @@ private:
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
   std::array<noise_print::Profile, FixedNAMGrid::kSlots> mNoiseProfiles{};
-  std::array<uint64_t, FixedNAMGrid::kSlots> mNoiseEpochs{}, mNoiseSeen{};
+  std::array<uint64_t, FixedNAMGrid::kSlots> mNoiseEpochs{};
+  std::array<std::array<uint64_t, FixedNAMGrid::kSlots>, 2> mNoiseSeen{};
   uint64_t mNextNoiseEpoch = 0;
+  uint64_t mResetEpoch = 0;
+  int mDeferLatencyDepth = 0;
+  bool mDeferredLatencyForceRestart = false;
   std::array<nam_library::Gear, FixedNAMGrid::kSlots> mSlotGear{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedQuality{};
   std::array<double, FixedNAMGrid::kSlots> mPreparedIRLength{};
@@ -418,7 +449,7 @@ private:
   double mSampleRatePrepared = 48000.0;
   int mMaxBlockPrepared = 2048;
   std::array<int, FixedNAMGrid::kSlots> mRequestedLatencies{};
-  GridDCBlocker mHighPass; // Final DC blocker
+  std::array<GridDCBlocker, 2> mHighPass; // Each rig retains its DC history during a switch.
   NAMSender mInputSender, mOutputSender;
   iplug::ISender<1, 128, SlotMeterData> mSlotMeterSender;
   iplug::ISender<1, 64, FixedNAMGrid::LanePeaks> mLaneMeterSender;

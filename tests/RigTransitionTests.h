@@ -69,5 +69,42 @@ inline void TestRigTransition()
   assert(rejected.Idle());
   run = false;
   audio.join();
+  // Hold() timeout withdrawing kHoldRequested -> kIdle must never be overwritten to kHolding by Begin().
+  {
+    RigTransition raced;
+    std::atomic<bool> quit{false}, pause{true}, paused{false};
+    std::thread racer([&] {
+      while (!quit.load(std::memory_order_relaxed))
+      {
+        if (pause.load(std::memory_order_acquire))
+        {
+          paused.store(true, std::memory_order_release);
+          while (pause.load(std::memory_order_acquire) && !quit.load(std::memory_order_relaxed))
+            std::this_thread::yield();
+          paused.store(false, std::memory_order_release);
+          continue;
+        }
+        raced.Begin();
+      }
+    });
+    while (!paused.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    for (int iter = 0; iter < 50000; ++iter)
+    {
+      pause.store(false, std::memory_order_release);
+      while (paused.load(std::memory_order_acquire))
+        std::this_thread::yield();
+      const bool held = raced.Hold(0ms);
+      pause.store(true, std::memory_order_release);
+      while (!paused.load(std::memory_order_acquire))
+        std::this_thread::yield();
+      if (!held)
+        assert(raced.Idle());
+      raced.FinishStopped();
+    }
+    quit.store(true, std::memory_order_release);
+    pause.store(false, std::memory_order_release);
+    racer.join();
+  }
   std::cout << "Rig transitions: hold handshake, timeout fallback, dip and equal-power crossfade passed\n";
 }

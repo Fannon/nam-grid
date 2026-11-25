@@ -82,6 +82,10 @@ void TestVolumePedalMidiClap(const clap_plugin* plugin, json cleared, Load load)
   assert(std::abs(render({&half.header})) < .01);
   assert(render({&other.header}) < -50.);
   plugin->stop_processing(plugin); plugin->deactivate(plugin);
+  // Resetting the plugin clears the latched MIDI CC so the saved Position takes over until a new CC arrives.
+  assert(plugin->activate(plugin, 48000., 1, 512)); assert(plugin->start_processing(plugin));
+  assert(std::abs(render({})) < .01);
+  plugin->stop_processing(plugin); plugin->deactivate(plugin);
   // MIDI CC Off ignores controllers.
   config[std::string("Pre 1 ") + kEffectParameters[uVolumeCC].name] = 0.;
   load(config);

@@ -31,7 +31,6 @@
 using namespace iplug;
 using namespace igraphics;
 
-const double kDCBlockerFrequency = 5.0;
 // Project/rig state: one header plus a JSON object whose "schema" is kEffectStateSchema.
 const char* const kStateHeader = "###nam-grid###";
 
@@ -380,7 +379,8 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   const size_t numChannelsExternalOut = (size_t)NOutChansConnected();
   const size_t numChannelsInternal = kNumChannelsInternal;
   const size_t numFrames = (size_t)nFrames;
-  const double sampleRate = GetSampleRate();
+  const double rawSampleRate = GetSampleRate();
+  const double sampleRate = std::isfinite(rawSampleRate) && rawSampleRate > 0. ? rawSampleRate : mSampleRatePrepared;
 
   if (nFrames <= 0)
     return;
@@ -414,13 +414,22 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     mOutgoingControls = mLastModulated ? mAnimatedControls : mAudioControls.Values();
     mOutgoingRouting = grid_performance::Route(mHeldPerformance);
     mOutgoingBlend = mHeldBlend;
+    mOutgoingInputGain = mGlobalInputGain;
+    mOutgoingOutputGain = mMasterGain;
     mOutgoingGrid = mAudibleGrid;
     mAudibleGrid = mRigTransition.Target();
+    mPedalActiveCC.fill(0);
+    mPedalKnob.fill(-1.);
   }
   if (!holding)
   {
     mHeldInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
     mHeldOutputGain = GetParam(kOutputLevel)->DBToAmp();
+    if (mRigTransition.Started())
+    {
+      mGlobalInputGain = mHeldInputGain;
+      mMasterGain = mHeldOutputGain;
+    }
   }
   // Preserve host stereo until a mono NAM slot explicitly collapses it.
   _ProcessInput(inputs, numFrames, numChannelsExternalIn, numChannelsInternal, mHeldInputGain);
@@ -433,12 +442,20 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
   const bool outgoing = switching && mRigTransition.OutgoingAudible();
   if (outgoing)
     for (size_t channel = 0; channel < mOutgoingBuffers.size(); ++channel)
-      std::copy_n(mInputPointers[std::min(channel, numChannelsInternal - 1)], nFrames, mOutgoingBuffers[channel].data());
+    {
+      const auto* src = numChannelsExternalIn ? inputs[std::min(channel, numChannelsExternalIn - 1)] : nullptr;
+      auto* dst = mOutgoingBuffers[channel].data();
+      if (src)
+        for (size_t s = 0; s < numFrames; ++s)
+          dst[s] = src[s] * mOutgoingInputGain;
+      else
+        std::fill_n(dst, numFrames, 0.);
+    }
   auto& controls = mAudioControls.Values();
   const double tempo = GetTempo();
   // Song-position sources need the host's beat timeline; iPlug2 leaves -1 without one.
   const bool playing = GetTransportIsRunning() && GetPPQPos() != -1.;
-  const double blockBeats = GetPPQPos(), beatsPerFrame = tempo / (60. * GetSampleRate());
+  const double blockBeats = GetPPQPos(), beatsPerFrame = tempo / (60. * sampleRate);
   if (!holding)
   {
     for (int i = 0; i < grid_performance::Count; ++i) mHeldPerformance[i] = GetParam(PerformanceParam(i))->Value();
@@ -574,17 +591,26 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
     if (incoming)
       grid.Process(mOutputPointers[0], nFrames, controls, blend, mOutputPointers[1], routing);
   }
+  // Filter each rig in its own signal domain, before applying its output gain.
+  auto** hpfPointers = incoming ? mHighPass[mAudibleGrid].Process(mOutputPointers, numChannelsInternal, numFrames)
+                                : mOutputPointers;
   if (switching)
   {
-    auto* left = mOutgoingBuffers[0].data();
-    auto* right = mOutgoingBuffers[1].data();
+    sample* outgoingPointers[]{mOutgoingBuffers[0].data(), mOutgoingBuffers[1].data()};
+    sample** filteredOutgoing = nullptr;
     if (outgoing)
-      mGrids[mOutgoingGrid].Process(left, nFrames, mOutgoingControls, mOutgoingBlend, right, mOutgoingRouting);
+    {
+      mGrids[mOutgoingGrid].Process(outgoingPointers[0], nFrames, mOutgoingControls, mOutgoingBlend,
+                                   outgoingPointers[1], mOutgoingRouting);
+      filteredOutgoing = mHighPass[mOutgoingGrid].Process(outgoingPointers, numChannelsInternal, numFrames);
+    }
     for (int i = 0; i < nFrames; ++i)
     {
-      const double in = mRigTransition.IncomingGain(), out = outgoing ? mRigTransition.OutgoingGain() : 0.;
-      mOutputPointers[0][i] = in * mOutputPointers[0][i] + (outgoing ? out * left[i] : 0.);
-      mOutputPointers[1][i] = in * mOutputPointers[1][i] + (outgoing ? out * right[i] : 0.);
+      mMasterGain = mHeldOutputGain + mMasterCoefficient * (mMasterGain - mHeldOutputGain);
+      const double in = mRigTransition.IncomingGain() * mMasterGain;
+      const double out = outgoing ? mRigTransition.OutgoingGain() * mOutgoingOutputGain : 0.;
+      hpfPointers[0][i] = in * hpfPointers[0][i] + (outgoing ? out * filteredOutgoing[0][i] : 0.);
+      hpfPointers[1][i] = in * hpfPointers[1][i] + (outgoing ? out * filteredOutgoing[1][i] : 0.);
       mRigTransition.Advance();
     }
     if (mRigTransition.Done())
@@ -611,12 +637,9 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
       }
     }
   }
-  // Final DC blocker (upstream NAM issue 271).
-  mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
-  sample** hpfPointers = mHighPass.Process(mOutputPointers, numChannelsInternal, numFrames);
   std::feupdateenv(&fe_state);
   // Mono host outputs downmix; stereo host outputs retain independent channels.
-  _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, mHeldOutputGain);
+  _ProcessOutput(hpfPointers, outputs, numFrames, numChannelsInternal, numChannelsExternalOut, mHeldOutputGain, !switching);
   if (metering)
     mOutputSender.ProcessBlock(
       outputs, nFrames, kCtrlTagOutputMeter, static_cast<int>(std::min(size_t{2}, numChannelsExternalOut)));
@@ -640,11 +663,10 @@ void NeuralAmpModeler::ProcessBlock(iplug::sample** inputs, iplug::sample** outp
 void NeuralAmpModeler::OnReset()
 {
   const auto guard = _LockControls();
-  if (mPreviewOriginal)
-    if (auto* ui = GetUI())
-      ui->GetControlWithTag(kCtrlTagLibraryBrowser)->Hide(true);
-  EndSlotPreview(false);
-  const auto sampleRate = GetSampleRate();
+  ++mResetEpoch;
+  _CancelSlotPreviewIfActive();
+  const double rawSampleRate = GetSampleRate();
+  const double sampleRate = std::isfinite(rawSampleRate) && rawSampleRate > 0. ? rawSampleRate : 48000.;
   const int maxBlockSize = std::max(1, GetBlockSize());
   mSampleRatePrepared = sampleRate;
   mMaxBlockPrepared = maxBlockSize;
@@ -653,6 +675,8 @@ void NeuralAmpModeler::OnReset()
   mModulation.Reset(sampleRate);
   mNoteCount = 0;
   mMidiCCChanged.fill(false);
+  mPedalActiveCC.fill(0);
+  mPedalKnob.fill(-1.);
   mMasterGain = GetParam(kOutputLevel)->DBToAmp();
   mGlobalInputGain = GetParam(PerformanceParam(grid_performance::InputGain))->DBToAmp();
   mMasterCoefficient = std::exp(-1. / (.005 * sampleRate));
@@ -678,11 +702,8 @@ void NeuralAmpModeler::OnReset()
     buffer.assign(maxBlockSize, 0.);
   for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
     mRequestedLatencies[i] = mGrids[mEditGrid].stages[i].Latency();
+  mHighPass[mEditGrid].Prepare(sampleRate, kNumChannelsInternal, maxBlockSize);
   _UpdateLatency();
-  // Prime the reused output filter outside ProcessBlock.
-  mHighPass.ClearHistory();
-  mHighPass.SetParams(recursive_linear_filter::HighPassParams(sampleRate, kDCBlockerFrequency));
-  mHighPass.Process(mInputPointers, kNumChannelsInternal, maxBlockSize);
 }
 
 std::vector<std::string>* NeuralAmpModeler::_LibraryFolders(nam_library::FileKind kind)
@@ -784,6 +805,7 @@ void NeuralAmpModeler::RemoveLibraryFolder(nam_library::FileKind kind, size_t in
 }
 void NeuralAmpModeler::SelectSlot(size_t slot)
 {
+  const auto guard = _LockControls();
   if (slot >= FixedNAMGrid::kSlots)
     return;
   CloseSignalMonitor();
@@ -866,6 +888,7 @@ bool NeuralAmpModeler::CanToggleSlotQuality(size_t slot) const
 
 void NeuralAmpModeler::ToggleSlotQuality(size_t slot)
 {
+  const auto guard = _LockControls();
   if (!CanToggleSlotQuality(slot))
     return;
   const int index = SlotFullParam(slot);
@@ -1244,6 +1267,7 @@ void NeuralAmpModeler::ClearModulationRow(int row)
 
 void NeuralAmpModeler::SetPresetCrossfade(bool enabled)
 {
+  const auto guard = _LockControls();
   mPresetCrossfade = enabled;
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
   settings.presetCrossfade = enabled;
@@ -1253,6 +1277,7 @@ void NeuralAmpModeler::SetPresetCrossfade(bool enabled)
 
 void NeuralAmpModeler::SetShowVisualizations(bool enabled)
 {
+  const auto guard = _LockControls();
   mShowVisualizations = enabled;
   mSpectrumSlot.store(enabled && !IsSignalMonitorOpen() ? static_cast<int>(mSelectedSlot) : -1, std::memory_order_relaxed);
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
@@ -1262,6 +1287,7 @@ void NeuralAmpModeler::SetShowVisualizations(bool enabled)
 }
 void NeuralAmpModeler::SetShowMainMacros(bool enabled)
 {
+  const auto guard = _LockControls();
   mShowMainMacros = enabled;
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
   settings.showMainMacros = enabled;
@@ -1274,6 +1300,7 @@ void NeuralAmpModeler::SetShowMainMacros(bool enabled)
 }
 void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
 {
+  const auto guard = _LockControls();
   mRescanOnStartup = enabled;
   auto settings = nam_library::ReadSettings(CaptureSettingsFile());
   settings.rescanOnStartup = enabled;
@@ -1281,6 +1308,57 @@ void NeuralAmpModeler::SetRescanOnStartup(bool enabled)
   if (enabled && !mLibraryIndexed && !mLibraryScanning)
     RescanCaptureFolder();
   _UpdateLibraryControls();
+}
+
+unsigned NeuralAmpModeler::MonitorGeneration() const
+{
+  const auto guard = _LockControls();
+  return mMonitorGeneration;
+}
+int NeuralAmpModeler::GetActiveScene() const
+{
+  const auto guard = _LockControls();
+  return mActiveScene;
+}
+bool NeuralAmpModeler::IsRoutingOpen() const
+{
+  const auto guard = _LockControls();
+  return mRoutingOpen;
+}
+size_t NeuralAmpModeler::GetSelectedSlot() const
+{
+  const auto guard = _LockControls();
+  return mSelectedSlot;
+}
+bool NeuralAmpModeler::GetRescanOnStartup() const
+{
+  const auto guard = _LockControls();
+  return mRescanOnStartup;
+}
+bool NeuralAmpModeler::GetShowVisualizations() const
+{
+  const auto guard = _LockControls();
+  return mShowVisualizations;
+}
+bool NeuralAmpModeler::GetShowMainMacros() const
+{
+  const auto guard = _LockControls();
+  return mShowMainMacros;
+}
+bool NeuralAmpModeler::GetPresetCrossfade() const
+{
+  const auto guard = _LockControls();
+  return mPresetCrossfade;
+}
+bool NeuralAmpModeler::IsLibraryScanning() const
+{
+  const auto guard = _LockControls();
+  return mLibraryScanning;
+}
+NAMModelInfo NeuralAmpModeler::GetSlotModelInfo(size_t slot) const
+{
+  const auto guard = _LockControls();
+  return slot < mSlotInfo.size() ? mSlotInfo[slot] : NAMModelInfo{};
 }
 
 void NeuralAmpModeler::RescanCaptureFolder(bool rescan)
@@ -1459,10 +1537,10 @@ void NeuralAmpModeler::OnIdle()
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
   {
     const auto sequence = mGrids[mEditGrid].stages[slot].NoiseSequence();
-    if (sequence != mNoiseSeen[slot])
+    if ((sequence & 1) == 0 && sequence != mNoiseSeen[mEditGrid][slot])
     {
       const auto profile = GetNoiseProfile(slot);
-      mNoiseSeen[slot] = sequence;
+      mNoiseSeen[mEditGrid][slot] = sequence;
       if (!(profile == mNoiseProfiles[slot]))
       {
         mNoiseProfiles[slot] = profile;
@@ -1524,43 +1602,51 @@ static int ReadStateString(const IByteChunk& chunk, WDL_String& value, int pos)
 
 bool NeuralAmpModeler::SerializeState(IByteChunk& chunk) const
 {
-  const auto guard = _LockControls();
-  nlohmann::json config;
-  config["schema"] = kEffectStateSchema;
-  config["PresetName"] = mPresetName;
-  config["PresetDirectory"] = mPresetDirectory;
-  // Library folders are per-user settings (settings.json), never part of a project or rig.
-  config["MacroNames"] = mMacroNames;
-  config["SlotPaths"] = nlohmann::json::array();
-  for (const auto& path : mSlotPaths)
-    config["SlotPaths"].push_back(path.Get());
-  config["SlotHashes"] = mSlotHashes;
-  config["NoisePrintProfiles"] = nlohmann::json::array();
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    config["NoisePrintProfiles"].push_back(noise_print::Save(GetNoiseProfile(slot)));
-  config["SlotEffects"] = nlohmann::json::array();
-  for (const auto effect : mSlotEffects)
-    config["SlotEffects"].push_back(static_cast<int>(effect));
-  for (int i = 0; i < kNumParams; ++i)
-    config[GetParam(i)->GetName()] = GetParam(i)->Value();
-  for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
-    config[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.; // Learning is transient.
-  if (mPreviewOriginal)
+  try
   {
-    // Host autosaves and rig exports retain the committed slot until acceptance.
-    const auto& original = mPreviewOriginal->config;
-    config["SlotPaths"][mPreviewSlot] = original.path;
-    config["SlotHashes"][mPreviewSlot] = original.hash;
-    config["SlotEffects"][mPreviewSlot] = static_cast<int>(original.effect);
-    config["NoisePrintProfiles"][mPreviewSlot] = noise_print::Save(original.noiseProfile);
-    const auto indices = SlotParamIndices(mPreviewSlot);
-    for (size_t i = 0; i < indices.size(); ++i)
-      config[GetParam(indices[i])->GetName()] = original.values[i];
+    const auto guard = _LockControls();
+    nlohmann::json config;
+    config["schema"] = kEffectStateSchema;
+    config["PresetName"] = mPresetName;
+    config["PresetDirectory"] = mPresetDirectory;
+    // Library folders are per-user settings (settings.json), never part of a project or rig.
+    config["MacroNames"] = mMacroNames;
+    config["SlotPaths"] = nlohmann::json::array();
+    for (const auto& path : mSlotPaths)
+      config["SlotPaths"].push_back(path.Get());
+    config["SlotHashes"] = mSlotHashes;
+    config["NoisePrintProfiles"] = nlohmann::json::array();
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+      config["NoisePrintProfiles"].push_back(noise_print::Save(GetNoiseProfile(slot)));
+    config["SlotEffects"] = nlohmann::json::array();
+    for (const auto effect : mSlotEffects)
+      config["SlotEffects"].push_back(static_cast<int>(effect));
+    for (int i = 0; i < kNumParams; ++i)
+      config[GetParam(i)->GetName()] = GetParam(i)->Value();
+    for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+      config[GetParam(SlotUtilityParam(slot, uNoiseLearn))->GetName()] = 0.; // Learning is transient.
+    if (mPreviewOriginal)
+    {
+      // Host autosaves and rig exports retain the committed slot until acceptance.
+      const auto& original = mPreviewOriginal->config;
+      config["SlotPaths"][mPreviewSlot] = original.path;
+      config["SlotHashes"][mPreviewSlot] = original.hash;
+      config["SlotEffects"][mPreviewSlot] = static_cast<int>(original.effect);
+      config["NoisePrintProfiles"][mPreviewSlot] = noise_print::Save(original.noiseProfile);
+      const auto indices = SlotParamIndices(mPreviewSlot);
+      for (size_t i = 0; i < indices.size(); ++i)
+        config[GetParam(indices[i])->GetName()] = original.values[i];
+    }
+    performance_scenes::Compact(config, mPerformanceScenes,
+      performance_scenes::Baseline(config, [&](int i) { return GetParam(i)->GetName(); }));
+    const auto dumped = config.dump();
+    chunk.PutStr(kStateHeader);
+    return chunk.PutStr(dumped.c_str()) > 0;
   }
-  performance_scenes::Compact(config, mPerformanceScenes,
-    performance_scenes::Baseline(config, [&](int i) { return GetParam(i)->GetName(); }));
-  chunk.PutStr(kStateHeader);
-  return chunk.PutStr(config.dump().c_str()) > 0;
+  catch (const std::exception&)
+  {
+    return false;
+  }
 }
 
 void NeuralAmpModeler::_UpdatePresetControls()
@@ -1681,24 +1767,45 @@ void NeuralAmpModeler::_ApplyRig(nlohmann::json rig, const std::string& name, co
   }
   IByteChunk chunk;
   chunk.PutStr(kStateHeader); chunk.PutStr(rig.dump().c_str());
+  nlohmann::json config;
+  if (_ValidateStateChunk(chunk, 0, config) < 0)
+    throw std::runtime_error("Preset contains invalid or unsupported rig state.");
+  _CancelSlotPreviewIfActive();
   // While audio holds the current rig, stage the new one in the other grid, then switch.
   // Without a running host there is nothing to fade: edit the audible grid directly.
+  const uint64_t resetEpoch = mResetEpoch;
   const bool switching = mRigTransition.Hold(std::chrono::milliseconds(250));
   const int previousGrid = mEditGrid;
   if (switching)
     mEditGrid = 1 - mEditGrid;
-  if (UnserializeState(chunk, 0) < 0)
   {
-    mEditGrid = previousGrid;
-    if (switching) mRigTransition.Release();
-    throw std::runtime_error("Preset contains invalid or unsupported rig state.");
-  }
-  if (switching)
-  {
-    mGrids[mEditGrid].ResetStopped(mSampleRatePrepared, mMaxBlockPrepared); // Audio does not use this grid yet.
-    mInactiveGridUsed = true;
-    mRigTransition.Start(mEditGrid, mPresetCrossfade ? RigTransition::Mode::Crossfade : RigTransition::Mode::Dip,
-                         mSampleRatePrepared);
+    LatencyDeferral deferLatency(*this);
+    try
+    {
+      _UnserializeApplyConfig(config);
+    }
+    catch (...)
+    {
+      if (mResetEpoch == resetEpoch)
+      {
+        mEditGrid = previousGrid;
+        if (switching)
+          mRigTransition.Release();
+      }
+      mDeferredLatencyForceRestart = false;
+      throw;
+    }
+    if (switching && mResetEpoch == resetEpoch)
+    {
+      mGrids[mEditGrid].ResetStopped(mSampleRatePrepared, mMaxBlockPrepared); // Audio does not use this grid yet.
+      mHighPass[mEditGrid].Prepare(mSampleRatePrepared, kNumChannelsInternal, mMaxBlockPrepared);
+      for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
+        mNoiseSeen[mEditGrid][slot] = mGrids[mEditGrid].stages[slot].NoiseSequence();
+      mInactiveGridUsed = true;
+      mRigTransition.Start(mEditGrid, mPresetCrossfade ? RigTransition::Mode::Crossfade : RigTransition::Mode::Dip,
+                           mSampleRatePrepared);
+      mDeferredLatencyForceRestart = false;
+    }
   }
   mPresetDirectory = directory;
   OnRestoreState();
@@ -1768,9 +1875,13 @@ void NeuralAmpModeler::PromptRigPreset(bool save)
 {
   if (auto* ui = GetUI())
   {
-    // Without a loaded preset, Save as / Open start in the first preset folder.
-    WDL_String file, directory((mPresetDirectory.empty() && !mPresetFolders.empty() ? mPresetFolders.front() : mPresetDirectory).c_str());
-    if (save) file.Set((mPresetName + ".ngrid").c_str());
+    WDL_String file, directory;
+    {
+      const auto guard = _LockControls();
+      // Without a loaded preset, Save as / Open start in the first preset folder.
+      directory.Set((mPresetDirectory.empty() && !mPresetFolders.empty() ? mPresetFolders.front() : mPresetDirectory).c_str());
+      if (save) file.Set((mPresetName + ".ngrid").c_str());
+    }
     ui->PromptForFile(file, directory, save ? EFileAction::Save : EFileAction::Open, "ngrid",
       [this, save](const WDL_String& chosen, const WDL_String&) {
         if (!chosen.GetLength()) return;
@@ -1819,13 +1930,17 @@ std::string NeuralAmpModeler::DeleteRigPreset(const std::filesystem::path& path)
   return {};
 }
 
-int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
+void NeuralAmpModeler::_CancelSlotPreviewIfActive()
 {
-  const auto guard = _LockControls();
   if (mPreviewOriginal)
     if (auto* ui = GetUI())
-      ui->GetControlWithTag(kCtrlTagLibraryBrowser)->Hide(true);
+      if (auto* browser = ui->GetControlWithTag(kCtrlTagLibraryBrowser))
+        browser->Hide(true);
   EndSlotPreview(false);
+}
+
+int NeuralAmpModeler::_ValidateStateChunk(const IByteChunk& chunk, int startPos, nlohmann::json& configOut) const
+{
   try
   {
     if (chunk.Size() > static_cast<int>(rig_preset::kMaximumBytes) || startPos < 0)
@@ -1840,7 +1955,10 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
     pos = ReadStateString(chunk, serialized, pos);
     if (pos < 0)
       return -1;
-    auto config = nlohmann::json::parse(serialized.Get());
+    auto config = nlohmann::json::parse(serialized.Get(), [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
+      if (depth > 128) throw std::runtime_error("State nesting exceeds the supported limit.");
+      return true;
+    });
     // Check integer domains on the JSON value itself: get<int>() would wrap out-of-range values.
     const auto integerIn = [](const nlohmann::json& value, int64_t minimum, int64_t maximum) {
       if (value.is_number_unsigned())
@@ -1950,13 +2068,25 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
           for (auto& scene : config["PerformanceScenes"])
             if (scene.contains(name)) scene[name] = 0.;
         }
-    _UnserializeApplyConfig(config);
+    configOut = std::move(config);
     return pos;
   }
   catch (const std::exception&)
   {
     return -1;
   }
+}
+
+int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
+{
+  const auto guard = _LockControls();
+  nlohmann::json config;
+  const int pos = _ValidateStateChunk(chunk, startPos, config);
+  if (pos < 0)
+    return -1;
+  _CancelSlotPreviewIfActive();
+  _UnserializeApplyConfig(config);
+  return pos;
 }
 
 void NeuralAmpModeler::OnUIOpen()
@@ -2003,12 +2133,14 @@ void NeuralAmpModeler::OnUIClose()
 
 void NeuralAmpModeler::BeginInformHostOfParamChangeFromUI(int paramIdx)
 {
+  const auto guard = _LockControls();
   if (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot))
     iplug::Plugin::BeginInformHostOfParamChangeFromUI(paramIdx);
 }
 
 void NeuralAmpModeler::SendParameterValueFromUI(int paramIdx, double value)
 {
+  const auto guard = _LockControls();
   if (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot))
     iplug::Plugin::SendParameterValueFromUI(paramIdx, value);
   else
@@ -2021,6 +2153,7 @@ void NeuralAmpModeler::SendParameterValueFromUI(int paramIdx, double value)
 
 void NeuralAmpModeler::EndInformHostOfParamChangeFromUI(int paramIdx)
 {
+  const auto guard = _LockControls();
   if (!mPreviewOriginal || SlotControlOwner(paramIdx) != static_cast<int>(mPreviewSlot))
     iplug::Plugin::EndInformHostOfParamChangeFromUI(paramIdx);
 }
@@ -2066,6 +2199,7 @@ Steinberg::tresult PLUGIN_API NeuralAmpModeler::getMidiControllerAssignment(Stei
 
 void NeuralAmpModeler::ShowSignalMonitor(int point)
 {
+  const auto guard = _LockControls();
   if (point < -1 || point > 16) return;
   auto* ui = GetUI();
   if (!ui) return;
@@ -2086,6 +2220,7 @@ void NeuralAmpModeler::ShowSignalMonitor(int point)
 
 void NeuralAmpModeler::CloseSignalMonitor()
 {
+  const auto guard = _LockControls();
   if (!IsSignalMonitorOpen()) return;
   mMonitorPoint.store(-3, std::memory_order_relaxed);
   mSpectrumSlot.store(mShowVisualizations ? static_cast<int>(mSelectedSlot) : -1, std::memory_order_relaxed);
@@ -2101,6 +2236,7 @@ void NeuralAmpModeler::CloseSignalMonitor()
 
 void NeuralAmpModeler::SetRoutingOpen(bool open)
 {
+  const auto guard = _LockControls();
   auto* ui = GetUI();
   if (open) CloseSignalMonitor();
   if (open && IsTunerActive() && ui) grid_ui::DisableTunerFromUI(ui);
@@ -2121,6 +2257,7 @@ void NeuralAmpModeler::OnParamChange(int paramIdx)
 
 void NeuralAmpModeler::OnParamChangeUI(int paramIdx, EParamSource source)
 {
+  const auto guard = _LockControls();
   const int slot = SlotControlOwner(paramIdx);
   if (source == EParamSource::kUI && IsStateOnlyParam(paramIdx)
       && (!mPreviewOriginal || slot != static_cast<int>(mPreviewSlot)))
@@ -2322,8 +2459,12 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mNoiseEpochs[slot] = ++mNextNoiseEpoch;
   prepared.dsp->noiseEpoch = mNoiseEpochs[slot];
   mPreparedIRTail[slot] = prepared.dsp->ir ? prepared.dsp->ir->Length() / mSampleRatePrepared + .5 : 0.;
+  mNoiseSeen[mEditGrid][slot] = mGrids[mEditGrid].stages[slot].NoiseSequence();
 #ifdef CLAP_API
-  mGrids[mEditGrid].stages[slot].Publish(std::move(prepared.dsp), latencyChanged);
+  const auto* host = _host.host();
+  const auto* latencyExt = host && host->get_extension
+    ? static_cast<const clap_host_latency*>(host->get_extension(host, CLAP_EXT_LATENCY)) : nullptr;
+  mGrids[mEditGrid].stages[slot].Publish(std::move(prepared.dsp), isActive() && latencyExt && latencyExt->changed);
 #else
   mGrids[mEditGrid].stages[slot].Publish(std::move(prepared.dsp));
 #endif
@@ -2392,7 +2533,10 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   }
   mPreparedQuality[slot] = config.values[16];
   mPreparedIRLength[slot] = config.values[17 + uIRLength];
-  _UpdateLatency(latencyChanged);
+  if (mDeferLatencyDepth > 0)
+    mDeferredLatencyForceRestart |= latencyChanged;
+  else
+    _UpdateLatency(latencyChanged);
   SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(slot), kMsgTagLoadedModel);
 }
 
@@ -2460,18 +2604,21 @@ void NeuralAmpModeler::_ProcessInput(iplug::sample** inputs, const size_t nFrame
 }
 
 void NeuralAmpModeler::_ProcessOutput(iplug::sample** inputs, iplug::sample** outputs, const size_t nFrames,
-                                      const size_t nChansIn, const size_t nChansOut, double gain)
+                                      const size_t nChansIn, const size_t nChansOut, double gain, bool applyMasterGain)
 {
+  const double rawSampleRate = GetSampleRate();
+  const double sampleRate = std::isfinite(rawSampleRate) && rawSampleRate > 0. ? rawSampleRate : mSampleRatePrepared;
   const double target = mTuner.Enabled() && GetParam(kTunerMute)->Bool() ? 0. : 1.;
-  const double step = 1. / std::max(1., GetSampleRate() * .005);
+  const double step = 1. / std::max(1., sampleRate * .005);
   for (size_t s = 0; s < nFrames; ++s)
   {
     mTunerGain += std::clamp(target - mTunerGain, -step, step);
-    mMasterGain = gain + mMasterCoefficient * (mMasterGain - gain);
+    if (applyMasterGain)
+      mMasterGain = gain + mMasterCoefficient * (mMasterGain - gain);
     for (size_t c = 0; c < nChansOut; ++c)
     {
       const double value = nChansOut == 1 ? .5 * (inputs[0][s] + inputs[1][s]) : inputs[std::min(c, nChansIn - 1)][s];
-      outputs[c][s] = mMasterGain * mTunerGain * value;
+      outputs[c][s] = applyMasterGain ? mMasterGain * mTunerGain * value : mTunerGain * value;
 #ifdef APP_API
       outputs[c][s] = std::clamp(outputs[c][s], -1., 1.);
 #endif
@@ -2522,9 +2669,11 @@ void NeuralAmpModeler::_UpdateTailSize()
        || ((stutterMask & (1u << slot)) && GetParam(SlotUtilityParam(slot, uStutterHold))->Bool())
        || ((stutterMask & (1u << (slot + FixedNAMGrid::kSlots))) && GetParam(SlotUtilityParam(slot, uGranulatorFreeze))->Bool()))
       && GetParam(SlotActiveParam(slot))->Bool();
+  const double rawSampleRate = GetSampleRate();
+  const double sampleRate = std::isfinite(rawSampleRate) && rawSampleRate > 0. ? rawSampleRate : mSampleRatePrepared;
   const int tail = holding
                      ? kTailInfinite
-                     : static_cast<int>(std::min(2147483646., std::ceil(GetSampleRate()
+                     : static_cast<int>(std::min(2147483646., std::ceil(sampleRate
                          * (GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential
                               ? mSequentialTailSeconds.load() : mEffectTailSeconds.load()))));
   if (GetTailSize() != tail)
@@ -2537,13 +2686,20 @@ void NeuralAmpModeler::_UpdateLatency(bool forceRestart)
     GetParam(PerformanceParam(grid_performance::LaneMode))->Int() == grid_performance::Sequential);
   // A lane's delay can change while the longer lane and total host latency remain the same.
   // CLAP must still reactivate to adopt/reset the pending model and alignment buffers.
+#ifdef CLAP_API
   if (GetLatency() != latency || forceRestart)
     SetLatency(latency);
+#else
+  (void)forceRestart;
+  if (GetLatency() != latency)
+    SetLatency(latency);
+#endif
 }
 
 // Applies a state that UnserializeState has completely validated.
 void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
 {
+  LatencyDeferral deferLatency(*this);
   mPresetName = config.value("PresetName", std::string("Untitled"));
   mPresetDirectory = config.value("PresetDirectory", std::string{});
   for (size_t i = 0; i < mMacroNames.size(); ++i)
@@ -2557,8 +2713,10 @@ void NeuralAmpModeler::_UnserializeApplyConfig(nlohmann::json& config)
   // JSON object lookup avoids a full parameter-name scan for every saved value.
   for (int i = 0; i < kNumParams; ++i)
     GetParam(i)->Set(config[GetParam(i)->GetName()].get<double>());
-  OnParamReset(iplug::EParamSource::kPresetRecall);
+  for (int i = 0; i < NParams(); ++i)
+    OnParamChange(i);
   LEAVE_PARAMS_MUTEX
+  _RefreshParamDependentUI(true);
 
   for (size_t slot = 0; slot < FixedNAMGrid::kSlots; ++slot)
     _ClearModel(slot);

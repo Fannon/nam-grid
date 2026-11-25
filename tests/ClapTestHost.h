@@ -55,6 +55,7 @@ struct Stream
 struct Host
 {
   bool restart = false, callback = false, dirty = false, flushRequested = false;
+  bool advertiseLatency = true;
   // host_latency.changed() is legal only while the plugin is being activated.
   bool activating = false;
   int latencyReports = 0, misplacedLatencyReports = 0;
@@ -65,7 +66,7 @@ struct Host
   std::vector<int> fds;
   clap_id nextTimer = 1;
 #endif
-  static const void* extension(const clap_host*, const char* id)
+  static const void* extension(const clap_host* h, const char* id)
   {
 #ifdef __linux__
     static const clap_host_timer_support timer{
@@ -105,7 +106,9 @@ struct Host
       return &state;
     if (std::strcmp(id, CLAP_EXT_PARAMS) == 0)
       return &params;
-    return std::strcmp(id, CLAP_EXT_LATENCY) == 0 ? &latency : nullptr;
+    if (std::strcmp(id, CLAP_EXT_LATENCY) == 0)
+      return static_cast<const Host*>(h->host_data)->advertiseLatency ? &latency : nullptr;
+    return nullptr;
   }
   clap_host host{CLAP_VERSION_INIT,
                  this,

@@ -28,9 +28,9 @@ public:
   }
   // Silence the line without reallocating (realtime-safe).
   void Clear() { std::fill(mData.begin(), mData.end(), 0.); mIndex = 0; }
-  // Same result as std::clamp (NaN included). MSVC keeps value ternaries in
-  // registers; reference-returning std::clamp costs measurably in reverb loops.
-  double Read(double delay) const { return ReadInRange(delay < 1. ? 1. : mMaxDelay < delay ? mMaxDelay : delay); }
+  // NaN-safe value clamp. MSVC keeps value ternaries in registers;
+  // reference-returning std::clamp costs measurably in reverb loops.
+  double Read(double delay) const { return ReadInRange(!(delay >= 1.) ? 1. : (delay > mMaxDelay ? mMaxDelay : delay)); }
   // Precondition: 1 <= delay <= MaxDelay(), e.g. already clamped by the caller.
   double ReadInRange(double delay) const
   {
@@ -67,7 +67,8 @@ class SmoothControls
 public:
   void Reset(double rate)
   {
-    mCoefficient = std::exp(-1. / (.02 * rate));
+    const double safeRate = std::isfinite(rate) ? std::max(1., rate) : 48000.;
+    mCoefficient = std::exp(-1. / (.02 * safeRate));
     mFirst = true;
     mMoving = true;
   }
@@ -75,8 +76,10 @@ public:
   {
     for (size_t j = 0; j < N; ++j)
     {
-      const double target = synced && j == 0 ? values[j]
-        : std::clamp(values[j], kEffectParameters[offset + j].minimum, kEffectParameters[offset + j].maximum);
+      const auto& p = kEffectParameters[offset + j];
+      const double fallback = mFirst ? p.initial : mTarget[j];
+      const double target = !std::isfinite(values[j]) ? fallback
+        : (synced && j == 0 ? values[j] : std::clamp(values[j], p.minimum, p.maximum));
       if constexpr (N > 3) mMoving |= target != mTarget[j];
       mTarget[j] = target;
     }
@@ -90,7 +93,10 @@ public:
   {
     for (size_t j = 0; j < N; ++j)
     {
-      const double target = std::clamp(values[j], kEffectParameters[ids[j]].minimum, kEffectParameters[ids[j]].maximum);
+      const auto& p = kEffectParameters[ids[j]];
+      const double fallback = mFirst ? p.initial : mTarget[j];
+      const double target = !std::isfinite(values[j]) ? fallback
+        : std::clamp(values[j], p.minimum, p.maximum);
       if constexpr (N > 3) mMoving |= target != mTarget[j];
       mTarget[j] = target;
     }
@@ -207,7 +213,8 @@ public:
     // of gliding (Doppler). Smaller steps, such as modulation quanta and gradual tempo changes,
     // still glide. A step during a fade holds the new tap and fades again once this one ends.
     const auto& range = kEffectParameters[uDelayTime];
-    const double time = controls.sync ? values[0] : std::clamp(values[0], range.minimum, range.maximum);
+    const double time = !std::isfinite(values[0]) ? (mHasTime ? mTime : range.initial)
+      : (controls.sync ? values[0] : std::clamp(values[0], range.minimum, range.maximum));
     const bool crossfade = effect == SlotEffect::DigitalDelay && controls.extra.delayTimeChange >= .5;
     if (crossfade && !mJump && mHasTime && std::abs(time - mTime) > kJumpMs)
     {
@@ -544,6 +551,7 @@ public:
   // not a saved control; production always uses FactorForRate.
   void Reset(double rate, int factor = 0)
   {
+    rate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
     mFactor = factor == 1 || factor == 2 ? factor : FactorForRate(rate);
     mTape.Reset(rate * mFactor);
     mSetDrive = mSetBump = std::numeric_limits<double>::quiet_NaN(); // The first chunk always sets.

@@ -21,8 +21,8 @@ public:
   double Read(double samples)
   {
     const double maximum = mLine.MaxDelay();
-    mClipped |= samples > maximum || samples < 1.;
-    samples = samples < 1. ? 1. : maximum < samples ? maximum : samples; // std::clamp, without its reference cost
+    mClipped |= !(samples >= 1.) || samples > maximum;
+    samples = !(samples >= 1.) ? 1. : (samples > maximum ? maximum : samples); // NaN-safe clamp, without std::clamp reference cost
     if (mFirst) { mFrom = mTo = samples; mFirst = false; }
     if (mFade >= 1. && std::abs(samples - mTo) >= .25)
     { mFrom = mTo; mTo = samples; mFade = 0.; }

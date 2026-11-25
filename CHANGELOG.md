@@ -4,7 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. A newly learned Smart Gate profile is saved even if the host resets before the next update.
+- Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. The host is notified of a newly learned Smart Gate profile even if it resets before the next update.
+- Improved DSP recovery from invalid signal and control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay finite at low sample rates.
 
 ## [0.8.0] - 2026-11-24
 

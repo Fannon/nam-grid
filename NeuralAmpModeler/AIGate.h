@@ -68,8 +68,8 @@ public:
   void Reset(double rate, const Model& model = DefaultModel())
   {
     mModel = Supported(model) ? model : DefaultModel();
-    mRate = std::max(1., rate);
-    mHop = std::max(1, static_cast<int>(std::lround(std::max(1., rate) / mModel.tickRate)));
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mHop = std::max(1, static_cast<int>(std::lround(mRate / mModel.tickRate)));
     mFilters = {};
     mAccumulator = {};
     mState = {};
@@ -81,27 +81,27 @@ public:
     mFirst = true;
     mFastPower = mSlowPower = mOnsetGuard = 0.;
     mOnsetHold = 0;
-    mFastPowerStep = 1. - std::exp(-1. / (.0002 * rate));
-    mSlowPowerStep = 1. - std::exp(-1. / (.020 * rate));
-    mGuardOpenStep = 1. / (.0001 * rate);
-    mGuardRelease = std::exp(-1. / (.005 * rate));
-    mOnsetHoldSamples = static_cast<int>(.003 * rate);
+    mFastPowerStep = 1. - std::exp(-1. / (.0002 * mRate));
+    mSlowPowerStep = 1. - std::exp(-1. / (.020 * mRate));
+    mGuardOpenStep = 1. / (.0001 * mRate);
+    mGuardRelease = std::exp(-1. / (.005 * mRate));
+    mOnsetHoldSamples = static_cast<int>(.003 * mRate);
     constexpr double q = 4.;
     const double step = std::log(4000.) / (bands - 1);
     const double root = std::sqrt(4. * q * q - 1.);
     mSynthesis = step * root / (2. * std::atan(root));
     for (int i = 0; i < bands; ++i)
     {
-      const double frequency = std::min(5. * std::exp(step * i), .45 * rate);
-      const double omega = 6.283185307179586 * frequency / rate;
+      const double frequency = std::min(5. * std::exp(step * i), .45 * mRate);
+      const double omega = 6.283185307179586 * frequency / mRate;
       const double alpha = omega / (2. * q);
       const double inverse = 1. / (1. + alpha);
       mB0[i] = alpha * inverse;
       mA1[i] = -2. * std::cos(omega) * inverse;
       mA2[i] = (1. - alpha) * inverse;
     }
-    mMixStep = 1. / (.005 * rate);
-    mControlStep = 1. - std::exp(-mHop / (.005 * std::max(1., rate)));
+    mMixStep = 1. / (.005 * mRate);
+    mControlStep = 1. - std::exp(-mHop / (.005 * mRate));
   }
   double Reduction() const { return mReduction; }
   // Block peak after Mix, before the final gate: what the gate detects.

@@ -341,11 +341,12 @@ public:
   };
   void Reset(double rate)
   {
-    mRate = rate; mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = mHeldInput = 0.; mStep = mHeldStep = 0;
+    mRate = std::isfinite(rate) ? std::clamp(rate, 1., 1'000'000.) : 48000.;
+    mPhase = mStepPhase = mEnvelope = mHeldPhase = mHeldEnvelope = mHeldInput = 0.; mStep = mHeldStep = 0;
     // Power-of-two periods preserve common host-buffer alignment. Rounding
     // 44.1 kHz to 15 frames adds short inference calls at 64/128-frame buffers.
     mQuantumFrames = 1;
-    while (1.5 * mQuantumFrames < rate / 3000.) mQuantumFrames *= 2;
+    while (1.5 * mQuantumFrames < mRate / 3000.) mQuantumFrames *= 2;
     mUntilHold = mQuantumFrames;
     mRandom = mHeldRandom = 0.; mSeed = 0x2545F491u ^ (mInstance ? 0x9E3779B9u : 0u);
     mFast = mSlow = 0.; mArmed = true; mHoldoff = 0; mFinished = true; mSongCycle = std::numeric_limits<double>::quiet_NaN();
@@ -371,6 +372,8 @@ public:
   void Advance(const double* l, const double* r, int n, const Values& v, double tempo, const int* notes = nullptr,
                int noteCount = 0, Transport transport = {})
   {
+    // Keep the host timeline and each span's beat origin on the same clock.
+    if (!std::isfinite(tempo) || tempo <= 0.) tempo = 120.;
     const double lfo = v[SourceParam(LFOSync, mInstance)] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[SourceParam(LFODivision, mInstance)])) : v[SourceParam(LFORate, mInstance)];
     const double steps = v[SourceParam(StepSync, mInstance)] >= .5 ? 1. / grid_tempo::Seconds(tempo, static_cast<int>(v[SourceParam(StepDivision, mInstance)])) : v[SourceParam(StepRate, mInstance)];
     const double attack = std::exp(-1. / (.001 * v[SourceParam(EnvAttack, mInstance)] * mRate));
@@ -385,21 +388,24 @@ public:
     // Song position: while the host plays, the phase follows its beat position, so cycles
     // line up with beat 0 (and the bars) on every playback, through tempo changes and loops.
     // Stopped, the source runs free from where it was.
-    const bool lfoSong = lfoRetrigger == RetriggerSong && transport.playing;
-    const bool stepSong = stepRetrigger == RetriggerSong && transport.playing;
+    const bool songValid = transport.playing && std::isfinite(transport.beats);
+    const bool lfoSong = lfoRetrigger == RetriggerSong && songValid;
+    const bool stepSong = stepRetrigger == RetriggerSong && songValid;
     const double beatsPerSample = tempo / (60. * mRate);
     const double lfoPerBeat = lfo * 60. / tempo, stepsPerBeat = steps * 60. / tempo;
     if (!lfoSong) mSongCycle = std::numeric_limits<double>::quiet_NaN(); // Re-derive Random on the next playback.
     int nextNote = 0;
     for (int i = 0; i < n; ++i)
     {
-      const double peak = std::max(std::abs(l[i]), r ? std::abs(r[i]) : 0.);
-      mEnvelope = peak + (peak > mEnvelope ? attack : release) * (mEnvelope - peak);
+      const double absL = l ? std::abs(l[i]) : 0., absR = r ? std::abs(r[i]) : 0.;
+      const double peak = std::max(std::isfinite(absL) ? absL : 0., std::isfinite(absR) ? absR : 0.);
+      const auto flush = [](double x) { return std::isfinite(x) && std::abs(x) >= 1.e-30 ? x : 0.; };
+      mEnvelope = flush(peak + (peak > mEnvelope ? attack : release) * (mEnvelope - peak));
       bool onset = false;
       if (onsets)
       {
-        mFast = peak + (peak > mFast ? fastAttack : fastRelease) * (mFast - peak);
-        mSlow = peak + slow * (mSlow - peak);
+        mFast = flush(peak + (peak > mFast ? fastAttack : fastRelease) * (mFast - peak));
+        mSlow = flush(peak + slow * (mSlow - peak));
         if (mHoldoff > 0) --mHoldoff;
         if (mArmed && mHoldoff == 0 && mFast > floor && mFast > 2. * mSlow)
         {
@@ -421,9 +427,13 @@ public:
       if (lfoSong)
       {
         // One Shot has no trigger to wait for here. Random repeats per song cycle.
-        const double position = beats * lfoPerBeat, cycle = std::floor(position);
-        if (cycle != mSongCycle) { mSongCycle = cycle; mRandom = SongRandom(cycle); }
-        mPhase = position - cycle;
+        const double position = beats * lfoPerBeat;
+        if (std::isfinite(position))
+        {
+          const double cycle = std::floor(position);
+          if (cycle != mSongCycle) { mSongCycle = cycle; mRandom = SongRandom(cycle); }
+          mPhase = std::clamp(position - cycle, 0., 1.);
+        }
       }
       else if (oneShot)
       {
@@ -439,9 +449,14 @@ public:
       }
       if (stepSong)
       {
-        const double position = beats * stepsPerBeat, index = std::floor(position);
-        mStepPhase = position - index;
-        mStep = static_cast<int>(index - 8. * std::floor(index / 8.));
+        const double position = beats * stepsPerBeat;
+        if (std::isfinite(position))
+        {
+          const double index = std::floor(position);
+          mStepPhase = std::clamp(position - index, 0., 1.);
+          const double wrapped = index - 8. * std::floor(index / 8.);
+          mStep = std::isfinite(wrapped) ? std::clamp(static_cast<int>(wrapped), 0, 7) : 0;
+        }
       }
       else
       {
@@ -452,7 +467,7 @@ public:
       {
         mUntilHold = mQuantumFrames;
         mHeldPhase = mPhase; mHeldInput = mEnvelope; mHeldEnvelope = ShapeEnvelope(mEnvelope, v, mInstance);
-        mHeldStep = mStep; mHeldRandom = mRandom;
+        mHeldStep = std::clamp(mStep, 0, 7); mHeldRandom = mRandom;
       }
     }
     mMonitorPhase.store(static_cast<float>(mHeldPhase), std::memory_order_relaxed);
@@ -482,7 +497,7 @@ public:
     {
       case SourceLFO: return LFOValue(v);
       case SourceEnvelope: return mHeldEnvelope;
-      case SourceSequencer: return v[SourceParam(Seq1Step1, mInstance) + mHeldStep] * .02 - 1.;
+      case SourceSequencer: return v[SourceParam(Seq1Step1, mInstance) + std::clamp(mHeldStep, 0, 7)] * .02 - 1.;
       case SourceMacro1: case SourceMacro2: case SourceMacro3: case SourceMacro4:
         return std::clamp(v[macros[source - SourceMacro1]] * .01, 0., 1.);
       default: return 0.;
@@ -492,7 +507,8 @@ private:
   // The same held value for a song cycle on every playback (splitmix64 of the cycle index).
   double SongRandom(double cycle) const
   {
-    uint64_t x = static_cast<uint64_t>(static_cast<int64_t>(cycle)) + (mInstance ? 0x632BE59BD9B4E019ull : 0ull);
+    const int64_t whole = std::isfinite(cycle) && std::abs(cycle) < 9.e18 ? static_cast<int64_t>(cycle) : 0;
+    uint64_t x = static_cast<uint64_t>(whole) + (mInstance ? 0x632BE59BD9B4E019ull : 0ull);
     x += 0x9E3779B97F4A7C15ull;
     x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ull;
     x = (x ^ (x >> 27)) * 0x94D049BB133111EBull;

@@ -463,7 +463,7 @@ inline const Preset cosmic[]{
   {"Dark lead hall", {{U(uCosmicStyle), 11.}, {U(uCosmicTime), 390.}, {U(uCosmicWarp), 46.}, {U(uCosmicFeedback), 64.}, {U(uCosmicDensity), 80.}, {U(uCosmicTone), 3000.}, {U(uCosmicMotion), 22.}, {U(uCosmicMix), 26.}}},
   {"Bright ambient hall", {{U(uCosmicStyle), 11.}, {U(uCosmicTime), 800.}, {U(uCosmicWarp), 22.}, {U(uCosmicFeedback), 83.}, {U(uCosmicDensity), 94.}, {U(uCosmicTone), 13000.}, {U(uCosmicMotion), 44.}, {U(uCosmicMix), 28.}}},
   {"Still cavern", {{U(uCosmicStyle), 11.}, {U(uCosmicTime), 1600.}, {U(uCosmicWarp), 62.}, {U(uCosmicFeedback), 96.}, {U(uCosmicDensity), 96.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 0.}, {U(uCosmicMix), 30.}}},
-  {"Deep field", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 385.}, {U(uCosmicWarp), 15.}, {U(uCosmicFeedback), 88.}, {U(uCosmicDensity), 94.}, {U(uCosmicTone), 4400.}, {U(uCosmicMotion), 24.}, {U(uCosmicMix), 30.}}},
+  {"Deep field", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 385.}, {U(uCosmicWarp), 15.}, {U(uCosmicFeedback), 88.}, {U(uCosmicDensity), 94.}, {U(uCosmicTone), 4400.}, {U(uCosmicMotion), 24.}, {U(uCosmicMix), 24.}}},
   {"Flooded nave", {{U(uCosmicStyle), 12.}, {U(uCosmicTime), 309.}, {U(uCosmicWarp), 86.}, {U(uCosmicFeedback), 65.3}, {U(uCosmicDensity), 67.5}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 16.9}, {U(uCosmicMix), 39.4}}},
   {"Distant stone", {{U(uCosmicStyle), 12.}, {U(uCosmicTime), 580.}, {U(uCosmicWarp), 85.}, {U(uCosmicFeedback), 20.}, {U(uCosmicDensity), 68.}, {U(uCosmicTone), 9000.}, {U(uCosmicMotion), 0.}, {U(uCosmicMix), 19.}}},
   {"Compact Gemini room", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 80.}, {U(uCosmicWarp), 65.}, {U(uCosmicFeedback), 38.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 7500.}, {U(uCosmicMotion), 8.}, {U(uCosmicMix), 14.}}},
@@ -478,7 +478,7 @@ inline const Preset cosmic[]{
   {"Soft ambient bed", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 350.}, {U(uCosmicWarp), 80.}, {U(uCosmicFeedback), 65.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 15.}, {U(uCosmicMix), 22.}}},
   {"Enveloping swells", {{U(uCosmicStyle), 3.}, {U(uCosmicTime), 450.}, {U(uCosmicWarp), 72.}, {U(uCosmicFeedback), 72.}, {U(uCosmicDensity), 95.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
   {"Slow swell", {{U(uCosmicStyle), 1.}, {U(uCosmicTime), 400.}, {U(uCosmicMix), 25.}}},
-  {"Chord bloom", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 700.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 90.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 30.}}},
+  {"Chord bloom", {{U(uCosmicStyle), 8.}, {U(uCosmicTime), 700.}, {U(uCosmicWarp), 75.}, {U(uCosmicFeedback), 90.}, {U(uCosmicDensity), 90.}, {U(uCosmicTone), 5000.}, {U(uCosmicMotion), 25.}, {U(uCosmicMix), 25.}}},
   {"Velvet constellation", {{U(uCosmicStyle), 0.}, {U(uCosmicTime), 950.}, {U(uCosmicWarp), 82.}, {U(uCosmicFeedback), 77.}, {U(uCosmicDensity), 98.}, {U(uCosmicTone), 5500.}, {U(uCosmicMotion), 45.}, {U(uCosmicMix), 35.}}},
   {"Dark orbit", {{U(uCosmicStyle), 6.}, {U(uCosmicTime), 500.}, {U(uCosmicWarp), 78.}, {U(uCosmicFeedback), 91.}, {U(uCosmicDensity), 100.}, {U(uCosmicTone), 2800.}, {U(uCosmicMotion), 50.}, {U(uCosmicMix), 32.}}},
 };

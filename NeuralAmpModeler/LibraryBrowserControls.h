@@ -81,7 +81,7 @@ public:
     SetFocus(view);
 #endif
   }
-  void Blur() { mFocused = false; SetDirty(false); }
+  void Blur() { mFocused = mEditing = false; SetDirty(false); }
   void BeginEdit()
   {
     Focus();

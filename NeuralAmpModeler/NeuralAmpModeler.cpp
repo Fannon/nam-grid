@@ -318,7 +318,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       if (!ui->GetControlWithTag(kCtrlTagModulePresetName)->IsHidden()) return true;
       auto* browser = ui->GetControlWithTag(kCtrlTagLibraryBrowser);
       if (!browser->IsHidden())
-        return keyUp || browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
+      {
+        // iPlug consumes Escape key-down while editing. The release still reaches
+        // this handler, so close the browser before another input event arrives.
+        if (keyUp && key.VK != kVK_ESCAPE) return true;
+        return browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
+      }
       auto* performance = ui->GetControlWithTag(kCtrlTagPerformance);
       if (!keyUp && key.VK == kVK_ESCAPE && !performance->IsHidden()) { performance->Hide(true); return true; }
       if (!keyUp && key.VK == kVK_ESCAPE && IsSignalMonitorOpen()) { CloseSignalMonitor(); return true; }

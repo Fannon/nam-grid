@@ -105,7 +105,7 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
     SendMessage(editor, WM_LBUTTONUP, 0, xy(37, 128));
     PumpFor(40);
   };
-  const auto key = [&](int vk, BYTE modifiers = 0) {
+  const auto key = [&](int vk, BYTE modifiers = 0, bool pumpAfter = true) {
     BYTE previous[256]{}, neutral[256]{};
     assert(GetKeyboardState(previous));
     neutral[VK_SHIFT] = modifiers & 1 ? 0x80 : 0;
@@ -116,7 +116,7 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
     SendMessage(target, WM_KEYDOWN, vk, static_cast<LPARAM>(MapVirtualKey(vk, MAPVK_VK_TO_VSC)) << 16);
     SendMessage(target, WM_KEYUP, vk, 0);
     assert(SetKeyboardState(previous));
-    PumpFor(20);
+    if (pumpAfter) PumpFor(20);
   };
   // Simulate a floating plugin whose host still owns the foreground window.
   // Sending keys directly to the editor used to hide this failure.
@@ -167,12 +167,12 @@ static void CheckEditor(HWND parent, double scale, const std::function<double()>
   assert(forwarded == 0);
   key(VK_ESCAPE); // Close the browser.
   assert(forwarded == 0);
-  // A single Escape during a live search also closes the browser. Verify the
-  // underlying numeric editor is reachable, in both CLAP and VST3.
+  // A single Escape during a live search closes the browser before another
+  // draw tick. Verify the underlying numeric editor is immediately reachable.
   SendMessage(editor, WM_LBUTTONDOWN, MK_LBUTTON, xy(470, 28));
   SendMessage(editor, WM_LBUTTONUP, 0, xy(470, 28));
   PumpFor(100);
-  key('Z'); key(VK_ESCAPE);
+  key('Z'); key(VK_ESCAPE, 0, false);
   clickValue(); key('7'); key(VK_RETURN);
   assert(std::abs(inputDB() - 7.) < .01);
   clickValue(); key('9'); key(VK_ESCAPE);

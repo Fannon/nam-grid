@@ -1808,9 +1808,14 @@ public:
     {
       const IRECT presetBounds(nameRight - 104.f, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
       if (mPresetButton->GetRECT() != presetBounds) mPresetButton->SetTargetAndDrawRECTs(presetBounds);
-      const auto caption = MatchingPresetName(effect);
-      const char* label = caption.empty() ? "Presets" : caption.c_str();
-      if (std::strcmp(mPresetButton->GetLabelStr(), label) != 0) mPresetButton->SetLabelStr(label);
+      if (!draw || mPresetLabelDirty || effect != mPresetLabelEffect)
+      {
+        const auto caption = MatchingPresetName(effect);
+        const char* label = caption.empty() ? "Presets" : caption.c_str();
+        if (std::strcmp(mPresetButton->GetLabelStr(), label) != 0) mPresetButton->SetLabelStr(label);
+        mPresetLabelDirty = false;
+        mPresetLabelEffect = effect;
+      }
       nameRight = presetBounds.L - 6.f;
     }
     const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
@@ -1843,7 +1848,11 @@ public:
   {
     using namespace grid_ui;
     LayoutHeader(g, true);
-    UpdateModuleTooltip(g);
+    if (mTooltipDirty)
+    {
+      UpdateModuleTooltip(g);
+      mTooltipDirty = false;
+    }
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const bool empty = PLUG()->GetSlotPath(mSlot).empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
@@ -1863,6 +1872,8 @@ public:
   }
   void RedrawEditor()
   {
+    mPresetLabelDirty = true;
+    mTooltipDirty = true;
     if (mEditor && !mEditor->IsHidden()) mEditor->SetDirty(false);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
@@ -1977,6 +1988,7 @@ public:
       if (learning || learning != mLastNoiseLearn)
       {
         mLastNoiseLearn = learning;
+        mPresetLabelDirty = true;
         mEditor->SetDirty(false);
       }
     }
@@ -2505,14 +2517,11 @@ private:
           const float level = history[(mReductionWrite + index) % history.size()];
           return area.T + area.H() * std::clamp(20.f * std::log10(std::max(level, 1.e-6f))/floorDB, 0.f, 1.f);
         };
-        float previous = y(0);
+        g.PathClear();
+        g.PathMoveTo(area.L, y(0));
         for (size_t i = 1; i < history.size(); ++i)
-        {
-          const float current = y(i);
-          g.DrawLine(traceColor, area.L + area.W() * (i - 1) / (history.size() - 1), previous,
-                                 area.L + area.W() * i / (history.size() - 1), current, nullptr, width);
-          previous = current;
-        }
+          g.PathLineTo(area.L + area.W() * i / (history.size() - 1), y(i));
+        g.PathStroke(IPattern(traceColor), width);
       };
       trace(mInputHistory, muted.WithOpacity(.85f), 1.f);
       if (effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate) trace(mCleanHistory, ampColor, 1.f);
@@ -3075,13 +3084,15 @@ private:
     {
       // Auto-scaled so the shape stays readable at any level; level is on the meters.
       const float half = scope.W() * .5f * .92f;
+      g.PathClear();
       for (size_t i = 0; i < mScopeLeft.size(); ++i)
       {
         const auto [side, mid] = signal_monitor::Goniometer(mScopeLeft[i] / peak, mScopeRight[i] / peak);
         const float x = scope.MW() + half * static_cast<float>(side);
         const float y = scope.MH() - half * static_cast<float>(mid);
-        g.FillRect(color.WithOpacity(.55f), IRECT(x - .75f, y - .75f, x + .75f, y + .75f));
+        g.PathRect(IRECT(x - .75f, y - .75f, x + .75f, y + .75f));
       }
+      g.PathFill(IPattern(color.WithOpacity(.55f)));
     }
     else g.DrawText(Text(12.f, muted, EAlign::Center), "Play to see", scope);
     // Correlation, then left and right RMS on one dB scale.
@@ -3261,15 +3272,19 @@ private:
   {
     const size_t size = mInputHistory.size();
     const float step = area.W() / static_cast<float>(size - 1);
+    bool any = false;
+    g.PathClear();
     for (size_t i = 0; i < size; ++i)
     {
       const size_t k = (mReductionWrite + i) % size;
       const float drop = 20.f * std::log10(std::max(mInputHistory[k], 1.e-5f) / std::max(mOutputHistory[k], 1.e-5f)) + trimDB;
       if (drop <= 0.f) continue;
       const float x = area.L + step * static_cast<float>(i);
-      g.FillRect(grid_ui::ampColor.WithOpacity(.16f), IRECT(std::max(area.L, x - .5f * step), area.T,
+      g.PathRect(IRECT(std::max(area.L, x - .5f * step), area.T,
         std::min(area.R, x + .5f * step), area.T + area.H() * std::min(drop / range, 1.f)));
+      any = true;
     }
+    if (any) g.PathFill(IPattern(grid_ui::ampColor.WithOpacity(.16f)));
   }
   // Gain reduction over time, hanging from 0 dB at the top like a console GR meter.
   void DrawReductionHistory(IGraphics& g, const IRECT& area)
@@ -3287,17 +3302,38 @@ private:
     g.DrawText(Text(11.f, muted), "GR", IRECT(area.L + 3.f, area.T, area.L + 30.f, area.T + 13.f));
     const auto size = mReductionHistory.size();
     const float step = area.W() / static_cast<float>(size - 1);
-    float previous = area.T;
+    bool hasOverflow = false;
+    g.PathClear();
     for (size_t i = 0; i < size; ++i)
     {
       const float reduction = mReductionHistory[(mReductionWrite + i) % size];
       const float y = area.T + area.H() * std::clamp(reduction / range, 0.f, 1.f);
       const float x = area.L + step * static_cast<float>(i);
-      g.FillRect(ampColor.WithOpacity(.3f), IRECT(std::max(area.L, x - .5f * step), area.T, std::min(area.R, x + .5f * step), y));
-      if (i) g.DrawLine(ampColor, x - step, previous, x, y, nullptr, 1.5f);
-      if (reduction > range)
-        g.FillRect(reductionOverflowColor, IRECT(std::max(area.L,x-.5f*step),area.B-3.f,std::min(area.R,x+.5f*step),area.B));
-      previous = y;
+      g.PathRect(IRECT(std::max(area.L, x - .5f * step), area.T, std::min(area.R, x + .5f * step), y));
+      if (reduction > range) hasOverflow = true;
+    }
+    g.PathFill(IPattern(ampColor.WithOpacity(.3f)));
+    g.PathClear();
+    for (size_t i = 0; i < size; ++i)
+    {
+      const float reduction = mReductionHistory[(mReductionWrite + i) % size];
+      const float y = area.T + area.H() * std::clamp(reduction / range, 0.f, 1.f);
+      const float x = area.L + step * static_cast<float>(i);
+      if (i == 0) g.PathMoveTo(x, y);
+      else g.PathLineTo(x, y);
+    }
+    g.PathStroke(IPattern(ampColor), 1.5f);
+    if (hasOverflow)
+    {
+      g.PathClear();
+      for (size_t i = 0; i < size; ++i)
+      {
+        const float reduction = mReductionHistory[(mReductionWrite + i) % size];
+        if (reduction <= range) continue;
+        const float x = area.L + step * static_cast<float>(i);
+        g.PathRect(IRECT(std::max(area.L, x - .5f * step), area.B - 3.f, std::min(area.R, x + .5f * step), area.B));
+      }
+      g.PathFill(IPattern(reductionOverflowColor));
     }
   }
   // Live output spectrum as a filled area on its own dBFS scale: a different
@@ -3380,6 +3416,8 @@ private:
     const bool gate = effect == SlotEffect::NoiseGate;
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
     const bool ir = effect == SlotEffect::CabinetIR;
+    mPresetLabelDirty = true;
+    mTooltipDirty = true;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     LayoutHeader(*GetUI(), false);
     mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen() || PLUG()->IsSignalMonitorOpen());
@@ -3478,6 +3516,7 @@ private:
     if (mEditor && selected)
     {
       UpdateModuleTooltip(*GetUI());
+      mTooltipDirty = false;
       mEditor->SetDirty(false);
     }
     SetDirty(false);
@@ -3507,6 +3546,7 @@ private:
                                             : std::vector<module_presets::UserPreset>{};
     mUserPresetsEffect = effect;
     mUserPresetsLoaded = true;
+    mPresetLabelDirty = true;
   }
   // The factory or user preset the current controls equal, or empty.
   std::string MatchingPresetName(SlotEffect effect)
@@ -3725,6 +3765,8 @@ private:
   ILayerPtr mPedalDistortionPreview;
   std::array<double, 10> mPedalDistortionPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;
+  SlotEffect mPresetLabelEffect = SlotEffect::NAM;
+  bool mPresetLabelDirty = true, mTooltipDirty = true;
   std::string mPlotPath;
   std::array<float, 120> mInputHistory{}, mOutputHistory{}, mCleanHistory{}, mReductionHistory{};
   std::array<float, 96> mResponse{};

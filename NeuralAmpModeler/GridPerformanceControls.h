@@ -472,14 +472,14 @@ public:
     static constexpr double random[]{.55, -.35, .85, -.8, .15, -.5, .7, -.1};
     const auto wave = [&](double phase) { return shape == 5 ? random[std::min(7, static_cast<int>(phase * 8.))] : LFOWave(shape, phase); };
     const auto color = SourceColor(mInstance ? SourceLFO2 : SourceLFO);
-    float px = plot.L, py = y(wave(0.));
+    g.PathClear();
+    g.PathMoveTo(plot.L, y(wave(0.)));
     for (int i = 1; i <= 240; ++i)
     {
       const double phase = std::min(i / 240., .99999);
-      const float x = plot.L + plot.W() * i / 240.f, ny = y(wave(phase));
-      g.DrawLine(color, px, py, x, ny, nullptr, 2.f);
-      px = x; py = ny;
+      g.PathLineTo(plot.L + plot.W() * i / 240.f, y(wave(phase)));
     }
+    g.PathStroke(IPattern(color), 2.f);
     const auto monitor = PLUG()->ModulationMonitor().Instance(mInstance);
     if (monitor.running && shape != 5)
     {
@@ -527,13 +527,23 @@ public:
     };
     const size_t count = mOutput.size();
     const float w = plot.W() / count;
+    g.PathClear();
     for (size_t i = 0; i < count; ++i)
     {
       const size_t at = (mWrite + i) % count;
       const float x = plot.L + w * i;
-      g.FillRect(color.WithOpacity(.55f), IRECT(x, plot.B - plot.H() * mOutput[at], x + w + .5f, plot.B));
-      if (i) g.DrawLine(muted.WithOpacity(.8f), x - w, levelY(mLevel[(at + count - 1) % count]), x, levelY(mLevel[at]));
+      g.PathRect(IRECT(x, plot.B - plot.H() * mOutput[at], x + w + .5f, plot.B));
     }
+    g.PathFill(IPattern(color.WithOpacity(.55f)));
+    g.PathClear();
+    for (size_t i = 0; i < count; ++i)
+    {
+      const size_t at = (mWrite + i) % count;
+      const float x = plot.L + w * i, ly = levelY(mLevel[at]);
+      if (i == 0) g.PathMoveTo(x, ly);
+      else g.PathLineTo(x, ly);
+    }
+    g.PathStroke(IPattern(muted.WithOpacity(.8f)), 1.f);
     if (v[SourceParam(EnvThreshold, mInstance)] > kThresholdOff)
     {
       const float y = levelY(std::pow(10., v[SourceParam(EnvThreshold, mInstance)] * .05));
@@ -782,16 +792,17 @@ private:
     for (double hz : {100., 1000., 10000.}) g.DrawLine(border.WithOpacity(.5f), x(hz), plot.T, x(hz), plot.B);
     for (int lane = 0; lane < 2; ++lane)
     {
-      float px = plot.L, py = 0.f;
+      g.PathClear();
       for (int i = 0; i <= 160; ++i)
       {
         const double hz = 20.*std::pow(1000., i/160.), ratio = hz/frequency;
         const double low = steep ? 1./(1.+std::pow(ratio, 4.)) : 1./std::sqrt(1.+ratio*ratio);
         const double high = steep ? std::pow(ratio, 4.)/(1.+std::pow(ratio, 4.)) : ratio/std::sqrt(1.+ratio*ratio);
         const float nx = x(hz), ny = plot.B-plot.H()*.9f*static_cast<float>(lane ? high : low);
-        if (i) g.DrawLine(lane ? cabColor : ampColor, px, py, nx, ny, nullptr, 1.5f);
-        px = nx; py = ny;
+        if (i == 0) g.PathMoveTo(nx, ny);
+        else g.PathLineTo(nx, ny);
       }
+      g.PathStroke(IPattern(lane ? cabColor : ampColor), 1.5f);
     }
     g.DrawLine(muted, x(frequency), plot.T, x(frequency), plot.B);
     for (const auto& [hz, label] : {std::pair{100., "100"}, std::pair{1000., "1k"}, std::pair{10000., "10k"}})

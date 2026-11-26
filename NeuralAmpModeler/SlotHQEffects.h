@@ -407,8 +407,9 @@ public:
       mCounter %= 32;
       mShare = mShareTarget + mShareSmoothing * (mShare - mShareTarget);
       const double dryL = l[i], dryR = r ? r[i] : dryL;
-      // Draining fades the pitched share with the input; the tail then decays as a plain reverb.
-      const double share = mShare * mDrain.Tick(draining);
+      // Draining ramps both pitched share and tank feedback to zero so bypassed tanks clear quickly.
+      const double drain = mDrain.Tick(draining);
+      const double share = mShare * drain;
       mInputLow[0] = grid_fx::Flush(dryL + coefficient * (mInputLow[0] - dryL));
       mInputLow[1] = grid_fx::Flush(dryR + coefficient * (mInputLow[1] - dryR));
       double inputL = (.75 * (dryL - mInputLow[0]) + .25 * (dryR - mInputLow[1])) * (1. - mFreeze);
@@ -424,8 +425,8 @@ public:
       }
       else // Open, so raising Bloom during a note does not cut the tank input.
         mSwell = {mPeak, mPeak};
-      const double wetL = kOutput * mTank[0].Process(inputL, share, v[3], diffusionScale);
-      const double wetR = kOutput * mTank[1].Process(inputR, share, v[3], diffusionScale);
+      const double wetL = kOutput * mTank[0].Process(inputL, share, v[3], diffusionScale, drain);
+      const double wetR = kOutput * mTank[1].Process(inputR, share, v[3], diffusionScale, drain);
       const double mix = v[0] * .01;
       l[i] = mMixLaw.Apply(dryL + mix * (wetL - dryL), dryL, mix, 1.);
       if (r)
@@ -503,7 +504,7 @@ private:
       counter = 0;
       powerSmoothing = std::exp(-1. / (.05 * mRate));
     }
-    double Process(double input, double share, double semitones, double diffusionScale)
+    double Process(double input, double share, double semitones, double diffusionScale, double drain = 1.)
     {
       for (int j = 0; j < 4; ++j)
         input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, diffusion);
@@ -534,7 +535,7 @@ private:
         // The grains add a little DC on every pitched pass; without a blocker in the
         // loop it built up to a fifth of the tail's level. 5 Hz keeps low notes' decay.
         loopLow[j] = grid_fx::Flush(loopLow[j] + dcCut * (shelved - loopLow[j]));
-        taps[j] = (shelved - loopLow[j]) * feedback[j];
+        taps[j] = (shelved - loopLow[j]) * feedback[j] * drain;
         wet += (j % 2 ? -1. : 1.) * tap * .125;
       }
       // The shifters keep their history at zero share, so Amount changes glide in.
@@ -558,6 +559,7 @@ private:
         if (share < 1.e-6)
         {
           shifter[k / 2].Feed(x, k % 2);
+          shiftLow[k] = grid_fx::Flush(shiftPole * shiftLow[k]);
           continue;
         }
         const double dry = taps[kShifted[k]];

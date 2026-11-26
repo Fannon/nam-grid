@@ -486,7 +486,7 @@ public:
     mLastShaped = 0.;
     mTarget = {};
   }
-  void Process(double* samples, int frames, const UtilityControls& c)
+  void Process(double* samples, int frames, const UtilityControls& c, double* right = nullptr)
   {
     mExtras.Target({c.extra.swellCurve, c.extra.swellHold, c.extra.swellMix}, std::array<int, 3>{uSwellCurve, uSwellHold, uSwellMix});
     // Smooth the derived threshold/rates so automation has no block-sized steps.
@@ -512,7 +512,7 @@ public:
         mValueMoving = moving;
       }
       const auto& extra = mExtras.Tick();
-      const double peak = std::abs(samples[i]);
+      const double peak = right ? std::max(std::abs(samples[i]), std::abs(right[i])) : std::abs(samples[i]);
       mEnv = peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak);
       if (std::abs(mEnv) < 1.e-30) mEnv = 0.;
       if (mEnv >= mValue[0])
@@ -539,7 +539,9 @@ public:
         }
         shaped = mLastShaped;
       }
-      samples[i] *= extra[2] == 100. ? shaped : 1. + extra[2] * .01 * (shaped - 1.);
+      const double applied = extra[2] == 100. ? shaped : 1. + extra[2] * .01 * (shaped - 1.);
+      samples[i] *= applied;
+      if (right) right[i] *= applied;
     }
   }
 

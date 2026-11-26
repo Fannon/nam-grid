@@ -176,5 +176,44 @@ void TestTrails()
       for (int i = static_cast<int>(rate * 26.); i < longFrames; ++i)
         assert(i < enableAt ? r.output[ch][i] == 0. : std::abs(r.output[ch][i]) < 1.e-9);
   }
+  // With Trails off, bypassing a long-decay reverb must ramp feedback down and suspend
+  // within a few seconds (not burn CPU for 30-60 s), leaving no stale tail on re-enable.
+  for (const auto effect : {E::RoomReverb, E::PlateReverb, E::CloudReverb, E::HallReverb, E::SpringReverb, E::ShimmerReverb})
+    for (const int springTank : (effect == E::SpringReverb ? std::vector<int>{0, 1} : std::vector<int>{0}))
+    {
+      SlotConfig config; config.effect = effect;
+      auto prepared = PrepareSlot(config, rate, kBlock);
+      auto* tank = prepared.dsp.get();
+      NAMStage stage; stage.Publish(std::move(prepared.dsp)); stage.ResetStopped(rate, kBlock);
+      UtilityControls c;
+      c.trails = false;
+      c.reverb = {15., 100., 12000., 0., 100.};
+      c.spring = {10., 0., 50., 100., 0.};
+      c.extra.springTank = static_cast<double>(springTank);
+      c.shimmer = {100., 20., 10000., 12., 60., 0., 0.};
+      std::array<double, kBlock> l{}, r{};
+      // Charge the tank for 0.5 s.
+      for (int pos = 0; pos < static_cast<int>(rate * .5); pos += kBlock)
+      {
+        for (int i = 0; i < kBlock; ++i) { l[i] = Phrase(pos + i, 0, rate); r[i] = Phrase(pos + i, 1, rate); }
+        stage.Process(l.data(), kBlock, true, 0., 0., {}, {}, c, r.data());
+      }
+      // Bypass with silence for 4.5 s: feedback drains and stage suspends.
+      for (int pos = 0; pos < static_cast<int>(rate * 4.5); pos += kBlock)
+      {
+        l.fill(0.); r.fill(0.);
+        stage.Process(l.data(), kBlock, false, 0., 0., {}, {}, c, r.data());
+      }
+      assert(tank->drainFrames >= tank->drainLimit);
+      // Re-enable with silence: no old tail resurfaces.
+      double resurfaced = 0.;
+      for (int pos = 0; pos < static_cast<int>(rate * .1); pos += kBlock)
+      {
+        l.fill(0.); r.fill(0.);
+        stage.Process(l.data(), kBlock, true, 0., 0., {}, {}, c, r.data());
+        for (int i = 0; i < kBlock; ++i) resurfaced = std::max({resurfaced, std::abs(l[i]), std::abs(r[i])});
+      }
+      assert(resurfaced < 1.e-6);
+    }
   std::cout << "Trails: " << effects.size() << " delays/reverbs ring out after bypass without new input, mono and stereo\n";
 }

@@ -311,11 +311,12 @@ public:
                                            // Sagittarius can chain eight full-length delays. Include modulation,
                                            // fixed offsets and filter settling before suspending a bypassed tank.
                                            : effect == SlotEffect::CosmicEcho ? 8.*(kEffectParameters[uCosmicTime].maximum*.001+.02)+1.
-                                           : IsReverb(effect) ? 60.
+                                           : IsAirReverb(effect) ? 60.
+                                           : IsReverb(effect) ? 4.
                                            // Silence refills the 4 s buffer, the last grains end and the
                                            // plate's longest decay (8 s) settles.
                                            : effect == SlotEffect::Granulator ? 15.
-                                           : effect == SlotEffect::ShimmerReverb ? 30.
+                                           : effect == SlotEffect::ShimmerReverb ? 4.
                                            : effect == SlotEffect::FrequencyShifter ? 9.
                                            : effect == SlotEffect::Doubler ? .1
                                            : effect == SlotEffect::Freeze ? 7.
@@ -627,7 +628,15 @@ public:
             std::copy_n(in, frames, out);
             double* r = rightSamples ? p->right->wet.data() : nullptr;
             if (r) std::copy_n(p->right->input.data(), frames, r);
-            if (p->effect == SlotEffect::Limiter)
+            if (p->effect == SlotEffect::NoiseGate || p->effect == SlotEffect::SmoothComp || p->effect == SlotEffect::PunchComp)
+            {
+              p->dynamics.Process(out, frames, p->effect, dynamics,
+                                  p->dynamicsMonitor.empty() ? nullptr : p->dynamicsMonitor.data(),
+                                  r, r && !p->right->dynamicsMonitor.empty() ? p->right->dynamicsMonitor.data() : nullptr);
+              if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
+            }
+            else if (p->effect == SlotEffect::AutoSwell) p->swell.Process(out, frames, utility, r);
+            else if (p->effect == SlotEffect::Limiter)
             {
               p->limiter.Process(out, r, frames, utility);
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->limiter.Reduction() * mMix));
@@ -690,7 +699,7 @@ public:
               if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->outboard.Reduction()*mMix));
             }
             else if (IsAirReverb(p->effect)) p->airReverb.Process(out, r, frames, utility, draining);
-            else if (IsReverb(p->effect)) p->reverb.Process(out, r, frames, utility);
+            else if (IsReverb(p->effect)) p->reverb.Process(out, r, frames, utility, draining);
             else p->capture.Process(out, r, frames, p->effect, utility, draining);
           }
           else if (p->effect == SlotEffect::SpringReverb)
@@ -698,7 +707,7 @@ public:
             std::copy_n(in, frames, out);
             if (rightSamples)
               std::copy_n(p->right->input.data(), frames, p->right->wet.data());
-            p->spring.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility);
+            p->spring.Process(out, rightSamples ? p->right->wet.data() : nullptr, frames, utility, draining);
           }
           else if (rightSamples && (IsDelay(p->effect) || IsReverb(p->effect)))
           {

@@ -1039,6 +1039,7 @@ inline bool UsesCoupledStereo(SlotEffect e)
   if (IsExpandedDelay(e)) return true;
   switch (e)
   {
+    case SlotEffect::NoiseGate: case SlotEffect::SmoothComp: case SlotEffect::PunchComp: case SlotEffect::AutoSwell:
     case SlotEffect::Rotary: case SlotEffect::Limiter: case SlotEffect::Octaver:
     case SlotEffect::Doubler: case SlotEffect::ReverseDelay: case SlotEffect::DualDelay:
     case SlotEffect::Freeze: case SlotEffect::Stutter: case SlotEffect::ShimmerReverb:

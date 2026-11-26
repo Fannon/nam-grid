@@ -46,7 +46,7 @@ public:
       mHighRatio[ch] = std::pow(mGain[ch], 1. / kHighDecayRatio - 1.);
     }
   }
-  Stereo Tick(Stereo in)
+  Stereo Tick(Stereo in, double live = 1.)
   {
     Field x{};
     for (int ch = 0; ch < 8; ++ch) x[ch] = in[ch % 2] * (ch & 2 ? -.5 : .5);
@@ -64,7 +64,7 @@ public:
       y += (mLowRatio[ch] - 1.) * LowPass(y, mBass[ch], mLowCoefficient);
       y = mHighRatio[ch] * y + (1. - mHighRatio[ch]) * LowPass(y, mTreble[ch], mHighCoefficient);
       feedback[ch] = y;
-      mLoop[(ch + 3) % 8].Push(.35 * x[ch] + y * mGain[ch]);
+      mLoop[(ch + 3) % 8].Push(.35 * x[ch] + y * mGain[ch] * live);
     }
     const auto early = Diffuse(x, 4);
     for (int ch = 0; ch < 8; ++ch) x[ch] = feedback[ch] + early[ch] * (mHall ? .12 : .35);
@@ -139,7 +139,7 @@ public:
       for (int i = 0; i < 4; ++i) mInnerGain[i] = std::pow(.001, kTank[i] * loss * kInner[i % 2]);
     }
   }
-  Stereo Tick(Stereo in)
+  Stereo Tick(Stereo in, double live = 1.)
   {
     double input = .5 * (in[0] + in[1]);
     for (int i = 0; i < 4; ++i)
@@ -150,7 +150,7 @@ public:
                      mLongGain[1] * mLong[1].Read(mRate * kLong[1] * mSize)};
     for (int ch = 0; ch < 2; ++ch)
     {
-      double x = input + LowPass(old[1-ch], mLow[ch], mCoefficient);
+      double x = input + live * LowPass(old[1-ch], mLow[ch], mCoefficient);
       const double wobble = mMotion * .0005 * mRate * std::sin(mPhase + ch * 1.5707963267948966);
       x = mTank[ch*2].Tick(x, mRate * kTank[ch*2] * mSize + wobble, -.7, mTankGain[ch*2]);
       x = mTank[ch*2+1].Tick(x, mRate * kTank[ch*2+1] * mSize, .5, mTankGain[ch*2+1]);
@@ -232,12 +232,12 @@ public:
     for (int i = 0; i < 10; ++i) prepare(mLate[i], mLateSamples[i], mLateGain[i]);
     for (int ch = 0; ch < 2; ++ch) mLongGain[ch] = loss(mRate * LongSeconds(ch, size));
   }
-  Stereo Tick(Stereo input)
+  Stereo Tick(Stereo input, double live = 1.)
   {
     Stereo wet = input;
     for (int i = 0; i < 4; ++i) wet = mEarly[i].Tick(wet, mEarlySamples[i], mEarlyGain[i], .65);
     const Stereo early = wet;
-    for (int ch = 0; ch < 2; ++ch) wet[ch] = .3 * wet[ch] + mFeedback[ch];
+    for (int ch = 0; ch < 2; ++ch) wet[ch] = .3 * wet[ch] + live * mFeedback[ch];
     for (int i = 0; i < 10; ++i) wet = mLate[i].Tick(wet, mLateSamples[i], mLateGain[i], .65);
     for (int ch = 0; ch < 2; ++ch)
     {

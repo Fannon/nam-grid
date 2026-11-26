@@ -67,6 +67,39 @@ void TestCompressorMakeupGain()
 void TestDynamics()
 {
   TestCompressorMakeupGain();
+  // Stereo-linked detection: NoiseGate, SmoothComp, PunchComp and AutoSwell must share one
+  // max(|L|, |R|) detector so asymmetric L/R levels preserve their exact stereo balance.
+  for (auto effect : {SlotEffect::NoiseGate, SlotEffect::SmoothComp, SlotEffect::PunchComp, SlotEffect::AutoSwell})
+  {
+    constexpr double rate = 48000.;
+    constexpr int block = 128;
+    auto prepared = std::make_unique<NAMStage::Prepared>();
+    prepared->effect = effect;
+    prepared->Reset(rate, block);
+    NAMStage stage; stage.Publish(std::move(prepared)); stage.ResetStopped(rate, block);
+    DynamicsControls dyn;
+    dyn.gateThreshold = -20.; dyn.gateRange = 60.; dyn.gateMode = 1;
+    dyn.compThreshold = -24.; dyn.compMakeup = 0.; dyn.compMix = 100.; dyn.detectorCut = 100.;
+    UtilityControls util;
+    util.threshold = -20.; util.rise = 30.; util.release = 100.; util.extra.swellMix = 100.;
+    std::array<double, block> l{}, r{};
+    double rightPeak = 0.;
+    for (int pos = 0; pos < static_cast<int>(rate * .3); pos += block)
+    {
+      for (int i = 0; i < block; ++i)
+      {
+        l[i] = .5 * std::sin(2. * grid_fx::pi * 220. * (pos + i) / rate);
+        r[i] = .1 * l[i]; // 20 dB quieter than Left (below gate/comp/swell thresholds)
+      }
+      stage.Process(l.data(), block, true, 0., 0., dyn, {}, util, r.data());
+      for (int i = 0; i < block; ++i)
+      {
+        assert(std::abs(r[i] - .1 * l[i]) < 1.e-12);
+        if (pos >= static_cast<int>(rate * .15)) rightPeak = std::max(rightPeak, std::abs(r[i]));
+      }
+    }
+    assert(rightPeak > .01);
+  }
   // Monitoring excludes makeup and follows the actual parallel mix, while the
   // processed output retains its configured compensation.
   for (auto effect : {SlotEffect::SmoothComp, SlotEffect::PunchComp})

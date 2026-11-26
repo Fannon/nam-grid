@@ -99,12 +99,12 @@ public:
     }
   }
   // Mono excitation per spring; returns the two springs' outputs.
-  std::array<double, 2> Tick(const std::array<double, 2>& input)
+  std::array<double, 2> Tick(const std::array<double, 2>& input, double live = 1.)
   {
     std::array<double, 2> out{};
     // Chirp loops: stretched allpasses w[n] = x - a w[n-K], y = a w[n] + w[n-K]. Each
     // stage waits for the previous one, so both springs' chains run interleaved.
-    double x0 = input[0] + mGain[0] * mDamp[0], x1 = input[1] + mGain[1] * mDamp[1];
+    double x0 = input[0] + mGain[0] * live * mDamp[0], x1 = input[1] + mGain[1] * live * mDamp[1];
     double* w0 = mCascade[0].data() + mIndex * kStages;
     double* w1 = mCascade[1].data() + mIndex * kStages;
     for (int stage = 0; stage < kStages; ++stage)
@@ -125,7 +125,7 @@ public:
       b[0] = grid_fx::Flush(mB[1] * mTail[s] - mA[0] * chirp + b[1]);
       b[1] = grid_fx::Flush(mB[2] * mTail[s] - mA[1] * chirp);
       // Splash loop: plain first-order allpasses, high-passed at the cutoff.
-      double h = .5 * input[s] + mSplashGain[s] * mSplashDamp[s];
+      double h = .5 * input[s] + mSplashGain[s] * live * mSplashDamp[s];
       for (auto& state : mSplash[s])
       {
         const double next = grid_fx::Flush(h + .6 * state);
@@ -164,6 +164,7 @@ public:
   void Reset(double rate)
   {
     mMixLaw.Reset(rate);
+    mDrain.Reset(rate);
     mRate = rate;
     mControls.Reset(rate);
     mTone.Reset(rate);
@@ -183,7 +184,7 @@ public:
       }
     }
   }
-  void Process(double* left, double* right, int frames, const UtilityControls& controls)
+  void Process(double* left, double* right, int frames, const UtilityControls& controls, bool draining = false)
   {
     mControls.Target(controls.spring, uSpringDecay);
     mPredelayControl.Target({controls.extra.springPredelay}, uSpringPredelay);
@@ -224,12 +225,13 @@ public:
         mPredelay[ch].Push(excited);
       }
       mTankWeight += std::clamp(tank - mTankWeight, -tankStep, tankStep);
+      const double live = mDrain.Tick(draining);
       double wetLeft = 0., wetRight = 0.;
       for (int tank = 0; tank < 3 && mTankWeight < 1.; ++tank)
       {
         const double tap = mTank[tank].Read(mRate * length[tank]);
         mDamp[tank] = grid_fx::Flush(tap + mDamping * (mDamp[tank] - tap));
-        double wave = .4 * (pan[tank] * send[0] + (1. - pan[tank]) * send[1]) + mFeedback[tank] * mDamp[tank];
+        double wave = .4 * (pan[tank] * send[0] + (1. - pan[tank]) * send[1]) + mFeedback[tank] * live * mDamp[tank];
         for (int section = 0; section < 16; ++section)
         {
           auto& allpass = mDispersion[tank][section];
@@ -247,7 +249,7 @@ public:
       {
         constexpr std::array<double, 2> springPan{.8, .2};
         const auto springs = mChirp.Tick({kChirpInput * (springPan[0] * send[0] + (1. - springPan[0]) * send[1]),
-                                          kChirpInput * (springPan[1] * send[0] + (1. - springPan[1]) * send[1])});
+                                          kChirpInput * (springPan[1] * send[0] + (1. - springPan[1]) * send[1])}, live);
         const double chirpLeft = springPan[0] * springs[0] + springPan[1] * springs[1];
         const double chirpRight = (1. - springPan[0]) * springs[0] + (1. - springPan[1]) * springs[1];
         wetLeft += mTankWeight * (chirpLeft - wetLeft);
@@ -274,6 +276,7 @@ private:
   double mTankWeight = 0.;
   bool mFirstTank = true;
   grid_fx::MixLaw mMixLaw;
+  grid_fx::DrainRamp mDrain;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<1> mTone, mStereo;
   grid_fx::SmoothControls<1> mPredelayControl;

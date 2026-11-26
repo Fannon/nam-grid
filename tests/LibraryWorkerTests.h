@@ -125,8 +125,7 @@ inline void TestLibraryWorkerCancellation(const std::filesystem::path& indexFile
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     return result;
   };
-  for (bool replace : {false, true})
-  {
+  const auto cancelScan = [&](bool replace) {
     std::promise<void> entered, release;
     auto ready = entered.get_future(), proceed = release.get_future();
     std::atomic<int> scans{0};
@@ -155,6 +154,12 @@ inline void TestLibraryWorkerCancellation(const std::filesystem::path& indexFile
       const auto result = waitResult(worker, std::chrono::seconds(5));
       assert(result && result->captures.size() == 1 && scans == 2);
     }
+  };
+  for (bool replace : {false, true})
+  {
+    // The worker can publish the result before replacing the index. Join it
+    // before opening the index again, since the Windows rename can race a reader.
+    cancelScan(replace);
     assert(nlohmann::json::parse(std::ifstream(indexFile)) == original);
   }
 }

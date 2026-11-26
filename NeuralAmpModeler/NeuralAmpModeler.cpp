@@ -733,7 +733,22 @@ void NeuralAmpModeler::OnReset()
   for (auto& buffer : mOutgoingBuffers)
     buffer.assign(maxBlockSize, 0.);
   for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
+  {
     mRequestedLatencies[i] = mGrids[mEditGrid].stages[i].Latency();
+    if (mSlotEffects[i] == SlotEffect::CabinetIR
+        && (!mSlotIRPreview[i].valid || (!mSlotIRPreview[i].longIR && mSlotIRPreview[i].hostRate != sampleRate)))
+    {
+      AdaptiveIR::IRData left;
+      std::vector<float> right;
+      bool longIR = false;
+      if (mGrids[mEditGrid].stages[i].GetIRSourceStopped(left, right, longIR))
+      {
+        mSlotIRPreview[i] = grid_response_fft::ComputeIRPreview(
+          left.mRawAudio, right, left.mRawAudioSampleRate, sampleRate, longIR, AdaptiveIR::maximumSeconds);
+        SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(i), kMsgTagLoadedModel);
+      }
+    }
+  }
   mHighPass[mEditGrid].Prepare(sampleRate, kNumChannelsInternal, maxBlockSize);
   _UpdateLatency();
 }

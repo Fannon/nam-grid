@@ -20,6 +20,7 @@ struct IRPreview
   std::array<float, kIRBins> response{};
   double upper = 20000.;
   double seconds = 0.;
+  double hostRate = 0.;
   bool longIR = false;
   bool valid = false;
 };
@@ -124,6 +125,7 @@ inline IRPreview ComputeIRPreview(const std::vector<float>& left, const std::vec
 {
   IRPreview preview;
   preview.longIR = longIR;
+  preview.hostRate = hostRate;
   if (left.empty() || !(irRate > 0.) || !(hostRate > 0.)) return preview;
   const size_t limit = std::max<size_t>(
     1, static_cast<size_t>(irRate * (longIR ? maxLongSeconds : 8192. / hostRate)));

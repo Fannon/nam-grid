@@ -426,6 +426,16 @@ public:
     auto* p = mExchange.Active();
     return p ? p->latency : 0;
   }
+  // Control thread only, while processing is stopped (e.g. OnReset).
+  bool GetIRSourceStopped(AdaptiveIR::IRData& left, std::vector<float>& right, bool& longIR) const
+  {
+    const auto* p = mExchange.Active();
+    if (!p || p->effect != SlotEffect::CabinetIR || !p->ir) return false;
+    left = p->ir->GetData();
+    right = p->rightIRData ? p->rightIRData->mRawAudio : std::vector<float>{};
+    longIR = p->ir->GetMode() == AdaptiveIR::Mode::Long;
+    return true;
+  }
   // Called exclusively by audio, or while host processing is stopped.
   double* Process(double* samples, int frames, bool enabled, double inputDB, double trimDB,
                   const DynamicsControls& dynamics = {}, const EQControls& eq = {}, const UtilityControls& utility = {},

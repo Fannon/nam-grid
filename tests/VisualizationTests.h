@@ -238,5 +238,47 @@ void TestMeasuredVisualizations()
     assert(longPreview.valid && longPreview.longIR && std::abs(longPreview.response[0]) < 1.e-5f);
     assert(longPreview.response.back() < -40.f);
   }
+
+  // ImpulseProbe: key 0 must not collide with initial state, superseded requests abort
+  // early via generation counter, and A -> B -> A must never overwrite A with stale B.
+  {
+    ImpulseProbe probe;
+    const auto waitFor = [&](uint64_t key) {
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      while (std::chrono::steady_clock::now() < deadline)
+      {
+        const auto result = probe.Latest();
+        if (result.valid && result.key == key) return result;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      }
+      return probe.Latest();
+    };
+    ImpulseProbe::Request reqA{SlotEffect::CosmicEcho, {}, 0};
+    reqA.controls.cosmicStyle = static_cast<int>(effect_modes::CosmicStyle::Centaurus);
+    reqA.controls.cosmic = {120., 50., 40., 30., 12000., 0., 100.};
+    probe.Ask(reqA);
+    const auto settledA = waitFor(0);
+    assert(settledA.valid && settledA.key == 0);
+
+    // Rapid A -> B -> A: B must be cancelled and must not replace A.
+    ImpulseProbe::Request reqB = reqA;
+    reqB.key = 42;
+    reqB.controls.cosmic[2] = 0.85;
+    probe.Ask(reqB);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    probe.Ask(reqA);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    const auto afterRevert = probe.Latest();
+    assert(afterRevert.valid && afterRevert.key == 0);
+
+    // Rapid sweep B -> C -> D must settle on D.
+    ImpulseProbe::Request reqC = reqB; reqC.key = 101; reqC.controls.cosmic[3] = 0.6;
+    ImpulseProbe::Request reqD = reqB; reqD.key = 202; reqD.controls.cosmic[3] = 0.8;
+    probe.Ask(reqB);
+    probe.Ask(reqC);
+    probe.Ask(reqD);
+    const auto settledD = waitFor(202);
+    assert(settledD.valid && settledD.key == 202);
+  }
   std::cout << "Measured visualizations: Cosmic impulse blur and module level strip passed\n";
 }

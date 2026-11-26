@@ -39,7 +39,7 @@ public:
 
   ~ImpulseProbe()
   {
-    mAbort.store(true, std::memory_order_relaxed);
+    mGeneration.fetch_add(1, std::memory_order_relaxed);
     {
       std::lock_guard<std::mutex> lock(mMutex);
       mStop = true;
@@ -47,14 +47,24 @@ public:
     mWake.notify_one();
     if (mWorker.joinable()) mWorker.join();
   }
-  // Asks for a measurement; a newer request replaces one that has not started.
+  // Asks for a measurement; a newer request supersedes any pending or in-flight work.
   void Ask(const Request& request)
   {
     {
       std::lock_guard<std::mutex> lock(mMutex);
-      if (request.key == mResult.key || (mPending && request.key == mRequest.key) || request.key == mRunning) return;
+      const bool matchesSettled = mResult.valid && !mPending && !mHasRunning && request.key == mResult.key;
+      const bool matchesPending = mPending && request.key == mRequest.key;
+      const bool matchesRunning = mHasRunning && !mPending && request.key == mRunning;
+      if (matchesSettled || matchesPending || matchesRunning) return;
+      if (mResult.valid && request.key == mResult.key)
+      {
+        mPending = false;
+        mGeneration.fetch_add(1, std::memory_order_relaxed);
+        return;
+      }
       mRequest = request;
       mPending = true;
+      mGeneration.fetch_add(1, std::memory_order_relaxed);
       if (!mWorker.joinable()) mWorker = std::thread([this] { Run(); });
     }
     mWake.notify_one();
@@ -66,6 +76,13 @@ public:
   }
   // The measurement itself. `abort` stops it early (the result is then invalid).
   static Result Measure(const Request& request, const std::atomic<bool>* abort = nullptr)
+  {
+    return MeasureWithCancel(request, [abort] {
+      return abort && abort->load(std::memory_order_relaxed);
+    });
+  }
+  template <class Cancel>
+  static Result MeasureWithCancel(const Request& request, Cancel&& cancelled)
   {
     Result result;
     result.key = request.key;
@@ -87,7 +104,7 @@ public:
     std::array<double, block> l{}, r{};
     for (int position = 0; position < frames; position += block)
     {
-      if (abort && abort->load(std::memory_order_relaxed)) return result;
+      if (cancelled()) return result;
       const int n = std::min(block, frames - position);
       l.fill(0.); r.fill(0.);
       if (position == 0) l[0] = r[0] = 1.;
@@ -135,13 +152,23 @@ private:
       mWake.wait(lock, [this] { return mStop || mPending; });
       if (mStop) return;
       const auto request = mRequest;
+      const uint64_t generation = mGeneration.load(std::memory_order_relaxed);
       mPending = false;
       mRunning = request.key;
+      mHasRunning = true;
       lock.unlock();
-      const auto measured = Measure(request, &mAbort);
+      Result measured;
+      try
+      {
+        measured = MeasureWithCancel(request, [this, generation] {
+          return mGeneration.load(std::memory_order_relaxed) != generation;
+        });
+      }
+      catch (...) {}
       lock.lock();
-      mRunning = 0;
-      if (measured.valid) mResult = measured;
+      mHasRunning = false;
+      if (measured.valid && mGeneration.load(std::memory_order_relaxed) == generation)
+        mResult = measured;
     }
   }
   mutable std::mutex mMutex;
@@ -150,6 +177,6 @@ private:
   Request mRequest;
   Result mResult;
   uint64_t mRunning = 0;
-  bool mPending = false, mStop = false;
-  std::atomic<bool> mAbort{false};
+  bool mHasRunning = false, mPending = false, mStop = false;
+  std::atomic<uint64_t> mGeneration{0};
 };

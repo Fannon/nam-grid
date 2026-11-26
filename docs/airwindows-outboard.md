@@ -8,9 +8,10 @@ Sources are the double-precision LinuxVST paths of CStrip2, BussColors4 and
 ButterComp2 at
 [`e68f75154ed0520fc5757fec9e7792dd1747e5ee`](https://github.com/airwindows/airwindows/tree/e68f75154ed0520fc5757fec9e7792dd1747e5ee/plugins/LinuxVST/src).
 The SDK-free headers and MIT license live in `dsp/airwindows/outboard/`.
-Reproduce them with `python scripts/vendor-airwindows-outboard.py`; select cores
-with `--plugins`, or use `--source-dir` with cached upstream files. The existing
-reverb generator is unchanged.
+Run `python scripts/vendor-airwindows-outboard.py` with Git on PATH to regenerate
+the headers. It applies the checked-in local adaptations to temporary headers
+before replacing the vendored copies. Use `--plugins` to select cores or
+`--source-dir` to use cached upstream files.
 
 ## Critical decisions
 

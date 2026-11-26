@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""SDK-free outboard cores. Explicit deviations below; pinned like the reverbs.
+"""Regenerate the SDK-free outboard cores from pinned Airwindows sources.
 
 Use --source-dir for an offline directory containing Plugin.h/.cpp/Proc.cpp.
 """
 import argparse
+import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
+from tempfile import TemporaryDirectory
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 REVISION = "e68f75154ed0520fc5757fec9e7792dd1747e5ee"
 PLUGINS = ("CStrip2", "ButterComp2", "BussColors4", "DigitalBlack", "CStripGate")
 DEST = ROOT / "NeuralAmpModeler/dsp/airwindows/outboard"
+LOCAL_ADAPTATIONS = Path(__file__).with_name("airwindows-outboard.patch").resolve()
 
 
 def _strip_right_channel(body):
@@ -45,9 +50,9 @@ def _strip_right_channel(body):
     return text
 
 
-def generate(name, source):
+def generate(name, source, destination):
     if name == "CStripGate":
-        generate_gate(source)
+        generate_gate(source, destination)
         return
     header, implementation, processor = (source(name, s) for s in (".h", ".cpp", "Proc.cpp"))
     parameters = int(re.search(r"kNumParameters\s*=\s*(\d+)", header)[1])
@@ -309,10 +314,10 @@ private:
     text += f"\n{members}\n}};\n}} // namespace airwindows_outboard::{name}\n"
     text = text.replace("M_PI_2", "1.57079632679489661923")
     text = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
-    (DEST / f"{name}.h").write_text(text, encoding="utf-8", newline="\n")
+    (destination / f"{name}.h").write_text(text, encoding="utf-8", newline="\n")
 
 
-def generate_gate(source):
+def generate_gate(source, destination):
     """Extract only CStrip's gate; no EQ, compressor, lowpass or TimeLag."""
     processor = source("CStrip", "Proc.cpp").split("void CStrip::processDoubleReplacing")[1]
     body = processor.split("//begin Gate")[-1].split("//end Gate, begin antialiasing")[0]
@@ -363,7 +368,25 @@ private:
 }} // namespace airwindows_outboard::CStripGate
 '''
     text = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
-    (DEST / "CStripGate.h").write_text(text, encoding="utf-8", newline="\n")
+    (destination / "CStripGate.h").write_text(text, encoding="utf-8", newline="\n")
+
+
+def regenerate(plugins, source, destination):
+    headers = [f"{plugin}.h" for plugin in plugins]
+    with TemporaryDirectory(prefix="nam-outboard-") as directory:
+        generated = Path(directory)
+        for plugin in plugins:
+            generate(plugin, source, generated)
+        # Apply the hand-tuned mono paths, Hold behavior and circular history
+        # before copying any header into the source tree.
+        git_env = dict(os.environ, GIT_CEILING_DIRECTORIES=str(generated.parent.resolve()))
+        subprocess.run(
+            ["git", "apply", *[f"--include={header}" for header in headers], str(LOCAL_ADAPTATIONS)],
+            cwd=generated, env=git_env, check=True,
+        )
+        destination.mkdir(parents=True, exist_ok=True)
+        for header in headers:
+            shutil.copyfile(generated / header, destination / header)
 
 
 if __name__ == "__main__":
@@ -375,8 +398,6 @@ if __name__ == "__main__":
         if args.source_dir:
             return (args.source_dir / (name + suffix)).read_text(encoding="utf-8")
         return urlopen(f"https://raw.githubusercontent.com/airwindows/airwindows/{REVISION}/plugins/LinuxVST/src/{name}/{name}{suffix}").read().decode("utf-8")
-    DEST.mkdir(parents=True, exist_ok=True)
-    for plugin in args.plugins:
-        generate(plugin, source)
+    regenerate(args.plugins, source, DEST)
     # Same author/license as the already-vendored pinned reverb cores.
     (DEST / "LICENSE.txt").write_bytes((DEST.parent / "reverbs/LICENSE.txt").read_bytes())

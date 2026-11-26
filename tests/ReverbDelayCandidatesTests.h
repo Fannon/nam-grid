@@ -216,5 +216,37 @@ void TestReverbDelayCandidates()
     }
     assert(maxRms > .05 && minRms / maxRms > .92);
   }
+  // Galactic3 must scale its bez clock, predelay, drift and lowpass consistently across
+  // 44.1..192 kHz so wet level and tail decay stay matched at high sample rates.
+  {
+    auto measure = [](double r) {
+      airwindows_reverb::Galactic3::Core core;
+      core.Reset(r);
+      core.Set({.5, .7, .5, 1., .5, 1.});
+      const int total = static_cast<int>(r * 2.);
+      const int burst = static_cast<int>(r * .1);
+      const int e0 = static_cast<int>(r * .3), e1 = static_cast<int>(r * .8);
+      const int l0 = static_cast<int>(r * 1.5), l1 = total;
+      double early = 0., late = 0.;
+      for (int i = 0; i < total; ++i)
+      {
+        double l = i < burst ? .2 * std::sin(2. * grid_fx::pi * 330. * i / r) : 0.;
+        double ri = l;
+        core.Tick(l, ri);
+        const double p = .5 * (l * l + ri * ri);
+        if (i >= e0 && i < e1) early += p;
+        if (i >= l0 && i < l1) late += p;
+      }
+      return std::array<double, 2>{std::sqrt(early / (e1 - e0)), std::sqrt(late / (l1 - l0))};
+    };
+    const auto ref = measure(44100.);
+    assert(ref[0] > 1.e-3 && ref[1] > 1.e-4);
+    for (double r : {48000., 96000., 192000.})
+    {
+      const auto cur = measure(r);
+      assert(cur[0] / ref[0] > .75 && cur[0] / ref[0] < 1.33);
+      assert(cur[1] / ref[1] > .75 && cur[1] / ref[1] < 1.33);
+    }
+  }
   std::cout << "Reverb/delay candidates: 44.1-192 kHz, full-range automation, partition invariance, stereo dry, no allocations, head timing and diffusion passed\n";
 }

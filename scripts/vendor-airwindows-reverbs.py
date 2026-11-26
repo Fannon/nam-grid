@@ -29,6 +29,8 @@ def generate(name):
     if name == "Galactic3":
         for size in (6480, 3660, 1720, 680, 9700, 6000, 2320, 940, 15220, 8460, 4540, 3200, 3111):
             reset = reset.replace(f"count < {size - 1};", f"count < {size};")
+        reset = reset.replace("oldfpd = 429496.7295;", "oldfpd = 0.4294967295;", 1)
+        reset = reset.replace("bez[bez_cycle] = 1.0;", "bez[bez_cycle] = 0.0;", 1)
     else:
         reset = re.sub(r"\+(\s*)2;", r"+\g<1>5;", reset)
     double = processor[processor.index(f"void {name}::processDoubleReplacing"):]
@@ -39,6 +41,72 @@ def generate(name):
     body = body[:body.rindex("}")]
     body = body.replace("*in1", "left").replace("*in2", "right").replace("*out1", "left").replace("*out2", "right")
     body = re.sub(r"^\s*(?:in1|in2|out1|out2)\+\+;.*$", "", body, flags=re.M)
+    if name == "Galactic3":
+        # Scale predelay, drift, lowpass and fractional bez clock consistently across 44.1-192 kHz.
+        prefix = prefix.replace(
+            "\tregen = 0.0625+((1.0-A)*0.0625);\n"
+            "\tattenuate = (1.0 - (regen / 0.125))*1.333;\n"
+            "\tlowpass = pow(1.00001-(1.0-B),2.0)/sqrt(overallscale);\n"
+            "\tdrift = pow(C,3)*0.001;\n"
+            "\tderez = D/overallscale;\n"
+            "\tif (derez < 0.0005) derez = 0.0005; if (derez > 1.0) derez = 1.0;\n"
+            "\tderez = 1.0 / ((int)(1.0/derez));\n"
+            "\t//this hard-locks derez to exact subdivisions of 1.0",
+            "\tconst double rateScale = fmax(1.0, overallscale);\n"
+            "\tregen = 0.0625+((1.0-A)*0.0625);\n"
+            "\tattenuate = (1.0 - (regen / 0.125))*1.333;\n"
+            "\tconst double baseLowpass = fmin(1.0, pow(1.00001-(1.0-B),2.0));\n"
+            "\tlowpass = baseLowpass >= 1.0 ? 1.0 : 1.0 - pow(1.0 - baseLowpass, 1.0 / rateScale);\n"
+            "\tdrift = pow(C,3)*0.001/rateScale;\n"
+            "\tderez = 0.5*D/rateScale;\n"
+            "\tif (derez < 0.00025) derez = 0.00025; if (derez > 0.5) derez = 0.5;",
+            1,
+        )
+        prefix = prefix.replace("\tdelayM = 256;", "\tdelayM = (int)(256.0 * fmin(12.0, rateScale));", 1)
+        body = body.replace(
+            "\t\tdouble offsetML = (sin(vibM)+1.0)*127;\n"
+            "\t\tdouble offsetMR = (sin(vibM+(3.141592653589793238/2.0))+1.0)*127;",
+            "\t\tdouble offsetML = (sin(vibM)+1.0)*(delayM*0.49609375);\n"
+            "\t\tdouble offsetMR = (sin(vibM+(3.141592653589793238/2.0))+1.0)*(delayM*0.49609375);",
+            1,
+        )
+        body = body.replace(
+            "\t\tbez[bez_cycle] += derez;\n"
+            "\t\tbez[bez_SampL] += ((inputSampleL+bez[bez_InL]) * derez);\n"
+            "\t\tbez[bez_SampR] += ((inputSampleR+bez[bez_InR]) * derez);\n"
+            "\t\tbez[bez_InL] = inputSampleL; bez[bez_InR] = inputSampleR;\n"
+            "\t\tif (bez[bez_cycle] > 1.0) { //hit the end point and we do a reverb sample\n"
+            "\t\t\tbez[bez_cycle] = 0.0;",
+            "\t\tbez[bez_cycle] += derez;\n"
+            "\t\tconst double avgInL = inputSampleL + bez[bez_InL];\n"
+            "\t\tconst double avgInR = inputSampleR + bez[bez_InR];\n"
+            "\t\tbez[bez_InL] = inputSampleL; bez[bez_InR] = inputSampleR;\n"
+            "\t\tif (bez[bez_cycle] >= 1.0) { //hit the end point and we do a reverb sample\n"
+            "\t\t\tconst double over = bez[bez_cycle] - 1.0;\n"
+            "\t\t\tconst double tailWeight = 2.0 * (derez - over);\n"
+            "\t\t\tbez[bez_SampL] += avgInL * tailWeight;\n"
+            "\t\t\tbez[bez_SampR] += avgInR * tailWeight;\n"
+            "\t\t\tbez[bez_cycle] = over;",
+            1,
+        )
+        body = body.replace(
+            "\t\t\tbez[bez_SampL] = 0.0;\n\n"
+            "\t\t\tbez[bez_CR] = bez[bez_BR];\n"
+            "\t\t\tbez[bez_BR] = bez[bez_AR];\n"
+            "\t\t\tbez[bez_AR] = inputSampleR;\n"
+            "\t\t\tbez[bez_SampR] = 0.0;\n"
+            "\t\t}",
+            "\t\t\tbez[bez_SampL] = avgInL * (2.0 * over);\n\n"
+            "\t\t\tbez[bez_CR] = bez[bez_BR];\n"
+            "\t\t\tbez[bez_BR] = bez[bez_AR];\n"
+            "\t\t\tbez[bez_AR] = inputSampleR;\n"
+            "\t\t\tbez[bez_SampR] = avgInR * (2.0 * over);\n"
+            "\t\t} else {\n"
+            "\t\t\tbez[bez_SampL] += avgInL * (2.0 * derez);\n"
+            "\t\t\tbez[bez_SampR] += avgInR * (2.0 * derez);\n"
+            "\t\t}",
+            1,
+        )
     if name == "kGuitarHall2":
         # Upstream typo: bank 4 incremented c6ZBR a second time instead of c6ZAR,
         # leaving a6ZAR unincremented and skipping every other slot in a6ZBR.

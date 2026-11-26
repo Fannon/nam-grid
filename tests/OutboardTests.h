@@ -156,6 +156,36 @@ void TestOutboard()
         assert(std::abs(consoleSums[desk] - consoleSums[prev]) > 1.e-5);
     }
   }
+  // BussColors4 slowdyn sag integrator must keep the same real-time decay (~22.7 ms)
+  // across 44.1..192 kHz rather than decaying 4x too fast at 192 kHz.
+  {
+    auto sagDecayRatio = [](double r) {
+      airwindows_outboard::BussColors4::Core primed, quiet;
+      primed.Reset(r); quiet.Reset(r);
+      const std::array<double, 4> ctrl{2. / 7., .5, .5, 1.}; // Lush (Neve)
+      primed.Set(ctrl); quiet.Set(ctrl);
+      const int burst = static_cast<int>(r * .005);
+      const int w1a = burst + static_cast<int>(r * .003), w1b = burst + static_cast<int>(r * .005);
+      const int w2a = burst + static_cast<int>(r * .023), w2b = burst + static_cast<int>(r * .025);
+      double e1 = 0., e2 = 0.;
+      for (int i = 0; i < w2b; ++i)
+      {
+        const double probe = .0003 * std::sin(2. * grid_fx::pi * 1000. * i / r);
+        double pL = i < burst ? .6 * std::sin(2. * grid_fx::pi * 1000. * i / r) : probe, pR = pL;
+        double qL = probe, qR = probe;
+        primed.Tick(pL, pR);
+        quiet.Tick(qL, qR);
+        const double d = pL - qL;
+        if (i >= w1a && i < w1b) e1 += d * d;
+        if (i >= w2a && i < w2b) e2 += d * d;
+      }
+      return std::sqrt((e2 / (w2b - w2a)) / std::max(1.e-30, e1 / (w1b - w1a)));
+    };
+    const double ref = sagDecayRatio(44100.);
+    assert(ref > .3 && ref < .65);
+    for (double r : {48000., 96000., 192000.})
+      assert(std::abs(sagDecayRatio(r) - ref) < .06);
+  }
   std::cout << "Outboard: five rates, stereo, extremes, variable blocks, exact dry, mono-lane, BussColors4 ring, no allocation\n";
 }
 

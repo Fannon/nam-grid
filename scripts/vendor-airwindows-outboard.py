@@ -108,6 +108,15 @@ def generate(name, source):
         mono_raw = re.sub(r"\t\tif \(fabs\(inputSampleR\) > threshold\).*?else \{\n\t\t\tgaterollerR -= release;\n\t\t\}\n", "", mono_raw, flags=re.S)
         mono_body = _strip_right_channel(mono_raw)
     if name == "BussColors4":
+        prefix += "\tslowdynDecay = pow(0.999, 1.0 / overallscale);\n\tslowdynCharge = (1.0 - slowdynDecay) / 0.001;\n"
+        fields.extend([("double", "slowdynDecay"), ("double", "slowdynCharge")])
+        body = body.replace(
+            "\t\tslowdynL *= 0.999;\n\t\tslowdynL += bridgerectifier;",
+            "\t\tslowdynL *= slowdynDecay;\n\t\tslowdynL += bridgerectifier * slowdynCharge;",
+        ).replace(
+            "\t\tslowdynR *= 0.999;\n\t\tslowdynR += bridgerectifier;",
+            "\t\tslowdynR *= slowdynDecay;\n\t\tslowdynR += bridgerectifier * slowdynCharge;",
+        )
         reset = reset.replace(
             "for (int count = 0; count < 174; count++) {bL[count] = 0; bR[count] = 0;}",
             "for (int count = 0; count < 256; count++) {bL[count] = 0; bR[count] = 0;}\n\tbIndex = 0;",

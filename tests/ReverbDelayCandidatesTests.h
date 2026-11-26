@@ -142,5 +142,24 @@ void TestReverbDelayCandidates()
   for (int i = 2000; i < 12000; ++i)
   { lateClear += outputs[0][i]*outputs[0][i]; lateBlur += outputs[1][i]*outputs[1][i]; }
   assert(lateBlur > .001 && lateClear < 1.e-15);
+  // kGuitarHall2 right-channel FDN must advance c6ZAR (not double-step c6ZBR),
+  // otherwise a6ZBR (length 121, odd) writes only odd indices and reads only zero
+  // even indices, draining the cross-coupled L/R reverb tail by >5 dB/s.
+  {
+    airwindows_reverb::kGuitarHall2::Core hall;
+    hall.Reset(44100.);
+    hall.Set({.9, .5, 1., 0., 0., 1.});
+    uint32_t seed = 0x12345678u;
+    double leftTail = 0., rightTail = 0.;
+    for (int i = 0; i < 88200; ++i)
+    {
+      seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+      const double s = i < 4096 ? (static_cast<double>(seed) / 4294967296. - .5) * .5 : 0.;
+      double l = s, r = s;
+      hall.Tick(l, r);
+      if (i >= 44100) { leftTail += l * l; rightTail += r * r; }
+    }
+    assert(leftTail > 12. && rightTail > 12. && std::abs(rightTail / leftTail - 1.) < .05);
+  }
   std::cout << "Reverb/delay candidates: 44.1-192 kHz, full-range automation, partition invariance, stereo dry, no allocations, head timing and diffusion passed\n";
 }

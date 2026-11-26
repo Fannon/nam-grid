@@ -481,7 +481,7 @@ overallscale = 1.0;
 			c6HR++; if (c6HR < 0 || c6HR > d6H) c6HR = 0;
 			c6NR++; if (c6NR < 0 || c6NR > d6N) c6NR = 0;
 			c6TR++; if (c6TR < 0 || c6TR > d6T) c6TR = 0;
-			c6ZBR++; if (c6ZBR < 0 || c6ZBR > d6ZB) c6ZBR = 0;
+			c6ZAR++; if (c6ZAR < 0 || c6ZAR > d6ZA) c6ZAR = 0;
 			c6ZGR++; if (c6ZGR < 0 || c6ZGR > d6ZG) c6ZGR = 0;
 
 			double o6BR = a6BR[c6BR-((c6BR > d6B)?d6B+1:0)];

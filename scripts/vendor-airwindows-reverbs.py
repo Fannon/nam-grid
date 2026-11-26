@@ -39,6 +39,18 @@ def generate(name):
     body = body[:body.rindex("}")]
     body = body.replace("*in1", "left").replace("*in2", "right").replace("*out1", "left").replace("*out2", "right")
     body = re.sub(r"^\s*(?:in1|in2|out1|out2)\+\+;.*$", "", body, flags=re.M)
+    if name == "kGuitarHall2":
+        # Upstream typo: bank 4 incremented c6ZBR a second time instead of c6ZAR,
+        # leaving a6ZAR unincremented and skipping every other slot in a6ZBR.
+        body = body.replace(
+            "\t\t\tc6TR++; if (c6TR < 0 || c6TR > d6T) c6TR = 0;\n"
+            "\t\t\tc6ZBR++; if (c6ZBR < 0 || c6ZBR > d6ZB) c6ZBR = 0;\n"
+            "\t\t\tc6ZGR++; if (c6ZGR < 0 || c6ZGR > d6ZG) c6ZGR = 0;",
+            "\t\t\tc6TR++; if (c6TR < 0 || c6TR > d6T) c6TR = 0;\n"
+            "\t\t\tc6ZAR++; if (c6ZAR < 0 || c6ZAR > d6ZA) c6ZAR = 0;\n"
+            "\t\t\tc6ZGR++; if (c6ZGR < 0 || c6ZGR > d6ZG) c6ZGR = 0;",
+            1,
+        )
     parameters = 5 if name == "kPlate140" else 6
     assignments = " ".join(f"{chr(65+i)} = controls[{i}];" for i in range(parameters))
     text = f'''#pragma once

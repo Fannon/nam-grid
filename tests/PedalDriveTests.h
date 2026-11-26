@@ -335,6 +335,37 @@ void TestPedalDrive()
     };
     starved(.8, .3);
     assert(std::abs(starved(.80002, .301)) <= 1.);
+    // BiasedStage must invalidate its ADAA antiderivative when Character moves the bias,
+    // so silence stays exactly silent instead of emitting a DC step across the bias jump.
+    {
+      grid_pedal::Averaged stage;
+      grid_pedal::BiasedStage low(.03), high(.53);
+      assert(std::abs(low.Tick(stage, 0.)) < 1.e-12);
+      assert(std::abs(high.Tick(stage, 0.)) < 1.e-12);
+      grid_pedal::Averaged followStage;
+      grid_pedal::BiasedStage followLow(.03, .03), followHigh(.53, .53);
+      double lift = 0.;
+      assert(std::abs(followLow.Tick(followStage, 0., lift, .99)) < 1.e-12);
+      assert(std::abs(followHigh.Tick(followStage, 0., lift, .99)) < 1.e-12);
+      for (auto style : {PedalStyle::CascadedPreamp, PedalStyle::TransparentOD, PedalStyle::VintageFuzz, PedalStyle::BenderFuzz})
+      {
+        SlotPedalDrive drive;
+        drive.Reset(48000.);
+        UtilityControls c;
+        c.pedal = {double(static_cast<int>(style)), 18., 12000., 0., 180., 0., 0., 100., -100.};
+        std::array<double, 64> silence{};
+        drive.Process(silence.data(), 64, c);
+        c.pedal[8] = 100.;
+        double maxSilence = 0.;
+        for (int block = 0; block < 40; ++block)
+        {
+          silence.fill(0.);
+          drive.Process(silence.data(), 64, c);
+          for (double s : silence) maxSilence = std::max(maxSilence, std::abs(s));
+        }
+        assert(maxSilence < 1.e-12);
+      }
+    }
     for (double hz : {82., 220., 440.})
       for (double level : {.03, .2})
       {

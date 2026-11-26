@@ -158,12 +158,17 @@ struct BiasedStage
     slope = WarmSlope(value);
     follow = following;
   }
-  double Tick(Averaged& stage, double x) const { return (stage.Warm(x + bias) - offset) / slope; }
+  double Tick(Averaged& stage, double x) const
+  {
+    const double b = bias;
+    return (stage.Tick(x, b, [b](double v) { return Warm(v + b); }, [b](double v) { return WarmIntegral(v + b); }) - offset) / slope;
+  }
   double Tick(Averaged& stage, double x, double& lift, double pole) const
   {
     const double excess = std::max(x - 1., 0.);
     lift = Flush(excess + pole * (lift - excess));
-    return (stage.Warm(x + bias + follow * lift) - offset) / slope;
+    const double b = bias + follow * lift;
+    return (stage.Tick(x, b, [b](double v) { return Warm(v + b); }, [b](double v) { return WarmIntegral(v + b); }) - offset) / slope;
   }
 };
 struct Character
@@ -319,8 +324,10 @@ struct Voice
         envelope = Flush(std::abs(coupled) + c.envelope * (envelope - std::abs(coupled)));
         const double gate =
           character.benderGate == 0. ? 1. : std::clamp((envelope - character.benderGate) * 200., 0., 1.);
+        const double b = character.benderBias;
         const double second =
-          (fuzzSecond.Soft(-9.6 * rootGain * coupled + character.benderBias) - character.benderOffset) / character.benderSlope;
+          (fuzzSecond.Tick(-9.6 * rootGain * coupled, b, [b](double v) { return Soft(v + b); }, [b](double v) { return SoftIntegral(v + b); })
+           - character.benderOffset) / character.benderSlope;
         return lp(.7 * second * gate, P::PreampTop);
       }
       case 11: // Octavia family: a milder gain stage, full-wave rectification

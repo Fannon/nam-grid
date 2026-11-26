@@ -57,7 +57,7 @@ public:
           ? v[1] * std::clamp((10. * std::log10((mHold + kFloor) / (mEnvelope + kFloor)) - .5) / span, 0., 1.) : 0.;
         target = active * (riseTerm + fallTerm);
       }
-      mDB = Follow(mDB, target, target > mDB ? mGainAttack : mGainRelease);
+      mDB = Follow(mDB, target, std::abs(target) > std::abs(mDB) ? mGainAttack : mGainRelease);
       mGainDB = Follow(mGainDB, mDB, mGainLag);
       const double gain = mGain(mGainDB * .05, [](double x) { return std::pow(10., x); });
       const double blend = v[5] * .01, output = mOutput(v[4] * .05, [](double x) { return std::pow(10., x); });

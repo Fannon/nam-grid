@@ -57,12 +57,14 @@ public:
     // has an infinite initial slope, so the wet voice jumped in.
     const double mixTarget = std::clamp(c.juno[1], kEffectParameters[uJunoMix].minimum, kEffectParameters[uJunoMix].maximum) * .01;
     const double dryTarget = std::sqrt(std::max(0., 1. - mixTarget)), wetTarget = std::sqrt(mixTarget);
+    // Mode is a discrete voice selector; its gains smooth over 10 ms below, so
+    // rounding the raw control avoids sweeping through intermediate modes on jumps.
+    const int mode = std::clamp(static_cast<int>(std::lround(c.juno[0])), 0, 3);
+    constexpr double modeGains[4][2]{{1., 0.}, {.70710678, .70710678}, {0., 1.}, {0., 0.}};
+    const double vintageTarget = mode == 3 ? 1. : 0.;
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
-      const int mode = std::clamp(static_cast<int>(std::lround(v[0])), 0, 3);
-      constexpr double modeGains[4][2]{{1., 0.}, {.70710678, .70710678}, {0., 1.}, {0., 0.}};
-      const double vintageTarget = mode == 3 ? 1. : 0.;
       if (mFirst)
       {
         mVintageGain = vintageTarget;

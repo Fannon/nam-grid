@@ -1970,8 +1970,16 @@ public:
     const double now = Now(), dt = std::max(0., now - mTick);
     mTick = now;
     mModuleLevels.Advance(now);
-    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor)
-      mEditor->SetDirty(false);
+    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor
+        && PLUG()->GetSelectedSlot() == mSlot && !mEditor->IsHidden())
+    {
+      const bool learning = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseLearn))->Bool();
+      if (learning || learning != mLastNoiseLearn)
+      {
+        mLastNoiseLearn = learning;
+        mEditor->SetDirty(false);
+      }
+    }
     const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
                         || now < mInputClip + .1 || now < mOutputClip + .1;
     const float decay = static_cast<float>(std::exp(-dt / .3));
@@ -3805,7 +3813,7 @@ private:
         sources |= 1u << static_cast<int>(v[RowParam(row, RowSource)]);
     return sources;
   }
-  bool mLastSync = false, mLastEnabled = true, mLastLoaded = false;
+  bool mLastSync = false, mLastEnabled = true, mLastLoaded = false, mLastNoiseLearn = false;
   uint32_t mModulationSources = 0;
   SlotMeterData mMeter;
   LevelComparison mLevels;
@@ -3956,6 +3964,7 @@ public:
   }
   bool IsDirty() override
   {
+    if (IsHidden()) return false;
     const char* scanLabel = PLUG()->GetRescanOnStartup() ? "Startup rescan: ON" : "Startup rescan: OFF";
     const char* visualLabel = PLUG()->GetShowVisualizations() ? "Visualizations: ON" : "Visualizations: OFF";
     if (mVisualizations && std::strcmp(mVisualizations->GetLabelStr(), visualLabel) != 0)

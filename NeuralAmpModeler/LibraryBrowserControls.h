@@ -343,20 +343,26 @@ public:
   {
     if (!IsHidden())
     {
-      // Rows/details are drawn by this composite parent, while the live editor
-      // updates later in the control stack. Keep the whole modal page coherent.
-      SetDirty(false);
-      if (auto result = mContextWorker.TakeResult()) { mContextLibrary = result; mPendingSelection = false; mScanLibrary.reset(); }
+      const bool scanning = PLUG()->IsLibraryScanning();
+      if (scanning != mLastScanning) { mLastScanning = scanning; SetDirty(false); }
+      if (auto result = mContextWorker.TakeResult()) { mContextLibrary = result; mPendingSelection = false; mScanLibrary.reset(); SetDirty(false); }
       const auto snapshot = PLUG()->GetCaptureLibrary();
       const auto roots = Roots();
       if (snapshot != mScanLibrary || roots != mRoots) Rebuild();
       if (mPreview) PreviewSelected();
-      if (const auto* selected = Selected())
-        mDetailsTitle->SetTooltip((selected->kind == nam_library::FileKind::Module
-          ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
-          : nam_library::HintText(*selected) + "\n" + nam_library::PathText(selected->path)).c_str());
-      Disabled(mDelete, !Selected() || Selected()->kind != nam_library::FileKind::RigPreset);
-      Disabled(mApply, !Selected());
+      const auto* selected = Selected();
+      const std::string tip = selected
+        ? (selected->kind == nam_library::FileKind::Module
+            ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
+            : nam_library::HintText(*selected) + "\n" + nam_library::PathText(selected->path))
+        : std::string{};
+      if (tip != mLastDetailsTooltip)
+      {
+        mLastDetailsTooltip = tip;
+        if (selected) mDetailsTitle->SetTooltip(tip.c_str());
+      }
+      Disabled(mDelete, !selected || selected->kind != nam_library::FileKind::RigPreset);
+      Disabled(mApply, !selected);
     }
     return IContainerBase::IsDirty();
   }
@@ -778,6 +784,7 @@ private:
     const auto effect = file->kind == nam_library::FileKind::Module ? static_cast<SlotEffect>(file->module)
       : file->kind == nam_library::FileKind::IR ? SlotEffect::CabinetIR : SlotEffect::NAM;
     mStatus = PLUG()->PreviewSlot(effect, file->kind == nam_library::FileKind::Module ? "" : nam_library::PathText(file->path));
+    SetDirty(false);
   }
   void ChooseFile()
   {
@@ -1013,6 +1020,8 @@ private:
   std::vector<nam_library::BrowserFolder> mFolders;
   std::vector<std::string> mRoots;
   std::string mStatus;
+  std::string mLastDetailsTooltip;
+  bool mLastScanning = false;
   bool mRelevance = true;
   int mDrag = 0;
   int mSelectedRow = -1;

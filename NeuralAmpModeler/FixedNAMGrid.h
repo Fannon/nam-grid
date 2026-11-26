@@ -77,8 +77,8 @@ public:
       stage.ClearStopped();
   }
 
-  void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
-               double* right = nullptr, const grid_performance::Routing& routing = {}, int inputPrefix = 0)
+  void ProcessSlots(double* samples, int frames, const std::array<const Controls*, kSlots>& controls, double blendB,
+                    double* right = nullptr, const grid_performance::Routing& routing = {}, int inputPrefix = 0)
   {
     if (mTopologyFirst)
     {
@@ -228,16 +228,33 @@ public:
     FadeTopology(samples, right, frames, routing.sequential);
   }
 
+  void Process(double* samples, int frames, const std::array<Controls, kSlots>& controls, double blendB,
+               double* right = nullptr, const grid_performance::Routing& routing = {}, int inputPrefix = 0)
+  {
+    std::array<const Controls*, kSlots> ptrs{};
+    for (size_t i = 0; i < kSlots; ++i)
+      ptrs[i] = &controls[i];
+    ProcessSlots(samples, frames, ptrs, blendB, right, routing, inputPrefix);
+  }
+
   // Run only the independent input prefix, before Process skips those stages.
   // Keep its first short quantum for existing gain ramps; batch the remainder.
   // Prefix taps cover the full callback, unlike the suffix's per-quantum taps.
-  void ProcessInputPrefix(double* samples, int frames, const std::array<Controls, kSlots>& controls,
-                          int slots, int firstQuantum, double* right = nullptr)
+  void ProcessInputPrefixSlots(double* samples, int frames, const std::array<const Controls*, kSlots>& controls,
+                               int slots, int firstQuantum, double* right = nullptr)
   {
     const int first = std::min(firstQuantum, frames);
     ProcessRow(samples, first, controls, 0, right, slots);
     if (first < frames)
       ProcessRow(samples + first, frames - first, controls, 0, right ? right + first : nullptr, slots, first);
+  }
+  void ProcessInputPrefix(double* samples, int frames, const std::array<Controls, kSlots>& controls,
+                          int slots, int firstQuantum, double* right = nullptr)
+  {
+    std::array<const Controls*, kSlots> ptrs{};
+    for (size_t i = 0; i < kSlots; ++i)
+      ptrs[i] = &controls[i];
+    ProcessInputPrefixSlots(samples, frames, ptrs, slots, firstQuantum, right);
   }
 
   // One on-demand measurement tap, independent of slot contents and enable state.
@@ -316,13 +333,13 @@ private:
       return output;
     }
   };
-  void ProcessRow(double* samples, int frames, const std::array<Controls, kSlots>& controls, int first, double* right,
+  void ProcessRow(double* samples, int frames, const std::array<const Controls*, kSlots>& controls, int first, double* right,
                   int end = -1, int tapOffset = 0)
   {
     if (end < 0) end = (first / 4 + 1) * 4;
     for (int i = first; i < end; ++i)
     {
-      const auto& c = controls[i];
+      const auto& c = *controls[i];
       stages[i].Process(samples, frames, c.enabled, c.inputDB, c.trimDB, c.dynamics, c.eq, c.utility, right);
       if (i == mMonitorSlot && mMonitorCapture && mMonitorMeter)
         for (int frame = 0; frame < frames; ++frame)

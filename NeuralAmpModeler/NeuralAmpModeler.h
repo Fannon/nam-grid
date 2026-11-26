@@ -11,6 +11,7 @@
 
 #include "NAMStage.h"
 #include "FixedNAMGrid.h"
+#include "GridDCBlocker.h"
 #include "RigTransition.h"
 #include "AudioControlCache.h"
 #include "SlotOperations.h"
@@ -19,8 +20,11 @@
 #include "LevelAnalysis.h"
 #include "GridTuner.h"
 #include "UserPaths.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
+#include <cstdint>
 #include <mutex>
 #include <map>
 
@@ -95,29 +99,7 @@ enum EMsgTags
   kNumMsgTags
 };
 
-// The reused filter retains its histories across SetParams; host reset must
-// explicitly clear both channels so a stopped project's tail cannot leak back.
-class GridDCBlocker : public recursive_linear_filter::HighPass
-{
-public:
-  void Prepare(double rate, size_t channels, size_t frames)
-  {
-    _PrepareBuffers(channels, frames);
-    SetParams(recursive_linear_filter::HighPassParams(rate, 5.));
-    ClearHistory();
-  }
-
-private:
-  void ClearHistory()
-  {
-    for (auto& channel : mInputHistory)
-      std::fill(channel.begin(), channel.end(), 0.);
-    for (auto& channel : mOutputHistory)
-      std::fill(channel.begin(), channel.end(), 0.);
-    mInputStart = static_cast<long>(mInputCoefficients.size());
-    mOutputStart = static_cast<long>(mOutputCoefficients.size());
-  }
-};
+static_assert(GridDCBlocker::kChannels == kNumChannelsInternal);
 
 class NeuralAmpModeler final : public iplug::Plugin
 {
@@ -364,13 +346,18 @@ private:
   int mAudibleGrid = 0, mOutgoingGrid = 0; // audio thread, or host stopped
   RigTransition mRigTransition;
   // Audio only: the held rig's controls, and the frozen outgoing rig during a switch.
-  grid_performance::Values mHeldPerformance{};
-  double mHeldBlend = .5, mHeldInputGain = 1., mHeldOutputGain = 1.;
+  struct HeldGlobals
+  {
+    grid_performance::Values performance{};
+    double blend = .5, inputGain = 1., outputGain = 1.;
+  };
+  AudioControlCache<HeldGlobals, 1> mHeldGlobals;
   double mOutgoingInputGain = 1., mOutgoingOutputGain = 1.;
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mOutgoingControls{};
   grid_performance::Routing mOutgoingRouting{};
   double mOutgoingBlend = .5;
   bool mLastModulated = false;
+  uint16_t mLastModulatedSlots = 0;
   std::array<std::vector<double>, 2> mOutgoingBuffers;
   AudioControlCache<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAudioControls;
   std::array<FixedNAMGrid::Controls, FixedNAMGrid::kSlots> mAnimatedControls{}; // audio only

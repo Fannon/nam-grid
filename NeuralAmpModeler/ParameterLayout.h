@@ -3,6 +3,7 @@
 #include "GridPerformance.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string>
 #include <utility>
@@ -181,16 +182,45 @@ enum EParams
 };
 static_assert(parameter_layout::GlobalID(kTunerMute) == kTunerMute, "Fixed globals keep their enum IDs");
 
+namespace parameter_layout
+{
+inline constexpr std::array<int, grid_performance::Count> kPerformanceParams = [] {
+  std::array<int, grid_performance::Count> table{};
+  for (int i = 0; i < grid_performance::Count; ++i)
+    table[i] = GlobalID(fixedGlobals + i);
+  return table;
+}();
+
+inline constexpr std::array<int16_t, Total(segments)> kPerformanceIndex = [] {
+  std::array<int16_t, Total(segments)> table{};
+  table.fill(-1);
+  for (int i = 0; i < grid_performance::Count; ++i)
+    table[kPerformanceParams[i]] = static_cast<int16_t>(i);
+  return table;
+}();
+} // namespace parameter_layout
+
 // Host ID of a grid_performance parameter; never use contiguous arithmetic.
-constexpr int PerformanceParam(int parameter) { return parameter_layout::GlobalID(parameter_layout::fixedGlobals + parameter); }
+constexpr int PerformanceParam(int parameter)
+{
+  return parameter >= 0 && parameter < grid_performance::Count
+    ? parameter_layout::kPerformanceParams[parameter]
+    : parameter_layout::GlobalID(parameter_layout::fixedGlobals + parameter);
+}
 // grid_performance parameter of a host ID, or -1.
 constexpr int PerformanceIndex(int id)
 {
-  for (int parameter = 0; parameter < grid_performance::Count; ++parameter)
-    if (PerformanceParam(parameter) == id)
-      return parameter;
-  return -1;
+  return id >= 0 && id < kNumParams ? static_cast<int>(parameter_layout::kPerformanceIndex[id]) : -1;
 }
+static_assert([] {
+  for (int parameter = 0; parameter < grid_performance::Count; ++parameter)
+  {
+    const int id = PerformanceParam(parameter);
+    if (id < 0 || id >= kNumParams || PerformanceIndex(id) != parameter)
+      return false;
+  }
+  return PerformanceIndex(-1) == -1 && PerformanceIndex(kNumParams) == -1;
+}(), "PerformanceParam and PerformanceIndex lookup tables must round-trip");
 
 // Saved selectors without host automation: algorithm modes and matrix routing.
 // Their lists may grow without reinterpreting recorded automation.

@@ -142,6 +142,23 @@ int main(int argc, char** argv)
 {
   IsolatedUserHome userHome("nam-grid-parameter-contract"); // Never the user's settings or library.
   assert(argc == 3 || argc == 4);
+  for (int p = 0; p < grid_performance::Count; ++p)
+  {
+    const int id = PerformanceParam(p);
+    assert(id == parameter_layout::GlobalID(parameter_layout::fixedGlobals + p));
+    assert(PerformanceIndex(id) == p);
+  }
+  for (int id = -1; id <= kNumParams + 1; ++id)
+  {
+    int expected = -1;
+    for (int p = 0; p < grid_performance::Count; ++p)
+      if (parameter_layout::GlobalID(parameter_layout::fixedGlobals + p) == id)
+      {
+        expected = p;
+        break;
+      }
+    assert(PerformanceIndex(id) == expected);
+  }
   assert(future_layout::Preserves(future_layout::current, future_layout::grown, future_layout::g, future_layout::s));
   assert(future_layout::Preserves(future_layout::grown, future_layout::extended, future_layout::g, future_layout::s + 3));
 #ifdef _WIN32

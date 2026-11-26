@@ -268,6 +268,21 @@ int main()
     }
     assert(rejected);
   }
+  {
+    AdaptiveIR::IRData data{{1.f, .25f, -.1f}, 48000.};
+    const uint64_t before = AdaptiveIR::ConstructionCount();
+    AdaptiveIR ir(data, 48000., 512);
+    assert(AdaptiveIR::ConstructionCount() == before + 1);
+    assert(ir.MaxBlock() == 512);
+    assert(!ir.NeedsReset(48000., 512));
+    assert(ir.NeedsReset(96000., 512));
+    assert(ir.NeedsReset(48000., 256));
+    std::array<double, 64> buf{};
+    buf[0] = 1.;
+    double* p = buf.data();
+    ir.Process(&p, 1, 64);
+    assert(ir.NeedsReset(48000., 512));
+  }
   std::cout << "Adaptive IR: " << samples
             << " reference samples, four rates, direct/FFT selection, variable blocks, "
                "quiet tails, silence, channel API and no processing allocation/deletion passed; max error "

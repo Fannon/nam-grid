@@ -1,5 +1,6 @@
 #pragma once
 #include "../AudioDSPTools/dsp/ImpulseResponse.h"
+#include <cstdint>
 #include <memory>
 
 // One mono FIR history. Stereo grid/legacy cabinets own independent instances.
@@ -40,8 +41,11 @@ public:
   double GetSampleRate() const;
   Backend GetBackend() const;
   size_t Length() const;
+  int MaxBlock() const;
   int PartitionSize() const;
   Mode GetMode() const;
+  bool NeedsReset(double sampleRate, int maxBlock) const;
+  static uint64_t ConstructionCount();
 
 private:
   struct Impl;

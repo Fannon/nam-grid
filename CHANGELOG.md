@@ -6,6 +6,7 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 - Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. The host is notified of a newly learned Smart Gate profile even if it resets before the next update.
 - Improved DSP recovery from invalid signal and control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay finite at low sample rates.
+- Fixed library folder dialogs on Linux and control hitboxes in the module editor. Library scans preserve match-all `.ignore` rules and large favorites files remain readable.
 
 ## [0.8.0] - 2026-11-24
 

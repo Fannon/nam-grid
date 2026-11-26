@@ -310,6 +310,8 @@ const std::vector<IgnoreRules::Pattern>& IgnoreRules::Patterns(const std::filesy
         pattern.directoryOnly = true;
         line.pop_back();
       }
+      if (line.find_first_not_of('/') == std::string::npos)
+        continue;
       // A slash anywhere else anchors the pattern to this folder; otherwise it matches a
       // name at any depth. Collapse consecutive `**` segments so pathological rules cannot
       // multiply backtracking.
@@ -327,8 +329,7 @@ const std::vector<IgnoreRules::Pattern>& IgnoreRules::Patterns(const std::filesy
           pushSegment(line.substr(start, end - start));
         start = end + 1;
       }
-      if (!pattern.segments.empty() && !(pattern.segments.size() == 1 && pattern.segments[0] == "**"))
-        patterns.push_back(std::move(pattern));
+      patterns.push_back(std::move(pattern));
     }
   }
   return patterns;
@@ -1142,17 +1143,20 @@ std::optional<Stars> ReadFavorites(const std::filesystem::path& file)
     const auto stars = config.find("Stars");
     if (stars == config.end()) return result;
     if (!stars->is_object()) return std::nullopt;
-    for (auto entry = stars->begin(); entry != stars->end() && result.size() < 8192; ++entry)
+    for (auto entry = stars->begin(); entry != stars->end() && result.size() < kMaxFavorites; ++entry)
     {
       // A damaged or hand-edited entry costs only that star, never the rest of the file.
       const auto& value = entry.value();
-      if (entry.key().empty() || entry.key().size() > 2048 || !value.is_object()) continue;
+      if (entry.key().empty() || entry.key().size() > kMaxFavoriteKeyBytes || !value.is_object()) continue;
       const auto level = value.find("Level");
       if (level == value.end() || !level->is_number_integer()) continue;
       Star star{level->get<int>()};
       if (star.level < 1 || star.level > kStarLevels) continue;
-      if (const auto name = value.find("Name"); name != value.end() && name->is_string() && name->size() <= 512)
-        star.name = name->get<std::string>();
+      if (const auto name = value.find("Name"); name != value.end() && name->is_string())
+      {
+        const auto& text = name->get_ref<const std::string&>();
+        if (text.size() <= kMaxFavoriteNameBytes) star.name = text;
+      }
       result[entry.key()] = std::move(star);
     }
   }
@@ -1167,17 +1171,23 @@ bool WriteFavorites(const std::filesystem::path& file, const Stars& stars)
 {
   try
   {
-    if (file.empty()) return false;
-    if (const auto parent = file.parent_path(); !parent.empty())
-      std::filesystem::create_directories(parent);
+    if (file.empty() || stars.size() > kMaxFavorites) return false;
     auto entries = nlohmann::json::object();
     for (const auto& [key, star] : stars)
     {
+      if (key.empty() || key.size() > kMaxFavoriteKeyBytes || star.level < 1 || star.level > kStarLevels)
+        return false;
       auto entry = nlohmann::json{{"Level", star.level}};
-      if (!star.name.empty()) entry["Name"] = star.name;
+      // The name is optional display text. Keep the star when a filename is longer.
+      if (!star.name.empty() && star.name.size() <= kMaxFavoriteNameBytes) entry["Name"] = star.name;
       entries[key] = std::move(entry);
     }
-    rig_preset::WriteAtomically(file, nlohmann::json{{"Format", "nam-grid-favorites"}, {"Version", 1}, {"Stars", entries}}.dump(2));
+    const auto serialized =
+      nlohmann::json{{"Format", "nam-grid-favorites"}, {"Version", 1}, {"Stars", std::move(entries)}}.dump(2);
+    if (serialized.size() > kMaxFavoritesBytes) return false;
+    if (const auto parent = file.parent_path(); !parent.empty())
+      std::filesystem::create_directories(parent);
+    rig_preset::WriteAtomically(file, serialized);
     return true;
   }
   catch (const std::exception&)

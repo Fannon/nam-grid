@@ -3,6 +3,8 @@
 // Control/UI-side library only. No inference objects, model weights, or audio-thread access.
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -139,7 +141,13 @@ std::string ContentHash(const std::filesystem::path& file, const std::function<b
 // favorites.json beside the user's presets rather than in a rig. Levels cycle yellow, orange,
 // red, then back to none.
 inline constexpr int kStarLevels = 3;
-inline constexpr std::uintmax_t kMaxFavoritesBytes = 8u * 1024 * 1024;
+inline constexpr std::size_t kMaxFavorites = 8192;
+inline constexpr std::size_t kMaxFavoriteKeyBytes = 2048;
+inline constexpr std::size_t kMaxFavoriteNameBytes = 512;
+// Allow six JSON bytes per input byte for escaping, plus the record envelope.
+// Older versions could emit one extra entry before the read limit took effect.
+inline constexpr std::uintmax_t kMaxFavoritesBytes =
+  1024 + (kMaxFavorites + 1) * (6 * (kMaxFavoriteKeyBytes + kMaxFavoriteNameBytes) + 128);
 struct Star
 {
   int level = 0;

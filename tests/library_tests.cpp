@@ -501,12 +501,43 @@ int main(int argc, char** argv)
     std::filesystem::remove_all(favRoot);
     std::filesystem::create_directories(favRoot);
     const auto oversized = favRoot / "oversized-favorites.json";
-    {
-      std::ofstream out(oversized, std::ios::binary);
-      const std::string header = R"({"Format":"nam-grid-favorites","Version":1,"Stars":{}})";
-      out << header << std::string((kMaxFavoritesBytes + 1) - header.size(), ' ');
-    }
+    std::ofstream(oversized, std::ios::binary) << R"({"Format":"nam-grid-favorites","Version":1,"Stars":{}})";
+    std::filesystem::resize_file(oversized, kMaxFavoritesBytes + 1);
     assert(!ReadFavorites(oversized).has_value());
+
+    auto relative = std::filesystem::path("rigs");
+    for (int i = 0; i < 8; ++i)
+      relative /= std::string(210, static_cast<char>('a' + i));
+    Stars largeStars;
+    for (int i = 0; i < 5000; ++i)
+    {
+      Capture preset;
+      preset.kind = FileKind::RigPreset;
+      preset.path = favRoot / relative / (std::to_string(i) + ".ngrid");
+      preset.source = favRoot;
+      preset.relative = preset.path.lexically_relative(favRoot);
+      largeStars[StarKey(preset, favRoot)] = {1, "Saved preset"};
+    }
+    const auto largeFile = favRoot / "large-favorites.json";
+    assert(WriteFavorites(largeFile, largeStars));
+    assert(std::filesystem::file_size(largeFile) > 8u * 1024 * 1024);
+    const auto loadedLarge = ReadFavorites(largeFile);
+    assert(loadedLarge && loadedLarge->size() == largeStars.size());
+    for (const auto& [key, star] : largeStars)
+      assert(loadedLarge->at(key).level == star.level && loadedLarge->at(key).name == star.name);
+
+    const auto protectedFile = favRoot / "protected-favorites.json";
+    Stars existing{{"RigPreset:kept.ngrid", {2, "Kept"}}};
+    assert(WriteFavorites(protectedFile, existing));
+    auto tooMany = existing;
+    for (size_t i = 0; i < kMaxFavorites; ++i)
+      tooMany["RigPreset:" + std::to_string(i) + ".ngrid"] = {1, {}};
+    assert(!WriteFavorites(protectedFile, tooMany));
+    existing[std::string(kMaxFavoriteKeyBytes + 1, 'x')] = {1, {}};
+    assert(!WriteFavorites(protectedFile, existing));
+    const auto kept = ReadFavorites(protectedFile);
+    assert(kept && kept->size() == 1 && kept->at("RigPreset:kept.ngrid").level == 2);
+
     const auto deepFav = favRoot / "deep-favorites.json";
     std::ofstream(deepFav, std::ios::binary) << std::string(140, '[') << "0" << std::string(140, ']');
     assert(!ReadFavorites(deepFav).has_value());

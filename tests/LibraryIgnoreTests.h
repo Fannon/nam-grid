@@ -78,7 +78,6 @@ inline void TestLibraryIgnoreFiles(const std::filesystem::path& fixtureRoot)
     rulesText += "**/*/**/**/*/**/**/*/**/**/*/**/**/*/**/**/*/**/**/*/nomatch2.nam\n";
     rulesText += "Packs/**/**/old/\n";
     rulesText += "Sub/**/**\n";
-    rulesText += "**/**\n";
     std::ofstream(pathoRoot / ".ignore", std::ios::binary) << rulesText;
     IgnoreRules pathoRules(pathoRoot);
     std::filesystem::path deep = pathoRoot;
@@ -94,6 +93,14 @@ inline void TestLibraryIgnoreFiles(const std::filesystem::path& fixtureRoot)
     assert(!pathoRules.Ignored(pathoRoot / "Sub", true));
     assert(pathoRules.Ignored(pathoRoot / "Sub" / "child.nam", false));
     assert(!pathoRules.Ignored(pathoRoot / "normal.nam", false));
+
+    for (const std::string pattern : {"**", "**/**"})
+    {
+      std::ofstream(pathoRoot / ".ignore", std::ios::binary) << pattern << "\n!\n/\n";
+      IgnoreRules matchAll(pathoRoot);
+      assert(matchAll.Ignored(pathoRoot / "normal.nam", false));
+      assert(matchAll.Ignored(pathoRoot / "Sub" / "child.nam", false));
+    }
     std::filesystem::remove_all(pathoRoot);
   }
 

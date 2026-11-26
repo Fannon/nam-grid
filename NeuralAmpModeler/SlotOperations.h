@@ -36,7 +36,7 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
     auto model = nam::get_dsp(std::filesystem::u8path(config.path));
     if (model->NumInputChannels() != 1 || model->NumOutputChannels() != 1)
       throw std::runtime_error("NAM slots require a mono input and output model");
-    p->model = std::make_unique<ResamplingNAM>(std::move(model), rate, block, false);
+    p->model = std::make_unique<ResamplingNAM>(std::move(model), rate, /*deferLinearReset=*/true);
     if (auto* slimmable = p->model->GetSlimmableModel())
       slimmable->SetSlimmableSize(config.values[16]); // Core explicitly forbids this on audio.
   }

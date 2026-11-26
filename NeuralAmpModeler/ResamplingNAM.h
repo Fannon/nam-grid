@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <typeinfo>
 #include "IPlugConstants.h"
 // AudioDSPTools' upstream adapter uses an unqualified default argument.
 #ifndef DEFAULT_BLOCK_SIZE
@@ -12,6 +13,7 @@
   #undef NAM_LOCAL_DEFAULT_BLOCK_SIZE
 #endif
 #include "../NeuralAmpModelerCore/NAM/dsp.h"
+#include "../NeuralAmpModelerCore/NAM/linear.h"
 #include "../NeuralAmpModelerCore/NAM/slimmable.h"
 // Get the sample rate of a NAM model.
 // Sometimes, the model doesn't know its own sample rate; this wrapper guesses 48k based on the way that most
@@ -35,7 +37,7 @@ class ResamplingNAM : public nam::DSP
 public:
   // Resampling wrapper around the NAM models
   ResamplingNAM(std::unique_ptr<nam::DSP> encapsulated, const double expected_sample_rate,
-                int maxBlockSize = 2048, bool resetNow = true)
+                bool deferLinearReset = false)
   : nam::DSP(encapsulated->NumInputChannels(), encapsulated->NumOutputChannels(), expected_sample_rate)
   , mEncapsulated(std::move(encapsulated))
   , mResampler(GetNAMSampleRate(mEncapsulated))
@@ -65,9 +67,13 @@ public:
     // go.
     // _prewarm_samples = 0;
 
-    // And be ready
-    if (resetNow)
-      Reset(expected_sample_rate, maxBlockSize);
+    // Linear rebuilds its convolution history in Reset. Other models can accumulate
+    // recurrent state during prewarm, including LSTMs nested in another architecture.
+    // Keep their original constructor, preparation and adoption warmups.
+    const auto& model = *mEncapsulated;
+    mCanReuseReset = typeid(model) == typeid(nam::Linear);
+    if (!deferLinearReset || !mCanReuseReset)
+      Reset(expected_sample_rate, 2048);
   };
 
   ~ResamplingNAM() = default;
@@ -118,7 +124,7 @@ public:
       NAM_SAMPLE* outputPtr = output.data();
       mEncapsulated->process(&inputPtr, &outputPtr, maxEncapsulatedBlockSize);
     }
-    mFresh = true;
+    mFresh = mCanReuseReset;
   };
 
   // So that we can let the world know if we're resampling (useful for debugging)
@@ -138,6 +144,7 @@ private:
 
   // Used to check that we don't get too large a block to process.
   int mMaxExternalBlockSize = 0;
+  bool mCanReuseReset = false;
   bool mFresh = false;
 
   // This function is defined to conform to the interface expected by the iPlug2 resampler.

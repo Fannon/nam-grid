@@ -177,28 +177,6 @@ void TestStageAdoptionAndSampleRate()
   std::cout << "Stage adoption mFirst and NAM sample-rate fallback passed\n";
 }
 
-class StubResetDSP final : public nam::DSP
-{
-public:
-  StubResetDSP(int& resets, int& prewarms, double expectedRate = 48000.)
-  : nam::DSP(1, 1, expectedRate), mResets(resets), mPrewarms(prewarms) {}
-  void Reset(const double sampleRate, const int maxBufferSize) override
-  {
-    ++mResets;
-    nam::DSP::Reset(sampleRate, maxBufferSize);
-  }
-  void prewarm() override { ++mPrewarms; }
-  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
-  {
-    for (int i = 0; i < num_frames; ++i)
-      output[0][i] = input[0][i];
-  }
-
-private:
-  int& mResets;
-  int& mPrewarms;
-};
-
 void TestPR4HotPathAndPrewarm()
 {
   // 1. CabinetIR PrepareSlot + Publish + ResetStopped constructs AdaptiveIR only 2x (left + right),
@@ -251,31 +229,62 @@ void TestPR4HotPathAndPrewarm()
     std::filesystem::remove_all(dir);
   }
 
-  // 2. ResamplingNAM single-prewarm lifecycle across deferred constructor, ResetStopped, Process, rate/block change.
+  // Compare the first audible block to the released warmup schedule. A slow
+  // forget gate keeps the difference measurable after several prewarm calls.
   {
-    int resets = 0, prewarms = 0;
-    auto p = std::make_unique<NAMStage::Prepared>();
-    p->effect = SlotEffect::NAM;
-    p->model = std::make_unique<ResamplingNAM>(std::make_unique<StubResetDSP>(resets, prewarms), 48000., 512, false);
-    assert(resets == 0 && prewarms == 0);
-    p->Reset(48000., 512);
-    assert(resets == 1);
-    NAMStage stage;
-    stage.Publish(std::move(p));
-    stage.ResetStopped(48000., 512);
-    assert(resets == 1);
-    stage.ResetStopped(48000., 512);
-    assert(resets == 1);
+    constexpr double rate = 48000.;
+    constexpr int block = 512;
+    const auto dir = std::filesystem::current_path() / "nam-startup-fixture";
+    std::filesystem::create_directories(dir);
+    const auto modelFile = dir / "slow-lstm.nam";
+    const nlohmann::json model{
+      {"version", "0.7.0"}, {"architecture", "LSTM"}, {"sample_rate", rate},
+      {"config", {{"num_layers", 1}, {"input_size", 1}, {"hidden_size", 1}}},
+      {"weights", {0., 0., 0., 0., .2, 0., 0., 0., 0., 10., 0., 2., 0., 1., 1., 0.}}};
+    std::ofstream(modelFile) << model.dump();
 
-    std::array<double, 64> buf{};
-    buf.fill(0.1);
-    stage.Process(buf.data(), 64, true, 0., 0.);
-    stage.ResetStopped(48000., 512);
-    assert(resets == 2);
-    stage.ResetStopped(96000., 512);
-    assert(resets == 3);
-    stage.ResetStopped(96000., 256);
-    assert(resets == 4);
+    auto reference = nam::get_dsp(modelFile);
+    reference->ResetAndPrewarm(rate, 2048); // Released ResamplingNAM constructor.
+    reference->ResetAndPrewarm(rate, block); // PrepareSlot.
+    reference->ResetAndPrewarm(rate, block); // ResetStopped adopts the slot.
+
+    SlotConfig config;
+    config.path = modelFile.string();
+    auto prepared = PrepareSlot(config, rate, block);
+    auto* processor = prepared.dsp->model.get();
+    NAMStage stage;
+    stage.Publish(std::move(prepared.dsp));
+    stage.ResetStopped(rate, block);
+
+    std::array<NAM_SAMPLE, block> input{}, expected{}, actual{};
+    input.fill(.2);
+    auto* in = input.data();
+    auto* out = expected.data();
+    reference->process(&in, &out, block);
+    out = actual.data();
+    processor->process(&in, &out, block);
+    assert(actual == expected);
+    std::filesystem::remove_all(dir);
+  }
+
+  // Linear Reset replaces convolution history, so the fresh reset can be reused.
+  {
+    ResamplingNAM linear(std::make_unique<nam::Linear>(1, 1, 2, false, std::vector<float>{.5f, .5f}, 48000.), 48000., true);
+    linear.Reset(48000., 512);
+    allocations = deletions = 0;
+    tracking = true;
+    linear.Reset(48000., 512);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+
+    NAM_SAMPLE input[]{.5, .5}, output[]{0., 0.};
+    auto* in = input;
+    auto* out = output;
+    linear.process(&in, &out, 2);
+    assert(output[0] == .25 && output[1] == .5);
+    linear.Reset(48000., 512);
+    linear.process(&in, &out, 2);
+    assert(output[0] == .25 && output[1] == .5);
   }
 
   // 3. NAMStage::Prepared::IsLoaded() parity & gain memo bit-identity across 0 -> +6 -> -6 -> 0 dB.
@@ -318,10 +327,9 @@ void TestPR4HotPathAndPrewarm()
     for (double s : emptyBuf)
       assert(s == 0.25);
 
-    int resets = 0, prewarms = 0;
     auto p = std::make_unique<NAMStage::Prepared>();
     p->effect = SlotEffect::NAM;
-    p->model = std::make_unique<ResamplingNAM>(std::make_unique<StubResetDSP>(resets, prewarms), 48000., 64, true);
+    p->model = std::make_unique<ResamplingNAM>(std::make_unique<nam::DSP>(1, 1, 48000.), 48000.);
     NAMStage stage;
     stage.Publish(std::move(p));
     stage.ResetStopped(48000., 64);
@@ -401,7 +409,7 @@ void TestPR4HotPathAndPrewarm()
       }
     }
   }
-  std::cout << "PR4 hot-path, prewarm, AdaptiveIR reuse, and GridDCBlocker bit-identity passed\n";
+  std::cout << "PR4 hot path, NAM startup parity, AdaptiveIR reuse, and GridDCBlocker bit identity passed\n";
 }
 } // namespace
 

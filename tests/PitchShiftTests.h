@@ -95,4 +95,32 @@ inline void TestPitchShift()
     for(int b=0;b<static_cast<int>(rate*.3/128)+2;++b){l.fill(0.);stage.Process(l.data(),128,true,0.,0.,{},{},c);}
     for(double x:l)assert(std::abs(x)<1.e-12);
   }
+
+  // PR 5: BasicDelayLine::ReadInt bounds & parity vs Read(double), odd-stride 88.2 kHz pitch,
+  // and degenerate low-rate (1 Hz, 8 kHz) safety.
+  {
+    grid_fx::DelayLine line;
+    line.Reset(64);
+    for (int i = 1; i <= 70; ++i) line.Push(static_cast<double>(i));
+    for (int64_t k = 1; k <= static_cast<int64_t>(line.MaxDelay()); ++k)
+      assert(line.ReadInt(k) == line.Read(static_cast<double>(k)));
+    assert(line.ReadInt(0) == line.ReadInt(1));
+    assert(line.ReadInt(-5) == line.ReadInt(1));
+    const auto maxInt = static_cast<int64_t>(line.MaxDelay());
+    assert(line.ReadInt(maxInt + 10) == line.ReadInt(maxInt));
+
+    const auto oddAudio = Render(88200., 220., 7.);
+    const double wanted = 220. * std::exp2(7. / 12.), measured = PeakHz(oddAudio, 88200.);
+    assert(std::abs(1200. * std::log2(measured / wanted)) < 3.);
+
+    for (double lowRate : {1., 8000.})
+    {
+      SlotPitchShift lowFx; lowFx.Reset(lowRate);
+      UtilityControls lc; lc.pitchShift = {12., 0., 16000., 0., 100.};
+      std::vector<double> buf(static_cast<size_t>(std::max(64., lowRate * .25)));
+      for (size_t i = 0; i < buf.size(); ++i) buf[i] = .25 * std::sin(i * .13);
+      lowFx.Process(buf.data(), nullptr, static_cast<int>(buf.size()), lc);
+      for (double x : buf) assert(std::isfinite(x) && std::abs(x) < 2.);
+    }
+  }
 }

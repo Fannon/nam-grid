@@ -253,6 +253,7 @@ struct Settings
   int mode = 0;
   double position = .15, size = 180., activity = .5, shape = .5, filter = 0., repeats = .2, space = .3;
   double periodSeconds = 0.; // Zero selects the mode's free-running scheduler.
+  bool operator==(const Settings&) const = default;
   bool IsBurst() const { return mode == static_cast<int>(Mode::PickBurst); }
   double BurstPeriod() const
   {
@@ -352,36 +353,67 @@ public:
       for (int i = 0; i < 4; ++i) mDiffuser[ch][i].Reset(mRate, kDiffusion[ch][i] + .002);
     mReverb.Reset(mRate);
     mFirst = true;
+    mConfigured = false;
+    mFilterSettled = false;
+    mNormExponent = 1.;
+    mNormTarget = {1., 1.};
+    mNormCounter = 0;
+    mDiffuserActive = mReverbActive = false;
+    mDiffuserQuiet = mReverbQuiet = 0;
     Configure({});
   }
   // Called every few samples from smoothed controls; Tick reads the cached values.
   void Configure(const Settings& s)
   {
-    if (s.IsBurst() && !mSettings.IsBurst()) { mDetector.Clear(mProcessed); mBurst = {}; }
-    mSettings = s;
-    mVoicing = Voice(s.mode);
-    mOverlap = Overlap(mVoicing, s.activity);
-    mHintFrames = GrainFrames(s.size * mVoicing.sizeScale, 1., mRate, mFrames);
-    mClockIncrement = s.IsBurst() ? 1. / (s.BurstPeriod() * mRate) : s.ClockIncrement(mRate);
-    mDecorrelation = Decorrelation(mVoicing);
-    mPeak = Peak(s.shape);
-    const double f = std::clamp(s.repeats, 0., 1.);
-    mFeedbackGain = kMaxLoop * f * (2. - f);
-    mFeedbackCoefficient = 1. / (1. + 2. * grid_fx::pi * (20. + 100. * f * f) / mRate);
-    // Filter: left of center lowers a low-pass to 200 Hz, right raises a high-pass to 4 kHz.
-    const double knob = std::clamp(s.filter, -1., 1.), top = std::min(20000., .45 * mRate);
-    const double lowPass = std::min({top, mVoicing.highCut, knob < 0. ? top * std::pow(200. / top, -knob) : top});
-    const double highPass = std::max(mVoicing.lowCut, knob > 0. ? 20. * std::pow(200., knob) : 20.);
-    // Glide the cutoffs in octaves, so mode changes do not step the filters.
-    const double glide = mFirst ? 0. : .85;
-    mLowPassHz = std::exp(std::log(lowPass) + glide * (std::log(mLowPassHz) - std::log(lowPass)));
-    mHighPassHz = std::exp(std::log(highPass) + glide * (std::log(mHighPassHz) - std::log(highPass)));
-    mLowPassG = std::tan(grid_fx::pi * mLowPassHz / mRate); mLowPassG /= 1. + mLowPassG;
-    mHighPassG = std::tan(grid_fx::pi * mHighPassHz / mRate); mHighPassG /= 1. + mHighPassG;
-    const double r = std::clamp(s.space, 0., 1.);
-    mSpace = r;
-    mReverb.Configure(1., .8 + 7.2 * r * r, 6500. + 3000. * f, .5);
-    if (mFirst) { mDiffusion = mVoicing.diffusion; mSpaceMix = r; mSpaceRepeats = mVoicing.spaceRepeats; mFirst = false; }
+    if (mConfigured && mFilterSettled && s == mSettings)
+      return;
+    const bool settingsChanged = !mConfigured || !(s == mSettings);
+    if (settingsChanged)
+    {
+      if (s.IsBurst() && !mSettings.IsBurst()) { mDetector.Clear(mProcessed); mBurst = {}; }
+      mSettings = s;
+      mVoicing = Voice(s.mode);
+      mOverlap = Overlap(mVoicing, s.activity);
+      mHintFrames = GrainFrames(s.size * mVoicing.sizeScale, 1., mRate, mFrames);
+      mClockIncrement = s.IsBurst() ? 1. / (s.BurstPeriod() * mRate) : s.ClockIncrement(mRate);
+      mDecorrelation = Decorrelation(mVoicing);
+      mNormExponent = 1. - .5 * std::clamp(mDecorrelation, 0., 1.);
+      mPeak = Peak(s.shape);
+      const double f = std::clamp(s.repeats, 0., 1.);
+      mFeedbackGain = kMaxLoop * f * (2. - f);
+      mFeedbackCoefficient = 1. / (1. + 2. * grid_fx::pi * (20. + 100. * f * f) / mRate);
+      // Filter: left of center lowers a low-pass to 200 Hz, right raises a high-pass to 4 kHz.
+      const double knob = std::clamp(s.filter, -1., 1.), top = std::min(20000., .45 * mRate);
+      mTargetLowPass = std::min({top, mVoicing.highCut, knob < 0. ? top * std::pow(200. / top, -knob) : top});
+      mTargetHighPass = std::max(mVoicing.lowCut, knob > 0. ? 20. * std::pow(200., knob) : 20.);
+      const double r = std::clamp(s.space, 0., 1.);
+      mSpace = r;
+      mReverb.Configure(1., .8 + 7.2 * r * r, 6500. + 3000. * f, .5);
+      mFilterSettled = false;
+    }
+    if (mFirst)
+    {
+      mLowPassHz = mTargetLowPass;
+      mHighPassHz = mTargetHighPass;
+      mLowPassG = std::tan(grid_fx::pi * mLowPassHz / mRate); mLowPassG /= 1. + mLowPassG;
+      mHighPassG = std::tan(grid_fx::pi * mHighPassHz / mRate); mHighPassG /= 1. + mHighPassG;
+      mFilterSettled = true;
+      mDiffusion = mVoicing.diffusion; mSpaceMix = mSpace; mSpaceRepeats = mVoicing.spaceRepeats;
+      mFirst = false;
+    }
+    else if (!mFilterSettled)
+    {
+      // Glide the cutoffs in octaves, so mode changes do not step the filters.
+      constexpr double glide = .85;
+      mLowPassHz = std::exp(std::log(mTargetLowPass) + glide * (std::log(mLowPassHz) - std::log(mTargetLowPass)));
+      mHighPassHz = std::exp(std::log(mTargetHighPass) + glide * (std::log(mHighPassHz) - std::log(mTargetHighPass)));
+      if (std::abs(mLowPassHz - mTargetLowPass) <= 1.e-6 * mTargetLowPass) mLowPassHz = mTargetLowPass;
+      if (std::abs(mHighPassHz - mTargetHighPass) <= 1.e-6 * mTargetHighPass) mHighPassHz = mTargetHighPass;
+      mLowPassG = std::tan(grid_fx::pi * mLowPassHz / mRate); mLowPassG /= 1. + mLowPassG;
+      mHighPassG = std::tan(grid_fx::pi * mHighPassHz / mRate); mHighPassG /= 1. + mHighPassG;
+      mFilterSettled = (mLowPassHz == mTargetLowPass && mHighPassHz == mTargetHighPass);
+    }
+    mConfigured = true;
   }
   // One stereo frame. `stereo` false reads and writes the left buffer only (mono in, mono out).
   Stereo Tick(Stereo in, bool stereo, bool frozen, double live)
@@ -448,41 +480,75 @@ public:
     }
     mActive = active;
     // Smoothed, so the windows still shape the sound instead of being divided out.
+    const bool updateNorm = (mNormCounter++ & 7) == 0;
     for (int ch = 0; ch < channels; ++ch)
     {
-      const double target = Normalization(sum[ch], mDecorrelation);
-      mGain[ch] = target + mGainCoefficient * (mGain[ch] - target);
+      if (sum[ch] <= 1.)
+        mNormTarget[ch] = 1.;
+      else if (updateNorm)
+        mNormTarget[ch] = std::exp(-mNormExponent * std::log(sum[ch]));
+      mGain[ch] = mNormTarget[ch] + mGainCoefficient * (mGain[ch] - mNormTarget[ch]);
       wet[ch] *= mGain[ch];
     }
     if (!stereo) wet[1] = wet[0];
     // Configure updates every 32 samples; glide the blend amounts per sample, since they
-    // scale the difference between whole signals. The diffuser always runs: started from
-    // silence under a sounding cloud, its first echoes would arrive as hard edges.
+    // scale the difference between whole signals. Park silent diffuser/reverb tails once
+    // settled to silence and wake immediately on any non-zero wet sample.
     mDiffusion = mVoicing.diffusion + mMixCoefficient * (mDiffusion - mVoicing.diffusion);
-    for (int ch = 0; ch < 2; ++ch)
+    const bool wetZero = wet[0] == 0. && wet[1] == 0.;
+    if (!wetZero)
     {
-      double x = wet[ch];
-      for (int i = 0; i < 4; ++i) x = mDiffuser[ch][i].Tick(x, mRate * kDiffusion[ch][i], .625);
-      x = wet[ch] + mDiffusion * (x - wet[ch]);
-      // Filter: two-pole low- and high-pass (TPT one-poles), before Repeats and Space.
-      for (int stage = 0; stage < 2; ++stage)
-      {
-        const double v = mLowPassG * (x - mLowPass[ch][stage]);
-        const double low = v + mLowPass[ch][stage];
-        mLowPass[ch][stage] = grid_fx::Flush(low + v);
-        x = low;
-      }
-      for (int stage = 0; stage < 2; ++stage)
-      {
-        const double v = mHighPassG * (x - mHighPass[ch][stage]);
-        const double low = v + mHighPass[ch][stage];
-        mHighPass[ch][stage] = grid_fx::Flush(low + v);
-        x -= low;
-      }
-      wet[ch] = x;
+      mDiffuserActive = true;
+      mDiffuserQuiet = 0;
+      mReverbActive = true;
+      mReverbQuiet = 0;
     }
-    // The plate always runs, so its tail rings out when Space is turned down.
-    const auto tail = mReverb.Tick({.35 * wet[0], .35 * wet[1]});
+    if (mDiffuserActive)
+    {
+      double maxDiffused = 0.;
+      for (int ch = 0; ch < 2; ++ch)
+      {
+        double x = wet[ch];
+        for (int i = 0; i < 4; ++i) x = mDiffuser[ch][i].Tick(x, mRate * kDiffusion[ch][i], .625);
+        x = wet[ch] + mDiffusion * (x - wet[ch]);
+        // Filter: two-pole low- and high-pass (TPT one-poles), before Repeats and Space.
+        for (int stage = 0; stage < 2; ++stage)
+        {
+          const double v = mLowPassG * (x - mLowPass[ch][stage]);
+          const double low = v + mLowPass[ch][stage];
+          mLowPass[ch][stage] = grid_fx::Flush(low + v);
+          x = low;
+        }
+        for (int stage = 0; stage < 2; ++stage)
+        {
+          const double v = mHighPassG * (x - mHighPass[ch][stage]);
+          const double low = v + mHighPass[ch][stage];
+          mHighPass[ch][stage] = grid_fx::Flush(low + v);
+          x -= low;
+        }
+        wet[ch] = x;
+        maxDiffused = std::max(maxDiffused, std::abs(x));
+      }
+      if (wetZero && maxDiffused < 1.e-15)
+      {
+        if (++mDiffuserQuiet >= static_cast<int>(.1 * mRate))
+          mDiffuserActive = false;
+      }
+      else
+        mDiffuserQuiet = 0;
+    }
+    Stereo tail{};
+    if (mReverbActive)
+    {
+      tail = mReverb.Tick({.35 * wet[0], .35 * wet[1]});
+      if (wetZero && std::max(std::abs(tail[0]), std::abs(tail[1])) < 1.e-15)
+      {
+        if (++mReverbQuiet >= static_cast<int>(.5 * mRate))
+          mReverbActive = false;
+      }
+      else
+        mReverbQuiet = 0;
+    }
     const double r = mSpaceMix = mSpace + mMixCoefficient * (mSpaceMix - mSpace);
     const Stereo out{wet[0] * (1. - .3 * r) + 1.6 * r * tail[0], wet[1] * (1. - .3 * r) + 1.6 * r * tail[1]};
     mSpaceRepeats = mVoicing.spaceRepeats + mMixCoefficient * (mSpaceRepeats - mVoicing.spaceRepeats);
@@ -578,14 +644,15 @@ private:
   BurstClock mBurst;
   Settings mSettings;
   Voicing mVoicing;
-  Stereo mFeedback{}, mGain{1., 1.};
+  Stereo mFeedback{}, mGain{1., 1.}, mNormTarget{1., 1.};
   std::array<std::array<std::array<double, 2>, 2>, 2> mFeedbackHP{};
   std::array<std::array<double, 2>, 2> mLowPass{}, mHighPass{};
   double mRate = 48000., mGainCoefficient = 0., mMixCoefficient = 0., mFeedbackGain = 0., mFeedbackCoefficient = 1.;
-  double mOverlap = 0., mDecorrelation = 0., mPeak = .5, mSpace = 0., mSpaceMix = 0., mDiffusion = 0., mSpaceRepeats = 0.;
+  double mOverlap = 0., mDecorrelation = 0., mNormExponent = 1., mPeak = .5, mSpace = 0., mSpaceMix = 0., mDiffusion = 0., mSpaceRepeats = 0.;
   double mHintFrames = 0., mClockIncrement = 0.;
-  double mLowPassHz = 20000., mHighPassHz = 20., mLowPassG = 0., mHighPassG = 0.;
-  int mFrames = 1, mWrite = 0, mActive = 0, mStep = 0;
-  bool mFirst = true, mProcessed = false;
+  double mLowPassHz = 20000., mHighPassHz = 20., mTargetLowPass = 20000., mTargetHighPass = 20., mLowPassG = 0., mHighPassG = 0.;
+  int mFrames = 1, mWrite = 0, mActive = 0, mStep = 0, mNormCounter = 0, mDiffuserQuiet = 0, mReverbQuiet = 0;
+  bool mFirst = true, mProcessed = false, mConfigured = false, mFilterSettled = false;
+  bool mDiffuserActive = false, mReverbActive = false;
 };
 } // namespace grid_granular

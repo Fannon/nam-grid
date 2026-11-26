@@ -294,5 +294,36 @@ void TestTunerTempoUtility()
                   << "\n";
       assert(std::abs(first - expected) <= 1);
     }
+
+  // PR 5: GridTuner batched SPSC push/pop + mLP denormal flush under zero audio allocations.
+  {
+    grid_tuner::Tuner tuner;
+    tuner.Enable(true);
+    std::array<double, 256> buf{};
+    for (int block = 0; block < 40; ++block)
+    {
+      for (int i = 0; i < 256; ++i)
+        buf[i] = block < 10 ? .3 * std::sin(2. * grid_fx::pi * 440. * (block * 256 + i) / 48000.) : 0.;
+      allocations = deletions = 0; tracking = true;
+      tuner.Push(buf.data(), nullptr, 256, 48000.);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+    }
+    // Push another 440 Hz tone and verify worker wakes/reads batched ring cleanly.
+    for (int block = 0; block < 40; ++block)
+    {
+      for (int i = 0; i < 256; ++i)
+        buf[i] = .3 * std::sin(2. * grid_fx::pi * 440. * (block * 256 + i) / 48000.);
+      tuner.Push(buf.data(), nullptr, 256, 48000.);
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    double hz = 0.;
+    for (int attempt = 0; attempt < 30 && hz <= 0.; ++attempt)
+    {
+      hz = tuner.Frequency();
+      if (hz <= 0.) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    assert(std::abs(hz - 440.) < 2.);
+  }
   std::cout << "Tuner accuracy/worker, stereo Utility/A2, synced repeats and callback allocations passed\n";
 }

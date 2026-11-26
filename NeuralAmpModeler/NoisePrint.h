@@ -10,8 +10,12 @@
 #include "NoisePrintTracking.h"
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
   #include <emmintrin.h>
-#elif defined(__aarch64__) && !defined(NAM_NOISE_PRINT_SCALAR)
-  #include <arm_neon.h>
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_NOISE_PRINT_SCALAR)
+  #ifdef _MSC_VER
+    #include <arm64_neon.h>
+  #else
+    #include <arm_neon.h>
+  #endif
 #endif
 
 // Original MIT NAM Grid experiment. Public product descriptions of multiband
@@ -126,6 +130,8 @@ public:
   void Restore(const Profile& profile)
   {
     mProfile = profile;
+    if (!mProfile.valid)
+      mGain.fill(1.);
     mTracking.Reference(mProfile.power, mProfile.valid);
     mChanged = true;
   }
@@ -167,6 +173,26 @@ public:
       }
     }
     mLearning = c.learn;
+    const double mixStep = 1. / (.005 * mRate);
+    const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate, !c.learn);
+    double minimumGain = 1.;
+    if (!mProfile.valid && !c.learn)
+    {
+      for (int sample = 0; sample < frames; ++sample)
+      {
+        const double dry0 = Safe(left[sample]), dry1 = right ? Safe(right[sample]) : 0.;
+        mMix = std::max(0., mMix - mixStep);
+        const double peak = std::max(std::abs(dry0), std::abs(dry1));
+        mCleanPeak = std::max(mCleanPeak, peak);
+        const double gateGain = mGate.Tick(peak, gate);
+        left[sample] = dry0 * gateGain;
+        if (right)
+          right[sample] = dry1 * gateGain;
+        minimumGain = std::min(minimumGain, gateGain);
+      }
+      mReduction = -20. * std::log10(std::max(1.e-6, minimumGain));
+      return;
+    }
     const bool reducing = mProfile.valid && !c.learn;
     const bool following = reducing && c.trackingMode == 1;
     const double margin = std::pow(10., std::clamp(c.sensitivity, -6., 12.) * .1);
@@ -176,8 +202,6 @@ public:
     const double onsetAttack = onsetAmount > 0. ? std::pow(attack, 1. + 3. * onsetAmount) : attack;
     const double release = std::exp(-1. / (.001 * std::clamp(c.release, 20., 500.) * mRate));
     const double mixTarget = mProfile.valid && !c.learn && c.reduction > 0. ? std::clamp(c.mix, 0., 100.) * .01 : 0.;
-    const double mixStep = 1. / (.005 * mRate);
-    const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate, !c.learn);
     double learnedPower = 0.;
     std::array<double, bands> inverseThreshold;
     for (int i = 0; i < bands; ++i)
@@ -187,8 +211,6 @@ public:
         inverseThreshold[i] = 1. / std::max(1.e-30, mProfile.power[i] * margin);
     }
     const double inverseLearnedPower = 1. / std::max(1.e-30, learnedPower);
-    std::array<double, bands> followThreshold;
-    double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
       const double dry[2]{Safe(left[sample]), right ? Safe(right[sample]) : 0.};
@@ -222,8 +244,6 @@ public:
         scale = mTracking.Tick(mPower, following);
       const bool adjusted = reducing && scale != 1.;
       const double inverseScale = adjusted ? 1. / scale : 1.;
-      if (adjusted)
-        for (int i = 0; i < bands; ++i) followThreshold[i] = inverseThreshold[i] * inverseScale;
       const double ratio = totalPower * inverseLearnedPower;
       const double confidence = reducing ? std::max(0., (adjusted ? ratio * inverseScale : ratio) - 4.) : 0.;
       const double protection = .5 * confidence / (confidence + 8.);
@@ -233,7 +253,7 @@ public:
       double wet[2]{};
       const double gainSum = Synthesize(
         dry, right != nullptr, reducing, synthesize, protection, floor, selectedAttack, release,
-        adjusted ? followThreshold : inverseThreshold, split, wet);
+        inverseThreshold, inverseScale, split, wet);
       mMix += std::clamp(mixTarget - mMix, -mixStep, mixStep);
       // Exact dry/untrained/learning paths: no crossover coloration or buffering.
       const bool neutral = !mProfile.valid || mMix == 0.;
@@ -263,6 +283,12 @@ private:
     return _mm_andnot_pd(_mm_cmplt_pd(magnitude, _mm_set1_pd(1.e-30)), value);
   }
   static double SumPair(__m128d value) { return _mm_cvtsd_f64(value) + _mm_cvtsd_f64(_mm_unpackhi_pd(value, value)); }
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_NOISE_PRINT_SCALAR)
+  static_assert(bands % 2 == 0);
+  static float64x2_t FlushPair(float64x2_t value)
+  {
+    return vbslq_f64(vcltq_f64(vabsq_f64(value), vdupq_n_f64(1.e-30)), vdupq_n_f64(0.), value);
+  }
 #endif
   double Analyze(const double* dry, bool stereo, bool collecting, double inverseSamples, Split& split)
   {
@@ -299,6 +325,39 @@ private:
         mCapture->Accumulate(i, power);
       }
     }
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_NOISE_PRINT_SCALAR)
+    const auto inputL = vdupq_n_f64(dry[0]), inputR = vdupq_n_f64(dry[1]);
+    const auto half = vdupq_n_f64(.5);
+    const auto invSamplesVec = vdupq_n_f64(inverseSamples);
+    for (int i = 0; i < bands; i += 2)
+    {
+      const auto b0 = vld1q_f64(&mCoefficient.b0[i]);
+      const auto a1 = vld1q_f64(&mCoefficient.a1[i]), a2 = vld1q_f64(&mCoefficient.a2[i]);
+      const auto tick = [&](int channel, float64x2_t input) {
+        auto& state = mFilters[channel];
+        const auto excitation = vmulq_f64(b0, input);
+        const auto value = vaddq_f64(excitation, vld1q_f64(&state.first[i]));
+        vst1q_f64(&state.first[i], FlushPair(vfmsq_f64(vld1q_f64(&state.second[i]), a1, value)));
+        vst1q_f64(&state.second[i], FlushPair(vfmsq_f64(vnegq_f64(excitation), a2, value)));
+        vst1q_f64(&split[channel][i], value);
+        return value;
+      };
+      const auto left = tick(0, inputL);
+      auto power = vmulq_f64(left, left);
+      if (stereo)
+      {
+        const auto right = tick(1, inputR);
+        power = vmulq_f64(half, vfmaq_f64(power, right, right));
+      }
+      const auto previous = vld1q_f64(&mPower[i]);
+      vst1q_f64(&mPower[i], FlushPair(vfmaq_f64(power, vld1q_f64(&mDetector[i]), vsubq_f64(previous, power))));
+      if (collecting)
+      {
+        const auto mean = vld1q_f64(&mMean[i]);
+        vst1q_f64(&mMean[i], vfmaq_f64(mean, vsubq_f64(power, mean), invSamplesVec));
+        mCapture->Accumulate(i, power);
+      }
+    }
 #else
     for (int channel = 0; channel < (stereo ? 2 : 1); ++channel)
       for (int i = 0; i < bands; ++i)
@@ -329,12 +388,13 @@ private:
   }
   double Synthesize(const double* dry, bool stereo, bool reducing, bool synthesize, double protection, double floor,
                     double attack, double release, const std::array<double, bands>& inverseThreshold,
-                    const Split& split, double* wet)
+                    double inverseScale, const Split& split, double* wet)
   {
     double reference = 1., gainSum = 0., bandSum[2]{};
     const double fastAttack = attack * attack * attack * attack;
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
     const auto one = _mm_set1_pd(1.), zero = _mm_setzero_pd();
+    const auto scaleVec = _mm_set1_pd(inverseScale);
     auto gains = zero, minimum = one, sumL = zero, sumR = zero, wetL = zero, wetR = zero;
     for (int i = 0; i < bands; i += 2)
     {
@@ -342,7 +402,8 @@ private:
       auto openingAttack = _mm_set1_pd(attack);
       if (reducing)
       {
-        const auto ratio = _mm_mul_pd(_mm_loadu_pd(&mPower[i]), _mm_loadu_pd(&inverseThreshold[i]));
+        const auto thresh = _mm_mul_pd(_mm_loadu_pd(&inverseThreshold[i]), scaleVec);
+        const auto ratio = _mm_mul_pd(_mm_loadu_pd(&mPower[i]), thresh);
         // Bands well above the learned floor open faster, including abrupt noise.
         // Near the learned floor keep the selected Attack and suppression curve.
         const auto evidence = _mm_min_pd(one, _mm_max_pd(zero, _mm_mul_pd(_mm_sub_pd(ratio, _mm_set1_pd(4.)), _mm_set1_pd(1. / 12.))));
@@ -382,17 +443,19 @@ private:
       bandSum[1] = SumPair(sumR);
       wet[1] = SumPair(wetR);
     }
-#elif defined(__aarch64__) && !defined(NAM_NOISE_PRINT_SCALAR)
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_NOISE_PRINT_SCALAR)
     // Fused operations match scalar ARM rounding; the sums below stay ordered.
     static_assert(bands % 2 == 0);
     const auto one = vdupq_n_f64(1.), zero = vdupq_n_f64(0.);
+    const auto scaleVec = vdupq_n_f64(inverseScale);
     for (int i = 0; i < bands; i += 2)
     {
       auto target = one;
       auto openingAttack = vdupq_n_f64(attack);
       if (reducing)
       {
-        const auto ratio = vmulq_f64(vld1q_f64(&mPower[i]), vld1q_f64(&inverseThreshold[i]));
+        const auto thresh = vmulq_f64(vld1q_f64(&inverseThreshold[i]), scaleVec);
+        const auto ratio = vmulq_f64(vld1q_f64(&mPower[i]), thresh);
         const auto evidence = vminq_f64(one, vmaxq_f64(zero, vmulq_n_f64(vsubq_f64(ratio, vdupq_n_f64(4.)), 1. / 12.)));
         openingAttack = vfmaq_n_f64(openingAttack, evidence, fastAttack - attack);
         const auto knee = vminq_f64(one, vmaxq_f64(zero, vsubq_f64(ratio, one)));
@@ -427,7 +490,7 @@ private:
       double openingAttack = attack;
       if (reducing)
       {
-        const double ratio = mPower[i] * inverseThreshold[i];
+        const double ratio = mPower[i] * (inverseThreshold[i] * inverseScale);
         openingAttack += std::clamp((ratio - 4.) / 12., 0., 1.) * (fastAttack - attack);
         const double knee = std::clamp(ratio - 1., 0., 1.);
         target = std::max(protection, floor + (1. - floor) * knee * knee * (3. - 2. * knee));

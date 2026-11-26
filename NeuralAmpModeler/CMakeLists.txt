@@ -131,7 +131,7 @@ foreach(dependency CLAP_SDK CLAP_HELPERS VST3_SDK)
     list(APPEND NAM_RESOURCES "${copy}")
   endif()
 endforeach()
-add_executable(nam-stage-tests ../tests/stage_tests.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
+add_executable(nam-stage-tests ../tests/stage_tests.cpp ../tests/NeonParity.cpp ${NAM_CORE_SOURCES} ${NAM_IR_SOURCES}
   ../AudioDSPTools/dsp/dsp.cpp ../AudioDSPTools/dsp/RecursiveLinearFilter.cpp
   ../AudioDSPTools/dsp/ImpulseResponse.cpp ../AudioDSPTools/dsp/wav.cpp)
 target_include_directories(nam-stage-tests PRIVATE . ../eigen

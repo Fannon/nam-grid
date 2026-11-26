@@ -14,6 +14,7 @@ public:
     mRate = std::max(1., rate); mControls.Reset(mRate);
     for (auto& s : mState) s = {};
     mPower = mReduction = mMaxReduction = 0.; mCounter = 0;
+    mLastFreq = mLastQ = mLastAttack = mLastRelease = -1.;
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c, bool = false)
   {
@@ -24,15 +25,26 @@ public:
       const auto& v = mControls.Tick();
       if (mCounter++ % 16 == 0)
       {
-        const double frequency = std::clamp(v[0], 20., .4 * mRate);
-        const double g = std::tan(grid_fx::pi * frequency / mRate);
-        mK = 1. / std::clamp(v[1], .2, 12.);
-        // About two band periods: fast enough for pick bursts, slow enough that
-        // low bands do not modulate their own cycles. 0.5 ms to 25 ms.
-        mRMS = std::exp(-1. / (std::clamp(2. / frequency, .0005, .025) * mRate));
-        mA = 1. / (1. + g * (g + mK)); mG = g;
-        mAttack = std::exp(-1. / (.001 * v[4] * mRate));
-        mRelease = std::exp(-1. / (.001 * v[5] * mRate));
+        bool coeffChanged = false;
+        if (v[0] != mLastFreq)
+        {
+          mLastFreq = v[0];
+          const double frequency = std::clamp(v[0], 20., .4 * mRate);
+          mG = std::tan(grid_fx::pi * frequency / mRate);
+          // About two band periods: fast enough for pick bursts, slow enough that
+          // low bands do not modulate their own cycles. 0.5 ms to 25 ms.
+          mRMS = std::exp(-1. / (std::clamp(2. / frequency, .0005, .025) * mRate));
+          coeffChanged = true;
+        }
+        if (v[1] != mLastQ)
+        {
+          mLastQ = v[1];
+          mK = 1. / std::clamp(v[1], .2, 12.);
+          coeffChanged = true;
+        }
+        if (coeffChanged) mA = 1. / (1. + mG * (mG + mK));
+        if (v[4] != mLastAttack) { mLastAttack = v[4]; mAttack = std::exp(-1. / (.001 * v[4] * mRate)); }
+        if (v[5] != mLastRelease) { mLastRelease = v[5]; mRelease = std::exp(-1. / (.001 * v[5] * mRate)); }
       }
       mCounter %= 16;
       const double dryL = left[i], dryR = right ? right[i] : dryL;
@@ -41,7 +53,7 @@ public:
       // Max power never cancels anti-phase stereo. Peak-calibrated RMS on a sine.
       const double power = 2. * std::max(bandL * bandL, bandR * bandR);
       mPower = grid_fx::Flush(power + mRMS * (mPower - power));
-      const double over = 10. * std::log10(std::max(mPower, 1.e-18)) - v[2];
+      const double over = (mPower <= 1.e-18 ? -180. : 10. * std::log10(mPower)) - v[2];
       const double target = std::clamp(.75 * std::max(0., over), 0., v[3]); // 4:1, bounded range.
       const double coefficient = target > mReduction ? mAttack : mRelease;
       mReduction = grid_fx::Flush(target + coefficient * (mReduction - target));
@@ -68,5 +80,6 @@ private:
   grid_fx::Memo mGain, mOutput;
   double mRate = 48000., mG = 0., mK = 1., mA = 1., mRMS = 0., mPower = 0.;
   double mAttack = 0., mRelease = 0., mReduction = 0., mMaxReduction = 0.;
+  double mLastFreq = -1., mLastQ = -1., mLastAttack = -1., mLastRelease = -1.;
   int mCounter = 0;
 };

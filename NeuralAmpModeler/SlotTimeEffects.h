@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <vector>
 #include "EffectParameters.h"
 #include "ExactMemo.h"
@@ -25,12 +26,19 @@ public:
     mData.assign(std::max(4, capacity + 3), 0.);
     mIndex = 0;
     mMaxDelay = static_cast<double>(mData.size() - 2);
+    mMaxInt = static_cast<int64_t>(mData.size() - 2);
   }
   // Silence the line without reallocating (realtime-safe).
   void Clear() { std::fill(mData.begin(), mData.end(), 0.); mIndex = 0; }
   // NaN-safe value clamp. MSVC keeps value ternaries in registers;
   // reference-returning std::clamp costs measurably in reverb loops.
   double Read(double delay) const { return ReadInRange(!(delay >= 1.) ? 1. : (delay > mMaxDelay ? mMaxDelay : delay)); }
+  double ReadInt(int64_t whole) const
+  {
+    whole = whole < 1 ? 1 : (whole > mMaxInt ? mMaxInt : whole);
+    const auto w = static_cast<size_t>(whole);
+    return static_cast<double>(mData[mIndex >= w ? mIndex - w : mData.size() - (w - mIndex)]);
+  }
   // Precondition: 1 <= delay <= MaxDelay(), e.g. already clamped by the caller.
   double ReadInRange(double delay) const
   {
@@ -58,6 +66,7 @@ private:
   std::vector<Sample> mData;
   size_t mIndex = 0;
   double mMaxDelay = 0.; // Cached: size_t -> double is not a single x64 conversion.
+  int64_t mMaxInt = 0;
 };
 using DelayLine = BasicDelayLine<double>;
 
@@ -556,7 +565,13 @@ public:
     mTape.Reset(rate * mFactor);
     mSetDrive = mSetBump = std::numeric_limits<double>::quiet_NaN(); // The first chunk always sets.
     mControls.Reset(rate); mCounter = 0;
-    if (mFactor == 2) { mOversample2.Reset(); mDryReference.Reset(); }
+    if (mFactor == 2)
+    {
+      if (!mOversampler) mOversampler = std::make_unique<Oversampler>();
+      mOversampler->fir.Reset(); mOversampler->dry.Reset();
+    }
+    else
+      mOversampler.reset();
     mMixBypass.Reset(rate);
   }
   void Process(double* samples, int frames, const UtilityControls& controls)
@@ -588,11 +603,11 @@ public:
         double blended = dry[i] + mix[i] * (wet - dry[i]);
         if (mFactor == 2)
         {
-          mDryReference.Push(dry[i]);
+          mOversampler->dry.Push(dry[i]);
           mMixBypass.Tick();
           if (mix[i] != 1. && !mMixBypass.IsDry())
           {
-            const double alignedDry = mDryReference.Filtered();
+            const double alignedDry = mOversampler->dry.Filtered();
             blended = alignedDry + mix[i] * (wet - alignedDry);
           }
           blended = mMixBypass.Apply(dry[i], blended);
@@ -603,13 +618,18 @@ public:
     }
   }
 private:
+  struct Oversampler
+  {
+    grid_oversampling::FIR<2, 32> fir;
+    grid_oversampling::LinearReference<2> dry;
+  };
   void ProcessHigh(double* samples, int count)
   {
     constexpr int Factor = 2;
     std::array<double, 32 * Factor> high{};
     for (int i = 0; i < count; ++i)
     {
-      const auto up = mOversample2.Upsample(samples[i]);
+      const auto up = mOversampler->fir.Upsample(samples[i]);
       std::copy(up.begin(), up.end(), high.begin() + i * Factor);
     }
     mTape.ProcessMono(high.data(), count * Factor);
@@ -617,12 +637,11 @@ private:
     {
       std::array<double, Factor> down{};
       std::copy_n(high.data() + i * Factor, Factor, down.data());
-      samples[i] = mOversample2.Downsample(down);
+      samples[i] = mOversampler->fir.Downsample(down);
     }
   }
   AirwindowsTape mTape{};
-  grid_oversampling::FIR<2, 32> mOversample2;
-  grid_oversampling::LinearReference<2> mDryReference;
+  std::unique_ptr<Oversampler> mOversampler;
   grid_oversampling::MixBypass mMixBypass;
   grid_fx::SmoothControls<4> mControls;
   grid_fx::Memo mOutput;

@@ -426,9 +426,6 @@ public:
 		if (HighsSampleL > 0) inputSampleL -= applySoften;
 		if (HighsSampleL < 0) inputSampleL += applySoften;
 		//apply Soften depending on polarity
-		if (applySoften > 1.57079633) applySoften = 1.57079633;
-		applySoften = 1-cos(applySoften);
-		//apply Soften depending on polarity
 
 		inputSampleL = Spiral(inputSampleL);
 

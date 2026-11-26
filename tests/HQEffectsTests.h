@@ -593,5 +593,25 @@ void TestHQEffects()
           assert(tail < .25 * burst && tail < .5 * middle);
         }
       }
-  std::cout << "HQ effects: pitch/frequency shift, Juno stereo/mix and Shimmer freeze/reset passed\n";
+
+  // PR 5: Mono-lane parity for FrequencyShifter (Stereo Offset = 0) under zero audio allocations.
+  {
+    grid_hq::FrequencyShifter monoShifter, stereoShifter;
+    monoShifter.Reset(48000.);
+    stereoShifter.Reset(48000.);
+    UtilityControls uc;
+    uc.shift = {120., 40., 20., 100., 8000., 0., 100.};
+    std::array<double, 512> mL{}, sL{}, sR{};
+    for (int i = 0; i < 512; ++i)
+      mL[i] = sL[i] = sR[i] = .25 * std::sin(i * .083);
+    allocations = deletions = 0; tracking = true;
+    Eigen::internal::set_is_malloc_allowed(false);
+    monoShifter.Process(mL.data(), nullptr, 512, uc);
+    Eigen::internal::set_is_malloc_allowed(true);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+    stereoShifter.Process(sL.data(), sR.data(), 512, uc);
+    for (int i = 0; i < 512; ++i) assert(mL[i] == sL[i]);
+  }
+  std::cout << "HQ effects: pitch/frequency shift, Juno stereo/mix, Shimmer freeze/reset and FrequencyShifter mono-lane passed\n";
 }

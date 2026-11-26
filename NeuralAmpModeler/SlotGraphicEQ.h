@@ -18,7 +18,9 @@ public:
   void Reset(double rate)
   {
     mRate = std::max(1., rate); mControls.Reset(mRate);
-    mState = {}; mMix = mTarget = mStep = {}; mCounter = 0; mVoicing = -1;
+    mState = {}; mMix = mTarget = mStep = {}; mCounter = 0; mVoicing = -1; mCoeffVoicing = -1;
+    mLastBandDB.fill(std::numeric_limits<double>::quiet_NaN());
+    mBandGain = {};
     mGlide = std::exp(-1. / (.01 * mRate / kUpdate));
   }
   void Process(double* l, double* r, int n, const UtilityControls& c)
@@ -50,19 +52,36 @@ private:
   void Update(const std::array<double, kBands + 1>& v)
   {
     const auto& target = graphic_eq::kCentres[mVoicing];
+    bool allSettled = true;
     for (int b = 0; b < kBands; ++b)
     {
-      // Glide in octaves, so a voicing change sweeps rather than jumps.
-      mCentres[b] = std::exp2(std::log2(target[b]) + mGlide * (std::log2(mCentres[b]) - std::log2(target[b])));
-      if (std::abs(mCentres[b] / target[b] - 1.) < 1.e-6) mCentres[b] = target[b];
-      const double g = std::tan(grid_fx::pi * std::min(mCentres[b], .45 * mRate) / mRate);
-      const double k = mK[b] = 1. / graphic_eq::Q(mVoicing, b);
-      mA1[b] = 1. / (1. + g * (g + k)); mA2[b] = g * mA1[b]; mA3[b] = g * mA2[b];
+      bool coeffChanged = false;
+      if (mCoeffVoicing != mVoicing || mCentres[b] != target[b])
+      {
+        // Glide in octaves, so a voicing change sweeps rather than jumps.
+        mCentres[b] = std::exp2(std::log2(target[b]) + mGlide * (std::log2(mCentres[b]) - std::log2(target[b])));
+        if (std::abs(mCentres[b] / target[b] - 1.) < 1.e-6) mCentres[b] = target[b];
+        if (mCentres[b] != target[b]) allSettled = false;
+        const double g = std::tan(grid_fx::pi * std::min(mCentres[b], .45 * mRate) / mRate);
+        const double k = mK[b] = 1. / graphic_eq::Q(mVoicing, b);
+        mA1[b] = 1. / (1. + g * (g + k)); mA2[b] = g * mA1[b]; mA3[b] = g * mA2[b];
+        coeffChanged = true;
+      }
       // Land exactly on the previous target, then ramp to this one over the interval.
       mMix[b] = mTarget[b];
-      mTarget[b] = (std::pow(10., v[b] * .05) - 1.) * k;
+      if (v[b] != mLastBandDB[b])
+      {
+        mLastBandDB[b] = v[b];
+        mBandGain[b] = std::pow(10., v[b] * .05) - 1.;
+        mTarget[b] = mBandGain[b] * mK[b];
+      }
+      else if (coeffChanged)
+      {
+        mTarget[b] = mBandGain[b] * mK[b];
+      }
       mStep[b] = (mTarget[b] - mMix[b]) / kUpdate;
     }
+    if (allSettled) mCoeffVoicing = mVoicing;
   }
   // Band-pass output v1 of the TPT state-variable filter; k v1 has unity gain at the centre.
   double Band(double x, State& s, int b) const
@@ -77,6 +96,7 @@ private:
   grid_fx::Memo mLevel;
   std::array<std::array<State, kBands>, 2> mState{};
   std::array<double, kBands> mCentres{}, mA1{}, mA2{}, mA3{}, mK{}, mMix{}, mTarget{}, mStep{};
+  std::array<double, kBands> mLastBandDB{}, mBandGain{};
   double mRate = 48000., mGlide = 0.;
-  int mCounter = 0, mVoicing = -1;
+  int mCounter = 0, mVoicing = -1, mCoeffVoicing = -1;
 };

@@ -144,14 +144,15 @@ Rendered Render(E effect, const Controls& c, double rate, int bin, double amplit
   stage.ResetStopped(rate, block);
   if (candidateFactor > 0)
   {
-    const auto configure = [&](NAMStage::Prepared* state) {
+    const auto configureChannel = [&](NAMStage::ChannelDSP* state) {
+      if (!state) return;
       if (effect == E::TubeBoost) state->tube.Reset(rate, candidateFactor);
       if (effect == E::Tape) state->tape.Reset(rate, candidateFactor);
       if (effect == E::PedalDrive) state->pedal.Reset(rate, adaa);
-      if (effect == E::ConsoleColour) state->outboard.Reset(rate, effect, candidateFactor);
     };
-    configure(prepared);
-    if (prepared->right) configure(prepared->right.get());
+    configureChannel(prepared);
+    if (effect == E::ConsoleColour) prepared->outboard.Reset(rate, effect, candidateFactor);
+    if (prepared->right) configureChannel(prepared->right->dsp.get());
   }
   Rendered result{{std::vector<double>(analysisCount), std::vector<double>(analysisCount)},
                   {std::vector<double>(analysisCount), std::vector<double>(analysisCount)}, stage.Latency(), 0.};

@@ -97,24 +97,24 @@ overallscale = 1.0;
 		if (gaterollerR < 0.0) gaterollerR = 0.0;
 
 		double gate = 1.0;
-		if (gaterollerL < 1.0) gate = gaterollerL;
-
-		double bridgerectifier = 1-cos(fabs(inputSampleL));
-
-		if (inputSampleL > 0) inputSampleL = (inputSampleL*gate)+(bridgerectifier*(1-gate));
-		else inputSampleL = (inputSampleL*gate)-(bridgerectifier*(1-gate));
-
-		if ((gate == 0.0) && (fabs(inputSampleL*3) < threshold)) inputSampleL = 0.0;
+		if (gaterollerL < 1.0)
+		{
+			gate = gaterollerL;
+			double bridgerectifier = 1-cos(fabs(inputSampleL));
+			if (inputSampleL > 0) inputSampleL = (inputSampleL*gate)+(bridgerectifier*(1-gate));
+			else inputSampleL = (inputSampleL*gate)-(bridgerectifier*(1-gate));
+			if ((gate == 0.0) && (fabs(inputSampleL*3) < threshold)) inputSampleL = 0.0;
+		}
 
 		gate = 1.0;
-		if (gaterollerR < 1.0) gate = gaterollerR;
-
-		bridgerectifier = 1-cos(fabs(inputSampleR));
-
-		if (inputSampleR > 0) inputSampleR = (inputSampleR*gate)+(bridgerectifier*(1-gate));
-		else inputSampleR = (inputSampleR*gate)-(bridgerectifier*(1-gate));
-
-		if ((gate == 0.0) && (fabs(inputSampleR*3) < threshold)) inputSampleR = 0.0;
+		if (gaterollerR < 1.0)
+		{
+			gate = gaterollerR;
+			double bridgerectifier = 1-cos(fabs(inputSampleR));
+			if (inputSampleR > 0) inputSampleR = (inputSampleR*gate)+(bridgerectifier*(1-gate));
+			else inputSampleR = (inputSampleR*gate)-(bridgerectifier*(1-gate));
+			if ((gate == 0.0) && (fabs(inputSampleR*3) < threshold)) inputSampleR = 0.0;
+		}
 
 		if (wet !=1.0) {
 			inputSampleL = (inputSampleL * wet) + (drySampleL * (1.0-wet));
@@ -137,6 +137,47 @@ overallscale = 1.0;
 
 
 
+  }
+  void TickMono(double& left)
+  {
+		double inputSampleL = left;
+		if (fabs(inputSampleL)<1.18e-23) inputSampleL = fpdL * 1.18e-17;
+		double drySampleL = inputSampleL;
+
+		if (inputSampleL > 0) {
+			if (WasNegativeL == true) ZeroCrossL = 0;
+			WasNegativeL = false;
+		} else {
+			ZeroCrossL += 44100.0 / mRate;
+			WasNegativeL = true;
+		}
+		if (ZeroCrossL > 6000) ZeroCrossL = 6000;
+
+		if (fabs(inputSampleL) > threshold) {
+			if (gaterollerL < ZeroCrossL) gaterollerL = ZeroCrossL;
+			holdL = holdSamples;
+		} else if (holdL > 0.0) {
+			holdL -= 1.0;
+		} else {
+			gaterollerL -= release;
+		}
+		if (gaterollerL < 0.0) gaterollerL = 0.0;
+
+		if (gaterollerL < 1.0)
+		{
+			double gate = gaterollerL;
+			double bridgerectifier = 1-cos(fabs(inputSampleL));
+			if (inputSampleL > 0) inputSampleL = (inputSampleL*gate)+(bridgerectifier*(1-gate));
+			else inputSampleL = (inputSampleL*gate)-(bridgerectifier*(1-gate));
+			if ((gate == 0.0) && (fabs(inputSampleL*3) < threshold)) inputSampleL = 0.0;
+		}
+
+		if (wet != 1.0) {
+			inputSampleL = (inputSampleL * wet) + (drySampleL * (1.0-wet));
+		}
+
+		fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
+		left = inputSampleL;
   }
   double Opening(int channel) const { return fmin(1., channel == 0 ? gaterollerL : gaterollerR); }
 private:

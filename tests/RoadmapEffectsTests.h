@@ -248,5 +248,25 @@ void TestRoadmapEffects()
   };
   const auto fixed = renderModulation(false), variable = renderModulation(true);
   assert(fixed == variable && std::abs(fixed.front() - fixed.back()) > .1);
-  std::cout << "Roadmap effects: variable partitions, stereo limiter, fractional timing, hold/reset and octave spectrum passed\n";
+
+  // PR 5: Mono-lane parity for Rotary (Stereo Spread = 0) under zero audio allocations.
+  {
+    grid_roadmap::Rotary monoRotary, stereoRotary;
+    monoRotary.Reset(48000.);
+    stereoRotary.Reset(48000.);
+    UtilityControls rc;
+    rc.rotary = {.8, 6.5, 1., 1.5, 6., 0., 100.};
+    std::array<double, 512> mL{}, sL{}, sR{};
+    for (int i = 0; i < 512; ++i)
+      mL[i] = sL[i] = sR[i] = .25 * std::sin(i * .071);
+    allocations = deletions = 0; tracking = true;
+    Eigen::internal::set_is_malloc_allowed(false);
+    monoRotary.Process(mL.data(), nullptr, 512, rc);
+    Eigen::internal::set_is_malloc_allowed(true);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+    stereoRotary.Process(sL.data(), sR.data(), 512, rc);
+    for (int i = 0; i < 512; ++i) assert(mL[i] == sL[i]);
+  }
+  std::cout << "Roadmap effects: variable partitions, stereo limiter, fractional timing, hold/reset, Rotary mono-lane and octave spectrum passed\n";
 }

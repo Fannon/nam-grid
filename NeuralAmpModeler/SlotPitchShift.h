@@ -59,23 +59,37 @@ private:
       for (int i = 0; i < taps; ++i)
       { const double x = reference[ch][i] = mLine[ch].Read(mDelay + i * spacing); energy += x * x; }
     if (energy < 1.e-12) return target;
-    const auto error = [&](double delay) {
+    const int stride = std::max(1, static_cast<int>(mRate / 6000.));
+    const int radius = static_cast<int>(.008 * mRate);
+    const int64_t center = static_cast<int64_t>(std::llround(target));
+    const auto errorInt = [&](int64_t delay) {
       double sum = 0.;
       for (int ch = 0; ch < channels; ++ch)
         for (int i = 0; i < taps; ++i)
-        { const double d = reference[ch][i] - mLine[ch].Read(delay + i * spacing); sum += d * d; }
+        { const double d = reference[ch][i] - mLine[ch].ReadInt(delay + static_cast<int64_t>(i) * spacing); sum += d * d; }
       // Prefer a regular grain length when more than one period matches equally.
-      return sum + energy * 1.e-8 * std::abs(delay - target) / mRate;
+      return sum + energy * 1.e-8 * std::abs(static_cast<double>(delay) - target) / mRate;
     };
-    const int stride = std::max(1, static_cast<int>(mRate / 6000.));
-    const int radius = static_cast<int>(.008 * mRate);
-    double best = target, score = error(best);
+    int64_t bestInt = center;
+    double score = errorInt(bestInt);
     for (int d = -radius; d <= radius; d += stride)
-    { const double e = error(target + d); if (e < score) { score = e; best = target + d; } }
-    const double coarse = best;
-    for (int d = -stride; d <= stride; ++d)
-    { const double e = error(coarse + d); if (e < score) { score = e; best = coarse + d; } }
-    const double a = error(best - 1.), b = error(best), c = error(best + 1.);
+    {
+      if (d == 0) continue;
+      const double e = errorInt(center + d);
+      if (e < score) { score = e; bestInt = center + d; }
+    }
+    int step = stride;
+    while (step > 1)
+    {
+      step = (step + 1) / 2;
+      const int64_t cur = bestInt;
+      const int64_t left = cur - step, right = cur + step;
+      const double el = errorInt(left), er = errorInt(right);
+      if (el < score) { score = el; bestInt = left; }
+      if (er < score) { score = er; bestInt = right; }
+    }
+    const double a = errorInt(bestInt - 1), b = score, c = errorInt(bestInt + 1);
+    double best = static_cast<double>(bestInt);
     const double curvature = a - 2. * b + c;
     if (curvature > 1.e-20) best += std::clamp(.5 * (a - c) / curvature, -1., 1.);
     return best;

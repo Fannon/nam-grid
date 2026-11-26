@@ -17,6 +17,7 @@ public:
   {
     mRate = std::max(1., rate); mControls.Reset(mRate);
     mPower = mEnvelope = mRise = mHold = mDB = mGainDB = mMaxReduction = 0.; mCounter = 0;
+    mLastRecoveryMs = -1.;
     mAverage = Pole(3.); mAttack = Pole(.5); mRelease = Pole(25.); mRiseTime = Pole(15.);
     mGainAttack = Pole(.3); mGainRelease = Pole(2.); mGainLag = Pole(1.);
   }
@@ -26,7 +27,11 @@ public:
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
-      if (mCounter++ % 16 == 0) mRecovery = Pole(v[2]);
+      if (mCounter++ % 16 == 0 && v[2] != mLastRecoveryMs)
+      {
+        mLastRecoveryMs = v[2];
+        mRecovery = Pole(v[2]);
+      }
       mCounter %= 16;
       const double dryL = l[i], dryR = r ? r[i] : dryL;
       const double power = std::max(dryL * dryL, dryR * dryR);
@@ -36,16 +41,22 @@ public:
       // A new pick (the envelope rising 3 dB faster than the slow copy) re-arms the hold, so
       // Sustain acts on the decay of this note rather than on the previous note's peak.
       mHold = mEnvelope > mHold || mEnvelope > 2. * mRise ? mEnvelope : Follow(mHold, mEnvelope, mRecovery);
-      // Sensitivity 0..100% maps a 12 dB to a 1.5 dB envelope difference onto full action.
-      const double span = 12. * std::exp2(-3. * v[3] * .01);
-      // A 0.5 dB deadband ignores the envelope's ripple on held low notes.
-      const double rise = 10. * std::log10((mEnvelope + kFloor) / (mRise + kFloor)) - .5;
-      const double fall = 10. * std::log10((mHold + kFloor) / (mEnvelope + kFloor)) - .5;
       // Fade control action from -80 to -60 dBFS power. Silence stays exact and
       // faint noise is not lifted by the sustain control. The instantaneous power
       // opens it on a note's first sample, independent of the averaging.
       const double active = std::clamp((std::max(mHold, power) - 1.e-8) / 9.9e-7, 0., 1.);
-      const double target = active * (v[0] * std::clamp(rise / span, 0., 1.) + v[1] * std::clamp(fall / span, 0., 1.));
+      double target = 0.;
+      if (active > 0.)
+      {
+        // Sensitivity 0..100% maps a 12 dB to a 1.5 dB envelope difference onto full action.
+        const double span = mSpan(v[3], [](double s) { return 12. * std::exp2(-3. * s * .01); });
+        // A 0.5 dB deadband ignores the envelope's ripple on held low notes.
+        const double riseTerm = v[0] != 0. && mEnvelope > mRise
+          ? v[0] * std::clamp((10. * std::log10((mEnvelope + kFloor) / (mRise + kFloor)) - .5) / span, 0., 1.) : 0.;
+        const double fallTerm = v[1] != 0. && mHold > mEnvelope
+          ? v[1] * std::clamp((10. * std::log10((mHold + kFloor) / (mEnvelope + kFloor)) - .5) / span, 0., 1.) : 0.;
+        target = active * (riseTerm + fallTerm);
+      }
       mDB = Follow(mDB, target, target > mDB ? mGainAttack : mGainRelease);
       mGainDB = Follow(mGainDB, mDB, mGainLag);
       const double gain = mGain(mGainDB * .05, [](double x) { return std::pow(10., x); });
@@ -62,9 +73,9 @@ private:
   static double Follow(double current, double target, double pole)
   { return grid_fx::Flush(target + pole * (current - target)); }
   grid_fx::SmoothControls<6> mControls;
-  grid_fx::Memo mGain, mOutput;
+  grid_fx::Memo mGain, mOutput, mSpan;
   double mRate = 48000., mPower = 0., mEnvelope = 0., mRise = 0., mHold = 0., mDB = 0., mGainDB = 0., mMaxReduction = 0.;
-  double mAverage = 0., mAttack = 0., mRelease = 0., mRiseTime = 0., mRecovery = 0.;
+  double mAverage = 0., mAttack = 0., mRelease = 0., mRiseTime = 0., mRecovery = 0., mLastRecoveryMs = -1.;
   double mGainAttack = 0., mGainRelease = 0., mGainLag = 0.;
   int mCounter = 0;
 };

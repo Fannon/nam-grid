@@ -4,6 +4,12 @@
 #include <cstdint>
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_NOISE_PRINT_SCALAR)
   #include <emmintrin.h>
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_NOISE_PRINT_SCALAR)
+  #ifdef _MSC_VER
+    #include <arm64_neon.h>
+  #else
+    #include <arm_neon.h>
+  #endif
 #endif
 
 namespace noise_print
@@ -32,6 +38,11 @@ public:
   void Accumulate(int band, __m128d power)
   {
     _mm_storeu_pd(&mSum[band], _mm_add_pd(_mm_loadu_pd(&mSum[band]), power));
+  }
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_NOISE_PRINT_SCALAR)
+  void Accumulate(int band, float64x2_t power)
+  {
+    vst1q_f64(&mSum[band], vaddq_f64(vld1q_f64(&mSum[band]), power));
   }
 #endif
 

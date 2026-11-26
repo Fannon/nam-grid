@@ -128,6 +128,60 @@ public:
     fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
     fpdR ^= fpdR << 13; fpdR ^= fpdR >> 17; fpdR ^= fpdR << 5;
   }
+  void TickMono(double& inputSampleL)
+  {
+    if (fabs(inputSampleL) < 1.18e-23) inputSampleL = fpdL * 1.18e-17;
+
+		if (engageGate)
+		{
+			if (inputSampleL > 0)
+			{if (WasNegativeL == true){ZeroCrossL = floor(absmax * 0.3);}
+				WasNegativeL = false;}
+			else
+			{ZeroCrossL += step; WasNegativeL = true;}
+
+			if (ZeroCrossL > absmax)
+			{ZeroCrossL = floor(absmax);}
+
+			if (gateL == 0.0)
+			{
+				if (fabs(inputSampleL) > onthreshold)
+				{
+					if (gaterollerL == 0.0) { gaterollerL = ZeroCrossL; holdL = holdSamples; }
+					else gaterollerL -= release;
+				}
+				else if (holdL > 0.0) holdL -= 1.0;
+				else gaterollerL -= release;
+			}
+			else
+			{
+				if (fabs(inputSampleL) > offthreshold)
+				{
+					holdL = holdSamples;
+					if (gaterollerL < ZeroCrossL) gaterollerL = ZeroCrossL;
+					else gaterollerL -= release;
+				}
+				else if (holdL > 0.0) holdL -= 1.0;
+				else gaterollerL -= release;
+			}
+
+			if (gaterollerL < 0.0)
+			{gaterollerL = 0.0;}
+
+			if (gaterollerL < 1.0)
+			{
+				gateL = gaterollerL;
+				bridgerectifier = 1-cos(fabs(inputSampleL));
+				if (inputSampleL > 0) inputSampleL = (inputSampleL*gateL)+(bridgerectifier*(1.0-gateL));
+				else inputSampleL = (inputSampleL*gateL)-(bridgerectifier*(1.0-gateL));
+				if (gateL == 0.0) inputSampleL = 0.0;
+			}
+			else
+			{gateL = 1.0;}
+		}
+
+    fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
+  }
   double Opening(int channel) const { return channel == 0 ? gateL : gateR; }
 private:
   double onthreshold = 0.001778279410038923, offthreshold = onthreshold * 1.1;

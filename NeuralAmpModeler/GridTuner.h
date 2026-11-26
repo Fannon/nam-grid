@@ -162,6 +162,7 @@ public:
     {
       mAudioGeneration = generation;
       mRate = rate;
+      mCoefficient = std::exp(-6.283185307179586 * 2200. / rate);
       mPhase = 0;
       mLP = {};
       ++mEpoch;
@@ -174,29 +175,40 @@ public:
         rEnergy += right[i] * right[i];
     }
     const double* source = right && rEnergy > lEnergy ? right : left;
-    const double coefficient = std::exp(-6.283185307179586 * 2200. / rate);
+    const double coefficient = mCoefficient;
     auto write = mWrite.load(std::memory_order_relaxed);
+    const auto startWrite = write;
+    auto read = mRead.load(std::memory_order_acquire);
+    constexpr size_t mask = capacity - 1;
+    static_assert((capacity & mask) == 0);
     for (int i = 0; i < frames; ++i)
     {
       double x = std::isfinite(source[i]) ? source[i] : 0.;
       for (auto& lp : mLP)
       {
         lp = x + coefficient * (lp - x);
+        if (std::abs(lp) < 1.e-30)
+          lp = 0.;
         x = lp;
       }
       if (++mPhase < decimation)
         continue;
       mPhase = 0;
-      const auto next = (write + 1) % capacity;
-      if (next == mRead.load(std::memory_order_acquire))
+      const auto next = (write + 1) & mask;
+      if (next == read)
       {
-        ++mEpoch;
-        continue;
+        read = mRead.load(std::memory_order_acquire);
+        if (next == read)
+        {
+          ++mEpoch;
+          continue;
+        }
       }
       mQueue[write] = {x, rate / decimation, generation, mEpoch};
       write = next;
-      mWrite.store(write, std::memory_order_release);
     }
+    if (write != startWrite)
+      mWrite.store(write, std::memory_order_release);
   }
 
 private:
@@ -227,12 +239,13 @@ private:
           break;
       }
       auto read = mRead.load(std::memory_order_relaxed);
+      const auto startRead = read;
       const auto write = mWrite.load(std::memory_order_acquire);
+      constexpr size_t mask = capacity - 1;
       while (read != write)
       {
         const auto sample = mQueue[read];
-        read = (read + 1) % capacity;
-        mRead.store(read, std::memory_order_release);
+        read = (read + 1) & mask;
         if (!Enabled() || sample.generation != mGeneration.load())
         {
           size = hop = index = 0;
@@ -264,6 +277,8 @@ private:
           }
         }
       }
+      if (read != startRead)
+        mRead.store(read, std::memory_order_release);
       if (!Enabled())
         mFrequency.store(0.);
       std::this_thread::sleep_for(std::chrono::milliseconds(4));
@@ -277,7 +292,7 @@ private:
   std::atomic<double> mFrequency{0.};
   std::atomic<long long> mLastResult{0};
   std::array<double, 4> mLP{};
-  double mRate = 0.;
+  double mRate = 0., mCoefficient = 0.;
   unsigned mAudioGeneration = 0, mEpoch = 0;
   int mPhase = 0;
   std::mutex mWaitMutex;

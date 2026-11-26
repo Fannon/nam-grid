@@ -86,9 +86,9 @@ public:
       mSpeed = speed + mInertia(-1. / (v[3] * mRate), [](double x) { return std::exp(x); }) * (mSpeed - speed);
       mPhase = std::fmod(mPhase + mSpeed / mRate, 1.);
       mDrumPhase = std::fmod(mDrumPhase + .73 * mSpeed / mRate, 1.);
-      const double dry[2]{l[i], r ? r[i] : l[i]}, drive = Gain(mDrive, v[4]), mix = v[6] * .01;
+      const double dry[2]{l[i], r ? r[i] : 0.}, drive = Gain(mDrive, v[4]), mix = v[6] * .01;
       double wet[2]{};
-      for (int ch = 0; ch < 2; ++ch)
+      for (int ch = 0; ch < (r ? 2 : 1); ++ch)
       {
         const double angle = 2. * grid_fx::pi * (mPhase + (ch ? .25 * v[5] * .01 : 0.));
         const double low = Low(dry[ch], mLow[ch], crossover);

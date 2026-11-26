@@ -100,7 +100,63 @@ void TestOutboard()
   const auto dry = l;
   neutral.Process(l.data(), nullptr, 4, c);
   assert(l == dry);
-  std::cout << "Outboard: five rates, stereo, extremes, variable blocks, exact dry, no allocation\n";
+
+  // PR 5: Mono-lane parity for all 4 SlotOutboard effects + BussColors4 ring buffer across 8 consoles.
+  for (const auto effect : effects)
+    for (double rate : {44100., 48000., 192000.})
+    {
+      const int desks = effect == SlotEffect::ConsoleColour ? 8 : 1;
+      for (int desk = 0; desk < desks; ++desk)
+      {
+        SlotOutboard monoFx, stereoFx;
+        monoFx.Reset(rate, effect);
+        stereoFx.Reset(rate, effect);
+        UtilityControls uc;
+        uc.colourDesk = desk;
+        uc.strip = {60., 8000., 35., 45., 25., 0., 100.};
+        uc.consoleEQ = {4., -2., 3., 600., 100., 10000., 40.};
+        uc.butter = {65., 0., 100.};
+        uc.colour = {6., 0., 100.};
+        std::array<double, 512> mL{}, sL{}, sR{};
+        for (int i = 0; i < 512; ++i)
+          mL[i] = sL[i] = sR[i] = .25 * std::sin(i * .071) + .05 * std::cos(i * .19);
+        allocations = deletions = 0; tracking = true;
+        Eigen::internal::set_is_malloc_allowed(false);
+        monoFx.Process(mL.data(), nullptr, 512, uc);
+        Eigen::internal::set_is_malloc_allowed(true);
+        tracking = false;
+        assert(allocations == 0 && deletions == 0);
+        stereoFx.Process(sL.data(), sR.data(), 512, uc);
+        for (int i = 0; i < 512; ++i)
+          assert(std::isfinite(mL[i]) && mL[i] == sL[i]);
+      }
+    }
+  // BussColors4 direct TickMono parity across all 8 consoles & 44.1..192 kHz.
+  for (double rate : {44100., 48000., 192000.})
+  {
+    std::array<double, 8> consoleSums{};
+    for (int desk = 0; desk < 8; ++desk)
+    {
+      airwindows_outboard::BussColors4::Core monoCore, stereoCore;
+      monoCore.Reset(rate);
+      stereoCore.Reset(rate);
+      const std::array<double, 4> ctrl{desk / 7., .6, .5, 1.};
+      monoCore.Set(ctrl);
+      stereoCore.Set(ctrl);
+      for (int i = 0; i < 512; ++i)
+      {
+        double m = .2 * std::sin(i * .083);
+        double sL = m, sR = -.15 * std::cos(i * .041);
+        monoCore.TickMono(m);
+        stereoCore.Tick(sL, sR);
+        assert(std::isfinite(m) && m == sL);
+        consoleSums[desk] += m * m;
+      }
+      for (int prev = 0; prev < desk; ++prev)
+        assert(std::abs(consoleSums[desk] - consoleSums[prev]) > 1.e-5);
+    }
+  }
+  std::cout << "Outboard: five rates, stereo, extremes, variable blocks, exact dry, mono-lane, BussColors4 ring, no allocation\n";
 }
 
 void TestAirDynamics()
@@ -247,6 +303,27 @@ void TestAirDynamics()
     const double native = run(0., false), delayed = run(100., false);
     assert(delayed - native > .08 && delayed - native < .13);
   }
-  std::cout << "Air dynamics: five rates, both gate modes, closing-time compensation, exact dry, no "
-               "allocation\n";
+  // PR 5: Mono-lane parity for SlotAirDynamics (both modes) under zero audio allocations.
+  for (int mode = 0; mode < 2; ++mode)
+  {
+    SlotAirDynamics monoFx, stereoFx;
+    monoFx.Reset(48000., SlotEffect::DigitalBlack);
+    stereoFx.Reset(48000., SlotEffect::DigitalBlack);
+    UtilityControls uc;
+    uc.blackMode = mode;
+    uc.black = {-40., 100., 0.};
+    std::array<double, 512> mL{}, sL{}, sR{};
+    for (int i = 0; i < 512; ++i)
+      mL[i] = sL[i] = sR[i] = (i < 256 ? .25 : .0002) * std::sin(i * .11);
+    allocations = deletions = 0; tracking = true;
+    Eigen::internal::set_is_malloc_allowed(false);
+    monoFx.Process(mL.data(), nullptr, 512, uc);
+    Eigen::internal::set_is_malloc_allowed(true);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
+    stereoFx.Process(sL.data(), sR.data(), 512, uc);
+    for (int i = 0; i < 512; ++i) assert(mL[i] == sL[i]);
+  }
+  std::cout << "Air dynamics: five rates, both gate modes, closing-time compensation, exact dry, mono-lane, no "
+               "allocation and hold chatter/release tests passed\n";
 }

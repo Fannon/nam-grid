@@ -22,10 +22,11 @@ struct ReflectionSpace
   double wallTime, diffuserScale, tankScale;
   double earlyLevel, diffusedLevel, diffusionFloor;
   double decayScale; // Multiplies decay time at a given Feedback.
+  double nearSend = 0.; // Portion of the far-wall send moved to the near wall.
 };
 inline constexpr ReflectionSpace reflectionSpaces[]{
   {.14, .55, .46, .32, .43, .46, 1.}, // Velvet Chamber
-  {.32, 1.3, .96, .12, .13, .36, 1.}, // Solstice Hall
+  {.32, .62, .42, .27, .52, .45, 2.45, .52}, // Solstice Hall
   {.55, 1.6, .75, .22, .16, .45, 2.}  // Mooncourt
 };
 inline bool IsReflectionSpace(int style)
@@ -104,9 +105,8 @@ public:
   void Reset(double rate)
   {
     mCapacity=static_cast<size_t>(std::ceil(8.05*rate))+64;
-    // Filled-count guards make unwritten samples inaccessible. Avoid touching
-    // eight seconds of storage on every reset; physical pages fill as needed.
-    mData.reset(new double[mCapacity]); Clear();
+    // Value-initialize on reset to pre-fault pages off the audio thread; Clear() stays O(1).
+    mData = std::make_unique<float[]>(mCapacity); Clear();
     mMaximum = static_cast<double>(mCapacity-3);
   }
   // Passive output-only observation. It does not update the moving Thiran
@@ -117,7 +117,7 @@ public:
     const auto whole=static_cast<size_t>(delay); const double fraction=delay-whole;
     const auto tap=[&](size_t offset) {
       if(offset>mFilled) return 0.;
-      return mData[mIndex>=offset ? mIndex-offset : mCapacity-(offset-mIndex)];
+      return static_cast<double>(mData[mIndex>=offset ? mIndex-offset : mCapacity-(offset-mIndex)]);
     };
     return tap(whole)+fraction*(tap(whole+1)-tap(whole));
   }
@@ -131,16 +131,16 @@ public:
     const double fraction = delay-static_cast<double>(integer), a = (1.-fraction)/(1.+fraction);
     const auto tap = [&](size_t offset) {
       if (offset > mFilled) return 0.;
-      return mData[mIndex >= offset ? mIndex-offset : mCapacity-(offset-mIndex)];
+      return static_cast<double>(mData[mIndex >= offset ? mIndex-offset : mCapacity-(offset-mIndex)]);
     };
     const double out = grid_fx::Flush(a*tap(whole)+tap(whole+1)-a*mPrevious);
-    mData[mIndex] = grid_fx::Flush(input);
+    mData[mIndex] = static_cast<float>(grid_fx::Flush(input));
     if (++mIndex == mCapacity) mIndex = 0;
     mFilled = std::min(mFilled+1, mCapacity); mPrevious = out;
     return out;
   }
 private:
-  std::unique_ptr<double[]> mData;
+  std::unique_ptr<float[]> mData;
   size_t mIndex = 0, mFilled = 0, mCapacity = 0;
   double mPrevious = 0., mMaximum = 0.;
 };
@@ -166,12 +166,16 @@ public:
     mFilterInput = {}; mFilterHigh = {}; mFilterLow = {};
     mLfoPrevious = {}; mLfoValue = {}; mPhase = 0;
     mFinishDelay = {}; mFinishIndex = 0;
+    mConfigured = false;
   }
   // `live` scales feedback and plate diffusion while a bypassed slot starts draining.
   void Configure(const std::array<double, 7>& values, int style, bool draining, double live = 1.)
   {
-    mStyle = std::clamp(style, 0, effect_modes::cosmicCount-1);
-    style = mStyle;
+    style = std::clamp(style, 0, effect_modes::cosmicCount-1);
+    if (mConfigured && style == mLastStyle && draining == mLastDraining && live == mLastLive && values == mLastValues)
+      return;
+    const bool styleChanged = !mConfigured || style != mLastStyle;
+    mStyle = style;
     const double feedback = draining ? 0. : live == 1. ? values[2]*.01 : values[2]*.01*live;
     mGain = std::min(.9995, std::sqrt(feedback));
     mInjection = std::sqrt(std::min(1., .2/std::max(.000001, mGain)));
@@ -200,14 +204,22 @@ public:
     for (int i = 0; i < LineCount(style); ++i)
     {
       mBase[i] = BaseSamples(values[0], values[1]*.01, style, i, mRate)-1.;
-      constexpr int quadrant[]{0,2,1,3,1,3,0,2,2,0,3,1,3,1,2,0};
-      const double phase = style == static_cast<int>(Style::Gemini) ? 2.*grid_fx::pi*i/16.
-                         : style == static_cast<int>(Style::Sagittarius) ? grid_fx::pi*(i/2)/4.+grid_fx::pi*(i%2)
-                         : IsFourLine(style) ? grid_fx::pi*i/2. : grid_fx::pi*quadrant[i]/2.;
-      mModCos[i] = std::cos(phase); mModSin[i] = std::sin(phase);
+      if (styleChanged)
+      {
+        constexpr int quadrant[]{0,2,1,3,1,3,0,2,2,0,3,1,3,1,2,0};
+        const double phase = style == static_cast<int>(Style::Gemini) ? 2.*grid_fx::pi*i/16.
+                           : style == static_cast<int>(Style::Sagittarius) ? grid_fx::pi*(i/2)/4.+grid_fx::pi*(i%2)
+                           : IsFourLine(style) ? grid_fx::pi*i/2. : grid_fx::pi*quadrant[i]/2.;
+        mModCos[i] = std::cos(phase); mModSin[i] = std::sin(phase);
+      }
       if (style == static_cast<int>(Style::Nebula))
         mLineGain[i]=std::pow(mGain,2.*(mBase[i]+1.)/(values[0]*.001*mRate));
     }
+    mLastValues = values;
+    mLastStyle = style;
+    mLastDraining = draining;
+    mLastLive = live;
+    mConfigured = true;
   }
   Stereo Tick(Stereo input)
   {
@@ -409,6 +421,8 @@ private:
     {
       const double walls = .62*nearWall[ch] - .34*side[1-ch] + .46*farWall[ch];
       excitation[ch] = .72*farWall[ch] + .28*side[1-ch];
+      if (space.nearSend > 0.)
+        excitation[ch] += space.nearSend*(nearWall[ch]-farWall[ch]);
       for (int stage=0; stage<3; ++stage)
         excitation[ch] = Diffuse(stage, ch, 2+2*stage+ch, excitation[ch], mSpaceDiffusion);
       out[ch] = space.earlyLevel*walls + space.diffusedLevel*excitation[ch];
@@ -487,5 +501,9 @@ private:
   double mLowPass=0., mHighPass=0., mMotion=0., mLfoA=0., mLfoB=0., mDensity=0.;
   uint32_t mPhase=0, mPhaseStep=0;
   int mStyle=0, mFinishIndex=0;
+  std::array<double, 7> mLastValues{};
+  double mLastLive = 1.;
+  int mLastStyle = -1;
+  bool mLastDraining = false, mConfigured = false;
 };
 } // namespace grid_cosmic

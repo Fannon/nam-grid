@@ -578,71 +578,77 @@ monitor0 = monitor1 = 1.;
 			midSampleR = (inputSampleR-bassSampleR)-highSampleR;
 
 			//drive section
-			highSampleL *= (densityA+1.0);
-			bridgerectifier = fabs(highSampleL)*1.57079633;
-			if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
-			//max value for sine function
-			if (densityA > 0) bridgerectifier = sin(bridgerectifier);
-			else bridgerectifier = 1-cos(bridgerectifier);
-			//produce either boosted or starved version
-			if (highSampleL > 0) highSampleL = (highSampleL*(1-outA))+(bridgerectifier*outA);
-			else highSampleL = (highSampleL*(1-outA))-(bridgerectifier*outA);
-			//blend according to densityA control
+			if (outA != 0.0) {
+				highSampleL *= (densityA+1.0);
+				bridgerectifier = fabs(highSampleL)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				//max value for sine function
+				if (densityA > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				//produce either boosted or starved version
+				if (highSampleL > 0) highSampleL = (highSampleL*(1-outA))+(bridgerectifier*outA);
+				else highSampleL = (highSampleL*(1-outA))-(bridgerectifier*outA);
+				//blend according to densityA control
 
-			highSampleR *= (densityA+1.0);
-			bridgerectifier = fabs(highSampleR)*1.57079633;
-			if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
-			//max value for sine function
-			if (densityA > 0) bridgerectifier = sin(bridgerectifier);
-			else bridgerectifier = 1-cos(bridgerectifier);
-			//produce either boosted or starved version
-			if (highSampleR > 0) highSampleR = (highSampleR*(1-outA))+(bridgerectifier*outA);
-			else highSampleR = (highSampleR*(1-outA))-(bridgerectifier*outA);
-			//blend according to densityA control
+				highSampleR *= (densityA+1.0);
+				bridgerectifier = fabs(highSampleR)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				//max value for sine function
+				if (densityA > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				//produce either boosted or starved version
+				if (highSampleR > 0) highSampleR = (highSampleR*(1-outA))+(bridgerectifier*outA);
+				else highSampleR = (highSampleR*(1-outA))-(bridgerectifier*outA);
+				//blend according to densityA control
+			}
 
-			midSampleL *= (densityB+1.0);
-			bridgerectifier = fabs(midSampleL)*1.57079633;
-			if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
-			//max value for sine function
-			if (densityB > 0) bridgerectifier = sin(bridgerectifier);
-			else bridgerectifier = 1-cos(bridgerectifier);
-			//produce either boosted or starved version
-			if (midSampleL > 0) midSampleL = (midSampleL*(1-outB))+(bridgerectifier*outB);
-			else midSampleL = (midSampleL*(1-outB))-(bridgerectifier*outB);
-			//blend according to densityB control
+			if (outB != 0.0) {
+				midSampleL *= (densityB+1.0);
+				bridgerectifier = fabs(midSampleL)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				//max value for sine function
+				if (densityB > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				//produce either boosted or starved version
+				if (midSampleL > 0) midSampleL = (midSampleL*(1-outB))+(bridgerectifier*outB);
+				else midSampleL = (midSampleL*(1-outB))-(bridgerectifier*outB);
+				//blend according to densityB control
 
-			midSampleR *= (densityB+1.0);
-			bridgerectifier = fabs(midSampleR)*1.57079633;
-			if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
-			//max value for sine function
-			if (densityB > 0) bridgerectifier = sin(bridgerectifier);
-			else bridgerectifier = 1-cos(bridgerectifier);
-			//produce either boosted or starved version
-			if (midSampleR > 0) midSampleR = (midSampleR*(1-outB))+(bridgerectifier*outB);
-			else midSampleR = (midSampleR*(1-outB))-(bridgerectifier*outB);
-			//blend according to densityB control
+				midSampleR *= (densityB+1.0);
+				bridgerectifier = fabs(midSampleR)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				//max value for sine function
+				if (densityB > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				//produce either boosted or starved version
+				if (midSampleR > 0) midSampleR = (midSampleR*(1-outB))+(bridgerectifier*outB);
+				else midSampleR = (midSampleR*(1-outB))-(bridgerectifier*outB);
+				//blend according to densityB control
+			}
 
-			bassSampleL *= (densityC+1.0);
-			bridgerectifier = fabs(bassSampleL)*1.57079633;
-			if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
-			//max value for sine function
-			if (densityC > 0) bridgerectifier = sin(bridgerectifier);
-			else bridgerectifier = 1-cos(bridgerectifier);
-			//produce either boosted or starved version
-			if (bassSampleL > 0) bassSampleL = (bassSampleL*(1-outC))+(bridgerectifier*outC);
-			else bassSampleL = (bassSampleL*(1-outC))-(bridgerectifier*outC);
-			//blend according to densityC control
+			if (outC != 0.0) {
+				bassSampleL *= (densityC+1.0);
+				bridgerectifier = fabs(bassSampleL)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				//max value for sine function
+				if (densityC > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				//produce either boosted or starved version
+				if (bassSampleL > 0) bassSampleL = (bassSampleL*(1-outC))+(bridgerectifier*outC);
+				else bassSampleL = (bassSampleL*(1-outC))-(bridgerectifier*outC);
+				//blend according to densityC control
 
-			bassSampleR *= (densityC+1.0);
-			bridgerectifier = fabs(bassSampleR)*1.57079633;
-			if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
-			//max value for sine function
-			if (densityC > 0) bridgerectifier = sin(bridgerectifier);
-			else bridgerectifier = 1-cos(bridgerectifier);
-			//produce either boosted or starved version
-			if (bassSampleR > 0) bassSampleR = (bassSampleR*(1-outC))+(bridgerectifier*outC);
-			else bassSampleR = (bassSampleR*(1-outC))-(bridgerectifier*outC);
-			//blend according to densityC control
+				bassSampleR *= (densityC+1.0);
+				bridgerectifier = fabs(bassSampleR)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				//max value for sine function
+				if (densityC > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				//produce either boosted or starved version
+				if (bassSampleR > 0) bassSampleR = (bassSampleR*(1-outC))+(bridgerectifier*outC);
+				else bassSampleR = (bassSampleR*(1-outC))-(bridgerectifier*outC);
+				//blend according to densityC control
+			}
 
 			inputSampleL = midSampleL;
 			inputSampleL += highSampleL;
@@ -664,19 +670,27 @@ monitor0 = monitor1 = 1.;
 			if (inputSampleL < -1.0) inputSampleL = -1.0; //all boosts clipped to 0dB
 			if (inputSampleR > 1.0) inputSampleR = 1.0;
 			if (inputSampleR < -1.0) inputSampleR = -1.0; //all boosts clipped to 0dB
-			double phatSampleL = sin(inputSampleL * 1.57079633);
-			double phatSampleR = sin(inputSampleR * 1.57079633);
-			inputSampleL *= 1.2533141373155;
-			inputSampleR *= 1.2533141373155;
-			//clip to 1.2533141373155 to reach maximum output, or 1.57079633 for pure sine 'phat' version
-			double distSampleL = sin(inputSampleL * fabs(inputSampleL)) / ((fabs(inputSampleL) == 0.0) ?1.0:fabs(inputSampleL));
-			double distSampleR = sin(inputSampleR * fabs(inputSampleR)) / ((fabs(inputSampleR) == 0.0) ?1.0:fabs(inputSampleR));
-			inputSampleL = distSampleL; //purest form is full Spiral
-			inputSampleR = distSampleR; //purest form is full Spiral
-			if (density < 1.0) {
-				inputSampleL = (rawSampleL*(1.0-density))+(distSampleL*density);
-				inputSampleR = (rawSampleR*(1.0-density))+(distSampleR*density);
-			} //fade Spiral aspect
+			double phatSampleL = 0.0, phatSampleR = 0.0;
+			if (phattity > 0.0) {
+				phatSampleL = sin(inputSampleL * 1.57079633);
+				phatSampleR = sin(inputSampleR * 1.57079633);
+			}
+			if (density > 0.0) {
+				inputSampleL *= 1.2533141373155;
+				inputSampleR *= 1.2533141373155;
+				//clip to 1.2533141373155 to reach maximum output, or 1.57079633 for pure sine 'phat' version
+				double distSampleL = sin(inputSampleL * fabs(inputSampleL)) / ((fabs(inputSampleL) == 0.0) ?1.0:fabs(inputSampleL));
+				double distSampleR = sin(inputSampleR * fabs(inputSampleR)) / ((fabs(inputSampleR) == 0.0) ?1.0:fabs(inputSampleR));
+				inputSampleL = distSampleL; //purest form is full Spiral
+				inputSampleR = distSampleR; //purest form is full Spiral
+				if (density < 1.0) {
+					inputSampleL = (rawSampleL*(1.0-density))+(distSampleL*density);
+					inputSampleR = (rawSampleR*(1.0-density))+(distSampleR*density);
+				} //fade Spiral aspect
+			} else {
+				inputSampleL = rawSampleL;
+				inputSampleR = rawSampleR;
+			}
 			if (phattity > 0.0) {
 				inputSampleL = (inputSampleL*(1.0-phattity))+(phatSampleL*phattity);
 				inputSampleR = (inputSampleR*(1.0-phattity))+(phatSampleR*phattity);
@@ -700,6 +714,240 @@ monitor0 = monitor1 = 1.;
 
 
 
+  }
+  void TickMono(double& left)
+  {
+if (mCoefficientRamp.Tick()) ApplySmoothedCoefficients();
+monitor0 = monitor1 = 1.;
+
+		double inputSampleL = left;
+		if (fabs(inputSampleL)<1.18e-23) inputSampleL = fpdL * 1.18e-17;
+
+		if (engageCapacitor)
+		{
+			count++; if (count > 5) count = 0;
+			switch (count)
+			{
+				case 0:
+					iirHighpassAL = (iirHighpassAL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassAL;
+					iirLowpassAL = (iirLowpassAL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassAL;
+					iirHighpassBL = (iirHighpassBL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassBL;
+					iirLowpassBL = (iirLowpassBL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassBL;
+					iirHighpassDL = (iirHighpassDL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassDL;
+					iirLowpassDL = (iirLowpassDL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassDL;
+					break;
+				case 1:
+					iirHighpassAL = (iirHighpassAL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassAL;
+					iirLowpassAL = (iirLowpassAL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassAL;
+					iirHighpassCL = (iirHighpassCL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassCL;
+					iirLowpassCL = (iirLowpassCL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassCL;
+					iirHighpassEL = (iirHighpassEL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassEL;
+					iirLowpassEL = (iirLowpassEL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassEL;
+					break;
+				case 2:
+					iirHighpassAL = (iirHighpassAL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassAL;
+					iirLowpassAL = (iirLowpassAL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassAL;
+					iirHighpassBL = (iirHighpassBL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassBL;
+					iirLowpassBL = (iirLowpassBL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassBL;
+					iirHighpassFL = (iirHighpassFL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassFL;
+					iirLowpassFL = (iirLowpassFL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassFL;
+					break;
+				case 3:
+					iirHighpassAL = (iirHighpassAL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassAL;
+					iirLowpassAL = (iirLowpassAL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassAL;
+					iirHighpassCL = (iirHighpassCL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassCL;
+					iirLowpassCL = (iirLowpassCL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassCL;
+					iirHighpassDL = (iirHighpassDL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassDL;
+					iirLowpassDL = (iirLowpassDL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassDL;
+					break;
+				case 4:
+					iirHighpassAL = (iirHighpassAL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassAL;
+					iirLowpassAL = (iirLowpassAL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassAL;
+					iirHighpassBL = (iirHighpassBL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassBL;
+					iirLowpassBL = (iirLowpassBL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassBL;
+					iirHighpassEL = (iirHighpassEL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassEL;
+					iirLowpassEL = (iirLowpassEL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassEL;
+					break;
+				case 5:
+					iirHighpassAL = (iirHighpassAL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassAL;
+					iirLowpassAL = (iirLowpassAL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassAL;
+					iirHighpassCL = (iirHighpassCL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassCL;
+					iirLowpassCL = (iirLowpassCL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassCL;
+					iirHighpassFL = (iirHighpassFL * (1.0-highpassAmount)) + (inputSampleL * highpassAmount); inputSampleL -= iirHighpassFL;
+					iirLowpassFL = (iirLowpassFL * (1.0-lowpassAmount)) + (inputSampleL * lowpassAmount); inputSampleL = iirLowpassFL;
+					break;
+			}
+		}
+
+		if (engageComp)
+		{
+			flip = !flip;
+			inputSampleL *= inputgain;
+
+			inputpos = (inputSampleL * fpOld) + (avgLA * fpNew) + 1.0;
+			avgLA = inputSampleL;
+
+			if (inputpos < 0.0) inputpos = 0.0;
+			outputpos = inputpos / 2.0;
+			if (outputpos > 1.0) outputpos = 1.0;
+			inputpos *= inputpos;
+			targetposL *= divisor;
+			targetposL += (inputpos * remainder);
+			if (!(targetposL >= 1.e-12)) targetposL = 1.e-12;
+			const double invposL = 1.0 / targetposL;
+			calcpos = invposL * invposL;
+
+			inputneg = (-inputSampleL * fpOld) + (nvgLA * fpNew) + 1.0;
+			nvgLA = -inputSampleL;
+
+			if (inputneg < 0.0) inputneg = 0.0;
+			outputneg = inputneg / 2.0;
+			if (outputneg > 1.0) outputneg = 1.0;
+			inputneg *= inputneg;
+			targetnegL *= divisor;
+			targetnegL += (inputneg * remainder);
+			if (!(targetnegL >= 1.e-12)) targetnegL = 1.e-12;
+			const double invnegL = 1.0 / targetnegL;
+			calcneg = invnegL * invnegL;
+
+			if (inputSampleL > 0)
+			{
+				if (true == flip) { controlAposL *= divisor; controlAposL += (calcpos*remainder); }
+				else { controlBposL *= divisor; controlBposL += (calcpos*remainder); }
+			}
+			else
+			{
+				if (true == flip) { controlAnegL *= divisor; controlAnegL += (calcneg*remainder); }
+				else { controlBnegL *= divisor; controlBnegL += (calcneg*remainder); }
+			}
+
+			if (true == flip) totalmultiplier = (controlAposL * outputpos) + (controlAnegL * outputneg);
+			else totalmultiplier = (controlBposL * outputpos) + (controlBnegL * outputneg);
+
+			monitor0 = totalmultiplier;
+			inputSampleL *= totalmultiplier;
+			inputSampleL /= compoutgain;
+		}
+
+		if (engageEQ)
+		{
+			last2SampleL = lastSampleL;
+			lastSampleL = inputSampleL;
+			flipthree++;
+			if (flipthree < 1 || flipthree > 3) flipthree = 1;
+			switch (flipthree)
+			{
+				case 1:
+					tripletFactorL = last2SampleL - inputSampleL;
+					tripletLA += tripletFactorL;
+					tripletLC -= tripletFactorL;
+					tripletFactorL = tripletLA * tripletIntensity;
+					iirHighSampleLC = (iirHighSampleLC * (1.0 - iirAmountA)) + (inputSampleL * iirAmountA);
+					highSampleL = inputSampleL - iirHighSampleLC;
+					iirLowSampleLC = (iirLowSampleLC * (1.0 - iirAmountB)) + (inputSampleL * iirAmountB);
+					bassSampleL = iirLowSampleLC;
+					break;
+				case 2:
+					tripletFactorL = last2SampleL - inputSampleL;
+					tripletLB += tripletFactorL;
+					tripletLA -= tripletFactorL;
+					tripletFactorL = tripletLB * tripletIntensity;
+					iirHighSampleLD = (iirHighSampleLD * (1.0 - iirAmountA)) + (inputSampleL * iirAmountA);
+					highSampleL = inputSampleL - iirHighSampleLD;
+					iirLowSampleLD = (iirLowSampleLD * (1.0 - iirAmountB)) + (inputSampleL * iirAmountB);
+					bassSampleL = iirLowSampleLD;
+					break;
+				case 3:
+					tripletFactorL = last2SampleL - inputSampleL;
+					tripletLC += tripletFactorL;
+					tripletLB -= tripletFactorL;
+					tripletFactorL = tripletLC * tripletIntensity;
+					iirHighSampleLE = (iirHighSampleLE * (1.0 - iirAmountA)) + (inputSampleL * iirAmountA);
+					highSampleL = inputSampleL - iirHighSampleLE;
+					iirLowSampleLE = (iirLowSampleLE * (1.0 - iirAmountB)) + (inputSampleL * iirAmountB);
+					bassSampleL = iirLowSampleLE;
+					break;
+			}
+			tripletLA /= 2.0;
+			tripletLB /= 2.0;
+			tripletLC /= 2.0;
+			highSampleL = highSampleL + tripletFactorL;
+
+			if (flip)
+			{
+				iirHighSampleLA = (iirHighSampleLA * (1.0 - iirAmountA)) + (highSampleL * iirAmountA);
+				highSampleL -= iirHighSampleLA;
+				iirLowSampleLA = (iirLowSampleLA * (1.0 - iirAmountB)) + (bassSampleL * iirAmountB);
+				bassSampleL = iirLowSampleLA;
+			}
+			else
+			{
+				iirHighSampleLB = (iirHighSampleLB * (1.0 - iirAmountA)) + (highSampleL * iirAmountA);
+				highSampleL -= iirHighSampleLB;
+				iirLowSampleLB = (iirLowSampleLB * (1.0 - iirAmountB)) + (bassSampleL * iirAmountB);
+				bassSampleL = iirLowSampleLB;
+			}
+
+			iirHighSampleL = (iirHighSampleL * (1.0 - iirAmountA)) + (highSampleL * iirAmountA);
+			highSampleL -= iirHighSampleL;
+			iirLowSampleL = (iirLowSampleL * (1.0 - iirAmountB)) + (bassSampleL * iirAmountB);
+			bassSampleL = iirLowSampleL;
+
+			midSampleL = (inputSampleL-bassSampleL)-highSampleL;
+
+			if (outA != 0.0) {
+				highSampleL *= (densityA+1.0);
+				bridgerectifier = fabs(highSampleL)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				if (densityA > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				if (highSampleL > 0) highSampleL = (highSampleL*(1-outA))+(bridgerectifier*outA);
+				else highSampleL = (highSampleL*(1-outA))-(bridgerectifier*outA);
+			}
+
+			if (outB != 0.0) {
+				midSampleL *= (densityB+1.0);
+				bridgerectifier = fabs(midSampleL)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				if (densityB > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				if (midSampleL > 0) midSampleL = (midSampleL*(1-outB))+(bridgerectifier*outB);
+				else midSampleL = (midSampleL*(1-outB))-(bridgerectifier*outB);
+			}
+
+			if (outC != 0.0) {
+				bassSampleL *= (densityC+1.0);
+				bridgerectifier = fabs(bassSampleL)*1.57079633;
+				if (bridgerectifier > 1.57079633) bridgerectifier = 1.57079633;
+				if (densityC > 0) bridgerectifier = sin(bridgerectifier);
+				else bridgerectifier = 1-cos(bridgerectifier);
+				if (bassSampleL > 0) bassSampleL = (bassSampleL*(1-outC))+(bridgerectifier*outC);
+				else bassSampleL = (bassSampleL*(1-outC))-(bridgerectifier*outC);
+			}
+
+			inputSampleL = midSampleL + highSampleL + bassSampleL;
+		}
+
+		if (outputgain != 1.0) {
+			inputSampleL *= outputgain;
+			double rawSampleL = inputSampleL;
+			if (inputSampleL > 1.0) inputSampleL = 1.0;
+			if (inputSampleL < -1.0) inputSampleL = -1.0;
+			double phatSampleL = 0.0;
+			if (phattity > 0.0) phatSampleL = sin(inputSampleL * 1.57079633);
+			if (density > 0.0) {
+				inputSampleL *= 1.2533141373155;
+				double distSampleL = sin(inputSampleL * fabs(inputSampleL)) / ((fabs(inputSampleL) == 0.0) ?1.0:fabs(inputSampleL));
+				inputSampleL = distSampleL;
+				if (density < 1.0) inputSampleL = (rawSampleL*(1.0-density))+(distSampleL*density);
+			} else {
+				inputSampleL = rawSampleL;
+			}
+			if (phattity > 0.0) inputSampleL = (inputSampleL*(1.0-phattity))+(phatSampleL*phattity);
+		}
+
+		fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
+		left = inputSampleL;
   }
   double Gain(int channel) const { return channel == 0 ? monitor0 : monitor1; }
 private:

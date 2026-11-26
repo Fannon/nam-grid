@@ -154,4 +154,24 @@ void TestDistortionAndMonoMeters()
       assert(std::abs(reading.input - mono) < 1.e-6 && std::abs(reading.output - mono) < 1.e-6);
     }
   }
+
+  // PR 5: Linear 20 ms style crossfade settles exactly, and silence cache matches <false> bit-for-bit.
+  for (double rate : {44100., 48000., 96000.})
+  {
+    SlotDistortion cached, reference;
+    cached.Reset(rate);
+    reference.Reset(rate);
+    const int fadeSamples = static_cast<int>(std::ceil(.02 * rate)) + 64;
+    std::vector<double> a(fadeSamples * 3, 0.), b(fadeSamples * 3, 0.);
+    for (int i = 0; i < 256; ++i) a[i] = b[i] = .4 * std::sin(i * .09);
+    UtilityControls uc;
+    uc.distortion = {0., 18., 8000., 50., 100., 0.};
+    cached.Process(a.data(), fadeSamples, uc);
+    reference.Process<false>(b.data(), fadeSamples, uc);
+    // Switch style and run through fade + long constant silence tail (exercises silence cache).
+    uc.distortion[0] = 3.;
+    cached.Process(a.data() + fadeSamples, fadeSamples * 2, uc);
+    reference.Process<false>(b.data() + fadeSamples, fadeSamples * 2, uc);
+    assert(std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0);
+  }
 }

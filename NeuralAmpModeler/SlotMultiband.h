@@ -22,6 +22,12 @@ public:
     mRate = std::max(1., rate); mControls.Reset(mRate); mShape.Reset(mRate);
     mFilters = {}; mPower = {}; mGain = {1., 1., 1.}; mStep = {}; mGainDB = {}; mLevelDB = {-120., -120., -120.};
     mCounter = 0;
+    mLastLow = mLastHigh = mLastTime = mLastDownward = mLastUpward = -1.;
+    mInvRatioDown = mInvRatioUp = 1.;
+    mLastPower = {-1., -1., -1.};
+    mLastLevel = {-300., -300., -300.};
+    mLastGainArg.fill(std::numeric_limits<double>::quiet_NaN());
+    mTargetGain = {1., 1., 1.};
   }
   void Process(double* l, double* r, int n, const UtilityControls& c)
   {
@@ -87,25 +93,59 @@ private:
   {
     const double low = std::clamp(s[0], 20., .4 * mRate);
     const double high = std::clamp(std::max(s[1], low), 20., .4 * mRate);
-    for (int f = 0; f < 2; ++f)
+    if (low != mLastLow)
     {
-      const double g = std::tan(grid_fx::pi * (f ? high : low) / mRate);
-      mA1[f] = 1. / (1. + g * (g + kSqrt2)); mA2[f] = g * mA1[f]; mA3[f] = g * mA2[f];
+      mLastLow = low;
+      const double g = std::tan(grid_fx::pi * low / mRate);
+      mA1[0] = 1. / (1. + g * (g + kSqrt2)); mA2[0] = g * mA1[0]; mA3[0] = g * mA2[0];
+    }
+    if (high != mLastHigh)
+    {
+      mLastHigh = high;
+      const double g = std::tan(grid_fx::pi * high / mRate);
+      mA1[1] = 1. / (1. + g * (g + kSqrt2)); mA2[1] = g * mA1[1]; mA3[1] = g * mA2[1];
     }
     const double time = v[3] * .01;
+    if (time != mLastTime)
+    {
+      mLastTime = time;
+      for (int b = 0; b < kBands; ++b)
+      {
+        mAttack[b] = std::exp(-1. / (.001 * kAttack[b] * time * mRate));
+        mRelease[b] = std::exp(-1. / (.001 * kRelease[b] * time * mRate));
+      }
+    }
+    if (v[1] != mLastDownward) { mLastDownward = v[1]; mInvRatioDown = 1. / std::pow(20., v[1] * .01); }
+    if (v[2] != mLastUpward) { mLastUpward = v[2]; mInvRatioUp = 1. / std::pow(4., v[2] * .01); }
     for (int b = 0; b < kBands; ++b)
     {
-      mAttack[b] = std::exp(-1. / (.001 * kAttack[b] * time * mRate));
-      mRelease[b] = std::exp(-1. / (.001 * kRelease[b] * time * mRate));
-      const double level = 10. * std::log10(mPower[b] + 1.e-30);
-      const double dynamic = DynamicGain(level, s[2] + kOffset[b], v[1], v[2]);
+      if (mPower[b] != mLastPower[b])
+      {
+        mLastPower[b] = mPower[b];
+        mLastLevel[b] = 10. * std::log10(mPower[b] + 1.e-30);
+      }
+      const double level = mLastLevel[b];
+      const double dynamic = DynamicGainCached(level, s[2] + kOffset[b], mInvRatioDown, mInvRatioUp);
       mGainDB[b] = dynamic;
       mPeakGain[b] = std::abs(dynamic) > std::abs(mPeakGain[b]) ? dynamic : mPeakGain[b];
       mPeakLevel[b] = std::max(mPeakLevel[b], level);
       // Linear ramp to the new band gain over the next update interval.
-      const double target = std::pow(10., (dynamic + v[4 + b]) * .05);
-      mStep[b] = (target - mGain[b]) / kUpdate;
+      const double gainArg = dynamic + v[4 + b];
+      if (gainArg != mLastGainArg[b])
+      {
+        mLastGainArg[b] = gainArg;
+        mTargetGain[b] = std::pow(10., gainArg * .05);
+      }
+      mStep[b] = (mTargetGain[b] - mGain[b]) / kUpdate;
     }
+  }
+  static double DynamicGainCached(double levelDB, double threshold, double invRatioDown, double invRatioUp)
+  {
+    if (levelDB > threshold) return -(levelDB - threshold) * (1. - invRatioDown);
+    const double floor = threshold - kUpwardGap;
+    if (levelDB >= floor) return 0.;
+    const double guard = std::clamp((levelDB + 75.) / 15., 0., 1.);
+    return std::min(kUpwardLimit, (floor - levelDB) * (1. - invRatioUp)) * guard;
   }
   // Linkwitz-Riley: two cascaded Butterworth sections per output. LP + HP of one split
   // is a second-order allpass, which the low band also passes at the high split.
@@ -134,6 +174,9 @@ private:
   std::array<double, 2> mA1{1., 1.}, mA2{}, mA3{};
   std::array<double, kBands> mPower{}, mGain{1., 1., 1.}, mStep{}, mGainDB{}, mLevelDB{}, mAttack{}, mRelease{};
   std::array<double, kBands> mPeakGain{}, mPeakLevel{};
+  std::array<double, kBands> mLastPower{-1., -1., -1.}, mLastLevel{-300., -300., -300.}, mLastGainArg{}, mTargetGain{1., 1., 1.};
   double mRate = 48000., mDepth = 0.;
+  double mLastLow = -1., mLastHigh = -1., mLastTime = -1., mLastDownward = -1., mLastUpward = -1.;
+  double mInvRatioDown = 1., mInvRatioUp = 1.;
   int64_t mCounter = 0;
 };

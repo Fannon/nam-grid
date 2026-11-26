@@ -105,6 +105,7 @@ std::unique_ptr<NAMStage::Prepared> prepare(nlohmann::json j, double rate)
 #include "DSPBehaviorTests.h"
 #include "ModuleUpgradeTests.h"
 #include "DSPSafetyTests.h"
+#include "NeonParityTests.h"
 
 namespace
 {
@@ -411,6 +412,81 @@ void TestPR4HotPathAndPrewarm()
   }
   std::cout << "PR4 hot path, NAM startup parity, AdaptiveIR reuse, and GridDCBlocker bit identity passed\n";
 }
+
+void TestPreparedFootprintAndAllocation()
+{
+  static_assert(sizeof(NAMStage::Prepared) < 85000);
+  std::cout << "NAMStage::Prepared size=" << sizeof(NAMStage::Prepared)
+            << " RightChannel size=" << sizeof(NAMStage::RightChannel)
+            << " ChannelDSP size=" << sizeof(NAMStage::ChannelDSP) << '\n';
+  assert(sizeof(NAMStage::Prepared) < 85000);
+
+  // NAM slot: right->dsp must be null, zero audio allocations.
+  {
+    auto p = prepare(fixture::model(3, 123), 48000.);
+    assert(p->right && p->right->dsp == nullptr);
+    NAMStage stage;
+    stage.Publish(std::move(p));
+    stage.ResetStopped(48000., 128);
+    std::array<double, 128> l{}, r{};
+    l.fill(.1); r.fill(-.1);
+    allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
+    stage.Process(l.data(), 128, true, 0., 0., {}, {}, {}, r.data());
+    Eigen::internal::set_is_malloc_allowed(true); tracking = false;
+    assert(allocations == 0 && deletions == 0);
+  }
+  // Mono & stereo CabinetIR: right->dsp must be null, zero audio allocations.
+  for (bool stereoIR : {false, true})
+  {
+    auto p = std::make_unique<NAMStage::Prepared>();
+    p->effect = SlotEffect::CabinetIR;
+    dsp::ImpulseResponse::IRData irData;
+    irData.mRawAudio = {1.f, -.25f, .125f};
+    irData.mRawAudioSampleRate = 48000.;
+    p->ir = std::make_unique<AdaptiveIR>(irData, 48000., 128);
+    if (stereoIR)
+      p->rightIRData = std::make_unique<AdaptiveIR::IRData>(AdaptiveIR::IRData{{.5f, -.1f}, 48000.});
+    p->Reset(48000., 128);
+    assert(p->right && p->right->dsp == nullptr && p->right->ir != nullptr);
+    NAMStage stage;
+    stage.Publish(std::move(p));
+    stage.ResetStopped(48000., 128);
+    std::array<double, 128> l{}, r{};
+    l[0] = 1.; r[0] = .5;
+    allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
+    stage.Process(l.data(), 128, true, 0., 0., {}, {}, {}, stereoIR ? r.data() : nullptr);
+    Eigen::internal::set_is_malloc_allowed(true); tracking = false;
+    assert(allocations == 0 && deletions == 0);
+  }
+  // Per-channel oversampled/heap-allocated effects across sample rates.
+  const auto checkSlot = [](SlotEffect effect, std::initializer_list<double> rates) {
+    for (double rate : rates)
+    {
+      SlotConfig cfg; cfg.effect = effect;
+      auto prep = PrepareSlot(cfg, rate, 128);
+      NAMStage stage;
+      stage.Publish(std::move(prep.dsp));
+      stage.ResetStopped(rate, 128);
+      UtilityControls uc;
+      uc.tube = {12., 20., 100., 0.};
+      uc.tape = {6., 3., 100., 0.};
+      uc.colour = {6., 0., 100.};
+      uc.extra.lofiDrive = 12.;
+      std::array<double, 128> l{}, r{};
+      for (int i = 0; i < 128; ++i) { l[i] = .2 * std::sin(i * .07); r[i] = .15 * std::cos(i * .05); }
+      allocations = deletions = 0; tracking = true; Eigen::internal::set_is_malloc_allowed(false);
+      stage.Process(l.data(), 128, true, 0., 0., {}, {}, uc, r.data());
+      stage.Process(l.data(), 128, true, 0., 0., {}, {}, uc, nullptr);
+      Eigen::internal::set_is_malloc_allowed(true); tracking = false;
+      assert(allocations == 0 && deletions == 0);
+    }
+  };
+  checkSlot(SlotEffect::TubeBoost, {44100., 96000., 192000.});
+  checkSlot(SlotEffect::Tape, {44100., 96000.});
+  checkSlot(SlotEffect::ConsoleColour, {44100., 96000.});
+  checkSlot(SlotEffect::LoFiTape, {48000.});
+  checkSlot(SlotEffect::DigitalDelay, {48000.});
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -499,6 +575,8 @@ try
     {"ring-carrier-lfo", TestRingCarrierLfo},
     {"volume-pedal", TestVolumePedal},
     {"dsp-safety", TestDSPSafety},
+    {"neon-parity", TestNeonParity},
+    {"prepared-footprint", TestPreparedFootprintAndAllocation},
   };
   if (argc == 2 && std::string(argv[1]) == "--list")
   {
@@ -690,6 +768,8 @@ try
   run("envelope-filter-controls", TestEnvelopeFilterControls);
   run("ring-carrier-lfo", TestRingCarrierLfo);
   run("volume-pedal", TestVolumePedal);
+  run("neon-parity", TestNeonParity);
+  run("prepared-footprint", TestPreparedFootprintAndAllocation);
   if (argc > 2)
   {
     TestRealGrid(argc - 2, argv + 2);

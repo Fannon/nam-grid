@@ -195,9 +195,16 @@ public:
   {
     mRate = std::max(1., rate);
     mSmooth = Coefficient(5.);
+    mDetectorAttack = Coefficient(.1);
+    mDetectorReleaseGate = Coefficient(10.);
+    mDetectorReleaseComp = Coefficient(15.);
     mEnvelope = mReduction = mHold = mDetectorLow = 0.;
     mMinimumMonitorGain = 1.;
     mMakeupDB = 0.; mMakeupGain = 1.;
+    mGateReductionDB = 0.; mGateGain = 1.;
+    mCompReductionDB = 0.; mCompReductionGain = 1.;
+    mLastReleaseMs = mLastOpenMs = mLastDetectorCut = -1.;
+    mClose = mOpenCoeff = mDetectorPole = 0.;
     mOpen = false;
     mFirst = true;
   }
@@ -223,13 +230,23 @@ public:
     const double amount = std::clamp(gate ? controls.gateRange : controls.compMakeup, 0., gate ? 80. : 18.);
     const double release =
       std::clamp(gate ? controls.gateRelease : controls.compRelease, gate ? 20. : 40., gate ? 500. : 600.);
-    const double close = Coefficient(release);
+    if (release != mLastReleaseMs) { mLastReleaseMs = release; mClose = Coefficient(release); }
+    const double close = mClose;
     const double attack = std::clamp(punch ? controls.punchAttack : controls.compAttack, .5, 50.);
     const double mix = std::clamp(controls.compMix * .01, 0., 1.);
-    const double open = Coefficient(gate ? (controls.gateAttack > 0. ? controls.gateAttack : tight ? .3 : 1.5) : attack);
-    const double detectorAttack = Coefficient(.1), detectorRelease = Coefficient(gate ? 10. : 15.);
+    const double openMs = gate ? (controls.gateAttack > 0. ? controls.gateAttack : tight ? .3 : 1.5) : attack;
+    if (openMs != mLastOpenMs) { mLastOpenMs = openMs; mOpenCoeff = Coefficient(openMs); }
+    const double open = mOpenCoeff;
+    const double detectorAttack = mDetectorAttack;
+    const double detectorRelease = gate ? mDetectorReleaseGate : mDetectorReleaseComp;
     const double hold = mRate * (controls.gateHold > 0. ? controls.gateHold * .001 : tight ? .015 : .04);
-    const double detectorPole = std::exp(-6.283185307179586 * std::clamp(controls.detectorCut, 0., 500.) / mRate);
+    const double detectorCut = std::clamp(controls.detectorCut, 0., 500.);
+    if (detectorCut != mLastDetectorCut)
+    {
+      mLastDetectorCut = detectorCut;
+      mDetectorPole = std::exp(-6.283185307179586 * detectorCut / mRate);
+    }
+    const double detectorPole = mDetectorPole;
     const double ratio = std::clamp(punch ? controls.punchRatio : controls.smoothRatio, 1., 20.);
     const double knee = punch ? 3. : 9.;
     if (mFirst)
@@ -250,7 +267,7 @@ public:
       mDetectorLow = Smooth(mDetectorLow, samples[i], detectorPole);
       const double magnitude = std::abs(!gate && controls.detectorCut > 0. ? samples[i] - mDetectorLow : samples[i]);
       mEnvelope = Smooth(mEnvelope, magnitude, magnitude > mEnvelope ? detectorAttack : detectorRelease);
-      const double level = 20. * std::log10(std::max(1.e-12, mEnvelope));
+      const double level = mEnvelope <= 1.e-12 ? -240. : 20. * std::log10(mEnvelope);
       double target;
       if (gate)
       {
@@ -276,7 +293,19 @@ public:
       mMix = Smooth(mMix, mix, mSmooth);
       double gain, reduced;
       if (gate)
-        reduced = gain = std::pow(10., (0. - mReduction) * .05);
+      {
+        if (mReduction == 0.)
+          reduced = gain = 1.;
+        else
+        {
+          if (mReduction != mGateReductionDB)
+          {
+            mGateReductionDB = mReduction;
+            mGateGain = std::pow(10., (0. - mReduction) * .05);
+          }
+          reduced = gain = mGateGain;
+        }
+      }
       else
       {
         constexpr double dbToNatural = 0.1151292546497022842; // ln(10) / 20
@@ -288,7 +317,18 @@ public:
           mMakeupDB = mAmount;
           mMakeupGain = std::exp(mMakeupDB * dbToNatural);
         }
-        const double reductionGain = std::exp(-mReduction * dbToNatural);
+        double reductionGain;
+        if (mReduction == 0.)
+          reductionGain = 1.;
+        else
+        {
+          if (mReduction != mCompReductionDB)
+          {
+            mCompReductionDB = mReduction;
+            mCompReductionGain = std::exp(-mReduction * dbToNatural);
+          }
+          reductionGain = mCompReductionGain;
+        }
         gain = mMakeupGain * reductionGain;
         reduced = 1. + mMix * (reductionGain - 1.);
       }
@@ -311,5 +351,9 @@ private:
   double mDetectorLow = 0., mRatio = 2.5, mHysteresis = 3.;
   double mMinimumMonitorGain = 1.;
   double mMakeupDB = 0., mMakeupGain = 1.;
+  double mDetectorAttack = 0., mDetectorReleaseGate = 0., mDetectorReleaseComp = 0.;
+  double mLastReleaseMs = -1., mLastOpenMs = -1., mLastDetectorCut = -1.;
+  double mClose = 0., mOpenCoeff = 0., mDetectorPole = 0.;
+  double mGateReductionDB = 0., mGateGain = 1., mCompReductionDB = 0., mCompReductionGain = 1.;
   bool mOpen = false, mFirst = true;
 };

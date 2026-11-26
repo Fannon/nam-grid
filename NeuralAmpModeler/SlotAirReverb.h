@@ -30,6 +30,7 @@ public:
     if (effect == SlotEffect::GalacticSpace)
     { mSpace = std::make_unique<airwindows_reverb::Galactic3::Core>(); mSpace->Reset(mRate); }
     mInputLow = {}; mCounter = 0; mOutput = 1.; mDrain.Reset(mRate); mLive = 1.;
+    mSetValid = false; mLastSetLive = -1.; mLastLowCut = -1.; mLastSetValues = {};
   }
   void Process(double* left, double* right, int frames, const UtilityControls& controls, bool draining = false)
   {
@@ -49,11 +50,23 @@ public:
         mLive = live;
         if (mPlate)
         {
-          mPlate->Set({std::pow(10., v[0] / 20.), v[1] * .01 * live, v[2] * .01, 0., 1.});
-          mLowCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., v[5]) / mRate);
+          if (!mSetValid || live != mLastSetLive || v[0] != mLastSetValues[0] || v[1] != mLastSetValues[1] || v[2] != mLastSetValues[2])
+            mPlate->Set({std::pow(10., v[0] / 20.), v[1] * .01 * live, v[2] * .01, 0., 1.});
+          if (!mSetValid || v[5] != mLastLowCut)
+          {
+            mLastLowCut = v[5];
+            mLowCoefficient = std::exp(-2. * grid_fx::pi * std::max(1., v[5]) / mRate);
+          }
         }
-        if (mHall) mHall->Set({v[0] * .01 * live, v[1] * .005, v[2] * .01, v[3] * .01, v[4] * .01, 1.});
-        if (mSpace) mSpace->Set({live == 1. ? v[0] * .01 : 1. - live * (1. - v[0] * .01), v[1] * .01, v[2] * .01, v[4] * .01, v[3] * .01, 1.});
+        if (mHall && (!mSetValid || live != mLastSetLive || v[0] != mLastSetValues[0] || v[1] != mLastSetValues[1]
+                      || v[2] != mLastSetValues[2] || v[3] != mLastSetValues[3] || v[4] != mLastSetValues[4]))
+          mHall->Set({v[0] * .01 * live, v[1] * .005, v[2] * .01, v[3] * .01, v[4] * .01, 1.});
+        if (mSpace && (!mSetValid || live != mLastSetLive || v[0] != mLastSetValues[0] || v[1] != mLastSetValues[1]
+                       || v[2] != mLastSetValues[2] || v[3] != mLastSetValues[3] || v[4] != mLastSetValues[4]))
+          mSpace->Set({live == 1. ? v[0] * .01 : 1. - live * (1. - v[0] * .01), v[1] * .01, v[2] * .01, v[4] * .01, v[3] * .01, 1.});
+        mLastSetLive = live;
+        mLastSetValues = v;
+        mSetValid = true;
       }
       mCounter = (mCounter + 1) % 32;
       const double dryL = left[i], dryR = right ? right[i] : dryL;
@@ -90,6 +103,8 @@ private:
   double mRate = 48000., mOutput = 1., mLowCoefficient = 0.;
   grid_fx::Memo mOutputGain;
   grid_fx::DrainRamp mDrain;
-  double mLive = 1.;
+  double mLive = 1., mLastSetLive = -1., mLastLowCut = -1.;
+  std::array<double, 7> mLastSetValues{};
   int mCounter = 0;
+  bool mSetValid = false;
 };

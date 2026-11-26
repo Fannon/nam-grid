@@ -229,8 +229,25 @@ public:
   {
     mRate = std::max(1., rate);
     mFactor = factor == 1 || factor == 2 || factor == 4 ? factor : FactorForRate(rate);
-    if (mFactor == 2) { mOversample2.Reset(); mDry2.Reset(); }
-    if (mFactor == 4) { mOversample4.Reset(); mDry4.Reset(); }
+    if (mFactor == 2)
+    {
+      mOversample4.reset(); mDry4.reset();
+      if (!mOversample2) mOversample2 = std::make_unique<grid_oversampling::FIR<2, 32>>();
+      if (!mDry2) mDry2 = std::make_unique<grid_oversampling::LinearReference<2>>();
+      mOversample2->Reset(); mDry2->Reset();
+    }
+    else if (mFactor == 4)
+    {
+      mOversample2.reset(); mDry2.reset();
+      if (!mOversample4) mOversample4 = std::make_unique<grid_oversampling::FIR<4, 32>>();
+      if (!mDry4) mDry4 = std::make_unique<grid_oversampling::LinearReference<4>>();
+      mOversample4->Reset(); mDry4->Reset();
+    }
+    else
+    {
+      mOversample2.reset(); mOversample4.reset();
+      mDry2.reset(); mDry4.reset();
+    }
     mMixBypass.Reset(mRate);
     mTone.Reset(rate);
     mSmooth = std::exp(-1. / (.005 * std::max(1., rate)));
@@ -260,8 +277,8 @@ public:
       mOutput = output + mSmooth * (mOutput - output);
       const double offset = mBiasOffset(mBias, [](double v) { return std::tanh(v); });
       const auto shape = [&](double x) { return (std::tanh(x * mDrive + mBias) - offset) / (1. - offset * offset); };
-      double shaped = mFactor == 2 ? mOversample2.Tick(samples[i], shape)
-                    : mFactor == 4 ? mOversample4.Tick(samples[i], shape) : shape(samples[i]);
+      double shaped = mFactor == 2 ? mOversample2->Tick(samples[i], shape)
+                    : mFactor == 4 ? mOversample4->Tick(samples[i], shape) : shape(samples[i]);
       const double cutoff = mPostCut.Tick()[0];
       const double pole = mPostPole(-6.283185307179586 * std::min(cutoff, .45 * mRate) / mRate, [](double x) { return std::exp(x); });
       mPostLow = shaped + pole * (mPostLow - shaped);
@@ -272,11 +289,11 @@ public:
       double blended = dry[i] + mMix * (shaped - mDC - dry[i]);
       if (mFactor > 1)
       {
-        if (mFactor == 2) mDry2.Push(dry[i]); else mDry4.Push(dry[i]);
+        if (mFactor == 2) mDry2->Push(dry[i]); else mDry4->Push(dry[i]);
         mMixBypass.Tick();
         if (mMix != 1. && !mMixBypass.IsDry())
         {
-          const double alignedDry = mFactor == 2 ? mDry2.Filtered() : mDry4.Filtered();
+          const double alignedDry = mFactor == 2 ? mDry2->Filtered() : mDry4->Filtered();
           blended = alignedDry + mMix * (shaped - mDC - alignedDry);
         }
         blended = mMixBypass.Apply(dry[i], blended);
@@ -286,10 +303,10 @@ public:
   }
 
 private:
-  grid_oversampling::FIR<2, 32> mOversample2;
-  grid_oversampling::FIR<4, 32> mOversample4;
-  grid_oversampling::LinearReference<2> mDry2;
-  grid_oversampling::LinearReference<4> mDry4;
+  std::unique_ptr<grid_oversampling::FIR<2, 32>> mOversample2;
+  std::unique_ptr<grid_oversampling::FIR<4, 32>> mOversample4;
+  std::unique_ptr<grid_oversampling::LinearReference<2>> mDry2;
+  std::unique_ptr<grid_oversampling::LinearReference<4>> mDry4;
   grid_oversampling::MixBypass mMixBypass;
   grid_fx::Memo mBiasOffset;
   int mFactor = 4;
@@ -316,6 +333,8 @@ public:
     mDepth = 0.;
     mWeights = {1., 0., 0.}; mFirstMode = true;
     mCount = 0;
+    mLastSensParam = mLastOutParam = std::numeric_limits<double>::quiet_NaN();
+    mSweep = {};
     mFilter.Reset();
     mHighPass.Reset(); mBandPass.Reset();
     Update();
@@ -331,9 +350,19 @@ public:
     // sweeps fully from -12 dBFS peaks. Decay is the release time constant.
     const double decay = std::clamp(c.extra.filterDecay, 20., 2000.);
     if (decay != mDecayMs) { mDecayMs = decay; mRelease = std::exp(-1. / (.001 * decay * mRate)); }
-    const double sensitivity = 4. * std::pow(10., std::clamp(c.extra.filterSensitivity, -24., 24.) / 20.);
+    if (c.extra.filterSensitivity != mLastSensParam)
+    {
+      mLastSensParam = c.extra.filterSensitivity;
+      mSensitivity = 4. * std::pow(10., std::clamp(c.extra.filterSensitivity, -24., 24.) / 20.);
+    }
+    const double sensitivity = mSensitivity;
     const double direction = c.extra.filterDown >= .5 ? -1. : 1.;
-    const double output = std::pow(10., std::clamp(c.extra.filterOutput, -24., 24.) / 20.);
+    if (c.extra.filterOutput != mLastOutParam)
+    {
+      mLastOutParam = c.extra.filterOutput;
+      mOutputTarget = std::pow(10., std::clamp(c.extra.filterOutput, -24., 24.) / 20.);
+    }
+    const double output = mOutputTarget;
     const double mix = std::clamp(c.extra.filterMix, 0., 100.) * .01;
     if (mFirstLevel) { mOutput = output; mMix = mix; mFirstLevel = false; }
     for (int i = 0; i < frames; ++i)
@@ -344,11 +373,13 @@ public:
       const double depth = direction * std::clamp(c.envelope, 0., 4.);
       mDepth = depth + mSmooth * (mDepth - depth);
       const double maxCutoff = .4 * mRate;
-      const double hz = std::clamp(std::clamp(c.cutoff, 40., 12000.) * std::exp2(mDepth * std::min(1., mEnv * sensitivity)),
+      const double mod = mDepth * std::min(1., mEnv * sensitivity);
+      const double factor = mod == 0. ? 1. : mSweep(mod, [](double x) { return std::exp2(x); });
+      const double hz = std::clamp(std::clamp(c.cutoff, 40., 12000.) * factor,
                                    std::min(20., maxCutoff), maxCutoff);
       mCut = hz + mSmooth * (mCut - hz);
       mQ = std::clamp(c.resonance, .5, 4.) + mSmooth * (mQ - std::clamp(c.resonance, .5, 4.));
-      if (mCount++ % 16 == 0)
+      if (mCount++ % 16 == 0 && (std::min(.4 * mRate, mCut) != mAppliedCut || mQ != mAppliedQ))
         Update();
       mCount %= 16;
       const double low = mFilter.Tick(samples[i]), high = mHighPass.Tick(samples[i]), band = mBandPass.Tick(samples[i]);
@@ -382,6 +413,9 @@ private:
   bool mFirstMode = true;
   double mRate = 48000., mSmooth = 0., mAttack = 0., mRelease = 0., mEnv = 0., mCut = 2500., mQ = .7, mDepth = 0.;
   double mDecayMs = 80., mOutput = 1., mMix = 1.;
+  double mLastSensParam = std::numeric_limits<double>::quiet_NaN(), mSensitivity = 4.;
+  double mLastOutParam = std::numeric_limits<double>::quiet_NaN(), mOutputTarget = 1.;
+  grid_fx::Memo mSweep;
   bool mFirstLevel = true;
   int mCount = 0;
   double mAppliedCut = 2500., mAppliedQ = .7;
@@ -444,21 +478,38 @@ public:
     mRelease = std::exp(-1. / (.03 * rate));
     mSmoothing = std::exp(-1. / (.02 * rate));
     mFirst = true;
+    mLastThresholdDB = std::numeric_limits<double>::quiet_NaN();
+    mLastRiseMs = mLastReleaseMs = -1.;
+    mValueMoving = true;
+    mLastGain = mLastCurve = -1.;
+    mLastShaped = 0.;
+    mTarget = {};
   }
   void Process(double* samples, int frames, const UtilityControls& c)
   {
     mExtras.Target({c.extra.swellCurve, c.extra.swellHold, c.extra.swellMix}, std::array<int, 3>{uSwellCurve, uSwellHold, uSwellMix});
     // Smooth the derived threshold/rates so automation has no block-sized steps.
     // Exponentials stay outside the sample loop and the envelope stays per sample.
-    const std::array<double, 3> target{
-      std::pow(10., std::clamp(c.threshold, -72., -12.) / 20.),
-      1. / (mRate * .001 * std::clamp(c.rise, 10., 2000.)),
-      std::exp(-1. / (mRate * .001 * std::clamp(c.release, 20., 800.)))};
-    if (mFirst) { mValue = target; mFirst = false; }
+    const double thresh = std::clamp(c.threshold, -72., -12.);
+    const double rise = std::clamp(c.rise, 10., 2000.);
+    const double release = std::clamp(c.release, 20., 800.);
+    if (thresh != mLastThresholdDB) { mLastThresholdDB = thresh; mTarget[0] = std::pow(10., thresh / 20.); mValueMoving = true; }
+    if (rise != mLastRiseMs) { mLastRiseMs = rise; mTarget[1] = 1. / (mRate * .001 * rise); mValueMoving = true; }
+    if (release != mLastReleaseMs) { mLastReleaseMs = release; mTarget[2] = std::exp(-1. / (mRate * .001 * release)); mValueMoving = true; }
+    if (mFirst) { mValue = mTarget; mFirst = false; mValueMoving = false; }
     for (int i = 0; i < frames; ++i)
     {
-      for (int j = 0; j < 3; ++j)
-        mValue[j] = target[j] + mSmoothing * (mValue[j] - target[j]);
+      if (mValueMoving)
+      {
+        bool moving = false;
+        for (int j = 0; j < 3; ++j)
+        {
+          const double next = mTarget[j] + mSmoothing * (mValue[j] - mTarget[j]);
+          moving |= next != mValue[j];
+          mValue[j] = next;
+        }
+        mValueMoving = moving;
+      }
       const auto& extra = mExtras.Tick();
       const double peak = std::abs(samples[i]);
       mEnv = peak + (peak > mEnv ? mAttack : mRelease) * (mEnv - peak);
@@ -476,7 +527,17 @@ public:
       mGain = mOpen ? std::min(1., mGain + mValue[1]) : mGain * mValue[2];
       if (mGain < 1.e-30)
         mGain = 0.;
-      const double shaped = extra[0] == 1. ? mGain : std::pow(mGain, extra[0]);
+      double shaped = mGain;
+      if (extra[0] != 1. && mGain != 0. && mGain != 1.)
+      {
+        if (mGain != mLastGain || extra[0] != mLastCurve)
+        {
+          mLastGain = mGain;
+          mLastCurve = extra[0];
+          mLastShaped = std::pow(mGain, extra[0]);
+        }
+        shaped = mLastShaped;
+      }
       samples[i] *= extra[2] == 100. ? shaped : 1. + extra[2] * .01 * (shaped - 1.);
     }
   }
@@ -484,8 +545,10 @@ public:
 private:
   grid_fx::SmoothControls<3> mExtras;
   double mRate = 48000., mEnv = 0., mGain = 0., mHold = 0.;
-  std::array<double, 3> mValue{};
+  std::array<double, 3> mValue{}, mTarget{};
   double mAttack = 0., mRelease = 0., mSmoothing = 0.;
-  bool mFirst = true;
+  double mLastThresholdDB = std::numeric_limits<double>::quiet_NaN(), mLastRiseMs = -1., mLastReleaseMs = -1.;
+  double mLastGain = -1., mLastCurve = -1., mLastShaped = 0.;
+  bool mFirst = true, mValueMoving = true;
   bool mOpen = false;
 };

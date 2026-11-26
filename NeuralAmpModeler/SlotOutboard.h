@@ -25,10 +25,12 @@ public:
     mRate = std::max(1., rate);
     mEffect = effect;
     mColourFactor = factor == 1 || factor == 2 ? factor : ColourFactorForRate(rate);
+    mColourOversampler.reset();
     if (effect == SlotEffect::ConsoleColour && mColourFactor == 2)
     {
-      for (auto& filter : mColour2) filter.Reset();
-      for (auto& filter : mDryReference) filter.Reset();
+      mColourOversampler = std::make_unique<ColourOversampler>();
+      for (auto& filter : mColourOversampler->fir) filter.Reset();
+      for (auto& filter : mColourOversampler->dry) filter.Reset();
     }
     mMixBypass.Reset(mRate);
     mControls.Reset(mRate);
@@ -56,6 +58,8 @@ public:
     mDesk = -1;
     mVoice = 1.;
     mMinimumGain = 1.;
+    mControlSetValid = false;
+    mLastSetDesk = -1;
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
   {
@@ -85,6 +89,7 @@ public:
           mColour->Reset(mRate * mColourFactor);
           mDesk = desk;
           mCounter = 0;
+          mControlSetValid = false;
         }
       }
       if (mCounter == 0)
@@ -94,45 +99,62 @@ public:
           if (mEffect == SlotEffect::ConsoleEQ)
           {
             // CStrip2 keeps only its native cuts here; console_eq::Bands replaces its EQ.
-            mStrip->Set({.5, .5, .5, .5, .5, v[5] * .01, v[6] * .01, 0., 0., 1. / 3.});
-            mBands.Set(mRate, v[0], v[1], v[2], v[3], v[4], 32);
+            if (!mControlSetValid || v[5] != mLastStrip[5] || v[6] != mLastStrip[6])
+              mStrip->Set({.5, .5, .5, .5, .5, v[5] * .01, v[6] * .01, 0., 0., 1. / 3.});
+            if (!mControlSetValid || v[0] != mLastStrip[0] || v[1] != mLastStrip[1] || v[2] != mLastStrip[2]
+                || v[3] != mLastStrip[3] || v[4] != mLastStrip[4])
+              mBands.Set(mRate, v[0], v[1], v[2], v[3], v[4], 32);
           }
-          else
+          else if (!mControlSetValid || v[0] != mLastStrip[0] || v[1] != mLastStrip[1] || v[2] != mLastStrip[2]
+                   || v[3] != mLastStrip[3] || v[4] != mLastStrip[4])
             mStrip->Set({.5, .5, .5, .5, .5, v[1] * .01, v[0] * .01, v[2] * .01, v[3] * .01, (1. + v[4] * .01) / 3.});
+          mLastStrip = v;
         }
-        if (mButter)
+        if (mButter && (!mControlSetValid || s[0] != mLastShort[0]))
+        {
           mButter->Set({s[0] * .01, .5, 1.});
-        if (mColour)
+          mLastShort[0] = s[0];
+        }
+        if (mColour && (!mControlSetValid || mDesk != mLastSetDesk))
+        {
           mColour->Set({mDesk / 7., .5, .5, 1.});
+          mLastSetDesk = mDesk;
+        }
+        mControlSetValid = true;
       }
       mCounter = (mCounter + 1) % 32;
       const double dryL = left[i], dryR = right ? right[i] : dryL;
       const double inputGain = mStripInput(mInputControl.Tick()[0] * .05, [](double x) { return std::pow(10., x); });
       double wetL = dryL, wetR = dryR;
-      if (mEffect == SlotEffect::OutboardChannel) { wetL *= inputGain; wetR *= inputGain; }
+      if (mEffect == SlotEffect::OutboardChannel)
+      {
+        wetL *= inputGain;
+        if (right) wetR *= inputGain;
+      }
       double mix = 1., output = 1.;
       bool blended = false;
       if (mStrip)
       {
         const bool flat = mEffect == SlotEffect::ConsoleEQ && std::abs(v[0]) + std::abs(v[1]) + std::abs(v[2]) < 1.e-8
                           && v[5] >= 100. - 1.e-8 && v[6] < 1.e-8;
-        mStrip->Tick(wetL, wetR);
+        if (right) mStrip->Tick(wetL, wetR);
+        else mStrip->TickMono(wetL);
         if (mEffect == SlotEffect::ConsoleEQ)
         {
           mBands.Advance();
           wetL = mBands.Tick(wetL, 0);
-          wetR = mBands.Tick(wetR, 1);
+          if (right) wetR = mBands.Tick(wetR, 1);
         }
         if (flat)
         {
           wetL = dryL;
-          wetR = dryR;
+          if (right) wetR = dryR;
         }
         if (mEffect == SlotEffect::OutboardChannel)
         {
           mix = v[6] * .01;
           output = mOutput(v[5] / 20., [](double x) { return std::pow(10., x); });
-          Monitor(mStrip->Gain(0), mStrip->Gain(1), mix);
+          Monitor(mStrip->Gain(0), right ? mStrip->Gain(1) : 1., mix);
         }
       }
       if (mButter)
@@ -145,13 +167,18 @@ public:
           return std::pow(10., (butterMakeupDB * std::pow(std::clamp(x, 0., 1.), 3.5) - butterDriveDB) / 20.);
         });
         wetL *= butterDrive;
-        wetR *= butterDrive;
-        mButter->Tick(wetL, wetR);
+        if (right)
+        {
+          wetR *= butterDrive;
+          mButter->Tick(wetL, wetR);
+          wetR *= makeup;
+        }
+        else
+          mButter->TickMono(wetL);
         wetL *= makeup;
-        wetR *= makeup;
         mix = s[2] * .01;
         output = mOutput(s[1] / 20., [](double x) { return std::pow(10., x); });
-        Monitor(mButter->Gain(0), mButter->Gain(1), mix);
+        Monitor(mButter->Gain(0), right ? mButter->Gain(1) : 1., mix);
       }
       if (mColour)
       {
@@ -162,23 +189,37 @@ public:
         const double trim = mTrim((s[1] + deskMatchDB[mDesk]) / 20., [](double x) { return std::pow(10., x); });
         mix = s[2] * .01 * mVoice;
         wetL *= input;
-        wetR *= input;
-        if (mColourFactor == 2) ProcessColour(wetL, wetR);
-        else mColour->Tick(wetL, wetR);
-        wetL *= trim; wetR *= trim;
+        if (right) wetR *= input;
         if (mColourFactor == 2)
         {
-          mDryReference[0].Push(dryL); mDryReference[1].Push(dryR);
+          if (right) ProcessColour(wetL, wetR);
+          else ProcessColourMono(wetL);
+        }
+        else
+        {
+          if (right) mColour->Tick(wetL, wetR);
+          else mColour->TickMono(wetL);
+        }
+        wetL *= trim;
+        if (right) wetR *= trim;
+        if (mColourFactor == 2)
+        {
+          mColourOversampler->dry[0].Push(dryL);
+          if (right) mColourOversampler->dry[1].Push(dryR);
           mMixBypass.Tick();
-          double blendL = dryL + mix * (wetL - dryL), blendR = dryR + mix * (wetR - dryR);
+          double blendL = dryL + mix * (wetL - dryL), blendR = right ? dryR + mix * (wetR - dryR) : 0.;
           if (mix != 1. && !mMixBypass.IsDry())
           {
-            const double alignedL = mDryReference[0].Filtered(), alignedR = mDryReference[1].Filtered();
+            const double alignedL = mColourOversampler->dry[0].Filtered();
             blendL = alignedL + mix * (wetL - alignedL);
-            blendR = alignedR + mix * (wetR - alignedR);
+            if (right)
+            {
+              const double alignedR = mColourOversampler->dry[1].Filtered();
+              blendR = alignedR + mix * (wetR - alignedR);
+            }
           }
           wetL = mMixBypass.Apply(dryL, blendL);
-          wetR = mMixBypass.Apply(dryR, blendR);
+          if (right) wetR = mMixBypass.Apply(dryR, blendR);
           blended = true;
         }
       }
@@ -194,15 +235,26 @@ public:
   double Reduction() const { return -20. * std::log10(std::max(1.e-12, mMinimumGain)); }
 
 private:
+  struct ColourOversampler
+  {
+    std::array<grid_oversampling::FIR<2, 32>, 2> fir;
+    std::array<grid_oversampling::LinearReference<2>, 2> dry;
+  };
   void ProcessColour(double& l, double& r)
   {
     constexpr int Factor = 2;
-    auto upL = mColour2[0].Upsample(l), upR = mColour2[1].Upsample(r);
+    auto upL = mColourOversampler->fir[0].Upsample(l), upR = mColourOversampler->fir[1].Upsample(r);
     for (int phase = 0; phase < Factor; ++phase) mColour->Tick(upL[phase], upR[phase]);
-    l = mColour2[0].Downsample(upL); r = mColour2[1].Downsample(upR);
+    l = mColourOversampler->fir[0].Downsample(upL); r = mColourOversampler->fir[1].Downsample(upR);
   }
-  std::array<grid_oversampling::FIR<2, 32>, 2> mColour2;
-  std::array<grid_oversampling::LinearReference<2>, 2> mDryReference;
+  void ProcessColourMono(double& l)
+  {
+    constexpr int Factor = 2;
+    auto upL = mColourOversampler->fir[0].Upsample(l);
+    for (int phase = 0; phase < Factor; ++phase) mColour->TickMono(upL[phase]);
+    l = mColourOversampler->fir[0].Downsample(upL);
+  }
+  std::unique_ptr<ColourOversampler> mColourOversampler;
   grid_oversampling::MixBypass mMixBypass;
   int mColourFactor = 2;
   void Monitor(double l, double r, double mix)
@@ -222,9 +274,10 @@ private:
   grid_fx::Memo mInput, mTrim, mOutput, mButterMakeup;
   static constexpr double butterDriveDB = 7., butterMakeupDB = 4.8;
   static inline const double butterDrive = std::pow(10., butterDriveDB / 20.);
-  std::array<double, 7> mUnused{};
-  std::array<double, 3> mUnusedShort{};
+  std::array<double, 7> mUnused{}, mLastStrip{};
+  std::array<double, 3> mUnusedShort{}, mLastShort{};
   SlotEffect mEffect = SlotEffect::OutboardChannel;
   double mRate = 48000., mMinimumGain = 1., mVoice = 1.;
-  int mCounter = 0, mDesk = -1;
+  int mCounter = 0, mDesk = -1, mLastSetDesk = -1;
+  bool mControlSetValid = false;
 };

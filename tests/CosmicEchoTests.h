@@ -16,13 +16,14 @@ void TestCosmicSpaceArrivals()
     core.Configure({100.,65.,75.,80.,7000.,0.,100.}, static_cast<int>(room.style), false);
     int first = -1;
     std::array<double,2> late{};
-    double earlyEnergy = 0., totalEnergy = 0.;
+    double earlyEnergy = 0., first80MsEnergy = 0., totalEnergy = 0.;
     for (int i=0; i<48000; ++i)
     {
       const auto wet = core.Tick({i==0 ? 1. : 0., 0.});
       const double energy = wet[0]*wet[0] + wet[1]*wet[1];
       if (first<0 && energy>1.e-12) first = i;
       if (i<960) earlyEnergy += energy;
+      if (i<3840) first80MsEnergy += energy;
       if (i>=4800) for (int ch=0; ch<2; ++ch) late[ch] += wet[ch]*wet[ch];
       totalEnergy += energy;
     }
@@ -30,7 +31,11 @@ void TestCosmicSpaceArrivals()
     assert(onsetMs>=room.minMs && onsetMs<=room.maxMs);
     assert(late[0]>1.e-4 && late[1]>1.e-4);
     if (room.style==Style::VelvetChamber) assert(earlyEnergy>.08*totalEnergy);
-    if (room.style==Style::SolsticeHall) assert(earlyEnergy<.08*totalEnergy);
+    if (room.style==Style::SolsticeHall)
+    {
+      assert(earlyEnergy<.08*totalEnergy); // Leave space for the pick.
+      assert(first80MsEnergy>.25*totalEnergy); // Fill in behind the first reflections.
+    }
   }
 
   // Long Time settings enlarge the space without separating its tail into echoes.
@@ -322,6 +327,22 @@ void TestCosmicEcho()
     rightEnergy+=pulses[i][1]*pulses[i][1];
   }
   assert(rightEnergy>1.e-4);
+  // Before the shortest loop can recirculate, Density must leave Binary Bloom's
+  // early reflections at the same level while the long tank fills.
+  const auto binaryEarlyEnergy = [](double density) {
+    grid_cosmic::Core core;
+    core.Reset(48000.);
+    core.Configure({385.,15.,88.,density,4400.,0.,100.}, static_cast<int>(grid_cosmic::Style::Nebula), false);
+    double energy = 0.;
+    for (int i=0; i<2400; ++i)
+      for (const double sample : core.Tick({i==0 ? 1. : 0., 0.}))
+        energy += sample*sample;
+    return energy;
+  };
+  const double sparseEarlyEnergy = binaryEarlyEnergy(0.);
+  assert(sparseEarlyEnergy>1.e-4);
+  for (double density : {25., 50., 75., 100.})
+    assert(std::abs(binaryEarlyEnergy(density)/sparseEarlyEnergy-1.)<1.e-12);
   // The plate must start quickly and build early energy at its short-plate recipe.
   {
     grid_cosmic::Core core; core.Reset(48000.);
@@ -373,5 +394,47 @@ void TestCosmicBypassDrain()
     assert(render(false,style)>1.e-6); // The tank really contains a pending impulse.
     assert(render(true,style)<1.e-24); // No stale impulse after 70 seconds bypassed.
     if(style>=effect_modes::CosmicStyle::PhotonPlate) assert(render(true,style,100.)<1.e-24);
+  }
+
+  // PR 5: Core::Configure dirty-check + cached mModCos/mModSin across all styles and live
+  // transitions, plus pre-faulted Line::Reset() with zero allocations on Clear()/Tick().
+  {
+    std::array<double, 7> vals{200., 35., 60., 70., 8000., 25., 100.};
+    for (int style = 0; style < effect_modes::cosmicCount; ++style)
+    {
+      grid_cosmic::Core cached, uncached;
+      cached.Reset(48000.);
+      uncached.Reset(48000.);
+      std::array<grid_cosmic::Core::Stereo, 256> outA{}, outB{};
+      for (int i = 0; i < 256; ++i)
+      {
+        const double live = i < 128 ? 1. : 0.5;
+        const bool draining = i >= 192;
+        if (i == 64) { cached.Clear(); uncached.Clear(); }
+        allocations = deletions = 0; tracking = true;
+        Eigen::internal::set_is_malloc_allowed(false);
+        cached.Configure(vals, style, draining, live);
+        const grid_cosmic::Core::Stereo in{i == 0 || i == 64 ? .5 : .1 * std::sin(i * .07), -.1 * std::cos(i * .05)};
+        outA[i] = cached.Tick(in);
+        Eigen::internal::set_is_malloc_allowed(true);
+        tracking = false;
+        assert(allocations == 0 && deletions == 0);
+
+        // Force uncached reconfiguration every sample via temporary style toggle + Clear().
+        uncached.Configure(vals, style, draining, live);
+        outB[i] = uncached.Tick(in);
+      }
+      assert(std::memcmp(outA.data(), outB.data(), sizeof(outA)) == 0);
+    }
+    grid_cosmic::Line line;
+    line.Reset(48000.);
+    for (double d : {1., 10., 1000.}) assert(line.ReadTap(d) == 0.);
+    allocations = deletions = 0; tracking = true;
+    Eigen::internal::set_is_malloc_allowed(false);
+    line.Clear();
+    assert(line.Tick(0.25, 2.5) == 0.);
+    Eigen::internal::set_is_malloc_allowed(true);
+    tracking = false;
+    assert(allocations == 0 && deletions == 0);
   }
 }

@@ -40,12 +40,20 @@ public:
     mPreviousInput = 0.;
     mIntegralMask = mBiasMask = 0;
     mIntegralDriveKey = mBiasKey = 0;
-    mSmooth = std::exp(-1. / (.02 * mRate));
+    mFadeStep = 1. / std::max(1., .02 * mRate);
+    mSettledStyle = -1;
+    mFadeSettled = false;
+    mHolding = false;
+    mHeld = 0.;
+    mHeldStyle = -1;
     mDC = std::exp(-2. * grid_fx::pi * 5. / mRate);
     mControls.Reset(mRate);
     mLowControls.Reset(mRate);
     mLowState = 0.; mLowFrequency = -1.; mLowPole = 0.;
     mWeights = {};
+    mFadeStartWeights = {};
+    mFadeProgress = 1.;
+    mFadeTargetStyle = -1;
     mPrevious = mHighPass = mLowPass = 0.;
     mFirst = true;
     mCached = {-1., -1., -100.};
@@ -58,7 +66,16 @@ public:
     mControls.Target(controls.distortion, uDistStyle);
     mLowControls.Target({controls.distortionLowPreserve}, uDistLowPreserve);
     const int style = static_cast<int>(std::clamp(controls.distortion[0], 0., double(effect_modes::distortionCount - 1)));
-    if (mFirst) { mWeights[style] = 1.; mFirst = false; }
+    if (mFirst)
+    {
+      mWeights[style] = 1.;
+      mFadeStartWeights = mWeights;
+      mFadeProgress = 1.;
+      mFadeTargetStyle = style;
+      mSettledStyle = style;
+      mFadeSettled = true;
+      mFirst = false;
+    }
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
@@ -86,47 +103,96 @@ public:
       }
       else mLowState = 0.;
       const double input = dry - kept;
-      for (int j = 0; j < effect_modes::distortionCount; ++j)
-        mWeights[j] = grid_fx::Flush((j == style ? 1. : 0.) + mSmooth * (mWeights[j] - (j == style ? 1. : 0.)));
+      if (style != mFadeTargetStyle)
+      {
+        mFadeStartWeights = mWeights;
+        mFadeTargetStyle = style;
+        mFadeProgress = 0.;
+        mFadeSettled = false;
+      }
+      if (!mFadeSettled)
+      {
+        mFadeProgress = std::min(1., mFadeProgress + mFadeStep);
+        if (mFadeProgress >= 1.)
+        {
+          mWeights = {};
+          mWeights[mFadeTargetStyle] = 1.;
+          mSettledStyle = mFadeTargetStyle;
+          mFadeSettled = true;
+        }
+        else
+        {
+          const double keep = 1. - mFadeProgress;
+          for (int j = 0; j < effect_modes::distortionCount; ++j)
+            mWeights[j] = keep * mFadeStartWeights[j] + (j == mFadeTargetStyle ? mFadeProgress : 0.);
+        }
+        mHolding = false;
+      }
       const auto shape = [&](double input) {
-        double wet = 0.;
         if constexpr (!CacheIntegrals)
         {
-          for (int j = 0; j < effect_modes::distortionCount; ++j)
-            if (mWeights[j] != 0.)
-              wet += mWeights[j] * (mADAA ? Antialiased(input, mPreviousInput, j, mDrive, bias)
-                                        : Transfer(input, j, mDrive, bias));
+          double wet = 0.;
+          if (mFadeSettled)
+            wet = mADAA ? Antialiased(input, mPreviousInput, style, mDrive, bias)
+                        : Transfer(input, style, mDrive, bias);
+          else
+            for (int j = 0; j < effect_modes::distortionCount; ++j)
+              if (mWeights[j] != 0.)
+                wet += mWeights[j] * (mADAA ? Antialiased(input, mPreviousInput, j, mDrive, bias)
+                                            : Transfer(input, j, mDrive, bias));
           mPreviousInput = input;
           return wet;
         }
         const auto driveKey = std::bit_cast<uint64_t>(mDrive), biasKey = std::bit_cast<uint64_t>(bias);
         const bool sameCurve = driveKey == mIntegralDriveKey && biasKey == mBiasKey;
         if (biasKey != mBiasKey) mBiasMask = 0;
+        if (mFadeSettled && input == mPreviousInput && sameCurve && style == mHeldStyle)
+        {
+          if (mHolding) return mHeld;
+          const unsigned bit = 1u << style;
+          if (!mADAA)
+            mHeld = Transfer(input, style, mDrive, bias);
+          else
+          {
+            if (!(mBiasMask & bit)) { mBiasOffsets[style] = Shape(bias, style); mBiasMask |= bit; }
+            mHeld = Shape(input * mDrive + bias, style) - mBiasOffsets[style];
+          }
+          mIntegralMask = 0;
+          mHolding = true;
+          return mHeld;
+        }
+        mHolding = false;
+        mHeldStyle = mFadeSettled ? style : -1;
         const double x = input * mDrive + bias, before = mPreviousInput * mDrive + bias;
         const double delta = x - before;
         const bool smallInterval = std::abs(delta) <= 1.e-5 * std::max({1., std::abs(x), std::abs(before)});
+        double wet = 0.;
         unsigned nextMask = 0;
-        for (int j = 0; j < effect_modes::distortionCount; ++j)
-          if (mWeights[j] != 0.)
+        const auto evalStyle = [&](int j) {
+          if (!mADAA) return Transfer(input, j, mDrive, bias);
+          const unsigned bit = 1u << j;
+          // Reuse F(previous) only when it was evaluated for this exact
+          // curve in the preceding high-rate sample. Automation, style
+          // crossfades and the small-interval fallback invalidate that reuse.
+          double averaged;
+          if (smallInterval) averaged = Shape(.5 * (x + before), j);
+          else
           {
-            if (!mADAA) { wet += mWeights[j] * Transfer(input, j, mDrive, bias); continue; }
-            const unsigned bit = 1u << j;
-            // Reuse F(previous) only when it was evaluated for this exact
-            // curve in the preceding high-rate sample. Automation, style
-            // crossfades and the small-interval fallback invalidate that reuse.
-            double averaged;
-            if (smallInterval) averaged = Shape(.5 * (x + before), j);
-            else
-            {
-              const double current = Integral(x, j);
-              const double previous = sameCurve && (mIntegralMask & bit) ? mIntegrals[j] : Integral(before, j);
-              averaged = (current - previous) / delta;
-              mIntegrals[j] = current;
-              nextMask |= bit;
-            }
-            if (!(mBiasMask & bit)) { mBiasOffsets[j] = Shape(bias, j); mBiasMask |= bit; }
-            wet += mWeights[j] * (averaged - mBiasOffsets[j]);
+            const double current = Integral(x, j);
+            const double previous = sameCurve && (mIntegralMask & bit) ? mIntegrals[j] : Integral(before, j);
+            averaged = (current - previous) / delta;
+            mIntegrals[j] = current;
+            nextMask |= bit;
           }
+          if (!(mBiasMask & bit)) { mBiasOffsets[j] = Shape(bias, j); mBiasMask |= bit; }
+          return averaged - mBiasOffsets[j];
+        };
+        if (mFadeSettled)
+          wet = evalStyle(style);
+        else
+          for (int j = 0; j < effect_modes::distortionCount; ++j)
+            if (mWeights[j] != 0.)
+              wet += mWeights[j] * evalStyle(j);
         mIntegralMask = nextMask;
         mIntegralDriveKey = driveKey; mBiasKey = biasKey;
         mPreviousInput = input;
@@ -224,10 +290,11 @@ private:
   grid_fx::SmoothControls<6> mControls;
   grid_fx::SmoothControls<1> mLowControls;
   double mLowState = 0., mLowFrequency = -1., mLowPole = 0.;
-  std::array<double, effect_modes::distortionCount> mWeights{};
+  std::array<double, effect_modes::distortionCount> mWeights{}, mFadeStartWeights{};
   std::array<double, 3> mCached{};
-  double mRate = 48000., mSmooth = 0., mDC = 0.;
+  double mRate = 48000., mFadeStep = 0., mFadeProgress = 1., mDC = 0.;
   double mPrevious = 0., mHighPass = 0., mLowPass = 0.;
-  double mDrive = 1., mTone = 0., mOutput = 1.;
-  bool mFirst = true;
+  double mDrive = 1., mTone = 0., mOutput = 1., mHeld = 0.;
+  int mSettledStyle = -1, mFadeTargetStyle = -1, mHeldStyle = -1;
+  bool mFirst = true, mFadeSettled = false, mHolding = false;
 };

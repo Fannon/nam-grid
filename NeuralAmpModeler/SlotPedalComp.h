@@ -88,6 +88,9 @@ public:
     mPickup = -1;
     mCounter = 0;
     mFirst = true;
+    mVoiceSettled = false;
+    mLastSustain = mLastKnee = -1.;
+    mLastFocus = -1000.;
     mMaxReduction = 0.;
   }
   void Process(double* left, double* right, int frames, const UtilityControls& c)
@@ -102,7 +105,8 @@ public:
       const auto& voice = voices[pickup];
       mLowCut = std::exp(-2. * grid_fx::pi * voice.detectorLowCut / mRate);
       mHighCut = voice.detectorHighCut > 0. ? std::exp(-2. * grid_fx::pi * voice.detectorHighCut / mRate) : 0.;
-      if (mFirst) mVoice = voice;
+      if (mFirst) { mVoice = voice; mVoiceSettled = true; }
+      else mVoiceSettled = false;
       mPickup = pickup;
     }
     const auto& voice = voices[mPickup];
@@ -111,15 +115,34 @@ public:
     {
       const auto& v = mControls.Tick();
       // Sensitivity, knee and detector averaging glide to the new pickup over 20 ms.
-      mVoice.sensitivity = voice.sensitivity + mVoiceSmoothing * (mVoice.sensitivity - voice.sensitivity);
-      mVoice.knee = voice.knee + mVoiceSmoothing * (mVoice.knee - voice.knee);
-      mVoice.rms = voice.rms + mVoiceSmoothing * (mVoice.rms - voice.rms);
+      if (!mVoiceSettled)
+      {
+        mVoice.sensitivity = voice.sensitivity + mVoiceSmoothing * (mVoice.sensitivity - voice.sensitivity);
+        mVoice.knee = voice.knee + mVoiceSmoothing * (mVoice.knee - voice.knee);
+        mVoice.rms = voice.rms + mVoiceSmoothing * (mVoice.rms - voice.rms);
+        if (std::abs(mVoice.sensitivity - voice.sensitivity) < 1.e-12
+            && std::abs(mVoice.knee - voice.knee) < 1.e-12
+            && std::abs(mVoice.rms - voice.rms) < 1.e-12)
+        {
+          mVoice = voice;
+          mVoiceSettled = true;
+        }
+      }
       if (mCounter == 0)
       {
-        mCurve = CurveFor(v[0], mVoice.knee);
-        // Positive leans the detector toward Pick, negative toward Body.
-        mFocusHigh = std::pow(10., v[2] * .01 * focusRangeDB / 20.);
-        mFocusLow = 1. / mFocusHigh;
+        if (v[0] != mLastSustain || mVoice.knee != mLastKnee)
+        {
+          mLastSustain = v[0];
+          mLastKnee = mVoice.knee;
+          mCurve = CurveFor(v[0], mVoice.knee);
+        }
+        if (v[2] != mLastFocus)
+        {
+          mLastFocus = v[2];
+          // Positive leans the detector toward Pick, negative toward Body.
+          mFocusHigh = std::pow(10., v[2] * .01 * focusRangeDB / 20.);
+          mFocusLow = 1. / mFocusHigh;
+        }
       }
       mCounter = (mCounter + 1) % 16;
       if (mFirst)
@@ -135,8 +158,8 @@ public:
       const double power = .5 * (sideL * sideL + sideR * sideR);
       mPower = grid_fx::Flush(power + mRMS * (mPower - power));
       // A sine's RMS is 3 dB below its peak; sqrt(2 power) keeps both detectors on one scale.
-      const double detected = mPeak + mVoice.rms * (std::sqrt(2. * mPower) - mPeak);
-      const double levelDB = 20. * std::log10(std::max(detected, 1.e-9)) + mVoice.sensitivity;
+      const double detected = mVoice.rms == 0. ? mPeak : mPeak + mVoice.rms * ((mPower > 0. ? std::sqrt(2. * mPower) : 0.) - mPeak);
+      const double levelDB = (detected <= 1.e-9 ? -180. : 20. * std::log10(detected)) + mVoice.sensitivity;
       const double target = SlotDynamics::CompressionDB(levelDB, mCurve.threshold, mCurve.ratio, mCurve.knee);
       mFast = Approach(mFast, target, target > mFast ? mAttack[slow] : mRelease[slow]);
       const double memory = memoryShare * target;
@@ -194,6 +217,7 @@ private:
   double mPivot = 0., mFocusLow = 1., mFocusHigh = 1.;
   double mPeak = 0., mPower = 0., mFast = 0., mMemory = 0., mMakeup = 0.;
   double mMaxReduction = 0., mBlendAtMax = 1.;
+  double mLastSustain = -1., mLastKnee = -1., mLastFocus = -1000.;
   int mPickup = -1, mCounter = 0;
-  bool mFirst = true;
+  bool mFirst = true, mVoiceSettled = false;
 };

@@ -305,6 +305,8 @@ public:
     mPeakRelease = std::exp(-1. / (.05 * mRate));
     mTauSmoothing = std::exp(-32. / (.02 * mRate));
     mRise = 1.; mMakeup = 1.;
+    mLastDecay = mLastDamp = mLastFreeze = mLastSetDensity = mLastSetTau = -1.;
+    mLastPitch = std::numeric_limits<double>::quiet_NaN();
   }
   void Process(double* l, double* r, int n, const UtilityControls& c, bool draining = false)
   {
@@ -331,46 +333,68 @@ public:
       if (mCounter++ % 32 == 0)
       {
         const double live = 1. - mFreeze;
-        // Shifting up moves content above Nyquist: band-limit the shifted lines first.
-        const double ratio = std::exp2(std::max(0., v[3]) / 12.);
-        const double g = std::tan(grid_fx::pi * std::min(16000., .42 * mRate / ratio) / mRate);
+        if (v[3] != mLastPitch)
+        {
+          // Shifting up moves content above Nyquist: band-limit the shifted lines first.
+          const double ratio = std::exp2(std::max(0., v[3]) / 12.);
+          const double g = std::tan(grid_fx::pi * std::min(16000., .42 * mRate / ratio) / mRate);
+          const double aliasG = g / (1. + g);
+          mTank[0].aliasG = aliasG;
+          mTank[1].aliasG = aliasG;
+        }
+        const bool decayDirty = v[1] != mLastDecay || mFreeze != mLastFreeze;
+        const bool dampDirty = v[2] != mLastDamp || mFreeze != mLastFreeze;
         for (int ch = 0; ch < 2; ++ch)
         {
           auto& tank = mTank[ch];
-          for (int j = 0; j < 8; ++j)
+          if (decayDirty)
           {
-            const double normal = std::pow(10., -3. * tank.length[j] / std::max(.25, v[1]));
-            tank.feedback[j] = std::min(.9995, normal + mFreeze * (.9995 - normal));
-            // Damping shelves the treble relative to Decay, as in Hall and Room: above
-            // it the tail decays at kHighDecayRatio of Decay, at any Decay. A fixed
-            // low-pass per pass instead capped long tails, most of all in the mids.
-            tank.highRatio[j] = std::pow(tank.feedback[j], 1. / kHighDecayRatio - 1.);
+            for (int j = 0; j < 8; ++j)
+            {
+              const double normal = std::pow(10., -3. * tank.length[j] / std::max(.25, v[1]));
+              tank.feedback[j] = std::min(.9995, normal + mFreeze * (.9995 - normal));
+              // Damping shelves the treble relative to Decay, as in Hall and Room: above
+              // it the tail decays at kHighDecayRatio of Decay, at any Decay. A fixed
+              // low-pass per pass instead capped long tails, most of all in the mids.
+              tank.highRatio[j] = std::pow(tank.feedback[j], 1. / kHighDecayRatio - 1.);
+            }
           }
-          tank.damping = std::exp(-2. * grid_fx::pi * std::min(.45 * mRate, v[2] + mFreeze * (12000. - v[2])) / mRate);
+          if (dampDirty)
+          {
+            tank.damping = std::exp(-2. * grid_fx::pi * std::min(.45 * mRate, v[2] + mFreeze * (12000. - v[2])) / mRate);
+            // Each pitched pass is darkened below Damping, so higher layers taper off
+            // instead of piling up into a glassy top, as in classic studio shimmers.
+            const double shiftCorner = std::clamp(.3 * (v[2] + mFreeze * (12000. - v[2])), 800., 6000.);
+            tank.shiftPole = std::exp(-2. * grid_fx::pi * shiftCorner / mRate);
+          }
           tank.modDepth = v[5] * .01 * .000625 * mRate;
           tank.live = live;
-          tank.aliasG = g / (1. + g);
-          // Each pitched pass is darkened below Damping, so higher layers taper off
-          // instead of piling up into a glassy top, as in classic studio shimmers.
-          const double shiftCorner = std::clamp(.3 * (v[2] + mFreeze * (12000. - v[2])), 800., 6000.);
-          tank.shiftPole = std::exp(-2. * grid_fx::pi * shiftCorner / mRate);
         }
+        mLastPitch = v[3]; mLastDecay = v[1]; mLastDamp = v[2]; mLastFreeze = mFreeze;
         mDensity = densityTarget + mTauSmoothing * (mDensity - densityTarget);
         if (std::abs(mDensity - densityTarget) < 1.e-6) mDensity = densityTarget;
-        const double angle = kQuarterPi * DensityMix(mDensity);
-        for (auto& tank : mTank)
+        if (mDensity != mLastSetDensity)
         {
-          tank.fullMix = mDensity >= 1.;
-          tank.diffusion = .6 * (.25 + .75 * mDensity);
-          tank.mixC = std::cos(angle);
-          tank.mixS = std::sin(angle);
+          mLastSetDensity = mDensity;
+          const double angle = kQuarterPi * DensityMix(mDensity);
+          const double mixC = std::cos(angle), mixS = std::sin(angle);
+          const double diffusion = .6 * (.25 + .75 * mDensity);
+          const bool fullMix = mDensity >= 1.;
+          for (auto& tank : mTank)
+          {
+            tank.fullMix = fullMix;
+            tank.diffusion = diffusion;
+            tank.mixC = mixC;
+            tank.mixS = mixS;
+          }
         }
         // Freeze holds the tail without adding new pitch layers.
         mShareTarget = ShiftShare(v[4] * .01) * live;
         mSwellTau = tauTarget + mTauSmoothing * (mSwellTau - tauTarget);
         if (tauTarget == 0. && mSwellTau < 1.e-6) mSwellTau = 0.;
-        if (mSwellTau > 0.)
+        if (mSwellTau > 0. && mSwellTau != mLastSetTau)
         {
+          mLastSetTau = mSwellTau;
           mRise = 1. - std::exp(-1. / (mSwellTau * mRate));
           // The swell holds back each note's attack, where a guitar note has most of
           // its energy; this makeup leaves a picked note about 4 dB below and a
@@ -427,6 +451,7 @@ private:
     std::array<grid_fx::DelayLine, 8> line;
     std::array<grid_reverb::Allpass, 4> diffuser;
     std::array<double, 8> length{}, damp{}, feedback{}, phase{}, highRatio{}, loopLow{};
+    std::array<double, 8> lfoCos{}, lfoSin{}, stepCos{}, stepSin{};
     std::array<double, 4> shiftLow{};
     // Loop DC blocker, and the one-pole that darkens every pitched pass.
     double dcCut = 0., shiftPole = 0.;
@@ -450,6 +475,12 @@ private:
         line[j].Reset(static_cast<int>(mRate * (.09 * scale + .002)) + 8);
         damp[j] = 0.;
         phase[j] = j * .137;
+        const double stepAngle = 2. * grid_fx::pi * (.13 + .043 * j) / mRate;
+        stepCos[j] = std::cos(stepAngle);
+        stepSin[j] = std::sin(stepAngle);
+        const double initAngle = 2. * grid_fx::pi * phase[j];
+        lfoCos[j] = std::cos(initAngle);
+        lfoSin[j] = std::sin(initAngle);
       }
       for (int j = 0; j < 4; ++j)
       {
@@ -476,12 +507,25 @@ private:
         input = diffuser[j].Tick(input, mRate * diffuserDelay[j] * diffusionScale, diffusion);
       std::array<double, 8> taps{};
       double wet = 0.;
+      const bool modulate = modDepth != 0.;
+      const bool renorm = modulate && ((counter & 4095) == 0);
       for (int j = 0; j < 8; ++j)
       {
-        phase[j] += (.13 + .043 * j) / mRate;
-        if (phase[j] >= 1.)
-          phase[j] -= 1.;
-        const double motion = modDepth * std::sin(2. * grid_fx::pi * phase[j]);
+        double motion = 0.;
+        if (modulate)
+        {
+          const double nc = lfoCos[j] * stepCos[j] - lfoSin[j] * stepSin[j];
+          const double ns = lfoSin[j] * stepCos[j] + lfoCos[j] * stepSin[j];
+          lfoCos[j] = nc;
+          lfoSin[j] = ns;
+          if (renorm)
+          {
+            const double inv = .5 * (3. - (lfoCos[j] * lfoCos[j] + lfoSin[j] * lfoSin[j]));
+            lfoCos[j] *= inv;
+            lfoSin[j] *= inv;
+          }
+          motion = modDepth * lfoSin[j];
+        }
         const double tap = line[j].Read(mRate * length[j] + motion);
         damp[j] = grid_fx::Flush(tap + damping * (damp[j] - tap));
         double shelved = highRatio[j] * tap + (1. - highRatio[j]) * damp[j];
@@ -581,6 +625,8 @@ private:
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mInputLow[2]{}, mFreeze = 0., mShare = 0., mShareTarget = 0., mShareSmoothing = 0.;
   double mPeak = 0., mPeakRelease = 0., mSwellTau = -1., mTauSmoothing = 0., mRise = 1., mMakeup = 1., mDensity = -1.;
+  double mLastDecay = -1., mLastDamp = -1., mLastPitch = std::numeric_limits<double>::quiet_NaN();
+  double mLastFreeze = -1., mLastSetDensity = -1., mLastSetTau = -1.;
   std::array<double, 2> mSwell{};
   int mCounter = 0;
 };
@@ -652,6 +698,10 @@ public:
     mSine = 0.;
     mCosOffset = 1.;
     mSinOffset = 0.;
+    mStepCos = 1.;
+    mStepSin = 0.;
+    mStepFreq = std::numeric_limits<double>::quiet_NaN();
+    mLastOffset = -1.;
     mCounter = 0;
     mDrain.Reset(mRate);
   }
@@ -661,15 +711,22 @@ public:
     for (int i = 0; i < n; ++i)
     {
       const auto& v = mControls.Tick();
-      if (mCounter++ % 32 == 0)
+      if (mCounter++ % 32 == 0 && v[5] != mLastOffset)
       {
+        mLastOffset = v[5];
         const double offset = std::clamp(v[5], 0., 100.) * .01 * grid_fx::pi;
         mCosOffset = std::cos(offset);
         mSinOffset = std::sin(offset);
       }
       mCounter %= 32;
-      const double radians = 2. * grid_fx::pi * std::clamp(v[0], -2000., 2000.) / mRate;
-      const double stepCos = std::cos(radians), stepSin = std::sin(radians);
+      if (v[0] != mStepFreq)
+      {
+        mStepFreq = v[0];
+        const double radians = 2. * grid_fx::pi * std::clamp(v[0], -2000., 2000.) / mRate;
+        mStepCos = std::cos(radians);
+        mStepSin = std::sin(radians);
+      }
+      const double stepCos = mStepCos, stepSin = mStepSin;
       const double rightCosine = mCosine * mCosOffset - mSine * mSinOffset;
       const double rightSine = mSine * mCosOffset + mCosine * mSinOffset;
       const double delaySamples = std::max(1., v[2] * .001 * mRate);
@@ -679,7 +736,7 @@ public:
       const double lowPole = mLowPole(-2. * grid_fx::pi * std::min(.45 * mRate, v[4]) / mRate,
                                      [](double x) { return std::exp(x); });
       double wet[2]{};
-      for (int ch = 0; ch < 2; ++ch)
+      for (int ch = 0; ch < (r ? 2 : 1); ++ch)
       {
         const double dry = ch ? dryR : dryL;
         const auto [inPhase, quadrature] = mHilbert[ch].Process(mLine[ch].Read(delaySamples));
@@ -720,6 +777,7 @@ private:
   grid_fx::Memo mLowPole;
   grid_fx::DrainRamp mDrain;
   double mRate = 48000., mCosine = 1., mSine = 0., mCosOffset = 1., mSinOffset = 0.;
+  double mStepCos = 1., mStepSin = 0., mStepFreq = std::numeric_limits<double>::quiet_NaN(), mLastOffset = -1.;
   double mFeedbackPole = 1.;
   std::array<double, 2> mFeedbackIn{}, mFeedbackOut{};
   double mLow[2]{};

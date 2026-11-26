@@ -250,6 +250,93 @@ overallscale = 1.0;
 
 
   }
+  void TickMono(double& left)
+  {
+		double inputSampleL = left;
+
+		if (fabs(inputSampleL)<1.18e-23) inputSampleL = fpdL * 1.18e-17;
+		double drySampleL = inputSampleL;
+
+		inputSampleL *= inputgain;
+
+		double divisor = compfactor / (1.0+fabs(lastOutputL));
+		divisor /= overallscale;
+		double remainder = divisor;
+		divisor = 1.0 - divisor;
+
+		double inputposL = inputSampleL + 1.0;
+		if (inputposL < 0.0) inputposL = 0.0;
+		double outputposL = inputposL / 2.0;
+		if (outputposL > 1.0) outputposL = 1.0;
+		inputposL *= inputposL;
+		targetposL *= divisor;
+		targetposL += (inputposL * remainder);
+		if (!(targetposL >= 1.e-12)) targetposL = 1.e-12;
+		const double invposL = 1.0 / targetposL;
+		double calcposL = invposL * invposL;
+
+		double inputnegL = (-inputSampleL) + 1.0;
+		if (inputnegL < 0.0) inputnegL = 0.0;
+		double outputnegL = inputnegL / 2.0;
+		if (outputnegL > 1.0) outputnegL = 1.0;
+		inputnegL *= inputnegL;
+		targetnegL *= divisor;
+		targetnegL += (inputnegL * remainder);
+		if (!(targetnegL >= 1.e-12)) targetnegL = 1.e-12;
+		const double invnegL = 1.0 / targetnegL;
+		double calcnegL = invnegL * invnegL;
+
+		if (inputSampleL > 0)
+		{
+			if (flip)
+			{
+				controlAposL *= divisor;
+				controlAposL += (calcposL*remainder);
+			}
+			else
+			{
+				controlBposL *= divisor;
+				controlBposL += (calcposL*remainder);
+			}
+		}
+		else
+		{
+			if (flip)
+			{
+				controlAnegL *= divisor;
+				controlAnegL += (calcnegL*remainder);
+			}
+			else
+			{
+				controlBnegL *= divisor;
+				controlBnegL += (calcnegL*remainder);
+			}
+		}
+
+		double totalmultiplierL;
+		if (flip)
+			totalmultiplierL = (controlAposL * outputposL) + (controlAnegL * outputnegL);
+		else
+			totalmultiplierL = (controlBposL * outputposL) + (controlBnegL * outputnegL);
+
+		monitor0 = totalmultiplierL;
+		inputSampleL *= totalmultiplierL;
+		inputSampleL /= outputgain;
+
+		if (output != 1.0) {
+			inputSampleL *= output;
+		}
+
+		if (wet != 1.0) {
+			inputSampleL = (inputSampleL * wet) + (drySampleL * (1.0-wet));
+		}
+
+		lastOutputL = inputSampleL;
+		flip = !flip;
+
+		fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
+		left = inputSampleL;
+  }
   double Gain(int channel) const { return channel == 0 ? monitor0 : monitor1; }
 private:
   double getSampleRate() const { return mRate; }

@@ -172,6 +172,28 @@ void TestLoFiTape()
       stage.Process(l.data(), 512, true, 0., 0., {}, {}, settings, stereo ? r.data() : nullptr);
       for (size_t i = 0; i < l.size(); ++i) assert(std::abs(l[i]) < 1.e-20 && std::abs(r[i]) < 1.e-20);
     }
+
+    // PR 5: Mono-lane parity (Noise = 0 and Noise = 100) vs stereo left channel.
+    for (double noiseLevel : {0., 100.})
+    {
+      SlotLoFiTape monoTape, stereoTape;
+      monoTape.Reset(rate);
+      stereoTape.Reset(rate);
+      UtilityControls uc;
+      uc.lofi = {7.5, 40., 35., noiseLevel, 30., 100., 0.};
+      uc.extra.lofiDrive = 12.;
+      std::array<double, 512> mL{}, sL{}, sR{};
+      for (int i = 0; i < 512; ++i)
+        mL[i] = sL[i] = sR[i] = .25 * std::sin(i * .071);
+      allocations = deletions = 0; tracking = true;
+      Eigen::internal::set_is_malloc_allowed(false);
+      monoTape.Process(mL.data(), nullptr, 512, uc);
+      Eigen::internal::set_is_malloc_allowed(true);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+      stereoTape.Process(sL.data(), sR.data(), 512, uc);
+      for (int i = 0; i < 512; ++i) assert(mL[i] == sL[i]);
+    }
   }
-  std::cout << "LoFi tape: speed loss, transport sidebands, wear/dropouts, noise, stereo, block invariance and bypass at 44.1-192 kHz\n";
+  std::cout << "LoFi tape: speed loss, transport sidebands, wear/dropouts, noise, stereo, mono-lane, block invariance and bypass at 44.1-192 kHz\n";
 }

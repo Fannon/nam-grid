@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include "SlotTimeEffects.h"
 #include "dsp/MinimumPhaseOversampling.h"
 
@@ -25,7 +26,11 @@ public:
     mRate = std::max(1., rate);
     for (auto& line : mLine) line.Reset(static_cast<int>(std::ceil(mRate * .04)) + 8);
     mControls.Reset(mRate); mDriveControl.Reset(mRate);
-    for (auto& shaper : mSaturator) shaper.Reset();
+    for (auto& shaper : mSaturator)
+    {
+      if (!shaper) shaper = std::make_unique<grid_oversampling::FIR<4>>();
+      shaper->Reset();
+    }
     mLow = {}; mLow2 = {}; mDC = {}; mNoiseLow = {};
     mWowPhase = mFlutterPhase = mDrift = mDriftTarget = 0.;
     mDriftFrames = 0;
@@ -106,15 +111,15 @@ public:
       mDropPhase = std::min(1., mDropPhase + mDropStep);
       const double dropout = 1. - wear * wear * mDropDepth * contact;
       const double mix = v[5] * .01;
-      for (int ch = 0; ch < 2; ++ch)
+      for (int ch = 0; ch < (right ? 2 : 1); ++ch)
       {
         double* samples = ch ? right : left;
-        const double dry = samples ? samples[i] : 0.;
-        // Advance both channels even in mono, keeping transport/noise deterministic
-        // when hosts change channel layouts. Draining must not regenerate hiss.
+        const double dry = samples[i];
+        // Advance right noise seed in mono, keeping noise deterministic when hosts
+        // change channel layouts. Draining must not regenerate hiss.
         const double noise = Random(mNoiseSeed[ch]);
         mNoiseLow[ch] = grid_fx::Flush(noise + mNoiseCoefficient * (mNoiseLow[ch] - noise));
-        const double saturated = driveDB == 0. ? dry : mSaturator[ch].Tick(dry, [&](double x) { return AirwindowsTape::Spiral(x * drive); });
+        const double saturated = driveDB == 0. ? dry : mSaturator[ch]->Tick(dry, [&](double x) { return AirwindowsTape::Spiral(x * drive); });
         const double input = saturationMix == 0. ? dry : dry + saturationMix * (saturated - dry);
         mDC[ch] = grid_fx::Flush(input + mDCCoefficient * (mDC[ch] - input));
         mLine[ch].Push(input - mDC[ch]);
@@ -122,8 +127,9 @@ public:
                               + (draining ? 0. : mNoiseGain * (noise - mNoiseLow[ch]));
         mLow[ch] = grid_fx::Flush(signal + mLowCoefficient * (mLow[ch] - signal));
         mLow2[ch] = grid_fx::Flush(mLow[ch] + mLowCoefficient * (mLow2[ch] - mLow[ch]));
-        if (samples) samples[i] = (dry + mix * (mLow2[ch] - dry)) * mOutput;
+        samples[i] = (dry + mix * (mLow2[ch] - dry)) * mOutput;
       }
+      if (!right) (void)Random(mNoiseSeed[1]);
     }
   }
 
@@ -137,7 +143,7 @@ private:
   grid_fx::SmoothControls<7> mControls;
   grid_fx::SmoothControls<1> mDriveControl;
   grid_fx::Memo mDriveGain;
-  std::array<grid_oversampling::FIR<4>, 2> mSaturator;
+  std::array<std::unique_ptr<grid_oversampling::FIR<4>>, 2> mSaturator;
   std::array<double, 2> mLow{}, mLow2{}, mDC{}, mNoiseLow{};
   std::array<uint32_t, 2> mNoiseSeed{};
   uint32_t mTransportSeed = 1;

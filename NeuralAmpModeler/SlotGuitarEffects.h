@@ -69,6 +69,8 @@ public:
     mB = {(1. - std::cos(w)) * .5 / a0, (1. - std::cos(w)) / a0, (1. - std::cos(w)) * .5 / a0};
     mA = {-2. * std::cos(w) / a0, (1. - alpha) / a0};
     mSplashHP = std::exp(-2. * grid_fx::pi * kCutoff / rate);
+    mConfigured = false;
+    mLastDecay = mLastDrip = mLastDamping = -1.;
     Clear();
   }
   // Called on Reset and when the tank is switched in, so it never resumes a stale tail.
@@ -82,6 +84,9 @@ public:
   // Decay is seconds to -60 dB; drip 0..1 sets the chirp strength; damping is a one-pole coefficient.
   void Configure(double decay, double drip, double damping)
   {
+    if (mConfigured && decay == mLastDecay && drip == mLastDrip && damping == mLastDamping)
+      return;
+    mLastDecay = decay; mLastDrip = drip; mLastDamping = damping; mConfigured = true;
     mA1 = .45 * drip; // 0: plain delays; the audible chirp is strongest near 0.45
     mDamping = damping;
     // Loop time: the echo plus the cascade's group delay at 1 kHz, so the 1 kHz band decays as set.
@@ -100,14 +105,14 @@ public:
     // Chirp loops: stretched allpasses w[n] = x - a w[n-K], y = a w[n] + w[n-K]. Each
     // stage waits for the previous one, so both springs' chains run interleaved.
     double x0 = input[0] + mGain[0] * mDamp[0], x1 = input[1] + mGain[1] * mDamp[1];
-    double* w0 = mCascade[0].data() + mIndex;
-    double* w1 = mCascade[1].data() + mIndex;
-    for (int stage = 0, at = 0; stage < kStages; ++stage, at += mStretch)
+    double* w0 = mCascade[0].data() + mIndex * kStages;
+    double* w1 = mCascade[1].data() + mIndex * kStages;
+    for (int stage = 0; stage < kStages; ++stage)
     {
-      const double old0 = w0[at], next0 = grid_fx::Flush(x0 - mA1 * old0);
-      const double old1 = w1[at], next1 = grid_fx::Flush(x1 - mA1 * old1);
-      x0 = mA1 * next0 + old0; w0[at] = next0;
-      x1 = mA1 * next1 + old1; w1[at] = next1;
+      const double old0 = w0[stage], next0 = grid_fx::Flush(x0 - mA1 * old0);
+      const double old1 = w1[stage], next1 = grid_fx::Flush(x1 - mA1 * old1);
+      x0 = mA1 * next0 + old0; w0[stage] = next0;
+      x1 = mA1 * next1 + old1; w1[stage] = next1;
     }
     const std::array<double, 2> dispersed{x0, x1};
     for (int s = 0; s < 2; ++s)
@@ -145,7 +150,9 @@ private:
   std::array<double, 3> mB{};
   std::array<double, 2> mA{}, mGain{}, mSplashGain{}, mTail{}, mSplashTail{}, mDamp{}, mSplashDamp{}, mHigh{};
   double mRate = 48000., mA1 = .65, mDamping = 0., mSplashHP = 0.;
+  double mLastDecay = -1., mLastDrip = -1., mLastDamping = -1.;
   int mStretch = 5, mIndex = 0;
+  bool mConfigured = false;
 };
 
 // Three unequal waveguide-style tanks with stretched allpass dispersion in each

@@ -6,8 +6,18 @@
 #if (defined(_M_X64) || defined(__SSE2__)) && !defined(NAM_AI_GATE_SCALAR)
   #include <emmintrin.h>
   #define NAM_AI_GATE_SSE2 1
+  #define NAM_AI_GATE_NEON 0
+#elif (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_AI_GATE_SCALAR)
+  #ifdef _MSC_VER
+    #include <arm64_neon.h>
+  #else
+    #include <arm_neon.h>
+  #endif
+  #define NAM_AI_GATE_SSE2 0
+  #define NAM_AI_GATE_NEON 1
 #else
   #define NAM_AI_GATE_SSE2 0
+  #define NAM_AI_GATE_NEON 0
 #endif
 #include "AIGateModel.h"
 #include "FinalGate.h"
@@ -216,6 +226,44 @@ private:
     if (stereo)
       wet[1] = reference * dry[1] + mSynthesis * (SumPair(wetR) - reference * SumPair(sumR));
     return SumPair(gains);
+#elif NAM_AI_GATE_NEON
+    const auto inputL = vdupq_n_f64(dry[0]), inputR = vdupq_n_f64(dry[1]);
+    const auto half = vdupq_n_f64(.5);
+    auto minimum = vdupq_n_f64(1.), gains = vdupq_n_f64(0.);
+    auto sumL = gains, sumR = gains, wetL = gains, wetR = gains;
+    for (int i = 0; i < bands; i += 2)
+    {
+      const auto b0 = vld1q_f64(&mB0[i]), a1 = vld1q_f64(&mA1[i]), a2 = vld1q_f64(&mA2[i]);
+      const auto band = [&](int channel, float64x2_t input) {
+        auto& state = mFilters[channel];
+        const auto excitation = vmulq_f64(b0, input);
+        const auto value = vaddq_f64(excitation, vld1q_f64(&state.first[i]));
+        vst1q_f64(&state.first[i], FlushPair(vfmsq_f64(vld1q_f64(&state.second[i]), a1, value)));
+        vst1q_f64(&state.second[i], FlushPair(vfmsq_f64(vnegq_f64(excitation), a2, value)));
+        return value;
+      };
+      const auto gain = vaddq_f64(vld1q_f64(&mGain[i]), vld1q_f64(&mStep[i]));
+      vst1q_f64(&mGain[i], gain);
+      minimum = vminq_f64(minimum, gain);
+      gains = vaddq_f64(gains, gain);
+      const auto valueL = band(0, inputL);
+      auto power = vmulq_f64(valueL, valueL);
+      sumL = vaddq_f64(sumL, valueL);
+      wetL = vfmaq_f64(wetL, valueL, gain);
+      if (stereo)
+      {
+        const auto valueR = band(1, inputR);
+        power = vmulq_f64(half, vfmaq_f64(power, valueR, valueR));
+        sumR = vaddq_f64(sumR, valueR);
+        wetR = vfmaq_f64(wetR, valueR, gain);
+      }
+      vst1q_f64(&mAccumulator[i], vaddq_f64(vld1q_f64(&mAccumulator[i]), power));
+    }
+    const double reference = std::min(vgetq_lane_f64(minimum, 0), vgetq_lane_f64(minimum, 1));
+    wet[0] = reference * dry[0] + mSynthesis * (SumPair(wetL) - reference * SumPair(sumL));
+    if (stereo)
+      wet[1] = reference * dry[1] + mSynthesis * (SumPair(wetR) - reference * SumPair(sumR));
+    return SumPair(gains);
 #else
     double reference = 1., gainSum = 0., sum[2]{}, weighted[2]{};
     for (int i = 0; i < bands; ++i)
@@ -337,6 +385,64 @@ private:
     const auto one = _mm_set1_ps(1.f), two = _mm_set1_ps(2.f);
     for (int i = 0; i < n; i += 4)
       _mm_storeu_ps(x + i, _mm_sub_ps(one, _mm_div_ps(two, _mm_add_ps(one, Exp(_mm_mul_ps(two, _mm_loadu_ps(x + i)))))));
+  }
+#elif NAM_AI_GATE_NEON
+  static float64x2_t FlushPair(float64x2_t value)
+  {
+    return vbslq_f64(vcltq_f64(vabsq_f64(value), vdupq_n_f64(1.e-30)), vdupq_n_f64(0.), value);
+  }
+  static double SumPair(float64x2_t value) { return vgetq_lane_f64(value, 0) + vgetq_lane_f64(value, 1); }
+  static void MatVec(const float* weight, const float* bias, const float* x, int rows, int columns, float* out)
+  {
+    for (int r = 0; r < rows; r += 4)
+    {
+      const float* w0 = weight + r * columns;
+      const float *w1 = w0 + columns, *w2 = w1 + columns, *w3 = w2 + columns;
+      auto a0 = vdupq_n_f32(0.f), b0 = a0, a1 = a0, b1 = a0, a2 = a0, b2 = a0, a3 = a0, b3 = a0;
+      for (int i = 0; i < columns; i += 8)
+      {
+        const auto low = vld1q_f32(x + i), high = vld1q_f32(x + i + 4);
+        a0 = vfmaq_f32(a0, vld1q_f32(w0 + i), low);
+        b0 = vfmaq_f32(b0, vld1q_f32(w0 + i + 4), high);
+        a1 = vfmaq_f32(a1, vld1q_f32(w1 + i), low);
+        b1 = vfmaq_f32(b1, vld1q_f32(w1 + i + 4), high);
+        a2 = vfmaq_f32(a2, vld1q_f32(w2 + i), low);
+        b2 = vfmaq_f32(b2, vld1q_f32(w2 + i + 4), high);
+        a3 = vfmaq_f32(a3, vld1q_f32(w3 + i), low);
+        b3 = vfmaq_f32(b3, vld1q_f32(w3 + i + 4), high);
+      }
+      const auto v0 = vaddq_f32(a0, b0), v1 = vaddq_f32(a1, b1), v2 = vaddq_f32(a2, b2), v3 = vaddq_f32(a3, b3);
+      const auto s01 = vpaddq_f32(v0, v1);
+      const auto s23 = vpaddq_f32(v2, v3);
+      const auto sum = vpaddq_f32(s01, s23);
+      vst1q_f32(out + r, vaddq_f32(vld1q_f32(bias + r), sum));
+    }
+  }
+  static float32x4_t Exp(float32x4_t x)
+  {
+    x = vminq_f32(vmaxq_f32(x, vdupq_n_f32(-30.f)), vdupq_n_f32(30.f));
+    const auto k = vcvtnq_s32_f32(vmulq_n_f32(x, 1.44269504088896341f));
+    const auto fk = vcvtq_f32_s32(k);
+    auto r = vfmsq_n_f32(x, fk, .693359375f);
+    r = vfmsq_n_f32(r, fk, -2.12194440e-4f);
+    auto y = vdupq_n_f32(1.9875691500e-4f);
+    for (float coefficient : {1.3981999507e-3f, 8.3334519073e-3f, 4.1665795894e-2f, 1.6666665459e-1f, 5.0000001201e-1f})
+      y = vfmaq_f32(vdupq_n_f32(coefficient), y, r);
+    y = vaddq_f32(vfmaq_f32(r, vmulq_f32(y, r), r), vdupq_n_f32(1.f));
+    const auto pow2k = vreinterpretq_f32_s32(vshlq_n_s32(vaddq_s32(k, vdupq_n_s32(127)), 23));
+    return vmulq_f32(y, pow2k);
+  }
+  static void Sigmoid(float* x, int n)
+  {
+    const auto one = vdupq_n_f32(1.f);
+    for (int i = 0; i < n; i += 4)
+      vst1q_f32(x + i, vdivq_f32(one, vaddq_f32(one, Exp(vnegq_f32(vld1q_f32(x + i))))));
+  }
+  static void Tanh(float* x, int n)
+  {
+    const auto one = vdupq_n_f32(1.f), two = vdupq_n_f32(2.f);
+    for (int i = 0; i < n; i += 4)
+      vst1q_f32(x + i, vsubq_f32(one, vdivq_f32(two, vaddq_f32(one, Exp(vmulq_f32(two, vld1q_f32(x + i)))))));
   }
 #else
   // Portable path: the same summation order and exp polynomial as the SSE2 code.

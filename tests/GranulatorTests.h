@@ -349,4 +349,41 @@ void TestGranulator()
     grid_granular::Settings reverse; reverse.mode = static_cast<int>(Mode::Reverse);
     for (const auto& grain : grid_granular::PreviewCloud(reverse, 2.)) assert(grain.reverse);
   }
+
+  // PR 5: Silent diffuser/reverb parking after >0.5 s of silence and immediate wake on next note.
+  {
+    grid_granular::Engine engine;
+    constexpr double rate = 48000.;
+    engine.Reset(rate);
+    grid_granular::Settings s;
+    s.mode = static_cast<int>(Mode::Cloud);
+    s.position = 0.;
+    s.activity = .8;
+    s.repeats = 0.;
+    s.space = .25;
+    s.size = 50.;
+    engine.Configure(s);
+    for (int i = 0; i < 4800; ++i)
+      engine.Tick({.3 * std::sin(2. * grid_fx::pi * 220. * i / rate), .3 * std::cos(2. * grid_fx::pi * 330. * i / rate)}, true, false, 1.);
+    // Let grains and plate tail expire and park in silence over 8 seconds.
+    grid_granular::Stereo lastQuiet{};
+    for (int i = 0; i < static_cast<int>(rate * 8.); ++i)
+    {
+      allocations = deletions = 0; tracking = true;
+      Eigen::internal::set_is_malloc_allowed(false);
+      lastQuiet = engine.Tick({0., 0.}, true, false, 1.);
+      Eigen::internal::set_is_malloc_allowed(true);
+      tracking = false;
+      assert(allocations == 0 && deletions == 0);
+    }
+    assert(std::abs(lastQuiet[0]) < 1.e-12 && std::abs(lastQuiet[1]) < 1.e-12);
+    // Feed a new impulse/note and verify immediate wake with non-zero output.
+    double wakeEnergy = 0.;
+    for (int i = 0; i < 12000; ++i)
+    {
+      const auto y = engine.Tick({.4 * std::sin(2. * grid_fx::pi * 440. * i / rate), .4 * std::sin(2. * grid_fx::pi * 440. * i / rate)}, true, false, 1.);
+      wakeEnergy += y[0] * y[0] + y[1] * y[1];
+    }
+    assert(wakeEnergy > 1.e-3);
+  }
 }

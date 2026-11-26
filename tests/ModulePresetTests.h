@@ -53,8 +53,8 @@ void TestModulePresetCoverage()
                             || effect == SlotEffect::DigitalBlack || effect == SlotEffect::Utility;
     const auto presets = For(effect);
     assert(!calibrated || presets.empty());
-    // Cosmic Echo includes three reflection-space starting points and two shorter rhythm recipes.
-    assert(presets.size() <= (effect == SlotEffect::CosmicEcho ? 19u : 16u));
+    // Cosmic Echo covers both echo patterns and a range of room, hall and ambient decays.
+    assert(presets.size() <= (effect == SlotEffect::CosmicEcho ? 27u : 16u));
     // Digital Delay also carries the Rack and Lo-fi voice recipes.
     if (IsDelay(effect)) assert(presets.size() >= 4u && presets.size() <= (effect == SlotEffect::DigitalDelay ? 10u : 8u));
     for (const auto& preset : presets)

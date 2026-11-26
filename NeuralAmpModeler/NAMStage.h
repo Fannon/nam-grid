@@ -96,15 +96,10 @@ struct SignalCapture
 class NAMStage
 {
 public:
-  struct Prepared
+  struct ChannelDSP
   {
-    std::unique_ptr<ResamplingNAM> model;
-    SlotEffect effect = SlotEffect::NAM;
     SlotDynamics dynamics;
-    noise_print::Processor noise;
-    uint64_t noiseEpoch = 0;
-    ai_gate::Processor aiGate;
-    SlotEQ eq, namCuts;
+    SlotEQ eq;
     SlotParametricEQ parametric;
     SlotBoost boost;
     SlotTubeBoost tube;
@@ -115,62 +110,22 @@ public:
     SlotAutoSwell swell;
     SlotVolumePedal volumePedal;
     SlotDelay echo;
-    SlotReverb reverb;
-    SlotAirReverb airReverb;
-    SlotOutboard outboard;
-    SlotAirDynamics airDynamics;
-    SlotPedalComp pedalComp;
-    SlotDynamicEQ dynamicEQ;
-    SlotTransientShaper transientShaper;
-    SlotMultiband multiband;
-    SlotGraphicEQ graphicEQ;
-    SlotPitchShift pitchShift;
-    SlotMultiHeadDelay multiHead;
-    SlotDiffusedDelay diffused;
-    std::unique_ptr<SlotExpandedDelay> expandedDelay;
-    SlotCosmicEcho cosmic;
-    std::unique_ptr<SlotGranulator> granulator; // 4 s stereo buffer, only for Granulator slots.
-    SlotModulation modulation;
-    SlotTape tape;
-    SlotLoFiTape lofi;
-    SlotSpring spring;
-    SlotWah wah;
-    grid_roadmap::Limiter limiter;
-    grid_roadmap::Rotary rotary;
     grid_roadmap::Vibe vibe;
-    grid_roadmap::Octaver octaver;
-    grid_roadmap::Doubler doubler;
-    grid_roadmap::Capture capture;
-    grid_roadmap::DualDelay dualDelay;
     grid_roadmap::Texture texture;
-    grid_hq::Shimmer shimmer;
-    grid_hq::JunoChorus juno;
-    grid_hq::FrequencyShifter frequencyShifter;
-    StereoUtility utilityStereo;
-    grid_fx::SmoothControls<1> eqOutput;
-    grid_fx::Memo eqOutputGain;
-    std::unique_ptr<Prepared> right;
-    bool rightChannel = false;
-    std::unique_ptr<AdaptiveIR> ir;
-    std::unique_ptr<AdaptiveIR::IRData> rightIRData; // Stereo source survives host resets.
-    SlotIR irWet;
-    std::vector<double> input, wet, dry, delay, dynamicsMonitor;
-    size_t delayIndex = 0;
-    int latency = 0;
-    int64_t drainFrames = 0, drainLimit = 0;
-    // Trails: frames a bypassed tail has rung, and how long its output has stayed silent.
-    int64_t trailFrames = 0, trailLimit = 0, trailFade = 0, trailHold = 0, quietFrames = 0;
-    void Reset(double rate, int block)
+    SlotModulation modulation;
+    SlotWah wah;
+    SlotTape tape;
+
+    void Reset(double rate, SlotEffect effect)
     {
-      utilityStereo.Reset(rate); eqOutput.Reset(rate);
-      dynamics.Reset(rate);
-      if (effect == SlotEffect::NoisePrint && !rightChannel)
-        noise.Reset(rate);
-      if (effect == SlotEffect::AIGate && !rightChannel)
-        aiGate.Reset(rate);
-      eq.Reset(rate);
-      parametric.Reset(rate);
-      boost.Reset(rate);
+      if (effect == SlotEffect::NoiseGate || effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp)
+        dynamics.Reset(rate);
+      if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ || effect == SlotEffect::NAM)
+        eq.Reset(rate);
+      if (effect == SlotEffect::ParametricEQ)
+        parametric.Reset(rate);
+      if (effect == SlotEffect::Boost)
+        boost.Reset(rate);
       if (effect == SlotEffect::TubeBoost)
         tube.Reset(rate);
       if (effect == SlotEffect::Distortion)
@@ -187,53 +142,152 @@ public:
         volumePedal.Reset(rate);
       if (IsDelay(effect) && !UsesCoupledStereo(effect))
         echo.Reset(rate);
-      if (!rightChannel)
-      {
-        if (effect == SlotEffect::Limiter) limiter.Reset(rate);
-        if (effect == SlotEffect::Rotary) rotary.Reset(rate);
-        if (effect == SlotEffect::Octaver) octaver.Reset(rate);
-        if (effect == SlotEffect::Doubler) doubler.Reset(rate);
-        if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
-          capture.Reset(rate, effect == SlotEffect::Freeze ? 2.1 : 8.1);
-        if (effect == SlotEffect::DualDelay) dualDelay.Reset(rate);
-        if (effect == SlotEffect::ShimmerReverb) shimmer.Reset(rate);
-        if (effect == SlotEffect::JunoChorus) juno.Reset(rate);
-        if (effect == SlotEffect::FrequencyShifter) frequencyShifter.Reset(rate);
-        if (effect == SlotEffect::LoFiTape) lofi.Reset(rate);
-        if (effect == SlotEffect::MultiHeadDelay) multiHead.Reset(rate);
-        if (effect == SlotEffect::DiffusedDelay) diffused.Reset(rate);
-        if (IsExpandedDelay(effect))
-        {
-          if (!expandedDelay) expandedDelay = std::make_unique<SlotExpandedDelay>();
-          expandedDelay->Reset(rate, block, effect);
-        }
-        if (effect == SlotEffect::CosmicEcho) cosmic.Reset(rate);
-        if (effect == SlotEffect::Granulator)
-        {
-          if (!granulator) granulator = std::make_unique<SlotGranulator>();
-          granulator->Reset(rate);
-        }
-        if (IsOutboard(effect)) outboard.Reset(rate, effect);
-        if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
-        if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
-        if (effect == SlotEffect::DynamicEQ) dynamicEQ.Reset(rate);
-        if (effect == SlotEffect::TransientShaper) transientShaper.Reset(rate);
-        if (effect == SlotEffect::Multiband) multiband.Reset(rate);
-        if (effect == SlotEffect::GraphicEQ) graphicEQ.Reset(rate);
-        if (effect == SlotEffect::PitchShift) pitchShift.Reset(rate);
-        if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
-        else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
-      }
-      if (effect == SlotEffect::UniVibe) vibe.Reset(rate);
-      if (effect == SlotEffect::Bitcrusher || effect == SlotEffect::RingMod) texture.Reset(rate);
-      if (effect == SlotEffect::SpringReverb && !rightChannel)
-        spring.Reset(rate);
+      if (effect == SlotEffect::UniVibe)
+        vibe.Reset(rate);
+      if (effect == SlotEffect::Bitcrusher || effect == SlotEffect::RingMod)
+        texture.Reset(rate);
       if (effect == SlotEffect::Wah)
         wah.Reset(rate);
       if (IsModulation(effect))
         modulation.Reset(rate);
       if (effect == SlotEffect::Tape)
         tape.Reset(rate);
+    }
+  };
+
+  struct RightChannel
+  {
+    SlotEffect effect = SlotEffect::NAM;
+    std::unique_ptr<AdaptiveIR> ir;
+    SlotIR irWet;
+    std::unique_ptr<ChannelDSP> dsp;
+    std::vector<double> input, wet, dry, delay, dynamicsMonitor;
+    size_t delayIndex = 0;
+    int latency = 0;
+    int64_t drainLimit = 0;
+
+    void Reset(double rate, int block, int parentLatency)
+    {
+      const bool needsDSP = !UsesCoupledStereo(effect) && effect != SlotEffect::NAM
+                            && effect != SlotEffect::SpringReverb && effect != SlotEffect::Utility
+                            && effect != SlotEffect::CabinetIR;
+      if (needsDSP)
+      {
+        if (!dsp) dsp = std::make_unique<ChannelDSP>();
+        dsp->Reset(rate, effect);
+      }
+      else
+        dsp.reset();
+      latency = parentLatency;
+      input.assign(block, 0.);
+      wet.assign(block, 0.);
+      dry.assign(block, 0.);
+      if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp)
+        dynamicsMonitor.assign(block, 0.);
+      else
+        dynamicsMonitor.clear();
+      delay.assign(std::max(1, latency), 0.);
+      delayIndex = 0;
+      drainLimit = 0;
+      if (ir)
+      {
+        irWet.Reset(rate);
+        drainLimit = static_cast<int64_t>(ir->Length()) + static_cast<int64_t>(rate * 1.5);
+      }
+    }
+  };
+
+  struct Prepared : ChannelDSP
+  {
+    std::unique_ptr<ResamplingNAM> model;
+    SlotEffect effect = SlotEffect::NAM;
+    noise_print::Processor noise;
+    uint64_t noiseEpoch = 0;
+    ai_gate::Processor aiGate;
+    SlotEQ namCuts;
+    SlotReverb reverb;
+    SlotAirReverb airReverb;
+    SlotOutboard outboard;
+    SlotAirDynamics airDynamics;
+    SlotPedalComp pedalComp;
+    SlotDynamicEQ dynamicEQ;
+    SlotTransientShaper transientShaper;
+    SlotMultiband multiband;
+    SlotGraphicEQ graphicEQ;
+    SlotPitchShift pitchShift;
+    SlotMultiHeadDelay multiHead;
+    SlotDiffusedDelay diffused;
+    std::unique_ptr<SlotExpandedDelay> expandedDelay;
+    SlotCosmicEcho cosmic;
+    std::unique_ptr<SlotGranulator> granulator; // 4 s stereo buffer, only for Granulator slots.
+    SlotLoFiTape lofi;
+    SlotSpring spring;
+    grid_roadmap::Limiter limiter;
+    grid_roadmap::Rotary rotary;
+    grid_roadmap::Octaver octaver;
+    grid_roadmap::Doubler doubler;
+    grid_roadmap::Capture capture;
+    grid_roadmap::DualDelay dualDelay;
+    grid_hq::Shimmer shimmer;
+    grid_hq::JunoChorus juno;
+    grid_hq::FrequencyShifter frequencyShifter;
+    StereoUtility utilityStereo;
+    grid_fx::SmoothControls<1> eqOutput;
+    grid_fx::Memo eqOutputGain;
+    std::unique_ptr<RightChannel> right;
+    std::unique_ptr<AdaptiveIR> ir;
+    std::unique_ptr<AdaptiveIR::IRData> rightIRData; // Stereo source survives host resets.
+    SlotIR irWet;
+    std::vector<double> input, wet, dry, delay, dynamicsMonitor;
+    size_t delayIndex = 0;
+    int latency = 0;
+    int64_t drainFrames = 0, drainLimit = 0;
+    // Trails: frames a bypassed tail has rung, and how long its output has stayed silent.
+    int64_t trailFrames = 0, trailLimit = 0, trailFade = 0, trailHold = 0, quietFrames = 0;
+    void Reset(double rate, int block)
+    {
+      utilityStereo.Reset(rate); eqOutput.Reset(rate);
+      ChannelDSP::Reset(rate, effect);
+      if (effect == SlotEffect::NoisePrint)
+        noise.Reset(rate);
+      if (effect == SlotEffect::AIGate)
+        aiGate.Reset(rate);
+      if (effect == SlotEffect::Limiter) limiter.Reset(rate);
+      if (effect == SlotEffect::Rotary) rotary.Reset(rate);
+      if (effect == SlotEffect::Octaver) octaver.Reset(rate);
+      if (effect == SlotEffect::Doubler) doubler.Reset(rate);
+      if (effect == SlotEffect::Freeze || effect == SlotEffect::Stutter || effect == SlotEffect::ReverseDelay)
+        capture.Reset(rate, effect == SlotEffect::Freeze ? 2.1 : 8.1);
+      if (effect == SlotEffect::DualDelay) dualDelay.Reset(rate);
+      if (effect == SlotEffect::ShimmerReverb) shimmer.Reset(rate);
+      if (effect == SlotEffect::JunoChorus) juno.Reset(rate);
+      if (effect == SlotEffect::FrequencyShifter) frequencyShifter.Reset(rate);
+      if (effect == SlotEffect::LoFiTape) lofi.Reset(rate);
+      if (effect == SlotEffect::MultiHeadDelay) multiHead.Reset(rate);
+      if (effect == SlotEffect::DiffusedDelay) diffused.Reset(rate);
+      if (IsExpandedDelay(effect))
+      {
+        if (!expandedDelay) expandedDelay = std::make_unique<SlotExpandedDelay>();
+        expandedDelay->Reset(rate, block, effect);
+      }
+      if (effect == SlotEffect::CosmicEcho) cosmic.Reset(rate);
+      if (effect == SlotEffect::Granulator)
+      {
+        if (!granulator) granulator = std::make_unique<SlotGranulator>();
+        granulator->Reset(rate);
+      }
+      if (IsOutboard(effect)) outboard.Reset(rate, effect);
+      if (IsAirDynamics(effect)) airDynamics.Reset(rate, effect);
+      if (effect == SlotEffect::PedalComp) pedalComp.Reset(rate);
+      if (effect == SlotEffect::DynamicEQ) dynamicEQ.Reset(rate);
+      if (effect == SlotEffect::TransientShaper) transientShaper.Reset(rate);
+      if (effect == SlotEffect::Multiband) multiband.Reset(rate);
+      if (effect == SlotEffect::GraphicEQ) graphicEQ.Reset(rate);
+      if (effect == SlotEffect::PitchShift) pitchShift.Reset(rate);
+      if (IsAirReverb(effect)) airReverb.Reset(rate, effect);
+      else if (IsReverb(effect) && effect != SlotEffect::SpringReverb) reverb.Reset(rate, effect);
+      if (effect == SlotEffect::SpringReverb)
+        spring.Reset(rate);
       if (effect == SlotEffect::NAM)
       {
         eq.Process(nullptr, 0, false, {});
@@ -246,7 +300,8 @@ public:
       input.assign(block, 0.);
       wet.assign(block, 0.);
       dry.assign(block, 0.);
-      if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp) dynamicsMonitor.assign(block,0.);
+      if (effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp) dynamicsMonitor.assign(block, 0.);
+      else dynamicsMonitor.clear();
       delay.assign(std::max(1, latency), 0.);
       delayIndex = 0;
       drainLimit = static_cast<int64_t>(rate
@@ -296,26 +351,17 @@ public:
         drainLimit = static_cast<int64_t>(ir->Length()) + static_cast<int64_t>(rate * 1.5);
       }
       drainFrames = drainLimit; // Fresh histories already contain silence.
-      if (!rightChannel)
+      if (!right) right = std::make_unique<RightChannel>();
+      right->effect = effect;
+      if (ir)
       {
-        auto existingRightIR = right ? std::move(right->ir) : nullptr;
-        right = std::make_unique<Prepared>();
-        right->rightChannel = true;
-        right->effect = effect;
-        if (ir)
-        {
-          if (existingRightIR && !existingRightIR->NeedsReset(rate, block)
-              && existingRightIR->GetMode() == ir->GetMode())
-            right->ir = std::move(existingRightIR);
-          else
-            right->ir = std::make_unique<AdaptiveIR>(rightIRData ? *rightIRData : ir->GetData(), rate, block, ir->GetMode());
-        }
-        right->Reset(rate, block);
-        drainLimit = std::max(drainLimit, right->drainLimit);
-        // Mono NAM has one inference; the second history is for stereo dry bypass.
-        right->latency = latency;
-        right->delay.assign(std::max(1, latency), 0.);
+        if (!right->ir || right->ir->NeedsReset(rate, block) || right->ir->GetMode() != ir->GetMode())
+          right->ir = std::make_unique<AdaptiveIR>(rightIRData ? *rightIRData : ir->GetData(), rate, block, ir->GetMode());
       }
+      else
+        right->ir.reset();
+      right->Reset(rate, block, latency);
+      drainLimit = std::max(drainLimit, right->drainLimit);
       // Include the final fade within the host's per-effect tail estimate, not after it.
       // Delays can be silent between repeats for a whole ring; reverb tails decay steadily.
       trailLimit = static_cast<int64_t>(rate * (IsAirReverb(effect) || effect == SlotEffect::CosmicEcho ? 60.
@@ -661,19 +707,22 @@ public:
             {
               std::copy_n(in, frames, out);
               std::copy_n(p->right->input.data(), frames, rightOut);
-              p->echo.Process(out, frames, p->effect, utility, &p->right->echo, rightOut, draining);
+              p->echo.Process(out, frames, p->effect, utility, &p->right->dsp->echo, rightOut, draining);
             }
           }
           else
           {
-            ProcessBuiltin(p, frames, dynamics, eq, utility, draining);
+            ProcessBuiltin(p, p->input, p->wet, p->dynamicsMonitor, p->ir.get(), p->irWet, p->effect, false,
+                           frames, dynamics, eq, utility, draining);
             if (rightSamples)
-              ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility, draining);
+              ProcessBuiltin(p->right->dsp.get(), p->right->input, p->right->wet, p->right->dynamicsMonitor,
+                             p->right->ir.get(), p->right->irWet, p->effect, true, frames, dynamics, eq, utility, draining);
             else if (p->rightIRData)
             {
               // The same mono excitation through both IRs equals their averaged response.
               std::copy_n(p->input.data(), frames, p->right->input.data());
-              ProcessBuiltin(p->right.get(), frames, dynamics, eq, utility, draining);
+              ProcessBuiltin(p->right->dsp.get(), p->right->input, p->right->wet, p->right->dynamicsMonitor,
+                             p->right->ir.get(), p->right->irWet, p->effect, true, frames, dynamics, eq, utility, draining);
               for (int i = 0; i < frames; ++i)
                 out[i] = .5 * (out[i] + p->right->wet[i]);
             }
@@ -697,8 +746,10 @@ public:
         {
           mMeter.filterCutoff[0] = static_cast<float>(p->filter.AppliedCutoff());
           mMeter.filterQ[0] = static_cast<float>(p->filter.AppliedResonance());
-          mMeter.filterCutoff[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedCutoff()) : mMeter.filterCutoff[0];
-          mMeter.filterQ[1] = rightSamples ? static_cast<float>(p->right->filter.AppliedResonance()) : mMeter.filterQ[0];
+          mMeter.filterCutoff[1] = rightSamples && p->right->dsp
+            ? static_cast<float>(p->right->dsp->filter.AppliedCutoff()) : mMeter.filterCutoff[0];
+          mMeter.filterQ[1] = rightSamples && p->right->dsp
+            ? static_cast<float>(p->right->dsp->filter.AppliedResonance()) : mMeter.filterQ[0];
         }
         if (mMonitoring && p->effect == SlotEffect::VolumePedal)
         {
@@ -760,7 +811,8 @@ public:
         if (mMonitoring && !p->dynamicsMonitor.empty())
         {
           const double l=p->dry[i]*(1.-mMix)+p->dynamicsMonitor[i]*mMix;
-          const double r=rightSamples ? p->right->dry[i]*(1.-mMix)+p->right->dynamicsMonitor[i]*mMix : l;
+          const double r=rightSamples && !p->right->dynamicsMonitor.empty()
+            ? p->right->dry[i]*(1.-mMix)+p->right->dynamicsMonitor[i]*mMix : l;
           mMeter.beforeMakeup=std::max(mMeter.beforeMakeup,static_cast<float>(std::min(1.e6,std::abs(.5*(l+r)*mSwitchGain))));
         }
       }
@@ -788,56 +840,62 @@ public:
   }
 
 private:
-  void ProcessBuiltin(Prepared* p, int frames, const DynamicsControls& dynamics, const EQControls& eq,
+  void ProcessBuiltin(ChannelDSP* dsp, const std::vector<double>& inputVec, std::vector<double>& wetVec,
+                      std::vector<double>& dynamicsMonitor, AdaptiveIR* ir, SlotIR& irWet,
+                      SlotEffect effect, bool rightChannel, int frames,
+                      const DynamicsControls& dynamics, const EQControls& eq,
                       const UtilityControls& utility, bool draining)
   {
-    double* in = p->input.data();
-    double* out = p->wet.data();
-    if (p->ir)
+    double* in = const_cast<double*>(inputVec.data());
+    double* out = wetVec.data();
+    if (ir)
     {
-      auto* convolved = p->ir->Process(&in, 1, frames);
+      auto* convolved = ir->Process(&in, 1, frames);
       std::copy_n(convolved[0], frames, out);
-      p->irWet.Process(out, frames, utility);
+      irWet.Process(out, frames, utility);
     }
     else
     {
       std::copy_n(in, frames, out);
-      if (p->effect == SlotEffect::ToneEQ || p->effect == SlotEffect::CutEQ)
-        p->eq.Process(out, frames, p->effect == SlotEffect::CutEQ, eq);
-      else if (p->effect == SlotEffect::ParametricEQ)
-        p->parametric.Process(out, frames, utility, eq);
-      else if (p->effect == SlotEffect::Boost)
-        p->boost.Process(out, frames, utility, eq);
-      else if (p->effect == SlotEffect::TubeBoost)
-        p->tube.Process(out, in, frames, utility, eq);
-      else if (p->effect == SlotEffect::Distortion)
-        p->distortion.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::PedalDrive)
-        p->pedal.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::PedalDistortion)
-        p->pedalDistortion.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::SynthFilter)
-        p->filter.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::AutoSwell)
-        p->swell.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::VolumePedal)
-        p->volumePedal.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::UniVibe)
-        p->vibe.Process(out, frames, utility, p->rightChannel);
-      else if (p->effect == SlotEffect::Bitcrusher || p->effect == SlotEffect::RingMod)
-        p->texture.Process(out, frames, p->effect, utility);
-      else if (IsDelay(p->effect))
-        p->echo.Process(out, frames, p->effect, utility, nullptr, nullptr, draining);
-      else if (IsModulation(p->effect))
-        p->modulation.Process(out, frames, p->effect, utility, p->rightChannel);
-      else if (p->effect == SlotEffect::Wah)
-        p->wah.Process(out, frames, utility);
-      else if (p->effect == SlotEffect::Tape)
-        p->tape.Process(out, frames, utility);
-      else if (p->effect != SlotEffect::Utility)
+      if (dsp)
       {
-        p->dynamics.Process(out, frames, p->effect, dynamics,p->dynamicsMonitor.empty() ? nullptr : p->dynamicsMonitor.data());
-        if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(p->dynamics.PeakReduction() * mMix));
+        if (effect == SlotEffect::ToneEQ || effect == SlotEffect::CutEQ)
+          dsp->eq.Process(out, frames, effect == SlotEffect::CutEQ, eq);
+        else if (effect == SlotEffect::ParametricEQ)
+          dsp->parametric.Process(out, frames, utility, eq);
+        else if (effect == SlotEffect::Boost)
+          dsp->boost.Process(out, frames, utility, eq);
+        else if (effect == SlotEffect::TubeBoost)
+          dsp->tube.Process(out, in, frames, utility, eq);
+        else if (effect == SlotEffect::Distortion)
+          dsp->distortion.Process(out, frames, utility);
+        else if (effect == SlotEffect::PedalDrive)
+          dsp->pedal.Process(out, frames, utility);
+        else if (effect == SlotEffect::PedalDistortion)
+          dsp->pedalDistortion.Process(out, frames, utility);
+        else if (effect == SlotEffect::SynthFilter)
+          dsp->filter.Process(out, frames, utility);
+        else if (effect == SlotEffect::AutoSwell)
+          dsp->swell.Process(out, frames, utility);
+        else if (effect == SlotEffect::VolumePedal)
+          dsp->volumePedal.Process(out, frames, utility);
+        else if (effect == SlotEffect::UniVibe)
+          dsp->vibe.Process(out, frames, utility, rightChannel);
+        else if (effect == SlotEffect::Bitcrusher || effect == SlotEffect::RingMod)
+          dsp->texture.Process(out, frames, effect, utility);
+        else if (IsDelay(effect))
+          dsp->echo.Process(out, frames, effect, utility, nullptr, nullptr, draining);
+        else if (IsModulation(effect))
+          dsp->modulation.Process(out, frames, effect, utility, rightChannel);
+        else if (effect == SlotEffect::Wah)
+          dsp->wah.Process(out, frames, utility);
+        else if (effect == SlotEffect::Tape)
+          dsp->tape.Process(out, frames, utility);
+        else if (effect != SlotEffect::Utility)
+        {
+          dsp->dynamics.Process(out, frames, effect, dynamics, dynamicsMonitor.empty() ? nullptr : dynamicsMonitor.data());
+          if (mMonitoring) mMeter.reduction = std::max(mMeter.reduction, static_cast<float>(dsp->dynamics.PeakReduction() * mMix));
+        }
       }
     }
   }

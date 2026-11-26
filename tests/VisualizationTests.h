@@ -5,6 +5,7 @@
 #include "ImpulseProbe.h"
 #include "LevelReadout.h"
 #include "FrequencyReadout.h"
+#include "ResponseFFT.h"
 
 // Checks the parameter-interaction previews against the actual processors:
 // Uni-Vibe notches, delay-sweep pitch, reverb band decay and the EQ analyzer.
@@ -173,5 +174,69 @@ void TestMeasuredVisualizations()
   auto stale = louder;
   for (int i = 0; i < 31; ++i) stale.Receive(0., 0., 0., 0., 0, 48000.);
   assert(!stale.valid);
+
+  // AudioFFT response previews must match the exact brute-force DFT within 0.01 dB
+  // across smooth EQ impulses and delayed/stereo cabinet IRs.
+  {
+    constexpr double rate = 48000.;
+    constexpr double pi = grid_response_fft::kPi;
+    // 1. MeasureLinearResponse vs exact DFT on a ConsoleEQ impulse.
+    SlotOutboard strip;
+    strip.Reset(rate, SlotEffect::ConsoleEQ);
+    UtilityControls controls;
+    controls.consoleEQ = {4.5, -3.5, 5.0, 90., 7500., 0., 100.};
+    constexpr size_t length = 4096;
+    constexpr double level = 1.e-3;
+    std::vector<double> silence(length, 0.), impulse(length, 0.);
+    strip.Process(silence.data(), nullptr, static_cast<int>(length), controls);
+    impulse[0] = level;
+    strip.Process(impulse.data(), nullptr, static_cast<int>(length), controls);
+    std::array<float, grid_response_fft::kMeasuredBins> fast{};
+    grid_response_fft::MeasureLinearResponse(impulse.data(), length, rate, fast, level);
+    const double upper = std::min(20000., .49 * rate);
+    double maxMeasuredError = 0.;
+    for (size_t i = 0; i < fast.size(); ++i)
+    {
+      const double hz = 20. * std::pow(upper / 20., static_cast<double>(i) / (fast.size() - 1));
+      const auto step = std::polar(1., -2. * pi * hz / rate);
+      std::complex<double> phase(1., 0.), sum(0., 0.);
+      for (size_t n = 0; n < length; ++n) { sum += impulse[n] * phase; phase *= step; }
+      const double exact = 20. * std::log10(std::max(1.e-12, std::abs(sum) / level));
+      maxMeasuredError = std::max(maxMeasuredError, std::abs(static_cast<double>(fast[i]) - exact));
+    }
+    assert(maxMeasuredError < 0.01);
+
+    // 2. ComputeIRPreview (short stereo IR with delayed reflections) vs exact DFT.
+    std::vector<float> irL(4096, 0.f), irR(4096, 0.f);
+    irL[0] = 0.8f; irL[17] = -0.35f; irL[113] = 0.22f; irL[900] = -0.09f; irL[3500] = 0.03f;
+    irR[0] = 0.7f; irR[29] = 0.41f; irR[211] = -0.18f; irR[1500] = 0.07f;
+    const auto preview = grid_response_fft::ComputeIRPreview(irL, irR, rate, rate, false, AdaptiveIR::maximumSeconds);
+    assert(preview.valid && !preview.longIR && std::abs(preview.seconds - 4096. / rate) < 1.e-9);
+    std::array<double, grid_response_fft::kIRBins> exactIR{};
+    double exactPeak = -1.e9;
+    for (size_t i = 0; i < exactIR.size(); ++i)
+    {
+      const double hz = 20. * std::pow(preview.upper / 20., static_cast<double>(i) / (exactIR.size() - 1));
+      const auto step = std::polar(1., -2. * pi * hz / rate);
+      std::complex<double> phase(1., 0.), sumL(0., 0.), sumR(0., 0.);
+      for (size_t n = 0; n < irL.size(); ++n)
+      {
+        sumL += static_cast<double>(irL[n]) * phase;
+        sumR += static_cast<double>(irR[n]) * phase;
+        phase *= step;
+      }
+      exactIR[i] = 20. * std::log10(std::max(1.e-12, std::max(std::abs(sumL), std::abs(sumR))));
+      exactPeak = std::max(exactPeak, exactIR[i]);
+    }
+    double maxIRError = 0.;
+    for (size_t i = 0; i < exactIR.size(); ++i)
+      maxIRError = std::max(maxIRError, std::abs(static_cast<double>(preview.response[i]) - (exactIR[i] - exactPeak)));
+    assert(maxIRError < 0.01);
+
+    // 3. Long IR peak envelope matches bin peaks accurately.
+    const auto longPreview = grid_response_fft::ComputeIRPreview(irL, irR, rate, rate, true, AdaptiveIR::maximumSeconds);
+    assert(longPreview.valid && longPreview.longIR && std::abs(longPreview.response[0]) < 1.e-5f);
+    assert(longPreview.response.back() < -40.f);
+  }
   std::cout << "Measured visualizations: Cosmic impulse blur and module level strip passed\n";
 }

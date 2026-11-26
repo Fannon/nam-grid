@@ -1045,6 +1045,14 @@ noise_print::Profile NeuralAmpModeler::GetNoiseProfile(size_t slot) const
   return mGrids[mEditGrid].stages[slot].GetNoiseProfile(mNoiseEpochs[slot], mNoiseProfiles[slot]);
 }
 
+grid_response_fft::IRPreview NeuralAmpModeler::GetSlotIRPreview(size_t slot) const
+{
+  const auto guard = _LockControls();
+  if (slot >= FixedNAMGrid::kSlots || mSlotEffects[slot] != SlotEffect::CabinetIR)
+    return {};
+  return mSlotIRPreview[slot];
+}
+
 SlotConfig NeuralAmpModeler::_GetSlotConfig(size_t slot) const
 {
   SlotConfig result;
@@ -2557,6 +2565,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mSequentialTailSeconds.store(std::min(60., 2. + rowTails[0] + rowTails[1] + rowTails[2] + rowTails[3]));
 
   mSlotInfo[slot] = info;
+  mSlotIRPreview[slot] = config.effect == SlotEffect::CabinetIR ? prepared.irPreview : grid_response_fft::IRPreview{};
   mSlotGear[slot] = config.effect == SlotEffect::CabinetIR ? nam_library::Gear::Cabinet : nam_library::Gear::Unknown;
   if (config.effect == SlotEffect::NAM && !config.path.empty())
   {

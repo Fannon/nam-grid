@@ -1,5 +1,6 @@
 #pragma once
 #include "NAMStage.h"
+#include "ResponseFFT.h"
 #include "SlotDefaults.h"
 #include "../NeuralAmpModelerCore/NAM/get_dsp.h"
 
@@ -22,6 +23,7 @@ struct PreparedSlot
 {
   SlotConfig config;
   std::unique_ptr<NAMStage::Prepared> dsp;
+  grid_response_fft::IRPreview irPreview{};
 };
 
 // Control thread only. Prepare every affected resource before changing any slot.
@@ -31,6 +33,7 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
     throw std::runtime_error("Invalid slot effect");
   auto p = std::make_unique<NAMStage::Prepared>();
   p->effect = config.effect;
+  grid_response_fft::IRPreview irPreview;
   if (!config.path.empty() && config.effect == SlotEffect::NAM)
   {
     auto model = nam::get_dsp(std::filesystem::u8path(config.path));
@@ -52,9 +55,13 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
       throw std::runtime_error("Invalid or empty impulse response");
     if (!std::all_of(right.begin(), right.end(), [](float x) { return std::isfinite(x); }))
       throw std::runtime_error("Invalid impulse response");
+    const auto mode = static_cast<AdaptiveIR::Mode>(config.values[17 + uIRLength]);
+    irPreview = grid_response_fft::ComputeIRPreview(data.mRawAudio, right, data.mRawAudioSampleRate,
+                                                    rate > 0. ? rate : 48000., mode == AdaptiveIR::Mode::Long,
+                                                    AdaptiveIR::maximumSeconds);
     if (!right.empty())
       p->rightIRData = std::make_unique<AdaptiveIR::IRData>(AdaptiveIR::IRData{std::move(right), data.mRawAudioSampleRate});
-    p->ir = std::make_unique<AdaptiveIR>(data, rate, block, static_cast<AdaptiveIR::Mode>(config.values[17 + uIRLength]));
+    p->ir = std::make_unique<AdaptiveIR>(data, rate, block, mode);
   }
   else if (!config.path.empty())
     throw std::runtime_error("This effect does not use a file");
@@ -65,7 +72,7 @@ inline PreparedSlot PrepareSlot(SlotConfig config, double rate, int block)
     config.noiseProfile = {};
   if (p->latency > 16384)
     throw std::runtime_error("Model conversion delay exceeds the grid's supported range");
-  return {std::move(config), std::move(p)};
+  return {std::move(config), std::move(p), irPreview};
 }
 
 struct PreparedSlotEdit

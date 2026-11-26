@@ -3020,7 +3020,7 @@ private:
     else
     {
       UpdateIRResponse();
-      const bool longIR = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
+      const bool longIR = mIRResponseValid ? mIRLong : GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
       PlotTitle(g,plot,color,longIR ? "IR | tail envelope" : "IR | frequency response");
       WDL_String detail;
       detail.SetFormatted(100,"%.3f s | Relative to peak, before wet controls",mIRSeconds);
@@ -3253,20 +3253,7 @@ private:
     strip.Process(silence.data(), nullptr, length, controls); // Let control smoothing settle first.
     impulse[0] = level;
     strip.Process(impulse.data(), nullptr, length, controls);
-    const double upper = std::min(20000., .49 * rate);
-    for (size_t i = 0; i < mResponse.size(); ++i)
-    {
-      const double hz = 20. * std::pow(upper / 20., static_cast<double>(i) / (mResponse.size() - 1));
-      const auto step = std::polar(1., -2. * MATH_PI * hz / rate);
-      std::complex<double> phase(1., 0.), sum(0., 0.);
-      for (int n = 0; n < length; ++n)
-      {
-        sum += impulse[n] * phase;
-        phase *= step;
-        if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
-      }
-      mResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::abs(sum) / level)));
-    }
+    grid_response_fft::MeasureLinearResponse(impulse.data(), length, rate, mResponse, level);
   }
   // Measured level drop, IN minus OUT before a known output trim, hanging from the top of a
   // level history on a GR scale. Unlike a gain estimate it cannot exceed the input above -100 dB.
@@ -3358,51 +3345,12 @@ private:
   }
   void UpdateIRResponse()
   {
-    const auto path = PLUG()->GetSlotPath(mSlot);
-    const bool longIR = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
-    const double hostRate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
-    if (path == mIRResponsePath && longIR == mIRLong && hostRate == mIRHostRate) return;
-    mIRLong = longIR; mIRHostRate = hostRate; mIRSeconds = 0.;
-    mIRResponsePath = path; mIRResponseValid = false;
-    std::vector<float> taps, right; double rate = 0.;
-    if (path.empty() || dsp::wav::LoadIR(path.c_str(), taps, right, rate) != dsp::wav::LoadReturnCode::SUCCESS || taps.empty() || !(rate > 0.))
-      return;
-    taps.resize(std::min(taps.size(), std::max<size_t>(1, static_cast<size_t>(rate * (longIR ? AdaptiveIR::maximumSeconds : 8192. / hostRate)))));
-    mIRSeconds = taps.size() / rate;
-    if (longIR)
-    {
-      float peak = 0.f;
-      mIRResponse.fill(0.f);
-      for (size_t n = 0; n < taps.size(); ++n)
-      {
-        const auto bin = std::min(mIRResponse.size() - 1, n * mIRResponse.size() / taps.size());
-        mIRResponse[bin] = std::max(mIRResponse[bin], std::max(std::abs(taps[n]), right.empty() ? 0.f : std::abs(right[n])));
-        peak = std::max(peak, mIRResponse[bin]);
-      }
-      for (auto& value : mIRResponse)
-        value = static_cast<float>(20. * std::log10(std::max(1.e-6f, value / std::max(1.e-12f, peak))));
-      mIRResponseValid = true;
-      return;
-    }
-    mIRUpper = std::min(20000., .49 * rate);
-    float peak = -1.e9f;
-    for (size_t i = 0; i < mIRResponse.size(); ++i)
-    {
-      const double hz = 20. * std::pow(mIRUpper / 20., static_cast<double>(i) / (mIRResponse.size() - 1));
-      const auto step = std::polar(1., -2. * MATH_PI * hz / rate);
-      std::complex<double> phase(1., 0.), sum(0., 0.), rightSum(0., 0.);
-      for (size_t n = 0; n < taps.size(); ++n)
-      {
-        sum += static_cast<double>(taps[n]) * phase;
-        if (!right.empty()) rightSum += static_cast<double>(right[n]) * phase;
-        phase *= step;
-        if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
-      }
-      mIRResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::max(std::abs(sum), std::abs(rightSum)))));
-      peak = std::max(peak, mIRResponse[i]);
-    }
-    for (auto& value : mIRResponse) value -= peak;
-    mIRResponseValid = std::isfinite(peak);
+    const auto preview = PLUG()->GetSlotIRPreview(mSlot);
+    mIRResponse = preview.response;
+    mIRUpper = preview.upper;
+    mIRSeconds = preview.seconds;
+    mIRLong = preview.longIR;
+    mIRResponseValid = preview.valid;
   }
   // Wah's Auto button: one click wires Env 1 to the selected slot's Position. The matrix row is
   // ordinary saved state, so the assignment survives rig presets and scenes and can be edited or
@@ -3786,10 +3734,9 @@ private:
   std::array<std::array<float, 3>, 386> mEQCurve{};
   std::array<float, signal_monitor::spectrumPoints> mSpectrum{};
   double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.
-  std::string mIRResponsePath; // Cabinet IR whose response is cached below.
-  std::array<float, signal_monitor::spectrumPoints> mIRResponse{};
+  std::array<float, grid_response_fft::kIRBins> mIRResponse{};
   double mIRUpper = 20000.;
-  double mIRSeconds = 0., mIRHostRate = 0.;
+  double mIRSeconds = 0.;
   bool mIRLong = false;
   bool mIRResponseValid = false;
   size_t mReductionWrite = 0;

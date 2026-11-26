@@ -60,7 +60,7 @@ Its native trims stay at centre while the wrapper Input and Output controls each
 trim. The eight upstream voices and built-in per-voice gains are retained, with
 additional fixed compensation for default-level comparison (see calibration below).
 The adapted core uses a circular convolution history with the original tap
-weights. Below 88.2 kHz, the wrapper runs it at 2x through minimum-phase
+weights and rate-scales its sag integrator for 96–192 kHz. Below 88.2 kHz, the wrapper runs it at 2x through minimum-phase
 interpolation/decimation; at higher host rates it runs natively. This reduces aliasing
 without reported latency, while changing wet phase and potentially transient voicing.
 The original desk-match trims are retained. The resampler processes corresponding

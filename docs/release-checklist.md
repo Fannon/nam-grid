@@ -16,9 +16,8 @@ tagging. An unchecked item is a requirement to verify, not a claim that it faile
 
 - [ ] Build CLAP and VST3 from a clean checkout with the pinned dependencies and
   tracked patches, following [build.md](build.md).
-- [ ] Run CTest (ir-convolution, capture-library, wav-decoder, resampling, stages,
-  clap-smoke with the native editor, tuner, parameter-contract and, on Windows,
-  vst3-parameter-contract) and the Python tool tests.
+- [ ] Run the [CTest suite](build.md#tests) and Python tool tests. Include the
+  native editor in `clap-smoke` and run `editor-host` on Windows.
 - [ ] Confirm the CI matrix passes for every platform included in the release.
 - [ ] Download and inspect the actual archives: plugin bundles, resources,
   `ThirdPartyNotices.txt` and `notices/`; retain macOS executable permissions.

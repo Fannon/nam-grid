@@ -447,4 +447,54 @@ void TestNoisePrint()
         assert(power == profile.power[0]);
   }
   writer.join();
+
+  // Untrained idle processing must keep the filter bank and power detector warmed up so
+  // the first Learn capture matches a processor whose analyzer ran continuously before Learn.
+  {
+    constexpr double rate = 48000.;
+    const int idleFrames = static_cast<int>(rate);        // 1.0 s untrained rumble
+    const int learnFrames = static_cast<int>(rate * .30); // 300 ms Learn window
+    const int totalFrames = idleFrames + learnFrames + 64;
+    std::vector<double> audioA(totalFrames), audioB(totalFrames);
+    for (int i = 0; i < totalFrames; ++i)
+    {
+      const double t = i / rate;
+      audioA[i] = audioB[i] = .02 * std::sin(2. * 3.14159265358979323846 * 6. * t)
+                            + .02 * std::sin(2. * 3.14159265358979323846 * 60. * t);
+    }
+    noise_print::Processor untrained, warmed;
+    untrained.Reset(rate);
+    warmed.Reset(rate);
+    noise_print::Profile dummy;
+    dummy.valid = true;
+    dummy.power.fill(1.e-6);
+    warmed.Restore(dummy);
+    noise_print::Controls cIdle;
+    cIdle.reduction = 0.;
+    cIdle.mix = 0.;
+    noise_print::Controls cLearn = cIdle;
+    cLearn.learn = true;
+    for (int pos = 0; pos < idleFrames; pos += 512)
+    {
+      const int n = std::min(512, idleFrames - pos);
+      untrained.Process(audioA.data() + pos, nullptr, n, cIdle);
+      warmed.Process(audioB.data() + pos, nullptr, n, cIdle);
+    }
+    for (int pos = idleFrames; pos < idleFrames + learnFrames; pos += 512)
+    {
+      const int n = std::min(512, idleFrames + learnFrames - pos);
+      untrained.Process(audioA.data() + pos, nullptr, n, cLearn);
+      warmed.Process(audioB.data() + pos, nullptr, n, cLearn);
+    }
+    untrained.Process(audioA.data() + idleFrames + learnFrames, nullptr, 64, cIdle);
+    warmed.Process(audioB.data() + idleFrames + learnFrames, nullptr, 64, cIdle);
+    const auto pA = untrained.GetProfile();
+    const auto pB = warmed.GetProfile();
+    assert(pA.valid && pB.valid);
+    for (int b = 0; b < noise_print::bands; ++b)
+    {
+      const double denom = std::max(1.e-18, pB.power[b]);
+      assert(std::abs(pA.power[b] - pB.power[b]) / denom < 1.e-12);
+    }
+  }
 }

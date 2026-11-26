@@ -130,8 +130,6 @@ public:
   void Restore(const Profile& profile)
   {
     mProfile = profile;
-    if (!mProfile.valid)
-      mGain.fill(1.);
     mTracking.Reference(mProfile.power, mProfile.valid);
     mChanged = true;
   }
@@ -173,26 +171,6 @@ public:
       }
     }
     mLearning = c.learn;
-    const double mixStep = 1. / (.005 * mRate);
-    const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate, !c.learn);
-    double minimumGain = 1.;
-    if (!mProfile.valid && !c.learn)
-    {
-      for (int sample = 0; sample < frames; ++sample)
-      {
-        const double dry0 = Safe(left[sample]), dry1 = right ? Safe(right[sample]) : 0.;
-        mMix = std::max(0., mMix - mixStep);
-        const double peak = std::max(std::abs(dry0), std::abs(dry1));
-        mCleanPeak = std::max(mCleanPeak, peak);
-        const double gateGain = mGate.Tick(peak, gate);
-        left[sample] = dry0 * gateGain;
-        if (right)
-          right[sample] = dry1 * gateGain;
-        minimumGain = std::min(minimumGain, gateGain);
-      }
-      mReduction = -20. * std::log10(std::max(1.e-6, minimumGain));
-      return;
-    }
     const bool reducing = mProfile.valid && !c.learn;
     const bool following = reducing && c.trackingMode == 1;
     const double margin = std::pow(10., std::clamp(c.sensitivity, -6., 12.) * .1);
@@ -202,6 +180,8 @@ public:
     const double onsetAttack = onsetAmount > 0. ? std::pow(attack, 1. + 3. * onsetAmount) : attack;
     const double release = std::exp(-1. / (.001 * std::clamp(c.release, 20., 500.) * mRate));
     const double mixTarget = mProfile.valid && !c.learn && c.reduction > 0. ? std::clamp(c.mix, 0., 100.) * .01 : 0.;
+    const double mixStep = 1. / (.005 * mRate);
+    const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate, !c.learn);
     double learnedPower = 0.;
     std::array<double, bands> inverseThreshold;
     for (int i = 0; i < bands; ++i)
@@ -211,6 +191,7 @@ public:
         inverseThreshold[i] = 1. / std::max(1.e-30, mProfile.power[i] * margin);
     }
     const double inverseLearnedPower = 1. / std::max(1.e-30, learnedPower);
+    double minimumGain = 1.;
     for (int sample = 0; sample < frames; ++sample)
     {
       const double dry[2]{Safe(left[sample]), right ? Safe(right[sample]) : 0.};

@@ -174,4 +174,45 @@ void TestDistortionAndMonoMeters()
     reference.Process<false>(b.data() + fadeSamples, fadeSamples * 2, uc);
     assert(std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0);
   }
+
+  // Interrupted three-style fade (Soft -> Hard -> Overdrive, 10 ms apart) must preserve
+  // unity wet weight sum without dipping level, and match the uncached oracle bit-for-bit.
+  {
+    constexpr double rate = 48000.;
+    constexpr int settle = 960; // 20 ms settled on Soft
+    constexpr int gap = 480;    // 10 ms before interrupting mid-fade
+    constexpr int tail = 1920;  // 40 ms to settle on Overdrive
+    constexpr int total = settle + gap + tail;
+    std::vector<double> actual(total), expected(total);
+    for (int i = 0; i < total; ++i)
+      actual[i] = expected[i] = .01 * std::sin(2. * grid_fx::pi * 1000. * i / rate);
+    SlotDistortion cached, reference;
+    cached.Reset(rate);
+    reference.Reset(rate);
+    UtilityControls uc;
+    uc.distortion = {0., 0., 20000., 0., 100., 0.}; // Soft, 0 dB drive, 100% wet, 0 dB out
+    cached.Process(actual.data(), settle, uc);
+    reference.Process<false>(expected.data(), settle, uc);
+    uc.distortion[0] = static_cast<double>(effect_modes::DistortionStyle::Hard);
+    cached.Process(actual.data() + settle, gap, uc);
+    reference.Process<false>(expected.data() + settle, gap, uc);
+    uc.distortion[0] = static_cast<double>(effect_modes::DistortionStyle::Overdrive);
+    cached.Process(actual.data() + settle + gap, tail, uc);
+    reference.Process<false>(expected.data() + settle + gap, tail, uc);
+    assert(std::memcmp(actual.data(), expected.data(), total * sizeof(double)) == 0);
+    // Reference RMS over one settled 1 ms cycle (48 samples = 1 exact cycle of 1 kHz).
+    const auto cycleRms = [&](int start) {
+      double sum = 0.;
+      for (int i = 0; i < 48; ++i) sum += actual[start + i] * actual[start + i];
+      return std::sqrt(sum / 48.);
+    };
+    const double settledRms = cycleRms(settle - 48);
+    double maxDipDB = 0.;
+    for (int pos = settle; pos + 48 <= total; pos += 48)
+    {
+      const double dipDB = 20. * std::log10(settledRms / std::max(1.e-12, cycleRms(pos)));
+      maxDipDB = std::max(maxDipDB, dipDB);
+    }
+    assert(maxDipDB < 0.05);
+  }
 }

@@ -51,6 +51,9 @@ public:
     mLowControls.Reset(mRate);
     mLowState = 0.; mLowFrequency = -1.; mLowPole = 0.;
     mWeights = {};
+    mFadeStartWeights = {};
+    mFadeProgress = 1.;
+    mFadeTargetStyle = -1;
     mPrevious = mHighPass = mLowPass = 0.;
     mFirst = true;
     mCached = {-1., -1., -100.};
@@ -63,7 +66,16 @@ public:
     mControls.Target(controls.distortion, uDistStyle);
     mLowControls.Target({controls.distortionLowPreserve}, uDistLowPreserve);
     const int style = static_cast<int>(std::clamp(controls.distortion[0], 0., double(effect_modes::distortionCount - 1)));
-    if (mFirst) { mWeights[style] = 1.; mSettledStyle = style; mFadeSettled = true; mFirst = false; }
+    if (mFirst)
+    {
+      mWeights[style] = 1.;
+      mFadeStartWeights = mWeights;
+      mFadeProgress = 1.;
+      mFadeTargetStyle = style;
+      mSettledStyle = style;
+      mFadeSettled = true;
+      mFirst = false;
+    }
     for (int i = 0; i < frames; ++i)
     {
       const auto& c = mControls.Tick();
@@ -91,17 +103,29 @@ public:
       }
       else mLowState = 0.;
       const double input = dry - kept;
-      if (!mFadeSettled || style != mSettledStyle)
+      if (style != mFadeTargetStyle)
       {
-        mFadeSettled = true;
-        for (int j = 0; j < effect_modes::distortionCount; ++j)
+        mFadeStartWeights = mWeights;
+        mFadeTargetStyle = style;
+        mFadeProgress = 0.;
+        mFadeSettled = false;
+      }
+      if (!mFadeSettled)
+      {
+        mFadeProgress = std::min(1., mFadeProgress + mFadeStep);
+        if (mFadeProgress >= 1.)
         {
-          const double target = j == style ? 1. : 0.;
-          mWeights[j] = j == style ? std::min(1., mWeights[j] + mFadeStep)
-                                   : std::max(0., mWeights[j] - mFadeStep);
-          if (mWeights[j] != target) mFadeSettled = false;
+          mWeights = {};
+          mWeights[mFadeTargetStyle] = 1.;
+          mSettledStyle = mFadeTargetStyle;
+          mFadeSettled = true;
         }
-        if (mFadeSettled) mSettledStyle = style;
+        else
+        {
+          const double keep = 1. - mFadeProgress;
+          for (int j = 0; j < effect_modes::distortionCount; ++j)
+            mWeights[j] = keep * mFadeStartWeights[j] + (j == mFadeTargetStyle ? mFadeProgress : 0.);
+        }
         mHolding = false;
       }
       const auto shape = [&](double input) {
@@ -266,11 +290,11 @@ private:
   grid_fx::SmoothControls<6> mControls;
   grid_fx::SmoothControls<1> mLowControls;
   double mLowState = 0., mLowFrequency = -1., mLowPole = 0.;
-  std::array<double, effect_modes::distortionCount> mWeights{};
+  std::array<double, effect_modes::distortionCount> mWeights{}, mFadeStartWeights{};
   std::array<double, 3> mCached{};
-  double mRate = 48000., mFadeStep = 0., mDC = 0.;
+  double mRate = 48000., mFadeStep = 0., mFadeProgress = 1., mDC = 0.;
   double mPrevious = 0., mHighPass = 0., mLowPass = 0.;
   double mDrive = 1., mTone = 0., mOutput = 1., mHeld = 0.;
-  int mSettledStyle = -1, mHeldStyle = -1;
+  int mSettledStyle = -1, mFadeTargetStyle = -1, mHeldStyle = -1;
   bool mFirst = true, mFadeSettled = false, mHolding = false;
 };

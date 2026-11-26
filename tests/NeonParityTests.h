@@ -107,7 +107,7 @@ inline void TestNeonParity()
       assert(std::abs(simd.CleanPeak() - ref.cleanPeak) < 1.e-6);
     }
 
-    // 2. NoisePrint SIMD vs scalar parity: untrained fast-path (active final gate),
+    // 2. NoisePrint SIMD vs scalar parity: untrained idle (active final gate),
     //    Learn (>= 0.3s), Fixed + Follow (inverseScale), and Restore(invalid).
     const size_t idleN = static_cast<size_t>(rate * 0.05);
     const size_t learnN = static_cast<size_t>(rate * 0.35);
@@ -184,5 +184,5 @@ inline void TestNeonParity()
       assert(std::abs(simd.TrackingScale() - ref.trackingScale) < 1.e-10);
     }
   }
-  std::cout << "NEON parity: AIGate & NoisePrint SIMD vs scalar parity, untrained fast-path, Follow inverseScale, Restore(invalid), and zero audio allocations passed\n";
+  std::cout << "NEON parity: AIGate & NoisePrint SIMD vs scalar parity, untrained idle, Follow inverseScale, Restore(invalid), and zero audio allocations passed\n";
 }

@@ -480,7 +480,8 @@ public:
     }
     mActive = active;
     // Smoothed, so the windows still shape the sound instead of being divided out.
-    const bool updateNorm = (mNormCounter++ & 7) == 0;
+    const bool updateNorm = mNormCounter == 0;
+    mNormCounter = (mNormCounter + 1) & 7;
     for (int ch = 0; ch < channels; ++ch)
     {
       if (sum[ch] <= 1.)

@@ -130,7 +130,7 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         const double movement = extra[0] * .01 * .0007 * std::sin(mPhase + ch * 1.5707963267948966);
-        repeat[ch] = grid_reverb::LowPass(mLine[ch].Read(std::max(1., (v[0] * .001 + movement) * mRate)), mLow[ch], mCoefficient);
+        repeat[ch] = grid_reverb::LowPass(mLine[ch].Read(v[0] * .001 * mRate, movement * mRate), mLow[ch], mCoefficient);
       }
       auto blurred = repeat;
       for (auto& diffuser : mDiffusers) blurred = diffuser.Tick(blurred, 1., .65);

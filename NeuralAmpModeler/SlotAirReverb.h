@@ -77,9 +77,11 @@ public:
         for (int ch = 0; ch < 2; ++ch)
         {
           mInputLow[ch] = grid_fx::Flush(*wet[ch] + mLowCoefficient * (mInputLow[ch] - *wet[ch]));
-          const double input = *wet[ch] - (v[5] > .01 ? mInputLow[ch] : 0.);
-          *wet[ch] = v[3] < .001 ? input : mPredelay[ch].Read(v[3] * .001 * mRate);
+          const double input = *wet[ch] - std::clamp(v[5], 0., 1.) * mInputLow[ch];
+          const double delaySamples = v[3] * .001 * mRate;
+          const double delayed = mPredelay[ch].Read(std::max(1., delaySamples));
           mPredelay[ch].Push(input);
+          *wet[ch] = delaySamples < 1. ? input + delaySamples * (delayed - input) : delayed;
         }
         mPlate->Tick(wetL, wetR);
       }

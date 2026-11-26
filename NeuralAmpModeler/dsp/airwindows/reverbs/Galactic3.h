@@ -76,10 +76,10 @@ public:
 
 	vibM = 3.0;
 
-	oldfpd = 429496.7295;
+	oldfpd = 0.4294967295;
 
 	for (int x = 0; x < bez_total; x++) bez[x] = 0.0;
-	bez[bez_cycle] = 1.0;
+	bez[bez_cycle] = 0.0;
 
 	fpdL = 0x1745a23bu;
 	fpdR = 0x62b7e149u;
@@ -94,14 +94,14 @@ overallscale = 1.0;
 	overallscale /= 44100.0;
 	overallscale *= getSampleRate();
 
+	const double rateScale = fmax(1.0, overallscale);
 	regen = 0.0625+((1.0-A)*0.0625);
 	attenuate = (1.0 - (regen / 0.125))*1.333;
-	lowpass = pow(1.00001-(1.0-B),2.0)/sqrt(overallscale);
-	drift = pow(C,3)*0.001;
-	derez = D/overallscale;
-	if (derez < 0.0005) derez = 0.0005; if (derez > 1.0) derez = 1.0;
-	derez = 1.0 / ((int)(1.0/derez));
-	//this hard-locks derez to exact subdivisions of 1.0
+	const double baseLowpass = fmin(1.0, pow(1.00001-(1.0-B),2.0));
+	lowpass = baseLowpass >= 1.0 ? 1.0 : 1.0 - pow(1.0 - baseLowpass, 1.0 / rateScale);
+	drift = pow(C,3)*0.001/rateScale;
+	derez = 0.5*D/rateScale;
+	if (derez < 0.00025) derez = 0.00025; if (derez > 0.5) derez = 0.5;
 	size = (E*1.77)+0.1;
 	wet = 1.0-(pow(1.0-F,3));
 
@@ -117,7 +117,7 @@ overallscale = 1.0;
 	delayF = 4217.0*size;
 	delayG = 2269.0*size;
 	delayH = 1597.0*size;
-	delayM = 256;
+	delayM = (int)(256.0 * fmin(12.0, rateScale));
 
 
   }
@@ -141,8 +141,8 @@ overallscale = 1.0;
 		aMR[countM] = inputSampleR * attenuate;
 		countM++; if (countM < 0 || countM > delayM) countM = 0;
 
-		double offsetML = (sin(vibM)+1.0)*127;
-		double offsetMR = (sin(vibM+(3.141592653589793238/2.0))+1.0)*127;
+		double offsetML = (sin(vibM)+1.0)*(delayM*0.49609375);
+		double offsetMR = (sin(vibM+(3.141592653589793238/2.0))+1.0)*(delayM*0.49609375);
 		int workingML = countM + offsetML;
 		int workingMR = countM + offsetMR;
 		double interpolML = (aML[workingML-((workingML > delayM)?delayM+1:0)] * (1-(offsetML-floor(offsetML))));
@@ -159,11 +159,15 @@ overallscale = 1.0;
 		//initial filter
 
 		bez[bez_cycle] += derez;
-		bez[bez_SampL] += ((inputSampleL+bez[bez_InL]) * derez);
-		bez[bez_SampR] += ((inputSampleR+bez[bez_InR]) * derez);
+		const double avgInL = inputSampleL + bez[bez_InL];
+		const double avgInR = inputSampleR + bez[bez_InR];
 		bez[bez_InL] = inputSampleL; bez[bez_InR] = inputSampleR;
-		if (bez[bez_cycle] > 1.0) { //hit the end point and we do a reverb sample
-			bez[bez_cycle] = 0.0;
+		if (bez[bez_cycle] >= 1.0) { //hit the end point and we do a reverb sample
+			const double over = bez[bez_cycle] - 1.0;
+			const double tailWeight = 2.0 * (derez - over);
+			bez[bez_SampL] += avgInL * tailWeight;
+			bez[bez_SampR] += avgInR * tailWeight;
+			bez[bez_cycle] = over;
 
 			aIL[countI] = (bez[bez_SampL]+bez[bez_UnInL]) + (feedbackAR * regen);
 			aJL[countJ] = (bez[bez_SampL]+bez[bez_UnInL]) + (feedbackBR * regen);
@@ -257,12 +261,15 @@ overallscale = 1.0;
 			bez[bez_CL] = bez[bez_BL];
 			bez[bez_BL] = bez[bez_AL];
 			bez[bez_AL] = inputSampleL;
-			bez[bez_SampL] = 0.0;
+			bez[bez_SampL] = avgInL * (2.0 * over);
 
 			bez[bez_CR] = bez[bez_BR];
 			bez[bez_BR] = bez[bez_AR];
 			bez[bez_AR] = inputSampleR;
-			bez[bez_SampR] = 0.0;
+			bez[bez_SampR] = avgInR * (2.0 * over);
+		} else {
+			bez[bez_SampL] += avgInL * (2.0 * derez);
+			bez[bez_SampR] += avgInR * (2.0 * derez);
 		}
 		double CBL = (bez[bez_CL]*(1.0-bez[bez_cycle]))+(bez[bez_BL]*bez[bez_cycle]);
 		double CBR = (bez[bez_CR]*(1.0-bez[bez_cycle]))+(bez[bez_BR]*bez[bez_cycle]);

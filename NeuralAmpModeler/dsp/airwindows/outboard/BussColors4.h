@@ -63,6 +63,8 @@ overallscale = 1.0;
 	overallscale *= getSampleRate();
 	if (overallscale < 1.0) overallscale = 1.0;
 	if (overallscale > 4.5) overallscale = 4.5;
+	slowdynDecay = pow(0.999, 1.0 / overallscale);
+	slowdynCharge = (1.0 - slowdynDecay) / 0.001;
 	maxConvolutionBufferSize = (int)(34.0 * overallscale); //we won't use more of the buffer than we have to
 	for (count = 0; count < 34; count++) c[count] = (int)(count * overallscale); //assign conv taps
 	drySampleL;
@@ -117,8 +119,8 @@ overallscale = 1.0;
 
 
 		bridgerectifier = fabs(inputSampleL);
-		slowdynL *= 0.999;
-		slowdynL += bridgerectifier;
+		slowdynL *= slowdynDecay;
+		slowdynL += bridgerectifier * slowdynCharge;
 		if (slowdynL > 1.5) {slowdynL = 1.5;}
 		//before the iron bar- fry console for crazy behavior
 		dynamicconvL = 2.5 + slowdynL;
@@ -130,8 +132,8 @@ overallscale = 1.0;
 		//end pre saturation stage L
 
 		bridgerectifier = fabs(inputSampleR);
-		slowdynR *= 0.999;
-		slowdynR += bridgerectifier;
+		slowdynR *= slowdynDecay;
+		slowdynR += bridgerectifier * slowdynCharge;
 		if (slowdynR > 1.5) {slowdynR = 1.5;}
 		//before the iron bar- fry console for crazy behavior
 		dynamicconvR = 2.5 + slowdynR;
@@ -827,8 +829,8 @@ overallscale = 1.0;
 
 
 		bridgerectifier = fabs(inputSampleL);
-		slowdynL *= 0.999;
-		slowdynL += bridgerectifier;
+		slowdynL *= slowdynDecay;
+		slowdynL += bridgerectifier * slowdynCharge;
 		if (slowdynL > 1.5) {slowdynL = 1.5;}
 		//before the iron bar- fry console for crazy behavior
 		dynamicconvL = 2.5 + slowdynL;
@@ -1232,6 +1234,8 @@ private:
   double mRate = 48000.;
 
   double overallscale{};
+  double slowdynDecay{0.999};
+  double slowdynCharge{1.0};
   int maxConvolutionBufferSize{};
   int count{};
   double drySampleL{};

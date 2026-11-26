@@ -226,6 +226,26 @@ void TestHQEffects()
     const double measuredRate = hostRate * crossings / periodSum;
     assert(std::abs(measuredRate - 9.75) < .01);
   }
+  // Jumping directly from Mode I (0) to Vintage (3) must not sweep through stereo
+  // modes I+II (1) and II (2): voice A fades immediately over 10 ms instead of spending
+  // ~36 ms in intermediate modes before Vintage begins fading in.
+  {
+    grid_hq::JunoChorus chorus;
+    chorus.Reset(rate);
+    UtilityControls c;
+    c.juno = {0., 100., 100.};
+    const int settle = static_cast<int>(.1 * rate), transition = static_cast<int>(.1 * rate);
+    std::vector<double> l(settle + transition), r(settle + transition);
+    for (size_t i = 0; i < l.size(); ++i)
+      l[i] = r[i] = .25 * std::sin(2. * grid_fx::pi * 440. * i / rate);
+    chorus.Process(l.data(), r.data(), settle, c);
+    c.juno[0] = 3.;
+    chorus.Process(l.data() + settle, r.data() + settle, transition, c);
+    double maxLateSide = 0.;
+    for (int i = settle + static_cast<int>(.06 * rate); i < settle + transition; ++i)
+      maxLateSide = std::max(maxLateSide, std::abs(l[i] - r[i]));
+    assert(maxLateSide < .002);
+  }
   // Shimmer: feedback changes the tail, freeze holds it, reset returns silence.
   {
     grid_hq::Shimmer shimmer;

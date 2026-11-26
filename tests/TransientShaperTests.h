@@ -31,6 +31,26 @@ void TestTransientShaper()
     c.transientShaper[0]=9.;const auto attack=Render(rate,c);
     assert(Energy(attack,0,static_cast<size_t>(rate*.02))>1.6*Energy(dry,0,static_cast<size_t>(rate*.02)));
     assert(attack==Render(rate,c,1.,1));
+    // Negative Attack cuts must engage with the same fast gain-attack time as positive boosts,
+    // not lag behind on the slower gain-release coefficient. Because the envelope detector is
+    // input-driven, +12 dB and -12 dB Attack must produce exact reciprocal per-sample gains.
+    {
+      UtilityControls boostCtrl; boostCtrl.transientShaper={12.,0.,100.,50.,0.,100.};
+      UtilityControls cutCtrl; cutCtrl.transientShaper={-12.,0.,100.,50.,0.,100.};
+      const auto boosted=Render(rate,boostCtrl), cut=Render(rate,cutCtrl);
+      bool checked=false;
+      for(size_t i=static_cast<size_t>(rate*.0003);i<static_cast<size_t>(rate*.002);++i)
+        if(std::abs(dry[i])>.05)
+        {
+          const double gBoost=boosted[i]/dry[i], gCut=cut[i]/dry[i];
+          if(gBoost>1.2)
+          {
+            assert(std::abs(gBoost*gCut-1.)<1.e-9);
+            checked=true;
+          }
+        }
+      assert(checked);
+    }
     // Relative envelope action is independent of signal scale above the quiet guard.
     const auto quiet=Render(rate,c,.25);
     for(size_t i=0;i<static_cast<size_t>(rate*.02);++i)assert(std::abs(quiet[i]*4.-attack[i])<1.e-12);

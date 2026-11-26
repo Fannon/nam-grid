@@ -198,7 +198,7 @@ public:
     mDetectorAttack = Coefficient(.1);
     mDetectorReleaseGate = Coefficient(10.);
     mDetectorReleaseComp = Coefficient(15.);
-    mEnvelope = mReduction = mHold = mDetectorLow = 0.;
+    mEnvelope = mReduction = mHold = mDetectorLow = mDetectorLowR = 0.;
     mMinimumMonitorGain = 1.;
     mMakeupDB = 0.; mMakeupGain = 1.;
     mGateReductionDB = 0.; mGateGain = 1.;
@@ -219,7 +219,8 @@ public:
     const double x = over + knee * .5;
     return slope * x * x / (2. * knee);
   }
-  void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls, double* beforeMakeup = nullptr)
+  void Process(double* samples, int frames, SlotEffect effect, const DynamicsControls& controls,
+               double* beforeMakeup = nullptr, double* right = nullptr, double* rightBeforeMakeup = nullptr)
   {
     mMinimumMonitorGain = 1.;
     const bool gate = effect == SlotEffect::NoiseGate;
@@ -265,7 +266,13 @@ public:
       mRatio = Smooth(mRatio, ratio, mSmooth);
       mHysteresis = Smooth(mHysteresis, std::clamp(controls.gateHysteresis, 0., 12.), mSmooth);
       mDetectorLow = Smooth(mDetectorLow, samples[i], detectorPole);
-      const double magnitude = std::abs(!gate && controls.detectorCut > 0. ? samples[i] - mDetectorLow : samples[i]);
+      double magnitude = std::abs(!gate && controls.detectorCut > 0. ? samples[i] - mDetectorLow : samples[i]);
+      if (right)
+      {
+        mDetectorLowR = Smooth(mDetectorLowR, right[i], detectorPole);
+        const double rightMagnitude = std::abs(!gate && controls.detectorCut > 0. ? right[i] - mDetectorLowR : right[i]);
+        magnitude = std::max(magnitude, rightMagnitude);
+      }
       mEnvelope = Smooth(mEnvelope, magnitude, magnitude > mEnvelope ? detectorAttack : detectorRelease);
       const double level = mEnvelope <= 1.e-12 ? -240. : 20. * std::log10(mEnvelope);
       double target;
@@ -333,8 +340,14 @@ public:
         reduced = 1. + mMix * (reductionGain - 1.);
       }
       mMinimumMonitorGain = std::min(mMinimumMonitorGain,reduced);
-      if (beforeMakeup) beforeMakeup[i]=samples[i]*reduced;
-      samples[i] *= gate ? gain : 1. + mMix * (gain - 1.);
+      const double applied = gate ? gain : 1. + mMix * (gain - 1.);
+      if (beforeMakeup) beforeMakeup[i] = samples[i] * reduced;
+      samples[i] *= applied;
+      if (right)
+      {
+        if (rightBeforeMakeup) rightBeforeMakeup[i] = right[i] * reduced;
+        right[i] *= applied;
+      }
     }
   }
   double PeakReduction() const { return -20.*std::log10(std::max(1.e-12,mMinimumMonitorGain)); }
@@ -348,7 +361,7 @@ private:
   }
   double mRate = 48000., mSmooth = 0., mEnvelope = 0., mReduction = 0., mHold = 0.;
   double mThreshold = 0., mAmount = 0., mMix = 1.;
-  double mDetectorLow = 0., mRatio = 2.5, mHysteresis = 3.;
+  double mDetectorLow = 0., mDetectorLowR = 0., mRatio = 2.5, mHysteresis = 3.;
   double mMinimumMonitorGain = 1.;
   double mMakeupDB = 0., mMakeupGain = 1.;
   double mDetectorAttack = 0., mDetectorReleaseGate = 0., mDetectorReleaseComp = 0.;

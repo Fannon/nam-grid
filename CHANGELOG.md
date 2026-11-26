@@ -9,6 +9,14 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 - Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. The host is notified of a newly learned Smart Gate profile even if it resets before the next update.
 - Improved DSP recovery from invalid signal and control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay finite at low sample rates.
 - Fixed library folder dialogs on Linux and control hitboxes in the module editor. Library scans preserve match-all `.ignore` rules and large favorites files remain readable.
+- **Audible DSP fixes and stereo/rate consistency:**
+  - **Transient Shaper:** negative Attack and Sustain cuts now engage with the same fast gain-attack time as boosts instead of lagging behind on the slower release time. Existing rigs with negative Attack or Sustain cut more tightly.
+  - **Airwindows Guitar Hall:** fixed a right-channel delay-line index bug that previously muted one of the six feedback paths; tails are now fuller and decay more evenly across left and right at the same Sustain setting.
+  - **Noise Gate, Smooth Compressor, Punch Compressor and Auto Swell:** detectors are now stereo-linked across left and right so asymmetric stereo signals keep their stereo image instead of shifting balance. Mono and centered stereo rigs are unchanged.
+  - **Juno Chorus:** jumping between Chorus modes now crossfades directly to the target mode without briefly sweeping through intermediate modes.
+  - **Pedal Drive:** automating Character on asymmetric biased voices (Preamp, Transparent OD, Vintage Fuzz, Bender Fuzz) no longer produces DC steps across silence or waveform peaks.
+  - **Galactic Space & Console Colour:** scaled Galactic Space's predelay, drift, low-pass filter and undersampling clock and Console Colour's sag integrator for 96/192 kHz so high-rate projects match 44.1/48 kHz decay, level and dynamics.
+  - **Smoother transitions and lower bypassed reverb CPU:** removed subtle clicks when crossing Tube Boost's 20 kHz High Cut, Room/Plate/Cloud/Hall/Air Plate low-cut and predelay zero endpoints, Vibrato Rise tail drop-off, Reverse Delay window ends, Diffused Delay modulation and upward Pitch Shift jumps; bypassed Room, Plate, Cloud, Hall, Spring and Shimmer reverbs with Trails off now ramp feedback down and suspend in a few seconds instead of ringing silently for up to a minute.
 
 ## [0.8.0] - 2026-11-24
 

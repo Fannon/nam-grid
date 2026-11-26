@@ -122,5 +122,31 @@ inline void TestPitchShift()
       lowFx.Process(buf.data(), nullptr, static_cast<int>(buf.size()), lc);
       for (double x : buf) assert(std::isfinite(x) && std::abs(x) < 2.);
     }
+    // Upward pitch jump when mDelay is near the lower threshold must finish the outgoing
+    // grain fade before mDelay slams into the 1-sample buffer floor.
+    {
+      pitch_shift::Grains grains;
+      grains.Reset(48000.);
+      const int warmup = 20000; // Walk mDelay down toward ~195 samples at ratio=1.05.
+      double prev2 = 0., prev1 = 0.;
+      for (int i = 0; i < warmup; ++i)
+      {
+        const double x = .25 * std::sin(2. * grid_fx::pi * 440. * i / 48000.);
+        const auto y = grains.Tick(x, x, 1.05, false);
+        prev2 = prev1; prev1 = y[0];
+      }
+      double maxSecond = 0.;
+      for (int i = warmup; i < warmup + 512; ++i)
+      {
+        const double x = .25 * std::sin(2. * grid_fx::pi * 440. * i / 48000.);
+        const auto y = grains.Tick(x, x, 4., false);
+        if (i >= warmup + 4)
+          maxSecond = std::max(maxSecond, std::abs(y[0] - 2. * prev1 + prev2));
+        prev2 = prev1; prev1 = y[0];
+      }
+      // At 440 Hz shifted 4x (1760 Hz, amp 0.25), smooth 2nd diff is ~0.013.
+      // Hitting the 1-sample floor mid-fade produces a sharp slope discontinuity (> 0.035).
+      assert(maxSecond < .025);
+    }
   }
 }

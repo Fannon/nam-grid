@@ -9,6 +9,7 @@ public:
   void Reset(double rate, SlotEffect effect = SlotEffect::RoomReverb)
   {
     mMixLaw.Reset(rate);
+    mDrain.Reset(rate);
     mRate = std::max(1., rate); mEffect = effect; mCounter = 0;
     mControls.Reset(mRate); mExtras.Reset(mRate); mStereo.Reset(mRate);
     mInputLow = {}; mWetLow = {}; mMusical.Reset(mRate); mDucker.Reset(mRate);
@@ -17,7 +18,7 @@ public:
     else if (effect == SlotEffect::CloudReverb) mCloud.Reset(mRate);
     else mFDN.Reset(mRate, effect == SlotEffect::HallReverb);
   }
-  void Process(double* left, double* right, int frames, const UtilityControls& controls)
+  void Process(double* left, double* right, int frames, const UtilityControls& controls, bool draining = false)
   {
     mControls.Target(controls.reverb, uReverbDecay);
     mMusical.Target({controls.extra.reverbDuck}, uReverbDuck);
@@ -26,6 +27,7 @@ public:
     for (int i = 0; i < frames; ++i)
     {
       mMixLaw.Tick(controls.constantDry);
+      const double live = mDrain.Tick(draining);
       const auto& v = mControls.Tick(); const auto& extra = mExtras.Tick();
       const double width = mStereo.Tick()[0];
       const auto& musical = mMusical.Tick();
@@ -44,13 +46,15 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         const double low = grid_reverb::LowPass(input[ch], mInputLow[ch], mLowCoefficient);
-        input[ch] -= extra[1] > .01 ? low : 0.;
-        const double delayed = mPredelay[ch].Read(std::max(1., v[3] * .001 * mRate));
+        input[ch] -= std::clamp(extra[1], 0., 1.) * low;
+        const double delaySamples = v[3] * .001 * mRate;
+        const double delayed = mPredelay[ch].Read(std::max(1., delaySamples));
         mPredelay[ch].Push(input[ch]);
-        if (v[3] >= .001) input[ch] = delayed;
+        if (delaySamples < 1.) input[ch] += delaySamples * (delayed - input[ch]);
+        else input[ch] = delayed;
       }
-      auto wet = mEffect == SlotEffect::PlateReverb ? mPlate.Tick(input)
-                 : mEffect == SlotEffect::CloudReverb ? mCloud.Tick(input) : mFDN.Tick(input);
+      auto wet = mEffect == SlotEffect::PlateReverb ? mPlate.Tick(input, live)
+                 : mEffect == SlotEffect::CloudReverb ? mCloud.Tick(input, live) : mFDN.Tick(input, live);
       for (int ch = 0; ch < 2; ++ch) wet[ch] = grid_reverb::LowPass(wet[ch], mWetLow[ch], mToneCoefficient);
       const double duck = mDucker.Tick(dry[0], dry[1], mEffect == SlotEffect::RoomReverb ? 0. : musical[0]);
       const double mid = .5 * (wet[0] + wet[1]) * duck, side = .5 * (wet[0] - wet[1]) * width * duck;
@@ -66,6 +70,7 @@ public:
   }
 private:
   grid_fx::MixLaw mMixLaw;
+  grid_fx::DrainRamp mDrain;
   grid_reverb::DiffusionFDN mFDN;
   grid_reverb::PlateTank mPlate;
   grid_reverb::CloudTank mCloud;

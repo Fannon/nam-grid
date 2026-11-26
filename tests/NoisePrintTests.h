@@ -74,6 +74,27 @@ void TestNoisePrintGate()
     processor.Reset(rate);
     c.gateThreshold = -100.;
     assert((render(.002, .123, -.123) == std::array<double, 2>{.123, -.123}));
+    // Reset must initialize mMix cleanly and snap to mixTarget on the first post-reset block:
+    // a fresh or previously-wet processor restored at Mix 0% must stay exact dry from sample 0
+    // (no 5 ms wet burst while mMix ramps down from 1).
+    noise_print::Profile profile;
+    profile.valid = true;
+    profile.power.fill(1.e-2);
+    noise_print::Processor fresh;
+    fresh.Reset(rate);
+    fresh.Restore(profile);
+    noise_print::Controls dryMix;
+    dryMix.mix = 0.;
+    dryMix.reduction = 48.;
+    dryMix.release = 20.;
+    dryMix.gateThreshold = -100.;
+    std::array<double, 256> sampleL{}, sampleR{};
+    for (size_t i = 0; i < sampleL.size(); ++i)
+      sampleL[i] = sampleR[i] = .01 * std::sin(2. * 3.14159265358979323846 * 440. * i / rate);
+    const auto expectedL = sampleL, expectedR = sampleR;
+    fresh.Process(sampleL.data(), sampleR.data(), static_cast<int>(sampleL.size()), dryMix);
+    for (size_t i = 0; i < sampleL.size(); ++i)
+      assert(std::abs(sampleL[i] - expectedL[i]) < 1.e-15 && std::abs(sampleR[i] - expectedR[i]) < 1.e-15);
   }
 }
 

@@ -33,6 +33,24 @@ public:
     mFade = std::min(1., mFade + mStep);
     return value;
   }
+  // Crossfade base delay jumps (Time/tempo automation) while applying continuous
+  // modulation smoothly within each tap.
+  double Read(double baseSamples, double offsetSamples)
+  {
+    const double maximum = mLine.MaxDelay();
+    const auto clamp = [maximum](double s) { return !(s >= 1.) ? 1. : (s > maximum ? maximum : s); };
+    mClipped |= !(baseSamples + offsetSamples >= 1.) || baseSamples + offsetSamples > maximum;
+    const double base = clamp(baseSamples);
+    if (mFirst) { mFrom = mTo = base; mFirst = false; }
+    if (mFade >= 1. && std::abs(base - mTo) >= .25)
+    { mFrom = mTo; mTo = base; mFade = 0.; }
+    if (mFade >= 1.) return mLine.ReadInRange(clamp(mTo + offsetSamples));
+    const double from = mLine.ReadInRange(clamp(mFrom + offsetSamples));
+    const double to = mLine.ReadInRange(clamp(mTo + offsetSamples));
+    const double value = from + mFade * (to - from);
+    mFade = std::min(1., mFade + mStep);
+    return value;
+  }
   void Push(double value) { mLine.Push(value); }
   // An extra read-only output tap; it leaves the crossfaded read position alone.
   double Tap(double samples) const { return mLine.Read(samples); }

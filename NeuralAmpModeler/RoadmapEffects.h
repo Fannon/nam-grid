@@ -370,10 +370,13 @@ public:
       }
       if (mTransition > 0) --mTransition;
       // Freeze overlaps source-window ends, so its repeat period is length-fade.
-      // Stutter's gate fades through zero; Reverse changes banks with mTransition.
-      // Their musical window period stays length rather than skipping the overlap.
+      // Stutter's gate fades through zero; Reverse changes banks with mTransition,
+      // and still starts a transition fade if a growing Time wraps the old bank first.
       if (mLength && ++mPosition >= mLength)
+      {
         mPosition = freeze ? std::min(fade, mLength - 1) : 0;
+        if (reverse) { mTransitionFrom = mLastWet; mTransition = std::max(1, static_cast<int>(.005 * mRate)); }
+      }
       const double mix = (freeze ? f[4] : reverse ? d[4] : s[3]) * .01;
       const double output = mOutput.Tick()[0];
       const double gain = reverse ? Gain(mGain, output) : 1.;

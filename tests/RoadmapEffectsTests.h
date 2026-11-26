@@ -180,6 +180,26 @@ void TestRoadmapEffects()
       for (int i = win * 2 - static_cast<int>(.003 * rate); i < win * 2; ++i)
         endMax = std::max(endMax, std::abs(rl[i]));
       assert(endMax < .08);
+
+      // Increasing Time mid-capture can wrap the old bank before the longer bank is ready;
+      // the wrap must still crossfade rather than clicking on a steady tone.
+      rev.Reset(rate);
+      rc.delay = {100., 0., 20000., 0., 100.};
+      const int warm = static_cast<int>(.25 * rate), grown = static_cast<int>(.4 * rate);
+      std::vector<double> tl(warm + grown), tr(warm + grown);
+      for (int i = 0; i < warm + grown; ++i)
+        tl[i] = tr[i] = .35 * std::cos(2. * grid_fx::pi * 445. * i / rate);
+      rev.Process(tl.data(), tr.data(), warm, SlotEffect::ReverseDelay, rc);
+      rc.delay[0] = 300.;
+      for (int pos = warm; pos < warm + grown; pos += 128)
+      {
+        const int n = std::min(128, warm + grown - pos);
+        rev.Process(tl.data() + pos, tr.data() + pos, n, SlotEffect::ReverseDelay, rc);
+      }
+      double maxJump = 0.;
+      for (int i = warm + 1; i < warm + grown; ++i)
+        maxJump = std::max(maxJump, std::abs(tl[i] - tl[i - 1]));
+      assert(maxJump < .05);
     }
   }
   UtilityControls c;

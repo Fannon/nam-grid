@@ -217,6 +217,26 @@ void TestReverbDelayCandidates()
       minRms = std::min(minRms, rms); maxRms = std::max(maxRms, rms);
     }
     assert(maxRms > .05 && minRms / maxRms > .92);
+
+    // With modulation off, large base Time jumps must crossfade taps rather than
+    // sweeping the read head across the buffer into a pitch burst.
+    delay.Reset(rate);
+    c.delay = {50., 0., 18000., 0., 100.}; c.delayMotion = 0.; c.delayDiffusion = 0.;
+    const int warm = static_cast<int>(.25 * rate), after = static_cast<int>(.3 * rate);
+    std::vector<double> jl(warm + after), jr(warm + after);
+    for (int i = 0; i < warm + after; ++i)
+      jl[i] = jr[i] = .35 * std::sin(2. * grid_fx::pi * 440. * i / rate);
+    delay.Process(jl.data(), jr.data(), warm, c);
+    c.delay[0] = 2000.;
+    for (int pos = warm; pos < warm + after; pos += 128)
+    {
+      const int n = std::min(128, warm + after - pos);
+      delay.Process(jl.data() + pos, jr.data() + pos, n, c);
+    }
+    double maxJump = 0.;
+    for (int i = warm + 1; i < warm + after; ++i)
+      maxJump = std::max(maxJump, std::abs(jl[i] - jl[i - 1]));
+    assert(maxJump < .05);
   }
   // Galactic3 must scale its bez clock, predelay, drift and lowpass consistently across
   // 44.1..192 kHz so wet level and tail decay stay matched at high sample rates.

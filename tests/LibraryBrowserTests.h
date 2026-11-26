@@ -384,6 +384,42 @@ inline void TestLibraryBrowser(const std::filesystem::path& fixtureRoot)
   while (!(result = worker.TakeResult()) && std::chrono::steady_clock::now() < deadline)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   assert(result && Browse(*result, FileKind::RigPreset, "").size() == 2);
+  // Large synthetic library sanity + timing coverage for empty-query Browse,
+  // field-prefixed Search, and BrowserFolders.
+  {
+    Snapshot large;
+    large.captures.reserve(2000);
+    for (int i = 0; i < 2000; ++i)
+    {
+      Capture entry;
+      const int pack = i % 20, sub = (i / 20) % 10;
+      entry.source = "synth";
+      entry.relative = std::filesystem::path("Pack_" + std::to_string(pack)) / ("Sub_" + std::to_string(sub))
+                       / ("MAR JTM45 - Clean - BAL SM57 Take_" + std::to_string(i) + ".nam");
+      entry.path = entry.source / entry.relative;
+      entry.maker = (i % 5 == 0) ? "Marshall" : "Fender";
+      entry.model = (i % 7 == 0) ? "Plexi 100" : "Twin Reverb";
+      entry.gear = (i % 3 == 0) ? Gear::AmpHead : Gear::AmpCab;
+      entry.hints = {{"vendor", entry.maker}, {"eq", "Balanced"}};
+      large.captures.push_back(std::move(entry));
+    }
+    const auto t0 = std::chrono::steady_clock::now();
+    const auto allMatches = Browse(large, FileKind::NAM, "");
+    const auto t1 = std::chrono::steady_clock::now();
+    const auto queryMatches = Browse(large, FileKind::NAM, "maker:marshall model:plexi gear:\"amp head\" -path:pack_19");
+    const auto t2 = std::chrono::steady_clock::now();
+    const auto tree = BrowserFolders(large, FileKind::NAM, {"synth"});
+    const auto t3 = std::chrono::steady_clock::now();
+    assert(allMatches.size() == 2000);
+    assert(!queryMatches.empty() && queryMatches.size() < 200);
+    assert(tree.size() == 2 + 20 + 200);
+    const auto ms = [](auto a, auto b) {
+      return std::chrono::duration<double, std::milli>(b - a).count();
+    };
+    std::cout << "Synthetic 2000-entry browser timings: emptyBrowse=" << ms(t0, t1)
+              << " ms, queryBrowse=" << ms(t1, t2)
+              << " ms, folders=" << ms(t2, t3) << " ms\n";
+  }
   // Only this test's fixed child directory is removed.
   assert(root.parent_path() == fixtureRoot && root.filename() == "browser-fixtures");
   std::filesystem::remove_all(root);

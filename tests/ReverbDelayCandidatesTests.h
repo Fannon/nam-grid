@@ -146,9 +146,9 @@ void TestReverbDelayCandidates()
   // otherwise a6ZBR (length 121, odd) writes only odd indices and reads only zero
   // even indices, draining the cross-coupled L/R reverb tail by >5 dB/s.
   {
-    airwindows_reverb::kGuitarHall2::Core hall;
-    hall.Reset(44100.);
-    hall.Set({.9, .5, 1., 0., 0., 1.});
+    auto hall = std::make_unique<airwindows_reverb::kGuitarHall2::Core>();
+    hall->Reset(44100.);
+    hall->Set({.9, .5, 1., 0., 0., 1.});
     uint32_t seed = 0x12345678u;
     double leftTail = 0., rightTail = 0.;
     for (int i = 0; i < 88200; ++i)
@@ -156,7 +156,7 @@ void TestReverbDelayCandidates()
       seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
       const double s = i < 4096 ? (static_cast<double>(seed) / 4294967296. - .5) * .5 : 0.;
       double l = s, r = s;
-      hall.Tick(l, r);
+      hall->Tick(l, r);
       if (i >= 44100) { leftTail += l * l; rightTail += r * r; }
     }
     assert(leftTail > 12. && rightTail > 12. && std::abs(rightTail / leftTail - 1.) < .05);
@@ -171,29 +171,31 @@ void TestReverbDelayCandidates()
       return best;
     };
     // AirPlate low-cut crossing 0.01 Hz on DC input must not inject a full-scale step.
-    SlotAirReverb airA, airB; airA.Reset(rate, SlotEffect::AirPlate); airB.Reset(rate, SlotEffect::AirPlate);
+    auto airA = std::make_unique<SlotAirReverb>(), airB = std::make_unique<SlotAirReverb>();
+    airA->Reset(rate, SlotEffect::AirPlate); airB->Reset(rate, SlotEffect::AirPlate);
     auto ac = CandidateControls(SlotEffect::AirPlate);
     ac.airPlate = {100., 20., 100., 0., 100., 0., 0.}; // lowCut=0, predelay=0, mix=100%
     std::vector<double> la(static_cast<int>(rate * .2), .3), ra = la, lb = la, rb = la;
-    airA.Process(la.data(), ra.data(), static_cast<int>(la.size()), ac);
-    airB.Process(lb.data(), rb.data(), static_cast<int>(lb.size()), ac);
+    airA->Process(la.data(), ra.data(), static_cast<int>(la.size()), ac);
+    airB->Process(lb.data(), rb.data(), static_cast<int>(lb.size()), ac);
     std::vector<double> la2(2048, .3), ra2 = la2, lb2 = la2, rb2 = la2;
-    airA.Process(la2.data(), ra2.data(), static_cast<int>(la2.size()), ac);
+    airA->Process(la2.data(), ra2.data(), static_cast<int>(la2.size()), ac);
     ac.airPlate[5] = .02; // just above old .01 Hz threshold
-    airB.Process(lb2.data(), rb2.data(), static_cast<int>(lb2.size()), ac);
+    airB->Process(lb2.data(), rb2.data(), static_cast<int>(lb2.size()), ac);
     assert(maxDiffStep(lb2, la2) < .002);
 
     // RoomReverb low-cut crossing 0.01 Hz on DC input must not inject a full-scale step.
-    SlotReverb revA, revB; revA.Reset(rate, SlotEffect::RoomReverb); revB.Reset(rate, SlotEffect::RoomReverb);
+    auto revA = std::make_unique<SlotReverb>(), revB = std::make_unique<SlotReverb>();
+    revA->Reset(rate, SlotEffect::RoomReverb); revB->Reset(rate, SlotEffect::RoomReverb);
     auto rc = CandidateControls(SlotEffect::RoomReverb);
     rc.reverb = {1., 100., 12000., 0., 100.}; rc.reverbHighPass = 0.;
     std::vector<double> rla(static_cast<int>(rate * .2), .3), rra = rla, rlb = rla, rrb = rla;
-    revA.Process(rla.data(), rra.data(), static_cast<int>(rla.size()), rc);
-    revB.Process(rlb.data(), rrb.data(), static_cast<int>(rlb.size()), rc);
+    revA->Process(rla.data(), rra.data(), static_cast<int>(rla.size()), rc);
+    revB->Process(rlb.data(), rrb.data(), static_cast<int>(rlb.size()), rc);
     std::vector<double> rla2(2048, .3), rra2 = rla2, rlb2 = rla2, rrb2 = rla2;
-    revA.Process(rla2.data(), rra2.data(), static_cast<int>(rla2.size()), rc);
+    revA->Process(rla2.data(), rra2.data(), static_cast<int>(rla2.size()), rc);
     rc.reverbHighPass = .02;
-    revB.Process(rlb2.data(), rrb2.data(), static_cast<int>(rlb2.size()), rc);
+    revB->Process(rlb2.data(), rrb2.data(), static_cast<int>(rlb2.size()), rc);
     assert(maxDiffStep(rlb2, rla2) < .002);
   }
   // DiffusedDelay modulation must sweep continuously (not via MovingDelay's 40 ms crossfades,
@@ -219,10 +221,10 @@ void TestReverbDelayCandidates()
   // Galactic3 must scale its bez clock, predelay, drift and lowpass consistently across
   // 44.1..192 kHz so wet level and tail decay stay matched at high sample rates.
   {
-    auto measure = [](double r) {
-      airwindows_reverb::Galactic3::Core core;
-      core.Reset(r);
-      core.Set({.5, .7, .5, 1., .5, 1.});
+    auto core = std::make_unique<airwindows_reverb::Galactic3::Core>();
+    auto measure = [&](double r) {
+      core->Reset(r);
+      core->Set({.5, .7, .5, 1., .5, 1.});
       const int total = static_cast<int>(r * 2.);
       const int burst = static_cast<int>(r * .1);
       const int e0 = static_cast<int>(r * .3), e1 = static_cast<int>(r * .8);
@@ -232,7 +234,7 @@ void TestReverbDelayCandidates()
       {
         double l = i < burst ? .2 * std::sin(2. * grid_fx::pi * 330. * i / r) : 0.;
         double ri = l;
-        core.Tick(l, ri);
+        core->Tick(l, ri);
         const double p = .5 * (l * l + ri * ri);
         if (i >= e0 && i < e1) early += p;
         if (i >= l0 && i < l1) late += p;

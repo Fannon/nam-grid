@@ -104,7 +104,7 @@ public:
   {
     mMixLaw.Reset(rate);
     mRate = rate; mControls.Reset(rate); mExtras.Reset(rate); mDiffusion.Reset(rate);
-    for (auto& line : mLine) line.Reset(rate, 8.11);
+    for (auto& line : mLine) line.Reset(static_cast<int>(std::ceil(rate * 8.11)) + 8);
     for (int i = 0; i < 12; ++i)
       mDiffusers[i].Reset(rate, .0011 + (i % 4) * .00073 + (i / 4) * .0013,
                          .0017 + (3 - i % 4) * .00091 + (i / 4) * .0017,
@@ -147,7 +147,7 @@ public:
   }
 private:
   grid_fx::MixLaw mMixLaw;
-  std::array<grid_reverb::MovingDelay, 2> mLine;
+  std::array<grid_fx::DelayLine, 2> mLine;
   std::array<grid_reverb::StereoAllpass, 12> mDiffusers;
   grid_fx::SmoothControls<5> mControls;
   grid_fx::SmoothControls<2> mExtras;

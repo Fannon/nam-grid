@@ -44,10 +44,12 @@ public:
       for (int ch = 0; ch < 2; ++ch)
       {
         const double low = grid_reverb::LowPass(input[ch], mInputLow[ch], mLowCoefficient);
-        input[ch] -= extra[1] > .01 ? low : 0.;
-        const double delayed = mPredelay[ch].Read(std::max(1., v[3] * .001 * mRate));
+        input[ch] -= std::clamp(extra[1], 0., 1.) * low;
+        const double delaySamples = v[3] * .001 * mRate;
+        const double delayed = mPredelay[ch].Read(std::max(1., delaySamples));
         mPredelay[ch].Push(input[ch]);
-        if (v[3] >= .001) input[ch] = delayed;
+        if (delaySamples < 1.) input[ch] += delaySamples * (delayed - input[ch]);
+        else input[ch] = delayed;
       }
       auto wet = mEffect == SlotEffect::PlateReverb ? mPlate.Tick(input)
                  : mEffect == SlotEffect::CloudReverb ? mCloud.Tick(input) : mFDN.Tick(input);

@@ -281,8 +281,9 @@ public:
                     : mFactor == 4 ? mOversample4->Tick(samples[i], shape) : shape(samples[i]);
       const double cutoff = mPostCut.Tick()[0];
       const double pole = mPostPole(-6.283185307179586 * std::min(cutoff, .45 * mRate) / mRate, [](double x) { return std::exp(x); });
-      mPostLow = shaped + pole * (mPostLow - shaped);
-      if (cutoff < 20000.) shaped = mPostLow;
+      mPostLow = grid_fx::Flush(shaped + pole * (mPostLow - shaped));
+      const double cutBlend = std::clamp((20000. - cutoff) / 1000., 0., 1.);
+      shaped += cutBlend * (mPostLow - shaped);
       mDC = shaped + mDCCoefficient * (mDC - shaped);
       if (std::abs(mDC) < 1.e-30)
         mDC = 0.;

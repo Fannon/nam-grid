@@ -119,7 +119,8 @@ public:
     bool moving = false;
     for (size_t j = 0; j < N; ++j)
     {
-      const double next = mTarget[j] + mCoefficient * (mValue[j] - mTarget[j]);
+      double next = mTarget[j] + mCoefficient * (mValue[j] - mTarget[j]);
+      if (mTarget[j] == 0. && std::abs(next) < 1.e-12) next = 0.;
       if constexpr (N > 3) moving |= next != mValue[j];
       mValue[j] = next;
     }
@@ -426,7 +427,7 @@ public:
       const auto& c = mControls.Tick();
       const auto& extension = mExtension.Tick();
       const double x = samples[i];
-      if (mEnv < .001) mRise = 0.;
+      if (mEnv < .001) mRise = std::max(0., mRise - 1. / (.02 * mRate));
       else mRise = extension[2] <= 0. ? 1. : std::min(1., mRise + 1. / (extension[2] * .001 * mRate));
       const double depth = c[1] * .01 * (effect == SlotEffect::Vibrato && extension[2] > 0. ? mRise : 1.), character = c[3] * .01, mix = c[4] * .01;
       const double peak = std::abs(x);

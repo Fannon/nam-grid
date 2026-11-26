@@ -346,8 +346,8 @@ public:
         if (mLength)
         {
           wet[ch] = read(ch, mPosition);
-          // Fade to the next loop's beginning before wrapping.
-          if (mPosition >= mLength - fade)
+          // Fade to the next loop's beginning before wrapping (ReverseDelay swaps banks via mTransition).
+          if (!reverse && mPosition >= mLength - fade)
           {
             const double a = static_cast<double>(mPosition - (mLength - fade)) / fade;
             wet[ch] = wet[ch] * (1. - a) + read(ch, mPosition - (mLength - fade)) * a;

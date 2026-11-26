@@ -107,6 +107,8 @@ public:
     mChanged = true;
     mReduction = 0.;
     mCleanPeak = 0.;
+    mMix = 0.;
+    mFirst = true;
     mGate.Reset();
     constexpr double q = 4.;
     const double step = std::log(4000.) / (bands - 1);
@@ -180,6 +182,7 @@ public:
     const double onsetAttack = onsetAmount > 0. ? std::pow(attack, 1. + 3. * onsetAmount) : attack;
     const double release = std::exp(-1. / (.001 * std::clamp(c.release, 20., 500.) * mRate));
     const double mixTarget = mProfile.valid && !c.learn && c.reduction > 0. ? std::clamp(c.mix, 0., 100.) * .01 : 0.;
+    if (mFirst && frames > 0) { mMix = mixTarget; mFirst = false; }
     const double mixStep = 1. / (.005 * mRate);
     const auto gate = final_gate::Prepare(c.gateThreshold, c.gateRelease, mRate, !c.learn);
     double learnedPower = 0.;
@@ -515,6 +518,6 @@ private:
   double mRate = 48000., mMix = 1., mReduction = 0., mSynthesis = 1.;
   double mCleanPeak = 0.;
   final_gate::Gate mGate;
-  bool mLearning = false, mChanged = true;
+  bool mLearning = false, mChanged = true, mFirst = true;
 };
 } // namespace noise_print

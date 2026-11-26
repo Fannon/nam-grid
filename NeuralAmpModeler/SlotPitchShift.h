@@ -39,12 +39,21 @@ public:
       out[ch] = mFade >= 1. ? a : a + blend * (mLine[ch].Read(mNext) - a);
     }
     const double step = 1. - ratio;
-    mDelay += step;
+    const double baseFadeStep = 1. / (fadeSeconds * mRate);
     if (mFade < 1.)
     {
-      mNext += step; mFade = std::min(1., mFade + 1. / (fadeSeconds * mRate));
+      // On an abrupt upward pitch jump, finish the outgoing fade smoothly before
+      // mDelay hits the 1-sample floor instead of clamping mid-fade.
+      const double fadeStep = step < 0.
+        ? std::max(baseFadeStep, (1. - mFade) * (-step) / std::max(1., mDelay - 1.))
+        : baseFadeStep;
+      mDelay = std::max(1., mDelay + step);
+      mNext = std::max(1., mNext + step);
+      mFade = std::min(1., mFade + fadeStep);
       if (mFade >= 1.) mDelay = mNext;
     }
+    else
+      mDelay = std::max(1., mDelay + step);
     return out;
   }
 private:

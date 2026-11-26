@@ -164,6 +164,23 @@ void TestRoadmapEffects()
     assert(held > .01);
     capture.Reset(rate); l.fill(0.); r.fill(0.); capture.Process(l.data(), r.data(), 512, SlotEffect::Freeze, c);
     for (double x : l) assert(x == 0.);
+    // ReverseDelay switches banks via mTransition and must not also loop-wrap fade
+    // the end of a reversed chunk back into its own beginning.
+    if (rate == 48000.)
+    {
+      grid_roadmap::Capture rev; rev.Reset(rate);
+      UtilityControls rc; rc.delay = {50., 0., 20000., 0., 100.}; rc.extra.reverseFeedback = 0.;
+      const int win = static_cast<int>(.05 * rate);
+      std::vector<double> rl(win * 2), rr(win * 2);
+      for (int i = 0; i < win; ++i) rl[i] = rr[i] = .5 * static_cast<double>(i) / win;
+      rev.Process(rl.data(), rr.data(), static_cast<int>(rl.size()), SlotEffect::ReverseDelay, rc);
+      // During the final 3 ms of the second window, the reversed ramp decays toward 0;
+      // a stray loop-wrap crossfade pulls it back up toward ~0.48.
+      double endMax = 0.;
+      for (int i = win * 2 - static_cast<int>(.003 * rate); i < win * 2; ++i)
+        endMax = std::max(endMax, std::abs(rl[i]));
+      assert(endMax < .08);
+    }
   }
   UtilityControls c;
   std::array<double, 512> x{};

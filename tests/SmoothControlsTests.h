@@ -51,5 +51,16 @@ inline void TestSettledSmoothing()
 {
   CheckSettledSmoothing<3>(uModRate, false);
   CheckSettledSmoothing<9>(uPedalStyle, true);
-  std::cout << "Settled smoothing: original recurrence, target changes, reset and allocations passed\n";
+  // Zero targets must snap cleanly to exact 0 instead of decaying through subnormals for seconds.
+  for (double rate : {44100., 48000., 96000.})
+  {
+    grid_fx::SmoothControls<5> controls;
+    controls.Reset(rate);
+    controls.Target({1., 100., 0., 0., 100.}, uModRate);
+    (void)controls.Tick();
+    controls.Target({1., 0., 0., 0., 0.}, uModRate);
+    for (int i = 0; i < static_cast<int>(rate); ++i) (void)controls.Tick();
+    assert(controls.Value(1) == 0. && controls.Value(4) == 0.);
+  }
+  std::cout << "Settled smoothing: original recurrence, target changes, zero snap, reset and allocations passed\n";
 }

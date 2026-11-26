@@ -155,6 +155,44 @@ void TestTimeEffects()
     }
     assert(energy[1] > energy[0] * 3.);
   }
+  // TubeBoost High Cut at 20 kHz must crossfade smoothly instead of hard-stepping at < 20000 Hz.
+  {
+    SlotTubeBoost tube; tube.Reset(48000.);
+    UtilityControls c; c.tube = {0., 0., 100., 0.}; c.extra.tubeHighCut = 20000.;
+    const int settle = 2400, check = 256;
+    std::vector<double> sig(settle + check), dry(settle + check);
+    for (size_t i = 0; i < sig.size(); ++i) sig[i] = dry[i] = .25 * std::sin(2. * grid_fx::pi * 100. * i / 48000.);
+    tube.Process(sig.data(), dry.data(), settle, c, {});
+    double settledDiff = 0.;
+    for (int i = settle - 256; i < settle; ++i)
+      settledDiff = std::max(settledDiff, std::abs(sig[i] - 2. * sig[i - 1] + sig[i - 2]));
+    c.extra.tubeHighCut = 19999.;
+    tube.Process(sig.data() + settle, dry.data() + settle, check, c, {});
+    double jumpDiff = 0.;
+    for (int i = settle; i < settle + check; ++i)
+      jumpDiff = std::max(jumpDiff, std::abs(sig[i] - 2. * sig[i - 1] + sig[i - 2]));
+    assert(jumpDiff < 1.5 * settledDiff);
+  }
+  // Vibrato Rise must decay smoothly when signal falls below -60 dBFS, not snap mRise to 0
+  // and jump the delay read pointer mid-tail.
+  {
+    SlotModulation vib; vib.Reset(48000.);
+    UtilityControls c; c.modulation = {5., 100., 0., 0., 100.}; c.extra.vibratoRise = 50.;
+    const int hold = 9600, tail = 48000;
+    std::vector<double> buf(hold + tail);
+    for (int i = 0; i < hold + tail; ++i)
+    {
+      const double amp = i < hold ? .05 : .0009;
+      buf[i] = amp * std::sin(2. * grid_fx::pi * 440. * i / 48000.);
+    }
+    vib.Process(buf.data(), static_cast<int>(buf.size()), SlotEffect::Vibrato, c);
+    // Once envelope settles below .001 while the -61 dBFS tail still rings,
+    // the 2nd difference must stay near the smooth 440 Hz curvature (~3e-6), not spike (~1e-3).
+    double maxSecond = 0.;
+    for (int i = hold + 9600; i < hold + tail; ++i)
+      maxSecond = std::max(maxSecond, std::abs(buf[i] - 2. * buf[i - 1] + buf[i - 2]));
+    assert(maxSecond < 5.e-5);
+  }
   // Tube bias adds even harmonics; the neutral-bias shaper remains odd. Dry
   // blend and DC removal are checked independently of the waveshaper formula.
   for (double rate : {44100., 48000., 88200., 96000., 192000.})

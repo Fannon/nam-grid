@@ -733,7 +733,22 @@ void NeuralAmpModeler::OnReset()
   for (auto& buffer : mOutgoingBuffers)
     buffer.assign(maxBlockSize, 0.);
   for (size_t i = 0; i < FixedNAMGrid::kSlots; ++i)
+  {
     mRequestedLatencies[i] = mGrids[mEditGrid].stages[i].Latency();
+    if (mSlotEffects[i] == SlotEffect::CabinetIR
+        && (!mSlotIRPreview[i].valid || (!mSlotIRPreview[i].longIR && mSlotIRPreview[i].hostRate != sampleRate)))
+    {
+      AdaptiveIR::IRData left;
+      std::vector<float> right;
+      bool longIR = false;
+      if (mGrids[mEditGrid].stages[i].GetIRSourceStopped(left, right, longIR))
+      {
+        mSlotIRPreview[i] = grid_response_fft::ComputeIRPreview(
+          left.mRawAudio, right, left.mRawAudioSampleRate, sampleRate, longIR, AdaptiveIR::maximumSeconds);
+        SendControlMsgFromDelegate(kCtrlTagGridSlotBase + static_cast<int>(i), kMsgTagLoadedModel);
+      }
+    }
+  }
   mHighPass[mEditGrid].Prepare(sampleRate, kNumChannelsInternal, maxBlockSize);
   _UpdateLatency();
 }
@@ -1043,6 +1058,14 @@ noise_print::Profile NeuralAmpModeler::GetNoiseProfile(size_t slot) const
   if (slot >= FixedNAMGrid::kSlots || mSlotEffects[slot] != SlotEffect::NoisePrint)
     return {};
   return mGrids[mEditGrid].stages[slot].GetNoiseProfile(mNoiseEpochs[slot], mNoiseProfiles[slot]);
+}
+
+grid_response_fft::IRPreview NeuralAmpModeler::GetSlotIRPreview(size_t slot) const
+{
+  const auto guard = _LockControls();
+  if (slot >= FixedNAMGrid::kSlots || mSlotEffects[slot] != SlotEffect::CabinetIR)
+    return {};
+  return mSlotIRPreview[slot];
 }
 
 SlotConfig NeuralAmpModeler::_GetSlotConfig(size_t slot) const
@@ -2557,6 +2580,7 @@ void NeuralAmpModeler::_CommitSlot(size_t slot, PreparedSlot prepared, bool upda
   mSequentialTailSeconds.store(std::min(60., 2. + rowTails[0] + rowTails[1] + rowTails[2] + rowTails[3]));
 
   mSlotInfo[slot] = info;
+  mSlotIRPreview[slot] = config.effect == SlotEffect::CabinetIR ? prepared.irPreview : grid_response_fft::IRPreview{};
   mSlotGear[slot] = config.effect == SlotEffect::CabinetIR ? nam_library::Gear::Cabinet : nam_library::Gear::Unknown;
   if (config.effect == SlotEffect::NAM && !config.path.empty())
   {

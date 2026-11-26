@@ -20,15 +20,18 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
     return (capture.kind == FileKind::NAM || capture.kind == FileKind::IR)
            && filter.Matches(capture) && (fileType < 0 || capture.isIR == (fileType == 1));
   };
+  std::vector<size_t> matched;
+  matched.reserve(library.captures.size());
+  for (size_t i = 0; i < library.captures.size(); ++i)
+    if (matches(library.captures[i])) matched.push_back(i);
   // Typed categories already identify the collection. Skip shared folder levels
   // until the first branch (or a file), retaining the snapshot's original tags.
   std::filesystem::path common;
   bool first = true;
   if (fileType >= 0)
-    for (const auto& capture : library.captures)
+    for (const size_t i : matched)
     {
-      if (!matches(capture)) continue;
-      const auto parent = capture.relative.parent_path();
+      const auto parent = library.captures[i].relative.parent_path();
       if (first) { common = parent; first = false; }
       else
       {
@@ -43,18 +46,18 @@ inline void FillMenu(iplug::igraphics::IPopupMenu& menu, const Snapshot& library
   // Sort path components once, then create every directory before adding files.
   // This keeps folders first at every level without quadratic sorted insertion.
   std::vector<std::pair<std::vector<std::string>, size_t>> order;
-  for (size_t i = 0; i < library.captures.size(); ++i)
-    if (matches(library.captures[i]))
+  order.reserve(matched.size());
+  for (const size_t i : matched)
+  {
+    std::vector<std::string> key;
+    for (const auto& part : library.captures[i].relative)
     {
-      std::vector<std::string> key;
-      for (const auto& part : library.captures[i].relative)
-      {
-        auto label = PathText(part);
-        for (auto& ch : label) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-        key.push_back(std::move(label));
-      }
-      order.emplace_back(std::move(key), i);
+      auto label = PathText(part);
+      for (auto& ch : label) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+      key.push_back(std::move(label));
     }
+    order.emplace_back(std::move(key), i);
+  }
   std::sort(order.begin(), order.end());
   std::map<std::filesystem::path, Menu*> directories{{{}, &menu}};
   std::vector<std::pair<Menu*, size_t>> leaves;

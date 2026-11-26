@@ -215,6 +215,7 @@ public:
   std::string GetSlotPath(size_t slot) const;
   bool IsSlotLoaded(size_t slot) const;
   NAMModelInfo GetSlotModelInfo(size_t slot) const;
+  grid_response_fft::IRPreview GetSlotIRPreview(size_t slot) const;
   SlotEffect GetSlotEffect(size_t slot) const;
   nam_library::Gear GetSlotGear(size_t slot) const;
   bool CanToggleSlotQuality(size_t slot) const;
@@ -391,6 +392,7 @@ private:
   std::array<WDL_String, FixedNAMGrid::kSlots> mSlotPaths;
   std::array<std::string, FixedNAMGrid::kSlots> mSlotHashes;
   std::array<NAMModelInfo, FixedNAMGrid::kSlots> mSlotInfo;
+  std::array<grid_response_fft::IRPreview, FixedNAMGrid::kSlots> mSlotIRPreview{};
   std::array<SlotEffect, FixedNAMGrid::kSlots> mSlotEffects{};
   std::array<noise_print::Profile, FixedNAMGrid::kSlots> mNoiseProfiles{};
   std::array<uint64_t, FixedNAMGrid::kSlots> mNoiseEpochs{};

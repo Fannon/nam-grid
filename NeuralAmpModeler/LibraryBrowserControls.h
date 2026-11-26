@@ -343,20 +343,26 @@ public:
   {
     if (!IsHidden())
     {
-      // Rows/details are drawn by this composite parent, while the live editor
-      // updates later in the control stack. Keep the whole modal page coherent.
-      SetDirty(false);
-      if (auto result = mContextWorker.TakeResult()) { mContextLibrary = result; mPendingSelection = false; mScanLibrary.reset(); }
+      const bool scanning = PLUG()->IsLibraryScanning();
+      if (scanning != mLastScanning) { mLastScanning = scanning; SetDirty(false); }
+      if (auto result = mContextWorker.TakeResult()) { mContextLibrary = result; mPendingSelection = false; mScanLibrary.reset(); SetDirty(false); }
       const auto snapshot = PLUG()->GetCaptureLibrary();
       const auto roots = Roots();
       if (snapshot != mScanLibrary || roots != mRoots) Rebuild();
       if (mPreview) PreviewSelected();
-      if (const auto* selected = Selected())
-        mDetailsTitle->SetTooltip((selected->kind == nam_library::FileKind::Module
-          ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
-          : nam_library::HintText(*selected) + "\n" + nam_library::PathText(selected->path)).c_str());
-      Disabled(mDelete, !Selected() || Selected()->kind != nam_library::FileKind::RigPreset);
-      Disabled(mApply, !Selected());
+      const auto* selected = Selected();
+      const std::string tip = selected
+        ? (selected->kind == nam_library::FileKind::Module
+            ? selected->name + " New FX start with musical defaults; the current FX keeps its edits."
+            : nam_library::HintText(*selected) + "\n" + nam_library::PathText(selected->path))
+        : std::string{};
+      if (tip != mLastDetailsTooltip)
+      {
+        mLastDetailsTooltip = tip;
+        if (selected) mDetailsTitle->SetTooltip(tip.c_str());
+      }
+      Disabled(mDelete, !selected || selected->kind != nam_library::FileKind::RigPreset);
+      Disabled(mApply, !selected);
     }
     return IContainerBase::IsDirty();
   }
@@ -401,17 +407,6 @@ public:
       if (!key.empty()) DrawBrowserStar(g, kStarCenter, y + kRowHeight * .5f, 8.f, PLUG()->GetLibraryStar(key));
       FittedText(g, Text(14.f, selected ? accent : text), nam_library::PathText(file.path.stem()).c_str(), IRECT(kNameL, y, module ? kListR - 130 : kNameR, y + kRowHeight));
       if (module) FittedText(g, Text(12.f, muted, EAlign::Far), nam_library::PathText(file.relative.parent_path()).c_str(), IRECT(kListR - 122, y, kNameR, y + kRowHeight));
-    }
-    for (int row = 0; row < mResultHints.size(); ++row)
-    {
-      const bool shown = row < Rows() && View().scroll + row < mResults.size();
-      mResultHints[row]->Hide(!shown);
-      if (shown)
-      {
-        const float y = kListTop + row * kRowHeight;
-        mResultHints[row]->SetTargetAndDrawRECTs(IRECT(kNameL, y, kNameR, y + kRowHeight));
-        mResultHints[row]->SetTooltip(nam_library::PathText(mLibrary->captures[mResults[View().scroll + row]].path.filename()).c_str());
-      }
     }
     Scrollbar(g, 225, FolderBottom(), View().folderScroll, mFolders.size(), FolderRows());
     Scrollbar(g, kListScrollL, ListBottom(), View().scroll, mResults.size(), Rows());
@@ -496,7 +491,9 @@ public:
     const bool folders = x < kListL;
     auto& scroll = folders ? View().folderScroll : View().scroll;
     const int maximum = std::max(0, static_cast<int>(folders ? mFolders.size() : mResults.size()) - (folders ? FolderRows() : Rows()));
-    scroll = std::clamp(scroll + (delta < 0 ? 3 : -3), 0, maximum); SetDirty(false);
+    scroll = std::clamp(scroll + (delta < 0 ? 3 : -3), 0, maximum);
+    if (!folders) SyncResultHints();
+    SetDirty(false);
   }
   bool OnKeyDown(float, float, const IKeyPress& key) override { return HandleKey(key); }
   bool HandleKey(const IKeyPress& key)
@@ -515,7 +512,7 @@ public:
         mSelectedRow = std::clamp(index, 0, static_cast<int>(mResults.size()) - 1);
         View().selected = nam_library::PathText(mLibrary->captures[mResults[mSelectedRow]].path);
       }
-      RevealSelection(); SetDirty(false);
+      RevealSelection(); SyncResultHints(); SetDirty(false);
     }
     else mSearch->StartTyping(key);
     return true; // Modal page: never pass keys to controls beneath it.
@@ -571,6 +568,26 @@ private:
     mDelete->SetTargetAndDrawRECTs(IRECT(kDetailsL + 8, top, kDetailsL + 78, bottom));
     mCancel->SetTargetAndDrawRECTs(preset ? IRECT(kDetailsL + 86, top, grid_layout::width - 112, bottom) : IRECT(kDetailsL + 8, top, grid_layout::width - 152, bottom));
     mApply->SetTargetAndDrawRECTs(preset ? IRECT(grid_layout::width - 104, top, grid_layout::width - 32, bottom) : IRECT(grid_layout::width - 144, top, grid_layout::width - 32, bottom));
+    SyncResultHints();
+  }
+  void SyncResultHints()
+  {
+    if (!mLibrary) return;
+    const int rows = Rows();
+    const int scroll = View().scroll;
+    for (int row = 0; row < static_cast<int>(mResultHints.size()); ++row)
+    {
+      const bool shown = row < rows && scroll + row < static_cast<int>(mResults.size());
+      if (mResultHints[row]->IsHidden() == shown) mResultHints[row]->Hide(!shown);
+      if (shown)
+      {
+        const float y = kListTop + row * kRowHeight;
+        const IRECT bounds(kNameL, y, kNameR, y + kRowHeight);
+        if (mResultHints[row]->GetRECT() != bounds) mResultHints[row]->SetTargetAndDrawRECTs(bounds);
+        const auto tip = nam_library::PathText(mLibrary->captures[mResults[scroll + row]].path.filename());
+        if (tip != mResultHints[row]->GetTooltip()) mResultHints[row]->SetTooltip(tip.c_str());
+      }
+    }
   }
   struct State { std::string query, selected; std::filesystem::path folder; int scroll = 0, folderScroll = 0; bool starred = false; };
   State& View() { return mViews[static_cast<int>(mKind)]; }
@@ -647,7 +664,9 @@ private:
         mCombined = combined;
       }
     }
+    const auto previousLibrary = mLibrary.get();
     mLibrary = mKind == nam_library::FileKind::Module ? mModules : mCombined;
+    if (mLibrary.get() != previousLibrary) ++mDetailsCacheGeneration;
     mRoots = roots;
     if (refreshFolders)
     {
@@ -691,6 +710,7 @@ private:
       cancel->SetTooltip(mPreview ? "Restore the original module and parameters, then close (Escape)." : "Close the browser (Escape).");
     }
     RevealSelection();
+    SyncResultHints();
     SetDirty(false);
   }
   int SelectedRow() const { return mSelectedRow; }
@@ -778,6 +798,7 @@ private:
     const auto effect = file->kind == nam_library::FileKind::Module ? static_cast<SlotEffect>(file->module)
       : file->kind == nam_library::FileKind::IR ? SlotEffect::CabinetIR : SlotEffect::NAM;
     mStatus = PLUG()->PreviewSlot(effect, file->kind == nam_library::FileKind::Module ? "" : nam_library::PathText(file->path));
+    SetDirty(false);
   }
   void ChooseFile()
   {
@@ -835,101 +856,110 @@ private:
     // Content flows from the header down; the actions stay pinned to the footer.
     const float bottom = FooterTop() - (mStatus.empty() ? 6.f : 48.f);
     const float scrollX = mApply->GetRECT().R - 7.f, right = scrollX - 8.f;
-    const auto kind = file->kind == nam_library::FileKind::NAM ? nam_library::GearName(file->gear)
-      : file->kind == nam_library::FileKind::IR ? "Impulse response" : file->kind == nam_library::FileKind::Module ? "Module" : "Rig preset";
-    struct Row { std::string label, key; std::vector<std::string> values; bool secondary = false; };
-    std::vector<Row> rows{{"Type", file->kind == nam_library::FileKind::NAM ? "gear" : "", {kind}}};
-    const auto useful = [](const std::string& value) {
-      const auto lower = nam_library::SearchText(value);
-      return !value.empty() && lower != "misc" && lower != "unknown" && lower != "t3k-unset";
-    };
-    const auto add = [&](const std::string& key, const std::string& fallback = "") {
-      auto values = nam_library::DetailValues(*file, key);
-      if (values.empty() && useful(fallback)) values.push_back(fallback);
-      if (!values.empty()) rows.push_back({nam_library::HintLabel(key), key, values});
-    };
-    if (file->kind == nam_library::FileKind::Module)
-    {
-      rows.push_back({"Sound", "", {file->name}});
-      rows.push_back({"Controls", "", {ModuleParameters(static_cast<SlotEffect>(file->module))}});
-    }
-    else
-    {
-    add("vendor", file->maker); add("model", file->model); add("creator");
-    for (const auto& key : {"gain", "eq", "channel", "speaker", "mic/cab", "chain", "settings", "collection", "platform", "category"}) add(key);
-    // Type already describes the format when NAM metadata agrees.
-    if (file->gear != nam_library::Gear::AmpCab && file->gear != nam_library::Gear::AmpHead) add("format");
-    if (useful(file->name)) rows.push_back({"Name", "", {file->name}, true});
-    rows.push_back({"Folders", "path", nam_library::ContentFolders(*mLibrary, *file)});
-
-    }
-
     const auto valueStyle = Text(13.f, text).WithVAlign(EVAlign::Top);
     const auto labelStyle = Text(12.f, muted).WithVAlign(EVAlign::Top);
-    struct Run { std::string value, query; float x, width; std::filesystem::path file; };
-    struct Line { std::string label; std::vector<Run> runs; bool secondary, separator; bool title = false; int height = 22; };
-    std::vector<Line> lines;
-    for (const auto& part : WrapDetailsText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()), right - kDetailsTextL))
-      lines.push_back({"", {{part, "", kDetailsTextL, 0, {}}}, false, false, true});
-    lines.push_back({"", {}, false, false, false, 8});
-    for (const auto& row : rows)
+    const bool rebuildLayout = !mDetailsCacheValid || mDetailsCachePath != file->path
+      || mDetailsCacheGeneration != mDetailsBuiltGeneration || mDetailsCacheKind != file->kind
+      || mDetailsCacheRight != right;
+    if (rebuildLayout)
     {
-      Line line{row.label, {}, row.secondary, true};
-      float x = kDetailsValueL;
-      for (const auto& rawValue : row.values)
+      const auto kind = file->kind == nam_library::FileKind::NAM ? nam_library::GearName(file->gear)
+        : file->kind == nam_library::FileKind::IR ? "Impulse response" : file->kind == nam_library::FileKind::Module ? "Module" : "Rig preset";
+      struct Row { std::string label, key; std::vector<std::string> values; bool secondary = false; };
+      std::vector<Row> rows{{"Type", file->kind == nam_library::FileKind::NAM ? "gear" : "", {kind}}};
+      const auto useful = [](const std::string& value) {
+        const auto lower = nam_library::SearchText(value);
+        return !value.empty() && lower != "misc" && lower != "unknown" && lower != "t3k-unset";
+      };
+      const auto add = [&](const std::string& key, const std::string& fallback = "") {
+        auto values = nam_library::DetailValues(*file, key);
+        if (values.empty() && useful(fallback)) values.push_back(fallback);
+        if (!values.empty()) rows.push_back({nam_library::HintLabel(key), key, values});
+      };
+      if (file->kind == nam_library::FileKind::Module)
       {
-        auto value = rawValue;
-        if (row.key == "path" && !file->source.empty())
-        {
-          const auto folder = std::filesystem::u8path(rawValue);
-          if (nam_library::Within(folder, file->source))
-          {
-            const auto relative = folder.lexically_relative(file->source);
-            value = nam_library::PathText(relative == "." ? file->source.filename() : relative);
-          }
-        }
-        IRECT measured;
-        g.MeasureText(valueStyle, value.c_str(), measured);
-        if (!line.runs.empty() && ((row.key == "model" || row.key == "path") || x + measured.W() > right))
-        { lines.push_back(line); line = {"", {}, row.secondary, false}; x = kDetailsValueL; }
-        const auto target = row.key == "path" ? nam_library::ContentCopyInFolder(*mLibrary, *file, std::filesystem::u8path(rawValue)) : std::filesystem::path{};
-        const auto query = row.secondary || row.key.empty() || row.key == "path" ? "" : nam_library::DetailQuery(row.key, rawValue);
-        for (size_t start = 0; start < value.size();)
-        {
-          size_t end = start, space = std::string::npos;
-          while (end < value.size() && value[end] != '\n')
-          {
-            size_t next = end + 1;
-            while (next < value.size() && (static_cast<unsigned char>(value[next]) & 0xc0) == 0x80) ++next;
-            g.MeasureText(valueStyle, value.substr(start, next - start).c_str(), measured);
-            if (measured.W() > right - x && end > start) break;
-            if (value[end] == ' ') space = end;
-            end = next;
-          }
-          if (end < value.size() && value[end] != '\n' && space != std::string::npos && space > start) end = space;
-          const auto part = value.substr(start, end - start);
-          g.MeasureText(valueStyle, part.c_str(), measured);
-          line.runs.push_back({part, query, x, measured.W(), target});
-          start = end;
-          if (start < value.size() && (value[start] == '\n' || value[start] == ' ')) ++start;
-          if (start < value.size())
-          { lines.push_back(line); line = {"", {}, row.secondary, false}; x = kDetailsValueL; }
-          else x += measured.W() + 10;
-        }
+        rows.push_back({"Sound", "", {file->name}});
+        rows.push_back({"Controls", "", {ModuleParameters(static_cast<SlotEffect>(file->module))}});
       }
-      if (!line.runs.empty()) lines.push_back(line);
+      else
+      {
+        add("vendor", file->maker); add("model", file->model); add("creator");
+        for (const auto& key : {"gain", "eq", "channel", "speaker", "mic/cab", "chain", "settings", "collection", "platform", "category"}) add(key);
+        // Type already describes the format when NAM metadata agrees.
+        if (file->gear != nam_library::Gear::AmpCab && file->gear != nam_library::Gear::AmpHead) add("format");
+        if (useful(file->name)) rows.push_back({"Name", "", {file->name}, true});
+        rows.push_back({"Folders", "path", nam_library::ContentFolders(*mLibrary, *file)});
+      }
+
+      mDetailsLines.clear();
+      for (const auto& part : WrapDetailsText(g, Text(16.f, accent), nam_library::PathText(file->path.stem()), right - kDetailsTextL))
+        mDetailsLines.push_back({"", {{part, "", kDetailsTextL, 0, {}}}, false, false, true});
+      mDetailsLines.push_back({"", {}, false, false, false, 8});
+      for (const auto& row : rows)
+      {
+        DetailLine line{row.label, {}, row.secondary, true};
+        float x = kDetailsValueL;
+        for (const auto& rawValue : row.values)
+        {
+          auto value = rawValue;
+          if (row.key == "path" && !file->source.empty())
+          {
+            const auto folder = std::filesystem::u8path(rawValue);
+            if (nam_library::Within(folder, file->source))
+            {
+              const auto relative = folder.lexically_relative(file->source);
+              value = nam_library::PathText(relative == "." ? file->source.filename() : relative);
+            }
+          }
+          IRECT measured;
+          g.MeasureText(valueStyle, value.c_str(), measured);
+          if (!line.runs.empty() && ((row.key == "model" || row.key == "path") || x + measured.W() > right))
+          { mDetailsLines.push_back(line); line = {"", {}, row.secondary, false}; x = kDetailsValueL; }
+          const auto target = row.key == "path" ? nam_library::ContentCopyInFolder(*mLibrary, *file, std::filesystem::u8path(rawValue)) : std::filesystem::path{};
+          const auto query = row.secondary || row.key.empty() || row.key == "path" ? "" : nam_library::DetailQuery(row.key, rawValue);
+          for (size_t start = 0; start < value.size();)
+          {
+            size_t end = start, space = std::string::npos;
+            while (end < value.size() && value[end] != '\n')
+            {
+              size_t next = end + 1;
+              while (next < value.size() && (static_cast<unsigned char>(value[next]) & 0xc0) == 0x80) ++next;
+              g.MeasureText(valueStyle, value.substr(start, next - start).c_str(), measured);
+              if (measured.W() > right - x && end > start) break;
+              if (value[end] == ' ') space = end;
+              end = next;
+            }
+            if (end < value.size() && value[end] != '\n' && space != std::string::npos && space > start) end = space;
+            const auto part = value.substr(start, end - start);
+            g.MeasureText(valueStyle, part.c_str(), measured);
+            line.runs.push_back({part, query, x, measured.W(), target});
+            start = end;
+            if (start < value.size() && (value[start] == '\n' || value[start] == ' ')) ++start;
+            if (start < value.size())
+            { mDetailsLines.push_back(line); line = {"", {}, row.secondary, false}; x = kDetailsValueL; }
+            else x += measured.W() + 10;
+          }
+        }
+        if (!line.runs.empty()) mDetailsLines.push_back(line);
+      }
+      mDetailsContentHeight = 0;
+      for (const auto& line : mDetailsLines) mDetailsContentHeight += line.height;
+      mDetailsCachePath = file->path;
+      mDetailsBuiltGeneration = mDetailsCacheGeneration;
+      mDetailsCacheKind = file->kind;
+      mDetailsCacheRight = right;
+      mDetailsCacheValid = true;
     }
     const float top = kListTop + 6;
     const int visible = std::max(1, static_cast<int>(bottom - top));
-    int contentHeight = 0;
-    for (const auto& line : lines) contentHeight += line.height;
+    const int contentHeight = mDetailsContentHeight;
     mDetailsVisible = visible;
     mDetailsMaximum = std::max(0, contentHeight - visible);
     if (mDetailsPath != file->path) { mDetailsPath = file->path; mDetailsScroll = 0; }
     mDetailsScroll = std::clamp(mDetailsScroll, 0, mDetailsMaximum);
     g.PathClipRegion(IRECT(kDetailsL + 8, top, right + 1, bottom));
     float y = top - mDetailsScroll;
-    for (const auto& line : lines)
+    for (const auto& line : mDetailsLines)
     {
       if (y + line.height > top && y < bottom)
       {
@@ -993,7 +1023,9 @@ private:
     auto& offset = mDrag == 1 ? View().folderScroll : View().scroll;
     const int maximum = std::max(0, static_cast<int>(mDrag == 1 ? mFolders.size() : mResults.size()) - (mDrag == 1 ? FolderRows() : Rows()));
     const float bottom = mDrag == 1 ? FolderBottom() : ListBottom();
-    offset = static_cast<int>(std::clamp((y - kListTop) / (bottom - kListTop), 0.f, 1.f) * maximum); SetDirty(false);
+    offset = static_cast<int>(std::clamp((y - kListTop) / (bottom - kListTop), 0.f, 1.f) * maximum);
+    if (mDrag == 2) SyncResultHints();
+    SetDirty(false);
   }
   nam_library::BrowserContext mContext = nam_library::BrowserContext::Library;
   nam_library::FileKind mKind = nam_library::FileKind::NAM;
@@ -1013,11 +1045,22 @@ private:
   std::vector<nam_library::BrowserFolder> mFolders;
   std::vector<std::string> mRoots;
   std::string mStatus;
+  std::string mLastDetailsTooltip;
+  bool mLastScanning = false;
   bool mRelevance = true;
   int mDrag = 0;
   int mSelectedRow = -1;
   struct DetailLink { IRECT bounds; std::string query; std::filesystem::path file; };
+  struct DetailRun { std::string value, query; float x, width; std::filesystem::path file; };
+  struct DetailLine { std::string label; std::vector<DetailRun> runs; bool secondary, separator; bool title = false; int height = 22; };
   std::vector<DetailLink> mDetailLinks;
+  std::vector<DetailLine> mDetailsLines;
+  int mDetailsContentHeight = 0;
+  std::filesystem::path mDetailsCachePath;
+  uint64_t mDetailsCacheGeneration = 0, mDetailsBuiltGeneration = 0;
+  nam_library::FileKind mDetailsCacheKind = nam_library::FileKind::SlotPreset;
+  float mDetailsCacheRight = 0.f;
+  bool mDetailsCacheValid = false;
   int mDetailsScroll = 0, mDetailsMaximum = 0, mDetailsVisible = 0;
   std::filesystem::path mDetailsPath;
   std::vector<NAMBrowserResultHoverControl*> mResultHints;

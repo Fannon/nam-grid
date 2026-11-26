@@ -50,12 +50,21 @@ void DrawCosmicSetup(IGraphics& g, const IRECT& plot, Value value, const Impulse
       return response.B-response.H()*static_cast<float>(std::clamp(1.-db/ImpulseProbe::floorDb,0.,1.));
     };
     const float width=response.W()/ImpulseProbe::bins, opacity=current ? 1.f : .35f;
+    g.PathClear();
     for(int i=0;i<ImpulseProbe::bins;++i)
     {
       const float x=response.L+width*i, top=y(measured.peak[i]);
-      g.FillRect(delayColor.WithOpacity(.25f*opacity),IRECT(x,top,x+width,response.B));
-      if(i) g.DrawLine(delayColor.WithOpacity(opacity),x-width*.5f,y(measured.peak[i-1]),x+width*.5f,top,nullptr,1.5f);
+      g.PathRect(IRECT(x,top,x+width,response.B));
     }
+    g.PathFill(IPattern(delayColor.WithOpacity(.25f*opacity)));
+    g.PathClear();
+    for(int i=0;i<ImpulseProbe::bins;++i)
+    {
+      const float cx=response.L+width*(i+.5f), top=y(measured.peak[i]);
+      if(i==0) g.PathMoveTo(cx,top);
+      else g.PathLineTo(cx,top);
+    }
+    g.PathStroke(IPattern(delayColor.WithOpacity(opacity)),1.5f);
   }
   if(!current)
     g.DrawText(Text(13.f,muted,EAlign::Center),"Measuring...",IRECT(response.L,response.T,response.R,response.T+20));

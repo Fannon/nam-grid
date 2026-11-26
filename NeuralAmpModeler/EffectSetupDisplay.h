@@ -18,12 +18,15 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
                     plot.B - plot.H() * static_cast<float>(std::clamp(y2, 0., 1.)), nullptr, width);
   };
   const auto curve = [&](auto function, IColor ink) {
-    double previous = function(0.);
+    const auto mapY = [&](double v) { return plot.B - plot.H() * static_cast<float>(std::clamp(v, 0., 1.)); };
+    g.PathClear();
+    g.PathMoveTo(plot.L, mapY(function(0.)));
     for (int i = 1; i <= 160; ++i)
     {
-      const double x = i / 160., current = function(x);
-      line((i - 1) / 160., previous, x, current, ink); previous = current;
+      const double x = i / 160.;
+      g.PathLineTo(plot.L + plot.W() * static_cast<float>(x), mapY(function(x)));
     }
+    g.PathStroke(IPattern(ink), 1.5f);
   };
   WDL_String text;
   if (effect == SlotEffect::Wah)
@@ -54,22 +57,38 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
     const auto x=[&](size_t i) { return plot.L+plot.W()*static_cast<float>(i)/static_cast<float>(count-1); };
     const auto y=[&](double v) { return plot.MH()-plot.H()*.5f*static_cast<float>(std::clamp(v,-1.,1.)); };
     g.DrawLine(muted.WithOpacity(.5f),plot.L,plot.MH(),plot.R,plot.MH());
-    for (size_t i=0;i+1<count;++i)
+    if (count > 1)
     {
-      const float top=y(cycle.held[i]);
-      g.FillRect(color.WithOpacity(.18f),IRECT(x(i),std::min(top,plot.MH()),x(i+1),std::max(top,plot.MH())));
-    }
-    for (size_t i=1;i<count;++i)
-      g.DrawLine(muted.WithOpacity(.7f),x(i-1),y(cycle.dry[i-1]),x(i),y(cycle.dry[i]),nullptr,1.f);
-    for (size_t i=0;i+1<count;++i)
-    {
-      g.DrawLine(color,x(i),y(cycle.held[i]),x(i+1),y(cycle.held[i]),nullptr,1.5f);
-      if (cycle.held[i+1]!=cycle.held[i]) g.DrawLine(color,x(i+1),y(cycle.held[i]),x(i+1),y(cycle.held[i+1]),nullptr,1.5f);
+      g.PathClear();
+      for (size_t i=0;i+1<count;++i)
+      {
+        const float top=y(cycle.held[i]);
+        g.PathRect(IRECT(x(i),std::min(top,plot.MH()),x(i+1),std::max(top,plot.MH())));
+      }
+      g.PathFill(IPattern(color.WithOpacity(.18f)));
+      g.PathClear();
+      g.PathMoveTo(x(0),y(cycle.dry[0]));
+      for (size_t i=1;i<count;++i)
+        g.PathLineTo(x(i),y(cycle.dry[i]));
+      g.PathStroke(IPattern(muted.WithOpacity(.7f)),1.f);
+      g.PathClear();
+      g.PathMoveTo(x(0),y(cycle.held[0]));
+      for (size_t i=0;i+1<count;++i)
+      {
+        g.PathLineTo(x(i+1),y(cycle.held[i]));
+        if (cycle.held[i+1]!=cycle.held[i]) g.PathLineTo(x(i+1),y(cycle.held[i+1]));
+      }
+      g.PathStroke(IPattern(color),1.5f);
     }
     const bool cut=crush.crusher[2]<.45*rate-1.;
-    if (cut)
+    if (cut && count > 1)
+    {
+      g.PathClear();
+      g.PathMoveTo(x(0),y(cycle.wet[0]));
       for (size_t i=1;i<count;++i)
-        g.DrawLine(grid_ui::text.WithOpacity(.8f),x(i-1),y(cycle.wet[i-1]),x(i),y(cycle.wet[i]),nullptr,1.2f);
+        g.PathLineTo(x(i),y(cycle.wet[i]));
+      g.PathStroke(IPattern(grid_ui::text.WithOpacity(.8f)),1.2f);
+    }
     PlotFooter(g,plot,"Gray: dry | fill: crushed",cut ? "Line: High cut" : "");
     return true;
   }
@@ -330,20 +349,20 @@ bool DrawEffectSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor 
       const double level = value(uOctDry + layer) * .01 * gain;
       const float center = plot.T + plot.H() * (layer + .5f) / 3.f, height = plot.H() / 6.f - 2.f;
       g.DrawText(Text(11.f, muted), labels[layer], IRECT(plot.L, center - 7.f, plot.L + 20.f, center + 7.f));
-      double low = 0., previousY = center;
+      double low = 0.;
+      g.PathClear();
       for (int i = 0; i <= samples; ++i)
       {
         const double phase = 110. * i / rate;
         const double dry = std::sin(2. * grid_fx::pi * phase);
         const double square = layer == 1 ? (std::fmod(phase, 2.) < 1. ? 1. : -1.) : (std::fmod(phase, 4.) < 2. ? 1. : -1.);
         low = (layer ? square : dry) + (layer ? pole : 0.) * (low - (layer ? square : dry));
-        const double y = center - height * std::clamp(level * .5 * (layer ? low : dry), -1., 1.);
-        if (i)
-          g.DrawLine((layer ? color : muted).WithOpacity(level > 0. ? 1.f : .25f),
-                     plot.L + 22.f + (plot.W() - 22.f) * (i - 1) / samples, static_cast<float>(previousY),
-                     plot.L + 22.f + (plot.W() - 22.f) * i / samples, static_cast<float>(y));
-        previousY = y;
+        const float px = plot.L + 22.f + (plot.W() - 22.f) * i / samples;
+        const float py = static_cast<float>(center - height * std::clamp(level * .5 * (layer ? low : dry), -1., 1.));
+        if (i == 0) g.PathMoveTo(px, py);
+        else g.PathLineTo(px, py);
       }
+      g.PathStroke(IPattern((layer ? color : muted).WithOpacity(level > 0. ? 1.f : .25f)), 1.f);
     }
     PlotFooter(g,plot,"Lane height = layer gain (0 - 2x)",marks ? "" : "36 ms");
     return true;

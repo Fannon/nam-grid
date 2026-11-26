@@ -56,6 +56,7 @@ inline bool Allows(BrowserContext context, FileKind kind)
 inline std::string SearchText(const std::string& text)
 {
   std::string result;
+  result.reserve(text.size());
   for (size_t i = 0; i < text.size(); ++i)
   {
     auto c = static_cast<unsigned char>(text[i]);
@@ -113,31 +114,65 @@ public:
       if (!term.text.empty()) mTerms.push_back(std::move(term));
     }
   }
-  int Score(const Capture& file) const
+  int Score(const Capture& file, std::string* stemOut = nullptr) const
   {
+    if (mTerms.empty()) return 0;
     const auto hintValues = [&](const std::string& key) {
       std::string result;
       for (const auto& hint : file.hints) if (hint.key == key) result += " " + hint.value + " " + hint.aliases;
       return SearchText(result);
     };
-    const auto filename = SearchText(PathText(file.path.stem()));
-    const auto name = SearchText(file.name), maker = SearchText(file.maker) + hintValues("vendor"),
-               model = SearchText(file.model) + hintValues("model");
-    const auto path = SearchText(PathText(file.path));
-    const auto gear = file.kind == FileKind::NAM ? SearchText(GearName(file.gear)) : "";
-    const auto all = filename + " " + name + " " + maker + " " + model + " " + path + " " + gear + " " + SearchText(HintSearchText(file));
+    std::string filename, maker, model, path, gear, all;
+    bool hasFilename = false, hasMaker = false, hasModel = false, hasPath = false, hasGear = false, hasAll = false;
+    const auto getFilename = [&]() -> const std::string& {
+      if (!hasFilename) { filename = SearchText(PathText(file.path.stem())); hasFilename = true; }
+      return filename;
+    };
+    const auto getMaker = [&]() -> const std::string& {
+      if (!hasMaker) { maker = SearchText(file.maker) + hintValues("vendor"); hasMaker = true; }
+      return maker;
+    };
+    const auto getModel = [&]() -> const std::string& {
+      if (!hasModel) { model = SearchText(file.model) + hintValues("model"); hasModel = true; }
+      return model;
+    };
+    const auto getPath = [&]() -> const std::string& {
+      if (!hasPath) { path = SearchText(PathText(file.path)); hasPath = true; }
+      return path;
+    };
+    const auto getGear = [&]() -> const std::string& {
+      if (!hasGear) { gear = file.kind == FileKind::NAM ? SearchText(GearName(file.gear)) : std::string{}; hasGear = true; }
+      return gear;
+    };
+    const auto getAll = [&]() -> const std::string& {
+      if (!hasAll)
+      {
+        all = getFilename() + " " + SearchText(file.name) + " " + getMaker() + " " + getModel() + " " + getPath() + " "
+              + getGear() + " " + SearchText(HintSearchText(file));
+        hasAll = true;
+      }
+      return all;
+    };
     int score = 0;
     for (const auto& term : mTerms)
     {
-      const auto& haystack = term.field == "name" ? filename : term.field == "maker" ? maker
-                             : term.field == "model" ? model : term.field == "path" ? path
-                             : term.field == "gear" ? gear : term.field.empty() ? all : hintValues(term.field);
-      const bool found = haystack.find(term.text) != std::string::npos;
+      bool found = false;
+      if (term.field == "name") found = getFilename().find(term.text) != std::string::npos;
+      else if (term.field == "maker") found = getMaker().find(term.text) != std::string::npos;
+      else if (term.field == "model") found = getModel().find(term.text) != std::string::npos;
+      else if (term.field == "path") found = getPath().find(term.text) != std::string::npos;
+      else if (term.field == "gear") found = getGear().find(term.text) != std::string::npos;
+      else if (term.field.empty()) found = getAll().find(term.text) != std::string::npos;
+      else found = hintValues(term.field).find(term.text) != std::string::npos;
       if (found == term.exclude) return -1;
       if (!term.exclude)
-        score += filename == term.text ? 100 : filename.find(term.text) == 0 ? 60
-                 : filename.find(term.text) != std::string::npos ? 30 : 5;
+      {
+        const auto& fn = getFilename();
+        score += fn == term.text ? 100 : fn.find(term.text) == 0 ? 60
+                 : fn.find(term.text) != std::string::npos ? 30 : 5;
+      }
     }
+    if (stemOut && hasFilename) *stemOut = std::move(filename);
     return score;
   }
 private:
@@ -203,19 +238,26 @@ inline std::vector<size_t> Browse(const Snapshot& library, FileKind kind, const 
   const Search search(query);
   struct Match { size_t index; int score; std::string name, path; };
   std::vector<Match> matches;
+  matches.reserve(library.captures.size());
   for (size_t i = 0; i < library.captures.size(); ++i)
   {
     const auto& file = library.captures[i];
     if (file.kind != kind || !Within(file.path, folder)
         || (kind == FileKind::NAM && gear >= 0 && static_cast<int>(file.gear) != gear)) continue;
-    const int score = search.Score(file);
-    if (score >= 0) matches.push_back({i, score, SearchText(PathText(file.path.stem())), PathText(file.path)});
+    std::string stem;
+    const int score = search.Score(file, &stem);
+    if (score >= 0)
+    {
+      if (stem.empty()) stem = SearchText(PathText(file.path.stem()));
+      matches.push_back({i, score, std::move(stem), PathText(file.path)});
+    }
   }
   std::sort(matches.begin(), matches.end(), [relevance](const auto& a, const auto& b) {
     if (relevance && a.score != b.score) return a.score > b.score;
     return a.name == b.name ? a.path < b.path : a.name < b.name;
   });
   std::vector<size_t> result;
+  result.reserve(matches.size());
   for (const auto& match : matches) result.push_back(match.index);
   return result;
 }
@@ -236,48 +278,80 @@ inline std::vector<BrowserFolder> BrowserFolders(const Snapshot& library, FileKi
                                                 const std::vector<std::string>& roots)
 {
   std::vector<BrowserFolder> result{{{}, "All folders"}};
+  std::vector<std::filesystem::path> rootPaths;
+  std::vector<std::string> rootNames;
+  rootPaths.reserve(roots.size());
+  rootNames.reserve(roots.size());
+  for (const auto& r : roots)
+  {
+    auto p = std::filesystem::u8path(r);
+    rootNames.push_back(SearchText(PathText(p.filename())));
+    rootPaths.push_back(std::move(p));
+  }
   for (size_t i = 0; i < roots.size(); ++i)
   {
-    const auto root = std::filesystem::u8path(roots[i]);
+    const auto& root = rootPaths[i];
     // Hide roots that only hold other kinds (e.g. an IR-only folder in NAM captures).
     // Empty, missing or unscanned roots stay listed so they can still be removed.
     bool other = false, matching = false;
+    std::set<std::filesystem::path> children;
     for (const auto& file : library.captures)
-      if (Within(file.path, root)) (file.kind == kind ? matching : other) = true;
+    {
+      if (!Within(file.path, root)) continue;
+      if (file.kind == kind)
+      {
+        matching = true;
+        for (auto parent = file.path.parent_path(); parent != root && Within(parent, root); parent = parent.parent_path())
+          if (!children.insert(parent).second) break;
+      }
+      else
+        other = true;
+    }
     if (other && !matching) continue;
     auto label = PathText(root.filename());
     if (label.empty()) label = roots[i];
+    const auto foldedLabel = SearchText(label);
     // Same basenames stay distinguishable, including empty or unavailable sources.
     for (size_t j = 0; j < roots.size(); ++j)
-      if (i != j && SearchText(PathText(std::filesystem::u8path(roots[j]).filename())) == SearchText(label))
+      if (i != j && rootNames[j] == foldedLabel)
       { label += " (" + std::to_string(i + 1) + ")"; break; }
     result.push_back({root, label, 0, static_cast<int>(i)});
-    std::set<std::filesystem::path> children;
-    for (const auto& file : library.captures)
-      if (file.kind == kind && Within(file.path, root))
-        for (auto parent = file.path.parent_path(); parent != root && Within(parent, root); parent = parent.parent_path())
-          children.insert(parent);
-    std::vector<std::filesystem::path> ordered(children.begin(), children.end());
+    // Precompute relative path segments once so std::sort never re-runs
+    // lexically_relative() or SearchText() inside the comparator.
+    struct OrderedFolder
+    {
+      std::filesystem::path path;
+      std::vector<std::pair<std::string, std::string>> parts;
+    };
+    std::vector<OrderedFolder> ordered;
+    ordered.reserve(children.size());
+    for (const auto& child : children)
+    {
+      OrderedFolder entry{child, {}};
+      for (const auto& part : child.lexically_relative(root))
+      {
+        auto raw = PathText(part);
+        auto folded = SearchText(raw);
+        entry.parts.emplace_back(std::move(folded), std::move(raw));
+      }
+      ordered.push_back(std::move(entry));
+    }
     // Compare each path component so underscore folders lead among siblings,
     // while every parent stays immediately before its own descendants.
-    std::sort(ordered.begin(), ordered.end(), [&](const auto& a, const auto& b) {
-      const auto ar = a.lexically_relative(root), br = b.lexically_relative(root);
-      auto ai = ar.begin(), bi = br.begin();
-      for (; ai != ar.end() && bi != br.end(); ++ai, ++bi)
+    std::sort(ordered.begin(), ordered.end(), [](const OrderedFolder& a, const OrderedFolder& b) {
+      const size_t n = std::min(a.parts.size(), b.parts.size());
+      for (size_t k = 0; k < n; ++k)
       {
-        const auto an = SearchText(PathText(*ai)), bn = SearchText(PathText(*bi));
-        if (an == bn) { if (*ai != *bi) return PathText(*ai) < PathText(*bi); continue; }
+        const auto& [an, ar] = a.parts[k];
+        const auto& [bn, br] = b.parts[k];
+        if (an == bn) { if (ar != br) return ar < br; continue; }
         const bool au = !an.empty() && an.front() == '_', bu = !bn.empty() && bn.front() == '_';
         return au != bu ? au : an < bn;
       }
-      return ai == ar.end() && bi != br.end();
+      return a.parts.size() < b.parts.size();
     });
     for (const auto& child : ordered)
-    {
-      const auto relative = child.lexically_relative(root);
-      result.push_back({child, PathText(child.filename()),
-                        static_cast<int>(std::distance(relative.begin(), relative.end())), -1});
-    }
+      result.push_back({child.path, PathText(child.path.filename()), static_cast<int>(child.parts.size()), -1});
   }
   return result;
 }

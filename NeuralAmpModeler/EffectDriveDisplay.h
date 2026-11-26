@@ -45,30 +45,45 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
   const double level = std::clamp(inputLevel, 0., 1.);
   const float activeLeft = xPos(-level), activeRight = xPos(level);
   g.FillRect(color.WithOpacity(.08f), IRECT(activeLeft, shape.T, activeRight, shape.B));
-  // Sample densely enough to retain folds at maximum drive.
+  // Sample densely enough to retain folds at maximum drive, batching contiguous
+  // active/inactive spans into at most three stroked paths.
   constexpr int points = 512;
+  bool spanActive = false, spanOpen = false;
   double previousValue = transfer(-1.);
+  const auto flushSpan = [&]() {
+    if (!spanOpen) return;
+    g.PathStroke(IPattern(spanActive ? color : color.WithOpacity(.5f)), spanActive ? 2.5f : 1.5f);
+    spanOpen = false;
+  };
   for (int i = 1; i <= points; ++i)
   {
     const double a = -1. + 2. * (i - 1) / points, b = -1. + 2. * i / points;
     const bool active = level > 1.e-5 && b >= -level && a <= level;
     const double currentValue = transfer(b);
-    g.DrawLine(active ? color : color.WithOpacity(.5f), xPos(a), yPos(previousValue), xPos(b), yPos(currentValue),
-               nullptr, active ? 2.5f : 1.5f);
+    if (!spanOpen || active != spanActive)
+    {
+      flushSpan();
+      g.PathClear();
+      g.PathMoveTo(xPos(a), yPos(previousValue));
+      spanActive = active;
+      spanOpen = true;
+    }
+    g.PathLineTo(xPos(b), yPos(currentValue));
     previousValue = currentValue;
   }
+  flushSpan();
   if (voiced)
     for (const auto& [hz, ink] : {std::pair{100., ampColor}, std::pair{3000., text}})
     {
       const double weight = std::abs(preEQ.At(hz));
-      double previous = SlotTubeBoost::Transfer(-weight, tubeDrive, tubeBias);
+      g.PathClear();
+      g.PathMoveTo(xPos(-1.), yPos(SlotTubeBoost::Transfer(-weight, tubeDrive, tubeBias)));
       for (int i = 1; i <= 128; ++i)
       {
-        const double a = -1. + 2. * (i - 1) / 128., b = -1. + 2. * i / 128.;
-        const double current = SlotTubeBoost::Transfer(b * weight, tubeDrive, tubeBias);
-        g.DrawLine(ink.WithOpacity(.8f), xPos(a), yPos(previous), xPos(b), yPos(current), nullptr, 1.f);
-        previous = current;
+        const double b = -1. + 2. * i / 128.;
+        g.PathLineTo(xPos(b), yPos(SlotTubeBoost::Transfer(b * weight, tubeDrive, tubeBias)));
       }
+      g.PathStroke(IPattern(ink.WithOpacity(.8f)), 1.f);
     }
   if (level > 1.e-5)
     for (double input : {-level, level})
@@ -112,15 +127,14 @@ bool DrawDriveSetup(IGraphics& g, SlotEffect effect, const IRECT& plot, IColor c
     };
     const float unity = tonePlot.B - tonePlot.H() * .5f;
     g.DrawLine(border, tonePlot.L, unity, tonePlot.R, unity);
-    float previousY = toneY(20.);
+    g.PathClear();
+    g.PathMoveTo(tonePlot.L, toneY(20.));
     for (int i = 1; i <= 80; ++i)
     {
       const double hz = 20. * std::pow(upper / 20., i / 80.);
-      const float currentY = toneY(hz);
-      g.DrawLine(color, tonePlot.L + tonePlot.W() * (i - 1) / 80.f, previousY,
-                        tonePlot.L + tonePlot.W() * i / 80.f, currentY);
-      previousY = currentY;
+      g.PathLineTo(tonePlot.L + tonePlot.W() * i / 80.f, toneY(hz));
     }
+    g.PathStroke(IPattern(color), 1.f);
     PlotFooter(g,plot,tube ? "Shape | small-signal EQ" : clean ? "Gain | full EQ" : "Shape | tone / mix / output","20 Hz - 20k");
   }
   return true;

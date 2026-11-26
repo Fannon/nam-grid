@@ -1808,9 +1808,14 @@ public:
     {
       const IRECT presetBounds(nameRight - 104.f, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
       if (mPresetButton->GetRECT() != presetBounds) mPresetButton->SetTargetAndDrawRECTs(presetBounds);
-      const auto caption = MatchingPresetName(effect);
-      const char* label = caption.empty() ? "Presets" : caption.c_str();
-      if (std::strcmp(mPresetButton->GetLabelStr(), label) != 0) mPresetButton->SetLabelStr(label);
+      if (!draw || mPresetLabelDirty || effect != mPresetLabelEffect)
+      {
+        const auto caption = MatchingPresetName(effect);
+        const char* label = caption.empty() ? "Presets" : caption.c_str();
+        if (std::strcmp(mPresetButton->GetLabelStr(), label) != 0) mPresetButton->SetLabelStr(label);
+        mPresetLabelDirty = false;
+        mPresetLabelEffect = effect;
+      }
       nameRight = presetBounds.L - 6.f;
     }
     const IRECT nameBounds(nameLeft, grid_layout::moduleHeaderTop, nameRight, grid_layout::moduleHeaderBottom);
@@ -1843,7 +1848,11 @@ public:
   {
     using namespace grid_ui;
     LayoutHeader(g, true);
-    UpdateModuleTooltip(g);
+    if (mTooltipDirty)
+    {
+      UpdateModuleTooltip(g);
+      mTooltipDirty = false;
+    }
     const auto effect = PLUG()->GetSlotEffect(mSlot);
     const bool empty = PLUG()->GetSlotPath(mSlot).empty() && effect == SlotEffect::NAM;
     const auto tone = Tone(effect, PLUG()->GetSlotGear(mSlot));
@@ -1863,6 +1872,8 @@ public:
   }
   void RedrawEditor()
   {
+    mPresetLabelDirty = true;
+    mTooltipDirty = true;
     if (mEditor && !mEditor->IsHidden()) mEditor->SetDirty(false);
   }
   bool IsHit(float x, float y) const override { return mCardBounds.Contains(x, y); }
@@ -1970,8 +1981,17 @@ public:
     const double now = Now(), dt = std::max(0., now - mTick);
     mTick = now;
     mModuleLevels.Advance(now);
-    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor)
-      mEditor->SetDirty(false);
+    if (PLUG()->GetSlotEffect(mSlot) == SlotEffect::NoisePrint && mEditor
+        && PLUG()->GetSelectedSlot() == mSlot && !mEditor->IsHidden())
+    {
+      const bool learning = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uNoiseLearn))->Bool();
+      if (learning || learning != mLastNoiseLearn)
+      {
+        mLastNoiseLearn = learning;
+        mPresetLabelDirty = true;
+        mEditor->SetDirty(false);
+      }
+    }
     const bool moving = mMeter.input > 1.e-4f || mMeter.output > 1.e-4f || mMeter.reduction > .05f
                         || now < mInputClip + .1 || now < mOutputClip + .1;
     const float decay = static_cast<float>(std::exp(-dt / .3));
@@ -2497,14 +2517,11 @@ private:
           const float level = history[(mReductionWrite + index) % history.size()];
           return area.T + area.H() * std::clamp(20.f * std::log10(std::max(level, 1.e-6f))/floorDB, 0.f, 1.f);
         };
-        float previous = y(0);
+        g.PathClear();
+        g.PathMoveTo(area.L, y(0));
         for (size_t i = 1; i < history.size(); ++i)
-        {
-          const float current = y(i);
-          g.DrawLine(traceColor, area.L + area.W() * (i - 1) / (history.size() - 1), previous,
-                                 area.L + area.W() * i / (history.size() - 1), current, nullptr, width);
-          previous = current;
-        }
+          g.PathLineTo(area.L + area.W() * i / (history.size() - 1), y(i));
+        g.PathStroke(IPattern(traceColor), width);
       };
       trace(mInputHistory, muted.WithOpacity(.85f), 1.f);
       if (effect == SlotEffect::NoisePrint || effect == SlotEffect::AIGate) trace(mCleanHistory, ampColor, 1.f);
@@ -3012,7 +3029,7 @@ private:
     else
     {
       UpdateIRResponse();
-      const bool longIR = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
+      const bool longIR = mIRResponseValid ? mIRLong : GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
       PlotTitle(g,plot,color,longIR ? "IR | tail envelope" : "IR | frequency response");
       WDL_String detail;
       detail.SetFormatted(100,"%.3f s | Relative to peak, before wet controls",mIRSeconds);
@@ -3067,13 +3084,15 @@ private:
     {
       // Auto-scaled so the shape stays readable at any level; level is on the meters.
       const float half = scope.W() * .5f * .92f;
+      g.PathClear();
       for (size_t i = 0; i < mScopeLeft.size(); ++i)
       {
         const auto [side, mid] = signal_monitor::Goniometer(mScopeLeft[i] / peak, mScopeRight[i] / peak);
         const float x = scope.MW() + half * static_cast<float>(side);
         const float y = scope.MH() - half * static_cast<float>(mid);
-        g.FillRect(color.WithOpacity(.55f), IRECT(x - .75f, y - .75f, x + .75f, y + .75f));
+        g.PathRect(IRECT(x - .75f, y - .75f, x + .75f, y + .75f));
       }
+      g.PathFill(IPattern(color.WithOpacity(.55f)));
     }
     else g.DrawText(Text(12.f, muted, EAlign::Center), "Play to see", scope);
     // Correlation, then left and right RMS on one dB scale.
@@ -3245,20 +3264,7 @@ private:
     strip.Process(silence.data(), nullptr, length, controls); // Let control smoothing settle first.
     impulse[0] = level;
     strip.Process(impulse.data(), nullptr, length, controls);
-    const double upper = std::min(20000., .49 * rate);
-    for (size_t i = 0; i < mResponse.size(); ++i)
-    {
-      const double hz = 20. * std::pow(upper / 20., static_cast<double>(i) / (mResponse.size() - 1));
-      const auto step = std::polar(1., -2. * MATH_PI * hz / rate);
-      std::complex<double> phase(1., 0.), sum(0., 0.);
-      for (int n = 0; n < length; ++n)
-      {
-        sum += impulse[n] * phase;
-        phase *= step;
-        if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
-      }
-      mResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::abs(sum) / level)));
-    }
+    grid_response_fft::MeasureLinearResponse(impulse.data(), length, rate, mResponse, level);
   }
   // Measured level drop, IN minus OUT before a known output trim, hanging from the top of a
   // level history on a GR scale. Unlike a gain estimate it cannot exceed the input above -100 dB.
@@ -3266,15 +3272,19 @@ private:
   {
     const size_t size = mInputHistory.size();
     const float step = area.W() / static_cast<float>(size - 1);
+    bool any = false;
+    g.PathClear();
     for (size_t i = 0; i < size; ++i)
     {
       const size_t k = (mReductionWrite + i) % size;
       const float drop = 20.f * std::log10(std::max(mInputHistory[k], 1.e-5f) / std::max(mOutputHistory[k], 1.e-5f)) + trimDB;
       if (drop <= 0.f) continue;
       const float x = area.L + step * static_cast<float>(i);
-      g.FillRect(grid_ui::ampColor.WithOpacity(.16f), IRECT(std::max(area.L, x - .5f * step), area.T,
+      g.PathRect(IRECT(std::max(area.L, x - .5f * step), area.T,
         std::min(area.R, x + .5f * step), area.T + area.H() * std::min(drop / range, 1.f)));
+      any = true;
     }
+    if (any) g.PathFill(IPattern(grid_ui::ampColor.WithOpacity(.16f)));
   }
   // Gain reduction over time, hanging from 0 dB at the top like a console GR meter.
   void DrawReductionHistory(IGraphics& g, const IRECT& area)
@@ -3292,17 +3302,38 @@ private:
     g.DrawText(Text(11.f, muted), "GR", IRECT(area.L + 3.f, area.T, area.L + 30.f, area.T + 13.f));
     const auto size = mReductionHistory.size();
     const float step = area.W() / static_cast<float>(size - 1);
-    float previous = area.T;
+    bool hasOverflow = false;
+    g.PathClear();
     for (size_t i = 0; i < size; ++i)
     {
       const float reduction = mReductionHistory[(mReductionWrite + i) % size];
       const float y = area.T + area.H() * std::clamp(reduction / range, 0.f, 1.f);
       const float x = area.L + step * static_cast<float>(i);
-      g.FillRect(ampColor.WithOpacity(.3f), IRECT(std::max(area.L, x - .5f * step), area.T, std::min(area.R, x + .5f * step), y));
-      if (i) g.DrawLine(ampColor, x - step, previous, x, y, nullptr, 1.5f);
-      if (reduction > range)
-        g.FillRect(reductionOverflowColor, IRECT(std::max(area.L,x-.5f*step),area.B-3.f,std::min(area.R,x+.5f*step),area.B));
-      previous = y;
+      g.PathRect(IRECT(std::max(area.L, x - .5f * step), area.T, std::min(area.R, x + .5f * step), y));
+      if (reduction > range) hasOverflow = true;
+    }
+    g.PathFill(IPattern(ampColor.WithOpacity(.3f)));
+    g.PathClear();
+    for (size_t i = 0; i < size; ++i)
+    {
+      const float reduction = mReductionHistory[(mReductionWrite + i) % size];
+      const float y = area.T + area.H() * std::clamp(reduction / range, 0.f, 1.f);
+      const float x = area.L + step * static_cast<float>(i);
+      if (i == 0) g.PathMoveTo(x, y);
+      else g.PathLineTo(x, y);
+    }
+    g.PathStroke(IPattern(ampColor), 1.5f);
+    if (hasOverflow)
+    {
+      g.PathClear();
+      for (size_t i = 0; i < size; ++i)
+      {
+        const float reduction = mReductionHistory[(mReductionWrite + i) % size];
+        if (reduction <= range) continue;
+        const float x = area.L + step * static_cast<float>(i);
+        g.PathRect(IRECT(std::max(area.L, x - .5f * step), area.B - 3.f, std::min(area.R, x + .5f * step), area.B));
+      }
+      g.PathFill(IPattern(reductionOverflowColor));
     }
   }
   // Live output spectrum as a filled area on its own dBFS scale: a different
@@ -3350,51 +3381,12 @@ private:
   }
   void UpdateIRResponse()
   {
-    const auto path = PLUG()->GetSlotPath(mSlot);
-    const bool longIR = GetDelegate()->GetParam(SlotUtilityParam(mSlot, uIRLength))->Bool();
-    const double hostRate = PLUG()->GetSampleRate() > 0. ? PLUG()->GetSampleRate() : 48000.;
-    if (path == mIRResponsePath && longIR == mIRLong && hostRate == mIRHostRate) return;
-    mIRLong = longIR; mIRHostRate = hostRate; mIRSeconds = 0.;
-    mIRResponsePath = path; mIRResponseValid = false;
-    std::vector<float> taps, right; double rate = 0.;
-    if (path.empty() || dsp::wav::LoadIR(path.c_str(), taps, right, rate) != dsp::wav::LoadReturnCode::SUCCESS || taps.empty() || !(rate > 0.))
-      return;
-    taps.resize(std::min(taps.size(), std::max<size_t>(1, static_cast<size_t>(rate * (longIR ? AdaptiveIR::maximumSeconds : 8192. / hostRate)))));
-    mIRSeconds = taps.size() / rate;
-    if (longIR)
-    {
-      float peak = 0.f;
-      mIRResponse.fill(0.f);
-      for (size_t n = 0; n < taps.size(); ++n)
-      {
-        const auto bin = std::min(mIRResponse.size() - 1, n * mIRResponse.size() / taps.size());
-        mIRResponse[bin] = std::max(mIRResponse[bin], std::max(std::abs(taps[n]), right.empty() ? 0.f : std::abs(right[n])));
-        peak = std::max(peak, mIRResponse[bin]);
-      }
-      for (auto& value : mIRResponse)
-        value = static_cast<float>(20. * std::log10(std::max(1.e-6f, value / std::max(1.e-12f, peak))));
-      mIRResponseValid = true;
-      return;
-    }
-    mIRUpper = std::min(20000., .49 * rate);
-    float peak = -1.e9f;
-    for (size_t i = 0; i < mIRResponse.size(); ++i)
-    {
-      const double hz = 20. * std::pow(mIRUpper / 20., static_cast<double>(i) / (mIRResponse.size() - 1));
-      const auto step = std::polar(1., -2. * MATH_PI * hz / rate);
-      std::complex<double> phase(1., 0.), sum(0., 0.), rightSum(0., 0.);
-      for (size_t n = 0; n < taps.size(); ++n)
-      {
-        sum += static_cast<double>(taps[n]) * phase;
-        if (!right.empty()) rightSum += static_cast<double>(right[n]) * phase;
-        phase *= step;
-        if ((n & 1023) == 1023) phase /= std::abs(phase); // Keep the rotation on the unit circle.
-      }
-      mIRResponse[i] = static_cast<float>(20. * std::log10(std::max(1.e-12, std::max(std::abs(sum), std::abs(rightSum)))));
-      peak = std::max(peak, mIRResponse[i]);
-    }
-    for (auto& value : mIRResponse) value -= peak;
-    mIRResponseValid = std::isfinite(peak);
+    const auto preview = PLUG()->GetSlotIRPreview(mSlot);
+    mIRResponse = preview.response;
+    mIRUpper = preview.upper;
+    mIRSeconds = preview.seconds;
+    mIRLong = preview.longIR;
+    mIRResponseValid = preview.valid;
   }
   // Wah's Auto button: one click wires Env 1 to the selected slot's Position. The matrix row is
   // ordinary saved state, so the assignment survives rig presets and scenes and can be edited or
@@ -3424,6 +3416,8 @@ private:
     const bool gate = effect == SlotEffect::NoiseGate;
     const bool compressor = effect == SlotEffect::SmoothComp || effect == SlotEffect::PunchComp;
     const bool ir = effect == SlotEffect::CabinetIR;
+    mPresetLabelDirty = true;
+    mTooltipDirty = true;
     const bool selected = PLUG()->GetSelectedSlot() == mSlot;
     LayoutHeader(*GetUI(), false);
     mEditor->Hide(!selected || PLUG()->IsTunerActive() || PLUG()->IsRoutingOpen() || PLUG()->IsSignalMonitorOpen());
@@ -3522,6 +3516,7 @@ private:
     if (mEditor && selected)
     {
       UpdateModuleTooltip(*GetUI());
+      mTooltipDirty = false;
       mEditor->SetDirty(false);
     }
     SetDirty(false);
@@ -3551,6 +3546,7 @@ private:
                                             : std::vector<module_presets::UserPreset>{};
     mUserPresetsEffect = effect;
     mUserPresetsLoaded = true;
+    mPresetLabelDirty = true;
   }
   // The factory or user preset the current controls equal, or empty.
   std::string MatchingPresetName(SlotEffect effect)
@@ -3769,6 +3765,8 @@ private:
   ILayerPtr mPedalDistortionPreview;
   std::array<double, 10> mPedalDistortionPreviewKey{};
   SlotEffect mPlotEffect = SlotEffect::NAM;
+  SlotEffect mPresetLabelEffect = SlotEffect::NAM;
+  bool mPresetLabelDirty = true, mTooltipDirty = true;
   std::string mPlotPath;
   std::array<float, 120> mInputHistory{}, mOutputHistory{}, mCleanHistory{}, mReductionHistory{};
   std::array<float, 96> mResponse{};
@@ -3778,10 +3776,9 @@ private:
   std::array<std::array<float, 3>, 386> mEQCurve{};
   std::array<float, signal_monitor::spectrumPoints> mSpectrum{};
   double mSpectrumTime = 0.; // Last window received; stale spectra are hidden.
-  std::string mIRResponsePath; // Cabinet IR whose response is cached below.
-  std::array<float, signal_monitor::spectrumPoints> mIRResponse{};
+  std::array<float, grid_response_fft::kIRBins> mIRResponse{};
   double mIRUpper = 20000.;
-  double mIRSeconds = 0., mIRHostRate = 0.;
+  double mIRSeconds = 0.;
   bool mIRLong = false;
   bool mIRResponseValid = false;
   size_t mReductionWrite = 0;
@@ -3805,7 +3802,7 @@ private:
         sources |= 1u << static_cast<int>(v[RowParam(row, RowSource)]);
     return sources;
   }
-  bool mLastSync = false, mLastEnabled = true, mLastLoaded = false;
+  bool mLastSync = false, mLastEnabled = true, mLastLoaded = false, mLastNoiseLearn = false;
   uint32_t mModulationSources = 0;
   SlotMeterData mMeter;
   LevelComparison mLevels;
@@ -3956,6 +3953,7 @@ public:
   }
   bool IsDirty() override
   {
+    if (IsHidden()) return false;
     const char* scanLabel = PLUG()->GetRescanOnStartup() ? "Startup rescan: ON" : "Startup rescan: OFF";
     const char* visualLabel = PLUG()->GetShowVisualizations() ? "Visualizations: ON" : "Visualizations: OFF";
     if (mVisualizations && std::strcmp(mVisualizations->GetLabelStr(), visualLabel) != 0)

@@ -2,6 +2,7 @@
 #include "A2Fixture.h"
 #include "ClapTestHost.h"
 #include "IsolatedUserHome.h"
+#include "WavFixtures.h"
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -871,8 +872,68 @@ int main(int argc, char** argv)
     clapPlugin->deactivate(clapPlugin);
   }
 
+  // --- Item 11: Cabinet IR preview refreshes on pre-activation restore and host rate changes ---
+  std::cout << "[plugin-lifecycle] Item 11\n";
+  {
+    const auto irPath = fixtures / "rate-sensitive-ir.wav";
+    std::vector<float> taps(8192, 0.f);
+    taps[0] = 0.8f;
+    taps[6000] = 0.5f; // Included in 8192-tap standard window at 48 kHz, excluded at 96 kHz (4096 taps).
+    std::vector<uint32_t> bits(taps.size(), 0);
+    for (size_t i = 0; i < taps.size(); ++i)
+      std::memcpy(&bits[i], &taps[i], sizeof(uint32_t));
+    wav_fixture::Write(irPath, 32, true, bits);
+
+    const auto expected48 = grid_response_fft::ComputeIRPreview(taps, {}, 48000., 48000., false, AdaptiveIR::maximumSeconds);
+    const auto expected96 = grid_response_fft::ComputeIRPreview(taps, {}, 48000., 96000., false, AdaptiveIR::maximumSeconds);
+    assert(expected48.valid && expected96.valid);
+    assert(std::abs(expected48.seconds - 8192. / 48000.) < 1.e-6);
+    assert(std::abs(expected96.seconds - 4096. / 48000.) < 1.e-6);
+
+    // Load at 48 kHz, check preview, then live-switch host rate 48 -> 96 -> 48 kHz.
+    assert(clapPlugin->activate(clapPlugin, 48000., 1, 64));
+    assert(plug->LoadSlotIR(0, nam_library::PathText(irPath).c_str()).empty());
+    const auto live48 = plug->GetSlotIRPreview(0);
+    assert(live48.valid && !live48.longIR && std::abs(live48.seconds - expected48.seconds) < 1.e-6);
+
+    iplug::IByteChunk savedState;
+    assert(plug->SerializeState(savedState));
+
+    clapPlugin->deactivate(clapPlugin);
+    assert(clapPlugin->activate(clapPlugin, 96000., 1, 64));
+    const auto live96 = plug->GetSlotIRPreview(0);
+    assert(live96.valid && !live96.longIR && std::abs(live96.seconds - expected96.seconds) < 1.e-6);
+    double maxDiff48vs96 = 0., maxErr96 = 0.;
+    for (size_t i = 0; i < live96.response.size(); ++i)
+    {
+      maxDiff48vs96 = std::max(maxDiff48vs96, std::abs(static_cast<double>(live48.response[i]) - live96.response[i]));
+      maxErr96 = std::max(maxErr96, std::abs(static_cast<double>(live96.response[i]) - expected96.response[i]));
+    }
+    assert(maxDiff48vs96 > 5. && maxErr96 < 1.e-4);
+
+    clapPlugin->deactivate(clapPlugin);
+    assert(clapPlugin->activate(clapPlugin, 48000., 1, 64));
+    const auto backTo48 = plug->GetSlotIRPreview(0);
+    assert(backTo48.valid && std::abs(backTo48.seconds - expected48.seconds) < 1.e-6);
+    clapPlugin->deactivate(clapPlugin);
+
+    // State restored before first activation at 96 kHz must also refresh the preview on activation.
+    const clap_plugin* fresh = factory->create_plugin(factory, &host.host, factory->get_plugin_descriptor(factory, 0)->id);
+    assert(fresh && fresh->init(fresh));
+    auto* freshPlug = PluginLifecycleTestAccessor::FromClap(fresh);
+    assert(freshPlug->UnserializeState(savedState, 0) >= 0);
+    assert(fresh->activate(fresh, 96000., 1, 64));
+    const auto restored96 = freshPlug->GetSlotIRPreview(0);
+    assert(restored96.valid && !restored96.longIR && std::abs(restored96.seconds - expected96.seconds) < 1.e-6);
+    for (size_t i = 0; i < restored96.response.size(); ++i)
+      assert(std::abs(static_cast<double>(restored96.response[i]) - expected96.response[i]) < 1.e-4);
+    fresh->deactivate(fresh);
+    fresh->destroy(fresh);
+    std::filesystem::remove(irPath);
+  }
+
   clapPlugin->destroy(clapPlugin);
   clap_entry.deinit();
-  std::cout << "Plugin lifecycle tests (Items 2, 4, 5, 7, 8, 9, 10, PR4) passed\n";
+  std::cout << "Plugin lifecycle tests (Items 2, 4, 5, 7, 8, 9, 10, PR4, 11) passed\n";
   return 0;
 }

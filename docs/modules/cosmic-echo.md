@@ -21,7 +21,7 @@ The first six styles are directly inspired by the algorithms of [Valhalla Superm
 | **Binary Bloom** | Coupled short and long spaces for broader, slowly developing ambient tails |
 | **Photon Plate** | Faster onset and denser early reflections from a multi-tap, cross-coupled digital plate tank |
 | **Velvet Chamber** | A short, soft cluster around the pick, with a dense stereo tail |
-| **Solstice Hall** | A quieter onset and a broad, gently moving tail that leaves space for the attack |
+| **Solstice Hall** | A broad hall that fills in quickly behind the pick and softens as the tail decays |
 | **Sunken Cathedral** | The largest space: a distant first reflection, then a long, slowly blooming tail |
 
 Changing the style fades out the old tail before the new style comes in.
@@ -63,7 +63,7 @@ These three styles use the existing controls and do not change the Aurora Hall i
 | Style | Intended use and behavior | Starting point |
 | --- | --- | --- |
 | **Pulsar Echo** | Rhythmic four-tap echo groups for single-note riffs and stereo movement. The end of the pattern feeds the opposite channel. Low Density keeps the four taps clear; higher values rotate stereo and diffuse each stage. Warp compresses the later gaps. Time scales the pattern; short diffusers add to its length, so this is not a tempo-synced delay. | Time 500 ms, Warp 0%, Feedback 65%, Density 15%, High cut 6500 Hz, Modulation 5%, Mix 25% |
-| **Binary Bloom** | Sustained chords and volume swells that need an initial small space followed by a broader tail. Short and long eight-line tanks exchange energy as Density rises. At Density zero, only the short tank is excited; raise Density to bring in the longer field. Warp spreads the long lines. | Time 700 ms, Warp 75%, Feedback 90%, Density 90%, High cut 5000 Hz, Modulation 25%, Mix 30% |
+| **Binary Bloom** | Sustained chords and volume swells that need an initial small space followed by a broader tail. Short and long eight-line tanks exchange energy as Density rises. The first reflections keep their level as the longer tail fills in. Warp spreads the long lines. | Time 700 ms, Warp 75%, Feedback 90%, Density 90%, High cut 5000 Hz, Modulation 25%, Mix 30% |
 
 **Photon Plate** is a separate, faster plate design: four stereo input-diffusion stages feed a cross-coupled figure-eight tank, with two allpasses and two main delays in each half. Seven taps per channel fill the early response. Start with **Time 100 ms, Warp 70%, Feedback 65%, Density 90%, High cut 9000 Hz, Modulation 10%, Mix 18%**. Density always leaves some diffusion; its minimum is not intended as a plain delay. Warp changes tank asymmetry. Low cut acts on the excitation once, while High cut damps the tank.
 
@@ -82,7 +82,18 @@ recipes also restore controls omitted from the recipe to insertion defaults, so
 switching from a long wash to a short echo clears the previous sound's settings.
 Adjust Mix for your rig; the recipes assume an insert after the amp.
 
-The menu starts with chambers, halls and cathedral spaces, followed by echo patterns, swells and washes. Try **Tile room** for a short space or **Photon lead plate** for a fast, dense lead reverb. **Soft ambient bed** adds moderate sustain for
+Try **Open stereo hall** for a smooth space behind leads and arpeggios. Lower
+Feedback to shorten the tail while keeping the same reflection spacing.
+**Warm rhythm hall** uses a shorter, softer tail for busy chord parts.
+**Dark lead hall** leaves a longer gap before the first reflection and rolls
+off more treble behind sustained notes. **Bright ambient hall** opens into a
+long, moving space for clean guitar and synths. **Still cavern** uses a darker
+tail with Modulation at zero for swells and pads. Try **Close studio room** on
+muted rhythm parts and **Deep field** for slow chords and swells. In Deep field,
+Binary Bloom's short tank gives the first reflections and high Density feeds the
+longer tail even at low Warp.
+
+Try **Tile room** for brighter reflections or **Photon lead plate** for a fast, dense lead reverb. **Soft ambient bed** adds moderate sustain for
 picked chords. **Clear distant repeats** is the simple echo starting point.
 The other recipes explore more movement, slower swells and long ambient tails.
 The selection combines useful playing roles with each style's different response.
@@ -92,7 +103,15 @@ The selection combines useful playing roles with each style's different response
 | --- | --- | --- |
 | Velvet tracking room | Velvet Chamber | Close reflections around muted notes and picked chords |
 | Tile room | Velvet Chamber | A bright, tight room for palm mutes and clipped funk chords |
-| Solstice afterglow | Solstice Hall | A slower, wider tail behind sustained lead lines |
+| Solstice afterglow | Solstice Hall | More space before the reflections for sustained lead lines |
+| Close studio room | Aurora Hall | Tight, stationary ambience for muted rhythm guitar |
+| Aurora studio hall | Aurora Hall | Earlier reflections and a sustained tail for clean chords |
+| Open stereo hall | Solstice Hall | Quick onset and a gently moving tail for clean arpeggios and leads |
+| Warm rhythm hall | Solstice Hall | A short, soft hall behind strummed chords |
+| Dark lead hall | Solstice Hall | A darker, more distant wash behind sustained notes |
+| Bright ambient hall | Solstice Hall | A bright, gently moving wash for clean guitar and synths |
+| Still cavern | Solstice Hall | A long, dark decay for guitar swells and synth pads |
+| Deep field | Binary Bloom | A longer, warmer tail for sustained chords and swells |
 | Flooded nave | Sunken Cathedral | A prominent, bright cathedral wash for ringing chords and swells |
 | Distant stone | Sunken Cathedral | A distant wall answers the pick, then clears for the next phrase |
 | Compact Gemini room | Gemini | Short, lightly mixed space for rhythm parts |

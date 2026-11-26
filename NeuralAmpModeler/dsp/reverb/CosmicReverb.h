@@ -184,6 +184,8 @@ public:
     const double angle = grid_fx::pi*values[3]*.0025;
     mCos = std::cos(angle); mSin = std::sin(angle);
     mDensity = std::clamp(values[3]*.01, 0., 1.);
+    if (style == static_cast<int>(Style::Nebula))
+      mBloomLongOutput = mSin/mCos; // Keep the short tank's output at unity throughout the Density range.
     if (style == static_cast<int>(Style::PhotonPlate))
       mPlateDiffusion=draining ? std::array<double,3>{}
                      : std::array<double,3>{live*(.35+.4*mDensity),-live*(.3+.4*mDensity),live*(.2+.3*mDensity)};
@@ -359,7 +361,7 @@ public:
         const double sign=(i&2) ? -.5 : .5;
         mFeedback[i]=Damp(mLines[i].Tick(mLineGain[i]*longInput,Delay(i)),i);
         mFeedback[8+i]=Damp(mLines[8+i].Tick(mLineGain[8+i]*shortInput+sign*mDryPrevious[i%2],Delay(8+i)),8+i);
-        out[i%2]+=sign*(mCos*mFeedback[8+i]+mSin*mFeedback[i]);
+        out[i%2]+=sign*(mFeedback[8+i]+mBloomLongOutput*mFeedback[i]);
       }
     }
     else if (mStyle == static_cast<int>(Style::PhotonPlate))
@@ -497,7 +499,7 @@ private:
   Stereo mDryPrevious{}, mLfoPrevious{}, mLfoValue{};
   std::array<double, 16> mFilterInput{}, mFilterHigh{}, mFilterLow{};
   double mRate=48000., mGlobalGain=0., mGain=0., mInjection=1., mAllpass=0., mFeedthrough=0., mCos=1., mSin=0.;
-  double mSpaceDiffusion=0., mSpaceGain=0.;
+  double mSpaceDiffusion=0., mSpaceGain=0., mBloomLongOutput=0.;
   double mLowPass=0., mHighPass=0., mMotion=0., mLfoA=0., mLfoB=0., mDensity=0.;
   uint32_t mPhase=0, mPhaseStep=0;
   int mStyle=0, mFinishIndex=0;

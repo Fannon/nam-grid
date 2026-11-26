@@ -91,7 +91,7 @@ Regression coverage extends the common mode tests (automation, partition indepen
 The modes append IDs 7/8 and keys `pulsar`/`nebula`. Aurora Hall remains the insertion/reset default. Both reuse the sixteen-line bank, use O(1) history invalidation, and cap modulation depth to 1% of each line. No new parameters, saved fields or schemas are introduced. Released mode identities and DSP are unchanged.
 
 - **Pulsar Echo:** four serial stereo delay stages each have a short allpass (coefficient up to 0.6), loop damping and a stereo rotation. Equal output taps come from all four stages, while only the final stage regenerates, crossing L/R. Global loop gain follows Feedback directly. At Density zero the pattern retains four discrete echoes per cycle and crosses channels on subsequent cycles. Warp shortens later intervals. Time is the pattern scale; diffuser lengths and fixed offsets add to the complete cycle.
-- **Binary Bloom:** the first eight lines form the long tank and the last eight form the short tank. Each bank has an orthogonal butterfly, followed by pairwise rotations that exchange energy between the banks. Only the short tank receives input. Density controls scattering and coupling; zero leaves the long tank silent. The output projects both banks with unit-norm weights. Per-line loop gain is the existing square-root Feedback gain raised to twice the nominal line length divided by Time, balancing decay per second across the two time scales. Both banks have independent normalized highpass and lowpass states.
+- **Binary Bloom:** the first eight lines form the long tank and the last eight form the short tank. Each bank has an orthogonal butterfly, followed by pairwise rotations that exchange energy between the banks. Only the short tank receives input. Density controls scattering and coupling; zero leaves the long tank silent. The output keeps the short tank's weight at unity and scales the long tank's weight by the tangent of the coupling angle. This keeps the first reflections at a steady level as Density rises. Per-line loop gain is the existing square-root Feedback gain raised to twice the nominal line length divided by Time, balancing decay per second across the two time scales. Both banks have independent normalized highpass and lowpass states.
 
 Research references: [Dattorro's allpass input/tank diffusion](https://ccrma.stanford.edu/~dattorro/EffectDesignPart1.pdf), [Rocchesso and Smith's FDN analysis](https://air.unimi.it/handle/2434/1041969), [Schlecht and Habets on echo-density growth](https://www.sebastianjiroschlecht.com/publication/schlecht-2019-tl/), and [Goetz, Schlecht and Pulkki on coupled-space decay](https://www.sebastianjiroschlecht.com/publication/gotz-2022-common/). These inform the design goals; the modes are original implementations, not reproductions of those papers' complete algorithms or measured rooms. No source code, tables or audio examples were copied.
 
@@ -109,7 +109,15 @@ Tests cover all modes' automation, block independence, allocations, dry signal, 
 
 ## Velvet Chamber, Solstice Hall and Sunken Cathedral
 
-These original NAM Grid voicings share a tapped stereo reflection pair, three serial stereo input allpasses and an eight-line feedback delay network. The first two lines provide a near reflection, an opposite-channel side reflection and a far wall. Reflections and diffused excitation reach the output in different proportions. Velvet Chamber has short walls and a strong diffused return. Solstice Hall attenuates both early returns and uses the longest tank. Sunken Cathedral has the latest walls, the longest diffusers and a doubled decay scale to sustain its shorter tank lines.
+These original NAM Grid voicings share a tapped stereo reflection pair, three
+serial stereo input allpasses and an eight-line feedback delay network. The
+first two lines provide a near reflection, an opposite-channel side reflection
+and a far wall. Reflections and diffused excitation reach the output in
+different proportions. Velvet Chamber has short walls and a strong diffused
+return. Solstice Hall sends part of the near reflection into shorter diffusers
+and brings the diffused return forward. A shorter tank fills in sooner, and a
+higher decay scale offsets the more frequent recirculation. Sunken Cathedral has
+the latest walls, the longest diffusers and a doubled decay scale.
 
 Time sets the size of these spaces. The walls and the decay follow the square root of Time, normalized to 100 ms. The diffusers and tail lines follow its 0.35 power, so long settings keep a dense tail instead of separating into echoes. Tail loop gain is raised to the ratio of the two scales, divided by each space's decay scale, so decay grows with the wall scale even though the lines grow more slowly.
 

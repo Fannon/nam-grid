@@ -327,6 +327,22 @@ void TestCosmicEcho()
     rightEnergy+=pulses[i][1]*pulses[i][1];
   }
   assert(rightEnergy>1.e-4);
+  // Before the shortest loop can recirculate, Density must leave Binary Bloom's
+  // early reflections at the same level while the long tank fills.
+  const auto binaryEarlyEnergy = [](double density) {
+    grid_cosmic::Core core;
+    core.Reset(48000.);
+    core.Configure({385.,15.,88.,density,4400.,0.,100.}, static_cast<int>(grid_cosmic::Style::Nebula), false);
+    double energy = 0.;
+    for (int i=0; i<2400; ++i)
+      for (const double sample : core.Tick({i==0 ? 1. : 0., 0.}))
+        energy += sample*sample;
+    return energy;
+  };
+  const double sparseEarlyEnergy = binaryEarlyEnergy(0.);
+  assert(sparseEarlyEnergy>1.e-4);
+  for (double density : {25., 50., 75., 100.})
+    assert(std::abs(binaryEarlyEnergy(density)/sparseEarlyEnergy-1.)<1.e-12);
   // The plate must start quickly and build early energy at its short-plate recipe.
   {
     grid_cosmic::Core core; core.Reset(48000.);

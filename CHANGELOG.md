@@ -4,6 +4,8 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
+- **Cosmic Echo:** Solstice Hall fills in sooner behind the pick, with a stronger early wash at the same settings in existing rigs. New factory presets cover a short studio room, halls for rhythm and lead, and both bright and dark ambient washes for guitar and synths.
+- **Cosmic Echo:** Binary Bloom keeps its first reflections steadier as Density rises. Existing high-Density settings can sound up to 3 dB louder on the wet path. The new **Aurora studio hall** preset brings the first reflections closer for clean chords.
 - Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. The host is notified of a newly learned Smart Gate profile even if it resets before the next update.
 - Improved DSP recovery from invalid signal and control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay finite at low sample rates.
 - Fixed library folder dialogs on Linux and control hitboxes in the module editor. Library scans preserve match-all `.ignore` rules and large favorites files remain readable.

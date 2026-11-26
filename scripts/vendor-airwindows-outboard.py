@@ -113,8 +113,14 @@ def generate(name, source, destination):
         mono_raw = re.sub(r"\t\tif \(fabs\(inputSampleR\) > threshold\).*?else \{\n\t\t\tgaterollerR -= release;\n\t\t\}\n", "", mono_raw, flags=re.S)
         mono_body = _strip_right_channel(mono_raw)
     if name == "BussColors4":
-        prefix += "\tslowdynDecay = pow(0.999, 1.0 / overallscale);\n\tslowdynCharge = (1.0 - slowdynDecay) / 0.001;\n"
-        fields.extend([("double", "slowdynDecay"), ("double", "slowdynCharge")])
+        old_scale = "\tif (overallscale > 4.5) overallscale = 4.5;\n"
+        assert old_scale in prefix
+        prefix = prefix.replace(
+            old_scale,
+            old_scale + "\tslowdynDecay = pow(0.999, 1.0 / overallscale);\n\tslowdynCharge = (1.0 - slowdynDecay) / 0.001;\n",
+            1,
+        )
+        fields[1:1] = [("double", "slowdynDecay", "0.999"), ("double", "slowdynCharge", "1.0")]
         body = body.replace(
             "\t\tslowdynL *= 0.999;\n\t\tslowdynL += bridgerectifier;",
             "\t\tslowdynL *= slowdynDecay;\n\t\tslowdynL += bridgerectifier * slowdynCharge;",
@@ -310,7 +316,10 @@ private:
   double mRate = 48000.;
   {extra}
 '''
-    text += "\n".join(f"  {kind} {field}{{}};" for kind, field in fields)
+    text += "\n".join(
+        f"  {item[0]} {item[1]}{{{item[2] if len(item) > 2 else ''}}};"
+        for item in fields
+    )
     text += f"\n{members}\n}};\n}} // namespace airwindows_outboard::{name}\n"
     text = text.replace("M_PI_2", "1.57079632679489661923")
     text = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"

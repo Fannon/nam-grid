@@ -11,7 +11,7 @@
 -
  namespace airwindows_outboard::BussColors4
  {
-@@ -167,13 +166,7 @@ overallscale = 1.0;
+@@ -169,13 +168,7 @@ overallscale = 1.0;
  
  		//now the convolution
 -		for (int count = maxConvolutionBufferSize; count > 0; --count) {bL[count] = bL[count-1];} //was 173
@@ -28,7 +28,7 @@
 +		bR[bIndex] = inputSampleR;
  		//The reason these are separate is, since it's just a big assign-fest, it's possible compilers can
  		//come up with a clever way to do it. Interleaving the samples might make it enough more complicated
-@@ -847,10 +840,4 @@ overallscale = 1.0;
+@@ -849,10 +842,4 @@ overallscale = 1.0;
  		//end pre saturation stage L
  
 -		//before the iron bar- fry console for crazy behavior
@@ -39,7 +39,7 @@
 -
  		if (gcount < 0 || gcount > 44) gcount = 44;
  
-@@ -864,16 +851,9 @@ overallscale = 1.0;
+@@ -866,16 +853,9 @@ overallscale = 1.0;
  		//now we have a 'sag' style average to apply to the conv, L
  
 -		//now we have a 'sag' style average to apply to the conv, R
@@ -58,26 +58,26 @@
 +		bL[bIndex] = inputSampleL;
  		//The reason these are separate is, since it's just a big assign-fest, it's possible compilers can
  		//come up with a clever way to do it. Interleaving the samples might make it enough more complicated
-@@ -1225,6 +1205,4 @@ overallscale = 1.0;
+@@ -1227,6 +1207,4 @@ overallscale = 1.0;
  		else inputSampleL += bridgerectifier;
  
 -		bridgerectifier = 1.0-cos(bridgerectifier);
 -
  
  		if (outgain != 1.0) {
-@@ -1240,4 +1218,5 @@ overallscale = 1.0;
+@@ -1242,4 +1220,5 @@ overallscale = 1.0;
  		fpdL ^= fpdL << 13; fpdL ^= fpdL >> 17; fpdL ^= fpdL << 5;
  		//inputSampleL += ((double(fpdL)-uint32_t(0x7fffffff)) * 1.1e-44l * pow(2,expon+62));
 +		//frexp((double)inputSampleR, &expon);
  		//end 64 bit stereo floating point dither
  
-@@ -1247,5 +1226,4 @@ overallscale = 1.0;
+@@ -1249,5 +1228,4 @@ overallscale = 1.0;
  
  
 -
    }
  
-@@ -1276,6 +1254,6 @@ private:
+@@ -1280,6 +1258,6 @@ private:
  
  	double bL[256]; //full buffer for high sample rates. Scales to 192K
 -	double bR[256];

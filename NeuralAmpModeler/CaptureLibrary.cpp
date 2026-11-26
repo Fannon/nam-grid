@@ -218,18 +218,33 @@ bool MatchSegment(std::string_view pattern, std::string_view text)
 
 // `**` matches any number of folders; a trailing `**` matches everything inside a folder
 // but not the folder itself.
-bool MatchSegments(const std::vector<std::string>& pattern, size_t p, const std::vector<std::string>& path, size_t t)
+bool MatchSegments(const std::vector<std::string>& pattern, const std::vector<std::string>& path)
 {
-  if (p == pattern.size())
-    return t == path.size();
-  if (pattern[p] == "**")
+  size_t p = 0, t = 0, starP = std::string::npos, starT = 0;
+  while (t < path.size())
   {
-    for (size_t next = p + 1 == pattern.size() ? t + 1 : t; next <= path.size(); ++next)
-      if (MatchSegments(pattern, p + 1, path, next))
-        return true;
-    return false;
+    if (p < pattern.size() && pattern[p] == "**")
+    {
+      while (p < pattern.size() && pattern[p] == "**")
+        ++p;
+      if (p == pattern.size())
+        return true; // Trailing `**` matches >= 1 remaining segment (t < path.size()).
+      starP = p;
+      starT = t;
+      continue;
+    }
+    if (p < pattern.size() && MatchSegment(pattern[p], path[t]))
+    {
+      ++p;
+      ++t;
+      continue;
+    }
+    if (starP == std::string::npos)
+      return false;
+    p = starP;
+    t = ++starT;
   }
-  return t < path.size() && MatchSegment(pattern[p], path[t]) && MatchSegments(pattern, p + 1, path, t + 1);
+  return p == pattern.size();
 }
 
 // Path components of `path` below `root`; empty when it is not inside. Case-insensitive
@@ -295,19 +310,26 @@ const std::vector<IgnoreRules::Pattern>& IgnoreRules::Patterns(const std::filesy
         pattern.directoryOnly = true;
         line.pop_back();
       }
+      if (line.find_first_not_of('/') == std::string::npos)
+        continue;
       // A slash anywhere else anchors the pattern to this folder; otherwise it matches a
-      // name at any depth.
+      // name at any depth. Collapse consecutive `**` segments so pathological rules cannot
+      // multiply backtracking.
+      const auto pushSegment = [&](std::string segment) {
+        if (segment == "**" && !pattern.segments.empty() && pattern.segments.back() == "**")
+          return;
+        pattern.segments.push_back(std::move(segment));
+      };
       if (line.find('/') == std::string::npos)
-        pattern.segments.push_back("**");
+        pushSegment("**");
       for (size_t start = 0; start < line.size();)
       {
         const auto end = std::min(line.find('/', start), line.size());
         if (end > start)
-          pattern.segments.push_back(line.substr(start, end - start));
+          pushSegment(line.substr(start, end - start));
         start = end + 1;
       }
-      if (!pattern.segments.empty() && !(pattern.segments.size() == 1 && pattern.segments[0] == "**"))
-        patterns.push_back(std::move(pattern));
+      patterns.push_back(std::move(pattern));
     }
   }
   return patterns;
@@ -325,7 +347,7 @@ bool IgnoreRules::Matches(const std::filesystem::path& path, bool directory)
     // Each folder's patterns see the entry relative to that folder; deeper ones win.
     const std::vector<std::string> below(segments.begin() + static_cast<std::ptrdiff_t>(depth), segments.end());
     for (const auto& pattern : Patterns(folder))
-      if ((directory || !pattern.directoryOnly) && MatchSegments(pattern.segments, 0, below, 0))
+      if ((directory || !pattern.directoryOnly) && MatchSegments(pattern.segments, below))
         ignored = !pattern.negate;
     folder /= std::filesystem::u8path(segments[depth]);
   }
@@ -416,7 +438,9 @@ bool WriteSettings(const std::filesystem::path& settingsFile, const Settings& se
 {
   try
   {
-    std::filesystem::create_directories(settingsFile.parent_path());
+    if (settingsFile.empty()) return false;
+    if (const auto parent = settingsFile.parent_path(); !parent.empty())
+      std::filesystem::create_directories(parent);
     rig_preset::WriteAtomically(settingsFile,
       nlohmann::json{{"NamFolders", settings.namFolders}, {"IrFolders", settings.irFolders},
                      {"RescanOnStartup", settings.rescanOnStartup},
@@ -1106,24 +1130,33 @@ std::optional<Stars> ReadFavorites(const std::filesystem::path& file)
   {
     std::error_code error;
     if (file.empty() || !std::filesystem::exists(file, error)) return error ? std::nullopt : std::optional(result);
+    if (!std::filesystem::is_regular_file(file, error) || error) return std::nullopt;
+    const auto size = std::filesystem::file_size(file, error);
+    if (error || size > kMaxFavoritesBytes) return std::nullopt;
     std::ifstream input(file, std::ios::binary);
     if (!input) return std::nullopt;
-    const auto config = nlohmann::json::parse(input);
+    const auto config = nlohmann::json::parse(input, [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
+      if (depth > 128) throw std::runtime_error("Favorites nesting exceeds the supported limit.");
+      return true;
+    });
     if (!config.is_object()) return std::nullopt;
     const auto stars = config.find("Stars");
     if (stars == config.end()) return result;
     if (!stars->is_object()) return std::nullopt;
-    for (auto entry = stars->begin(); entry != stars->end() && result.size() < 8192; ++entry)
+    for (auto entry = stars->begin(); entry != stars->end() && result.size() < kMaxFavorites; ++entry)
     {
       // A damaged or hand-edited entry costs only that star, never the rest of the file.
       const auto& value = entry.value();
-      if (entry.key().empty() || entry.key().size() > 2048 || !value.is_object()) continue;
+      if (entry.key().empty() || entry.key().size() > kMaxFavoriteKeyBytes || !value.is_object()) continue;
       const auto level = value.find("Level");
       if (level == value.end() || !level->is_number_integer()) continue;
       Star star{level->get<int>()};
       if (star.level < 1 || star.level > kStarLevels) continue;
-      if (const auto name = value.find("Name"); name != value.end() && name->is_string() && name->size() <= 512)
-        star.name = name->get<std::string>();
+      if (const auto name = value.find("Name"); name != value.end() && name->is_string())
+      {
+        const auto& text = name->get_ref<const std::string&>();
+        if (text.size() <= kMaxFavoriteNameBytes) star.name = text;
+      }
       result[entry.key()] = std::move(star);
     }
   }
@@ -1138,16 +1171,23 @@ bool WriteFavorites(const std::filesystem::path& file, const Stars& stars)
 {
   try
   {
-    if (file.empty()) return false;
-    std::filesystem::create_directories(file.parent_path());
+    if (file.empty() || stars.size() > kMaxFavorites) return false;
     auto entries = nlohmann::json::object();
     for (const auto& [key, star] : stars)
     {
+      if (key.empty() || key.size() > kMaxFavoriteKeyBytes || star.level < 1 || star.level > kStarLevels)
+        return false;
       auto entry = nlohmann::json{{"Level", star.level}};
-      if (!star.name.empty()) entry["Name"] = star.name;
+      // The name is optional display text. Keep the star when a filename is longer.
+      if (!star.name.empty() && star.name.size() <= kMaxFavoriteNameBytes) entry["Name"] = star.name;
       entries[key] = std::move(entry);
     }
-    rig_preset::WriteAtomically(file, nlohmann::json{{"Format", "nam-grid-favorites"}, {"Version", 1}, {"Stars", entries}}.dump(2));
+    const auto serialized =
+      nlohmann::json{{"Format", "nam-grid-favorites"}, {"Version", 1}, {"Stars", std::move(entries)}}.dump(2);
+    if (serialized.size() > kMaxFavoritesBytes) return false;
+    if (const auto parent = file.parent_path(); !parent.empty())
+      std::filesystem::create_directories(parent);
+    rig_preset::WriteAtomically(file, serialized);
     return true;
   }
   catch (const std::exception&)
@@ -1233,6 +1273,7 @@ bool WriteIndex(const std::filesystem::path& file, const IndexEntries& entries)
 {
   try
   {
+    if (file.empty()) return false;
     auto files = nlohmann::json::array();
     for (const auto& [key, entry] : entries)
     {
@@ -1242,7 +1283,8 @@ bool WriteIndex(const std::filesystem::path& file, const IndexEntries& entries)
                        {"Inferred", capture.inferred}, {"Name", capture.name}, {"Maker", capture.maker},
                        {"Model", capture.model}, {"Hash", capture.hash}});
     }
-    std::filesystem::create_directories(file.parent_path());
+    if (const auto parent = file.parent_path(); !parent.empty())
+      std::filesystem::create_directories(parent);
     rig_preset::WriteAtomically(file, nlohmann::json{{"Version", kIndexVersion}, {"Files", std::move(files)}}.dump());
     return true;
   }
@@ -1460,9 +1502,10 @@ const char* KindName(FileKind kind)
   return "";
 }
 
-Worker::Worker(std::filesystem::path indexFile, Scanner scanner)
+Worker::Worker(std::filesystem::path indexFile, Scanner scanner, IndexWriter indexWriter)
 : mIndexFile(std::move(indexFile))
 , mScanner(std::move(scanner))
+, mIndexWriter(std::move(indexWriter))
 , mThread([this] { Run(); })
 {
 }
@@ -1567,15 +1610,16 @@ void Worker::Run()
     lock.lock();
     // Only a complete, successful scan replaces the index. An offline drive or a read
     // failure must not erase the last good cache; still publish the scan's error to the UI.
-    if (indexed && scanned && !cancelled() && result->error.empty() && result->unreadable == 0)
-    {
+    const bool writeIndex = indexed && scanned && !cancelled() && result->error.empty() && result->unreadable == 0;
+    if (writeIndex)
       mIndex.previous = std::move(mIndex.next);
-      WriteIndex(mIndexFile, mIndex.previous);
-    }
     mIndex.next.clear();
     if (!cancelled())
       mResult = std::move(result);
     done = revision;
+    lock.unlock();
+    if (writeIndex)
+      mIndexWriter(mIndexFile, mIndex.previous);
   }
 }
 } // namespace nam_library

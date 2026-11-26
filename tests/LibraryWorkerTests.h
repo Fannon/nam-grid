@@ -30,6 +30,12 @@ inline void TestLibraryWorkerRecovery(const std::filesystem::path& fixtureRoot)
     assert(result);
     return result;
   };
+  const auto waitIndex = [&](size_t expected) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (ReadIndex(indexFile).size() != expected && std::chrono::steady_clock::now() < deadline)
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    assert(ReadIndex(indexFile).size() == expected);
+  };
   // Every unusable saved index recovers all three file kinds even with startup rescan off.
   for (int scenario = 0; scenario < 5; ++scenario)
   {
@@ -46,7 +52,7 @@ inline void TestLibraryWorkerRecovery(const std::filesystem::path& fixtureRoot)
     worker.Request(namRoots, irRoots, presetRoots, false, factoryFiles);
     const auto result = waitResult(worker);
     assert(result->captures.size() == 5 && result->error.empty() && scans == 1);
-    assert(ReadIndex(indexFile).size() == 5);
+    waitIndex(5);
   }
   {
     // A usable cache restores entries, source roots and relative paths without rescanning.
@@ -67,7 +73,7 @@ inline void TestLibraryWorkerRecovery(const std::filesystem::path& fixtureRoot)
     }
     worker.Request(namRoots, irRoots, presetRoots);
     assert(waitResult(worker)->captures.size() == 4 && scans == 1);
-    assert(ReadIndex(indexFile).size() == 4);
+    waitIndex(4);
     // Cached views retain the live scanner's overlap handling, folder labels and duplicates.
     const std::vector<std::string> overlapRoots{PathText(base), PathText(nam)};
     const auto expected = ScanLibrary(overlapRoots, irRoots, presetRoots);
@@ -151,4 +157,40 @@ inline void TestLibraryWorkerCancellation(const std::filesystem::path& indexFile
     }
     assert(nlohmann::json::parse(std::ifstream(indexFile)) == original);
   }
+}
+
+// WriteIndex runs after publishing the scan result and unlocking mMutex, so TakeResult()
+// and Cancel() never block on JSON serialization or disk writes.
+inline void TestLibraryWorkerWriteIndexNonBlocking(const std::filesystem::path& fixtureRoot)
+{
+  using namespace nam_library;
+  const auto base = fixtureRoot / ("WorkerWrite-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const auto nam = base / "NAM";
+  const auto indexFile = base / "cache" / "library-index.json";
+  std::filesystem::create_directories(nam);
+  std::ofstream(nam / "amp.nam") << "{}";
+  std::promise<void> enteredPromise, proceedPromise;
+  auto entered = enteredPromise.get_future();
+  auto proceed = proceedPromise.get_future().share();
+  std::atomic<int> writes{0};
+  Worker worker(
+    indexFile, ScanLibrary,
+    [&](const std::filesystem::path&, const IndexEntries&) {
+      if (++writes == 1)
+      {
+        enteredPromise.set_value();
+        const auto status = proceed.wait_for(std::chrono::seconds(2));
+        assert(status == std::future_status::ready);
+      }
+      return true;
+    });
+  worker.Request(std::vector<std::string>{PathText(nam)}, {}, {});
+  assert(entered.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+  const auto result = worker.TakeResult();
+  assert(result && result->captures.size() == 1);
+  auto cancelFuture = std::async(std::launch::async, [&] { worker.Cancel(); });
+  const auto cancelStatus = cancelFuture.wait_for(std::chrono::milliseconds(500));
+  proceedPromise.set_value();
+  assert(cancelStatus == std::future_status::ready);
+  std::filesystem::remove_all(base);
 }

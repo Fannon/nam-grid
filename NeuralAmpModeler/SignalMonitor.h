@@ -193,7 +193,13 @@ inline size_t FindResonances(const std::array<float, spectrumPoints>& db, double
 // 6-second power average over playing (silence does not pull it down) for resonances.
 struct SpectrumView
 {
-  std::array<float, spectrumPoints> live{}, average{};
+  static constexpr std::array<float, spectrumPoints> Floor()
+  {
+    std::array<float, spectrumPoints> result{};
+    result.fill(spectrumFloor);
+    return result;
+  }
+  std::array<float, spectrumPoints> live = Floor(), average = Floor();
   std::array<double, spectrumPoints> power{};
   double averaged = 0.; // Seconds of signal in the average.
   void Reset() { *this = {}; }

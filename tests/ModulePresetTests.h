@@ -1,6 +1,10 @@
 #pragma once
 #include "ModulePresets.h"
 #include "RoadmapEffects.h"
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 void TestModulePresetSharedControls()
 {
@@ -266,5 +270,61 @@ void TestNamedUserPreset()
   const auto presets = LoadUser({root}, SlotEffect::Bitcrusher);
   assert(presets.size() == 1 && presets[0].name == "My crusher" && presets[0].path == file);
   assert(Matches(SlotEffect::Bitcrusher, presets[0].values, values));
+
+  // Deeply nested JSON inside unknown fields must be rejected instead of risking stack overflow.
+  {
+    const auto deepFile = folder / "Deep.json";
+    auto doc = ToJson(SlotEffect::Bitcrusher, values);
+    std::string deep = doc.dump();
+    assert(!deep.empty() && deep.back() == '}');
+    deep.pop_back();
+    deep += R"(,"extra":)" + std::string(140, '[') + "0" + std::string(140, ']') + "}";
+    assert(deep.size() < kUserMaximumBytes);
+    rig_preset::WriteAtomically(deepFile, deep);
+    int unreadable = 0;
+    const auto loaded = LoadUser({root}, SlotEffect::Bitcrusher, &unreadable);
+    assert(unreadable == 1 && loaded.size() == 1 && loaded[0].name == "My crusher");
+    std::filesystem::remove(deepFile);
+  }
+
+#ifndef _WIN32
+  // Dangling symlinks and unreadable subdirectories must not stop LoadUser from loading valid presets.
+  {
+    const auto alpha = NamedUserFile(folder, "Alpha");
+    SaveUser(alpha, SlotEffect::Bitcrusher, values);
+    std::error_code ec;
+    std::filesystem::create_symlink(folder / "nonexistent.json", folder / "broken.json", ec);
+    assert(!ec);
+    const auto locked = folder / "locked";
+    if (::geteuid() != 0)
+    {
+      std::filesystem::create_directories(locked);
+      SaveUser(locked / "Hidden.json", SlotEffect::Bitcrusher, values);
+      assert(::chmod(locked.c_str(), 0000) == 0);
+    }
+    int unreadable = 0;
+    const auto loaded = LoadUser({root}, SlotEffect::Bitcrusher, &unreadable);
+    if (::geteuid() != 0)
+      assert(::chmod(locked.c_str(), 0755) == 0);
+    assert(unreadable == 0 && loaded.size() == 2 && loaded[0].name == "Alpha" && loaded[1].name == "My crusher");
+    std::filesystem::remove(folder / "broken.json", ec);
+    std::filesystem::remove_all(locked, ec);
+    std::filesystem::remove(alpha, ec);
+  }
+#endif
+
+  // Bare relative filenames have an empty parent_path(); SaveUser must not throw on create_directories("").
+  {
+    struct CwdGuard
+    {
+      std::filesystem::path previous = std::filesystem::current_path();
+      ~CwdGuard() { std::filesystem::current_path(previous); }
+    } cwdGuard;
+    std::filesystem::current_path(root);
+    SaveUser("bare-preset.json", SlotEffect::Bitcrusher, values);
+    assert(std::filesystem::is_regular_file(root / "bare-preset.json"));
+    std::filesystem::remove(root / "bare-preset.json");
+  }
+
   std::filesystem::remove_all(root);
 }

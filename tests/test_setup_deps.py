@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -83,6 +84,25 @@ class PatchStackTests(unittest.TestCase):
         self.assertTrue(setup_deps.matches_patched_tree(self.repo, [patch]))
         (self.repo / "added.txt").unlink()
         self.assertFalse(setup_deps.matches_patched_tree(self.repo, [patch]))
+
+    def test_iplug2_linux_patch_applies_cleanly(self):
+        iplug2_dir = ROOT / "iPlug2"
+        if not (iplug2_dir / ".git").exists():
+            self.skipTest("iPlug2 submodule not checked out")
+        all_patches = sorted((ROOT / "patches").glob("iplug2-*.patch"))
+        linux_patch = ROOT / "patches" / "iplug2-linux-support.patch"
+        self.assertIn(linux_patch, all_patches)
+        if sys.platform.startswith("linux"):
+            self.assertTrue(setup_deps.matches_patched_tree(iplug2_dir, all_patches))
+        else:
+            non_linux = [p for p in all_patches if not p.name.startswith("iplug2-linux-")]
+            self.assertTrue(setup_deps.matches_patched_tree(iplug2_dir, non_linux))
+            check = subprocess.run(
+                ["git", "-C", str(iplug2_dir), "apply", "--check", str(linux_patch)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(check.returncode, 0, check.stderr)
 
 
 if __name__ == "__main__":

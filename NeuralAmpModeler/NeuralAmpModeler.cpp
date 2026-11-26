@@ -37,12 +37,7 @@ const char* const kStateHeader = "###nam-grid###";
 EMsgBoxResult _ShowMessageBox(iplug::igraphics::IGraphics* pGraphics, const char* str, const char* caption,
                               EMsgBoxType type)
 {
-#ifdef OS_MAC
-  // macOS is backwards?
-  return pGraphics->ShowMessageBox(caption, str, type);
-#else
   return pGraphics->ShowMessageBox(str, caption, type);
-#endif
 }
 
 // Per-user settings.json in the platform's config folder; see UserPaths.h.
@@ -232,6 +227,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
   };
 
   mLayoutFunc = [&](IGraphics* ui) {
+    mUILifetime = std::make_shared<int>(0);
     ui->AttachCornerResizer(EUIResizerMode::Scale, false);
     ui->AttachTextEntryControl();
     ui->EnableMouseOver(true);
@@ -322,7 +318,12 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
       if (!ui->GetControlWithTag(kCtrlTagModulePresetName)->IsHidden()) return true;
       auto* browser = ui->GetControlWithTag(kCtrlTagLibraryBrowser);
       if (!browser->IsHidden())
-        return keyUp || browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
+      {
+        // iPlug consumes Escape key-down while editing. The release still reaches
+        // this handler, so close the browser before another input event arrives.
+        if (keyUp && key.VK != kVK_ESCAPE) return true;
+        return browser->As<NAMLibraryBrowserControl>()->HandleKey(key);
+      }
       auto* performance = ui->GetControlWithTag(kCtrlTagPerformance);
       if (!keyUp && key.VK == kVK_ESCAPE && !performance->IsHidden()) { performance->Hide(true); return true; }
       if (!keyUp && key.VK == kVK_ESCAPE && IsSignalMonitorOpen()) { CloseSignalMonitor(); return true; }
@@ -362,6 +363,7 @@ NeuralAmpModeler::NeuralAmpModeler(const InstanceInfo& info)
 
 NeuralAmpModeler::~NeuralAmpModeler()
 {
+  mUILifetime.reset();
 #ifdef OS_LINUX
   // Without host timer support the Linux idle timer is a thread: finish its ticks before
   // members go away.
@@ -1883,7 +1885,9 @@ void NeuralAmpModeler::PromptRigPreset(bool save)
       if (save) file.Set((mPresetName + ".ngrid").c_str());
     }
     ui->PromptForFile(file, directory, save ? EFileAction::Save : EFileAction::Open, "ngrid",
-      [this, save](const WDL_String& chosen, const WDL_String&) {
+      [this, save, alive = std::weak_ptr<void>(mUILifetime)](const WDL_String& chosen, const WDL_String&) {
+        const auto guard = alive.lock();
+        if (!guard) return;
         if (!chosen.GetLength()) return;
         auto path = std::filesystem::u8path(chosen.Get());
         if (save && !path.has_extension()) path += ".ngrid";
@@ -2092,6 +2096,7 @@ int NeuralAmpModeler::UnserializeState(const IByteChunk& chunk, int startPos)
 void NeuralAmpModeler::OnUIOpen()
 {
   const auto guard = _LockControls();
+  if (!mUILifetime) mUILifetime = std::make_shared<int>(0);
   _SendAllParamValuesToUI();
   _UpdateLibraryControls();
   mEditorOpen.store(true, std::memory_order_relaxed);
@@ -2125,6 +2130,7 @@ void NeuralAmpModeler::OnParamReset(iplug::EParamSource)
 
 void NeuralAmpModeler::OnUIClose()
 {
+  mUILifetime.reset();
   CloseSignalMonitor();
   mEditorOpen.store(false, std::memory_order_relaxed);
   EndSlotPreview(false);

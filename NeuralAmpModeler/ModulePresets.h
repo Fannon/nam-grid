@@ -234,17 +234,22 @@ inline std::vector<UserPreset> LoadUser(const std::vector<std::filesystem::path>
            root, std::filesystem::directory_options::skip_permission_denied, error);
          !error && it != std::filesystem::recursive_directory_iterator() && seen < kUserMaximumFiles; it.increment(error))
     {
-      if (!it->is_regular_file(error) || Lower(Utf8(it->path().extension())) != ".json") continue;
+      std::error_code statusError;
+      if (!it->is_regular_file(statusError) || Lower(Utf8(it->path().extension())) != ".json") continue;
       ++seen;
       try
       {
         std::ifstream input(it->path(), std::ios::binary | std::ios::ate);
-        const auto size = input ? static_cast<size_t>(input.tellg()) : size_t{0};
-        if (size == 0 || size > kUserMaximumBytes) throw std::runtime_error("size");
+        const auto rawSize = input ? input.tellg() : std::ifstream::pos_type{-1};
+        if (rawSize <= 0 || static_cast<size_t>(rawSize) > kUserMaximumBytes) throw std::runtime_error("size");
+        const auto size = static_cast<size_t>(rawSize);
         std::string text(size, '\0');
         input.seekg(0);
-        input.read(text.data(), static_cast<std::streamsize>(size));
-        const auto document = nlohmann::json::parse(text);
+        if (!input.read(text.data(), static_cast<std::streamsize>(size))) throw std::runtime_error("read");
+        const auto document = nlohmann::json::parse(text, [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
+          if (depth > 128) throw std::runtime_error("Preset nesting exceeds the supported limit.");
+          return true;
+        });
         // Another module's preset is not a problem with this one.
         if (document.is_object() && document.contains("module") && document["module"].is_number_integer()
             && document["module"] != static_cast<int>(effect))
@@ -266,7 +271,8 @@ inline std::vector<UserPreset> LoadUser(const std::vector<std::filesystem::path>
 inline void SaveUser(const std::filesystem::path& file, SlotEffect effect, const SlotValues& values,
                      const noise_print::Profile& profile = {})
 {
-  std::filesystem::create_directories(file.parent_path());
+  if (const auto parent = file.parent_path(); !parent.empty())
+    std::filesystem::create_directories(parent);
   rig_preset::WriteAtomically(file, ToJson(effect, values, profile).dump(2));
 }
 } // namespace module_presets

@@ -1636,7 +1636,8 @@ int main(int argc, char** argv)
       {SlotEffect::ConsoleColour, uColourDesk}, {SlotEffect::Distortion, uDistStyle},
       {SlotEffect::PedalDrive, uPedalStyle}, {SlotEffect::PedalDistortion, uPDistStyle},
       {SlotEffect::JunoChorus, uJunoMode}, {SlotEffect::SynthFilter, uFilterMode},
-      {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::NoiseGate, uGateMode},
+      {SlotEffect::DigitalDelay, uTempoDivision}, {SlotEffect::Granulator, uTempoDivision},
+      {SlotEffect::NoiseGate, uGateMode},
       {SlotEffect::DigitalBlack, uBlackMode}, {SlotEffect::PedalComp, uPedalCompPickup},
       {SlotEffect::PedalComp, uPedalCompAttack}, {SlotEffect::Chorus, uChorusVoices},
       {SlotEffect::SpringReverb, uSpringTank}, {SlotEffect::GraphicEQ, uGraphicVoicing}};

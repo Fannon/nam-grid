@@ -4,19 +4,35 @@ All notable user-facing changes to NAM Grid are documented here, newest first. S
 
 ## [Unreleased]
 
-- **Cosmic Echo:** Solstice Hall fills in sooner behind the pick, with a stronger early wash at the same settings in existing rigs. New factory presets cover a short studio room, halls for rhythm and lead, and both bright and dark ambient washes for guitar and synths.
-- **Cosmic Echo:** Binary Bloom keeps its first reflections steadier as Density rises. Existing high-Density settings can sound up to 3 dB louder on the wet path. The **Deep field** and **Chord bloom** factory presets use a lower Mix for a similar wet/dry balance. The new **Aurora studio hall** preset brings the first reflections closer for clean chords.
-- Preset switches keep the outgoing rig’s gain steady and avoid switching transients from the output DC blocker. The host is notified of a newly learned Smart Gate profile even if it resets before the next update.
-- Improved DSP recovery from invalid signal and control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay finite at low sample rates.
-- Fixed library folder dialogs on Linux and control hitboxes in the module editor. Library scans preserve match-all `.ignore` rules and large favorites files remain readable.
-- **Audible DSP fixes and stereo/rate consistency:**
-  - **Transient Shaper:** negative Attack and Sustain cuts now engage with the same fast gain-attack time as boosts instead of lagging behind on the slower release time. Existing rigs with negative Attack or Sustain cut more tightly.
-  - **Airwindows Guitar Hall:** fixed a right-channel delay-line index bug that previously muted one of the six feedback paths; tails are now fuller and decay more evenly across left and right at the same Sustain setting.
-  - **Noise Gate, Smooth Compressor, Punch Compressor and Auto Swell:** detectors are now stereo-linked across left and right so asymmetric stereo signals keep their stereo image instead of shifting balance. Mono and centered stereo rigs are unchanged.
-  - **Juno Chorus:** jumping between Chorus modes now crossfades directly to the target mode without briefly sweeping through intermediate modes.
-  - **Pedal Drive:** automating Character on asymmetric biased voices (Preamp, Transparent OD, Vintage Fuzz, Bender Fuzz) no longer produces DC steps across silence or waveform peaks.
-  - **Galactic Space & Console Colour:** scaled Galactic Space's predelay, drift, low-pass filter and undersampling clock and Console Colour's sag integrator for 96/192 kHz so high-rate projects match 44.1/48 kHz decay, level and dynamics.
-  - **Smoother transitions and lower bypassed reverb CPU:** removed subtle clicks when crossing Tube Boost's 20 kHz High Cut, Room/Plate/Cloud/Hall/Air Plate low-cut and predelay zero endpoints, Vibrato Rise tail drop-off, Reverse Delay window ends, Diffused Delay modulation and upward Pitch Shift jumps; bypassed Room, Plate, Cloud, Hall, Spring and Shimmer reverbs with Trails off now ramp feedback down and suspend in a few seconds instead of ringing silently for up to a minute.
+## [0.8.1] - 2026-11-26
+
+### Cosmic Echo
+
+- Solstice Hall fills in sooner behind the pick. Existing rigs get a stronger early wash and a longer decay at the same settings.
+- Binary Bloom keeps its first reflections steadier as Density rises. Existing high-Density settings can sound up to 3 dB louder on the wet path. The **Chord bloom** factory preset now uses a lower Mix to keep a similar wet/dry balance.
+- Eight factory presets add a close studio room, rhythm and lead halls, bright and dark ambient washes, and the **Deep field** Binary Bloom preset.
+
+### Sound changes and DSP fixes
+
+- **Transient Shaper:** negative Attack and Sustain cuts now engage with the same fast gain-attack time as boosts instead of lagging behind on the slower release time. Existing rigs with negative Attack or Sustain cut more tightly.
+- **Airwindows Guitar Hall:** fixed a right-channel delay-line counter bug that previously muted one of the six feedback paths. Tails are fuller and decay more evenly across left and right at the same Sustain setting.
+- **Noise Gate, Smooth Compressor, Punch Compressor, and Auto Swell:** detectors are now stereo-linked across left and right so asymmetric stereo signals keep their stereo image instead of shifting balance. Mono and centered stereo rigs are unchanged.
+- **Galactic Space and Console Colour:** scaled Galactic Space's predelay, drift, low-pass filter, and undersampling clock and Console Colour's sag integrator for 96/192 kHz so high-rate projects match 44.1/48 kHz decay, level, and dynamics.
+- **Juno Chorus and Pedal Drive:** jumping between Juno Chorus modes crossfades directly to the target mode without sweeping through intermediate modes. Automating Character on Pedal Drive's asymmetric biased voices (Cascaded Preamp, Transparent OD, Vintage Fuzz, Bender Fuzz) no longer produces DC steps.
+- **Smoother transitions and faster bypassed reverb drain:** removed subtle clicks across Tube Boost's 20 kHz High Cut, Room/Plate/Cloud/Hall/Air Plate low-cut and predelay zero endpoints, Vibrato Rise tail drop-off, Reverse Delay window ends, Diffused Delay modulation (while keeping tap crossfades for base Time jumps), and upward Pitch Shift jumps. Bypassed Room, Plate, Cloud, Hall, Spring, and Shimmer reverbs with Trails off now ramp feedback down and suspend in a few seconds instead of ringing silently for up to a minute.
+
+### Audio and performance
+
+- Preset switches preserve the outgoing rig's gain through the fade and keep its DC filter history continuous. A Volume Pedal clears its latched MIDI position when you change rigs or the host resets. Smart Gate keeps newly learned profiles pending for the host across a reset.
+- Reduced audio processing overhead and memory use in several effects, including Cosmic Echo, Granulator, and the pitch-based delays. ARM64 builds also accelerate AI Gate and Smart Gate processing. Pitch Shift, Pitch Delay, Granular Delay, and Granulator can choose or blend grains slightly differently at the same settings.
+- Faster preparation for some rigs with Linear NAM captures or cabinet IRs. Recurrent NAM models retain their existing warm-up behavior.
+- Effects recover more reliably from invalid audio or control values. Outboard Channel and Butter Comp recover after sustained DC, and short Stutter fades stay stable at low sample rates.
+
+### Editor and library
+
+- Library search and scanning do less work, and the browser and settings redraw less while idle. Cabinet IR response plots load without reopening the WAV on the editor thread and refresh when the host sample rate changes.
+- Escape closes the live preset search. Fixed module control hitboxes, Windows handling of non-ASCII file extensions, and Linux folder selection and editor closing.
+- Library scans preserve match-all `.ignore` rules and keep large favorites files readable.
 
 ## [0.8.0] - 2026-11-24
 

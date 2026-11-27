@@ -718,11 +718,18 @@ SDK-free double-precision adaptation with deterministic local PRNG state,
 Capacitor pole rate compensation, detector-gain taps, smoothed wrapper controls
 and conventional dB trims. CStrip2's EQ and dynamics are exposed separately;
 the strip retains its unity-to-Spiral range and omits Density. BussColors4 desk
-gains receive fixed default-level calibration. The Console Colour wrapper adds
-local minimum-phase oversampling below 88.2 kHz; the generated core is unchanged.
-The ButterComp2 residue generator
-is replaced to remove shared function-static state and signed integer overflow.
-See docs/airwindows-outboard.md and scripts/vendor-airwindows-outboard.py.
+gains receive fixed default-level calibration. The port uses a circular
+convolution history with the original tap weights and scales the sag integrator
+for 96–192 kHz. The Console Colour wrapper
+adds local minimum-phase oversampling below 88.2 kHz. The ButterComp2 residue
+generator is replaced to remove shared function-static state and signed integer
+overflow. CStrip2 and ButterComp2 bound the compressor detector's reciprocal
+during sustained DC or sub-bass input.
+Reverb adaptations fix kGuitarHall2's right-channel bank-4 counter and scale
+Galactic3's predelay, drift, low-pass filter and undersampling clock for
+44.1–192 kHz.
+See docs/airwindows-outboard.md, scripts/vendor-airwindows-outboard.py and
+scripts/vendor-airwindows-reverbs.py.
 Additional dynamics adaptations normalize DigitalBlack/CStrip gate counters and
 release to reference-sample units, extract CStrip's gate without its other DSP,
 and add conventional smoothed wrapper Mix/Output controls.

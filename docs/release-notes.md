@@ -1,29 +1,30 @@
-# NAM Grid 0.8.0
+# NAM Grid 0.8.1
 
-Six new delays, an experimental Granulator, a MIDI-controlled Volume Pedal and a rebuilt Shimmer Reverb. Existing projects, presets and automation keep loading. See the sound changes below before updating a rig you rely on.
-
-## New delays and performance tools
-
-- **Space Tape Echo** pairs three moving tape heads with spring reverb. **Bucket Brigade** covers dark, clear and driven analog repeats. **Pitch Delay** shifts and reverses echoes, **Feedback FX Delay** processes each repeat, **Pattern Delay** lets you drag four taps into place, and **Granular Delay** scatters, reverses or pitch-shifts fragments. All six support tempo sync and Trails.
-- **Granulator**, experimental, replays the last four seconds as overlapping grains. Freeze a phrase, trigger grains with your pick, or build a tempo-synced texture from octaves and fifths.
-- **Volume Pedal** follows an expression pedal or automation, with adjustable heel and toe levels, taper and smoothing. CLAP can receive MIDI CC directly. In VST3, map your pedal to Position through the host.
-- **Digital Delay** adds Rack and Lo-fi voices and stereo modulation. **Cosmic Echo** adds Velvet Chamber, Solstice Hall and Sunken Cathedral. **Filter** gains more envelope controls, and **Ring Modulator** can sweep its carrier in sync with the host.
+This update improves preset switching, audio processing, stereo and high-rate consistency, and library responsiveness. Cosmic Echo gets eight factory presets and changes to Solstice Hall and Binary Bloom. Existing projects, presets, and automation keep loading.
 
 ## Sound changes in existing rigs
 
-- **Shimmer Reverb** recirculates pitch shifts through the tail. Existing rigs get a stronger, louder shimmer and longer audible tails at long Decay settings. Lower Amount or Mix to keep it subtle. Shimmer now uses more CPU. Density sets how distinct the octaves are, and Bloom fades the wet sound in behind each note.
-- **Dense Plate** fills in earlier, and **Cloud** is about 6 dB louder at the same Mix.
-- **Console EQ** now follows the labeled band gains and shelf frequencies more closely, so existing EQ curves change. **Filter** can sound louder in Band-pass mode when Resonance is above 1.
-- Existing Digital Delay rigs load with Clean and modulation off. An automation lane using the formerly inactive Delay Modulation parameter now controls modulation.
+- **Solstice Hall** fills in earlier, with a stronger early wash and a longer decay at the same settings.
+- **Binary Bloom** keeps its first reflections steadier as Density rises. Saved high-Density settings can sound up to 3 dB louder on the wet path. The revised **Chord bloom** preset lowers Mix to keep a similar balance.
+- **Transient Shaper** engages negative Attack and Sustain cuts more tightly, matching boost attack speed.
+- **Airwindows Guitar Hall** restores its right-channel feedback path, producing fuller and more balanced stereo tails at the same Sustain setting.
+- **Noise Gate**, **Smooth Compressor**, **Punch Compressor**, and **Auto Swell** now stereo-link their detectors so asymmetric stereo signals hold their stereo image. Mono and centered stereo rigs are unchanged.
+- **Galactic Space** and **Console Colour** scale consistently at 96 and 192 kHz so high-rate projects match 44.1/48 kHz decay, level, and sag dynamics.
+- **Pitch Shift**, **Pitch Delay**, **Granular Delay**, and **Granulator** can choose or blend grains slightly differently at the same settings.
 
-## Editor and factory content
+The new Cosmic Echo presets range from **Close studio room** and **Aurora studio hall** to **Bright ambient hall** and **Still cavern**.
 
-Click a slot ID on the grid or module header to bypass that module. The tuner holds a steadier reading and shows ±15 cents of history. Delay displays show repeats and tap timing, while module presets are more closely matched in level.
+## Presets, editor, and library
 
-Factory content installs Empty and the Drive Examples. Bring your own NAM captures and cabinet IRs and keep them available when moving projects or presets. Previously installed captures and rigs stay in your library.
+- Preset switches hold the outgoing rig's gain steady through the fade. Smart Gate preserves a newly learned profile across host resets. The Volume Pedal clears latched MIDI values on rig changes and host resets.
+- Smoother parameter transitions across Juno Chorus mode switches, Pedal Drive Character automation, Tube Boost High Cut, reverb low-cut and predelay endpoints, Diffused Delay modulation, Reverse Delay, Vibrato Rise, and upward Pitch Shift jumps. Bypassed reverbs with Trails off drain and suspend within a few seconds.
+- Several effects use less CPU and memory, and some rigs with Linear NAM captures or cabinet IRs prepare faster.
+- Library searches and scans do less work, and Cabinet IR plots refresh when the host sample rate changes. Escape closes live preset search. Linux folder selection and editor closing are fixed.
+
+Bring your own NAM captures and cabinet IRs. Keep any external files available when moving projects or presets.
 
 ## Platforms
 
 Windows x64, macOS Apple Silicon and Linux x64 archives contain CLAP and VST3. macOS bundles use ad-hoc signing and require the quarantine clearance described in the manual. Linux uses X11 or XWayland. Linux real-DAW coverage remains unverified. The project compatibility baseline is 0.1.0.
 
-See the [full changelog](https://github.com/Fannon/nam-grid/blob/v0.8.0/CHANGELOG.md) and the [manual](https://fannon.github.io/nam-grid/).
+See the [full changelog](https://github.com/Fannon/nam-grid/blob/v0.8.1/CHANGELOG.md) and the [manual](https://fannon.github.io/nam-grid/).

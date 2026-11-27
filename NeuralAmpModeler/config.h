@@ -1,9 +1,9 @@
 // Display name in hosts and the editor. Files, IDs and folders use "nam-grid".
 #define PLUG_NAME "NAM Grid"
 #define PLUG_MFR "Simon Heimler"
-#define PLUG_VERSION_HEX 0x00000800
-#define PLUG_VERSION_STR "0.8.0"
-#define PLUG_VERSION_RC 0,8,0,0 // Windows VERSIONINFO; keep in step with PLUG_VERSION_STR
+#define PLUG_VERSION_HEX 0x00000801
+#define PLUG_VERSION_STR "0.8.1"
+#define PLUG_VERSION_RC 0,8,1,0 // Windows VERSIONINFO; keep in step with PLUG_VERSION_STR
 // Persistent host identity. Never change these after a release: hosts use them
 // to find the plugin in saved projects. VST3 class IDs derive from both IDs.
 #define PLUG_UNIQUE_ID 'NGrd'

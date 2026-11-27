@@ -59,7 +59,8 @@ Its native trims stay at centre while the wrapper Input and Output controls each
 ±18 real dB. Both affect only the wet path, so settled Mix 0 is bit-transparent at any
 trim. The eight upstream voices and built-in per-voice gains are retained, with
 additional fixed compensation for default-level comparison (see calibration below).
-Below 88.2 kHz, the wrapper runs the unchanged core at 2x through minimum-phase
+The adapted core uses a circular convolution history with the original tap
+weights and rate-scales its sag integrator for 96–192 kHz. Below 88.2 kHz, the wrapper runs it at 2x through minimum-phase
 interpolation/decimation; at higher host rates it runs natively. This reduces aliasing
 without reported latency, while changing wet phase and potentially transient voicing.
 The original desk-match trims are retained. The resampler processes corresponding
@@ -76,10 +77,11 @@ history leaking into the new desk.
 residue counters share state between instances and use signed-overflow integer
 squaring. The port instead uses the core's local seeded PRNG for denormal
 protection, matching the newer Airwindows cores. This deliberate tiny-noise
-deviation removes shared mutable state and undefined arithmetic. The compressor
-math is retained. Output maps to −18…+6 real dB after Mix, rather than the native
-0…2 linear output multiplier; the internal output remains unity so the native
-output-dependent recovery follows the compressed signal.
+deviation removes shared mutable state and undefined arithmetic. Butter Comp and
+Outboard Channel bound the compressor detector's reciprocal during sustained
+DC or sub-bass. Butter Comp's Output maps to −18…+6 real dB after Mix. Upstream
+uses a 0…2 linear multiplier. The internal output remains at unity so that
+recovery follows the compressed signal.
 
 **Butter Comp runs ButterComp2 at a guitar operating level.** The core's gain cell works
 relative to full scale (it compares `input + 1` with `−input + 1`), as a mix bus would be.

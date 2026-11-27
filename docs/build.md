@@ -127,7 +127,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 python scripts/setup-deps.py
 cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
-cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
+cmake --build "$build_dir" --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-plugin-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
 ctest --test-dir "$build_dir" -C Release --output-on-failure
 python -m unittest discover -s tests -p "test_*.py"
 ```
@@ -298,7 +298,7 @@ commit, then upload the archives:
 ```sh
 git checkout v0.1.0 && git submodule update --init --recursive && python scripts/setup-deps.py
 cmake -S . -B build/macos/release -DCMAKE_BUILD_TYPE=Release   # add -G Ninja on Windows and Linux
-cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
+cmake --build build/macos/release --config Release --target nam-grid-clap nam-grid-vst3 nam-stage-tests nam-aliasing-tests nam-plugin-tests nam-clap-smoke nam-tuner-tests nam-parameter-contract nam-library-tests nam-wav-tests nam-resampling-tests nam-ir-tests nam-default-content-tests --parallel 3
 ctest --test-dir build/macos/release -C Release --output-on-failure   # xvfb-run -a ... on Linux
 python scripts/package-release.py --build-dir build/macos/release --platform macos-arm64
 gh release upload v0.1.0 build/macos/release/nam-grid-macos-arm64.zip --repo Fannon/nam-grid
@@ -341,13 +341,15 @@ as the final step, preferably in CI.
 | --- | --- |
 | `ir-convolution` | Adaptive direct/FFT cabinet convolution against the direct processor, variable blocks, resampling and allocation checks |
 | `capture-library` | Library scanning, metadata, search, menus and atomic preference writes |
+| `library-startup` | Background library startup, index recovery and library availability after plugin initialization |
 | `wav-decoder` | WAV decoding and malformed-file rejection |
 | `default-content` | Factory rig installation and preservation of existing library files |
 | `resampling` | Resampler warm-up with exact WDL allocations |
 | `aliasing` | Every module through stereo slot DSP, coherent spectral analysis, zero reported built-in latency and pedal alias rejection; [extended audit](dsp-aliasing.md) |
 | `stages` | Every DSP module, slot stages, grid routing, realtime allocation checks, a click/pop sweep of bypass, replacement, control jumps and mode changes for every module, and ARM planar/portable A2 bit identity |
+| `plugin-lifecycle` | Headless rig transitions, host resets, latency changes and state load/save regressions |
 | `reference-parity` | Opt-in: one NAM capture through NAM Grid and the official NeuralAmpModelerPlugin shell with neutral settings, compared sample by sample at 48 and 44.1 kHz with two block sizes; `reference-parity-hot` repeats it at +20 dB input and output, and `reference-parity-lite` repeats the A2 Lite check. Needs `-DNAM_REFERENCE_CLAP=<path>` |
-| `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and (on Windows) the native editor |
+| `clap-smoke` | The real CLAP plugin: state recall and rejection, automation, every catalog control, presets, library browser and native editor checks |
 | `tuner` | Tuner detection, mute and automation through CLAP |
 | `parameter-contract` | Frozen host IDs, names, ranges, mappings, module/algorithm IDs and plugin identity; CLAP host-contract regressions (text buffers, stepped text, short writes/reads, rescans, port configurations) |
 | `docs-controls` | Module control tables against compiled ranges, units and insertion defaults, including the plugin's display rounding |
